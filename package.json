@@ -1,0 +1,37 @@
+{
+  "name": "glyphfield",
+  "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "build": "next build --turbopack",
+    "build:ci": "next build",
+    "build:prod": "next build --turbopack",
+    "dev": "next dev --turbopack --port 3012",
+    "lint": "oxlint src vitest.config.ts next.config.ts",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc6 --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.3.1",
+    "gifenc": "^1.0.3",
+    "gt-next": "11.0.0-odysseus.15",
+    "lucide-react": "^0.577.0",
+    "next": "^16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/node": "24.5.2",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "oxlint": "^1.75.0",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vitest": "^3.1.4"
+  }
+}

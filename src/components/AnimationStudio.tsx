@@ -1,0 +1,420 @@
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
+import { T, useGT } from 'gt-next';
+import { Download, RotateCcw } from 'lucide-react';
+
+import StudioControls from '@/components/StudioControls';
+import TimelinePanel from '@/components/TimelinePanel';
+import { Button } from '@/components/ui/Button';
+import { useMountEffect } from '@/hooks/useMountEffect';
+import { cycleDurationMs, resolveTimeline } from '@/lib/animation';
+import type { BrandIdentity } from '@/lib/brandIdentity';
+import { exportGif } from '@/lib/exportGif';
+import { renderFrame, type StudioSource } from '@/lib/renderFrame';
+import {
+  DEFAULT_SETTINGS,
+  DEFAULT_TEXT_FRAMES,
+  type ImportedImage,
+  type SourceMode,
+  type StudioSettings,
+} from '@/lib/studio';
+
+async function loadImportedImage(file: File): Promise<ImportedImage> {
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  image.src = url;
+  try {
+    await image.decode();
+    return {
+      height: image.naturalHeight,
+      id: crypto.randomUUID(),
+      image,
+      name: file.name,
+      url,
+      width: image.naturalWidth,
+    };
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+export default function AnimationStudio({
+  embedded = false,
+  identity,
+}: {
+  embedded?: boolean;
+  identity?: BrandIdentity;
+}) {
+  const gt = useGT();
+  const identitySettings = {
+    ...DEFAULT_SETTINGS,
+    background: identity?.colors.find(({ id }) => id === 'ink')?.hex ?? DEFAULT_SETTINGS.background,
+    foreground: identity?.colors.find(({ id }) => id === 'paper')?.hex ?? DEFAULT_SETTINGS.foreground,
+  };
+  const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
+  const [settings, setSettings] = useState<StudioSettings>(identitySettings);
+  const [mode, setMode] = useState<SourceMode>('text');
+  const [textFrames, setTextFrames] = useState(identityTextFrames);
+  const [images, setImages] = useState<ImportedImage[]>([]);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [playheadMs, setPlayheadMs] = useState(0);
+  const [exportProgress, setExportProgress] = useState<number | null>(null);
+  const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const textSources = useMemo<StudioSource[]>(
+    () =>
+      textFrames
+        .split('\n')
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .map((text) => ({ kind: 'text', text })),
+    [textFrames]
+  );
+  const imageSources = useMemo<StudioSource[]>(
+    () =>
+      images.map((image) => ({
+        height: image.height,
+        image: image.image,
+        kind: 'image',
+        name: image.name,
+        width: image.width,
+      })),
+    [images]
+  );
+  const sources = mode === 'text' ? textSources : imageSources;
+  const labels = sources.map((source) =>
+    source.kind === 'text' ? source.text : source.name
+  );
+  const totalMs = cycleDurationMs({
+    holdMs: settings.holdMs,
+    itemCount: sources.length,
+    transitionMs: settings.transitionMs,
+  });
+  const visiblePlayhead = totalMs === 0 ? 0 : Math.min(playheadMs, totalMs);
+
+  const settingsRef = useRef(settings);
+  const sourcesRef = useRef(sources);
+  const imagesRef = useRef(images);
+  const isPlayingRef = useRef(isPlaying);
+  const playbackRateRef = useRef(playbackRate);
+  const playheadRef = useRef(playheadMs);
+  const lastExportRef = useRef(lastExport);
+  settingsRef.current = settings;
+  sourcesRef.current = sources;
+  imagesRef.current = images;
+  isPlayingRef.current = isPlaying;
+  playbackRateRef.current = playbackRate;
+  lastExportRef.current = lastExport;
+
+  useMountEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    }
+
+    let animationFrame = 0;
+    let previousTimestamp = performance.now();
+    let previousUiTimestamp = 0;
+
+    function tick(timestamp: number) {
+      const elapsed = Math.min(100, timestamp - previousTimestamp);
+      previousTimestamp = timestamp;
+      const currentSettings = settingsRef.current;
+      const currentSources = sourcesRef.current;
+      const duration = cycleDurationMs({
+        holdMs: currentSettings.holdMs,
+        itemCount: currentSources.length,
+        transitionMs: currentSettings.transitionMs,
+      });
+
+      if (isPlayingRef.current && duration > 0) {
+        const next = playheadRef.current + elapsed * playbackRateRef.current;
+        if (currentSettings.loop) {
+          playheadRef.current = next % duration;
+        } else if (next >= duration) {
+          playheadRef.current = duration;
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+        } else {
+          playheadRef.current = next;
+        }
+      }
+
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const width = Math.max(120, currentSettings.width);
+        const height = Math.max(120, currentSettings.height);
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (context) {
+          const position = resolveTimeline(playheadRef.current, {
+            holdMs: currentSettings.holdMs,
+            itemCount: Math.max(1, currentSources.length),
+            transitionMs: currentSettings.transitionMs,
+          });
+          renderFrame(context, currentSources, { ...currentSettings, width, height }, position);
+        }
+      }
+
+      if (timestamp - previousUiTimestamp >= 40) {
+        previousUiTimestamp = timestamp;
+        setPlayheadMs(playheadRef.current);
+      }
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    animationFrame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      for (const image of imagesRef.current) URL.revokeObjectURL(image.url);
+      if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
+    };
+  });
+
+  function updateSettings(patch: Partial<StudioSettings>) {
+    setSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function changeMode(nextMode: SourceMode) {
+    setMode(nextMode);
+    if (nextMode === 'images' && settings.packageId === 'type-delete') {
+      updateSettings({ packageId: 'morph-fade' });
+    }
+    seek(0);
+  }
+
+  async function importFiles(files: FileList) {
+    try {
+      const imported = await Promise.all(
+        Array.from(files)
+          .filter((file) => file.type.startsWith('image/'))
+          .map(loadImportedImage)
+      );
+      setImages((current) => [...current, ...imported]);
+      setError(null);
+      seek(0);
+    } catch {
+      setError(gt('One or more images could not be decoded.'));
+    }
+  }
+
+  function removeImage(id: string) {
+    setImages((current) => {
+      const removed = current.find((image) => image.id === id);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return current.filter((image) => image.id !== id);
+    });
+    seek(0);
+  }
+
+  function seek(timeMs: number) {
+    const duration = cycleDurationMs({
+      holdMs: settingsRef.current.holdMs,
+      itemCount: sourcesRef.current.length,
+      transitionMs: settingsRef.current.transitionMs,
+    });
+    const next = Math.min(Math.max(0, timeMs), duration);
+    playheadRef.current = next;
+    setPlayheadMs(next);
+  }
+
+  function changePlaying(playing: boolean) {
+    if (playing && totalMs > 0 && playheadRef.current >= totalMs) seek(0);
+    isPlayingRef.current = playing;
+    setIsPlaying(playing);
+  }
+
+  async function handleExport() {
+    if (sources.length === 0) {
+      setError(gt('Add at least one frame before exporting.'));
+      return;
+    }
+
+    setError(null);
+    setExportProgress(0);
+    changePlaying(false);
+    try {
+      const blob = await exportGif({
+        config: settings,
+        onProgress: setExportProgress,
+        sources,
+      });
+      const url = URL.createObjectURL(blob);
+      if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
+      const completedExport = { size: blob.size, url };
+      lastExportRef.current = completedExport;
+      setLastExport(completedExport);
+      const anchor = document.createElement('a');
+      anchor.download = `studio-${settings.packageId}.gif`;
+      anchor.href = url;
+      anchor.click();
+    } catch {
+      setError(gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.'));
+    } finally {
+      setExportProgress(null);
+    }
+  }
+
+  function resetStudio() {
+    setSettings(identitySettings);
+    setTextFrames(identityTextFrames);
+    setMode('text');
+    setError(null);
+    setPlaybackRate(1);
+    if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
+    lastExportRef.current = null;
+    setLastExport(null);
+    changePlaying(true);
+    seek(0);
+  }
+
+  return (
+    <div
+      className={
+        embedded
+          ? 'animation-studio h-full min-h-0 bg-background text-foreground'
+          : 'studio-grid min-h-dvh bg-background text-foreground'
+      }
+    >
+      <header
+        className={`${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
+      >
+        <div className='flex min-w-0 items-center gap-4 border-r border-border px-5 py-4'>
+          <div className='grid size-9 shrink-0 place-items-center bg-foreground font-mono text-xs font-bold text-background'>
+            ST
+          </div>
+          <div className='min-w-0'>
+            <h1 className='truncate text-xl font-semibold tracking-tight'>
+              <T>Animation</T>
+            </h1>
+            <p className='truncate font-mono text-xs uppercase tracking-widest text-muted-foreground'>
+              <T>Studio / Motion</T>
+            </p>
+          </div>
+        </div>
+
+        <div className='hidden min-w-0 items-center border-r border-border px-5 lg:flex'>
+          <p className='max-w-xl text-sm leading-5 text-muted-foreground'>
+            <T>
+              Import frames, tune one deterministic playhead, and export a production-ready GIF without uploading anything.
+            </T>
+          </p>
+        </div>
+
+        <div className='flex items-center justify-end gap-2 px-4'>
+          {lastExport ? (
+            <Button asChild className='hidden font-mono text-xs xl:inline-flex' variant='outline'>
+              <a download={`studio-${settings.packageId}.gif`} href={lastExport.url}>
+                <T>GIF ready</T> · {Math.max(1, Math.round(lastExport.size / 1024))} KB
+              </a>
+            </Button>
+          ) : null}
+          <Button
+            aria-label={gt('Reset studio')}
+            className='studio-reset'
+            onClick={resetStudio}
+            size='icon'
+            type='button'
+            variant='outline'
+          >
+            <RotateCcw aria-hidden='true' />
+          </Button>
+          <Button
+            className='px-4'
+            loading={exportProgress !== null}
+            onClick={handleExport}
+            type='button'
+          >
+            <Download aria-hidden='true' />
+            {exportProgress === null ? (
+              <T>Export GIF</T>
+            ) : (
+              `${Math.round(exportProgress * 100)}%`
+            )}
+          </Button>
+        </div>
+      </header>
+
+      <div className={embedded ? 'animation-body' : 'studio-body'}>
+        <StudioControls
+          images={images}
+          mode={mode}
+          onFiles={importFiles}
+          onModeChange={changeMode}
+          onRemoveImage={removeImage}
+          onSettingsChange={updateSettings}
+          onTextFramesChange={setTextFrames}
+          settings={settings}
+          textFrames={textFrames}
+        />
+
+        <section className='flex min-w-0 flex-col bg-background'>
+          <div className='flex min-h-0 flex-1 flex-col'>
+            <div className='flex items-center justify-between gap-4 border-b border-border bg-background px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
+              <span>
+                <T>Canvas</T> / {settings.width}×{settings.height}
+              </span>
+              <span>
+                {settings.packageId} / cubic-bezier({settings.bezier.join(', ')})
+              </span>
+            </div>
+
+            <div className='studio-stage flex min-h-[420px] flex-1 items-center justify-center overflow-auto p-8'>
+              <div
+                className='relative w-full max-w-5xl border border-foreground/20 bg-black shadow-[0_24px_80px_rgba(0,0,0,0.12)]'
+                style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
+              >
+                <canvas
+                  aria-label={gt('Animation preview canvas')}
+                  className='absolute inset-0 size-full'
+                  height={Math.max(120, settings.height)}
+                  ref={canvasRef}
+                  width={Math.max(120, settings.width)}
+                />
+                <div
+                  aria-hidden='true'
+                  className='pointer-events-none absolute inset-y-0 w-px bg-white/20'
+                  style={{ left: `${((settings.alignX + 1) / 2) * 100}%` }}
+                />
+                <div
+                  aria-hidden='true'
+                  className='pointer-events-none absolute inset-x-0 h-px bg-white/20'
+                  style={{ top: `${((settings.alignY + 1) / 2) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {error ? (
+              <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>
+                {error}
+              </div>
+            ) : null}
+          </div>
+
+          <TimelinePanel
+            currentMs={visiblePlayhead}
+            fps={settings.fps}
+            holdMs={settings.holdMs}
+            isPlaying={isPlaying}
+            labels={labels}
+            onPlayChange={changePlaying}
+            onRateChange={(rate) => {
+              playbackRateRef.current = rate;
+              setPlaybackRate(rate);
+            }}
+            onSeek={seek}
+            playbackRate={playbackRate}
+            totalMs={totalMs}
+            transitionMs={settings.transitionMs}
+          />
+        </section>
+      </div>
+    </div>
+  );
+}

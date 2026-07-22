@@ -1,0 +1,417 @@
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import { useMemo, useRef, useState } from 'react';
+import { T, useGT } from 'gt-next';
+import {
+  Aperture,
+  Blend,
+  BookOpen,
+  Box,
+  Braces,
+  Component,
+  Copy,
+  Image as ImageIcon,
+  LayoutGrid,
+  MonitorPlay,
+  Palette,
+  PanelsTopLeft,
+  Plus,
+  Search,
+  Shapes,
+  Sparkles,
+  Trash2,
+  Type,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+
+import AnimationStudio from '@/components/AnimationStudio';
+import StudioToolWorkspace from '@/components/StudioToolWorkspace';
+import { Button } from '@/components/ui/Button';
+import { useMountEffect } from '@/hooks/useMountEffect';
+import {
+  brandAssetPath,
+  createBrandIdentity,
+  duplicateBrandIdentity,
+  hydrateBrandIdentities,
+  STARTER_BRAND_IDENTITY,
+  type BrandIdentity,
+} from '@/lib/brandIdentity';
+import { PRODUCT_BRAND } from '@/lib/productBrand';
+import {
+  filterStudioTools,
+  STUDIO_CATEGORIES,
+  STUDIO_TOOLS,
+  type StudioToolId,
+} from '@/lib/studioCatalog';
+
+const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
+  animation: Blend,
+  blog: BookOpen,
+  'brand-elements': LayoutGrid,
+  buttons: Component,
+  colors: Palette,
+  'design-board': PanelsTopLeft,
+  logo: Aperture,
+  'logo-shader': Sparkles,
+  opengraph: ImageIcon,
+  partnership: Shapes,
+  slides: MonitorPlay,
+  terminal: Braces,
+  typography: Type,
+};
+
+const PROJECTS_STORAGE_KEY = 'glyphfield-projects-v1';
+const ACTIVE_PROJECT_STORAGE_KEY = 'glyphfield-active-project-v1';
+const LEGACY_PROJECTS_STORAGE_KEYS = [
+  'gt-studio-identities-v2',
+  'gt-studio-identities-v1',
+] as const;
+
+export default function StudioApp() {
+  const gt = useGT();
+  const [activeToolId, setActiveToolId] = useState<StudioToolId>('brand-elements');
+  const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
+    hydrateBrandIdentities(null)
+  );
+  const [identitiesReady, setIdentitiesReady] = useState(false);
+  const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
+  const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
+  const activeIdentity =
+    identities.find(({ id }) => id === activeIdentityId) ?? identities[0];
+
+  useMountEffect(() => {
+    try {
+      const storedIdentities =
+        window.localStorage.getItem(PROJECTS_STORAGE_KEY) ??
+        LEGACY_PROJECTS_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(
+          (value) => value !== null
+        );
+      const nextIdentities = hydrateBrandIdentities(
+        storedIdentities ? JSON.parse(storedIdentities) : null
+      );
+      const storedActiveIdentity =
+        window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) ??
+        window.localStorage.getItem('gt-studio-active-identity-v2');
+      setIdentities(nextIdentities);
+      if (storedActiveIdentity && nextIdentities.some(({ id }) => id === storedActiveIdentity)) {
+        setActiveIdentityId(storedActiveIdentity);
+      }
+    } catch {
+      setIdentities(hydrateBrandIdentities(null));
+      setActiveIdentityId(STARTER_BRAND_IDENTITY.id);
+    } finally {
+      setIdentitiesReady(true);
+    }
+  });
+
+  useMountEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target;
+      const isEditing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement;
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+
+      if (!isEditing && event.key === '/') {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
+  function selectTool(toolId: StudioToolId) {
+    setActiveToolId(toolId);
+    setQuery('');
+  }
+
+  function commitIdentities(nextIdentities: BrandIdentity[]) {
+    setIdentities(nextIdentities);
+    window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(nextIdentities));
+  }
+
+  function selectIdentity(identityId: string) {
+    setActiveIdentityId(identityId);
+    window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, identityId);
+  }
+
+  function addIdentity() {
+    const customCount = identities.filter(({ kind }) => kind === 'custom').length;
+    const identity = createBrandIdentity(`Brand ${customCount + 1}`);
+    commitIdentities([...identities, identity]);
+    selectIdentity(identity.id);
+  }
+
+  function copyIdentity() {
+    if (!activeIdentity) return;
+    const identity = duplicateBrandIdentity(activeIdentity);
+    commitIdentities([...identities, identity]);
+    selectIdentity(identity.id);
+  }
+
+  function renameIdentity(identityId: string, name: string) {
+    const trimmedWords = name.trim().split(/\s+/).filter(Boolean);
+    const shortName = trimmedWords
+      .map((word) => word[0])
+      .join('')
+      .slice(0, 3)
+      .toLocaleUpperCase();
+    commitIdentities(
+      identities.map((identity) =>
+        identity.id === identityId
+          ? { ...identity, name, shortName: shortName || identity.shortName }
+          : identity
+      )
+    );
+  }
+
+  function removeIdentity() {
+    if (!activeIdentity || activeIdentity.builtIn) return;
+    const nextIdentities = identities.filter(({ id }) => id !== activeIdentity.id);
+    commitIdentities(nextIdentities);
+    selectIdentity(STARTER_BRAND_IDENTITY.id);
+  }
+
+  function renderProjectMark(identity: BrandIdentity) {
+    const markPath = brandAssetPath(identity, 'mark-dark');
+
+    if (markPath) {
+      return (
+        <span className='project-tab-mark' aria-hidden='true'>
+          <Image alt='' className='size-full object-contain' height={20} src={markPath} width={20} />
+        </span>
+      );
+    }
+
+    return (
+      <span className='project-tab-mark project-tab-monogram' aria-hidden='true'>
+        {identity.shortName.slice(0, 2)}
+      </span>
+    );
+  }
+
+  function renderProjectTab(identity: BrandIdentity) {
+    const selected = identity.id === activeIdentity?.id;
+    return (
+      <div
+        aria-selected={selected}
+        className={`project-tab flex min-w-40 max-w-64 items-center gap-2 border-x border-transparent px-3 text-sm ${
+          selected
+            ? 'border-border bg-muted/60'
+            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+        }`}
+        key={identity.id}
+        role='tab'
+      >
+        {selected && identity.kind === 'custom' ? (
+          <div className='flex min-w-0 flex-1 items-center gap-2'>
+            {renderProjectMark(identity)}
+            <span className='font-mono text-muted-foreground' aria-hidden='true'>/</span>
+            <input
+              aria-label={gt('Project name')}
+              className='min-w-0 flex-1 bg-transparent font-medium outline-none'
+              onChange={(event) => renameIdentity(identity.id, event.target.value)}
+              value={identity.name}
+            />
+          </div>
+        ) : (
+          <button
+            aria-label={gt('Open {name} project', { name: identity.name })}
+            className='flex min-w-0 flex-1 items-center gap-2 text-left'
+            onClick={() => selectIdentity(identity.id)}
+            type='button'
+          >
+            {renderProjectMark(identity)}
+            <span className='font-mono text-muted-foreground' aria-hidden='true'>/</span>
+            <span className={`truncate ${selected ? 'font-medium text-foreground' : ''}`}>
+              {identity.name}
+            </span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (!activeTool || !activeIdentity) {
+    return null;
+  }
+
+  return (
+    <main className='studio-app h-dvh overflow-hidden bg-background text-foreground'>
+      <header className='studio-app-header border-b border-border bg-background'>
+        <Link
+          className='flex min-w-0 items-center gap-3 border-r border-border px-4'
+          href='/'
+        >
+          <Image
+            alt={gt('Glyphfield mark')}
+            className='size-8 object-contain'
+            height={32}
+            priority
+            src={PRODUCT_BRAND.markPath}
+            width={32}
+          />
+          <div className='min-w-0'>
+            <p className='truncate text-sm font-semibold tracking-tight'>{PRODUCT_BRAND.name}</p>
+            <p className='truncate font-mono text-[10px] tracking-widest text-muted-foreground'>
+              <T>BRAND STUDIO</T>
+            </p>
+          </div>
+        </Link>
+
+        <div className='flex min-w-0 items-center gap-2 px-3'>
+          <select
+            aria-label={gt('Active Studio tool')}
+            className='studio-mobile-tool h-9 min-w-0 rounded-md border border-input bg-background px-2 text-sm outline-none'
+            onChange={(event) => selectTool(event.target.value as StudioToolId)}
+            value={activeToolId}
+          >
+            {STUDIO_TOOLS.map((tool) => (
+              <option key={tool.id} value={tool.id}>
+                {gt(tool.name)}
+              </option>
+            ))}
+          </select>
+          <label className='flex h-9 w-full max-w-2xl items-center gap-2 rounded-md border border-input bg-background px-3 focus-within:border-foreground'>
+            <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
+            <input
+              aria-label={gt('Search Studio tools')}
+              className='min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground'
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={gt('Search email, logo, CLI, lanyard…')}
+              ref={searchRef}
+              value={query}
+            />
+            {query ? (
+              <Button
+                aria-label={gt('Clear search')}
+                className='size-6'
+                onClick={() => setQuery('')}
+                size='icon-xs'
+                type='button'
+                variant='ghost'
+              >
+                <X aria-hidden='true' />
+              </Button>
+            ) : (
+              <kbd className='hidden rounded-md border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>
+                ⌘K
+              </kbd>
+            )}
+          </label>
+        </div>
+
+        <div className='hidden items-center justify-end gap-3 border-l border-border px-4 md:flex'>
+          <span className='size-2 rounded-full bg-status-success' aria-hidden='true' />
+          <span className='font-mono text-xs text-muted-foreground'>
+            <T>LOCAL ONLY</T>
+          </span>
+        </div>
+      </header>
+
+      <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-background px-3' role='tablist' aria-label={gt('Brand projects')}>
+        <span className='shrink-0 px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
+          <T>Projects</T>
+        </span>
+        <div className='flex shrink-0 items-end self-stretch'>
+          {identities.map(renderProjectTab)}
+        </div>
+        <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
+          <Plus aria-hidden='true' />
+        </Button>
+        <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
+          <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' type='button' variant='ghost'>
+            <Copy aria-hidden='true' />
+          </Button>
+          {!activeIdentity.builtIn ? (
+            <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' type='button' variant='ghost'>
+              <Trash2 aria-hidden='true' />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className='studio-app-body'>
+        <aside className='studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
+          <div className='min-h-0 flex-1 overflow-y-auto py-3'>
+            {STUDIO_CATEGORIES.map((category) => {
+              const tools = filteredTools.filter((tool) => tool.category === category);
+              if (tools.length === 0) return null;
+
+              return (
+                <section className='flex flex-col gap-1 px-2 py-2' key={category}>
+                  <h2 className='px-2 text-xs uppercase tracking-widest text-muted-foreground'>
+                    {gt(category)}
+                  </h2>
+                  <div className='flex flex-col'>
+                    {tools.map((tool) => {
+                      const Icon = TOOL_ICONS[tool.id];
+                      const selected = activeToolId === tool.id;
+                      return (
+                        <Button
+                          className='h-9 w-full justify-start rounded-none px-2'
+                          key={tool.id}
+                          onClick={() => selectTool(tool.id)}
+                          title={gt(tool.description)}
+                          type='button'
+                          variant={selected ? 'default' : 'ghost'}
+                        >
+                          <Icon aria-hidden='true' />
+                          <span className='min-w-0 flex-1 truncate text-left'>{gt(tool.name)}</span>
+                          <span
+                            className={`font-mono text-xs ${
+                              selected ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {tool.shortcut}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+
+            {filteredTools.length === 0 ? (
+              <div className='flex flex-col gap-2 px-4 py-8'>
+                <Box className='size-5 text-muted-foreground' aria-hidden='true' />
+                <p className='text-sm font-medium'>
+                  <T>No Studio tool found</T>
+                </p>
+                <p className='text-sm leading-5 text-muted-foreground'>
+                  <T>Try “email,” “logo,” “ASCII,” or “lanyard.”</T>
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <div className='border-t border-border px-4 py-3 font-mono text-xs text-muted-foreground'>
+            {STUDIO_TOOLS.length} <T>TOOLS</T> · <T>NO CLOUD</T>
+          </div>
+        </aside>
+
+        <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
+          {activeToolId === 'animation' ? (
+            <AnimationStudio embedded identity={activeIdentity} key={activeIdentity.id} />
+          ) : (
+            <StudioToolWorkspace identity={activeIdentity} key={`${activeIdentity.id}-${activeTool.id}`} tool={activeTool} />
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}

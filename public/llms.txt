@@ -1,0 +1,44 @@
+# Glyphfield
+
+> A local-first browser workspace for motion and repeatable brand graphics.
+
+Canonical route: /studio
+Structured catalog: /api/catalog
+Built-in brand identities: /api/identities
+Brand element catalog: /api/elements
+Landing page: /
+
+Capabilities:
+- Brand elements: 33 identity applications across digital, developer, social, editorial, event, and physical surfaces
+- Email elements: welcome/onboarding, transactional, and signature systems using the active identity
+- Developer elements: CLI banners, ASCII marks, terminal themes, README heroes, docs headers, and package cards
+- Social/editorial elements: X, LinkedIn, community, launch, slide deck, blog, report, and press formats
+- Event/physical elements: lanyards, badges, backdrops, lockups, business cards, stickers, packaging, and letterhead
+- Project tabs: LOGO / brand labels for Starter, persistent local brand workspaces, and GT as a complete example
+- Moodboard: a complete identity board with Standard, Retina, High resolution, Ultra, and custom 4:5 PNG exports up to 4800×6000
+- Logo shader: 12 live WebGL materials plus custom GLSL; run them behind a logo or cut them to its alpha mask, with PNG and GIF export
+- Animation: morph fade, type/delete, crossfade, scale fade, slide fade, cubic Bézier timing, GIF export
+- OpenGraph: repeatable 1200x630 images with local logo and background inputs
+- Logo lab: black, white, primary, and secondary mark colors; white, dark, grid, noise, and transparent backgrounds; 64px and 128px PNG export
+- Color tokens: live HEX and OKLCH values
+- Typography: primary, secondary, accent, and code roles with local font-file loading
+- Terminal cards: TypeScript, Python, and Bash treatments with PNG export
+- Expressions: partnership lockups, blog covers, and 16:9 slide templates
+- Components: button variant, size, and state viewer
+
+Built-in GT identity:
+- Logo family: black and white marks, banners, wordmarks, and Locadex assets
+- Foundations: Inter, Geist Mono, semantic UI colors, HEX and OKLCH values
+- Product architecture: internationalization, translation, Locadex, and CDN delivery
+- Motion: centered morph and type/delete studies using cubic-bezier(0.4, 0, 0.2, 1)
+- Voice and proof: repository-audited language and customer marks
+
+Workspace model:
+- Projects: a single searchable rail for templates, local brands, and reference systems
+- Starter: Glyphfield opens on a neutral starter project
+- Local brands: locally-created, renameable, persistent project tabs
+- GT: a complete repository-backed reference project
+
+Data policy: local files stay in the browser. Current tools do not require an upload service.
+
+Source policy: source available for inspection, evaluation, and automated indexing only. Copyright (c) 2026 Kevin Liu. All rights reserved. No license is granted to use, copy, modify, distribute, sublicense, sell, or create derivative works. Bundled reference-brand assets remain the property of their respective owners.

@@ -1,0 +1,6 @@
+{
+  "defaultLocale": "en-US",
+  "locales": [],
+  "publish": false,
+  "src": ["./src/**/*.{ts,tsx,js,jsx}"]
+}
