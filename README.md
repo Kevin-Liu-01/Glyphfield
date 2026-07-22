@@ -10,10 +10,12 @@ the built-in reference identity, populated from its bundled logo family,
 semantic tokens, typography, product language, proof, and motion assets. Every
 identity has a full design-board view with PNG and JSON export.
 
-The Moodboard tool composes positioning, logo family, color tokens,
-typography, product architecture, voice, and proof assets into a downloadable
-4:5 PNG. Export presets range from 1600×2000 through 4800×6000, with a custom
-width option that preserves the layout ratio.
+The Moodboard tool composes eight generated applications—motion hero,
+application cards, onboarding email, CLI terminal, social launch, slide title,
+event passes, and logo system—into a downloadable 4:5 collage. Inter and Geist
+Mono are embedded into every exported SVG before PNG rasterization. Export
+presets range from 1600×2000 through 4800×6000, with a custom width option that
+preserves the layout ratio.
 
 Glyphfield opens on a neutral Starter project. Local projects and completed
 reference systems such as GT share one navigable project rail. The

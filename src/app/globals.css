@@ -198,6 +198,12 @@ body {
   letter-spacing: -0.04em;
 }
 
+.moodboard-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .studio-mobile-tool {
   display: none;
 }
