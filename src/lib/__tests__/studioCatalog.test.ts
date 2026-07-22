@@ -19,6 +19,9 @@ describe('filterStudioTools', () => {
     expect(filterStudioTools(STUDIO_TOOLS, 'shader').map(({ id }) => id)).toContain(
       'logo-shader'
     );
+    expect(filterStudioTools(STUDIO_TOOLS, 'dither').map(({ id }) => id)).toContain(
+      'backgrounds'
+    );
     expect(filterStudioTools(STUDIO_TOOLS, 'lanyard').map(({ id }) => id)).toContain(
       'brand-elements'
     );

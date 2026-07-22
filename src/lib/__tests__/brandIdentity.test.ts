@@ -27,6 +27,18 @@ describe('GT_BRAND_IDENTITY', () => {
       expect.arrayContaining(['Cursor', 'Ramp', 'Mintlify', 'ClickHouse'])
     );
   });
+
+  it('keeps every GT identity color monochrome', () => {
+    for (const { hex } of GT_BRAND_IDENTITY.colors) {
+      const [red, green, blue] = hex
+        .slice(1)
+        .match(/.{2}/g)!
+        .map((channel) => Number.parseInt(channel, 16));
+
+      expect(red).toBe(green);
+      expect(green).toBe(blue);
+    }
+  });
 });
 
 describe('createBrandIdentity', () => {

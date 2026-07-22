@@ -26,6 +26,11 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_color_a;
 uniform vec3 u_color_b;
+uniform float u_scale;
+uniform float u_distortion;
+uniform float u_softness;
+uniform float u_repetition;
+uniform float u_contour;
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
@@ -39,6 +44,21 @@ const INPUT_CLASS =
 type ShaderRatio = 'square' | 'wide' | 'opengraph';
 type LogoTone = 'light' | 'dark';
 type EffectTarget = 'background' | 'logo' | 'both';
+type ShaderParameters = {
+  contour: number;
+  distortion: number;
+  repetition: number;
+  scale: number;
+  softness: number;
+};
+
+const DEFAULT_PARAMETERS: ShaderParameters = {
+  contour: 0.58,
+  distortion: 0.72,
+  repetition: 8,
+  scale: 1.1,
+  softness: 0.62,
+};
 
 function hexToRgb(hex: string): readonly [number, number, number] {
   const normalized = hex.replace('#', '');
@@ -72,6 +92,7 @@ function ShaderCanvas({
   colorA,
   colorB,
   onError,
+  parameters,
   paused,
   preset,
   speed,
@@ -80,6 +101,7 @@ function ShaderCanvas({
   colorA: string;
   colorB: string;
   onError: (message: string | null) => void;
+  parameters: ShaderParameters;
   paused: boolean;
   preset: ShaderPreset;
   speed: number;
@@ -87,10 +109,12 @@ function ShaderCanvas({
   const colorARef = useRef(colorA);
   const colorBRef = useRef(colorB);
   const pausedRef = useRef(paused);
+  const parametersRef = useRef(parameters);
   const speedRef = useRef(speed);
   colorARef.current = colorA;
   colorBRef.current = colorB;
   pausedRef.current = paused;
+  parametersRef.current = parameters;
   speedRef.current = speed;
 
   useMountEffect(() => {
@@ -163,6 +187,11 @@ function ShaderCanvas({
           webgl.getUniformLocation(program, 'u_color_b'),
           hexToRgb(colorBRef.current)
         );
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_scale'), parametersRef.current.scale);
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_distortion'), parametersRef.current.distortion);
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_softness'), parametersRef.current.softness);
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_repetition'), parametersRef.current.repetition);
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_contour'), parametersRef.current.contour);
         webgl.drawArrays(webgl.TRIANGLES, 0, 6);
         animationFrame = requestAnimationFrame(render);
       }
@@ -237,6 +266,7 @@ export default function LogoShaderStudio({
   const [transparent, setTransparent] = useState(true);
   const [ratio, setRatio] = useState<ShaderRatio>('wide');
   const [speed, setSpeed] = useState(1);
+  const [parameters, setParameters] = useState<ShaderParameters>(DEFAULT_PARAMETERS);
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
@@ -500,6 +530,25 @@ export default function LogoShaderStudio({
           </section>
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Material</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shared controls tune every original shader recipe.</T></p>
+            </div>
+            {([
+              ['Scale', 'scale', 0.5, 2.4, 0.05],
+              ['Distortion', 'distortion', 0, 1, 0.01],
+              ['Softness', 'softness', 0, 1, 0.01],
+              ['Repetition', 'repetition', 2, 16, 0.5],
+              ['Contour', 'contour', 0, 1, 0.01],
+            ] as const).map(([label, key, min, max, step]) => (
+              <label className='flex flex-col gap-2 text-sm text-muted-foreground' key={key}>
+                <span className='flex justify-between gap-3'><span>{label}</span><span className='font-mono text-xs'>{parameters[key].toFixed(key === 'repetition' ? 1 : 2)}</span></span>
+                <input className='studio-range' max={max} min={min} onChange={(event) => setParameters((current) => ({ ...current, [key]: Number(event.target.value) }))} step={step} type='range' value={parameters[key]} />
+              </label>
+            ))}
+          </section>
+
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Logo</T></h2>
             <div className='grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border'>
               {(['light', 'dark'] as const).map((tone) => (
@@ -566,6 +615,7 @@ export default function LogoShaderStudio({
                   colorB={colorB}
                   key={`background-${preset.id}-${customVersion}`}
                   onError={setError}
+                  parameters={parameters}
                   paused={paused}
                   preset={preset}
                   speed={speed}
@@ -594,6 +644,7 @@ export default function LogoShaderStudio({
                       colorB={colorA}
                       key={`material-${preset.id}-${customVersion}`}
                       onError={setError}
+                      parameters={parameters}
                       paused={paused}
                       preset={preset}
                       speed={speed}

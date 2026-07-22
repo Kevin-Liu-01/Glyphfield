@@ -12,6 +12,7 @@ import {
 
 import DesignBoard from '@/components/DesignBoard';
 import BrandElementsStudio from '@/components/BrandElementsStudio';
+import BackgroundStudio from '@/components/BackgroundStudio';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
@@ -1073,6 +1074,7 @@ export default function StudioToolWorkspace({
   tool: StudioTool;
 }) {
   const renderers: Partial<Record<StudioToolId, ReactNode>> = {
+    backgrounds: <BackgroundStudio identity={identity} tool={tool} />,
     blog: <TemplateTool identity={identity} kind='blog' tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
     buttons: <ButtonTool tool={tool} />,

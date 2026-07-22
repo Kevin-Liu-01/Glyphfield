@@ -19,6 +19,7 @@ import {
   PanelsTopLeft,
   Plus,
   Search,
+  ScanLine,
   Shapes,
   Sparkles,
   Trash2,
@@ -49,6 +50,7 @@ import {
 
 const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
   animation: Blend,
+  backgrounds: ScanLine,
   blog: BookOpen,
   'brand-elements': LayoutGrid,
   buttons: Component,

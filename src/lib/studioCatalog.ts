@@ -13,6 +13,7 @@ export type StudioToolId =
   | 'logo-shader'
   | 'opengraph'
   | 'logo'
+  | 'backgrounds'
   | 'colors'
   | 'typography'
   | 'terminal'
@@ -103,6 +104,14 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     keywords: ['logomark', 'transparent', 'white', 'black', 'primary', 'secondary', 'download'],
     name: 'Logo lab',
     shortcut: 'L',
+  },
+  {
+    category: 'Foundations',
+    description: 'Build exportable gradients, grain, dithering, dots, lines, grids, and logo surfaces.',
+    id: 'backgrounds',
+    keywords: ['background', 'dither', 'gradient', 'grain', 'noise', 'dots', 'lines', 'grid', 'texture', 'bayer'],
+    name: 'Background lab',
+    shortcut: 'F',
   },
   {
     category: 'Foundations',

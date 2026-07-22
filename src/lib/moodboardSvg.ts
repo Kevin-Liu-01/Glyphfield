@@ -2,6 +2,7 @@ import type { BrandIdentity } from './brandIdentity';
 
 export type MoodboardSvgAssets = {
   interFont?: string;
+  logoMarks?: readonly string[];
   markDark?: string;
   markLight?: string;
   monoFont?: string;
@@ -71,215 +72,203 @@ function mark(
   if (source) {
     return `<image href="${escapeXml(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet"/>`;
   }
-
   return `<text x="${x + width / 2}" y="${y + height * 0.67}" text-anchor="middle" class="sans" fill="${fill}" font-size="${Math.min(width, height) * 0.54}" font-weight="800">${escapeXml(fallback)}</text>`;
+}
+
+function logoAsset(
+  source: string | undefined,
+  fallback: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill: string
+): string {
+  return mark(source, fallback, x, y, width, height, fill);
 }
 
 export function buildMoodboardSvg(
   identity: BrandIdentity,
   assets: MoodboardSvgAssets
 ): string {
-  const ink = color(identity, 'ink', '#18181B');
+  const ink = color(identity, 'ink', '#181818');
   const paper = color(identity, 'paper', '#FFFFFF');
-  const muted = color(identity, 'muted', '#F4F4F5');
-  const emphasis = color(identity, 'emphasis', '#3B82F6');
-  const success = color(identity, 'success', '#16A34A');
-  const warning = color(identity, 'warning', '#F59E0B');
-  const progress = color(identity, 'progress', '#F97316');
-  const error = color(identity, 'error', '#EF4444');
-  const products = identity.products.length > 0 ? identity.products : ['Product', 'Platform', 'Community'];
-  const applicationTitles = [0, 1, 2].map((index) =>
-    wrapText(products[index] ?? ['Product', 'Platform', 'Community'][index], 14, 2)
-  );
-  const greeting = identity.greetings[0] ?? 'Welcome';
-  const phrase = identity.voice.phrases[0] ?? identity.tagline;
-  const positioningLines = wrapText(identity.positioning, 38, 4);
-  const socialLines = wrapText(phrase, 24, 3);
-  const slideLines = wrapText(identity.tagline, 20, 4);
-  const sansLabel =
-    identity.typography.find(({ role }) => role !== 'Code')?.family ?? 'Inter';
-  const monoLabel =
-    identity.typography.find(({ role }) => role === 'Code')?.family ?? 'Geist Mono';
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const silver = color(identity, 'emphasis', '#E4E4E4');
+  const cloud = color(identity, 'success', '#D4D4D4');
+  const slate = color(identity, 'warning', '#A3A3A3');
+  const graphite = color(identity, 'progress', '#525252');
+  const charcoal = color(identity, 'error', '#262626');
+  const products = identity.products.length > 0
+    ? identity.products
+    : ['Product', 'Platform', 'Community'];
+  const greeting = identity.greetings[1] ?? identity.greetings[0] ?? 'Welcome';
+  const positioningLines = wrapText(identity.positioning, 42, 4);
+  const taglineLines = wrapText(identity.tagline, 24, 3);
+  const sansLabel = identity.typography.find(({ role }) => role !== 'Code')?.family ?? 'Inter';
+  const monoLabel = identity.typography.find(({ role }) => role === 'Code')?.family ?? 'Geist Mono';
   const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
+  const logos = assets.logoMarks ?? [];
   const proofMarks = (assets.proofMarks ?? [])
     .slice(0, 4)
     .map(
       (source, index) =>
-        `<image href="${escapeXml(source)}" x="${48 + index * 168}" y="500" width="120" height="24" preserveAspectRatio="xMidYMid meet"/>`
+        `<image href="${escapeXml(source)}" x="${42 + index * 146}" y="363" width="108" height="22" preserveAspectRatio="xMidYMid meet"/>`
     )
     .join('');
+  const palette = identity.colors.slice(0, 8);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000">
 <defs>
   <style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>
-  <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="${paper}" stroke-opacity=".12"/></pattern>
-  <pattern id="dot" width="10" height="10" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${ink}" opacity=".14"/></pattern>
-  <linearGradient id="fade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${emphasis}"/><stop offset="1" stop-color="${ink}"/></linearGradient>
+  <pattern id="dot-dark" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${paper}" opacity=".11"/></pattern>
+  <pattern id="dot-light" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${ink}" opacity=".12"/></pattern>
+  <linearGradient id="mono-fade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${paper}"/><stop offset=".5" stop-color="${slate}"/><stop offset="1" stop-color="${ink}"/></linearGradient>
 </defs>
-<rect width="1600" height="2000" fill="#BDBDBA"/>
+<rect width="1600" height="2000" fill="#D0D0D0"/>
 
 <g class="application-panel" transform="translate(28 28)">
   <rect width="762" height="440" fill="${ink}"/>
-  ${assets.motionPreview ? `<image href="${escapeXml(assets.motionPreview)}" width="762" height="440" opacity=".22" preserveAspectRatio="xMidYMid slice"/>` : ''}
-  <rect width="762" height="440" fill="url(#grid)"/>
-  <text x="34" y="42" class="mono" fill="${paper}" opacity=".58" font-size="13" letter-spacing="2">MOTION / HERO</text>
-  ${mark(assets.markLight, identity.shortName, 264, 100, 234, 154, paper)}
-  <text x="381" y="330" text-anchor="middle" class="sans" fill="${paper}" font-size="48" font-weight="760">${escapeXml(identity.name)}</text>
-  <text x="381" y="370" text-anchor="middle" class="sans" fill="${paper}" opacity=".64" font-size="18">${escapeXml(identity.tagline)}</text>
-  <text x="34" y="412" class="mono" fill="${paper}" opacity=".46" font-size="12">${escapeXml(identity.website || 'LOCAL BRAND')}</text>
+  ${assets.motionPreview ? `<image href="${escapeXml(assets.motionPreview)}" width="762" height="440" opacity=".12" preserveAspectRatio="xMidYMid slice"/>` : ''}
+  <rect width="762" height="440" fill="url(#dot-dark)"/>
+  <text x="34" y="42" class="mono" fill="${paper}" opacity=".55" font-size="13" letter-spacing="2">GT / IDENTITY</text>
+  ${mark(assets.markLight, identity.shortName, 48, 86, 236, 136, paper)}
+  ${textLines(taglineLines, 48, 296, 43, `class="sans" fill="${paper}" font-size="36" font-weight="690" letter-spacing="-1.2"`)}
+  <text x="714" y="408" text-anchor="end" class="mono" fill="${paper}" opacity=".48" font-size="11">${escapeXml(identity.website || 'LOCAL BRAND')}</text>
 </g>
 
 <g class="application-panel" transform="translate(810 28)">
-  <rect width="762" height="440" fill="#FFF9E9"/>
-  <text x="36" y="44" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">APPLICATION / SYSTEM</text>
-  <g transform="translate(36 86)">
-    <rect width="212" height="310" fill="${emphasis}"/>
-    <rect x="14" y="14" width="184" height="282" fill="none" stroke="${paper}" stroke-opacity=".62"/>
-    ${textLines(applicationTitles[0], 24, 52, 23, `class="sans" fill="${paper}" font-size="18" font-weight="680"`)}
-    <text x="24" y="82" class="sans" fill="${paper}" opacity=".78" font-size="14">Built into the stack.</text>
-    <rect x="24" y="238" width="104" height="30" fill="${paper}"/>
-    <text x="36" y="258" class="mono" fill="${ink}" font-size="9">OPEN PROJECT →</text>
-    ${mark(assets.markLight, identity.shortName, 158, 246, 24, 24, paper)}
+  <rect width="762" height="440" fill="${paper}"/>
+  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">LOGO / FAMILY</text>
+  <g transform="translate(34 76)">
+    <rect width="326" height="142" fill="${muted}"/>
+    ${logoAsset(logos[0] ?? assets.markDark, identity.shortName, 86, 36, 154, 70, ink)}
+    <text x="16" y="128" class="mono" fill="${ink}" opacity=".45" font-size="9">MARK / BLACK</text>
   </g>
-  <g transform="translate(274 86)">
-    <rect width="212" height="310" fill="${ink}"/>
-    <rect x="14" y="14" width="184" height="282" fill="none" stroke="${paper}" stroke-opacity=".38"/>
-    ${textLines(applicationTitles[1], 24, 52, 23, `class="sans" fill="${paper}" font-size="18" font-weight="680"`)}
-    <text x="24" y="82" class="sans" fill="${paper}" opacity=".6" font-size="14">One source of truth.</text>
-    <rect x="24" y="238" width="104" height="30" fill="${paper}"/>
-    <text x="36" y="258" class="mono" fill="${ink}" font-size="9">VIEW SYSTEM →</text>
-    ${mark(assets.markLight, identity.shortName, 158, 246, 24, 24, paper)}
+  <g transform="translate(380 76)">
+    <rect width="348" height="142" fill="${ink}"/>
+    ${logoAsset(logos[1] ?? assets.markLight, identity.shortName, 96, 36, 156, 70, paper)}
+    <text x="16" y="128" class="mono" fill="${paper}" opacity=".5" font-size="9">MARK / WHITE</text>
   </g>
-  <g transform="translate(512 86)">
-    <rect width="212" height="310" fill="${progress}"/>
-    <rect x="14" y="14" width="184" height="282" fill="none" stroke="${paper}" stroke-opacity=".62"/>
-    ${textLines(applicationTitles[2], 24, 52, 23, `class="sans" fill="${paper}" font-size="18" font-weight="680"`)}
-    <text x="24" y="82" class="sans" fill="${paper}" opacity=".78" font-size="14">Ready for the world.</text>
-    <rect x="24" y="238" width="104" height="30" fill="${paper}"/>
-    <text x="36" y="258" class="mono" fill="${ink}" font-size="9">LEARN MORE →</text>
-    ${mark(assets.markLight, identity.shortName, 158, 246, 24, 24, paper)}
+  <g transform="translate(34 238)">
+    <rect width="694" height="82" fill="${muted}"/>
+    ${logoAsset(logos[2] ?? assets.markDark, identity.shortName, 38, 18, 618, 46, ink)}
+  </g>
+  <g transform="translate(34 338)">
+    <rect width="694" height="68" fill="none" stroke="${ink}" stroke-opacity=".16"/>
+    ${logoAsset(logos[3] ?? assets.markDark, identity.name, 32, 15, 630, 38, ink)}
   </g>
 </g>
 
 <g class="application-panel" transform="translate(28 488)">
-  <rect width="762" height="440" fill="#F0F0ED"/>
-  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">EMAIL / ONBOARDING</text>
-  <g transform="translate(86 68)">
-    <rect width="590" height="334" fill="${paper}" stroke="${ink}" stroke-opacity=".12"/>
-    ${mark(assets.markDark, identity.shortName, 28, 24, 34, 34, ink)}
-    <text x="76" y="47" class="mono" fill="${ink}" font-size="11" font-weight="650">${escapeXml(identity.shortName)} / WELCOME</text>
-    <rect x="28" y="78" width="534" height="90" fill="${ink}"/>
-    <text x="295" y="132" text-anchor="middle" class="sans" fill="${paper}" font-size="32" font-weight="700">${escapeXml(greeting)}</text>
-    <text x="28" y="212" class="sans" fill="${ink}" font-size="28" font-weight="720">Welcome to ${escapeXml(identity.name)}.</text>
-    <text x="28" y="242" class="sans" fill="${ink}" opacity=".56" font-size="13">Everything you need to start building with the brand.</text>
-    <rect x="28" y="270" width="118" height="34" fill="${ink}"/>
-    <text x="43" y="292" class="mono" fill="${paper}" font-size="10">GET STARTED →</text>
-    <rect x="334" y="270" width="104" height="34" fill="${muted}"/>
-    <rect x="448" y="270" width="114" height="34" fill="${muted}"/>
-  </g>
+  <rect width="762" height="440" fill="${paper}"/>
+  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">COLOR / SYSTEM</text>
+  <text x="34" y="84" class="sans" fill="${ink}" font-size="26" font-weight="680">Black and white, with depth.</text>
+  ${palette.map(({ hex, name }, index) => {
+    const column = index % 4;
+    const row = Math.floor(index / 4);
+    const x = 34 + column * 172;
+    const y = 116 + row * 132;
+    const labelFill = hex.toLocaleUpperCase() === '#FFFFFF' || hex.toLocaleUpperCase() === '#F4F4F4' || hex.toLocaleUpperCase() === '#E4E4E4' || hex.toLocaleUpperCase() === '#D4D4D4' ? ink : paper;
+    return `<g transform="translate(${x} ${y})"><rect width="154" height="112" fill="${hex}" stroke="${ink}" stroke-opacity=".12"/><text x="12" y="76" class="sans" fill="${labelFill}" font-size="12" font-weight="650">${escapeXml(name)}</text><text x="12" y="96" class="mono" fill="${labelFill}" opacity=".62" font-size="9">${escapeXml(hex)}</text></g>`;
+  }).join('')}
+  <text x="34" y="408" class="mono" fill="${ink}" opacity=".46" font-size="10">SURFACE · TYPE · BORDER · STATE · MOTION</text>
 </g>
 
 <g class="application-panel" transform="translate(810 488)">
   <rect width="762" height="440" fill="${ink}"/>
-  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">CLI / TERMINAL</text>
-  <g transform="translate(46 72)">
-    <rect width="670" height="316" fill="#080808" stroke="${paper}" stroke-opacity=".2"/>
-    <circle cx="24" cy="22" r="5" fill="${error}"/><circle cx="42" cy="22" r="5" fill="${warning}"/><circle cx="60" cy="22" r="5" fill="${success}"/>
-    <text x="24" y="72" class="mono" fill="${paper}" font-size="18">$ npx ${escapeXml(identity.shortName.toLocaleLowerCase())} init</text>
-    <text x="24" y="112" class="mono" fill="${emphasis}" font-size="17">✓ project connected</text>
-    <text x="24" y="148" class="mono" fill="${success}" font-size="17">✓ brand assets indexed</text>
-    <text x="24" y="184" class="mono" fill="${success}" font-size="17">✓ moodboard generated</text>
-    <path d="M24 218H646" stroke="${paper}" stroke-opacity=".12"/>
-    <text x="24" y="252" class="mono" fill="${paper}" opacity=".52" font-size="13">OUTPUT</text>
-    <text x="24" y="284" class="mono" fill="${paper}" font-size="15">./${escapeXml(identity.id)}-brand-system</text>
-    ${mark(assets.markLight, identity.shortName, 564, 226, 70, 70, paper)}
-  </g>
+  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">TYPOGRAPHY / SYSTEM</text>
+  <text x="34" y="118" class="sans" fill="${paper}" font-size="76" font-weight="760" letter-spacing="-4">Aa</text>
+  <text x="170" y="104" class="sans" fill="${paper}" font-size="24" font-weight="650">${escapeXml(sansLabel)}</text>
+  <text x="170" y="132" class="sans" fill="${paper}" opacity=".54" font-size="14">Display / UI / Editorial</text>
+  <path d="M34 164H728" stroke="${paper}" stroke-opacity=".16"/>
+  <text x="34" y="216" class="sans" fill="${paper}" font-size="30" font-weight="650">Bienvenidos · 你好 · ようこそ</text>
+  <text x="34" y="262" class="sans" fill="${paper}" font-size="30" font-weight="650">أهلاً وسهلاً · Welcome</text>
+  <path d="M34 294H728" stroke="${paper}" stroke-opacity=".16"/>
+  <text x="34" y="336" class="mono" fill="${paper}" font-size="17">$ gt translate ./src --locales es,ja,ar</text>
+  <text x="34" y="374" class="mono" fill="${silver}" font-size="13">${escapeXml(monoLabel)} / code + metadata</text>
+  <text x="34" y="410" class="mono" fill="${paper}" opacity=".4" font-size="10">12 / 14 / 16 / 24 / 32 / 48 / 76</text>
 </g>
 
 <g class="application-panel" transform="translate(28 948)">
-  <rect width="762" height="460" fill="${emphasis}"/>
-  <rect width="762" height="460" fill="url(#dot)" opacity=".44"/>
-  <text x="36" y="44" class="mono" fill="${paper}" opacity=".66" font-size="13" letter-spacing="2">SOCIAL / LAUNCH</text>
-  ${mark(assets.markLight, identity.shortName, 626, 34, 92, 92, paper)}
-  ${textLines(socialLines, 48, 150, 62, `class="sans" fill="${paper}" font-size="50" font-weight="760" letter-spacing="-2"`)}
-  <rect x="36" y="354" width="690" height="70" fill="${ink}"/>
-  <text x="58" y="383" class="mono" fill="${paper}" opacity=".58" font-size="10">${escapeXml(identity.website || 'BRAND LAUNCH')}</text>
-  <text x="58" y="408" class="sans" fill="${paper}" font-size="16">${escapeXml(identity.name)} · ${escapeXml(products.slice(0, 3).join(' / '))}</text>
+  <rect width="762" height="460" fill="${muted}"/>
+  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">EMAIL / ONBOARDING</text>
+  <g transform="translate(72 68)">
+    <rect width="618" height="354" fill="${paper}"/>
+    <g transform="translate(28 22)">${mark(assets.markDark, identity.shortName, 0, 0, 36, 36, ink)}</g>
+    <text x="76" y="46" class="mono" fill="${ink}" font-size="10">GENERAL TRANSLATION</text>
+    <rect x="28" y="76" width="562" height="78" fill="${ink}"/>
+    <text x="309" y="124" text-anchor="middle" class="sans" fill="${paper}" font-size="29" font-weight="680">${escapeXml(greeting)}</text>
+    <text x="28" y="198" class="sans" fill="${ink}" font-size="25" font-weight="710">Welcome to ${escapeXml(identity.name)}!</text>
+    <text x="28" y="226" class="sans" fill="${ink}" opacity=".58" font-size="12">Product copy, documentation, and code—moving together.</text>
+    <rect x="28" y="254" width="122" height="34" fill="${ink}"/>
+    <text x="44" y="276" class="mono" fill="${paper}" font-size="9">GET STARTED →</text>
+    <g transform="translate(28 310)"><rect width="166" height="24" fill="${muted}"/><rect x="178" width="166" height="24" fill="${muted}"/><rect x="356" width="206" height="24" fill="${muted}"/></g>
+  </g>
 </g>
 
 <g class="application-panel" transform="translate(810 948)">
-  <rect width="762" height="460" fill="#242427"/>
-  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">SLIDE / TITLE</text>
-  <g transform="translate(44 76)">
-    <rect width="674" height="340" fill="${paper}"/>
-    <rect x="430" width="244" height="340" fill="url(#fade)"/>
-    <rect x="430" width="244" height="340" fill="url(#grid)"/>
-    <text x="28" y="42" class="mono" fill="${ink}" opacity=".5" font-size="10">${escapeXml(identity.shortName)} / 01</text>
-    ${textLines(slideLines, 28, 104, 39, `class="sans" fill="${ink}" font-size="32" font-weight="720" letter-spacing="-1.2"`)}
-    <rect x="28" y="268" width="96" height="30" fill="${emphasis}"/>
-    <text x="43" y="288" class="mono" fill="${paper}" font-size="9">VIEW DECK →</text>
-    ${mark(assets.markLight, identity.shortName, 500, 112, 104, 104, paper)}
-    <text x="552" y="282" text-anchor="middle" class="mono" fill="${paper}" opacity=".62" font-size="10">${escapeXml(identity.website)}</text>
+  <rect width="762" height="460" fill="${ink}"/>
+  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">CLI / TERMINAL</text>
+  <g transform="translate(44 72)">
+    <rect width="674" height="338" fill="#0A0A0A" stroke="${paper}" stroke-opacity=".2"/>
+    <rect width="674" height="38" fill="${charcoal}"/>
+    <circle cx="22" cy="19" r="4" fill="${graphite}"/><circle cx="38" cy="19" r="4" fill="${slate}"/><circle cx="54" cy="19" r="4" fill="${cloud}"/>
+    <text x="337" y="23" text-anchor="middle" class="mono" fill="${paper}" opacity=".45" font-size="9">${escapeXml(identity.shortName.toLocaleLowerCase())} — brand system</text>
+    <text x="24" y="88" class="mono" fill="${paper}" font-size="17">$ npx ${escapeXml(identity.shortName.toLocaleLowerCase())} init</text>
+    <text x="24" y="130" class="mono" fill="${silver}" font-size="15">✓ project connected</text>
+    <text x="24" y="166" class="mono" fill="${cloud}" font-size="15">✓ locales discovered</text>
+    <text x="24" y="202" class="mono" fill="${cloud}" font-size="15">✓ translation pipeline ready</text>
+    <path d="M24 234H650" stroke="${paper}" stroke-opacity=".12"/>
+    <text x="24" y="270" class="mono" fill="${paper}" opacity=".5" font-size="11">NEXT</text>
+    <text x="24" y="304" class="mono" fill="${paper}" font-size="14">git add . && git commit -m "translate"</text>
+    ${mark(assets.markLight, identity.shortName, 584, 258, 54, 54, paper)}
   </g>
 </g>
 
 <g class="application-panel" transform="translate(28 1428)">
-  <rect width="762" height="544" fill="#E9E9E5"/>
-  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">EVENT / PASS</text>
-  <path d="M230 0V86" stroke="${emphasis}" stroke-width="22"/><path d="M532 0V86" stroke="${progress}" stroke-width="22"/>
-  <g transform="translate(132 76)">
-    <rect width="196" height="408" rx="12" fill="${emphasis}"/>
-    <circle cx="98" cy="22" r="8" fill="#E9E9E5"/>
-    ${mark(assets.markLight, identity.shortName, 48, 74, 100, 80, paper)}
-    <text x="24" y="214" class="mono" fill="${paper}" opacity=".65" font-size="10">ATTENDEE</text>
-    <text x="24" y="249" class="sans" fill="${paper}" font-size="24" font-weight="720">ALEX</text>
-    <text x="24" y="276" class="sans" fill="${paper}" opacity=".74" font-size="14">PRODUCT TEAM</text>
-    <path d="M24 318H172" stroke="${paper}" stroke-opacity=".28"/>
-    <text x="24" y="352" class="mono" fill="${paper}" font-size="10">${escapeXml(identity.shortName)} / 2026</text>
-  </g>
-  <g transform="translate(434 76)">
-    <rect width="196" height="408" rx="12" fill="${progress}"/>
-    <circle cx="98" cy="22" r="8" fill="#E9E9E5"/>
-    ${mark(assets.markLight, identity.shortName, 48, 74, 100, 80, paper)}
-    <text x="24" y="214" class="mono" fill="${paper}" opacity=".65" font-size="10">SPEAKER</text>
-    <text x="24" y="249" class="sans" fill="${paper}" font-size="24" font-weight="720">SAM</text>
-    <text x="24" y="276" class="sans" fill="${paper}" opacity=".74" font-size="14">COMMUNITY</text>
-    <path d="M24 318H172" stroke="${paper}" stroke-opacity=".28"/>
-    <text x="24" y="352" class="mono" fill="${paper}" font-size="10">${escapeXml(identity.shortName)} / 2026</text>
+  <rect width="762" height="544" fill="${paper}"/>
+  <text x="34" y="42" class="mono" fill="${ink}" opacity=".5" font-size="13" letter-spacing="2">PRODUCT / PAGE</text>
+  <g transform="translate(34 70)">
+    <rect width="694" height="432" fill="${paper}" stroke="${ink}" stroke-opacity=".16"/>
+    <rect width="694" height="46" fill="${ink}"/>
+    ${mark(assets.markLight, identity.shortName, 18, 10, 70, 26, paper)}
+    <text x="654" y="28" text-anchor="end" class="mono" fill="${paper}" opacity=".6" font-size="9">DOCS  ·  DASHBOARD  ·  GITHUB</text>
+    <text x="28" y="108" class="sans" fill="${ink}" font-size="39" font-weight="740" letter-spacing="-1.7">Code is the source of truth.</text>
+    ${textLines(positioningLines, 28, 142, 18, `class="sans" fill="${ink}" opacity=".58" font-size="12"`)}
+    <rect x="28" y="226" width="120" height="34" fill="${ink}"/><text x="45" y="248" class="mono" fill="${paper}" font-size="9">START BUILDING →</text>
+    ${products.slice(0, 3).map((product, index) => `<g transform="translate(${28 + index * 218} 290)"><rect width="202" height="106" fill="${index === 1 ? ink : muted}"/><text x="16" y="34" class="sans" fill="${index === 1 ? paper : ink}" font-size="15" font-weight="670">${escapeXml(product)}</text><text x="16" y="78" class="mono" fill="${index === 1 ? paper : ink}" opacity=".5" font-size="8">EXPLORE →</text></g>`).join('')}
+    ${proofMarks ? `<g transform="translate(28 0)">${proofMarks}</g>` : ''}
   </g>
 </g>
 
 <g class="application-panel" transform="translate(810 1428)">
   <rect width="762" height="544" fill="${ink}"/>
-  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">LOGO / SYSTEM</text>
-  <g transform="translate(36 78)">
-    <rect width="214" height="190" fill="${paper}"/>
-    ${mark(assets.markDark, identity.shortName, 52, 42, 110, 82, ink)}
-    <text x="18" y="168" class="mono" fill="${ink}" opacity=".5" font-size="10">LIGHT / INK</text>
+  <rect width="762" height="544" fill="url(#dot-dark)"/>
+  <text x="34" y="42" class="mono" fill="${paper}" opacity=".52" font-size="13" letter-spacing="2">EVENT / PASS</text>
+  <g transform="translate(92 78)">
+    <rect width="250" height="402" fill="${paper}"/>
+    <rect width="250" height="122" fill="${ink}"/>
+    ${mark(assets.markLight, identity.shortName, 72, 30, 106, 62, paper)}
+    <text x="22" y="174" class="mono" fill="${ink}" opacity=".48" font-size="9">ATTENDEE / 001</text>
+    <text x="22" y="220" class="sans" fill="${ink}" font-size="31" font-weight="740">ALEX</text>
+    <text x="22" y="250" class="sans" fill="${ink}" opacity=".55" font-size="13">PRODUCT TEAM</text>
+    <path d="M22 286H228" stroke="${ink}" stroke-opacity=".16"/>
+    <rect x="22" y="316" width="82" height="54" fill="url(#dot-light)" stroke="${ink}" stroke-opacity=".18"/>
+    <text x="228" y="348" text-anchor="end" class="mono" fill="${ink}" font-size="10">${escapeXml(identity.shortName)} / 2026</text>
   </g>
-  <g transform="translate(274 78)">
-    <rect width="214" height="190" fill="${emphasis}"/>
-    ${mark(assets.markLight, identity.shortName, 52, 42, 110, 82, paper)}
-    <text x="18" y="168" class="mono" fill="${paper}" opacity=".66" font-size="10">PRIMARY / WHITE</text>
+  <g transform="translate(374 78)">
+    <rect width="296" height="190" fill="${paper}"/>
+    ${mark(assets.markDark, identity.shortName, 24, 24, 84, 54, ink)}
+    <text x="24" y="116" class="sans" fill="${ink}" font-size="22" font-weight="720">General Translation</text>
+    <text x="24" y="142" class="sans" fill="${ink}" opacity=".5" font-size="12">New York · 2026</text>
+    <rect x="24" y="162" width="248" height="4" fill="url(#mono-fade)"/>
   </g>
-  <g transform="translate(512 78)">
-    <rect width="214" height="190" fill="${paper}"/>
-    <text x="24" y="66" class="sans" fill="${ink}" font-size="54" font-weight="780">Aa</text>
-    <text x="24" y="104" class="sans" fill="${ink}" font-size="16">${escapeXml(sansLabel)}</text>
-    <text x="24" y="132" class="mono" fill="${ink}" font-size="13">${escapeXml(monoLabel)}</text>
-    <text x="24" y="168" class="mono" fill="${ink}" opacity=".5" font-size="10">TYPE / PAIRING</text>
+  <g transform="translate(374 292)">
+    <rect width="296" height="188" fill="${graphite}"/>
+    ${textLines(wrapText(identity.voice.phrases[2] ?? identity.tagline, 20, 3), 24, 50, 29, `class="sans" fill="${paper}" font-size="23" font-weight="680"`)}
+    <text x="24" y="164" class="mono" fill="${paper}" opacity=".5" font-size="9">COMMUNITY / NYC</text>
   </g>
-  <g transform="translate(36 292)">
-    <rect width="115" height="82" fill="${ink}" stroke="${paper}" stroke-opacity=".24"/>
-    <rect x="115" width="115" height="82" fill="${paper}"/>
-    <rect x="230" width="115" height="82" fill="${emphasis}"/>
-    <rect x="345" width="115" height="82" fill="${success}"/>
-    <rect x="460" width="115" height="82" fill="${warning}"/>
-    <rect x="575" width="115" height="82" fill="${error}"/>
-    <text x="0" y="108" class="mono" fill="${paper}" opacity=".52" font-size="10">${escapeXml(identity.colors.slice(0, 6).map(({ hex }) => hex).join('  '))}</text>
-  </g>
-  ${textLines(positioningLines, 36, 418, 20, `class="sans" fill="${paper}" opacity=".68" font-size="14"`)}
-  ${proofMarks ? `<rect x="30" y="492" width="702" height="40" fill="${paper}"/>${proofMarks}` : ''}
 </g>
 </svg>`;
 }

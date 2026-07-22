@@ -73,26 +73,36 @@ export default function DesignBoard({
   const exportDimensions = resolveMoodboardExport(exportPresetId, customWidth);
   const markDarkPath = brandAssetPath(identity, 'mark-dark');
   const markLightPath = brandAssetPath(identity, 'mark-light');
+  const logoPaths = useMemo(
+    () =>
+      identity.assets
+        .filter(({ type }) => type === 'logo')
+        .slice(0, 4)
+        .map(({ path }) => path),
+    [identity.assets]
+  );
   const previewSvg = useMemo(
     () =>
       buildMoodboardSvg(identity, {
         interFont: '/fonts/inter-latin.woff2',
+        logoMarks: logoPaths,
         markDark: markDarkPath,
         markLight: markLightPath,
         monoFont: '/fonts/geist-mono-latin.woff2',
         motionPreview: identity.motion[0]?.previewPath,
         proofMarks: identity.proofAssets.map(({ path }) => path),
       }),
-    [identity, markDarkPath, markLightPath]
+    [identity, logoPaths, markDarkPath, markLightPath]
   );
 
   async function exportBoard() {
     setExporting(true);
     try {
       const motionPreviewPath = identity.motion[0]?.previewPath;
-      const [{ interFont, monoFont }, markDark, markLight, motionPreview, proofMarks] =
+      const [{ interFont, monoFont }, logoMarks, markDark, markLight, motionPreview, proofMarks] =
         await Promise.all([
           loadFontAssets(),
+          Promise.all(logoPaths.map((path) => imageUrlToDataUrl(path))),
           loadOptionalAsset(markDarkPath),
           loadOptionalAsset(markLightPath),
           loadOptionalAsset(motionPreviewPath),
@@ -102,6 +112,7 @@ export default function DesignBoard({
         ]);
       const svg = buildMoodboardSvg(identity, {
         interFont,
+        logoMarks,
         markDark,
         markLight,
         monoFont,
@@ -166,7 +177,7 @@ export default function DesignBoard({
                 <T>Moodboard export</T>
               </h2>
               <p className='text-xs leading-5 text-muted-foreground'>
-                <T>Export eight generated applications with embedded brand fonts.</T>
+                <T>Export foundations and polished brand applications with embedded fonts.</T>
               </p>
             </div>
             <label className='flex flex-col gap-2 text-sm'>
@@ -222,14 +233,14 @@ export default function DesignBoard({
               <T>Generated applications</T>
             </h2>
             {[
-              'Motion hero',
-              'Application cards',
+              'GT identity',
+              'Logo family',
+              'Color system',
+              'Typography system',
               'Onboarding email',
               'CLI terminal',
-              'Social launch',
-              'Slide title',
-              'Event passes',
-              'Logo system',
+              'Product page',
+              'Event pass',
             ].map((label, index) => (
               <div className='flex items-center justify-between gap-4 text-sm' key={label}>
                 <span className='text-muted-foreground'>{label}</span>
@@ -253,7 +264,7 @@ export default function DesignBoard({
 
         <div className='tool-canvas min-h-0 overflow-auto p-5 sm:p-8'>
           <div
-            aria-label={`${identity.name} moodboard with eight generated brand applications`}
+            aria-label={`${identity.name} moodboard with brand foundations and generated applications`}
             className='moodboard-preview mx-auto w-full max-w-[1200px] shadow-sm'
             dangerouslySetInnerHTML={{ __html: previewSvg }}
             data-testid='moodboard-preview'

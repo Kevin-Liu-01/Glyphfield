@@ -10,17 +10,20 @@ the built-in reference identity, populated from its bundled logo family,
 semantic tokens, typography, product language, proof, and motion assets. Every
 identity has a full design-board view with PNG and JSON export.
 
-The Moodboard tool composes eight generated applications—motion hero,
-application cards, onboarding email, CLI terminal, social launch, slide title,
-event passes, and logo system—into a downloadable 4:5 collage. Inter and Geist
+The Moodboard tool composes four identity foundations—identity, logo family,
+color, and typography—with four finished applications—onboarding email, CLI,
+product page, and event pass—into a downloadable 4:5 board. Inter and Geist
 Mono are embedded into every exported SVG before PNG rasterization. Export
 presets range from 1600×2000 through 4800×6000, with a custom width option that
 preserves the layout ratio.
 
 Glyphfield opens on a neutral Starter project. Local projects and completed
 reference systems such as GT share one navigable project rail. The
-Logo Shader tool includes original WebGL materials for backgrounds and
-alpha-masked logo fills, with still PNG and animated GIF export.
+Logo Shader includes original WebGL materials for backgrounds and alpha-masked
+logo fills, including configurable liquid metal, mercury, and brushed-steel
+recipes with still PNG and animated GIF export. Background Lab builds gradients,
+grainy gradients, ordered Bayer dithering, dots, lines, and grids as exportable
+SVG-composed PNGs with an optional identity mark.
 
 Brand Elements is the default Studio surface. It applies the active identity
 to 33 searchable touchpoints spanning email, CLI/ASCII, repositories, social,
