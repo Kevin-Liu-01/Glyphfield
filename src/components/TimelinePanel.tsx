@@ -4,6 +4,7 @@ import { T, useGT } from 'gt-next';
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import StudioSelect from '@/components/ui/StudioSelect';
 type TimelinePanelProps = {
   currentMs: number;
   fps: number;
@@ -89,20 +90,16 @@ export default function TimelinePanel({
         </div>
 
         <div className='flex items-center gap-3'>
-          <label className='flex items-center gap-2 text-xs text-muted-foreground'>
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
             <T>Rate</T>
-            <select
-              className='h-8 border border-input bg-background px-2 font-mono text-xs text-foreground outline-none focus:border-foreground'
-              onChange={(event) => onRateChange(Number(event.target.value))}
-              value={playbackRate}
-            >
-              {[0.1, 0.25, 0.5, 1, 2, 4].map((rate) => (
-                <option key={rate} value={rate}>
-                  {rate}×
-                </option>
-              ))}
-            </select>
-          </label>
+            <StudioSelect
+              ariaLabel={gt('Playback rate')}
+              className='h-8 w-20 font-mono text-xs'
+              onValueChange={(value) => onRateChange(Number(value))}
+              options={[0.1, 0.25, 0.5, 1, 2, 4].map((rate) => ({ label: `${rate}×`, value: String(rate) }))}
+              value={String(playbackRate)}
+            />
+          </div>
           <output className='min-w-28 text-right font-mono text-xs tabular-nums'>
             {formatTime(currentMs)} / {formatTime(totalMs)}
           </output>

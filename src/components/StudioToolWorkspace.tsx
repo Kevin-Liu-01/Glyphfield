@@ -16,7 +16,10 @@ import BackgroundStudio from '@/components/BackgroundStudio';
 import BrandSettingsStudio from '@/components/BrandSettingsStudio';
 import CanvasViewport from '@/components/CanvasViewport';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
+import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
+import ColorControl from '@/components/ui/ColorControl';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
@@ -32,6 +35,13 @@ import {
   imageUrlToDataUrl,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
+import {
+  DEFAULT_LIVE_MATERIAL_ID,
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  LIVE_MATERIAL_OPTIONS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from '@/lib/liveMaterials';
 import {
   defaultTemplatePartner,
   templateBrandLogo,
@@ -469,9 +479,11 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   );
 }
 
-type LogoSurface = 'white' | 'dark' | 'grid' | 'noise';
+type LogoSurface = 'white' | 'dark' | 'grid' | 'noise' | 'shader';
 
 function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const gt = useGT();
+  const previewRef = useRef<HTMLDivElement>(null);
   const markPath = brandAssetPath(identity, 'mark-dark');
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
@@ -485,6 +497,8 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
   const [surface, setSurface] = useStudioDraft<LogoSurface>(identity.id, tool.id, 'surface', 'white');
   const [size, setSize] = useStudioDraft<64 | 128>(identity.id, tool.id, 'size', 128);
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
+  const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, tool.id, 'material', DEFAULT_LIVE_MATERIAL_ID);
+  const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(identity.id, tool.id, 'material-settings', DEFAULT_LIVE_MATERIAL_SETTINGS);
   const [exporting, setExporting] = useState(false);
   const selectedColor = logoColors.find(({ id }) => id === tone) ?? logoColors[0] ?? {
     hex: '#18181B',
@@ -497,6 +511,37 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
     setExporting(true);
     try {
       const mark = await resolveBrandMark(identity, false);
+      if (surface === 'shader' && !transparent) {
+        const shaderCanvas = previewRef.current?.querySelector('canvas');
+        if (!shaderCanvas) return;
+        const output = document.createElement('canvas');
+        output.width = size;
+        output.height = size;
+        const context = output.getContext('2d');
+        if (!context) return;
+        context.drawImage(shaderCanvas, 0, 0, size, size);
+        const image = new Image();
+        image.src = mark;
+        await image.decode();
+        const inset = Math.round(size * 0.14);
+        const markSize = size - inset * 2;
+        const tinted = document.createElement('canvas');
+        tinted.width = markSize;
+        tinted.height = markSize;
+        const tintedContext = tinted.getContext('2d');
+        if (!tintedContext) return;
+        tintedContext.drawImage(image, 0, 0, markSize, markSize);
+        tintedContext.globalCompositeOperation = 'source-in';
+        tintedContext.fillStyle = selectedColor.hex;
+        tintedContext.fillRect(0, 0, markSize, markSize);
+        context.drawImage(tinted, inset, inset);
+        const url = output.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `${identity.id}-mark-${tone}-${size}.png`;
+        link.href = url;
+        link.click();
+        return;
+      }
       const backgroundLayer = transparent
         ? ''
         : textureDefinition(surface, surfaceColor);
@@ -535,9 +580,32 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
             { label: 'Base dark', value: 'dark' },
             { label: 'Grid', value: 'grid' },
             { label: 'Noise', value: 'noise' },
+            { label: 'Live shader', value: 'shader' },
           ]}
           value={surface}
         />
+        {surface === 'shader' ? (
+          <div className='flex flex-col gap-3 border-t border-border pt-4'>
+            <StudioSelect
+              ariaLabel={gt('Logo background material')}
+              onValueChange={(value) => setMaterialId(value as LiveMaterialId)}
+              options={LIVE_MATERIAL_OPTIONS.map((material) => ({
+                label: `${material.engine} / ${material.name}`,
+                value: material.id,
+              }))}
+              value={materialId}
+            />
+            {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
+              <ColorControl
+                ariaLabel={gt('Material color {number}', { number: index + 1 })}
+                key={key}
+                label={gt('Color {number}', { number: index + 1 })}
+                onChange={(value) => setMaterialSettings((current) => ({ ...current, [key]: value }))}
+                value={materialSettings[key]}
+              />
+            ))}
+          </div>
+        ) : null}
         <label className='flex items-center justify-between gap-4 text-sm'>
           <T>Transparent export</T>
           <input checked={transparent} onChange={(event) => setTransparent(event.target.checked)} type='checkbox' />
@@ -569,12 +637,14 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
     >
       <div className='grid min-h-full place-items-center p-8'>
         <div
-          className={`artifact-frame logo-surface logo-surface-${surface} grid aspect-square w-full max-w-xl place-items-center overflow-hidden rounded-md`}
+          className={`artifact-frame logo-surface logo-surface-${surface} relative grid aspect-square w-full max-w-xl place-items-center overflow-hidden rounded-md`}
+          ref={previewRef}
           style={{ '--brand-ink': ink, '--brand-paper': paper } as CSSProperties}
         >
+          {surface === 'shader' ? <LiveMaterialCanvas materialId={materialId} settings={materialSettings} /> : null}
           <div
             aria-label={`${identity.name} logo preview`}
-            className='gt-logo-mask'
+            className='gt-logo-mask relative z-10'
             style={{
               backgroundColor: markPath ? selectedColor.hex : 'transparent',
               color: selectedColor.hex,
@@ -596,6 +666,7 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
 type EditableColor = {
   hex: string;
   name: string;
+  opacity: number;
   role: string;
 };
 
@@ -605,7 +676,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     identity.id,
     tool.id,
     'colors',
-    () => identity.colors.map(({ hex, name, role }) => ({ hex, name, role }))
+    () => identity.colors.map(({ hex, name, role }) => ({ hex, name, opacity: 100, role }))
   );
   const [copied, setCopied] = useState(false);
 
@@ -613,7 +684,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     const value = colors
       .map(
         (color) =>
-          `--color-${color.name.toLocaleLowerCase().replaceAll(' ', '-')}: ${normalizeHex(color.hex)}; /* ${formatOklch(color.hex)} */`
+          `--color-${color.name.toLocaleLowerCase().replaceAll(' ', '-')}: ${formatOklch(color.hex).replace(')', ` / ${color.opacity ?? 100}%)`)}; /* ${normalizeHex(color.hex)} */`
       )
       .join('\n');
     await navigator.clipboard.writeText(value);
@@ -628,27 +699,23 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
       </p>
       <div className='flex flex-col gap-3'>
         {colors.map((color, index) => (
-          <label className='grid grid-cols-[36px_1fr] items-center gap-3' key={color.name}>
-            <input
-              aria-label={gt('Change {name}', { name: color.name })}
-              className='size-9 rounded-md border border-input bg-background p-1'
-              onChange={(event) =>
-                setColors((current) =>
-                  current.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, hex: event.target.value } : item
-                  )
-                )
-              }
-              type='color'
-              value={color.hex}
-            />
-            <span className='min-w-0'>
-              <span className='block text-sm font-medium'>{gt(color.name)}</span>
-              <span className='block font-mono text-xs text-muted-foreground'>
-                {normalizeHex(color.hex)}
-              </span>
-            </span>
-          </label>
+          <ColorControl
+            ariaLabel={gt('Change {name}', { name: color.name })}
+            key={color.name}
+            label={gt(color.name)}
+            onChange={(hex) =>
+              setColors((current) =>
+                current.map((item, itemIndex) => itemIndex === index ? { ...item, hex } : item)
+              )
+            }
+            onOpacityChange={(opacity) =>
+              setColors((current) =>
+                current.map((item, itemIndex) => itemIndex === index ? { ...item, opacity } : item)
+              )
+            }
+            opacity={color.opacity ?? 100}
+            value={color.hex}
+          />
         ))}
       </div>
     </ControlSection>
@@ -674,7 +741,10 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
             <article
               className='flex min-h-56 flex-col justify-between gap-8 p-6'
               key={color.name}
-              style={{ backgroundColor: color.hex, color: isDark ? '#FFFFFF' : '#111111' }}
+              style={{
+                backgroundColor: `${normalizeHex(color.hex)}${Math.round(((color.opacity ?? 100) / 100) * 255).toString(16).padStart(2, '0')}`,
+                color: isDark ? '#FFFFFF' : '#111111',
+              }}
             >
               <div className='flex items-start justify-between gap-4'>
                 <h2 className='text-xl font-semibold'>{gt(color.name)}</h2>
@@ -741,18 +811,13 @@ function TypographyTool({ identity, tool }: { identity: BrandIdentity; tool: Stu
         <div className='flex flex-col gap-3'>
           {(['primary', 'secondary', 'accent', 'code'] as const).map((role) => (
             <Field key={role} label={role.toLocaleUpperCase()}>
-              <select
-                className={INPUT_CLASS}
-                onChange={(event) => changeRole(role, event.target.value as FontOptionId)}
-                style={{ fontFamily: familyFor(role) }}
+              <StudioSelect
+                ariaLabel={`${role} font`}
+                className='font-[inherit]'
+                onValueChange={(value) => changeRole(role, value as FontOptionId)}
+                options={availableFonts.map((font) => ({ label: font.name, value: font.id }))}
                 value={roles[role]}
-              >
-                {availableFonts.map((font) => (
-                  <option key={font.id} value={font.id}>
-                    {font.name}
-                  </option>
-                ))}
-              </select>
+              />
             </Field>
           ))}
         </div>
@@ -874,11 +939,11 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
           <input className={INPUT_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
         <Field label={<T>Language</T>}>
-          <select className={INPUT_CLASS} onChange={(event) => changeLanguage(event.target.value as CodeLanguage)} value={language}>
-            <option value='typescript'>TypeScript</option>
-            <option value='python'>Python</option>
-            <option value='bash'>Bash</option>
-          </select>
+          <StudioSelect ariaLabel='Language' onValueChange={(value) => changeLanguage(value as CodeLanguage)} options={[
+            { label: 'TypeScript', value: 'typescript' },
+            { label: 'Python', value: 'python' },
+            { label: 'Bash', value: 'bash' },
+          ]} value={language} />
         </Field>
       </ControlSection>
       <ControlSection title={<T>Source</T>}>
@@ -1138,18 +1203,15 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         {kind === 'partnership' ? (
           <>
             <Field label={<T>Partner logo</T>}>
-              <select
-                className={INPUT_CLASS}
-                onChange={(event) => {
+              <StudioSelect
+                ariaLabel='Partner logo'
+                onValueChange={(value) => {
                   partnerAsset.clear();
-                  setPartnerId(event.target.value);
+                  setPartnerId(value);
                 }}
+                options={partnerOptions.map((asset) => ({ label: asset.label, value: asset.id }))}
                 value={partnerId}
-              >
-                {partnerOptions.map((asset) => (
-                  <option key={asset.id} value={asset.id}>{asset.label}</option>
-                ))}
-              </select>
+              />
             </Field>
             <UploadField
               accept='image/*,.svg'
@@ -1243,24 +1305,24 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     <>
       <ControlSection title={<T>Button</T>}>
         <Field label={<T>Component family</T>}>
-          <select className={INPUT_CLASS} onChange={(event) => setFamily(event.target.value as ComponentFamily)} value={family}>
-            <option value='actions'>Actions</option>
-            <option value='forms'>Forms</option>
-            <option value='navigation'>Navigation</option>
-            <option value='feedback'>Feedback</option>
-            <option value='data'>Data display</option>
-            <option value='cards'>Cards</option>
-          </select>
+          <StudioSelect ariaLabel='Component family' onValueChange={(value) => setFamily(value as ComponentFamily)} options={[
+            { label: 'Actions', value: 'actions' },
+            { label: 'Forms', value: 'forms' },
+            { label: 'Navigation', value: 'navigation' },
+            { label: 'Feedback', value: 'feedback' },
+            { label: 'Data display', value: 'data' },
+            { label: 'Cards', value: 'cards' },
+          ]} value={family} />
         </Field>
         <Field label={<T>Label</T>}>
           <input className={INPUT_CLASS} onChange={(event) => setLabel(event.target.value)} value={label} />
         </Field>
         <Field label={<T>Size</T>}>
-          <select className={INPUT_CLASS} onChange={(event) => setSize(event.target.value as typeof size)} value={size}>
-            <option value='sm'>Small</option>
-            <option value='default'>Default</option>
-            <option value='lg'>Large</option>
-          </select>
+          <StudioSelect ariaLabel='Component size' onValueChange={(value) => setSize(value as typeof size)} options={[
+            { label: 'Small', value: 'sm' },
+            { label: 'Default', value: 'default' },
+            { label: 'Large', value: 'lg' },
+          ]} value={size} />
         </Field>
         <label className='flex items-center justify-between gap-4 text-sm'>
           <T>Disabled state</T>
@@ -1281,7 +1343,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
         <div className='mx-auto w-full max-w-5xl border border-border bg-background shadow-sm' style={{ fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Inter' }}>
           <div className='flex items-center justify-between border-b border-border px-5 py-4'><div><p className='text-sm font-semibold'>{identity.name} components</p><p className='mt-1 text-xs text-muted-foreground'>{family}</p></div><span className='font-mono text-xs text-muted-foreground'>14 patterns</span></div>
           {family === 'actions' ? <div className='grid gap-px bg-border md:grid-cols-2'><section className='flex min-h-72 flex-col justify-between gap-10 bg-background p-8'><p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>Core actions</p><div className='flex flex-wrap items-center gap-3'><Button disabled={disabled} size={size}>{label}</Button><Button disabled={disabled} size={size} variant='rainbow'>{label}</Button><Button disabled={disabled} size={size} variant='outline'>{label}</Button><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button disabled={disabled} size={size} variant='ghost'>{label}</Button><Button disabled={disabled} size={size} variant='destructive'>{label}</Button></div></section><section className='flex min-h-72 flex-col justify-between bg-foreground p-8 text-background'><p className='font-mono text-xs uppercase tracking-widest opacity-50'>Reversed</p><div className='flex flex-wrap gap-3'><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button className='border-background/30 text-background hover:text-foreground' disabled={disabled} size={size} variant='outline'>{label}</Button></div></section></div> : null}
-          {family === 'forms' ? <div className='grid gap-8 p-8 md:grid-cols-2'><div className='flex flex-col gap-5'><Field label={<T>Workspace name</T>}><input className={INPUT_CLASS} value={identity.name} readOnly /></Field><Field label={<T>Website</T>}><input className={INPUT_CLASS} value={identity.website} readOnly /></Field><Field label={<T>Role</T>}><select className={INPUT_CLASS} defaultValue='admin'><option value='admin'>Administrator</option><option value='member'>Member</option></select></Field></div><div className='flex flex-col gap-4'><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Automatic updates</strong><small className='text-muted-foreground'>Keep generated assets synchronized.</small></span><input defaultChecked type='checkbox' /></label><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Product email</strong><small className='text-muted-foreground'>Receive important changes.</small></span><input type='checkbox' /></label><Button className='w-fit'>{label}</Button></div></div> : null}
+          {family === 'forms' ? <div className='grid gap-8 p-8 md:grid-cols-2'><div className='flex flex-col gap-5'><Field label={<T>Workspace name</T>}><input className={INPUT_CLASS} value={identity.name} readOnly /></Field><Field label={<T>Website</T>}><input className={INPUT_CLASS} value={identity.website} readOnly /></Field><Field label={<T>Role</T>}><StudioSelect ariaLabel='Role' defaultValue='admin' options={[{ label: 'Administrator', value: 'admin' }, { label: 'Member', value: 'member' }]} /></Field></div><div className='flex flex-col gap-4'><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Automatic updates</strong><small className='text-muted-foreground'>Keep generated assets synchronized.</small></span><input defaultChecked type='checkbox' /></label><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Product email</strong><small className='text-muted-foreground'>Receive important changes.</small></span><input type='checkbox' /></label><Button className='w-fit'>{label}</Button></div></div> : null}
           {family === 'navigation' ? <div className='flex flex-col gap-8 p-8'><nav className='flex items-center justify-between border border-border p-3'><span className='font-semibold'>{identity.shortName}</span><div className='hidden gap-6 text-sm text-muted-foreground sm:flex'><span>Product</span><span>Docs</span><span>Customers</span></div><Button size='sm'>{label}</Button></nav><div className='flex items-center gap-2 text-sm text-muted-foreground'><span>Settings</span><span>/</span><span>Brand</span><span>/</span><strong className='text-foreground'>Components</strong></div><div className='flex border-b border-border'><span className='border-b-2 border-foreground px-4 py-2 text-sm font-medium'>Overview</span><span className='px-4 py-2 text-sm text-muted-foreground'>Assets</span><span className='px-4 py-2 text-sm text-muted-foreground'>History</span></div></div> : null}
           {family === 'feedback' ? <div className='grid gap-4 p-8 md:grid-cols-2'><div className='border border-status-success-border bg-status-success-background p-4 text-sm text-status-success'><strong>Brand updated</strong><p className='mt-1 opacity-75'>Every template now uses the latest settings.</p></div><div className='border border-status-error-border bg-status-error-background p-4 text-sm text-status-error'><strong>Export failed</strong><p className='mt-1 opacity-75'>Check the source asset and try again.</p></div><div className='border border-border p-4'><div className='flex justify-between text-sm'><span>Generating assets</span><span>68%</span></div><div className='mt-3 h-2 bg-muted'><div className='h-full w-[68%] bg-foreground' /></div></div><div className='flex items-center justify-between border border-border p-4 text-sm'><span>4 unread notifications</span><Button size='sm' variant='outline'>View</Button></div></div> : null}
           {family === 'data' ? <div className='p-8'><div className='grid gap-px bg-border sm:grid-cols-3'>{[['42,851','Translations'],['98.7%','Coverage'],['18.4%','Growth']].map(([value,name]) => <div className='bg-background p-5' key={name}><p className='text-3xl font-semibold tracking-tight'>{value}</p><p className='mt-2 text-xs text-muted-foreground'>{name}</p></div>)}</div><div className='mt-6 overflow-hidden border border-border'><div className='grid grid-cols-3 bg-muted p-3 font-mono text-[10px] uppercase text-muted-foreground'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product','Docs','Email'].map((item) => <div className='grid grid-cols-3 border-t border-border p-4 text-sm' key={item}><span>{item}</span><span>Ready</span><span className='text-muted-foreground'>Today</span></div>)}</div></div> : null}

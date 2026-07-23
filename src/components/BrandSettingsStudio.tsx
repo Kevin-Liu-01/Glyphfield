@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import { ImagePlus } from 'lucide-react';
 
+import ColorControl from '@/components/ui/ColorControl';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
@@ -135,12 +136,14 @@ export default function BrandSettingsStudio({
 
           <SettingSection title={<T>Color system</T>}>
             {identity.colors.map((color, index) => (
-              <div className='grid grid-cols-[36px_minmax(0,1fr)] gap-3' key={color.id}>
-                <input aria-label={gt('{name} color', { name: color.name })} className='size-9 rounded-md border border-input p-1' onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, hex: event.target.value.toLocaleUpperCase() } : item) })} type='color' value={/^#[\dA-F]{6}$/i.test(color.hex) ? color.hex : '#000000'} />
-                <div className='grid min-w-0 grid-cols-2 gap-2'>
-                  <input aria-label={gt('Color name')} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={color.name} />
-                  <input aria-label={gt('Color hex')} className={`${INPUT_CLASS} font-mono`} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, hex: event.target.value } : item) })} value={color.hex} />
-                </div>
+              <div className='flex flex-col gap-2' key={color.id}>
+                <input aria-label={gt('Color name')} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={color.name} />
+                <ColorControl
+                  ariaLabel={gt('{name} color', { name: color.name })}
+                  label={color.role}
+                  onChange={(hex) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, hex } : item) })}
+                  value={color.hex}
+                />
               </div>
             ))}
           </SettingSection>

@@ -18,6 +18,8 @@ import {
 
 import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
+import ColorControl from '@/components/ui/ColorControl';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   BRAND_ELEMENT_CATEGORIES,
@@ -157,22 +159,12 @@ function ElementColorControl({
   value: string;
 }) {
   return (
-    <label className='element-editor-color'>
-      <span>{label}</span>
-      <span>
-        <input
-          aria-label={typeof label === 'string' ? label : undefined}
-          onChange={(event) => onChange(event.target.value.toLocaleUpperCase())}
-          type='color'
-          value={/^#[\dA-F]{6}$/i.test(value) ? value : '#000000'}
-        />
-        <input
-          onChange={(event) => onChange(event.target.value)}
-          spellCheck={false}
-          value={value}
-        />
-      </span>
-    </label>
+    <ColorControl
+      ariaLabel={typeof label === 'string' ? label : 'Element color'}
+      label={label}
+      onChange={onChange}
+      value={value}
+    />
   );
 }
 
@@ -286,31 +278,31 @@ function ElementEditor({
 
       {layoutSupported || scaleSupported || patternSupported ? <section className='element-editor-section'>
         <div className='element-editor-heading'><h2><T>Composition</T></h2></div>
-        {layoutSupported ? <label className='element-editor-field'>
+        {layoutSupported ? <div className='element-editor-field'>
           <span><T>Layout</T></span>
-          <select onChange={(event) => onChange({ layout: event.target.value as BrandElementSettings['layout'] })} value={settings.layout}>
-            <option value='split'>{gt('Split')}</option>
-            <option value='stacked'>{gt('Stacked')}</option>
-            <option value='centered'>{gt('Centered')}</option>
-          </select>
-        </label> : null}
-        {scaleSupported ? <label className='element-editor-field'>
+          <StudioSelect ariaLabel={gt('Layout')} onValueChange={(layout) => onChange({ layout: layout as BrandElementSettings['layout'] })} options={[
+            { label: gt('Split'), value: 'split' },
+            { label: gt('Stacked'), value: 'stacked' },
+            { label: gt('Centered'), value: 'centered' },
+          ]} value={settings.layout} />
+        </div> : null}
+        {scaleSupported ? <div className='element-editor-field'>
           <span><T>Type scale</T></span>
-          <select onChange={(event) => onChange({ scale: event.target.value as BrandElementSettings['scale'] })} value={settings.scale}>
-            <option value='compact'>{gt('Compact')}</option>
-            <option value='balanced'>{gt('Balanced')}</option>
-            <option value='bold'>{gt('Bold')}</option>
-          </select>
-        </label> : null}
-        {patternSupported ? <label className='element-editor-field'>
+          <StudioSelect ariaLabel={gt('Type scale')} onValueChange={(scale) => onChange({ scale: scale as BrandElementSettings['scale'] })} options={[
+            { label: gt('Compact'), value: 'compact' },
+            { label: gt('Balanced'), value: 'balanced' },
+            { label: gt('Bold'), value: 'bold' },
+          ]} value={settings.scale} />
+        </div> : null}
+        {patternSupported ? <div className='element-editor-field'>
           <span><T>Pattern</T></span>
-          <select onChange={(event) => onChange({ pattern: event.target.value as BrandElementSettings['pattern'] })} value={settings.pattern}>
-            <option value='none'>{gt('None')}</option>
-            <option value='dots'>{gt('Dots')}</option>
-            <option value='grid'>{gt('Grid')}</option>
-            <option value='dither'>{gt('Dither')}</option>
-          </select>
-        </label> : null}
+          <StudioSelect ariaLabel={gt('Pattern')} onValueChange={(pattern) => onChange({ pattern: pattern as BrandElementSettings['pattern'] })} options={[
+            { label: gt('None'), value: 'none' },
+            { label: gt('Dots'), value: 'dots' },
+            { label: gt('Grid'), value: 'grid' },
+            { label: gt('Dither'), value: 'dither' },
+          ]} value={settings.pattern} />
+        </div> : null}
         {patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
       </section> : null}
 
@@ -943,15 +935,16 @@ export default function BrandElementsStudio({
                 value={query}
               />
             </label>
-            <select
-              aria-label={gt('Brand element category')}
-              className='h-9 rounded-md border border-input bg-background px-3 text-sm outline-none'
-              onChange={(event) => setCategory(event.target.value as BrandElementCategory | 'All')}
+            <StudioSelect
+              ariaLabel={gt('Brand element category')}
+              className='min-w-40'
+              onValueChange={(value) => setCategory(value as BrandElementCategory | 'All')}
+              options={[
+                { label: gt('All elements'), value: 'All' },
+                ...BRAND_ELEMENT_CATEGORIES.map((item) => ({ label: gt(item), value: item })),
+              ]}
               value={category}
-            >
-              <option value='All'>{gt('All elements')}</option>
-              {BRAND_ELEMENT_CATEGORIES.map((item) => <option key={item} value={item}>{gt(item)}</option>)}
-            </select>
+            />
           </div>
           <div className='flex flex-col py-2'>
             {BRAND_ELEMENT_CATEGORIES.map((elementCategory) => {
@@ -1007,20 +1000,18 @@ export default function BrandElementsStudio({
         <div className='brand-elements-canvas tool-canvas min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-3'>
-              <select
-                aria-label={gt('Active brand element')}
-                className='brand-elements-mobile-select hidden h-9 rounded-md border border-input bg-background px-3 text-sm outline-none'
-                onChange={(event) => setSelectedElementId(event.target.value)}
+              <StudioSelect
+                ariaLabel={gt('Active brand element')}
+                className='brand-elements-mobile-select hidden'
+                onValueChange={setSelectedElementId}
+                options={BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
+                  BRAND_ELEMENTS.filter((element) => element.category === elementCategory).map((element) => ({
+                    label: `${gt(elementCategory)} / ${gt(element.name)}`,
+                    value: element.id,
+                  }))
+                )}
                 value={selectedElement.id}
-              >
-                {BRAND_ELEMENT_CATEGORIES.map((elementCategory) => (
-                  <optgroup key={elementCategory} label={gt(elementCategory)}>
-                    {BRAND_ELEMENTS.filter((element) => element.category === elementCategory).map((element) => (
-                      <option key={element.id} value={element.id}>{gt(element.name)}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              />
               <div>
                 <p className='text-sm font-semibold'>{selectedElement.name}</p>
               </div>

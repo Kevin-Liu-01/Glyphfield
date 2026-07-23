@@ -34,7 +34,14 @@ Choose canvas dimensions, frame rate, palette colors, fit mode, and scale, then 
 
 Logo shader applies live WebGL material to the background, the alpha-masked logo, or both.
 
-Presets include liquid metal, mercury, brushed steel, aurora, topographic, plasma, radial beams, halftone, warped grid, glass waves, iridescent, heatmap, gem smoke, and grain gradient.
+The material engine includes:
+
+- The editable ShaderGradient sphere preset, including three colors, environment brightness, amplitude, density, frequency, strength, grain, rotation, and speed.
+- Ten original local GLSL recipes for the visual families cataloged in Ariadne: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Fluid Chrome, Chroma Flow, Drift, Mosaic, Circuit, and Dedalus Bloom.
+- Studio GLSL presets including liquid metal, mercury, brushed steel, aurora, topographic, plasma, radial beams, halftone, warped grid, glass waves, iridescent, heatmap, gem smoke, and grain gradient.
+- A local custom GLSL editor using the same time, resolution, color, and material uniforms.
+
+Every material color accepts HEX or OKLCH input. PNG and GIF export use the same live canvas visible in the preview.
 
 Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
 

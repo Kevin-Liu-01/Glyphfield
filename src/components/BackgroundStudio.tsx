@@ -5,7 +5,10 @@ import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
+import ColorControl from '@/components/ui/ColorControl';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
@@ -18,10 +21,13 @@ import {
 } from '@/lib/backgroundSvg';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
+import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  LIVE_MATERIAL_OPTIONS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from '@/lib/liveMaterials';
 import type { StudioTool } from '@/lib/studioCatalog';
-
-const INPUT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
 
 const SIZE_PRESETS = [
   { height: 630, id: 'og', label: 'OpenGraph', width: 1200 },
@@ -34,6 +40,7 @@ function RangeControl({
   max,
   min,
   onChange,
+  step = 1,
   suffix,
   value,
 }: {
@@ -41,6 +48,7 @@ function RangeControl({
   max: number;
   min: number;
   onChange: (value: number) => void;
+  step?: number;
   suffix: string;
   value: number;
 }) {
@@ -55,6 +63,7 @@ function RangeControl({
         max={max}
         min={min}
         onChange={(event) => onChange(Number(event.target.value))}
+        step={step}
         type='range'
         value={value}
       />
@@ -70,6 +79,7 @@ export default function BackgroundStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const liveLayerRef = useRef<HTMLDivElement>(null);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
@@ -84,7 +94,27 @@ export default function BackgroundStudio({
       colorB: identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818',
     })
   );
-  const settings = { ...DEFAULT_BACKGROUND_SETTINGS, ...storedSettings };
+  const settings = {
+    ...DEFAULT_BACKGROUND_SETTINGS,
+    ...storedSettings,
+    liveMaterialId: storedSettings.liveMaterialId ?? DEFAULT_BACKGROUND_SETTINGS.liveMaterialId!,
+    liveSettings: {
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      ...storedSettings.liveSettings,
+    },
+  };
+  const selectedSizePreset = SIZE_PRESETS.find(
+    ({ height, width }) => height === settings.height && width === settings.width
+  );
+  const sizeOptions = [
+    ...(selectedSizePreset
+      ? []
+      : [{ id: 'custom', label: `Custom · ${settings.width} × ${settings.height}` }]),
+    ...SIZE_PRESETS.map((preset) => ({
+      id: preset.id,
+      label: `${preset.label} · ${preset.width} × ${preset.height}`,
+    })),
+  ];
   const identityLogo = brandAssetPath(
     identity,
     settings.logoTone === 'white' ? 'mark-light' : 'mark-dark'
@@ -110,6 +140,17 @@ export default function BackgroundStudio({
     setStoredSettings((current) => ({ ...current, ...patch }));
   }
 
+  function updateLiveSettings(patch: Partial<LiveMaterialSettings>) {
+    setStoredSettings((current) => ({
+      ...current,
+      liveSettings: {
+        ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+        ...current.liveSettings,
+        ...patch,
+      },
+    }));
+  }
+
   function selectCustomLogo(file: File) {
     if (customLogoRef.current) URL.revokeObjectURL(customLogoRef.current.url);
     const nextLogo = { name: file.name, url: URL.createObjectURL(file) };
@@ -121,6 +162,43 @@ export default function BackgroundStudio({
   async function exportPng() {
     setExporting(true);
     try {
+      if (settings.style === 'live-shader') {
+        const shaderCanvas = liveLayerRef.current?.querySelector('canvas');
+        if (!shaderCanvas) return;
+        const output = document.createElement('canvas');
+        output.width = settings.width;
+        output.height = settings.height;
+        const context = output.getContext('2d');
+        if (!context) return;
+        context.drawImage(shaderCanvas, 0, 0, settings.width, settings.height);
+        if (showLogo) {
+          const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
+          const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
+          const markY = (settings.height - markSize) / 2 + (settings.logoY / 100) * settings.height;
+          context.globalAlpha = settings.logoOpacity / 100;
+          if (logoPath) {
+            const image = new Image();
+            image.src = logoPath;
+            await image.decode();
+            context.drawImage(image, markX, markY, markSize, markSize);
+          } else {
+            context.fillStyle = settings.logoTone === 'white' ? '#FFFFFF' : '#000000';
+            context.font = `700 ${markSize * 0.42}px Inter, sans-serif`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(identity.shortName, settings.width / 2, settings.height / 2);
+          }
+        }
+        const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `${identity.id}-${settings.liveMaterialId}-${settings.width}x${settings.height}.png`;
+        link.href = url;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return;
+      }
       const embeddedLogo = showLogo && logoPath ? await imageUrlToDataUrl(logoPath) : undefined;
       const svg = buildBackgroundSvg(
         settings,
@@ -158,15 +236,15 @@ export default function BackgroundStudio({
             <div>
               <h2 className='text-sm font-semibold'><T>Surface</T></h2>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                <T>Build an exportable field from original SVG layers.</T>
+                <T>Build an exportable field from SVG layers or live GPU materials.</T>
               </p>
             </div>
-            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Recipe</T>
-              <select
-                className={INPUT_CLASS}
-                onChange={(event) => {
-                  const style = event.target.value as BackgroundStyle;
+              <StudioSelect
+                ariaLabel={gt('Recipe')}
+                onValueChange={(value) => {
+                  const style = value as BackgroundStyle;
                   updateSettings({
                     style,
                     ...(style === 'pattern' && settings.pattern === 'none'
@@ -174,73 +252,99 @@ export default function BackgroundStudio({
                       : {}),
                   });
                 }}
+                options={[
+                  { label: gt('Gradient'), value: 'gradient' },
+                  { label: gt('Grainy gradient'), value: 'grain-gradient' },
+                  { label: gt('Ordered dither'), value: 'dither' },
+                  { label: gt('Pattern field'), value: 'pattern' },
+                  { label: gt('Live shader'), value: 'live-shader' },
+                ]}
                 value={settings.style}
-              >
-                <option value='gradient'>Gradient</option>
-                <option value='grain-gradient'>Grainy gradient</option>
-                <option value='dither'>Ordered dither</option>
-                <option value='pattern'>Pattern field</option>
-              </select>
-            </label>
-            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              />
+            </div>
+            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Gradient</T>
-              <select
-                className={INPUT_CLASS}
-                disabled={settings.style === 'dither' || settings.style === 'pattern'}
-                onChange={(event) => updateSettings({ gradient: event.target.value as BackgroundGradient })}
+              <StudioSelect
+                ariaLabel={gt('Gradient')}
+                disabled={settings.style === 'dither' || settings.style === 'pattern' || settings.style === 'live-shader'}
+                onValueChange={(value) => updateSettings({ gradient: value as BackgroundGradient })}
+                options={[
+                  { label: gt('Linear'), value: 'linear' },
+                  { label: gt('Radial'), value: 'radial' },
+                ]}
                 value={settings.gradient}
-              >
-                <option value='linear'>Linear</option>
-                <option value='radial'>Radial</option>
-              </select>
-            </label>
-            <div className='grid grid-cols-2 gap-3'>
-              {([
-                ['colorA', 'Color A'],
-                ['colorB', 'Color B'],
-              ] as const).map(([key, label]) => (
-                <label className='flex flex-col gap-2 text-xs text-muted-foreground' key={key}>
-                  {label}
-                  <input
-                    aria-label={gt(label)}
-                    className='h-10 w-full border border-input bg-background p-1'
-                    onChange={(event) => updateSettings({ [key]: event.target.value })}
-                    type='color'
+              />
+            </div>
+            {settings.style === 'live-shader' ? (
+              <div className='flex flex-col gap-3'>
+                <StudioSelect
+                  ariaLabel={gt('Live material')}
+                  onValueChange={(value) => updateSettings({ liveMaterialId: value as LiveMaterialId })}
+                  options={LIVE_MATERIAL_OPTIONS.map((material) => ({
+                    label: `${material.engine} / ${material.name}`,
+                    value: material.id,
+                  }))}
+                  value={settings.liveMaterialId}
+                />
+                {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
+                  <ColorControl
+                    ariaLabel={gt('Material color {number}', { number: index + 1 })}
+                    key={key}
+                    label={gt('Color {number}', { number: index + 1 })}
+                    onChange={(value) => updateLiveSettings({ [key]: value })}
+                    value={settings.liveSettings[key]}
+                  />
+                ))}
+                <RangeControl label={gt('Speed')} max={2} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.05} suffix='×' value={settings.liveSettings.speed} />
+                <RangeControl label={gt('Strength')} max={2} min={0} onChange={(strength) => updateLiveSettings({ strength })} step={0.05} suffix='' value={settings.liveSettings.strength} />
+                <RangeControl label={gt('Grain')} max={100} min={0} onChange={(grain) => updateLiveSettings({ grain })} suffix='%' value={settings.liveSettings.grain} />
+              </div>
+            ) : (
+              <div className='grid gap-3'>
+                {([
+                  ['colorA', 'Color A'],
+                  ['colorB', 'Color B'],
+                ] as const).map(([key, label]) => (
+                  <ColorControl
+                    ariaLabel={gt(label)}
+                    key={key}
+                    label={gt(label)}
+                    onChange={(value) => updateSettings({ [key]: value })}
                     value={settings[key]}
                   />
-                </label>
-              ))}
-            </div>
-            <RangeControl label={gt('Angle')} max={180} min={0} onChange={(angle) => updateSettings({ angle })} suffix='°' value={settings.angle} />
+                ))}
+              </div>
+            )}
+            {settings.style === 'live-shader' ? null : <RangeControl label={gt('Angle')} max={180} min={0} onChange={(angle) => updateSettings({ angle })} suffix='°' value={settings.angle} />}
             {settings.style === 'grain-gradient' ? (
               <RangeControl label={gt('Grain')} max={70} min={0} onChange={(grain) => updateSettings({ grain })} suffix='%' value={settings.grain} />
             ) : null}
             {settings.style === 'dither' ? (
-              <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
                 <T>Bayer matrix</T>
-                <select className={INPUT_CLASS} onChange={(event) => updateSettings({ ditherMatrix: Number(event.target.value) as 2 | 4 | 8 })} value={settings.ditherMatrix}>
-                  <option value='2'>2 × 2</option>
-                  <option value='4'>4 × 4</option>
-                  <option value='8'>8 × 8</option>
-                </select>
-              </label>
+                <StudioSelect ariaLabel={gt('Bayer matrix')} onValueChange={(value) => updateSettings({ ditherMatrix: Number(value) as 2 | 4 | 8 })} options={[
+                  { label: '2 × 2', value: '2' },
+                  { label: '4 × 4', value: '4' },
+                  { label: '8 × 8', value: '8' },
+                ]} value={String(settings.ditherMatrix)} />
+              </div>
             ) : null}
           </section>
 
-          <section className='flex flex-col gap-4 border-b border-border p-5'>
+          {settings.style === 'live-shader' ? null : <section className='flex flex-col gap-4 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Pattern overlay</T></h2>
-            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Pattern</T>
-              <select className={INPUT_CLASS} onChange={(event) => updateSettings({ pattern: event.target.value as BackgroundPattern })} value={settings.pattern}>
-                <option value='none'>None</option>
-                <option value='dots'>Dots</option>
-                <option value='lines'>Lines</option>
-                <option value='grid'>Grid</option>
-              </select>
-            </label>
+              <StudioSelect ariaLabel={gt('Pattern')} onValueChange={(value) => updateSettings({ pattern: value as BackgroundPattern })} options={[
+                { label: gt('None'), value: 'none' },
+                { label: gt('Dots'), value: 'dots' },
+                { label: gt('Lines'), value: 'lines' },
+                { label: gt('Grid'), value: 'grid' },
+              ]} value={settings.pattern} />
+            </div>
             <RangeControl label={gt('Spacing')} max={72} min={8} onChange={(spacing) => updateSettings({ spacing })} suffix='px' value={settings.spacing} />
             <RangeControl label={gt('Opacity')} max={100} min={0} onChange={(patternOpacity) => updateSettings({ patternOpacity })} suffix='%' value={settings.patternOpacity} />
-          </section>
+          </section>}
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div className='flex items-center justify-between gap-4'>
@@ -270,33 +374,72 @@ export default function BackgroundStudio({
 
           <section className='flex flex-col gap-4 p-5'>
             <h2 className='text-sm font-semibold'><T>Output</T></h2>
-            <select
-              className={INPUT_CLASS}
-              onChange={(event) => {
-                const preset = SIZE_PRESETS.find(({ id }) => id === event.target.value);
+            <StudioSelect
+              ariaLabel={gt('Output size')}
+              onValueChange={(value) => {
+                const preset = SIZE_PRESETS.find(({ id }) => id === value);
                 if (preset) updateSettings({ height: preset.height, width: preset.width });
               }}
-              value={SIZE_PRESETS.find(({ height, width }) => height === settings.height && width === settings.width)?.id ?? 'og'}
-            >
-              {SIZE_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label} · {preset.width} × {preset.height}</option>)}
-            </select>
+              options={sizeOptions.map((preset) => ({ label: preset.label, value: preset.id }))}
+              value={selectedSizePreset?.id ?? 'custom'}
+            />
           </section>
         </aside>
 
         <div className='tool-canvas min-h-0 overflow-auto'>
           <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
-            <div
-              aria-label={`${identity.name} ${settings.style} background preview`}
-              className='artifact-frame artifact-preview overflow-hidden bg-white'
-              dangerouslySetInnerHTML={{ __html: previewSvg }}
-              role='img'
-              style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
-            />
+            {settings.style === 'live-shader' ? (
+              <div
+                aria-label={`${identity.name} live shader background preview`}
+                className='artifact-frame artifact-preview relative overflow-hidden bg-black'
+                ref={liveLayerRef}
+                role='img'
+                style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
+              >
+                <LiveMaterialCanvas materialId={settings.liveMaterialId} settings={settings.liveSettings} />
+                {showLogo ? (
+                  <div
+                    className='pointer-events-none absolute inset-0 grid place-items-center'
+                    style={{
+                      opacity: settings.logoOpacity / 100,
+                      transform: `translate(${settings.logoX}%, ${settings.logoY}%)`,
+                    }}
+                  >
+                    {logoPath ? (
+                      <img
+                        alt={`${identity.name} logo`}
+                        className='object-contain'
+                        src={logoPath}
+                        style={{ height: `${settings.logoScale}%`, width: `${settings.logoScale}%` }}
+                      />
+                    ) : (
+                      <span
+                        className='font-semibold'
+                        style={{
+                          color: settings.logoTone === 'white' ? '#FFFFFF' : '#000000',
+                          fontSize: `${settings.logoScale / 2}cqw`,
+                        }}
+                      >
+                        {identity.shortName}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div
+                aria-label={`${identity.name} ${settings.style} background preview`}
+                className='artifact-frame artifact-preview overflow-hidden bg-white'
+                dangerouslySetInnerHTML={{ __html: previewSvg }}
+                role='img'
+                style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
+              />
+            )}
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
               <p className='text-sm font-medium'>{settings.style.replace('-', ' ')}</p>
               <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
-                SVG layers / {settings.width} × {settings.height}
+                {settings.style === 'live-shader' ? 'GPU material' : 'SVG layers'} / {settings.width} × {settings.height}
               </p>
             </div>
           </div>

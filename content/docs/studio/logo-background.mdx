@@ -9,7 +9,8 @@ icon: Palette
 Logo lab previews the active mark in identity colors and at common application sizes.
 
 - Select ink, paper, emphasis, or success color.
-- Switch between base white, base dark, grid, and noise surfaces.
+- Switch between base white, base dark, grid, noise, and live GPU surfaces.
+- Choose any ShaderGradient or Ariadne material and edit its colors in HEX or OKLCH.
 - Choose 64 px or 128 px output.
 - Enable transparent export when the mark should have no background.
 
@@ -17,7 +18,7 @@ The preview surface is derived from identity colors and does not change with Stu
 
 ## Color tokens
 
-Color tokens provides large swatches with editable HEX values and computed OKLCH values. **Copy tokens** writes CSS custom properties with both formats represented.
+Color tokens provides large swatches with editable HEX and OKLCH values plus percentage opacity. **Copy tokens** writes perceptual CSS custom properties and preserves a HEX reference.
 
 Use this tool to check contrast across ink, paper, emphasis, and status colors before committing the values in Brand settings.
 
@@ -29,7 +30,7 @@ Uploaded font files are loaded with the browser FontFace API. They are not uploa
 
 ## Background lab
 
-Background lab builds exportable SVG layers and downloads a PNG.
+Background lab builds exportable SVG layers or live GPU materials and downloads a PNG.
 
 ### Recipes
 
@@ -37,9 +38,10 @@ Background lab builds exportable SVG layers and downloads a PNG.
 - Grainy gradient
 - Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices
 - Pattern field
+- ShaderGradient and Ariadne live materials
 
 ### Overlays
 
 Add dots, lines, or grids and control spacing and opacity. Logos can use the light or dark mark with adjustable size, opacity, and horizontal/vertical position.
 
-Output presets cover common square, landscape, OpenGraph, and presentation sizes. The agent API exposes the same SVG background model for deterministic remote generation.
+Output presets cover common square, landscape, OpenGraph, and presentation sizes. Static recipes remain available to the agent API as deterministic SVG; live WebGL materials are rendered and downloaded in the browser.

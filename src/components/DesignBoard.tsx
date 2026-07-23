@@ -6,6 +6,7 @@ import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   brandAssetPath,
@@ -191,25 +192,20 @@ export default function DesignBoard({
                 <T>Export foundations and polished brand applications with embedded fonts.</T>
               </p>
             </div>
-            <label className='flex flex-col gap-2 text-sm'>
+            <div className='flex flex-col gap-2 text-sm'>
               <span className='text-muted-foreground'>
                 <T>Output size</T>
               </span>
-              <select
-                className='h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-foreground'
-                onChange={(event) =>
-                  setExportPresetId(event.target.value as MoodboardExportPresetId)
-                }
+              <StudioSelect
+                ariaLabel='Output size'
+                onValueChange={(value) => setExportPresetId(value as MoodboardExportPresetId)}
+                options={MOODBOARD_EXPORT_PRESETS.map((preset) => ({
+                  label: `${preset.label}${preset.id === 'custom' ? '' : ` · ${preset.width} × ${preset.height}`}`,
+                  value: preset.id,
+                }))}
                 value={exportPresetId}
-              >
-                {MOODBOARD_EXPORT_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                    {preset.id === 'custom' ? '' : ` · ${preset.width} × ${preset.height}`}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             {exportPresetId === 'custom' ? (
               <label className='flex flex-col gap-2 text-sm'>
                 <span className='text-muted-foreground'>

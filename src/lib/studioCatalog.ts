@@ -84,9 +84,9 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Motion',
-    description: 'Apply live WebGL materials behind, inside, or around the active logo.',
+    description: 'Apply editable ShaderGradient and local GLSL materials behind or inside the active logo.',
     id: 'logo-shader',
-    keywords: ['shader', 'webgl', 'logo background', 'gradient', 'aurora', 'plasma', 'animated'],
+    keywords: ['shader', 'webgl', 'logo background', 'gradient', 'shadergradient', 'ariadne', 'liquid glass', 'aurora', 'plasma', 'animated'],
     name: 'Logo shader',
     shortcut: 'G',
   },
@@ -108,7 +108,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Preview and download the active identity mark across colors, surfaces, and sizes.',
+    description: 'Preview and download the active identity mark across colors, static surfaces, live shaders, and sizes.',
     id: 'logo',
     keywords: ['logomark', 'transparent', 'white', 'black', 'primary', 'secondary', 'download'],
     name: 'Logo lab',
@@ -116,7 +116,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Build exportable gradients, grain, dithering, dots, lines, grids, and logo surfaces.',
+    description: 'Build exportable gradients, grain, dithering, patterns, and live GPU logo surfaces.',
     id: 'backgrounds',
     keywords: ['background', 'dither', 'gradient', 'grain', 'noise', 'dots', 'lines', 'grid', 'texture', 'bayer'],
     name: 'Background lab',

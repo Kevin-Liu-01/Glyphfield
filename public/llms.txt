@@ -243,7 +243,8 @@ Use /studio for browser-local capabilities whose output depends on Canvas, WebGL
 
 - Moodboard PNG export up to 4800 × 6000
 - Morph, type/delete, crossfade, scale fade, and slide-fade GIF export
-- Live logo shaders and alpha-masked metal/material GIFs
+- Live ShaderGradient and original local GLSL logo materials, including ten Ariadne scene families, with PNG/GIF export
+- Browser color controls with HEX, OKLCH, and percentage opacity input
 - PNG raster export for OpenGraph, terminal cards, logos, and templates
 - Local font, image, logo, and GLSL inputs
 - Shared Brand Settings that update every browser-local design for the active identity

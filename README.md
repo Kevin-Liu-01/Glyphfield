@@ -83,8 +83,9 @@ export.
 
 - Design boards combine foundations with finished applications and export up
   to 4800 × 6000 PNG.
-- Logo Shader applies original WebGL materials to live backdrops and
-  alpha-masked marks, with still PNG and animated GIF export.
+- Logo Shader combines the supplied ShaderGradient sphere, ten original local
+  GLSL recipes based on the visual families cataloged in Ariadne, and Studio materials across live
+  backdrops and alpha-masked marks, with still PNG and animated GIF export.
 - Background Lab creates gradients, grain, ordered Bayer dithering, dots,
   lines, and grids as portable SVG-composed images.
 - Templates include eight slide layouts plus blog, partnership, OpenGraph,

@@ -40,6 +40,7 @@ import {
 import AnimationStudio from '@/components/AnimationStudio';
 import StudioToolWorkspace from '@/components/StudioToolWorkspace';
 import { Button } from '@/components/ui/Button';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import {
@@ -797,18 +798,13 @@ export default function StudioApp() {
         </Link>
 
         <div className='studio-search-bar flex min-w-0 items-center gap-2 px-3'>
-          <select
-            aria-label={gt('Active Studio tool')}
-            className='studio-mobile-tool h-9 min-w-0 rounded-md border border-input bg-background px-2 text-sm outline-none'
-            onChange={(event) => selectTool(event.target.value as StudioToolId)}
+          <StudioSelect
+            ariaLabel={gt('Active Studio tool')}
+            className='studio-mobile-tool min-w-0'
+            onValueChange={(value) => selectTool(value as StudioToolId)}
+            options={STUDIO_TOOLS.map((tool) => ({ label: gt(tool.name), value: tool.id }))}
             value={activeToolId}
-          >
-            {STUDIO_TOOLS.map((tool) => (
-              <option key={tool.id} value={tool.id}>
-                {gt(tool.name)}
-              </option>
-            ))}
-          </select>
+          />
           <label className='flex h-9 min-w-0 flex-1 max-w-xl items-center gap-2 rounded-md border border-input bg-background px-3 focus-within:border-foreground'>
             <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
             <input

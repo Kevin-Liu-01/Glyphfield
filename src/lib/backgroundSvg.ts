@@ -1,4 +1,11 @@
-export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'pattern';
+import {
+  DEFAULT_LIVE_MATERIAL_ID,
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from '@/lib/liveMaterials';
+
+export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'pattern' | 'live-shader';
 export type BackgroundPattern = 'none' | 'dots' | 'lines' | 'grid';
 export type BackgroundGradient = 'linear' | 'radial';
 
@@ -15,6 +22,8 @@ export type BackgroundSettings = {
   logoTone: 'black' | 'white';
   logoX: number;
   logoY: number;
+  liveMaterialId?: LiveMaterialId;
+  liveSettings?: LiveMaterialSettings;
   pattern: BackgroundPattern;
   patternOpacity: number;
   spacing: number;
@@ -35,6 +44,8 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   logoTone: 'white',
   logoX: 0,
   logoY: 0,
+  liveMaterialId: DEFAULT_LIVE_MATERIAL_ID,
+  liveSettings: DEFAULT_LIVE_MATERIAL_SETTINGS,
   pattern: 'none',
   patternOpacity: 24,
   spacing: 24,

@@ -6,6 +6,8 @@ import { ImagePlus, Trash2 } from 'lucide-react';
 
 import BezierEditor from '@/components/BezierEditor';
 import { Button } from '@/components/ui/Button';
+import ColorControl from '@/components/ui/ColorControl';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { EASING_PRESETS, type ImportedImage, type SourceMode, type StudioSettings } from '@/lib/studio';
 
 import type { AnimationPackageId } from '@/lib/renderFrame';
@@ -355,25 +357,9 @@ export default function StudioControls({
           unit='px'
           value={settings.fontSize}
         />
-        <div className='grid grid-cols-2 gap-2'>
-          <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-            <T>Background</T>
-            <input
-              className='h-10 w-full rounded-md border border-input bg-background p-1'
-              onChange={(event) => onSettingsChange({ background: event.target.value })}
-              type='color'
-              value={settings.background}
-            />
-          </label>
-          <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
-            <T>Foreground</T>
-            <input
-              className='h-10 w-full rounded-md border border-input bg-background p-1'
-              onChange={(event) => onSettingsChange({ foreground: event.target.value })}
-              type='color'
-              value={settings.foreground}
-            />
-          </label>
+        <div className='grid gap-2'>
+          <ColorControl ariaLabel={gt('Background')} label={<T>Background</T>} onChange={(background) => onSettingsChange({ background })} value={settings.background} />
+          <ColorControl ariaLabel={gt('Foreground')} label={<T>Foreground</T>} onChange={(foreground) => onSettingsChange({ foreground })} value={settings.foreground} />
         </div>
       </InspectorSection>
 
@@ -405,36 +391,26 @@ export default function StudioControls({
           </label>
         </div>
         <div className='grid grid-cols-2 gap-2'>
-          <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+          <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
             <T>Frame rate</T>
-            <select
-              className='h-9 rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground outline-none focus:border-foreground'
-              onChange={(event) => onSettingsChange({ fps: Number(event.target.value) })}
-              value={settings.fps}
-            >
-              {[10, 15, 20, 24, 30].map((fps) => (
-                <option key={fps} value={fps}>
-                  {fps} fps
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
+            <StudioSelect
+              ariaLabel={gt('Frame rate')}
+              className='font-mono'
+              onValueChange={(value) => onSettingsChange({ fps: Number(value) })}
+              options={[10, 15, 20, 24, 30].map((fps) => ({ label: `${fps} fps`, value: String(fps) }))}
+              value={String(settings.fps)}
+            />
+          </div>
+          <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
             <T>Palette</T>
-            <select
-              className='h-9 rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground outline-none focus:border-foreground'
-              onChange={(event) =>
-                onSettingsChange({ colors: Number(event.target.value) as StudioSettings['colors'] })
-              }
-              value={settings.colors}
-            >
-              {[32, 64, 128, 256].map((colors) => (
-                <option key={colors} value={colors}>
-                  {colors}
-                </option>
-              ))}
-            </select>
-          </label>
+            <StudioSelect
+              ariaLabel={gt('Palette')}
+              className='font-mono'
+              onValueChange={(value) => onSettingsChange({ colors: Number(value) as StudioSettings['colors'] })}
+              options={[32, 64, 128, 256].map((colors) => ({ label: String(colors), value: String(colors) }))}
+              value={String(settings.colors)}
+            />
+          </div>
         </div>
         <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'>
           <T>Loop forever</T>
