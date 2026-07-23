@@ -77,6 +77,7 @@ const PROJECTS_STORAGE_KEY = 'glyphfield-projects-v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'glyphfield-active-project-v1';
 const ACTIVE_TOOL_STORAGE_KEY = 'glyphfield-active-tool-v1';
 const ACTIVE_FOLDER_STORAGE_KEY = 'glyphfield-active-folder-v1';
+const OPEN_TABS_STORAGE_KEY = 'glyphfield-open-tabs-v1';
 const APPEARANCE_STORAGE_KEY = 'glyphfield-appearance-v1';
 const LEGACY_PROJECTS_STORAGE_KEYS = [
   'gt-studio-identities-v2',
@@ -120,18 +121,29 @@ function isProjectFolderId(value: string): value is ProjectFolderId {
 }
 
 function ProjectFolderMenu({
+  activeIdentityId,
   activeFolderId,
   folderCounts,
+  identities,
+  onOpenProject,
   onSelect,
+  openIdentityIds,
 }: {
+  activeIdentityId: string;
   activeFolderId: ProjectFolderId;
   folderCounts: Record<ProjectFolderId, number>;
+  identities: BrandIdentity[];
+  onOpenProject: (identityId: string) => void;
   onSelect: (folderId: ProjectFolderId) => void;
+  openIdentityIds: string[];
 }) {
   const gt = useGT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeFolder = PROJECT_FOLDERS.find(({ id }) => id === activeFolderId)!;
+  const folderProjects = identities.filter((identity) =>
+    identityBelongsToFolder(identity, activeFolderId)
+  );
 
   useMountEffect(() => {
     function closeMenu(event: PointerEvent) {
@@ -178,7 +190,6 @@ function ProjectFolderMenu({
               key={folder.id}
               onClick={() => {
                 onSelect(folder.id);
-                setOpen(false);
               }}
               role='menuitemradio'
               type='button'
@@ -193,6 +204,46 @@ function ProjectFolderMenu({
               {activeFolderId === folder.id ? <Check aria-hidden='true' /> : null}
             </button>
           ))}
+          <div className='project-folder-popover-heading project-folder-projects-heading'>
+            <span><T>Projects</T></span>
+            <span><T>Click to open</T></span>
+          </div>
+          <div className='project-folder-projects'>
+            {folderProjects.map((identity) => {
+              const markPath = brandAssetPath(identity, 'mark-dark');
+              const isOpen = openIdentityIds.includes(identity.id);
+              const isActive = identity.id === activeIdentityId;
+
+              return (
+                <button
+                  aria-current={isActive ? 'page' : undefined}
+                  className='project-folder-project'
+                  key={identity.id}
+                  onClick={() => {
+                    onOpenProject(identity.id);
+                    setOpen(false);
+                  }}
+                  role='menuitem'
+                  type='button'
+                >
+                  <span className='project-folder-project-mark' aria-hidden='true'>
+                    {markPath ? (
+                      <Image alt='' height={22} src={markPath} width={22} />
+                    ) : (
+                      identity.shortName.slice(0, 2)
+                    )}
+                  </span>
+                  <span>
+                    <strong>{identity.name}</strong>
+                    <small>{identity.kind === 'custom' ? <T>My brand</T> : gt(identity.kind)}</small>
+                  </span>
+                  <span className='project-folder-project-state' title={isOpen ? gt('Tab open') : gt('Open tab')}>
+                    {isOpen ? <Check aria-hidden='true' /> : <Plus aria-hidden='true' />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : null}
     </div>
@@ -354,6 +405,10 @@ export default function StudioApp() {
   const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
+  const [openIdentityIds, setOpenIdentityIds] = usePersistentState<string[]>(
+    OPEN_TABS_STORAGE_KEY,
+    () => hydrateBrandIdentities(null).map(({ id }) => id)
+  );
   const [appearance, setAppearance] = usePersistentState<StudioAppearance>(
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
@@ -365,9 +420,15 @@ export default function StudioApp() {
   const activeIdentity =
     identities.find(({ id }) => id === activeIdentityId) ?? identities[0];
   const visibleIdentities = useMemo(
-    () => identities.filter((identity) => identityBelongsToFolder(identity, activeFolderId)),
-    [activeFolderId, identities]
+    () =>
+      identities.filter(
+        (identity) =>
+          openIdentityIds.includes(identity.id) &&
+          identityBelongsToFolder(identity, activeFolderId)
+      ),
+    [activeFolderId, identities, openIdentityIds]
   );
+  const activeIdentityIsOpen = openIdentityIds.includes(activeIdentity?.id ?? '');
   const folderCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -397,6 +458,9 @@ export default function StudioApp() {
       const nextActiveIdentity =
         nextIdentities.find(({ id }) => id === storedActiveIdentity) ?? nextIdentities[0];
       setIdentities(nextIdentities);
+      if (window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) === null) {
+        setOpenIdentityIds(nextIdentities.map(({ id }) => id));
+      }
       if (nextActiveIdentity) setActiveIdentityId(nextActiveIdentity.id);
       if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
         setActiveToolId(storedActiveTool as StudioToolId);
@@ -461,8 +525,28 @@ export default function StudioApp() {
   }
 
   function selectIdentity(identityId: string) {
+    setOpenIdentityIds((current) =>
+      current.includes(identityId) ? current : [...current, identityId]
+    );
     setActiveIdentityId(identityId);
     window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, identityId);
+  }
+
+  function closeIdentity(identityId: string) {
+    const closingIndex = visibleIdentities.findIndex(({ id }) => id === identityId);
+    const nextOpenIdentityIds = openIdentityIds.filter((id) => id !== identityId);
+    setOpenIdentityIds(nextOpenIdentityIds);
+
+    if (identityId !== activeIdentity?.id) return;
+    const folderCandidates = identities.filter(
+      (identity) =>
+        nextOpenIdentityIds.includes(identity.id) &&
+        identityBelongsToFolder(identity, activeFolderId)
+    );
+    const nextIdentity =
+      folderCandidates[Math.min(Math.max(0, closingIndex), folderCandidates.length - 1)] ??
+      identities.find(({ id }) => nextOpenIdentityIds.includes(id));
+    if (nextIdentity) selectIdentity(nextIdentity.id);
   }
 
   function addIdentity() {
@@ -521,6 +605,7 @@ export default function StudioApp() {
     if (!activeIdentity || activeIdentity.builtIn) return;
     const nextIdentities = identities.filter(({ id }) => id !== activeIdentity.id);
     commitIdentities(nextIdentities);
+    setOpenIdentityIds((current) => current.filter((id) => id !== activeIdentity.id));
     setActiveFolderId('all');
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
     selectIdentity(STARTER_BRAND_IDENTITY.id);
@@ -549,7 +634,7 @@ export default function StudioApp() {
     return (
       <div
         aria-selected={selected}
-        className={`project-tab relative flex min-w-40 max-w-64 items-center gap-2 rounded-t-[5px] border border-b-0 px-3 text-sm ${
+        className={`project-tab relative flex min-w-40 max-w-64 items-center gap-2 rounded-t-[5px] border border-b-0 py-0 pr-1.5 pl-3 text-sm ${
           selected
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -582,6 +667,15 @@ export default function StudioApp() {
             </span>
           </button>
         )}
+        <button
+          aria-label={gt('Close {name} tab', { name: identity.name })}
+          className='project-tab-close'
+          onClick={() => closeIdentity(identity.id)}
+          title={gt('Close tab')}
+          type='button'
+        >
+          <X aria-hidden='true' />
+        </button>
       </div>
     );
   }
@@ -735,9 +829,13 @@ export default function StudioApp() {
               </Button>
             ) : null}
             <ProjectFolderMenu
+              activeIdentityId={activeIdentity.id}
               activeFolderId={activeFolderId}
               folderCounts={folderCounts}
+              identities={identities}
+              onOpenProject={selectIdentity}
               onSelect={selectProjectFolder}
+              openIdentityIds={openIdentityIds}
             />
           </div>
         </div>
@@ -793,7 +891,15 @@ export default function StudioApp() {
         </aside>
 
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
-          {activeToolId === 'animation' ? (
+          {!activeIdentityIsOpen ? (
+            <div className='studio-closed-projects-empty'>
+              <Folder aria-hidden='true' />
+              <div>
+                <h2><T>No project tab open</T></h2>
+                <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
+              </div>
+            </div>
+          ) : activeToolId === 'animation' ? (
             <AnimationStudio embedded identity={activeIdentity} key={activeIdentity.id} />
           ) : (
             <StudioToolWorkspace identity={activeIdentity} key={`${activeIdentity.id}-${activeTool.id}`} tool={activeTool} />

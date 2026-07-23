@@ -408,6 +408,39 @@ body {
   box-shadow: 0 -1px 0 hsl(var(--foreground) / 0.025);
 }
 
+.project-tab-close {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: hsl(var(--foreground));
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.34;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
+}
+
+.project-tab[aria-selected='true'] .project-tab-close,
+.project-tab:hover .project-tab-close,
+.project-tab-close:focus-visible {
+  opacity: 0.72;
+}
+
+.project-tab-close:hover {
+  background: hsl(var(--foreground) / 0.08);
+  opacity: 1;
+}
+
+.project-tab-close svg {
+  width: 13px;
+  height: 13px;
+}
+
 .project-tab-mark {
   display: inline-flex;
   width: 20px;
@@ -460,7 +493,8 @@ body {
   z-index: 80;
   top: calc(100% + 7px);
   right: 0;
-  width: 250px;
+  width: 280px;
+  max-height: min(580px, calc(100dvh - 112px));
   padding: 0.35rem;
   border: 1px solid hsl(var(--border));
   border-radius: 7px;
@@ -534,6 +568,100 @@ body {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
   font-size: 0.58rem;
+}
+
+.project-folder-projects-heading {
+  margin-top: 0.3rem;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 0.75rem;
+}
+
+.project-folder-projects {
+  max-height: min(240px, calc(100dvh - 350px));
+  overflow-y: auto;
+  scrollbar-color: hsl(var(--foreground) / 0.22) transparent;
+  scrollbar-width: thin;
+}
+
+.project-folder-project {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.45rem 0.55rem;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 0.6rem;
+  border: 0;
+  border-radius: 4px;
+  color: hsl(var(--foreground));
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.project-folder-project:hover,
+.project-folder-project[aria-current='page'] {
+  background: hsl(var(--muted));
+}
+
+.project-folder-project-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  background: hsl(var(--background));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+}
+
+.project-folder-project-mark img {
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+}
+
+.project-folder-project > span:nth-child(2) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.project-folder-project strong {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 580;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-folder-project small {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.56rem;
+  text-transform: capitalize;
+}
+
+.project-folder-project-state {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+}
+
+.project-folder-project:hover .project-folder-project-state {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+
+.project-folder-project-state svg {
+  width: 12px;
+  height: 12px;
 }
 
 .appearance-popover {
@@ -763,7 +891,8 @@ body {
 }
 
 .studio-app[data-theme='dark'] .studio-app-header > a img,
-.studio-app[data-theme='dark'] .project-tab-mark img {
+.studio-app[data-theme='dark'] .project-tab-mark img,
+.studio-app[data-theme='dark'] .project-folder-project-mark img {
   filter: invert(1);
 }
 
@@ -836,6 +965,41 @@ body {
 .studio-app[data-studio-motion='reduced'] .project-dither-sweep,
 .studio-app[data-studio-motion='reduced'] .project-dither-symbols > span {
   animation: none !important;
+}
+
+.studio-closed-projects-empty {
+  min-height: 100%;
+  padding: 2rem;
+  display: grid;
+  place-content: center;
+  grid-template-columns: 38px minmax(0, 380px);
+  gap: 1rem;
+  color: hsl(var(--muted-foreground));
+  background-image: radial-gradient(circle, hsl(var(--border) / 0.66) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.studio-closed-projects-empty > svg {
+  width: 38px;
+  height: 38px;
+  padding: 0.6rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+
+.studio-closed-projects-empty h2 {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: 0.95rem;
+  font-weight: 620;
+}
+
+.studio-closed-projects-empty p {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
 }
 
 @media (max-width: 760px) {
