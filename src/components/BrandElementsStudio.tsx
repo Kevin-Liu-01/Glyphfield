@@ -1024,7 +1024,7 @@ export default function BrandElementsStudio({
                       type='button'
                       variant={selectedElement.id === element.id ? 'default' : 'ghost'}
                     >
-                      <span className='relative z-10 min-w-0 flex-1 pr-14'>
+                      <span className='relative z-10 min-w-0 flex-1 pr-10'>
                         <span className='block truncate text-sm'>{gt(element.name)}</span>
                         <span className={`block truncate font-mono text-[10px] ${selectedElement.id === element.id ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
                           {element.dimensions}
@@ -1032,7 +1032,7 @@ export default function BrandElementsStudio({
                       </span>
                       <span
                         aria-hidden='true'
-                        className={`pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 font-mono text-[28px] font-semibold leading-none tracking-[-0.08em] ${
+                        className={`pointer-events-none absolute right-3 bottom-2 font-mono text-[18px] font-semibold leading-none tracking-[-0.08em] ${
                           selectedElement.id === element.id
                             ? 'text-primary-foreground/12'
                             : 'text-foreground/7'
