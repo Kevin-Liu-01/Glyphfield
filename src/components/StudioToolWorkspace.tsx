@@ -15,6 +15,14 @@ import BrandElementsStudio from '@/components/BrandElementsStudio';
 import BackgroundStudio from '@/components/BackgroundStudio';
 import BrandSettingsStudio from '@/components/BrandSettingsStudio';
 import CanvasViewport from '@/components/CanvasViewport';
+import ComponentLibraryPreview, {
+  COMPONENT_FAMILY_OPTIONS,
+  COMPONENT_PATTERNS,
+  componentPreviewStyle,
+  getFirstComponentPattern,
+  type ComponentFamily,
+  type ComponentPatternId,
+} from '@/components/ComponentLibraryPreview';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
@@ -1301,27 +1309,47 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   );
 }
 
-type ComponentFamily =
-  | 'actions'
-  | 'forms'
-  | 'navigation'
-  | 'feedback'
-  | 'data'
-  | 'cards'
-  | 'overlays'
-  | 'messaging'
-  | 'commerce'
-  | 'content';
-
 function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const gt = useGT();
   const [family, setFamily] = useStudioDraft<ComponentFamily>(identity.id, tool.id, 'family', 'actions');
+  const [pattern, setPattern] = useStudioDraft<ComponentPatternId>(
+    identity.id,
+    tool.id,
+    'pattern',
+    'buttons'
+  );
   const [label, setLabel] = useStudioDraft(identity.id, tool.id, 'label', 'Get started');
-  const [supportingCopy, setSupportingCopy] = useStudioDraft(identity.id, tool.id, 'supporting-copy', identity.description);
+  const [supportingCopy, setSupportingCopy] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'supporting-copy',
+    identity.description
+  );
   const [disabled, setDisabled] = useStudioDraft(identity.id, tool.id, 'disabled', false);
-  const [radius, setRadius] = useStudioDraft(identity.id, tool.id, 'radius', identity.style.borderRadius);
-  const [density, setDensity] = useStudioDraft(identity.id, tool.id, 'density', identity.style.density);
-  const [useBrandDefaults, setUseBrandDefaults] = useStudioDraft(identity.id, tool.id, 'use-brand-defaults', true);
-  const [surface, setSurface] = useStudioDraft<'base' | 'soft' | 'inverse'>(identity.id, tool.id, 'surface', 'base');
+  const [radius, setRadius] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'radius',
+    identity.style.borderRadius
+  );
+  const [density, setDensity] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'density',
+    identity.style.density
+  );
+  const [useBrandDefaults, setUseBrandDefaults] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'use-brand-defaults',
+    true
+  );
+  const [surface, setSurface] = useStudioDraft<'base' | 'soft' | 'inverse'>(
+    identity.id,
+    tool.id,
+    'surface',
+    'base'
+  );
   const [size, setSize] = useStudioDraft<'sm' | 'default' | 'lg'>(
     identity.id,
     tool.id,
@@ -1330,64 +1358,143 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
   );
   const resolvedDensity = useBrandDefaults ? identity.style.density : density;
   const resolvedRadius = useBrandDefaults ? identity.style.borderRadius : radius;
+  const selectedPattern =
+    COMPONENT_PATTERNS.some((item) => item.id === pattern && item.family === family)
+      ? pattern
+      : getFirstComponentPattern(family);
+  const selectedPatternConfig =
+    COMPONENT_PATTERNS.find((item) => item.id === selectedPattern) ?? COMPONENT_PATTERNS[0];
+  const familyPatterns = COMPONENT_PATTERNS.filter((item) => item.family === family);
+
+  function selectFamily(nextFamily: ComponentFamily) {
+    setFamily(nextFamily);
+    setPattern(getFirstComponentPattern(nextFamily));
+  }
+
+  function selectPattern(nextPattern: ComponentPatternId) {
+    const nextPatternConfig = COMPONENT_PATTERNS.find((item) => item.id === nextPattern);
+    if (!nextPatternConfig) return;
+    setFamily(nextPatternConfig.family);
+    setPattern(nextPattern);
+  }
 
   const inspector = (
     <>
       <ControlSection title={<T>Component controls</T>}>
         <Field label={<T>Component family</T>}>
-          <StudioSelect ariaLabel='Component family' onValueChange={(value) => setFamily(value as ComponentFamily)} options={[
-            { label: 'Actions', value: 'actions' },
-            { label: 'Forms', value: 'forms' },
-            { label: 'Navigation', value: 'navigation' },
-            { label: 'Feedback', value: 'feedback' },
-            { label: 'Data display', value: 'data' },
-            { label: 'Cards', value: 'cards' },
-            { label: 'Overlays', value: 'overlays' },
-            { label: 'Messaging', value: 'messaging' },
-            { label: 'Commerce', value: 'commerce' },
-            { label: 'Content', value: 'content' },
-          ]} value={family} />
+          <StudioSelect
+            ariaLabel='Component family'
+            onValueChange={(value) => selectFamily(value as ComponentFamily)}
+            options={COMPONENT_FAMILY_OPTIONS}
+            value={family}
+          />
+        </Field>
+        <Field label={<T>Component</T>}>
+          <StudioSelect
+            ariaLabel='Component'
+            onValueChange={(value) => selectPattern(value as ComponentPatternId)}
+            options={familyPatterns.map((item) => ({ label: item.label, value: item.id }))}
+            value={selectedPattern}
+          />
         </Field>
         <Field label={<T>Label</T>}>
-          <input className={INPUT_CLASS} onChange={(event) => setLabel(event.target.value)} value={label} />
+          <input
+            className={INPUT_CLASS}
+            onChange={(event) => setLabel(event.target.value)}
+            value={label}
+          />
         </Field>
         <Field label={<T>Supporting copy</T>}>
-          <textarea className={TEXTAREA_CLASS} onChange={(event) => setSupportingCopy(event.target.value)} value={supportingCopy} />
+          <textarea
+            className={TEXTAREA_CLASS}
+            onChange={(event) => setSupportingCopy(event.target.value)}
+            value={supportingCopy}
+          />
         </Field>
         <Field label={<T>Size</T>}>
-          <StudioSelect ariaLabel='Component size' onValueChange={(value) => setSize(value as typeof size)} options={[
-            { label: 'Small', value: 'sm' },
-            { label: 'Default', value: 'default' },
-            { label: 'Large', value: 'lg' },
-          ]} value={size} />
+          <StudioSelect
+            ariaLabel='Component size'
+            onValueChange={(value) => setSize(value as typeof size)}
+            options={[
+              { label: 'Small', value: 'sm' },
+              { label: 'Default', value: 'default' },
+              { label: 'Large', value: 'lg' },
+            ]}
+            value={size}
+          />
         </Field>
         <label className='flex items-center justify-between gap-4 text-sm'>
           <span><T>Follow brand defaults</T></span>
-          <input checked={useBrandDefaults} onChange={(event) => setUseBrandDefaults(event.target.checked)} type='checkbox' />
+          <input
+            checked={useBrandDefaults}
+            onChange={(event) => setUseBrandDefaults(event.target.checked)}
+            type='checkbox'
+          />
         </label>
         <Field label={<T>Density</T>}>
-          <StudioSelect ariaLabel='Component density' onValueChange={(value) => { setDensity(value as typeof density); setUseBrandDefaults(false); }} options={[
-            { label: 'Compact', value: 'compact' },
-            { label: 'Comfortable', value: 'comfortable' },
-            { label: 'Spacious', value: 'spacious' },
-          ]} value={resolvedDensity} />
+          <StudioSelect
+            ariaLabel='Component density'
+            onValueChange={(value) => {
+              setDensity(value as typeof density);
+              setUseBrandDefaults(false);
+            }}
+            options={[
+              { label: 'Compact', value: 'compact' },
+              { label: 'Comfortable', value: 'comfortable' },
+              { label: 'Spacious', value: 'spacious' },
+            ]}
+            value={resolvedDensity}
+          />
         </Field>
         <Field label={<T>Surface</T>}>
-          <StudioSelect ariaLabel='Component surface' onValueChange={(value) => setSurface(value as typeof surface)} options={[
-            { label: 'Base', value: 'base' },
-            { label: 'Soft', value: 'soft' },
-            { label: 'Inverse', value: 'inverse' },
-          ]} value={surface} />
+          <StudioSelect
+            ariaLabel='Component surface'
+            onValueChange={(value) => setSurface(value as typeof surface)}
+            options={[
+              { label: 'Base', value: 'base' },
+              { label: 'Soft', value: 'soft' },
+              { label: 'Inverse', value: 'inverse' },
+            ]}
+            value={surface}
+          />
         </Field>
-        <RangeField label={<T>Corner radius</T>} max={32} min={0} onChange={(value) => { setRadius(value); setUseBrandDefaults(false); }} suffix='px' value={resolvedRadius} />
+        <RangeField
+          label={<T>Corner radius</T>}
+          max={32}
+          min={0}
+          onChange={(value) => {
+            setRadius(value);
+            setUseBrandDefaults(false);
+          }}
+          suffix='px'
+          value={resolvedRadius}
+        />
         <label className='flex items-center justify-between gap-4 text-sm'>
           <T>Disabled state</T>
-          <input checked={disabled} onChange={(event) => setDisabled(event.target.checked)} type='checkbox' />
+          <input
+            checked={disabled}
+            onChange={(event) => setDisabled(event.target.checked)}
+            type='checkbox'
+          />
         </label>
       </ControlSection>
       <ControlSection title={<T>Included</T>}>
-        <div className='grid grid-cols-2 gap-2 text-xs text-muted-foreground'>
-          {['Buttons', 'Icon buttons', 'Button groups', 'Inputs', 'Textareas', 'Selects', 'Checkboxes', 'Radios', 'Toggles', 'Uploaders', 'Navigation', 'Sidebars', 'Tabs', 'Breadcrumbs', 'Pagination', 'Command menu', 'Dialogs', 'Popovers', 'Tooltips', 'Alerts', 'Toasts', 'Progress', 'Tables', 'Stats', 'Charts', 'Pricing', 'Checkout', 'Testimonials', 'Inbox', 'Comments', 'Article body', 'Metadata'].map((item) => <span className='border border-border px-2 py-1.5' key={item}>{item}</span>)}
+        <div className='grid grid-cols-2 gap-2 text-xs'>
+          {COMPONENT_PATTERNS.map((item) => (
+            <button
+              aria-pressed={selectedPattern === item.id}
+              className={`min-w-0 border px-2 py-1.5 text-left transition-colors ${
+                selectedPattern === item.id
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border text-muted-foreground hover:border-foreground/45 hover:text-foreground'
+              }`}
+              key={item.id}
+              onClick={() => selectPattern(item.id)}
+              type='button'
+            >
+              {gt(item.label)}
+            </button>
+          ))}
         </div>
       </ControlSection>
     </>
@@ -1397,21 +1504,27 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     <ToolShell inspector={inspector} tool={tool}>
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
-          className={`component-library-demo mx-auto w-full max-w-5xl border border-border shadow-sm component-density-${resolvedDensity}`}
+          className={`component-library-demo component-density-${resolvedDensity} mx-auto w-full max-w-5xl border border-border shadow-sm`}
           data-surface={surface}
-          style={{ '--component-radius': `${resolvedRadius}px`, fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Inter' } as CSSProperties}
+          style={componentPreviewStyle(resolvedRadius, identity)}
         >
-          <div className='flex items-center justify-between border-b border-border px-5 py-4'><div><p className='text-sm font-semibold'>{identity.name} components</p><p className='mt-1 text-xs opacity-55'>{family} · {resolvedDensity}</p></div><span className='font-mono text-xs opacity-55'>36 patterns · 10 families</span></div>
-          {family === 'actions' ? <div className='grid gap-px bg-border md:grid-cols-2'><section className='flex min-h-72 flex-col justify-between gap-10 bg-background p-8'><p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>Core actions</p><div className='flex flex-wrap items-center gap-3'><Button disabled={disabled} size={size}>{label}</Button><Button disabled={disabled} size={size} variant='rainbow'>{label}</Button><Button disabled={disabled} size={size} variant='outline'>{label}</Button><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button disabled={disabled} size={size} variant='ghost'>{label}</Button><Button disabled={disabled} size={size} variant='destructive'>{label}</Button></div></section><section className='flex min-h-72 flex-col justify-between bg-foreground p-8 text-background'><p className='font-mono text-xs uppercase tracking-widest opacity-50'>Reversed</p><div className='flex flex-wrap gap-3'><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button className='border-background/30 text-background hover:text-foreground' disabled={disabled} size={size} variant='outline'>{label}</Button></div></section></div> : null}
-          {family === 'forms' ? <div className='grid gap-8 p-8 md:grid-cols-2'><div className='flex flex-col gap-5'><Field label={<T>Workspace name</T>}><input className={INPUT_CLASS} value={identity.name} readOnly /></Field><Field label={<T>Website</T>}><input className={INPUT_CLASS} value={identity.website} readOnly /></Field><Field label={<T>Role</T>}><StudioSelect ariaLabel='Role' defaultValue='admin' options={[{ label: 'Administrator', value: 'admin' }, { label: 'Member', value: 'member' }]} /></Field></div><div className='flex flex-col gap-4'><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Automatic updates</strong><small className='text-muted-foreground'>Keep generated assets synchronized.</small></span><input defaultChecked type='checkbox' /></label><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Product email</strong><small className='text-muted-foreground'>Receive important changes.</small></span><input type='checkbox' /></label><Button className='w-fit'>{label}</Button></div></div> : null}
-          {family === 'navigation' ? <div className='flex flex-col gap-8 p-8'><nav className='flex items-center justify-between border border-border p-3'><span className='font-semibold'>{identity.shortName}</span><div className='hidden gap-6 text-sm text-muted-foreground sm:flex'><span>Product</span><span>Docs</span><span>Customers</span></div><Button size='sm'>{label}</Button></nav><div className='flex items-center gap-2 text-sm text-muted-foreground'><span>Settings</span><span>/</span><span>Brand</span><span>/</span><strong className='text-foreground'>Components</strong></div><div className='flex border-b border-border'><span className='border-b-2 border-foreground px-4 py-2 text-sm font-medium'>Overview</span><span className='px-4 py-2 text-sm text-muted-foreground'>Assets</span><span className='px-4 py-2 text-sm text-muted-foreground'>History</span></div></div> : null}
-          {family === 'feedback' ? <div className='grid gap-4 p-8 md:grid-cols-2'><div className='border border-status-success-border bg-status-success-background p-4 text-sm text-status-success'><strong>Brand updated</strong><p className='mt-1 opacity-75'>Every template now uses the latest settings.</p></div><div className='border border-status-error-border bg-status-error-background p-4 text-sm text-status-error'><strong>Export failed</strong><p className='mt-1 opacity-75'>Check the source asset and try again.</p></div><div className='border border-border p-4'><div className='flex justify-between text-sm'><span>Generating assets</span><span>68%</span></div><div className='mt-3 h-2 bg-muted'><div className='h-full w-[68%] bg-foreground' /></div></div><div className='flex items-center justify-between border border-border p-4 text-sm'><span>4 unread notifications</span><Button size='sm' variant='outline'>View</Button></div></div> : null}
-          {family === 'data' ? <div className='p-8'><div className='grid gap-px bg-border sm:grid-cols-3'>{[['42,851','Translations'],['98.7%','Coverage'],['18.4%','Growth']].map(([value,name]) => <div className='bg-background p-5' key={name}><p className='text-3xl font-semibold tracking-tight'>{value}</p><p className='mt-2 text-xs text-muted-foreground'>{name}</p></div>)}</div><div className='mt-6 overflow-hidden border border-border'><div className='grid grid-cols-3 bg-muted p-3 font-mono text-[10px] uppercase text-muted-foreground'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product','Docs','Email'].map((item) => <div className='grid grid-cols-3 border-t border-border p-4 text-sm' key={item}><span>{item}</span><span>Ready</span><span className='text-muted-foreground'>Today</span></div>)}</div></div> : null}
-          {family === 'cards' ? <div className='grid gap-5 p-8 md:grid-cols-3'><article className='flex min-h-80 flex-col justify-between border border-border p-6'><div><p className='font-mono text-xs text-muted-foreground'>PRO</p><h3 className='mt-6 text-4xl font-semibold'>$49</h3><p className='mt-3 text-sm text-muted-foreground'>Shared identity, unlimited projects, and high-resolution exports.</p></div><Button>{label}</Button></article><article className='flex min-h-80 flex-col justify-between bg-foreground p-6 text-background'><p className='text-2xl font-semibold leading-tight'>“Everything finally feels like one system.”</p><div><p className='font-semibold'>Alex Morgan</p><p className='text-xs opacity-55'>Design Engineer</p></div></article><article className='flex min-h-80 flex-col justify-between border border-border p-6'><span className='font-mono text-xs text-muted-foreground'>NEW</span><div><h3 className='text-2xl font-semibold'>{identity.tagline}</h3><p className='mt-3 text-sm text-muted-foreground'>{identity.description}</p></div><span className='text-sm font-semibold'>Explore →</span></article></div> : null}
-          {family === 'overlays' ? <div className='grid min-h-[540px] place-items-center bg-muted/50 p-8'><div className='w-full max-w-xl border border-border bg-background p-3 shadow-2xl'><div className='flex h-12 items-center gap-3 border-b border-border px-3'><span>⌕</span><span className='text-sm text-muted-foreground'>Search {identity.name}…</span><kbd className='ml-auto font-mono text-xs text-muted-foreground'>ESC</kbd></div>{['Open brand settings', 'Create a design board', 'Download current canvas'].map((item, index) => <div className={`flex items-center justify-between px-4 py-3 text-sm ${index === 0 ? 'bg-muted' : ''}`} key={item}><span>{item}</span><span className='font-mono text-xs opacity-35'>↵</span></div>)}<div className='mt-8 border-t border-border p-5'><p className='text-lg font-semibold'>{label}</p><p className='mt-2 text-sm text-muted-foreground'>{supportingCopy}</p><div className='mt-5 flex justify-end gap-2'><Button variant='ghost'>Cancel</Button><Button disabled={disabled}>{label}</Button></div></div></div></div> : null}
-          {family === 'messaging' ? <div className='grid min-h-[520px] gap-px bg-border md:grid-cols-[0.8fr_1.2fr]'><div className='bg-background p-5'><p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>Inbox</p><div className='mt-5 flex flex-col'>{['Product launch', 'Your export is ready', 'Community update', 'A new comment'].map((item, index) => <div className={`border-b border-border p-4 ${index === 0 ? 'bg-muted' : ''}`} key={item}><div className='flex justify-between gap-4'><strong className='text-sm'>{item}</strong><span className='text-[10px] opacity-40'>NOW</span></div><p className='mt-2 truncate text-xs text-muted-foreground'>{supportingCopy}</p></div>)}</div></div><div className='flex flex-col bg-background p-6'><div className='flex items-start justify-between border-b border-border pb-5'><div><p className='text-xl font-semibold'>{label}</p><p className='mt-1 text-xs text-muted-foreground'>From {identity.contactEmail || identity.website}</p></div><span className='grid size-9 place-items-center bg-foreground text-background'>{identity.shortName}</span></div><p className='mt-8 text-sm leading-7 text-muted-foreground'>{supportingCopy}</p><div className='mt-auto flex gap-2'><Button disabled={disabled}>Reply</Button><Button variant='outline'>Archive</Button></div></div></div> : null}
-          {family === 'commerce' ? <div className='grid gap-px bg-border md:grid-cols-[1fr_0.72fr]'><div className='bg-background p-8'><p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>Plan</p><h3 className='mt-6 text-4xl font-semibold'>{label}</h3><p className='mt-3 max-w-lg text-sm leading-6 text-muted-foreground'>{supportingCopy}</p><div className='mt-8 flex flex-col gap-3'>{identity.values.slice(0, 4).map((value) => <span className='flex items-center gap-3 text-sm' key={value}><i className='grid size-5 place-items-center rounded-full bg-foreground text-[10px] text-background not-italic'>✓</i>{value}</span>)}</div></div><aside className='flex flex-col justify-between bg-background p-8'><div><p className='text-sm text-muted-foreground'>Due today</p><p className='mt-2 text-5xl font-semibold'>$49</p><div className='mt-8 flex flex-col gap-3 border-y border-border py-5 text-sm'><span className='flex justify-between'><span>Studio plan</span><span>$49</span></span><span className='flex justify-between'><span>Tax</span><span>$0</span></span></div></div><Button disabled={disabled}>{label}</Button></aside></div> : null}
-          {family === 'content' ? <article className='mx-auto max-w-3xl p-8 sm:p-14'><p className='font-mono text-xs uppercase tracking-widest opacity-45'>{identity.name} / Field notes</p><h2 className='mt-6 text-5xl font-semibold leading-[0.98] tracking-[-0.055em]'>{label}</h2><p className='mt-5 text-lg leading-8 opacity-60'>{supportingCopy}</p><div className='mt-10 grid gap-8 border-y border-border py-8 sm:grid-cols-[0.65fr_1.35fr]'><aside className='text-xs leading-6 opacity-50'>{identity.values.join(' · ')}</aside><div className='space-y-5 text-base leading-8'><p>{identity.positioning}</p><p>{identity.mission}</p><blockquote className='border-l-2 border-foreground pl-5 text-xl font-medium leading-8'>{identity.voice.phrases[0] ?? identity.tagline}</blockquote></div></div></article> : null}
+          <header className='flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
+            <div>
+              <p className='text-sm font-semibold'>{gt(selectedPatternConfig.label)}</p>
+              <p className='mt-1 text-xs capitalize opacity-55'>{family} · {resolvedDensity}</p>
+            </div>
+            <span className='font-mono text-xs opacity-55'>
+              {COMPONENT_PATTERNS.length} <T>patterns</T> · {COMPONENT_FAMILY_OPTIONS.length} <T>families</T>
+            </span>
+          </header>
+          <ComponentLibraryPreview
+            disabled={disabled}
+            identity={identity}
+            label={label}
+            pattern={selectedPattern}
+            size={size}
+            supportingCopy={supportingCopy}
+          />
         </div>
       </div>
     </ToolShell>
