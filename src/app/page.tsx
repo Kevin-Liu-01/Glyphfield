@@ -89,7 +89,7 @@ export default async function HomePage() {
               </T>
             </p>
             <p className='marketing-hero-note'>
-              <T>Local-first · Source-available · Production-ready exports</T>
+              <T>Local-first · MIT licensed · Production-ready exports</T>
             </p>
             <div className='marketing-unified-actions'>
               <Button asChild className='h-12 px-5' size='lg'>
@@ -281,7 +281,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className='marketing-footer-bottom'>
-            <span><T>© 2026 Kevin Liu · Source available</T></span>
+            <span><T>© 2026 Kevin Liu · MIT licensed</T></span>
             <div>
               <Link href='/studio'><T>Studio</T> ↗</Link>
               <Link href='/docs'><T>Docs</T> ↗</Link>

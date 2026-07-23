@@ -1,71 +1,116 @@
-# Glyphfield
+<p align="center">
+  <img src="./public/brand/glyphfield-readme.svg" alt="Glyphfield — build the identity, make everything else" width="100%" />
+</p>
 
-Glyphfield is a local-first brand studio for motion, brand foundations,
-OpenGraph images, logos, color tokens, typography, code cards, partnership
-lockups, blog covers, slides, and component review.
+<p align="center">
+  A local-first studio for turning one brand identity into motion, graphics, templates, and agent-ready artifacts.
+</p>
 
-Full product, artifact, and agent documentation is available at `/docs` and is
-built with Fumadocs. Agent connection starts at `/docs/agents/connect`.
+<p align="center">
+  <a href="https://studio.generaltranslation.com/studio"><strong>Open Studio</strong></a>
+  ·
+  <a href="https://studio.generaltranslation.com/docs">Documentation</a>
+  ·
+  <a href="https://studio.generaltranslation.com/docs/agents/connect">Agent connection</a>
+  ·
+  <a href="./LICENSE">MIT License</a>
+</p>
 
-Project tabs keep separate local workspaces for each brand. Each tab is shown as
-`LOGO / brand`, while GT ships as
-the built-in reference identity, populated from its bundled logo family,
-semantic tokens, typography, product language, proof, and motion assets. Every
-identity has a full design-board view with PNG and JSON export.
+<p align="center">
+  <img alt="MIT licensed" src="https://img.shields.io/badge/license-MIT-18181b?style=flat-square" />
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-18181b?style=flat-square" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square" />
+  <img alt="Fumadocs" src="https://img.shields.io/badge/docs-Fumadocs-8b5cf6?style=flat-square" />
+</p>
 
-The Moodboard tool composes four identity foundations—identity, logo family,
-color, and typography—with four finished applications—onboarding email, CLI,
-product page, and event pass—into a downloadable 4:5 board. Inter and Geist
-Mono are embedded into every exported SVG before PNG rasterization. Export
-presets range from 1600×2000 through 4800×6000, with a custom width option that
-preserves the layout ratio.
+## One identity, every surface
 
-Glyphfield opens on a neutral Starter project. Local projects and completed
-reference systems such as GT share one navigable project rail. The
-Logo Shader includes original WebGL materials for backgrounds and alpha-masked
-logo fills, including configurable liquid metal, mercury, and brushed-steel
-recipes with still PNG and animated GIF export. Background Lab builds gradients,
-grainy gradients, ordered Bayer dithering, dots, lines, and grids as exportable
-SVG-composed PNGs with an optional identity mark.
+Glyphfield keeps the foundations and the outputs in the same system. Define a
+brand once, then use the active identity across 15 focused tools and 47
+production touchpoints without rebuilding the context for every artifact.
 
-Brand Elements is the default Studio surface. It applies the active identity
-to 47 searchable touchpoints spanning product UI, email, CLI/ASCII, repositories, social,
-slides and editorial, event credentials, web cards, icons, and physical print.
+| Foundation | Expression | Application | Delivery |
+| --- | --- | --- | --- |
+| Logo family | Motion packages | OpenGraph + social | PNG |
+| Color tokens | Live logo shaders | Slides + blog covers | SVG |
+| Typography | Dither + grain + gradients | Email + product UI | GIF |
+| Voice + positioning | Terminal themes | CLI + documentation | JSON |
 
-Terminal Card uses modular Prism grammars for TypeScript, Python, and Bash so
-the editable preview and PNG export share one syntax-token pipeline. A full
-terminal emulator is intentionally outside this static graphics tool.
-See [Studio library routing](./docs/library-routing.md) for the wiki-informed
-dependency decisions across terminal, OpenGraph, gradients, and shaders.
+The Studio ships with a neutral Starter identity and a complete General
+Translation reference system. Project tabs are independent local workspaces;
+closing a tab never deletes its brand.
 
-## Public access
+## A design tool that agents can operate
 
-The deployed studio is free to browse and use. Its source is publicly readable
-so people and software agents can inspect how the product works.
+The visual Studio and the public agent interface use the same identities,
+catalog, and generation language.
 
-This project is source-available, not open-source software. Copyright is held
-by Kevin Liu; no permission is granted to copy, modify,
-distribute, sublicense, sell, or create derivative works. See
-[LICENSE](./LICENSE).
+```mermaid
+flowchart LR
+  I[Brand identity] --> S[Studio tools]
+  I --> A[Agent API]
+  S --> O[Portable artifacts]
+  A --> O
+  O --> P[Product · Marketing · Docs · Motion]
+```
 
-The bundled GT and customer-reference assets remain the property of their
-respective owners and are included only to demonstrate the GT reference
-project.
+- Humans compose, tune, preview, and download in `/studio`.
+- Agents discover capabilities through `/llms.txt`, `/api/agent`, and
+  `/openapi.json`.
+- `POST /api/generate` produces deterministic SVG templates, backgrounds, and
+  identity-aware element briefs.
+- Browser projects and uploaded source files stay local; API generation is
+  processed in memory and is not persisted.
 
-## Agent surfaces
+## Motion studies
 
-- `/llms.txt` is the operational agent runbook with schemas, limits, examples,
-  output handling, browser fallback, and policy.
-- `/api/agent` returns the versioned agent manifest and generation contract.
-- `/openapi.json` exposes the public API as OpenAPI 3.1.
-- `/api/generate` accepts JSON and returns portable SVG backgrounds,
-  slide/blog/partnership templates, or identity-aware element briefs.
-- `/api/catalog` returns the current Glyphfield tool catalog as structured JSON.
-- `/api/identities` returns the built-in identity catalog and full GT preset.
-- `/api/elements` returns the complete brand-element taxonomy.
-- `/studio` opens the full-screen interactive workspace.
+<table>
+  <tr>
+    <td width="50%"><img src="./public/examples/gt-morph-one-second.gif" alt="Centered multilingual morph animation" /></td>
+    <td width="50%"><img src="./public/examples/gt-type-delete.gif" alt="Multilingual type and delete animation" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Morph / fade</strong></td>
+    <td align="center"><strong>Type / delete</strong></td>
+  </tr>
+</table>
 
-Example:
+Both are generated from the Studio’s reusable animation model: centered text,
+configurable hold timing, cubic-bezier transitions, and frame-accurate GIF
+export.
+
+## Built for real brand work
+
+- Design boards combine foundations with finished applications and export up
+  to 4800 × 6000 PNG.
+- Logo Shader applies original WebGL materials to live backdrops and
+  alpha-masked marks, with still PNG and animated GIF export.
+- Background Lab creates gradients, grain, ordered Bayer dithering, dots,
+  lines, and grids as portable SVG-composed images.
+- Templates include eight slide layouts plus blog, partnership, OpenGraph,
+  terminal, email, and brand-element systems.
+- Fumadocs powers 24 feature, artifact, integration, and API guides.
+- Landing, Studio, and every documentation page receive generated 1200 × 630
+  OpenGraph and Twitter artwork from one shared brand renderer.
+
+## Run locally
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3012](http://localhost:3012). The full workspace is at
+`/studio` and the documentation is at `/docs`.
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm build
+```
+
+## Generate without the UI
 
 ```bash
 curl -sS -X POST http://localhost:3012/api/generate \
@@ -74,22 +119,41 @@ curl -sS -X POST http://localhost:3012/api/generate \
     "kind": "template",
     "template": "slides",
     "identity": { "preset": "gt" },
+    "slideLayout": "title",
     "title": "Code is the source of truth.",
     "output": "raw"
   }' \
   -o gt-slide.svg
 ```
 
-The API embeds bundled logo assets into generated SVGs. Custom agents can send
-authorized images as base64 data URLs; Glyphfield does not fetch remote asset
-URLs or persist generation requests.
+The API embeds bundled logo assets into generated SVG. Custom agents can send
+authorized images as base64 data URLs; Glyphfield never fetches remote asset
+URLs.
 
-## Local development
+| Resource | Purpose |
+| --- | --- |
+| [`/llms.txt`](./public/llms.txt) | Operational agent runbook |
+| `/api/agent` | Versioned manifest and generation contract |
+| `/openapi.json` | OpenAPI 3.1 document |
+| `/api/catalog` | Structured Studio tool catalog |
+| `/api/identities` | Built-in identities and complete GT preset |
+| `/api/elements` | Complete brand-element taxonomy |
 
-```bash
-pnpm install
-pnpm dev
+## Project structure
+
+```text
+src/app/          Next.js pages, docs, metadata images, and public API
+src/components/   Studio workspaces, canvases, motion, and shared UI
+src/lib/          Identity model, renderers, generators, and catalogs
+content/docs/     Fumadocs product and integration documentation
+public/           Fonts, reference assets, examples, and agent instructions
 ```
 
-Glyphfield runs on port `3012`. Image and font inputs remain in the browser; no
-upload service is required for the current tools.
+Library decisions for syntax rendering, OpenGraph, gradients, and shaders are
+recorded in [Studio library routing](./docs/library-routing.md).
+
+## License
+
+Glyphfield is open-source software released under the [MIT License](./LICENSE).
+Bundled third-party marks and reference-brand assets remain the property of
+their respective owners.

@@ -132,7 +132,7 @@ export const AGENT_MANIFEST = {
   policies: {
     assets: 'Use only assets you are authorized to process. Remote URL fetching is not supported.',
     data: 'Generation requests are processed in memory and are not persisted by Glyphfield.',
-    license: 'The deployed API may be used for artifact generation. Source remains All Rights Reserved; see /LICENSE and /llms.txt.',
+    license: 'Glyphfield source is licensed under MIT; see /LICENSE and /llms.txt. Bundled third-party marks remain separately owned.',
   },
   resources: {
     catalog: '/api/catalog',

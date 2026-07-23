@@ -9,7 +9,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import { getDocsMdxComponents } from '@/components/DocsMdx';
-import { docsSource } from '@/lib/docsSource';
+import { docsSource, getDocumentationImage } from '@/lib/docsSource';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 type DocumentationPageProps = {
@@ -43,8 +43,23 @@ export async function generateMetadata({ params }: DocumentationPageProps): Prom
   const page = docsSource.getPage(slug);
   if (!page) notFound();
 
+  const image = getDocumentationImage(page);
+  const title = `${page.data.title} · ${PRODUCT_BRAND.name} Docs`;
+
   return {
     description: page.data.description,
-    title: `${page.data.title} · ${PRODUCT_BRAND.name} Docs`,
+    openGraph: {
+      description: page.data.description,
+      images: [{ ...image, alt: `${page.data.title} — ${PRODUCT_BRAND.name} documentation` }],
+      title,
+      type: 'article',
+    },
+    title,
+    twitter: {
+      card: 'summary_large_image',
+      description: page.data.description,
+      images: [image.url],
+      title,
+    },
   };
 }

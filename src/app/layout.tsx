@@ -21,14 +21,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_STUDIO_URL ?? 'https://studio.generaltranslation.com'
+  ),
   title: {
     default: PRODUCT_BRAND.name,
     template: `%s · ${PRODUCT_BRAND.name}`,
   },
   description: PRODUCT_BRAND.description,
+  openGraph: {
+    description: PRODUCT_BRAND.description,
+    siteName: PRODUCT_BRAND.name,
+    title: PRODUCT_BRAND.name,
+    type: 'website',
+  },
   robots: {
     follow: true,
     index: true,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    description: PRODUCT_BRAND.description,
+    title: PRODUCT_BRAND.name,
   },
 };
 

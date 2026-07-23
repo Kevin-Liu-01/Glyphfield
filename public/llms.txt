@@ -1,6 +1,6 @@
 # Glyphfield Agent Interface
 
-> Glyphfield is a source-available brand studio with public, structured discovery and deterministic artifact generation for software agents.
+> Glyphfield is an MIT-licensed brand studio with public, structured discovery and deterministic artifact generation for software agents.
 
 Canonical workspace: /studio
 Agent manifest: /api/agent
@@ -293,4 +293,4 @@ Correct the named field. Do not retry an unchanged 4xx request.
 
 The deployed Studio and agent API are available for browsing and artifact generation.
 
-The source repository is source-available, not open-source software. Copyright (c) 2026 Kevin Liu. All rights reserved. No source-code license is granted to copy, modify, distribute, sublicense, sell, or create derivative works. API availability does not grant rights in bundled third-party marks or reference-brand assets.
+Glyphfield source is open-source software licensed under MIT. Agents may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the copyright notice and warranty terms in /LICENSE. The software license does not grant rights in bundled third-party marks, reference-brand assets, or user-submitted assets.

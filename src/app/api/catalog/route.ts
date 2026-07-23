@@ -7,10 +7,11 @@ export function GET() {
     {
       categories: STUDIO_CATEGORIES,
       license: {
-        identifier: 'All Rights Reserved',
+        identifier: 'MIT',
         serviceUse: 'browsing and artifact generation permitted',
-        sourceGrant: 'inspection, evaluation, and automated indexing only',
+        sourceGrant: 'use, copy, modify, merge, publish, distribute, sublicense, and sell',
         sourceAvailable: true,
+        url: 'https://opensource.org/license/mit',
       },
       browserStudioLocalFiles: true,
       localOnly: false,

@@ -7,3 +7,13 @@ export const docsSource = loader({
   plugins: [lucideIconsPlugin()],
   source: docs.toFumadocsSource(),
 });
+
+export function getDocumentationImage(page: { slugs: string[] }) {
+  const segments = [...page.slugs, 'image.png'];
+
+  return {
+    height: 630,
+    url: `/og/docs/${segments.join('/')}`,
+    width: 1200,
+  } as const;
+}

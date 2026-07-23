@@ -2,7 +2,7 @@
   "name": "glyphfield",
   "version": "0.2.0",
   "private": true,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "scripts": {
     "build": "next build --turbopack",
     "build:ci": "next build",

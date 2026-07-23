@@ -1,0 +1,77 @@
+<svg width="1600" height="720" viewBox="0 0 1600 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="violet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1352 284) rotate(134) scale(470 430)">
+      <stop stop-color="#F4E8FF"/>
+      <stop offset="0.17" stop-color="#A978FF"/>
+      <stop offset="0.52" stop-color="#6E42D8" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#111113" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="mint" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1245 428) rotate(-34) scale(350 245)">
+      <stop stop-color="#B9FFF2"/>
+      <stop offset="0.35" stop-color="#20D8C7" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#111113" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="1094" y1="216" x2="1428" y2="505" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.68" stop-color="#F2EBFF"/>
+      <stop offset="1" stop-color="#B8FFF3"/>
+    </linearGradient>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#FFFFFF" fill-opacity="0.13"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="32" stdDeviation="28" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <clipPath id="frameClip">
+      <rect x="0" y="0" width="1600" height="720" rx="28"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#frameClip)">
+    <rect width="1600" height="720" fill="#111113"/>
+    <rect width="1600" height="720" fill="url(#dots)"/>
+    <rect width="1600" height="720" fill="url(#violet)"/>
+    <rect width="1600" height="720" fill="url(#mint)"/>
+    <path d="M0 110H1600" stroke="white" stroke-opacity="0.18"/>
+    <path d="M1014 0V720" stroke="white" stroke-opacity="0.18"/>
+    <path d="M0 648H1600" stroke="white" stroke-opacity="0.18"/>
+    <path d="M34 26H54M44 16V36M1546 26H1566M1556 16V36M34 684H54M44 674V694M1546 684H1566M1556 674V694" stroke="white" stroke-opacity="0.58"/>
+
+    <g transform="translate(44 28)">
+      <path d="M6 6H56V16H16V48H48V58H6V6Z" fill="white"/>
+      <path d="M46 16H56V26H46V16Z" fill="white"/>
+      <path d="M28 27H46L41 32H58L40 45L45 37H27L32 32H22L28 27Z" fill="white"/>
+    </g>
+    <text x="127" y="69" fill="white" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="-0.7">GLYPH/FIELD</text>
+    <text x="956" y="67" fill="white" fill-opacity="0.58" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="3" text-anchor="end">OPEN-SOURCE BRAND STUDIO</text>
+
+    <text x="58" y="194" fill="#B89AFF" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="4">IDENTITY SYSTEMS / 01</text>
+    <text x="54" y="305" fill="white" font-family="Inter, Arial, sans-serif" font-size="94" font-weight="700" letter-spacing="-6">Build the identity.</text>
+    <text x="54" y="400" fill="white" font-family="Inter, Arial, sans-serif" font-size="94" font-weight="700" letter-spacing="-6">Make everything else.</text>
+    <text x="58" y="463" fill="white" fill-opacity="0.66" font-family="Inter, Arial, sans-serif" font-size="25" letter-spacing="-0.5">Motion, graphics, templates, and agent-ready artifacts</text>
+    <text x="58" y="499" fill="white" fill-opacity="0.66" font-family="Inter, Arial, sans-serif" font-size="25" letter-spacing="-0.5">from one connected brand system.</text>
+
+    <g filter="url(#shadow)">
+      <rect x="1109" y="173" width="327" height="313" fill="#101012" fill-opacity="0.48" stroke="white" stroke-opacity="0.34" transform="rotate(-8 1109 173)"/>
+      <rect x="1060" y="215" width="327" height="313" fill="white" fill-opacity="0.1" stroke="white" stroke-opacity="0.46" transform="rotate(5 1060 215)"/>
+      <rect x="1090" y="224" width="327" height="313" fill="url(#card)" stroke="white"/>
+    </g>
+    <g transform="translate(1113 248) scale(.62)">
+      <path d="M6 6H56V16H16V48H48V58H6V6Z" fill="#18181B"/>
+      <path d="M46 16H56V26H46V16Z" fill="#18181B"/>
+      <path d="M28 27H46L41 32H58L40 45L45 37H27L32 32H22L28 27Z" fill="#18181B"/>
+    </g>
+    <text x="1387" y="272" fill="#18181B" fill-opacity="0.46" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="2.2" text-anchor="end">OUTPUT / 01</text>
+    <rect x="1114" y="344" width="218" height="9" fill="#18181B"/>
+    <rect x="1114" y="369" width="255" height="9" fill="#18181B" fill-opacity="0.16"/>
+    <rect x="1114" y="437" width="279" height="72" fill="#18181B"/>
+    <circle cx="1139" cy="473" r="9" fill="#A978FF"/>
+    <circle cx="1168" cy="473" r="9" fill="#20D8C7"/>
+    <path d="M1354 469H1375M1364.5 458.5V479.5" stroke="white" stroke-width="2"/>
+    <rect x="1454" y="145" width="34" height="34" stroke="#B9FFF2" stroke-width="2"/>
+    <rect x="1465" y="156" width="12" height="12" fill="#B9FFF2"/>
+
+    <text x="58" y="688" fill="white" fill-opacity="0.52" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="3">LOCAL-FIRST  ·  AGENT-USABLE  ·  MIT LICENSED</text>
+    <text x="1542" y="688" fill="white" fill-opacity="0.52" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="3" text-anchor="end">GLYPHFIELD.STUDIO</text>
+    <rect y="712" width="1600" height="8" fill="#A978FF"/>
+  </g>
+</svg>
