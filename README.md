@@ -4,6 +4,9 @@ Glyphfield is a local-first brand studio for motion, brand foundations,
 OpenGraph images, logos, color tokens, typography, code cards, partnership
 lockups, blog covers, slides, and component review.
 
+Full product, artifact, and agent documentation is available at `/docs` and is
+built with Fumadocs. Agent connection starts at `/docs/agents/connect`.
+
 Project tabs keep separate local workspaces for each brand. Each tab is shown as
 `LOGO / brand`, while GT ships as
 the built-in reference identity, populated from its bundled logo family,

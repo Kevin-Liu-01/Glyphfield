@@ -1,0 +1,38 @@
+---
+title: Agent integration
+description: Give LLMs and coding agents structured discovery, deterministic generation, and a browser fallback for visual capabilities.
+icon: Bot
+---
+
+Glyphfield exposes a public, versioned agent interface. An agent can discover the product without scraping application JavaScript, generate portable assets over HTTP, or operate the visual Studio for browser-only capabilities.
+
+## Discovery surface
+
+| Resource | Purpose |
+| --- | --- |
+| `/llms.txt` | Canonical operational runbook for language models |
+| `/api/agent` | Versioned manifest, policies, resources, and generation contract |
+| `/openapi.json` | OpenAPI 3.1 route document |
+| `/api/catalog` | Studio tools and capability keywords |
+| `/api/identities` | Built-in Starter and GT identity records |
+| `/api/elements` | All 47 brand applications |
+| `/api/generate` | GET contract and POST generation endpoint |
+| `/studio` | Browser-local visual workspace |
+
+## Two agent modes
+
+### HTTP generation
+
+Use HTTP when the desired artifact is a template SVG, background SVG, or element brief. This path is deterministic, portable, and does not require browser automation.
+
+### Browser operation
+
+Use the Studio when a task requires Canvas, WebGL, local fonts, local images, visual placement, high-resolution PNG rasterization, or GIF capture.
+
+An agent should prefer the structured API whenever it can fully express the requested artifact.
+
+## No API key
+
+The current public agent routes do not require authentication. Do not invent an `Authorization` header. Always re-read `/api/agent` and `GET /api/generate` because availability and schemas may change.
+
+Start with [Connect an agent](/docs/agents/connect).

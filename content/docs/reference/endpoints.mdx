@@ -1,0 +1,50 @@
+---
+title: Endpoint reference
+description: Public machine routes for discovery, identities, elements, generation, search, and OpenAPI.
+icon: Braces
+---
+
+## Discovery
+
+| Method | Route | Response |
+| --- | --- | --- |
+| GET | `/llms.txt` | Plain-text agent runbook |
+| GET | `/api/agent` | Versioned manifest and generation contract |
+| GET | `/openapi.json` | OpenAPI 3.1 JSON |
+| GET | `/api/catalog` | Studio tool catalog and resource links |
+| GET | `/api/identities` | Starter and GT identity records |
+| GET | `/api/elements` | 47 brand element records |
+| GET | `/api/generate` | Current generation contract and examples |
+
+## Generation
+
+| Method | Route | Content type |
+| --- | --- | --- |
+| POST | `/api/generate` | Request: `application/json`; response: JSON or `image/svg+xml` |
+| OPTIONS | `/api/generate` | CORS preflight |
+
+Generation supports `template`, `background`, and `element-brief` kinds.
+
+## Documentation search
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/search` | Self-hosted Fumadocs/Orama documentation search |
+
+Search is used by the documentation UI and is separate from Studio tool search.
+
+## Caching
+
+Discovery GET routes are publicly cacheable for a short period. Generation responses use `Cache-Control: no-store`.
+
+## CORS
+
+Agent routes expose:
+
+```text
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept
+```
+
+The current routes do not require an API key.

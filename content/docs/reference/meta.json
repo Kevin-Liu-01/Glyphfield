@@ -1,0 +1,10 @@
+{
+  "title": "Reference",
+  "icon": "BookMarked",
+  "pages": [
+    "index",
+    "endpoints",
+    "capability-matrix",
+    "shortcuts"
+  ]
+}

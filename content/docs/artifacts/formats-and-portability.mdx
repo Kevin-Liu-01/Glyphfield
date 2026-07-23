@@ -1,0 +1,45 @@
+---
+title: Formats and portability
+description: Learn how PNG, SVG, GIF, and JSON outputs behave after leaving Glyphfield.
+icon: Files
+---
+
+## SVG
+
+Agent-generated templates and backgrounds are standalone UTF-8 SVG documents.
+
+- Bundled logos are embedded as data URLs.
+- The file does not depend on the Glyphfield deployment after download.
+- Dimensions are fixed in the root SVG.
+- Text remains text unless the generator uses an image logo.
+- Custom data URL images are embedded into the result.
+
+Use SVG as the canonical API artifact.
+
+## PNG
+
+Browser PNG exports rasterize the current composition at its defined dimensions. Moodboards can reach 4800 × 6000; templates use their production canvas sizes.
+
+PNG is appropriate for social uploads, slide backgrounds, email graphics, and systems that do not accept SVG.
+
+## GIF
+
+GIF exports contain a fixed color palette and frame rate. They are broadly compatible but less color-efficient than modern video formats. Glyphfield exposes palette size, frame rate, dimensions, and timing so the export can be tuned for its destination.
+
+## JSON
+
+Glyphfield produces three useful JSON shapes:
+
+1. **Brand identity** — the browser project’s shared foundation record.
+2. **Element brief** — a catalog application resolved against an identity.
+3. **Artifact envelope** — API metadata plus embedded SVG content.
+
+All versioned agent responses include `schemaVersion`. Callers should retain and inspect it before assuming a future response shape.
+
+## Filenames
+
+Generated filenames are deterministic from the project, generator, and output dimensions where possible. A caller may rename downloaded files, but should preserve the extension that matches `mimeType`.
+
+## Fonts
+
+Browser moodboards embed their bundled font dependencies before rasterization. One-off local font files are session-local and are not available to the HTTP generator. API SVG uses its documented font stack unless the generator embeds a supplied image.

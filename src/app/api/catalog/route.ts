@@ -17,10 +17,12 @@ export function GET() {
       name: PRODUCT_BRAND.name,
       resources: {
         agent: '/api/agent',
+        docs: '/docs',
         elements: '/api/elements',
         generate: '/api/generate',
         identities: '/api/identities',
         instructions: '/llms.txt',
+        integrationGuide: '/docs/agents/connect',
         openapi: '/openapi.json',
         workspace: '/studio',
       },

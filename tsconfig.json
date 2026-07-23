@@ -16,6 +16,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "collections/*": [
+        "./.source/*"
       ]
     },
     "plugins": [
@@ -33,6 +36,7 @@
     "next.config.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
+    ".source/**/*.ts",
     ".next/types/**/*.ts",
     "vitest.config.ts",
     ".next/dev/types/**/*.ts"

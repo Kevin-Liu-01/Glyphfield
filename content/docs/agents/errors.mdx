@@ -1,0 +1,48 @@
+---
+title: Errors and limits
+description: Handle validation responses, request limits, content types, and retries safely.
+icon: TriangleAlert
+---
+
+Validation failures use a structured response:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "field": "settings.width",
+    "message": "settings.width must be an integer between 64 and 4096."
+  },
+  "schemaVersion": 1
+}
+```
+
+## Status codes
+
+| Status | Meaning | Response |
+| --- | --- | --- |
+| 400 | Malformed JSON or invalid field | Correct the named field |
+| 413 | Request body exceeds 5 MB | Reduce or recompress embedded assets |
+| 415 | Content-Type is not JSON | Send `Content-Type: application/json` |
+| 500 | Artifact generation failed | Log the response and retry only if appropriate |
+
+## Retry policy
+
+Do not retry an unchanged 4xx request. Read `error.field`, correct the input, and submit a new request.
+
+For transient 5xx responses, use bounded exponential backoff and retain the original request for diagnosis. Generation is deterministic for the same contract and inputs.
+
+## Important limits
+
+- Request body: 5 MB maximum
+- Data URL asset: 5 MB maximum
+- Background width and height: 64–4096
+- Background total pixels: 12,000,000 maximum
+- Template title: 240 characters
+- Template eyebrow: 80 characters
+- Template body: 1000 characters
+- Remote asset URLs: unsupported
+
+## Contract drift
+
+Always read `GET /api/generate` and check `schemaVersion`. If the schema version is unknown, stop and update the client rather than silently guessing.

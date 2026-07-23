@@ -136,10 +136,12 @@ export const AGENT_MANIFEST = {
   },
   resources: {
     catalog: '/api/catalog',
+    docs: '/docs',
     elements: '/api/elements',
     generate: '/api/generate',
     identities: '/api/identities',
     instructions: '/llms.txt',
+    integrationGuide: '/docs/agents/connect',
     openapi: '/openapi.json',
     workspace: '/studio',
   },

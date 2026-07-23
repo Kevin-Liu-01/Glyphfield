@@ -1,0 +1,47 @@
+---
+title: Motion and GIFs
+description: Animate text, images, and shader-masked logos with deterministic timing and downloadable GIF output.
+icon: Blend
+---
+
+Glyphfield includes two motion systems: frame-based Animation and live WebGL Logo shader.
+
+## Animation
+
+Animation accepts newline-separated text or imported image frames. The active identity supplies the initial multilingual greetings, foreground, and background.
+
+### Animation packages
+
+- Morph fade
+- Type and delete
+- Crossfade
+- Scale fade
+- Slide fade
+
+Type and delete reveals and removes real characters without a cursor. Morph fade uses blur, opacity, and scale rather than a collapsing vertical wipe.
+
+### Timing
+
+Control hold time, transition time, playback speed, frame rate, loop, and a cubic Bézier curve. Presets include material, snappy, soft, and dramatic curves.
+
+The playhead is deterministic: preview and export resolve from the same timing model. Alignment guides indicate the configured horizontal and vertical center.
+
+### GIF output
+
+Choose canvas dimensions, frame rate, palette colors, fit mode, and scale, then select **Export GIF**. Larger canvases, more frames, higher frame rates, and larger palettes increase encoding time and file size.
+
+## Logo shader
+
+Logo shader applies live WebGL material to the background, the alpha-masked logo, or both.
+
+Presets include liquid metal, mercury, brushed steel, aurora, topographic, plasma, radial beams, halftone, warped grid, glass waves, iridescent, heatmap, gem smoke, and grain gradient.
+
+Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
+
+### Shader output
+
+- Download PNG for a still frame.
+- Download GIF to capture the animated material.
+- Transparent logo output preserves alpha when the selected target supports it.
+
+WebGL and GIF capture are browser-only capabilities. Agents should open `/studio` when they need these outputs.

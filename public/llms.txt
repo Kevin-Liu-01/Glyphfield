@@ -10,6 +10,8 @@ Studio tool catalog: /api/catalog
 Built-in identity records: /api/identities
 Brand element taxonomy: /api/elements
 Human landing page: /
+Human documentation: /docs
+Agent connection guide: /docs/agents/connect
 
 ## Preferred agent workflow
 
@@ -23,6 +25,7 @@ Human landing page: /
 8. If a capability is marked browser-only below, open /studio and select the matching tool from /api/catalog.
 
 Do not infer undocumented enum values. Do not scrape application JavaScript when /api/agent, /openapi.json, or a catalog endpoint provides the same information.
+Use /docs for human-readable feature, artifact, and integration guides. Treat the versioned API responses as authoritative for machine validation.
 
 ## POST /api/generate
 

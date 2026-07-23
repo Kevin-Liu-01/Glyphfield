@@ -838,6 +838,11 @@ export default function StudioApp() {
             )}
           </label>
           <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
+            <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
+              <Link aria-label={gt('Open documentation')} href='/docs'>
+                <BookOpen aria-hidden='true' />
+              </Link>
+            </Button>
             <AppearanceMenu
               appearance={resolvedAppearance}
               onChange={(patch) =>

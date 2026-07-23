@@ -1,0 +1,85 @@
+---
+title: Connect an agent
+description: Discover Glyphfield, choose an identity and capability, submit a generation request, and save the returned artifact.
+icon: PlugZap
+---
+
+## Connection sequence
+
+An agent should follow this sequence for every new deployment origin:
+
+1. Fetch `/llms.txt` for operational instructions.
+2. Fetch `/api/agent` for the current version, policies, resources, and contract.
+3. Fetch `/api/identities` when using Starter or GT.
+4. Fetch `/api/elements` when choosing a brand application.
+5. Fetch `GET /api/generate` immediately before constructing a request.
+6. `POST application/json` to `/api/generate`.
+7. Save raw SVG or extract the artifact from its JSON envelope.
+
+Do not infer undocumented enum values. Do not scrape the client bundle when a structured endpoint provides the same information.
+
+## Shell connection check
+
+```bash
+BASE_URL=http://localhost:3012
+
+curl -fsS "$BASE_URL/llms.txt"
+curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources }'
+curl -fsS "$BASE_URL/api/generate" | jq '.kinds | keys'
+```
+
+For a deployed instance, replace `BASE_URL` with its origin.
+
+## TypeScript discovery client
+
+```ts
+const baseUrl = 'http://localhost:3012';
+
+const [manifest, generation, identities, elements] = await Promise.all([
+  fetch(`${baseUrl}/api/agent`).then((response) => response.json()),
+  fetch(`${baseUrl}/api/generate`).then((response) => response.json()),
+  fetch(`${baseUrl}/api/identities`).then((response) => response.json()),
+  fetch(`${baseUrl}/api/elements`).then((response) => response.json()),
+]);
+
+console.log(manifest.version, generation.schemaVersion);
+console.log(identities.identities.length, elements.elements.length);
+```
+
+Independent discovery requests can run concurrently. Fetch the generation contract again if substantial time passes before generation.
+
+## Minimal generation call
+
+```ts
+const response = await fetch(`${baseUrl}/api/generate`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    kind: 'template',
+    template: 'slides',
+    slideLayout: 'title',
+    texture: 'white',
+    title: 'Code is the source of truth.',
+    identity: { preset: 'gt' },
+    output: 'raw',
+  }),
+});
+
+if (!response.ok) throw new Error(await response.text());
+const svg = await response.text();
+```
+
+The raw response is a complete SVG string.
+
+## Prompting an agent
+
+Point an LLM at the runbook rather than reproducing the full schema in a prompt:
+
+```text
+Read https://YOUR_ORIGIN/llms.txt and the linked agent manifest.
+Generate a white GT agenda slide titled “One system, every market.”
+Save the raw SVG response as gt-agenda.svg.
+Do not use undocumented enum values.
+```
+
+This keeps the deployment’s current contract authoritative.

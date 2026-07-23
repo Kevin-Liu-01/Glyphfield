@@ -1,0 +1,90 @@
+---
+title: Download and use artifacts
+description: Save outputs from the Studio or API, extract SVG from JSON, and integrate generated files into web and product workflows.
+icon: PackageOpen
+---
+
+## Download from the Studio
+
+Each generator exposes its action in the top-right header. Configure the canvas first, then select **Download PNG**, **Download logo**, **Export GIF**, **Identity JSON**, or **Element brief**.
+
+The browser writes the file through its normal download mechanism. Local uploads are embedded where the tool supports portable export.
+
+## Download raw SVG from the API
+
+Set `output` to `raw` and save the response directly:
+
+```bash
+BASE_URL=http://localhost:3012
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "template",
+    "template": "slides",
+    "slideLayout": "title",
+    "texture": "white",
+    "title": "One identity. Every surface.",
+    "identity": { "preset": "gt" },
+    "output": "raw"
+  }' \
+  -o gt-title-slide.svg
+```
+
+The response uses `image/svg+xml` and includes a deterministic `Content-Disposition` filename.
+
+## Extract SVG from a JSON response
+
+Use JSON output when a caller needs dimensions, MIME type, and filename alongside the asset:
+
+```bash
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d @request.json \
+  -o response.json
+
+jq -r '.artifact.content' response.json > artifact.svg
+jq '.artifact | { filename, mimeType, width, height }' response.json
+```
+
+## Use SVG on the web
+
+Reference the saved file as a normal image:
+
+```html
+<img src="/brand/gt-title-slide.svg" alt="General Translation title slide" />
+```
+
+Or use a background artifact from CSS:
+
+```css
+.launch-hero {
+  background-image: url('/brand/launch-background.svg');
+  background-position: center;
+  background-size: cover;
+}
+```
+
+Inline SVG only when you need to style or manipulate internal paths and the asset came from a trusted source.
+
+## Convert SVG to another format
+
+Glyphfield’s API intentionally returns portable SVG. A downstream image pipeline can rasterize it to PNG, WebP, AVIF, PDF, or video at the final required dimensions.
+
+Keep the original SVG as the canonical generated artifact. Rasterize per destination to avoid repeated quality loss.
+
+## Use JSON briefs
+
+Element briefs are not images. Treat them as structured production specifications that can feed:
+
+- A design or frontend implementation task
+- A component generator
+- A ticket or handoff document
+- A second agent that produces an asset in another tool
+- Validation against the identity’s colors, voice, dimensions, and format
+
+Store the brief next to the implementation when traceability matters.
+
+## Use GIF output
+
+GIFs from Animation and Logo shader are browser-generated. Use them in email and documentation only after checking file size and client support. Preserve the original project settings so a lighter or differently timed export can be regenerated later.

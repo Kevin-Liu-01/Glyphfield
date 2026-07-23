@@ -1,0 +1,14 @@
+{
+  "title": "Studio",
+  "icon": "PanelsTopLeft",
+  "pages": [
+    "index",
+    "brand-settings",
+    "brand-elements",
+    "moodboards",
+    "motion",
+    "logo-background",
+    "templates",
+    "components"
+  ]
+}

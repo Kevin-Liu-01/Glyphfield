@@ -1,0 +1,31 @@
+---
+title: Capability matrix
+description: Compare Studio tools, browser downloads, and agent API equivalents.
+icon: TableProperties
+---
+
+| Capability | Browser output | Agent API |
+| --- | --- | --- |
+| Brand settings | Persistent identity | Identity object in every request |
+| Brand elements | JSON brief | `element-brief` JSON |
+| Moodboard | PNG, identity JSON | Browser only |
+| Animation | GIF | Browser only |
+| Logo shader | PNG, GIF | Browser only |
+| OpenGraph | PNG | Compose with template/background SVG |
+| Logo lab | PNG | Embed preset/custom logo in generated SVG |
+| Background lab | PNG | `background` SVG |
+| Color tokens | Copied CSS tokens | Identity HEX fields |
+| Typography | Browser preview, local font | Documented font stack only |
+| Terminal card | PNG | Browser only |
+| Partnership | PNG | `template: partnership` SVG |
+| Blog cover | PNG | `template: blog` SVG |
+| Slide templates | PNG | `template: slides` SVG |
+| Component library | Interactive preview | Element briefs for product patterns |
+
+## Browser-only reasons
+
+Browser-only features depend on one or more of Canvas, WebGL, local font loading, object URLs, interactive visual placement, or multi-frame capture.
+
+## API strengths
+
+The API is best for repeatability, source-controlled SVG, batch generation, agent workflows, and downstream rendering pipelines.

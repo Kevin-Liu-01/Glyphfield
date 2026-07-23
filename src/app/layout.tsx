@@ -1,6 +1,7 @@
 import 'lenis/dist/lenis.css';
 import './globals.css';
 
+import { RootProvider } from 'fumadocs-ui/provider/next';
 import { GTProvider } from 'gt-next';
 import { Geist_Mono, Inter } from 'next/font/google';
 
@@ -41,9 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang='en' className={`${inter.variable} ${geistMono.variable} antialiased`}>
-      <body>
-        <GTProvider>{children}</GTProvider>
+    <html lang='en' className={`${inter.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+      <body className='flex min-h-screen flex-col'>
+        <RootProvider>
+          <GTProvider>{children}</GTProvider>
+        </RootProvider>
       </body>
     </html>
   );

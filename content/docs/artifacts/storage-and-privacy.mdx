@@ -1,0 +1,35 @@
+---
+title: Storage and privacy
+description: Understand browser persistence, API request processing, local assets, and source licensing.
+icon: ShieldCheck
+---
+
+## Browser projects
+
+The Studio stores projects, active tabs, drafts, appearance, and canvas zoom in browser `localStorage`. Data is scoped to the current origin and browser profile.
+
+Closing a project tab does not delete the project. Deleting a custom project removes it from the Studio’s stored project list.
+
+## Local files
+
+Uploaded images, logos, fonts, and shader source are loaded by the browser. Most are represented by temporary object URLs for the current page session. A downloaded artifact may embed the selected image when portability requires it.
+
+## Agent requests
+
+`POST /api/generate` processes request data in memory and does not persist the submitted identity or asset. The route responds with `Cache-Control: no-store`.
+
+GET discovery endpoints are public and cacheable for a short period. The generation route supports CORS with `Access-Control-Allow-Origin: *`.
+
+## Asset boundaries
+
+- Submit only assets you are authorized to process.
+- Remote URLs are not fetched.
+- Custom assets must be supplied as supported base64 data URLs.
+- A request body may not exceed 5 MB.
+- Bundled GT and reference-brand assets remain the property of their respective owners.
+
+## License
+
+The source repository is source-available, not open source. Copyright © 2026 Kevin Liu. No source-code license is granted to copy, modify, distribute, sublicense, sell, or create derivative works unless the license changes.
+
+Using the deployed generation API does not transfer rights in bundled or submitted brand assets.

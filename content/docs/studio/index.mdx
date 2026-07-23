@@ -1,0 +1,56 @@
+---
+title: Studio overview
+description: Understand projects, navigation, canvas controls, appearance, persistence, and the complete tool catalog.
+icon: PanelsTopLeft
+---
+
+The Studio is the visual workspace at `/studio`. It is built around persistent brand-project tabs and a shared tool catalog.
+
+## Tool catalog
+
+| Group | Tools |
+| --- | --- |
+| Elements | Brand elements |
+| Boards | Moodboard |
+| Motion | Animation, Logo shader |
+| Foundations | Brand settings, Logo lab, Background lab, Color tokens, Typography |
+| Expressions | OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates |
+| Components | Component library |
+
+Search covers tool names, descriptions, and capability keywords. `⌘K`, `Ctrl+K`, or `/` focuses Studio search.
+
+## Projects and tabs
+
+Each project contains a `BrandIdentity` and a separate set of tool drafts. Tabs are views into saved projects:
+
+- **Add** creates a new local identity.
+- **Duplicate** copies the active identity into an editable project.
+- **Close others** reduces visual clutter without deleting projects.
+- **All projects** filters and reopens template, local, and example projects.
+
+## Canvas navigation
+
+Reusable canvas controls appear over generators and boards:
+
+- `−` and `+` change zoom in ten-percent steps.
+- The percentage resets to 100%.
+- Fit restores the default view.
+- The slider provides fine-grained zoom from 40% to 200%.
+
+Zoom is saved per project and tool.
+
+## Appearance
+
+Visual settings control Studio chrome only:
+
+- Light, dark, or automatic system theme
+- Neutral, violet, teal, or lime selection accent
+- Dots, grid, or plain canvas
+- Compact or comfortable density
+- Full or reduced decorative motion
+
+Generated brand surfaces use identity colors and remain stable when the Studio theme changes.
+
+## Persistence
+
+Project identities, open tabs, active tool, folder, appearance, and most editor drafts are saved in browser `localStorage`. Local file object URLs last for the current page session unless a tool explicitly embeds them into a downloaded artifact.

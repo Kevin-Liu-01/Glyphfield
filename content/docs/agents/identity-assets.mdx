@@ -1,0 +1,70 @@
+---
+title: Identities and custom assets
+description: Use Starter or GT presets, override identity fields, and safely send local logo and image data.
+icon: BadgeCheck
+---
+
+Every generator accepts an `identity` object.
+
+## Presets
+
+- `starter` is the neutral default.
+- `gt` resolves the bundled General Translation identity and logo family.
+- `custom` avoids inheriting a preset logo and creates a monogram when no logo is supplied.
+
+## Identity fields
+
+| Field | Limit |
+| --- | --- |
+| `name` | 80 characters |
+| `shortName` | 8 characters |
+| `website` | 200 characters |
+| `tagline` | 180 characters |
+| `positioning` | 320 characters |
+| `description` | 320 characters |
+| `ink`, `paper` | Six-digit HEX |
+| `logoDataUrl` | Supported base64 image data URL, maximum 5 MB |
+
+Fields override the selected preset. Omitted values inherit from the preset.
+
+## Convert a logo to a data URL
+
+On macOS or Linux:
+
+```bash
+MIME=image/png
+LOGO_DATA="data:$MIME;base64,$(base64 < logo.png | tr -d '\n')"
+```
+
+Then construct the request with `jq` so shell escaping is handled safely:
+
+```bash
+jq -n --arg logo "$LOGO_DATA" '{
+  kind: "background",
+  identity: {
+    preset: "custom",
+    name: "Acme",
+    shortName: "AC",
+    website: "acme.test",
+    ink: "#111111",
+    paper: "#FFFFFF",
+    logoDataUrl: $logo
+  },
+  settings: {
+    width: 1200,
+    height: 630,
+    style: "gradient",
+    colorA: "#FFFFFF",
+    colorB: "#D9FF63"
+  },
+  output: "raw"
+}' > request.json
+```
+
+Supported custom image data includes PNG, JPEG, WebP, GIF, and SVG. Remote URLs are rejected; download and authorize the asset before converting it.
+
+## Background and partner images
+
+Templates additionally support `backgroundImageDataUrl` and `partnerLogoDataUrl`. Use `partnerId` only for asset IDs returned by `/api/identities` for the selected preset.
+
+The API embeds accepted assets into the returned SVG so it remains portable.

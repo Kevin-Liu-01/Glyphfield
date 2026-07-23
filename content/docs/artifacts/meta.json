@@ -1,0 +1,10 @@
+{
+  "title": "Artifacts",
+  "icon": "Download",
+  "pages": [
+    "index",
+    "download-and-use",
+    "formats-and-portability",
+    "storage-and-privacy"
+  ]
+}

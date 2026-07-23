@@ -1,0 +1,45 @@
+---
+title: Browser-agent workflow
+description: Operate the Studio when generation depends on WebGL, Canvas, local files, visual placement, or GIF capture.
+icon: MonitorCog
+---
+
+Some capabilities are intentionally browser-only because their output depends on browser graphics APIs or interactive composition.
+
+## Use the browser for
+
+- Moodboard PNG up to 4800 × 6000
+- Animation GIF packages
+- Live logo shaders and shader GIFs
+- PNG output from OpenGraph, terminal, logos, and templates
+- Local font, image, logo, and shader inputs
+- Visual placement, opacity, scale, and zoom inspection
+- Shared Brand settings that update all browser-local designs
+
+## Discovery before operation
+
+1. Fetch `/api/catalog`.
+2. Select the exact tool `id` or visible `name`.
+3. Open `/studio`.
+4. Choose Starter, GT, or create a local project.
+5. Open the matching tool with navigation or Studio search.
+6. Configure fields in the inspector.
+7. Verify the canvas.
+8. Activate the visible download action.
+
+## Reliable interaction
+
+- Prefer visible labels and accessible names over coordinates.
+- Wait for imported images, fonts, and shader previews to finish rendering.
+- Use the canvas at 100% for final inspection.
+- Confirm surface and logo reversal in both light and dark compositions.
+- Treat browser download completion as the terminal success condition.
+- Do not delete projects unless the user explicitly requests deletion.
+
+## Persistence boundary
+
+Browser projects persist in `localStorage`. HTTP requests do not read or mutate those projects. If an agent needs an API artifact from a browser identity, it must serialize the required foundation fields into the request.
+
+## Choosing API versus browser
+
+If `/api/generate` can represent the artifact, prefer it. Browser automation is appropriate when visual judgment or browser-only rendering is part of the requested result.

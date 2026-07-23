@@ -58,6 +58,7 @@ export default async function HomePage() {
           <a href='#features'><T>Features</T></a>
           <a href='#system'><T>System</T></a>
           <a href='#agents'><T>Agents</T></a>
+          <Link href='/docs'><T>Docs</T></Link>
         </nav>
         <Button asChild size='sm'>
           <Link href='/studio'>
@@ -176,7 +177,7 @@ export default async function HomePage() {
             <article className='marketing-bento-card marketing-bento-card--surfaces' data-motion-item>
                 <BentoHeader
                   icon={<Layers3 aria-hidden='true' />}
-                  kicker={gt('33 surfaces')}
+                  kicker={gt('47 elements')}
                   title={gt('Go from identity to something useful.')}
               />
               <div className='marketing-surface-cloud'>
@@ -246,12 +247,13 @@ export default async function HomePage() {
               <Button asChild size='lg' variant='secondary'>
                 <Link href='/api/catalog'><T>Read the catalog</T><ArrowRight aria-hidden='true' /></Link>
               </Button>
+              <Link href='/docs/agents'>Agent docs ↗</Link>
               <Link href='/llms.txt'>llms.txt ↗</Link>
             </div>
           </div>
           <div className='marketing-agent-metrics' data-motion-item>
             <article><strong>15</strong><span><T>Studio tools</T></span></article>
-            <article><strong>33</strong><span><T>brand surfaces</T></span></article>
+            <article><strong>47</strong><span><T>brand elements</T></span></article>
             <article><strong>3</strong><span><T>export formats</T></span></article>
             <article><strong>0</strong><span><T>uploads required</T></span></article>
           </div>
@@ -282,6 +284,7 @@ export default async function HomePage() {
             <span><T>© 2026 Kevin Liu · Source available</T></span>
             <div>
               <Link href='/studio'><T>Studio</T> ↗</Link>
+              <Link href='/docs'><T>Docs</T> ↗</Link>
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
               <Link href='/llms.txt'>llms.txt ↗</Link>
             </div>
@@ -401,7 +404,8 @@ function AgentCodePreview() {
       <div><span>generate.sh</span><span>POST /api/generate</span></div>
       <pre><code>{`curl -X POST /api/generate \\
   -H "content-type: application/json" \\
-  -d '{ "tool": "opengraph", "project": "gt" }'`}</code></pre>
+  -d '{ "kind": "template", "template": "slides", \\
+        "identity": { "preset": "gt" }, "output": "raw" }'`}</code></pre>
       <footer><span><i /> 200 · image/svg+xml</span><span>deterministic output</span></footer>
     </div>
   );

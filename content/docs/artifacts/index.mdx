@@ -1,0 +1,33 @@
+---
+title: Artifacts
+description: Understand which outputs Glyphfield creates, where they are generated, and which workflow to use.
+icon: Download
+---
+
+An artifact is a portable output produced from an identity and a generator. Glyphfield has two complementary production paths.
+
+## Browser Studio
+
+Use the Studio for visual composition, local files, fonts, Canvas, WebGL, and animated capture.
+
+| Output | Tools |
+| --- | --- |
+| PNG | Moodboard, Logo lab, Background lab, OpenGraph, Terminal card, Partnership, Blog, Slides, Logo shader stills |
+| GIF | Animation, Logo shader motion |
+| JSON | Identity export, Brand element brief |
+
+## Agent API
+
+Use `POST /api/generate` for deterministic HTTP generation without operating the UI.
+
+| Kind | Output |
+| --- | --- |
+| `template` | Portable SVG or JSON envelope containing SVG |
+| `background` | Portable SVG or JSON envelope containing SVG |
+| `element-brief` | Production-brief JSON |
+
+## Choose the path
+
+Use the API when the artifact can be fully expressed by the versioned JSON contract. Use the browser when output depends on local fonts, local interactive layout, WebGL, Canvas, or multi-frame GIF encoding.
+
+Continue with [Download and use artifacts](/docs/artifacts/download-and-use) for exact commands and integration examples.

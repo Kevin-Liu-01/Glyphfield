@@ -1,0 +1,12 @@
+{
+  "title": "Agents",
+  "icon": "Bot",
+  "pages": [
+    "index",
+    "connect",
+    "generate",
+    "identity-assets",
+    "browser-workflow",
+    "errors"
+  ]
+}

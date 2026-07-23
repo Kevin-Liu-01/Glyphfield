@@ -1,0 +1,107 @@
+---
+title: Generation API
+description: Generate templates, backgrounds, and resolved brand-element briefs with the versioned JSON contract.
+icon: WandSparkles
+---
+
+`POST /api/generate` accepts `application/json`. The request `kind` selects one of three generators.
+
+## Output selection
+
+- `output: "json"` is the default for SVG generators. The response contains metadata and `artifact.content`.
+- `output: "raw"` returns `image/svg+xml` directly.
+- `element-brief` always returns JSON.
+
+## Template
+
+Template generates slides, blog covers, and partnership lockups.
+
+```json
+{
+  "kind": "template",
+  "template": "slides",
+  "slideLayout": "agenda",
+  "texture": "white",
+  "title": "One system, every market.",
+  "eyebrow": "GENERAL TRANSLATION / STUDIO",
+  "body": "Foundation\nExpression\nApplication\nDelivery",
+  "identity": { "preset": "gt" },
+  "output": "raw"
+}
+```
+
+### Template enums
+
+- `template`: `slides | blog | partnership`
+- `texture`: `white | dark | grid | noise`
+- `slideLayout`: `title | section | agenda | split | metrics | quote | timeline | closing`
+
+Fixed output sizes are 1600 × 900 for slides, 1200 × 630 for blog, and 1200 × 600 for partnership.
+
+## Background
+
+Background generates gradient, grain-gradient, dither, and pattern SVGs.
+
+```json
+{
+  "kind": "background",
+  "identity": { "preset": "gt" },
+  "settings": {
+    "width": 1200,
+    "height": 630,
+    "style": "grain-gradient",
+    "gradient": "linear",
+    "angle": 32,
+    "colorA": "#FFFFFF",
+    "colorB": "#181818",
+    "grain": 18,
+    "pattern": "dots",
+    "patternOpacity": 14,
+    "spacing": 24,
+    "logoTone": "black",
+    "logoScale": 24,
+    "logoOpacity": 100,
+    "logoX": 0,
+    "logoY": 0
+  },
+  "output": "raw"
+}
+```
+
+Width and height must each be 64–4096, and the total may not exceed 12,000,000 pixels.
+
+## Element brief
+
+Element brief resolves a stable record from `/api/elements` against an identity.
+
+```json
+{
+  "kind": "element-brief",
+  "elementId": "email-signature",
+  "identity": {
+    "preset": "custom",
+    "name": "Acme",
+    "website": "acme.test",
+    "tagline": "Tools for careful teams."
+  }
+}
+```
+
+The response describes the element, dimensions, format, keywords, resolved identity, settings, and preview family. It does not rasterize an image.
+
+## JSON artifact envelope
+
+```json
+{
+  "schemaVersion": 1,
+  "artifact": {
+    "content": "<svg ...>...</svg>",
+    "filename": "gt-slides-agenda.svg",
+    "mimeType": "image/svg+xml",
+    "width": 1600,
+    "height": 900
+  }
+}
+```
+
+Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
