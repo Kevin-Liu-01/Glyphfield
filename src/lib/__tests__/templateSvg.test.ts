@@ -39,4 +39,29 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain('A&amp;B &lt;launch&gt;');
     expect(svg).not.toContain('A&B <launch>');
   });
+
+  it('exports background opacity and independent artwork placement', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      backgroundImage: 'data:image/png;base64,BACKGROUND',
+      backgroundImageOpacity: 32,
+      backgroundImageScale: 120,
+      backgroundImageX: 10,
+      backgroundImageY: -5,
+      brandLogoScale: 150,
+      brandLogoX: 12,
+      partnerLogoScale: 50,
+      partnerLogoX: -10,
+      texture: 'grid',
+      textureOpacity: 25,
+    });
+
+    expect(svg).toContain('href="data:image/png;base64,BACKGROUND"');
+    expect(svg).toContain('opacity="0.32"');
+    expect(svg).toContain('fill="url(#texture)" opacity="0.25"');
+    expect(svg).toContain(`href="${baseOptions.brandLogo}" x="62"`);
+    expect(svg).toContain('width="204"');
+    expect(svg).toContain(`href="${baseOptions.partnerLogo}" x="950"`);
+    expect(svg).toContain('width="104"');
+  });
 });

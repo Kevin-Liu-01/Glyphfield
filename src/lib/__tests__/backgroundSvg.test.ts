@@ -8,6 +8,9 @@ describe('buildBackgroundSvg', () => {
       {
         ...DEFAULT_BACKGROUND_SETTINGS,
         grain: 36,
+        logoOpacity: 42,
+        logoX: 10,
+        logoY: -5,
         pattern: 'dots',
         patternOpacity: 42,
         style: 'grain-gradient',
@@ -19,6 +22,8 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('feTurbulence');
     expect(svg).toContain('pattern-dots');
     expect(svg).toContain('opacity="0.42"');
+    expect(svg).toContain('x="615"');
+    expect(svg).toContain('y="232.5"');
     expect(svg).toContain('data:image/svg+xml;base64,LOGO');
   });
 

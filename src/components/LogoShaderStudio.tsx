@@ -4,6 +4,7 @@ import { useRef, useState, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, Pause, Play } from 'lucide-react';
 
+import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -289,6 +290,9 @@ export default function LogoShaderStudio({
   );
   const [logoTone, setLogoTone] = useStudioDraft<LogoTone>(identity.id, tool.id, 'logo-tone', 'light');
   const [logoScale, setLogoScale] = useStudioDraft(identity.id, tool.id, 'logo-scale', 40);
+  const [logoOpacity, setLogoOpacity] = useStudioDraft(identity.id, tool.id, 'logo-opacity', 100);
+  const [logoX, setLogoX] = useStudioDraft(identity.id, tool.id, 'logo-x', 0);
+  const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
   const [target, setTarget] = useStudioDraft<EffectTarget>(identity.id, tool.id, 'target', 'logo');
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', true);
   const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'ratio', 'wide');
@@ -353,14 +357,19 @@ export default function LogoShaderStudio({
     }
 
     const markSize = Math.round(Math.min(width, height) * (logoScale / 100));
-    const markX = Math.round((width - markSize) / 2);
-    const markY = Math.round((height - markSize) / 2);
+    const markX = Math.round((width - markSize) / 2 + (logoX / 100) * width);
+    const markY = Math.round((height - markSize) / 2 + (logoY / 100) * height);
+    context.save();
+    context.globalAlpha = logoOpacity / 100;
     if ((target === 'logo' || target === 'both') && materialCanvas) {
       const cutout = document.createElement('canvas');
       cutout.width = markSize;
       cutout.height = markSize;
       const cutoutContext = cutout.getContext('2d');
-      if (!cutoutContext) return;
+      if (!cutoutContext) {
+        context.restore();
+        return;
+      }
       cutoutContext.drawImage(materialCanvas, 0, 0, markSize, markSize);
       cutoutContext.globalCompositeOperation = 'destination-in';
       cutoutContext.drawImage(logo, 0, 0, markSize, markSize);
@@ -368,6 +377,7 @@ export default function LogoShaderStudio({
     } else {
       context.drawImage(logo, markX, markY, markSize, markSize);
     }
+    context.restore();
   }
 
   async function capturePng() {
@@ -593,6 +603,18 @@ export default function LogoShaderStudio({
               <span className='flex justify-between gap-3'><T>Logo size</T><span className='font-mono'>{logoScale}%</span></span>
               <input className='studio-range' max='64' min='16' onChange={(event) => setLogoScale(Number(event.target.value))} type='range' value={logoScale} />
             </label>
+            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <span className='flex justify-between gap-3'><T>Opacity</T><span className='font-mono'>{logoOpacity}%</span></span>
+              <input className='studio-range' max='100' min='0' onChange={(event) => setLogoOpacity(Number(event.target.value))} type='range' value={logoOpacity} />
+            </label>
+            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <span className='flex justify-between gap-3'><T>Horizontal</T><span className='font-mono'>{logoX}%</span></span>
+              <input className='studio-range' max='50' min='-50' onChange={(event) => setLogoX(Number(event.target.value))} type='range' value={logoX} />
+            </label>
+            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <span className='flex justify-between gap-3'><T>Vertical</T><span className='font-mono'>{logoY}%</span></span>
+              <input className='studio-range' max='50' min='-50' onChange={(event) => setLogoY(Number(event.target.value))} type='range' value={logoY} />
+            </label>
             <label className='flex min-h-18 cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-input p-3 text-sm'>
               <span className='min-w-0'>
                 <span className='block font-medium text-foreground'><T>Upload transparent logo</T></span>
@@ -634,7 +656,8 @@ export default function LogoShaderStudio({
           </section>
         </aside>
 
-        <div className='tool-canvas grid min-h-0 place-items-center overflow-auto p-5 sm:p-8'>
+        <div className='tool-canvas min-h-0 overflow-auto'>
+          <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
             <div
               className={`relative w-full overflow-hidden border border-black/15 shadow-sm ${target === 'logo' && transparent ? 'studio-stage' : 'bg-black'}`}
@@ -653,7 +676,7 @@ export default function LogoShaderStudio({
                   speed={speed}
                 />
               ) : null}
-              <div className='pointer-events-none absolute inset-0 grid place-items-center'>
+              <div className='pointer-events-none absolute inset-0 grid place-items-center' style={{ opacity: logoOpacity / 100, transform: `translate(${logoX}%, ${logoY}%)` }}>
                 {target === 'logo' || target === 'both' ? (
                   <div
                     className='relative overflow-hidden'
@@ -706,6 +729,7 @@ export default function LogoShaderStudio({
             </div>
             {error ? <p className='border-x border-b border-status-error-border bg-status-error-background p-3 text-sm text-status-error' role='alert'>{error}</p> : null}
           </div>
+          </CanvasViewport>
         </div>
       </div>
     </div>

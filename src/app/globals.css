@@ -1236,6 +1236,27 @@ body {
   accent-color: hsl(var(--foreground));
 }
 
+.element-editor-range {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.element-editor-range > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+}
+
+.element-editor-range output {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .brand-element-pattern {
   position: absolute;
   z-index: 0;
@@ -1307,6 +1328,91 @@ body {
   min-width: 0;
 }
 
+.canvas-viewport {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.canvas-viewport-toolbar {
+  position: absolute;
+  z-index: 30;
+  top: 0.75rem;
+  right: 0.75rem;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--background) / 0.94);
+  box-shadow: 0 8px 28px hsl(var(--foreground) / 0.09);
+  backdrop-filter: blur(12px);
+}
+
+.canvas-zoom-range {
+  width: 72px;
+  display: flex;
+  align-items: center;
+  padding: 0 0.35rem;
+}
+
+.canvas-zoom-range input {
+  width: 100%;
+  accent-color: hsl(var(--foreground));
+}
+
+.canvas-zoom-value {
+  min-width: 46px;
+  height: 28px;
+  border: 0;
+  border-radius: 0.3rem;
+  color: hsl(var(--muted-foreground));
+  background: transparent;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.canvas-zoom-value:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.canvas-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 0.15rem;
+  background: hsl(var(--border));
+}
+
+.canvas-viewport-scroll {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  overflow: auto;
+}
+
+.canvas-viewport-stage {
+  width: 100%;
+  min-height: 100%;
+  zoom: var(--canvas-zoom);
+}
+
+@media (max-width: 640px) {
+  .canvas-zoom-range {
+    display: none;
+  }
+
+  .canvas-viewport-toolbar {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+}
+
 .animation-studio {
   display: grid;
   grid-template-rows: 52px minmax(0, 1fr);
@@ -1358,6 +1464,11 @@ body {
 .template-surface-noise {
   background-color: hsl(var(--background));
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.13'/%3E%3C/svg%3E");
+}
+
+.template-texture-layer.template-surface-grid,
+.template-texture-layer.template-surface-noise {
+  background-color: transparent;
 }
 
 .template-workspace {

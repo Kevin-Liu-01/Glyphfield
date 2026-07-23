@@ -13,6 +13,7 @@ import {
 import DesignBoard from '@/components/DesignBoard';
 import BrandElementsStudio from '@/components/BrandElementsStudio';
 import BackgroundStudio from '@/components/BackgroundStudio';
+import CanvasViewport from '@/components/CanvasViewport';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
@@ -155,6 +156,32 @@ function Field({ children, label }: { children: ReactNode; label: ReactNode }) {
   );
 }
 
+function RangeField({
+  label,
+  max,
+  min,
+  onChange,
+  suffix,
+  value,
+}: {
+  label: ReactNode;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  suffix: string;
+  value: number;
+}) {
+  return (
+    <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+      <span className='flex items-center justify-between gap-3'>
+        <span>{label}</span>
+        <output className='font-mono text-xs tabular-nums'>{value}{suffix}</output>
+      </span>
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
+    </label>
+  );
+}
+
 function SegmentedChoice<T extends string | number>({
   onChange,
   options,
@@ -284,6 +311,13 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     'surface',
     'light'
   );
+  const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'background-opacity', 28);
+  const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'background-x', 0);
+  const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'background-y', 0);
+  const [backgroundScale, setBackgroundScale] = useStudioDraft(identity.id, tool.id, 'background-scale', 100);
+  const [logoX, setLogoX] = useStudioDraft(identity.id, tool.id, 'logo-x', 0);
+  const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
+  const [logoScale, setLogoScale] = useStudioDraft(identity.id, tool.id, 'logo-scale', 100);
   const [exporting, setExporting] = useState(false);
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
@@ -307,8 +341,12 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         : '';
       const fontFamily = fontData ? 'StudioCustom' : 'Arial, sans-serif';
       const lines = splitLines(title, 27, 3);
+      const resolvedBackgroundWidth = 1200 * (backgroundScale / 100);
+      const resolvedBackgroundHeight = 630 * (backgroundScale / 100);
+      const resolvedBackgroundX = (1200 - resolvedBackgroundWidth) / 2 + (backgroundX / 100) * 1200;
+      const resolvedBackgroundY = (630 - resolvedBackgroundHeight) / 2 + (backgroundY / 100) * 630;
       const imageLayer = backgroundImage
-        ? `<image href="${backgroundImage}" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/><rect width="1200" height="630" fill="${background}" opacity="0.84"/>`
+        ? `<rect width="1200" height="630" fill="${background}"/><image href="${backgroundImage}" x="${resolvedBackgroundX}" y="${resolvedBackgroundY}" width="${resolvedBackgroundWidth}" height="${resolvedBackgroundHeight}" preserveAspectRatio="xMidYMid slice" opacity="${backgroundOpacity / 100}"/>`
         : `<rect width="1200" height="630" fill="${background}"/>`;
       const titleLines = lines
         .map(
@@ -316,7 +354,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             `<text x="72" y="${260 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="700" letter-spacing="-2">${escapeXml(line)}</text>`
         )
         .join('');
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}</defs>${imageLayer}<image href="${mark}" x="72" y="64" width="52" height="52"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="700">${escapeXml(identity.shortName)}</text><text x="72" y="188" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text><path d="M1058 72h70v70" fill="none" stroke="${foreground}" stroke-width="2"/><path d="M1128 488v70h-70" fill="none" stroke="${foreground}" stroke-width="2"/></svg>`;
+      const resolvedLogoSize = 52 * (logoScale / 100);
+      const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
+      const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="700">${escapeXml(identity.shortName)}</text><text x="72" y="188" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text><path d="M1058 72h70v70" fill="none" stroke="${foreground}" stroke-width="2"/><path d="M1128 488v70h-70" fill="none" stroke="${foreground}" stroke-width="2"/></svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -348,6 +389,15 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           label='Add background image'
           onFile={backgroundAsset.select}
         />
+        {backgroundAsset.asset ? (
+          <div className='flex flex-col gap-4 border-t border-border pt-4'>
+            <p className='text-xs font-semibold'><T>Background image</T></p>
+            <RangeField label={<T>Opacity</T>} max={100} min={0} onChange={setBackgroundOpacity} suffix='%' value={backgroundOpacity} />
+            <RangeField label={<T>Horizontal</T>} max={100} min={-100} onChange={setBackgroundX} suffix='%' value={backgroundX} />
+            <RangeField label={<T>Vertical</T>} max={100} min={-100} onChange={setBackgroundY} suffix='%' value={backgroundY} />
+            <RangeField label={<T>Scale</T>} max={240} min={50} onChange={setBackgroundScale} suffix='%' value={backgroundScale} />
+          </div>
+        ) : null}
         <UploadField
           accept='image/*'
           fileName={logoAsset.asset?.name}
@@ -360,6 +410,11 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           label='Add font file'
           onFile={customFont.select}
         />
+      </ControlSection>
+      <ControlSection title={<T>Logo placement</T>}>
+        <RangeField label={<T>Horizontal</T>} max={240} min={-240} onChange={setLogoX} suffix='px' value={logoX} />
+        <RangeField label={<T>Vertical</T>} max={180} min={-180} onChange={setLogoY} suffix='px' value={logoY} />
+        <RangeField label={<T>Scale</T>} max={220} min={40} onChange={setLogoScale} suffix='%' value={logoScale} />
       </ControlSection>
     </>
   );
@@ -375,15 +430,12 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       inspector={inspector}
       tool={tool}
     >
-      <div className='grid min-h-full place-items-center p-6 lg:p-10'>
+      <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm'>
+          <div className='absolute inset-0' style={{ backgroundColor: background }} />
           {backgroundAsset.asset ? (
-            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} />
+            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
-          <div
-            className='absolute inset-0'
-            style={{ backgroundColor: background, opacity: backgroundAsset.asset ? 0.84 : 1 }}
-          />
           <div
             className='absolute inset-0 flex flex-col justify-between p-[6%]'
             style={{ color: foreground, fontFamily: customFont.font?.family }}
@@ -397,6 +449,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
                   brandAssetPath(identity, surface === 'dark' ? 'mark-light' : 'mark-dark') ??
                   monogramDataUrl(identity, foreground)
                 }
+                style={{ transform: `translate(${logoX}px, ${logoY}px) scale(${logoScale / 100})` }}
               />
               <span className='text-sm font-semibold'>{identity.shortName}</span>
             </div>
@@ -410,7 +463,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           </div>
           <PreviewLabel>1200 × 630</PreviewLabel>
         </div>
-      </div>
+      </CanvasViewport>
     </ToolShell>
   );
 }
@@ -911,6 +964,17 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     'texture',
     'white'
   );
+  const [textureOpacity, setTextureOpacity] = useStudioDraft(identity.id, tool.id, 'texture-opacity', 100);
+  const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'background-opacity', 28);
+  const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'background-x', 0);
+  const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'background-y', 0);
+  const [backgroundScale, setBackgroundScale] = useStudioDraft(identity.id, tool.id, 'background-scale', 100);
+  const [brandLogoX, setBrandLogoX] = useStudioDraft(identity.id, tool.id, 'brand-logo-x', 0);
+  const [brandLogoY, setBrandLogoY] = useStudioDraft(identity.id, tool.id, 'brand-logo-y', 0);
+  const [brandLogoScale, setBrandLogoScale] = useStudioDraft(identity.id, tool.id, 'brand-logo-scale', 100);
+  const [partnerLogoX, setPartnerLogoX] = useStudioDraft(identity.id, tool.id, 'partner-logo-x', 0);
+  const [partnerLogoY, setPartnerLogoY] = useStudioDraft(identity.id, tool.id, 'partner-logo-y', 0);
+  const [partnerLogoScale, setPartnerLogoScale] = useStudioDraft(identity.id, tool.id, 'partner-logo-scale', 100);
   const [exporting, setExporting] = useState(false);
   const isDark = texture === 'dark';
   const foreground = isDark
@@ -941,7 +1005,14 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       const svg = buildTemplateSvg({
         background,
         backgroundImage,
+        backgroundImageOpacity: backgroundOpacity,
+        backgroundImageScale: backgroundScale,
+        backgroundImageX: backgroundX,
+        backgroundImageY: backgroundY,
         brandLogo: resolvedBrandLogo,
+        brandLogoScale,
+        brandLogoX,
+        brandLogoY,
         eyebrow,
         foreground,
         height,
@@ -949,7 +1020,11 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         invertPartner: isDark,
         kind,
         partnerLogo: partner,
+        partnerLogoScale,
+        partnerLogoX,
+        partnerLogoY,
         texture,
+        textureOpacity,
         title,
         website: identity.website,
         width,
@@ -987,6 +1062,16 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           label='Add background image'
           onFile={backgroundAsset.select}
         />
+        {texture === 'grid' || texture === 'noise' ? <RangeField label={<T>Texture opacity</T>} max={100} min={0} onChange={setTextureOpacity} suffix='%' value={textureOpacity} /> : null}
+        {backgroundAsset.asset ? (
+          <div className='flex flex-col gap-4 border-t border-border pt-4'>
+            <p className='text-xs font-semibold'><T>Background image</T></p>
+            <RangeField label={<T>Opacity</T>} max={100} min={0} onChange={setBackgroundOpacity} suffix='%' value={backgroundOpacity} />
+            <RangeField label={<T>Horizontal</T>} max={100} min={-100} onChange={setBackgroundX} suffix='%' value={backgroundX} />
+            <RangeField label={<T>Vertical</T>} max={100} min={-100} onChange={setBackgroundY} suffix='%' value={backgroundY} />
+            <RangeField label={<T>Scale</T>} max={240} min={50} onChange={setBackgroundScale} suffix='%' value={backgroundScale} />
+          </div>
+        ) : null}
         {kind === 'partnership' ? (
           <>
             <Field label={<T>Partner logo</T>}>
@@ -1012,6 +1097,19 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           </>
         ) : null}
       </ControlSection>
+      <ControlSection title={<T>Brand artwork</T>}>
+        <RangeField label={<T>Horizontal</T>} max={240} min={-240} onChange={setBrandLogoX} suffix='px' value={brandLogoX} />
+        <RangeField label={<T>Vertical</T>} max={180} min={-180} onChange={setBrandLogoY} suffix='px' value={brandLogoY} />
+        <RangeField label={<T>Scale</T>} max={220} min={40} onChange={setBrandLogoScale} suffix='%' value={brandLogoScale} />
+        {kind === 'partnership' ? (
+          <div className='flex flex-col gap-4 border-t border-border pt-4'>
+            <p className='text-xs font-semibold'><T>Partner artwork</T></p>
+            <RangeField label={<T>Horizontal</T>} max={240} min={-240} onChange={setPartnerLogoX} suffix='px' value={partnerLogoX} />
+            <RangeField label={<T>Vertical</T>} max={180} min={-180} onChange={setPartnerLogoY} suffix='px' value={partnerLogoY} />
+            <RangeField label={<T>Scale</T>} max={220} min={40} onChange={setPartnerLogoScale} suffix='%' value={partnerLogoScale} />
+          </div>
+        ) : null}
+      </ControlSection>
     </>
   );
 
@@ -1026,33 +1124,30 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       inspector={inspector}
       tool={tool}
     >
-      <div className='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12'>
+      <CanvasViewport identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
-          className={`artifact-preview template-artboard template-artboard-${kind} template-surface template-surface-${texture} relative w-full max-w-5xl overflow-hidden border border-border`}
-          style={{ aspectRatio: `${width} / ${height}`, color: foreground }}
+          className={`artifact-preview template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
+          style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, color: foreground }}
         >
           {backgroundAsset.asset ? (
-            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} />
+            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
-          <div
-            className='absolute inset-0'
-            style={{ backgroundColor: background, opacity: backgroundAsset.asset ? 0.84 : 0 }}
-          />
+          {texture === 'grid' || texture === 'noise' ? <div className={`template-texture-layer template-surface-${texture} absolute inset-0`} style={{ opacity: textureOpacity / 100 }} /> : null}
           <div className='template-artboard-content absolute inset-0 flex flex-col justify-between'>
             {kind === 'partnership' ? (
               <div className='template-partnership-lockup' aria-label={gt(`${identity.name} and ${selectedPartner.label}`)}>
-                <img alt={identity.name} className='template-partnership-brand object-contain' src={brandLogoSource} />
+                <img alt={identity.name} className='template-partnership-brand object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
                 <span className='template-partnership-times' aria-hidden='true'>×</span>
                 <img
                   alt={partnerAsset.asset?.name ?? selectedPartner.label}
                   className='template-partner-logo object-contain'
                   src={partnerLogoSource}
-                  style={isDark ? { filter: 'brightness(0) invert(1)' } : undefined}
+                  style={{ filter: isDark ? 'brightness(0) invert(1)' : undefined, transform: `translate(${partnerLogoX}px, ${partnerLogoY}px) scale(${partnerLogoScale / 100})` }}
                 />
               </div>
             ) : (
               <div className='template-brand-lockup'>
-                <img alt={identity.name} className='template-brand-logo object-contain' src={brandLogoSource} />
+                <img alt={identity.name} className='template-brand-logo object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
                 {kind === 'blog' ? <span>{identity.name}</span> : null}
               </div>
             )}
@@ -1068,7 +1163,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             </div>
           </div>
         </div>
-      </div>
+      </CanvasViewport>
     </ToolShell>
   );
 }

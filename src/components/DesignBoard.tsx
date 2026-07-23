@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from 'lucide-react';
 
+import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
@@ -272,7 +273,8 @@ export default function DesignBoard({
           </section>
         </aside>
 
-        <div className='tool-canvas min-h-0 overflow-auto p-5 sm:p-8'>
+        <div className='tool-canvas min-h-0 overflow-auto'>
+          <CanvasViewport identityId={identity.id} stageClassName='p-5 sm:p-8' toolId={tool.id}>
           <div
             aria-label={`${identity.name} moodboard with brand foundations and generated applications`}
             className='moodboard-preview mx-auto w-full max-w-[1200px] shadow-sm'
@@ -280,6 +282,7 @@ export default function DesignBoard({
             data-testid='moodboard-preview'
             role='img'
           />
+          </CanvasViewport>
         </div>
       </div>
     </div>

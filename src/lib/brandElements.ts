@@ -31,6 +31,9 @@ export type BrandElement = {
 
 export type BrandElementSettings = {
   accentColor: string;
+  artworkScale: number;
+  artworkX: number;
+  artworkY: number;
   backgroundColor: string;
   body: string;
   cta: string;
@@ -40,6 +43,7 @@ export type BrandElementSettings = {
   layout: 'split' | 'stacked' | 'centered';
   partnerName: string;
   pattern: 'none' | 'dots' | 'grid' | 'dither';
+  patternOpacity: number;
   personName: string;
   personRole: string;
   scale: 'compact' | 'balanced' | 'bold';
@@ -432,6 +436,9 @@ export function createBrandElementSettings(
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const defaults: BrandElementSettings = {
     accentColor: ink,
+    artworkScale: 100,
+    artworkX: 0,
+    artworkY: 0,
     backgroundColor: paper,
     body: identity.positioning || identity.description,
     cta: '',
@@ -441,6 +448,7 @@ export function createBrandElementSettings(
     layout: 'split',
     partnerName: 'Partner',
     pattern: 'dots',
+    patternOpacity: 12,
     personName: 'Alex Morgan',
     personRole: `Design Engineer · ${identity.name}`,
     scale: 'balanced',

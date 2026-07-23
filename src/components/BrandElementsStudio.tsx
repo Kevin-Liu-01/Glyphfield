@@ -15,6 +15,7 @@ import {
   TerminalSquare,
 } from 'lucide-react';
 
+import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
@@ -94,9 +95,16 @@ function ElementPattern({ settings }: { settings: BrandElementSettings }) {
       aria-hidden='true'
       className='brand-element-pattern'
       data-pattern={settings.pattern}
-      style={{ color: settings.foregroundColor }}
+      style={{ color: settings.foregroundColor, opacity: settings.patternOpacity / 100 }}
     />
   );
+}
+
+function artworkStyle(settings: BrandElementSettings): CSSProperties {
+  return {
+    transform: `translate(${settings.artworkX}px, ${settings.artworkY}px) scale(${settings.artworkScale / 100})`,
+    transformOrigin: 'center',
+  };
 }
 
 function elementSurfaceStyle(settings: BrandElementSettings): CSSProperties {
@@ -166,6 +174,29 @@ function ElementColorControl({
   );
 }
 
+function ElementRangeControl({
+  label,
+  max,
+  min,
+  onChange,
+  suffix,
+  value,
+}: {
+  label: ReactNode;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  suffix: string;
+  value: number;
+}) {
+  return (
+    <label className='element-editor-range'>
+      <span><span>{label}</span><output>{value}{suffix}</output></span>
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
+    </label>
+  );
+}
+
 function ElementEditor({
   element,
   onChange,
@@ -215,6 +246,10 @@ function ElementEditor({
       element.id
     );
   const logoSupported = !['ascii-mark', 'terminal-theme', 'cli-banner'].includes(element.id);
+  const artworkSupported =
+    ['welcome-email', 'logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'event-backdrop', 'partnership-lockup', 'web-card', 'opengraph'].includes(
+      element.id
+    );
   const websiteSupported =
     ['welcome-email', 'transactional-email', 'email-signature', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'slide-title', 'slide-section', 'blog-cover', 'report-cover', 'press-kit', 'event-backdrop', 'business-card', 'packaging-label', 'letterhead', 'web-card', 'opengraph', 'error-page'].includes(
       element.id
@@ -271,6 +306,14 @@ function ElementEditor({
             <option value='dither'>{gt('Dither')}</option>
           </select>
         </label> : null}
+        {patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
+      </section> : null}
+
+      {artworkSupported ? <section className='element-editor-section'>
+        <div className='element-editor-heading'><h2><T>Artwork</T></h2></div>
+        <ElementRangeControl label={<T>Horizontal</T>} max={120} min={-120} onChange={(artworkX) => onChange({ artworkX })} suffix='px' value={settings.artworkX} />
+        <ElementRangeControl label={<T>Vertical</T>} max={120} min={-120} onChange={(artworkY) => onChange({ artworkY })} suffix='px' value={settings.artworkY} />
+        <ElementRangeControl label={<T>Scale</T>} max={200} min={40} onChange={(artworkScale) => onChange({ artworkScale })} suffix='%' value={settings.artworkScale} />
       </section> : null}
 
       <section className='element-editor-section'>
@@ -299,15 +342,17 @@ function IdentityMark({
   className,
   identity,
   inverted = false,
+  style,
 }: {
   className: string;
   identity: BrandIdentity;
   inverted?: boolean;
+  style?: CSSProperties;
 }) {
   const path = brandAssetPath(identity, inverted ? 'mark-light' : 'mark-dark');
-  if (path) return <img alt='' className={className} src={path} />;
+  if (path) return <img alt='' className={className} src={path} style={style} />;
   return (
-    <span className={`${className} grid place-items-center font-semibold tracking-[-0.06em]`}>
+    <span className={`${className} grid place-items-center font-semibold tracking-[-0.06em]`} style={style}>
       {identity.shortName}
     </span>
   );
@@ -358,7 +403,7 @@ function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; 
         {settings.showLogo ? <IdentityMark className='mb-7 size-10 object-contain text-lg' identity={identity} inverted={dark} /> : null}
         <div className='mb-8 grid aspect-[10/3] place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}>
           {motion ? (
-            <img alt='' className='size-full object-cover' src={motion} />
+            <img alt='' className='size-full object-cover' src={motion} style={artworkStyle(settings)} />
           ) : (
             <p className='max-w-[85%] text-center text-2xl font-semibold tracking-[-0.04em] text-white sm:text-4xl'>{identity.greetings.join(' · ')}</p>
           )}
@@ -540,7 +585,7 @@ function SocialPreview({ element, identity, settings }: { element: BrandElement;
         </div>
         {settings.showWebsite ? <p className='font-mono text-xs opacity-40'>{identity.website}</p> : <span />}
       </div>
-      {!centered && settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-36 object-contain text-5xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /></div> : null}
+      {!centered && settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-36 object-contain text-5xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /></div> : null}
     </div>
   );
 }
@@ -575,7 +620,7 @@ function EventPreview({ element, identity, settings }: { element: BrandElement; 
     return (
       <div className='relative mx-auto flex aspect-[16/9] w-full max-w-4xl items-center justify-center gap-10 overflow-hidden p-12 shadow-sm' style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
-        {settings.showLogo ? <IdentityMark className='relative size-28 object-contain text-4xl' identity={identity} inverted={dark} /> : null}
+        {settings.showLogo ? <IdentityMark className='relative size-28 object-contain text-4xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : null}
         <span className='relative h-28 w-px opacity-20' style={{ backgroundColor: settings.foregroundColor }} />
         <div className='relative grid size-28 place-items-center font-mono text-3xl font-semibold' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{settings.partnerName.slice(0, 2).toLocaleUpperCase()}</div>
       </div>
@@ -585,7 +630,7 @@ function EventPreview({ element, identity, settings }: { element: BrandElement; 
     return (
       <div className='relative mx-auto flex aspect-[16/9] w-full max-w-5xl flex-col justify-between overflow-hidden p-10 shadow-sm sm:p-16' style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
-        <div className='relative z-10 flex items-center justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-xl' identity={identity} inverted={dark} /> : <span />}{settings.eyebrow ? <span className='font-mono text-xs uppercase tracking-widest opacity-50'>{settings.eyebrow}</span> : null}</div>
+        <div className='relative z-10 flex items-center justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : <span />}{settings.eyebrow ? <span className='font-mono text-xs uppercase tracking-widest opacity-50'>{settings.eyebrow}</span> : null}</div>
         <h2 className={`relative z-10 max-w-4xl font-semibold leading-[0.94] tracking-[-0.06em] ${typeScale(settings)}`}>{settings.headline}</h2>
         {settings.showWebsite ? <p className='relative z-10 font-mono text-xs opacity-50'>{identity.website}</p> : null}
       </div>
@@ -696,7 +741,7 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
         </div>
         {settings.showWebsite ? <p className='font-mono text-xs opacity-40'>{identity.website}</p> : <span />}
       </div>
-      {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center p-10' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /></div> : null}
+      {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center p-10' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /></div> : null}
     </div>
   );
 }
@@ -704,8 +749,8 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
 function LogoPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
   return (
     <div className='mx-auto grid aspect-[16/10] w-full max-w-4xl grid-cols-2 overflow-hidden shadow-sm'>
-      <div className='relative grid place-items-center overflow-hidden p-10' style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}><ElementPattern settings={settings} />{settings.showLogo ? <IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.backgroundColor)} /> : null}</div>
-      <div className='grid place-items-center p-10' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{settings.showLogo ? <IdentityMark className='size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}</div>
+      <div className='relative grid place-items-center overflow-hidden p-10' style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}><ElementPattern settings={settings} />{settings.showLogo ? <IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.backgroundColor)} style={artworkStyle(settings)} /> : null}</div>
+      <div className='grid place-items-center overflow-hidden p-10' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{settings.showLogo ? <IdentityMark className='size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /> : null}</div>
     </div>
   );
 }
@@ -715,7 +760,7 @@ function IconPreview({ identity, settings }: { identity: BrandIdentity; settings
     <div className='mx-auto grid w-full max-w-3xl grid-cols-2 gap-px bg-border shadow-sm sm:grid-cols-4'>
       {[32, 64, 128, 256, 512, 1024, 64, 128].map((size, index) => (
         <div className='grid aspect-square place-items-center p-6' key={`${size}-${index}`} style={{ backgroundColor: index % 3 === 0 ? settings.accentColor : settings.backgroundColor, color: index % 3 === 0 ? settings.backgroundColor : settings.foregroundColor }}>
-          {settings.showLogo ? <IdentityMark className='size-2/3 object-contain text-2xl' identity={identity} inverted={isDarkSurface(index % 3 === 0 ? settings.accentColor : settings.backgroundColor)} /> : null}
+          {settings.showLogo ? <IdentityMark className='size-2/3 object-contain text-2xl' identity={identity} inverted={isDarkSurface(index % 3 === 0 ? settings.accentColor : settings.backgroundColor)} style={artworkStyle(settings)} /> : null}
           <span className='mt-3 font-mono text-[10px] opacity-40'>{size} PX</span>
         </div>
       ))}
@@ -911,11 +956,11 @@ export default function BrandElementsStudio({
                 <span className='rounded-md border border-border px-2 py-1'>{selectedElement.format}</span>
               </div>
             </div>
-            <div className='grid min-h-[560px] flex-1 place-items-center p-5 sm:p-8'>
+            <CanvasViewport className='min-h-[560px] flex-1' identityId={identity.id} stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8' toolId={tool.id}>
               <ElementFrame>
                 <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />
               </ElementFrame>
-            </div>
+            </CanvasViewport>
           </div>
         </div>
         <ElementEditor

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
+import CanvasViewport from '@/components/CanvasViewport';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -73,7 +74,7 @@ export default function BackgroundStudio({
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
   const [exporting, setExporting] = useState(false);
-  const [settings, setSettings] = useStudioDraft<BackgroundSettings>(
+  const [storedSettings, setStoredSettings] = useStudioDraft<BackgroundSettings>(
     identity.id,
     tool.id,
     'settings',
@@ -83,6 +84,7 @@ export default function BackgroundStudio({
       colorB: identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818',
     })
   );
+  const settings = { ...DEFAULT_BACKGROUND_SETTINGS, ...storedSettings };
   const identityLogo = brandAssetPath(
     identity,
     settings.logoTone === 'white' ? 'mark-light' : 'mark-dark'
@@ -105,7 +107,7 @@ export default function BackgroundStudio({
   );
 
   function updateSettings(patch: Partial<BackgroundSettings>) {
-    setSettings((current) => ({ ...current, ...patch }));
+    setStoredSettings((current) => ({ ...current, ...patch }));
   }
 
   function selectCustomLogo(file: File) {
@@ -253,6 +255,9 @@ export default function BackgroundStudio({
               ))}
             </div>
             <RangeControl label={gt('Logo size')} max={64} min={10} onChange={(logoScale) => updateSettings({ logoScale })} suffix='%' value={settings.logoScale} />
+            <RangeControl label={gt('Logo opacity')} max={100} min={0} onChange={(logoOpacity) => updateSettings({ logoOpacity })} suffix='%' value={settings.logoOpacity} />
+            <RangeControl label={gt('Horizontal')} max={50} min={-50} onChange={(logoX) => updateSettings({ logoX })} suffix='%' value={settings.logoX} />
+            <RangeControl label={gt('Vertical')} max={50} min={-50} onChange={(logoY) => updateSettings({ logoY })} suffix='%' value={settings.logoY} />
             <label className='flex min-h-16 cursor-pointer items-center gap-3 border border-dashed border-input p-3 text-sm'>
               <ImagePlus className='size-4 text-muted-foreground' aria-hidden='true' />
               <span className='min-w-0 flex-1'>
@@ -278,7 +283,8 @@ export default function BackgroundStudio({
           </section>
         </aside>
 
-        <div className='tool-canvas grid min-h-0 place-items-center overflow-auto p-5 sm:p-8'>
+        <div className='tool-canvas min-h-0 overflow-auto'>
+          <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
             <div
               aria-label={`${identity.name} ${settings.style} background preview`}
@@ -294,6 +300,7 @@ export default function BackgroundStudio({
               </p>
             </div>
           </div>
+          </CanvasViewport>
         </div>
       </div>
     </div>

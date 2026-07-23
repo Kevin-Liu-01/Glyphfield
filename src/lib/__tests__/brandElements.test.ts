@@ -51,6 +51,8 @@ describe('createBrandElementSettings', () => {
       expect(settings.backgroundColor).toMatch(/^#[\dA-F]{6}$/i);
       expect(settings.foregroundColor).toMatch(/^#[\dA-F]{6}$/i);
       expect(settings.accentColor).toMatch(/^#[\dA-F]{6}$/i);
+      expect(settings.artworkScale).toBeGreaterThanOrEqual(40);
+      expect(settings.patternOpacity).toBeGreaterThanOrEqual(0);
       expect(['split', 'stacked', 'centered']).toContain(settings.layout);
       expect(['none', 'dots', 'grid', 'dither']).toContain(settings.pattern);
     }

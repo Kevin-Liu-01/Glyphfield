@@ -10,8 +10,11 @@ export type BackgroundSettings = {
   gradient: BackgroundGradient;
   grain: number;
   height: number;
+  logoOpacity: number;
   logoScale: number;
   logoTone: 'black' | 'white';
+  logoX: number;
+  logoY: number;
   pattern: BackgroundPattern;
   patternOpacity: number;
   spacing: number;
@@ -27,8 +30,11 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   gradient: 'linear',
   grain: 18,
   height: 750,
+  logoOpacity: 100,
   logoScale: 28,
   logoTone: 'white',
+  logoX: 0,
+  logoY: 0,
   pattern: 'none',
   patternOpacity: 24,
   spacing: 24,
@@ -118,12 +124,12 @@ export function buildBackgroundSvg(
       ? `<rect width="100%" height="100%" fill="#FFFFFF" filter="url(#surface-grain)" style="mix-blend-mode:soft-light"/>`
       : '';
   const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
-  const markX = (settings.width - markSize) / 2;
-  const markY = (settings.height - markSize) / 2;
+  const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
+  const markY = (settings.height - markSize) / 2 + (settings.logoY / 100) * settings.height;
   const mark = identity?.logo
-    ? `<image href="${identity.logo.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" x="${markX}" y="${markY}" width="${markSize}" height="${markSize}" preserveAspectRatio="xMidYMid meet"/>`
+    ? `<image href="${identity.logo.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" x="${markX}" y="${markY}" width="${markSize}" height="${markSize}" preserveAspectRatio="xMidYMid meet" opacity="${settings.logoOpacity / 100}"/>`
     : identity
-      ? `<text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" fill="${settings.logoTone === 'white' ? '#FFFFFF' : '#000000'}" font-family="Inter,sans-serif" font-size="${markSize * 0.42}" font-weight="800" letter-spacing="-.06em">${identity.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</text>`
+      ? `<text x="${settings.width / 2 + (settings.logoX / 100) * settings.width}" y="${settings.height * 0.52 + (settings.logoY / 100) * settings.height}" text-anchor="middle" dominant-baseline="middle" fill="${settings.logoTone === 'white' ? '#FFFFFF' : '#000000'}" opacity="${settings.logoOpacity / 100}" font-family="Inter,sans-serif" font-size="${markSize * 0.42}" font-weight="800" letter-spacing="-.06em">${identity.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</text>`
       : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}</defs>${surface}${grainLayer}${patternLayer}${mark}</svg>`;

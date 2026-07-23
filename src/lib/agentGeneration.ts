@@ -334,8 +334,11 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     ),
     grain: numberValue(input.grain, DEFAULT_BACKGROUND_SETTINGS.grain, 'settings.grain', 0, 100),
     height,
+    logoOpacity: numberValue(input.logoOpacity, DEFAULT_BACKGROUND_SETTINGS.logoOpacity, 'settings.logoOpacity', 0, 100),
     logoScale: numberValue(input.logoScale, DEFAULT_BACKGROUND_SETTINGS.logoScale, 'settings.logoScale', 5, 90),
     logoTone: oneOf(input.logoTone, ['black', 'white'] as const, DEFAULT_BACKGROUND_SETTINGS.logoTone, 'settings.logoTone'),
+    logoX: numberValue(input.logoX, DEFAULT_BACKGROUND_SETTINGS.logoX, 'settings.logoX', -50, 50),
+    logoY: numberValue(input.logoY, DEFAULT_BACKGROUND_SETTINGS.logoY, 'settings.logoY', -50, 50),
     pattern: oneOf(
       input.pattern,
       ['none', 'dots', 'lines', 'grid'] as const satisfies readonly BackgroundPattern[],
