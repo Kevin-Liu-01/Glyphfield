@@ -68,7 +68,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Boards',
-    description: 'Compose the complete identity into a navigable moodboard and high-resolution PNG.',
+    description: 'Compose the identity as an application showcase or complete system board, then export a high-resolution PNG.',
     id: 'design-board',
     keywords: ['brand board', 'design board', 'moodboard', 'style tile', 'identity', 'guidelines'],
     name: 'Moodboard',

@@ -13,7 +13,10 @@ describe('resolveMoodboardExport', () => {
     ['high', 3200, 4000],
     ['ultra', 4800, 6000],
   ] as const)('resolves the %s preset', (presetId, width, height) => {
-    expect(resolveMoodboardExport(presetId, 2400)).toMatchObject({ height, width });
+    expect(resolveMoodboardExport(presetId, 2400, 'system')).toMatchObject({
+      height,
+      width,
+    });
   });
 
   it.each([
@@ -21,7 +24,19 @@ describe('resolveMoodboardExport', () => {
     [1833.8, 1834, 2293],
     [8000, 4800, 6000],
   ])('clamps custom width %s while preserving the 4:5 board ratio', (input, width, height) => {
-    expect(resolveMoodboardExport('custom', input)).toMatchObject({ height, width });
+    expect(resolveMoodboardExport('custom', input, 'system')).toMatchObject({ height, width });
+  });
+
+  it.each([
+    ['standard', 1600, 900],
+    ['retina', 2400, 1350],
+    ['high', 3200, 1800],
+    ['ultra', 4800, 2700],
+  ] as const)('preserves the 16:9 showcase ratio for %s', (presetId, width, height) => {
+    expect(resolveMoodboardExport(presetId, 2400, 'showcase')).toMatchObject({
+      height,
+      width,
+    });
   });
 
   it('exposes presets in increasing resolution order', () => {

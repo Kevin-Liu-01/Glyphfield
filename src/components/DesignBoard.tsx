@@ -17,6 +17,7 @@ import {
   moodboardFilename,
   MOODBOARD_EXPORT_PRESETS,
   resolveMoodboardExport,
+  type MoodboardComposition,
   type MoodboardExportPresetId,
 } from '@/lib/moodboard';
 import { buildMoodboardSvg, type MoodboardSvgAssets } from '@/lib/moodboardSvg';
@@ -76,13 +77,23 @@ export default function DesignBoard({
     'export-preset',
     'retina'
   );
+  const [composition, setComposition] = useStudioDraft<MoodboardComposition>(
+    identity.id,
+    tool.id,
+    'composition',
+    'showcase'
+  );
   const [customWidth, setCustomWidth] = useStudioDraft(
     identity.id,
     tool.id,
     'custom-width',
     2400
   );
-  const exportDimensions = resolveMoodboardExport(exportPresetId, customWidth);
+  const exportDimensions = resolveMoodboardExport(
+    exportPresetId,
+    customWidth,
+    composition
+  );
   const markDarkPath = brandAssetPath(identity, 'mark-dark');
   const markLightPath = brandAssetPath(identity, 'mark-light');
   const logoPaths = useMemo(
@@ -95,16 +106,20 @@ export default function DesignBoard({
   );
   const previewSvg = useMemo(
     () =>
-      buildMoodboardSvg(identity, {
-        interFont: '/fonts/inter-latin.woff2',
-        logoMarks: logoPaths,
-        markDark: markDarkPath,
-        markLight: markLightPath,
-        monoFont: '/fonts/geist-mono-latin.woff2',
-        motionPreview: identity.motion[0]?.previewPath,
-        proofMarks: identity.proofAssets.map(({ path }) => path),
-      }),
-    [identity, logoPaths, markDarkPath, markLightPath]
+      buildMoodboardSvg(
+        identity,
+        {
+          interFont: '/fonts/inter-latin.woff2',
+          logoMarks: logoPaths,
+          markDark: markDarkPath,
+          markLight: markLightPath,
+          monoFont: '/fonts/geist-mono-latin.woff2',
+          motionPreview: identity.motion[0]?.previewPath,
+          proofMarks: identity.proofAssets.map(({ path }) => path),
+        },
+        composition
+      ),
+    [composition, identity, logoPaths, markDarkPath, markLightPath]
   );
 
   async function exportBoard() {
@@ -122,15 +137,19 @@ export default function DesignBoard({
             identity.proofAssets.slice(0, 4).map(({ path }) => imageUrlToDataUrl(path))
           ),
         ]);
-      const svg = buildMoodboardSvg(identity, {
-        interFont,
-        logoMarks,
-        markDark,
-        markLight,
-        monoFont,
-        motionPreview,
-        proofMarks,
-      });
+      const svg = buildMoodboardSvg(
+        identity,
+        {
+          interFont,
+          logoMarks,
+          markDark,
+          markLight,
+          monoFont,
+          motionPreview,
+          proofMarks,
+        },
+        composition
+      );
 
       await downloadSvgAsPng(
         svg,
@@ -194,13 +213,40 @@ export default function DesignBoard({
             </div>
             <div className='flex flex-col gap-2 text-sm'>
               <span className='text-muted-foreground'>
+                <T>Board style</T>
+              </span>
+              <StudioSelect
+                ariaLabel='Board style'
+                onValueChange={(value) => setComposition(value as MoodboardComposition)}
+                options={[
+                  { label: 'Showcase · application collage', value: 'showcase' },
+                  { label: 'System · foundations and rules', value: 'system' },
+                ]}
+                value={composition}
+              />
+            </div>
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {composition === 'showcase' ? (
+                <T>
+                  Present the identity across campaign, product, social, editorial, device,
+                  apparel, and outdoor applications.
+                </T>
+              ) : (
+                <T>
+                  Review the strategy, logo architecture, color, typography, graphic rules,
+                  and core applications.
+                </T>
+              )}
+            </p>
+            <div className='flex flex-col gap-2 text-sm'>
+              <span className='text-muted-foreground'>
                 <T>Output size</T>
               </span>
               <StudioSelect
                 ariaLabel='Output size'
                 onValueChange={(value) => setExportPresetId(value as MoodboardExportPresetId)}
                 options={MOODBOARD_EXPORT_PRESETS.map((preset) => ({
-                  label: `${preset.label}${preset.id === 'custom' ? '' : ` · ${preset.width} × ${preset.height}`}`,
+                  label: `${preset.label}${preset.id === 'custom' ? '' : ` · ${resolveMoodboardExport(preset.id, customWidth, composition).width} × ${resolveMoodboardExport(preset.id, customWidth, composition).height}`}`,
                   value: preset.id,
                 }))}
                 value={exportPresetId}
@@ -230,7 +276,8 @@ export default function DesignBoard({
                 {exportDimensions.width} × {exportDimensions.height} PX
               </p>
               <p className='mt-1 font-mono text-[10px] text-muted-foreground'>
-                PNG / {exportDimensions.megapixels.toFixed(1)} MP / 4:5
+                PNG / {exportDimensions.megapixels.toFixed(1)} MP /{' '}
+                {composition === 'showcase' ? '16:9' : '4:5'}
               </p>
             </div>
           </section>
@@ -278,7 +325,7 @@ export default function DesignBoard({
         <div className='tool-canvas min-h-0 overflow-auto'>
           <CanvasViewport identityId={identity.id} stageClassName='p-5 sm:p-8' toolId={tool.id}>
           <div
-            aria-label={`${identity.name} moodboard with brand foundations and generated applications`}
+            aria-label={`${identity.name} ${composition} moodboard with brand foundations and generated applications`}
             className='moodboard-preview mx-auto w-full max-w-[1200px] shadow-sm'
             dangerouslySetInnerHTML={{ __html: previewSvg }}
             data-testid='moodboard-preview'

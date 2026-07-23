@@ -5,6 +5,8 @@ export type MoodboardExportPresetId =
   | 'ultra'
   | 'custom';
 
+export type MoodboardComposition = 'showcase' | 'system';
+
 export type MoodboardExportPreset = {
   height: number;
   id: MoodboardExportPresetId;
@@ -18,7 +20,10 @@ export type MoodboardExportDimensions = MoodboardExportPreset & {
 
 const MINIMUM_CUSTOM_WIDTH = 800;
 const MAXIMUM_CUSTOM_WIDTH = 4800;
-const BOARD_HEIGHT_RATIO = 5 / 4;
+const BOARD_HEIGHT_RATIOS: Record<MoodboardComposition, number> = {
+  showcase: 9 / 16,
+  system: 5 / 4,
+};
 
 export const MOODBOARD_EXPORT_PRESETS: readonly MoodboardExportPreset[] = [
   { height: 2000, id: 'standard', label: 'Standard', width: 1600 },
@@ -30,7 +35,8 @@ export const MOODBOARD_EXPORT_PRESETS: readonly MoodboardExportPreset[] = [
 
 export function resolveMoodboardExport(
   presetId: MoodboardExportPresetId,
-  customWidth: number
+  customWidth: number,
+  composition: MoodboardComposition
 ): MoodboardExportDimensions {
   const preset =
     MOODBOARD_EXPORT_PRESETS.find(({ id }) => id === presetId) ??
@@ -42,7 +48,7 @@ export function resolveMoodboardExport(
           Math.max(MINIMUM_CUSTOM_WIDTH, Math.round(customWidth))
         )
       : preset.width;
-  const height = preset.id === 'custom' ? Math.round(width * BOARD_HEIGHT_RATIO) : preset.height;
+  const height = Math.round(width * BOARD_HEIGHT_RATIOS[composition]);
 
   return {
     ...preset,

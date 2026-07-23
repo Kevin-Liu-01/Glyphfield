@@ -3,6 +3,7 @@ import type {
   BrandGraphicSystem,
   BrandIdentity,
 } from './brandIdentity';
+import type { MoodboardComposition } from './moodboard';
 
 export type MoodboardSvgAssets = {
   interFont?: string;
@@ -158,7 +159,181 @@ function selectedApplications(identity: BrandIdentity): BrandApplication[] {
   return selected;
 }
 
-export function buildMoodboardSvg(
+function buildShowcaseMoodboardSvg(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const primary = color(identity, 'emphasis', '#E4E4E4');
+  const secondary = color(identity, 'success', '#D4D4D4');
+  const accent = color(identity, 'warning', '#A3A3A3');
+  const mid = color(identity, 'progress', '#525252');
+  const deep = color(identity, 'error', '#262626');
+  const applications = selectedApplications(identity);
+  const campaignApplication =
+    identity.applications.find(({ category }) => category === 'marketing') ?? applications[1];
+  const productApplication =
+    identity.applications.find(({ category }) => category === 'product') ?? applications[0];
+  const editorialApplications = identity.applications
+    .filter(({ category }) => category === 'editorial' || category === 'developer')
+    .slice(0, 3);
+  const editorialCards = [
+    ...editorialApplications,
+    ...identity.applications.filter((application) => !editorialApplications.includes(application)),
+  ].slice(0, 3);
+  const outdoorApplication =
+    identity.applications.find(
+      ({ category }) => category === 'event' || category === 'physical'
+    ) ?? applications[3];
+  const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
+  const heroLines = wrapText(identity.tagline, 28, 3);
+  const campaignLines = wrapText(
+    campaignApplication?.name ?? identity.strategy.promise,
+    14,
+    4
+  );
+  const websiteLines = wrapText(productApplication?.name ?? identity.tagline, 29, 2);
+  const outdoorLines = wrapText(outdoorApplication?.name ?? identity.strategy.promise, 15, 3);
+  const pillars = identity.strategy.pillars.slice(0, 4);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" data-board-mode="showcase">
+<defs>
+  <style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>
+  <linearGradient id="showcase-gradient" x1="0" y1="1" x2="1" y2="0"><stop stop-color="${deep}"/><stop offset=".28" stop-color="${primary}"/><stop offset=".58" stop-color="${accent}"/><stop offset=".82" stop-color="${secondary}"/><stop offset="1" stop-color="${paper}"/></linearGradient>
+  <linearGradient id="showcase-environment" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${muted}"/><stop offset=".38" stop-color="${secondary}"/><stop offset=".7" stop-color="${mid}"/><stop offset="1" stop-color="${deep}"/></linearGradient>
+  <radialGradient id="showcase-glow" cx="72%" cy="22%" r="82%"><stop stop-color="${paper}" stop-opacity=".72"/><stop offset=".38" stop-color="${primary}" stop-opacity=".58"/><stop offset="1" stop-color="${deep}" stop-opacity="0"/></radialGradient>
+  <filter id="showcase-grain" x="-12%" y="-12%" width="124%" height="124%"><feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="3" seed="7" result="noise"/><feColorMatrix in="noise" type="saturate" values="0" result="mono-noise"/><feComponentTransfer in="mono-noise" result="soft-noise"><feFuncA type="linear" slope=".22"/></feComponentTransfer><feBlend in="SourceGraphic" in2="soft-noise" mode="soft-light"/></filter>
+  <filter id="mock-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="${ink}" flood-opacity=".24"/></filter>
+  <clipPath id="shirt-clip"><path d="M104 58 146 34h66l42 24 72 34-32 72-37-17v219H101V147l-37 17-32-72Z"/></clipPath>
+  <clipPath id="editorial-card-clip"><rect width="140" height="220" rx="2"/></clipPath>
+</defs>
+<rect width="1600" height="900" fill="#C8C8C8"/>
+
+<g class="application-panel" transform="translate(0 0)">
+  <rect width="358" height="182" fill="${paper}"/>
+  <rect width="179" height="182" fill="${ink}"/>
+  ${logo(assets.markLight, identity.shortName, 40, 47, 99, 88, paper)}
+  ${logo(assets.markDark, identity.shortName, 219, 47, 99, 88, ink)}
+</g>
+
+<g class="application-panel" transform="translate(364 0)">
+  <rect width="670" height="340" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+  <rect width="670" height="340" fill="url(#showcase-glow)" opacity=".48"/>
+  <g opacity=".16">${pattern(identity.graphicSystem, 670, 340, paper, primary)}</g>
+  ${logo(assets.markLight, identity.shortName, 270, 74, 130, 74, paper)}
+  <text x="335" y="188" text-anchor="middle" class="sans" fill="${paper}" font-size="20" font-weight="680">${escapeXml(identity.name)}</text>
+  ${textLines(heroLines, 335, 230, 28, `text-anchor="middle" class="sans" fill="${paper}" font-size="23" font-weight="720" letter-spacing="-.7"`)}
+</g>
+
+<g class="application-panel" transform="translate(1040 0)">
+  <rect width="560" height="246" fill="${ink}"/>
+  <g class="social-profile-mockup" transform="translate(72 24)" filter="url(#mock-shadow)">
+    <rect width="416" height="198" rx="7" fill="${paper}"/>
+    <rect width="416" height="74" rx="7" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+    <rect y="67" width="416" height="7" fill="url(#showcase-gradient)"/>
+    <circle cx="53" cy="78" r="34" fill="${ink}" stroke="${paper}" stroke-width="4"/>
+    ${logo(assets.markLight, identity.shortName, 28, 54, 50, 48, paper)}
+    <text x="28" y="130" class="sans" fill="${ink}" font-size="15" font-weight="760">${escapeXml(identity.name)}</text>
+    <text x="28" y="148" class="mono" fill="${ink}" opacity=".46" font-size="8">${escapeXml(identity.socialHandle || `@${identity.id}`)}</text>
+    <text x="28" y="170" class="sans" fill="${ink}" opacity=".7" font-size="10">${escapeXml(identity.positioning.slice(0, 76))}</text>
+    <rect x="320" y="102" width="66" height="24" rx="12" fill="${ink}"/><text x="353" y="118" text-anchor="middle" class="sans" fill="${paper}" font-size="8" font-weight="700">FOLLOW</text>
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(0 188)">
+  <g class="campaign-mockup">
+    <rect width="220" height="300" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+    <g opacity=".18">${pattern(identity.graphicSystem, 220, 300, paper, primary)}</g>
+    ${logo(assets.markLight, identity.shortName, 48, 192, 124, 58, paper)}
+    <text x="110" y="274" text-anchor="middle" class="mono" fill="${paper}" opacity=".72" font-size="8">${escapeXml(identity.website)}</text>
+    <rect x="220" width="138" height="300" fill="${paper}"/>
+    ${logo(assets.markDark, identity.shortName, 245, 30, 50, 35, ink)}
+    ${textLines(campaignLines, 244, 126, 31, `class="sans" fill="${ink}" font-size="25" font-weight="760" letter-spacing="-1"`)}
+    <text x="244" y="266" class="mono" fill="${ink}" opacity=".45" font-size="7">${escapeXml(campaignApplication?.format ?? 'CAMPAIGN')}</text>
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(364 346)">
+  <rect width="670" height="282" fill="${deep}"/>
+  <g opacity=".72">${pattern(identity.graphicSystem, 670, 282, paper, primary)}</g>
+  <path d="M72 62 314 142M584 54 360 142M86 230 314 154M586 226 360 154" stroke="${paper}" stroke-opacity=".14"/>
+  ${pillars.map((pillar, index) => {
+    const positions = [
+      [38, 42],
+      [486, 34],
+      [52, 214],
+      [472, 210],
+    ];
+    const [x, y] = positions[index] ?? positions[0];
+    return `<g transform="translate(${x} ${y})"><rect width="10" height="10" fill="${index === 0 ? primary : paper}"/>${textLines(wrapText(pillar, 24, 2), 18, 9, 12, `class="sans" fill="${paper}" font-size="9" font-weight="620"`)}</g>`;
+  }).join('')}
+  <text x="335" y="154" text-anchor="middle" class="sans" fill="${paper}" font-size="16" font-weight="720">${escapeXml(identity.graphicSystem.device)}</text>
+</g>
+
+<g class="application-panel" transform="translate(1040 252)">
+  <rect width="560" height="250" fill="${muted}"/>
+  <g class="laptop-mockup" transform="translate(28 18)" filter="url(#mock-shadow)">
+    <rect x="14" width="476" height="198" rx="12" fill="${ink}"/>
+    <rect x="30" y="16" width="444" height="168" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+    <rect x="42" y="28" width="420" height="24" fill="${paper}"/>
+    ${logo(assets.markDark, identity.shortName, 52, 32, 46, 15, ink)}
+    <text x="444" y="43" text-anchor="end" class="mono" fill="${ink}" opacity=".52" font-size="6">PRODUCT · SYSTEM · PRICING</text>
+    ${textLines(websiteLines, 62, 105, 27, `class="sans" fill="${paper}" font-size="23" font-weight="760" letter-spacing="-.8"`)}
+    <text x="62" y="154" class="mono" fill="${paper}" opacity=".66" font-size="7">${escapeXml(productApplication?.description.slice(0, 74) ?? identity.positioning.slice(0, 74))}</text>
+    <path d="M0 198h504l-27 18H27Z" fill="${mid}"/><path d="M200 198h104l-14 7h-76Z" fill="${paper}" opacity=".24"/>
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(0 494)">
+  <rect width="358" height="406" fill="url(#showcase-environment)" filter="url(#showcase-grain)"/>
+  <circle cx="58" cy="62" r="76" fill="${deep}" opacity=".25"/><circle cx="308" cy="82" r="92" fill="${primary}" opacity=".18"/>
+  <ellipse cx="180" cy="371" rx="122" ry="20" fill="${ink}" opacity=".28"/>
+  <g class="apparel-mockup" filter="url(#mock-shadow)">
+    <path d="M104 58 146 34h66l42 24 72 34-32 72-37-17v219H101V147l-37 17-32-72Z" fill="${paper}"/>
+    <g clip-path="url(#shirt-clip)" opacity=".13">${pattern(identity.graphicSystem, 358, 406, ink, primary)}</g>
+    <path d="M146 34c7 22 55 22 66 0" fill="none" stroke="${ink}" stroke-opacity=".12" stroke-width="5"/>
+    ${logo(assets.markDark, identity.shortName, 126, 84, 108, 50, ink)}
+    <text x="179" y="336" text-anchor="middle" class="sans" fill="${ink}" font-size="13" font-weight="650">${escapeXml(identity.strategy.promise.slice(0, 38))}</text>
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(364 634)">
+  <rect width="180" height="266" fill="${ink}"/>
+  <g class="phone-mockup" transform="translate(20 18)" filter="url(#mock-shadow)">
+    <rect width="140" height="230" rx="28" fill="#090909" stroke="${paper}" stroke-opacity=".2"/>
+    <rect x="9" y="9" width="122" height="212" rx="22" fill="${deep}"/>
+    <rect x="49" y="13" width="42" height="9" rx="5" fill="#050505"/>
+    <text x="20" y="39" class="mono" fill="${paper}" font-size="8">11:47</text>
+    <rect x="38" y="72" width="64" height="64" rx="15" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+    ${logo(assets.markLight, identity.shortName, 50, 84, 40, 40, paper)}
+    <text x="70" y="158" text-anchor="middle" class="sans" fill="${paper}" font-size="12" font-weight="680">${escapeXml(identity.name)}</text>
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(550 634)">
+  <rect width="484" height="266" fill="url(#showcase-gradient)" filter="url(#showcase-grain)"/>
+  <g class="editorial-mockup">
+    ${editorialCards.map((application, index) => `<g transform="translate(${18 + index * 154} 23)" filter="url(#mock-shadow)"><rect width="140" height="220" fill="${paper}"/><g clip-path="url(#editorial-card-clip)" opacity=".15">${pattern(identity.graphicSystem, 140, 220, ink, primary)}</g><rect x="14" y="14" width="8" height="8" fill="${index === 1 ? primary : ink}"/><text x="14" y="36" class="mono" fill="${ink}" opacity=".45" font-size="6">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 15, 3), 14, 126, 23, `class="sans" fill="${ink}" font-size="18" font-weight="760" letter-spacing="-.6"`)}<text x="14" y="202" class="mono" fill="${ink}" opacity=".45" font-size="6">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`).join('')}
+  </g>
+</g>
+
+<g class="application-panel" transform="translate(1040 508)">
+  <rect width="560" height="392" fill="url(#showcase-environment)" filter="url(#showcase-grain)"/>
+  <rect y="282" width="560" height="110" fill="${deep}" opacity=".62"/>
+  <rect x="28" y="96" width="116" height="190" fill="${ink}" opacity=".34"/><rect x="154" y="54" width="78" height="232" fill="${mid}" opacity=".32"/>
+  <circle cx="58" cy="58" r="54" fill="${secondary}" opacity=".3"/><circle cx="510" cy="62" r="82" fill="${primary}" opacity=".22"/>
+  <g class="outdoor-mockup" transform="translate(318 58) rotate(-3 102 137)" filter="url(#mock-shadow)">
+    <rect x="92" y="266" width="20" height="84" fill="${ink}"/><rect width="204" height="276" rx="4" fill="${paper}" stroke="${ink}" stroke-opacity=".16" stroke-width="5"/>
+    ${logo(assets.markDark, identity.shortName, 20, 20, 58, 38, ink)}
+    ${textLines(outdoorLines, 20, 128, 32, `class="sans" fill="${ink}" font-size="26" font-weight="760" letter-spacing="-1"`)}
+    <text x="20" y="238" class="mono" fill="${ink}" opacity=".55" font-size="7">${escapeXml(identity.website.toLocaleUpperCase())}</text>
+  </g>
+</g>
+</svg>`;
+}
+
+function buildSystemMoodboardSvg(
   identity: BrandIdentity,
   assets: MoodboardSvgAssets
 ): string {
@@ -189,7 +364,7 @@ export function buildMoodboardSvg(
   const technicalApplication = applications[2] ?? identity.applications[2] ?? productApplication;
   const physicalApplication = applications[3] ?? identity.applications[3] ?? productApplication;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000" data-board-mode="system">
 <defs>
   <style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>
   <pattern id="board-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${ink}" opacity=".11"/></pattern>
@@ -313,4 +488,14 @@ export function buildMoodboardSvg(
   <g transform="translate(304 210)"><rect width="428" height="126" fill="${paper}" stroke="${ink}" stroke-opacity=".14"/>${proof.map((item, index) => `<text x="${22 + (index % 2) * 202}" y="${42 + Math.floor(index / 2) * 48}" class="sans" fill="${ink}" font-size="13" font-weight="660">${escapeXml(item)}</text>`).join('')}<text x="404" y="108" text-anchor="end" class="mono" fill="${ink}" opacity=".38" font-size="8">PROOF / SOURCES / SCALE</text></g>
 </g>
 </svg>`;
+}
+
+export function buildMoodboardSvg(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  composition: MoodboardComposition
+): string {
+  return composition === 'showcase'
+    ? buildShowcaseMoodboardSvg(identity, assets)
+    : buildSystemMoodboardSvg(identity, assets);
 }

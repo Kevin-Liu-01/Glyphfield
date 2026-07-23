@@ -98,8 +98,9 @@ and frame-accurate GIF export.
 
 ## Built for real brand work
 
-- Design boards combine foundations with finished applications and export up
-  to 4800 × 6000 PNG.
+- Design boards switch between a 16:9 showcase collage—campaign, product,
+  social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
+  review, with export up to 4800 px wide.
 - Logo Shader combines the supplied ShaderGradient sphere, ten original local
   GLSL recipes based on the visual families cataloged in Ariadne, and Studio materials across live
   backdrops and alpha-masked marks, with still PNG and animated GIF export.

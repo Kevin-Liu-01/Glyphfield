@@ -14,7 +14,7 @@ const assets = {
 
 describe('buildMoodboardSvg', () => {
   it('embeds the selected sans and mono fonts without browser fallbacks', () => {
-    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets);
+    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
 
     expect(svg).toContain("font-family:'Moodboard Sans'");
     expect(svg).toContain("font-family:'Moodboard Mono'");
@@ -24,7 +24,7 @@ describe('buildMoodboardSvg', () => {
   });
 
   it('composes brand foundations and concrete applications as one board', () => {
-    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets);
+    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
 
     expect(svg.match(/class="application-panel"/g)).toHaveLength(10);
     expect(svg).toContain('GT IDENTITY');
@@ -41,10 +41,23 @@ describe('buildMoodboardSvg', () => {
     expect(svg).not.toContain('#F97316');
   });
 
+  it('composes a presentation-ready application collage without guideline chrome', () => {
+    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'showcase');
+
+    expect(svg).toContain('data-board-mode="showcase"');
+    expect(svg).toContain('class="social-profile-mockup"');
+    expect(svg).toContain('class="laptop-mockup"');
+    expect(svg).toContain('class="apparel-mockup"');
+    expect(svg).toContain('class="editorial-mockup"');
+    expect(svg).toContain('class="outdoor-mockup"');
+    expect(svg).not.toContain('01 / GT IDENTITY');
+  });
+
   it('escapes identity copy before placing it in the SVG', () => {
     const svg = buildMoodboardSvg(
       { ...GT_BRAND_IDENTITY, name: 'A&B <Studio>' },
-      assets
+      assets,
+      'showcase'
     );
 
     expect(svg).toContain('A&amp;B &lt;Studio&gt;');
