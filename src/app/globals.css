@@ -161,21 +161,15 @@ body {
 .studio-app-body {
   display: grid;
   grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
-  height: calc(100dvh - 92px);
-}
-
-.project-tabs-shell {
-  display: grid;
-  grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
-  height: 40px;
+  height: calc(100dvh - 96px);
 }
 
 .project-tabs {
-  height: 40px;
+  height: 44px;
 }
 
 .project-tab {
-  height: 40px;
+  height: 44px;
 }
 
 .project-tab-mark {
@@ -506,14 +500,6 @@ body {
 
   .studio-app-body {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .project-tabs-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .project-tabs-spacer {
-    display: none;
   }
 
   .studio-mobile-tool {

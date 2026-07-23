@@ -119,21 +119,27 @@ export default function StudioApp() {
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement;
+      const isCommandK =
+        (event.metaKey || event.ctrlKey) &&
+        (event.code === 'KeyK' || event.key.toLocaleLowerCase() === 'k');
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
+      if (isCommandK) {
         event.preventDefault();
-        searchRef.current?.focus();
+        event.stopPropagation();
+        searchRef.current?.focus({ preventScroll: true });
+        searchRef.current?.select();
         return;
       }
 
       if (!isEditing && event.key === '/') {
         event.preventDefault();
-        searchRef.current?.focus();
+        event.stopPropagation();
+        searchRef.current?.focus({ preventScroll: true });
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
   });
 
   function selectTool(toolId: StudioToolId) {
@@ -211,10 +217,10 @@ export default function StudioApp() {
     return (
       <div
         aria-selected={selected}
-        className={`project-tab flex min-w-36 max-w-56 items-center gap-2 border-b-2 px-3 text-sm ${
+        className={`project-tab flex min-w-40 max-w-64 items-center gap-2 border-x border-transparent px-3 text-sm ${
           selected
-            ? 'border-foreground text-foreground'
-            : 'border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            ? 'border-border bg-muted/60'
+            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
         }`}
         key={identity.id}
         role='tab'
@@ -287,6 +293,7 @@ export default function StudioApp() {
             <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
             <input
               aria-label={gt('Search Studio tools')}
+              aria-keyshortcuts='Meta+K Control+K /'
               className='min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground'
               onChange={(event) => setQuery(event.target.value)}
               placeholder={gt('Search Studio tools…')}
@@ -314,25 +321,25 @@ export default function StudioApp() {
 
       </header>
 
-      <div className='project-tabs-shell border-b border-border bg-background'>
-        <div className='project-tabs-spacer border-r border-border' aria-hidden='true' />
-        <div className='project-tabs flex min-w-0 items-center overflow-x-auto px-2' role='tablist' aria-label={gt('Brand projects')}>
-          <div className='flex shrink-0 items-end self-stretch'>
-            {identities.map(renderProjectTab)}
-          </div>
-          <Button aria-label={gt('Add brand project')} className='ml-1 shrink-0 border-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-sm' type='button' variant='ghost'>
-            <Plus aria-hidden='true' />
+      <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-background px-3' role='tablist' aria-label={gt('Brand projects')}>
+        <span className='shrink-0 px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
+          <T>Projects</T>
+        </span>
+        <div className='flex shrink-0 items-end self-stretch'>
+          {identities.map(renderProjectTab)}
+        </div>
+        <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
+          <Plus aria-hidden='true' />
+        </Button>
+        <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
+          <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' title={gt('Duplicate project')} type='button' variant='ghost'>
+            <Copy aria-hidden='true' />
           </Button>
-          <div className='ml-auto flex shrink-0 items-center gap-1'>
-            <Button aria-label={gt('Duplicate active project')} className='border-0' disabled={!identitiesReady} onClick={copyIdentity} size='icon-sm' title={gt('Duplicate project')} type='button' variant='ghost'>
-              <Copy aria-hidden='true' />
+          {!activeIdentity.builtIn ? (
+            <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' title={gt('Delete project')} type='button' variant='ghost'>
+              <Trash2 aria-hidden='true' />
             </Button>
-            {!activeIdentity.builtIn ? (
-              <Button aria-label={gt('Delete active project')} className='border-0' onClick={removeIdentity} size='icon-sm' title={gt('Delete project')} type='button' variant='ghost'>
-                <Trash2 aria-hidden='true' />
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       </div>
 
