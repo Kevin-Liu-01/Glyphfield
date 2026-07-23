@@ -19,7 +19,7 @@ import {
   templatePartnerOptions,
   type TemplateKind,
 } from '@/lib/templateAssets';
-import { buildTemplateSvg, type TemplateTexture } from '@/lib/templateSvg';
+import { buildTemplateSvg, type SlideLayout, type TemplateTexture } from '@/lib/templateSvg';
 
 type AgentIdentityPreset = 'custom' | 'gt' | 'starter';
 type AgentOutput = 'json' | 'raw';
@@ -54,6 +54,7 @@ export type AgentBackgroundPlan = AgentGenerationBase & {
 export type AgentTemplatePlan = AgentGenerationBase & {
   backgroundImageDataUrl: string | null;
   background: string;
+  body: string;
   brandLogoPath: string | null;
   eyebrow: string;
   foreground: string;
@@ -61,6 +62,7 @@ export type AgentTemplatePlan = AgentGenerationBase & {
   kind: 'template';
   partnerLogoDataUrl: string | null;
   partnerLogoPath: string | null;
+  slideLayout: SlideLayout;
   template: TemplateKind;
   texture: TemplateTexture;
   title: string;
@@ -388,6 +390,12 @@ function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
     'white',
     'texture'
   );
+  const slideLayout = oneOf(
+    input.slideLayout,
+    ['title', 'section', 'agenda', 'split', 'metrics', 'quote', 'timeline', 'closing'] as const,
+    'title',
+    'slideLayout'
+  );
   const isDark = texture === 'dark';
   const width = template === 'slides' ? 1600 : 1200;
   const height = template === 'slides' ? 900 : template === 'blog' ? 630 : 600;
@@ -427,6 +435,12 @@ function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
       input.backgroundImageDataUrl,
       'backgroundImageDataUrl'
     ),
+    body: textValue(
+      input.body,
+      template === 'slides' ? 'Foundation\nExpression\nApplication\nDelivery' : identity.description,
+      'body',
+      1000
+    ),
     brandLogoPath: identity.logoDataUrl ? null : brandLogo?.path ?? null,
     eyebrow: textValue(
       input.eyebrow,
@@ -449,6 +463,7 @@ function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
       template === 'partnership' && !input.partnerLogoDataUrl
         ? selectedPartner?.path ?? null
         : null,
+    slideLayout,
     template,
     texture,
     title: textValue(input.title, defaultTitle, 'title', 240),
@@ -572,6 +587,7 @@ export function renderAgentGeneration(
     content: buildTemplateSvg({
       background: plan.background,
       backgroundImage: plan.backgroundImageDataUrl,
+      body: plan.body,
       brandLogo,
       eyebrow: plan.eyebrow,
       foreground: plan.foreground,
@@ -580,6 +596,7 @@ export function renderAgentGeneration(
       invertPartner: plan.texture === 'dark',
       kind: plan.template,
       partnerLogo,
+      slideLayout: plan.slideLayout,
       texture: plan.texture,
       title: plan.title,
       website: plan.identity.website,

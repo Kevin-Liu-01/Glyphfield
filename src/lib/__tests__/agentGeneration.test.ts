@@ -71,6 +71,22 @@ describe('renderAgentGeneration', () => {
     expect(artifact.content).not.toContain('/brands/gt/');
   });
 
+  it('renders agent-selected slide layouts and body content', () => {
+    const plan = planAgentGeneration({
+      body: 'Discover\nDesign\nBuild\nShip',
+      identity: { preset: 'starter' },
+      kind: 'template',
+      slideLayout: 'timeline',
+      template: 'slides',
+      title: 'From idea to launch',
+    });
+    const artifact = renderAgentGeneration(plan, {});
+
+    expect(artifact.content).toContain('Discover');
+    expect(artifact.content).toContain('Ship');
+    expect(artifact.content).toContain('From idea to launch');
+  });
+
   it('renders an identity-aware catalog brief as JSON', () => {
     const plan = planAgentGeneration({
       elementId: 'email-signature',

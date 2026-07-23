@@ -64,4 +64,29 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain(`href="${baseOptions.partnerLogo}" x="950"`);
     expect(svg).toContain('width="104"');
   });
+
+  it('renders distinct slide-library layouts into exports', () => {
+    const metrics = buildTemplateSvg({
+      ...baseOptions,
+      body: 'Coverage\nMarkets\nLaunch',
+      height: 900,
+      kind: 'slides',
+      slideLayout: 'metrics',
+      width: 1600,
+    });
+    const timeline = buildTemplateSvg({
+      ...baseOptions,
+      body: 'Discover\nDesign\nBuild\nShip',
+      height: 900,
+      kind: 'slides',
+      slideLayout: 'timeline',
+      width: 1600,
+    });
+
+    expect(metrics).toContain('98.7%');
+    expect(metrics).toContain('Coverage');
+    expect(timeline).toContain('Discover');
+    expect(timeline).toContain('Ship');
+    expect(timeline).not.toBe(metrics);
+  });
 });

@@ -87,7 +87,7 @@ describe('createBrandIdentity', () => {
 });
 
 describe('hydrateBrandIdentities', () => {
-  it('places the starter template first, keeps custom tabs, and exposes GT as an example', () => {
+  it('places the starter template first, keeps custom tabs, and preserves edited built-in identities', () => {
     const oldGt = { ...GT_BRAND_IDENTITY, name: 'Old GT' };
     const custom = createBrandIdentity('Acme', 'acme');
 
@@ -95,7 +95,7 @@ describe('hydrateBrandIdentities', () => {
 
     expect(identities[0]).toEqual(STARTER_BRAND_IDENTITY);
     expect(identities[1]).toEqual(custom);
-    expect(identities[2]).toEqual(GT_BRAND_IDENTITY);
+    expect(identities[2]).toMatchObject({ builtIn: true, id: 'gt', kind: 'example', name: 'Old GT' });
   });
 
   it('adds generated marks to legacy custom projects without assets', () => {

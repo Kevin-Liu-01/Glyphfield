@@ -13,6 +13,7 @@ import {
 import DesignBoard from '@/components/DesignBoard';
 import BrandElementsStudio from '@/components/BrandElementsStudio';
 import BackgroundStudio from '@/components/BackgroundStudio';
+import BrandSettingsStudio from '@/components/BrandSettingsStudio';
 import CanvasViewport from '@/components/CanvasViewport';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +38,7 @@ import {
   templatePartnerOptions,
   type TemplateKind,
 } from '@/lib/templateAssets';
-import { buildTemplateSvg, type TemplateTexture } from '@/lib/templateSvg';
+import { buildTemplateSvg, type SlideLayout, type TemplateTexture } from '@/lib/templateSvg';
 
 const INPUT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -929,6 +930,42 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   );
 }
 
+const SLIDE_LAYOUTS: readonly { id: SlideLayout; label: string; symbol: string }[] = [
+  { id: 'title', label: 'Title', symbol: 'Aa' },
+  { id: 'section', label: 'Section', symbol: '01' },
+  { id: 'agenda', label: 'Agenda', symbol: '≡' },
+  { id: 'split', label: 'Split', symbol: '▥' },
+  { id: 'metrics', label: 'Metrics', symbol: '%' },
+  { id: 'quote', label: 'Quote', symbol: '“' },
+  { id: 'timeline', label: 'Timeline', symbol: '→' },
+  { id: 'closing', label: 'Closing', symbol: '✦' },
+];
+
+function SlideTemplatePreview({
+  body,
+  eyebrow,
+  foreground,
+  layout,
+  title,
+}: {
+  body: string;
+  eyebrow: string;
+  foreground: string;
+  layout: SlideLayout;
+  title: string;
+}) {
+  const items = body.split('\n').map((item) => item.trim()).filter(Boolean);
+  const resolvedItems = items.length > 0 ? items : ['Foundation', 'Expression', 'Application', 'Delivery'];
+  if (layout === 'section') return <div className='relative flex flex-1 items-center'><span className='absolute -left-[1cqw] text-[30cqw] font-bold leading-none opacity-[0.08]'>01</span><h2 className='relative ml-[23cqw] max-w-[62cqw] text-[7cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2></div>;
+  if (layout === 'agenda') return <div className='grid flex-1 grid-cols-[1fr_0.8fr] items-center gap-[7cqw]'><div><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] text-[5.2cqw] font-semibold leading-[1.02] tracking-[-0.05em]'>{title}</h2></div><div className='flex flex-col'>{resolvedItems.slice(0, 4).map((item, index) => <div className='grid grid-cols-[4cqw_1fr] border-b py-[1.6cqw] text-[1.6cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}><span className='font-mono opacity-35'>0{index + 1}</span><span>{item}</span></div>)}</div></div>;
+  if (layout === 'split') return <div className='grid flex-1 grid-cols-2 items-center gap-[7cqw]'><div><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] text-[5cqw] font-semibold leading-[1] tracking-[-0.05em]'>{title}</h2></div><div className='border-l pl-[5cqw]' style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}>{resolvedItems.slice(0, 5).map((item, index) => <p className='mb-[2cqw] flex gap-[2cqw] text-[1.6cqw]' key={item}><span className='font-mono opacity-35'>0{index + 1}</span>{item}</p>)}</div></div>;
+  if (layout === 'metrics') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[5cqw] grid grid-cols-3 gap-[1cqw]'>{[['98.7%', 'Coverage'], ['42', 'Markets'], ['7d', 'Launch']].map(([value, label]) => <div className='border p-[3cqw]' key={label} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='text-[5cqw] font-semibold tracking-[-0.05em]'>{value}</p><p className='mt-[1cqw] font-mono text-[1.1cqw] opacity-50'>{label}</p></div>)}</div></div>;
+  if (layout === 'quote') return <div className='relative flex flex-1 items-center pl-[9cqw]'><span className='absolute left-0 top-[9cqw] font-serif text-[16cqw] leading-none opacity-10'>“</span><div><h2 className='max-w-[75cqw] text-[5cqw] font-semibold leading-[1.08] tracking-[-0.045em]'>{title}</h2><p className='mt-[4cqw] font-mono text-[1.2cqw] opacity-55'>{resolvedItems[0] ?? 'Alex Morgan · Customer'}</p></div></div>;
+  if (layout === 'timeline') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.5cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='relative mt-[7cqw] grid grid-cols-4'><span className='absolute left-0 right-0 top-[0.5cqw] h-px opacity-20' style={{ backgroundColor: foreground }} />{resolvedItems.slice(0, 4).map((item, index) => <div className='relative pt-[3cqw]' key={item}><span className='absolute top-0 size-[1cqw] rounded-full' style={{ backgroundColor: foreground }} /><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[0.8cqw] text-[1.5cqw]'>{item}</p></div>)}</div></div>;
+  if (layout === 'closing') return <div className='flex flex-1 flex-col items-center justify-center text-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] max-w-[75cqw] text-[7cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2><p className='mt-[3cqw] max-w-[60cqw] text-[1.5cqw] opacity-55'>{body}</p></div>;
+  return <div className='template-copy flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title mt-[2cqw] break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>;
+}
+
 function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind: TemplateKind; tool: StudioTool }) {
   const gt = useGT();
   const partnerAsset = useLocalAsset();
@@ -957,6 +994,20 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     tool.id,
     'eyebrow',
     kind === 'blog' ? 'ENGINEERING / JULY 2026' : `${identity.name.toLocaleUpperCase()} / STUDIO`
+  );
+  const [body, setBody] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'body',
+    kind === 'slides'
+      ? 'Foundation\nExpression\nApplication\nDelivery'
+      : identity.description
+  );
+  const [slideLayout, setSlideLayout] = useStudioDraft<SlideLayout>(
+    identity.id,
+    tool.id,
+    'slide-layout',
+    'title'
   );
   const [texture, setTexture] = useStudioDraft<TemplateTexture>(
     identity.id,
@@ -987,6 +1038,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const width = isSlide ? 1600 : 1200;
   const height = isSlide ? 900 : kind === 'blog' ? 630 : 600;
   const brandLogo = templateBrandLogo(identity, kind, isDark);
+  const displayFont = identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Inter';
   const brandLogoSource = brandLogo?.path ?? monogramDataUrl(identity, foreground);
   const partnerLogoSource = partnerAsset.asset?.url ?? selectedPartner.path;
 
@@ -1009,6 +1061,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         backgroundImageScale: backgroundScale,
         backgroundImageX: backgroundX,
         backgroundImageY: backgroundY,
+        body,
         brandLogo: resolvedBrandLogo,
         brandLogoScale,
         brandLogoX,
@@ -1023,6 +1076,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         partnerLogoScale,
         partnerLogoX,
         partnerLogoY,
+        slideLayout,
         texture,
         textureOpacity,
         title,
@@ -1044,7 +1098,13 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         <Field label={<T>Title</T>}>
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
+        {kind === 'slides' ? <Field label={<T>Body or list · one item per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => setBody(event.target.value)} value={body} /></Field> : null}
       </ControlSection>
+      {kind === 'slides' ? <ControlSection title={<T>Slide library</T>}>
+        <div className='grid grid-cols-2 gap-2'>
+          {SLIDE_LAYOUTS.map((layout) => <Button className='h-16 flex-col items-start gap-1 px-3' key={layout.id} onClick={() => setSlideLayout(layout.id)} type='button' variant={slideLayout === layout.id ? 'default' : 'outline'}><span className='font-mono text-lg'>{layout.symbol}</span><span className='text-xs'>{layout.label}</span></Button>)}
+        </div>
+      </ControlSection> : null}
       <ControlSection title={<T>Surface</T>}>
         <SegmentedChoice
           onChange={setTexture}
@@ -1127,7 +1187,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       <CanvasViewport identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
           className={`artifact-preview template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
-          style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, color: foreground }}
+          style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, color: foreground, fontFamily: displayFont }}
         >
           {backgroundAsset.asset ? (
             <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
@@ -1151,12 +1211,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
                 {kind === 'blog' ? <span>{identity.name}</span> : null}
               </div>
             )}
-            <div className='template-copy flex flex-col'>
-              <p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p>
-              <h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>
-                {title}
-              </h2>
-            </div>
+            {isSlide ? <SlideTemplatePreview body={body} eyebrow={eyebrow} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
             <div className='template-footer flex items-center justify-between gap-4 font-mono opacity-60'>
               <span>{identity.website}</span>
               {isSlide ? <span>01 / 12</span> : null}
@@ -1168,7 +1223,10 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   );
 }
 
-function ButtonTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+type ComponentFamily = 'actions' | 'forms' | 'navigation' | 'feedback' | 'data' | 'cards';
+
+function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const [family, setFamily] = useStudioDraft<ComponentFamily>(identity.id, tool.id, 'family', 'actions');
   const [label, setLabel] = useStudioDraft(identity.id, tool.id, 'label', 'Get started');
   const [disabled, setDisabled] = useStudioDraft(identity.id, tool.id, 'disabled', false);
   const [size, setSize] = useStudioDraft<'sm' | 'default' | 'lg'>(
@@ -1181,6 +1239,16 @@ function ButtonTool({ identity, tool }: { identity: BrandIdentity; tool: StudioT
   const inspector = (
     <>
       <ControlSection title={<T>Button</T>}>
+        <Field label={<T>Component family</T>}>
+          <select className={INPUT_CLASS} onChange={(event) => setFamily(event.target.value as ComponentFamily)} value={family}>
+            <option value='actions'>Actions</option>
+            <option value='forms'>Forms</option>
+            <option value='navigation'>Navigation</option>
+            <option value='feedback'>Feedback</option>
+            <option value='data'>Data display</option>
+            <option value='cards'>Cards</option>
+          </select>
+        </Field>
         <Field label={<T>Label</T>}>
           <input className={INPUT_CLASS} onChange={(event) => setLabel(event.target.value)} value={label} />
         </Field>
@@ -1196,44 +1264,26 @@ function ButtonTool({ identity, tool }: { identity: BrandIdentity; tool: StudioT
           <input checked={disabled} onChange={(event) => setDisabled(event.target.checked)} type='checkbox' />
         </label>
       </ControlSection>
-      <ControlSection title={<T>Rules</T>}>
-        <ul className='flex list-disc flex-col gap-2 pl-4 text-sm leading-5 text-muted-foreground'>
-          <li><T>One primary action per surface.</T></li>
-          <li><T>Minimum 40px hit target for primary flows.</T></li>
-          <li><T>Stable width through loading and state changes.</T></li>
-        </ul>
+      <ControlSection title={<T>Included</T>}>
+        <div className='grid grid-cols-2 gap-2 text-xs text-muted-foreground'>
+          {['Buttons', 'Inputs', 'Selects', 'Toggles', 'Navigation', 'Tabs', 'Breadcrumbs', 'Alerts', 'Toasts', 'Progress', 'Tables', 'Stats', 'Pricing', 'Testimonials'].map((item) => <span className='border border-border px-2 py-1.5' key={item}>{item}</span>)}
+        </div>
       </ControlSection>
     </>
   );
 
   return (
     <ToolShell inspector={inspector} tool={tool}>
-      <div className='grid min-h-full content-center gap-px bg-border md:grid-cols-2'>
-        <section className='flex min-h-80 flex-col justify-between gap-10 bg-background p-8'>
-          <div className='flex flex-col gap-2'>
-            <p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>LIGHT / ALL VARIANTS</p>
-            <p className='text-sm text-muted-foreground'>Default, rainbow, outline, secondary, ghost, and destructive.</p>
-          </div>
-          <div className='flex flex-wrap items-center gap-3'>
-            <Button disabled={disabled} size={size}>{label}</Button>
-            <Button disabled={disabled} size={size} variant='rainbow'>{label}</Button>
-            <Button disabled={disabled} size={size} variant='outline'>{label}</Button>
-            <Button disabled={disabled} size={size} variant='secondary'>{label}</Button>
-            <Button disabled={disabled} size={size} variant='ghost'>{label}</Button>
-            <Button disabled={disabled} size={size} variant='destructive'>{label}</Button>
-          </div>
-        </section>
-        <section className='flex min-h-80 flex-col justify-between gap-10 bg-foreground p-8 text-background'>
-          <div className='flex flex-col gap-2'>
-            <p className='font-mono text-xs uppercase tracking-widest text-background/50'>DARK / CORE SET</p>
-            <p className='text-sm text-background/60'>Check hierarchy and contrast on a reversed surface.</p>
-          </div>
-          <div className='flex flex-wrap items-center gap-3'>
-            <Button disabled={disabled} size={size} variant='secondary'>{label}</Button>
-            <Button className='border-background/30 text-background hover:text-foreground' disabled={disabled} size={size} variant='outline'>{label}</Button>
-            <Button className='text-background hover:text-foreground' disabled={disabled} size={size} variant='ghost'>{label}</Button>
-          </div>
-        </section>
+      <div className='grid min-h-full content-center p-5 sm:p-8'>
+        <div className='mx-auto w-full max-w-5xl border border-border bg-background shadow-sm' style={{ fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Inter' }}>
+          <div className='flex items-center justify-between border-b border-border px-5 py-4'><div><p className='text-sm font-semibold'>{identity.name} components</p><p className='mt-1 text-xs text-muted-foreground'>{family}</p></div><span className='font-mono text-xs text-muted-foreground'>14 patterns</span></div>
+          {family === 'actions' ? <div className='grid gap-px bg-border md:grid-cols-2'><section className='flex min-h-72 flex-col justify-between gap-10 bg-background p-8'><p className='font-mono text-xs uppercase tracking-widest text-muted-foreground'>Core actions</p><div className='flex flex-wrap items-center gap-3'><Button disabled={disabled} size={size}>{label}</Button><Button disabled={disabled} size={size} variant='rainbow'>{label}</Button><Button disabled={disabled} size={size} variant='outline'>{label}</Button><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button disabled={disabled} size={size} variant='ghost'>{label}</Button><Button disabled={disabled} size={size} variant='destructive'>{label}</Button></div></section><section className='flex min-h-72 flex-col justify-between bg-foreground p-8 text-background'><p className='font-mono text-xs uppercase tracking-widest opacity-50'>Reversed</p><div className='flex flex-wrap gap-3'><Button disabled={disabled} size={size} variant='secondary'>{label}</Button><Button className='border-background/30 text-background hover:text-foreground' disabled={disabled} size={size} variant='outline'>{label}</Button></div></section></div> : null}
+          {family === 'forms' ? <div className='grid gap-8 p-8 md:grid-cols-2'><div className='flex flex-col gap-5'><Field label={<T>Workspace name</T>}><input className={INPUT_CLASS} value={identity.name} readOnly /></Field><Field label={<T>Website</T>}><input className={INPUT_CLASS} value={identity.website} readOnly /></Field><Field label={<T>Role</T>}><select className={INPUT_CLASS} defaultValue='admin'><option value='admin'>Administrator</option><option value='member'>Member</option></select></Field></div><div className='flex flex-col gap-4'><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Automatic updates</strong><small className='text-muted-foreground'>Keep generated assets synchronized.</small></span><input defaultChecked type='checkbox' /></label><label className='flex items-center justify-between border border-border p-4 text-sm'><span><strong className='block'>Product email</strong><small className='text-muted-foreground'>Receive important changes.</small></span><input type='checkbox' /></label><Button className='w-fit'>{label}</Button></div></div> : null}
+          {family === 'navigation' ? <div className='flex flex-col gap-8 p-8'><nav className='flex items-center justify-between border border-border p-3'><span className='font-semibold'>{identity.shortName}</span><div className='hidden gap-6 text-sm text-muted-foreground sm:flex'><span>Product</span><span>Docs</span><span>Customers</span></div><Button size='sm'>{label}</Button></nav><div className='flex items-center gap-2 text-sm text-muted-foreground'><span>Settings</span><span>/</span><span>Brand</span><span>/</span><strong className='text-foreground'>Components</strong></div><div className='flex border-b border-border'><span className='border-b-2 border-foreground px-4 py-2 text-sm font-medium'>Overview</span><span className='px-4 py-2 text-sm text-muted-foreground'>Assets</span><span className='px-4 py-2 text-sm text-muted-foreground'>History</span></div></div> : null}
+          {family === 'feedback' ? <div className='grid gap-4 p-8 md:grid-cols-2'><div className='border border-status-success-border bg-status-success-background p-4 text-sm text-status-success'><strong>Brand updated</strong><p className='mt-1 opacity-75'>Every template now uses the latest settings.</p></div><div className='border border-status-error-border bg-status-error-background p-4 text-sm text-status-error'><strong>Export failed</strong><p className='mt-1 opacity-75'>Check the source asset and try again.</p></div><div className='border border-border p-4'><div className='flex justify-between text-sm'><span>Generating assets</span><span>68%</span></div><div className='mt-3 h-2 bg-muted'><div className='h-full w-[68%] bg-foreground' /></div></div><div className='flex items-center justify-between border border-border p-4 text-sm'><span>4 unread notifications</span><Button size='sm' variant='outline'>View</Button></div></div> : null}
+          {family === 'data' ? <div className='p-8'><div className='grid gap-px bg-border sm:grid-cols-3'>{[['42,851','Translations'],['98.7%','Coverage'],['18.4%','Growth']].map(([value,name]) => <div className='bg-background p-5' key={name}><p className='text-3xl font-semibold tracking-tight'>{value}</p><p className='mt-2 text-xs text-muted-foreground'>{name}</p></div>)}</div><div className='mt-6 overflow-hidden border border-border'><div className='grid grid-cols-3 bg-muted p-3 font-mono text-[10px] uppercase text-muted-foreground'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product','Docs','Email'].map((item) => <div className='grid grid-cols-3 border-t border-border p-4 text-sm' key={item}><span>{item}</span><span>Ready</span><span className='text-muted-foreground'>Today</span></div>)}</div></div> : null}
+          {family === 'cards' ? <div className='grid gap-5 p-8 md:grid-cols-3'><article className='flex min-h-80 flex-col justify-between border border-border p-6'><div><p className='font-mono text-xs text-muted-foreground'>PRO</p><h3 className='mt-6 text-4xl font-semibold'>$49</h3><p className='mt-3 text-sm text-muted-foreground'>Shared identity, unlimited projects, and high-resolution exports.</p></div><Button>{label}</Button></article><article className='flex min-h-80 flex-col justify-between bg-foreground p-6 text-background'><p className='text-2xl font-semibold leading-tight'>“Everything finally feels like one system.”</p><div><p className='font-semibold'>Alex Morgan</p><p className='text-xs opacity-55'>Design Engineer</p></div></article><article className='flex min-h-80 flex-col justify-between border border-border p-6'><span className='font-mono text-xs text-muted-foreground'>NEW</span><div><h3 className='text-2xl font-semibold'>{identity.tagline}</h3><p className='mt-3 text-sm text-muted-foreground'>{identity.description}</p></div><span className='text-sm font-semibold'>Explore →</span></article></div> : null}
+        </div>
       </div>
     </ToolShell>
   );
@@ -1255,18 +1305,21 @@ function ToolPlaceholder({ tool }: { tool: StudioTool }) {
 
 export default function StudioToolWorkspace({
   identity,
+  onIdentityChange,
   tool,
 }: {
   identity: BrandIdentity;
+  onIdentityChange: (identity: BrandIdentity) => void;
   tool: StudioTool;
 }) {
   const renderers: Partial<Record<StudioToolId, ReactNode>> = {
     backgrounds: <BackgroundStudio identity={identity} tool={tool} />,
     blog: <TemplateTool identity={identity} kind='blog' tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
-    buttons: <ButtonTool identity={identity} tool={tool} />,
+    buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
+    identity: <BrandSettingsStudio identity={identity} onChange={onIdentityChange} tool={tool} />,
     logo: <LogoTool identity={identity} tool={tool} />,
     'logo-shader': <LogoShaderStudio identity={identity} tool={tool} />,
     opengraph: <OpenGraphTool identity={identity} tool={tool} />,

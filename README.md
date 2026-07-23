@@ -26,7 +26,7 @@ grainy gradients, ordered Bayer dithering, dots, lines, and grids as exportable
 SVG-composed PNGs with an optional identity mark.
 
 Brand Elements is the default Studio surface. It applies the active identity
-to 33 searchable touchpoints spanning email, CLI/ASCII, repositories, social,
+to 47 searchable touchpoints spanning product UI, email, CLI/ASCII, repositories, social,
 slides and editorial, event credentials, web cards, icons, and physical print.
 
 Terminal Card uses modular Prism grammars for TypeScript, Python, and Bash so

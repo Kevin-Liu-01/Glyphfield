@@ -250,7 +250,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className='marketing-agent-metrics' data-motion-item>
-            <article><strong>14</strong><span><T>Studio tools</T></span></article>
+            <article><strong>15</strong><span><T>Studio tools</T></span></article>
             <article><strong>33</strong><span><T>brand surfaces</T></span></article>
             <article><strong>3</strong><span><T>export formats</T></span></article>
             <article><strong>0</strong><span><T>uploads required</T></span></article>
@@ -337,7 +337,7 @@ function StudioProductPreview() {
           {tools.map((tool, index) => <span className={index === 0 ? 'is-active' : ''} key={tool}>{tool}</span>)}
         </aside>
         <section>
-          <div className='marketing-product-panelbar'><strong>Brand elements</strong><span>33 elements</span></div>
+          <div className='marketing-product-panelbar'><strong>Brand elements</strong><span>47 elements</span></div>
           <div className='marketing-product-canvas'>
             <div className='marketing-product-email'>
               <div><Image alt='' height={32} src='/brand/gt-mark.png' width={32} /><span>GENERAL TRANSLATION</span></div>

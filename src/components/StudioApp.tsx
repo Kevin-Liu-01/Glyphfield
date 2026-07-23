@@ -66,6 +66,7 @@ const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
   buttons: Component,
   colors: Palette,
   'design-board': PanelsTopLeft,
+  identity: Settings2,
   logo: Aperture,
   'logo-shader': Sparkles,
   opengraph: ImageIcon,
@@ -623,6 +624,14 @@ export default function StudioApp() {
     );
   }
 
+  function updateIdentity(nextIdentity: BrandIdentity) {
+    commitIdentities(
+      identities.map((identity) =>
+        identity.id === nextIdentity.id ? nextIdentity : identity
+      )
+    );
+  }
+
   function removeIdentity() {
     if (!activeIdentity || activeIdentity.builtIn) return;
     const nextIdentities = identities.filter(({ id }) => id !== activeIdentity.id);
@@ -929,7 +938,7 @@ export default function StudioApp() {
           ) : activeToolId === 'animation' ? (
             <AnimationStudio embedded identity={activeIdentity} key={activeIdentity.id} />
           ) : (
-            <StudioToolWorkspace identity={activeIdentity} key={`${activeIdentity.id}-${activeTool.id}`} tool={activeTool} />
+            <StudioToolWorkspace identity={activeIdentity} key={`${activeIdentity.id}-${activeTool.id}`} onIdentityChange={updateIdentity} tool={activeTool} />
           )}
         </section>
       </div>

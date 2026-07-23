@@ -15,7 +15,7 @@ Human landing page: /
 
 1. GET /api/agent.
 2. GET /api/identities when using the Starter or GT preset.
-3. GET /api/elements when selecting one of the 33 brand applications.
+3. GET /api/elements when selecting one of the 47 brand applications.
 4. GET /api/generate before constructing a request. Treat this response as the current schema.
 5. POST application/json to /api/generate.
 6. Use output="json" when the caller needs metadata plus artifact content. Use output="raw" when the caller can accept image/svg+xml directly.
@@ -76,6 +76,8 @@ Fields:
 - texture: white | dark | grid | noise
 - title: optional, maximum 240 characters
 - eyebrow: optional, maximum 80 characters
+- body: optional, maximum 1000 characters; use newline-delimited items for list layouts
+- slideLayout: title | section | agenda | split | metrics | quote | timeline | closing
 - foreground: optional six-digit HEX
 - background: optional six-digit HEX
 - backgroundImageDataUrl: optional base64 image data URL, maximum 5 MB
@@ -144,6 +146,8 @@ Fields:
 - settings.patternOpacity: 0–100
 - settings.spacing: integer 8–256
 - settings.logoScale: 5–90
+- settings.logoOpacity: 0–100
+- settings.logoX and settings.logoY: -50–50
 - settings.logoTone: black | white
 
 Example: grainy GT OpenGraph background
@@ -191,7 +195,7 @@ curl -sS -X POST "$BASE_URL/api/generate" \
 
 ### Generator: element-brief
 
-Resolves any record from /api/elements against an identity. This is the machine-readable production brief for email, developer, social, editorial, event, and physical applications.
+Resolves any record from /api/elements against an identity. This is the machine-readable production brief for product UI, email, developer, social, editorial, event, and physical applications.
 
 Fields:
 
@@ -218,9 +222,10 @@ The response contains the complete element record, its symbol, dimensions, forma
 
 ## Brand element catalog
 
-/api/elements returns 33 applications grouped into:
+/api/elements returns 47 applications grouped into:
 
 - Digital: welcome email, transactional email, email signature, web card, logo background, OpenGraph, 404, favicon, and app icon.
+- Product: navigation, heroes, feature grids, pricing, testimonials, forms, command menus, modals, feedback, tables, metrics, empty states, checkout, and settings.
 - Developer: CLI banner, ASCII mark, terminal theme, GitHub README hero, documentation header, and package card.
 - Social: X, LinkedIn, community, avatar, and product-launch graphics.
 - Editorial: title slides, section slides, blog covers, reports, and press kits.
@@ -238,6 +243,7 @@ Use /studio for browser-local capabilities whose output depends on Canvas, WebGL
 - Live logo shaders and alpha-masked metal/material GIFs
 - PNG raster export for OpenGraph, terminal cards, logos, and templates
 - Local font, image, logo, and GLSL inputs
+- Shared Brand Settings that update every browser-local design for the active identity
 
 Workflow:
 

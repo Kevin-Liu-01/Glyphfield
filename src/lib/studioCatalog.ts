@@ -11,6 +11,7 @@ export type StudioToolId =
   | 'design-board'
   | 'animation'
   | 'logo-shader'
+  | 'identity'
   | 'opengraph'
   | 'logo'
   | 'backgrounds'
@@ -99,6 +100,14 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
+    description: 'Edit the shared identity source used by every template, component, board, and export.',
+    id: 'identity',
+    keywords: ['brand settings', 'identity', 'name', 'tagline', 'voice', 'colors', 'typography', 'logos', 'foundations'],
+    name: 'Brand settings',
+    shortcut: 'I',
+  },
+  {
+    category: 'Foundations',
     description: 'Preview and download the active identity mark across colors, surfaces, and sizes.',
     id: 'logo',
     keywords: ['logomark', 'transparent', 'white', 'black', 'primary', 'secondary', 'download'],
@@ -155,18 +164,18 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Expressions',
-    description: 'Lay out a reusable 16:9 presentation title or section slide.',
+    description: 'Build a complete 16:9 presentation system from multiple reusable slide layouts.',
     id: 'slides',
-    keywords: ['slide template', 'deck', 'presentation', 'keynote', 'powerpoint'],
-    name: 'Slide template',
+    keywords: ['slide templates', 'deck', 'presentation', 'keynote', 'powerpoint', 'title', 'agenda', 'quote', 'metrics', 'timeline'],
+    name: 'Slide templates',
     shortcut: 'S',
   },
   {
     category: 'Components',
-    description: 'Review button variants, sizes, labels, and states on one stable surface.',
+    description: 'Review core interface controls, navigation, forms, feedback, data, and commerce patterns.',
     id: 'buttons',
-    keywords: ['button viewer', 'cta', 'rainbow', 'outline', 'secondary', 'disabled'],
-    name: 'Button viewer',
+    keywords: ['component library', 'buttons', 'inputs', 'forms', 'navigation', 'modal', 'toast', 'table', 'pricing', 'cards'],
+    name: 'Component library',
     shortcut: 'V',
   },
 ];

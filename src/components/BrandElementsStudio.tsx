@@ -5,6 +5,7 @@ import { T, useGT } from 'gt-next';
 import {
   Badge,
   BriefcaseBusiness,
+  Component,
   Download,
   FileText,
   Mail,
@@ -38,6 +39,7 @@ const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
   Editorial: Presentation,
   Event: Badge,
   Physical: BriefcaseBusiness,
+  Product: Component,
   Social: Share2,
 };
 
@@ -230,14 +232,17 @@ function ElementEditor({
       element.id
     );
   const actionSupported =
+    element.category === 'Product' ||
     ['welcome-email', 'transactional-email', 'web-card', 'error-page', 'community-card', 'launch-card', 'cli-banner', 'github-readme', 'docs-header', 'package-card'].includes(
       element.id
     );
   const layoutSupported =
+    element.category === 'Product' ||
     ['github-readme', 'docs-header', 'package-card', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'slide-title', 'slide-section', 'blog-cover', 'report-cover', 'press-kit', 'web-card', 'opengraph', 'error-page'].includes(
       element.id
     );
   const scaleSupported =
+    element.category === 'Product' ||
     ['x-post', 'linkedin-post', 'community-card', 'launch-card', 'slide-title', 'slide-section', 'blog-cover', 'report-cover', 'press-kit', 'event-backdrop', 'web-card', 'opengraph', 'error-page'].includes(
       element.id
     );
@@ -358,9 +363,9 @@ function IdentityMark({
   );
 }
 
-function ElementFrame({ children }: { children: ReactNode }) {
+function ElementFrame({ children, fontFamily }: { children: ReactNode; fontFamily: string }) {
   return (
-    <div className='flex w-full max-w-5xl flex-col'>
+    <div className='flex w-full max-w-5xl flex-col' style={{ fontFamily }}>
       <div className='min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
         {children}
       </div>
@@ -746,6 +751,72 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
   );
 }
 
+function ProductComponentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
+  const dark = isDarkSurface(settings.backgroundColor);
+  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
+  const mutedSurface = `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})`;
+  const logo = settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : null;
+  const action = settings.cta ? <span className='inline-flex w-fit px-4 py-2.5 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null;
+
+  if (element.id === 'navigation-bar') {
+    return (
+      <div className='relative mx-auto flex min-h-28 w-full max-w-5xl items-center justify-between gap-6 overflow-hidden px-6 shadow-sm sm:px-8' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}>
+        <ElementPattern settings={settings} />
+        <div className='relative z-10 flex items-center gap-3'>{logo}<span className='font-semibold'>{settings.headline}</span></div>
+        <div className='relative z-10 hidden items-center gap-7 text-sm opacity-60 md:flex'>{settings.body.split(/[·|]/).map((item) => <span key={item}>{item.trim()}</span>)}</div>
+        <div className='relative z-10'>{action}</div>
+      </div>
+    );
+  }
+
+  if (element.id === 'hero-section') {
+    return (
+      <div className={`relative mx-auto grid aspect-[16/9] w-full max-w-5xl overflow-hidden shadow-sm ${settings.layout === 'centered' ? 'place-items-center text-center' : 'md:grid-cols-[1.1fr_0.9fr]'}`} style={elementSurfaceStyle(settings)}>
+        <ElementPattern settings={settings} />
+        <div className='relative z-10 flex flex-col justify-center p-8 sm:p-14'>{logo}{settings.eyebrow ? <p className='mt-12 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`mt-4 max-w-3xl font-semibold leading-[0.98] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p><div className='mt-7'>{action}</div></div>
+        {settings.layout !== 'centered' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><div className='grid size-48 place-items-center border border-white/25 text-6xl font-semibold' style={{ color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{identity.shortName}</div></div> : null}
+      </div>
+    );
+  }
+
+  if (element.id === 'feature-grid') {
+    return (
+      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><div className='mt-10 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{['One source of truth', 'Reusable by default', 'Ready to export'].map((title, index) => <div className='min-h-52 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-16 text-lg font-semibold'>{title}</p><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p></div>)}</div></div></div>
+    );
+  }
+
+  if (['pricing-card', 'testimonial-card', 'checkout-card'].includes(element.id)) {
+    const testimonial = element.id === 'testimonial-card';
+    const checkout = element.id === 'checkout-card';
+    return (
+      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 shadow-xl sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}{settings.eyebrow ? <p className='mt-10 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
+    );
+  }
+
+  if (['form-controls', 'settings-panel'].includes(element.id)) {
+    return (
+      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<p className='mt-8 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p><h2 className='mt-3 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><input checked readOnly type='checkbox' /></label></div><div className='mt-7'>{action}</div></div></div>
+    );
+  }
+
+  if (['command-menu', 'modal-dialog', 'toast-notification', 'empty-state'].includes(element.id)) {
+    const compact = element.id === 'toast-notification';
+    return (
+      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 shadow-xl ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}{settings.eyebrow ? <p className='mt-5 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
+    );
+  }
+
+  if (element.id === 'data-table') {
+    return (
+      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><div className='flex items-end justify-between gap-6'><div><p className='font-mono text-xs opacity-40'>{settings.eyebrow}</p><h2 className='mt-2 text-3xl font-semibold'>{settings.headline}</h2></div>{action}</div><div className='mt-8 overflow-hidden border' style={{ borderColor }}><div className='grid grid-cols-[1.4fr_1fr_0.8fr] p-3 font-mono text-[10px] uppercase opacity-45'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product launch', 'Documentation', 'Email system', 'Design board'].map((item, index) => <div className='grid grid-cols-[1.4fr_1fr_0.8fr] border-t p-4 text-sm' key={item} style={{ borderColor }}><span className='font-medium'>{item}</span><span><i className='mr-2 inline-block size-2 rounded-full' style={{ backgroundColor: settings.accentColor }} />{index % 2 ? 'Draft' : 'Ready'}</span><span className='opacity-45'>Today</span></div>)}</div></div></div>
+    );
+  }
+
+  return (
+    <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}<span className='font-mono text-xs opacity-45'>{settings.eyebrow}</span></div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
+  );
+}
+
 function LogoPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
   return (
     <div className='mx-auto grid aspect-[16/10] w-full max-w-4xl grid-cols-2 overflow-hidden shadow-sm'>
@@ -788,6 +859,8 @@ function ElementPreview({ element, identity, settings }: { element: BrandElement
       return <IconPreview identity={identity} settings={settings} />;
     case 'web':
       return <WebPreview element={element} identity={identity} settings={settings} />;
+    case 'component':
+      return <ProductComponentPreview element={element} identity={identity} settings={settings} />;
   }
 }
 
@@ -957,7 +1030,7 @@ export default function BrandElementsStudio({
               </div>
             </div>
             <CanvasViewport className='min-h-[560px] flex-1' identityId={identity.id} stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8' toolId={tool.id}>
-              <ElementFrame>
+              <ElementFrame fontFamily={identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Inter'}>
                 <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />
               </ElementFrame>
             </CanvasViewport>

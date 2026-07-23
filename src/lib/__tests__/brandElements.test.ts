@@ -9,10 +9,10 @@ import { GT_BRAND_IDENTITY } from '../brandIdentity';
 
 describe('BRAND_ELEMENTS', () => {
   it('covers digital, developer, social, editorial, event, and physical identity applications', () => {
-    expect(BRAND_ELEMENTS.length).toBeGreaterThanOrEqual(28);
+    expect(BRAND_ELEMENTS.length).toBeGreaterThanOrEqual(47);
     expect(new Set(BRAND_ELEMENTS.map(({ id }) => id)).size).toBe(BRAND_ELEMENTS.length);
     expect(new Set(BRAND_ELEMENTS.map(({ category }) => category))).toEqual(
-      new Set(['Digital', 'Developer', 'Social', 'Editorial', 'Event', 'Physical'])
+      new Set(['Digital', 'Product', 'Developer', 'Social', 'Editorial', 'Event', 'Physical'])
     );
     expect(BRAND_ELEMENTS.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
@@ -25,6 +25,10 @@ describe('BRAND_ELEMENTS', () => {
         'business-card',
         'web-card',
         'logo-background',
+        'navigation-bar',
+        'form-controls',
+        'data-table',
+        'pricing-card',
       ])
     );
   });

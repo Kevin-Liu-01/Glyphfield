@@ -33,9 +33,11 @@ export const AGENT_GENERATION_EXAMPLES = {
     kind: 'element-brief',
   },
   slide: {
+    body: 'Foundation\nExpression\nApplication\nDelivery',
     identity: { preset: 'gt' },
     kind: 'template',
     output: 'raw',
+    slideLayout: 'agenda',
     template: 'slides',
     texture: 'white',
     title: 'Code is the source of truth.',
@@ -102,6 +104,7 @@ export const AGENT_GENERATION_CONTRACT = {
       fields: {
         background: 'Optional six-digit HEX',
         backgroundImageDataUrl: 'Optional base64 image data URL, maximum 5 MB',
+        body: 'Optional string, maximum 1000 characters; newline-delimited for lists',
         eyebrow: 'Optional string, maximum 80 characters',
         foreground: 'Optional six-digit HEX',
         identity: 'Agent identity object',
@@ -109,6 +112,7 @@ export const AGENT_GENERATION_CONTRACT = {
         output: 'json | raw; defaults to json',
         partnerId: 'Optional public proof asset ID from /api/identities',
         partnerLogoDataUrl: 'Optional base64 image data URL, maximum 5 MB',
+        slideLayout: 'title | section | agenda | split | metrics | quote | timeline | closing',
         template: 'slides | blog | partnership',
         texture: 'white | dark | grid | noise',
         title: 'Optional string, maximum 240 characters',

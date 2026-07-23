@@ -463,15 +463,30 @@ function isBrandIdentity(value: unknown): value is BrandIdentity {
 }
 
 export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
-  const customIdentities = Array.isArray(value)
-    ? value
-        .filter(isBrandIdentity)
-        .filter(
-          ({ id }) => id !== GT_BRAND_IDENTITY.id && id !== STARTER_BRAND_IDENTITY.id
-        )
-    : [];
+  const storedIdentities = Array.isArray(value) ? value.filter(isBrandIdentity) : [];
+  const customIdentities = storedIdentities.filter(
+    ({ id }) => id !== GT_BRAND_IDENTITY.id && id !== STARTER_BRAND_IDENTITY.id
+  );
+  const storedStarter = storedIdentities.find(({ id }) => id === STARTER_BRAND_IDENTITY.id);
+  const storedGt = storedIdentities.find(({ id }) => id === GT_BRAND_IDENTITY.id);
+  const starterIdentity = storedStarter
+    ? {
+        ...cloneBrandIdentity(storedStarter),
+        builtIn: true,
+        id: STARTER_BRAND_IDENTITY.id,
+        kind: 'template' as const,
+      }
+    : cloneBrandIdentity(STARTER_BRAND_IDENTITY);
+  const gtIdentity = storedGt
+    ? {
+        ...cloneBrandIdentity(storedGt),
+        builtIn: true,
+        id: GT_BRAND_IDENTITY.id,
+        kind: 'example' as const,
+      }
+    : cloneBrandIdentity(GT_BRAND_IDENTITY);
   return [
-    cloneBrandIdentity(STARTER_BRAND_IDENTITY),
+    starterIdentity,
     ...customIdentities.map((identity) => {
       const clonedIdentity = cloneBrandIdentity(identity);
       const generatedAssets = createPixelBrandAssets(
@@ -491,7 +506,7 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
         kind: 'custom' as const,
       };
     }),
-    cloneBrandIdentity(GT_BRAND_IDENTITY),
+    gtIdentity,
   ];
 }
 

@@ -2,6 +2,15 @@ import { escapeXml } from '@/lib/download';
 import type { TemplateKind } from '@/lib/templateAssets';
 
 export type TemplateTexture = 'white' | 'dark' | 'grid' | 'noise';
+export type SlideLayout =
+  | 'title'
+  | 'section'
+  | 'agenda'
+  | 'split'
+  | 'metrics'
+  | 'quote'
+  | 'timeline'
+  | 'closing';
 
 type TemplateSvgOptions = {
   background: string;
@@ -10,6 +19,7 @@ type TemplateSvgOptions = {
   backgroundImageScale?: number;
   backgroundImageX?: number;
   backgroundImageY?: number;
+  body?: string;
   brandLogo: string;
   brandLogoScale?: number;
   brandLogoX?: number;
@@ -24,6 +34,7 @@ type TemplateSvgOptions = {
   partnerLogoScale?: number;
   partnerLogoX?: number;
   partnerLogoY?: number;
+  slideLayout?: SlideLayout;
   texture: TemplateTexture;
   textureOpacity?: number;
   title: string;
@@ -80,6 +91,51 @@ function titleLines(value: string, kind: TemplateKind): string[] {
   return lines;
 }
 
+function svgTextLines(
+  value: string,
+  x: number,
+  y: number,
+  foreground: string,
+  options: { anchor?: 'start' | 'middle'; fontSize?: number; lineHeight?: number; maxLines?: number; weight?: number } = {}
+): string {
+  const fontSize = options.fontSize ?? 68;
+  const lineHeight = options.lineHeight ?? 78;
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  const limit = Math.max(12, Math.round(760 / (fontSize * 0.52)));
+  const lines: string[] = [];
+  for (const word of words) {
+    const current = lines.at(-1);
+    if (!current || current.length + word.length + 1 > limit) {
+      if (lines.length === (options.maxLines ?? 3)) break;
+      lines.push(word);
+    } else {
+      lines[lines.length - 1] = `${current} ${word}`;
+    }
+  }
+  return lines.map((line, index) => `<text x="${x}" y="${y + index * lineHeight}"${options.anchor === 'middle' ? ' text-anchor="middle"' : ''} fill="${foreground}" font-family="Inter,Arial,sans-serif" font-size="${fontSize}" font-weight="${options.weight ?? 700}" letter-spacing="-2">${escapeXml(line)}</text>`).join('');
+}
+
+function slideLayoutLayer(
+  layout: SlideLayout,
+  title: string,
+  body: string,
+  eyebrow: string,
+  foreground: string,
+  width: number
+): string {
+  const bodyItems = body.split('\n').map((item) => item.trim()).filter(Boolean);
+  const items = bodyItems.length > 0 ? bodyItems : ['Foundation', 'Expression', 'Application', 'Delivery'];
+  const eyebrowText = `<text x="84" y="210" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>`;
+  if (layout === 'section') return `${eyebrowText}<text x="84" y="520" fill="${foreground}" opacity="0.12" font-family="Inter,Arial,sans-serif" font-size="330" font-weight="800">01</text>${svgTextLines(title, 420, 370, foreground, { fontSize: 76, lineHeight: 84, maxLines: 2 })}`;
+  if (layout === 'agenda') return `${eyebrowText}${svgTextLines(title, 84, 300, foreground, { fontSize: 64, maxLines: 2 })}${items.slice(0, 4).map((item, index) => `<text x="880" y="270" fill="${foreground}" opacity="0.38" font-family="ui-monospace,monospace" font-size="16">0${index + 1}</text><text x="940" y="270" fill="${foreground}" font-family="Inter,Arial,sans-serif" font-size="25" transform="translate(0 ${index * 72})">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'split') return `${eyebrowText}${svgTextLines(title, 84, 310, foreground, { fontSize: 66, maxLines: 3 })}<line x1="800" y1="230" x2="800" y2="690" stroke="${foreground}" opacity="0.18"/>${items.slice(0, 5).map((item, index) => `<text x="880" y="${290 + index * 70}" fill="${foreground}" font-family="Inter,Arial,sans-serif" font-size="24">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'metrics') return `${eyebrowText}${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2 })}${[['98.7%','Coverage'],['42','Markets'],['7d','Launch']].map(([value, label], index) => `<rect x="${84 + index * 490}" y="470" width="430" height="220" fill="none" stroke="${foreground}" opacity="0.2"/><text x="${120 + index * 490}" y="580" fill="${foreground}" font-family="Inter,Arial,sans-serif" font-size="64" font-weight="700">${value}</text><text x="${120 + index * 490}" y="635" fill="${foreground}" opacity="0.52" font-family="ui-monospace,monospace" font-size="16">${label}</text>`).join('')}`;
+  if (layout === 'quote') return `${eyebrowText}<text x="84" y="360" fill="${foreground}" opacity="0.16" font-family="Georgia,serif" font-size="180">“</text>${svgTextLines(title, 220, 390, foreground, { fontSize: 62, lineHeight: 72, maxLines: 3, weight: 600 })}<text x="220" y="690" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="17">${escapeXml(bodyItems[0] ?? 'Alex Morgan · Customer')}</text>`;
+  if (layout === 'timeline') return `${eyebrowText}${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2 })}<line x1="110" y1="560" x2="1490" y2="560" stroke="${foreground}" opacity="0.24"/>${items.slice(0, 4).map((item, index) => `<circle cx="${150 + index * 430}" cy="560" r="10" fill="${foreground}"/><text x="${150 + index * 430}" y="520" fill="${foreground}" opacity="0.45" font-family="ui-monospace,monospace" font-size="15">0${index + 1}</text><text x="${150 + index * 430}" y="620" fill="${foreground}" font-family="Inter,Arial,sans-serif" font-size="21">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'closing') return `<text x="${width / 2}" y="270" text-anchor="middle" fill="${foreground}" opacity="0.5" font-family="ui-monospace,monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${svgTextLines(title, width / 2, 430, foreground, { anchor: 'middle', fontSize: 82, lineHeight: 88, maxLines: 2 })}<text x="${width / 2}" y="660" text-anchor="middle" fill="${foreground}" opacity="0.58" font-family="Inter,Arial,sans-serif" font-size="22">${escapeXml(body)}</text>`;
+  return `${eyebrowText}${svgTextLines(title, 84, 340, foreground, { fontSize: 78, lineHeight: 88, maxLines: 3 })}`;
+}
+
 export function buildTemplateSvg(options: TemplateSvgOptions): string {
   const {
     background,
@@ -88,6 +144,7 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     backgroundImageScale = 100,
     backgroundImageX = 0,
     backgroundImageY = 0,
+    body = '',
     brandLogo,
     brandLogoScale = 100,
     brandLogoX = 0,
@@ -102,6 +159,7 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     partnerLogoScale = 100,
     partnerLogoX = 0,
     partnerLogoY = 0,
+    slideLayout = 'title',
     texture,
     textureOpacity = 100,
     title,
@@ -161,5 +219,8 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     ? `<text x="${width - 84}" y="${height - 64}" text-anchor="end" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">01 / 12</text>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${imageLayer}${logoLayer}${identityLabel}<text x="84" y="224" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${lines}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}</svg>`;
+  const contentLayer = kind === 'slides'
+    ? slideLayoutLayer(slideLayout, title, body, eyebrow, foreground, width)
+    : `<text x="84" y="224" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${lines}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${imageLayer}${logoLayer}${identityLabel}${contentLayer}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}</svg>`;
 }
