@@ -2,6 +2,7 @@ import { escapeXml } from '@/lib/download';
 import type { TemplateKind } from '@/lib/templateAssets';
 
 export type TemplateTexture = 'white' | 'dark' | 'grid' | 'noise';
+export type TemplateLayerId = 'brand' | 'content' | 'footer';
 export type SlideLayout =
   | 'title'
   | 'section'
@@ -18,7 +19,7 @@ export type SlideLayout =
   | 'image'
   | 'closing';
 
-type TemplateSvgOptions = {
+export type TemplateSvgOptions = {
   background: string;
   backgroundImage?: string | null;
   backgroundImageOpacity?: number;
@@ -30,6 +31,9 @@ type TemplateSvgOptions = {
   brandLogoScale?: number;
   brandLogoX?: number;
   brandLogoY?: number;
+  brandScale?: number;
+  brandX?: number;
+  brandY?: number;
   eyebrow: string;
   foreground: string;
   fontData?: string | null;
@@ -40,6 +44,7 @@ type TemplateSvgOptions = {
   imageTreatment?: 'natural' | 'monochrome' | 'duotone';
   invertPartner?: boolean;
   kind: TemplateKind;
+  layerOrder?: readonly TemplateLayerId[];
   partnerLogo?: string | null;
   partnerLogoScale?: number;
   partnerLogoX?: number;
@@ -48,9 +53,29 @@ type TemplateSvgOptions = {
   texture: TemplateTexture;
   textureOpacity?: number;
   title: string;
+  contentScale?: number;
+  contentX?: number;
+  contentY?: number;
+  footerScale?: number;
+  footerX?: number;
+  footerY?: number;
   website: string;
   width: number;
 };
+
+const DEFAULT_LAYER_ORDER: readonly TemplateLayerId[] = ['brand', 'content', 'footer'];
+
+function transformedLayer(
+  id: TemplateLayerId,
+  content: string,
+  x: number,
+  y: number,
+  scale: number,
+  centerX: number,
+  centerY: number
+): string {
+  return `<g data-layer="${id}" transform="translate(${x} ${y}) translate(${centerX} ${centerY}) scale(${scale}) translate(${-centerX} ${-centerY})">${content}</g>`;
+}
 
 function textureLayer(texture: TemplateTexture, opacity: number): string {
   if (texture === 'grid') {
@@ -165,6 +190,9 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     brandLogoScale = 100,
     brandLogoX = 0,
     brandLogoY = 0,
+    brandScale = 1,
+    brandX = 0,
+    brandY = 0,
     eyebrow,
     foreground,
     fontData,
@@ -175,6 +203,7 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     imageTreatment = 'natural',
     invertPartner,
     kind,
+    layerOrder = DEFAULT_LAYER_ORDER,
     partnerLogo,
     partnerLogoScale = 100,
     partnerLogoX = 0,
@@ -183,6 +212,12 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     texture,
     textureOpacity = 100,
     title,
+    contentScale = 1,
+    contentX = 0,
+    contentY = 0,
+    footerScale = 1,
+    footerX = 0,
+    footerY = 0,
     website,
     width,
   } = options;
@@ -252,5 +287,12 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     : '';
   const resolvedFontFamily = fontData ? 'TemplateBrand' : fontFamily;
   const fontStyles = `<style>${fontFace}text:not([font-family*='monospace']){font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${fontWeight};}</style>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${fontStyles}${imageLayer}${logoLayer}${identityLabel}${contentLayer}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}</svg>`;
+  const layers: Record<TemplateLayerId, string> = {
+    brand: transformedLayer('brand', `${logoLayer}${identityLabel}`, brandX, brandY, brandScale, width / 2, 118),
+    content: transformedLayer('content', contentLayer, contentX, contentY, contentScale, width / 2, height / 2),
+    footer: transformedLayer('footer', `<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}`, footerX, footerY, footerScale, width / 2, height - 64),
+  };
+  const orderedLayerIds = [...layerOrder, ...DEFAULT_LAYER_ORDER.filter((id) => !layerOrder.includes(id))];
+  const foregroundLayers = orderedLayerIds.map((id) => layers[id]).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${fontStyles}${imageLayer}${foregroundLayers}</svg>`;
 }

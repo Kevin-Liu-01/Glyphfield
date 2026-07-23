@@ -102,14 +102,16 @@ and frame-accurate GIF export.
   social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
   review, with export up to 4800 px wide.
 - Logo Shader combines the supplied ShaderGradient sphere, ten original local
-  GLSL recipes based on the visual families cataloged in Ariadne, and Studio materials across live
+  GLSL recipes based on the public material techniques documented by Shaders.com, and Studio materials across live
   backdrops and alpha-masked marks, with still PNG and animated GIF export.
 - Background Lab creates gradients, grain, ordered Bayer dithering, dots,
   lines, and grids as portable SVG-composed images.
 - Studio appearance persists light or dark mode, accent, canvas density, and a
   choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
 - Templates include fourteen slide layouts plus blog, partnership, OpenGraph,
-  terminal, email, and brand-element systems.
+  terminal, email, and brand-element systems. Slide foreground groups use a
+  direct-manipulation canvas with selection, drag, scale, keyboard nudge, and
+  persistent front-to-back layer order.
 - Fumadocs powers 24 feature, artifact, integration, and API guides.
 - Landing, Studio, and every documentation page receive generated 1200 × 630
   OpenGraph and Twitter artwork from one shared brand renderer.

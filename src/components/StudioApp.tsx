@@ -14,6 +14,8 @@ import {
   Component,
   Copy,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Folder,
   Grid3X3,
   Image as ImageIcon,
@@ -57,6 +59,7 @@ import {
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 import {
   filterStudioTools,
+  getProjectTabDensity,
   STUDIO_CATEGORIES,
   STUDIO_TOOLS,
   type StudioToolId,
@@ -96,6 +99,7 @@ type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
 type StudioAppearance = {
   accent: 'neutral' | 'violet' | 'teal' | 'lime';
   canvas: 'dots' | 'grid' | 'plain';
+  corners: 'rounded' | 'square';
   density: 'compact' | 'comfortable';
   font: 'switzer' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
   motion: 'full' | 'reduced';
@@ -105,6 +109,7 @@ type StudioAppearance = {
 const DEFAULT_APPEARANCE: StudioAppearance = {
   accent: 'neutral',
   canvas: 'dots',
+  corners: 'rounded',
   density: 'comfortable',
   font: 'switzer',
   motion: 'full',
@@ -421,6 +426,25 @@ function AppearanceMenu({
 
           <section className='appearance-section'>
             <div>
+              <strong><T>Corners</T></strong>
+              <small><T>Shape of Studio controls and panels</T></small>
+            </div>
+            <div className='appearance-segments'>
+              {(['rounded', 'square'] as const).map((corners) => (
+                <button
+                  aria-pressed={appearance.corners === corners}
+                  key={corners}
+                  onClick={() => onChange({ corners })}
+                  type='button'
+                >
+                  {corners === 'rounded' ? <T>Rounded</T> : <T>Square</T>}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className='appearance-section'>
+            <div>
               <strong><T>Studio font</T></strong>
               <small><T>Interface typography</T></small>
             </div>
@@ -616,6 +640,11 @@ export default function StudioApp() {
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
+  const projectTabsScrollRef = useRef<HTMLDivElement>(null);
+  const [tabScrollState, setTabScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
   const [openIdentityIds, setOpenIdentityIds] = usePersistentState<string[]>(
     OPEN_TABS_STORAGE_KEY,
     [STARTER_BRAND_IDENTITY.id, GT_BRAND_IDENTITY.id]
@@ -644,6 +673,7 @@ export default function StudioApp() {
       ),
     [activeFolderId, identities, openIdentityIds]
   );
+  const projectTabDensity = getProjectTabDensity(visibleIdentities.length);
   const activeIdentityIsOpen = openIdentityIds.includes(activeIdentity?.id ?? '');
   const folderCounts = useMemo(
     () =>
@@ -708,6 +738,43 @@ export default function StudioApp() {
   });
 
   useMountEffect(() => {
+    const rail = projectTabsScrollRef.current;
+    if (!rail) return;
+
+    let animationFrame = 0;
+    const updateScrollState = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const nextState = {
+          canScrollLeft: rail.scrollLeft > 2,
+          canScrollRight:
+            rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2,
+        };
+        setTabScrollState((current) =>
+          current.canScrollLeft === nextState.canScrollLeft &&
+          current.canScrollRight === nextState.canScrollRight
+            ? current
+            : nextState
+        );
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(updateScrollState);
+    const mutationObserver = new MutationObserver(updateScrollState);
+    resizeObserver.observe(rail);
+    mutationObserver.observe(rail, { childList: true, subtree: true });
+    rail.addEventListener('scroll', updateScrollState, { passive: true });
+    updateScrollState();
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      rail.removeEventListener('scroll', updateScrollState);
+    };
+  });
+
+  useMountEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target;
       const isEditing =
@@ -760,6 +827,26 @@ export default function StudioApp() {
     );
     setActiveIdentityId(identityId);
     window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, identityId);
+    window.requestAnimationFrame(() => {
+      projectTabsScrollRef.current
+        ?.querySelector<HTMLElement>(
+          `[data-project-id="${CSS.escape(identityId)}"]`
+        )
+        ?.scrollIntoView({
+          behavior: resolvedAppearance.motion === 'reduced' ? 'auto' : 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+    });
+  }
+
+  function scrollProjectTabs(direction: -1 | 1) {
+    const rail = projectTabsScrollRef.current;
+    if (!rail) return;
+    rail.scrollBy({
+      behavior: resolvedAppearance.motion === 'reduced' ? 'auto' : 'smooth',
+      left: direction * Math.max(180, rail.clientWidth * 0.64),
+    });
   }
 
   function closeIdentity(identityId: string) {
@@ -902,21 +989,23 @@ export default function StudioApp() {
     return (
       <div
         aria-selected={selected}
-        className={`project-tab relative flex min-w-40 max-w-64 items-center gap-2 rounded-t-[5px] border border-b-0 py-0 pr-1.5 pl-3 text-sm ${
+        className={`project-tab relative flex items-center gap-2 border border-b-0 py-0 pr-1.5 pl-3 text-sm ${
           selected
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
+        data-project-id={identity.id}
         key={identity.id}
         role='tab'
+        title={identity.name}
       >
         {selected && identity.kind === 'custom' ? (
-          <div className='flex min-w-0 flex-1 items-center gap-2'>
+          <div className='project-tab-editor flex min-w-0 flex-1 items-center gap-2'>
             {renderProjectMark(identity)}
-            <span className='font-mono text-muted-foreground' aria-hidden='true'>/</span>
+            <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <input
               aria-label={gt('Project name')}
-              className='min-w-0 flex-1 bg-transparent font-medium outline-none'
+              className='project-tab-name min-w-0 flex-1 bg-transparent font-medium outline-none'
               onChange={(event) => renameIdentity(identity.id, event.target.value)}
               value={identity.name}
             />
@@ -929,8 +1018,8 @@ export default function StudioApp() {
             type='button'
           >
             {renderProjectMark(identity)}
-            <span className='font-mono text-muted-foreground' aria-hidden='true'>/</span>
-            <span className={`truncate ${selected ? 'font-medium text-foreground' : ''}`}>
+            <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
+            <span className={`project-tab-name truncate ${selected ? 'font-medium text-foreground' : ''}`}>
               {identity.name}
             </span>
           </button>
@@ -957,6 +1046,7 @@ export default function StudioApp() {
       className='studio-app h-dvh overflow-hidden bg-background text-foreground'
       data-studio-accent={resolvedAppearance.accent}
       data-studio-canvas={resolvedAppearance.canvas}
+      data-studio-corners={resolvedAppearance.corners}
       data-studio-density={resolvedAppearance.density}
       data-studio-font={resolvedAppearance.font}
       data-studio-motion={resolvedAppearance.motion}
@@ -964,7 +1054,7 @@ export default function StudioApp() {
       data-resolved-theme={resolvedTheme}
     >
       <BrandFontFaces identity={activeIdentity} />
-      <header className='studio-app-header border-b border-border bg-background'>
+      <header className='app-navbar studio-app-header border-b border-border bg-background'>
         <Link
           className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'
           href='/'
@@ -991,7 +1081,7 @@ export default function StudioApp() {
           <button
             aria-haspopup='dialog'
             aria-keyshortcuts='Meta+K Control+K /'
-            className='studio-command-launcher flex h-9 min-w-0 flex-1 max-w-xl items-center gap-2 rounded-md border border-input bg-background px-3 text-left hover:border-foreground'
+            className='studio-command-launcher flex h-9 min-w-0 flex-1 max-w-xl items-center gap-2 border border-input bg-background px-3 text-left hover:border-foreground'
             onClick={() => {
               setQuery('');
               setCommandOpen(true);
@@ -1000,7 +1090,7 @@ export default function StudioApp() {
           >
             <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
             <span className='min-w-0 flex-1 truncate text-sm text-muted-foreground'><T>Search Studio tools…</T></span>
-            <kbd className='hidden rounded-md border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
+            <kbd className='hidden border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
           </button>
           <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
             <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
@@ -1062,19 +1152,47 @@ export default function StudioApp() {
             <span>{'{ }'}</span>
           </span>
         </div>
-        <div className='project-tabs flex min-w-0 items-end gap-2 px-2'>
-          <div className='project-tabs-scroll flex min-w-0 flex-1 items-end gap-2 overflow-x-auto self-stretch'>
-            <div className='flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
-              {visibleIdentities.map(renderProjectTab)}
+        <div
+          className='app-navbar project-tabs flex min-w-0 items-end gap-2 px-2'
+          data-tab-density={projectTabDensity}
+        >
+          <div className='project-tabs-rail min-w-0 flex-1 self-stretch'>
+            <button
+              aria-label={gt('Scroll project tabs left')}
+              className='project-tabs-scroll-cue project-tabs-scroll-cue--left'
+              data-visible={tabScrollState.canScrollLeft ? 'true' : 'false'}
+              disabled={!tabScrollState.canScrollLeft}
+              onClick={() => scrollProjectTabs(-1)}
+              type='button'
+            >
+              <ChevronLeft aria-hidden='true' />
+            </button>
+            <div
+              className='project-tabs-scroll flex min-w-0 items-end gap-2 overflow-x-auto self-stretch'
+              ref={projectTabsScrollRef}
+            >
+              <div className='project-tabs-tablist flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
+                {visibleIdentities.map(renderProjectTab)}
+              </div>
+              {visibleIdentities.length === 0 ? (
+                <span className='mb-2 shrink-0 px-2 text-xs text-muted-foreground'>
+                  <T>No brands in this folder</T>
+                </span>
+              ) : null}
+              <Button aria-label={gt('Add brand project')} className='project-tab-add mb-1.5 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-sm' type='button' variant='outline'>
+                <Plus aria-hidden='true' />
+              </Button>
             </div>
-            {visibleIdentities.length === 0 ? (
-              <span className='mb-2 shrink-0 px-2 text-xs text-muted-foreground'>
-                <T>No brands in this folder</T>
-              </span>
-            ) : null}
-            <Button aria-label={gt('Add brand project')} className='mb-1.5 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-sm' type='button' variant='outline'>
-              <Plus aria-hidden='true' />
-            </Button>
+            <button
+              aria-label={gt('Scroll project tabs right')}
+              className='project-tabs-scroll-cue project-tabs-scroll-cue--right'
+              data-visible={tabScrollState.canScrollRight ? 'true' : 'false'}
+              disabled={!tabScrollState.canScrollRight}
+              onClick={() => scrollProjectTabs(1)}
+              type='button'
+            >
+              <ChevronRight aria-hidden='true' />
+            </button>
           </div>
           <div className='project-tabs-actions ml-auto flex h-8 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
             <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='sm' title={gt('Duplicate project')} type='button' variant='outline'>
@@ -1105,7 +1223,7 @@ export default function StudioApp() {
       </div>
 
       <div className='studio-app-body'>
-        <aside className='studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
+        <aside className='app-navbar studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
           <div className='min-h-0 flex-1 overflow-y-auto px-2 py-3'>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
@@ -1122,7 +1240,7 @@ export default function StudioApp() {
                       const selected = activeToolId === tool.id;
                       return (
                         <Button
-                          className='h-9 w-full justify-start rounded-md border-0 px-2.5'
+                          className='h-9 w-full justify-start border-0 px-2.5'
                           key={tool.id}
                           onClick={() => selectTool(tool.id)}
                           title={gt(tool.description)}

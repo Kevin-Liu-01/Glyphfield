@@ -26,6 +26,15 @@ function triggerDownload(url: string, filename: string): void {
   anchor.click();
 }
 
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new DOMException('The PNG could not be encoded.'));
+    }, 'image/png');
+  });
+}
+
 export function downloadSvg(svg: string, filename: string): void {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -49,15 +58,19 @@ export async function downloadSvgAsPng(
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', { alpha: true });
 
     if (!context) {
       throw new Error('Canvas is unavailable.');
     }
 
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
     context.drawImage(image, 0, 0, width, height);
-    const url = canvas.toDataURL('image/png');
+    const png = await canvasToBlob(canvas);
+    const url = URL.createObjectURL(png);
     triggerDownload(url, filename);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   } finally {
     URL.revokeObjectURL(source);
   }

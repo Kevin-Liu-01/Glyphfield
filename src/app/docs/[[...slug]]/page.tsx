@@ -22,12 +22,16 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
   if (!page) notFound();
 
   const Content = page.data.body;
+  const location = page.slugs.length > 0 ? page.slugs.join(' / ') : 'overview';
 
   return (
-    <DocsPage toc={page.data.toc}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <DocsBody>
+    <DocsPage breadcrumb={{ enabled: false }} className='glyphfield-doc-page' toc={page.data.toc}>
+      <header className='glyphfield-doc-page-header'>
+        <div className='glyphfield-doc-page-kicker'><span>GLYPHFIELD / DOCS</span><span>{location}</span></div>
+        <DocsTitle className='glyphfield-doc-title'>{page.data.title}</DocsTitle>
+        <DocsDescription className='glyphfield-doc-description'>{page.data.description}</DocsDescription>
+      </header>
+      <DocsBody className='glyphfield-docs-body'>
         <Content components={getDocsMdxComponents()} />
       </DocsBody>
     </DocsPage>

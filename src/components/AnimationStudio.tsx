@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
+import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import StudioControls from '@/components/StudioControls';
 import TimelinePanel from '@/components/TimelinePanel';
@@ -80,6 +81,12 @@ export default function AnimationStudio({
     'animation',
     'settings',
     identitySettings
+  );
+  const [qualityDefaultsMigrated, setQualityDefaultsMigrated] = useStudioDraft(
+    identityId,
+    'animation',
+    'quality-defaults-v2',
+    false
   );
   const settings: StudioSettings = {
     ...identitySettings,
@@ -184,6 +191,22 @@ export default function AnimationStudio({
     transitionMs: settings.transitionMs,
   });
   const visiblePlayhead = totalMs === 0 ? 0 : Math.min(playheadMs, totalMs);
+  const canvasWidth = Math.max(120, settings.width);
+  const canvasHeight = Math.max(120, settings.height);
+  const selectedBounds = selectedSource?.kind === 'text'
+    ? {
+        height: Math.min(canvasHeight * 0.72, (selectedFrameSettings?.fontSize ?? settings.fontSize) * 1.45),
+        width: Math.min(canvasWidth * 0.88, Math.max(96, Array.from(selectedSource.text).length * (selectedFrameSettings?.fontSize ?? settings.fontSize) * 0.62)),
+      }
+    : selectedSource
+      ? (() => {
+          const ratio = selectedSource.width / Math.max(1, selectedSource.height);
+          const maxWidth = canvasWidth * 0.68;
+          const maxHeight = canvasHeight * 0.68;
+          const width = Math.min(maxWidth, maxHeight * ratio);
+          return { height: width / ratio, width };
+        })()
+      : { height: 80, width: 160 };
 
   const settingsRef = useRef(settings);
   const sourcesRef = useRef(sources);
@@ -198,6 +221,15 @@ export default function AnimationStudio({
   isPlayingRef.current = isPlaying;
   playbackRateRef.current = playbackRate;
   lastExportRef.current = lastExport;
+
+  useMountEffect(() => {
+    if (qualityDefaultsMigrated) return;
+    setStoredSettings((current) => ({
+      ...current,
+      colors: current.colors <= 64 ? 256 : current.colors,
+    }));
+    setQualityDefaultsMigrated(true);
+  });
 
   useMountEffect(() => {
     const logoAsset =
@@ -467,7 +499,7 @@ export default function AnimationStudio({
       }
     >
       <header
-        className={`${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
+        className={`app-navbar ${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
       >
         <div className='flex min-w-0 items-center gap-4 border-r border-border px-5 py-3'>
           {embedded ? null : (
@@ -544,7 +576,10 @@ export default function AnimationStudio({
           onFrameSettingsChange={updateSelectedFrame}
           onIncludeBrandLogoChange={(include) => {
             setIncludeBrandLogo(include);
-            if (include) setSelectedSourceId('brand-logo');
+            if (include) {
+              setSelectedSourceId('brand-logo');
+              changePlaying(false);
+            }
             seek(0);
           }}
           onModeChange={changeMode}
@@ -553,7 +588,9 @@ export default function AnimationStudio({
           onResetFrame={resetSelectedFrame}
           onSelectSource={(id) => {
             setSelectedSourceId(id);
-            seek(0);
+            changePlaying(false);
+            const index = sources.findIndex((source) => source.id === id);
+            seek(Math.max(0, index) * (settings.holdMs + settings.transitionMs));
           }}
           onSettingsChange={updateSettings}
           onTextFramesChange={setTextFrames}
@@ -607,19 +644,45 @@ export default function AnimationStudio({
                 <canvas
                   aria-label={gt('Animation preview canvas')}
                   className='absolute inset-0 z-10 size-full'
-                  height={Math.max(120, settings.height)}
+                  height={canvasHeight}
                   ref={canvasRef}
-                  width={Math.max(120, settings.width)}
+                  width={canvasWidth}
                 />
+                {selectedSource && selectedFrameSettings ? (
+                  <EditableCanvasLayer
+                    baseHeight={selectedBounds.height}
+                    baseWidth={selectedBounds.width}
+                    baseX={(canvasWidth - selectedBounds.width) / 2}
+                    baseY={(canvasHeight - selectedBounds.height) / 2}
+                    canvasHeight={canvasHeight}
+                    canvasWidth={canvasWidth}
+                    label={selectedSource.kind === 'text' ? selectedSource.text : selectedSource.name}
+                    onChange={(transform) => updateSelectedFrame({
+                      alignX: Math.min(1, Math.max(-1, (transform.x / canvasWidth) * 2)),
+                      alignY: Math.min(1, Math.max(-1, (transform.y / canvasHeight) * 2)),
+                      scale: transform.scale,
+                    })}
+                    onSelect={() => setSelectedSourceId(selectedSource.id)}
+                    selected
+                    transform={{
+                      scale: selectedFrameSettings.scale,
+                      x: (selectedFrameSettings.alignX * canvasWidth) / 2,
+                      y: (selectedFrameSettings.alignY * canvasHeight) / 2,
+                    }}
+                    zIndex={30}
+                  >
+                    <span />
+                  </EditableCanvasLayer>
+                ) : null}
                 <div
                   aria-hidden='true'
                   className='pointer-events-none absolute inset-y-0 z-20 w-px bg-white/20'
-                  style={{ left: `${((settings.alignX + 1) / 2) * 100}%` }}
+                  style={{ left: `${(((selectedFrameSettings?.alignX ?? settings.alignX) + 1) / 2) * 100}%` }}
                 />
                 <div
                   aria-hidden='true'
                   className='pointer-events-none absolute inset-x-0 z-20 h-px bg-white/20'
-                  style={{ top: `${((settings.alignY + 1) / 2) * 100}%` }}
+                  style={{ top: `${(((selectedFrameSettings?.alignY ?? settings.alignY) + 1) / 2) * 100}%` }}
                 />
               </div>
             </div>

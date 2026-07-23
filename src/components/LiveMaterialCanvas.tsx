@@ -6,12 +6,13 @@ import { useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { useMountEffect } from '@/hooks/useMountEffect';
-import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
+import { normalizeLiveMaterialId, type LiveMaterialId, type LiveMaterialSettings } from '@/lib/liveMaterials';
 
 export type LiveMaterialCanvasProps = {
   className?: string;
   materialId: LiveMaterialId;
   paused?: boolean;
+  renderScale?: number;
   settings: LiveMaterialSettings;
 };
 
@@ -79,8 +80,8 @@ vec3 finishColor(vec3 color) {
 }
 `;
 
-const ARIADNE_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere'>, string> = {
-  'ariadne-pixel-beams': `
+const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere'>, string> = {
+  'shaders-pixel-beams': `
 void main() {
   vec2 p = studioUv();
   float cells = mix(3.0, 18.0, u_grain / 100.0);
@@ -92,7 +93,7 @@ void main() {
   color = mix(color, u_color_c, smoothstep(0.7, 1.0, plasma) * 0.65);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-soft-register': `
+  'shaders-soft-register': `
 void main() {
   vec2 p = studioUv();
   float warp = fbm(p * max(0.6, u_detail) + vec2(u_time * 0.18, -u_time * 0.12));
@@ -102,7 +103,7 @@ void main() {
   color = mix(color, color.bgr, dots * (u_grain / 100.0) * 0.3);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-spectral-bloom': `
+  'shaders-spectral-bloom': `
 void main() {
   vec2 p = studioUv();
   float radius = length(p);
@@ -113,7 +114,7 @@ void main() {
   color *= 1.0 - smoothstep(0.72, 1.4, radius) * 0.72;
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-pistons': `
+  'shaders-pistons': `
 void main() {
   vec2 p = studioUv();
   float angle = atan(p.y, p.x);
@@ -124,7 +125,7 @@ void main() {
   color = mix(color, u_color_c, smoothstep(0.74, 1.0, rays) * u_strength);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-fluid-chrome': `
+  'shaders-fluid-chrome': `
 void main() {
   vec2 p = studioUv();
   float field = fbm(p * max(0.8, u_detail) + vec2(u_time * 0.18, u_time * 0.09));
@@ -136,7 +137,7 @@ void main() {
   vec3 color = mix(tinted, chrome, 0.38 + u_strength * 0.24);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-chroma-flow': `
+  'shaders-chroma-flow': `
 void main() {
   vec2 p = studioUv();
   float flow = sin(p.y * u_frequency + sin(p.x * u_detail + u_time) * (1.0 + u_strength * 2.0));
@@ -145,7 +146,7 @@ void main() {
   color = mix(color, u_color_c, pow(flutes, 3.0) * (0.35 + u_strength * 0.35));
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-drift': `
+  'shaders-drift': `
 void main() {
   vec2 p = studioUv();
   p.y += 0.55;
@@ -156,7 +157,7 @@ void main() {
   vec3 color = mix(u_color_a, mix(u_color_b, u_color_c, smoke), plume);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-mosaic': `
+  'shaders-mosaic': `
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   float cellSize = mix(0.018, 0.09, u_grain / 100.0);
@@ -170,7 +171,7 @@ void main() {
   vec3 color = colorRamp(tone) * mix(0.72, 1.0, inset);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-circuit': `
+  'shaders-circuit': `
 void main() {
   vec2 p = studioUv();
   float warp = fbm(p * max(1.0, u_detail) + u_time * 0.1) * u_strength * 0.28;
@@ -182,7 +183,7 @@ void main() {
   color = mix(color, u_color_c, grid);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'ariadne-dedalus-bloom': `
+  'shaders-dedalus-bloom': `
 void main() {
   vec2 p = studioUv();
   float field = fbm(p * max(1.0, u_detail) - vec2(u_time * 0.1, u_time * 0.14));
@@ -226,11 +227,13 @@ function OriginalMaterialCanvas({
   canvasRef,
   fragmentSource,
   paused,
+  renderScale,
   settings,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   fragmentSource: string;
   paused: boolean;
+  renderScale: number;
   settings: LiveMaterialSettings;
 }) {
   const pausedRef = useRef(paused);
@@ -308,7 +311,7 @@ function OriginalMaterialCanvas({
       const delta = Math.min(64, time - previous);
       previous = time;
       if (!pausedRef.current) elapsed += delta * current.speed;
-      const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
+      const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
       const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
       if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
@@ -350,16 +353,18 @@ export default function LiveMaterialCanvas({
   className = '',
   materialId,
   paused = false,
+  renderScale = 1,
   settings,
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const resolvedMaterialId = normalizeLiveMaterialId(materialId);
 
-  if (materialId === 'shadergradient-prismatic-sphere') {
+  if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
     return (
       <ShaderGradientCanvas
         className={className}
         fov={45}
-        pixelDensity={1}
+        pixelDensity={Math.min(2, renderScale)}
         pointerEvents='none'
         preserveDrawingBuffer
         style={{ height: '100%', inset: 0, position: 'absolute', width: '100%' }}
@@ -406,9 +411,10 @@ export default function LiveMaterialCanvas({
     <div className={`absolute inset-0 size-full ${className}`}>
       <OriginalMaterialCanvas
         canvasRef={canvasRef}
-        fragmentSource={`${FRAGMENT_SHARED}${ARIADNE_FRAGMENT_BODIES[materialId]}`}
-        key={materialId}
+        fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
+        key={resolvedMaterialId}
         paused={paused}
+        renderScale={renderScale}
         settings={settings}
       />
     </div>

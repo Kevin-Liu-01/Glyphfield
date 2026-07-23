@@ -37,4 +37,17 @@ Slides use a 1600 × 900 canvas and eight reusable layouts:
 
 Title, eyebrow, body/list, background image, texture, and logo placement are shared across layouts. Newline-separated body content feeds agenda, split, timeline, quote attribution, and supporting copy.
 
+### Layer editing
+
+Templates expose independent Brand, Content, and Footer layers. Nothing is selected on load. Select a layer from the canvas or inspector to reveal its state, then:
+
+- Drag it anywhere on the artboard.
+- Resize from the corner handle.
+- Nudge by one pixel with arrow keys or ten with Shift + arrow.
+- Move it forward or backward in the stack.
+- Align it to any canvas edge or center axis.
+- Reset that layer without changing the remaining composition.
+
+Layer transforms and stacking order are persisted per project and template tool. The same transforms are passed into the SVG/PNG export so the downloaded artifact matches the canvas.
+
 The API can generate the same slide layouts as standalone SVG. Browser downloads rasterize the selected layout to PNG.

@@ -1,10 +1,11 @@
 import type {
   BrandApplication,
   BrandAsset,
+  BrandFontAsset,
   BrandIdentity,
 } from './brandIdentity';
 
-const REVISION = 4;
+const REVISION = 6;
 
 function asset(
   id: string,
@@ -25,6 +26,33 @@ function application(
 ): BrandApplication {
   return { category, description, format, id, name };
 }
+
+const GT_FONT_ASSETS: BrandFontAsset[] = [
+  {
+    family: 'Inter',
+    fileName: 'Inter-Variable.ttf',
+    format: 'truetype',
+    id: 'inter-variable',
+    label: 'Inter · Rasmus Andersson',
+    path: '/fonts/inter-variable.ttf',
+    style: 'normal',
+    weight: 400,
+    weightMax: 900,
+    weightMin: 100,
+  },
+  {
+    family: 'Geist Mono',
+    fileName: 'GeistMono-Variable.ttf',
+    format: 'truetype',
+    id: 'geist-mono-variable',
+    label: 'Geist Mono Variable',
+    path: '/fonts/geist-mono-variable.ttf',
+    style: 'normal',
+    weight: 400,
+    weightMax: 900,
+    weightMin: 100,
+  },
+];
 
 export const GT_BRAND_IDENTITY: BrandIdentity = {
   applications: [
@@ -63,6 +91,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   contactEmail: 'hello@generaltranslation.com',
   description: 'A black-and-white developer identity for a localization framework that keeps code, product copy, documentation, review, and delivery in one source-of-truth workflow.',
   greetings: ['Welcome', 'Bienvenidos', '你好', 'ようこそ', 'أهلاً وسهلاً'],
+  fonts: GT_FONT_ASSETS,
   graphicSystem: {
     composition: 'Centered language is the hero. Code, locale labels, and brackets align to an exact modular field around it.',
     description: 'The translation frame turns a changing string into a stable brand device: language transforms while the system around it remains precise.',
@@ -106,10 +135,10 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
   tagline: 'One source of truth. Every language.',
   typography: [
-    { family: 'Inter', role: 'Display', usage: 'Compressed, confident headlines and product statements' },
-    { family: 'Inter', role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation' },
-    { family: 'Inter', role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system' },
-    { family: 'Geist Mono', role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata' },
+    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -0.75, lineHeight: 1.05, role: 'Display', usage: 'Open, measured headlines and product statements', weight: 500 },
+    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0.25, lineHeight: 1.6, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
+    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0.25, lineHeight: 1.3, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 450 },
+    { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0.25, lineHeight: 1.5, role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata', weight: 400 },
   ],
   values: ['Source of truth', 'Context over strings', 'Developer agency', 'Global by default'],
   voice: {

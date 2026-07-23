@@ -603,12 +603,21 @@ export default function StudioControls({
       </InspectorSection>
 
       <InspectorSection index='06' title={<T>Output</T>}>
+        <div className='grid grid-cols-3 gap-1'>
+          {([
+            ['Email', 1000, 300],
+            ['HD', 1600, 480],
+            ['2×', 2400, 720],
+          ] as const).map(([label, width, height]) => (
+            <Button key={label} onClick={() => onSettingsChange({ height, width })} size='sm' type='button' variant={settings.width === width && settings.height === height ? 'default' : 'outline'}>{label}</Button>
+          ))}
+        </div>
         <div className='grid grid-cols-2 gap-2'>
           <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
             <T>Width</T>
             <input
               className='h-9 rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground outline-none focus:border-foreground'
-              max='1600'
+              max='3200'
               min='120'
               onChange={(event) => onSettingsChange({ width: Number(event.target.value) })}
               step='10'
@@ -620,7 +629,7 @@ export default function StudioControls({
             <T>Height</T>
             <input
               className='h-9 rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground outline-none focus:border-foreground'
-              max='1200'
+              max='2400'
               min='120'
               onChange={(event) => onSettingsChange({ height: Number(event.target.value) })}
               step='10'

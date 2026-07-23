@@ -10,7 +10,9 @@ Glyphfield includes two motion systems: frame-based Animation and live WebGL Log
 
 Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Select any state to tune its position, scale, rotation, opacity, typography or image fit without changing the rest of the sequence.
 
-Each state also owns its background. Choose a solid color, two-color gradient, or any live ShaderGradient/Ariadne material, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. Shader colors, speed, strength, frequency, grain, and material are editable in the same frame inspector.
+The canvas uses direct manipulation: selecting a state pauses on that frame, dragging moves it, arrow keys nudge it by one canvas pixel, Shift + arrow nudges by ten, and the corner handle scales it. Inspector values and canvas gestures update the same persisted frame data.
+
+Each state also owns its background. Choose a solid color, two-color gradient, or any live ShaderGradient/Shaders.com-inspired material, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. Shader colors, speed, strength, frequency, grain, and material are editable in the same frame inspector.
 
 ### Animation packages
 
@@ -30,7 +32,7 @@ The playhead is deterministic: preview and export resolve from the same timing m
 
 ### GIF output
 
-Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. The export composites the same mixed sources, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
+Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. Email, HD, and 2× presets are included. New and migrated projects default to the GIF format’s full 256-color palette with RGB565 quantization. The export composites the same mixed sources, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
 
 ## Logo shader
 
@@ -39,18 +41,19 @@ Logo shader applies live WebGL material to the background, the alpha-masked logo
 The material engine includes:
 
 - The editable ShaderGradient sphere preset, including three colors, environment brightness, amplitude, density, frequency, strength, grain, rotation, and speed.
-- Ten original local GLSL recipes for the visual families cataloged in Ariadne: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Fluid Chrome, Chroma Flow, Drift, Mosaic, Circuit, and Dedalus Bloom.
+- Ten original local GLSL recipes for the public material techniques documented by Shaders.com: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Fluid Chrome, Chroma Flow, Drift, Mosaic, Circuit, and Dedalus Bloom.
 - Studio GLSL presets including liquid metal, mercury, brushed steel, aurora, topographic, plasma, radial beams, halftone, warped grid, glass waves, iridescent, heatmap, gem smoke, and grain gradient.
 - A local custom GLSL editor using the same time, resolution, color, and material uniforms.
 
-Every material color accepts HEX or OKLCH input. PNG and GIF export use the same live canvas visible in the preview.
+Every material color accepts HEX or OKLCH input, and the eight included combinations provide considered monochrome, mercury, ultraviolet, signal, copper, arctic, vermilion, and cobalt starting points. PNG and GIF export use the same live canvas visible in the preview.
 
 Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
 
 ### Shader output
 
 - Download PNG for a still frame.
-- Download GIF to capture the animated material.
+- Download GIF to capture the animated material at 20 fps with a 256-color palette.
+- Choose Standard, High, or Ultra output dimensions; High is the default and PNG remains lossless.
 - Transparent logo output preserves alpha when the selected target supports it.
 
 WebGL and GIF capture are browser-only capabilities. Agents should open `/studio` when they need these outputs.

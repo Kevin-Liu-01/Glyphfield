@@ -242,12 +242,12 @@ Use the exact element.id value as elementId. The symbol field is a compact visua
 Use /studio for browser-local capabilities whose output depends on Canvas, WebGL, local fonts, or animated frame capture:
 
 - Moodboard PNG export as a 16:9 application showcase up to 4800 × 2700 or a 4:5 identity system up to 4800 × 6000
-- Reorderable text, brand-logo, and imported-image sequences with per-frame placement, opacity, rotation, fit, typography, and GIF export
+- Reorderable text, brand-logo, and imported-image sequences with direct drag, keyboard nudge, corner scaling, per-frame placement, opacity, rotation, fit, typography, and 256-color GIF export
 - Text-to-image and image-to-text morph, type/delete, crossfade, scale-fade, and slide-fade transitions
-- Per-frame solid, gradient, ShaderGradient, and Ariadne backgrounds with crossfade, wipe, or radial transitions
-- Live ShaderGradient and original local GLSL logo materials, including ten Ariadne scene families, with PNG/GIF export
+- Per-frame solid, gradient, ShaderGradient, and Shaders.com-inspired material backgrounds with crossfade, wipe, or radial transitions
+- Live ShaderGradient and original local GLSL logo materials, including ten Shaders.com-inspired scene families, with PNG/GIF export
 - Browser color controls with HEX, OKLCH, and percentage opacity input
-- PNG raster export for OpenGraph, terminal cards, logos, and templates
+- Lossless high-resolution PNG raster export for OpenGraph, terminal cards, logos, and templates
 - Local font, image, logo, and GLSL inputs
 - Shared Brand Settings that update every browser-local design for the active identity
 

@@ -22,6 +22,17 @@ icon: TableProperties
 | Slide templates | PNG | `template: slides` SVG |
 | Component library | Interactive preview | Element briefs for product patterns |
 
+## Shared editor capabilities
+
+| System | Browser behavior | Persistence and output |
+| --- | --- | --- |
+| Color control | Native picker, HEX, OKLCH, optional opacity | Controlled value shared by previews and exports |
+| Canvas viewport | Zoom from 40–200 percent, reset, and fit | Zoom saved per project and tool; intrinsic artifact ratio is unchanged |
+| Editable layers | Select, drag, resize, keyboard nudge | Transform values feed the same renderer used for export |
+| Layer panel | Reorder, six-way alignment, reset, boundary-disabled actions | Layer order and transforms saved per project and template |
+| Material finishes | Reflections, shadows, borders, glass, and presets | Finish object travels with animation and shader settings |
+| Uploaded assets | Logos, fonts, backgrounds, and partner marks | Object URLs remain local; supported exports embed resolved data |
+
 ## Browser-only reasons
 
 Browser-only features depend on one or more of Canvas, WebGL, local font loading, object URLs, interactive visual placement, or multi-frame capture.

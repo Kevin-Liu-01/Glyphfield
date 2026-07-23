@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterStudioTools, STUDIO_TOOLS } from '../studioCatalog';
+import {
+  filterStudioTools,
+  getProjectTabDensity,
+  STUDIO_TOOLS,
+} from '../studioCatalog';
 
 describe('filterStudioTools', () => {
   it('finds tools by name, category, and capability keywords', () => {
@@ -30,5 +34,20 @@ describe('filterStudioTools', () => {
   it('returns the full navigable catalog for an empty query', () => {
     expect(filterStudioTools(STUDIO_TOOLS, '')).toHaveLength(STUDIO_TOOLS.length);
     expect(new Set(STUDIO_TOOLS.map(({ id }) => id)).size).toBe(STUDIO_TOOLS.length);
+  });
+});
+
+describe('getProjectTabDensity', () => {
+  it.each([
+    [1, 'full'],
+    [3, 'full'],
+    [4, 'compact'],
+    [6, 'compact'],
+    [7, 'marks'],
+    [9, 'marks'],
+    [10, 'scroll'],
+    [18, 'scroll'],
+  ])('uses the expected presentation for %i open tabs', (tabCount, density) => {
+    expect(getProjectTabDensity(tabCount)).toBe(density);
   });
 });

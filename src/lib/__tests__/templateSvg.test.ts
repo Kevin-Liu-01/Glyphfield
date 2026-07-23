@@ -112,4 +112,24 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain('data:font/ttf;base64,FONT');
     expect(svg).toContain('font-weight:650');
   });
+
+  it('exports canvas transforms and foreground layer order', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      brandScale: 1.25,
+      brandX: 18,
+      brandY: -9,
+      contentScale: 0.8,
+      contentX: -24,
+      footerY: 12,
+      layerOrder: ['footer', 'brand', 'content'],
+    });
+
+    expect(svg).toContain('data-layer="brand" transform="translate(18 -9)');
+    expect(svg).toContain('scale(1.25)');
+    expect(svg).toContain('data-layer="content" transform="translate(-24 0)');
+    expect(svg).toContain('data-layer="footer" transform="translate(0 12)');
+    expect(svg.indexOf('data-layer="footer"')).toBeLessThan(svg.indexOf('data-layer="brand"'));
+    expect(svg.indexOf('data-layer="brand"')).toBeLessThan(svg.indexOf('data-layer="content"'));
+  });
 });

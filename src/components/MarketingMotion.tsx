@@ -61,29 +61,33 @@ export default function MarketingMotion() {
           );
         });
 
-        gsap.to('.marketing-vibrant-orb--one', {
-          duration: 13,
+        gsap.to('.marketing-v5-field-arc--one', {
+          duration: 18,
           ease: 'sine.inOut',
           repeat: -1,
-          rotate: 16,
-          xPercent: 9,
-          yPercent: -7,
+          rotate: 3,
+          scale: 1.045,
+          xPercent: 1.5,
+          yPercent: -1,
           yoyo: true,
         });
-        gsap.to('.marketing-vibrant-orb--two', {
-          duration: 17,
+        gsap.to('.marketing-v5-field-arc--two', {
+          duration: 12,
           ease: 'sine.inOut',
           repeat: -1,
-          rotate: -12,
-          xPercent: -8,
-          yPercent: 10,
+          opacity: 0.58,
+          scale: 1.06,
           yoyo: true,
         });
-        gsap.to('.marketing-footer-halo', {
-          duration: 28,
+        gsap.to('.marketing-v5-product-window', {
           ease: 'none',
-          repeat: -1,
-          rotate: 360,
+          scrollTrigger: {
+            end: 'bottom top',
+            scrub: 0.6,
+            start: 'top bottom',
+            trigger: '.marketing-v5-hero-field',
+          },
+          yPercent: -7,
         });
         gsap.fromTo(
           '[data-footer-wordmark]',

@@ -96,7 +96,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     category: 'Motion',
     description: 'Apply editable ShaderGradient and local GLSL materials behind or inside the active logo.',
     id: 'logo-shader',
-    keywords: ['shader', 'webgl', 'logo background', 'gradient', 'shadergradient', 'ariadne', 'liquid glass', 'aurora', 'plasma', 'animated'],
+    keywords: ['shader', 'webgl', 'logo background', 'gradient', 'shadergradient', 'shaders', 'liquid glass', 'aurora', 'plasma', 'animated'],
     name: 'Logo shader',
     shortcut: 'G',
   },
@@ -202,4 +202,11 @@ export function filterStudioTools(
       .toLocaleLowerCase()
       .includes(normalizedQuery)
   );
+}
+
+export function getProjectTabDensity(tabCount: number) {
+  if (tabCount >= 10) return 'scroll' as const;
+  if (tabCount >= 7) return 'marks' as const;
+  if (tabCount >= 4) return 'compact' as const;
+  return 'full' as const;
 }

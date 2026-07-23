@@ -41,7 +41,7 @@ export default function StudioSelect({
     >
       <Select.Trigger
         aria-label={ariaLabel}
-        className={`group flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-input bg-background px-3 text-left text-sm text-foreground outline-none transition-colors hover:border-foreground/45 focus:border-foreground disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
+        className={`group flex h-9 w-full min-w-0 items-center justify-between gap-3 border border-input bg-background px-3 text-left text-sm text-foreground outline-none transition-colors hover:border-foreground/45 focus:border-foreground disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
       >
         <Select.Value placeholder={placeholder} />
         <Select.Icon asChild>
@@ -50,7 +50,7 @@ export default function StudioSelect({
       </Select.Trigger>
       <Select.Portal>
         <Select.Content
-          className='z-[120] max-h-[min(360px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-border bg-background text-foreground shadow-[0_18px_50px_rgba(0,0,0,0.18)]'
+          className='z-[120] max-h-[min(360px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden border border-border bg-background text-foreground shadow-[0_18px_50px_rgba(0,0,0,0.18)]'
           position='popper'
           sideOffset={5}
         >
@@ -60,7 +60,7 @@ export default function StudioSelect({
           <Select.Viewport className='p-1'>
             {options.map((option) => (
               <Select.Item
-                className='relative flex min-h-8 cursor-default select-none items-center rounded-sm py-1.5 pr-8 pl-2.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-foreground data-[highlighted]:text-background'
+                className='relative flex min-h-8 cursor-default select-none items-center py-1.5 pr-8 pl-2.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-foreground data-[highlighted]:text-background'
                 disabled={option.disabled}
                 key={option.value}
                 value={option.value}

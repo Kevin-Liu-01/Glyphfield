@@ -65,7 +65,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   backgroundTransition: 'crossfade',
   bezier: [0.4, 0, 0.2, 1],
   blur: 8,
-  colors: 64,
+  colors: 256,
   fit: 'contain',
   fontSize: 108,
   fontWeight: 700,

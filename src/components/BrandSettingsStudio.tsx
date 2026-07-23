@@ -32,9 +32,9 @@ import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const INPUT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
+  'h-10 w-full border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
 const TEXTAREA_CLASS =
-  'min-h-28 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
+  'min-h-24 w-full resize-y border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
 
 type IdentitySection = 'overview' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
 
@@ -181,6 +181,8 @@ export default function BrandSettingsStudio({
   const allAssets = [...identity.assets, ...identity.proofAssets];
   const darkMark = brandAssetPath(identity, 'mark-dark');
   const lightMark = brandAssetPath(identity, 'mark-light');
+  const displayTypography = brandTypographyRole(identity, 'Display');
+  const bodyTypography = brandTypographyRole(identity, 'Body');
   const colorPreviews = identity.colors.map((color) => {
     try {
       return { ...color, dark: hexToOklch(color.hex).lightness < 0.58, oklch: formatOklch(color.hex) };
@@ -188,6 +190,8 @@ export default function BrandSettingsStudio({
       return { ...color, dark: false, oklch: gt('Invalid HEX') };
     }
   });
+  const previewBackground = colorPreviews.find(({ dark }) => dark)?.hex ?? '#181818';
+  const previewForeground = colorPreviews.find(({ dark }) => !dark)?.hex ?? '#FFFFFF';
 
   function update(patch: Partial<BrandIdentity>) {
     onChange({ ...identity, ...patch });
@@ -274,19 +278,21 @@ export default function BrandSettingsStudio({
 
   return (
     <div className='tool-shell brand-identity-shell h-full min-h-0'>
-      <header className='tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
-        <div className='min-w-0'>
-          <p className='text-lg font-semibold tracking-tight'>{gt(tool.name)}</p>
-          <p className='truncate text-sm text-muted-foreground'>{gt(tool.description)}</p>
+      <header className='app-navbar tool-header brand-identity-header'>
+        <div className='brand-identity-header-title'>
+          <SlidersHorizontal aria-hidden='true' />
+          <p>{gt(tool.name)}</p>
+          <span>/</span>
+          <small>{identity.name}</small>
         </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <span className='hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex'><Check className='size-3.5 text-status-success' aria-hidden='true' /><T>Saved locally</T></span>
-          <Button onClick={() => downloadIdentity(identity)} type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
+        <div className='brand-identity-header-actions'>
+          <span><Check aria-hidden='true' /><T>Saved locally</T></span>
+          <Button onClick={() => downloadIdentity(identity)} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
         </div>
       </header>
 
       <div className='brand-identity-body'>
-        <nav aria-label={gt('Brand identity sections')} className='brand-identity-nav'>
+        <nav aria-label={gt('Brand identity sections')} className='app-navbar brand-identity-nav'>
           <div className='brand-identity-nav-title'><T>Identity source</T><span>{String(SECTIONS.length).padStart(2, '0')}</span></div>
           {SECTIONS.map((section) => {
             const Icon = section.icon;
@@ -299,14 +305,14 @@ export default function BrandSettingsStudio({
           })}
         </nav>
 
-        <div className='brand-identity-content' role='main'>
+        <div className='brand-identity-content' data-identity={identity.id} role='main'>
           <section className='brand-identity-masthead'>
             <div className='brand-identity-masthead-mark'>
               {darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}
             </div>
             <div className='min-w-0'>
               <p>{identity.kind} identity / {identity.id}</p>
-              <h1 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: brandTypographyRole(identity, 'Display').weight }}>{identity.name}</h1>
+              <h1 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.name}</h1>
               <span>{identity.tagline}</span>
             </div>
             <div className='brand-identity-masthead-counts'>
@@ -332,11 +338,17 @@ export default function BrandSettingsStudio({
                 <Field label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></Field>
               </Panel>
               <Panel description={<T>A live summary of the source every canvas reads.</T>} title={<T>Identity preview</T>}>
-                <div className='brand-identity-preview-card'>
-                  <div>{darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}<small>{identity.website}</small></div>
-                  <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: brandTypographyRole(identity, 'Display').weight }}>{identity.tagline}</h2>
-                  <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: brandTypographyRole(identity, 'Body').weight }}>{identity.positioning}</p>
-                  <div>{identity.voice.principles.slice(0, 4).map((principle) => <span key={principle}>{principle}</span>)}</div>
+                <div className='brand-identity-preview-card' data-grid={identity.style.grid} style={{ backgroundColor: previewBackground, color: previewForeground }}>
+                  <div className='brand-identity-preview-top'>
+                    {lightMark ? <img alt='' src={lightMark} /> : <span>{identity.shortName}</span>}
+                    <small>{identity.website}</small>
+                  </div>
+                  <div className='brand-identity-preview-statement'>
+                    <small>POSITION / 001</small>
+                    <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.tagline}</h2>
+                  </div>
+                  <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: bodyTypography.weight, letterSpacing: `${bodyTypography.letterSpacing}px`, lineHeight: bodyTypography.lineHeight }}>{identity.positioning}</p>
+                  <div className='brand-identity-preview-principles'>{identity.voice.principles.slice(0, 4).map((principle, index) => <span key={principle}>{String(index + 1).padStart(2, '0')} / {principle}</span>)}</div>
                 </div>
               </Panel>
             </div>

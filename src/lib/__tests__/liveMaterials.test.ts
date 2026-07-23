@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
+  LIVE_MATERIAL_PALETTES,
   LIVE_MATERIAL_OPTIONS,
+  normalizeLiveMaterialId,
   SHADER_GRADIENT_SOURCE_URL,
 } from '../liveMaterials';
 
@@ -25,16 +27,22 @@ describe('live materials', () => {
     expect(SHADER_GRADIENT_SOURCE_URL).toContain('grain=on');
   });
 
-  it('offers the ten Ariadne scene families alongside ShaderGradient', () => {
-    const ariadneMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Glyphfield GLSL');
-    expect(ariadneMaterials).toHaveLength(10);
-    expect(ariadneMaterials.map(({ id }) => id)).toEqual(
+  it('offers the ten Shaders.com study scene families alongside ShaderGradient', () => {
+    const shadersMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Shaders.com study');
+    expect(shadersMaterials).toHaveLength(10);
+    expect(shadersMaterials.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
-        'ariadne-fluid-chrome',
-        'ariadne-pixel-beams',
-        'ariadne-soft-register',
-        'ariadne-circuit',
+        'shaders-fluid-chrome',
+        'shaders-pixel-beams',
+        'shaders-soft-register',
+        'shaders-circuit',
       ])
     );
+  });
+
+  it('ships original color combinations and migrates legacy scene prefixes', () => {
+    expect(LIVE_MATERIAL_PALETTES).toHaveLength(8);
+    expect(new Set(LIVE_MATERIAL_PALETTES.flatMap(({ colors }) => colors)).size).toBeGreaterThan(16);
+    expect(normalizeLiveMaterialId('legacy-fluid-chrome')).toBe('shaders-fluid-chrome');
   });
 });

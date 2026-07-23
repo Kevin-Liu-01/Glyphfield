@@ -15,6 +15,13 @@ import BrandElementsStudio from '@/components/BrandElementsStudio';
 import BackgroundStudio from '@/components/BackgroundStudio';
 import BrandSettingsStudio from '@/components/BrandSettingsStudio';
 import CanvasViewport from '@/components/CanvasViewport';
+import CanvasLayerPanel from '@/components/CanvasLayerPanel';
+import EditableCanvasLayer, {
+  alignCanvasLayer,
+  type CanvasLayerAlignment,
+  type CanvasLayerGeometry,
+  type CanvasLayerTransform,
+} from '@/components/EditableCanvasLayer';
 import ComponentLibraryPreview, {
   COMPONENT_FAMILY_OPTIONS,
   COMPONENT_PATTERNS,
@@ -64,7 +71,7 @@ import {
   templatePartnerOptions,
   type TemplateKind,
 } from '@/lib/templateAssets';
-import { buildTemplateSvg, type SlideLayout, type TemplateTexture } from '@/lib/templateSvg';
+import { buildTemplateSvg, type SlideLayout, type TemplateLayerId, type TemplateTexture } from '@/lib/templateSvg';
 
 const INPUT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -160,7 +167,7 @@ function ToolShell({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{gt(tool.name)}</p>
           <p className='truncate text-sm text-muted-foreground'>{gt(tool.description)}</p>
@@ -1058,6 +1065,14 @@ const SLIDE_LAYOUTS: readonly { id: SlideLayout; label: string; symbol: string }
   { id: 'closing', label: 'Closing', symbol: '✦' },
 ];
 
+const TEMPLATE_LAYER_LABELS: Record<TemplateLayerId, string> = {
+  brand: 'Brand lockup',
+  content: 'Content',
+  footer: 'Footer',
+};
+
+const DEFAULT_TEMPLATE_LAYER: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
+
 function SlideTemplatePreview({
   body,
   eyebrow,
@@ -1153,6 +1168,11 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const [partnerLogoX, setPartnerLogoX] = useStudioDraft(identity.id, tool.id, 'partner-logo-x', 0);
   const [partnerLogoY, setPartnerLogoY] = useStudioDraft(identity.id, tool.id, 'partner-logo-y', 0);
   const [partnerLogoScale, setPartnerLogoScale] = useStudioDraft(identity.id, tool.id, 'partner-logo-scale', 100);
+  const [brandLayer, setBrandLayer] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'brand-layer', DEFAULT_TEMPLATE_LAYER);
+  const [contentLayer, setContentLayer] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'content-layer', DEFAULT_TEMPLATE_LAYER);
+  const [footerLayer, setFooterLayer] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'footer-layer', DEFAULT_TEMPLATE_LAYER);
+  const [layerOrder, setLayerOrder] = useStudioDraft<TemplateLayerId[]>(identity.id, tool.id, 'layer-order', ['brand', 'content', 'footer']);
+  const [selectedLayer, setSelectedLayer] = useState<TemplateLayerId | null>(null);
   const [exporting, setExporting] = useState(false);
   const isDark = texture === 'dark';
   const foreground = isDark
@@ -1171,6 +1191,48 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const selectedBackground = backgroundOptions.find(({ id }) => id === libraryBackgroundId);
   const brandLogoSource = brandLogo?.path ?? monogramDataUrl(identity, foreground);
   const partnerLogoSource = partnerAsset.asset?.url ?? selectedPartner.path;
+  const layerTransforms: Record<TemplateLayerId, CanvasLayerTransform> = {
+    brand: brandLayer,
+    content: contentLayer,
+    footer: footerLayer,
+  };
+  const layerGeometries: Record<TemplateLayerId, CanvasLayerGeometry> = {
+    brand: { baseHeight: kind === 'partnership' ? 145 : 110, baseWidth: width - 168, baseX: 84, baseY: 54 },
+    content: { baseHeight: height - (isSlide ? 250 : 260), baseWidth: width - 168, baseX: 84, baseY: isSlide ? 145 : 165 },
+    footer: { baseHeight: 50, baseWidth: width - 168, baseX: 84, baseY: height - 104 },
+  };
+
+  function updateLayer(id: TemplateLayerId, transform: CanvasLayerTransform) {
+    if (id === 'brand') setBrandLayer(transform);
+    else if (id === 'content') setContentLayer(transform);
+    else setFooterLayer(transform);
+  }
+
+  function moveLayer(id: TemplateLayerId, direction: -1 | 1) {
+    setLayerOrder((current) => {
+      const complete = [...current, ...(['brand', 'content', 'footer'] as const).filter((candidate) => !current.includes(candidate))];
+      const index = complete.indexOf(id);
+      const destination = Math.min(complete.length - 1, Math.max(0, index + direction));
+      if (index === destination) return complete;
+      const next = [...complete];
+      [next[index], next[destination]] = [next[destination]!, next[index]!];
+      return next;
+    });
+  }
+
+  function alignSelectedLayer(alignment: CanvasLayerAlignment) {
+    if (!selectedLayer) return;
+    updateLayer(
+      selectedLayer,
+      alignCanvasLayer(
+        layerTransforms[selectedLayer],
+        layerGeometries[selectedLayer],
+        width,
+        height,
+        alignment
+      )
+    );
+  }
 
   async function exportTemplate() {
     setExporting(true);
@@ -1199,6 +1261,12 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         brandLogoScale,
         brandLogoX,
         brandLogoY,
+        brandScale: brandLayer.scale,
+        brandX: brandLayer.x,
+        brandY: brandLayer.y,
+        contentScale: contentLayer.scale,
+        contentX: contentLayer.x,
+        contentY: contentLayer.y,
         eyebrow,
         foreground,
         fontData,
@@ -1209,6 +1277,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         imageTreatment: identity.style.imageTreatment,
         invertPartner: isDark,
         kind,
+        layerOrder,
         partnerLogo: partner,
         partnerLogoScale,
         partnerLogoX,
@@ -1217,6 +1286,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         texture,
         textureOpacity,
         title,
+        footerScale: footerLayer.scale,
+        footerX: footerLayer.x,
+        footerY: footerLayer.y,
         website: identity.website,
         width,
       });
@@ -1244,6 +1316,25 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           {SLIDE_LAYOUTS.map((layout) => <Button className='h-16 flex-col items-start gap-1 px-3' key={layout.id} onClick={() => setSlideLayout(layout.id)} type='button' variant={slideLayout === layout.id ? 'default' : 'outline'}><span className='font-mono text-lg'>{layout.symbol}</span><span className='text-xs'>{layout.label}</span></Button>)}
         </div>
       </ControlSection> : null}
+      <ControlSection title={<T>Layers</T>}>
+        <CanvasLayerPanel
+          layers={[...layerOrder].reverse().map((id) => {
+            const index = layerOrder.indexOf(id);
+            return {
+              canMoveBackward: index > 0,
+              canMoveForward: index < layerOrder.length - 1,
+              id,
+              label: gt(TEMPLATE_LAYER_LABELS[id]),
+              transform: layerTransforms[id],
+            };
+          })}
+          onAlign={alignSelectedLayer}
+          onMove={moveLayer}
+          onReset={(id) => updateLayer(id, DEFAULT_TEMPLATE_LAYER)}
+          onSelect={setSelectedLayer}
+          selectedLayerId={selectedLayer}
+        />
+      </ControlSection>
       <ControlSection title={<T>Surface</T>}>
         <SegmentedChoice
           onChange={setTexture}
@@ -1324,36 +1415,38 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       <CanvasViewport identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
           className={`artifact-preview ratio-safe template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
+          onPointerDown={() => setSelectedLayer(null)}
           style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, borderRadius: kind === 'slides' ? 0 : identity.style.borderRadius, color: foreground, fontFamily: displayFont, fontWeight }}
         >
           {backgroundAsset.asset || selectedBackground ? (
             <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ filter: identity.style.imageTreatment === 'monochrome' ? 'grayscale(1) contrast(1.08)' : identity.style.imageTreatment === 'duotone' ? 'grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.6)' : undefined, opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
           {texture === 'grid' || texture === 'noise' ? <div className={`template-texture-layer template-surface-${texture} absolute inset-0`} style={{ opacity: textureOpacity / 100 }} /> : null}
-          <div className='template-artboard-content absolute inset-0 flex flex-col justify-between'>
+          <EditableCanvasLayer {...layerGeometries.brand} canvasHeight={height} canvasWidth={width} label={gt('Brand lockup')} onChange={(transform) => updateLayer('brand', transform)} onSelect={() => setSelectedLayer('brand')} selected={selectedLayer === 'brand'} transform={brandLayer} zIndex={layerOrder.indexOf('brand') + 5}>
             {kind === 'partnership' ? (
-              <div className='template-partnership-lockup' aria-label={gt(`${identity.name} and ${selectedPartner.label}`)}>
+              <div className='template-partnership-lockup h-full' aria-label={gt(`${identity.name} and ${selectedPartner.label}`)}>
                 <img alt={identity.name} className='template-partnership-brand object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
                 <span className='template-partnership-times' aria-hidden='true'>×</span>
-                <img
-                  alt={partnerAsset.asset?.name ?? selectedPartner.label}
-                  className='template-partner-logo object-contain'
-                  src={partnerLogoSource}
-                  style={{ filter: isDark ? 'brightness(0) invert(1)' : undefined, transform: `translate(${partnerLogoX}px, ${partnerLogoY}px) scale(${partnerLogoScale / 100})` }}
-                />
+                <img alt={partnerAsset.asset?.name ?? selectedPartner.label} className='template-partner-logo object-contain' src={partnerLogoSource} style={{ filter: isDark ? 'brightness(0) invert(1)' : undefined, transform: `translate(${partnerLogoX}px, ${partnerLogoY}px) scale(${partnerLogoScale / 100})` }} />
               </div>
             ) : (
-              <div className='template-brand-lockup'>
+              <div className='template-brand-lockup h-full'>
                 <img alt={identity.name} className='template-brand-logo object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
                 {kind === 'blog' ? <span>{identity.name}</span> : null}
               </div>
             )}
-            {isSlide ? <SlideTemplatePreview body={body} eyebrow={eyebrow} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
-            <div className='template-footer flex items-center justify-between gap-4 font-mono opacity-60'>
+          </EditableCanvasLayer>
+          <EditableCanvasLayer {...layerGeometries.content} canvasHeight={height} canvasWidth={width} label={gt('Content')} onChange={(transform) => updateLayer('content', transform)} onSelect={() => setSelectedLayer('content')} selected={selectedLayer === 'content'} transform={contentLayer} zIndex={layerOrder.indexOf('content') + 5}>
+            <div className='flex size-full flex-col justify-center'>
+              {isSlide ? <SlideTemplatePreview body={body} eyebrow={eyebrow} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
+            </div>
+          </EditableCanvasLayer>
+          <EditableCanvasLayer {...layerGeometries.footer} canvasHeight={height} canvasWidth={width} label={gt('Footer')} onChange={(transform) => updateLayer('footer', transform)} onSelect={() => setSelectedLayer('footer')} selected={selectedLayer === 'footer'} transform={footerLayer} zIndex={layerOrder.indexOf('footer') + 5}>
+            <div className='template-footer flex size-full items-center justify-between gap-4 font-mono opacity-60'>
               <span>{identity.website}</span>
               {isSlide ? <span>01 / 12</span> : null}
             </div>
-          </div>
+          </EditableCanvasLayer>
         </div>
       </CanvasViewport>
     </ToolShell>

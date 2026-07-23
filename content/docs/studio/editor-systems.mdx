@@ -1,0 +1,98 @@
+---
+title: Editor systems and plugins
+description: Reuse the stateful color, canvas, layer, select, material, and persistence primitives that keep Studio tools consistent.
+icon: Blocks
+---
+
+Glyphfield tools are composed from shared editor systems. A generator should not invent its own color field, zoom bar, layer behavior, select menu, or draft-storage scheme. Reusing these components keeps interaction state, accessibility, and exports consistent across the Studio.
+
+## Component map
+
+| Component | Responsibility | State owner | Reused by |
+| --- | --- | --- | --- |
+| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Background lab, Logo shader, Brand elements, material finishes |
+| `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Logo shader, Background lab |
+| `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
+| `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
+| `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
+| `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
+| `useStudioDraft` | Project-and-tool-scoped browser persistence | `localStorage` through one shared hook | Tool fields, zoom, layers, surfaces, layout, and export settings |
+
+## Color control
+
+`ColorControl` is one component with optional capabilities rather than separate pickers for every tool.
+
+### States
+
+| State | Behavior |
+| --- | --- |
+| Resting | Shows the current swatch, normalized HEX, and equivalent OKLCH value |
+| Native picker open | Uses the browser color input and publishes the selected HEX value immediately |
+| HEX editing | Commits on blur or Enter; invalid input leaves the current color unchanged |
+| OKLCH editing | Parses perceptual color input and converts it to the shared HEX storage format |
+| With opacity | Adds a zero-to-100-percent range while keeping color and opacity independently controlled |
+
+The conversion functions live in `src/lib/color.ts`, so the inspector, generated token CSS, and exported graphics use the same normalization rules.
+
+## Canvas viewport
+
+`CanvasViewport` wraps the artifact without changing its intrinsic aspect ratio. The stage scales visually; the export still uses the artifact's declared pixel dimensions.
+
+### States
+
+- **Default** — 100-percent zoom with the artifact centered in a scrollable stage.
+- **Zoomed out** — down to 40 percent for complete-board inspection.
+- **Zoomed in** — up to 200 percent for alignment and edge inspection.
+- **Reset** — selecting the percentage restores 100 percent.
+- **Fit** — restores the stable whole-canvas view.
+- **Persisted** — zoom is stored independently for each brand project and Studio tool.
+
+## Layers and direct manipulation
+
+`EditableCanvasLayer` renders the object on the artifact. `CanvasLayerPanel` renders the corresponding inspector controls. They read and write the same `CanvasLayerTransform`, so the canvas and inspector never maintain competing position data.
+
+### Layer states
+
+| State | Canvas | Inspector |
+| --- | --- | --- |
+| Idle | No selection box or handles | Alignment and reset are disabled |
+| Selected | Selection outline, label, and resize handle | Active row and current scale are visible |
+| Moving | Pointer capture updates X and Y in canvas coordinates | The same transform remains the source of truth |
+| Resizing | Corner drag updates scale from 0.2× to 3× | Scale percentage updates immediately |
+| Keyboard | Arrow keys nudge one pixel; Shift + arrow nudges ten | Selection remains active |
+| Reordered | Z-index follows the layer order | Forward/backward controls disable at stack boundaries |
+| Aligned | Left, center, right, top, middle, or bottom resolves from artifact geometry | One alignment action updates the selected transform |
+| Reset | Returns to the generator's default transform | Row returns to 100 percent |
+
+Nothing is selected automatically. Selection begins only from the layer list or the canvas, matching presentation-editor behavior.
+
+## Shared plugin and provider layer
+
+Third-party packages sit behind local components so individual Studio tools do not need to know each library's API.
+
+| Provider | Local boundary | Used for |
+| --- | --- | --- |
+| Radix Select | `StudioSelect` | Accessible popovers, keyboard navigation, focus management |
+| Radix Slot | `Button` | Polymorphic actions and links with one visual system |
+| Three.js + React Three Fiber | `LiveMaterialCanvas` | Live GPU materials and shader rendering |
+| `@shadergradient/react` | Live-material adapter | Editable ShaderGradient sphere presets |
+| `camera-controls` + `three-stdlib` | Material canvas | Stable camera behavior and Three.js utilities |
+| `gifenc` | GIF export pipeline | Deterministic browser GIF encoding and palette control |
+| PrismJS | Code-highlighting adapter | TypeScript, Python, Bash, JSON, and shell token color |
+| Lucide | Component-local icons | Consistent semantic control icons |
+| `gt-next` | `<T>` and `useGT` | Translatable Studio labels and accessible names |
+| Fumadocs | Docs shell and MDX source | This documentation system, search, navigation, and generated pages |
+
+GSAP and Lenis are reserved for the marketing experience; editor manipulation uses pointer events and deterministic transforms so canvas behavior stays direct and exportable.
+
+## Building another generator
+
+1. Store tool fields with `useStudioDraft(identity.id, tool.id, field, initialValue)`.
+2. Use `ColorControl` for all editable colors and opacity.
+3. Wrap the artifact in `CanvasViewport` and preserve its declared aspect ratio.
+4. Represent every movable object with a `CanvasLayerTransform`.
+5. Pair `EditableCanvasLayer` with `CanvasLayerPanel` when an artifact has multiple selectable objects.
+6. Use `StudioSelect`, shared buttons, upload fields, and range controls instead of native one-off styling.
+7. Build exports from the same resolved settings that drive the preview.
+
+This boundary keeps a new tool visually native to Glyphfield while leaving its artifact renderer free to be SVG, Canvas, HTML, or WebGL.

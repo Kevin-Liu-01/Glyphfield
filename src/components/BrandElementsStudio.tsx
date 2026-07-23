@@ -1036,7 +1036,7 @@ export default function BrandElementsStudio({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='brand-elements-header tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar brand-elements-header tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>

@@ -45,8 +45,8 @@ export async function exportGif({
     if (!frame) continue;
     renderFrame(context, sources, config, frame.position);
     const rgba = context.getImageData(0, 0, config.width, config.height).data;
-    const palette = quantize(rgba, config.colors, { format: 'rgb444' });
-    const indexed = applyPalette(rgba, palette, 'rgb444');
+    const palette = quantize(rgba, config.colors, { format: 'rgb565' });
+    const indexed = applyPalette(rgba, palette, 'rgb565');
     gif.writeFrame(indexed, config.width, config.height, {
       delay: frame.delayMs,
       palette,

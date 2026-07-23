@@ -6,67 +6,98 @@ import {
   ArrowRight,
   Bot,
   Braces,
-  Download,
+  Check,
+  CircleDot,
   Film,
+  Grid2X2,
   Layers3,
-  Search,
+  Palette,
+  ScanLine,
   Sparkles,
-  SwatchBook,
-  Type,
-  WandSparkles,
+  TerminalSquare,
 } from 'lucide-react';
 
+import type { ReactNode } from 'react';
+
+import MarketingArcField from '@/components/MarketingArcField';
 import MarketingMotion from '@/components/MarketingMotion';
-import { Button } from '@/components/ui/Button';
+import { BRAND_ELEMENTS } from '@/lib/brandElements';
+import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { STUDIO_TOOLS } from '@/lib/studioCatalog';
 
 const OUTPUTS = [
-  'Moodboards',
+  'Identity systems',
   'Logo materials',
-  'OpenGraph',
+  'Motion packages',
+  'Moodboards',
+  'Product UI',
   'Email',
-  'Slide decks',
-  'CLI graphics',
-  'Partnerships',
-  'Components',
+  'Slides',
+  'Agent artifacts',
 ] as const;
 
-const CAPABILITIES = [
+const BRAND_LOGOS = [
+  { name: 'General Translation', src: '/brands/gt/logos/wordmark-black.svg' },
+  { name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg' },
+  { name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg' },
+  { name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg' },
+  { name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg' },
+  { name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg' },
+  { name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
+] as const;
+
+const HERO_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 2.6,
+  brightness: 1.06,
+  colorA: '#1B0A47',
+  colorB: '#725CFF',
+  colorC: '#D7FFF7',
+  detail: 4.2,
+  frequency: 5.8,
+  grain: 38,
+  rotationZ: 24,
+  speed: 0.14,
+  strength: 0.64,
+};
+
+const FEATURES = [
   {
-    description: 'Logos, semantic color, OKLCH, typography roles, voice, and source assets update the whole project.',
-    icon: SwatchBook,
-    label: 'Foundations',
-    metric: '1 source',
+    description: 'Logo families, source assets, fonts, color roles, voice, and layout rules stay connected.',
+    icon: Palette,
+    label: 'Identity source',
+    metric: '01',
   },
   {
-    description: 'Morph, type/delete, crossfade, scale, and slide packages share deterministic cubic Bézier timing.',
-    icon: Film,
-    label: 'Motion',
-    metric: '5 packages',
-  },
-  {
-    description: 'ShaderGradient plus ten original WebGL recipes render behind or inside marks with live controls.',
-    icon: Sparkles,
-    label: 'Materials',
-    metric: '11 live fields',
-  },
-  {
-    description: 'Email, social, product, developer, editorial, event, and physical applications stay editable.',
+    description: 'Compose moodboards, email, decks, product UI, editorial graphics, and physical pieces.',
     icon: Layers3,
-    label: 'Brand elements',
-    metric: '47 surfaces',
+    label: 'Brand applications',
+    metric: '02',
   },
   {
-    description: 'Position, zoom, opacity, colors, imagery, textures, and layout remain adjustable on the canvas.',
-    icon: WandSparkles,
-    label: 'Composition',
-    metric: 'Live canvas',
+    description: 'Morph text, logos, images, and live backgrounds with editable curves and deterministic timing.',
+    icon: Film,
+    label: 'Motion system',
+    metric: '03',
   },
   {
-    description: 'Download PNG, GIF, SVG, identity JSON, and browser-local artifacts without uploading the brand.',
-    icon: Download,
-    label: 'Export',
-    metric: '5 formats',
+    description: 'Use shader materials, grain, dither, gradients, grids, and image treatments behind any mark.',
+    icon: Sparkles,
+    label: 'Material lab',
+    metric: '04',
+  },
+  {
+    description: 'Select, drag, resize, layer, zoom, and export from a direct-manipulation canvas.',
+    icon: ScanLine,
+    label: 'Editable canvas',
+    metric: '05',
+  },
+  {
+    description: 'Agents discover the same identities and tools, then generate stable SVG and browser artifacts.',
+    icon: Bot,
+    label: 'Agent interface',
+    metric: '06',
   },
 ] as const;
 
@@ -74,210 +105,128 @@ export default async function HomePage() {
   const gt = await getGT();
 
   return (
-    <main className='marketing-page marketing-page-v3 min-h-dvh text-foreground'>
+    <main className='marketing-page marketing-page-v5 min-h-dvh text-foreground'>
       <MarketingMotion />
       <a className='marketing-skip-link' href='#main'>
         <T>Skip to content</T>
       </a>
 
-      <header className='marketing-header marketing-header-v3'>
-        <Link className='marketing-brand' href='/' aria-label={gt('Glyphfield home')}>
-          <Image
-            alt=''
-            aria-hidden='true'
-            className='marketing-brand-mark'
-            height={34}
-            priority
-            src={PRODUCT_BRAND.markPath}
-            width={34}
-          />
+      <header className='marketing-v5-header'>
+        <Link className='marketing-v5-brand' href='/' aria-label={gt('Glyphfield home')}>
+          <Image alt='' aria-hidden='true' height={30} priority src={PRODUCT_BRAND.markPath} width={30} />
           <span>{PRODUCT_BRAND.name}</span>
           <small><T>Brand Studio</T></small>
         </Link>
-        <nav className='marketing-nav' aria-label={gt('Main navigation')}>
-          <a href='#product'><T>Product</T></a>
-          <a href='#capabilities'><T>Capabilities</T></a>
-          <a href='#system'><T>System</T></a>
+        <nav className='marketing-v5-nav' aria-label={gt('Main navigation')}>
+          <a href='#studio'><T>Studio</T></a>
+          <a href='#agents'><T>Agents</T></a>
           <Link href='/docs'><T>Docs</T></Link>
         </nav>
-        <Button asChild size='sm'>
-          <Link href='/studio'>
-            <T>Open Studio</T>
-            <ArrowRight aria-hidden='true' />
-          </Link>
-        </Button>
+        <Link className='marketing-v5-primary-link' href='/studio'>
+          <T>Open Studio</T>
+          <ArrowRight aria-hidden='true' />
+        </Link>
       </header>
 
       <div id='main'>
-        <ConstructionSpacer />
+        <SectionRule coordinate='Y 000' label='Brand operating field' />
 
-        <section className='marketing-v3-hero' aria-labelledby='hero-title'>
-          <div className='marketing-v3-hero-grid' aria-hidden='true' />
-          <div className='marketing-vibrant-orb marketing-vibrant-orb--one' aria-hidden='true' />
-          <div className='marketing-vibrant-orb marketing-vibrant-orb--two' aria-hidden='true' />
-          <div className='marketing-v3-hero-copy'>
-            <p className='marketing-v3-kicker'>
-              <Sparkles aria-hidden='true' />
+        <section className='marketing-v5-hero' aria-labelledby='hero-title'>
+          <div className='marketing-v5-hero-copy' data-motion-reveal>
+            <p className='marketing-v5-kicker' data-motion-item>
+              <CircleDot aria-hidden='true' />
               <T>One identity. Every expression.</T>
             </p>
-            <h1 id='hero-title'>
-              <T>The working studio for your entire brand.</T>
+            <h1 id='hero-title' data-motion-item>
+              <T>The working studio</T>
+              <br />
+              <em><T>for your entire brand.</T></em>
             </h1>
-            <p>
+            <p data-motion-item>
               <T>
-                Define the system, design every surface, animate the mark, and hand agents the same
-                language—all inside one connected, browser-local workspace.
+                Define the system, make every surface, animate the mark, and give agents the same
+                visual language from one connected workspace.
               </T>
             </p>
-            <div className='marketing-v3-actions'>
-              <Button asChild className='h-12 px-5' size='lg'>
-                <Link href='/studio'>
-                  <T>Open Glyphfield</T>
-                  <ArrowRight aria-hidden='true' />
-                </Link>
-              </Button>
-              <Button asChild className='h-12 px-5' size='lg' variant='outline'>
-                <Link href='/docs/getting-started'>
-                  <T>Read the guide</T>
-                </Link>
-              </Button>
-            </div>
-            <div className='marketing-v3-proof'>
-              <span><strong>47</strong><T>brand elements</T></span>
-              <span><strong>15</strong><T>focused tools</T></span>
-              <span><strong>100%</strong><T>browser-local</T></span>
+            <div className='marketing-v5-actions' data-motion-item>
+              <Link className='marketing-v5-primary-link marketing-v5-primary-link--large' href='/studio'>
+                <T>Open Glyphfield</T>
+                <ArrowRight aria-hidden='true' />
+              </Link>
+              <Link className='marketing-v5-secondary-link' href='/docs/getting-started'>
+                <T>Read the field guide</T>
+              </Link>
             </div>
           </div>
 
-          <div className='marketing-v3-hero-media'>
-            <div className='marketing-v3-shot marketing-v3-shot--hero'>
-              <ScreenshotFrame
-                alt={gt('Glyphfield Logo Shader in dark mode with the General Translation mark on an animated material')}
-                mode='Dark Studio'
-                src='/screenshots/studio-logo-shader-dark.png'
-                title='Live logo materials'
-              />
+          <div className='marketing-v5-hero-specs' aria-label={gt('Glyphfield product summary')}>
+            <span><strong>{STUDIO_TOOLS.length}</strong><T>focused tools</T></span>
+            <span><strong>{BRAND_ELEMENTS.length}</strong><T>editable surfaces</T></span>
+            <span><strong>5</strong><T>export formats</T></span>
+          </div>
+
+          <div className='marketing-v5-hero-field' data-motion-reveal>
+            <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
+            <div className='marketing-v5-field-coordinates' aria-hidden='true'>
+              <span>X 014.80</span>
+              <span>FIELD / LIVE</span>
+              <span>Y 006.30</span>
             </div>
-            <div className='marketing-v3-shot marketing-v3-shot--floating'>
-              <ScreenshotFrame
-                alt={gt('Glyphfield moodboard in light mode showing the General Translation identity system')}
-                mode='Light Studio'
-                src='/screenshots/studio-moodboard-light.png'
-                title='Identity moodboard'
+            <div className='marketing-v5-product-window' data-motion-item>
+              <ProductFrame
+                alt={gt('Glyphfield Studio showing the General Translation identity moodboard')}
+                label='Moodboard / General Translation'
+                src='/screenshots/studio-moodboard-gt-2026.jpg'
               />
             </div>
           </div>
         </section>
 
-        <OutputTicker />
-        <ConstructionSpacer />
+        <OutputRail gt={gt} />
+        <LogoRail gt={gt} />
+        <SectionRule coordinate='Y 018' label='Logo Lab × Animation Library' />
 
-        <section className='marketing-v3-intro' data-motion-reveal id='product'>
-          <div data-motion-item>
-            <p className='marketing-eyebrow'><T>The actual product</T></p>
-            <h2><T>Not a gallery. A connected production system.</T></h2>
+        <section className='marketing-v5-composer' data-motion-reveal id='studio'>
+          <div className='marketing-v5-composer-copy' data-motion-item>
+            <p className='marketing-v5-kicker'><Grid2X2 aria-hidden='true' /><T>One connected canvas</T></p>
+            <h2><T>Build the mark and its motion together.</T></h2>
+            <p>
+              <T>
+                Move from source logo to material, then into a timed sequence without rebuilding the
+                asset. Text, images, marks, and shader states can all become frames.
+              </T>
+            </p>
+            <ul>
+              <li><Check aria-hidden='true' /><T>Drag and layer every visual element</T></li>
+              <li><Check aria-hidden='true' /><T>Edit cubic Bézier handles directly</T></li>
+              <li><Check aria-hidden='true' /><T>Export high-resolution PNG, SVG, and GIF</T></li>
+            </ul>
+            <Link className='marketing-v5-text-link' href='/studio'>
+              <T>Open the motion workspace</T>
+              <ArrowRight aria-hidden='true' />
+            </Link>
           </div>
-          <p data-motion-item>
+
+          <LogoMotionDemo gt={gt} />
+        </section>
+
+        <SectionRule coordinate='Y 032' label='System capabilities' />
+
+        <section className='marketing-v5-capabilities' data-motion-reveal>
+          <SectionHeading
+            eyebrow='A practical brand operating system'
+            title='Foundations in. Useful artifacts out.'
+          >
             <T>
-              Every screen below is captured from Glyphfield itself. Projects persist in tabs,
-              brand settings flow through every tool, and each canvas exports the artifact it previews.
+              Every focused tool inherits the active identity, preserves the correct aspect ratio,
+              and exposes controls for the output it makes.
             </T>
-          </p>
-        </section>
-
-        <section className='marketing-v3-feature marketing-v3-feature--light' data-motion-reveal>
-          <div className='marketing-v3-feature-copy' data-motion-item>
-            <span className='marketing-v3-index'>01 / IDENTITY</span>
-            <h2><T>See the whole brand as a designed board.</T></h2>
-            <p>
-              <T>
-                Logo family, color system, typography, email, terminal, product page, and event
-                applications resolve into a high-resolution moodboard with embedded fonts.
-              </T>
-            </p>
-            <ul>
-              <li><T>1200 × 1500 through 4800 × 6000 export</T></li>
-              <li><T>Actual identity assets and generated applications</T></li>
-              <li><T>Downloadable PNG and identity JSON</T></li>
-            </ul>
-          </div>
-          <div className='marketing-v3-feature-media' data-motion-item>
-            <ScreenshotFrame
-              alt={gt('Light mode General Translation moodboard canvas in Glyphfield')}
-              mode='Light mode'
-              src='/screenshots/studio-moodboard-light.png'
-              title='Moodboard / General Translation'
-            />
-          </div>
-        </section>
-
-        <section className='marketing-v3-feature marketing-v3-feature--dark' data-motion-reveal>
-          <div className='marketing-v3-feature-media' data-motion-item>
-            <ScreenshotFrame
-              alt={gt('Dark mode Glyphfield Logo Shader with editable HEX and OKLCH colors')}
-              mode='Dark mode'
-              src='/screenshots/studio-logo-shader-dark.png'
-              title='Logo Shader / ShaderGradient'
-            />
-          </div>
-          <div className='marketing-v3-feature-copy' data-motion-item>
-            <span className='marketing-v3-index'>02 / MATERIAL</span>
-            <h2><T>Put live material behind—or inside—the mark.</T></h2>
-            <p>
-              <T>
-                Start with the supplied ShaderGradient sphere or choose one of ten original GLSL
-                recipes. Tune perceptual color, grain, density, rotation, speed, and distortion live.
-              </T>
-            </p>
-            <ul>
-              <li><T>HEX and OKLCH color controls</T></li>
-              <li><T>Background, logo mask, or both</T></li>
-              <li><T>Still PNG and animated GIF export</T></li>
-            </ul>
-          </div>
-        </section>
-
-        <section className='marketing-v3-feature marketing-v3-feature--soft' data-motion-reveal>
-          <div className='marketing-v3-feature-copy' data-motion-item>
-            <span className='marketing-v3-index'>03 / APPLICATIONS</span>
-            <h2><T>Turn the system into something useful.</T></h2>
-            <p>
-              <T>
-                Build welcome emails, social cards, developer graphics, event passes, physical
-                collateral, and product UI without leaving the active identity.
-              </T>
-            </p>
-            <ul>
-              <li><T>47 editable applications across seven categories</T></li>
-              <li><T>Move, scale, recolor, pattern, and replace artwork</T></li>
-              <li><T>Real GT templates included as an example project</T></li>
-            </ul>
-          </div>
-          <div className='marketing-v3-feature-media' data-motion-item>
-            <ScreenshotFrame
-              alt={gt('Light mode Glyphfield brand element editor showing a General Translation welcome email')}
-              mode='Light mode'
-              src='/screenshots/studio-brand-elements-light.png'
-              title='Brand elements / Welcome email'
-            />
-          </div>
-        </section>
-
-        <ConstructionSpacer />
-
-        <section className='marketing-v3-capabilities' data-motion-reveal id='capabilities'>
-          <div className='marketing-v3-section-heading' data-motion-item>
-            <p className='marketing-eyebrow'><T>Everything in one project</T></p>
-            <h2><T>Foundations in. Production artifacts out.</T></h2>
-            <p>
-              <T>Each focused tool inherits the same identity and exposes controls built for its output.</T>
-            </p>
-          </div>
-          <div className='marketing-v3-capability-grid'>
-            {CAPABILITIES.map(({ description, icon: Icon, label, metric }) => (
+          </SectionHeading>
+          <div className='marketing-v5-capability-grid'>
+            {FEATURES.map(({ description, icon: Icon, label, metric }) => (
               <article data-motion-item key={label}>
-                <span><Icon aria-hidden='true' /></span>
-                <small>{metric}</small>
+                <span>{metric}</span>
+                <Icon aria-hidden='true' />
                 <h3>{gt(label)}</h3>
                 <p>{gt(description)}</p>
               </article>
@@ -285,78 +234,86 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <ConstructionSpacer />
-
-        <section className='marketing-v3-components' data-motion-reveal>
-          <div className='marketing-v3-components-copy' data-motion-item>
-            <p className='marketing-eyebrow marketing-eyebrow--dark'><T>Components are brand too</T></p>
-            <h2><T>Inspect the interface language, not only the logo.</T></h2>
-            <p>
-              <T>
-                Buttons, inputs, selects, navigation, feedback, data, and cards are rendered in
-                context, with shared labels, sizing, state, and theme controls.
-              </T>
-            </p>
-            <div className='marketing-v3-fonts'>
-              <span><Type aria-hidden='true' /><T>Studio font</T></span>
-              <strong>Switzer</strong>
-              <strong>Be Vietnam Pro</strong>
-              <strong>Schibsted Grotesk</strong>
-              <strong>Rethink Sans</strong>
+        <section className='marketing-v5-product-grid' data-motion-reveal>
+          <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
+            <CardLabel index='07' label='Identity board' />
+            <h2><T>See the system as designed work.</T></h2>
+            <p><T>Fonts, color, logo family, product surfaces, and motion resolve into a composed board.</T></p>
+            <div className='marketing-v5-product-card-image'>
+              <Image
+                alt={gt('General Translation identity moodboard in Glyphfield')}
+                fill
+                sizes='(max-width: 800px) 96vw, 64vw'
+                src='/screenshots/studio-moodboard-gt-2026.jpg'
+              />
             </div>
-          </div>
-          <div className='marketing-v3-components-media' data-motion-item>
-            <ScreenshotFrame
-              alt={gt('Glyphfield component library in dark mode showing branded button variants')}
-              mode='Dark mode'
-              src='/screenshots/studio-components-dark.png'
-              title='Component library / Actions'
-            />
-          </div>
+          </article>
+          <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
+            <CardLabel index='08' label='Material study' />
+            <h2><T>Give the logo a surface.</T></h2>
+            <p><T>Mask live Shaders.com materials inside the mark or place them behind it.</T></p>
+            <div className='marketing-v5-product-card-image'>
+              <Image
+                alt={gt('Glyphfield logo shader workspace')}
+                fill
+                sizes='(max-width: 800px) 96vw, 36vw'
+                src='/screenshots/studio-logo-shader-gt-2026.jpg'
+              />
+            </div>
+          </article>
         </section>
 
-        <ConstructionSpacer />
+        <SectionRule coordinate='Y 054' dark label='Agent interface' />
 
-        <section className='marketing-v3-system' data-motion-reveal id='system'>
-          <CornerHatches />
-          <div className='marketing-v3-system-copy' data-motion-item>
-            <p className='marketing-eyebrow marketing-eyebrow--dark'>
+        <section className='marketing-v5-agents' data-motion-reveal id='agents'>
+          <div className='marketing-v5-agents-copy' data-motion-item>
+            <p className='marketing-v5-kicker marketing-v5-kicker--dark'>
               <Bot aria-hidden='true' />
-              <T>Agent-readable by design</T>
+              <T>Agent-first, not agent-adjacent</T>
             </p>
-            <h2><T>Your design language becomes an interface.</T></h2>
+            <h2><T>The visual system is also an interface.</T></h2>
             <p>
               <T>
-                Agents can discover identities, search tools, inspect elements, generate stable SVG,
-                and learn when browser-local rendering is required.
+                Agents can discover identities, inspect tools, generate deterministic SVG, and know
+                when a browser render is required. The catalog and the canvas speak the same language.
               </T>
             </p>
-            <div className='marketing-v3-system-links'>
-              <Button asChild size='lg' variant='secondary'>
-                <Link href='/api/catalog'><T>Open agent catalog</T><ArrowRight aria-hidden='true' /></Link>
-              </Button>
-              <Link href='/docs/agents'><T>Agent docs</T> ↗</Link>
+            <div className='marketing-v5-agent-links'>
+              <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/docs/agents'>
+                <T>Read agent docs</T><ArrowRight aria-hidden='true' />
+              </Link>
+              <Link href='/api/catalog'><T>Catalog</T> ↗</Link>
               <Link href='/llms.txt'>llms.txt ↗</Link>
+            </div>
+            <div className='marketing-v5-agent-flow' aria-label={gt('Agent workflow')}>
+              <span><Braces aria-hidden='true' /><T>Discover</T></span>
+              <i aria-hidden='true' />
+              <span><TerminalSquare aria-hidden='true' /><T>Generate</T></span>
+              <i aria-hidden='true' />
+              <span><Check aria-hidden='true' /><T>Artifact</T></span>
             </div>
           </div>
           <AgentPanel />
         </section>
 
-        <ConstructionSpacer />
+        <SectionRule coordinate='Y 072' dark label='Open field' />
 
-        <footer className='marketing-footer-v2 marketing-footer-v3' data-motion-footer>
-          <div className='marketing-footer-halo' aria-hidden='true'><i /><i /><i /></div>
-          <div className='marketing-footer-noise' aria-hidden='true' />
-          <div className='marketing-footer-cta' data-motion-reveal>
-            <Image alt='' aria-hidden='true' height={58} src={PRODUCT_BRAND.markWhitePath} width={58} />
-            <p className='marketing-eyebrow marketing-eyebrow--dark'><T>Build the identity once.</T></p>
-            <h2 data-motion-item><T>Make everything else from the same system.</T></h2>
-            <Button asChild className='h-12 px-6' size='lg' variant='secondary'>
-              <Link href='/studio'><T>Open Glyphfield</T><ArrowRight aria-hidden='true' /></Link>
-            </Button>
+        <footer className='marketing-v5-footer' data-motion-footer>
+          <div className='marketing-v5-footer-field' aria-hidden='true'>
+            <i /><i /><i />
           </div>
-          <div className='marketing-footer-wordmark' data-footer-wordmark>GLYPHFIELD</div>
-          <div className='marketing-footer-bottom'>
+          <div className='marketing-v5-footer-top' data-motion-reveal>
+            <Image alt='' aria-hidden='true' height={72} src={PRODUCT_BRAND.markWhitePath} width={72} />
+            <div data-motion-item>
+              <p className='marketing-v5-kicker marketing-v5-kicker--dark'><T>Your brand, as a working system</T></p>
+              <h2><T>Make the field yours.</T></h2>
+            </div>
+            <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/studio'>
+              <T>Open Glyphfield</T><ArrowRight aria-hidden='true' />
+            </Link>
+          </div>
+          <div className='marketing-v5-footer-wordmark' data-footer-wordmark>GLYPHFIELD</div>
+          <div className='marketing-v5-footer-bottom'>
             <span><T>© 2026 Kevin Liu · MIT licensed</T></span>
             <div>
               <Link href='/studio'><T>Studio</T> ↗</Link>
@@ -371,80 +328,151 @@ export default async function HomePage() {
   );
 }
 
-function ConstructionSpacer() {
+function SectionRule({ coordinate, dark = false, label }: { coordinate: string; dark?: boolean; label: string }) {
   return (
-    <div className='marketing-construction-spacer' aria-hidden='true'>
-      <i className='marketing-reticle marketing-reticle--tl' />
-      <i className='marketing-reticle marketing-reticle--tr' />
-      <i className='marketing-reticle marketing-reticle--bl' />
-      <i className='marketing-reticle marketing-reticle--br' />
+    <div className={`marketing-v5-rule${dark ? ' marketing-v5-rule--dark' : ''}`} aria-hidden='true'>
+      <span>{coordinate}</span>
+      <i />
+      <strong>{label}</strong>
+      <i />
     </div>
   );
 }
 
-function CornerHatches() {
-  return <div className='marketing-corner-hatches' aria-hidden='true'><i /><i /><i /><i /></div>;
-}
-
-function OutputTicker() {
+function OutputRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
-    <div className='marketing-v3-output-ticker' aria-label='Studio outputs'>
-      <span><T>One brand system</T></span>
-      <div>
-        {OUTPUTS.map((output) => <span key={output}>{output}</span>)}
-      </div>
+    <div className='marketing-v5-output-rail' aria-label={gt('Studio outputs')}>
+      <span><T>One source of truth</T></span>
+      <div>{OUTPUTS.map((output) => <span key={output}>{gt(output)}</span>)}</div>
     </div>
   );
 }
 
-function ScreenshotFrame({
-  alt,
-  mode,
-  src,
-  title,
-}: {
-  alt: string;
-  mode: string;
-  src: string;
-  title: string;
-}) {
+function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
-    <figure className='marketing-v3-screenshot'>
+    <section className='marketing-v5-logo-rail' aria-labelledby='example-identities'>
       <div>
-        <span><i /><i /><i />{title}</span>
-        <small>{mode}</small>
+        <p id='example-identities'><T>Example identity library</T></p>
+        <span><T>Actual source marks, not placeholders</T></span>
       </div>
-      <Image
-        alt={alt}
-        height={1209}
-        sizes='(max-width: 900px) 94vw, 68vw'
-        src={src}
-        width={2219}
-      />
+      <ul>
+        {BRAND_LOGOS.map(({ name, src }) => (
+          <li key={name} title={gt(name)}>
+            <Image alt={gt(`${name} wordmark`)} height={34} src={src} width={116} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SectionHeading({ children, eyebrow, title }: { children: ReactNode; eyebrow: string; title: string }) {
+  return (
+    <div className='marketing-v5-section-heading'>
+      <p className='marketing-v5-kicker'><CircleDot aria-hidden='true' />{eyebrow}</p>
+      <h2>{title}</h2>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function ProductFrame({ alt, label, src }: { alt: string; label: string; src: string }) {
+  return (
+    <figure className='marketing-v5-studio-frame'>
+      <figcaption>
+        <span><i /><i /><i />{label}</span>
+        <small>LIGHT / STUDIO</small>
+      </figcaption>
+      <div>
+        <Image alt={alt} fill priority sizes='(max-width: 900px) 92vw, 76vw' src={src} />
+      </div>
     </figure>
   );
 }
 
+function LogoMotionDemo({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
+  return (
+    <div className='marketing-v5-composer-demo' data-motion-item>
+      <header>
+        <span><i />COMPOSITION 01</span>
+        <div><button type='button'>Logo Lab</button><button type='button'>Animation</button></div>
+        <small>1600 × 1000</small>
+      </header>
+      <div className='marketing-v5-composer-body'>
+        <aside>
+          <p><T>Source marks</T></p>
+          {BRAND_LOGOS.slice(0, 5).map(({ name, src }, index) => (
+            <button className={index === 0 ? 'is-active' : ''} key={name} type='button'>
+              <Image alt='' aria-hidden='true' height={22} src={src} width={70} />
+              <span>{gt(name)}</span>
+            </button>
+          ))}
+        </aside>
+        <section>
+          <div className='marketing-v5-demo-stage'>
+            <div className='marketing-v5-demo-arcs' aria-hidden='true'><i /><i /><i /></div>
+            <Image
+              alt={gt('General Translation logo')}
+              className='marketing-v5-demo-logo'
+              height={72}
+              src='/brands/gt/logos/wordmark-white.svg'
+              width={250}
+            />
+            <span className='marketing-v5-selection-box' aria-hidden='true'><i /><i /><i /><i /></span>
+            <div className='marketing-v5-demo-gif'>
+              <Image
+                alt={gt('General Translation multilingual text morph')}
+                fill
+                unoptimized
+                src='/examples/gt-morph-one-second.gif'
+              />
+            </div>
+          </div>
+          <div className='marketing-v5-timeline'>
+            <span>00:00</span>
+            <div>
+              {['GT', 'Welcome', 'Bienvenidos', '你好', 'ようこそ'].map((frame, index) => (
+                <i className={index === 0 ? 'is-active' : ''} key={frame}><b>{frame}</b></i>
+              ))}
+            </div>
+            <span>00:05</span>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <span><T>Cubic Bézier</T> 0.20, 0.80, 0.20, 1.00</span>
+        <span><T>Logo → text → image</T></span>
+        <strong><T>Export GIF</T></strong>
+      </footer>
+    </div>
+  );
+}
+
+function CardLabel({ index, label }: { index: string; label: string }) {
+  return <span className='marketing-v5-card-label'>{index} / {label}</span>;
+}
+
 function AgentPanel() {
   return (
-    <div className='marketing-v3-agent-panel' data-motion-item>
-      <div>
+    <div className='marketing-v5-agent-panel' data-motion-item>
+      <header>
         <span><Braces aria-hidden='true' /> POST /api/generate</span>
         <small>200 · image/svg+xml</small>
-      </div>
+      </header>
       <pre><code>{`{
   "kind": "template",
-  "template": "slides",
+  "template": "logo-motion",
   "identity": { "preset": "gt" },
   "settings": {
-    "title": "One system. Every locale.",
-    "layout": "statement"
+    "sequence": ["logo", "text", "image"],
+    "material": "spectral-bloom",
+    "curve": [0.2, 0.8, 0.2, 1]
   },
   "output": "raw"
 }`}</code></pre>
       <footer>
         <span><i /> deterministic artifact</span>
-        <span><Search aria-hidden='true' /> /api/search</span>
+        <span>identity.json</span>
       </footer>
     </div>
   );
