@@ -321,25 +321,34 @@ export default function StudioApp() {
 
       </header>
 
-      <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-background px-3' role='tablist' aria-label={gt('Brand projects')}>
-        <span className='shrink-0 px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
-          <T>Projects</T>
-        </span>
-        <div className='flex shrink-0 items-end self-stretch'>
-          {identities.map(renderProjectTab)}
+      <div className='project-tabs-shell border-b border-border bg-background'>
+        <div className='project-dither-panel' aria-hidden='true'>
+          <span className='project-dither-field' />
+          <span className='project-dither-sweep' />
+          <span className='project-dither-symbols'>
+            <span>G</span>
+            <span>ϟ</span>
+            <span>@</span>
+            <span>{'{ }'}</span>
+          </span>
         </div>
-        <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
-          <Plus aria-hidden='true' />
-        </Button>
-        <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
-          <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' title={gt('Duplicate project')} type='button' variant='ghost'>
-            <Copy aria-hidden='true' />
+        <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto px-3' role='tablist' aria-label={gt('Brand projects')}>
+          <div className='flex shrink-0 items-end self-stretch'>
+            {identities.map(renderProjectTab)}
+          </div>
+          <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
+            <Plus aria-hidden='true' />
           </Button>
-          {!activeIdentity.builtIn ? (
-            <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' title={gt('Delete project')} type='button' variant='ghost'>
-              <Trash2 aria-hidden='true' />
+          <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
+            <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' title={gt('Duplicate project')} type='button' variant='ghost'>
+              <Copy aria-hidden='true' />
             </Button>
-          ) : null}
+            {!activeIdentity.builtIn ? (
+              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' title={gt('Delete project')} type='button' variant='ghost'>
+                <Trash2 aria-hidden='true' />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
