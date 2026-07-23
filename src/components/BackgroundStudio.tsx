@@ -83,6 +83,29 @@ export default function BackgroundStudio({
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
+  const availableBrandAssets = [...identity.assets, ...identity.proofAssets].filter(
+    (asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf')
+  );
+  const defaultBrandAsset = availableBrandAssets.find(({ type }) => type === 'background')
+    ?? availableBrandAssets.find(({ type }) => type === 'texture');
+  const [brandAssetId, setBrandAssetId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'brand-asset-id',
+    defaultBrandAsset?.id ?? 'none'
+  );
+  const [brandAssetOpacity, setBrandAssetOpacity] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'brand-asset-opacity',
+    58
+  );
+  const [brandAssetFit, setBrandAssetFit] = useStudioDraft<'contain' | 'cover'>(
+    identity.id,
+    tool.id,
+    'brand-asset-fit',
+    'cover'
+  );
   const [exporting, setExporting] = useState(false);
   const [storedSettings, setStoredSettings] = useStudioDraft<BackgroundSettings>(
     identity.id,
@@ -120,13 +143,20 @@ export default function BackgroundStudio({
     settings.logoTone === 'white' ? 'mark-light' : 'mark-dark'
   );
   const logoPath = customLogo?.url ?? identityLogo;
+  const selectedBrandAsset = availableBrandAssets.find(({ id }) => id === brandAssetId);
   const previewSvg = useMemo(
     () =>
       buildBackgroundSvg(
         settings,
-        showLogo ? { logo: logoPath, name: identity.shortName } : undefined
+        {
+          asset: selectedBrandAsset?.path,
+          assetFit: brandAssetFit,
+          assetOpacity: brandAssetOpacity,
+          logo: showLogo ? logoPath : undefined,
+          name: identity.shortName,
+        }
       ),
-    [identity.shortName, logoPath, settings, showLogo]
+    [brandAssetFit, brandAssetOpacity, identity.shortName, logoPath, selectedBrandAsset?.path, settings, showLogo]
   );
 
   customLogoRef.current = customLogo;
@@ -171,6 +201,25 @@ export default function BackgroundStudio({
         const context = output.getContext('2d');
         if (!context) return;
         context.drawImage(shaderCanvas, 0, 0, settings.width, settings.height);
+        if (selectedBrandAsset) {
+          const image = new Image();
+          image.src = selectedBrandAsset.path;
+          await image.decode();
+          const imageScale = brandAssetFit === 'cover'
+            ? Math.max(settings.width / image.naturalWidth, settings.height / image.naturalHeight)
+            : Math.min(settings.width / image.naturalWidth, settings.height / image.naturalHeight);
+          const imageWidth = image.naturalWidth * imageScale;
+          const imageHeight = image.naturalHeight * imageScale;
+          context.globalAlpha = brandAssetOpacity / 100;
+          context.drawImage(
+            image,
+            (settings.width - imageWidth) / 2,
+            (settings.height - imageHeight) / 2,
+            imageWidth,
+            imageHeight
+          );
+          context.globalAlpha = 1;
+        }
         if (showLogo) {
           const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
           const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
@@ -199,10 +248,19 @@ export default function BackgroundStudio({
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         return;
       }
-      const embeddedLogo = showLogo && logoPath ? await imageUrlToDataUrl(logoPath) : undefined;
+      const [embeddedLogo, embeddedBrandAsset] = await Promise.all([
+        showLogo && logoPath ? imageUrlToDataUrl(logoPath) : undefined,
+        selectedBrandAsset ? imageUrlToDataUrl(selectedBrandAsset.path) : undefined,
+      ]);
       const svg = buildBackgroundSvg(
         settings,
-        showLogo ? { logo: embeddedLogo, name: identity.shortName } : undefined
+        {
+          asset: embeddedBrandAsset,
+          assetFit: brandAssetFit,
+          assetOpacity: brandAssetOpacity,
+          logo: showLogo ? embeddedLogo : undefined,
+          name: identity.shortName,
+        }
       );
       await downloadSvgAsPng(
         svg,
@@ -347,6 +405,41 @@ export default function BackgroundStudio({
           </section>}
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Brand asset layer</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                <T>Reuse an image, texture, or field from this identity.</T>
+              </p>
+            </div>
+            <StudioSelect
+              ariaLabel={gt('Brand asset layer')}
+              onValueChange={setBrandAssetId}
+              options={[
+                { label: gt('None'), value: 'none' },
+                ...availableBrandAssets.map((asset) => ({
+                  label: `${asset.label} · ${asset.type}`,
+                  value: asset.id,
+                })),
+              ]}
+              value={selectedBrandAsset?.id ?? 'none'}
+            />
+            {selectedBrandAsset ? (
+              <>
+                <StudioSelect
+                  ariaLabel={gt('Brand asset fit')}
+                  onValueChange={(value) => setBrandAssetFit(value as typeof brandAssetFit)}
+                  options={[
+                    { label: gt('Cover canvas'), value: 'cover' },
+                    { label: gt('Contain asset'), value: 'contain' },
+                  ]}
+                  value={brandAssetFit}
+                />
+                <RangeControl label={gt('Asset opacity')} max={100} min={0} onChange={setBrandAssetOpacity} suffix='%' value={brandAssetOpacity} />
+              </>
+            ) : null}
+          </section>
+
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div className='flex items-center justify-between gap-4'>
               <h2 className='text-sm font-semibold'><T>Logo</T></h2>
               <input aria-label={gt('Show logo')} checked={showLogo} onChange={(event) => setShowLogo(event.target.checked)} type='checkbox' />
@@ -398,6 +491,15 @@ export default function BackgroundStudio({
                 style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
               >
                 <LiveMaterialCanvas materialId={settings.liveMaterialId} settings={settings.liveSettings} />
+                {selectedBrandAsset ? (
+                  <img
+                    alt=''
+                    aria-hidden='true'
+                    className={`pointer-events-none absolute inset-0 size-full ${brandAssetFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                    src={selectedBrandAsset.path}
+                    style={{ opacity: brandAssetOpacity / 100 }}
+                  />
+                ) : null}
                 {showLogo ? (
                   <div
                     className='pointer-events-none absolute inset-0 grid place-items-center'

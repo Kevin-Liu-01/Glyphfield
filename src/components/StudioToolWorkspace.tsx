@@ -30,7 +30,15 @@ import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
-import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
+import {
+  brandAssetPath,
+  brandFontAssets,
+  brandTypographyFamily,
+  brandTypographyRole,
+  type BrandFontAsset,
+  type BrandIdentity,
+  type BrandTypography,
+} from '@/lib/brandIdentity';
 import { formatOklch, normalizeHex } from '@/lib/color';
 import {
   CODE_THEME,
@@ -100,6 +108,18 @@ type CustomFontAsset = {
   name: string;
   url: string;
 };
+
+function readFileDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new DOMException('The selected file could not be read.'));
+    });
+    reader.addEventListener('error', () => reject(reader.error ?? new DOMException('The selected file could not be read.')));
+    reader.readAsDataURL(file);
+  });
+}
 
 function useCustomFont() {
   const [font, setFont] = useState<CustomFontAsset | null>(null);
@@ -180,14 +200,16 @@ function RangeField({
   max,
   min,
   onChange,
-  suffix,
+  step = 1,
+  suffix = '',
   value,
 }: {
   label: ReactNode;
   max: number;
   min: number;
   onChange: (value: number) => void;
-  suffix: string;
+  step?: number;
+  suffix?: string;
   value: number;
 }) {
   return (
@@ -196,7 +218,7 @@ function RangeField({
         <span>{label}</span>
         <output className='font-mono text-xs tabular-nums'>{value}{suffix}</output>
       </span>
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
     </label>
   );
 }
@@ -314,9 +336,12 @@ async function resolveBrandMark(identity: BrandIdentity, inverted: boolean): Pro
 }
 
 function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const gt = useGT();
   const backgroundAsset = useLocalAsset();
   const customFont = useCustomFont();
   const logoAsset = useLocalAsset();
+  const backgroundOptions = identity.assets.filter(({ type }) => type === 'background' || type === 'image' || type === 'product' || type === 'texture');
+  const logoOptions = identity.assets.filter(({ type }) => type === 'logo' || type === 'icon');
   const [title, setTitle] = useStudioDraft(identity.id, tool.id, 'title', identity.tagline);
   const [eyebrow, setEyebrow] = useStudioDraft(
     identity.id,
@@ -330,6 +355,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     'surface',
     'light'
   );
+  const [libraryBackgroundId, setLibraryBackgroundId] = useStudioDraft(identity.id, tool.id, 'library-background', backgroundOptions[0]?.id ?? '');
+  const [libraryLogoId, setLibraryLogoId] = useStudioDraft(identity.id, tool.id, 'library-logo', surface === 'dark' ? 'mark-light' : 'mark-dark');
+  const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Display');
+  const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Display').weight ?? 700);
   const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'background-opacity', 28);
   const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'background-x', 0);
   const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'background-y', 0);
@@ -342,23 +371,33 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const foreground = surface === 'dark' ? paper : ink;
   const background = surface === 'dark' ? ink : paper;
+  const selectedBackground = backgroundOptions.find(({ id }) => id === libraryBackgroundId);
+  const selectedLogo = logoOptions.find(({ id }) => id === libraryLogoId);
+  const selectedTypography = brandTypographyRole(identity, fontRole);
+  const selectedBrandFont = brandFontAssets(identity).find(({ id }) => id === selectedTypography.fontId);
 
   async function exportOpenGraph() {
     setExporting(true);
     try {
       const mark = logoAsset.asset
         ? await imageUrlToDataUrl(logoAsset.asset.url)
-        : await resolveBrandMark(identity, surface === 'dark');
+        : selectedLogo
+          ? await imageUrlToDataUrl(selectedLogo.path)
+          : await resolveBrandMark(identity, surface === 'dark');
       const backgroundImage = backgroundAsset.asset
         ? await imageUrlToDataUrl(backgroundAsset.asset.url)
-        : null;
+        : selectedBackground
+          ? await imageUrlToDataUrl(selectedBackground.path)
+          : null;
       const fontData = customFont.font
         ? await imageUrlToDataUrl(customFont.font.url)
-        : null;
+        : selectedBrandFont
+          ? await imageUrlToDataUrl(selectedBrandFont.path)
+          : null;
       const fontDefinition = fontData
         ? `<style>@font-face{font-family:'StudioCustom';src:url('${fontData}')}</style>`
         : '';
-      const fontFamily = fontData ? 'StudioCustom' : 'Arial, sans-serif';
+      const fontFamily = fontData ? 'StudioCustom' : brandTypographyFamily(identity, fontRole);
       const lines = splitLines(title, 27, 3);
       const resolvedBackgroundWidth = 1200 * (backgroundScale / 100);
       const resolvedBackgroundHeight = 630 * (backgroundScale / 100);
@@ -370,7 +409,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       const titleLines = lines
         .map(
           (line, index) =>
-            `<text x="72" y="${260 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="700" letter-spacing="-2">${escapeXml(line)}</text>`
+            `<text x="72" y="${260 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="${fontWeight}" letter-spacing="-2">${escapeXml(line)}</text>`
         )
         .join('');
       const resolvedLogoSize = 52 * (logoScale / 100);
@@ -392,6 +431,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         <Field label={<T>Headline</T>}>
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
+        <Field label={<T>Typography role</T>}>
+          <StudioSelect ariaLabel='OpenGraph typography role' onValueChange={(value) => { const role = value as BrandTypography['role']; setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} />
+        </Field>
+        <RangeField label={<T>Font weight</T>} max={900} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
       </ControlSection>
       <ControlSection title={<T>Surface</T>}>
         <SegmentedChoice
@@ -408,7 +451,8 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           label='Add background image'
           onFile={backgroundAsset.select}
         />
-        {backgroundAsset.asset ? (
+        {backgroundOptions.length > 0 ? <Field label={<T>Brand background asset</T>}><StudioSelect ariaLabel='Brand background asset' onValueChange={setLibraryBackgroundId} options={[{ label: gt('No library background'), value: '' }, ...backgroundOptions.map((asset) => ({ label: asset.label, value: asset.id }))]} value={libraryBackgroundId} /></Field> : null}
+        {backgroundAsset.asset || selectedBackground ? (
           <div className='flex flex-col gap-4 border-t border-border pt-4'>
             <p className='text-xs font-semibold'><T>Background image</T></p>
             <RangeField label={<T>Opacity</T>} max={100} min={0} onChange={setBackgroundOpacity} suffix='%' value={backgroundOpacity} />
@@ -423,6 +467,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           label='Replace logo'
           onFile={logoAsset.select}
         />
+        {logoOptions.length > 0 ? <Field label={<T>Brand logo asset</T>}><StudioSelect ariaLabel='Brand logo asset' onValueChange={setLibraryLogoId} options={logoOptions.map((asset) => ({ label: asset.label, value: asset.id }))} value={libraryLogoId} /></Field> : null}
         <UploadField
           accept='.otf,.ttf,.woff,.woff2,font/*'
           fileName={customFont.font?.name}
@@ -452,19 +497,19 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm'>
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
-          {backgroundAsset.asset ? (
-            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
+          {backgroundAsset.asset || selectedBackground ? (
+            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
           <div
             className='absolute inset-0 flex flex-col justify-between p-[6%]'
-            style={{ color: foreground, fontFamily: customFont.font?.family }}
+            style={{ color: foreground, fontFamily: customFont.font?.family ?? brandTypographyFamily(identity, fontRole), fontWeight }}
           >
             <div className='flex items-center gap-3'>
               <img
                 alt=''
                 className='size-10 object-contain'
                 src={
-                  logoAsset.asset?.url ??
+                  logoAsset.asset?.url ?? selectedLogo?.path ??
                   brandAssetPath(identity, surface === 'dark' ? 'mark-light' : 'mark-dark') ??
                   monogramDataUrl(identity, foreground)
                 }
@@ -772,114 +817,71 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
   );
 }
 
-const FONT_OPTIONS = [
-  { family: 'var(--font-sans)', id: 'geist', name: 'Geist' },
-  { family: 'Inter, Arial, sans-serif', id: 'inter', name: 'Inter' },
-  { family: 'Georgia, serif', id: 'editorial', name: 'Editorial serif' },
-  { family: 'var(--font-mono)', id: 'mono', name: 'Geist Mono' },
-] as const;
+function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandIdentity; onIdentityChange: (identity: BrandIdentity) => void; tool: StudioTool }) {
+  const fonts = brandFontAssets(identity);
 
-type FontOptionId = (typeof FONT_OPTIONS)[number]['id'] | 'custom';
-type FontRole = 'primary' | 'secondary' | 'accent' | 'code';
-
-function TypographyTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
-  const customFont = useCustomFont();
-  const [roles, setRoles] = useStudioDraft<Record<FontRole, FontOptionId>>(
-    identity.id,
-    tool.id,
-    'font-roles',
-    {
-      accent: 'inter',
-      code: 'mono',
-      primary: 'inter',
-      secondary: 'inter',
-    }
-  );
-  const availableFonts = customFont.font
-    ? [...FONT_OPTIONS, { family: customFont.font.family, id: 'custom' as const, name: customFont.font.name }]
-    : [...FONT_OPTIONS];
-
-  function familyFor(role: FontRole): string {
-    const selected = availableFonts.find(({ id }) => id === roles[role]);
-    return selected?.family ?? FONT_OPTIONS[0].family;
-  }
-
-  function changeRole(role: FontRole, value: FontOptionId) {
-    setRoles((current) => ({ ...current, [role]: value }));
+  function updateRole(role: BrandTypography['role'], patch: Partial<BrandTypography>) {
+    onIdentityChange({
+      ...identity,
+      typography: identity.typography.map((font) => font.role === role ? { ...font, ...patch } : font),
+    });
   }
 
   async function loadFont(file: File) {
-    await customFont.select(file);
-    setRoles((current) => ({ ...current, accent: 'custom', primary: 'custom' }));
+    const extension = file.name.split('.').pop()?.toLocaleLowerCase();
+    const format: BrandFontAsset['format'] = extension === 'ttf'
+      ? 'truetype'
+      : extension === 'otf'
+        ? 'opentype'
+        : extension === 'woff'
+          ? 'woff'
+          : 'woff2';
+    const family = file.name.replace(/\.(otf|ttf|woff2?)$/i, '').replace(/[-_]+/g, ' ');
+    const nextFont: BrandFontAsset = {
+      family,
+      fileName: file.name,
+      format,
+      id: `font-${crypto.randomUUID()}`,
+      label: family,
+      path: await readFileDataUrl(file),
+      style: file.name.toLocaleLowerCase().includes('italic') ? 'italic' : 'normal',
+      weight: file.name.toLocaleLowerCase().includes('bold') ? 700 : 400,
+    };
+    onIdentityChange({ ...identity, fonts: [...fonts, nextFont] });
   }
 
   const inspector = (
     <>
-      <ControlSection title={<T>Font selector</T>}>
-        <div className='flex flex-col gap-3'>
-          {(['primary', 'secondary', 'accent', 'code'] as const).map((role) => (
-            <Field key={role} label={role.toLocaleUpperCase()}>
-              <StudioSelect
-                ariaLabel={`${role} font`}
-                className='font-[inherit]'
-                onValueChange={(value) => changeRole(role, value as FontOptionId)}
-                options={availableFonts.map((font) => ({ label: font.name, value: font.id }))}
-                value={roles[role]}
-              />
+      <ControlSection title={<T>Typography roles</T>}>
+        {identity.typography.map((typography) => (
+          <div className='flex flex-col gap-3 border-b border-border pb-4 last:border-b-0 last:pb-0' key={typography.role}>
+            <Field label={typography.role.toLocaleUpperCase()}>
+              <StudioSelect ariaLabel={`${typography.role} font`} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateRole(typography.role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: `${font.label} · ${font.fileName}`, value: font.id }))} value={brandTypographyRole(identity, typography.role).fontId ?? fonts[0]?.id ?? ''} />
             </Field>
-          ))}
-        </div>
-        <UploadField
-          accept='.otf,.ttf,.woff,.woff2,font/*'
-          fileName={customFont.font?.name}
-          label='Add font file'
-          onFile={loadFont}
-        />
-      </ControlSection>
-      <ControlSection title={<T>Roles</T>}>
-        <div className='grid gap-2 font-mono text-xs text-muted-foreground'>
-          {(['primary', 'secondary', 'accent', 'code'] as const).map((role) => (
-            <span key={role}>
-              {role.toLocaleUpperCase()} /{' '}
-              {availableFonts.find(({ id }) => id === roles[role])?.name}
-            </span>
-          ))}
-        </div>
+            <RangeField label={<T>Weight</T>} max={900} min={100} onChange={(weight) => updateRole(typography.role, { weight })} step={50} value={brandTypographyRole(identity, typography.role).weight ?? 400} />
+          </div>
+        ))}
+        <UploadField accept='.otf,.ttf,.woff,.woff2,font/*' label='Add font file to identity' onFile={loadFont} />
       </ControlSection>
     </>
   );
+
+  const display = brandTypographyRole(identity, 'Display');
+  const body = brandTypographyRole(identity, 'Body');
+  const accent = brandTypographyRole(identity, 'Accent');
+  const code = brandTypographyRole(identity, 'Code');
 
   return (
     <ToolShell inspector={inspector} tool={tool}>
       <div className='flex min-h-full flex-col justify-center gap-10 p-8 sm:p-12 lg:p-16'>
         <section className='flex flex-col gap-3 border-b border-border pb-10'>
-          <p className='text-sm uppercase tracking-widest text-muted-foreground'>PRIMARY / DISPLAY</p>
-          <p
-            className='max-w-5xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-balance lg:text-7xl'
-            style={{ fontFamily: familyFor('primary') }}
-          >
-            {identity.tagline}
-          </p>
-          <p
-            className='text-2xl text-muted-foreground'
-            style={{ fontFamily: familyFor('accent') }}
-          >
-            {identity.greetings.join(' · ')}
-          </p>
+          <p className='text-sm uppercase tracking-widest text-muted-foreground'>DISPLAY / {brandTypographyFamily(identity, 'Display')}</p>
+          <p className='max-w-5xl text-5xl text-balance lg:text-7xl' style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight, letterSpacing: `${display.letterSpacing}px`, lineHeight: display.lineHeight }}>{identity.tagline}</p>
+          <p className='text-2xl text-muted-foreground' style={{ fontFamily: brandTypographyFamily(identity, 'Accent'), fontWeight: accent.weight, letterSpacing: `${accent.letterSpacing}px`, lineHeight: accent.lineHeight }}>{identity.greetings.join(' · ')}</p>
         </section>
         <div className='grid gap-8 md:grid-cols-2'>
-          <section className='flex flex-col gap-3' style={{ fontFamily: familyFor('secondary') }}>
-            <p className='text-sm font-semibold'>SECONDARY / BODY</p>
-            <p className='max-w-xl text-lg leading-8 text-muted-foreground'>
-              {identity.positioning}
-            </p>
-          </section>
-          <section className='flex flex-col gap-3' style={{ fontFamily: familyFor('code') }}>
-            <p className='text-sm font-semibold'>CODE / MONO</p>
-            <p className='rounded-md bg-foreground p-5 text-sm leading-6 text-background'>
-              $ npx {identity.id} translate --locales es,ja,ar
-            </p>
-          </section>
+          <section className='flex flex-col gap-3' style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: body.weight, letterSpacing: `${body.letterSpacing}px`, lineHeight: body.lineHeight }}><p className='text-sm font-semibold'>BODY / {brandTypographyFamily(identity, 'Body')}</p><p className='max-w-xl text-lg text-muted-foreground'>{identity.positioning}</p></section>
+          <section className='flex flex-col gap-3' style={{ fontFamily: brandTypographyFamily(identity, 'Code'), fontWeight: code.weight, letterSpacing: `${code.letterSpacing}px`, lineHeight: code.lineHeight }}><p className='text-sm font-semibold'>CODE / {brandTypographyFamily(identity, 'Code')}</p><p className='rounded-md bg-foreground p-5 text-sm text-background'>$ npx {identity.id} translate --locales es,ja,ar</p></section>
         </div>
       </div>
     </ToolShell>
@@ -906,6 +908,19 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
     'title',
     identity.voice.phrases[0] ?? identity.tagline
   );
+  const [titleFontRole, setTitleFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'title-font-role', 'Display');
+  const [titleFontWeight, setTitleFontWeight] = useStudioDraft(identity.id, tool.id, 'title-font-weight', brandTypographyRole(identity, 'Display').weight ?? 700);
+  const [codeFontRole, setCodeFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'code-font-role', 'Code');
+  const [codeFontWeight, setCodeFontWeight] = useStudioDraft(identity.id, tool.id, 'code-font-weight', brandTypographyRole(identity, 'Code').weight ?? 450);
+  const terminalAssets = [...identity.assets, ...identity.proofAssets].filter((asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf'));
+  const defaultTerminalAsset = terminalAssets.find(({ type }) => type === 'background');
+  const [terminalAssetId, setTerminalAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', defaultTerminalAsset?.id ?? 'none');
+  const [terminalAssetOpacity, setTerminalAssetOpacity] = useStudioDraft(identity.id, tool.id, 'asset-opacity', 14);
+  const terminalAsset = terminalAssets.find(({ id }) => id === terminalAssetId);
+  const titleTypography = brandTypographyRole(identity, titleFontRole);
+  const codeTypography = brandTypographyRole(identity, codeFontRole);
+  const titleFont = brandFontAssets(identity).find(({ id }) => id === titleTypography.fontId);
+  const codeFont = brandFontAssets(identity).find(({ id }) => id === codeTypography.fontId);
   const [exporting, setExporting] = useState(false);
   const highlightedLines = useMemo(() => highlightCode(code, language), [code, language]);
 
@@ -917,6 +932,15 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   async function exportTerminal() {
     setExporting(true);
     try {
+      const [titleFontData, codeFontData, assetData] = await Promise.all([
+        titleFont ? imageUrlToDataUrl(titleFont.path) : undefined,
+        codeFont ? imageUrlToDataUrl(codeFont.path) : undefined,
+        terminalAsset ? imageUrlToDataUrl(terminalAsset.path) : undefined,
+      ]);
+      const fontDefinitions = `<style>${titleFontData ? `@font-face{font-family:'StudioTerminalTitle';src:url('${titleFontData}')}` : ''}${codeFontData ? `@font-face{font-family:'StudioTerminalCode';src:url('${codeFontData}')}` : ''}</style>`;
+      const assetLayer = assetData
+        ? `<image href="${assetData}" width="1200" height="630" preserveAspectRatio="xMidYMid slice" opacity="${terminalAssetOpacity / 100}"/>`
+        : '';
       const codeSvg = highlightedLines
         .slice(0, 12)
         .map(
@@ -929,11 +953,11 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
                   )
                   .join('')
               : '<tspan> </tspan>';
-            return `<text x="92" y="${236 + index * 34}" fill="${CODE_THEME.foreground}" font-family="Geist Mono, monospace" font-size="21" xml:space="preserve">${tokens}</text>`;
+            return `<text x="92" y="${236 + index * 34}" fill="${CODE_THEME.foreground}" font-family="${codeFontData ? 'StudioTerminalCode' : escapeXml(brandTypographyFamily(identity, codeFontRole))}" font-size="21" font-weight="${codeFontWeight}" xml:space="preserve">${tokens}</text>`;
           }
         )
         .join('');
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="${CODE_THEME.background}"/><text x="72" y="90" fill="${CODE_THEME.foreground}" font-family="Inter, sans-serif" font-size="42" font-weight="700">${escapeXml(title)}</text><text x="72" y="136" fill="${CODE_THEME.gutter}" font-family="Geist Mono, monospace" font-size="17">${language.toLocaleUpperCase()}</text><rect x="72" y="174" width="1056" height="388" rx="8" fill="${CODE_THEME.background}" stroke="${CODE_THEME.border}"/>${codeSvg}</svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs>${fontDefinitions}</defs><rect width="1200" height="630" fill="${CODE_THEME.background}"/>${assetLayer}<text x="72" y="90" fill="${CODE_THEME.foreground}" font-family="${titleFontData ? 'StudioTerminalTitle' : escapeXml(brandTypographyFamily(identity, titleFontRole))}" font-size="42" font-weight="${titleFontWeight}">${escapeXml(title)}</text><text x="72" y="136" fill="${CODE_THEME.gutter}" font-family="${codeFontData ? 'StudioTerminalCode' : escapeXml(brandTypographyFamily(identity, codeFontRole))}" font-size="17" font-weight="${codeFontWeight}">${language.toLocaleUpperCase()}</text><rect x="72" y="174" width="1056" height="388" rx="8" fill="${CODE_THEME.background}" stroke="${CODE_THEME.border}"/>${codeSvg}</svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-terminal.png');
     } finally {
       setExporting(false);
@@ -957,6 +981,16 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
       <ControlSection title={<T>Source</T>}>
         <textarea className={`${TEXTAREA_CLASS} min-h-56 font-mono`} onChange={(event) => setCode(event.target.value)} spellCheck={false} value={code} />
       </ControlSection>
+      <ControlSection title={<T>Typography</T>}>
+        <Field label={<T>Title font</T>}><StudioSelect ariaLabel='Terminal title font' onValueChange={(value) => { const role = value as BrandTypography['role']; setTitleFontRole(role); setTitleFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={titleFontRole} /></Field>
+        <RangeField label={<T>Title weight</T>} max={900} min={100} onChange={setTitleFontWeight} step={50} value={titleFontWeight} />
+        <Field label={<T>Code font</T>}><StudioSelect ariaLabel='Terminal code font' onValueChange={(value) => { const role = value as BrandTypography['role']; setCodeFontRole(role); setCodeFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={codeFontRole} /></Field>
+        <RangeField label={<T>Code weight</T>} max={900} min={100} onChange={setCodeFontWeight} step={50} value={codeFontWeight} />
+      </ControlSection>
+      <ControlSection title={<T>Brand asset</T>}>
+        <Field label={<T>Card background</T>}><StudioSelect ariaLabel='Terminal card background' onValueChange={setTerminalAssetId} options={[{ label: 'None', value: 'none' }, ...terminalAssets.map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id }))]} value={terminalAsset?.id ?? 'none'} /></Field>
+        {terminalAsset ? <RangeField label={<T>Asset opacity</T>} max={100} min={0} onChange={setTerminalAssetOpacity} value={terminalAssetOpacity} /> : null}
+      </ControlSection>
     </>
   );
 
@@ -972,11 +1006,12 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
       tool={tool}
     >
       <div className='grid min-h-full place-items-center p-8 lg:p-14'>
-        <div className='w-full max-w-4xl overflow-hidden rounded-lg border border-white/10 bg-[#0D1117] text-[#E6EDF3] shadow-[0_18px_60px_rgba(0,0,0,0.18)]'>
-          <div className='flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4'>
+        <div className='relative w-full max-w-4xl overflow-hidden rounded-lg border border-white/10 bg-[#0D1117] text-[#E6EDF3] shadow-[0_18px_60px_rgba(0,0,0,0.18)]'>
+          {terminalAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={terminalAsset.path} style={{ opacity: terminalAssetOpacity / 100 }} /> : null}
+          <div className='relative flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4'>
             <div className='flex flex-col gap-1'>
-              <h2 className='text-lg font-semibold'>{title}</h2>
-              <p className='font-mono text-[10px] uppercase tracking-widest text-[#8B949E]'>
+              <h2 className='text-lg' style={{ fontFamily: brandTypographyFamily(identity, titleFontRole), fontWeight: titleFontWeight }}>{title}</h2>
+              <p className='text-[10px] uppercase tracking-widest text-[#8B949E]' style={{ fontFamily: brandTypographyFamily(identity, codeFontRole), fontWeight: codeFontWeight }}>
                 {language}
               </p>
             </div>
@@ -986,7 +1021,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
               <span className='size-1.5 rounded-full bg-white/20' />
             </div>
           </div>
-          <pre className='min-h-72 overflow-auto bg-[#0D1117] p-6 font-mono text-sm leading-7'>
+          <pre className='relative min-h-72 overflow-auto bg-[#0D1117]/90 p-6 text-sm leading-7' style={{ fontFamily: brandTypographyFamily(identity, codeFontRole), fontWeight: codeFontWeight }}>
             {highlightedLines.map((line, index) => (
               <span className='grid grid-cols-[28px_1fr] gap-4' key={`${index}-${line.tokens.map(({ content }) => content).join('')}`}>
                 <span className='select-none text-right text-[#6E7681]'>{index + 1}</span>
@@ -1058,6 +1093,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const gt = useGT();
   const partnerAsset = useLocalAsset();
   const backgroundAsset = useLocalAsset();
+  const backgroundOptions = identity.assets.filter(({ type }) => type === 'background' || type === 'image' || type === 'product' || type === 'texture');
   const partnerOptions = useMemo(() => templatePartnerOptions(identity), [identity]);
   const initialPartner = defaultTemplatePartner(identity);
   const [partnerId, setPartnerId] = useStudioDraft(
@@ -1104,6 +1140,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     'white'
   );
   const [textureOpacity, setTextureOpacity] = useStudioDraft(identity.id, tool.id, 'texture-opacity', 100);
+  const [libraryBackgroundId, setLibraryBackgroundId] = useStudioDraft(identity.id, tool.id, 'library-background', backgroundOptions[0]?.id ?? '');
+  const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Display');
+  const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Display').weight ?? 700);
   const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'background-opacity', 28);
   const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'background-x', 0);
   const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'background-y', 0);
@@ -1126,7 +1165,10 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const width = isSlide ? 1600 : 1200;
   const height = isSlide ? 900 : kind === 'blog' ? 630 : 600;
   const brandLogo = templateBrandLogo(identity, kind, isDark);
-  const displayFont = identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Inter';
+  const displayFont = brandTypographyFamily(identity, fontRole);
+  const selectedTypography = brandTypographyRole(identity, fontRole);
+  const selectedFont = brandFontAssets(identity).find(({ id }) => id === selectedTypography.fontId);
+  const selectedBackground = backgroundOptions.find(({ id }) => id === libraryBackgroundId);
   const brandLogoSource = brandLogo?.path ?? monogramDataUrl(identity, foreground);
   const partnerLogoSource = partnerAsset.asset?.url ?? selectedPartner.path;
 
@@ -1141,7 +1183,10 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         : null;
       const backgroundImage = backgroundAsset.asset
         ? await imageUrlToDataUrl(backgroundAsset.asset.url)
-        : null;
+        : selectedBackground
+          ? await imageUrlToDataUrl(selectedBackground.path)
+          : null;
+      const fontData = selectedFont ? await imageUrlToDataUrl(selectedFont.path) : null;
       const svg = buildTemplateSvg({
         background,
         backgroundImage,
@@ -1156,6 +1201,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         brandLogoY,
         eyebrow,
         foreground,
+        fontData,
+        fontFamily: displayFont,
+        fontWeight,
         height,
         identityName: identity.name,
         imageTreatment: identity.style.imageTreatment,
@@ -1188,6 +1236,8 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
         {kind === 'slides' ? <Field label={<T>Body or list · one item per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => setBody(event.target.value)} value={body} /></Field> : null}
+        <Field label={<T>Typography role</T>}><StudioSelect ariaLabel='Template typography role' onValueChange={(value) => { const role = value as BrandTypography['role']; setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
+        <RangeField label={<T>Font weight</T>} max={900} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
       </ControlSection>
       {kind === 'slides' ? <ControlSection title={<T>Slide library</T>}>
         <div className='grid grid-cols-2 gap-2'>
@@ -1211,8 +1261,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           label='Add background image'
           onFile={backgroundAsset.select}
         />
+        {backgroundOptions.length > 0 ? <Field label={<T>Brand background asset</T>}><StudioSelect ariaLabel='Brand background asset' onValueChange={setLibraryBackgroundId} options={[{ label: gt('No library background'), value: '' }, ...backgroundOptions.map((asset) => ({ label: asset.label, value: asset.id }))]} value={libraryBackgroundId} /></Field> : null}
         {texture === 'grid' || texture === 'noise' ? <RangeField label={<T>Texture opacity</T>} max={100} min={0} onChange={setTextureOpacity} suffix='%' value={textureOpacity} /> : null}
-        {backgroundAsset.asset ? (
+        {backgroundAsset.asset || selectedBackground ? (
           <div className='flex flex-col gap-4 border-t border-border pt-4'>
             <p className='text-xs font-semibold'><T>Background image</T></p>
             <RangeField label={<T>Opacity</T>} max={100} min={0} onChange={setBackgroundOpacity} suffix='%' value={backgroundOpacity} />
@@ -1273,10 +1324,10 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       <CanvasViewport identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
           className={`artifact-preview ratio-safe template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
-          style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, borderRadius: kind === 'slides' ? 0 : identity.style.borderRadius, color: foreground, fontFamily: displayFont }}
+          style={{ aspectRatio: `${width} / ${height}`, backgroundColor: background, borderRadius: kind === 'slides' ? 0 : identity.style.borderRadius, color: foreground, fontFamily: displayFont, fontWeight }}
         >
-          {backgroundAsset.asset ? (
-            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset.url} style={{ filter: identity.style.imageTreatment === 'monochrome' ? 'grayscale(1) contrast(1.08)' : identity.style.imageTreatment === 'duotone' ? 'grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.6)' : undefined, opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
+          {backgroundAsset.asset || selectedBackground ? (
+            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ filter: identity.style.imageTreatment === 'monochrome' ? 'grayscale(1) contrast(1.08)' : identity.style.imageTreatment === 'duotone' ? 'grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.6)' : undefined, opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
           {texture === 'grid' || texture === 'noise' ? <div className={`template-texture-layer template-surface-${texture} absolute inset-0`} style={{ opacity: textureOpacity / 100 }} /> : null}
           <div className='template-artboard-content absolute inset-0 flex flex-col justify-between'>
@@ -1356,6 +1407,13 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     'size',
     'default'
   );
+  const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Body');
+  const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Body').weight ?? 400);
+  const componentAssets = [...identity.assets, ...identity.proofAssets].filter((asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf'));
+  const defaultComponentAsset = componentAssets.find(({ type }) => type === 'background');
+  const [componentAssetId, setComponentAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', defaultComponentAsset?.id ?? 'none');
+  const [componentAssetOpacity, setComponentAssetOpacity] = useStudioDraft(identity.id, tool.id, 'asset-opacity', 10);
+  const componentAsset = componentAssets.find(({ id }) => id === componentAssetId);
   const resolvedDensity = useBrandDefaults ? identity.style.density : density;
   const resolvedRadius = useBrandDefaults ? identity.style.borderRadius : radius;
   const selectedPattern =
@@ -1478,6 +1536,12 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
           />
         </label>
       </ControlSection>
+      <ControlSection title={<T>Brand expression</T>}>
+        <Field label={<T>Font role</T>}><StudioSelect ariaLabel='Component font role' onValueChange={(value) => { const role = value as BrandTypography['role']; setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
+        <RangeField label={<T>Font weight</T>} max={900} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
+        <Field label={<T>Shared asset</T>}><StudioSelect ariaLabel='Component shared asset' onValueChange={setComponentAssetId} options={[{ label: 'None', value: 'none' }, ...componentAssets.map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id }))]} value={componentAsset?.id ?? 'none'} /></Field>
+        {componentAsset ? <RangeField label={<T>Asset opacity</T>} max={100} min={0} onChange={setComponentAssetOpacity} value={componentAssetOpacity} /> : null}
+      </ControlSection>
       <ControlSection title={<T>Included</T>}>
         <div className='grid grid-cols-2 gap-2 text-xs'>
           {COMPONENT_PATTERNS.map((item) => (
@@ -1504,11 +1568,12 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     <ToolShell inspector={inspector} tool={tool}>
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
-          className={`component-library-demo component-density-${resolvedDensity} mx-auto w-full max-w-5xl border border-border shadow-sm`}
+          className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden border border-border shadow-sm`}
           data-surface={surface}
-          style={componentPreviewStyle(resolvedRadius, identity)}
+          style={{ ...componentPreviewStyle(resolvedRadius, identity), fontFamily: brandTypographyFamily(identity, fontRole), fontWeight }}
         >
-          <header className='flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
+          {componentAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={componentAsset.path} style={{ opacity: componentAssetOpacity / 100 }} /> : null}
+          <header className='relative z-10 flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
             <div>
               <p className='text-sm font-semibold'>{gt(selectedPatternConfig.label)}</p>
               <p className='mt-1 text-xs capitalize opacity-55'>{family} · {resolvedDensity}</p>
@@ -1517,14 +1582,16 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
               {COMPONENT_PATTERNS.length} <T>patterns</T> · {COMPONENT_FAMILY_OPTIONS.length} <T>families</T>
             </span>
           </header>
-          <ComponentLibraryPreview
-            disabled={disabled}
-            identity={identity}
-            label={label}
-            pattern={selectedPattern}
-            size={size}
-            supportingCopy={supportingCopy}
-          />
+          <div className='relative z-10'>
+            <ComponentLibraryPreview
+              disabled={disabled}
+              identity={identity}
+              label={label}
+              pattern={selectedPattern}
+              size={size}
+              supportingCopy={supportingCopy}
+            />
+          </div>
         </div>
       </div>
     </ToolShell>
@@ -1568,7 +1635,7 @@ export default function StudioToolWorkspace({
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,
     terminal: <TerminalTool identity={identity} tool={tool} />,
-    typography: <TypographyTool identity={identity} tool={tool} />,
+    typography: <TypographyTool identity={identity} onIdentityChange={onIdentityChange} tool={tool} />,
   };
 
   return renderers[tool.id] ?? <ToolPlaceholder tool={tool} />;

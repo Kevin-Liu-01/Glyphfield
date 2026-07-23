@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs><radialGradient id="g"><stop stop-color="#e9e5ff"/><stop offset=".18" stop-color="#7c5cff"/><stop offset=".55" stop-color="#3010a8"/><stop offset="1" stop-color="#070510"/></radialGradient><filter id="n"><feTurbulence baseFrequency=".65" numOctaves="2" seed="4"/><feComponentTransfer><feFuncA type="table" tableValues="0 .16"/></feComponentTransfer></filter></defs>
+  <rect width="1600" height="1000" fill="url(#g)"/>
+  <g stroke="#2bfdd2" stroke-opacity=".42"><path d="M0 80 800 500 1600 80M0 920 800 500l800 420M270 0l530 500L1330 0M270 1000l530-500 530 500"/></g>
+  <rect width="1600" height="1000" filter="url(#n)"/>
+</svg>

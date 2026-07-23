@@ -37,4 +37,19 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('data-dither-matrix="4"');
     expect(svg.match(/<circle /g)?.length).toBeGreaterThan(100);
   });
+
+  it('composes a reusable identity asset below the logo', () => {
+    const svg = buildBackgroundSvg(DEFAULT_BACKGROUND_SETTINGS, {
+      asset: 'data:image/svg+xml;base64,FIELD',
+      assetFit: 'contain',
+      assetOpacity: 35,
+      logo: 'data:image/svg+xml;base64,MARK',
+      name: 'GT',
+    });
+
+    expect(svg).toContain('href="data:image/svg+xml;base64,FIELD"');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(svg).toContain('opacity="0.35"');
+    expect(svg.indexOf('base64,FIELD')).toBeLessThan(svg.indexOf('base64,MARK'));
+  });
 });

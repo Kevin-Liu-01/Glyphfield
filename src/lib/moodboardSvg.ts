@@ -62,7 +62,7 @@ function color(identity: BrandIdentity, id: string, fallback: string): string {
 
 function embeddedFont(name: string, source: string | undefined): string {
   if (!source) return '';
-  return `@font-face{font-family:'${name}';src:url('${escapeXml(source)}') format('woff2');font-style:normal;font-weight:100 900;font-display:block;}`;
+  return `@font-face{font-family:'${name}';src:url('${escapeXml(source)}');font-style:normal;font-weight:100 900;font-display:block;}`;
 }
 
 function logo(

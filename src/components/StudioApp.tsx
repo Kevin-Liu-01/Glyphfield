@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 
 import AnimationStudio from '@/components/AnimationStudio';
+import BrandFontFaces from '@/components/BrandFontFaces';
 import StudioToolWorkspace from '@/components/StudioToolWorkspace';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -81,7 +82,7 @@ const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
 
 const PROJECTS_STORAGE_KEY = 'glyphfield-projects-v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'glyphfield-active-project-v1';
-const ACTIVE_TOOL_STORAGE_KEY = 'glyphfield-active-tool-v1';
+const ACTIVE_TOOL_STORAGE_KEY = 'glyphfield-active-tool-v2';
 const ACTIVE_FOLDER_STORAGE_KEY = 'glyphfield-active-folder-v1';
 const OPEN_TABS_STORAGE_KEY = 'glyphfield-open-tabs-v1';
 const APPEARANCE_STORAGE_KEY = 'glyphfield-appearance-v1';
@@ -606,7 +607,7 @@ export default function StudioApp() {
     getSystemThemeSnapshot,
     getServerThemeSnapshot
   );
-  const [activeToolId, setActiveToolId] = useState<StudioToolId>('brand-elements');
+  const [activeToolId, setActiveToolId] = useState<StudioToolId>('identity');
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
   );
@@ -962,6 +963,7 @@ export default function StudioApp() {
       data-theme={resolvedAppearance.theme}
       data-resolved-theme={resolvedTheme}
     >
+      <BrandFontFaces identity={activeIdentity} />
       <header className='studio-app-header border-b border-border bg-background'>
         <Link
           className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'

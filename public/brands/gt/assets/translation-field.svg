@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#fff"/>
+  <defs><pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2" fill="#181818" opacity=".12"/></pattern></defs>
+  <rect width="1600" height="1000" fill="url(#dots)"/>
+  <path d="M110 110h300v38H148v262h-38zm1080 0h300v300h-38V148h-262v-38zM110 590h38v262h262v38H110zm1342 0h38v300h-300v-38h262z" fill="#181818"/>
+  <text x="800" y="540" text-anchor="middle" font-family="Arial,sans-serif" font-size="116" font-weight="700" fill="#181818">Welcome · 你好 · أهلاً</text>
+  <text x="800" y="620" text-anchor="middle" font-family="monospace" font-size="24" fill="#181818" opacity=".42">ONE SOURCE OF TRUTH / EVERY LANGUAGE</text>
+</svg>

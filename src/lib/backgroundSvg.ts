@@ -107,7 +107,13 @@ function ditherField(settings: BackgroundSettings): string {
 
 export function buildBackgroundSvg(
   settings: BackgroundSettings,
-  identity?: { logo?: string; name: string }
+  identity?: {
+    asset?: string;
+    assetFit?: 'contain' | 'cover';
+    assetOpacity?: number;
+    logo?: string;
+    name: string;
+  }
 ): string {
   const radians = (settings.angle * Math.PI) / 180;
   const x1 = 50 - Math.cos(radians) * 50;
@@ -142,6 +148,9 @@ export function buildBackgroundSvg(
     : identity
       ? `<text x="${settings.width / 2 + (settings.logoX / 100) * settings.width}" y="${settings.height * 0.52 + (settings.logoY / 100) * settings.height}" text-anchor="middle" dominant-baseline="middle" fill="${settings.logoTone === 'white' ? '#FFFFFF' : '#000000'}" opacity="${settings.logoOpacity / 100}" font-family="Inter,sans-serif" font-size="${markSize * 0.42}" font-weight="800" letter-spacing="-.06em">${identity.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</text>`
       : '';
+  const brandAsset = identity?.asset
+    ? `<image href="${identity.asset.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" width="100%" height="100%" preserveAspectRatio="xMidYMid ${identity.assetFit === 'contain' ? 'meet' : 'slice'}" opacity="${Math.max(0, Math.min(1, (identity.assetOpacity ?? 100) / 100))}"/>`
+    : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}</defs>${surface}${grainLayer}${patternLayer}${mark}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark}</svg>`;
 }

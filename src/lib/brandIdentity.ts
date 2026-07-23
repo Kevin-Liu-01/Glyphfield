@@ -17,7 +17,8 @@ export type BrandAsset = {
   label: string;
   path: string;
   surface: 'light' | 'dark' | 'any';
-  type: 'logo' | 'product' | 'proof';
+  type: 'background' | 'icon' | 'image' | 'logo' | 'product' | 'proof' | 'texture';
+  usage?: string;
 };
 
 export type BrandColor = {
@@ -29,8 +30,25 @@ export type BrandColor = {
 
 export type BrandTypography = {
   family: string;
+  fontId?: string;
+  letterSpacing?: number;
+  lineHeight?: number;
   role: 'Display' | 'Body' | 'Accent' | 'Code';
   usage: string;
+  weight?: number;
+};
+
+export type BrandFontAsset = {
+  family: string;
+  fileName: string;
+  format: 'opentype' | 'truetype' | 'woff' | 'woff2';
+  id: string;
+  label: string;
+  path: string;
+  style: 'italic' | 'normal';
+  weight: number;
+  weightMax?: number;
+  weightMin?: number;
 };
 
 export type BrandMotion = {
@@ -100,6 +118,7 @@ export type BrandIdentity = {
   colors: BrandColor[];
   contactEmail: string;
   description: string;
+  fonts?: BrandFontAsset[];
   greetings: string[];
   graphicSystem: BrandGraphicSystem;
   id: string;
@@ -127,6 +146,89 @@ export type BrandIdentity = {
   values: string[];
   website: string;
 };
+
+export const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
+  {
+    family: 'Inter',
+    fileName: 'Inter-Variable.ttf',
+    format: 'truetype',
+    id: 'inter-variable',
+    label: 'Inter Variable',
+    path: '/fonts/inter-variable.ttf',
+    style: 'normal',
+    weight: 400,
+    weightMax: 900,
+    weightMin: 100,
+  },
+  {
+    family: 'Geist Mono',
+    fileName: 'GeistMono-Variable.ttf',
+    format: 'truetype',
+    id: 'geist-mono-variable',
+    label: 'Geist Mono Variable',
+    path: '/fonts/geist-mono-variable.ttf',
+    style: 'normal',
+    weight: 400,
+    weightMax: 900,
+    weightMin: 100,
+  },
+];
+
+function defaultFontId(family: string): string {
+  return family.toLocaleLowerCase().includes('mono')
+    ? 'geist-mono-variable'
+    : 'inter-variable';
+}
+
+function normalizeTypography(font: BrandTypography): BrandTypography {
+  return {
+    ...font,
+    fontId: font.fontId ?? defaultFontId(font.family),
+    letterSpacing: font.letterSpacing ?? (font.role === 'Display' ? -3 : 0),
+    lineHeight: font.lineHeight ?? (font.role === 'Display' ? 0.96 : 1.5),
+    weight: font.weight ?? (font.role === 'Display' ? 700 : font.role === 'Code' ? 450 : 400),
+  };
+}
+
+export function brandFontAssets(identity: BrandIdentity): BrandFontAsset[] {
+  return identity.fonts?.length
+    ? identity.fonts
+    : DEFAULT_BRAND_FONT_ASSETS.map((font) => ({ ...font }));
+}
+
+export function brandTypographyRole(
+  identity: BrandIdentity,
+  role: BrandTypography['role']
+): BrandTypography {
+  const matching = identity.typography.find((font) => font.role === role)
+    ?? identity.typography[0]
+    ?? {
+      family: 'Inter',
+      role,
+      usage: 'Brand typography',
+    };
+  return normalizeTypography(matching);
+}
+
+export function brandTypographyFamily(
+  identity: BrandIdentity,
+  role: BrandTypography['role']
+): string {
+  const typography = brandTypographyRole(identity, role);
+  return brandFontAssets(identity).find((font) => font.id === typography.fontId)?.family
+    ?? typography.family;
+}
+
+export function brandFontFaceCss(identity: BrandIdentity): string {
+  return brandFontAssets(identity)
+    .map((font) => {
+      const weight = font.weightMin !== undefined && font.weightMax !== undefined
+        ? `${font.weightMin} ${font.weightMax}`
+        : String(font.weight);
+      return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)});font-style:${font.style};font-weight:${weight};font-display:swap;}`;
+    })
+    .join('');
+}
 
 const PIXEL_GLYPHS: Record<string, string> = {
   '0': '111/101/101/101/111',
@@ -271,6 +373,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     audiences: [...(identity.audiences ?? [])],
     colors: (identity.colors ?? []).map((color) => ({ ...color })),
     contactEmail: identity.contactEmail ?? '',
+    fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
     graphicSystem: {
       ...STARTER_BRAND_IDENTITY.graphicSystem,
@@ -298,7 +401,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
         ...(identity.strategy?.pillars ?? STARTER_BRAND_IDENTITY.strategy.pillars),
       ],
     },
-    typography: (identity.typography ?? []).map((font) => ({ ...font })),
+    typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
     voice: {
       avoid: [...(identity.voice?.avoid ?? [])],
@@ -355,6 +458,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     colors: GT_BRAND_IDENTITY.colors.map((color) => ({ ...color })),
     contactEmail: '',
     description: 'A local brand identity ready for assets, tokens, motion, and repeatable graphics.',
+    fonts: DEFAULT_BRAND_FONT_ASSETS.map((font) => ({ ...font })),
     greetings: ['Welcome'],
     graphicSystem: {
       composition: 'Choose a consistent layout behavior for this identity.',
@@ -387,7 +491,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
       promise: 'Write the durable promise this brand makes.',
     },
     tagline: 'Add a clear brand line.',
-    typography: GT_BRAND_IDENTITY.typography.map((font) => ({ ...font })),
+    typography: GT_BRAND_IDENTITY.typography.map(normalizeTypography),
     voice: {
       avoid: [],
       phrases: [],

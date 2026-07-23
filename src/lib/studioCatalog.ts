@@ -1,4 +1,5 @@
 export type StudioToolCategory =
+  | 'Brand'
   | 'Elements'
   | 'Boards'
   | 'Motion'
@@ -33,6 +34,7 @@ export type StudioTool = {
 };
 
 export const STUDIO_CATEGORIES: readonly StudioToolCategory[] = [
+  'Brand',
   'Elements',
   'Boards',
   'Motion',
@@ -42,6 +44,14 @@ export const STUDIO_CATEGORIES: readonly StudioToolCategory[] = [
 ];
 
 export const STUDIO_TOOLS: readonly StudioTool[] = [
+  {
+    category: 'Brand',
+    description: 'Edit the shared identity, asset library, font files, colors, voice, strategy, and system defaults used everywhere.',
+    id: 'identity',
+    keywords: ['brand settings', 'identity', 'assets', 'asset library', 'fonts', 'font upload', 'colors', 'typography', 'logos', 'strategy', 'voice', 'foundations'],
+    name: 'Brand identity',
+    shortcut: 'I',
+  },
   {
     category: 'Elements',
     description: 'Apply the active identity across digital, developer, social, editorial, event, and physical touchpoints.',
@@ -97,14 +107,6 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     keywords: ['open graph', 'og image', 'social preview', 'font upload', 'logo upload'],
     name: 'OpenGraph',
     shortcut: 'O',
-  },
-  {
-    category: 'Foundations',
-    description: 'Edit the shared identity source used by every template, component, board, and export.',
-    id: 'identity',
-    keywords: ['brand settings', 'identity', 'name', 'tagline', 'voice', 'colors', 'typography', 'logos', 'foundations'],
-    name: 'Brand settings',
-    shortcut: 'I',
   },
   {
     category: 'Foundations',

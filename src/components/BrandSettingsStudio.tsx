@@ -2,34 +2,115 @@
 
 import { useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
-import { ImagePlus } from 'lucide-react';
+import {
+  Check,
+  Download,
+  Files,
+  Layers3,
+  MessageSquareText,
+  Palette,
+  SlidersHorizontal,
+  Trash2,
+  Type,
+  Upload,
+} from 'lucide-react';
 
+import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
+import {
+  brandAssetPath,
+  brandFontAssets,
+  brandTypographyFamily,
+  brandTypographyRole,
+  type BrandAsset,
+  type BrandFontAsset,
+  type BrandIdentity,
+  type BrandTypography,
+} from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const INPUT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
+  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
 const TEXTAREA_CLASS =
-  'min-h-24 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
+  'min-h-28 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
 
-function SettingField({ children, label }: { children: ReactNode; label: ReactNode }) {
+type IdentitySection = 'overview' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
+
+const SECTIONS: readonly {
+  icon: typeof Layers3;
+  id: IdentitySection;
+  label: string;
+}[] = [
+  { icon: Layers3, id: 'overview', label: 'Overview' },
+  { icon: Files, id: 'assets', label: 'Asset library' },
+  { icon: Type, id: 'typography', label: 'Typography' },
+  { icon: Palette, id: 'colors', label: 'Color system' },
+  { icon: MessageSquareText, id: 'voice', label: 'Voice & strategy' },
+  { icon: SlidersHorizontal, id: 'system', label: 'System defaults' },
+];
+
+const ASSET_TYPES: readonly BrandAsset['type'][] = [
+  'logo',
+  'background',
+  'texture',
+  'image',
+  'icon',
+  'product',
+  'proof',
+];
+
+const TYPOGRAPHY_ROLES: readonly BrandTypography['role'][] = [
+  'Display',
+  'Body',
+  'Accent',
+  'Code',
+];
+
+function Field({ children, label }: { children: ReactNode; label: ReactNode }) {
   return (
-    <label className='flex flex-col gap-2 text-sm'>
-      <span className='text-xs text-muted-foreground'>{label}</span>
+    <label className='brand-identity-field'>
+      <span>{label}</span>
       {children}
     </label>
   );
 }
 
-function SettingSection({ children, title }: { children: ReactNode; title: ReactNode }) {
+function Panel({ children, description, title }: { children: ReactNode; description?: ReactNode; title: ReactNode }) {
   return (
-    <section className='flex flex-col gap-4 border-b border-border p-5 last:border-b-0'>
-      <h2 className='text-sm font-semibold'>{title}</h2>
-      {children}
+    <section className='brand-identity-panel'>
+      <header>
+        <h2>{title}</h2>
+        {description ? <p>{description}</p> : null}
+      </header>
+      <div className='brand-identity-panel-content'>{children}</div>
     </section>
+  );
+}
+
+function RangeField({
+  label,
+  max,
+  min,
+  onChange,
+  step = 1,
+  suffix = '',
+  value,
+}: {
+  label: ReactNode;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step?: number;
+  suffix?: string;
+  value: number;
+}) {
+  return (
+    <label className='brand-identity-range'>
+      <span><span>{label}</span><output>{value}{suffix}</output></span>
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
+    </label>
   );
 }
 
@@ -53,6 +134,36 @@ function parseList(value: string): string[] {
   return value.split('\n').map((item) => item.trim()).filter(Boolean);
 }
 
+function fontFormat(file: File): BrandFontAsset['format'] | null {
+  const extension = file.name.split('.').pop()?.toLocaleLowerCase();
+  if (extension === 'ttf') return 'truetype';
+  if (extension === 'otf') return 'opentype';
+  if (extension === 'woff') return 'woff';
+  if (extension === 'woff2') return 'woff2';
+  return null;
+}
+
+function familyFromFileName(fileName: string): string {
+  return fileName
+    .replace(/\.(otf|ttf|woff2?)$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b(variable|regular|medium|semibold|bold|italic)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || 'Uploaded font';
+}
+
+function downloadIdentity(identity: BrandIdentity) {
+  const blob = new Blob([JSON.stringify(identity, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${identity.id}-brand-identity.json`;
+  link.href = url;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function BrandSettingsStudio({
   identity,
   onChange,
@@ -63,7 +174,11 @@ export default function BrandSettingsStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
-  const [assetError, setAssetError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<IdentitySection>('overview');
+  const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const fonts = brandFontAssets(identity);
+  const allAssets = [...identity.assets, ...identity.proofAssets];
   const darkMark = brandAssetPath(identity, 'mark-dark');
   const lightMark = brandAssetPath(identity, 'mark-light');
   const colorPreviews = identity.colors.map((color) => {
@@ -78,202 +193,293 @@ export default function BrandSettingsStudio({
     onChange({ ...identity, ...patch });
   }
 
-  async function replaceMark(file: File, id: 'mark-dark' | 'mark-light') {
-    if (file.size > 1_500_000) {
-      setAssetError(gt('Keep logo files under 1.5 MB so the identity can remain local and portable.'));
+  function updateTypography(role: BrandTypography['role'], patch: Partial<BrandTypography>) {
+    const hasRole = identity.typography.some((font) => font.role === role);
+    const nextTypography = hasRole
+      ? identity.typography.map((font) => font.role === role ? { ...font, ...patch } : font)
+      : [...identity.typography, { ...brandTypographyRole(identity, role), ...patch }];
+    update({ typography: nextTypography });
+  }
+
+  async function addAsset(file: File) {
+    if (file.size > 4_000_000) {
+      setFeedback(gt('Keep image assets under 4 MB so this local identity remains portable.'));
       return;
     }
     try {
-      const path = await readFileAsDataUrl(file);
-      const nextAsset = {
-        id,
-        label: id === 'mark-dark' ? 'Primary dark mark' : 'Primary light mark',
-        path,
-        surface: id === 'mark-dark' ? 'light' as const : 'dark' as const,
-        type: 'logo' as const,
+      const nextAsset: BrandAsset = {
+        id: `asset-${crypto.randomUUID()}`,
+        label: file.name.replace(/\.[^.]+$/, ''),
+        path: await readFileAsDataUrl(file),
+        surface: 'any',
+        type: assetType,
+        usage: assetType === 'background' ? 'Backgrounds, headers, banners, and cards' : 'Reusable brand artwork',
       };
-      update({
-        assets: identity.assets.some((asset) => asset.id === id)
-          ? identity.assets.map((asset) => asset.id === id ? nextAsset : asset)
-          : [...identity.assets, nextAsset],
-      });
-      setAssetError(null);
+      if (assetType === 'proof') update({ proofAssets: [...identity.proofAssets, nextAsset] });
+      else update({ assets: [...identity.assets, nextAsset] });
+      setFeedback(gt('Asset added to the shared library.'));
     } catch {
-      setAssetError(gt('That logo file could not be loaded.'));
+      setFeedback(gt('That asset could not be loaded.'));
     }
   }
 
+  async function addFont(file: File) {
+    const format = fontFormat(file);
+    if (!format) {
+      setFeedback(gt('Choose a TTF, OTF, WOFF, or WOFF2 font file.'));
+      return;
+    }
+    if (file.size > 2_500_000) {
+      setFeedback(gt('Keep font files under 2.5 MB so this local identity remains portable.'));
+      return;
+    }
+    try {
+      const family = familyFromFileName(file.name);
+      const nextFont: BrandFontAsset = {
+        family,
+        fileName: file.name,
+        format,
+        id: `font-${crypto.randomUUID()}`,
+        label: family,
+        path: await readFileAsDataUrl(file),
+        style: file.name.toLocaleLowerCase().includes('italic') ? 'italic' : 'normal',
+        weight: file.name.toLocaleLowerCase().includes('bold') ? 700 : 400,
+      };
+      update({ fonts: [...fonts, nextFont] });
+      setFeedback(gt('Font added. Assign it to any typography role below.'));
+    } catch {
+      setFeedback(gt('That font file could not be loaded.'));
+    }
+  }
+
+  function updateAsset(asset: BrandAsset, patch: Partial<BrandAsset>) {
+    const key = asset.type === 'proof' ? 'proofAssets' : 'assets';
+    update({ [key]: identity[key].map((candidate) => candidate.id === asset.id ? { ...candidate, ...patch } : candidate) });
+  }
+
+  function removeAsset(asset: BrandAsset) {
+    const key = asset.type === 'proof' ? 'proofAssets' : 'assets';
+    update({ [key]: identity[key].filter((candidate) => candidate.id !== asset.id) });
+  }
+
+  function removeFont(fontId: string) {
+    const nextFonts = fonts.filter((font) => font.id !== fontId);
+    update({
+      fonts: nextFonts,
+      typography: identity.typography.map((font) => font.fontId === fontId
+        ? { ...font, fontId: nextFonts[0]?.id, family: nextFonts[0]?.family ?? font.family }
+        : font),
+    });
+  }
+
   return (
-    <div className='tool-shell h-full min-h-0'>
+    <div className='tool-shell brand-identity-shell h-full min-h-0'>
       <header className='tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{gt(tool.name)}</p>
           <p className='truncate text-sm text-muted-foreground'>{gt(tool.description)}</p>
         </div>
+        <div className='flex shrink-0 items-center gap-2'>
+          <span className='hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex'><Check className='size-3.5 text-status-success' aria-hidden='true' /><T>Saved locally</T></span>
+          <Button onClick={() => downloadIdentity(identity)} type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
+        </div>
       </header>
-      <div className='tool-body brand-settings-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
-          <SettingSection title={<T>Identity</T>}>
-            <SettingField label={<T>Brand name</T>}><input className={INPUT_CLASS} onChange={(event) => update({ name: event.target.value })} value={identity.name} /></SettingField>
-            <SettingField label={<T>Short name</T>}><input className={INPUT_CLASS} maxLength={4} onChange={(event) => update({ shortName: event.target.value.toLocaleUpperCase() })} value={identity.shortName} /></SettingField>
-            <SettingField label={<T>Website</T>}><input className={INPUT_CLASS} onChange={(event) => update({ website: event.target.value })} value={identity.website} /></SettingField>
-            <SettingField label={<T>Tagline</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ tagline: event.target.value })} value={identity.tagline} /></SettingField>
-            <SettingField label={<T>Positioning</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ positioning: event.target.value })} value={identity.positioning} /></SettingField>
-            <SettingField label={<T>Description</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ description: event.target.value })} value={identity.description} /></SettingField>
-            <SettingField label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></SettingField>
-            <SettingField label={<T>Contact email</T>}><input className={INPUT_CLASS} onChange={(event) => update({ contactEmail: event.target.value })} type='email' value={identity.contactEmail} /></SettingField>
-            <SettingField label={<T>Social handle</T>}><input className={INPUT_CLASS} onChange={(event) => update({ socialHandle: event.target.value })} value={identity.socialHandle} /></SettingField>
-          </SettingSection>
 
-          <SettingSection title={<T>Strategy</T>}>
-            <SettingField label={<T>Challenge</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, challenge: event.target.value } })} value={identity.strategy.challenge} /></SettingField>
-            <SettingField label={<T>Central concept</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, concept: event.target.value } })} value={identity.strategy.concept} /></SettingField>
-            <SettingField label={<T>Brand promise</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, promise: event.target.value } })} value={identity.strategy.promise} /></SettingField>
-            <SettingField label={<T>Desired outcome</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, outcome: event.target.value } })} value={identity.strategy.outcome} /></SettingField>
-            <SettingField label={<T>Strategic pillars · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, pillars: parseList(event.target.value) } })} value={listValue(identity.strategy.pillars)} /></SettingField>
-            <SettingField label={<T>Personality · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, personality: parseList(event.target.value) } })} value={listValue(identity.strategy.personality)} /></SettingField>
-          </SettingSection>
+      <div className='brand-identity-body'>
+        <nav aria-label={gt('Brand identity sections')} className='brand-identity-nav'>
+          <div className='brand-identity-nav-title'><T>Identity source</T><span>{String(SECTIONS.length).padStart(2, '0')}</span></div>
+          {SECTIONS.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button aria-current={activeSection === section.id ? 'page' : undefined} key={section.id} onClick={() => setActiveSection(section.id)} type='button'>
+                <Icon aria-hidden='true' />
+                <span>{gt(section.label)}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-          <SettingSection title={<T>Graphic system</T>}>
-            <SettingField label={<T>Recognizable device</T>}><input className={INPUT_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, device: event.target.value } })} value={identity.graphicSystem.device} /></SettingField>
-            <SettingField label={<T>Device rationale</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, description: event.target.value } })} value={identity.graphicSystem.description} /></SettingField>
-            <SettingField label={<T>Composition behavior</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, composition: event.target.value } })} value={identity.graphicSystem.composition} /></SettingField>
-            <SettingField label={<T>Image direction</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, imageDirection: event.target.value } })} value={identity.graphicSystem.imageDirection} /></SettingField>
-            <SettingField label={<T>Pattern grammar</T>}>
-              <StudioSelect
-                ariaLabel={gt('Pattern grammar')}
-                onValueChange={(pattern) => update({ graphicSystem: { ...identity.graphicSystem, pattern: pattern as typeof identity.graphicSystem.pattern } })}
-                options={['blocks', 'brackets', 'burst', 'circuit', 'flow', 'grid', 'orbit', 'rays', 'steps', 'wave'].map((pattern) => ({ label: gt(pattern), value: pattern }))}
-                value={identity.graphicSystem.pattern}
-              />
-            </SettingField>
-            <SettingField label={<T>System rules · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, rules: parseList(event.target.value) } })} value={listValue(identity.graphicSystem.rules)} /></SettingField>
-          </SettingSection>
+        <div className='brand-identity-content' role='main'>
+          <section className='brand-identity-masthead'>
+            <div className='brand-identity-masthead-mark'>
+              {darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}
+            </div>
+            <div className='min-w-0'>
+              <p>{identity.kind} identity / {identity.id}</p>
+              <h1 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: brandTypographyRole(identity, 'Display').weight }}>{identity.name}</h1>
+              <span>{identity.tagline}</span>
+            </div>
+            <div className='brand-identity-masthead-counts'>
+              <span><strong>{allAssets.length}</strong><T>Assets</T></span>
+              <span><strong>{fonts.length}</strong><T>Font files</T></span>
+              <span><strong>{identity.colors.length}</strong><T>Colors</T></span>
+            </div>
+          </section>
 
-          <SettingSection title={<T>System defaults</T>}>
-            <SettingField label={<T>Interface density</T>}>
-              <StudioSelect ariaLabel={gt('Interface density')} onValueChange={(density) => update({ style: { ...identity.style, density: density as typeof identity.style.density } })} options={[
-                { label: gt('Compact'), value: 'compact' },
-                { label: gt('Comfortable'), value: 'comfortable' },
-                { label: gt('Spacious'), value: 'spacious' },
-              ]} value={identity.style.density} />
-            </SettingField>
-            <SettingField label={<T>Image treatment</T>}>
-              <StudioSelect ariaLabel={gt('Image treatment')} onValueChange={(imageTreatment) => update({ style: { ...identity.style, imageTreatment: imageTreatment as typeof identity.style.imageTreatment } })} options={[
-                { label: gt('Natural'), value: 'natural' },
-                { label: gt('Monochrome'), value: 'monochrome' },
-                { label: gt('Duotone'), value: 'duotone' },
-              ]} value={identity.style.imageTreatment} />
-            </SettingField>
-            <SettingField label={<T>Construction field</T>}>
-              <StudioSelect ariaLabel={gt('Construction field')} onValueChange={(grid) => update({ style: { ...identity.style, grid: grid as typeof identity.style.grid } })} options={[
-                { label: gt('None'), value: 'none' },
-                { label: gt('Dots'), value: 'dots' },
-                { label: gt('Lines'), value: 'lines' },
-              ]} value={identity.style.grid} />
-            </SettingField>
-            <label className='flex flex-col gap-2 text-sm'>
-              <span className='flex items-center justify-between text-xs text-muted-foreground'><T>Corner radius</T><output>{identity.style.borderRadius}px</output></span>
-              <input className='studio-range' max={32} min={0} onChange={(event) => update({ style: { ...identity.style, borderRadius: Number(event.target.value) } })} type='range' value={identity.style.borderRadius} />
-            </label>
-            <label className='flex flex-col gap-2 text-sm'>
-              <span className='flex items-center justify-between text-xs text-muted-foreground'><T>Default logo scale</T><output>{identity.style.logoScale}%</output></span>
-              <input className='studio-range' max={160} min={40} onChange={(event) => update({ style: { ...identity.style, logoScale: Number(event.target.value) } })} type='range' value={identity.style.logoScale} />
-            </label>
-          </SettingSection>
+          {feedback ? <div className='brand-identity-feedback' role='status'>{feedback}<button aria-label={gt('Dismiss message')} onClick={() => setFeedback(null)} type='button'>×</button></div> : null}
 
-          <SettingSection title={<T>Logos</T>}>
-            {(['mark-dark', 'mark-light'] as const).map((id) => (
-              <label className='flex min-h-20 cursor-pointer items-center gap-3 rounded-md border border-dashed border-input p-3 hover:bg-muted' key={id}>
-                <span className={`grid size-11 place-items-center overflow-hidden border border-border p-2 ${id === 'mark-light' ? 'bg-black' : 'bg-white'}`}>
-                  {brandAssetPath(identity, id) ? <img alt='' className='size-full object-contain' src={brandAssetPath(identity, id)} /> : <ImagePlus className='size-4 text-muted-foreground' />}
-                </span>
-                <span className='min-w-0 flex-1'><span className='block text-sm font-medium'>{id === 'mark-dark' ? <T>Dark mark</T> : <T>Light mark</T>}</span><span className='block text-xs text-muted-foreground'><T>SVG or transparent PNG</T></span></span>
-                <input accept='image/png,image/svg+xml' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceMark(file, id); event.target.value = ''; }} type='file' />
-              </label>
-            ))}
-            {assetError ? <p className='text-xs text-status-error' role='alert'>{assetError}</p> : null}
-          </SettingSection>
-
-          <SettingSection title={<T>Color system</T>}>
-            {identity.colors.map((color, index) => (
-              <div className='flex flex-col gap-2' key={color.id}>
-                <input aria-label={gt('Color name')} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={color.name} />
-                <input aria-label={gt('{name} usage', { name: color.name })} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, role: event.target.value } : item) })} value={color.role} />
-                <ColorControl
-                  ariaLabel={gt('{name} color', { name: color.name })}
-                  label={color.role}
-                  onChange={(hex) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, hex } : item) })}
-                  value={color.hex}
-                />
-              </div>
-            ))}
-          </SettingSection>
-
-          <SettingSection title={<T>Typography</T>}>
-            {identity.typography.map((font, index) => (
-              <div className='grid grid-cols-[72px_minmax(0,1fr)] items-start gap-3' key={`${font.role}-${index}`}>
-                <span className='font-mono text-[10px] uppercase text-muted-foreground'>{font.role}</span>
-                <span className='flex flex-col gap-2'>
-                  <input className={INPUT_CLASS} onChange={(event) => update({ typography: identity.typography.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item) })} value={font.family} />
-                  <input aria-label={gt('{role} font usage', { role: font.role })} className={INPUT_CLASS} onChange={(event) => update({ typography: identity.typography.map((item, itemIndex) => itemIndex === index ? { ...item, usage: event.target.value } : item) })} value={font.usage} />
-                </span>
-              </div>
-            ))}
-          </SettingSection>
-
-          <SettingSection title={<T>Language and voice</T>}>
-            <SettingField label={<T>Greetings · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ greetings: parseList(event.target.value) })} value={listValue(identity.greetings)} /></SettingField>
-            <SettingField label={<T>Voice principles · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, principles: parseList(event.target.value) } })} value={listValue(identity.voice.principles)} /></SettingField>
-            <SettingField label={<T>Approved phrases · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, phrases: parseList(event.target.value) } })} value={listValue(identity.voice.phrases)} /></SettingField>
-            <SettingField label={<T>Avoid · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, avoid: parseList(event.target.value) } })} value={listValue(identity.voice.avoid)} /></SettingField>
-            <SettingField label={<T>Audiences · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ audiences: parseList(event.target.value) })} value={listValue(identity.audiences)} /></SettingField>
-            <SettingField label={<T>Brand values · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ values: parseList(event.target.value) })} value={listValue(identity.values)} /></SettingField>
-            <SettingField label={<T>Products · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ products: parseList(event.target.value) })} value={listValue(identity.products)} /></SettingField>
-            <SettingField label={<T>Proof points · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ proof: parseList(event.target.value) })} value={listValue(identity.proof)} /></SettingField>
-          </SettingSection>
-
-          <SettingSection title={<T>Applications</T>}>
-            {identity.applications.map((application, index) => (
-              <div className='flex flex-col gap-2 border border-border p-3' key={application.id}>
-                <span className='font-mono text-[9px] uppercase tracking-widest text-muted-foreground'>
-                  {String(index + 1).padStart(2, '0')} / {application.category}
-                </span>
-                <input aria-label={gt('Application name')} className={INPUT_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={application.name} />
-                <input aria-label={gt('Application format')} className={INPUT_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, format: event.target.value } : item) })} value={application.format} />
-                <textarea aria-label={gt('Application description')} className={TEXTAREA_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item) })} value={application.description} />
-              </div>
-            ))}
-          </SettingSection>
-        </aside>
-
-        <div className='tool-canvas min-h-0 overflow-auto p-5 sm:p-8'>
-          <div className='brand-settings-preview mx-auto flex w-full max-w-5xl flex-col gap-px overflow-hidden border border-border bg-border shadow-sm' style={{ borderRadius: identity.style.borderRadius }}>
-            <section className='relative min-h-[360px] overflow-hidden bg-white p-8 text-[#181818] sm:p-12'>
-              <div className='absolute inset-0 opacity-50 [background-image:radial-gradient(circle,#D4D4D4_1px,transparent_1px)] [background-size:18px_18px]' />
-              <div className='relative flex h-full min-h-[264px] flex-col justify-between'>
-                <div className='flex items-start justify-between gap-8'>
-                  {darkMark ? <img alt='' className='size-16 object-contain' src={darkMark} /> : <span className='text-3xl font-semibold'>{identity.shortName}</span>}
-                  <span className='font-mono text-xs text-black/40'>{identity.website}</span>
+          {activeSection === 'overview' ? (
+            <div className='brand-identity-section-grid'>
+              <Panel description={<T>The durable facts used by every generated design.</T>} title={<T>Identity</T>}>
+                <div className='grid gap-4 sm:grid-cols-2'>
+                  <Field label={<T>Brand name</T>}><input className={INPUT_CLASS} onChange={(event) => update({ name: event.target.value })} value={identity.name} /></Field>
+                  <Field label={<T>Short name</T>}><input className={INPUT_CLASS} maxLength={4} onChange={(event) => update({ shortName: event.target.value.toLocaleUpperCase() })} value={identity.shortName} /></Field>
+                  <Field label={<T>Website</T>}><input className={INPUT_CLASS} onChange={(event) => update({ website: event.target.value })} value={identity.website} /></Field>
+                  <Field label={<T>Contact email</T>}><input className={INPUT_CLASS} onChange={(event) => update({ contactEmail: event.target.value })} type='email' value={identity.contactEmail} /></Field>
                 </div>
-                <div className='max-w-4xl'><p className='font-mono text-xs uppercase tracking-widest text-black/40'>{identity.graphicSystem.device}</p><h2 className='mt-4 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-7xl'>{identity.tagline}</h2><p className='mt-5 max-w-2xl text-sm leading-6 text-black/55'>{identity.strategy.concept}</p></div>
+                <Field label={<T>Tagline</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ tagline: event.target.value })} value={identity.tagline} /></Field>
+                <Field label={<T>Positioning</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ positioning: event.target.value })} value={identity.positioning} /></Field>
+                <Field label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></Field>
+              </Panel>
+              <Panel description={<T>A live summary of the source every canvas reads.</T>} title={<T>Identity preview</T>}>
+                <div className='brand-identity-preview-card'>
+                  <div>{darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}<small>{identity.website}</small></div>
+                  <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: brandTypographyRole(identity, 'Display').weight }}>{identity.tagline}</h2>
+                  <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: brandTypographyRole(identity, 'Body').weight }}>{identity.positioning}</p>
+                  <div>{identity.voice.principles.slice(0, 4).map((principle) => <span key={principle}>{principle}</span>)}</div>
+                </div>
+              </Panel>
+            </div>
+          ) : null}
+
+          {activeSection === 'assets' ? (
+            <div className='brand-identity-section-stack'>
+              <Panel description={<T>Upload once, then use the same file in email, cards, headers, banners, backgrounds, slides, social, and exports.</T>} title={<T>Asset library</T>}>
+                <div className='brand-asset-upload-row'>
+                  <StudioSelect ariaLabel={gt('Asset type')} onValueChange={(value) => setAssetType(value as BrandAsset['type'])} options={ASSET_TYPES.map((type) => ({ label: gt(type), value: type }))} value={assetType} />
+                  <label className='brand-asset-upload'>
+                    <Upload aria-hidden='true' />
+                    <span><strong><T>Add asset</T></strong><small><T>SVG, PNG, JPG, WebP, or GIF</T></small></span>
+                    <input accept='image/*,.svg' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) void addAsset(file); event.target.value = ''; }} type='file' />
+                  </label>
+                </div>
+                <div className='brand-asset-grid'>
+                  {allAssets.map((asset) => (
+                    <article className='brand-asset-card' key={asset.id}>
+                      <div className='brand-asset-preview' data-surface={asset.surface}>
+                        <img alt='' src={asset.path} />
+                        <span>{asset.type}</span>
+                      </div>
+                      <div className='brand-asset-card-fields'>
+                        <input aria-label={gt('Asset label')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { label: event.target.value })} value={asset.label} />
+                        <input aria-label={gt('Asset usage')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { usage: event.target.value })} placeholder={gt('Where should this asset be used?')} value={asset.usage ?? ''} />
+                        <div>
+                          <code>{asset.path.startsWith('data:') ? 'LOCAL / EMBEDDED' : asset.path}</code>
+                          <Button aria-label={gt('Remove {name}', { name: asset.label })} onClick={() => removeAsset(asset)} size='icon-xs' title={gt('Remove asset')} type='button' variant='ghost'><Trash2 aria-hidden='true' /></Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          ) : null}
+
+          {activeSection === 'typography' ? (
+            <div className='brand-identity-section-stack'>
+              <Panel description={<T>Every face is a real file record. Upload a TTF or other web font, then assign it to one or more roles.</T>} title={<T>Font files</T>}>
+                <label className='brand-font-upload'>
+                  <Type aria-hidden='true' />
+                  <span><strong><T>Upload font file</T></strong><small><T>TTF, OTF, WOFF, or WOFF2 · stored with this identity</T></small></span>
+                  <input accept='.ttf,.otf,.woff,.woff2,font/*' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) void addFont(file); event.target.value = ''; }} type='file' />
+                </label>
+                <div className='brand-font-file-list'>
+                  {fonts.map((font) => (
+                    <div key={font.id}>
+                      <span className='brand-font-file-glyph' style={{ fontFamily: font.family }}>Aa</span>
+                      <span><strong>{font.label}</strong><small>{font.fileName} · {font.format.toLocaleUpperCase()}</small></span>
+                      <code>{font.weightMin ?? font.weight}{font.weightMax ? `–${font.weightMax}` : ''}</code>
+                      <Button aria-label={gt('Remove {name}', { name: font.label })} disabled={fonts.length <= 1} onClick={() => removeFont(font.id)} size='icon-xs' type='button' variant='ghost'><Trash2 aria-hidden='true' /></Button>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+              <Panel description={<T>These role controls flow into brand elements, slides, templates, previews, and exported graphics.</T>} title={<T>Typography roles</T>}>
+                <div className='brand-type-role-grid'>
+                  {TYPOGRAPHY_ROLES.map((role) => {
+                    const typography = brandTypographyRole(identity, role);
+                    const selectedFont = fonts.find((font) => font.id === typography.fontId) ?? fonts[0];
+                    return (
+                      <article key={role}>
+                        <header><span>{role}</span><code>{typography.weight}</code></header>
+                        <p style={{ fontFamily: selectedFont?.family ?? typography.family, fontWeight: typography.weight, letterSpacing: `${typography.letterSpacing}px`, lineHeight: typography.lineHeight }}>{role === 'Code' ? `$ ${identity.id} build --brand` : role === 'Accent' ? identity.greetings.join(' · ') : identity.tagline}</p>
+                        <div className='brand-type-role-controls'>
+                          <Field label={<T>Font file</T>}>
+                            <StudioSelect ariaLabel={gt('{role} font file', { role })} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateTypography(role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: `${font.label} · ${font.fileName}`, value: font.id }))} value={typography.fontId ?? selectedFont?.id ?? ''} />
+                          </Field>
+                          <Field label={<T>Usage</T>}><input className={INPUT_CLASS} onChange={(event) => updateTypography(role, { usage: event.target.value })} value={typography.usage} /></Field>
+                          <RangeField label={<T>Weight</T>} max={selectedFont?.weightMax ?? 900} min={selectedFont?.weightMin ?? 100} onChange={(weight) => updateTypography(role, { weight })} step={50} value={typography.weight ?? 400} />
+                          <RangeField label={<T>Line height</T>} max={2} min={0.7} onChange={(lineHeight) => updateTypography(role, { lineHeight })} step={0.05} value={typography.lineHeight ?? 1.5} />
+                          <RangeField label={<T>Tracking</T>} max={12} min={-8} onChange={(letterSpacing) => updateTypography(role, { letterSpacing })} step={0.25} suffix='px' value={typography.letterSpacing ?? 0} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </Panel>
+            </div>
+          ) : null}
+
+          {activeSection === 'colors' ? (
+            <Panel description={<T>Semantic colors stay editable in HEX and visible in OKLCH.</T>} title={<T>Color system</T>}>
+              <div className='brand-color-grid'>
+                {colorPreviews.map((color, index) => (
+                  <article key={color.id}>
+                    <div className='brand-color-swatch' style={{ backgroundColor: color.hex, color: color.dark ? '#FFFFFF' : '#181818' }}><strong>{color.name}</strong><code>{color.hex}<br />{color.oklch}</code></div>
+                    <div className='brand-color-fields'>
+                      <input aria-label={gt('Color name')} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={color.name} />
+                      <input aria-label={gt('{name} usage', { name: color.name })} className={INPUT_CLASS} onChange={(event) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, role: event.target.value } : item) })} value={color.role} />
+                      <ColorControl ariaLabel={gt('{name} color', { name: color.name })} label={color.role} onChange={(hex) => update({ colors: identity.colors.map((item, itemIndex) => itemIndex === index ? { ...item, hex } : item) })} value={color.hex} />
+                    </div>
+                  </article>
+                ))}
               </div>
-            </section>
-            <section className='grid bg-background lg:grid-cols-2'>
-              <div className='grid grid-cols-2 gap-px bg-border'>
-                {colorPreviews.map((color) => <div className='flex min-h-28 flex-col justify-between p-4' key={color.id} style={{ backgroundColor: color.hex, color: color.dark ? '#FFFFFF' : '#181818' }}><span className='text-xs font-semibold'>{color.name}</span><span className='font-mono text-[10px] opacity-60'>{color.hex}<br />{color.oklch}</span></div>)}
-              </div>
-              <div className='flex flex-col justify-between gap-10 border-l border-border bg-background p-8'>
-                <div>{identity.typography.map((font) => <div className='mb-5' key={font.role}><p className='font-mono text-[10px] uppercase text-muted-foreground'>{font.role} / {font.family}</p><p className='mt-1 text-2xl font-semibold' style={{ fontFamily: font.family }}>{identity.name}</p></div>)}</div>
-                <div><p className='font-mono text-[10px] uppercase text-muted-foreground'><T>Voice</T></p><div className='mt-3 flex flex-wrap gap-2'>{identity.voice.principles.map((principle) => <span className='border border-border px-2.5 py-1 text-xs' key={principle}>{principle}</span>)}</div></div>
-                <div><p className='font-mono text-[10px] uppercase text-muted-foreground'><T>Values</T></p><div className='mt-3 flex flex-wrap gap-2'>{identity.values.map((value) => <span className='border border-border px-2.5 py-1 text-xs' key={value}>{value}</span>)}</div></div>
-              </div>
-            </section>
-            <section className='grid min-h-44 grid-cols-2'>
-              <div className='grid place-items-center bg-white p-8'>{darkMark ? <img alt='' className='size-24 object-contain' src={darkMark} /> : <span className='text-4xl font-semibold'>{identity.shortName}</span>}</div>
-              <div className='grid place-items-center bg-black p-8 text-white'>{lightMark ? <img alt='' className='size-24 object-contain' src={lightMark} /> : <span className='text-4xl font-semibold'>{identity.shortName}</span>}</div>
-            </section>
-          </div>
+            </Panel>
+          ) : null}
+
+          {activeSection === 'voice' ? (
+            <div className='brand-identity-section-grid'>
+              <Panel description={<T>The idea and promise beneath the visual system.</T>} title={<T>Strategy</T>}>
+                <Field label={<T>Challenge</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, challenge: event.target.value } })} value={identity.strategy.challenge} /></Field>
+                <Field label={<T>Central concept</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, concept: event.target.value } })} value={identity.strategy.concept} /></Field>
+                <Field label={<T>Brand promise</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, promise: event.target.value } })} value={identity.strategy.promise} /></Field>
+                <Field label={<T>Desired outcome</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, outcome: event.target.value } })} value={identity.strategy.outcome} /></Field>
+                <Field label={<T>Strategic pillars · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, pillars: parseList(event.target.value) } })} value={listValue(identity.strategy.pillars)} /></Field>
+              </Panel>
+              <Panel description={<T>Words, principles, and language available to every template.</T>} title={<T>Voice</T>}>
+                <Field label={<T>Voice principles · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, principles: parseList(event.target.value) } })} value={listValue(identity.voice.principles)} /></Field>
+                <Field label={<T>Approved phrases · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, phrases: parseList(event.target.value) } })} value={listValue(identity.voice.phrases)} /></Field>
+                <Field label={<T>Avoid · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ voice: { ...identity.voice, avoid: parseList(event.target.value) } })} value={listValue(identity.voice.avoid)} /></Field>
+                <Field label={<T>Greetings · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ greetings: parseList(event.target.value) })} value={listValue(identity.greetings)} /></Field>
+                <Field label={<T>Audiences · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ audiences: parseList(event.target.value) })} value={listValue(identity.audiences)} /></Field>
+                <Field label={<T>Brand values · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ values: parseList(event.target.value) })} value={listValue(identity.values)} /></Field>
+              </Panel>
+            </div>
+          ) : null}
+
+          {activeSection === 'system' ? (
+            <div className='brand-identity-section-grid'>
+              <Panel description={<T>Shared layout and image behavior for every artifact.</T>} title={<T>Visual defaults</T>}>
+                <Field label={<T>Interface density</T>}><StudioSelect ariaLabel={gt('Interface density')} onValueChange={(density) => update({ style: { ...identity.style, density: density as typeof identity.style.density } })} options={[{ label: gt('Compact'), value: 'compact' }, { label: gt('Comfortable'), value: 'comfortable' }, { label: gt('Spacious'), value: 'spacious' }]} value={identity.style.density} /></Field>
+                <Field label={<T>Image treatment</T>}><StudioSelect ariaLabel={gt('Image treatment')} onValueChange={(imageTreatment) => update({ style: { ...identity.style, imageTreatment: imageTreatment as typeof identity.style.imageTreatment } })} options={[{ label: gt('Natural'), value: 'natural' }, { label: gt('Monochrome'), value: 'monochrome' }, { label: gt('Duotone'), value: 'duotone' }]} value={identity.style.imageTreatment} /></Field>
+                <Field label={<T>Construction field</T>}><StudioSelect ariaLabel={gt('Construction field')} onValueChange={(grid) => update({ style: { ...identity.style, grid: grid as typeof identity.style.grid } })} options={[{ label: gt('None'), value: 'none' }, { label: gt('Dots'), value: 'dots' }, { label: gt('Lines'), value: 'lines' }]} value={identity.style.grid} /></Field>
+                <RangeField label={<T>Corner radius</T>} max={32} min={0} onChange={(borderRadius) => update({ style: { ...identity.style, borderRadius } })} suffix='px' value={identity.style.borderRadius} />
+                <RangeField label={<T>Default logo scale</T>} max={160} min={40} onChange={(logoScale) => update({ style: { ...identity.style, logoScale } })} suffix='%' value={identity.style.logoScale} />
+              </Panel>
+              <Panel description={<T>The recognizable device and rules that keep applications related.</T>} title={<T>Graphic system</T>}>
+                <Field label={<T>Recognizable device</T>}><input className={INPUT_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, device: event.target.value } })} value={identity.graphicSystem.device} /></Field>
+                <Field label={<T>Device rationale</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, description: event.target.value } })} value={identity.graphicSystem.description} /></Field>
+                <Field label={<T>Composition behavior</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, composition: event.target.value } })} value={identity.graphicSystem.composition} /></Field>
+                <Field label={<T>Image direction</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, imageDirection: event.target.value } })} value={identity.graphicSystem.imageDirection} /></Field>
+                <Field label={<T>System rules · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, rules: parseList(event.target.value) } })} value={listValue(identity.graphicSystem.rules)} /></Field>
+              </Panel>
+            </div>
+          ) : null}
+
+          <section className='brand-identity-logo-strip'>
+            <div>{darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}</div>
+            <div>{lightMark ? <img alt='' src={lightMark} /> : <span>{identity.shortName}</span>}</div>
+          </section>
         </div>
       </div>
     </div>

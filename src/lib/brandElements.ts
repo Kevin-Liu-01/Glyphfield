@@ -33,6 +33,9 @@ export type BrandElement = {
 
 export type BrandElementSettings = {
   accentColor: string;
+  assetId: string;
+  assetOpacity: number;
+  assetPlacement: 'background' | 'banner' | 'card' | 'header';
   artworkScale: number;
   artworkX: number;
   artworkY: number;
@@ -41,6 +44,8 @@ export type BrandElementSettings = {
   cta: string;
   eyebrow: string;
   foregroundColor: string;
+  fontRole: BrandIdentity['typography'][number]['role'];
+  fontWeight: number;
   headline: string;
   layout: 'split' | 'stacked' | 'centered';
   partnerName: string;
@@ -802,6 +807,9 @@ export function createBrandElementSettings(
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const defaults: BrandElementSettings = {
     accentColor: ink,
+    assetId: identity.assets.find(({ type }) => type === 'background' || type === 'image' || type === 'product')?.id ?? '',
+    assetOpacity: 24,
+    assetPlacement: 'background',
     artworkScale: identity.style.logoScale,
     artworkX: 0,
     artworkY: 0,
@@ -810,6 +818,8 @@ export function createBrandElementSettings(
     cta: '',
     eyebrow: '',
     foregroundColor: ink,
+    fontRole: 'Display',
+    fontWeight: identity.typography.find(({ role }) => role === 'Display')?.weight ?? 700,
     headline: identity.tagline,
     layout: 'split',
     partnerName: 'Partner',

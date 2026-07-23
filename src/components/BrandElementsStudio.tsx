@@ -31,7 +31,12 @@ import {
   type BrandElementOverrides,
   type BrandElementSettings,
 } from '@/lib/brandElements';
-import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
+import {
+  brandAssetPath,
+  brandTypographyFamily,
+  brandTypographyRole,
+  type BrandIdentity,
+} from '@/lib/brandIdentity';
 import { hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 
@@ -193,11 +198,13 @@ function ElementRangeControl({
 
 function ElementEditor({
   element,
+  identity,
   onChange,
   onReset,
   settings,
 }: {
   element: BrandElement;
+  identity: BrandIdentity;
   onChange: (patch: BrandElementOverrides) => void;
   onReset: () => void;
   settings: BrandElementSettings;
@@ -299,6 +306,38 @@ function ElementEditor({
         {patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
       </section> : null}
 
+      <section className='element-editor-section'>
+        <div className='element-editor-heading'><h2><T>Typography</T></h2></div>
+        <div className='element-editor-field'>
+          <span><T>Font role</T></span>
+          <StudioSelect ariaLabel={gt('Font role')} onValueChange={(fontRole) => onChange({ fontRole: fontRole as BrandElementSettings['fontRole'], fontWeight: brandTypographyRole(identity, fontRole as BrandElementSettings['fontRole']).weight })} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={settings.fontRole} />
+        </div>
+        <ElementRangeControl label={<T>Weight</T>} max={900} min={100} onChange={(fontWeight) => onChange({ fontWeight })} suffix='' value={settings.fontWeight} />
+      </section>
+
+      <section className='element-editor-section'>
+        <div className='element-editor-heading'><h2><T>Shared asset</T></h2></div>
+        <div className='element-editor-field'>
+          <span><T>Library asset</T></span>
+          <StudioSelect ariaLabel={gt('Library asset')} onValueChange={(assetId) => onChange({ assetId })} options={[
+            { label: gt('No shared asset'), value: '' },
+            ...[...identity.assets, ...identity.proofAssets].map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id })),
+          ]} value={settings.assetId} />
+        </div>
+        {settings.assetId ? <>
+          <div className='element-editor-field'>
+            <span><T>Placement</T></span>
+            <StudioSelect ariaLabel={gt('Asset placement')} onValueChange={(assetPlacement) => onChange({ assetPlacement: assetPlacement as BrandElementSettings['assetPlacement'] })} options={[
+              { label: gt('Background'), value: 'background' },
+              { label: gt('Header'), value: 'header' },
+              { label: gt('Banner'), value: 'banner' },
+              { label: gt('Card'), value: 'card' },
+            ]} value={settings.assetPlacement} />
+          </div>
+          <ElementRangeControl label={<T>Asset opacity</T>} max={100} min={0} onChange={(assetOpacity) => onChange({ assetOpacity })} suffix='%' value={settings.assetOpacity} />
+        </> : null}
+      </section>
+
       {artworkSupported ? <section className='element-editor-section'>
         <div className='element-editor-heading'><h2><T>Artwork</T></h2></div>
         <ElementRangeControl label={<T>Horizontal</T>} max={120} min={-120} onChange={(artworkX) => onChange({ artworkX })} suffix='px' value={settings.artworkX} />
@@ -359,9 +398,18 @@ function declaredAspectRatio(dimensions: string): number | undefined {
   return width / height;
 }
 
-function ElementFrame({ aspectRatio, children, fontFamily }: { aspectRatio?: number; children: ReactNode; fontFamily: string }) {
+function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontWeight }: { aspectRatio?: number; children: ReactNode; codeFontFamily: string; fontFamily: string; fontWeight: number }) {
   return (
-    <div className='flex w-full max-w-5xl flex-col' style={{ fontFamily }}>
+    <div
+      className='flex w-full max-w-5xl flex-col'
+      style={{
+        '--brand-element-font': fontFamily,
+        '--brand-element-weight': fontWeight,
+        '--brand-font-code': codeFontFamily,
+        fontFamily,
+        fontWeight,
+      } as CSSProperties}
+    >
       <div className='min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
         <div
           className='brand-element-artboard mx-auto'
@@ -890,28 +938,46 @@ function IconPreview({ identity, settings }: { identity: BrandIdentity; settings
 }
 
 function ElementPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
+  let preview: ReactNode;
   switch (element.preview) {
     case 'email':
-      return <EmailPreview element={element} identity={identity} settings={settings} />;
+      preview = <EmailPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'developer':
-      return <DeveloperPreview element={element} identity={identity} settings={settings} />;
+      preview = <DeveloperPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'social':
-      return <SocialPreview element={element} identity={identity} settings={settings} />;
+      preview = <SocialPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'editorial':
-      return <EditorialPreview element={element} identity={identity} settings={settings} />;
+      preview = <EditorialPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'event':
-      return <EventPreview element={element} identity={identity} settings={settings} />;
+      preview = <EventPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'physical':
-      return <PhysicalPreview element={element} identity={identity} settings={settings} />;
+      preview = <PhysicalPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'logo':
-      return <LogoPreview identity={identity} settings={settings} />;
+      preview = <LogoPreview identity={identity} settings={settings} />;
+      break;
     case 'icon':
-      return <IconPreview identity={identity} settings={settings} />;
+      preview = <IconPreview identity={identity} settings={settings} />;
+      break;
     case 'web':
-      return <WebPreview element={element} identity={identity} settings={settings} />;
+      preview = <WebPreview element={element} identity={identity} settings={settings} />;
+      break;
     case 'component':
-      return <ProductComponentPreview element={element} identity={identity} settings={settings} />;
+      preview = <ProductComponentPreview element={element} identity={identity} settings={settings} />;
+      break;
   }
+  const asset = [...identity.assets, ...identity.proofAssets].find(({ id }) => id === settings.assetId);
+  return (
+    <div className='brand-element-preview-composite'>
+      {preview}
+      {asset ? <img alt='' className='brand-element-shared-asset' data-placement={settings.assetPlacement} src={asset.path} style={{ opacity: settings.assetOpacity / 100 }} /> : null}
+    </div>
+  );
 }
 
 export default function BrandElementsStudio({
@@ -1079,7 +1145,12 @@ export default function BrandElementsStudio({
               </div>
             </div>
             <CanvasViewport className='min-h-[560px] flex-1' identityId={identity.id} stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8' toolId={tool.id}>
-              <ElementFrame aspectRatio={declaredAspectRatio(selectedElement.dimensions)} fontFamily={identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Inter'}>
+              <ElementFrame
+                aspectRatio={declaredAspectRatio(selectedElement.dimensions)}
+                codeFontFamily={brandTypographyFamily(identity, 'Code')}
+                fontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+                fontWeight={selectedSettings.fontWeight}
+              >
                 <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />
               </ElementFrame>
             </CanvasViewport>
@@ -1087,6 +1158,7 @@ export default function BrandElementsStudio({
         </div>
         <ElementEditor
           element={selectedElement}
+          identity={identity}
           onChange={updateSelectedSettings}
           onReset={resetSelectedSettings}
           settings={selectedSettings}

@@ -98,4 +98,18 @@ describe('buildTemplateSvg', () => {
     expect(chart).toContain('+42%');
     expect(chart).not.toBe(metrics);
   });
+
+  it('embeds the selected identity font and weight in an export', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      fontData: 'data:font/ttf;base64,FONT',
+      fontFamily: 'Identity Display',
+      fontWeight: 650,
+    });
+
+    expect(svg).toContain("font-family:'TemplateBrand'");
+    expect(svg).toContain('font-family:"TemplateBrand"');
+    expect(svg).toContain('data:font/ttf;base64,FONT');
+    expect(svg).toContain('font-weight:650');
+  });
 });

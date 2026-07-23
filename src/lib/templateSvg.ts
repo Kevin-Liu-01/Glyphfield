@@ -32,6 +32,9 @@ type TemplateSvgOptions = {
   brandLogoY?: number;
   eyebrow: string;
   foreground: string;
+  fontData?: string | null;
+  fontFamily?: string;
+  fontWeight?: number;
   height: number;
   identityName: string;
   imageTreatment?: 'natural' | 'monochrome' | 'duotone';
@@ -164,6 +167,9 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     brandLogoY = 0,
     eyebrow,
     foreground,
+    fontData,
+    fontFamily = 'Inter',
+    fontWeight = 700,
     height,
     identityName,
     imageTreatment = 'natural',
@@ -241,5 +247,10 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
   const contentLayer = kind === 'slides'
     ? slideLayoutLayer(slideLayout, title, body, eyebrow, foreground, width)
     : `<text x="84" y="224" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${lines}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${imageLayer}${logoLayer}${identityLabel}${contentLayer}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}</svg>`;
+  const fontFace = fontData
+    ? `@font-face{font-family:'TemplateBrand';src:url('${escapeXml(fontData)}');font-style:normal;font-weight:100 900;font-display:block;}`
+    : '';
+  const resolvedFontFamily = fontData ? 'TemplateBrand' : fontFamily;
+  const fontStyles = `<style>${fontFace}text:not([font-family*='monospace']){font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${fontWeight};}</style>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${fontStyles}${imageLayer}${logoLayer}${identityLabel}${contentLayer}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="ui-monospace,monospace" font-size="16">${escapeXml(website)}</text>${pageNumber}</svg>`;
 }

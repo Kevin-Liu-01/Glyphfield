@@ -10,6 +10,8 @@ import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   brandAssetPath,
+  brandFontAssets,
+  brandTypographyRole,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
@@ -20,19 +22,21 @@ import {
   type MoodboardComposition,
   type MoodboardExportPresetId,
 } from '@/lib/moodboard';
-import { buildMoodboardSvg, type MoodboardSvgAssets } from '@/lib/moodboardSvg';
+import { buildMoodboardSvg } from '@/lib/moodboardSvg';
 import type { StudioTool } from '@/lib/studioCatalog';
 
-let fontAssetsPromise: Promise<Pick<MoodboardSvgAssets, 'interFont' | 'monoFont'>> | null =
-  null;
+function fontPath(identity: BrandIdentity, role: 'Display' | 'Code'): string {
+  const typography = brandTypographyRole(identity, role);
+  return brandFontAssets(identity).find(({ id }) => id === typography.fontId)?.path
+    ?? (role === 'Code' ? '/fonts/geist-mono-variable.ttf' : '/fonts/inter-variable.ttf');
+}
 
-function loadFontAssets() {
-  fontAssetsPromise ??= Promise.all([
-    imageUrlToDataUrl('/fonts/inter-latin.woff2'),
-    imageUrlToDataUrl('/fonts/geist-mono-latin.woff2'),
-  ]).then(([interFont, monoFont]) => ({ interFont, monoFont }));
-
-  return fontAssetsPromise;
+async function loadFontAssets(identity: BrandIdentity) {
+  const [interFont, monoFont] = await Promise.all([
+    imageUrlToDataUrl(fontPath(identity, 'Display')),
+    imageUrlToDataUrl(fontPath(identity, 'Code')),
+  ]);
+  return { interFont, monoFont };
 }
 
 async function loadOptionalAsset(source: string | undefined): Promise<string | undefined> {
@@ -96,6 +100,7 @@ export default function DesignBoard({
   );
   const markDarkPath = brandAssetPath(identity, 'mark-dark');
   const markLightPath = brandAssetPath(identity, 'mark-light');
+  const fieldPath = identity.assets.find(({ type }) => type === 'background')?.path;
   const logoPaths = useMemo(
     () =>
       identity.assets
@@ -109,26 +114,26 @@ export default function DesignBoard({
       buildMoodboardSvg(
         identity,
         {
-          interFont: '/fonts/inter-latin.woff2',
+          interFont: fontPath(identity, 'Display'),
           logoMarks: logoPaths,
           markDark: markDarkPath,
           markLight: markLightPath,
-          monoFont: '/fonts/geist-mono-latin.woff2',
-          motionPreview: identity.motion[0]?.previewPath,
+          monoFont: fontPath(identity, 'Code'),
+          motionPreview: identity.motion[0]?.previewPath ?? fieldPath,
           proofMarks: identity.proofAssets.map(({ path }) => path),
         },
         composition
       ),
-    [composition, identity, logoPaths, markDarkPath, markLightPath]
+    [composition, fieldPath, identity, logoPaths, markDarkPath, markLightPath]
   );
 
   async function exportBoard() {
     setExporting(true);
     try {
-      const motionPreviewPath = identity.motion[0]?.previewPath;
+      const motionPreviewPath = identity.motion[0]?.previewPath ?? fieldPath;
       const [{ interFont, monoFont }, logoMarks, markDark, markLight, motionPreview, proofMarks] =
         await Promise.all([
-          loadFontAssets(),
+          loadFontAssets(identity),
           Promise.all(logoPaths.map((path) => imageUrlToDataUrl(path))),
           loadOptionalAsset(markDarkPath),
           loadOptionalAsset(markLightPath),
