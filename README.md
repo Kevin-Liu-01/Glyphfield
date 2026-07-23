@@ -88,6 +88,8 @@ export.
   backdrops and alpha-masked marks, with still PNG and animated GIF export.
 - Background Lab creates gradients, grain, ordered Bayer dithering, dots,
   lines, and grids as portable SVG-composed images.
+- Studio appearance persists light or dark mode, accent, canvas density, and a
+  choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
 - Templates include eight slide layouts plus blog, partnership, OpenGraph,
   terminal, email, and brand-element systems.
 - Fumadocs powers 24 feature, artifact, integration, and API guides.

@@ -95,6 +95,7 @@ type StudioAppearance = {
   accent: 'neutral' | 'violet' | 'teal' | 'lime';
   canvas: 'dots' | 'grid' | 'plain';
   density: 'compact' | 'comfortable';
+  font: 'switzer' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
   motion: 'full' | 'reduced';
   theme: 'light' | 'dark' | 'system';
 };
@@ -103,6 +104,7 @@ const DEFAULT_APPEARANCE: StudioAppearance = {
   accent: 'neutral',
   canvas: 'dots',
   density: 'comfortable',
+  font: 'switzer',
   motion: 'full',
   theme: 'system',
 };
@@ -170,6 +172,12 @@ function ProjectFolderMenu({
 
   useMountEffect(() => {
     function closeMenu(event: PointerEvent) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-radix-popper-content-wrapper]')
+      ) {
+        return;
+      }
       if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
     }
 
@@ -295,6 +303,12 @@ function AppearanceMenu({
 
   useMountEffect(() => {
     function closeMenu(event: PointerEvent) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-radix-popper-content-wrapper]')
+      ) {
+        return;
+      }
       if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
     }
 
@@ -401,6 +415,26 @@ function AppearanceMenu({
                 </button>
               ))}
             </div>
+          </section>
+
+          <section className='appearance-section'>
+            <div>
+              <strong><T>Studio font</T></strong>
+              <small><T>Interface typography</T></small>
+            </div>
+            <StudioSelect
+              ariaLabel={gt('Studio font')}
+              onValueChange={(font) =>
+                onChange({ font: font as StudioAppearance['font'] })
+              }
+              options={[
+                { label: 'Switzer', value: 'switzer' },
+                { label: 'Be Vietnam Pro', value: 'be-vietnam-pro' },
+                { label: 'Schibsted Grotesk', value: 'schibsted-grotesk' },
+                { label: 'Rethink Sans', value: 'rethink-sans' },
+              ]}
+              value={appearance.font}
+            />
           </section>
 
           <section className='appearance-section appearance-section--split'>
@@ -777,6 +811,7 @@ export default function StudioApp() {
       data-studio-accent={resolvedAppearance.accent}
       data-studio-canvas={resolvedAppearance.canvas}
       data-studio-density={resolvedAppearance.density}
+      data-studio-font={resolvedAppearance.font}
       data-studio-motion={resolvedAppearance.motion}
       data-theme={resolvedAppearance.theme}
       data-resolved-theme={resolvedTheme}

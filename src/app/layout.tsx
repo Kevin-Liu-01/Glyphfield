@@ -3,7 +3,13 @@ import './globals.css';
 
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { GTProvider } from 'gt-next';
-import { Geist_Mono, Inter } from 'next/font/google';
+import {
+  Be_Vietnam_Pro,
+  Geist_Mono,
+  Inter,
+  Rethink_Sans,
+  Schibsted_Grotesk,
+} from 'next/font/google';
 
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
@@ -18,6 +24,27 @@ const inter = Inter({
 const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
+});
+
+const beVietnamPro = Be_Vietnam_Pro({
+  display: 'swap',
+  subsets: ['latin'],
+  variable: '--font-be-vietnam-pro',
+  weight: ['400', '500', '600', '700'],
+});
+
+const rethinkSans = Rethink_Sans({
+  display: 'swap',
+  subsets: ['latin'],
+  variable: '--font-rethink-sans',
+  weight: 'variable',
+});
+
+const schibstedGrotesk = Schibsted_Grotesk({
+  display: 'swap',
+  subsets: ['latin'],
+  variable: '--font-schibsted-grotesk',
+  weight: 'variable',
 });
 
 export const metadata: Metadata = {
@@ -56,7 +83,19 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang='en' className={`${inter.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+    <html
+      lang='en'
+      className={`${inter.variable} ${geistMono.variable} ${beVietnamPro.variable} ${rethinkSans.variable} ${schibstedGrotesk.variable} antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <link href='https://api.fontshare.com' rel='preconnect' />
+        <link href='https://cdn.fontshare.com' rel='preconnect' />
+        <link
+          href='https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&display=swap'
+          rel='stylesheet'
+        />
+      </head>
       <body className='flex min-h-screen flex-col'>
         <RootProvider>
           <GTProvider>{children}</GTProvider>
