@@ -240,8 +240,7 @@ body {
   background-position: 0 0, 5px 5px;
   background-size: 7px 7px, 14px 14px;
   mask-image: linear-gradient(90deg, #000 0, #000b 58%, transparent 92%);
-  opacity: 0.56;
-  animation: project-tabs-dither-drift 14s steps(14, end) infinite;
+  opacity: 0.28;
   content: '';
   pointer-events: none;
 }
@@ -269,17 +268,6 @@ body {
 .project-tabs-scroll {
   scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
   scrollbar-width: thin;
-}
-
-@keyframes project-tabs-dither-drift {
-  0%,
-  100% {
-    background-position: 0 0, 5px 5px;
-  }
-
-  50% {
-    background-position: 28px -7px, -9px 12px;
-  }
 }
 
 .project-dither-panel {
