@@ -330,6 +330,102 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.13'/%3E%3C/svg%3E");
 }
 
+.template-workspace {
+  width: 100%;
+}
+
+.template-artboard {
+  container-type: inline-size;
+  box-shadow: 0 18px 54px hsl(var(--foreground) / 0.08);
+}
+
+.template-artboard-content {
+  gap: clamp(0.5rem, 2.4cqw, 1.75rem);
+  padding: clamp(1rem, 5.5cqw, 4.5rem);
+}
+
+.template-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.45rem, 1.5cqw, 0.875rem);
+  min-width: 0;
+  font-size: clamp(0.5rem, 1.6cqw, 1rem);
+  font-weight: 650;
+}
+
+.template-brand-logo {
+  width: clamp(2.25rem, 8.5cqw, 6.5rem);
+  height: clamp(2.25rem, 8.5cqw, 6.5rem);
+}
+
+.template-artboard-blog .template-brand-logo {
+  width: clamp(1.75rem, 5.5cqw, 3.5rem);
+  height: clamp(1.75rem, 5.5cqw, 3.5rem);
+}
+
+.template-partnership-lockup {
+  display: grid;
+  grid-template-columns: clamp(2.75rem, 12cqw, 8.5rem) auto clamp(5.5rem, 20cqw, 13rem);
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.75rem, 4cqw, 3.5rem);
+  width: 100%;
+}
+
+.template-partnership-brand {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.template-partnership-times {
+  font-size: clamp(0.875rem, 2.5cqw, 1.875rem);
+  opacity: 0.38;
+}
+
+.template-partner-logo {
+  width: 100%;
+  max-height: clamp(2rem, 7cqw, 5rem);
+}
+
+.template-copy {
+  max-width: 86%;
+  gap: clamp(0.4rem, 2cqw, 1.25rem);
+}
+
+.template-eyebrow {
+  font-size: clamp(0.45rem, 1.2cqw, 0.75rem);
+  line-height: 1.25;
+}
+
+.template-title {
+  font-size: clamp(1rem, 5.6cqw, 4.5rem);
+}
+
+.template-artboard-slides .template-title {
+  font-size: clamp(1.1rem, 5cqw, 4.875rem);
+}
+
+.template-footer {
+  min-width: 0;
+  font-size: clamp(0.45rem, 1.15cqw, 0.75rem);
+}
+
+@container (max-width: 520px) {
+  .template-artboard-content {
+    gap: 0.35rem;
+    padding: 4.5cqw;
+  }
+
+  .template-copy {
+    max-width: 100%;
+    gap: 0.3rem;
+  }
+
+  .template-partnership-lockup {
+    gap: 3cqw;
+  }
+}
+
 @media (max-width: 1100px) {
   :root {
     --studio-inspector-width: 272px;
@@ -458,13 +554,18 @@ body {
 
   .tool-canvas {
     flex: none;
-    min-height: 500px;
+    min-height: min(500px, 58dvh);
     overflow-x: hidden;
     overflow-y: visible;
   }
 
   .artifact-preview {
     max-width: calc(100vw - 3rem);
+  }
+
+  .template-workspace {
+    align-content: start;
+    padding: 1.5rem;
   }
 
   .tool-header {
@@ -510,8 +611,24 @@ body {
     display: none;
   }
 
+  .tool-header > div:only-child {
+    display: flex;
+  }
+
   .tool-header {
     justify-content: flex-end;
+  }
+
+  .tool-header:has(> div:only-child) {
+    justify-content: flex-start;
+  }
+
+  .artifact-preview {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .template-workspace {
+    padding: 1rem;
   }
 }
 

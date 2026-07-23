@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 112" fill="none">
+  <path fill="#181818" d="m56 0 11.6 34.4L102 46 67.6 57.6 56 92 44.4 57.6 10 46l34.4-11.6L56 0Z"/>
+  <path fill="#181818" d="m14 72 5.2 14.8L34 92l-14.8 5.2L14 112 8.8 97.2 0 92l8.8-5.2L14 72Z" opacity=".42"/>
+  <text x="130" y="67" fill="#181818" font-family="Inter,Arial,sans-serif" font-size="39" font-weight="700" letter-spacing="-1.25">Northstar</text>
+</svg>

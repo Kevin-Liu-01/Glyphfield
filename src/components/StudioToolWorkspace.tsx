@@ -29,6 +29,13 @@ import {
   imageUrlToDataUrl,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
+import {
+  defaultTemplatePartner,
+  templateBrandLogo,
+  templatePartnerOptions,
+  type TemplateKind,
+} from '@/lib/templateAssets';
+import { buildTemplateSvg, type TemplateTexture } from '@/lib/templateSvg';
 
 const INPUT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -53,10 +60,18 @@ function useLocalAsset() {
 
   function select(file: File) {
     if (assetRef.current) URL.revokeObjectURL(assetRef.current.url);
-    setAsset({ name: file.name, url: URL.createObjectURL(file) });
+    const nextAsset = { name: file.name, url: URL.createObjectURL(file) };
+    assetRef.current = nextAsset;
+    setAsset(nextAsset);
   }
 
-  return { asset, select };
+  function clear() {
+    if (assetRef.current) URL.revokeObjectURL(assetRef.current.url);
+    assetRef.current = null;
+    setAsset(null);
+  }
+
+  return { asset, clear, select };
 }
 
 type CustomFontAsset = {
@@ -832,15 +847,17 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   );
 }
 
-type TemplateKind = 'partnership' | 'blog' | 'slides';
-
 function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind: TemplateKind; tool: StudioTool }) {
   const gt = useGT();
   const partnerAsset = useLocalAsset();
   const backgroundAsset = useLocalAsset();
+  const partnerOptions = useMemo(() => templatePartnerOptions(identity), [identity]);
+  const initialPartner = defaultTemplatePartner(identity);
+  const [partnerId, setPartnerId] = useState(initialPartner.id);
+  const selectedPartner = partnerOptions.find(({ id }) => id === partnerId) ?? initialPartner;
   const [title, setTitle] = useState(
     kind === 'partnership'
-      ? `${identity.name} × Your company`
+      ? `${identity.name} × ${initialPartner.label}`
       : kind === 'blog'
         ? identity.voice.phrases[0] ?? identity.tagline
         : identity.tagline
@@ -848,7 +865,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const [eyebrow, setEyebrow] = useState(
     kind === 'blog' ? 'ENGINEERING / JULY 2026' : `${identity.name.toLocaleUpperCase()} / STUDIO`
   );
-  const [texture, setTexture] = useState<'white' | 'dark' | 'grid' | 'noise'>('white');
+  const [texture, setTexture] = useState<TemplateTexture>('white');
   const [exporting, setExporting] = useState(false);
   const isDark = texture === 'dark';
   const foreground = isDark
@@ -860,29 +877,38 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const isSlide = kind === 'slides';
   const width = isSlide ? 1600 : 1200;
   const height = isSlide ? 900 : kind === 'blog' ? 630 : 600;
+  const brandLogo = templateBrandLogo(identity, kind, isDark);
+  const brandLogoSource = brandLogo?.path ?? monogramDataUrl(identity, foreground);
+  const partnerLogoSource = partnerAsset.asset?.url ?? selectedPartner.path;
 
   async function exportTemplate() {
     setExporting(true);
     try {
-      const mark = await resolveBrandMark(identity, isDark);
-      const partner = partnerAsset.asset ? await imageUrlToDataUrl(partnerAsset.asset.url) : null;
+      const resolvedBrandLogo = brandLogo
+        ? await imageUrlToDataUrl(brandLogo.path)
+        : monogramDataUrl(identity, foreground);
+      const partner = kind === 'partnership'
+        ? await imageUrlToDataUrl(partnerLogoSource)
+        : null;
       const backgroundImage = backgroundAsset.asset
         ? await imageUrlToDataUrl(backgroundAsset.asset.url)
         : null;
-      const imageLayer = backgroundImage
-        ? `<image href="${backgroundImage}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/><rect width="${width}" height="${height}" fill="${background}" opacity="0.84"/>`
-        : textureDefinition(texture, background);
-      const lines = splitLines(title, isSlide ? 34 : 29, 3)
-        .map(
-          (line, index) =>
-            `<text x="84" y="${270 + index * 78}" fill="${foreground}" font-family="Arial, sans-serif" font-size="68" font-weight="700" letter-spacing="-2">${escapeXml(line)}</text>`
-        )
-        .join('');
-      const partnerLayer =
-        kind === 'partnership'
-          ? `${partner ? `<image href="${partner}" x="${width - 310}" y="68" width="160" height="80" preserveAspectRatio="xMidYMid meet"/>` : `<text x="${width - 310}" y="116" fill="${foreground}" font-family="Arial, sans-serif" font-size="28" font-weight="700">PARTNER</text>`}<path d="M${width - 350} 68v80" stroke="${foreground}" opacity="0.24"/>`
-          : '';
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${imageLayer}<image href="${mark}" x="84" y="68" width="56" height="56"/><text x="160" y="104" fill="${foreground}" font-family="Arial, sans-serif" font-size="22" font-weight="700">${escapeXml(identity.shortName)}</text>${partnerLayer}<text x="84" y="194" fill="${foreground}" opacity="0.58" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${lines}<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text></svg>`;
+      const svg = buildTemplateSvg({
+        background,
+        backgroundImage,
+        brandLogo: resolvedBrandLogo,
+        eyebrow,
+        foreground,
+        height,
+        identityName: identity.name,
+        invertPartner: isDark,
+        kind,
+        partnerLogo: partner,
+        texture,
+        title,
+        website: identity.website,
+        width,
+      });
       await downloadSvgAsPng(svg, width, height, `studio-${kind}.png`);
     } finally {
       setExporting(false);
@@ -917,12 +943,28 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           onFile={backgroundAsset.select}
         />
         {kind === 'partnership' ? (
-          <UploadField
-            accept='image/*,.svg'
-            fileName={partnerAsset.asset?.name}
-            label='Add partner logo'
-            onFile={partnerAsset.select}
-          />
+          <>
+            <Field label={<T>Partner logo</T>}>
+              <select
+                className={INPUT_CLASS}
+                onChange={(event) => {
+                  partnerAsset.clear();
+                  setPartnerId(event.target.value);
+                }}
+                value={partnerId}
+              >
+                {partnerOptions.map((asset) => (
+                  <option key={asset.id} value={asset.id}>{asset.label}</option>
+                ))}
+              </select>
+            </Field>
+            <UploadField
+              accept='image/*,.svg'
+              fileName={partnerAsset.asset?.name}
+              label='Replace partner logo'
+              onFile={partnerAsset.select}
+            />
+          </>
         ) : null}
       </ControlSection>
     </>
@@ -939,9 +981,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       inspector={inspector}
       tool={tool}
     >
-      <div className='grid min-h-full place-items-center p-6 lg:p-10'>
+      <div className='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12'>
         <div
-          className={`artifact-preview template-surface template-surface-${texture} relative w-full max-w-5xl overflow-hidden rounded-md border border-border`}
+          className={`artifact-preview template-artboard template-artboard-${kind} template-surface template-surface-${texture} relative w-full max-w-5xl overflow-hidden border border-border`}
           style={{ aspectRatio: `${width} / ${height}`, color: foreground }}
         >
           {backgroundAsset.asset ? (
@@ -951,44 +993,35 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             className='absolute inset-0'
             style={{ backgroundColor: background, opacity: backgroundAsset.asset ? 0.84 : 0 }}
           />
-          <div className='absolute inset-0 flex flex-col justify-between p-[6%]'>
-            <div className='flex items-center justify-between gap-6'>
-              <div className='flex items-center gap-3'>
+          <div className='template-artboard-content absolute inset-0 flex flex-col justify-between'>
+            {kind === 'partnership' ? (
+              <div className='template-partnership-lockup' aria-label={gt(`${identity.name} and ${selectedPartner.label}`)}>
+                <img alt={identity.name} className='template-partnership-brand object-contain' src={brandLogoSource} />
+                <span className='template-partnership-times' aria-hidden='true'>×</span>
                 <img
-                  alt=''
-                  className='size-10 object-contain'
-                  src={
-                    brandAssetPath(identity, isDark ? 'mark-light' : 'mark-dark') ??
-                    monogramDataUrl(identity, foreground)
-                  }
+                  alt={partnerAsset.asset?.name ?? selectedPartner.label}
+                  className='template-partner-logo object-contain'
+                  src={partnerLogoSource}
+                  style={isDark ? { filter: 'brightness(0) invert(1)' } : undefined}
                 />
-                <span className='text-sm font-semibold'>{identity.shortName}</span>
               </div>
-              {kind === 'partnership' ? (
-                <div className='flex items-center gap-5'>
-                  <span className='h-10 w-px bg-current opacity-20' />
-                  {partnerAsset.asset ? (
-                    <img alt={gt('Partner logo')} className='h-10 max-w-36 object-contain' src={partnerAsset.asset.url} />
-                  ) : (
-                    <span className='text-sm font-semibold'>PARTNER</span>
-                  )}
-                </div>
-              ) : null}
-            </div>
-            <div className='flex max-w-[84%] flex-col gap-5'>
-              <p className='font-mono text-xs tracking-widest opacity-60'>{eyebrow}</p>
-              <h2 className='break-words text-2xl font-semibold leading-[1.02] tracking-[-0.05em] text-balance sm:text-5xl lg:text-6xl'>
+            ) : (
+              <div className='template-brand-lockup'>
+                <img alt={identity.name} className='template-brand-logo object-contain' src={brandLogoSource} />
+                {kind === 'blog' ? <span>{identity.name}</span> : null}
+              </div>
+            )}
+            <div className='template-copy flex flex-col'>
+              <p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p>
+              <h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>
                 {title}
               </h2>
             </div>
-            <div className='flex items-center justify-between gap-4 font-mono text-xs opacity-60'>
+            <div className='template-footer flex items-center justify-between gap-4 font-mono opacity-60'>
               <span>{identity.website}</span>
               {isSlide ? <span>01 / 12</span> : null}
             </div>
           </div>
-          <PreviewLabel>
-            {width} × {height}
-          </PreviewLabel>
         </div>
       </div>
     </ToolShell>

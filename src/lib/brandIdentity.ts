@@ -86,6 +86,13 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
       type: 'logo',
     },
     {
+      id: 'wordmark-light',
+      label: 'General Translation white wordmark',
+      path: '/brands/gt/logos/wordmark-white.svg',
+      surface: 'dark',
+      type: 'logo',
+    },
+    {
       id: 'locadex',
       label: 'Locadex wordmark',
       path: '/brands/gt/logos/locadex-black.svg',
@@ -193,7 +200,36 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
 
 export const STARTER_BRAND_IDENTITY: BrandIdentity = {
   ...cloneBrandIdentity(GT_BRAND_IDENTITY),
-  assets: [],
+  assets: [
+    {
+      id: 'mark-dark',
+      label: 'Starter black mark',
+      path: '/templates/logos/starter-mark.svg',
+      surface: 'light',
+      type: 'logo',
+    },
+    {
+      id: 'mark-light',
+      label: 'Starter white mark',
+      path: '/templates/logos/starter-mark-white.svg',
+      surface: 'dark',
+      type: 'logo',
+    },
+    {
+      id: 'wordmark',
+      label: 'Starter wordmark',
+      path: '/templates/logos/starter-wordmark.svg',
+      surface: 'light',
+      type: 'logo',
+    },
+    {
+      id: 'wordmark-light',
+      label: 'Starter white wordmark',
+      path: '/templates/logos/starter-wordmark-white.svg',
+      surface: 'dark',
+      type: 'logo',
+    },
+  ],
   audiences: ['Your primary audience', 'The people your product serves'],
   builtIn: true,
   description:
