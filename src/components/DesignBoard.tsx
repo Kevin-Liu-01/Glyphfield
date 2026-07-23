@@ -233,8 +233,8 @@ export default function DesignBoard({
             <p className='text-xs leading-5 text-muted-foreground'>
               {composition === 'showcase' ? (
                 <T>
-                  Present the identity across campaign, product, social, editorial, device,
-                  apparel, and outdoor applications.
+                  Present the identity as a paced set of editorial, product, typographic,
+                  and system applications.
                 </T>
               ) : (
                 <T>

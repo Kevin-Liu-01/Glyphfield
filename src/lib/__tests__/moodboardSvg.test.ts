@@ -26,17 +26,17 @@ describe('buildMoodboardSvg', () => {
   it('composes brand foundations and concrete applications as one board', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
 
-    expect(svg.match(/class="application-panel"/g)).toHaveLength(10);
+    expect(svg.match(/class="application-panel/g)).toHaveLength(7);
     expect(svg).toContain('GT IDENTITY');
     expect(svg).toContain('STRATEGY');
     expect(svg).toContain('LOGO ARCHITECTURE');
     expect(svg).toContain('COLOR ROLES');
     expect(svg).toContain('TYPOGRAPHY');
     expect(svg).toContain('THE TRANSLATION FRAME');
-    expect(svg).toContain('LOCALIZATION WORKSPACE');
-    expect(svg).toContain('LANGUAGE MORPH');
-    expect(svg).toContain('DEVELOPER CLI');
-    expect(svg).toContain('GLOBAL PRODUCT PASS');
+    expect(svg).toContain('Engineering story');
+    expect(svg).toContain('Localization');
+    expect(svg).toContain('workspace');
+    expect(svg).toContain('Language morph');
     expect(svg).not.toContain('#3B82F6');
     expect(svg).not.toContain('#F97316');
   });
@@ -45,11 +45,11 @@ describe('buildMoodboardSvg', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'showcase');
 
     expect(svg).toContain('data-board-mode="showcase"');
-    expect(svg).toContain('class="social-profile-mockup"');
-    expect(svg).toContain('class="laptop-mockup"');
-    expect(svg).toContain('class="apparel-mockup"');
-    expect(svg).toContain('class="editorial-mockup"');
-    expect(svg).toContain('class="outdoor-mockup"');
+    expect(svg).toContain('class="application-panel hero-application"');
+    expect(svg).toContain('class="application-panel editorial-application"');
+    expect(svg).toContain('class="application-panel type-application"');
+    expect(svg).toContain('class="application-panel product-application"');
+    expect(svg).toContain('class="application-panel system-application"');
     expect(svg).not.toContain('01 / GT IDENTITY');
   });
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+  <rect width="1600" height="1000" fill="#0A0A0A"/>
+  <path stroke="#F2F0E9" stroke-opacity=".18" d="M96 96h1408M96 904h1408"/>
+  <rect x="96" y="412" width="1408" height="176" fill="#F2F0E9"/>
+  <rect x="96" y="412" width="472" height="176" fill="#F3A51B"/>
+  <path stroke="#0A0A0A" stroke-width="2" d="M568 412v176"/>
+  <text x="112" y="930" fill="#F2F0E9" opacity=".46" font-family="monospace" font-size="20" letter-spacing="4">ONE IDEA / BUILT ALL THE WAY THROUGH</text>
+</svg>

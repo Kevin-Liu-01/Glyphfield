@@ -4,7 +4,7 @@ import type {
   BrandIdentity,
 } from './brandIdentity';
 
-const REVISION = 3;
+const REVISION = 4;
 
 function asset(
   id: string,
@@ -103,7 +103,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     pillars: ['Language stays connected to code', 'Context travels with every string', 'Automation remains reviewable', 'Every locale is a first-class product surface'],
     promise: 'Ship every language with the same confidence as the source language.',
   },
-  style: { borderRadius: 0, density: 'comfortable', grid: 'dots', imageTreatment: 'monochrome', logoScale: 100 },
+  style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
   tagline: 'One source of truth. Every language.',
   typography: [
     { family: 'Inter', role: 'Display', usage: 'Compressed, confident headlines and product statements' },
@@ -182,7 +182,7 @@ export const TEMPLATE_BRAND_IDENTITY: BrandIdentity = {
     pillars: ['Strategic pillar one', 'Strategic pillar two', 'Strategic pillar three', 'Strategic pillar four'],
     promise: 'Write the durable promise a user should be able to feel in every touchpoint.',
   },
-  style: { borderRadius: 8, density: 'comfortable', grid: 'lines', imageTreatment: 'natural', logoScale: 100 },
+  style: { borderRadius: 8, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 100 },
   tagline: 'From premise to pattern to proof.',
   typography: [
     { family: 'Switzer', role: 'Display', usage: 'Replace with the expressive headline family and define scale behavior' },
@@ -254,7 +254,7 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
     pillars: ['Collect real evidence', 'Frame the decision', 'Make ownership visible', 'Keep momentum legible'],
     promise: 'Find the signal and move the work forward.',
   },
-  style: { borderRadius: 6, density: 'comfortable', grid: 'dots', imageTreatment: 'natural', logoScale: 96 },
+  style: { borderRadius: 6, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 96 },
   tagline: 'Make the signal visible.',
   typography: [
     { family: 'Switzer', role: 'Display', usage: 'Direct headlines and compact product statements' },
@@ -315,7 +315,7 @@ export const RAMP_BRAND_IDENTITY: BrandIdentity = {
   socialHandle: '@tryramp',
   sourceNotes: ['Official Ramp press page and 2026 press kit', 'Official Ramp slate and white logo archive', 'Current Ramp company positioning and published proof points'],
   strategy: { challenge: 'Finance teams lose strategic time to fragmented cards, reimbursements, bills, approvals, accounting work, and legacy systems designed to increase spend.', concept: 'Time is money—make both forms of savings visible.', outcome: 'A rigorous but energetic system that makes the value of finance automation immediately legible to executives and operators.', personality: ['Decisive', 'Economical', 'Modern', 'Operator-minded'], pillars: ['Save time', 'Save money', 'Automate the manual', 'Give finance control without friction'], promise: 'Ramp gives finance teams time back and makes every dollar work harder.' },
-  style: { borderRadius: 2, density: 'compact', grid: 'lines', imageTreatment: 'natural', logoScale: 94 },
+  style: { borderRadius: 2, density: 'compact', grid: 'none', imageTreatment: 'natural', logoScale: 94 },
   tagline: 'Time is money. Save both.',
   typography: [{ family: 'Ramp Sans', role: 'Display', usage: 'Oversized economic proof and editorial statements' }, { family: 'Inter', role: 'Body', usage: 'Product UI and explanatory copy' }, { family: 'Times New Roman', role: 'Accent', usage: 'Editorial contrast in reports and thought leadership' }, { family: 'Geist Mono', role: 'Code', usage: 'Amounts, dates, ledger states, and evidence labels' }],
   values: ['Grow without fear', 'Take ownership', 'We win when customers win', 'Amp it up'],
@@ -382,7 +382,7 @@ export const TAILWIND_BRAND_IDENTITY: BrandIdentity = {
   graphicSystem: { composition: 'Wave fields move behind tightly aligned code, token, and interface evidence.', description: 'The utility wave turns small composable classes into visible cumulative motion: two currents meeting, stacking, and accelerating.', device: 'The utility wave', imageDirection: 'Real interface examples, legible HTML, state comparisons, responsive crops, and community work.', pattern: 'wave', rules: ['Show the code and the result together', 'Use cyan as motion and emphasis', 'Let composition demonstrate composability', 'Never imply affiliation in third-party applications'] },
   id: 'tailwind', kind: 'example', mission: 'Make it fast and enjoyable to build any design directly in your markup.', motion: [{ curve: 'cubic-bezier(0.16, 1, 0.3, 1)', description: 'Two cyan currents assemble from utility-sized pieces and settle into a finished interface.', durationMs: 1000, id: 'utility-wave', name: 'Utility wave', previewPath: '' }], name: 'Tailwind CSS', positioning: 'Tailwind CSS is a utility-first framework for rapidly building custom user interfaces without leaving HTML.', products: ['Framework', 'Documentation', 'Playground', 'Tailwind UI'], proof: ['Utility-first workflow', 'Responsive variants', 'Design tokens', 'Component composition'], proofAssets: [], revision: REVISION, shortName: 'TW', socialHandle: '@tailwindcss', sourceNotes: ['Official Tailwind CSS brand asset page', 'Official Tailwind mark and logotype downloads', 'Trademark restrictions retained in Glyphfield legal documentation'],
   strategy: { challenge: 'Traditional CSS creates naming overhead, context switching, and drift between a design intent and the code that implements it.', concept: 'Small utilities become expressive systems through composition.', outcome: 'A framework identity that feels fast, technical, and open-ended while remaining instantly recognizable through its cyan current.', personality: ['Fast', 'Practical', 'Expressive', 'Precise'], pillars: ['Compose in markup', 'Constrain with tokens', 'Adapt through variants', 'Extract only when repetition earns it'], promise: 'Build the interface you mean without fighting the stylesheet.' },
-  style: { borderRadius: 8, density: 'comfortable', grid: 'lines', imageTreatment: 'natural', logoScale: 94 }, tagline: 'Build anything.', typography: [{ family: 'Inter', role: 'Display', usage: 'Framework statements and release headlines' }, { family: 'Inter', role: 'Body', usage: 'Documentation and interface explanation' }, { family: 'Inter', role: 'Accent', usage: 'Utility names and component labels' }, { family: 'Geist Mono', role: 'Code', usage: 'HTML, CSS, commands, and token values' }], values: ['Composability', 'Speed', 'Constraint', 'Craft'], voice: { avoid: ['Magic without showing the mechanism', 'Generic low-code language', 'Visual examples without the classes'], phrases: ['Build anything.', 'Rapidly build modern websites.', 'Style directly in your markup.'], principles: ['Practical', 'Direct', 'Code-forward', 'Enabling'] }, website: 'tailwindcss.com',
+  style: { borderRadius: 8, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 94 }, tagline: 'Build anything.', typography: [{ family: 'Inter', role: 'Display', usage: 'Framework statements and release headlines' }, { family: 'Inter', role: 'Body', usage: 'Documentation and interface explanation' }, { family: 'Inter', role: 'Accent', usage: 'Utility names and component labels' }, { family: 'Geist Mono', role: 'Code', usage: 'HTML, CSS, commands, and token values' }], values: ['Composability', 'Speed', 'Constraint', 'Craft'], voice: { avoid: ['Magic without showing the mechanism', 'Generic low-code language', 'Visual examples without the classes'], phrases: ['Build anything.', 'Rapidly build modern websites.', 'Style directly in your markup.'], principles: ['Practical', 'Direct', 'Code-forward', 'Enabling'] }, website: 'tailwindcss.com',
 };
 
 export const VITEPLUS_BRAND_IDENTITY: BrandIdentity = {
@@ -406,7 +406,7 @@ export const CLOUDFLARE_BRAND_IDENTITY: BrandIdentity = {
   graphicSystem: { composition: 'A horizontal orange horizon divides the user-facing world from the network and origin layers beneath it.', description: 'The network horizon makes an invisible service visible: requests cross one orange edge where security, performance, compute, and reliability act together.', device: 'The network horizon', imageDirection: 'Global network maps, infrastructure diagrams, real traffic, operational dashboards, and human-scale Internet stories.', pattern: 'circuit', rules: ['The orange horizon indicates Cloudflare intervention', 'Use diagrams to clarify real architecture', 'Keep data labels technically accurate', 'Do not use marks outside documented trademark permissions'] },
   id: 'cloudflare', kind: 'example', mission: 'Help build a better Internet.', motion: [{ curve: 'cubic-bezier(0.22, 1, 0.36, 1)', description: 'Traffic travels to the orange horizon, resolves across the edge, and reaches the destination with visible protection and acceleration.', durationMs: 1200, id: 'edge-route', name: 'Edge route', previewPath: '' }], name: 'Cloudflare', positioning: 'Cloudflare is the connectivity cloud that helps organizations make applications and networks faster, more secure, more reliable, and easier to operate.', products: ['Application services', 'Zero Trust', 'Network services', 'Developer platform', 'R2 and data', 'AI'], proof: ['20% of websites protected', '335+ cities', '125+ countries', '42% of Fortune 500'], proofAssets: [], revision: REVISION, shortName: 'CF', socialHandle: '@Cloudflare', sourceNotes: ['Official Cloudflare press kit and logo page', 'Official Cloudflare product and company language', 'Official trademark guidance applies to all included reference assets'],
   strategy: { challenge: 'The Internet is globally distributed but organizations still manage security, performance, networking, compute, and data through fragmented infrastructure.', concept: 'One protective horizon across the Internet.', outcome: 'A clear infrastructure identity that turns invisible global work into an understandable connected system.', personality: ['Protective', 'Global', 'Technical', 'Optimistic'], pillars: ['Connect everything', 'Protect every request', 'Accelerate every experience', 'Simplify infrastructure'], promise: 'Make every connection faster, safer, and more reliable.' },
-  style: { borderRadius: 4, density: 'compact', grid: 'lines', imageTreatment: 'duotone', logoScale: 96 }, tagline: 'Connect, protect, and build everywhere.', typography: [{ family: 'Inter', role: 'Display', usage: 'Large network promises and report headlines' }, { family: 'Inter', role: 'Body', usage: 'Product UI, documentation, and explanatory narrative' }, { family: 'Inter', role: 'Accent', usage: 'Network statistics and city labels' }, { family: 'Geist Mono', role: 'Code', usage: 'Routes, requests, addresses, runtime state, and network metadata' }], values: ['Better Internet', 'Global reach', 'Technical integrity', 'Resilience'], voice: { avoid: ['Fear without actionable detail', 'Network abstractions that hide architecture', 'Unqualified scale claims'], phrases: ['Help build a better Internet.', 'Protect and accelerate.', 'Run everywhere.'], principles: ['Clear', 'Authoritative', 'Practical', 'Global'] }, website: 'cloudflare.com',
+  style: { borderRadius: 4, density: 'compact', grid: 'none', imageTreatment: 'duotone', logoScale: 96 }, tagline: 'Connect, protect, and build everywhere.', typography: [{ family: 'Inter', role: 'Display', usage: 'Large network promises and report headlines' }, { family: 'Inter', role: 'Body', usage: 'Product UI, documentation, and explanatory narrative' }, { family: 'Inter', role: 'Accent', usage: 'Network statistics and city labels' }, { family: 'Geist Mono', role: 'Code', usage: 'Routes, requests, addresses, runtime state, and network metadata' }], values: ['Better Internet', 'Global reach', 'Technical integrity', 'Resilience'], voice: { avoid: ['Fear without actionable detail', 'Network abstractions that hide architecture', 'Unqualified scale claims'], phrases: ['Help build a better Internet.', 'Protect and accelerate.', 'Run everywhere.'], principles: ['Clear', 'Authoritative', 'Practical', 'Global'] }, website: 'cloudflare.com',
 };
 
 export const STRIPE_BRAND_IDENTITY: BrandIdentity = {
@@ -421,9 +421,137 @@ export const STRIPE_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 12, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 90 }, tagline: 'Financial infrastructure for the internet.', typography: [{ family: 'Inter', role: 'Display', usage: 'Ambitious economic statements and product launches' }, { family: 'Inter', role: 'Body', usage: 'Product explanation, dashboard UI, and editorial narrative' }, { family: 'Times New Roman', role: 'Accent', usage: 'Economic reports and human editorial contrast' }, { family: 'Geist Mono', role: 'Code', usage: 'API objects, amounts, events, requests, and implementation metadata' }], values: ['Economic progress', 'Rigor', 'Leverage', 'Global scale'], voice: { avoid: ['Finance jargon without a user outcome', 'Grand vision without implementation evidence', 'Unofficial logo colors'], phrases: ['Increase the GDP of the internet.', 'Financial infrastructure for the internet.', 'Build new business models.'], principles: ['Ambitious', 'Exact', 'Developer-literate', 'Globally aware'] }, website: 'stripe.com',
 };
 
+export const BASEMENT_BRAND_IDENTITY: BrandIdentity = {
+  applications: [
+    application('identity', 'The studio, in one frame', 'foundation', '1600 × 1000', 'A blunt typographic statement, one engineered interruption, and enough space for the idea to land.'),
+    application('type', 'Basement Grotesque specimen', 'foundation', 'A2 / responsive', 'The studio typeface is treated as an image: unapologetically heavy, repeated with control, and paired with quiet metadata.'),
+    application('case-study', 'Case study opening', 'editorial', '1600 × 1000', 'The business problem and systemic idea lead before the visual reveal.'),
+    application('project-index', 'Project index', 'product', '1440 × 1024', 'Selected work appears as an exact editorial sequence rather than a wall of interchangeable cards.'),
+    application('lab', 'Basement Lab', 'developer', '16:9', 'A focused tool surface where the experiment is the hero and interface chrome stays out of its way.'),
+    application('launch', 'Project launch', 'marketing', '4:5 / 16:9', 'One project-specific device carries the announcement across formats without becoming wallpaper.'),
+    application('social', 'Studio dispatch', 'social', '1:1 / 4:5', 'Short, candid writing paired with one strong image, crop, or typographic move.'),
+    application('deck', 'Project narrative', 'editorial', '16:9', 'Context, challenge, idea, system, application, and impact unfold as a paced argument.'),
+    application('event', 'Basement session', 'event', 'Stage / badge', 'Oversized type and a single signal color scale from a small badge to a room.'),
+    application('merch', 'Studio uniform', 'physical', 'Apparel / object', 'Black, off-white, and one direct studio line applied with the same restraint as the digital system.'),
+  ],
+  assets: [
+    asset('mark-dark', 'Basement black mark', '/brands/basement/logos/mark-black.svg', 'light'),
+    asset('mark-light', 'Basement white mark', '/brands/basement/logos/mark-white.svg', 'dark'),
+    asset('wordmark', 'Basement black wordmark', '/brands/basement/logos/wordmark-black.svg', 'light'),
+    asset('wordmark-light', 'Basement white wordmark', '/brands/basement/logos/wordmark-white.svg', 'dark'),
+    asset('identity-field', 'Engineered interruption', '/brands/basement/assets/engineered-interruption.svg', 'any', 'background'),
+  ],
+  audiences: ['Ambitious technology companies', 'Culture-shaping founders', 'Product and brand leaders', 'Teams whose digital presence must perform'],
+  builtIn: true,
+  colors: [
+    { hex: '#0A0A0A', id: 'ink', name: 'Basement black', role: 'Primary field, type, and uncompromising contrast' },
+    { hex: '#F2F0E9', id: 'paper', name: 'Warm white', role: 'Open editorial field and reversed breathing room' },
+    { hex: '#D9D6CD', id: 'muted', name: 'Concrete', role: 'Quiet structure, captions, and secondary surfaces' },
+    { hex: '#F3A51B', id: 'emphasis', name: 'Signal amber', role: 'One deliberate signal, interaction, or focal interruption' },
+    { hex: '#F2F0E9', id: 'success', name: 'Clear', role: 'Resolved state without adding another hue' },
+    { hex: '#8E8A80', id: 'warning', name: 'Dust', role: 'Secondary information and material depth' },
+    { hex: '#2B2B29', id: 'progress', name: 'Graphite', role: 'In-progress surfaces and tonal separation' },
+    { hex: '#151513', id: 'error', name: 'Subfloor', role: 'Deep tonal extension and destructive contrast' },
+  ],
+  contactEmail: 'hello@basement.studio',
+  description: 'A performance-minded studio identity built from heavy type, blunt contrast, precise pacing, and one memorable idea per application.',
+  fonts: [
+    {
+      family: 'Basement Grotesque',
+      fileName: 'BasementGrotesque-Black_v1.202.woff2',
+      format: 'woff2',
+      id: 'basement-grotesque-black',
+      label: 'Basement Grotesque Black',
+      path: '/fonts/basement-grotesque/BasementGrotesque-Black_v1.202.woff2',
+      style: 'normal',
+      weight: 800,
+    },
+    {
+      family: 'Inter',
+      fileName: 'Inter-Variable.ttf',
+      format: 'truetype',
+      id: 'inter-variable',
+      label: 'Inter Variable',
+      path: '/fonts/inter-variable.ttf',
+      style: 'normal',
+      weight: 400,
+      weightMax: 900,
+      weightMin: 100,
+    },
+    {
+      family: 'Geist Mono',
+      fileName: 'GeistMono-Variable.ttf',
+      format: 'truetype',
+      id: 'geist-mono-variable',
+      label: 'Geist Mono Variable',
+      path: '/fonts/geist-mono-variable.ttf',
+      style: 'normal',
+      weight: 400,
+      weightMax: 900,
+      weightMin: 100,
+    },
+  ],
+  greetings: ['Make', 'Perform', 'Repeat'],
+  graphicSystem: {
+    composition: 'Let one oversized statement or image occupy the field. Anchor it with small factual metadata and interrupt the composition once—never everywhere.',
+    description: 'The engineered interruption is a precise break in an otherwise severe system: a signal block, crop, gap, or motion event derived from the project idea.',
+    device: 'The engineered interruption',
+    imageDirection: 'Project-specific worlds, real product evidence, bold controlled crops, tactile light, and deliberate low-fidelity treatments. Effects must explain the subject instead of decorating it.',
+    pattern: 'blocks',
+    rules: ['One strong move per composition', 'Typography and negative space provide the structure', 'Derive the device from the project problem or product', 'Performance is part of the design', 'Use texture only when it adds material or solves banding'],
+  },
+  id: 'basement',
+  kind: 'example',
+  mission: 'Make digital identities and experiences that are impossible to ignore and engineered to perform.',
+  motion: [
+    { curve: 'cubic-bezier(0.22, 1, 0.36, 1)', description: 'A single interruption snaps into the field, holds, and exits before it becomes decoration.', durationMs: 900, id: 'signal-cut', name: 'Signal cut', previewPath: '' },
+  ],
+  name: 'Basement',
+  positioning: 'Basement is an independent digital studio and branding partner for ambitious companies that need strategy, identity, product experience, and technical execution to behave as one system.',
+  products: ['Brand strategy', 'Visual identity', 'Digital experience', 'Creative development', 'Studio tools'],
+  proof: ['Vercel', 'Linear', 'ElevenLabs', 'Baseten', 'Krea', 'Cursor'],
+  proofAssets: [],
+  revision: REVISION,
+  shortName: 'BSMNT',
+  socialHandle: '@basementstudio',
+  sourceNotes: [
+    'Basement Studio — official site and capabilities',
+    'ElevenLabs: Visual Rebrand for the Voice of AI — official case study',
+    'Baseten: When Brand Meets Business — official case study',
+    'Rox: Rebuilding the Digital Presence of a Top 100 AI Company — official case study',
+    'Building a Unique Website for Basement Grotesque — official process article',
+    'Mastering Color Gradients — official design article',
+    'New Digital HQ, Part 1 — official development article',
+  ],
+  strategy: {
+    challenge: 'Fast-moving technology companies often outgrow fragmented identity systems: the story, product, website, motion, and implementation stop feeling like the same company.',
+    concept: 'Serious systems, playful expression—one sharp idea engineered through every surface.',
+    outcome: 'A recognizable identity that gives the company cultural presence, gives its team reusable tools, and performs under real product and web constraints.',
+    personality: ['Bold', 'Exact', 'Curious', 'Irreverent'],
+    pillars: ['Find the business problem before the visual move', 'Build one ownable device', 'Treat code and performance as craft', 'Give teams tools they can remix', 'Let personality in without diluting the idea'],
+    promise: 'Cool work that performs.',
+  },
+  style: { borderRadius: 0, density: 'spacious', grid: 'none', imageTreatment: 'monochrome', logoScale: 92 },
+  tagline: 'Cool work that performs.',
+  typography: [
+    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -5, lineHeight: 0.88, role: 'Display', usage: 'Large, compressed statements with enough space to feel intentional', weight: 800 },
+    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -1, lineHeight: 1.45, role: 'Body', usage: 'Case-study narrative, product explanation, and supporting interface copy', weight: 450 },
+    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -2, lineHeight: 0.92, role: 'Accent', usage: 'Short studio phrases, specimen moments, and project-specific interruptions', weight: 800 },
+    { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0, lineHeight: 1.45, role: 'Code', usage: 'Credits, project metadata, specifications, tools, and implementation evidence', weight: 450 },
+  ],
+  values: ['Ideas with a reason', 'Craft across disciplines', 'Performance by design', 'Serious work, human energy'],
+  voice: {
+    avoid: ['Agency superlatives without evidence', 'Long theory before the actual problem', 'Corporate filler', 'Explaining every visual gesture'],
+    phrases: ['Cool work that performs.', 'One idea. Built all the way through.', 'The work should earn the attention.'],
+    principles: ['Lead with the useful truth', 'Write like a confident person', 'Name the problem and the system', 'Keep the punchline short'],
+  },
+  website: 'basement.studio',
+};
+
 export const BUILT_IN_BRAND_IDENTITIES: readonly BrandIdentity[] = [
   STARTER_BRAND_IDENTITY,
   TEMPLATE_BRAND_IDENTITY,
+  BASEMENT_BRAND_IDENTITY,
   GT_BRAND_IDENTITY,
   RAMP_BRAND_IDENTITY,
   MINTLIFY_BRAND_IDENTITY,

@@ -1,4 +1,5 @@
 import {
+  BASEMENT_BRAND_IDENTITY,
   BUILT_IN_BRAND_IDENTITIES,
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
@@ -6,6 +7,7 @@ import {
 } from './identityPresets';
 
 export {
+  BASEMENT_BRAND_IDENTITY,
   BUILT_IN_BRAND_IDENTITIES,
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
@@ -105,7 +107,7 @@ export type BrandGraphicSystem = {
 export const DEFAULT_BRAND_STYLE: BrandStyle = {
   borderRadius: 6,
   density: 'comfortable',
-  grid: 'dots',
+  grid: 'none',
   imageTreatment: 'natural',
   logoScale: 100,
 };

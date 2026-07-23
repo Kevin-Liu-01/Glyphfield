@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BASEMENT_BRAND_IDENTITY,
   brandFontAssets,
   brandTypographyFamily,
   BUILT_IN_BRAND_IDENTITIES,
@@ -9,6 +10,25 @@ import {
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
 } from '../brandIdentity';
+
+describe('BASEMENT_BRAND_IDENTITY', () => {
+  it('ships the researched studio system, licensed typeface, and restrained defaults', () => {
+    expect(BASEMENT_BRAND_IDENTITY.graphicSystem.device).toBe('The engineered interruption');
+    expect(BASEMENT_BRAND_IDENTITY.style.grid).toBe('none');
+    expect(BASEMENT_BRAND_IDENTITY.typography[0]).toMatchObject({
+      family: 'Basement Grotesque',
+      weight: 800,
+    });
+    expect(BASEMENT_BRAND_IDENTITY.sourceNotes).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('ElevenLabs'),
+        expect.stringContaining('Baseten'),
+        expect.stringContaining('Mastering Color Gradients'),
+      ])
+    );
+    expect(BASEMENT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
+  });
+});
 
 describe('GT_BRAND_IDENTITY', () => {
   it('captures the GT system as a complete built-in identity', () => {
@@ -52,6 +72,7 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
     expect(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id)).toEqual([
       'starter',
       'template',
+      'basement',
       'gt',
       'ramp',
       'mintlify',
@@ -69,7 +90,9 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.applications.length).toBeGreaterThanOrEqual(8);
       expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
       expect(identity.assets.some(({ type }) => type === 'background')).toBe(true);
-      expect(brandFontAssets(identity).every(({ path }) => path.endsWith('.ttf'))).toBe(true);
+      expect(
+        brandFontAssets(identity).every(({ path }) => /\.(?:ttf|woff2)$/.test(path))
+      ).toBe(true);
       expect(brandTypographyFamily(identity, 'Display')).toBeTruthy();
     }
   });

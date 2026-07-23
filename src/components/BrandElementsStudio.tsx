@@ -444,11 +444,11 @@ function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; 
         ['Join the Community', 'Meet builders working on products for every locale.', 'ع'],
         ['Let Locadex Open the PR', 'Turn translation work into reviewed repository changes.', 'A'],
       ]
-    : [
-        [`Add ${identity.shortName} to your stack`, 'Connect the identity to the product and its implementation.', '文'],
-        ['Join the community', 'Carry the same voice into conversation and support.', 'ع'],
-        ['Start shipping', 'Keep product, documentation, and communication together.', 'A'],
-      ];
+    : identity.applications.slice(0, 3).map(({ description, name }, index) => [
+        name,
+        description,
+        `0${index + 1}`,
+      ]);
   const dark = isDarkSurface(settings.backgroundColor);
 
   return (
@@ -564,7 +564,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
 
   if (element.id === 'terminal-theme') {
     return (
-      <div className='relative mx-auto w-full max-w-4xl overflow-hidden p-6 font-mono shadow-xl sm:p-10' style={elementSurfaceStyle(settings)}>
+      <div className='relative mx-auto w-full max-w-4xl overflow-hidden border p-6 font-mono sm:p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
         <ElementPattern settings={settings} />
         <div className='relative z-10'>
           <div className='mb-10 flex items-center justify-between border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
@@ -582,7 +582,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
 
   if (['github-readme', 'docs-header', 'package-card', 'api-reference-hero', 'code-playground', 'release-notes'].includes(element.id)) {
     return (
-      <div className={`relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${element.id === 'package-card' ? 'aspect-[8/5]' : 'aspect-[16/7]'} ${settings.layout === 'centered' ? 'place-items-center text-center' : 'grid-cols-[1.15fr_0.85fr]'}`} style={elementSurfaceStyle(settings)}>
+      <div className={`relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${element.id === 'package-card' ? 'aspect-[8/5]' : 'aspect-[16/7]'} ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'grid-cols-[1.15fr_0.85fr]'}`} style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
         <div className='relative z-10 flex flex-col justify-center p-8 sm:p-12'>
           {settings.showLogo ? <IdentityMark className='mb-8 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}
@@ -591,7 +591,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
           <p className='mt-4 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p>
           {settings.cta ? <code className='mt-6 w-fit border px-3 py-2 text-xs' style={{ borderColor: settings.foregroundColor }}>{settings.cta}</code> : null}
         </div>
-        {settings.layout !== 'centered' ? (
+        {settings.layout === 'split' ? (
           <div className='relative z-10 grid place-items-center p-8' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
             <span className='font-mono text-6xl font-semibold tracking-[-0.08em]'>{element.id === 'package-card' ? '{}' : identity.shortName}</span>
           </div>
@@ -601,7 +601,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
   }
 
   return (
-    <div className='relative mx-auto w-full max-w-4xl overflow-hidden shadow-xl' style={elementSurfaceStyle(settings)}>
+    <div className='relative mx-auto w-full max-w-4xl overflow-hidden border' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
       <ElementPattern settings={settings} />
       <div className='relative z-10 flex items-center justify-between border-b px-5 py-4' style={{ borderColor: settings.foregroundColor }}>
         <span className='font-mono text-xs opacity-50'>{identity.id}</span>
@@ -693,10 +693,10 @@ function EventPreview({ element, identity, settings }: { element: BrandElement; 
     );
   }
   return (
-    <div className='mx-auto flex min-h-[560px] w-full max-w-3xl items-start justify-center overflow-hidden bg-[#ECECE8] p-8'>
+    <div className='mx-auto flex min-h-[560px] w-full max-w-3xl items-start justify-center overflow-hidden p-8' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
       <div className='flex flex-col items-center'>
         <div className='h-24 w-8' style={{ backgroundColor: settings.accentColor }} />
-        <div className='w-72 shadow-xl' style={elementSurfaceStyle(settings)}>
+        <div className='w-72 border' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
           <div className='flex h-32 items-center justify-center' style={{ backgroundColor: settings.accentColor }}>
             {settings.showLogo ? <IdentityMark className='size-20 object-contain text-2xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}
           </div>
@@ -729,8 +729,8 @@ function PhysicalPreview({ element, identity, settings }: { element: BrandElemen
   }
   if (element.id === 'packaging-label') {
     return (
-      <div className='mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center bg-[#E9E9E5] p-10'>
-        <div className='relative aspect-[3/2] w-full max-w-2xl overflow-hidden border p-8 shadow-xl' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
+      <div className='mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center p-10' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
+        <div className='relative aspect-[3/2] w-full max-w-2xl overflow-hidden border p-8' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
           <ElementPattern settings={settings} />
           <div className='relative z-10 flex h-full flex-col justify-between'>
             <div className='flex justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-lg' identity={identity} inverted={dark} /> : <span />}{settings.eyebrow ? <span className='font-mono text-xs opacity-45'>{settings.eyebrow}</span> : null}</div>
@@ -743,7 +743,7 @@ function PhysicalPreview({ element, identity, settings }: { element: BrandElemen
   }
   if (element.id === 'letterhead') {
     return (
-      <div className='mx-auto min-h-[640px] w-full max-w-xl p-10 shadow-xl' style={elementSurfaceStyle(settings)}>
+      <div className='mx-auto min-h-[640px] w-full max-w-xl border p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
         <div className='flex items-start justify-between'>{settings.showLogo ? <IdentityMark className='size-10 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}{settings.showWebsite ? <span className='font-mono text-xs opacity-45'>{identity.website}</span> : null}</div>
         <h2 className='mt-24 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2>
         <p className='mt-8 text-sm leading-7 opacity-60'>{settings.body}</p>
@@ -753,13 +753,13 @@ function PhysicalPreview({ element, identity, settings }: { element: BrandElemen
     );
   }
   return (
-    <div className='mx-auto grid min-h-[520px] w-full max-w-5xl place-items-center bg-[#E9E9E5] p-8 sm:p-14'>
+    <div className='mx-auto grid min-h-[520px] w-full max-w-5xl place-items-center p-8 sm:p-14' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
       <div className='grid w-full max-w-4xl gap-8 md:grid-cols-2'>
-        <div className='flex aspect-[1.75/1] flex-col justify-between p-7 shadow-xl' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
+        <div className='flex aspect-[1.75/1] flex-col justify-between border p-7' style={{ backgroundColor: settings.accentColor, borderColor: settings.foregroundColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
           {settings.showLogo ? <IdentityMark className='size-16 object-contain text-xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}
           <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{identity.shortName}</p>
         </div>
-        <div className='flex aspect-[1.75/1] flex-col justify-between p-7 shadow-xl' style={elementSurfaceStyle(settings)}>
+        <div className='flex aspect-[1.75/1] flex-col justify-between border p-7' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
           <div>
             <p className='text-xl font-semibold'>{settings.personName}</p>
             <p className='mt-1 text-sm opacity-55'>{settings.personRole}</p>
@@ -823,10 +823,10 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
 
   if (element.id === 'hero-section') {
     return (
-      <div className={`relative mx-auto grid aspect-[16/9] w-full max-w-5xl overflow-hidden shadow-sm ${settings.layout === 'centered' ? 'place-items-center text-center' : 'md:grid-cols-[1.1fr_0.9fr]'}`} style={elementSurfaceStyle(settings)}>
+      <div className={`relative mx-auto grid aspect-[16/9] w-full max-w-5xl overflow-hidden shadow-sm ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'md:grid-cols-[1.1fr_0.9fr]'}`} style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
         <div className='relative z-10 flex flex-col justify-center p-8 sm:p-14'>{logo}{settings.eyebrow ? <p className='mt-12 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`mt-4 max-w-3xl font-semibold leading-[0.98] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p><div className='mt-7'>{action}</div></div>
-        {settings.layout !== 'centered' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><div className='grid size-48 place-items-center border border-white/25 text-6xl font-semibold' style={{ color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{identity.shortName}</div></div> : null}
+        {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><div className='grid size-48 place-items-center border border-white/25 text-6xl font-semibold' style={{ color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{identity.shortName}</div></div> : null}
       </div>
     );
   }
@@ -853,7 +853,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
 
   if (element.id === 'search-surface') {
     return (
-      <div className='relative mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-2xl border p-3 shadow-xl' style={{ backgroundColor: settings.backgroundColor, borderColor, borderRadius: radius }}><div className='flex h-12 items-center gap-3 border-b px-3' style={{ borderColor }}><span className='text-lg'>⌕</span><span className='text-sm opacity-45'>{settings.body}</span><kbd className='ml-auto font-mono text-xs opacity-35'>ESC</kbd></div><div className='py-2'>{['Open brand settings', 'Generate a design board', 'Export selected artifact', 'Invite a collaborator'].map((item, index) => <div className='flex items-center justify-between px-4 py-3 text-sm' key={item} style={{ backgroundColor: index === 0 ? mutedSurface : undefined, borderRadius: Math.min(radius, 8) }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div></div></div>
+      <div className='relative mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-2xl border p-3' style={{ backgroundColor: settings.backgroundColor, borderColor, borderRadius: radius }}><div className='flex h-12 items-center gap-3 border-b px-3' style={{ borderColor }}><span className='text-lg'>⌕</span><span className='text-sm opacity-45'>{settings.body}</span><kbd className='ml-auto font-mono text-xs opacity-35'>ESC</kbd></div><div className='py-2'>{['Open brand settings', 'Generate a design board', 'Export selected artifact', 'Invite a collaborator'].map((item, index) => <div className='flex items-center justify-between px-4 py-3 text-sm' key={item} style={{ backgroundColor: index === 0 ? mutedSurface : undefined, borderRadius: Math.min(radius, 8) }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div></div></div>
     );
   }
 
@@ -878,8 +878,9 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
   }
 
   if (element.id === 'feature-grid') {
+    const features = identity.strategy.pillars.slice(0, 3);
     return (
-      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><div className='mt-10 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{['One source of truth', 'Reusable by default', 'Ready to export'].map((title, index) => <div className='min-h-52 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-16 text-lg font-semibold'>{title}</p><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p></div>)}</div></div></div>
+      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 max-w-3xl text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><p className='mt-4 max-w-2xl text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-12 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{features.map((title, index) => <div className='min-h-44 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-14 text-lg font-semibold'>{title}</p><p className='mt-2 text-xs uppercase tracking-wide opacity-35'>{identity.values[index] ?? identity.name}</p></div>)}</div></div></div>
     );
   }
 
@@ -887,7 +888,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     const testimonial = element.id === 'testimonial-card';
     const checkout = element.id === 'checkout-card';
     return (
-      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 shadow-xl sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}{settings.eyebrow ? <p className='mt-10 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
+      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}{settings.eyebrow ? <p className='mt-10 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
     );
   }
 
@@ -900,7 +901,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
   if (['command-menu', 'modal-dialog', 'toast-notification', 'empty-state'].includes(element.id)) {
     const compact = element.id === 'toast-notification';
     return (
-      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 shadow-xl ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}{settings.eyebrow ? <p className='mt-5 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
+      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}{settings.eyebrow ? <p className='mt-5 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
     );
   }
 
