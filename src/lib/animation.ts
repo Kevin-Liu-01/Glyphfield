@@ -25,6 +25,19 @@ export function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+export function resolveBezierControlPoint(
+  pointerX: number,
+  pointerY: number
+): readonly [number, number] {
+  const graphStart = 0.1;
+  const graphEnd = 0.9;
+  const graphSize = graphEnd - graphStart;
+  return [
+    clamp((pointerX - graphStart) / graphSize, 0, 1),
+    clamp((graphEnd - pointerY) / graphSize, -1, 2),
+  ];
+}
+
 function cubicCoordinate(
   parameter: number,
   firstControl: number,

@@ -4,6 +4,7 @@ import {
   buildFrameSchedule,
   cycleDurationMs,
   cubicBezierAt,
+  resolveBezierControlPoint,
   resolveAnchor,
   resolveTimeline,
 } from '../animation';
@@ -15,6 +16,18 @@ describe('cubicBezierAt', () => {
     expect(cubicBezierAt(0, curve)).toBe(0);
     expect(cubicBezierAt(1, curve)).toBe(1);
     expect(cubicBezierAt(0.5, curve)).toBeGreaterThan(0.7);
+  });
+});
+
+describe('resolveBezierControlPoint', () => {
+  it.each([
+    { expected: [0, 0], pointer: [0.1, 0.9] },
+    { expected: [0.5, 0.5], pointer: [0.5, 0.5] },
+    { expected: [1, 1], pointer: [0.9, 0.1] },
+    { expected: [0, 2], pointer: [-0.5, -1] },
+    { expected: [1, -1], pointer: [1.5, 2] },
+  ])('maps and clamps $pointer to $expected', ({ expected, pointer }) => {
+    expect(resolveBezierControlPoint(pointer[0], pointer[1])).toEqual(expected);
   });
 });
 
