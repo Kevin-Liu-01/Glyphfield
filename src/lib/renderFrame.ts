@@ -131,7 +131,7 @@ function drawSourceContent(
   if (source.kind === 'text') {
     const text = options.textOverride ?? source.text;
     context.fillStyle = source.foreground ?? config.foreground;
-    context.font = `${source.fontWeight ?? config.fontWeight} ${source.fontSize ?? config.fontSize}px Inter, Arial, sans-serif`;
+    context.font = `${source.fontWeight ?? config.fontWeight} ${source.fontSize ?? config.fontSize}px Switzer, Arial, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     const measuredWidth = context.measureText(text).width;
@@ -355,7 +355,7 @@ export function renderFrame(
     context.save();
     context.fillStyle = config.foreground;
     context.globalAlpha = 0.34;
-    context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px Inter, Arial, sans-serif`;
+    context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px Switzer, Arial, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText('IMPORT IMAGES TO BEGIN', config.width / 2, config.height / 2);

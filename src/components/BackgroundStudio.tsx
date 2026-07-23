@@ -5,6 +5,9 @@ import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import CanvasLayerPanel from '@/components/CanvasLayerPanel';
+import EditableCanvasLayer, { alignCanvasLayer, type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
+import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -27,6 +30,7 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const SIZE_PRESETS = [
@@ -83,6 +87,8 @@ export default function BackgroundStudio({
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
+  const [logoAppearance, setLogoAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
+  const [logoSelected, setLogoSelected] = useState(false);
   const availableBrandAssets = [...identity.assets, ...identity.proofAssets].filter(
     (asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf')
   );
@@ -153,10 +159,12 @@ export default function BackgroundStudio({
           assetFit: brandAssetFit,
           assetOpacity: brandAssetOpacity,
           logo: showLogo ? logoPath : undefined,
+          logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
           name: identity.shortName,
+          showLogo: false,
         }
       ),
-    [brandAssetFit, brandAssetOpacity, identity.shortName, logoPath, selectedBrandAsset?.path, settings, showLogo]
+    [brandAssetFit, brandAssetOpacity, identity.shortName, logoAppearance, logoPath, selectedBrandAsset?.path, settings, showLogo]
   );
 
   customLogoRef.current = customLogo;
@@ -229,10 +237,21 @@ export default function BackgroundStudio({
             const image = new Image();
             image.src = logoPath;
             await image.decode();
-            context.drawImage(image, markX, markY, markSize, markSize);
+            const tinted = document.createElement('canvas');
+            tinted.width = Math.ceil(markSize);
+            tinted.height = Math.ceil(markSize);
+            const tintedContext = tinted.getContext('2d');
+            if (!tintedContext) return;
+            tintedContext.drawImage(image, 0, 0, markSize, markSize);
+            tintedContext.globalCompositeOperation = 'source-in';
+            tintedContext.fillStyle = settings.logoColor;
+            tintedContext.fillRect(0, 0, markSize, markSize);
+            context.filter = logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance });
+            context.drawImage(tinted, markX, markY, markSize, markSize);
+            context.filter = 'none';
           } else {
-            context.fillStyle = settings.logoTone === 'white' ? '#FFFFFF' : '#000000';
-            context.font = `700 ${markSize * 0.42}px Inter, sans-serif`;
+            context.fillStyle = settings.logoColor;
+            context.font = `600 ${markSize * 0.42}px Switzer, sans-serif`;
             context.textAlign = 'center';
             context.textBaseline = 'middle';
             context.fillText(identity.shortName, settings.width / 2, settings.height / 2);
@@ -259,7 +278,9 @@ export default function BackgroundStudio({
           assetFit: brandAssetFit,
           assetOpacity: brandAssetOpacity,
           logo: showLogo ? embeddedLogo : undefined,
+          logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
           name: identity.shortName,
+          showLogo,
         }
       );
       await downloadSvgAsPng(
@@ -446,15 +467,29 @@ export default function BackgroundStudio({
             </div>
             <div className='flex gap-2'>
               {(['white', 'black'] as const).map((tone) => (
-                <Button className='flex-1' key={tone} onClick={() => updateSettings({ logoTone: tone })} size='sm' type='button' variant={settings.logoTone === tone ? 'default' : 'outline'}>
+                <Button className='flex-1' key={tone} onClick={() => updateSettings({ logoColor: tone === 'white' ? '#FFFFFF' : '#000000', logoTone: tone })} size='sm' type='button' variant={settings.logoTone === tone ? 'default' : 'outline'}>
                   {tone === 'white' ? <T>White</T> : <T>Black</T>}
                 </Button>
               ))}
             </div>
+            <ColorControl ariaLabel={gt('Custom logo color')} label={<T>Custom logo color</T>} onChange={(logoColor) => updateSettings({ logoColor })} value={settings.logoColor} />
             <RangeControl label={gt('Logo size')} max={64} min={10} onChange={(logoScale) => updateSettings({ logoScale })} suffix='%' value={settings.logoScale} />
             <RangeControl label={gt('Logo opacity')} max={100} min={0} onChange={(logoOpacity) => updateSettings({ logoOpacity })} suffix='%' value={settings.logoOpacity} />
             <RangeControl label={gt('Horizontal')} max={50} min={-50} onChange={(logoX) => updateSettings({ logoX })} suffix='%' value={settings.logoX} />
             <RangeControl label={gt('Vertical')} max={50} min={-50} onChange={(logoY) => updateSettings({ logoY })} suffix='%' value={settings.logoY} />
+            <LogoAppearanceControls onChange={(patch) => setLogoAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }} />
+            <CanvasLayerPanel
+              layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: { scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height } }]}
+              onAlign={(alignment) => {
+                const markSize = Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100);
+                const next = alignCanvasLayer({ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }, { baseHeight: markSize, baseWidth: markSize, baseX: (settings.width - markSize) / 2, baseY: (settings.height - markSize) / 2 }, settings.width, settings.height, alignment);
+                updateSettings({ logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 });
+              }}
+              onMove={() => undefined}
+              onReset={() => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale, logoX: 0, logoY: 0 })}
+              onSelect={() => setLogoSelected(true)}
+              selectedLayerId={logoSelected ? 'logo' : null}
+            />
             <label className='flex min-h-16 cursor-pointer items-center gap-3 border border-dashed border-input p-3 text-sm'>
               <ImagePlus className='size-4 text-muted-foreground' aria-hidden='true' />
               <span className='min-w-0 flex-1'>
@@ -488,6 +523,7 @@ export default function BackgroundStudio({
                 className='artifact-frame artifact-preview relative overflow-hidden bg-black'
                 ref={liveLayerRef}
                 role='img'
+                onPointerDown={() => setLogoSelected(false)}
                 style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
               >
                 <LiveMaterialCanvas materialId={settings.liveMaterialId} settings={settings.liveSettings} />
@@ -501,42 +537,70 @@ export default function BackgroundStudio({
                   />
                 ) : null}
                 {showLogo ? (
-                  <div
-                    className='pointer-events-none absolute inset-0 grid place-items-center'
-                    style={{
-                      opacity: settings.logoOpacity / 100,
-                      transform: `translate(${settings.logoX}%, ${settings.logoY}%)`,
-                    }}
+                  <EditableCanvasLayer
+                    baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    canvasHeight={settings.height}
+                    canvasWidth={settings.width}
+                    label={gt('Logo')}
+                    onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
+                    onSelect={() => setLogoSelected(true)}
+                    selected={logoSelected}
+                    transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
+                    zIndex={3}
                   >
                     {logoPath ? (
-                      <img
-                        alt={`${identity.name} logo`}
-                        className='object-contain'
-                        src={logoPath}
-                        style={{ height: `${settings.logoScale}%`, width: `${settings.logoScale}%` }}
+                      <div
+                        aria-label={`${identity.name} logo`}
+                        className='size-full'
+                        style={{ backgroundColor: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), maskImage: `url('${logoPath}')`, maskPosition: 'center', maskRepeat: 'no-repeat', maskSize: 'contain', opacity: settings.logoOpacity / 100 }}
                       />
                     ) : (
                       <span
                         className='font-semibold'
                         style={{
-                          color: settings.logoTone === 'white' ? '#FFFFFF' : '#000000',
+                          color: settings.logoColor,
+                          filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }),
                           fontSize: `${settings.logoScale / 2}cqw`,
+                          opacity: settings.logoOpacity / 100,
                         }}
                       >
                         {identity.shortName}
                       </span>
                     )}
-                  </div>
+                  </EditableCanvasLayer>
                 ) : null}
               </div>
             ) : (
               <div
                 aria-label={`${identity.name} ${settings.style} background preview`}
-                className='artifact-frame artifact-preview overflow-hidden bg-white'
-                dangerouslySetInnerHTML={{ __html: previewSvg }}
+                className='artifact-frame artifact-preview relative overflow-hidden bg-white'
                 role='img'
+                onPointerDown={() => setLogoSelected(false)}
                 style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
-              />
+              >
+                <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
+                {showLogo ? (
+                  <EditableCanvasLayer
+                    baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    canvasHeight={settings.height}
+                    canvasWidth={settings.width}
+                    label={gt('Logo')}
+                    onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
+                    onSelect={() => setLogoSelected(true)}
+                    selected={logoSelected}
+                    transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
+                    zIndex={3}
+                  >
+                    {logoPath ? <div aria-label={`${identity.name} logo`} className='size-full' style={{ backgroundColor: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), maskImage: `url('${logoPath}')`, maskPosition: 'center', maskRepeat: 'no-repeat', maskSize: 'contain', opacity: settings.logoOpacity / 100 }} /> : <span className='grid size-full place-items-center font-semibold' style={{ color: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), opacity: settings.logoOpacity / 100 }}>{identity.shortName}</span>}
+                  </EditableCanvasLayer>
+                ) : null}
+              </div>
             )}
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
               <p className='text-sm font-medium'>{settings.style.replace('-', ' ')}</p>

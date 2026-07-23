@@ -324,6 +324,6 @@ export default function ComponentLibraryPreview({
 export function componentPreviewStyle(radius: number, identity: BrandIdentity): CSSProperties {
   return {
     '--component-radius': `${radius}px`,
-    fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Inter',
+    fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Switzer',
   } as CSSProperties;
 }

@@ -167,7 +167,7 @@ export default function BrandOpenGraphImage({
         background: '#111113',
         color: '#f7f7f4',
         display: 'flex',
-        fontFamily: 'Inter, Arial, sans-serif',
+        fontFamily: 'Switzer, Arial, sans-serif',
         height: '100%',
         overflow: 'hidden',
         position: 'relative',

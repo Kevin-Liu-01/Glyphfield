@@ -151,6 +151,26 @@ export type BrandIdentity = {
 
 export const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
   {
+    family: 'Switzer',
+    fileName: 'Switzer-Regular.ttf',
+    format: 'truetype',
+    id: 'switzer-400',
+    label: 'Switzer Regular',
+    path: '/fonts/switzer-400.ttf',
+    style: 'normal',
+    weight: 400,
+  },
+  {
+    family: 'Switzer',
+    fileName: 'Switzer-Medium.ttf',
+    format: 'truetype',
+    id: 'switzer-500',
+    label: 'Switzer Medium',
+    path: '/fonts/switzer-500.ttf',
+    style: 'normal',
+    weight: 500,
+  },
+  {
     family: 'Inter',
     fileName: 'Inter-Variable.ttf',
     format: 'truetype',
@@ -176,16 +196,18 @@ export const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
   },
 ];
 
-function defaultFontId(family: string): string {
-  return family.toLocaleLowerCase().includes('mono')
-    ? 'geist-mono-variable'
-    : 'inter-variable';
+function bundledFontId(family: string, role: BrandTypography['role']): string | undefined {
+  const normalizedFamily = family.toLocaleLowerCase();
+  if (normalizedFamily.includes('switzer')) return role === 'Display' ? 'switzer-500' : 'switzer-400';
+  if (normalizedFamily.includes('geist mono')) return 'geist-mono-variable';
+  if (normalizedFamily.includes('inter')) return 'inter-variable';
+  return undefined;
 }
 
 function normalizeTypography(font: BrandTypography): BrandTypography {
   return {
     ...font,
-    fontId: font.fontId ?? defaultFontId(font.family),
+    fontId: font.fontId ?? bundledFontId(font.family, font.role),
     letterSpacing: font.letterSpacing ?? (font.role === 'Display' ? -3 : 0),
     lineHeight: font.lineHeight ?? (font.role === 'Display' ? 0.96 : 1.5),
     weight: font.weight ?? (font.role === 'Display' ? 700 : font.role === 'Code' ? 450 : 400),
@@ -205,7 +227,7 @@ export function brandTypographyRole(
   const matching = identity.typography.find((font) => font.role === role)
     ?? identity.typography[0]
     ?? {
-      family: 'Inter',
+      family: 'Switzer',
       role,
       usage: 'Brand typography',
     };

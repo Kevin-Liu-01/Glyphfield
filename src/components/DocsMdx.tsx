@@ -1,5 +1,6 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { ArrowUpRight } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import type { MDXComponents } from 'mdx/types';
@@ -34,6 +35,21 @@ function DocsSystemItem({ children, index, title }: { children: ReactNode; index
   );
 }
 
+function DocsThemeGallery() {
+  return (
+    <div className='docs-theme-gallery not-prose'>
+      <figure>
+        <figcaption><span>Studio / Light</span><small>1280 × 720</small></figcaption>
+        <Image alt='Glyphfield Studio moodboard in light mode' height={720} src='/screenshots/studio-moodboard-light-2026.png' width={1280} />
+      </figure>
+      <figure>
+        <figcaption><span>Studio / Dark</span><small>1280 × 720</small></figcaption>
+        <Image alt='Glyphfield Studio moodboard in dark mode' height={720} src='/screenshots/studio-moodboard-dark-2026.png' width={1280} />
+      </figure>
+    </div>
+  );
+}
+
 export function getDocsMdxComponents(components?: MDXComponents): MDXComponents {
   return {
     ...defaultMdxComponents,
@@ -41,6 +57,7 @@ export function getDocsMdxComponents(components?: MDXComponents): MDXComponents 
     DocsPathGrid,
     DocsSystemGrid,
     DocsSystemItem,
+    DocsThemeGallery,
     ...components,
   };
 }

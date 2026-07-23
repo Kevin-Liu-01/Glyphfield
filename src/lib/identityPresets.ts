@@ -5,7 +5,7 @@ import type {
   BrandIdentity,
 } from './brandIdentity';
 
-const REVISION = 6;
+const REVISION = 7;
 
 function asset(
   id: string,
@@ -29,16 +29,24 @@ function application(
 
 const GT_FONT_ASSETS: BrandFontAsset[] = [
   {
-    family: 'Inter',
-    fileName: 'Inter-Variable.ttf',
+    family: 'Switzer',
+    fileName: 'Switzer-Regular.ttf',
     format: 'truetype',
-    id: 'inter-variable',
-    label: 'Inter · Rasmus Andersson',
-    path: '/fonts/inter-variable.ttf',
+    id: 'switzer-400',
+    label: 'Switzer Regular',
+    path: '/fonts/switzer-400.ttf',
     style: 'normal',
     weight: 400,
-    weightMax: 900,
-    weightMin: 100,
+  },
+  {
+    family: 'Switzer',
+    fileName: 'Switzer-Medium.ttf',
+    format: 'truetype',
+    id: 'switzer-500',
+    label: 'Switzer Medium',
+    path: '/fonts/switzer-500.ttf',
+    style: 'normal',
+    weight: 500,
   },
   {
     family: 'Geist Mono',
@@ -64,7 +72,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     application('product', 'Localization workspace', 'product', '1440 × 1024', 'Repository context, translation status, review state, and delivery are treated as one system.'),
     application('editorial', 'Engineering story', 'editorial', '1600 × 900', 'A high-contrast editorial cover pairing multilingual type with code-level detail.'),
     application('event', 'Global product pass', 'event', 'CR80 / lanyard', 'A monochrome attendee system whose variable field is language rather than decoration.'),
-    application('social', 'Launch sequence', 'social', '1:1 / 16:9', 'Repeatable announcements assembled from brackets, locale codes, and centered language transitions.'),
+    application('social', 'Launch sequence', 'social', '1:1 / 16:9', 'Repeatable announcements built from locale metadata, open space, and centered language transitions.'),
     application('docs', 'Documentation header', 'developer', '1440 × 480', 'A technical masthead connecting framework packages, commands, and implementation guides.'),
   ],
   assets: [
@@ -93,12 +101,12 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   greetings: ['Welcome', 'Bienvenidos', '你好', 'ようこそ', 'أهلاً وسهلاً'],
   fonts: GT_FONT_ASSETS,
   graphicSystem: {
-    composition: 'Centered language is the hero. Code, locale labels, and brackets align to an exact modular field around it.',
-    description: 'The translation frame turns a changing string into a stable brand device: language transforms while the system around it remains precise.',
+    composition: 'Centered language is the hero. Code, locale labels, and product evidence align to a calm modular field around it.',
+    description: 'The language field turns a changing string into a stable brand device: language transforms while the surrounding system remains quiet and precise.',
     device: 'The translation frame',
     imageDirection: 'Monochrome crops, interface evidence, terminal output, and multilingual specimens. No generic globe imagery or flags.',
-    pattern: 'brackets',
-    rules: ['Black and white through and through', 'Center morphing language optically, not mathematically only', 'Use brackets and locale codes as structure', 'Let product evidence carry the visual interest'],
+    pattern: 'grid',
+    rules: ['Black and white through and through', 'Center morphing language optically, not mathematically only', 'Use locale metadata and whitespace as structure', 'Never layer duplicate display text', 'Let product evidence carry the visual interest'],
   },
   id: 'gt',
   kind: 'example',
@@ -135,9 +143,9 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
   tagline: 'One source of truth. Every language.',
   typography: [
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -0.75, lineHeight: 1.05, role: 'Display', usage: 'Open, measured headlines and product statements', weight: 500 },
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0.25, lineHeight: 1.6, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0.25, lineHeight: 1.3, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 450 },
+    { family: 'Switzer', fontId: 'switzer-500', letterSpacing: -0.2, lineHeight: 1.08, role: 'Display', usage: 'Open, measured headlines and product statements', weight: 500 },
+    { family: 'Switzer', fontId: 'switzer-400', letterSpacing: 0.1, lineHeight: 1.62, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
+    { family: 'Switzer', fontId: 'switzer-400', letterSpacing: 0.15, lineHeight: 1.36, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 400 },
     { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0.25, lineHeight: 1.5, role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata', weight: 400 },
   ],
   values: ['Source of truth', 'Context over strings', 'Developer agency', 'Global by default'],

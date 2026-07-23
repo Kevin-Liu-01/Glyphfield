@@ -27,6 +27,7 @@ import {
   PanelTopClose,
   PanelsTopLeft,
   Plus,
+  Rocket,
   Search,
   ScanLine,
   Settings2,
@@ -1225,6 +1226,14 @@ export default function StudioApp() {
       <div className='studio-app-body'>
         <aside className='app-navbar studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
           <div className='min-h-0 flex-1 overflow-y-auto px-2 py-3'>
+            <nav aria-label={gt('Studio help')} className='studio-sidebar-help'>
+              <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
+                <Link href='/docs'><BookOpen aria-hidden='true' /><T>Docs</T></Link>
+              </Button>
+              <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
+                <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
+              </Button>
+            </nav>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;

@@ -31,6 +31,7 @@ import ComponentLibraryPreview, {
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
+import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -65,6 +66,12 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import {
+  buildLogoSvgFilter,
+  DEFAULT_LOGO_APPEARANCE,
+  logoAppearanceCssFilter,
+  type LogoAppearanceSettings,
+} from '@/lib/logoAppearance';
 import {
   defaultTemplatePartner,
   templateBrandLogo,
@@ -333,7 +340,7 @@ function textureDefinition(texture: string, background: string): string {
 }
 
 function monogramDataUrl(identity: BrandIdentity, color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="none"/><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Inter, Arial, sans-serif" font-size="180" font-weight="700">${escapeXml(identity.shortName)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="none"/><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Switzer, Arial, sans-serif" font-size="180" font-weight="600">${escapeXml(identity.shortName)}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -373,6 +380,8 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const [logoX, setLogoX] = useStudioDraft(identity.id, tool.id, 'logo-x', 0);
   const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
   const [logoScale, setLogoScale] = useStudioDraft(identity.id, tool.id, 'logo-scale', 100);
+  const [logoAppearance, setLogoAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
+  const [logoSelected, setLogoSelected] = useState(false);
   const [exporting, setExporting] = useState(false);
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
@@ -422,7 +431,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       const resolvedLogoSize = 52 * (logoScale / 100);
       const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
       const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="700">${escapeXml(identity.shortName)}</text><text x="72" y="188" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text><path d="M1058 72h70v70" fill="none" stroke="${foreground}" stroke-width="2"/><path d="M1128 488v70h-70" fill="none" stroke="${foreground}" stroke-width="2"/></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="600">${escapeXml(identity.shortName)}</text><text x="72" y="188" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text></svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -486,6 +495,18 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         <RangeField label={<T>Horizontal</T>} max={240} min={-240} onChange={setLogoX} suffix='px' value={logoX} />
         <RangeField label={<T>Vertical</T>} max={180} min={-180} onChange={setLogoY} suffix='px' value={logoY} />
         <RangeField label={<T>Scale</T>} max={220} min={40} onChange={setLogoScale} suffix='%' value={logoScale} />
+        <LogoAppearanceControls onChange={(patch) => setLogoAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }} />
+        <CanvasLayerPanel
+          layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: { scale: logoScale / 100, x: logoX, y: logoY } }]}
+          onAlign={(alignment) => {
+            const next = alignCanvasLayer({ scale: logoScale / 100, x: logoX, y: logoY }, { baseHeight: 52, baseWidth: 52, baseX: 72, baseY: 64 }, 1200, 630, alignment);
+            setLogoX(next.x); setLogoY(next.y); setLogoScale(Math.round(next.scale * 100));
+          }}
+          onMove={() => undefined}
+          onReset={() => { setLogoX(0); setLogoY(0); setLogoScale(100); }}
+          onSelect={() => setLogoSelected(true)}
+          selectedLayerId={logoSelected ? 'logo' : null}
+        />
       </ControlSection>
     </>
   );
@@ -502,7 +523,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       tool={tool}
     >
       <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
-        <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm'>
+        <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm' onPointerDown={() => setLogoSelected(false)}>
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
           {backgroundAsset.asset || selectedBackground ? (
             <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
@@ -512,16 +533,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             style={{ color: foreground, fontFamily: customFont.font?.family ?? brandTypographyFamily(identity, fontRole), fontWeight }}
           >
             <div className='flex items-center gap-3'>
-              <img
-                alt=''
-                className='size-10 object-contain'
-                src={
-                  logoAsset.asset?.url ?? selectedLogo?.path ??
-                  brandAssetPath(identity, surface === 'dark' ? 'mark-light' : 'mark-dark') ??
-                  monogramDataUrl(identity, foreground)
-                }
-                style={{ transform: `translate(${logoX}px, ${logoY}px) scale(${logoScale / 100})` }}
-              />
+              <span aria-hidden='true' className='size-10 shrink-0' />
               <span className='text-sm font-semibold'>{identity.shortName}</span>
             </div>
             <div className='flex max-w-[86%] flex-col gap-5'>
@@ -532,6 +544,27 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             </div>
             <p className='font-mono text-xs opacity-60'>{identity.website}</p>
           </div>
+          <EditableCanvasLayer
+            baseHeight={52}
+            baseWidth={52}
+            baseX={72}
+            baseY={64}
+            canvasHeight={630}
+            canvasWidth={1200}
+            label={gt('Logo')}
+            onChange={(next) => { setLogoX(next.x); setLogoY(next.y); setLogoScale(Math.round(next.scale * 100)); }}
+            onSelect={() => setLogoSelected(true)}
+            selected={logoSelected}
+            transform={{ scale: logoScale / 100, x: logoX, y: logoY }}
+            zIndex={4}
+          >
+            <img
+              alt=''
+              className='size-full object-contain'
+              src={logoAsset.asset?.url ?? selectedLogo?.path ?? brandAssetPath(identity, surface === 'dark' ? 'mark-light' : 'mark-dark') ?? monogramDataUrl(identity, foreground)}
+              style={{ filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }) }}
+            />
+          </EditableCanvasLayer>
           <PreviewLabel>1200 × 630</PreviewLabel>
         </div>
       </CanvasViewport>
@@ -554,16 +587,20 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
     identity.colors.find(({ id }) => id === 'success'),
   ].filter((color) => color !== undefined);
   const [tone, setTone] = useStudioDraft(identity.id, tool.id, 'tone', logoColors[0]?.id ?? 'ink');
+  const [logoColor, setLogoColor] = useStudioDraft(identity.id, tool.id, 'logo-color', logoColors[0]?.hex ?? '#18181B');
   const [surface, setSurface] = useStudioDraft<LogoSurface>(identity.id, tool.id, 'surface', 'white');
   const [size, setSize] = useStudioDraft<64 | 128>(identity.id, tool.id, 'size', 128);
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
   const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, tool.id, 'material', DEFAULT_LIVE_MATERIAL_ID);
   const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(identity.id, tool.id, 'material-settings', DEFAULT_LIVE_MATERIAL_SETTINGS);
+  const [appearance, setAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
+  const [logoTransform, setLogoTransform] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'logo-transform', { scale: 1, x: 0, y: 0 });
+  const [logoSelected, setLogoSelected] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const selectedColor = logoColors.find(({ id }) => id === tone) ?? logoColors[0] ?? {
-    hex: '#18181B',
+  const selectedColor = logoColors.find(({ id }) => id === tone) ?? {
+    hex: logoColor,
     id: 'ink',
-    name: 'Ink',
+    name: 'Custom',
   };
   const surfaceColor = surface === 'dark' ? ink : paper;
 
@@ -594,7 +631,16 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
         tintedContext.globalCompositeOperation = 'source-in';
         tintedContext.fillStyle = selectedColor.hex;
         tintedContext.fillRect(0, 0, markSize, markSize);
-        context.drawImage(tinted, inset, inset);
+        context.filter = logoAppearanceCssFilter(appearance);
+        const resolvedMarkSize = markSize * logoTransform.scale;
+        context.drawImage(
+          tinted,
+          inset + logoTransform.x * (size / 512) - (resolvedMarkSize - markSize) / 2,
+          inset + logoTransform.y * (size / 512) - (resolvedMarkSize - markSize) / 2,
+          resolvedMarkSize,
+          resolvedMarkSize
+        );
+        context.filter = 'none';
         const url = output.toDataURL('image/png');
         const link = document.createElement('a');
         link.download = `${identity.id}-mark-${tone}-${size}.png`;
@@ -607,7 +653,10 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
         : textureDefinition(surface, surfaceColor);
       const inset = Math.round(size * 0.14);
       const markSize = size - inset * 2;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${backgroundLayer}<defs><filter id="tint"><feFlood flood-color="${selectedColor.hex}"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs><image href="${mark}" x="${inset}" y="${inset}" width="${markSize}" height="${markSize}" filter="url(#tint)"/></svg>`;
+      const resolvedMarkSize = markSize * logoTransform.scale;
+      const resolvedMarkX = inset + logoTransform.x * (size / 512) - (resolvedMarkSize - markSize) / 2;
+      const resolvedMarkY = inset + logoTransform.y * (size / 512) - (resolvedMarkSize - markSize) / 2;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${backgroundLayer}<defs>${buildLogoSvgFilter(appearance, selectedColor.hex, 'logo-appearance')}</defs><image href="${mark}" x="${resolvedMarkX}" y="${resolvedMarkY}" width="${resolvedMarkSize}" height="${resolvedMarkSize}" filter="url(#logo-appearance)"/></svg>`;
       await downloadSvgAsPng(svg, size, size, `${identity.id}-mark-${tone}-${size}.png`);
     } finally {
       setExporting(false);
@@ -622,7 +671,7 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
             <Button
               className='justify-start'
               key={color.id}
-              onClick={() => setTone(color.id)}
+              onClick={() => { setTone(color.id); setLogoColor(color.hex); }}
               type='button'
               variant={tone === color.id ? 'default' : 'outline'}
             >
@@ -631,6 +680,20 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
             </Button>
           ))}
         </div>
+        <ColorControl ariaLabel={gt('Custom logo color')} label={<T>Custom logo color</T>} onChange={(value) => { setLogoColor(value); setTone('custom'); }} value={logoColor} />
+      </ControlSection>
+      <ControlSection title={<T>Logo appearance</T>}>
+        <LogoAppearanceControls onChange={(patch) => setAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...appearance }} />
+      </ControlSection>
+      <ControlSection title={<T>Canvas layer</T>}>
+        <CanvasLayerPanel
+          layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: logoTransform }]}
+          onAlign={(alignment) => setLogoTransform(alignCanvasLayer(logoTransform, { baseHeight: 300, baseWidth: 300, baseX: 106, baseY: 106 }, 512, 512, alignment))}
+          onMove={() => undefined}
+          onReset={() => setLogoTransform({ scale: 1, x: 0, y: 0 })}
+          onSelect={() => setLogoSelected(true)}
+          selectedLayerId={logoSelected ? 'logo' : null}
+        />
       </ControlSection>
       <ControlSection title={<T>Background</T>}>
         <SegmentedChoice
@@ -695,30 +758,45 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
       inspector={inspector}
       tool={tool}
     >
-      <div className='grid min-h-full place-items-center p-8'>
+      <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-8' toolId={tool.id}>
         <div
           className={`artifact-frame logo-surface logo-surface-${surface} relative grid aspect-square w-full max-w-xl place-items-center overflow-hidden rounded-md`}
+          onPointerDown={() => setLogoSelected(false)}
           ref={previewRef}
           style={{ '--brand-ink': ink, '--brand-paper': paper } as CSSProperties}
         >
           {surface === 'shader' ? <LiveMaterialCanvas materialId={materialId} settings={materialSettings} /> : null}
-          <div
-            aria-label={`${identity.name} logo preview`}
-            className='gt-logo-mask relative z-10'
-            style={{
-              backgroundColor: markPath ? selectedColor.hex : 'transparent',
-              color: selectedColor.hex,
-              height: `${Math.min(256, size * 2)}px`,
-              maskImage: markPath ? `url('${markPath}')` : undefined,
-              width: `${Math.min(256, size * 2)}px`,
-            }}
+          <EditableCanvasLayer
+            baseHeight={300}
+            baseWidth={300}
+            baseX={106}
+            baseY={106}
+            canvasHeight={512}
+            canvasWidth={512}
+            label={gt('Logo')}
+            onChange={setLogoTransform}
+            onSelect={() => setLogoSelected(true)}
+            selected={logoSelected}
+            transform={logoTransform}
+            zIndex={2}
           >
-            {markPath ? null : (
-              <span className='grid size-full place-items-center text-5xl font-semibold'>{identity.shortName}</span>
-            )}
-          </div>
+            <div
+              aria-label={`${identity.name} logo preview`}
+              className='gt-logo-mask size-full'
+              style={{
+                backgroundColor: markPath ? selectedColor.hex : 'transparent',
+                color: selectedColor.hex,
+                filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...appearance }),
+                maskImage: markPath ? `url('${markPath}')` : undefined,
+              }}
+            >
+              {markPath ? null : (
+                <span className='grid size-full place-items-center text-5xl font-semibold'>{identity.shortName}</span>
+              )}
+            </div>
+          </EditableCanvasLayer>
         </div>
-      </div>
+      </CanvasViewport>
     </ToolShell>
   );
 }

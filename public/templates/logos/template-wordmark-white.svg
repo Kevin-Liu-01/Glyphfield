@@ -2,5 +2,5 @@
   <rect x="5" y="5" width="74" height="74" rx="7" stroke="#FFFFFF" stroke-width="8"/>
   <path d="M26 23v38M58 23v38M26 42h32" stroke="#7EA2FF" stroke-width="8"/>
   <circle cx="42" cy="42" r="7" fill="#B9FF66" stroke="#FFFFFF" stroke-width="4"/>
-  <text x="108" y="61" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="-2.5">Template</text>
+  <text x="108" y="61" fill="#FFFFFF" font-family="Switzer, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="-2.5">Template</text>
 </svg>

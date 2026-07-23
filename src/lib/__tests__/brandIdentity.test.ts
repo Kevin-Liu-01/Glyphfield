@@ -107,6 +107,8 @@ describe('createBrandIdentity', () => {
     expect(identity.assets).not.toBe(GT_BRAND_IDENTITY.assets);
     expect(identity.fonts).not.toBe(GT_BRAND_IDENTITY.fonts);
     expect(identity.fonts?.map(({ path }) => path)).toEqual([
+      '/fonts/switzer-400.ttf',
+      '/fonts/switzer-500.ttf',
       '/fonts/inter-variable.ttf',
       '/fonts/geist-mono-variable.ttf',
     ]);
@@ -199,7 +201,8 @@ describe('hydrateBrandIdentities', () => {
     expect(gt.style).toEqual(GT_BRAND_IDENTITY.style);
     expect(gt.values).toEqual(GT_BRAND_IDENTITY.values);
     expect(brandFontAssets(gt).map(({ path }) => path)).toEqual([
-      '/fonts/inter-variable.ttf',
+      '/fonts/switzer-400.ttf',
+      '/fonts/switzer-500.ttf',
       '/fonts/geist-mono-variable.ttf',
     ]);
     expect(gt.assets.some(({ type }) => type === 'background')).toBe(true);

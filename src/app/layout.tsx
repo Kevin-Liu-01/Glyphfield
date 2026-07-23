@@ -6,7 +6,6 @@ import { GTProvider } from 'gt-next';
 import {
   Be_Vietnam_Pro,
   Geist_Mono,
-  Inter,
   Rethink_Sans,
   Schibsted_Grotesk,
 } from 'next/font/google';
@@ -15,11 +14,6 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import { PRODUCT_BRAND } from '@/lib/productBrand';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -85,7 +79,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang='en'
-      className={`${inter.variable} ${geistMono.variable} ${beVietnamPro.variable} ${rethinkSans.variable} ${schibstedGrotesk.variable} antialiased`}
+      className={`${geistMono.variable} ${beVietnamPro.variable} ${rethinkSans.variable} ${schibstedGrotesk.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

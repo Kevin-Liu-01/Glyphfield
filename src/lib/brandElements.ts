@@ -48,6 +48,7 @@ export type BrandElementSettings = {
   fontWeight: number;
   headline: string;
   layout: 'split' | 'stacked' | 'centered';
+  logoAppearance: LogoAppearanceSettings;
   partnerName: string;
   pattern: 'none' | 'dots' | 'grid' | 'dither';
   patternOpacity: number;
@@ -823,6 +824,7 @@ export function createBrandElementSettings(
     fontWeight: identity.typography.find(({ role }) => role === 'Display')?.weight ?? 700,
     headline: identity.tagline,
     layout: 'stacked',
+    logoAppearance: { ...DEFAULT_LOGO_APPEARANCE },
     partnerName: 'Partner',
     pattern: 'none',
     patternOpacity: 6,
@@ -1056,3 +1058,4 @@ export function filterBrandElements(
   );
 }
 import type { BrandIdentity } from '@/lib/brandIdentity';
+import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';

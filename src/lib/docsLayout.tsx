@@ -11,14 +11,14 @@ export function docsBaseOptions(): BaseLayoutProps {
     links: [
       {
         active: 'none',
-        icon: <PanelsTopLeft aria-hidden='true' />,
-        text: 'Open Studio',
+        icon: <PanelsTopLeft aria-hidden='true' key='studio' />,
+        text: 'Studio',
         type: 'main',
         url: '/studio',
       },
       {
         active: 'nested-url',
-        icon: <Braces aria-hidden='true' />,
+        icon: <Braces aria-hidden='true' key='agent-api' />,
         text: 'Agent API',
         type: 'main',
         url: '/docs/agents',

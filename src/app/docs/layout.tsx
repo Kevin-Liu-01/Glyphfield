@@ -12,7 +12,7 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
       {...docsBaseOptions()}
       containerProps={{ className: 'glyphfield-docs' }}
       sidebar={{
-        banner: <div aria-hidden='true' className='glyphfield-docs-sidebar-signal'><span>{'{ }'}</span></div>,
+        banner: <div aria-hidden='true' className='glyphfield-docs-sidebar-signal' key='sidebar-signal'><span>{'{ }'}</span></div>,
         collapsible: false,
         defaultOpenLevel: 0,
         prefetch: false,

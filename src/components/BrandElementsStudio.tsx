@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -38,6 +39,7 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { hexToOklch } from '@/lib/color';
+import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
@@ -358,6 +360,14 @@ function ElementEditor({
           <span><T>Show logo</T></span>
           <input checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} type='checkbox' />
         </label> : null}
+        {logoSupported && settings.showLogo ? (
+          <div className='mt-2 border-t border-border pt-4'>
+            <LogoAppearanceControls
+              onChange={(patch) => onChange({ logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance, ...patch } })}
+              settings={{ ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance }}
+            />
+          </div>
+        ) : null}
         {websiteSupported ? <label className='element-editor-toggle'>
           <span><T>Show website</T></span>
           <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
@@ -379,9 +389,9 @@ function IdentityMark({
   style?: CSSProperties;
 }) {
   const path = brandAssetPath(identity, inverted ? 'mark-light' : 'mark-dark');
-  if (path) return <img alt='' className={className} src={path} style={style} />;
+  if (path) return <img alt='' className={`brand-identity-mark ${className}`} src={path} style={style} />;
   return (
-    <span className={`${className} grid place-items-center font-semibold tracking-[-0.06em]`} style={style}>
+    <span className={`brand-identity-mark ${className} grid place-items-center font-semibold tracking-[-0.03em]`} style={style}>
       {identity.shortName}
     </span>
   );
@@ -398,7 +408,7 @@ function declaredAspectRatio(dimensions: string): number | undefined {
   return width / height;
 }
 
-function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontWeight }: { aspectRatio?: number; children: ReactNode; codeFontFamily: string; fontFamily: string; fontWeight: number }) {
+function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontWeight, logoFilter }: { aspectRatio?: number; children: ReactNode; codeFontFamily: string; fontFamily: string; fontWeight: number; logoFilter: string }) {
   return (
     <div
       className='flex w-full max-w-5xl flex-col'
@@ -406,6 +416,7 @@ function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontW
         '--brand-element-font': fontFamily,
         '--brand-element-weight': fontWeight,
         '--brand-font-code': codeFontFamily,
+        '--brand-logo-filter': logoFilter,
         fontFamily,
         fontWeight,
       } as CSSProperties}
@@ -1151,6 +1162,7 @@ export default function BrandElementsStudio({
                 codeFontFamily={brandTypographyFamily(identity, 'Code')}
                 fontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
                 fontWeight={selectedSettings.fontWeight}
+                logoFilter={logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance })}
               >
                 <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />
               </ElementFrame>

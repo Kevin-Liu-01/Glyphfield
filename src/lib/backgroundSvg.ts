@@ -4,6 +4,7 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { buildLogoSvgFilter, DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 
 export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'pattern' | 'live-shader';
 export type BackgroundPattern = 'none' | 'dots' | 'lines' | 'grid';
@@ -18,6 +19,7 @@ export type BackgroundSettings = {
   grain: number;
   height: number;
   logoOpacity: number;
+  logoColor: string;
   logoScale: number;
   logoTone: 'black' | 'white';
   logoX: number;
@@ -40,6 +42,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   grain: 18,
   height: 750,
   logoOpacity: 100,
+  logoColor: '#FFFFFF',
   logoScale: 28,
   logoTone: 'white',
   logoX: 0,
@@ -112,7 +115,9 @@ export function buildBackgroundSvg(
     assetFit?: 'contain' | 'cover';
     assetOpacity?: number;
     logo?: string;
+    logoAppearance?: LogoAppearanceSettings;
     name: string;
+    showLogo?: boolean;
   }
 ): string {
   const radians = (settings.angle * Math.PI) / 180;
@@ -143,14 +148,20 @@ export function buildBackgroundSvg(
   const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
   const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
   const markY = (settings.height - markSize) / 2 + (settings.logoY / 100) * settings.height;
-  const mark = identity?.logo
+  const logoAppearance = { ...DEFAULT_LOGO_APPEARANCE, ...identity?.logoAppearance };
+  const logoFilter = identity && identity.showLogo !== false
+    ? buildLogoSvgFilter(logoAppearance, settings.logoColor, 'background-logo')
+    : '';
+  const mark = identity?.showLogo === false
+    ? ''
+    : identity?.logo
     ? `<image href="${identity.logo.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" x="${markX}" y="${markY}" width="${markSize}" height="${markSize}" preserveAspectRatio="xMidYMid meet" opacity="${settings.logoOpacity / 100}"/>`
     : identity
-      ? `<text x="${settings.width / 2 + (settings.logoX / 100) * settings.width}" y="${settings.height * 0.52 + (settings.logoY / 100) * settings.height}" text-anchor="middle" dominant-baseline="middle" fill="${settings.logoTone === 'white' ? '#FFFFFF' : '#000000'}" opacity="${settings.logoOpacity / 100}" font-family="Inter,sans-serif" font-size="${markSize * 0.42}" font-weight="800" letter-spacing="-.06em">${identity.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</text>`
+      ? `<text x="${settings.width / 2 + (settings.logoX / 100) * settings.width}" y="${settings.height * 0.52 + (settings.logoY / 100) * settings.height}" text-anchor="middle" dominant-baseline="middle" fill="${settings.logoColor}" opacity="${settings.logoOpacity / 100}" font-family="Switzer,sans-serif" font-size="${markSize * 0.42}" font-weight="600" letter-spacing="-.02em">${identity.name.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</text>`
       : '';
   const brandAsset = identity?.asset
     ? `<image href="${identity.asset.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" width="100%" height="100%" preserveAspectRatio="xMidYMid ${identity.assetFit === 'contain' ? 'meet' : 'slice'}" opacity="${Math.max(0, Math.min(1, (identity.assetOpacity ?? 100) / 100))}"/>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
 }

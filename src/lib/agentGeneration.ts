@@ -347,6 +347,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     ),
     grain: numberValue(input.grain, DEFAULT_BACKGROUND_SETTINGS.grain, 'settings.grain', 0, 100),
     height,
+    logoColor: colorValue(input.logoColor, DEFAULT_BACKGROUND_SETTINGS.logoColor, 'settings.logoColor'),
     logoOpacity: numberValue(input.logoOpacity, DEFAULT_BACKGROUND_SETTINGS.logoOpacity, 'settings.logoOpacity', 0, 100),
     logoScale: numberValue(input.logoScale, DEFAULT_BACKGROUND_SETTINGS.logoScale, 'settings.logoScale', 5, 90),
     logoTone: oneOf(input.logoTone, ['black', 'white'] as const, DEFAULT_BACKGROUND_SETTINGS.logoTone, 'settings.logoTone'),
@@ -526,7 +527,7 @@ export function agentAssetPaths(plan: AgentGenerationPlan): string[] {
 }
 
 function monogramDataUrl(identity: AgentIdentity, color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Inter,Arial,sans-serif" font-size="180" font-weight="700">${escapeXml(identity.shortName)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Switzer,Arial,sans-serif" font-size="180" font-weight="600">${escapeXml(identity.shortName)}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 

@@ -7,9 +7,7 @@ import {
   Bot,
   Braces,
   Check,
-  CircleDot,
   Film,
-  Grid2X2,
   Layers3,
   Palette,
   ScanLine,
@@ -20,7 +18,9 @@ import {
 import type { ReactNode } from 'react';
 
 import MarketingArcField from '@/components/MarketingArcField';
+import MarketingLogoMotionDemo from '@/components/MarketingLogoMotionDemo';
 import MarketingMotion from '@/components/MarketingMotion';
+import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { BRAND_ELEMENTS } from '@/lib/brandElements';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -105,7 +105,7 @@ export default async function HomePage() {
   const gt = await getGT();
 
   return (
-    <main className='marketing-page marketing-page-v5 min-h-dvh text-foreground'>
+    <MarketingThemeShell>
       <MarketingMotion />
       <a className='marketing-skip-link' href='#main'>
         <T>Skip to content</T>
@@ -122,10 +122,13 @@ export default async function HomePage() {
           <a href='#agents'><T>Agents</T></a>
           <Link href='/docs'><T>Docs</T></Link>
         </nav>
-        <Link className='marketing-v5-primary-link' href='/studio'>
-          <T>Open Studio</T>
-          <ArrowRight aria-hidden='true' />
-        </Link>
+        <div className='marketing-v5-header-actions'>
+          <MarketingThemeToggle />
+          <Link className='marketing-v5-primary-link' href='/studio'>
+            <T>Open Studio</T>
+            <ArrowRight aria-hidden='true' />
+          </Link>
+        </div>
       </header>
 
       <div id='main'>
@@ -133,10 +136,6 @@ export default async function HomePage() {
 
         <section className='marketing-v5-hero' aria-labelledby='hero-title'>
           <div className='marketing-v5-hero-copy' data-motion-reveal>
-            <p className='marketing-v5-kicker' data-motion-item>
-              <CircleDot aria-hidden='true' />
-              <T>One identity. Every expression.</T>
-            </p>
             <h1 id='hero-title' data-motion-item>
               <T>The working studio</T>
               <br />
@@ -166,6 +165,7 @@ export default async function HomePage() {
           </div>
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
+            <CornerMarks />
             <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
             <div className='marketing-v5-field-coordinates' aria-hidden='true'>
               <span>X 014.80</span>
@@ -175,8 +175,10 @@ export default async function HomePage() {
             <div className='marketing-v5-product-window' data-motion-item>
               <ProductFrame
                 alt={gt('Glyphfield Studio showing the General Translation identity moodboard')}
+                darkSrc='/screenshots/studio-moodboard-dark-2026.png'
                 label='Moodboard / General Translation'
-                src='/screenshots/studio-moodboard-gt-2026.jpg'
+                priority
+                src='/screenshots/studio-moodboard-light-2026.png'
               />
             </div>
           </div>
@@ -184,11 +186,11 @@ export default async function HomePage() {
 
         <OutputRail gt={gt} />
         <LogoRail gt={gt} />
+        <SectionSpacer />
         <SectionRule coordinate='Y 018' label='Logo Lab × Animation Library' />
 
         <section className='marketing-v5-composer' data-motion-reveal id='studio'>
           <div className='marketing-v5-composer-copy' data-motion-item>
-            <p className='marketing-v5-kicker'><Grid2X2 aria-hidden='true' /><T>One connected canvas</T></p>
             <h2><T>Build the mark and its motion together.</T></h2>
             <p>
               <T>
@@ -207,14 +209,14 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <LogoMotionDemo gt={gt} />
+          <MarketingLogoMotionDemo brands={BRAND_LOGOS.slice(0, 5)} />
         </section>
 
+        <SectionSpacer />
         <SectionRule coordinate='Y 032' label='System capabilities' />
 
         <section className='marketing-v5-capabilities' data-motion-reveal>
           <SectionHeading
-            eyebrow='A practical brand operating system'
             title='Foundations in. Useful artifacts out.'
           >
             <T>
@@ -225,6 +227,7 @@ export default async function HomePage() {
           <div className='marketing-v5-capability-grid'>
             {FEATURES.map(({ description, icon: Icon, label, metric }) => (
               <article data-motion-item key={label}>
+                <CornerMarks />
                 <span>{metric}</span>
                 <Icon aria-hidden='true' />
                 <h3>{gt(label)}</h3>
@@ -234,8 +237,11 @@ export default async function HomePage() {
           </div>
         </section>
 
+        <ThemeGallery gt={gt} />
+
         <section className='marketing-v5-product-grid' data-motion-reveal>
           <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
+            <CornerMarks />
             <CardLabel index='07' label='Identity board' />
             <h2><T>See the system as designed work.</T></h2>
             <p><T>Fonts, color, logo family, product surfaces, and motion resolve into a composed board.</T></p>
@@ -249,6 +255,7 @@ export default async function HomePage() {
             </div>
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
+            <CornerMarks dark />
             <CardLabel index='08' label='Material study' />
             <h2><T>Give the logo a surface.</T></h2>
             <p><T>Mask live Shaders.com materials inside the mark or place them behind it.</T></p>
@@ -263,14 +270,11 @@ export default async function HomePage() {
           </article>
         </section>
 
+        <SectionSpacer dark />
         <SectionRule coordinate='Y 054' dark label='Agent interface' />
 
         <section className='marketing-v5-agents' data-motion-reveal id='agents'>
           <div className='marketing-v5-agents-copy' data-motion-item>
-            <p className='marketing-v5-kicker marketing-v5-kicker--dark'>
-              <Bot aria-hidden='true' />
-              <T>Agent-first, not agent-adjacent</T>
-            </p>
             <h2><T>The visual system is also an interface.</T></h2>
             <p>
               <T>
@@ -296,16 +300,16 @@ export default async function HomePage() {
           <AgentPanel />
         </section>
 
+        <SectionSpacer dark />
         <SectionRule coordinate='Y 072' dark label='Open field' />
 
         <footer className='marketing-v5-footer' data-motion-footer>
+          <CornerMarks dark />
           <div className='marketing-v5-footer-field' aria-hidden='true'>
             <i /><i /><i />
           </div>
           <div className='marketing-v5-footer-top' data-motion-reveal>
-            <Image alt='' aria-hidden='true' height={72} src={PRODUCT_BRAND.markWhitePath} width={72} />
             <div data-motion-item>
-              <p className='marketing-v5-kicker marketing-v5-kicker--dark'><T>Your brand, as a working system</T></p>
               <h2><T>Make the field yours.</T></h2>
             </div>
             <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/studio'>
@@ -324,7 +328,7 @@ export default async function HomePage() {
           </div>
         </footer>
       </div>
-    </main>
+    </MarketingThemeShell>
   );
 }
 
@@ -336,6 +340,23 @@ function SectionRule({ coordinate, dark = false, label }: { coordinate: string; 
       <strong>{label}</strong>
       <i />
     </div>
+  );
+}
+
+function SectionSpacer({ dark = false }: { dark?: boolean }) {
+  return (
+    <div className={`marketing-v5-spacer${dark ? ' marketing-v5-spacer--dark' : ''}`} aria-hidden='true'>
+      <CornerMarks dark={dark} />
+      <i /><i /><i />
+    </div>
+  );
+}
+
+function CornerMarks({ dark = false }: { dark?: boolean }) {
+  return (
+    <span className={`marketing-v5-corners${dark ? ' marketing-v5-corners--dark' : ''}`} aria-hidden='true'>
+      <i /><i /><i /><i />
+    </span>
   );
 }
 
@@ -366,85 +387,62 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   );
 }
 
-function SectionHeading({ children, eyebrow, title }: { children: ReactNode; eyebrow: string; title: string }) {
+function SectionHeading({ children, title }: { children: ReactNode; title: string }) {
   return (
     <div className='marketing-v5-section-heading'>
-      <p className='marketing-v5-kicker'><CircleDot aria-hidden='true' />{eyebrow}</p>
       <h2>{title}</h2>
       <p>{children}</p>
     </div>
   );
 }
 
-function ProductFrame({ alt, label, src }: { alt: string; label: string; src: string }) {
+function ProductFrame({
+  alt,
+  darkSrc,
+  label,
+  priority = false,
+  src,
+  themeLabel = 'Light / Studio',
+}: {
+  alt: string;
+  darkSrc?: string;
+  label: string;
+  priority?: boolean;
+  src: string;
+  themeLabel?: string;
+}) {
   return (
-    <figure className='marketing-v5-studio-frame'>
+    <figure className={`marketing-v5-studio-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
+      <CornerMarks dark />
       <figcaption>
         <span><i /><i /><i />{label}</span>
-        <small>LIGHT / STUDIO</small>
+        <small className='marketing-v5-studio-label marketing-v5-studio-label--light'>{themeLabel}</small>
+        {darkSrc ? <small className='marketing-v5-studio-label marketing-v5-studio-label--dark'>Dark / Studio</small> : null}
       </figcaption>
       <div>
-        <Image alt={alt} fill priority sizes='(max-width: 900px) 92vw, 76vw' src={src} />
+        <Image alt={alt} className='marketing-v5-studio-shot marketing-v5-studio-shot--light' fill priority={priority} sizes='(max-width: 900px) 92vw, 76vw' src={src} />
+        {darkSrc ? <Image alt='' aria-hidden='true' className='marketing-v5-studio-shot marketing-v5-studio-shot--dark' fill priority={priority} sizes='(max-width: 900px) 92vw, 76vw' src={darkSrc} /> : null}
       </div>
     </figure>
   );
 }
 
-function LogoMotionDemo({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
+function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
-    <div className='marketing-v5-composer-demo' data-motion-item>
-      <header>
-        <span><i />COMPOSITION 01</span>
-        <div><button type='button'>Logo Lab</button><button type='button'>Animation</button></div>
-        <small>1600 × 1000</small>
-      </header>
-      <div className='marketing-v5-composer-body'>
-        <aside>
-          <p><T>Source marks</T></p>
-          {BRAND_LOGOS.slice(0, 5).map(({ name, src }, index) => (
-            <button className={index === 0 ? 'is-active' : ''} key={name} type='button'>
-              <Image alt='' aria-hidden='true' height={22} src={src} width={70} />
-              <span>{gt(name)}</span>
-            </button>
-          ))}
-        </aside>
-        <section>
-          <div className='marketing-v5-demo-stage'>
-            <div className='marketing-v5-demo-arcs' aria-hidden='true'><i /><i /><i /></div>
-            <Image
-              alt={gt('General Translation logo')}
-              className='marketing-v5-demo-logo'
-              height={72}
-              src='/brands/gt/logos/wordmark-white.svg'
-              width={250}
-            />
-            <span className='marketing-v5-selection-box' aria-hidden='true'><i /><i /><i /><i /></span>
-            <div className='marketing-v5-demo-gif'>
-              <Image
-                alt={gt('General Translation multilingual text morph')}
-                fill
-                unoptimized
-                src='/examples/gt-morph-one-second.gif'
-              />
-            </div>
-          </div>
-          <div className='marketing-v5-timeline'>
-            <span>00:00</span>
-            <div>
-              {['GT', 'Welcome', 'Bienvenidos', '你好', 'ようこそ'].map((frame, index) => (
-                <i className={index === 0 ? 'is-active' : ''} key={frame}><b>{frame}</b></i>
-              ))}
-            </div>
-            <span>00:05</span>
-          </div>
-        </section>
+    <section className='marketing-v5-theme-gallery' data-motion-reveal id='themes'>
+      <div className='marketing-v5-theme-gallery-copy' data-motion-item>
+        <h2><T>The same working Studio, in both modes.</T></h2>
+        <p><T>Light and dark appearance changes the workspace chrome while the brand artifact remains accurate.</T></p>
       </div>
-      <footer>
-        <span><T>Cubic Bézier</T> 0.20, 0.80, 0.20, 1.00</span>
-        <span><T>Logo → text → image</T></span>
-        <strong><T>Export GIF</T></strong>
-      </footer>
-    </div>
+      <div className='marketing-v5-theme-gallery-grid'>
+        <div data-motion-item>
+          <ProductFrame alt={gt('Glyphfield Studio moodboard in light mode')} label='Moodboard / Light' src='/screenshots/studio-moodboard-light-2026.png' />
+        </div>
+        <div data-motion-item>
+          <ProductFrame alt={gt('Glyphfield Studio moodboard in dark mode')} label='Moodboard / Dark' src='/screenshots/studio-moodboard-dark-2026.png' themeLabel='Dark / Studio' />
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -455,6 +453,7 @@ function CardLabel({ index, label }: { index: string; label: string }) {
 function AgentPanel() {
   return (
     <div className='marketing-v5-agent-panel' data-motion-item>
+      <CornerMarks dark />
       <header>
         <span><Braces aria-hidden='true' /> POST /api/generate</span>
         <small>200 · image/svg+xml</small>

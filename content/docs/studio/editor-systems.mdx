@@ -16,6 +16,7 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
 | `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
 | `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
+| `LogoAppearanceControls` | Inversion, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Logo lab, Background lab, OpenGraph, Logo shader, and Brand elements |
 | `useStudioDraft` | Project-and-tool-scoped browser persistence | `localStorage` through one shared hook | Tool fields, zoom, layers, surfaces, layout, and export settings |
 
 ## Color control
@@ -65,6 +66,17 @@ The conversion functions live in `src/lib/color.ts`, so the inspector, generated
 | Reset | Returns to the generator's default transform | Row returns to 100 percent |
 
 Nothing is selected automatically. Selection begins only from the layer list or the canvas, matching presentation-editor behavior.
+
+## Logo appearance
+
+`LogoAppearanceControls` and `src/lib/logoAppearance.ts` keep logo treatment consistent across every generator. Preview filters, SVG export filters, and Canvas exports resolve from the same values.
+
+- **Invert** reverses the current resolved mark without requiring a second uploaded asset.
+- **Outline** follows the alpha of the SVG or transparent image instead of drawing a box around its bounds.
+- **Shadow** exposes color, opacity, blur, and X/Y offset.
+- **Custom color** always uses `ColorControl`, so HEX and OKLCH stay interchangeable.
+
+These settings are stored per brand and tool. Brand elements apply the same appearance to every logo instance in the selected application.
 
 ## Shared plugin and provider layer
 
