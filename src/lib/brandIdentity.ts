@@ -1,3 +1,17 @@
+import {
+  BUILT_IN_BRAND_IDENTITIES,
+  GT_BRAND_IDENTITY,
+  STARTER_BRAND_IDENTITY,
+  TEMPLATE_BRAND_IDENTITY,
+} from './identityPresets';
+
+export {
+  BUILT_IN_BRAND_IDENTITIES,
+  GT_BRAND_IDENTITY,
+  STARTER_BRAND_IDENTITY,
+  TEMPLATE_BRAND_IDENTITY,
+};
+
 export type BrandAsset = {
   id: string;
   label: string;
@@ -36,6 +50,40 @@ export type BrandStyle = {
   logoScale: number;
 };
 
+export type BrandApplication = {
+  category:
+    | 'foundation'
+    | 'product'
+    | 'marketing'
+    | 'editorial'
+    | 'social'
+    | 'developer'
+    | 'event'
+    | 'physical';
+  description: string;
+  format: string;
+  id: string;
+  name: string;
+};
+
+export type BrandStrategy = {
+  challenge: string;
+  concept: string;
+  outcome: string;
+  personality: string[];
+  pillars: string[];
+  promise: string;
+};
+
+export type BrandGraphicSystem = {
+  composition: string;
+  description: string;
+  device: string;
+  imageDirection: string;
+  pattern: 'blocks' | 'brackets' | 'burst' | 'circuit' | 'flow' | 'grid' | 'orbit' | 'rays' | 'steps' | 'wave';
+  rules: string[];
+};
+
 export const DEFAULT_BRAND_STYLE: BrandStyle = {
   borderRadius: 6,
   density: 'comfortable',
@@ -45,6 +93,7 @@ export const DEFAULT_BRAND_STYLE: BrandStyle = {
 };
 
 export type BrandIdentity = {
+  applications: BrandApplication[];
   assets: BrandAsset[];
   audiences: string[];
   builtIn: boolean;
@@ -52,6 +101,7 @@ export type BrandIdentity = {
   contactEmail: string;
   description: string;
   greetings: string[];
+  graphicSystem: BrandGraphicSystem;
   id: string;
   kind: 'template' | 'example' | 'custom';
   motion: BrandMotion[];
@@ -61,10 +111,12 @@ export type BrandIdentity = {
   products: string[];
   proof: string[];
   proofAssets: BrandAsset[];
+  revision: number;
   shortName: string;
   socialHandle: string;
   sourceNotes: string[];
   style: BrandStyle;
+  strategy: BrandStrategy;
   tagline: string;
   typography: BrandTypography[];
   voice: {
@@ -74,225 +126,6 @@ export type BrandIdentity = {
   };
   values: string[];
   website: string;
-};
-
-export const GT_BRAND_IDENTITY: BrandIdentity = {
-  assets: [
-    {
-      id: 'mark-dark',
-      label: 'Black mark',
-      path: '/brands/gt/logos/mark-black.svg',
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'mark-light',
-      label: 'White mark',
-      path: '/brands/gt/logos/mark-white.svg',
-      surface: 'dark',
-      type: 'logo',
-    },
-    {
-      id: 'banner',
-      label: 'GT banner',
-      path: '/brands/gt/logos/banner-black.svg',
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'wordmark',
-      label: 'General Translation wordmark',
-      path: '/brands/gt/logos/wordmark-black.svg',
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'wordmark-light',
-      label: 'General Translation white wordmark',
-      path: '/brands/gt/logos/wordmark-white.svg',
-      surface: 'dark',
-      type: 'logo',
-    },
-    {
-      id: 'locadex',
-      label: 'Locadex wordmark',
-      path: '/brands/gt/logos/locadex-black.svg',
-      surface: 'light',
-      type: 'product',
-    },
-  ],
-  audiences: [
-    'Product engineers',
-    'Localization teams',
-    'Developer-first companies',
-    'AI-native product teams',
-  ],
-  builtIn: true,
-  colors: [
-    { hex: '#181818', id: 'ink', name: 'Ink', role: 'Primary text and dark surfaces' },
-    { hex: '#FFFFFF', id: 'paper', name: 'Paper', role: 'Base background' },
-    { hex: '#F4F4F4', id: 'muted', name: 'Mist', role: 'Quiet surfaces and secondary controls' },
-    { hex: '#E4E4E4', id: 'emphasis', name: 'Silver', role: 'Focus, selection, and primary emphasis' },
-    { hex: '#D4D4D4', id: 'success', name: 'Cloud', role: 'Completed and healthy status' },
-    { hex: '#A3A3A3', id: 'warning', name: 'Slate', role: 'Attention and warning status' },
-    { hex: '#525252', id: 'progress', name: 'Graphite', role: 'Active and in-progress status' },
-    { hex: '#262626', id: 'error', name: 'Charcoal', role: 'Destructive and error states' },
-  ],
-  contactEmail: 'hello@generaltranslation.com',
-  description:
-    'The end-to-end internationalization platform for developers, spanning product code, context-aware translation, delivery, and automated repository work.',
-  greetings: ['Welcome', 'Bienvenidos', '你好', 'ようこそ', 'أهلاً وسهلاً'],
-  id: 'gt',
-  kind: 'example',
-  motion: [
-    {
-      curve: 'cubic-bezier(0.4, 0, 0.2, 1)',
-      description: 'Fast centered language morph with a one-second word hold.',
-      durationMs: 1000,
-      id: 'morph-1000',
-      name: 'Morph / 1.00 s',
-      previewPath: '/examples/gt-morph-one-second.gif',
-    },
-    {
-      curve: 'cubic-bezier(0.4, 0, 0.2, 1)',
-      description: 'The default centered morph cadence for brand introductions.',
-      durationMs: 1250,
-      id: 'morph-1250',
-      name: 'Morph / 1.25 s',
-      previewPath: '/examples/gt-morph.gif',
-    },
-    {
-      curve: 'cubic-bezier(0.4, 0, 0.2, 1)',
-      description: 'A more spacious morph for hero and presentation surfaces.',
-      durationMs: 1500,
-      id: 'morph-1500',
-      name: 'Morph / 1.50 s',
-      previewPath: '/examples/gt-morph-fast.gif',
-    },
-    {
-      curve: 'cubic-bezier(0.4, 0, 0.2, 1)',
-      description: 'Letter-by-letter typing and deletion without a cursor.',
-      durationMs: 1750,
-      id: 'type-delete',
-      name: 'Type + delete',
-      previewPath: '/examples/gt-type-delete.gif',
-    },
-  ],
-  mission: 'Make every product feel native in every language without disconnecting content from code.',
-  name: 'General Translation',
-  positioning:
-    'Code remains the source of truth while GT keeps product copy, documentation, and code moving together across locales.',
-  products: ['Internationalization', 'Translation', 'Locadex', 'CDN delivery'],
-  proof: ['Cursor', 'Cognition', 'Windsurf', 'Ramp', 'Mintlify', 'ClickHouse'],
-  proofAssets: [
-    { id: 'cursor', label: 'Cursor', path: '/brands/gt/proof/cursor.svg', surface: 'light', type: 'proof' },
-    { id: 'ramp', label: 'Ramp', path: '/brands/gt/proof/ramp.svg', surface: 'light', type: 'proof' },
-    { id: 'mintlify', label: 'Mintlify', path: '/brands/gt/proof/mintlify.svg', surface: 'light', type: 'proof' },
-    { id: 'clickhouse', label: 'ClickHouse', path: '/brands/gt/proof/clickhouse.svg', surface: 'light', type: 'proof' },
-    { id: 'windsurf', label: 'Windsurf', path: '/brands/gt/proof/windsurf.svg', surface: 'light', type: 'proof' },
-  ],
-  shortName: 'GT',
-  socialHandle: '@generaltranslation',
-  sourceNotes: [
-    'Identity assets from the dashboard and landing applications',
-    'Semantic tokens and component rules audited from the GT product system',
-    'Product language from landing metadata, llms.txt, and onboarding email',
-    'Motion studies from the GT multilingual email animation set',
-  ],
-  style: {
-    borderRadius: 0,
-    density: 'comfortable',
-    grid: 'dots',
-    imageTreatment: 'monochrome',
-    logoScale: 100,
-  },
-  tagline: 'End-to-end localization for the world’s best companies.',
-  typography: [
-    { family: 'Inter', role: 'Display', usage: 'Headlines, product UI, and high-emphasis brand copy' },
-    { family: 'Inter', role: 'Body', usage: 'Interface copy, documentation, and long-form text' },
-    { family: 'Inter', role: 'Accent', usage: 'Multilingual specimens and editorial emphasis' },
-    { family: 'Geist Mono', role: 'Code', usage: 'Commands, identifiers, tokens, and technical metadata' },
-  ],
-  voice: {
-    avoid: [
-      'Abstract global-growth clichés',
-      'Unverifiable speed claims',
-      'Translation language detached from developer workflow',
-    ],
-    phrases: [
-      'Code is the source of truth.',
-      'Full-stack localization across buildtime, runtime, and review.',
-      'Let Locadex open the PR.',
-    ],
-    principles: ['Developer-first', 'Direct and concrete', 'Technically credible', 'Globally aware'],
-  },
-  values: ['Source of truth', 'Context over strings', 'Developer agency', 'Global by default'],
-  website: 'generaltranslation.com',
-};
-
-export const STARTER_BRAND_IDENTITY: BrandIdentity = {
-  ...cloneBrandIdentity(GT_BRAND_IDENTITY),
-  assets: [
-    {
-      id: 'mark-dark',
-      label: 'Starter black mark',
-      path: '/templates/logos/starter-mark.svg',
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'mark-light',
-      label: 'Starter white mark',
-      path: '/templates/logos/starter-mark-white.svg',
-      surface: 'dark',
-      type: 'logo',
-    },
-    {
-      id: 'wordmark',
-      label: 'Starter wordmark',
-      path: '/templates/logos/starter-wordmark.svg',
-      surface: 'light',
-      type: 'logo',
-    },
-    {
-      id: 'wordmark-light',
-      label: 'Starter white wordmark',
-      path: '/templates/logos/starter-wordmark-white.svg',
-      surface: 'dark',
-      type: 'logo',
-    },
-  ],
-  audiences: ['Your primary audience', 'The people your product serves'],
-  builtIn: true,
-  contactEmail: 'hello@yourbrand.com',
-  description:
-    'A clean starting system with a neutral foundation, one accent, practical type roles, and room for your own assets.',
-  greetings: ['Hello', 'Your idea', 'Your language'],
-  id: 'starter',
-  kind: 'template',
-  motion: [],
-  mission: 'State the durable change your brand exists to create.',
-  name: 'Starter',
-  positioning: 'Describe what you make, who it is for, and why it matters in one concrete sentence.',
-  products: ['Product', 'Platform', 'Community'],
-  proof: [],
-  proofAssets: [],
-  shortName: 'ST',
-  socialHandle: '@yourbrand',
-  sourceNotes: [
-    'A reusable starting point included with Glyphfield',
-    'Duplicate this project to create a persistent brand workspace',
-    'Open the GT project to see a fully populated identity',
-  ],
-  style: { ...DEFAULT_BRAND_STYLE },
-  tagline: 'A clear idea, made repeatable.',
-  voice: {
-    avoid: ['Vague claims', 'Generic superlatives'],
-    phrases: ['Say one useful thing clearly.'],
-    principles: ['Clear', 'Specific', 'Consistent', 'Recognizable'],
-  },
-  values: ['Clarity', 'Utility', 'Consistency'],
-  website: 'yourbrand.com',
 };
 
 const PIXEL_GLYPHS: Record<string, string> = {
@@ -431,19 +264,40 @@ export function updateGeneratedPixelAssets(
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
+    applications: (identity.applications ?? STARTER_BRAND_IDENTITY.applications).map(
+      (application) => ({ ...application })
+    ),
     assets: identity.assets.map((asset) => ({ ...asset })),
     audiences: [...(identity.audiences ?? [])],
     colors: (identity.colors ?? []).map((color) => ({ ...color })),
     contactEmail: identity.contactEmail ?? '',
     greetings: [...(identity.greetings ?? [])],
+    graphicSystem: {
+      ...STARTER_BRAND_IDENTITY.graphicSystem,
+      ...identity.graphicSystem,
+      rules: [
+        ...(identity.graphicSystem?.rules ?? STARTER_BRAND_IDENTITY.graphicSystem.rules),
+      ],
+    },
     mission: identity.mission ?? identity.positioning ?? '',
     motion: (identity.motion ?? []).map((motion) => ({ ...motion })),
     products: [...(identity.products ?? [])],
     proof: [...(identity.proof ?? [])],
     proofAssets: (identity.proofAssets ?? []).map((asset) => ({ ...asset })),
+    revision: identity.revision ?? 1,
     socialHandle: identity.socialHandle ?? '',
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
+    strategy: {
+      ...STARTER_BRAND_IDENTITY.strategy,
+      ...identity.strategy,
+      personality: [
+        ...(identity.strategy?.personality ?? STARTER_BRAND_IDENTITY.strategy.personality),
+      ],
+      pillars: [
+        ...(identity.strategy?.pillars ?? STARTER_BRAND_IDENTITY.strategy.pillars),
+      ],
+    },
     typography: (identity.typography ?? []).map((font) => ({ ...font })),
     values: [...(identity.values ?? [])],
     voice: {
@@ -461,10 +315,23 @@ function mergeBrandIdentity(
   return cloneBrandIdentity({
     ...fallback,
     ...identity,
+    applications: identity.applications ?? fallback.applications,
     contactEmail: identity.contactEmail ?? fallback.contactEmail,
+    graphicSystem: {
+      ...fallback.graphicSystem,
+      ...identity.graphicSystem,
+      rules: identity.graphicSystem?.rules ?? fallback.graphicSystem.rules,
+    },
     mission: identity.mission ?? fallback.mission,
+    revision: identity.revision ?? fallback.revision,
     socialHandle: identity.socialHandle ?? fallback.socialHandle,
     style: { ...fallback.style, ...identity.style },
+    strategy: {
+      ...fallback.strategy,
+      ...identity.strategy,
+      personality: identity.strategy?.personality ?? fallback.strategy.personality,
+      pillars: identity.strategy?.pillars ?? fallback.strategy.pillars,
+    },
     values: identity.values ?? fallback.values,
   });
 }
@@ -481,6 +348,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
   const resolvedShortName = shortName || 'BR';
 
   return {
+    applications: STARTER_BRAND_IDENTITY.applications.map((item) => ({ ...item })),
     assets: createPixelBrandAssets(resolvedShortName, id),
     audiences: [],
     builtIn: false,
@@ -488,6 +356,14 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     contactEmail: '',
     description: 'A local brand identity ready for assets, tokens, motion, and repeatable graphics.',
     greetings: ['Welcome'],
+    graphicSystem: {
+      composition: 'Choose a consistent layout behavior for this identity.',
+      description: 'Define the recognizable graphic device that connects every application.',
+      device: 'Add a graphic device',
+      imageDirection: 'Describe subject, crop, color treatment, and caption behavior.',
+      pattern: 'grid',
+      rules: ['Connect every expression to the central brand idea'],
+    },
     id,
     kind: 'custom',
     motion: [],
@@ -497,10 +373,19 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     products: [],
     proof: [],
     proofAssets: [],
+    revision: 1,
     shortName: resolvedShortName,
     socialHandle: `@${trimmedName.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '')}`,
     sourceNotes: ['Created locally in Glyphfield'],
     style: { ...DEFAULT_BRAND_STYLE },
+    strategy: {
+      challenge: 'Describe the problem this identity must help solve.',
+      concept: 'Name the idea that organizes the system.',
+      outcome: 'Describe the change this identity should create.',
+      personality: ['Clear', 'Specific', 'Recognizable'],
+      pillars: ['Add the first strategic pillar'],
+      promise: 'Write the durable promise this brand makes.',
+    },
     tagline: 'Add a clear brand line.',
     typography: GT_BRAND_IDENTITY.typography.map((font) => ({ ...font })),
     voice: {
@@ -526,30 +411,25 @@ function isBrandIdentity(value: unknown): value is BrandIdentity {
 
 export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   const storedIdentities = Array.isArray(value) ? value.filter(isBrandIdentity) : [];
+  const builtInIds = new Set(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id));
   const customIdentities = storedIdentities.filter(
-    ({ id }) => id !== GT_BRAND_IDENTITY.id && id !== STARTER_BRAND_IDENTITY.id
+    ({ id }) => !builtInIds.has(id)
   );
-  const storedStarter = storedIdentities.find(({ id }) => id === STARTER_BRAND_IDENTITY.id);
-  const storedGt = storedIdentities.find(({ id }) => id === GT_BRAND_IDENTITY.id);
-  const starterIdentity = storedStarter
-    ? {
-        ...mergeBrandIdentity(storedStarter, STARTER_BRAND_IDENTITY),
-        builtIn: true,
-        id: STARTER_BRAND_IDENTITY.id,
-        kind: 'template' as const,
-      }
-    : cloneBrandIdentity(STARTER_BRAND_IDENTITY);
-  const gtIdentity = storedGt
-    ? {
-        ...mergeBrandIdentity(storedGt, GT_BRAND_IDENTITY),
-        builtIn: true,
-        id: GT_BRAND_IDENTITY.id,
-        kind: 'example' as const,
-      }
-    : cloneBrandIdentity(GT_BRAND_IDENTITY);
-  return [
-    starterIdentity,
-    ...customIdentities.map((identity) => {
+  const builtInIdentities = BUILT_IN_BRAND_IDENTITIES.map((preset) => {
+    const storedIdentity = storedIdentities.find(({ id }) => id === preset.id);
+    const identity =
+      storedIdentity?.revision === preset.revision
+        ? mergeBrandIdentity(storedIdentity, preset)
+        : cloneBrandIdentity(preset);
+    return {
+      ...identity,
+      builtIn: true,
+      id: preset.id,
+      kind: preset.kind,
+      revision: preset.revision,
+    };
+  });
+  const hydratedCustomIdentities = customIdentities.map((identity) => {
       const clonedIdentity = cloneBrandIdentity(identity);
       const generatedAssets = createPixelBrandAssets(
         clonedIdentity.shortName,
@@ -567,8 +447,11 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
         builtIn: false,
         kind: 'custom' as const,
       };
-    }),
-    gtIdentity,
+    });
+  return [
+    ...builtInIdentities.filter(({ kind }) => kind === 'template'),
+    ...hydratedCustomIdentities,
+    ...builtInIdentities.filter(({ kind }) => kind === 'example'),
   ];
 }
 

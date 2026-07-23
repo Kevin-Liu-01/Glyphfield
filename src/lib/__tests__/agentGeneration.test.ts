@@ -25,6 +25,28 @@ describe('planAgentGeneration', () => {
     ]);
   });
 
+  it('resolves audited reference presets through the public agent contract', () => {
+    const plan = planAgentGeneration({
+      identity: { preset: 'stripe' },
+      kind: 'background',
+      settings: {
+        colorA: '#0A2540',
+        colorB: '#635BFF',
+        height: 630,
+        style: 'grain-gradient',
+        width: 1200,
+      },
+    });
+
+    expect(plan.identity).toMatchObject({
+      id: 'stripe',
+      name: 'Stripe',
+    });
+    expect(agentAssetPaths(plan)).toEqual([
+      '/brands/stripe/logos/wordmark-white.svg',
+    ]);
+  });
+
   it('rejects unknown generators and unsafe background dimensions', () => {
     expect(() => planAgentGeneration({ kind: 'video' })).toThrow('kind');
     expect(() =>

@@ -47,6 +47,7 @@ import {
   brandAssetPath,
   createBrandIdentity,
   duplicateBrandIdentity,
+  GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
   STARTER_BRAND_IDENTITY,
   updateGeneratedPixelAssets,
@@ -616,7 +617,7 @@ export default function StudioApp() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [openIdentityIds, setOpenIdentityIds] = usePersistentState<string[]>(
     OPEN_TABS_STORAGE_KEY,
-    () => hydrateBrandIdentities(null).map(({ id }) => id)
+    [STARTER_BRAND_IDENTITY.id, GT_BRAND_IDENTITY.id]
   );
   const [appearance, setAppearance] = usePersistentState<StudioAppearance>(
     APPEARANCE_STORAGE_KEY,
@@ -673,7 +674,15 @@ export default function StudioApp() {
         nextIdentities.find(({ id }) => id === storedActiveIdentity) ?? nextIdentities[0];
       setIdentities(nextIdentities);
       if (window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) === null) {
-        setOpenIdentityIds(nextIdentities.map(({ id }) => id));
+        setOpenIdentityIds([
+          STARTER_BRAND_IDENTITY.id,
+          GT_BRAND_IDENTITY.id,
+          ...(nextActiveIdentity &&
+          nextActiveIdentity.id !== STARTER_BRAND_IDENTITY.id &&
+          nextActiveIdentity.id !== GT_BRAND_IDENTITY.id
+            ? [nextActiveIdentity.id]
+            : []),
+        ]);
       }
       if (nextActiveIdentity) setActiveIdentityId(nextActiveIdentity.id);
       if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
@@ -772,11 +781,11 @@ export default function StudioApp() {
   function addIdentity() {
     const customCount = identities.filter(({ kind }) => kind === 'custom').length;
     const identity = createBrandIdentity(`Brand ${customCount + 1}`);
-    const gtIndex = identities.findIndex(({ id }) => id === 'gt');
+    const exampleIndex = identities.findIndex(({ kind }) => kind === 'example');
     const nextIdentities =
-      gtIndex < 0
+      exampleIndex < 0
         ? [...identities, identity]
-        : [...identities.slice(0, gtIndex), identity, ...identities.slice(gtIndex)];
+        : [...identities.slice(0, exampleIndex), identity, ...identities.slice(exampleIndex)];
     commitIdentities(nextIdentities);
     setActiveFolderId('all');
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
@@ -786,11 +795,11 @@ export default function StudioApp() {
   function copyIdentity() {
     if (!activeIdentity) return;
     const identity = duplicateBrandIdentity(activeIdentity);
-    const gtIndex = identities.findIndex(({ id }) => id === 'gt');
+    const exampleIndex = identities.findIndex(({ kind }) => kind === 'example');
     const nextIdentities =
-      gtIndex < 0
+      exampleIndex < 0
         ? [...identities, identity]
-        : [...identities.slice(0, gtIndex), identity, ...identities.slice(gtIndex)];
+        : [...identities.slice(0, exampleIndex), identity, ...identities.slice(exampleIndex)];
     commitIdentities(nextIdentities);
     setActiveFolderId('all');
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');

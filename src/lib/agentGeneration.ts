@@ -8,7 +8,7 @@ import {
 } from '@/lib/backgroundSvg';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
-  GT_BRAND_IDENTITY,
+  BUILT_IN_BRAND_IDENTITIES,
   STARTER_BRAND_IDENTITY,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
@@ -21,7 +21,20 @@ import {
 } from '@/lib/templateAssets';
 import { buildTemplateSvg, type SlideLayout, type TemplateTexture } from '@/lib/templateSvg';
 
-type AgentIdentityPreset = 'custom' | 'gt' | 'starter';
+const AGENT_IDENTITY_PRESETS = [
+  'custom',
+  'starter',
+  'template',
+  'gt',
+  'ramp',
+  'mintlify',
+  'tailwind',
+  'viteplus',
+  'cloudflare',
+  'stripe',
+] as const;
+
+type AgentIdentityPreset = (typeof AGENT_IDENTITY_PRESETS)[number];
 type AgentOutput = 'json' | 'raw';
 
 type AgentIdentity = {
@@ -226,15 +239,13 @@ function resolveAgentIdentity(value: unknown): AgentIdentity {
   const input = asRecord(value, 'identity');
   const preset = oneOf(
     input.preset,
-    ['custom', 'gt', 'starter'] as const,
+    AGENT_IDENTITY_PRESETS,
     'starter',
     'identity.preset'
   );
-  const base = preset === 'gt'
-    ? GT_BRAND_IDENTITY
-    : preset === 'starter'
-      ? STARTER_BRAND_IDENTITY
-      : null;
+  const base = preset === 'custom'
+    ? null
+    : BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === preset) ?? null;
   const fallbackName = base?.name ?? 'Custom Brand';
   const name = textValue(input.name, fallbackName, 'identity.name', 80);
   const shortName = textValue(

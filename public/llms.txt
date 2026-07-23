@@ -16,7 +16,7 @@ Agent connection guide: /docs/agents/connect
 ## Preferred agent workflow
 
 1. GET /api/agent.
-2. GET /api/identities when using the Starter or GT preset.
+2. GET /api/identities when using any built-in preset.
 3. GET /api/elements when selecting one of the 47 brand applications.
 4. GET /api/generate before constructing a request. Treat this response as the current schema.
 5. POST application/json to /api/generate.
@@ -53,7 +53,7 @@ jq -r '.artifact.content' response.json > artifact.svg
 
 Every generator accepts an identity object.
 
-- preset: starter | gt | custom. Defaults to starter.
+- preset: starter | template | gt | ramp | mintlify | tailwind | viteplus | cloudflare | stripe | custom. Defaults to starter.
 - name: optional, 1–80 characters.
 - shortName: optional, 1–8 characters.
 - website: optional, 1–200 characters.
@@ -64,7 +64,7 @@ Every generator accepts an identity object.
 - paper: optional six-digit HEX color such as #FFFFFF.
 - logoDataUrl: optional base64 PNG, JPEG, WebP, GIF, or SVG data URL, maximum 5 MB.
 
-Use preset="gt" to resolve the bundled GT logo family, colors, typography, voice, and proof assets. Use preset="custom" for an identity that should not inherit a preset logo. A custom identity without logoDataUrl receives a generated monogram.
+Use a built-in preset to resolve its bundled logo family, colors, typography, strategy, graphic system, voice, applications, and proof assets. Use preset="custom" for an identity that should not inherit a preset logo. A custom identity without logoDataUrl receives a generated monogram.
 
 Remote asset URLs are intentionally unsupported. Convert an authorized local asset to a base64 data URL before sending it.
 
@@ -225,7 +225,7 @@ The response contains the complete element record, its symbol, dimensions, forma
 
 ## Brand element catalog
 
-/api/elements returns 47 applications grouped into:
+/api/elements returns 66 applications grouped into:
 
 - Digital: welcome email, transactional email, email signature, web card, logo background, OpenGraph, 404, favicon, and app icon.
 - Product: navigation, heroes, feature grids, pricing, testimonials, forms, command menus, modals, feedback, tables, metrics, empty states, checkout, and settings.
@@ -256,7 +256,7 @@ Workflow:
 1. GET /api/catalog and select a tool.id.
 2. Open /studio.
 3. Select the tool by visible name or search.
-4. Select Starter, GT, or create a local brand project.
+4. Select a built-in identity or create a local brand project.
 5. Configure inputs in the inspector.
 6. Use the visible Download action.
 
@@ -290,7 +290,7 @@ Correct the named field. Do not retry an unchanged 4xx request.
 - POST /api/generate processes data in memory and does not persist an identity or input asset.
 - Browser Studio local files remain in the browser.
 - Agents must only submit assets they are authorized to process.
-- Bundled GT and customer-reference assets remain the property of their respective owners.
+- Bundled GT and reference-brand assets remain the property of their respective owners.
 
 ## Source and service policy
 

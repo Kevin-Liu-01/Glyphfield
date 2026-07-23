@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BUILT_IN_BRAND_IDENTITIES,
   createBrandIdentity,
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
-  STARTER_BRAND_IDENTITY,
 } from '../brandIdentity';
 
 describe('GT_BRAND_IDENTITY', () => {
@@ -27,6 +27,9 @@ describe('GT_BRAND_IDENTITY', () => {
     expect(GT_BRAND_IDENTITY.proof).toEqual(
       expect.arrayContaining(['Cursor', 'Ramp', 'Mintlify', 'ClickHouse'])
     );
+    expect(GT_BRAND_IDENTITY.strategy.concept).toContain('source of truth');
+    expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The translation frame');
+    expect(GT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
   });
 
   it('keeps every GT identity color monochrome', () => {
@@ -38,6 +41,31 @@ describe('GT_BRAND_IDENTITY', () => {
 
       expect(red).toBe(green);
       expect(green).toBe(blue);
+    }
+  });
+});
+
+describe('BUILT_IN_BRAND_IDENTITIES', () => {
+  it('ships the complete template, starter, GT, and reference identity library', () => {
+    expect(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id)).toEqual([
+      'starter',
+      'template',
+      'gt',
+      'ramp',
+      'mintlify',
+      'tailwind',
+      'viteplus',
+      'cloudflare',
+      'stripe',
+    ]);
+
+    for (const identity of BUILT_IN_BRAND_IDENTITIES) {
+      expect(identity.builtIn).toBe(true);
+      expect(identity.revision).toBeGreaterThanOrEqual(2);
+      expect(identity.strategy.pillars.length).toBeGreaterThanOrEqual(4);
+      expect(identity.graphicSystem.rules.length).toBeGreaterThanOrEqual(4);
+      expect(identity.applications.length).toBeGreaterThanOrEqual(8);
+      expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
     }
   });
 });
@@ -87,22 +115,37 @@ describe('createBrandIdentity', () => {
 });
 
 describe('hydrateBrandIdentities', () => {
-  it('places the starter template first, keeps custom tabs, and preserves edited built-in identities', () => {
+  it('places templates first, keeps custom tabs, and preserves current-revision built-in edits', () => {
     const oldGt = { ...GT_BRAND_IDENTITY, name: 'Old GT' };
     const custom = createBrandIdentity('Acme', 'acme');
 
     const identities = hydrateBrandIdentities([oldGt, custom]);
 
-    expect(identities[0]).toEqual(STARTER_BRAND_IDENTITY);
-    expect(identities[1]).toEqual(custom);
-    expect(identities[2]).toMatchObject({ builtIn: true, id: 'gt', kind: 'example', name: 'Old GT' });
+    expect(identities.slice(0, 2).map(({ id }) => id)).toEqual(['starter', 'template']);
+    expect(identities.find(({ id }) => id === 'acme')).toEqual(custom);
+    expect(identities.find(({ id }) => id === 'gt')).toMatchObject({ builtIn: true, id: 'gt', kind: 'example', name: 'Old GT' });
   });
 
   it('adds generated marks to legacy custom projects without assets', () => {
     const custom = { ...createBrandIdentity('Brand 1', 'brand-one'), assets: [] };
     const identities = hydrateBrandIdentities([custom]);
 
-    expect(identities[1].assets.map(({ id }) => id)).toEqual(['mark-dark', 'mark-light']);
+    expect(identities.find(({ id }) => id === 'brand-one')?.assets.map(({ id }) => id)).toEqual(['mark-dark', 'mark-light']);
+  });
+
+  it('refreshes stale built-in identities to the current audited revision', () => {
+    const staleGt = {
+      ...GT_BRAND_IDENTITY,
+      name: 'Stale GT',
+      revision: GT_BRAND_IDENTITY.revision - 1,
+      strategy: undefined,
+    };
+
+    const gt = hydrateBrandIdentities([staleGt]).find(({ id }) => id === 'gt')!;
+
+    expect(gt.name).toBe(GT_BRAND_IDENTITY.name);
+    expect(gt.revision).toBe(GT_BRAND_IDENTITY.revision);
+    expect(gt.strategy).toEqual(GT_BRAND_IDENTITY.strategy);
   });
 
   it('backfills new shared system fields in legacy built-in projects', () => {

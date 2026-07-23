@@ -55,7 +55,7 @@ export const AGENT_GENERATION_CONTRACT = {
       name: 'Optional string, maximum 80 characters',
       paper: 'Optional six-digit HEX color',
       positioning: 'Optional string, maximum 320 characters',
-      preset: 'starter | gt | custom',
+      preset: 'starter | template | gt | ramp | mintlify | tailwind | viteplus | cloudflare | stripe | custom',
       shortName: 'Optional string, maximum 8 characters',
       tagline: 'Optional string, maximum 180 characters',
       website: 'Optional string, maximum 200 characters',
@@ -213,7 +213,7 @@ export const OPENAPI_DOCUMENT = {
     },
     '/api/identities': {
       get: {
-        responses: { '200': { description: 'Built-in Starter and GT identity records' } },
+        responses: { '200': { description: 'Built-in template, GT, and reference identity records' } },
         summary: 'List built-in brand identities and asset IDs',
       },
     },

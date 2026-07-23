@@ -1,13 +1,13 @@
 import { AGENT_CORS_HEADERS } from '@/lib/agentApi';
-import { GT_BRAND_IDENTITY, STARTER_BRAND_IDENTITY } from '@/lib/brandIdentity';
+import { BUILT_IN_BRAND_IDENTITIES } from '@/lib/brandIdentity';
 
 export function GET() {
   return Response.json(
     {
       agentPresetField: 'identity.preset',
-      identities: [STARTER_BRAND_IDENTITY, GT_BRAND_IDENTITY],
+      identities: BUILT_IN_BRAND_IDENTITIES,
       localIdentityPersistence: 'browser-localStorage',
-      schemaVersion: 1,
+      schemaVersion: 2,
     },
     { headers: AGENT_CORS_HEADERS }
   );

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 84" fill="none">
+  <rect x="5" y="5" width="74" height="74" rx="7" stroke="#111318" stroke-width="8"/>
+  <path d="M26 23v38M58 23v38M26 42h32" stroke="#2F6BFF" stroke-width="8"/>
+  <circle cx="42" cy="42" r="7" fill="#B9FF66" stroke="#111318" stroke-width="4"/>
+  <text x="108" y="61" fill="#111318" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="-2.5">Template</text>
+</svg>

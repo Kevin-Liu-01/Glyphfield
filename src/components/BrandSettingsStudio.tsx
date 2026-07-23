@@ -125,6 +125,31 @@ export default function BrandSettingsStudio({
             <SettingField label={<T>Social handle</T>}><input className={INPUT_CLASS} onChange={(event) => update({ socialHandle: event.target.value })} value={identity.socialHandle} /></SettingField>
           </SettingSection>
 
+          <SettingSection title={<T>Strategy</T>}>
+            <SettingField label={<T>Challenge</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, challenge: event.target.value } })} value={identity.strategy.challenge} /></SettingField>
+            <SettingField label={<T>Central concept</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, concept: event.target.value } })} value={identity.strategy.concept} /></SettingField>
+            <SettingField label={<T>Brand promise</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, promise: event.target.value } })} value={identity.strategy.promise} /></SettingField>
+            <SettingField label={<T>Desired outcome</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, outcome: event.target.value } })} value={identity.strategy.outcome} /></SettingField>
+            <SettingField label={<T>Strategic pillars · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, pillars: parseList(event.target.value) } })} value={listValue(identity.strategy.pillars)} /></SettingField>
+            <SettingField label={<T>Personality · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ strategy: { ...identity.strategy, personality: parseList(event.target.value) } })} value={listValue(identity.strategy.personality)} /></SettingField>
+          </SettingSection>
+
+          <SettingSection title={<T>Graphic system</T>}>
+            <SettingField label={<T>Recognizable device</T>}><input className={INPUT_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, device: event.target.value } })} value={identity.graphicSystem.device} /></SettingField>
+            <SettingField label={<T>Device rationale</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, description: event.target.value } })} value={identity.graphicSystem.description} /></SettingField>
+            <SettingField label={<T>Composition behavior</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, composition: event.target.value } })} value={identity.graphicSystem.composition} /></SettingField>
+            <SettingField label={<T>Image direction</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, imageDirection: event.target.value } })} value={identity.graphicSystem.imageDirection} /></SettingField>
+            <SettingField label={<T>Pattern grammar</T>}>
+              <StudioSelect
+                ariaLabel={gt('Pattern grammar')}
+                onValueChange={(pattern) => update({ graphicSystem: { ...identity.graphicSystem, pattern: pattern as typeof identity.graphicSystem.pattern } })}
+                options={['blocks', 'brackets', 'burst', 'circuit', 'flow', 'grid', 'orbit', 'rays', 'steps', 'wave'].map((pattern) => ({ label: gt(pattern), value: pattern }))}
+                value={identity.graphicSystem.pattern}
+              />
+            </SettingField>
+            <SettingField label={<T>System rules · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ graphicSystem: { ...identity.graphicSystem, rules: parseList(event.target.value) } })} value={listValue(identity.graphicSystem.rules)} /></SettingField>
+          </SettingSection>
+
           <SettingSection title={<T>System defaults</T>}>
             <SettingField label={<T>Interface density</T>}>
               <StudioSelect ariaLabel={gt('Interface density')} onValueChange={(density) => update({ style: { ...identity.style, density: density as typeof identity.style.density } })} options={[
@@ -207,6 +232,19 @@ export default function BrandSettingsStudio({
             <SettingField label={<T>Products · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ products: parseList(event.target.value) })} value={listValue(identity.products)} /></SettingField>
             <SettingField label={<T>Proof points · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ proof: parseList(event.target.value) })} value={listValue(identity.proof)} /></SettingField>
           </SettingSection>
+
+          <SettingSection title={<T>Applications</T>}>
+            {identity.applications.map((application, index) => (
+              <div className='flex flex-col gap-2 border border-border p-3' key={application.id}>
+                <span className='font-mono text-[9px] uppercase tracking-widest text-muted-foreground'>
+                  {String(index + 1).padStart(2, '0')} / {application.category}
+                </span>
+                <input aria-label={gt('Application name')} className={INPUT_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} value={application.name} />
+                <input aria-label={gt('Application format')} className={INPUT_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, format: event.target.value } : item) })} value={application.format} />
+                <textarea aria-label={gt('Application description')} className={TEXTAREA_CLASS} onChange={(event) => update({ applications: identity.applications.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item) })} value={application.description} />
+              </div>
+            ))}
+          </SettingSection>
         </aside>
 
         <div className='tool-canvas min-h-0 overflow-auto p-5 sm:p-8'>
@@ -218,7 +256,7 @@ export default function BrandSettingsStudio({
                   {darkMark ? <img alt='' className='size-16 object-contain' src={darkMark} /> : <span className='text-3xl font-semibold'>{identity.shortName}</span>}
                   <span className='font-mono text-xs text-black/40'>{identity.website}</span>
                 </div>
-                <div className='max-w-4xl'><p className='font-mono text-xs uppercase tracking-widest text-black/40'>{identity.name}</p><h2 className='mt-4 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-7xl'>{identity.tagline}</h2></div>
+                <div className='max-w-4xl'><p className='font-mono text-xs uppercase tracking-widest text-black/40'>{identity.graphicSystem.device}</p><h2 className='mt-4 text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-7xl'>{identity.tagline}</h2><p className='mt-5 max-w-2xl text-sm leading-6 text-black/55'>{identity.strategy.concept}</p></div>
               </div>
             </section>
             <section className='grid bg-background lg:grid-cols-2'>

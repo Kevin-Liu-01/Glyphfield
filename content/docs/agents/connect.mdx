@@ -10,7 +10,7 @@ An agent should follow this sequence for every new deployment origin:
 
 1. Fetch `/llms.txt` for operational instructions.
 2. Fetch `/api/agent` for the current version, policies, resources, and contract.
-3. Fetch `/api/identities` when using Starter or GT.
+3. Fetch `/api/identities` when using any built-in preset.
 4. Fetch `/api/elements` when choosing a brand application.
 5. Fetch `GET /api/generate` immediately before constructing a request.
 6. `POST application/json` to `/api/generate`.

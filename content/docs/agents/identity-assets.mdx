@@ -1,6 +1,6 @@
 ---
 title: Identities and custom assets
-description: Use Starter or GT presets, override identity fields, and safely send local logo and image data.
+description: Use built-in identity systems, override foundation fields, and safely send local logo and image data.
 icon: BadgeCheck
 ---
 
@@ -8,9 +8,13 @@ Every generator accepts an `identity` object.
 
 ## Presets
 
-- `starter` is the neutral default.
+- `starter` is the complete neutral default.
+- `template` is a rigorous identity-construction blueprint.
 - `gt` resolves the bundled General Translation identity and logo family.
+- `ramp`, `mintlify`, `tailwind`, `viteplus`, `cloudflare`, and `stripe` resolve audited reference systems and their local logo assets.
 - `custom` avoids inheriting a preset logo and creates a monogram when no logo is supplied.
+
+Fetch `/api/identities` at runtime instead of hard-coding the list. Each record includes foundations, strategy, graphic-system rules, application definitions, proof references, and local asset IDs.
 
 ## Identity fields
 
@@ -68,3 +72,16 @@ Supported custom image data includes PNG, JPEG, WebP, GIF, and SVG. Remote URLs 
 Templates additionally support `backgroundImageDataUrl` and `partnerLogoDataUrl`. Use `partnerId` only for asset IDs returned by `/api/identities` for the selected preset.
 
 The API embeds accepted assets into the returned SVG so it remains portable.
+
+## Reference sources and trademark boundary
+
+The reference identities were studied from primary brand sources current in July 2026:
+
+- [Ramp press kit](https://ramp.com/press/)
+- [Mintlify documentation appearance guide](https://www.mintlify.com/docs/organize/settings-appearance) and [design practice](https://www.mintlify.com/blog/how-we-design-at-mintlify)
+- [Tailwind CSS brand assets](https://tailwindcss.com/brand)
+- [Vite+ product site](https://viteplus.dev/)
+- [Cloudflare press kit](https://www.cloudflare.com/en-gb/press/press-kit/) and [logo guidance](https://www.cloudflare.com/en-gb/logo/)
+- [Stripe newsroom and logo kit](https://stripe.com/newsroom/information)
+
+These systems are included for design study and interoperability. Brand names, marks, and source assets remain the property of their respective owners. Glyphfield’s MIT license applies to the software and original templates; it does not grant trademark rights or imply endorsement.

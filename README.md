@@ -36,9 +36,25 @@ production touchpoints without rebuilding the context for every artifact.
 | Typography | Dither + grain + gradients | Email + product UI | GIF |
 | Voice + positioning | Terminal themes | CLI + documentation | JSON |
 
-The Studio ships with a neutral Starter identity and a complete General
-Translation reference system. Project tabs are independent local workspaces;
-closing a tab never deletes its brand.
+The Studio ships with two creation systems—Starter and Template—plus complete
+reference identities for General Translation, Ramp, Mintlify, Tailwind CSS,
+Vite+, Cloudflare, and Stripe. Each reference connects a strategic idea to a
+recognizable graphic device and a set of real applications. Project tabs are
+independent local workspaces; closing a tab never deletes its brand.
+
+## Strategy before styling
+
+Every built-in identity records the challenge, central concept, promise,
+pillars, personality, graphic device, composition rules, image direction, and
+application system behind the output. Moodboards turn that source into ten
+designed sections: strategy, logo architecture, color, typography, graphic
+grammar, product, campaign, developer, editorial, and physical work.
+
+The reference library is an implementation study, not a generic skin pack.
+Ramp uses a savings ledger, Mintlify a knowledge beam, Tailwind a utility wave,
+Vite+ a convergence field, Cloudflare a network horizon, and Stripe a
+programmable field. General Translation remains black and white, organized by
+one stable translation frame through which language moves.
 
 ## A design tool that agents can operate
 
@@ -140,7 +156,7 @@ URLs.
 | `/api/agent` | Versioned manifest and generation contract |
 | `/openapi.json` | OpenAPI 3.1 document |
 | `/api/catalog` | Structured Studio tool catalog |
-| `/api/identities` | Built-in identities and complete GT preset |
+| `/api/identities` | Nine built-in template and reference identities |
 | `/api/elements` | Complete brand-element taxonomy |
 
 ## Project structure
@@ -161,3 +177,8 @@ recorded in [Studio library routing](./docs/library-routing.md).
 Glyphfield is open-source software released under the [MIT License](./LICENSE).
 Bundled third-party marks and reference-brand assets remain the property of
 their respective owners.
+
+Official brand references and source assets are documented in
+[Identities and custom assets](./content/docs/agents/identity-assets.mdx). Their
+inclusion does not imply endorsement, and the MIT license does not grant rights
+to third-party trademarks.

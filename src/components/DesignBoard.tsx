@@ -239,21 +239,27 @@ export default function DesignBoard({
             <h2 className='text-sm font-semibold'>
               <T>Generated applications</T>
             </h2>
-            {[
-              'GT identity',
-              'Logo family',
-              'Color system',
-              'Typography system',
-              'Onboarding email',
-              'CLI terminal',
-              'Product page',
-              'Event pass',
-            ].map((label, index) => (
-              <div className='flex items-center justify-between gap-4 text-sm' key={label}>
-                <span className='text-muted-foreground'>{label}</span>
-                <span className='font-mono'>{String(index + 1).padStart(2, '0')}</span>
+            {identity.applications.slice(0, 10).map((application, index) => (
+              <div className='flex items-center justify-between gap-4 text-sm' key={application.id}>
+                <span className='min-w-0'>
+                  <span className='block truncate text-muted-foreground'>{application.name}</span>
+                  <span className='block font-mono text-[9px] uppercase text-muted-foreground/60'>
+                    {application.category} / {application.format}
+                  </span>
+                </span>
+                <span className='shrink-0 font-mono'>{String(index + 1).padStart(2, '0')}</span>
               </div>
             ))}
+          </section>
+
+          <section className='flex flex-col gap-3 border-b border-border p-5'>
+            <p className='font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
+              <T>Central idea</T>
+            </p>
+            <p className='text-sm font-semibold leading-6'>{identity.strategy.concept}</p>
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {identity.graphicSystem.device} · {identity.graphicSystem.pattern}
+            </p>
           </section>
 
           <section className='flex flex-col gap-3 p-5'>

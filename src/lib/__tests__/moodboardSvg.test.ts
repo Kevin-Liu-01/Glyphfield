@@ -26,15 +26,17 @@ describe('buildMoodboardSvg', () => {
   it('composes brand foundations and concrete applications as one board', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets);
 
-    expect(svg.match(/class="application-panel"/g)).toHaveLength(8);
-    expect(svg).toContain('GT / IDENTITY');
-    expect(svg).toContain('LOGO / FAMILY');
-    expect(svg).toContain('COLOR / SYSTEM');
-    expect(svg).toContain('TYPOGRAPHY / SYSTEM');
-    expect(svg).toContain('EMAIL / ONBOARDING');
-    expect(svg).toContain('CLI / TERMINAL');
-    expect(svg).toContain('PRODUCT / PAGE');
-    expect(svg).toContain('EVENT / PASS');
+    expect(svg.match(/class="application-panel"/g)).toHaveLength(10);
+    expect(svg).toContain('GT IDENTITY');
+    expect(svg).toContain('STRATEGY');
+    expect(svg).toContain('LOGO ARCHITECTURE');
+    expect(svg).toContain('COLOR ROLES');
+    expect(svg).toContain('TYPOGRAPHY');
+    expect(svg).toContain('THE TRANSLATION FRAME');
+    expect(svg).toContain('LOCALIZATION WORKSPACE');
+    expect(svg).toContain('LANGUAGE MORPH');
+    expect(svg).toContain('DEVELOPER CLI');
+    expect(svg).toContain('GLOBAL PRODUCT PASS');
     expect(svg).not.toContain('#3B82F6');
     expect(svg).not.toContain('#F97316');
   });
