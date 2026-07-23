@@ -8,6 +8,7 @@ import StudioControls from '@/components/StudioControls';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import { cycleDurationMs, resolveTimeline } from '@/lib/animation';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
@@ -54,12 +55,28 @@ export default function AnimationStudio({
     foreground: identity?.colors.find(({ id }) => id === 'paper')?.hex ?? DEFAULT_SETTINGS.foreground,
   };
   const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
-  const [settings, setSettings] = useState<StudioSettings>(identitySettings);
+  const identityId = identity?.id ?? 'default';
+  const [settings, setSettings] = useStudioDraft<StudioSettings>(
+    identityId,
+    'animation',
+    'settings',
+    identitySettings
+  );
   const [mode, setMode] = useState<SourceMode>('text');
-  const [textFrames, setTextFrames] = useState(identityTextFrames);
+  const [textFrames, setTextFrames] = useStudioDraft(
+    identityId,
+    'animation',
+    'text-frames',
+    identityTextFrames
+  );
   const [images, setImages] = useState<ImportedImage[]>([]);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [playbackRate, setPlaybackRate] = useStudioDraft(
+    identityId,
+    'animation',
+    'playback-rate',
+    1
+  );
   const [playheadMs, setPlayheadMs] = useState(0);
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);

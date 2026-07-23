@@ -16,6 +16,7 @@ import BackgroundStudio from '@/components/BackgroundStudio';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { formatOklch, normalizeHex } from '@/lib/color';
 import {
@@ -270,9 +271,19 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const backgroundAsset = useLocalAsset();
   const customFont = useCustomFont();
   const logoAsset = useLocalAsset();
-  const [title, setTitle] = useState(identity.tagline);
-  const [eyebrow, setEyebrow] = useState(`${identity.name.toLocaleUpperCase()} / PRODUCT`);
-  const [surface, setSurface] = useState<'light' | 'dark'>('light');
+  const [title, setTitle] = useStudioDraft(identity.id, tool.id, 'title', identity.tagline);
+  const [eyebrow, setEyebrow] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'eyebrow',
+    `${identity.name.toLocaleUpperCase()} / PRODUCT`
+  );
+  const [surface, setSurface] = useStudioDraft<'light' | 'dark'>(
+    identity.id,
+    tool.id,
+    'surface',
+    'light'
+  );
   const [exporting, setExporting] = useState(false);
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
@@ -414,10 +425,10 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
     identity.colors.find(({ id }) => id === 'emphasis'),
     identity.colors.find(({ id }) => id === 'success'),
   ].filter((color) => color !== undefined);
-  const [tone, setTone] = useState(logoColors[0]?.id ?? 'ink');
-  const [surface, setSurface] = useState<LogoSurface>('white');
-  const [size, setSize] = useState<64 | 128>(128);
-  const [transparent, setTransparent] = useState(false);
+  const [tone, setTone] = useStudioDraft(identity.id, tool.id, 'tone', logoColors[0]?.id ?? 'ink');
+  const [surface, setSurface] = useStudioDraft<LogoSurface>(identity.id, tool.id, 'surface', 'white');
+  const [size, setSize] = useStudioDraft<64 | 128>(identity.id, tool.id, 'size', 128);
+  const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
   const [exporting, setExporting] = useState(false);
   const selectedColor = logoColors.find(({ id }) => id === tone) ?? logoColors[0] ?? {
     hex: '#18181B',
@@ -533,8 +544,11 @@ type EditableColor = {
 
 function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
-  const [colors, setColors] = useState<EditableColor[]>(
-    identity.colors.map(({ hex, name, role }) => ({ hex, name, role }))
+  const [colors, setColors] = useStudioDraft<EditableColor[]>(
+    identity.id,
+    tool.id,
+    'colors',
+    () => identity.colors.map(({ hex, name, role }) => ({ hex, name, role }))
   );
   const [copied, setCopied] = useState(false);
 
@@ -635,12 +649,17 @@ type FontRole = 'primary' | 'secondary' | 'accent' | 'code';
 
 function TypographyTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const customFont = useCustomFont();
-  const [roles, setRoles] = useState<Record<FontRole, FontOptionId>>({
-    accent: 'inter',
-    code: 'mono',
-    primary: 'inter',
-    secondary: 'inter',
-  });
+  const [roles, setRoles] = useStudioDraft<Record<FontRole, FontOptionId>>(
+    identity.id,
+    tool.id,
+    'font-roles',
+    {
+      accent: 'inter',
+      code: 'mono',
+      primary: 'inter',
+      secondary: 'inter',
+    }
+  );
   const availableFonts = customFont.font
     ? [...FONT_OPTIONS, { family: customFont.font.family, id: 'custom' as const, name: customFont.font.name }]
     : [...FONT_OPTIONS];
@@ -744,9 +763,19 @@ const CODE_SAMPLES = {
 } as const;
 
 function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
-  const [language, setLanguage] = useState<CodeLanguage>('typescript');
-  const [code, setCode] = useState<string>(CODE_SAMPLES.typescript);
-  const [title, setTitle] = useState(identity.voice.phrases[0] ?? identity.tagline);
+  const [language, setLanguage] = useStudioDraft<CodeLanguage>(identity.id, tool.id, 'language', 'typescript');
+  const [code, setCode] = useStudioDraft<string>(
+    identity.id,
+    tool.id,
+    'code',
+    CODE_SAMPLES.typescript
+  );
+  const [title, setTitle] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'title',
+    identity.voice.phrases[0] ?? identity.tagline
+  );
   const [exporting, setExporting] = useState(false);
   const highlightedLines = useMemo(() => highlightCode(code, language), [code, language]);
 
@@ -853,19 +882,35 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const backgroundAsset = useLocalAsset();
   const partnerOptions = useMemo(() => templatePartnerOptions(identity), [identity]);
   const initialPartner = defaultTemplatePartner(identity);
-  const [partnerId, setPartnerId] = useState(initialPartner.id);
+  const [partnerId, setPartnerId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'partner',
+    initialPartner.id
+  );
   const selectedPartner = partnerOptions.find(({ id }) => id === partnerId) ?? initialPartner;
-  const [title, setTitle] = useState(
+  const [title, setTitle] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'title',
     kind === 'partnership'
       ? `${identity.name} × ${initialPartner.label}`
       : kind === 'blog'
         ? identity.voice.phrases[0] ?? identity.tagline
         : identity.tagline
   );
-  const [eyebrow, setEyebrow] = useState(
+  const [eyebrow, setEyebrow] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'eyebrow',
     kind === 'blog' ? 'ENGINEERING / JULY 2026' : `${identity.name.toLocaleUpperCase()} / STUDIO`
   );
-  const [texture, setTexture] = useState<TemplateTexture>('white');
+  const [texture, setTexture] = useStudioDraft<TemplateTexture>(
+    identity.id,
+    tool.id,
+    'texture',
+    'white'
+  );
   const [exporting, setExporting] = useState(false);
   const isDark = texture === 'dark';
   const foreground = isDark
@@ -1028,10 +1073,15 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   );
 }
 
-function ButtonTool({ tool }: { tool: StudioTool }) {
-  const [label, setLabel] = useState('Get started');
-  const [disabled, setDisabled] = useState(false);
-  const [size, setSize] = useState<'sm' | 'default' | 'lg'>('default');
+function ButtonTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const [label, setLabel] = useStudioDraft(identity.id, tool.id, 'label', 'Get started');
+  const [disabled, setDisabled] = useStudioDraft(identity.id, tool.id, 'disabled', false);
+  const [size, setSize] = useStudioDraft<'sm' | 'default' | 'lg'>(
+    identity.id,
+    tool.id,
+    'size',
+    'default'
+  );
 
   const inspector = (
     <>
@@ -1119,7 +1169,7 @@ export default function StudioToolWorkspace({
     backgrounds: <BackgroundStudio identity={identity} tool={tool} />,
     blog: <TemplateTool identity={identity} kind='blog' tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
-    buttons: <ButtonTool tool={tool} />,
+    buttons: <ButtonTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     logo: <LogoTool identity={identity} tool={tool} />,

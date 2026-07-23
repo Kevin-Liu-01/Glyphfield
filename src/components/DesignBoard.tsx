@@ -5,6 +5,7 @@ import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   brandAssetPath,
   type BrandIdentity,
@@ -67,9 +68,18 @@ export default function DesignBoard({
   tool: StudioTool;
 }) {
   const [exporting, setExporting] = useState(false);
-  const [exportPresetId, setExportPresetId] =
-    useState<MoodboardExportPresetId>('retina');
-  const [customWidth, setCustomWidth] = useState(2400);
+  const [exportPresetId, setExportPresetId] = useStudioDraft<MoodboardExportPresetId>(
+    identity.id,
+    tool.id,
+    'export-preset',
+    'retina'
+  );
+  const [customWidth, setCustomWidth] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'custom-width',
+    2400
+  );
   const exportDimensions = resolveMoodboardExport(exportPresetId, customWidth);
   const markDarkPath = brandAssetPath(identity, 'mark-dark');
   const markLightPath = brandAssetPath(identity, 'mark-light');

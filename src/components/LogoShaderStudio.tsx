@@ -6,6 +6,7 @@ import { Download, Pause, Play } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { SHADER_PRESETS, type ShaderPreset } from '@/lib/shaderPresets';
 import type { StudioTool } from '@/lib/studioCatalog';
@@ -250,23 +251,54 @@ export default function LogoShaderStudio({
   const materialCanvasRef = useRef<HTMLCanvasElement>(null);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
-  const [presetId, setPresetId] = useState(DEFAULT_SHADER_PRESET.id);
-  const [customDraft, setCustomDraft] = useState(CUSTOM_FRAGMENT_TEMPLATE);
-  const [customSource, setCustomSource] = useState(CUSTOM_FRAGMENT_TEMPLATE);
-  const [customVersion, setCustomVersion] = useState(0);
-  const [colorA, setColorA] = useState(
+  const [presetId, setPresetId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'preset',
+    DEFAULT_SHADER_PRESET.id
+  );
+  const [customDraft, setCustomDraft] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'custom-draft',
+    CUSTOM_FRAGMENT_TEMPLATE
+  );
+  const [customSource, setCustomSource] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'custom-source',
+    CUSTOM_FRAGMENT_TEMPLATE
+  );
+  const [customVersion, setCustomVersion] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'custom-version',
+    0
+  );
+  const [colorA, setColorA] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'color-a',
     identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B'
   );
-  const [colorB, setColorB] = useState(
+  const [colorB, setColorB] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'color-b',
     identity.colors.find(({ id }) => id === 'emphasis')?.hex ?? '#3B82F6'
   );
-  const [logoTone, setLogoTone] = useState<LogoTone>('light');
-  const [logoScale, setLogoScale] = useState(40);
-  const [target, setTarget] = useState<EffectTarget>('logo');
-  const [transparent, setTransparent] = useState(true);
-  const [ratio, setRatio] = useState<ShaderRatio>('wide');
-  const [speed, setSpeed] = useState(1);
-  const [parameters, setParameters] = useState<ShaderParameters>(DEFAULT_PARAMETERS);
+  const [logoTone, setLogoTone] = useStudioDraft<LogoTone>(identity.id, tool.id, 'logo-tone', 'light');
+  const [logoScale, setLogoScale] = useStudioDraft(identity.id, tool.id, 'logo-scale', 40);
+  const [target, setTarget] = useStudioDraft<EffectTarget>(identity.id, tool.id, 'target', 'logo');
+  const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', true);
+  const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'ratio', 'wide');
+  const [speed, setSpeed] = useStudioDraft(identity.id, tool.id, 'speed', 1);
+  const [parameters, setParameters] = useStudioDraft<ShaderParameters>(
+    identity.id,
+    tool.id,
+    'parameters',
+    DEFAULT_PARAMETERS
+  );
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
   const [exportProgress, setExportProgress] = useState(0);

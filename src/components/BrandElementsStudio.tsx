@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   BRAND_ELEMENT_CATEGORIES,
   BRAND_ELEMENTS,
@@ -409,8 +410,18 @@ export default function BrandElementsStudio({
 }) {
   const gt = useGT();
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<BrandElementCategory | 'All'>('All');
-  const [selectedElementId, setSelectedElementId] = useState('welcome-email');
+  const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(
+    identity.id,
+    tool.id,
+    'category',
+    'All'
+  );
+  const [selectedElementId, setSelectedElementId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'selected-element',
+    'welcome-email'
+  );
   const filteredElements = useMemo(
     () =>
       filterBrandElements(BRAND_ELEMENTS, query).filter(

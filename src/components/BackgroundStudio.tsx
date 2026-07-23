@@ -6,6 +6,7 @@ import { Download, ImagePlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   DEFAULT_BACKGROUND_SETTINGS,
   buildBackgroundSvg,
@@ -70,13 +71,18 @@ export default function BackgroundStudio({
   const gt = useGT();
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
-  const [showLogo, setShowLogo] = useState(true);
+  const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
   const [exporting, setExporting] = useState(false);
-  const [settings, setSettings] = useState<BackgroundSettings>(() => ({
-    ...DEFAULT_BACKGROUND_SETTINGS,
-    colorA: identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF',
-    colorB: identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818',
-  }));
+  const [settings, setSettings] = useStudioDraft<BackgroundSettings>(
+    identity.id,
+    tool.id,
+    'settings',
+    () => ({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      colorA: identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF',
+      colorB: identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818',
+    })
+  );
   const identityLogo = brandAssetPath(
     identity,
     settings.logoTone === 'white' ? 'mark-light' : 'mark-dark'
