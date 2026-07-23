@@ -1,3 +1,4 @@
+import 'lenis/dist/lenis.css';
 import './globals.css';
 
 import { GTProvider } from 'gt-next';
