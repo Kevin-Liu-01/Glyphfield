@@ -53,15 +53,17 @@ export default function ColorControl({
           <output className='font-mono text-[10px] text-muted-foreground'>{opacity}%</output>
         )}
       </div>
-      <div className='grid grid-cols-[38px_1fr] gap-2'>
-        <label
-          className='relative grid size-[38px] cursor-pointer place-items-center overflow-hidden rounded-md border border-input'
-          style={{ backgroundColor: hex }}
-        >
+      <div className='grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
+        <label className='relative grid size-[38px] shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-background p-1'>
+          <span
+            aria-hidden='true'
+            className='size-full border border-foreground/10'
+            style={{ backgroundColor: hex }}
+          />
           <span className='sr-only'>{ariaLabel}</span>
           <input
             aria-label={ariaLabel}
-            className='absolute inset-0 cursor-pointer opacity-0'
+            className='absolute inset-0 size-full cursor-pointer opacity-0'
             onChange={(event) => onChange(event.target.value.toLocaleUpperCase())}
             type='color'
             value={hex}
