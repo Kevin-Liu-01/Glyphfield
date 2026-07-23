@@ -50,8 +50,10 @@ describe('createDefaultFrameSettings', () => {
       background: {
         colorA: '#112233',
         colorB: '#445566',
+        materialSettings: expect.objectContaining({ colorA: '#73BFC4' }),
         style: 'gradient',
       },
+      finish: { presetId: 'none' },
       scale: 1.4,
     });
   });
@@ -68,6 +70,7 @@ describe('applyFrameSettings', () => {
 
     expect(applyFrameSettings(textSource, frame)).toMatchObject({
       id: 'text-0',
+      finish: { presetId: 'none' },
       kind: 'text',
       opacity: 0.6,
       rotation: -12,

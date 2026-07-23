@@ -5,6 +5,11 @@ import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   type LiveMaterialSettings,
 } from './liveMaterials';
+import {
+  DEFAULT_MATERIAL_FINISH,
+  normalizeMaterialFinish,
+  type MaterialFinishSettings,
+} from './materialFinish';
 import type {
   StudioBackground,
   StudioSource,
@@ -26,6 +31,7 @@ export type StudioFrameSettings = {
   alignY: number;
   background: Omit<StudioBackground, 'image'>;
   fit: 'contain' | 'cover';
+  finish: MaterialFinishSettings;
   fontSize: number;
   fontWeight: number;
   foreground: string;
@@ -87,9 +93,11 @@ export function createDefaultFrameSettings(
       colorB: settings.backgroundSecondary,
       colorC: settings.shaderSettings.colorC,
       materialId: DEFAULT_LIVE_MATERIAL_ID,
+      materialSettings: { ...settings.shaderSettings },
       style: settings.backgroundStyle,
     },
     fit: settings.fit,
+    finish: { ...DEFAULT_MATERIAL_FINISH },
     fontSize: settings.fontSize,
     fontWeight: settings.fontWeight,
     foreground: settings.foreground,
@@ -107,8 +115,15 @@ export function applyFrameSettings(
     ...source,
     alignX: frame.alignX,
     alignY: frame.alignY,
-    background: frame.background,
+    background: {
+      ...frame.background,
+      materialSettings: {
+        ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+        ...frame.background.materialSettings,
+      },
+    },
     fit: frame.fit,
+    finish: normalizeMaterialFinish(frame.finish),
     fontSize: frame.fontSize,
     fontWeight: frame.fontWeight,
     foreground: frame.foreground,

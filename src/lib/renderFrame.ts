@@ -4,7 +4,18 @@ import {
   type CubicBezier,
   type TimelinePosition,
 } from './animation';
-import type { LiveMaterialId } from './liveMaterials';
+import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from './liveMaterials';
+import {
+  compositeFinishedLayer,
+  hasMaterialFinish,
+  normalizeMaterialFinish,
+  type MaterialBounds,
+  type MaterialFinishSettings,
+} from './materialFinish';
 
 export type AnimationPackageId =
   | 'morph-fade'
@@ -24,6 +35,7 @@ export type StudioBackground = {
   colorC: string;
   image?: CanvasImageSource;
   materialId: LiveMaterialId;
+  materialSettings: LiveMaterialSettings;
   style: BackgroundStyle;
 };
 
@@ -32,6 +44,7 @@ type StudioSourceBase = {
   alignY?: number;
   background?: StudioBackground;
   fit?: 'contain' | 'cover';
+  finish?: MaterialFinishSettings;
   fontSize?: number;
   fontWeight?: number;
   foreground?: string;
@@ -73,6 +86,7 @@ export type RenderConfig = {
 
 type DrawOptions = {
   alpha?: number;
+  backdrop?: CanvasImageSource;
   blur?: number;
   offsetX?: number;
   offsetY?: number;
@@ -85,12 +99,12 @@ function graphemes(text: string): string[] {
   return Array.from(segmenter.segment(text), ({ segment }) => segment);
 }
 
-function drawSource(
+function drawSourceContent(
   context: CanvasRenderingContext2D,
   source: StudioSource,
   config: RenderConfig,
   options: DrawOptions = {}
-): void {
+): MaterialBounds {
   const anchor = resolveAnchor(
     config.width,
     config.height,
@@ -98,6 +112,12 @@ function drawSource(
     source.alignY ?? config.alignY
   );
   const scale = (source.scale ?? config.scale) * (options.scale ?? 1);
+  let bounds: MaterialBounds = {
+    height: config.height * 0.2,
+    width: config.width * 0.4,
+    x: anchor.x - config.width * 0.2,
+    y: anchor.y - config.height * 0.1,
+  };
   context.save();
   context.globalAlpha = (source.opacity ?? 1) * (options.alpha ?? 1);
   context.filter = options.blur ? `blur(${options.blur}px)` : 'none';
@@ -116,11 +136,20 @@ function drawSource(
     context.textBaseline = 'middle';
     const measuredWidth = context.measureText(text).width;
     const maximumWidth = config.width * 0.84;
+    let textScale = 1;
     if (measuredWidth > maximumWidth) {
-      const textScale = maximumWidth / measuredWidth;
+      textScale = maximumWidth / measuredWidth;
       context.scale(textScale, textScale);
     }
     context.fillText(text, 0, 0);
+    const renderedWidth = measuredWidth * textScale * scale;
+    const renderedHeight = (source.fontSize ?? config.fontSize) * 1.18 * textScale * scale;
+    bounds = {
+      height: renderedHeight,
+      width: renderedWidth,
+      x: anchor.x - renderedWidth / 2,
+      y: anchor.y - renderedHeight / 2,
+    };
   } else {
     const availableWidth = config.width * 0.78;
     const availableHeight = config.height * 0.74;
@@ -136,9 +165,50 @@ function drawSource(
     const width = source.width * imageScale;
     const height = source.height * imageScale;
     context.drawImage(source.image, -width / 2, -height / 2, width, height);
+    bounds = {
+      height: height * scale,
+      width: width * scale,
+      x: anchor.x - (width * scale) / 2,
+      y: anchor.y - (height * scale) / 2,
+    };
   }
 
   context.restore();
+  return bounds;
+}
+
+function drawSource(
+  context: CanvasRenderingContext2D,
+  source: StudioSource,
+  config: RenderConfig,
+  options: DrawOptions = {}
+): void {
+  if (!hasMaterialFinish(source.finish)) {
+    drawSourceContent(context, source, config, options);
+    return;
+  }
+  const layer = document.createElement('canvas');
+  layer.width = config.width;
+  layer.height = config.height;
+  const layerContext = layer.getContext('2d');
+  if (!layerContext) return;
+  const bounds = drawSourceContent(layerContext, source, config, options);
+  compositeFinishedLayer(
+    context,
+    layer,
+    bounds,
+    normalizeMaterialFinish(source.finish),
+    (source.opacity ?? 1) * (options.alpha ?? 1),
+    options.backdrop
+  );
+}
+
+function captureBackdrop(context: CanvasRenderingContext2D): HTMLCanvasElement {
+  const backdrop = document.createElement('canvas');
+  backdrop.width = context.canvas.width;
+  backdrop.height = context.canvas.height;
+  backdrop.getContext('2d')?.drawImage(context.canvas, 0, 0);
+  return backdrop;
 }
 
 function fallbackBackground(config: RenderConfig): StudioBackground {
@@ -148,6 +218,7 @@ function fallbackBackground(config: RenderConfig): StudioBackground {
     colorB: config.backgroundSecondary,
     colorC: config.backgroundSecondary,
     materialId: 'shadergradient-prismatic-sphere',
+    materialSettings: { ...DEFAULT_LIVE_MATERIAL_SETTINGS },
     style: config.backgroundStyle,
   };
 }
@@ -244,11 +315,12 @@ function drawTypeDelete(
   current: StudioSource,
   next: StudioSource,
   config: RenderConfig,
-  progress: number
+  progress: number,
+  backdrop?: CanvasImageSource
 ): void {
   if (current.kind !== 'text' || next.kind !== 'text') {
-    drawSource(context, current, config, { alpha: 1 - progress });
-    drawSource(context, next, config, { alpha: progress });
+    drawSource(context, current, config, { alpha: 1 - progress, backdrop });
+    drawSource(context, next, config, { alpha: progress, backdrop });
     return;
   }
 
@@ -257,6 +329,7 @@ function drawTypeDelete(
     const localProgress = cubicBezierAt(progress * 2, config.bezier);
     const length = Math.max(0, Math.ceil(units.length * (1 - localProgress)));
     drawSource(context, current, config, {
+      backdrop,
       textOverride: units.slice(0, length).join(''),
     });
     return;
@@ -266,6 +339,7 @@ function drawTypeDelete(
   const localProgress = cubicBezierAt((progress - 0.5) * 2, config.bezier);
   const length = Math.min(units.length, Math.floor(units.length * localProgress));
   drawSource(context, next, config, {
+    backdrop,
     textOverride: units.slice(0, length).join(''),
   });
 }
@@ -306,14 +380,16 @@ export function renderFrame(
   } else {
     drawBackgroundLayer(context, currentBackground, config);
   }
+  const needsBackdrop = current.finish?.glassEnabled || next.finish?.glassEnabled;
+  const backdrop = needsBackdrop ? captureBackdrop(context) : undefined;
   if (position.phase === 'hold' || sources.length === 1) {
-    drawSource(context, current, config);
+    drawSource(context, current, config, { backdrop });
     return;
   }
 
   const eased = cubicBezierAt(position.progress, config.bezier);
   if (config.packageId === 'type-delete') {
-    drawTypeDelete(context, current, next, config, position.progress);
+    drawTypeDelete(context, current, next, config, position.progress, backdrop);
     return;
   }
 
@@ -322,11 +398,13 @@ export function renderFrame(
     const blur = config.blur * melt;
     drawSource(context, current, config, {
       alpha: 1 - eased,
+      backdrop,
       blur,
       scale: 1 + melt * 0.025,
     });
     drawSource(context, next, config, {
       alpha: eased,
+      backdrop,
       blur,
       scale: 0.975 + eased * 0.025,
     });
@@ -336,10 +414,12 @@ export function renderFrame(
   if (config.packageId === 'scale-fade') {
     drawSource(context, current, config, {
       alpha: 1 - eased,
+      backdrop,
       scale: 1 - eased * 0.08,
     });
     drawSource(context, next, config, {
       alpha: eased,
+      backdrop,
       scale: 1.08 - eased * 0.08,
     });
     return;
@@ -349,15 +429,17 @@ export function renderFrame(
     const travel = config.width * 0.08;
     drawSource(context, current, config, {
       alpha: 1 - eased,
+      backdrop,
       offsetX: -travel * eased,
     });
     drawSource(context, next, config, {
       alpha: eased,
+      backdrop,
       offsetX: travel * (1 - eased),
     });
     return;
   }
 
-  drawSource(context, current, config, { alpha: 1 - eased });
-  drawSource(context, next, config, { alpha: eased });
+  drawSource(context, current, config, { alpha: 1 - eased, backdrop });
+  drawSource(context, next, config, { alpha: eased, backdrop });
 }

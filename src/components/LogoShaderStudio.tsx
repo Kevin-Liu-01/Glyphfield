@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, ExternalLink, Pause, Play } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import MaterialFinishControls from '@/components/MaterialFinishControls';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -21,6 +22,13 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import {
+  compositeFinishedLayer,
+  finishColor,
+  materialFinishPreset,
+  normalizeMaterialFinish,
+  type MaterialFinishSettings,
+} from '@/lib/materialFinish';
 import { SHADER_PRESETS, type ShaderPreset } from '@/lib/shaderPresets';
 import type { StudioTool } from '@/lib/studioCatalog';
 
@@ -344,6 +352,13 @@ export default function LogoShaderStudio({
     'parameters',
     DEFAULT_PARAMETERS
   );
+  const [storedFinish, setStoredFinish] = useStudioDraft<MaterialFinishSettings>(
+    identity.id,
+    tool.id,
+    'material-finish',
+    materialFinishPreset('soft-depth')
+  );
+  const finish = normalizeMaterialFinish(storedFinish);
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
@@ -378,6 +393,41 @@ export default function LogoShaderStudio({
   const identityLogoPath = brandAssetPath(identity, logoTone === 'light' ? 'mark-light' : 'mark-dark');
   const logoPath = customLogo?.url ?? identityLogoPath ?? monogramMask(identity);
   const aspectRatio = ratio === 'square' ? '1 / 1' : ratio === 'opengraph' ? '1200 / 630' : '16 / 10';
+  const outlineFilter = finish.borderEnabled && finish.borderWidth > 0
+    ? [
+        [finish.borderWidth, 0],
+        [-finish.borderWidth, 0],
+        [0, finish.borderWidth],
+        [0, -finish.borderWidth],
+        [finish.borderWidth * 0.72, finish.borderWidth * 0.72],
+        [-finish.borderWidth * 0.72, finish.borderWidth * 0.72],
+        [finish.borderWidth * 0.72, -finish.borderWidth * 0.72],
+        [-finish.borderWidth * 0.72, -finish.borderWidth * 0.72],
+      ].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${finishColor(finish.borderColor, finish.borderOpacity / 100)})`).join(' ')
+    : '';
+  const shadowFilter = finish.shadowEnabled && !finish.glassEnabled
+    ? `drop-shadow(${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${finish.shadowBlur}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)})`
+    : '';
+  const logoFinishStyle: CSSProperties = {
+    filter: [outlineFilter, shadowFilter].filter(Boolean).join(' ') || undefined,
+    WebkitBoxReflect: finish.reflectionEnabled
+      ? `below ${finish.reflectionGap}px linear-gradient(to bottom, ${finishColor('#000000', finish.reflectionOpacity / 100)}, transparent ${finish.reflectionLength}%)`
+      : undefined,
+  };
+  const glassPreviewStyle: CSSProperties = {
+    backdropFilter: `blur(${finish.glassBlur}px)`,
+    background: `linear-gradient(135deg, ${finishColor('#FFFFFF', finish.glassHighlight / 100)}, ${finishColor(finish.glassTint, finish.glassOpacity / 100)} 44%, ${finishColor(finish.glassTint, finish.glassOpacity / 250)})`,
+    border: finish.borderEnabled
+      ? `${finish.borderWidth}px solid ${finishColor(finish.borderColor, finish.borderOpacity / 100)}`
+      : undefined,
+    borderRadius: finish.glassRadius,
+    boxShadow: finish.shadowEnabled
+      ? `${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${finish.shadowBlur}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)}`
+      : undefined,
+    inset: -finish.glassPadding,
+    transform: `scale(${1 + finish.glassRefraction / 300})`,
+    WebkitBackdropFilter: `blur(${finish.glassBlur}px)`,
+  };
 
   customLogoRef.current = customLogo;
   useMountEffect(
@@ -440,25 +490,34 @@ export default function LogoShaderStudio({
     const markSize = Math.round(Math.min(width, height) * (logoScale / 100));
     const markX = Math.round((width - markSize) / 2 + (logoX / 100) * width);
     const markY = Math.round((height - markSize) / 2 + (logoY / 100) * height);
-    context.save();
-    context.globalAlpha = logoOpacity / 100;
+    const markLayer = document.createElement('canvas');
+    markLayer.width = width;
+    markLayer.height = height;
+    const markContext = markLayer.getContext('2d');
+    if (!markContext) return;
+    markContext.globalAlpha = logoOpacity / 100;
     if ((target === 'logo' || target === 'both') && materialCanvas) {
       const cutout = document.createElement('canvas');
       cutout.width = markSize;
       cutout.height = markSize;
       const cutoutContext = cutout.getContext('2d');
       if (!cutoutContext) {
-        context.restore();
         return;
       }
       cutoutContext.drawImage(materialCanvas, 0, 0, markSize, markSize);
       cutoutContext.globalCompositeOperation = 'destination-in';
       cutoutContext.drawImage(logo, 0, 0, markSize, markSize);
-      context.drawImage(cutout, markX, markY);
+      markContext.drawImage(cutout, markX, markY);
     } else {
-      context.drawImage(logo, markX, markY, markSize, markSize);
+      markContext.drawImage(logo, markX, markY, markSize, markSize);
     }
-    context.restore();
+    compositeFinishedLayer(
+      context,
+      markLayer,
+      { height: markSize, width: markSize, x: markX, y: markY },
+      finish,
+      logoOpacity / 100
+    );
   }
 
   async function capturePng() {
@@ -739,6 +798,14 @@ export default function LogoShaderStudio({
           </section>
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Surface finish</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Layer glass, reflection, edge, and depth over the live material.</T></p>
+            </div>
+            <MaterialFinishControls onChange={setStoredFinish} settings={finish} />
+          </section>
+
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Logo</T></h2>
             <div className='grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border'>
               {(['light', 'dark'] as const).map((tone) => (
@@ -817,33 +884,35 @@ export default function LogoShaderStudio({
                 </div>
               ) : null}
               <div className='pointer-events-none absolute inset-0 grid place-items-center' style={{ opacity: logoOpacity / 100, transform: `translate(${logoX}%, ${logoY}%)` }}>
-                {target === 'logo' || target === 'both' ? (
-                  <div
-                    className='relative overflow-hidden'
-                    ref={materialLayerRef}
-                    style={{
-                      WebkitMaskImage: `url('${logoPath}')`,
-                      WebkitMaskPosition: 'center',
-                      WebkitMaskRepeat: 'no-repeat',
-                      WebkitMaskSize: 'contain',
-                      height: `${logoScale}%`,
-                      maskImage: `url('${logoPath}')`,
-                      maskPosition: 'center',
-                      maskRepeat: 'no-repeat',
-                      maskSize: 'contain',
-                      width: `${logoScale}%`,
-                    }}
-                  >
-                    {renderMaterial(materialCanvasRef, 'logo')}
+                <div className='relative grid place-items-center' style={{ height: `${logoScale}%`, width: `${logoScale}%` }}>
+                  {finish.glassEnabled ? <div aria-hidden='true' className='absolute' style={glassPreviewStyle} /> : null}
+                  <div className='relative size-full' style={logoFinishStyle}>
+                    {target === 'logo' || target === 'both' ? (
+                      <div
+                        className='relative size-full overflow-hidden'
+                        ref={materialLayerRef}
+                        style={{
+                          WebkitMaskImage: `url('${logoPath}')`,
+                          WebkitMaskPosition: 'center',
+                          WebkitMaskRepeat: 'no-repeat',
+                          WebkitMaskSize: 'contain',
+                          maskImage: `url('${logoPath}')`,
+                          maskPosition: 'center',
+                          maskRepeat: 'no-repeat',
+                          maskSize: 'contain',
+                        }}
+                      >
+                        {renderMaterial(materialCanvasRef, 'logo')}
+                      </div>
+                    ) : (
+                      <img
+                        alt={`${identity.name} logo`}
+                        className='size-full object-contain'
+                        src={logoPath}
+                      />
+                    )}
                   </div>
-                ) : (
-                  <img
-                    alt={`${identity.name} logo`}
-                    className='object-contain drop-shadow-[0_2px_20px_rgba(0,0,0,0.18)]'
-                    src={logoPath}
-                    style={{ height: `${logoScale}%`, width: `${logoScale}%` }}
-                  />
-                )}
+                </div>
               </div>
               <div className='pointer-events-none absolute top-4 left-4 font-mono text-[10px] uppercase tracking-widest text-white/60 mix-blend-difference'>
                 {activeMaterial.name} / {activeMaterial.engine}
@@ -855,7 +924,7 @@ export default function LogoShaderStudio({
                 <p className='mt-1 max-w-xl text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
               </div>
               <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
-                {identity.name} / {ratio} / {speed.toFixed(2)}×
+                {identity.name} / {ratio} / {speed.toFixed(2)}× / {finish.presetId}
               </p>
             </div>
             {error ? <p className='border-x border-b border-status-error-border bg-status-error-background p-3 text-sm text-status-error' role='alert'>{error}</p> : null}

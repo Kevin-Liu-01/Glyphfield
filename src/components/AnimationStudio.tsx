@@ -374,7 +374,13 @@ export default function AnimationStudio({
   ) {
     if (!selectedFrameSettings) return;
     updateSelectedFrame({
-      background: { ...selectedFrameSettings.background, ...patch },
+      background: {
+        ...selectedFrameSettings.background,
+        ...patch,
+        materialSettings: patch.materialSettings
+          ?? selectedFrameSettings.background.materialSettings
+          ?? settings.shaderSettings,
+      },
     });
   }
 
@@ -589,6 +595,7 @@ export default function AnimationStudio({
                         paused={!isPlaying && exportProgress === null}
                         settings={{
                           ...settings.shaderSettings,
+                          ...source.background.materialSettings,
                           colorA: source.background.colorA,
                           colorB: source.background.colorB,
                           colorC: source.background.colorC,

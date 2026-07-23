@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 
 import BezierEditor from '@/components/BezierEditor';
+import MaterialFinishControls from '@/components/MaterialFinishControls';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_OPTIONS,
 } from '@/lib/liveMaterials';
 import type { StudioSource } from '@/lib/renderFrame';
@@ -176,6 +178,10 @@ export default function StudioControls({
   textFrames,
 }: StudioControlsProps) {
   const gt = useGT();
+  const frameMaterialSettings = {
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    ...frameSettings?.background.materialSettings,
+  };
 
   return (
     <aside className='studio-inspector border-r border-border bg-background'>
@@ -399,10 +405,30 @@ export default function StudioControls({
                     value={frameSettings.background.materialId}
                   />
                 </div>
-                <RangeControl label={<T>Shader speed</T>} max={2} min={0} onChange={(speed) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, speed } })} step={0.05} value={settings.shaderSettings.speed} />
-                <RangeControl label={<T>Strength</T>} max={2} min={0} onChange={(strength) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, strength } })} step={0.05} value={settings.shaderSettings.strength} />
-                <RangeControl label={<T>Frequency</T>} max={12} min={0.5} onChange={(frequency) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, frequency } })} step={0.1} value={settings.shaderSettings.frequency} />
-                <RangeControl label={<T>Grain</T>} max={100} min={0} onChange={(grain) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, grain } })} step={1} unit='%' value={settings.shaderSettings.grain} />
+                {([
+                  ['Shader speed', 'speed', 0, 2, 0.05, '×'],
+                  ['Strength', 'strength', 0, 2, 0.05, ''],
+                  ['Detail', 'detail', 0.5, 8, 0.1, ''],
+                  ['Frequency', 'frequency', 0.2, 12, 0.1, ''],
+                  ['Amplitude', 'amplitude', 0, 8, 0.1, ''],
+                  ['Density', 'density', 0.1, 2, 0.05, ''],
+                  ['Brightness', 'brightness', 0.1, 2, 0.05, ''],
+                  ['Grain', 'grain', 0, 100, 1, '%'],
+                  ['Rotation X', 'rotationX', 0, 360, 1, '°'],
+                  ['Rotation Y', 'rotationY', 0, 360, 1, '°'],
+                  ['Rotation Z', 'rotationZ', 0, 360, 1, '°'],
+                ] as const).map(([label, key, min, max, step, unit]) => (
+                  <RangeControl
+                    key={key}
+                    label={gt(label)}
+                    max={max}
+                    min={min}
+                    onChange={(value) => onBackgroundChange({ materialSettings: { ...frameMaterialSettings, [key]: value } })}
+                    step={step}
+                    unit={unit}
+                    value={frameMaterialSettings[key]}
+                  />
+                ))}
               </>
             ) : null}
             {frameSettings.background.style === 'solid' ? null : (
@@ -420,6 +446,13 @@ export default function StudioControls({
                 ]}
                 value={settings.backgroundTransition}
               />
+            </div>
+            <div className='border-t border-border pt-4'>
+              <div className='mb-3'>
+                <p className='text-sm font-semibold'><T>Surface finish</T></p>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Applies to this frame in both preview and GIF export.</T></p>
+              </div>
+              <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
             </div>
           </>
         ) : (
