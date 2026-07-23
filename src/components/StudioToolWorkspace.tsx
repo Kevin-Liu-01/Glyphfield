@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Check,
@@ -18,6 +18,11 @@ import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { formatOklch, normalizeHex } from '@/lib/color';
+import {
+  CODE_THEME,
+  highlightCode,
+  type CodeLanguage,
+} from '@/lib/codeHighlight';
 import {
   downloadSvgAsPng,
   escapeXml,
@@ -723,23 +728,12 @@ const CODE_SAMPLES = {
   typescript: `import { tx } from 'gt-next';\n\nexport function Greeting() {\n  return <h1>{tx('Hello, world')}</h1>;\n}`,
 } as const;
 
-type CodeLanguage = keyof typeof CODE_SAMPLES;
-
-function codeColorClass(line: string): string {
-  const trimmed = line.trim();
-  if (trimmed.startsWith('✓')) return 'text-status-success';
-  if (trimmed.startsWith('$')) return 'text-emphasis';
-  if (trimmed.startsWith('import') || trimmed.startsWith('from') || trimmed.startsWith('export')) {
-    return 'text-status-in-progress';
-  }
-  return 'text-background';
-}
-
 function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const [language, setLanguage] = useState<CodeLanguage>('typescript');
   const [code, setCode] = useState<string>(CODE_SAMPLES.typescript);
   const [title, setTitle] = useState(identity.voice.phrases[0] ?? identity.tagline);
   const [exporting, setExporting] = useState(false);
+  const highlightedLines = useMemo(() => highlightCode(code, language), [code, language]);
 
   function changeLanguage(nextLanguage: CodeLanguage) {
     setLanguage(nextLanguage);
@@ -749,14 +743,23 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   async function exportTerminal() {
     setExporting(true);
     try {
-      const lines = code.split('\n').slice(0, 12);
-      const codeSvg = lines
+      const codeSvg = highlightedLines
+        .slice(0, 12)
         .map(
-          (line, index) =>
-            `<text x="92" y="${236 + index * 34}" fill="${line.trim().startsWith('✓') ? '#16A34A' : line.trim().startsWith('$') ? '#60A5FA' : '#F8F8F5'}" font-family="monospace" font-size="21">${escapeXml(line || ' ')}</text>`
+          (line, index) => {
+            const tokens = line.tokens.length > 0
+              ? line.tokens
+                  .map(
+                    ({ color, content }) =>
+                      `<tspan fill="${color}">${escapeXml(content)}</tspan>`
+                  )
+                  .join('')
+              : '<tspan> </tspan>';
+            return `<text x="92" y="${236 + index * 34}" fill="${CODE_THEME.foreground}" font-family="Geist Mono, monospace" font-size="21" xml:space="preserve">${tokens}</text>`;
+          }
         )
         .join('');
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#111111"/><text x="72" y="90" fill="#F8F8F5" font-family="Arial, sans-serif" font-size="42" font-weight="700">${escapeXml(title)}</text><text x="72" y="136" fill="#9A9A93" font-family="monospace" font-size="17">${language.toLocaleUpperCase()} / ${escapeXml(identity.name.toLocaleUpperCase())}</text><rect x="72" y="174" width="1056" height="388" rx="8" fill="#080808" stroke="#30302D"/>${codeSvg}</svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="${CODE_THEME.background}"/><text x="72" y="90" fill="${CODE_THEME.foreground}" font-family="Inter, sans-serif" font-size="42" font-weight="700">${escapeXml(title)}</text><text x="72" y="136" fill="${CODE_THEME.gutter}" font-family="Geist Mono, monospace" font-size="17">${language.toLocaleUpperCase()}</text><rect x="72" y="174" width="1056" height="388" rx="8" fill="${CODE_THEME.background}" stroke="${CODE_THEME.border}"/>${codeSvg}</svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-terminal.png');
     } finally {
       setExporting(false);
@@ -765,7 +768,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
 
   const inspector = (
     <>
-      <ControlSection title={<T>Terminal</T>}>
+      <ControlSection title={<T>Content</T>}>
         <Field label={<T>Card title</T>}>
           <input className={INPUT_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
@@ -777,8 +780,8 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
           </select>
         </Field>
       </ControlSection>
-      <ControlSection title={<T>Code</T>}>
-        <textarea className={`${TEXTAREA_CLASS} min-h-72 font-mono`} onChange={(event) => setCode(event.target.value)} spellCheck={false} value={code} />
+      <ControlSection title={<T>Source</T>}>
+        <textarea className={`${TEXTAREA_CLASS} min-h-56 font-mono`} onChange={(event) => setCode(event.target.value)} spellCheck={false} value={code} />
       </ControlSection>
     </>
   );
@@ -794,26 +797,32 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
       inspector={inspector}
       tool={tool}
     >
-      <div className='grid min-h-full place-items-center bg-foreground p-6 lg:p-10'>
-        <div className='w-full max-w-5xl overflow-hidden rounded-md border border-background/20 bg-foreground text-background shadow-sm'>
-          <div className='flex items-center justify-between gap-4 border-b border-background/15 px-6 py-5'>
+      <div className='grid min-h-full place-items-center p-8 lg:p-14'>
+        <div className='w-full max-w-4xl overflow-hidden rounded-lg border border-white/10 bg-[#0D1117] text-[#E6EDF3] shadow-[0_18px_60px_rgba(0,0,0,0.18)]'>
+          <div className='flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4'>
             <div className='flex flex-col gap-1'>
-              <h2 className='text-xl font-semibold'>{title}</h2>
-              <p className='font-mono text-xs uppercase tracking-widest text-background/50'>
-                {language} / {identity.name}
+              <h2 className='text-lg font-semibold'>{title}</h2>
+              <p className='font-mono text-[10px] uppercase tracking-widest text-[#8B949E]'>
+                {language}
               </p>
             </div>
-            <div className='flex gap-2' aria-hidden='true'>
-              <span className='size-2 rounded-full bg-status-error' />
-              <span className='size-2 rounded-full bg-status-in-progress' />
-              <span className='size-2 rounded-full bg-status-success' />
+            <div className='flex gap-1.5' aria-hidden='true'>
+              <span className='size-1.5 rounded-full bg-white/20' />
+              <span className='size-1.5 rounded-full bg-white/20' />
+              <span className='size-1.5 rounded-full bg-white/20' />
             </div>
           </div>
-          <pre className='min-h-80 overflow-auto bg-foreground p-6 font-mono text-sm leading-7'>
-            {code.split('\n').map((line, index) => (
-              <span className='grid grid-cols-[28px_1fr] gap-4' key={`${line}-${index}`}>
-                <span className='select-none text-right text-background/30'>{index + 1}</span>
-                <span className={codeColorClass(line)}>{line || ' '}</span>
+          <pre className='min-h-72 overflow-auto bg-[#0D1117] p-6 font-mono text-sm leading-7'>
+            {highlightedLines.map((line, index) => (
+              <span className='grid grid-cols-[28px_1fr] gap-4' key={`${index}-${line.tokens.map(({ content }) => content).join('')}`}>
+                <span className='select-none text-right text-[#6E7681]'>{index + 1}</span>
+                <span>
+                  {line.tokens.length > 0
+                    ? line.tokens.map(({ color, content }, tokenIndex) => (
+                        <span key={`${tokenIndex}-${content}`} style={{ color }}>{content}</span>
+                      ))
+                    : ' '}
+                </span>
               </span>
             ))}
           </pre>

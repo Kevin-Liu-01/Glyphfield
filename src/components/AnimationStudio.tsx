@@ -285,27 +285,33 @@ export default function AnimationStudio({
       <header
         className={`${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
       >
-        <div className='flex min-w-0 items-center gap-4 border-r border-border px-5 py-4'>
-          <div className='grid size-9 shrink-0 place-items-center bg-foreground font-mono text-xs font-bold text-background'>
-            ST
-          </div>
+        <div className='flex min-w-0 items-center gap-4 border-r border-border px-5 py-3'>
+          {embedded ? null : (
+            <div className='grid size-9 shrink-0 place-items-center bg-foreground font-mono text-xs font-bold text-background'>
+              ST
+            </div>
+          )}
           <div className='min-w-0'>
-            <h1 className='truncate text-xl font-semibold tracking-tight'>
+            <h1 className='truncate text-lg font-semibold tracking-tight'>
               <T>Animation</T>
             </h1>
-            <p className='truncate font-mono text-xs uppercase tracking-widest text-muted-foreground'>
-              <T>Studio / Motion</T>
-            </p>
+            {embedded ? null : (
+              <p className='truncate font-mono text-xs uppercase tracking-widest text-muted-foreground'>
+                <T>Studio / Motion</T>
+              </p>
+            )}
           </div>
         </div>
 
-        <div className='hidden min-w-0 items-center border-r border-border px-5 lg:flex'>
-          <p className='max-w-xl text-sm leading-5 text-muted-foreground'>
-            <T>
-              Import frames, tune one deterministic playhead, and export a production-ready GIF without uploading anything.
-            </T>
-          </p>
-        </div>
+        {embedded ? null : (
+          <div className='hidden min-w-0 items-center border-r border-border px-5 lg:flex'>
+            <p className='max-w-xl text-sm leading-5 text-muted-foreground'>
+              <T>
+                Import frames, tune one deterministic playhead, and export a production-ready GIF without uploading anything.
+              </T>
+            </p>
+          </div>
+        )}
 
         <div className='flex items-center justify-end gap-2 px-4'>
           {lastExport ? (

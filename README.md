@@ -29,6 +29,12 @@ Brand Elements is the default Studio surface. It applies the active identity
 to 33 searchable touchpoints spanning email, CLI/ASCII, repositories, social,
 slides and editorial, event credentials, web cards, icons, and physical print.
 
+Terminal Card uses modular Prism grammars for TypeScript, Python, and Bash so
+the editable preview and PNG export share one syntax-token pipeline. A full
+terminal emulator is intentionally outside this static graphics tool.
+See [Studio library routing](./docs/library-routing.md) for the wiki-informed
+dependency decisions across terminal, OpenGraph, gradients, and shaders.
+
 ## Public access
 
 The deployed studio is free to browse and use. Its source is publicly readable

@@ -211,10 +211,10 @@ export default function StudioApp() {
     return (
       <div
         aria-selected={selected}
-        className={`project-tab flex min-w-40 max-w-64 items-center gap-2 border-x border-transparent px-3 text-sm ${
+        className={`project-tab flex min-w-36 max-w-56 items-center gap-2 border-b-2 px-3 text-sm ${
           selected
-            ? 'border-border bg-muted/60'
-            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+            ? 'border-foreground text-foreground'
+            : 'border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         key={identity.id}
         role='tab'
@@ -256,23 +256,18 @@ export default function StudioApp() {
     <main className='studio-app h-dvh overflow-hidden bg-background text-foreground'>
       <header className='studio-app-header border-b border-border bg-background'>
         <Link
-          className='flex min-w-0 items-center gap-3 border-r border-border px-4'
+          className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'
           href='/'
         >
           <Image
             alt={gt('Glyphfield mark')}
-            className='size-8 object-contain'
-            height={32}
+            className='size-7 object-contain'
+            height={28}
             priority
             src={PRODUCT_BRAND.markPath}
-            width={32}
+            width={28}
           />
-          <div className='min-w-0'>
-            <p className='truncate text-sm font-semibold tracking-tight'>{PRODUCT_BRAND.name}</p>
-            <p className='truncate font-mono text-[10px] tracking-widest text-muted-foreground'>
-              <T>BRAND STUDIO</T>
-            </p>
-          </div>
+          <p className='truncate text-sm font-semibold tracking-tight'>{PRODUCT_BRAND.name}</p>
         </Link>
 
         <div className='flex min-w-0 items-center gap-2 px-3'>
@@ -288,13 +283,13 @@ export default function StudioApp() {
               </option>
             ))}
           </select>
-          <label className='flex h-9 w-full max-w-2xl items-center gap-2 rounded-md border border-input bg-background px-3 focus-within:border-foreground'>
+          <label className='flex h-9 w-full max-w-xl items-center gap-2 rounded-md border border-input bg-background px-3 focus-within:border-foreground'>
             <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
             <input
               aria-label={gt('Search Studio tools')}
               className='min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground'
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={gt('Search email, logo, CLI, lanyard…')}
+              placeholder={gt('Search Studio tools…')}
               ref={searchRef}
               value={query}
             />
@@ -317,55 +312,49 @@ export default function StudioApp() {
           </label>
         </div>
 
-        <div className='hidden items-center justify-end gap-3 border-l border-border px-4 md:flex'>
-          <span className='size-2 rounded-full bg-status-success' aria-hidden='true' />
-          <span className='font-mono text-xs text-muted-foreground'>
-            <T>LOCAL ONLY</T>
-          </span>
-        </div>
       </header>
 
-      <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto border-b border-border bg-background px-3' role='tablist' aria-label={gt('Brand projects')}>
-        <span className='shrink-0 px-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
-          <T>Projects</T>
-        </span>
-        <div className='flex shrink-0 items-end self-stretch'>
-          {identities.map(renderProjectTab)}
-        </div>
-        <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
-          <Plus aria-hidden='true' />
-        </Button>
-        <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
-          <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' type='button' variant='ghost'>
-            <Copy aria-hidden='true' />
+      <div className='project-tabs-shell border-b border-border bg-background'>
+        <div className='project-tabs-spacer border-r border-border' aria-hidden='true' />
+        <div className='project-tabs flex min-w-0 items-center overflow-x-auto px-2' role='tablist' aria-label={gt('Brand projects')}>
+          <div className='flex shrink-0 items-end self-stretch'>
+            {identities.map(renderProjectTab)}
+          </div>
+          <Button aria-label={gt('Add brand project')} className='ml-1 shrink-0 border-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-sm' type='button' variant='ghost'>
+            <Plus aria-hidden='true' />
           </Button>
-          {!activeIdentity.builtIn ? (
-            <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' type='button' variant='ghost'>
-              <Trash2 aria-hidden='true' />
+          <div className='ml-auto flex shrink-0 items-center gap-1'>
+            <Button aria-label={gt('Duplicate active project')} className='border-0' disabled={!identitiesReady} onClick={copyIdentity} size='icon-sm' title={gt('Duplicate project')} type='button' variant='ghost'>
+              <Copy aria-hidden='true' />
             </Button>
-          ) : null}
+            {!activeIdentity.builtIn ? (
+              <Button aria-label={gt('Delete active project')} className='border-0' onClick={removeIdentity} size='icon-sm' title={gt('Delete project')} type='button' variant='ghost'>
+                <Trash2 aria-hidden='true' />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div className='studio-app-body'>
         <aside className='studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
-          <div className='min-h-0 flex-1 overflow-y-auto py-3'>
+          <div className='min-h-0 flex-1 overflow-y-auto px-2 py-3'>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;
 
               return (
-                <section className='flex flex-col gap-1 px-2 py-2' key={category}>
-                  <h2 className='px-2 text-xs uppercase tracking-widest text-muted-foreground'>
+                <section className='flex flex-col gap-1 py-2' key={category}>
+                  <h2 className='px-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
                     {gt(category)}
                   </h2>
-                  <div className='flex flex-col'>
+                  <div className='flex flex-col gap-0.5'>
                     {tools.map((tool) => {
                       const Icon = TOOL_ICONS[tool.id];
                       const selected = activeToolId === tool.id;
                       return (
                         <Button
-                          className='h-9 w-full justify-start rounded-none px-2'
+                          className='h-9 w-full justify-start rounded-md border-0 px-2.5'
                           key={tool.id}
                           onClick={() => selectTool(tool.id)}
                           title={gt(tool.description)}
@@ -374,13 +363,6 @@ export default function StudioApp() {
                         >
                           <Icon aria-hidden='true' />
                           <span className='min-w-0 flex-1 truncate text-left'>{gt(tool.name)}</span>
-                          <span
-                            className={`font-mono text-xs ${
-                              selected ? 'text-primary-foreground/60' : 'text-muted-foreground'
-                            }`}
-                          >
-                            {tool.shortcut}
-                          </span>
                         </Button>
                       );
                     })}
@@ -400,9 +382,6 @@ export default function StudioApp() {
                 </p>
               </div>
             ) : null}
-          </div>
-          <div className='border-t border-border px-4 py-3 font-mono text-xs text-muted-foreground'>
-            {STUDIO_TOOLS.length} <T>TOOLS</T> · <T>NO CLOUD</T>
           </div>
         </aside>
 

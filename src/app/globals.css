@@ -57,8 +57,8 @@
   --status-error-border: 0 84% 60% / 0.3;
   --status-in-progress: 25 95% 53%;
   --status-success: 142 76% 36%;
-  --studio-inspector-width: 300px;
-  --studio-rail-width: 240px;
+  --studio-inspector-width: 292px;
+  --studio-rail-width: 216px;
 }
 
 * {
@@ -154,22 +154,28 @@ body {
 
 .studio-app-header {
   display: grid;
-  grid-template-columns: var(--studio-rail-width) minmax(0, 1fr) 160px;
-  height: 56px;
+  grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
+  height: 52px;
 }
 
 .studio-app-body {
   display: grid;
   grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
-  height: calc(100dvh - 100px);
+  height: calc(100dvh - 92px);
+}
+
+.project-tabs-shell {
+  display: grid;
+  grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
+  height: 40px;
 }
 
 .project-tabs {
-  height: 44px;
+  height: 40px;
 }
 
 .project-tab {
-  height: 44px;
+  height: 40px;
 }
 
 .project-tab-mark {
@@ -234,16 +240,26 @@ body {
   display: grid;
   grid-template-columns: var(--studio-inspector-width) minmax(0, 1fr);
   gap: 0;
+  min-height: 52px;
   padding: 0;
 }
 
 .tool-header > :first-child {
   display: flex;
-  min-height: 64px;
+  min-height: 52px;
   flex-direction: column;
   justify-content: center;
   border-right: 1px solid hsl(var(--border));
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 1.25rem;
+}
+
+.tool-header > :first-child p:first-child {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.tool-header > :first-child p:last-child:not(:first-child) {
+  display: none;
 }
 
 .tool-header > :last-child:not(:first-child) {
@@ -263,23 +279,23 @@ body {
 
 .animation-studio {
   display: grid;
-  grid-template-rows: 72px minmax(0, 1fr);
+  grid-template-rows: 52px minmax(0, 1fr);
 }
 
 .animation-toolbar {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) auto;
-  min-height: 72px;
+  grid-template-columns: var(--studio-inspector-width) minmax(0, 1fr);
+  min-height: 52px;
 }
 
 .animation-body {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: var(--studio-inspector-width) minmax(0, 1fr);
   min-height: 0;
 }
 
 .animation-body .studio-inspector {
-  max-height: calc(100dvh - 172px);
+  max-height: calc(100dvh - 144px);
 }
 
 .gt-logo-mask {
@@ -316,16 +332,12 @@ body {
 
 @media (max-width: 1100px) {
   :root {
-    --studio-inspector-width: 270px;
-    --studio-rail-width: 220px;
+    --studio-inspector-width: 272px;
+    --studio-rail-width: 208px;
   }
 
   .studio-app-header {
     grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
-  }
-
-  .studio-app-header > div:last-child {
-    display: none;
   }
 
   .studio-app-body {
@@ -337,11 +349,11 @@ body {
   }
 
   .animation-toolbar {
-    grid-template-columns: 280px minmax(0, 1fr) auto;
+    grid-template-columns: var(--studio-inspector-width) minmax(0, 1fr);
   }
 
   .animation-body {
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: var(--studio-inspector-width) minmax(0, 1fr);
   }
 }
 
@@ -398,6 +410,14 @@ body {
 
   .studio-app-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-tabs-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-tabs-spacer {
+    display: none;
   }
 
   .studio-mobile-tool {

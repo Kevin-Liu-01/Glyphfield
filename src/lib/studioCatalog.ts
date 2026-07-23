@@ -131,7 +131,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Expressions',
-    description: 'Render polished code and command snippets with language-aware treatments.',
+    description: 'Render Prism-tokenized TypeScript, Python, and Bash cards with matching PNG output.',
     id: 'terminal',
     keywords: ['code', 'syntax', 'cli', 'typescript', 'python', 'bash', 'language colors'],
     name: 'Terminal card',
