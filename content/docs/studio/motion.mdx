@@ -8,7 +8,9 @@ Glyphfield includes two motion systems: frame-based Animation and live WebGL Log
 
 ## Animation
 
-Animation accepts newline-separated text or imported image frames. The active identity supplies the initial multilingual greetings, foreground, and background.
+Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Select any state to tune its position, scale, rotation, opacity, typography or image fit without changing the rest of the sequence.
+
+Each state also owns its background. Choose a solid color, two-color gradient, or any live ShaderGradient/Ariadne material, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. Shader colors, speed, strength, frequency, grain, and material are editable in the same frame inspector.
 
 ### Animation packages
 
@@ -18,7 +20,7 @@ Animation accepts newline-separated text or imported image frames. The active id
 - Scale fade
 - Slide fade
 
-Type and delete reveals and removes real characters without a cursor. Morph fade uses blur, opacity, and scale rather than a collapsing vertical wipe.
+Type and delete reveals and removes real characters without a cursor. Morph fade uses blur, opacity, and scale rather than a collapsing vertical wipe, and works across text-to-text, text-to-image, image-to-text, and image-to-image transitions.
 
 ### Timing
 
@@ -28,7 +30,7 @@ The playhead is deterministic: preview and export resolve from the same timing m
 
 ### GIF output
 
-Choose canvas dimensions, frame rate, palette colors, fit mode, and scale, then select **Export GIF**. Larger canvases, more frames, higher frame rates, and larger palettes increase encoding time and file size.
+Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. The export composites the same mixed sources, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
 
 ## Logo shader
 

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
+import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import StudioControls from '@/components/StudioControls';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
@@ -14,10 +15,14 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
 import { renderFrame, type StudioSource } from '@/lib/renderFrame';
 import {
+  applyFrameSettings,
+  createDefaultFrameSettings,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_FRAMES,
+  orderStudioSources,
   type ImportedImage,
   type SourceMode,
+  type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
 
@@ -41,6 +46,20 @@ async function loadImportedImage(file: File): Promise<ImportedImage> {
   }
 }
 
+async function loadImageSource(path: string, name: string): Promise<StudioSource> {
+  const image = new Image();
+  image.src = path;
+  await image.decode();
+  return {
+    height: image.naturalHeight,
+    id: 'brand-logo',
+    image,
+    kind: 'image',
+    name,
+    width: image.naturalWidth,
+  };
+}
+
 export default function AnimationStudio({
   embedded = false,
   identity,
@@ -56,13 +75,21 @@ export default function AnimationStudio({
   };
   const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
   const identityId = identity?.id ?? 'default';
-  const [settings, setSettings] = useStudioDraft<StudioSettings>(
+  const [storedSettings, setStoredSettings] = useStudioDraft<StudioSettings>(
     identityId,
     'animation',
     'settings',
     identitySettings
   );
-  const [mode, setMode] = useState<SourceMode>('text');
+  const settings: StudioSettings = {
+    ...identitySettings,
+    ...storedSettings,
+    shaderSettings: {
+      ...identitySettings.shaderSettings,
+      ...storedSettings.shaderSettings,
+    },
+  };
+  const [mode, setMode] = useState<SourceMode>('sequence');
   const [textFrames, setTextFrames] = useStudioDraft(
     identityId,
     'animation',
@@ -70,6 +97,26 @@ export default function AnimationStudio({
     identityTextFrames
   );
   const [images, setImages] = useState<ImportedImage[]>([]);
+  const [brandLogo, setBrandLogo] = useState<StudioSource | null>(null);
+  const [includeBrandLogo, setIncludeBrandLogo] = useStudioDraft(
+    identityId,
+    'animation',
+    'include-brand-logo',
+    Boolean(identity)
+  );
+  const [sequenceOrder, setSequenceOrder] = useStudioDraft<string[]>(
+    identityId,
+    'animation',
+    'sequence-order',
+    []
+  );
+  const [frameSettings, setFrameSettings] = useStudioDraft<Record<string, StudioFrameSettings>>(
+    identityId,
+    'animation',
+    'frame-settings',
+    {}
+  );
+  const [selectedSourceId, setSelectedSourceId] = useState('brand-logo');
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackRate, setPlaybackRate] = useStudioDraft(
     identityId,
@@ -82,6 +129,7 @@ export default function AnimationStudio({
   const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
 
   const textSources = useMemo<StudioSource[]>(
     () =>
@@ -89,13 +137,14 @@ export default function AnimationStudio({
         .split('\n')
         .map((text) => text.trim())
         .filter(Boolean)
-        .map((text) => ({ kind: 'text', text })),
+        .map((text, index) => ({ id: `text-${index}`, kind: 'text' as const, text })),
     [textFrames]
   );
   const imageSources = useMemo<StudioSource[]>(
     () =>
       images.map((image) => ({
         height: image.height,
+        id: image.id,
         image: image.image,
         kind: 'image',
         name: image.name,
@@ -103,7 +152,29 @@ export default function AnimationStudio({
       })),
     [images]
   );
-  const sources = mode === 'text' ? textSources : imageSources;
+  const baseSources = useMemo(
+    () => [
+      ...(includeBrandLogo && brandLogo ? [brandLogo] : []),
+      ...textSources,
+      ...imageSources,
+    ],
+    [brandLogo, imageSources, includeBrandLogo, textSources]
+  );
+  const sources = useMemo(
+    () =>
+      orderStudioSources(baseSources, sequenceOrder).map((source) =>
+        applyFrameSettings(
+          source,
+          frameSettings[source.id] ?? createDefaultFrameSettings(settings)
+        )
+      ),
+    [baseSources, frameSettings, sequenceOrder, settings]
+  );
+  const selectedSource =
+    sources.find((source) => source.id === selectedSourceId) ?? sources[0] ?? null;
+  const selectedFrameSettings = selectedSource
+    ? frameSettings[selectedSource.id] ?? createDefaultFrameSettings(settings)
+    : null;
   const labels = sources.map((source) =>
     source.kind === 'text' ? source.text : source.name
   );
@@ -127,6 +198,38 @@ export default function AnimationStudio({
   isPlayingRef.current = isPlaying;
   playbackRateRef.current = playbackRate;
   lastExportRef.current = lastExport;
+
+  useMountEffect(() => {
+    const logoAsset =
+      identity?.assets.find(
+        (asset) => asset.type === 'logo' && asset.surface === 'dark' && asset.id.includes('mark')
+      ) ?? identity?.assets.find((asset) => asset.type === 'logo');
+    if (!logoAsset) return;
+    let cancelled = false;
+    void loadImageSource(logoAsset.path, logoAsset.label)
+      .then((source) => {
+        if (!cancelled) setBrandLogo(source);
+      })
+      .catch(() => {
+        if (!cancelled) setError(gt('The brand logo could not be loaded.'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  function attachShaderLayers(currentSources: readonly StudioSource[]): StudioSource[] {
+    return currentSources.map((source) => {
+      if (source.background?.style !== 'shader') return source;
+      const wrapper = shaderLayerRefs.current.get(source.id);
+      const image = wrapper?.querySelector('canvas');
+      if (!image) return source;
+      return {
+        ...source,
+        background: { ...source.background, image },
+      };
+    });
+  }
 
   useMountEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -175,7 +278,12 @@ export default function AnimationStudio({
             itemCount: Math.max(1, currentSources.length),
             transitionMs: currentSettings.transitionMs,
           });
-          renderFrame(context, currentSources, { ...currentSettings, width, height }, position);
+          renderFrame(
+            context,
+            attachShaderLayers(currentSources),
+            { ...currentSettings, width, height },
+            position
+          );
         }
       }
 
@@ -195,14 +303,11 @@ export default function AnimationStudio({
   });
 
   function updateSettings(patch: Partial<StudioSettings>) {
-    setSettings((current) => ({ ...current, ...patch }));
+    setStoredSettings((current) => ({ ...current, ...patch }));
   }
 
   function changeMode(nextMode: SourceMode) {
     setMode(nextMode);
-    if (nextMode === 'images' && settings.packageId === 'type-delete') {
-      updateSettings({ packageId: 'morph-fade' });
-    }
     seek(0);
   }
 
@@ -214,6 +319,8 @@ export default function AnimationStudio({
           .map(loadImportedImage)
       );
       setImages((current) => [...current, ...imported]);
+      if (imported[0]) setSelectedSourceId(imported[0].id);
+      setMode('sequence');
       setError(null);
       seek(0);
     } catch {
@@ -227,7 +334,57 @@ export default function AnimationStudio({
       if (removed) URL.revokeObjectURL(removed.url);
       return current.filter((image) => image.id !== id);
     });
+    setFrameSettings((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     seek(0);
+  }
+
+  function moveSource(id: string, direction: -1 | 1) {
+    const currentOrder = sources.map((source) => source.id);
+    const index = currentOrder.indexOf(id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= currentOrder.length) return;
+    const nextOrder = [...currentOrder];
+    const [moved] = nextOrder.splice(index, 1);
+    if (!moved) return;
+    nextOrder.splice(target, 0, moved);
+    setSequenceOrder(nextOrder);
+  }
+
+  function updateSelectedFrame(patch: Partial<StudioFrameSettings>) {
+    if (!selectedSource) return;
+    setFrameSettings((current) => {
+      const base = current[selectedSource.id] ?? createDefaultFrameSettings(settings);
+      return {
+        ...current,
+        [selectedSource.id]: {
+          ...base,
+          ...patch,
+          background: patch.background ?? base.background,
+        },
+      };
+    });
+  }
+
+  function updateSelectedBackground(
+    patch: Partial<StudioFrameSettings['background']>
+  ) {
+    if (!selectedFrameSettings) return;
+    updateSelectedFrame({
+      background: { ...selectedFrameSettings.background, ...patch },
+    });
+  }
+
+  function resetSelectedFrame() {
+    if (!selectedSource) return;
+    setFrameSettings((current) => {
+      const next = { ...current };
+      delete next[selectedSource.id];
+      return next;
+    });
   }
 
   function seek(timeMs: number) {
@@ -260,7 +417,7 @@ export default function AnimationStudio({
       const blob = await exportGif({
         config: settings,
         onProgress: setExportProgress,
-        sources,
+        sources: attachShaderLayers(sources),
       });
       const url = URL.createObjectURL(blob);
       if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
@@ -279,9 +436,13 @@ export default function AnimationStudio({
   }
 
   function resetStudio() {
-    setSettings(identitySettings);
+    setStoredSettings(identitySettings);
     setTextFrames(identityTextFrames);
-    setMode('text');
+    setMode('sequence');
+    setIncludeBrandLogo(Boolean(identity));
+    setSequenceOrder([]);
+    setFrameSettings({});
+    setSelectedSourceId('brand-logo');
     setError(null);
     setPlaybackRate(1);
     if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
@@ -366,14 +527,33 @@ export default function AnimationStudio({
 
       <div className={embedded ? 'animation-body' : 'studio-body'}>
         <StudioControls
+          brandLogoAvailable={Boolean(brandLogo)}
+          frameSettings={selectedFrameSettings}
+          hasImageSources={sources.some((source) => source.kind === 'image')}
           images={images}
+          includeBrandLogo={includeBrandLogo}
           mode={mode}
+          onBackgroundChange={updateSelectedBackground}
           onFiles={importFiles}
+          onFrameSettingsChange={updateSelectedFrame}
+          onIncludeBrandLogoChange={(include) => {
+            setIncludeBrandLogo(include);
+            if (include) setSelectedSourceId('brand-logo');
+            seek(0);
+          }}
           onModeChange={changeMode}
+          onMoveSource={moveSource}
           onRemoveImage={removeImage}
+          onResetFrame={resetSelectedFrame}
+          onSelectSource={(id) => {
+            setSelectedSourceId(id);
+            seek(0);
+          }}
           onSettingsChange={updateSettings}
           onTextFramesChange={setTextFrames}
+          selectedSource={selectedSource}
           settings={settings}
+          sources={sources}
           textFrames={textFrames}
         />
 
@@ -393,21 +573,45 @@ export default function AnimationStudio({
                 className='relative w-full max-w-5xl border border-foreground/20 bg-black shadow-[0_24px_80px_rgba(0,0,0,0.12)]'
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
+                {sources.map((source) =>
+                  source.background?.style === 'shader' ? (
+                    <div
+                      aria-hidden='true'
+                      className='pointer-events-none absolute inset-0 opacity-0'
+                      key={`${source.id}-${source.background.materialId}`}
+                      ref={(element) => {
+                        if (element) shaderLayerRefs.current.set(source.id, element);
+                        else shaderLayerRefs.current.delete(source.id);
+                      }}
+                    >
+                      <LiveMaterialCanvas
+                        materialId={source.background.materialId}
+                        paused={!isPlaying && exportProgress === null}
+                        settings={{
+                          ...settings.shaderSettings,
+                          colorA: source.background.colorA,
+                          colorB: source.background.colorB,
+                          colorC: source.background.colorC,
+                        }}
+                      />
+                    </div>
+                  ) : null
+                )}
                 <canvas
                   aria-label={gt('Animation preview canvas')}
-                  className='absolute inset-0 size-full'
+                  className='absolute inset-0 z-10 size-full'
                   height={Math.max(120, settings.height)}
                   ref={canvasRef}
                   width={Math.max(120, settings.width)}
                 />
                 <div
                   aria-hidden='true'
-                  className='pointer-events-none absolute inset-y-0 w-px bg-white/20'
+                  className='pointer-events-none absolute inset-y-0 z-20 w-px bg-white/20'
                   style={{ left: `${((settings.alignX + 1) / 2) * 100}%` }}
                 />
                 <div
                   aria-hidden='true'
-                  className='pointer-events-none absolute inset-x-0 h-px bg-white/20'
+                  className='pointer-events-none absolute inset-x-0 z-20 h-px bg-white/20'
                   style={{ top: `${((settings.alignY + 1) / 2) * 100}%` }}
                 />
               </div>

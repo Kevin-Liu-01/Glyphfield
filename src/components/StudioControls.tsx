@@ -2,25 +2,55 @@
 
 import type { ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
-import { ImagePlus, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Image as ImageIcon,
+  ImagePlus,
+  RotateCcw,
+  Trash2,
+  Type,
+} from 'lucide-react';
 
 import BezierEditor from '@/components/BezierEditor';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { EASING_PRESETS, type ImportedImage, type SourceMode, type StudioSettings } from '@/lib/studio';
+import {
+  LIVE_MATERIAL_OPTIONS,
+} from '@/lib/liveMaterials';
+import type { StudioSource } from '@/lib/renderFrame';
+import {
+  EASING_PRESETS,
+  type ImportedImage,
+  type SourceMode,
+  type StudioFrameSettings,
+  type StudioSettings,
+} from '@/lib/studio';
 
 import type { AnimationPackageId } from '@/lib/renderFrame';
 
 type StudioControlsProps = {
+  brandLogoAvailable: boolean;
+  frameSettings: StudioFrameSettings | null;
+  hasImageSources: boolean;
   images: readonly ImportedImage[];
+  includeBrandLogo: boolean;
   mode: SourceMode;
+  onBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
   onFiles: (files: FileList) => void;
+  onFrameSettingsChange: (patch: Partial<StudioFrameSettings>) => void;
+  onIncludeBrandLogoChange: (include: boolean) => void;
   onModeChange: (mode: SourceMode) => void;
+  onMoveSource: (id: string, direction: -1 | 1) => void;
   onRemoveImage: (id: string) => void;
+  onResetFrame: () => void;
+  onSelectSource: (id: string) => void;
   onSettingsChange: (patch: Partial<StudioSettings>) => void;
   onTextFramesChange: (value: string) => void;
+  selectedSource: StudioSource | null;
   settings: StudioSettings;
+  sources: readonly StudioSource[];
   textFrames: string;
 };
 
@@ -123,14 +153,26 @@ function PackageChoice({
 }
 
 export default function StudioControls({
+  brandLogoAvailable,
+  frameSettings,
+  hasImageSources,
   images,
+  includeBrandLogo,
   mode,
+  onBackgroundChange,
   onFiles,
+  onFrameSettingsChange,
+  onIncludeBrandLogoChange,
   onModeChange,
+  onMoveSource,
   onRemoveImage,
+  onResetFrame,
+  onSelectSource,
   onSettingsChange,
   onTextFramesChange,
+  selectedSource,
   settings,
+  sources,
   textFrames,
 }: StudioControlsProps) {
   const gt = useGT();
@@ -138,24 +180,88 @@ export default function StudioControls({
   return (
     <aside className='studio-inspector border-r border-border bg-background'>
       <InspectorSection index='01' title={<T>Source</T>}>
-        <div className='grid grid-cols-2'>
-          <Button
-            className='rounded-none'
-            onClick={() => onModeChange('text')}
-            type='button'
-            variant={mode === 'text' ? 'default' : 'outline'}
-          >
-            <T>Text frames</T>
-          </Button>
-          <Button
-            className='rounded-none border-l-0'
-            onClick={() => onModeChange('images')}
-            type='button'
-            variant={mode === 'images' ? 'default' : 'outline'}
-          >
-            <T>Images</T>
-          </Button>
+        <div className='grid grid-cols-3'>
+          {([
+            ['sequence', gt('Sequence')],
+            ['text', gt('Text')],
+            ['images', gt('Images')],
+          ] as const).map(([value, label]) => (
+            <Button
+              className='rounded-none border-r-0 last:border-r'
+              key={value}
+              onClick={() => onModeChange(value)}
+              type='button'
+              variant={mode === value ? 'default' : 'outline'}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
+
+        {mode === 'sequence' ? (
+          <div className='flex flex-col gap-3'>
+            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'>
+              <span><T>Start with brand logo</T></span>
+              <input
+                checked={includeBrandLogo}
+                disabled={!brandLogoAvailable}
+                onChange={(event) => onIncludeBrandLogoChange(event.target.checked)}
+                type='checkbox'
+              />
+            </label>
+            <div className='flex flex-col gap-2'>
+              {sources.map((source, index) => {
+                const label = source.kind === 'text' ? source.text : source.name;
+                return (
+                  <div
+                    className={`grid grid-cols-[1fr_28px_28px] items-center overflow-hidden rounded-md border ${
+                      selectedSource?.id === source.id
+                        ? 'border-foreground bg-muted'
+                        : 'border-border'
+                    }`}
+                    key={source.id}
+                  >
+                    <button
+                      className='flex min-w-0 items-center gap-2 px-3 py-2 text-left'
+                      onClick={() => onSelectSource(source.id)}
+                      type='button'
+                    >
+                      {source.kind === 'text' ? (
+                        <Type aria-hidden='true' className='size-3.5 shrink-0' />
+                      ) : (
+                        <ImageIcon aria-hidden='true' className='size-3.5 shrink-0' />
+                      )}
+                      <span className='min-w-0 flex-1 truncate text-sm'>{label}</span>
+                      <span className='font-mono text-[9px] text-muted-foreground'>
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                    </button>
+                    <Button
+                      aria-label={gt('Move {name} up', { name: label })}
+                      disabled={index === 0}
+                      onClick={() => onMoveSource(source.id, -1)}
+                      size='icon-xs'
+                      type='button'
+                      variant='ghost'
+                    >
+                      <ArrowUp aria-hidden='true' />
+                    </Button>
+                    <Button
+                      aria-label={gt('Move {name} down', { name: label })}
+                      disabled={index === sources.length - 1}
+                      onClick={() => onMoveSource(source.id, 1)}
+                      size='icon-xs'
+                      type='button'
+                      variant='ghost'
+                    >
+                      <ArrowDown aria-hidden='true' />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         {mode === 'text' ? (
           <label className='flex flex-col gap-2'>
@@ -170,7 +276,9 @@ export default function StudioControls({
               value={textFrames}
             />
           </label>
-        ) : (
+        ) : null}
+
+        {mode === 'images' ? (
           <div className='flex flex-col gap-3'>
             <label className='flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-4 py-6 text-sm font-medium hover:bg-muted'>
               <ImagePlus className='size-4' aria-hidden='true' />
@@ -197,12 +305,7 @@ export default function StudioControls({
                   className='grid grid-cols-[40px_1fr_32px] items-center gap-3 rounded-md border border-border p-2'
                   key={image.id}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt=''
-                    className='size-10 bg-muted object-contain'
-                    src={image.url}
-                  />
+                  <img alt='' className='size-10 bg-muted object-contain' src={image.url} />
                   <span className='truncate font-mono text-xs'>{image.name}</span>
                   <Button
                     aria-label={gt('Remove {name}', { name: image.name })}
@@ -217,10 +320,113 @@ export default function StudioControls({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </InspectorSection>
 
-      <InspectorSection index='02' title={<T>Animation package</T>}>
+      <InspectorSection index='02' title={<T>Selected frame</T>}>
+        {frameSettings && selectedSource ? (
+          <>
+            <div className='flex items-center justify-between gap-3'>
+              <div className='min-w-0'>
+                <p className='truncate text-sm font-semibold'>
+                  {selectedSource.kind === 'text' ? selectedSource.text : selectedSource.name}
+                </p>
+                <p className='mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
+                  {selectedSource.kind}
+                </p>
+              </div>
+              <Button
+                aria-label={gt('Reset selected frame')}
+                onClick={onResetFrame}
+                size='icon-sm'
+                type='button'
+                variant='outline'
+              >
+                <RotateCcw aria-hidden='true' />
+              </Button>
+            </div>
+            <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
+            <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
+            <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
+            <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
+            <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
+            {selectedSource.kind === 'text' ? (
+              <>
+                <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
+                <RangeControl label={<T>Weight</T>} max={900} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={100} value={frameSettings.fontWeight} />
+                <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Foreground</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
+              </>
+            ) : (
+              <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                <T>Image fit</T>
+                <StudioSelect
+                  ariaLabel={gt('Image fit')}
+                  onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })}
+                  options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]}
+                  value={frameSettings.fit}
+                />
+              </div>
+            )}
+
+            <div className='border-t border-border pt-4'>
+              <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                <T>Background</T>
+                <StudioSelect
+                  ariaLabel={gt('Frame background')}
+                  onValueChange={(style) => onBackgroundChange({ style: style as StudioFrameSettings['background']['style'] })}
+                  options={[
+                    { label: gt('Solid'), value: 'solid' },
+                    { label: gt('Gradient'), value: 'gradient' },
+                    { label: gt('Live shader'), value: 'shader' },
+                  ]}
+                  value={frameSettings.background.style}
+                />
+              </div>
+            </div>
+            <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={frameSettings.background.colorA} />
+            {frameSettings.background.style === 'solid' ? null : (
+              <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={frameSettings.background.colorB} />
+            )}
+            {frameSettings.background.style === 'shader' ? (
+              <>
+                <ColorControl ariaLabel={gt('Background color C')} label={<T>Color C</T>} onChange={(colorC) => onBackgroundChange({ colorC })} value={frameSettings.background.colorC} />
+                <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                  <T>Shader</T>
+                  <StudioSelect
+                    ariaLabel={gt('Frame shader')}
+                    onValueChange={(materialId) => onBackgroundChange({ materialId: materialId as StudioFrameSettings['background']['materialId'] })}
+                    options={LIVE_MATERIAL_OPTIONS.map((material) => ({ label: material.name, value: material.id }))}
+                    value={frameSettings.background.materialId}
+                  />
+                </div>
+                <RangeControl label={<T>Shader speed</T>} max={2} min={0} onChange={(speed) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, speed } })} step={0.05} value={settings.shaderSettings.speed} />
+                <RangeControl label={<T>Strength</T>} max={2} min={0} onChange={(strength) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, strength } })} step={0.05} value={settings.shaderSettings.strength} />
+                <RangeControl label={<T>Frequency</T>} max={12} min={0.5} onChange={(frequency) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, frequency } })} step={0.1} value={settings.shaderSettings.frequency} />
+                <RangeControl label={<T>Grain</T>} max={100} min={0} onChange={(grain) => onSettingsChange({ shaderSettings: { ...settings.shaderSettings, grain } })} step={1} unit='%' value={settings.shaderSettings.grain} />
+              </>
+            ) : null}
+            {frameSettings.background.style === 'solid' ? null : (
+              <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={frameSettings.background.angle} />
+            )}
+            <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+              <T>Background transition</T>
+              <StudioSelect
+                ariaLabel={gt('Background transition')}
+                onValueChange={(backgroundTransition) => onSettingsChange({ backgroundTransition: backgroundTransition as StudioSettings['backgroundTransition'] })}
+                options={[
+                  { label: gt('Crossfade'), value: 'crossfade' },
+                  { label: gt('Directional wipe'), value: 'wipe' },
+                  { label: gt('Radial reveal'), value: 'radial' },
+                ]}
+                value={settings.backgroundTransition}
+              />
+            </div>
+          </>
+        ) : (
+          <p className='text-sm leading-5 text-muted-foreground'><T>Add or select a frame to edit it.</T></p>
+        )}
+      </InspectorSection>
+      <InspectorSection index='03' title={<T>Animation package</T>}>
         <div className='grid grid-cols-1 gap-2'>
           <PackageChoice
             description={<T>Blurred cross-dissolve with stable shared centering.</T>}
@@ -231,7 +437,7 @@ export default function StudioControls({
           />
           <PackageChoice
             description={<T>Grapheme-by-grapheme erase and type. No cursor.</T>}
-            disabled={mode === 'images'}
+            disabled={hasImageSources}
             id='type-delete'
             label={<T>Type / delete</T>}
             onSelect={(packageId) => onSettingsChange({ packageId })}
@@ -261,7 +467,7 @@ export default function StudioControls({
         </div>
       </InspectorSection>
 
-      <InspectorSection index='03' title={<T>Timing</T>}>
+      <InspectorSection index='04' title={<T>Timing</T>}>
         <RangeControl
           label={<T>Hold</T>}
           max={3000}
@@ -314,7 +520,7 @@ export default function StudioControls({
         />
       </InspectorSection>
 
-      <InspectorSection index='04' title={<T>Composition</T>}>
+      <InspectorSection index='05' title={<T>Default composition</T>}>
         <RangeControl
           label={<T>Horizontal anchor</T>}
           max={1}
@@ -363,7 +569,7 @@ export default function StudioControls({
         </div>
       </InspectorSection>
 
-      <InspectorSection index='05' title={<T>Output</T>}>
+      <InspectorSection index='06' title={<T>Output</T>}>
         <div className='grid grid-cols-2 gap-2'>
           <label className='flex flex-col gap-1 text-xs text-muted-foreground'>
             <T>Width</T>

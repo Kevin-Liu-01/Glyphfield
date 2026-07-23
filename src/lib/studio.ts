@@ -1,7 +1,16 @@
 import type { CubicBezier } from './animation';
 import type { GifExportConfig } from './exportGif';
+import {
+  DEFAULT_LIVE_MATERIAL_ID,
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialSettings,
+} from './liveMaterials';
+import type {
+  StudioBackground,
+  StudioSource,
+} from './renderFrame';
 
-export type SourceMode = 'text' | 'images';
+export type SourceMode = 'sequence' | 'text' | 'images';
 
 export type ImportedImage = {
   height: number;
@@ -12,7 +21,22 @@ export type ImportedImage = {
   width: number;
 };
 
-export type StudioSettings = GifExportConfig;
+export type StudioFrameSettings = {
+  alignX: number;
+  alignY: number;
+  background: Omit<StudioBackground, 'image'>;
+  fit: 'contain' | 'cover';
+  fontSize: number;
+  fontWeight: number;
+  foreground: string;
+  opacity: number;
+  rotation: number;
+  scale: number;
+};
+
+export type StudioSettings = GifExportConfig & {
+  shaderSettings: LiveMaterialSettings;
+};
 
 export const DEFAULT_TEXT_FRAMES = [
   'Welcome',
@@ -29,6 +53,10 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   alignX: 0,
   alignY: 0,
   background: '#000000',
+  backgroundAngle: 135,
+  backgroundSecondary: '#262626',
+  backgroundStyle: 'solid',
+  backgroundTransition: 'crossfade',
   bezier: [0.4, 0, 0.2, 1],
   blur: 8,
   colors: 64,
@@ -42,9 +70,68 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   loop: true,
   packageId: 'morph-fade',
   scale: 1,
+  shaderSettings: DEFAULT_LIVE_MATERIAL_SETTINGS,
   transitionMs: 240,
   width: 1000,
 };
+
+export function createDefaultFrameSettings(
+  settings: StudioSettings
+): StudioFrameSettings {
+  return {
+    alignX: settings.alignX,
+    alignY: settings.alignY,
+    background: {
+      angle: settings.backgroundAngle,
+      colorA: settings.background,
+      colorB: settings.backgroundSecondary,
+      colorC: settings.shaderSettings.colorC,
+      materialId: DEFAULT_LIVE_MATERIAL_ID,
+      style: settings.backgroundStyle,
+    },
+    fit: settings.fit,
+    fontSize: settings.fontSize,
+    fontWeight: settings.fontWeight,
+    foreground: settings.foreground,
+    opacity: 1,
+    rotation: 0,
+    scale: settings.scale,
+  };
+}
+
+export function applyFrameSettings(
+  source: StudioSource,
+  frame: StudioFrameSettings
+): StudioSource {
+  return {
+    ...source,
+    alignX: frame.alignX,
+    alignY: frame.alignY,
+    background: frame.background,
+    fit: frame.fit,
+    fontSize: frame.fontSize,
+    fontWeight: frame.fontWeight,
+    foreground: frame.foreground,
+    opacity: frame.opacity,
+    rotation: frame.rotation,
+    scale: frame.scale,
+  };
+}
+
+export function orderStudioSources(
+  sources: readonly StudioSource[],
+  order: readonly string[]
+): StudioSource[] {
+  if (sources.length <= 1 || order.length === 0) return [...sources];
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  const ordered = order.flatMap((id) => {
+    const source = sourceById.get(id);
+    if (!source) return [];
+    sourceById.delete(id);
+    return [source];
+  });
+  return [...ordered, ...sources.filter((source) => sourceById.has(source.id))];
+}
 
 export const EASING_PRESETS: Record<string, CubicBezier> = {
   material: [0.4, 0, 0.2, 1],

@@ -75,9 +75,10 @@ flowchart LR
   </tr>
 </table>
 
-Both are generated from the Studio’s reusable animation model: centered text,
-configurable hold timing, cubic-bezier transitions, and frame-accurate GIF
-export.
+Both are generated from the Studio’s reusable animation model: reorderable
+text, logo, and image states; per-frame composition; configurable hold timing;
+cubic-bezier transitions; animated solid, gradient, and shader backgrounds;
+and frame-accurate GIF export.
 
 ## Built for real brand work
 
