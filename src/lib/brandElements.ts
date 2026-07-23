@@ -29,6 +29,26 @@ export type BrandElement = {
   symbol: string;
 };
 
+export type BrandElementSettings = {
+  accentColor: string;
+  backgroundColor: string;
+  body: string;
+  cta: string;
+  eyebrow: string;
+  foregroundColor: string;
+  headline: string;
+  layout: 'split' | 'stacked' | 'centered';
+  partnerName: string;
+  pattern: 'none' | 'dots' | 'grid' | 'dither';
+  personName: string;
+  personRole: string;
+  scale: 'compact' | 'balanced' | 'bold';
+  showLogo: boolean;
+  showWebsite: boolean;
+};
+
+export type BrandElementOverrides = Partial<BrandElementSettings>;
+
 export const BRAND_ELEMENT_CATEGORIES: readonly BrandElementCategory[] = [
   'Digital',
   'Developer',
@@ -404,6 +424,179 @@ export const BRAND_ELEMENTS: readonly BrandElement[] = [
   },
 ];
 
+export function createBrandElementSettings(
+  element: BrandElement,
+  identity: BrandIdentity
+): BrandElementSettings {
+  const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818';
+  const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
+  const defaults: BrandElementSettings = {
+    accentColor: ink,
+    backgroundColor: paper,
+    body: identity.positioning || identity.description,
+    cta: '',
+    eyebrow: '',
+    foregroundColor: ink,
+    headline: identity.tagline,
+    layout: 'split',
+    partnerName: 'Partner',
+    pattern: 'dots',
+    personName: 'Alex Morgan',
+    personRole: `Design Engineer · ${identity.name}`,
+    scale: 'balanced',
+    showLogo: true,
+    showWebsite: true,
+  };
+
+  const overrides: Partial<Record<string, BrandElementOverrides>> = {
+    'welcome-email': {
+      cta: 'Get started',
+      headline: `Welcome to ${identity.name}!`,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'transactional-email': {
+      cta: 'Open workspace',
+      eyebrow: 'Account verified',
+      headline: 'Your workspace is ready.',
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'email-signature': {
+      body: identity.website,
+      headline: 'Alex Morgan',
+      layout: 'split',
+      pattern: 'none',
+    },
+    'web-card': { cta: 'Explore', eyebrow: '', pattern: 'none' },
+    opengraph: { eyebrow: identity.website, pattern: 'dither', scale: 'bold' },
+    'error-page': {
+      body: 'The page you requested may have moved or no longer exists.',
+      cta: 'Return home',
+      eyebrow: '404',
+      headline: 'Nothing here—yet.',
+      layout: 'centered',
+      pattern: 'grid',
+    },
+    'cli-banner': { cta: `npx ${identity.id} init`, pattern: 'none' },
+    'ascii-mark': {
+      body: 'A copy-safe identity for terminals and source files.',
+      headline: identity.shortName,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'terminal-theme': {
+      body: 'Syntax and status colors tuned to the identity.',
+      eyebrow: 'src/index.ts',
+      headline: 'Code in your voice.',
+      pattern: 'none',
+    },
+    'github-readme': {
+      cta: `npm install ${identity.id}`,
+      eyebrow: 'README.md',
+      pattern: 'grid',
+      scale: 'bold',
+    },
+    'docs-header': {
+      body: 'Guides, concepts, API reference, and examples.',
+      cta: 'Read the docs',
+      eyebrow: 'Guides · API · SDK',
+      headline: `${identity.name} documentation`,
+      pattern: 'grid',
+    },
+    'package-card': {
+      body: identity.description,
+      cta: `pnpm add ${identity.id}`,
+      eyebrow: 'v1.0.0',
+      headline: `@${identity.id}/core`,
+      pattern: 'dots',
+    },
+    'x-post': { eyebrow: `@${identity.id}`, layout: 'stacked', pattern: 'none' },
+    'linkedin-post': {
+      body: identity.description,
+      eyebrow: identity.name,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+    'community-card': {
+      cta: 'Join the community',
+      headline: `Build with ${identity.name}.`,
+      pattern: 'grid',
+    },
+    'launch-card': {
+      cta: 'Available now',
+      eyebrow: 'Introducing',
+      headline: identity.name,
+      pattern: 'dither',
+      scale: 'bold',
+    },
+    'slide-title': { eyebrow: identity.name, pattern: 'none', scale: 'bold' },
+    'slide-section': {
+      body: identity.description,
+      eyebrow: '02',
+      headline: 'A system that scales.',
+      pattern: 'grid',
+      scale: 'bold',
+    },
+    'blog-cover': {
+      body: identity.positioning,
+      eyebrow: identity.website,
+      headline: 'How we build for every locale.',
+      pattern: 'dither',
+      scale: 'bold',
+    },
+    'report-cover': {
+      body: identity.description,
+      eyebrow: '2026 report',
+      headline: `The state of ${identity.name}.`,
+      layout: 'stacked',
+      pattern: 'grid',
+    },
+    'press-kit': {
+      body: 'Approved logos, product images, company language, and press contacts.',
+      eyebrow: identity.website,
+      headline: 'Press & media',
+      pattern: 'grid',
+    },
+    lanyard: { eyebrow: 'Speaker · 0248', headline: 'Alex Morgan', pattern: 'none' },
+    'event-badge': { eyebrow: 'Guest · 0248', headline: 'Alex Morgan', pattern: 'none' },
+    'event-backdrop': {
+      body: identity.website,
+      eyebrow: 'San Francisco · 2026',
+      pattern: 'dither',
+      scale: 'bold',
+    },
+    'partnership-lockup': {
+      body: 'A shared announcement built from two distinct identities.',
+      headline: `${identity.name} × Partner`,
+      layout: 'centered',
+      pattern: 'none',
+    },
+    'business-card': { headline: 'Alex Morgan', layout: 'stacked', pattern: 'none' },
+    'sticker-sheet': {
+      body: identity.voice.phrases[0] ?? identity.tagline,
+      headline: identity.shortName,
+      layout: 'centered',
+      pattern: 'grid',
+    },
+    'packaging-label': {
+      body: identity.description,
+      eyebrow: '01 / 2026',
+      headline: `Made by ${identity.name}.`,
+      pattern: 'grid',
+    },
+    letterhead: {
+      body: identity.positioning,
+      eyebrow: identity.website,
+      headline: `A note from ${identity.name}.`,
+      layout: 'stacked',
+      pattern: 'none',
+    },
+  };
+
+  return { ...defaults, ...overrides[element.id] };
+}
+
 export function filterBrandElements(
   elements: readonly BrandElement[],
   query: string
@@ -424,3 +617,4 @@ export function filterBrandElements(
       .includes(normalizedQuery)
   );
 }
+import type { BrandIdentity } from '@/lib/brandIdentity';
