@@ -882,7 +882,7 @@ export default function StudioApp() {
 
       </header>
 
-      <div className='project-tabs-shell border-b border-border bg-background'>
+      <div className='project-tabs-shell bg-background'>
         <div className='project-dither-panel' aria-hidden='true'>
           <span className='project-dither-field' />
           <span className='project-dither-sweep' />

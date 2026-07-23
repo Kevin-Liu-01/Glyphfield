@@ -280,18 +280,6 @@ body {
   isolation: isolate;
 }
 
-.project-dither-panel::after {
-  position: absolute;
-  z-index: 5;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 1px;
-  background: hsl(var(--border));
-  content: '';
-  pointer-events: none;
-}
-
 .project-dither-field {
   position: absolute;
   inset: -12px;
