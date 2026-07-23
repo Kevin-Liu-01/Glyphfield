@@ -471,17 +471,27 @@ export default function BrandElementsStudio({
                   </div>
                   {elements.map((element) => (
                     <Button
-                      className='h-auto min-h-11 w-full justify-start rounded-none px-2 py-2 text-left'
+                      className='relative h-auto min-h-11 w-full justify-start overflow-hidden rounded-none px-2 py-2 text-left'
                       key={element.id}
                       onClick={() => setSelectedElementId(element.id)}
                       type='button'
                       variant={selectedElement.id === element.id ? 'default' : 'ghost'}
                     >
-                      <span className='min-w-0 flex-1'>
+                      <span className='relative z-10 min-w-0 flex-1 pr-14'>
                         <span className='block truncate text-sm'>{gt(element.name)}</span>
                         <span className={`block truncate font-mono text-[10px] ${selectedElement.id === element.id ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
                           {element.dimensions}
                         </span>
+                      </span>
+                      <span
+                        aria-hidden='true'
+                        className={`pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 font-mono text-[28px] font-semibold leading-none tracking-[-0.08em] ${
+                          selectedElement.id === element.id
+                            ? 'text-primary-foreground/12'
+                            : 'text-foreground/7'
+                        }`}
+                      >
+                        {element.symbol}
                       </span>
                     </Button>
                   ))}
