@@ -1060,7 +1060,7 @@ export default function StudioApp() {
             <span>{'{ }'}</span>
           </span>
         </div>
-        <div className='project-tabs flex min-w-0 items-end gap-2 px-2 pt-2'>
+        <div className='project-tabs flex min-w-0 items-end gap-2 px-2'>
           <div className='project-tabs-scroll flex min-w-0 flex-1 items-end gap-2 overflow-x-auto self-stretch'>
             <div className='flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
               {visibleIdentities.map(renderProjectTab)}
@@ -1074,7 +1074,7 @@ export default function StudioApp() {
               <Plus aria-hidden='true' />
             </Button>
           </div>
-          <div className='project-tabs-actions mb-1.5 ml-auto flex h-8 shrink-0 items-center gap-1.5 border-l border-border pl-2'>
+          <div className='project-tabs-actions ml-auto flex h-8 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
             <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='sm' title={gt('Duplicate project')} type='button' variant='outline'>
               <Copy aria-hidden='true' />
               <span className='project-action-label'><T>Duplicate</T></span>
