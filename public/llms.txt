@@ -1,44 +1,287 @@
-# Glyphfield
+# Glyphfield Agent Interface
 
-> A local-first browser workspace for motion and repeatable brand graphics.
+> Glyphfield is a source-available brand studio with public, structured discovery and deterministic artifact generation for software agents.
 
-Canonical route: /studio
-Structured catalog: /api/catalog
-Built-in brand identities: /api/identities
-Brand element catalog: /api/elements
-Landing page: /
+Canonical workspace: /studio
+Agent manifest: /api/agent
+OpenAPI 3.1 document: /openapi.json
+Generation contract and examples: /api/generate
+Studio tool catalog: /api/catalog
+Built-in identity records: /api/identities
+Brand element taxonomy: /api/elements
+Human landing page: /
 
-Capabilities:
-- Brand elements: 33 identity applications across digital, developer, social, editorial, event, and physical surfaces
-- Email elements: welcome/onboarding, transactional, and signature systems using the active identity
-- Developer elements: CLI banners, ASCII marks, terminal themes, README heroes, docs headers, and package cards
-- Social/editorial elements: X, LinkedIn, community, launch, slide deck, blog, report, and press formats
-- Event/physical elements: lanyards, badges, backdrops, lockups, business cards, stickers, packaging, and letterhead
-- Project tabs: LOGO / brand labels for Starter, persistent local brand workspaces, and GT as a complete example
-- Moodboard: an eight-application collage with embedded Inter and Geist Mono fonts; Standard, Retina, High resolution, Ultra, and custom 4:5 PNG exports up to 4800×6000
-- Logo shader: 12 live WebGL materials plus custom GLSL; run them behind a logo or cut them to its alpha mask, with PNG and GIF export
-- Animation: morph fade, type/delete, crossfade, scale fade, slide fade, cubic Bézier timing, GIF export
-- OpenGraph: repeatable 1200x630 images with local logo and background inputs
-- Logo lab: black, white, primary, and secondary mark colors; white, dark, grid, noise, and transparent backgrounds; 64px and 128px PNG export
-- Color tokens: live HEX and OKLCH values
-- Typography: primary, secondary, accent, and code roles with local font-file loading
-- Terminal cards: TypeScript, Python, and Bash treatments with PNG export
-- Expressions: partnership lockups, blog covers, and 16:9 slide templates
-- Components: button variant, size, and state viewer
+## Preferred agent workflow
 
-Built-in GT identity:
-- Logo family: black and white marks, banners, wordmarks, and Locadex assets
-- Foundations: Inter, Geist Mono, semantic UI colors, HEX and OKLCH values
-- Product architecture: internationalization, translation, Locadex, and CDN delivery
-- Motion: centered morph and type/delete studies using cubic-bezier(0.4, 0, 0.2, 1)
-- Voice and proof: repository-audited language and customer marks
+1. GET /api/agent.
+2. GET /api/identities when using the Starter or GT preset.
+3. GET /api/elements when selecting one of the 33 brand applications.
+4. GET /api/generate before constructing a request. Treat this response as the current schema.
+5. POST application/json to /api/generate.
+6. Use output="json" when the caller needs metadata plus artifact content. Use output="raw" when the caller can accept image/svg+xml directly.
+7. Save SVG responses as UTF-8. Generated SVGs embed all bundled logos as data URLs and are portable outside Glyphfield.
+8. If a capability is marked browser-only below, open /studio and select the matching tool from /api/catalog.
 
-Workspace model:
-- Projects: a single searchable rail for templates, local brands, and reference systems
-- Starter: Glyphfield opens on a neutral starter project
-- Local brands: locally-created, renameable, persistent project tabs
-- GT: a complete repository-backed reference project
+Do not infer undocumented enum values. Do not scrape application JavaScript when /api/agent, /openapi.json, or a catalog endpoint provides the same information.
 
-Data policy: local files stay in the browser. Current tools do not require an upload service.
+## POST /api/generate
 
-Source policy: source available for inspection, evaluation, and automated indexing only. Copyright (c) 2026 Kevin Liu. All rights reserved. No license is granted to use, copy, modify, distribute, sublicense, sell, or create derivative works. Bundled reference-brand assets remain the property of their respective owners.
+Required header:
+
+Content-Type: application/json
+
+Optional response selection:
+
+- output="json" is the default. SVG generators return { schemaVersion, artifact: { content, filename, mimeType, width, height } }.
+- output="raw" returns image/svg+xml with Content-Disposition and a deterministic filename.
+- element-brief always returns application/json.
+
+The endpoint supports CORS with Access-Control-Allow-Origin: *.
+
+In the examples below, set BASE_URL to the Glyphfield deployment origin. For local development use:
+
+BASE_URL=http://localhost:3012
+
+For a JSON SVG response, extract the portable asset with:
+
+jq -r '.artifact.content' response.json > artifact.svg
+
+### Identity object
+
+Every generator accepts an identity object.
+
+- preset: starter | gt | custom. Defaults to starter.
+- name: optional, 1–80 characters.
+- shortName: optional, 1–8 characters.
+- website: optional, 1–200 characters.
+- tagline: optional, 1–180 characters.
+- positioning: optional, 1–320 characters.
+- description: optional, 1–320 characters.
+- ink: optional six-digit HEX color such as #181818.
+- paper: optional six-digit HEX color such as #FFFFFF.
+- logoDataUrl: optional base64 PNG, JPEG, WebP, GIF, or SVG data URL, maximum 5 MB.
+
+Use preset="gt" to resolve the bundled GT logo family, colors, typography, voice, and proof assets. Use preset="custom" for an identity that should not inherit a preset logo. A custom identity without logoDataUrl receives a generated monogram.
+
+Remote asset URLs are intentionally unsupported. Convert an authorized local asset to a base64 data URL before sending it.
+
+### Generator: template
+
+Generates a standalone SVG slide, blog cover, or partnership lockup.
+
+Fields:
+
+- kind: "template"
+- template: slides | blog | partnership
+- texture: white | dark | grid | noise
+- title: optional, maximum 240 characters
+- eyebrow: optional, maximum 80 characters
+- foreground: optional six-digit HEX
+- background: optional six-digit HEX
+- backgroundImageDataUrl: optional base64 image data URL, maximum 5 MB
+- partnerId: optional ID from the selected preset's proofAssets
+- partnerLogoDataUrl: optional base64 image data URL, maximum 5 MB
+- identity: identity object
+- output: json | raw
+
+Fixed dimensions:
+
+- slides: 1600 × 900
+- blog: 1200 × 630
+- partnership: 1200 × 600
+
+Example: raw GT slide
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "template",
+    "template": "slides",
+    "texture": "white",
+    "title": "Code is the source of truth.",
+    "identity": { "preset": "gt" },
+    "output": "raw"
+  }' \
+  -o gt-slide.svg
+
+Example: custom partnership returned as JSON
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "template",
+    "template": "partnership",
+    "title": "Acme × Northstar",
+    "identity": {
+      "preset": "custom",
+      "name": "Acme",
+      "website": "acme.test",
+      "ink": "#111111",
+      "paper": "#FFFFFF"
+    },
+    "output": "json"
+  }'
+
+### Generator: background
+
+Generates a standalone SVG background with an optional preset logo or custom logoDataUrl.
+
+Fields:
+
+- kind: "background"
+- identity: identity object
+- output: json | raw
+- settings.width: integer 64–4096
+- settings.height: integer 64–4096
+- width × height must not exceed 12,000,000 pixels
+- settings.style: gradient | grain-gradient | dither | pattern
+- settings.gradient: linear | radial
+- settings.colorA and settings.colorB: six-digit HEX
+- settings.angle: -360–360
+- settings.grain: 0–100
+- settings.ditherMatrix: 2 | 4 | 8
+- settings.pattern: none | dots | lines | grid
+- settings.patternOpacity: 0–100
+- settings.spacing: integer 8–256
+- settings.logoScale: 5–90
+- settings.logoTone: black | white
+
+Example: grainy GT OpenGraph background
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "background",
+    "identity": { "preset": "gt" },
+    "settings": {
+      "width": 1200,
+      "height": 630,
+      "style": "grain-gradient",
+      "gradient": "linear",
+      "angle": 32,
+      "colorA": "#FFFFFF",
+      "colorB": "#181818",
+      "grain": 18,
+      "pattern": "dots",
+      "patternOpacity": 14,
+      "logoTone": "white"
+    },
+    "output": "raw"
+  }' \
+  -o gt-background.svg
+
+Example: ordered dither
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "background",
+    "settings": {
+      "width": 1200,
+      "height": 750,
+      "style": "dither",
+      "colorA": "#FFFFFF",
+      "colorB": "#181818",
+      "ditherMatrix": 4,
+      "spacing": 24
+    },
+    "output": "raw"
+  }' \
+  -o dither.svg
+
+### Generator: element-brief
+
+Resolves any record from /api/elements against an identity. This is the machine-readable production brief for email, developer, social, editorial, event, and physical applications.
+
+Fields:
+
+- kind: "element-brief"
+- elementId: required ID from /api/elements
+- identity: identity object
+
+Example:
+
+curl -sS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "element-brief",
+    "elementId": "email-signature",
+    "identity": {
+      "preset": "custom",
+      "name": "Acme",
+      "website": "acme.test",
+      "tagline": "Tools for careful teams."
+    }
+  }'
+
+The response contains the complete element record, its symbol, dimensions, format, keywords, the resolved identity foundations, and a suggested Studio preview family.
+
+## Brand element catalog
+
+/api/elements returns 33 applications grouped into:
+
+- Digital: welcome email, transactional email, email signature, web card, logo background, OpenGraph, 404, favicon, and app icon.
+- Developer: CLI banner, ASCII mark, terminal theme, GitHub README hero, documentation header, and package card.
+- Social: X, LinkedIn, community, avatar, and product-launch graphics.
+- Editorial: title slides, section slides, blog covers, reports, and press kits.
+- Event: lanyards, badges, backdrops, and partnership lockups.
+- Physical: business cards, sticker sheets, packaging labels, and letterhead.
+
+Use the exact element.id value as elementId. The symbol field is a compact visual shorthand, not a file format.
+
+## UI-capable agent workflow
+
+Use /studio for browser-local capabilities whose output depends on Canvas, WebGL, local fonts, or animated frame capture:
+
+- Moodboard PNG export up to 4800 × 6000
+- Morph, type/delete, crossfade, scale fade, and slide-fade GIF export
+- Live logo shaders and alpha-masked metal/material GIFs
+- PNG raster export for OpenGraph, terminal cards, logos, and templates
+- Local font, image, logo, and GLSL inputs
+
+Workflow:
+
+1. GET /api/catalog and select a tool.id.
+2. Open /studio.
+3. Select the tool by visible name or search.
+4. Select Starter, GT, or create a local brand project.
+5. Configure inputs in the inspector.
+6. Use the visible Download action.
+
+Browser-local projects persist in localStorage. API generation requests do not read or mutate browser-local projects.
+
+## Errors
+
+Validation errors use this shape:
+
+{
+  "error": {
+    "code": "invalid_request",
+    "field": "settings.width",
+    "message": "settings.width must be an integer between 64 and 4096."
+  },
+  "schemaVersion": 1
+}
+
+Relevant HTTP statuses:
+
+- 400: malformed JSON or field validation failure
+- 413: request body exceeds 5 MB
+- 415: Content-Type is not application/json
+- 500: artifact generation failed
+
+Correct the named field. Do not retry an unchanged 4xx request.
+
+## Data and asset rules
+
+- GET endpoints are public and CORS-readable.
+- POST /api/generate processes data in memory and does not persist an identity or input asset.
+- Browser Studio local files remain in the browser.
+- Agents must only submit assets they are authorized to process.
+- Bundled GT and customer-reference assets remain the property of their respective owners.
+
+## Source and service policy
+
+The deployed Studio and agent API are available for browsing and artifact generation.
+
+The source repository is source-available, not open-source software. Copyright (c) 2026 Kevin Liu. All rights reserved. No source-code license is granted to copy, modify, distribute, sublicense, sell, or create derivative works. API availability does not grant rights in bundled third-party marks or reference-brand assets.

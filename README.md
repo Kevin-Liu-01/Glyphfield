@@ -51,11 +51,35 @@ project.
 
 ## Agent surfaces
 
-- `/llms.txt` provides a concise capability and policy index.
+- `/llms.txt` is the operational agent runbook with schemas, limits, examples,
+  output handling, browser fallback, and policy.
+- `/api/agent` returns the versioned agent manifest and generation contract.
+- `/openapi.json` exposes the public API as OpenAPI 3.1.
+- `/api/generate` accepts JSON and returns portable SVG backgrounds,
+  slide/blog/partnership templates, or identity-aware element briefs.
 - `/api/catalog` returns the current Glyphfield tool catalog as structured JSON.
 - `/api/identities` returns the built-in identity catalog and full GT preset.
 - `/api/elements` returns the complete brand-element taxonomy.
 - `/studio` opens the full-screen interactive workspace.
+
+Example:
+
+```bash
+curl -sS -X POST http://localhost:3012/api/generate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "template",
+    "template": "slides",
+    "identity": { "preset": "gt" },
+    "title": "Code is the source of truth.",
+    "output": "raw"
+  }' \
+  -o gt-slide.svg
+```
+
+The API embeds bundled logo assets into generated SVGs. Custom agents can send
+authorized images as base64 data URLs; Glyphfield does not fetch remote asset
+URLs or persist generation requests.
 
 ## Local development
 
