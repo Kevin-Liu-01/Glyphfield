@@ -12,6 +12,8 @@ import {
   Braces,
   Component,
   Copy,
+  ChevronDown,
+  Folder,
   Image as ImageIcon,
   LayoutGrid,
   MonitorPlay,
@@ -72,6 +74,22 @@ const LEGACY_PROJECTS_STORAGE_KEYS = [
   'gt-studio-identities-v1',
 ] as const;
 
+type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
+
+const PROJECT_FOLDERS: readonly { id: ProjectFolderId; label: string }[] = [
+  { id: 'all', label: 'All projects' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'local', label: 'My brands' },
+  { id: 'examples', label: 'Examples' },
+];
+
+function identityBelongsToFolder(identity: BrandIdentity, folderId: ProjectFolderId): boolean {
+  if (folderId === 'templates') return identity.kind === 'template';
+  if (folderId === 'local') return identity.kind === 'custom';
+  if (folderId === 'examples') return identity.kind === 'example';
+  return true;
+}
+
 export default function StudioApp() {
   const gt = useGT();
   const [activeToolId, setActiveToolId] = useState<StudioToolId>('brand-elements');
@@ -80,12 +98,27 @@ export default function StudioApp() {
   );
   const [identitiesReady, setIdentitiesReady] = useState(false);
   const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
+  const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
   const activeIdentity =
     identities.find(({ id }) => id === activeIdentityId) ?? identities[0];
+  const visibleIdentities = useMemo(
+    () => identities.filter((identity) => identityBelongsToFolder(identity, activeFolderId)),
+    [activeFolderId, identities]
+  );
+  const folderCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        PROJECT_FOLDERS.map((folder) => [
+          folder.id,
+          identities.filter((identity) => identityBelongsToFolder(identity, folder.id)).length,
+        ])
+      ) as Record<ProjectFolderId, number>,
+    [identities]
+  );
 
   useMountEffect(() => {
     try {
@@ -161,6 +194,7 @@ export default function StudioApp() {
     const customCount = identities.filter(({ kind }) => kind === 'custom').length;
     const identity = createBrandIdentity(`Brand ${customCount + 1}`);
     commitIdentities([...identities, identity]);
+    setActiveFolderId('local');
     selectIdentity(identity.id);
   }
 
@@ -168,7 +202,15 @@ export default function StudioApp() {
     if (!activeIdentity) return;
     const identity = duplicateBrandIdentity(activeIdentity);
     commitIdentities([...identities, identity]);
+    setActiveFolderId('local');
     selectIdentity(identity.id);
+  }
+
+  function selectProjectFolder(folderId: ProjectFolderId) {
+    setActiveFolderId(folderId);
+    if (activeIdentity && identityBelongsToFolder(activeIdentity, folderId)) return;
+    const nextIdentity = identities.find((identity) => identityBelongsToFolder(identity, folderId));
+    if (nextIdentity) selectIdentity(nextIdentity.id);
   }
 
   function renameIdentity(identityId: string, name: string) {
@@ -191,6 +233,7 @@ export default function StudioApp() {
     if (!activeIdentity || activeIdentity.builtIn) return;
     const nextIdentities = identities.filter(({ id }) => id !== activeIdentity.id);
     commitIdentities(nextIdentities);
+    setActiveFolderId('all');
     selectIdentity(STARTER_BRAND_IDENTITY.id);
   }
 
@@ -217,10 +260,10 @@ export default function StudioApp() {
     return (
       <div
         aria-selected={selected}
-        className={`project-tab flex min-w-40 max-w-64 items-center gap-2 border-x border-transparent px-3 text-sm ${
+        className={`project-tab relative flex min-w-40 max-w-64 items-center gap-2 rounded-t-[5px] border border-b-0 px-3 text-sm ${
           selected
-            ? 'border-border bg-muted/60'
-            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+            ? 'border-border bg-background text-foreground'
+            : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         key={identity.id}
         role='tab'
@@ -332,14 +375,35 @@ export default function StudioApp() {
             <span>{'{ }'}</span>
           </span>
         </div>
-        <div className='project-tabs flex min-w-0 items-center gap-2 overflow-x-auto px-3' role='tablist' aria-label={gt('Brand projects')}>
-          <div className='flex shrink-0 items-end self-stretch'>
-            {identities.map(renderProjectTab)}
+        <div className='project-tabs flex min-w-0 items-end gap-2 overflow-x-auto px-2 pt-1.5'>
+          <label className='project-folder-picker mb-1 flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-muted-foreground hover:bg-muted/45 hover:text-foreground'>
+            <Folder className='size-3.5 shrink-0' aria-hidden='true' />
+            <select
+              aria-label={gt('Project folder')}
+              className='min-w-24 appearance-none bg-transparent pr-4 font-mono text-[11px] text-foreground outline-none'
+              onChange={(event) => selectProjectFolder(event.target.value as ProjectFolderId)}
+              value={activeFolderId}
+            >
+              {PROJECT_FOLDERS.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {gt(folder.label)} ({folderCounts[folder.id]})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className='-ml-5 size-3 shrink-0 pointer-events-none' aria-hidden='true' />
+          </label>
+          <div className='flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
+            {visibleIdentities.map(renderProjectTab)}
           </div>
-          <Button aria-label={gt('Add brand project')} className='shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
+          {visibleIdentities.length === 0 ? (
+            <span className='mb-2 shrink-0 px-2 text-xs text-muted-foreground'>
+              <T>No brands in this folder</T>
+            </span>
+          ) : null}
+          <Button aria-label={gt('Add brand project')} className='mb-1 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-xs' type='button' variant='ghost'>
             <Plus aria-hidden='true' />
           </Button>
-          <div className='ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2'>
+          <div className='mb-1 ml-auto flex h-8 shrink-0 items-center gap-1 border-l border-border pl-2'>
             <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' title={gt('Duplicate project')} type='button' variant='ghost'>
               <Copy aria-hidden='true' />
             </Button>

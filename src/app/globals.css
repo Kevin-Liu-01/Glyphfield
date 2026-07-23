@@ -330,7 +330,22 @@ body {
 }
 
 .project-tab {
-  height: 44px;
+  height: 38px;
+  margin-bottom: -1px;
+}
+
+.project-tab[aria-selected='true']::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: hsl(var(--background));
+  content: '';
+}
+
+.project-tab[aria-selected='true'] {
+  box-shadow: 0 -1px 0 hsl(var(--foreground) / 0.025);
 }
 
 .project-tab-mark {
