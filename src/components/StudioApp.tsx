@@ -21,6 +21,7 @@ import {
   Moon,
   MonitorPlay,
   Palette,
+  PanelTopClose,
   PanelsTopLeft,
   Plus,
   Search,
@@ -46,6 +47,7 @@ import {
   duplicateBrandIdentity,
   hydrateBrandIdentities,
   STARTER_BRAND_IDENTITY,
+  updateGeneratedPixelAssets,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -577,6 +579,13 @@ export default function StudioApp() {
     selectIdentity(identity.id);
   }
 
+  function closeOtherIdentities() {
+    if (!activeIdentity) return;
+    setOpenIdentityIds([activeIdentity.id]);
+    setActiveFolderId('all');
+    window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
+  }
+
   function selectProjectFolder(folderId: ProjectFolderId) {
     setActiveFolderId(folderId);
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, folderId);
@@ -595,7 +604,20 @@ export default function StudioApp() {
     commitIdentities(
       identities.map((identity) =>
         identity.id === identityId
-          ? { ...identity, name, shortName: shortName || identity.shortName }
+          ? {
+              ...identity,
+              assets: identity.assets.some(({ label }) =>
+                label.startsWith('Generated pixel mark')
+              )
+                ? updateGeneratedPixelAssets(
+                    identity.assets,
+                    shortName || identity.shortName,
+                    identity.id
+                  )
+                : identity.assets,
+              name,
+              shortName: shortName || identity.shortName,
+            }
           : identity
       )
     );
@@ -819,12 +841,17 @@ export default function StudioApp() {
               <Plus aria-hidden='true' />
             </Button>
           </div>
-          <div className='project-tabs-actions mb-1 ml-auto flex h-8 shrink-0 items-center gap-1 border-l border-border pl-2'>
-            <Button aria-label={gt('Duplicate active project')} disabled={!identitiesReady} onClick={copyIdentity} size='icon-xs' title={gt('Duplicate project')} type='button' variant='ghost'>
+          <div className='project-tabs-actions mb-1 ml-auto flex h-8 shrink-0 items-center gap-1.5 border-l border-border pl-2'>
+            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='sm' title={gt('Duplicate project')} type='button' variant='outline'>
               <Copy aria-hidden='true' />
+              <span className='project-action-label'><T>Duplicate</T></span>
+            </Button>
+            <Button aria-label={gt('Close other project tabs')} className='project-action-button' disabled={openIdentityIds.length <= 1} onClick={closeOtherIdentities} size='sm' title={gt('Close other tabs')} type='button' variant='outline'>
+              <PanelTopClose aria-hidden='true' />
+              <span className='project-action-label'><T>Close others</T></span>
             </Button>
             {!activeIdentity.builtIn ? (
-              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-xs' title={gt('Delete project')} type='button' variant='ghost'>
+              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-sm' title={gt('Delete project')} type='button' variant='ghost'>
                 <Trash2 aria-hidden='true' />
               </Button>
             ) : null}

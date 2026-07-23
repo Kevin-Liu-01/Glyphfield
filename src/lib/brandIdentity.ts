@@ -258,6 +258,139 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
   website: 'yourbrand.com',
 };
 
+const PIXEL_GLYPHS: Record<string, string> = {
+  '0': '111/101/101/101/111',
+  '1': '010/110/010/010/111',
+  '2': '110/001/111/100/111',
+  '3': '110/001/111/001/110',
+  '4': '101/101/111/001/001',
+  '5': '111/100/110/001/110',
+  '6': '011/100/111/101/111',
+  '7': '111/001/010/010/010',
+  '8': '111/101/111/101/111',
+  '9': '111/101/111/001/110',
+  A: '010/101/111/101/101',
+  B: '110/101/110/101/110',
+  C: '011/100/100/100/011',
+  D: '110/101/101/101/110',
+  E: '111/100/110/100/111',
+  F: '111/100/110/100/100',
+  G: '011/100/101/101/011',
+  H: '101/101/111/101/101',
+  I: '111/010/010/010/111',
+  J: '001/001/001/101/010',
+  K: '101/101/110/101/101',
+  L: '100/100/100/100/111',
+  M: '101/111/111/101/101',
+  N: '101/111/111/111/101',
+  O: '010/101/101/101/010',
+  P: '110/101/110/100/100',
+  Q: '010/101/101/111/011',
+  R: '110/101/110/101/101',
+  S: '011/100/010/001/110',
+  T: '111/010/010/010/010',
+  U: '101/101/101/101/111',
+  V: '101/101/101/101/010',
+  W: '101/101/111/111/101',
+  X: '101/101/010/101/101',
+  Y: '101/101/010/010/010',
+  Z: '111/001/010/100/111',
+};
+
+function hashPixelSeed(value: string): number {
+  let hash = 2166136261;
+  for (const character of value) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createPixelRandom(seed: string): () => number {
+  let state = hashPixelSeed(seed) || 1;
+  return () => {
+    state = Math.imul(state ^ (state >>> 15), 1 | state);
+    state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
+    return ((state ^ (state >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createPixelMark(label: string, seed: string, inverted: boolean): string {
+  const normalizedLabel = label.replace(/[^A-Z0-9]/gi, '').toLocaleUpperCase().slice(0, 3) || 'BR';
+  const random = createPixelRandom(`${seed}:${normalizedLabel}:${inverted ? 'light' : 'dark'}`);
+  const background = inverted ? '#FFFFFF' : '#181818';
+  const foreground = inverted ? '#181818' : '#FFFFFF';
+  const pixelSize = normalizedLabel.length === 1 ? 6 : normalizedLabel.length === 2 ? 5 : 4;
+  const labelWidth = normalizedLabel.length * pixelSize * 3 + (normalizedLabel.length - 1) * pixelSize;
+  const labelX = (64 - labelWidth) / 2;
+  const labelY = (64 - pixelSize * 5) / 2;
+
+  const texture = Array.from({ length: 18 }, () => {
+    let x = Math.floor(random() * 14 + 1) * 4;
+    let y = Math.floor(random() * 14 + 1) * 4;
+    if (x > 8 && x < 56 && y > 12 && y < 52) {
+      y = random() > 0.5 ? 4 : 56;
+    }
+    const size = random() > 0.78 ? 8 : 4;
+    const opacity = (0.08 + random() * 0.14).toFixed(2);
+    return `<rect x="${Math.min(x, 60)}" y="${Math.min(y, 60)}" width="${size}" height="${size}" fill="${foreground}" opacity="${opacity}"/>`;
+  }).join('');
+
+  const glyphs = [...normalizedLabel]
+    .map((character, characterIndex) => {
+      const rows = (PIXEL_GLYPHS[character] ?? '111/101/010/000/010').split('/');
+      return rows
+        .flatMap((row, rowIndex) =>
+          [...row].map((pixel, columnIndex) =>
+            pixel === '1'
+              ? `<rect x="${labelX + characterIndex * pixelSize * 4 + columnIndex * pixelSize}" y="${labelY + rowIndex * pixelSize}" width="${pixelSize}" height="${pixelSize}"/>`
+              : ''
+          )
+        )
+        .join('');
+    })
+    .join('');
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" shape-rendering="crispEdges"><rect width="64" height="64" fill="${background}"/>${texture}<g fill="${foreground}">${glyphs}</g></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+export function createPixelBrandAssets(label: string, seed: string): BrandAsset[] {
+  return [
+    {
+      id: 'mark-dark',
+      label: 'Generated pixel mark / dark',
+      path: createPixelMark(label, seed, false),
+      surface: 'light',
+      type: 'logo',
+    },
+    {
+      id: 'mark-light',
+      label: 'Generated pixel mark / light',
+      path: createPixelMark(label, seed, true),
+      surface: 'dark',
+      type: 'logo',
+    },
+  ];
+}
+
+function hasGeneratedPixelAssets(identity: BrandIdentity): boolean {
+  return identity.assets.some(({ label }) => label.startsWith('Generated pixel mark'));
+}
+
+export function updateGeneratedPixelAssets(
+  assets: BrandAsset[],
+  label: string,
+  seed: string
+): BrandAsset[] {
+  const generatedAssets = createPixelBrandAssets(label, seed);
+  return assets.map((asset) =>
+    asset.label.startsWith('Generated pixel mark')
+      ? generatedAssets.find(({ id }) => id === asset.id) ?? asset
+      : asset
+  );
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -288,8 +421,10 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     .slice(0, 3)
     .toLocaleUpperCase();
 
+  const resolvedShortName = shortName || 'BR';
+
   return {
-    assets: [],
+    assets: createPixelBrandAssets(resolvedShortName, id),
     audiences: [],
     builtIn: false,
     colors: GT_BRAND_IDENTITY.colors.map((color) => ({ ...color })),
@@ -303,7 +438,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     products: [],
     proof: [],
     proofAssets: [],
-    shortName: shortName || 'BR',
+    shortName: resolvedShortName,
     sourceNotes: ['Created locally in Glyphfield'],
     tagline: 'Add a clear brand line.',
     typography: GT_BRAND_IDENTITY.typography.map((font) => ({ ...font })),
@@ -337,18 +472,36 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
     : [];
   return [
     cloneBrandIdentity(STARTER_BRAND_IDENTITY),
-    ...customIdentities.map((identity) => ({
-      ...cloneBrandIdentity(identity),
-      builtIn: false,
-      kind: 'custom' as const,
-    })),
+    ...customIdentities.map((identity) => {
+      const clonedIdentity = cloneBrandIdentity(identity);
+      const generatedAssets = createPixelBrandAssets(
+        clonedIdentity.shortName,
+        clonedIdentity.id
+      );
+      return {
+        ...clonedIdentity,
+        assets: [
+          ...generatedAssets.filter(
+            (generatedAsset) =>
+              !clonedIdentity.assets.some(({ id }) => id === generatedAsset.id)
+          ),
+          ...clonedIdentity.assets,
+        ],
+        builtIn: false,
+        kind: 'custom' as const,
+      };
+    }),
     cloneBrandIdentity(GT_BRAND_IDENTITY),
   ];
 }
 
 export function duplicateBrandIdentity(identity: BrandIdentity, id = crypto.randomUUID()): BrandIdentity {
+  const clonedIdentity = cloneBrandIdentity(identity);
   return {
-    ...cloneBrandIdentity(identity),
+    ...clonedIdentity,
+    assets: hasGeneratedPixelAssets(clonedIdentity)
+      ? updateGeneratedPixelAssets(clonedIdentity.assets, clonedIdentity.shortName, id)
+      : clonedIdentity.assets,
     builtIn: false,
     id,
     kind: 'custom',
