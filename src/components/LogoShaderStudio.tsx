@@ -261,7 +261,7 @@ function loadImage(path: string): Promise<HTMLImageElement> {
 }
 
 function monogramMask(identity: BrandIdentity): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><text x="256" y="340" text-anchor="middle" fill="white" font-family="Switzer,Arial,sans-serif" font-size="250" font-weight="600">${identity.shortName}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><text x="256" y="340" text-anchor="middle" fill="white" font-family="Switzer,Arial,sans-serif" font-size="250" font-weight="550">${identity.shortName}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 

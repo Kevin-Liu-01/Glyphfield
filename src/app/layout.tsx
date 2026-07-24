@@ -24,7 +24,7 @@ const beVietnamPro = Be_Vietnam_Pro({
   display: 'swap',
   subsets: ['latin'],
   variable: '--font-be-vietnam-pro',
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500'],
 });
 
 const rethinkSans = Rethink_Sans({
@@ -86,7 +86,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link href='https://api.fontshare.com' rel='preconnect' />
         <link href='https://cdn.fontshare.com' rel='preconnect' />
         <link
-          href='https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&display=swap'
+          href='https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap'
           rel='stylesheet'
         />
       </head>

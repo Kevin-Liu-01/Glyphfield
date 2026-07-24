@@ -14,6 +14,7 @@ import type {
   StudioBackground,
   StudioSource,
 } from './renderFrame';
+import { capVisibleFontWeight } from './typography';
 
 export type SourceMode = 'sequence' | 'text' | 'images';
 
@@ -68,7 +69,7 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   colors: 256,
   fit: 'contain',
   fontSize: 108,
-  fontWeight: 700,
+  fontWeight: 550,
   foreground: '#ffffff',
   fps: 20,
   height: 300,
@@ -99,7 +100,7 @@ export function createDefaultFrameSettings(
     fit: settings.fit,
     finish: { ...DEFAULT_MATERIAL_FINISH },
     fontSize: settings.fontSize,
-    fontWeight: settings.fontWeight,
+    fontWeight: capVisibleFontWeight(settings.fontWeight),
     foreground: settings.foreground,
     opacity: 1,
     rotation: 0,
@@ -125,7 +126,7 @@ export function applyFrameSettings(
     fit: frame.fit,
     finish: normalizeMaterialFinish(frame.finish),
     fontSize: frame.fontSize,
-    fontWeight: frame.fontWeight,
+    fontWeight: capVisibleFontWeight(frame.fontWeight),
     foreground: frame.foreground,
     opacity: frame.opacity,
     rotation: frame.rotation,

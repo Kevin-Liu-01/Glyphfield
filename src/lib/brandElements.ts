@@ -821,7 +821,7 @@ export function createBrandElementSettings(
     eyebrow: '',
     foregroundColor: ink,
     fontRole: 'Display',
-    fontWeight: identity.typography.find(({ role }) => role === 'Display')?.weight ?? 700,
+    fontWeight: Math.min(identity.typography.find(({ role }) => role === 'Display')?.weight ?? 550, 550),
     headline: identity.tagline,
     layout: 'stacked',
     logoAppearance: { ...DEFAULT_LOGO_APPEARANCE },

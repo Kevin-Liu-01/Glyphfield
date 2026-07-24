@@ -501,7 +501,7 @@ export const BASEMENT_BRAND_IDENTITY: BrandIdentity = {
       label: 'Basement Grotesque Black',
       path: '/fonts/basement-grotesque/BasementGrotesque-Black_v1.202.woff2',
       style: 'normal',
-      weight: 800,
+      weight: 550,
     },
     {
       family: 'Inter',
@@ -571,9 +571,9 @@ export const BASEMENT_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 0, density: 'spacious', grid: 'none', imageTreatment: 'monochrome', logoScale: 92 },
   tagline: 'Cool work that performs.',
   typography: [
-    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -5, lineHeight: 0.88, role: 'Display', usage: 'Large, compressed statements with enough space to feel intentional', weight: 800 },
+    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -5, lineHeight: 0.88, role: 'Display', usage: 'Large, compressed statements with enough space to feel intentional', weight: 550 },
     { family: 'Inter', fontId: 'inter-variable', letterSpacing: -1, lineHeight: 1.45, role: 'Body', usage: 'Case-study narrative, product explanation, and supporting interface copy', weight: 450 },
-    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -2, lineHeight: 0.92, role: 'Accent', usage: 'Short studio phrases, specimen moments, and project-specific interruptions', weight: 800 },
+    { family: 'Basement Grotesque', fontId: 'basement-grotesque-black', letterSpacing: -2, lineHeight: 0.92, role: 'Accent', usage: 'Short studio phrases, specimen moments, and project-specific interruptions', weight: 550 },
     { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0, lineHeight: 1.45, role: 'Code', usage: 'Credits, project metadata, specifications, tools, and implementation evidence', weight: 450 },
   ],
   values: ['Ideas with a reason', 'Craft across disciplines', 'Performance by design', 'Serious work, human energy'],

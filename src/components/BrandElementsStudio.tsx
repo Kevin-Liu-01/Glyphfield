@@ -41,6 +41,7 @@ import {
 import { hexToOklch } from '@/lib/color';
 import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 
 const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
   Developer: TerminalSquare,
@@ -190,10 +191,11 @@ function ElementRangeControl({
   suffix: string;
   value: number;
 }) {
+  const resolvedValue = Math.min(value, max);
   return (
     <label className='element-editor-range'>
-      <span><span>{label}</span><output>{value}{suffix}</output></span>
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
+      <span><span>{label}</span><output>{resolvedValue}{suffix}</output></span>
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={resolvedValue} />
     </label>
   );
 }
@@ -314,7 +316,7 @@ function ElementEditor({
           <span><T>Font role</T></span>
           <StudioSelect ariaLabel={gt('Font role')} onValueChange={(fontRole) => onChange({ fontRole: fontRole as BrandElementSettings['fontRole'], fontWeight: brandTypographyRole(identity, fontRole as BrandElementSettings['fontRole']).weight })} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={settings.fontRole} />
         </div>
-        <ElementRangeControl label={<T>Weight</T>} max={900} min={100} onChange={(fontWeight) => onChange({ fontWeight })} suffix='' value={settings.fontWeight} />
+        <ElementRangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onChange({ fontWeight })} suffix='' value={settings.fontWeight} />
       </section>
 
       <section className='element-editor-section'>
@@ -409,16 +411,17 @@ function declaredAspectRatio(dimensions: string): number | undefined {
 }
 
 function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontWeight, logoFilter }: { aspectRatio?: number; children: ReactNode; codeFontFamily: string; fontFamily: string; fontWeight: number; logoFilter: string }) {
+  const visibleFontWeight = capVisibleFontWeight(fontWeight);
   return (
     <div
       className='flex w-full max-w-5xl flex-col'
       style={{
         '--brand-element-font': fontFamily,
-        '--brand-element-weight': fontWeight,
+        '--brand-element-weight': visibleFontWeight,
         '--brand-font-code': codeFontFamily,
         '--brand-logo-filter': logoFilter,
         fontFamily,
-        fontWeight,
+        fontWeight: visibleFontWeight,
       } as CSSProperties}
     >
       <div className='min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>

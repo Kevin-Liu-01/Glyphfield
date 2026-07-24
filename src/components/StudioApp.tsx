@@ -642,6 +642,7 @@ export default function StudioApp() {
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
+  const workspaceDirectionRef = useRef<'backward' | 'forward'>('forward');
   const [tabScrollState, setTabScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -675,6 +676,9 @@ export default function StudioApp() {
     [activeFolderId, identities, openIdentityIds]
   );
   const projectTabDensity = getProjectTabDensity(visibleIdentities.length);
+  const activeProjectTabIndex = visibleIdentities.findIndex(
+    ({ id }) => id === activeIdentity?.id
+  );
   const activeIdentityIsOpen = openIdentityIds.includes(activeIdentity?.id ?? '');
   const folderCounts = useMemo(
     () =>
@@ -807,6 +811,11 @@ export default function StudioApp() {
   });
 
   function selectTool(toolId: StudioToolId) {
+    if (toolId !== activeToolId) {
+      const currentIndex = STUDIO_TOOLS.findIndex(({ id }) => id === activeToolId);
+      const nextIndex = STUDIO_TOOLS.findIndex(({ id }) => id === toolId);
+      workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
+    }
     setActiveToolId(toolId);
     setQuery('');
     window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, toolId);
@@ -823,6 +832,11 @@ export default function StudioApp() {
   }
 
   function selectIdentity(identityId: string) {
+    if (identityId !== activeIdentity?.id) {
+      const currentIndex = identities.findIndex(({ id }) => id === activeIdentity?.id);
+      const nextIndex = identities.findIndex(({ id }) => id === identityId);
+      workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
+    }
     setOpenIdentityIds((current) =>
       current.includes(identityId) ? current : [...current, identityId]
     );
@@ -1173,6 +1187,15 @@ export default function StudioApp() {
               ref={projectTabsScrollRef}
             >
               <div className='project-tabs-tablist flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
+                {activeProjectTabIndex >= 0 ? (
+                  <span
+                    aria-hidden='true'
+                    className='project-tab-selection'
+                    style={{
+                      transform: `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`,
+                    }}
+                  />
+                ) : null}
                 {visibleIdentities.map(renderProjectTab)}
               </div>
               {visibleIdentities.length === 0 ? (
@@ -1225,15 +1248,15 @@ export default function StudioApp() {
 
       <div className='studio-app-body'>
         <aside className='app-navbar studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
+          <nav aria-label={gt('Studio help')} className='studio-sidebar-help'>
+            <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
+              <Link href='/docs'><BookOpen aria-hidden='true' /><T>Docs</T></Link>
+            </Button>
+            <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
+              <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
+            </Button>
+          </nav>
           <div className='min-h-0 flex-1 overflow-y-auto px-2 py-3'>
-            <nav aria-label={gt('Studio help')} className='studio-sidebar-help'>
-              <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
-                <Link href='/docs'><BookOpen aria-hidden='true' /><T>Docs</T></Link>
-              </Button>
-              <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
-                <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
-              </Button>
-            </nav>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;
@@ -1281,19 +1304,25 @@ export default function StudioApp() {
         </aside>
 
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
-          {!activeIdentityIsOpen ? (
-            <div className='studio-closed-projects-empty'>
-              <Folder aria-hidden='true' />
-              <div>
-                <h2><T>No project tab open</T></h2>
-                <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
+          <div
+            className='studio-workspace-view'
+            data-motion-direction={workspaceDirectionRef.current}
+            key={`${activeIdentity.id}-${activeTool.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
+          >
+            {!activeIdentityIsOpen ? (
+              <div className='studio-closed-projects-empty'>
+                <Folder aria-hidden='true' />
+                <div>
+                  <h2><T>No project tab open</T></h2>
+                  <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
+                </div>
               </div>
-            </div>
-          ) : activeToolId === 'animation' ? (
-            <AnimationStudio embedded identity={activeIdentity} key={activeIdentity.id} />
-          ) : (
-            <StudioToolWorkspace identity={activeIdentity} key={`${activeIdentity.id}-${activeTool.id}`} onIdentityChange={updateIdentity} tool={activeTool} />
-          )}
+            ) : activeToolId === 'animation' ? (
+              <AnimationStudio embedded identity={activeIdentity} />
+            ) : (
+              <StudioToolWorkspace identity={activeIdentity} onIdentityChange={updateIdentity} tool={activeTool} />
+            )}
+          </div>
         </section>
       </div>
       {commandOpen ? (

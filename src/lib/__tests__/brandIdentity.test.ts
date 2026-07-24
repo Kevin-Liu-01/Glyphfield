@@ -4,6 +4,7 @@ import {
   BASEMENT_BRAND_IDENTITY,
   brandFontAssets,
   brandTypographyFamily,
+  brandTypographyRole,
   BUILT_IN_BRAND_IDENTITIES,
   createBrandIdentity,
   duplicateBrandIdentity,
@@ -17,7 +18,7 @@ describe('BASEMENT_BRAND_IDENTITY', () => {
     expect(BASEMENT_BRAND_IDENTITY.style.grid).toBe('none');
     expect(BASEMENT_BRAND_IDENTITY.typography[0]).toMatchObject({
       family: 'Basement Grotesque',
-      weight: 800,
+      weight: 550,
     });
     expect(BASEMENT_BRAND_IDENTITY.sourceNotes).toEqual(
       expect.arrayContaining([
@@ -52,6 +53,10 @@ describe('GT_BRAND_IDENTITY', () => {
     expect(GT_BRAND_IDENTITY.strategy.concept).toContain('source of truth');
     expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The translation frame');
     expect(GT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
+    expect(brandTypographyRole({
+      ...GT_BRAND_IDENTITY,
+      typography: [{ ...GT_BRAND_IDENTITY.typography[0]!, weight: 800 }],
+    }, 'Display').weight).toBe(550);
   });
 
   it('keeps every GT identity color monochrome', () => {

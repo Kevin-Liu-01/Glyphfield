@@ -29,6 +29,7 @@ import {
   type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
+import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 
 import type { AnimationPackageId } from '@/lib/renderFrame';
 
@@ -93,12 +94,13 @@ function RangeControl({
   unit?: string;
   value: number;
 }) {
+  const resolvedValue = Math.min(value, max);
   return (
     <label className='flex flex-col gap-2'>
       <span className='flex items-center justify-between gap-3 text-sm'>
         <span>{label}</span>
         <output className='font-mono text-xs tabular-nums text-muted-foreground'>
-          {value}
+          {resolvedValue}
           {unit}
         </output>
       </span>
@@ -109,7 +111,7 @@ function RangeControl({
         onChange={(event) => onChange(Number(event.target.value))}
         step={step}
         type='range'
-        value={value}
+        value={resolvedValue}
       />
     </label>
   );
@@ -359,7 +361,7 @@ export default function StudioControls({
             {selectedSource.kind === 'text' ? (
               <>
                 <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
-                <RangeControl label={<T>Weight</T>} max={900} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={100} value={frameSettings.fontWeight} />
+                <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
                 <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Foreground</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
               </>
             ) : (

@@ -99,7 +99,7 @@ describe('buildTemplateSvg', () => {
     expect(chart).not.toBe(metrics);
   });
 
-  it('embeds the selected identity font and weight in an export', () => {
+  it('embeds the selected identity font and caps its exported weight', () => {
     const svg = buildTemplateSvg({
       ...baseOptions,
       fontData: 'data:font/ttf;base64,FONT',
@@ -110,7 +110,7 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain("font-family:'TemplateBrand'");
     expect(svg).toContain('font-family:"TemplateBrand"');
     expect(svg).toContain('data:font/ttf;base64,FONT');
-    expect(svg).toContain('font-weight:650');
+    expect(svg).toContain('font-weight:550');
   });
 
   it('exports canvas transforms and foreground layer order', () => {

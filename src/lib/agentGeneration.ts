@@ -527,7 +527,7 @@ export function agentAssetPaths(plan: AgentGenerationPlan): string[] {
 }
 
 function monogramDataUrl(identity: AgentIdentity, color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Switzer,Arial,sans-serif" font-size="180" font-weight="600">${escapeXml(identity.shortName)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Switzer,Arial,sans-serif" font-size="180" font-weight="550">${escapeXml(identity.shortName)}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 

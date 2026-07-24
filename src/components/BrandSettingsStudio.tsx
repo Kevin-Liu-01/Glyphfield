@@ -30,6 +30,7 @@ import {
 } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 
 const INPUT_CLASS =
   'h-10 w-full border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -106,10 +107,11 @@ function RangeField({
   suffix?: string;
   value: number;
 }) {
+  const resolvedValue = Math.min(value, max);
   return (
     <label className='brand-identity-range'>
-      <span><span>{label}</span><output>{value}{suffix}</output></span>
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
+      <span><span>{label}</span><output>{resolvedValue}{suffix}</output></span>
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
     </label>
   );
 }
@@ -247,7 +249,7 @@ export default function BrandSettingsStudio({
         label: family,
         path: await readFileAsDataUrl(file),
         style: file.name.toLocaleLowerCase().includes('italic') ? 'italic' : 'normal',
-        weight: file.name.toLocaleLowerCase().includes('bold') ? 700 : 400,
+        weight: file.name.toLocaleLowerCase().includes('bold') ? MAX_VISIBLE_FONT_WEIGHT : 400,
       };
       update({ fonts: [...fonts, nextFont] });
       setFeedback(gt('Font added. Assign it to any typography role below.'));
@@ -413,14 +415,14 @@ export default function BrandSettingsStudio({
                     const selectedFont = fonts.find((font) => font.id === typography.fontId) ?? fonts[0];
                     return (
                       <article key={role}>
-                        <header><span>{role}</span><code>{typography.weight}</code></header>
-                        <p style={{ fontFamily: selectedFont?.family ?? typography.family, fontWeight: typography.weight, letterSpacing: `${typography.letterSpacing}px`, lineHeight: typography.lineHeight }}>{role === 'Code' ? `$ ${identity.id} build --brand` : role === 'Accent' ? identity.greetings.join(' · ') : identity.tagline}</p>
+                        <header><span>{role}</span><code>{capVisibleFontWeight(typography.weight ?? 400)}</code></header>
+                        <p style={{ fontFamily: selectedFont?.family ?? typography.family, fontWeight: capVisibleFontWeight(typography.weight ?? 400), letterSpacing: `${typography.letterSpacing}px`, lineHeight: typography.lineHeight }}>{role === 'Code' ? `$ ${identity.id} build --brand` : role === 'Accent' ? identity.greetings.join(' · ') : identity.tagline}</p>
                         <div className='brand-type-role-controls'>
                           <Field label={<T>Font file</T>}>
                             <StudioSelect ariaLabel={gt('{role} font file', { role })} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateTypography(role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: `${font.label} · ${font.fileName}`, value: font.id }))} value={typography.fontId ?? selectedFont?.id ?? ''} />
                           </Field>
                           <Field label={<T>Usage</T>}><input className={INPUT_CLASS} onChange={(event) => updateTypography(role, { usage: event.target.value })} value={typography.usage} /></Field>
-                          <RangeField label={<T>Weight</T>} max={selectedFont?.weightMax ?? 900} min={selectedFont?.weightMin ?? 100} onChange={(weight) => updateTypography(role, { weight })} step={50} value={typography.weight ?? 400} />
+                          <RangeField label={<T>Weight</T>} max={Math.min(selectedFont?.weightMax ?? MAX_VISIBLE_FONT_WEIGHT, MAX_VISIBLE_FONT_WEIGHT)} min={selectedFont?.weightMin ?? 100} onChange={(weight) => updateTypography(role, { weight })} step={50} value={typography.weight ?? 400} />
                           <RangeField label={<T>Line height</T>} max={2} min={0.7} onChange={(lineHeight) => updateTypography(role, { lineHeight })} step={0.05} value={typography.lineHeight ?? 1.5} />
                           <RangeField label={<T>Tracking</T>} max={12} min={-8} onChange={(letterSpacing) => updateTypography(role, { letterSpacing })} step={0.25} suffix='px' value={typography.letterSpacing ?? 0} />
                         </div>

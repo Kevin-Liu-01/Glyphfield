@@ -77,7 +77,7 @@ function logo(
   if (source) {
     return `<image href="${escapeXml(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMinYMid meet"/>`;
   }
-  return `<text x="${x}" y="${y + height * 0.72}" class="sans" fill="${fill}" font-size="${Math.min(width, height) * 0.58}" font-weight="800">${escapeXml(fallback)}</text>`;
+  return `<text x="${x}" y="${y + height * 0.72}" class="sans" fill="${fill}" font-size="${Math.min(width, height) * 0.58}" font-weight="550">${escapeXml(fallback)}</text>`;
 }
 
 function label(index: number, name: string, fill: string, x = 30, y = 34): string {
@@ -167,7 +167,7 @@ function buildShowcaseMoodboardSvg(
   <rect width="928" height="500" fill="${ink}"/>
   ${logo(assets.markLight, identity.shortName, 42, 38, 132, 58, paper)}
   <text x="886" y="58" text-anchor="end" class="mono" fill="${paper}" opacity=".42" font-size="9">${escapeXml(identity.website.toLocaleUpperCase())}</text>
-  ${textLines(heroLines, 42, 190, 74, `class="sans" fill="${paper}" font-size="68" font-weight="800" letter-spacing="-4"`)}
+  ${textLines(heroLines, 42, 190, 74, `class="sans" fill="${paper}" font-size="68" font-weight="550" letter-spacing="-4"`)}
   <text x="42" y="452" class="mono" fill="${paper}" opacity=".48" font-size="9" letter-spacing="1.2">${escapeXml(identity.positioning.toLocaleUpperCase().slice(0, 105))}</text>
   <rect y="474" width="928" height="26" fill="${primary}"/>
   <rect y="474" width="318" height="26" fill="${paper}"/>
@@ -177,7 +177,7 @@ function buildShowcaseMoodboardSvg(
   <rect width="600" height="500" fill="${paper}"/>
   <text x="32" y="42" class="mono" fill="${ink}" opacity=".42" font-size="9">CASE STUDY / ${escapeXml(firstApplication?.name.toLocaleUpperCase() ?? 'SELECTED WORK')}</text>
   <path d="M32 62H568" stroke="${ink}" stroke-opacity=".16"/>
-  ${textLines(storyLines, 32, 148, 52, `class="sans" fill="${ink}" font-size="44" font-weight="760" letter-spacing="-2.3"`)}
+  ${textLines(storyLines, 32, 148, 52, `class="sans" fill="${ink}" font-size="44" font-weight="550" letter-spacing="-2.3"`)}
   <text x="32" y="392" class="sans" fill="${ink}" opacity=".58" font-size="13">${escapeXml(firstApplication?.description.slice(0, 96) ?? identity.description.slice(0, 96))}</text>
   <rect x="32" y="432" width="536" height="36" fill="${deep}"/>
   <text x="48" y="455" class="mono" fill="${paper}" font-size="8" letter-spacing="1.2">PROBLEM → IDEA → SYSTEM → IMPACT</text>
@@ -186,7 +186,7 @@ function buildShowcaseMoodboardSvg(
 <g class="application-panel type-application" transform="translate(24 548)">
   <rect width="480" height="328" fill="${primary}"/>
   <text x="24" y="32" class="mono" fill="${isLight(primary) ? ink : paper}" opacity=".55" font-size="8">TYPE / ${escapeXml(identity.typography[0]?.family.toLocaleUpperCase() ?? 'DISPLAY')}</text>
-  <text x="22" y="238" class="sans" fill="${isLight(primary) ? ink : paper}" font-size="222" font-weight="800" letter-spacing="-18">Aa</text>
+  <text x="22" y="238" class="sans" fill="${isLight(primary) ? ink : paper}" font-size="222" font-weight="550" letter-spacing="-18">Aa</text>
   <text x="454" y="298" text-anchor="end" class="mono" fill="${isLight(primary) ? ink : paper}" opacity=".5" font-size="8">${escapeXml(identity.typography[0]?.usage.toLocaleUpperCase().slice(0, 54) ?? 'DISPLAY')}</text>
 </g>
 
@@ -197,7 +197,7 @@ function buildShowcaseMoodboardSvg(
   <text x="616" y="27" text-anchor="end" class="mono" fill="${paper}" opacity=".5" font-size="7">${escapeXml(secondApplication?.format.toLocaleUpperCase() ?? 'RESPONSIVE')}</text>
   <g transform="translate(24 74)">
     <text class="mono" fill="${primary}" font-size="8">${escapeXml(secondApplication?.category.toLocaleUpperCase() ?? 'PRODUCT')} / 01</text>
-    ${textLines(wrapText(secondApplication?.name ?? identity.products[0] ?? identity.name, 24, 2), 0, 54, 35, `class="sans" fill="${ink}" font-size="30" font-weight="760" letter-spacing="-1.4"`)}
+    ${textLines(wrapText(secondApplication?.name ?? identity.products[0] ?? identity.name, 24, 2), 0, 54, 35, `class="sans" fill="${ink}" font-size="30" font-weight="550" letter-spacing="-1.4"`)}
     <text x="0" y="140" class="sans" fill="${ink}" opacity=".55" font-size="11">${escapeXml(secondApplication?.description.slice(0, 82) ?? identity.description.slice(0, 82))}</text>
     <path d="M0 180H592" stroke="${ink}" stroke-opacity=".14"/>
     ${identity.products.slice(0, 3).map((product, index) => `<text x="${index * 198}" y="214" class="mono" fill="${ink}" opacity="${index === 0 ? '.9' : '.42'}" font-size="8">0${index + 1} / ${escapeXml(product.toLocaleUpperCase())}</text>`).join('')}
@@ -209,7 +209,7 @@ function buildShowcaseMoodboardSvg(
   <g opacity=".72">${graphicMotif(identity.graphicSystem, 384, 328, paper, primary)}</g>
   <rect x="20" y="20" width="344" height="288" fill="none" stroke="${paper}" stroke-opacity=".2"/>
   <text x="36" y="48" class="mono" fill="${paper}" opacity=".48" font-size="8">${escapeXml(identity.graphicSystem.device.toLocaleUpperCase())}</text>
-  <text x="36" y="282" class="sans" fill="${paper}" font-size="17" font-weight="700">${escapeXml(thirdApplication?.name ?? identity.name)}</text>
+  <text x="36" y="282" class="sans" fill="${paper}" font-size="17" font-weight="550">${escapeXml(thirdApplication?.name ?? identity.name)}</text>
 </g>
 </svg>`;
 }
@@ -241,11 +241,11 @@ function buildSystemMoodboardSvg(
   <rect width="1552" height="430" fill="${ink}"/>
   ${label(1, `${identity.shortName} identity`, paper, 38, 42)}
   ${logo(assets.markLight, identity.shortName, 38, 64, 168, 74, paper)}
-  ${textLines(heroTitle, 38, 238, 67, `class="sans" fill="${paper}" font-size="61" font-weight="800" letter-spacing="-3.4"`)}
+  ${textLines(heroTitle, 38, 238, 67, `class="sans" fill="${paper}" font-size="61" font-weight="550" letter-spacing="-3.4"`)}
   <text x="1514" y="404" text-anchor="end" class="mono" fill="${paper}" opacity=".45" font-size="9">${escapeXml(identity.website.toLocaleUpperCase())}</text>
   <rect x="1002" y="0" width="550" height="430" fill="${paper}" opacity=".04"/>
   <text x="1038" y="90" class="mono" fill="${primary}" font-size="9">PROMISE</text>
-  ${textLines(wrapText(identity.strategy.promise, 25, 4), 1038, 140, 42, `class="sans" fill="${paper}" font-size="34" font-weight="720" letter-spacing="-1.5"`)}
+  ${textLines(wrapText(identity.strategy.promise, 25, 4), 1038, 140, 42, `class="sans" fill="${paper}" font-size="34" font-weight="550" letter-spacing="-1.5"`)}
   <path d="M1038 346H1504" stroke="${paper}" stroke-opacity=".18"/>
   <text x="1038" y="378" class="mono" fill="${paper}" opacity=".42" font-size="8">MISSION / ${escapeXml(identity.mission.toLocaleUpperCase().slice(0, 72))}</text>
 </g>
@@ -254,7 +254,7 @@ function buildSystemMoodboardSvg(
   <rect width="760" height="320" fill="${paper}"/>
   ${label(2, 'Strategy', ink)}
   <text x="30" y="78" class="mono" fill="${primary}" font-size="8">CENTRAL IDEA</text>
-  ${textLines(conceptLines, 30, 118, 31, `class="sans" fill="${ink}" font-size="26" font-weight="740" letter-spacing="-1.1"`)}
+  ${textLines(conceptLines, 30, 118, 31, `class="sans" fill="${ink}" font-size="26" font-weight="550" letter-spacing="-1.1"`)}
   <path d="M30 218H730" stroke="${ink}" stroke-opacity=".14"/>
   ${identity.strategy.pillars.slice(0, 4).map((pillar, index) => `<text x="${30 + (index % 2) * 350}" y="${252 + Math.floor(index / 2) * 34}" class="mono" fill="${ink}" opacity=".62" font-size="8">0${index + 1} / ${escapeXml(pillar.toLocaleUpperCase().slice(0, 38))}</text>`).join('')}
 </g>
@@ -266,7 +266,7 @@ function buildSystemMoodboardSvg(
     const x = 30 + (index % 4) * 178;
     const y = 66 + Math.floor(index / 4) * 112;
     const fill = isLight(hex) ? ink : paper;
-    return `<g transform="translate(${x} ${y})"><rect width="160" height="92" fill="${escapeXml(hex)}"/><text x="10" y="66" class="sans" fill="${fill}" font-size="10" font-weight="650">${escapeXml(name)}</text><text x="10" y="81" class="mono" fill="${fill}" opacity=".62" font-size="7">${escapeXml(hex.toLocaleUpperCase())}</text></g>`;
+    return `<g transform="translate(${x} ${y})"><rect width="160" height="92" fill="${escapeXml(hex)}"/><text x="10" y="66" class="sans" fill="${fill}" font-size="10" font-weight="550">${escapeXml(name)}</text><text x="10" y="81" class="mono" fill="${fill}" opacity=".62" font-size="7">${escapeXml(hex.toLocaleUpperCase())}</text></g>`;
   }).join('')}
   <text x="30" y="298" class="mono" fill="${ink}" opacity=".4" font-size="8">COLOR HAS A JOB. IT IS NOT FILLER.</text>
 </g>
@@ -282,8 +282,8 @@ function buildSystemMoodboardSvg(
 <g class="application-panel typography-panel" transform="translate(808 822)">
   <rect width="768" height="330" fill="${deep}"/>
   ${label(5, 'Typography', paper)}
-  <text x="30" y="194" class="sans" fill="${paper}" font-size="148" font-weight="800" letter-spacing="-10">Aa</text>
-  <text x="242" y="105" class="sans" fill="${paper}" font-size="25" font-weight="720">${escapeXml(identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Display')}</text>
+  <text x="30" y="194" class="sans" fill="${paper}" font-size="148" font-weight="550" letter-spacing="-10">Aa</text>
+  <text x="242" y="105" class="sans" fill="${paper}" font-size="25" font-weight="550">${escapeXml(identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Display')}</text>
   <text x="242" y="134" class="sans" fill="${paper}" opacity=".52" font-size="11">DISPLAY / ${escapeXml(identity.typography.find(({ role }) => role === 'Display')?.usage.slice(0, 58) ?? 'Headlines')}</text>
   <path d="M242 164H738" stroke="${paper}" stroke-opacity=".14"/>
   <text x="242" y="205" class="sans" fill="${paper}" font-size="17">${escapeXml(identity.greetings.slice(0, 3).join(' · '))}</text>
@@ -296,7 +296,7 @@ function buildSystemMoodboardSvg(
   ${label(6, identity.graphicSystem.device, ink)}
   <g transform="translate(30 72)">
     <text class="mono" fill="${primary}" font-size="8">RECOGNIZABLE DEVICE</text>
-    <text y="48" class="sans" fill="${ink}" font-size="36" font-weight="760" letter-spacing="-1.5">${escapeXml(identity.graphicSystem.device)}</text>
+    <text y="48" class="sans" fill="${ink}" font-size="36" font-weight="550" letter-spacing="-1.5">${escapeXml(identity.graphicSystem.device)}</text>
     ${textLines(deviceLines, 0, 88, 19, `class="sans" fill="${ink}" opacity=".58" font-size="12"`)}
     ${identity.graphicSystem.rules.slice(0, 3).map((rule, index) => `<text x="0" y="${190 + index * 25}" class="mono" fill="${ink}" opacity=".62" font-size="8">0${index + 1} / ${escapeXml(rule.toLocaleUpperCase().slice(0, 62))}</text>`).join('')}
   </g>
@@ -310,7 +310,7 @@ function buildSystemMoodboardSvg(
     const x = 30 + index * 502;
     const cardFill = index === 1 ? primary : paper;
     const cardText = isLight(cardFill) ? ink : paper;
-    return `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/><text x="20" y="30" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 19, 3), 20, 126, 39, `class="sans" fill="${cardText}" font-size="33" font-weight="760" letter-spacing="-1.6"`)}<text x="20" y="260" class="sans" fill="${cardText}" opacity=".56" font-size="10">${escapeXml(application.description.slice(0, 78))}</text><text x="20" y="292" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`;
+    return `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/><text x="20" y="30" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 19, 3), 20, 126, 39, `class="sans" fill="${cardText}" font-size="33" font-weight="550" letter-spacing="-1.6"`)}<text x="20" y="260" class="sans" fill="${cardText}" opacity=".56" font-size="10">${escapeXml(application.description.slice(0, 78))}</text><text x="20" y="292" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`;
   }).join('')}
   <text x="1522" y="409" text-anchor="end" class="mono" fill="${accent}" font-size="8">${escapeXml(identity.voice.phrases[0]?.toLocaleUpperCase() ?? identity.tagline.toLocaleUpperCase())}</text>
 </g>

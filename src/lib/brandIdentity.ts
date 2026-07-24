@@ -5,6 +5,7 @@ import {
   STARTER_BRAND_IDENTITY,
   TEMPLATE_BRAND_IDENTITY,
 } from './identityPresets';
+import { capVisibleFontWeight } from './typography';
 
 export {
   BASEMENT_BRAND_IDENTITY,
@@ -205,12 +206,13 @@ function bundledFontId(family: string, role: BrandTypography['role']): string | 
 }
 
 function normalizeTypography(font: BrandTypography): BrandTypography {
+  const fallbackWeight = font.role === 'Display' ? 550 : font.role === 'Code' ? 450 : 400;
   return {
     ...font,
     fontId: font.fontId ?? bundledFontId(font.family, font.role),
     letterSpacing: font.letterSpacing ?? (font.role === 'Display' ? -3 : 0),
     lineHeight: font.lineHeight ?? (font.role === 'Display' ? 0.96 : 1.5),
-    weight: font.weight ?? (font.role === 'Display' ? 700 : font.role === 'Code' ? 450 : 400),
+    weight: capVisibleFontWeight(font.weight ?? fallbackWeight),
   };
 }
 

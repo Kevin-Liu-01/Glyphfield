@@ -16,6 +16,7 @@ import {
   type MaterialBounds,
   type MaterialFinishSettings,
 } from './materialFinish';
+import { capVisibleFontWeight } from './typography';
 
 export type AnimationPackageId =
   | 'morph-fade'
@@ -131,7 +132,7 @@ function drawSourceContent(
   if (source.kind === 'text') {
     const text = options.textOverride ?? source.text;
     context.fillStyle = source.foreground ?? config.foreground;
-    context.font = `${source.fontWeight ?? config.fontWeight} ${source.fontSize ?? config.fontSize}px Switzer, Arial, sans-serif`;
+    context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${source.fontSize ?? config.fontSize}px Switzer, Arial, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     const measuredWidth = context.measureText(text).width;

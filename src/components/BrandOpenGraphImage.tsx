@@ -235,7 +235,7 @@ export default function BrandOpenGraphImage({
             style={{
               display: 'flex',
               fontSize: 20,
-              fontWeight: 700,
+              fontWeight: 550,
               letterSpacing: -0.6,
               marginLeft: 15,
             }}
@@ -262,7 +262,7 @@ export default function BrandOpenGraphImage({
             color: accent,
             display: 'flex',
             fontSize: 14,
-            fontWeight: 700,
+            fontWeight: 550,
             letterSpacing: 3.5,
             marginTop: 68,
             textTransform: 'uppercase',
@@ -285,7 +285,7 @@ export default function BrandOpenGraphImage({
           style={{
             display: 'flex',
             fontSize: titleSize,
-            fontWeight: 700,
+            fontWeight: 550,
             letterSpacing: -3.6,
             lineHeight: 0.98,
             marginTop: 22,
