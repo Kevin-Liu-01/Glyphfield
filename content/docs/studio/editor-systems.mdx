@@ -14,6 +14,7 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Logo shader, Background lab |
 | `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
 | `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
+| `canvasDocument` | Versioned pages, elements, constraints, resources, history, checkpoints, and export preflight | Immutable scene graph and command history | Migration target for every editable artifact and agent operation |
 | `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
 | `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
 | `LogoAppearanceControls` | Inversion, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Logo lab, Background lab, OpenGraph, Logo shader, and Brand elements |
@@ -66,6 +67,35 @@ The conversion functions live in `src/lib/color.ts`, so the inspector, generated
 | Reset | Returns to the generator's default transform | Row returns to 100 percent |
 
 Nothing is selected automatically. Selection begins only from the layer list or the canvas, matching presentation-editor behavior.
+
+## Versioned scene graph
+
+`src/lib/canvasDocument.ts` defines the portable document model shared by people and agents. It is separate from React component state and records:
+
+- Document schema version, brand binding, capabilities, and revision.
+- Pages with dimensions, safe area, bleed, background, notes, and ordered layers.
+- Text, image, logo, shape, frame, gradient, texture, shader, video, and reusable-component elements.
+- Bounds, rotation, responsive anchors, position/dimension/aspect/rotation locks, visibility, blend mode, border, radius, opacity, and shadow.
+- Brand font bindings and text roles.
+- Non-destructive image crop, focal point, fit, saturation, dither, grain, blur, posterization, and halation.
+- Asset and font references rather than browser-only paths hidden inside component state.
+
+The shared mutation layer currently supports grouped movement, resizing, locking, deletion, direct layer ordering, element updates, and asset replacement. Asset replacement changes only the source reference, preserving geometry, crop, image treatment, effects, and constraints.
+
+### History and preflight
+
+`commitCanvasChange` accepts one mutation or a batch. A batch produces one undo checkpoint, so distribute, align, or multi-select moves reverse as a single action. `undoCanvasChange` and `redoCanvasChange` restore cloned documents rather than reconstructing UI state.
+
+Named versions store author, time, note, thumbnail-ready document state, and revision. Restoring a version returns the same scene graph without sharing mutable references.
+
+Export preflight reports:
+
+- Missing asset records.
+- Missing font files.
+- Elements clipped beyond their page.
+- Text exceeding a declared maximum line count.
+
+The current direct-manipulation components are adapters over tool-specific transforms. New artifacts should use the scene graph, and existing tools will migrate to it in reviewable waves so preview and export converge on one renderer.
 
 ## Logo appearance
 

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
+  BookOpenText,
   Check,
   Download,
   Files,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
@@ -25,8 +27,10 @@ import {
   brandTypographyFamily,
   brandTypographyRole,
   type BrandAsset,
+  type BrandDossier,
   type BrandFontAsset,
   type BrandIdentity,
+  type BrandReference,
   type BrandTypography,
 } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch } from '@/lib/color';
@@ -38,7 +42,7 @@ const INPUT_CLASS =
 const TEXTAREA_CLASS =
   'min-h-24 w-full resize-y border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
 
-type IdentitySection = 'overview' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
+type IdentitySection = 'overview' | 'direction' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
 
 const SECTIONS: readonly {
   icon: typeof Layers3;
@@ -46,6 +50,7 @@ const SECTIONS: readonly {
   label: string;
 }[] = [
   { icon: Layers3, id: 'overview', label: 'Overview' },
+  { icon: BookOpenText, id: 'direction', label: 'Direction & references' },
   { icon: Files, id: 'assets', label: 'Asset library' },
   { icon: Type, id: 'typography', label: 'Typography' },
   { icon: Palette, id: 'colors', label: 'Color system' },
@@ -61,6 +66,23 @@ const ASSET_TYPES: readonly BrandAsset['type'][] = [
   'icon',
   'product',
   'proof',
+  'motion',
+  'reference',
+];
+
+type BrandDossierTextField = Exclude<keyof BrandDossier, 'applications' | 'prohibited' | 'renderingRecipe'>;
+
+const DOSSIER_FIELDS: readonly { id: BrandDossierTextField; label: string }[] = [
+  { id: 'premise', label: 'Brand premise' },
+  { id: 'personality', label: 'Personality' },
+  { id: 'logo', label: 'Logo system' },
+  { id: 'typography', label: 'Typography direction' },
+  { id: 'color', label: 'Color direction' },
+  { id: 'imagery', label: 'Image selection and treatment' },
+  { id: 'layout', label: 'Layout and composition' },
+  { id: 'graphicDevice', label: 'Graphic device' },
+  { id: 'motion', label: 'Motion principles' },
+  { id: 'provenance', label: 'Provenance and licensing' },
 ];
 
 const TYPOGRAPHY_ROLES: readonly BrandTypography['role'][] = [
@@ -184,10 +206,12 @@ export default function BrandSettingsStudio({
   const [feedback, setFeedback] = useState<string | null>(null);
   const fonts = brandFontAssets(identity);
   const allAssets = [...identity.assets, ...identity.proofAssets];
+  const primaryReference = identity.references
+    .map((reference) => reference.assetId ? allAssets.find((asset) => asset.id === reference.assetId) : undefined)
+    .find((asset): asset is BrandAsset => Boolean(asset));
   const darkMark = brandAssetPath(identity, 'mark-dark');
   const lightMark = brandAssetPath(identity, 'mark-light');
   const displayTypography = brandTypographyRole(identity, 'Display');
-  const bodyTypography = brandTypographyRole(identity, 'Body');
   const colorPreviews = identity.colors.map((color) => {
     try {
       return { ...color, dark: hexToOklch(color.hex).lightness < 0.58, oklch: formatOklch(color.hex) };
@@ -195,8 +219,6 @@ export default function BrandSettingsStudio({
       return { ...color, dark: false, oklch: gt('Invalid HEX') };
     }
   });
-  const previewBackground = colorPreviews.find(({ dark }) => dark)?.hex ?? '#181818';
-  const previewForeground = colorPreviews.find(({ dark }) => !dark)?.hex ?? '#FFFFFF';
 
   function update(patch: Partial<BrandIdentity>) {
     onChange({ ...identity, ...patch });
@@ -210,6 +232,18 @@ export default function BrandSettingsStudio({
     update({ typography: nextTypography });
   }
 
+  function updateDossier(patch: Partial<BrandDossier>) {
+    update({ dossier: { ...identity.dossier, ...patch } });
+  }
+
+  function updateReference(referenceId: string, patch: Partial<BrandReference>) {
+    update({
+      references: identity.references.map((reference) => (
+        reference.id === referenceId ? { ...reference, ...patch } : reference
+      )),
+    });
+  }
+
   async function addAsset(file: File) {
     if (file.size > 4_000_000) {
       setFeedback(gt('Keep image assets under 4 MB so this local identity remains portable.'));
@@ -217,10 +251,14 @@ export default function BrandSettingsStudio({
     }
     try {
       const nextAsset: BrandAsset = {
+        alt: file.name.replace(/\.[^.]+$/, ''),
+        focalPoint: { x: 0.5, y: 0.5 },
         id: `asset-${crypto.randomUUID()}`,
         label: file.name.replace(/\.[^.]+$/, ''),
+        redistribution: 'original',
         path: await readFileAsDataUrl(file),
         surface: 'any',
+        tags: [assetType],
         type: assetType,
         usage: assetType === 'background' ? 'Backgrounds, headers, banners, and cards' : 'Reusable brand artwork',
       };
@@ -345,18 +383,72 @@ export default function BrandSettingsStudio({
                 <Field label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></Field>
               </Panel>
               <Panel description={<T>A live summary of the source every canvas reads.</T>} title={<T>Identity preview</T>}>
-                <div className='brand-identity-preview-card' data-grid={identity.style.grid} style={{ backgroundColor: previewBackground, color: previewForeground }}>
-                  <div className='brand-identity-preview-top'>
-                    {lightMark ? <img alt='' src={lightMark} /> : <span>{identity.shortName}</span>}
-                    <small>{identity.website}</small>
-                  </div>
-                  <div className='brand-identity-preview-copy'>
-                    <div className='brand-identity-preview-statement'>
-                      <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.tagline}</h2>
-                    </div>
-                    <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: bodyTypography.weight, letterSpacing: `${bodyTypography.letterSpacing}px`, lineHeight: bodyTypography.lineHeight }}>{identity.positioning}</p>
-                  </div>
-                  <div className='brand-identity-preview-principles'>{identity.voice.principles.slice(0, 4).map((principle, index) => <span key={principle}>{String(index + 1).padStart(2, '0')} / {principle}</span>)}</div>
+                <BrandIdentityPreview darkMark={darkMark} identity={identity} lightMark={lightMark} />
+              </Panel>
+            </div>
+          ) : null}
+
+          {activeSection === 'direction' ? (
+            <div className='brand-identity-section-stack'>
+              <section className='brand-direction-editorial'>
+                <div className='brand-direction-editorial-copy'>
+                  <span><T>Identity direction</T></span>
+                  <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight }}>{identity.tagline}</h2>
+                  <div><p>{identity.dossier.premise}</p><small>{identity.dossier.personality}</small></div>
+                </div>
+                <div className='brand-direction-editorial-image' data-empty={primaryReference ? 'false' : 'true'}>
+                  {primaryReference ? <img alt={primaryReference.alt ?? primaryReference.label} src={primaryReference.path} /> : <span>{identity.shortName}</span>}
+                </div>
+                <dl>
+                  <div><dt><T>Image world</T></dt><dd>{identity.dossier.imagery}</dd></div>
+                  <div><dt><T>Composition</T></dt><dd>{identity.dossier.layout}</dd></div>
+                  <div><dt><T>Signature device</T></dt><dd>{identity.dossier.graphicDevice}</dd></div>
+                </dl>
+              </section>
+              <Panel description={<T>The strategic and visual guidance used to art-direct this identity instead of swapping tokens into a universal template.</T>} title={<T>Brand dossier</T>}>
+                <div className='brand-dossier-grid'>
+                  {DOSSIER_FIELDS.map((field) => (
+                    <Field key={field.id} label={gt(field.label)}>
+                      <textarea className={TEXTAREA_CLASS} onChange={(event) => updateDossier({ [field.id]: event.target.value })} value={identity.dossier[field.id]} />
+                    </Field>
+                  ))}
+                  <Field label={<T>Application recipes · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => updateDossier({ applications: parseList(event.target.value) })} value={listValue(identity.dossier.applications)} /></Field>
+                  <Field label={<T>Rendering recipe · one step per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => updateDossier({ renderingRecipe: parseList(event.target.value) })} value={listValue(identity.dossier.renderingRecipe)} /></Field>
+                  <Field label={<T>Do not rules · one per line</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => updateDossier({ prohibited: parseList(event.target.value) })} value={listValue(identity.dossier.prohibited)} /></Field>
+                </div>
+              </Panel>
+              <Panel description={<T>Twenty categorized research records define the visual world. Captures remain research-only unless their redistribution status explicitly permits bundling.</T>} title={<T>Reference contact sheet</T>}>
+                <div className='brand-reference-summary'>
+                  {(['official', 'campaign', 'concept', 'material', 'motion'] as const).map((category) => <span key={category}><strong>{identity.references.filter((reference) => reference.category === category).length}</strong>{gt(category)}</span>)}
+                </div>
+                <div className='brand-reference-grid'>
+                  {identity.references.map((reference, index) => {
+                    const asset = reference.assetId ? allAssets.find((candidate) => candidate.id === reference.assetId) : undefined;
+                    return (
+                      <article data-category={reference.category} key={reference.id}>
+                        <div className='brand-reference-visual'>
+                          {asset ? <img alt={asset.alt ?? asset.label} src={asset.path} /> : <span>{String(index + 1).padStart(2, '0')}</span>}
+                        </div>
+                        <div>
+                          <small>{reference.category} · {reference.status}</small>
+                          <strong>{reference.title}</strong>
+                          <p>{reference.intendedUse}</p>
+                          <details className='brand-reference-metadata'>
+                            <summary><T>Source record</T></summary>
+                            <div>
+                              <input aria-label={gt('Reference source URL')} className={INPUT_CLASS} onChange={(event) => updateReference(reference.id, { sourceUrl: event.target.value })} placeholder={gt('Source URL')} value={reference.sourceUrl} />
+                              <input aria-label={gt('Reference owner')} className={INPUT_CLASS} onChange={(event) => updateReference(reference.id, { owner: event.target.value })} placeholder={gt('Owner')} value={reference.owner} />
+                              <StudioSelect ariaLabel={gt('Reference status')} onValueChange={(status) => updateReference(reference.id, { status: status as BrandReference['status'] })} options={[
+                                { label: gt('Planned'), value: 'planned' },
+                                { label: gt('Captured'), value: 'captured' },
+                                { label: gt('Reviewed'), value: 'reviewed' },
+                              ]} value={reference.status} />
+                            </div>
+                          </details>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </Panel>
             </div>
@@ -383,6 +475,22 @@ export default function BrandSettingsStudio({
                       <div className='brand-asset-card-fields'>
                         <input aria-label={gt('Asset label')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { label: event.target.value })} value={asset.label} />
                         <input aria-label={gt('Asset usage')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { usage: event.target.value })} placeholder={gt('Where should this asset be used?')} value={asset.usage ?? ''} />
+                        <details className='brand-asset-metadata'>
+                          <summary><T>Provenance and treatment</T></summary>
+                          <div>
+                            <input aria-label={gt('Asset alt text')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { alt: event.target.value })} placeholder={gt('Alt text')} value={asset.alt ?? ''} />
+                            <StudioSelect ariaLabel={gt('Redistribution status')} onValueChange={(redistribution) => updateAsset(asset, { redistribution: redistribution as NonNullable<BrandAsset['redistribution']> })} options={[
+                              { label: gt('Bundled'), value: 'bundled' },
+                              { label: gt('Original'), value: 'original' },
+                              { label: gt('Research only'), value: 'research-only' },
+                              { label: gt('URL only'), value: 'url-only' },
+                            ]} value={asset.redistribution ?? 'original'} />
+                            <input aria-label={gt('Source URL')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { sourceUrl: event.target.value })} placeholder={gt('Source URL')} value={asset.sourceUrl ?? ''} />
+                            <input aria-label={gt('Source owner')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { sourceOwner: event.target.value })} placeholder={gt('Source owner')} value={asset.sourceOwner ?? ''} />
+                            <input aria-label={gt('Asset license')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { license: event.target.value })} placeholder={gt('License or usage terms')} value={asset.license ?? ''} />
+                            <input aria-label={gt('Asset tags')} className={INPUT_CLASS} onChange={(event) => updateAsset(asset, { tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder={gt('Tags, comma separated')} value={(asset.tags ?? []).join(', ')} />
+                          </div>
+                        </details>
                         <div>
                           <code>{asset.path.startsWith('data:') ? 'LOCAL / EMBEDDED' : asset.path}</code>
                           <Button aria-label={gt('Remove {name}', { name: asset.label })} onClick={() => removeAsset(asset)} size='icon-xs' title={gt('Remove asset')} type='button' variant='ghost'><Trash2 aria-hidden='true' /></Button>

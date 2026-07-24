@@ -36,7 +36,7 @@ export function templatePartnerOptions(identity: BrandIdentity): BrandAsset[] {
 
 export function templateBackgroundOptions(identity: BrandIdentity): BrandAsset[] {
   return identity.assets.filter(
-    ({ type }) => type === 'background' || type === 'image' || type === 'texture'
+    ({ type }) => type === 'background' || type === 'image' || type === 'reference' || type === 'texture'
   );
 }
 

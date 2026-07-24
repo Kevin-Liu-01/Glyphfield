@@ -112,7 +112,7 @@ export default function DesignBoard({
   const referencePaths = useMemo(
     () =>
       [
-        ...identity.assets.filter(({ type }) => type === 'image'),
+        ...identity.assets.filter(({ type }) => type === 'image' || type === 'reference'),
         ...identity.assets.filter(({ type }) => type === 'background'),
       ]
         .slice(0, 3)

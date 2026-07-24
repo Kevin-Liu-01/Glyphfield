@@ -97,7 +97,7 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
       expect(identity.assets.some(({ type }) => type === 'background')).toBe(true);
       if (identity.id !== 'starter') {
-        expect(identity.assets.some(({ type }) => type === 'image')).toBe(true);
+        expect(identity.assets.some(({ type }) => type === 'reference')).toBe(true);
       }
       expect(
         brandFontAssets(identity).every(({ path }) => /\.(?:otf|ttf|woff2)$/.test(path))
@@ -106,6 +106,35 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.typography).toHaveLength(4);
       expect(identity.typography.every(({ fontId }) => fontId && fontIds.has(fontId))).toBe(true);
       expect(brandTypographyFamily(identity, 'Display')).toBeTruthy();
+      expect(identity.dossier.premise.length).toBeGreaterThan(40);
+      expect(identity.dossier.renderingRecipe.length).toBeGreaterThanOrEqual(5);
+      expect(identity.dossier.prohibited.length).toBeGreaterThanOrEqual(4);
+      expect(identity.references).toHaveLength(20);
+    }
+  });
+
+  it('gives every identity a bespoke preview and a balanced provenance-aware reference pack', () => {
+    expect(new Set(BUILT_IN_BRAND_IDENTITIES.map(({ artDirection }) => artDirection.preview)).size).toBe(
+      BUILT_IN_BRAND_IDENTITIES.length
+    );
+
+    for (const identity of BUILT_IN_BRAND_IDENTITIES) {
+      const categories = identity.references.reduce<Record<string, number>>((counts, reference) => {
+        counts[reference.category] = (counts[reference.category] ?? 0) + 1;
+        return counts;
+      }, {});
+
+      expect(categories).toEqual({ campaign: 4, concept: 4, material: 3, motion: 3, official: 6 });
+      expect(identity.references.every(({ intendedUse, owner, redistribution, title }) => (
+        intendedUse && owner && redistribution && title
+      ))).toBe(true);
+      expect(identity.references.filter(({ category }) => category === 'official').every(({ sourceUrl }) => sourceUrl.startsWith('https://'))).toBe(true);
+      expect(identity.references.filter(({ status }) => status === 'captured')).toHaveLength(1);
+      expect(identity.references.find(({ status }) => status === 'captured')?.assetId).toBe('reference-homepage');
+      expect(identity.assets.find(({ id }) => id === 'reference-homepage')).toMatchObject({
+        redistribution: 'research-only',
+        type: 'reference',
+      });
     }
   });
 

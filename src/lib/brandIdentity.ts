@@ -14,12 +14,85 @@ export {
 };
 
 export type BrandAsset = {
+  alt?: string;
+  attribution?: string;
+  focalPoint?: {
+    x: number;
+    y: number;
+  };
   id: string;
+  license?: string;
   label: string;
   path: string;
+  redistribution?: 'bundled' | 'original' | 'research-only' | 'url-only';
+  sourceOwner?: string;
+  sourceUrl?: string;
   surface: 'light' | 'dark' | 'any';
-  type: 'background' | 'icon' | 'image' | 'logo' | 'product' | 'proof' | 'texture';
+  tags?: string[];
+  type:
+    | 'background'
+    | 'icon'
+    | 'image'
+    | 'logo'
+    | 'motion'
+    | 'product'
+    | 'proof'
+    | 'reference'
+    | 'texture';
   usage?: string;
+};
+
+export type BrandReference = {
+  assetId?: string;
+  category: 'campaign' | 'concept' | 'material' | 'motion' | 'official';
+  capturedAt?: string;
+  id: string;
+  intendedUse: string;
+  owner: string;
+  redistribution: 'bundled' | 'original' | 'research-only' | 'url-only';
+  sourceUrl: string;
+  status: 'captured' | 'planned' | 'reviewed';
+  title: string;
+};
+
+export type BrandDossier = {
+  applications: string[];
+  color: string;
+  graphicDevice: string;
+  imagery: string;
+  layout: string;
+  logo: string;
+  motion: string;
+  personality: string;
+  premise: string;
+  prohibited: string[];
+  provenance: string;
+  renderingRecipe: string[];
+  typography: string;
+};
+
+export type BrandArtDirection = {
+  moodboard:
+    | 'cinematic-field'
+    | 'editorial-evidence'
+    | 'knowledge-system'
+    | 'modular-proof'
+    | 'monochrome-language'
+    | 'network-atlas'
+    | 'product-spectrum'
+    | 'research-wall'
+    | 'utility-current';
+  preview:
+    | 'editorial-interruption'
+    | 'economic-ledger'
+    | 'focus-window'
+    | 'knowledge-beam'
+    | 'network-horizon'
+    | 'programmable-field'
+    | 'translation-frame'
+    | 'unified-terminal'
+    | 'utility-wave';
+  titleMaxLines: 1 | 2;
 };
 
 export type BrandColor = {
@@ -113,12 +186,14 @@ export const DEFAULT_BRAND_STYLE: BrandStyle = {
 
 export type BrandIdentity = {
   applications: BrandApplication[];
+  artDirection: BrandArtDirection;
   assets: BrandAsset[];
   audiences: string[];
   builtIn: boolean;
   colors: BrandColor[];
   contactEmail: string;
   description: string;
+  dossier: BrandDossier;
   fonts?: BrandFontAsset[];
   greetings: string[];
   graphicSystem: BrandGraphicSystem;
@@ -131,6 +206,7 @@ export type BrandIdentity = {
   products: string[];
   proof: string[];
   proofAssets: BrandAsset[];
+  references: BrandReference[];
   revision: number;
   shortName: string;
   socialHandle: string;
@@ -390,15 +466,36 @@ export function updateGeneratedPixelAssets(
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
+    artDirection: {
+      ...STARTER_BRAND_IDENTITY.artDirection,
+      ...identity.artDirection,
+    },
     applications: (identity.applications ?? STARTER_BRAND_IDENTITY.applications).map(
       (application) => ({ ...application })
     ),
-    assets: identity.assets.map((asset) => ({ ...asset })),
+    assets: identity.assets.map((asset) => ({
+      ...asset,
+      focalPoint: asset.focalPoint ? { ...asset.focalPoint } : undefined,
+      tags: asset.tags ? [...asset.tags] : undefined,
+    })),
     audiences: [...(identity.audiences ?? [])],
     colors: (identity.colors ?? []).map((color) => ({ ...color })),
     contactEmail: identity.contactEmail ?? '',
     fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
+    dossier: {
+      ...STARTER_BRAND_IDENTITY.dossier,
+      ...identity.dossier,
+      applications: [
+        ...(identity.dossier?.applications ?? STARTER_BRAND_IDENTITY.dossier.applications),
+      ],
+      prohibited: [
+        ...(identity.dossier?.prohibited ?? STARTER_BRAND_IDENTITY.dossier.prohibited),
+      ],
+      renderingRecipe: [
+        ...(identity.dossier?.renderingRecipe ?? STARTER_BRAND_IDENTITY.dossier.renderingRecipe),
+      ],
+    },
     graphicSystem: {
       ...STARTER_BRAND_IDENTITY.graphicSystem,
       ...identity.graphicSystem,
@@ -410,7 +507,12 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     motion: (identity.motion ?? []).map((motion) => ({ ...motion })),
     products: [...(identity.products ?? [])],
     proof: [...(identity.proof ?? [])],
-    proofAssets: (identity.proofAssets ?? []).map((asset) => ({ ...asset })),
+    proofAssets: (identity.proofAssets ?? []).map((asset) => ({
+      ...asset,
+      focalPoint: asset.focalPoint ? { ...asset.focalPoint } : undefined,
+      tags: asset.tags ? [...asset.tags] : undefined,
+    })),
+    references: (identity.references ?? []).map((reference) => ({ ...reference })),
     revision: identity.revision ?? 1,
     socialHandle: identity.socialHandle ?? '',
     sourceNotes: [...(identity.sourceNotes ?? [])],
@@ -443,13 +545,26 @@ function mergeBrandIdentity(
     ...fallback,
     ...identity,
     applications: identity.applications ?? fallback.applications,
+    artDirection: {
+      ...fallback.artDirection,
+      ...identity.artDirection,
+    },
     contactEmail: identity.contactEmail ?? fallback.contactEmail,
+    dossier: {
+      ...fallback.dossier,
+      ...identity.dossier,
+      applications: identity.dossier?.applications ?? fallback.dossier.applications,
+      prohibited: identity.dossier?.prohibited ?? fallback.dossier.prohibited,
+      renderingRecipe:
+        identity.dossier?.renderingRecipe ?? fallback.dossier.renderingRecipe,
+    },
     graphicSystem: {
       ...fallback.graphicSystem,
       ...identity.graphicSystem,
       rules: identity.graphicSystem?.rules ?? fallback.graphicSystem.rules,
     },
     mission: identity.mission ?? fallback.mission,
+    references: identity.references ?? fallback.references,
     revision: identity.revision ?? fallback.revision,
     socialHandle: identity.socialHandle ?? fallback.socialHandle,
     style: { ...fallback.style, ...identity.style },
@@ -476,12 +591,28 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
 
   return {
     applications: STARTER_BRAND_IDENTITY.applications.map((item) => ({ ...item })),
+    artDirection: { ...STARTER_BRAND_IDENTITY.artDirection },
     assets: createPixelBrandAssets(resolvedShortName, id),
     audiences: [],
     builtIn: false,
     colors: GT_BRAND_IDENTITY.colors.map((color) => ({ ...color })),
     contactEmail: '',
     description: 'A local brand identity ready for assets, tokens, motion, and repeatable graphics.',
+    dossier: {
+      applications: ['Identity preview', 'Moodboard', 'Launch graphic'],
+      color: 'Assign each color a role and define how much visual space it may occupy.',
+      graphicDevice: 'Create one recognizable device that can survive across formats.',
+      imagery: 'Define subjects, crops, treatments, and the relationship between image and copy.',
+      layout: 'Define spacing, alignment, hierarchy, and maximum line counts before decorating.',
+      logo: 'Document the mark, wordmark, lockups, clear space, scale, and surface behavior.',
+      motion: 'Describe pace, easing, transitions, loops, and reduced-motion behavior.',
+      personality: 'Choose a small set of specific traits that guide both writing and design.',
+      premise: 'Explain why this identity exists and the change it should make visible.',
+      prohibited: ['Do not use decoration without a strategic role'],
+      provenance: 'Created locally in Glyphfield. Add a source and usage status to every reference.',
+      renderingRecipe: ['Set hierarchy', 'Choose one focal element', 'Apply the brand device', 'Run export preflight'],
+      typography: 'Assign real font files to display, body, accent, and code roles.',
+    },
     fonts: DEFAULT_BRAND_FONT_ASSETS.map((font) => ({ ...font })),
     greetings: ['Welcome'],
     graphicSystem: {
@@ -501,6 +632,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     products: [],
     proof: [],
     proofAssets: [],
+    references: [],
     revision: 1,
     shortName: resolvedShortName,
     socialHandle: `@${trimmedName.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '')}`,
