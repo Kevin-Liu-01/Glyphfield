@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -130,7 +133,8 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       ))).toBe(true);
       expect(identity.references.filter(({ category }) => category === 'official').every(({ sourceUrl }) => sourceUrl.startsWith('https://'))).toBe(true);
       expect(identity.references.filter(({ status }) => status === 'captured')).toHaveLength(1);
-      expect(identity.references.find(({ status }) => status === 'captured')?.assetId).toBe('reference-homepage');
+      expect(identity.references.find(({ status }) => status === 'captured')?.assetId).toBe('library-overview');
+      expect(identity.references.filter(({ status }) => status === 'reviewed').length).toBeGreaterThanOrEqual(6);
       expect(identity.assets.find(({ id }) => id === 'reference-homepage')).toMatchObject({
         redistribution: 'research-only',
         type: 'reference',
@@ -155,6 +159,27 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
 
     expect(brandFontFaceCss(ramp)).toContain(
       '@font-face{font-family:"Lausanne";src:url("/fonts/brands/ramp/lausanne-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap;}'
+    );
+  });
+
+  it('renders Mintlify with the same four font roles as its production site', () => {
+    const mintlify = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'mintlify')!;
+    const roles = ['Display', 'Body', 'Accent', 'Code'] as const;
+
+    expect(roles.map((role) => brandTypographyFamily(mintlify, role))).toEqual([
+      'Arizona Flare',
+      'Mintlify Inter',
+      'Paper Mono',
+      'Mintlify Geist Mono',
+    ]);
+    expect(brandFontAssets(mintlify).every(({ path }) => (
+      existsSync(join(process.cwd(), 'public', path))
+    ))).toBe(true);
+    expect(brandFontFaceCss(mintlify)).toContain(
+      '@font-face{font-family:"Mintlify Inter";src:url("/fonts/brands/mintlify/inter-variable.ttf") format("truetype");font-style:normal;font-weight:100 900;font-display:swap;}'
+    );
+    expect(brandFontFaceCss(mintlify)).toContain(
+      '@font-face{font-family:"Mintlify Geist Mono";src:url("/fonts/brands/mintlify/geist-mono-latin.woff2") format("woff2");font-style:normal;font-weight:100 900;font-display:swap;}'
     );
   });
 });

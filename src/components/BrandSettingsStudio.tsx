@@ -12,6 +12,7 @@ import {
   Palette,
   SlidersHorizontal,
   Save,
+  ScanSearch,
   Trash2,
   Type,
   Upload,
@@ -19,6 +20,8 @@ import {
 
 import { Button } from '@/components/ui/Button';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
+import BrandSystemDiagram from '@/components/BrandSystemDiagram';
+import BrandVisualAudit from '@/components/BrandVisualAudit';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
@@ -42,7 +45,7 @@ const INPUT_CLASS =
 const TEXTAREA_CLASS =
   'min-h-24 w-full resize-y border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
 
-type IdentitySection = 'overview' | 'direction' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
+type IdentitySection = 'overview' | 'audit' | 'direction' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
 
 const SECTIONS: readonly {
   icon: typeof Layers3;
@@ -50,6 +53,7 @@ const SECTIONS: readonly {
   label: string;
 }[] = [
   { icon: Layers3, id: 'overview', label: 'Overview' },
+  { icon: ScanSearch, id: 'audit', label: 'Visual audit' },
   { icon: BookOpenText, id: 'direction', label: 'Direction & references' },
   { icon: Files, id: 'assets', label: 'Asset library' },
   { icon: Type, id: 'typography', label: 'Typography' },
@@ -388,6 +392,8 @@ export default function BrandSettingsStudio({
             </div>
           ) : null}
 
+          {activeSection === 'audit' ? <BrandVisualAudit identity={identity} /> : null}
+
           {activeSection === 'direction' ? (
             <div className='brand-identity-section-stack'>
               <section className='brand-direction-editorial'>
@@ -405,6 +411,9 @@ export default function BrandSettingsStudio({
                   <div><dt><T>Signature device</T></dt><dd>{identity.dossier.graphicDevice}</dd></div>
                 </dl>
               </section>
+              <Panel description={<T>A reusable, brand-native model of how the product or practice turns inputs into outcomes. This diagram is the basis for slides, explainers, and product stories.</T>} title={<T>System diagram</T>}>
+                <BrandSystemDiagram identity={identity} />
+              </Panel>
               <Panel description={<T>The strategic and visual guidance used to art-direct this identity instead of swapping tokens into a universal template.</T>} title={<T>Brand dossier</T>}>
                 <div className='brand-dossier-grid'>
                   {DOSSIER_FIELDS.map((field) => (

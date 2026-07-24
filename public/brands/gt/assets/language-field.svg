@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#111"/>
+  <g fill="#fff" font-family="Inter,Arial,sans-serif" text-anchor="middle">
+    <text x="800" y="132" font-size="20" letter-spacing="4" opacity=".58">ONE MESSAGE / MANY LOCALES</text>
+    <text x="800" y="285" font-size="92" font-weight="500">Welcome</text>
+    <text x="800" y="398" font-size="92" font-weight="500">Bienvenidos</text>
+    <text x="800" y="511" font-size="92" font-weight="500">你好</text>
+    <text x="800" y="624" font-size="92" font-weight="500">ようこそ</text>
+    <text x="800" y="737" font-size="92" font-weight="500">أهلاً وسهلاً</text>
+  </g>
+  <path d="M180 800h1240" stroke="#fff" stroke-width="2" opacity=".35"/>
+</svg>

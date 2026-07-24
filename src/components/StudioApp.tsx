@@ -718,30 +718,62 @@ export default function StudioApp() {
       const nextIdentities = hydrateBrandIdentities(
         storedIdentities ? JSON.parse(storedIdentities) : null
       );
+      const launchParameters = new URLSearchParams(window.location.search);
+      const requestedProjectId = launchParameters.get('project');
+      const requestedFolderValue = launchParameters.get('folder');
+      const requestedFolderId =
+        requestedFolderValue && isProjectFolderId(requestedFolderValue)
+          ? requestedFolderValue
+          : null;
       const storedActiveIdentity =
         window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) ??
         window.localStorage.getItem('gt-studio-active-identity-v2');
       const storedActiveTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
       const storedActiveFolder = window.localStorage.getItem(ACTIVE_FOLDER_STORAGE_KEY);
+      const requestedProject = nextIdentities.find(({ id }) => id === requestedProjectId);
+      const requestedFolderProject = requestedFolderId
+        ? nextIdentities.find((identity) => identityBelongsToFolder(identity, requestedFolderId))
+        : undefined;
       const nextActiveIdentity =
-        nextIdentities.find(({ id }) => id === storedActiveIdentity) ?? nextIdentities[0];
+        requestedProject ??
+        requestedFolderProject ??
+        nextIdentities.find(({ id }) => id === storedActiveIdentity) ??
+        nextIdentities[0];
       setIdentities(nextIdentities);
-      if (window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) === null) {
-        setOpenIdentityIds([
-          STARTER_BRAND_IDENTITY.id,
-          GT_BRAND_IDENTITY.id,
-          ...(nextActiveIdentity &&
-          nextActiveIdentity.id !== STARTER_BRAND_IDENTITY.id &&
-          nextActiveIdentity.id !== GT_BRAND_IDENTITY.id
-            ? [nextActiveIdentity.id]
-            : []),
-        ]);
+      const hasStoredTabs = window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) !== null;
+      if (!hasStoredTabs || requestedProject || requestedFolderProject) {
+        setOpenIdentityIds((current) => {
+          const initialIds = hasStoredTabs
+            ? current
+            : [
+                STARTER_BRAND_IDENTITY.id,
+                GT_BRAND_IDENTITY.id,
+              ];
+          return nextActiveIdentity && !initialIds.includes(nextActiveIdentity.id)
+            ? [...initialIds, nextActiveIdentity.id]
+            : initialIds;
+        });
       }
-      if (nextActiveIdentity) setActiveIdentityId(nextActiveIdentity.id);
+      if (nextActiveIdentity) {
+        setActiveIdentityId(nextActiveIdentity.id);
+        if (requestedProject || requestedFolderProject) {
+          window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, nextActiveIdentity.id);
+        }
+      }
       if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
         setActiveToolId(storedActiveTool as StudioToolId);
       }
       if (
+        requestedFolderId &&
+        nextActiveIdentity &&
+        identityBelongsToFolder(nextActiveIdentity, requestedFolderId)
+      ) {
+        setActiveFolderId(requestedFolderId);
+        window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, requestedFolderId);
+      } else if (requestedProject?.kind === 'example') {
+        setActiveFolderId('examples');
+        window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'examples');
+      } else if (
         storedActiveFolder &&
         isProjectFolderId(storedActiveFolder) &&
         nextActiveIdentity &&

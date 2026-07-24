@@ -22,6 +22,14 @@ type ReferenceSeed = {
 };
 
 function referencePack(id: string, seed: ReferenceSeed): BrandReference[] {
+  const nativeAssetIds = [
+    'library-overview',
+    'library-interface',
+    'library-detail',
+    'library-campaign',
+    'library-editorial',
+    'library-motion',
+  ] as const;
   const entries = (
     Object.entries({
       official: seed.official,
@@ -31,18 +39,28 @@ function referencePack(id: string, seed: ReferenceSeed): BrandReference[] {
       motion: seed.motion,
     }) as [BrandReference['category'], string[]][]
   ).flatMap(([category, titles]) =>
-    titles.map((title, index) => ({
-      assetId: category === 'official' && index === 0 ? 'reference-homepage' : undefined,
+    titles.map((title, index) => {
+      const assetId = category === 'official'
+        ? nativeAssetIds[index]
+        : category === 'campaign' && index === 0
+          ? 'library-atmosphere'
+          : undefined;
+      return {
+      assetId,
       category,
-      capturedAt: category === 'official' && index === 0 ? '2026-07' : undefined,
+      capturedAt: assetId ? '2026-07' : undefined,
       id: `${id}-${category}-${index + 1}`,
       intendedUse: `${category} reference for ${title.toLocaleLowerCase()}`,
-      owner: category === 'official' ? seed.owner : 'Reference owner to verify before capture',
+      owner: assetId ? seed.owner : 'Reference owner to verify before capture',
       redistribution: 'research-only' as const,
-      sourceUrl: category === 'official' ? seed.officialSources?.[index] ?? seed.sourceUrl : '',
-      status: category === 'official' && index === 0 ? 'captured' as const : 'planned' as const,
+      sourceUrl: assetId ? seed.officialSources?.[index] ?? seed.sourceUrl : '',
+      status: category === 'official' && index === 0
+        ? 'captured' as const
+        : assetId
+          ? 'reviewed' as const
+          : 'planned' as const,
       title,
-    }))
+    }})
   );
 
   return entries;
@@ -165,7 +183,7 @@ export const MINTLIFY_SYSTEM: BrandSystemSource = {
     prohibited: ['No illegible code screenshots', 'No full-canvas green fog', 'No unrelated botanical imagery', 'No interface font leaking into brand output'],
     provenance: 'Use official product and documentation captures as research/proof. Abstract light and editorial imagery should be original or redistributable.',
     renderingRecipe: ['Start with a real document or API task', 'Preserve readable hierarchy', 'Place one mint signal on the answer', 'Use serif contrast sparingly', 'Verify the product remains the hero'],
-    typography: 'Inter supports product information, Arizona Flare creates selected editorial emphasis, and Paper Mono is reserved for code and compact technical labels.',
+    typography: 'Arizona Flare leads primary editorial headlines. Inter carries navigation, product UI, buttons, and reading text. Paper Mono is a compact data accent, while Geist Mono is reserved for code, API examples, and terminal output.',
   },
   references: referencePack('mintlify', {
     owner: 'Mintlify',

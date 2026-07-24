@@ -16,7 +16,7 @@ import {
   VITEPLUS_SYSTEM,
 } from './brandDossiers';
 
-const REVISION = 12;
+const REVISION = 14;
 
 function asset(
   id: string,
@@ -33,10 +33,239 @@ function asset(
     path,
     redistribution: type === 'proof' || type === 'reference' ? 'research-only' : 'bundled',
     surface,
-    tags: [type],
+    tags: id === 'identity-field' ? [type, 'brand-diagram'] : [type],
     type,
     usage,
   };
+}
+
+type LibraryAssetSource = Pick<
+  BrandAsset,
+  | 'attribution'
+  | 'id'
+  | 'label'
+  | 'license'
+  | 'path'
+  | 'redistribution'
+  | 'sourceOwner'
+  | 'sourceUrl'
+  | 'tags'
+  | 'type'
+  | 'usage'
+>;
+
+const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSource[]>> = {
+  basement: [
+    ['overview', 'Basement project world', 'https://cdn.sanity.io/images/9syto90m/production/8bf48dd1e263265f620df71ce37a24c643fac451-3840x2160.webp', 'image'],
+    ['editorial', 'Basement editorial scene', 'https://cdn.sanity.io/images/9syto90m/production/9e8ab8d6720ea7a776522fb3987329df79fa73ff-3840x2160.webp', 'image'],
+    ['detail', 'Basement material detail', 'https://cdn.sanity.io/images/9syto90m/production/d73be0f8121eb45862ad218c84deac9afe3c6d0e-3840x2160.jpg', 'image'],
+    ['atmosphere', 'Basement atmospheric field', 'https://cdn.sanity.io/images/9syto90m/production/e8e2aa0cd6a444844d99a38be72b1dde34f0c218-1968x1104.webp', 'texture'],
+    ['campaign', 'Speakeasy campaign world', 'https://cdn.sanity.io/images/9syto90m/production/6222254949305697d6f71dcef95ef99d090d1825-3840x2161.png?w=1600&auto=format', 'image'],
+    ['interface', 'Speakeasy identity application', 'https://cdn.sanity.io/images/9syto90m/production/650f72163b89639849cd4255311e4411f59bd545-3841x2161.png?w=1600&auto=format', 'product'],
+    ['motion', 'Speakeasy system sequence', 'https://cdn.sanity.io/images/9syto90m/production/d1d929331c98e10117b1e295b04279f26b6f8620-7686x2840.png?w=1600&auto=format', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native project media published by Basement Studio. Speakeasy project rights remain with their respective owners.',
+    id: `library-${name}`,
+    label,
+    license: 'Research-only project imagery; source terms apply',
+    path: `/brands/basement/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Basement Studio',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-site', 'project-world'],
+    type: type as BrandAsset['type'],
+    usage: 'Art-directed project evidence for editorial layouts, identity studies, and application boards.',
+  })),
+  cloudflare: [
+    ['overview', 'Cloudflare global network', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/4TrmSfUqwNi5D8Aacs4QER/82602aaf6971340f597e558827459fa7/Cloudflare_Network_275__Cities_in_100__Countries.png', 'image'],
+    ['editorial', 'Cloudflare founders press card', 'https://cf-assets.www.cloudflare.com/v2/image/e5gg2pqbjl18d0fdkpn8i8be6o/headshot-MM-cards-press-kit.png', 'image'],
+    ['detail', 'Matthew Prince portrait', 'https://cf-assets.www.cloudflare.com/v2/image/81hrvoj6np6kp6r4i961jd5q6t/headshot_leadership_Matthew-prince.png', 'image'],
+    ['atmosphere', 'Cloudflare orange signal field', 'https://cf-assets.www.cloudflare.com/v2/image/bpffgr36b53sj7g3psktcdiq3c/background-cloudflare-card-press-kit.png', 'texture'],
+    ['campaign', 'Cloudflare press field', 'https://cf-assets.www.cloudflare.com/v2/image/cq6fq2vvjl7h160fp14ilfaa2d/background-2-cards-press-kit.png', 'image'],
+    ['interface', 'Michelle Zatlyn portrait', 'https://cf-assets.www.cloudflare.com/v2/image/f91nhuj8097q72dk4j6k7tkn3d/headshot_leadership_Michelle-zatlyn.png', 'image'],
+    ['motion', 'Cloudflare badge field', 'https://cf-assets.www.cloudflare.com/v2/image/k316ijcui506735m4fd2qhc73d/background-3-badge-card.png', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native media file published in the official Cloudflare press kit.',
+    id: `library-${name}`,
+    label,
+    license: 'Cloudflare press-kit and trademark terms apply',
+    path: `/brands/cloudflare/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Cloudflare',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-press-kit'],
+    type: type as BrandAsset['type'],
+    usage: 'Official network, leadership, and signal imagery for infrastructure-scale brand applications.',
+  })),
+  mintlify: [
+    ['overview', 'Mintlify Replit documentation world', 'https://www.mintlify.com/new/startups/replit-dark.webp', 'product'],
+    ['editorial', 'Mintlify agent score editorial', 'https://www.mintlify.com/new/blog/agent-score.webp', 'image'],
+    ['detail', 'Mintlify docs automation detail', 'https://www.mintlify.com/new/blog/docs-automations-event.png', 'product'],
+    ['atmosphere', 'Mintlify Decagon documentation world', 'https://www.mintlify.com/new/startups/decagon-dark.webp', 'texture'],
+    ['campaign', 'Mintlify campaign field', 'https://www.mintlify.com/_next/static/media/og.28576e75.png', 'image'],
+    ['interface', 'Mintlify editor', 'https://www.mintlify.com/new/blog/editor.webp', 'product'],
+    ['motion', 'Mintlify Harvey documentation world', 'https://www.mintlify.com/new/startups/harvey-dark.webp', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native product or editorial media published by Mintlify.',
+    id: `library-${name}`,
+    label,
+    license: 'Research-only; Mintlify source terms apply',
+    path: `/brands/mintlify/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Mintlify',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-site', 'documentation-world'],
+    type: type as BrandAsset['type'],
+    usage: 'Documentation, editor, and customer-world evidence for product-led identity compositions.',
+  })),
+  ramp: [
+    ['overview', 'Ramp finance platform overview', 'Ramp-overview-OG.png', 'product'],
+    ['editorial', 'Ramp card handoff', '20220305_Ramp_Cards_0007.jpg', 'image'],
+    ['detail', 'Ramp card material detail', '20220305_Ramp_Cards_0017.jpg', 'image'],
+    ['atmosphere', 'Ramp olive product field', 'Ramp_r1_80123.jpg', 'texture'],
+    ['campaign', 'Ramp card campaign image', '20220305_Ramp_Cards_0022.jpg', 'image'],
+    ['interface', 'Ramp finance platform', 'Ramp-finance-platform.jpg', 'product'],
+    ['motion', 'Ramp card sequence frame', '20220305_Ramp_Cards_0023.png', 'motion'],
+  ].map(([name, label, fileName, type]) => ({
+    attribution: `Native media file from Ramp's official press kit: ${fileName}.`,
+    id: `library-${name}`,
+    label,
+    license: 'Ramp press kit — royalty free for web and print',
+    path: `/brands/ramp/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Ramp',
+    sourceUrl: `https://assets.ramp.com/press_kit/ramp_june_26_press_kit.zip#${fileName}`,
+    tags: [type, 'source-native', 'official-press-kit', 'finance-operations'],
+    type: type as BrandAsset['type'],
+    usage: 'Official product and card photography for finance, product, campaign, and editorial compositions.',
+  })),
+  stripe: [
+    ['overview', 'Stripe office environment', 'https://images.stripeassets.com/fzn2n1nzq965/2bYb8Ul1JnR0Fq8FS3Sdhz/0a9f5ee18d61ca2220912272bff696b2/NewsInformationHero.jpg?q=80&w=1620', 'image'],
+    ['editorial', 'John and Patrick Collison', 'https://images.stripeassets.com/fzn2n1nzq965/2d5vw8d4viykg9Jzkx3Zm0/0b8d6572f37b38a09e1b5824cc3289f8/john_patrick_collison_newsroom.jpg?q=80&w=1082', 'image'],
+    ['detail', 'Patrick Collison portrait', 'https://images.stripeassets.com/fzn2n1nzq965/5TGCamYpNVFC4Uo6UptKEz/af4c4cbdd3091affd276dea2233326a3/Patrick_Collison.png?q=80&w=1082', 'image'],
+    ['atmosphere', 'Stripe Sessions spectrum', 'https://images.stripeassets.com/fzn2n1nzq965/1fXkzdGTGUqFS4khCdLKq8/5bc54c1739b62111a740119871d3582e/sessions-2026-nav-bg.png?q=80', 'texture'],
+    ['campaign', 'Stripe newsroom campaign field', 'https://images.stripeassets.com/fzn2n1nzq965/3I8VZjmeW0Kb4uNFyYdYx3/953c5936e18e5f8f42417f7cb7409d4f/newsroom-stripe-default-social-card.png?q=80', 'image'],
+    ['interface', 'Will Gaybrick portrait', 'https://images.stripeassets.com/fzn2n1nzq965/2V8UpuoDuP3zR8ehtLwjoN/796ff6de2354596236223bc835e3b0e0/Will_Gaybrick.png?q=80&w=1082', 'image'],
+    ['motion', 'John Collison portrait', 'https://images.stripeassets.com/fzn2n1nzq965/11uWDnjAvpBIhZhhc1vvNg/31dcdb0d833f5ef42de481cde2a55ef9/John_Collison.png?q=80&w=1082', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native newsroom media published by Stripe.',
+    id: `library-${name}`,
+    label,
+    license: 'Stripe media-asset and marks usage terms apply',
+    path: `/brands/stripe/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Stripe',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-newsroom', 'economic-infrastructure'],
+    type: type as BrandAsset['type'],
+    usage: 'Official environmental, leadership, and spectrum media for economic-infrastructure stories.',
+  })),
+  tailwind: [
+    ['overview', 'Tailwind 3D transform example', 'https://tailwindcss.com/_next/static/media/3d-transforms.02bsrv~jiqeb9.jpeg', 'product'],
+    ['editorial', 'Tailwind CSS grid example one', 'https://tailwindcss.com/_next/static/media/css-grid-1.0c8bc8q87-upx.png', 'product'],
+    ['detail', 'Tailwind CSS grid example two', 'https://tailwindcss.com/_next/static/media/css-grid-2.15b-x2ty8.g~z.png', 'product'],
+    ['atmosphere', 'Tailwind dark-mode example', 'https://tailwindcss.com/_next/static/media/dark-mode.dark.11szx9d7s4zjz.png', 'texture'],
+    ['campaign', 'Tailwind filters example', 'https://tailwindcss.com/_next/static/media/filters.17z4w2mm8xht2.png', 'image'],
+    ['interface', 'Tailwind responsive example', 'https://tailwindcss.com/_next/static/media/responsive-3.00654hu_8u-c4.png', 'product'],
+    ['motion', 'Tailwind template sequence', 'https://tailwindcss.com/_next/static/media/templates-col-1.11i0onn5v96dx.png', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native example media published by Tailwind CSS.',
+    id: `library-${name}`,
+    label,
+    license: 'Tailwind CSS trademark and source terms apply',
+    path: `/brands/tailwind/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Tailwind CSS',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-site', 'utility-example'],
+    type: type as BrandAsset['type'],
+    usage: 'Official utility and responsive examples for technical, product, and educational layouts.',
+  })),
+  viteplus: [
+    ['overview', 'Vite+ electric footer field', 'https://viteplus.dev/assets/footer-background.BOazVP_q.jpg', 'texture'],
+    ['editorial', 'Vite+ meta-framework stack', 'https://viteplus.dev/assets/meta-frameworks.DEXTQqKr.png', 'product'],
+    ['detail', 'Vite+ productivity and security', 'https://viteplus.dev/assets/productivity-security.CtJu-irT.png', 'product'],
+    ['atmosphere', 'Vite by VoidZero system', 'https://viteplus.dev/assets/vite-by-voidzero.D7bblMgo.png', 'texture'],
+    ['campaign', 'Vite+ open graph field', 'https://viteplus.dev/og.jpg', 'image'],
+    ['interface', 'Oxc toolchain tile', 'https://viteplus.dev/assets/oxc.DAkC6Vtt.png', 'product'],
+    ['motion', 'Vite toolchain tile', 'https://viteplus.dev/assets/vite.FkFFz4VB.png', 'motion'],
+  ].map(([name, label, sourceUrl, type]) => ({
+    attribution: 'Native product media published by Vite+.',
+    id: `library-${name}`,
+    label,
+    license: 'Research-only; Vite+ source terms apply',
+    path: `/brands/viteplus/library/${name}.png`,
+    redistribution: 'research-only' as const,
+    sourceOwner: 'Vite+',
+    sourceUrl,
+    tags: [type, 'source-native', 'official-site', 'toolchain'],
+    type: type as BrandAsset['type'],
+    usage: 'Official toolchain, framework, and electric-field media for product and terminal compositions.',
+  })),
+};
+
+function originalLibraryAssets(
+  brandId: 'gt' | 'starter',
+  sourceOwner: string,
+  basePath: string
+): BrandAsset[] {
+  const paths = brandId === 'gt'
+    ? [
+        '/brands/gt/assets/localization-pipeline.svg',
+        '/brands/gt/assets/language-field.svg',
+        '/brands/gt/assets/context-stack.svg',
+        '/brands/gt/assets/translation-field.svg',
+        '/examples/gt-morph.gif',
+        '/examples/gt-type-delete.gif',
+        '/examples/gt-morph-one-second.gif',
+      ]
+    : ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'].map(
+        (name) => `${basePath}/library/${name}.png`
+      );
+  const labels = brandId === 'gt'
+    ? ['Localization pipeline', 'Multilingual language field', 'Context stack', 'Translation field', 'Centered language morph', 'Type and delete motion', 'One-second language morph']
+    : ['Visual overview', 'Editorial crop', 'Product detail', 'Atmosphere strip', 'Campaign field', 'Interface evidence', 'Motion frame'];
+  const types: BrandAsset['type'][] = ['background', 'image', 'product', 'texture', 'motion', 'motion', 'motion'];
+
+  return paths.map((path, index) => ({
+    alt: `${sourceOwner} ${labels[index]}`,
+    attribution: brandId === 'gt'
+      ? 'Original Glyphfield interpretation of the documented General Translation workflow; not official GT artwork.'
+      : 'Original Glyphfield Starter artwork.',
+    id: `library-${['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'][index]}`,
+    label: `${sourceOwner} ${labels[index]}`,
+    license: 'Glyphfield original',
+    path,
+    redistribution: 'original',
+    sourceOwner: 'Glyphfield',
+    sourceUrl: brandId === 'gt' ? 'https://generaltranslation.com/en-US/' : 'https://glyphfield.app',
+    surface: 'any',
+    tags: [types[index], 'brand-diagram', 'original-system'],
+    type: types[index],
+    usage: brandId === 'gt'
+      ? 'Reusable monochrome system diagram or motion study for explaining localization without decorative screenshots.'
+      : 'Original evidence for Starter previews, moodboards, and identity applications.',
+  }));
+}
+
+function researchLibraryAssets(
+  brandId: string,
+  sourceOwner: string,
+  _sourceUrl: string,
+  basePath = `/brands/${brandId}`,
+  _redistribution: BrandAsset['redistribution'] = 'research-only'
+): BrandAsset[] {
+  if (brandId === 'gt' || brandId === 'starter') {
+    return originalLibraryAssets(brandId, sourceOwner, basePath);
+  }
+
+  const records = OFFICIAL_LIBRARY_ASSETS[brandId] ?? [];
+
+  return records.map((record) => ({
+    ...record,
+    alt: record.label,
+    surface: 'any',
+  }));
 }
 
 function application(
@@ -176,12 +405,12 @@ const RAMP_FONT_ASSETS: BrandFontAsset[] = [
 
 const MINTLIFY_FONT_ASSETS: BrandFontAsset[] = [
   {
-    family: 'Inter',
-    fileName: 'Inter-Variable.ttf',
+    family: 'Mintlify Inter',
+    fileName: 'InterVariable.ttf',
     format: 'truetype',
-    id: 'inter-variable',
-    label: 'Inter Variable',
-    path: '/fonts/inter-variable.ttf',
+    id: 'mintlify-inter-variable',
+    label: 'Mintlify Inter Variable',
+    path: '/fonts/brands/mintlify/inter-variable.ttf',
     style: 'normal',
     weight: 400,
     weightMax: 900,
@@ -206,6 +435,18 @@ const MINTLIFY_FONT_ASSETS: BrandFontAsset[] = [
     path: '/fonts/brands/mintlify/paper-mono.woff2',
     style: 'normal',
     weight: 400,
+  },
+  {
+    family: 'Mintlify Geist Mono',
+    fileName: 'GeistMono-Latin.woff2',
+    format: 'woff2',
+    id: 'mintlify-geist-mono-variable',
+    label: 'Mintlify Geist Mono Variable',
+    path: '/fonts/brands/mintlify/geist-mono-latin.woff2',
+    style: 'normal',
+    weight: 400,
+    weightMax: 900,
+    weightMin: 100,
   },
 ];
 
@@ -378,8 +619,9 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     asset('wordmark', 'General Translation wordmark', '/brands/gt/logos/wordmark-black.svg', 'light'),
     asset('wordmark-light', 'General Translation white wordmark', '/brands/gt/logos/wordmark-white.svg', 'dark'),
     asset('locadex', 'Locadex wordmark', '/brands/gt/logos/locadex-black.svg', 'light', 'product'),
-    asset('identity-field', 'GT translation field', '/brands/gt/assets/translation-field.svg', 'any', 'background'),
+    asset('identity-field', 'GT localization pipeline', '/brands/gt/assets/localization-pipeline.svg', 'any', 'background', 'A brand-native source-to-delivery diagram for localization workflows.'),
     asset('reference-homepage', 'GT homepage · July 2026', '/brands/gt/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for monochrome layout, product language, navigation, and proof.'),
+    ...researchLibraryAssets('gt', 'General Translation', 'https://generaltranslation.com'),
   ],
   audiences: ['Product engineers', 'Localization teams', 'Developer-first companies', 'AI-native product teams'],
   builtIn: true,
@@ -549,7 +791,8 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
     asset('wordmark', 'Starter wordmark', '/templates/logos/starter-wordmark.svg', 'light'),
     asset('wordmark-light', 'Starter white wordmark', '/templates/logos/starter-wordmark-white.svg', 'dark'),
     asset('identity-field', 'Starter signal field', '/templates/assets/starter-field.svg', 'any', 'background'),
-    asset('reference-homepage', 'Starter system reference', '/templates/assets/starter-field.svg', 'any', 'reference', 'Original Glyphfield reference for the Starter focus-window system.'),
+    asset('reference-homepage', 'Starter system reference', '/screenshots/studio-moodboard-light-2026.png', 'any', 'reference', 'Original Glyphfield moodboard reference for the Starter focus-window system.'),
+    ...researchLibraryAssets('starter', 'Glyphfield Starter', 'https://glyphfield.app', '/templates', 'original'),
   ],
   audiences: ['Small product teams', 'Independent makers', 'Design-led founders', 'Internal innovation groups'],
   colors: [
@@ -622,8 +865,9 @@ export const RAMP_BRAND_IDENTITY: BrandIdentity = {
     asset('mark-light', 'Official Ramp symbol / white', '/brands/ramp/logos/mark-white.svg', 'dark'),
     asset('wordmark', 'Official Ramp wordmark / slate', '/brands/ramp/logos/wordmark-slate.svg', 'light'),
     asset('wordmark-light', 'Official Ramp wordmark / white', '/brands/ramp/logos/wordmark-white.svg', 'dark'),
-    asset('identity-field', 'Ramp economic field', '/brands/ramp/assets/economic-field.svg', 'any', 'background'),
+    asset('identity-field', 'Ramp finance operations map', '/brands/ramp/assets/economic-field.svg', 'any', 'background', 'A brand-native flow from spend channels through policy automation to live financial visibility.'),
     asset('reference-homepage', 'Ramp homepage · July 2026', '/brands/ramp/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for savings-led hierarchy, product photography, warm paper, and highlighter color.'),
+    ...researchLibraryAssets('ramp', 'Ramp', 'https://ramp.com'),
   ],
   audiences: ['Finance leaders', 'Controllers and accountants', 'Operations teams', 'Employees spending on behalf of a business'],
   builtIn: true,
@@ -688,6 +932,7 @@ export const MINTLIFY_BRAND_IDENTITY: BrandIdentity = {
     asset('wordmark-light', 'Mintlify white wordmark', '/brands/mintlify/logos/wordmark-light.svg', 'dark'),
     asset('identity-field', 'Mintlify documentation field', '/brands/mintlify/assets/docs-field.svg', 'any', 'background'),
     asset('reference-homepage', 'Mintlify homepage · July 2026', '/brands/mintlify/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for dark knowledge surfaces, editorial serif hierarchy, and restrained mint signal.'),
+    ...researchLibraryAssets('mintlify', 'Mintlify', 'https://mintlify.com'),
   ],
   audiences: ['Developer experience teams', 'API teams', 'Technical writers', 'Product-led software companies'],
   builtIn: true,
@@ -706,18 +951,18 @@ export const MINTLIFY_BRAND_IDENTITY: BrandIdentity = {
   products: ['Documentation', 'API reference', 'AI assistant', 'Web editor', 'Themes', 'Analytics'],
   proof: ['Opinionated defaults', 'Flexible themes', 'MDX components', 'AI-native discovery'],
   proofAssets: [],
-  revision: REVISION,
+  revision: REVISION + 1,
   shortName: 'M',
   socialHandle: '@mintlify',
-  sourceNotes: ['Official Mintlify homepage · captured July 2026', 'Official Mintlify appearance and branding documentation', 'Mintlify design philosophy and dashboard redesign essays', 'Existing official Mintlify logo asset in the GT source set'],
+  sourceNotes: ['Official Mintlify homepage and production font CSS · reviewed July 2026', 'Official Mintlify appearance and branding documentation', 'Mintlify design philosophy and dashboard redesign essays', 'Existing official Mintlify logo asset in the GT source set'],
   strategy: { challenge: 'Documentation becomes hard to navigate, expensive to maintain, visually disconnected from the product, and invisible to users who need an answer now.', concept: 'Illuminate the path to understanding.', outcome: 'A polished identity that makes documentation feel like a first-class product surface rather than a static support archive.', personality: ['Helpful', 'Calm', 'Polished', 'Developer-literate'], pillars: ['Invisible interaction', 'Developers deserve great design', 'Opinionated by default', 'Infinitely flexible when needed'], promise: 'Make the right knowledge beautiful, current, and easy to find.' },
   style: { borderRadius: 10, density: 'comfortable', grid: 'none', imageTreatment: 'natural', logoScale: 92 },
   tagline: 'The front door to your product.',
   typography: [
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -0.8, lineHeight: 1.02, role: 'Display', usage: 'Friendly product statements and documentation headlines', weight: 500 },
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -0.1, lineHeight: 1.5, role: 'Body', usage: 'Reading, navigation, and product UI', weight: 400 },
-    { family: 'Arizona Flare', fontId: 'mintlify-arizona-flare-400', letterSpacing: -0.2, lineHeight: 1.12, role: 'Accent', usage: 'Editorial statements, quotes, and expressive documentation moments', weight: 400 },
-    { family: 'Paper Mono', fontId: 'mintlify-paper-mono-400', letterSpacing: 0, lineHeight: 1.5, role: 'Code', usage: 'Code blocks, request examples, and API metadata', weight: 400 },
+    { family: 'Arizona Flare', fontId: 'mintlify-arizona-flare-400', letterSpacing: -2, lineHeight: 1.04, role: 'Display', usage: 'Primary editorial headlines and the knowledge-platform promise', weight: 400 },
+    { family: 'Mintlify Inter', fontId: 'mintlify-inter-variable', letterSpacing: 0, lineHeight: 1.5, role: 'Body', usage: 'Reading, navigation, buttons, documentation, and product UI', weight: 400 },
+    { family: 'Paper Mono', fontId: 'mintlify-paper-mono-400', letterSpacing: 0.2, lineHeight: 1.35, role: 'Accent', usage: 'Agent data, compact metrics, status labels, and technical emphasis', weight: 400 },
+    { family: 'Mintlify Geist Mono', fontId: 'mintlify-geist-mono-variable', letterSpacing: 0, lineHeight: 1.5, role: 'Code', usage: 'Code blocks, request examples, API metadata, and terminal output', weight: 400 },
   ],
   values: ['Taste', 'Iteration', 'Developer empathy', 'Flexibility'],
   voice: { avoid: ['Documentation as an afterthought', 'Dense technical language without a path', 'Customization presented as complexity'], phrases: ['Developers are users too.', 'Opinionated by default.', 'Built for the way your team works.'], principles: ['Helpful', 'Clear', 'Modern', 'Quietly opinionated'] },
@@ -727,7 +972,7 @@ export const MINTLIFY_BRAND_IDENTITY: BrandIdentity = {
 export const TAILWIND_BRAND_IDENTITY: BrandIdentity = {
   ...TAILWIND_SYSTEM,
   applications: [application('identity', 'Build anything', 'foundation', '1600 × 1000', 'The twin-wave mark and utility-first promise in a sky-blue technical field.'), application('logo', 'Tailwind logo family', 'foundation', 'Mark / logotype', 'Official cyan mark with slate or white logotype and protected clear space.'), application('playground', 'Playground', 'product', '1440 × 1024', 'Utilities, preview, responsive states, and generated CSS in one direct making surface.'), application('docs', 'Framework docs', 'developer', 'Responsive', 'Search, utilities, examples, and code presented with exceptional scanning rhythm.'), application('release', 'Release system', 'marketing', '16:9 / 4:5', 'Version launches assembled from wave motion, utility tokens, and product evidence.'), application('component', 'UI component', 'product', 'Responsive', 'A real interface example demonstrates expressive range without leaving HTML.'), application('community', 'Community build', 'social', '1:1', 'Contributor projects and techniques framed by cyan wave fields.'), application('workshop', 'Workshop kit', 'event', 'Deck / badge', 'A teaching system pairing live code, immediate output, and the utility vocabulary.')],
-  assets: [asset('mark-dark', 'Official Tailwind CSS mark', '/brands/tailwind/logos/mark.svg', 'light'), asset('mark-light', 'Official Tailwind CSS mark', '/brands/tailwind/logos/mark.svg', 'dark'), asset('wordmark', 'Official Tailwind CSS logotype', '/brands/tailwind/logos/wordmark.svg', 'light'), asset('wordmark-light', 'Official Tailwind CSS white logotype', '/brands/tailwind/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Tailwind utility current', '/brands/tailwind/assets/utility-field.svg', 'any', 'background'), asset('reference-homepage', 'Tailwind CSS homepage · July 2026', '/brands/tailwind/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for compositional guides, utility annotation, code rhythm, and dark technical surfaces.')],
+  assets: [asset('mark-dark', 'Official Tailwind CSS mark', '/brands/tailwind/logos/mark.svg', 'light'), asset('mark-light', 'Official Tailwind CSS mark', '/brands/tailwind/logos/mark.svg', 'dark'), asset('wordmark', 'Official Tailwind CSS logotype', '/brands/tailwind/logos/wordmark.svg', 'light'), asset('wordmark-light', 'Official Tailwind CSS white logotype', '/brands/tailwind/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Tailwind utility current', '/brands/tailwind/assets/utility-field.svg', 'any', 'background'), asset('reference-homepage', 'Tailwind CSS homepage · July 2026', '/brands/tailwind/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for compositional guides, utility annotation, code rhythm, and dark technical surfaces.'), ...researchLibraryAssets('tailwind', 'Tailwind CSS', 'https://tailwindcss.com')],
   audiences: ['Frontend developers', 'Design engineers', 'Product teams', 'Component library authors'],
   builtIn: true,
   colors: [{ hex: '#0F172A', id: 'ink', name: 'Slate 900', role: 'Official logotype and primary type' }, { hex: '#FFFFFF', id: 'paper', name: 'White', role: 'Primary code and documentation surface' }, { hex: '#F8FAFC', id: 'muted', name: 'Slate 50', role: 'Quiet background' }, { hex: '#38BDF8', id: 'emphasis', name: 'Sky 400', role: 'Official mark and primary framework signal' }, { hex: '#7DD3FC', id: 'success', name: 'Sky 300', role: 'Soft wave and positive emphasis' }, { hex: '#E0F2FE', id: 'warning', name: 'Sky 100', role: 'Code selection and pale field' }, { hex: '#64748B', id: 'progress', name: 'Slate 500', role: 'Secondary type and metadata' }, { hex: '#020617', id: 'error', name: 'Slate 950', role: 'Dark documentation and campaign surface' }],
@@ -744,7 +989,7 @@ export const TAILWIND_BRAND_IDENTITY: BrandIdentity = {
 export const VITEPLUS_BRAND_IDENTITY: BrandIdentity = {
   ...VITEPLUS_SYSTEM,
   applications: [application('identity', 'One toolchain', 'foundation', '1600 × 1000', 'The Vite+ bolt unifies a formerly fragmented frontend stack.'), application('logo', 'Vite+ logo system', 'foundation', 'Icon / logotype', 'Official gradient bolt and parenthetical toolchain mark on light and dark.'), application('terminal', 'Unified terminal', 'developer', '80 columns', 'Create, install, dev, check, test, build, and run through one vp vocabulary.'), application('stack', 'Toolchain diagram', 'product', '16:9', 'Runtime, packages, framework, linting, testing, and builds shown as one accelerated system.'), application('benchmark', 'Speed proof', 'marketing', '16:9', 'Measured performance paired with the exact task and tool being replaced.'), application('launch', 'Launch sequence', 'social', '1:1 / 4:5', 'Electric purple, mint energy, and terminal evidence introduce one capability at a time.'), application('docs', 'Toolchain guide', 'developer', 'Responsive', 'Installation and migration content organized around a single predictable command model.'), application('conference', 'Web toolchain keynote', 'event', 'Stage / deck', 'An isometric runtime stack and terminal narrative scaled for live explanation.')],
-  assets: [asset('mark-dark', 'Official Vite+ icon', '/brands/viteplus/logos/mark.svg', 'light'), asset('mark-light', 'Official Vite+ icon', '/brands/viteplus/logos/mark.svg', 'dark'), asset('wordmark', 'Official Vite+ dark logotype', '/brands/viteplus/logos/wordmark-dark.svg', 'light'), asset('wordmark-light', 'Official Vite+ light logotype', '/brands/viteplus/logos/wordmark-light.svg', 'dark'), asset('identity-field', 'Vite+ convergence field', '/brands/viteplus/assets/convergence-field.svg', 'any', 'background'), asset('reference-homepage', 'Vite+ homepage · July 2026', '/brands/viteplus/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for the white technical shell, grainy spectrum field, terminal evidence, and reticle-like dividers.')],
+  assets: [asset('mark-dark', 'Official Vite+ icon', '/brands/viteplus/logos/mark.svg', 'light'), asset('mark-light', 'Official Vite+ icon', '/brands/viteplus/logos/mark.svg', 'dark'), asset('wordmark', 'Official Vite+ dark logotype', '/brands/viteplus/logos/wordmark-dark.svg', 'light'), asset('wordmark-light', 'Official Vite+ light logotype', '/brands/viteplus/logos/wordmark-light.svg', 'dark'), asset('identity-field', 'Vite+ convergence field', '/brands/viteplus/assets/convergence-field.svg', 'any', 'background'), asset('reference-homepage', 'Vite+ homepage · July 2026', '/brands/viteplus/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for the white technical shell, grainy spectrum field, terminal evidence, and reticle-like dividers.'), ...researchLibraryAssets('viteplus', 'Vite+', 'https://viteplus.dev')],
   audiences: ['Frontend developers', 'Platform teams', 'Framework maintainers', 'Large JavaScript organizations'], builtIn: true,
   colors: [{ hex: '#08060D', id: 'ink', name: 'Void', role: 'Primary type and terminal surface' }, { hex: '#FFFFFF', id: 'paper', name: 'White', role: 'Primary documentation field' }, { hex: '#F4F1FF', id: 'muted', name: 'Lilac mist', role: 'Quiet diagrams and code backgrounds' }, { hex: '#6254FE', id: 'emphasis', name: 'Vite violet', role: 'Official bolt and unified action' }, { hex: '#2BFDD2', id: 'success', name: 'Mint current', role: 'Success, acceleration, and energy' }, { hex: '#EDE6FF', id: 'warning', name: 'Electric haze', role: 'Glow and dimensional highlight' }, { hex: '#4E14FF', id: 'progress', name: 'Deep electric', role: 'Gradient depth and active process' }, { hex: '#17131F', id: 'error', name: 'Terminal', role: 'Dark product and campaign surface' }],
   contactEmail: 'hello@voidzero.dev', description: 'An electric developer identity for a unified toolchain that manages the JavaScript runtime, package manager, and frontend workflow through one fast interface.', fonts: VITEPLUS_FONT_ASSETS, greetings: ['Create', 'Check', 'Build'],
@@ -757,7 +1002,7 @@ export const VITEPLUS_BRAND_IDENTITY: BrandIdentity = {
 export const CLOUDFLARE_BRAND_IDENTITY: BrandIdentity = {
   ...CLOUDFLARE_SYSTEM,
   applications: [application('identity', 'A better Internet', 'foundation', '1600 × 1000', 'The orange cloud sits between users and origins as a visible network horizon.'), application('logo', 'Cloudflare logo family', 'foundation', 'Cloud / logotype', 'Official cloud-and-logotype system with orange, black, and white surface variants.'), application('network', 'Global network map', 'product', '16:9', 'Cities, traffic, security, compute, and data visualized as one connected operating layer.'), application('dashboard', 'Connectivity cloud', 'product', '1440 × 1024', 'Security, performance, reliability, developer, and network controls in a dense operational surface.'), application('workers', 'Developer platform', 'developer', 'Responsive', 'Code, deployment, runtime limits, observability, and edge topology shown together.'), application('research', 'Internet report', 'editorial', 'A4 / web', 'Large-scale network evidence and incident analysis with high information integrity.'), application('campaign', 'Internet signal', 'social', '1:1 / 16:9', 'Orange horizon bands carry launch, threat, performance, and reliability signals.'), application('summit', 'Network summit', 'event', 'Stage / badge', 'A global operating field that scales from attendee badge to panoramic stage.')],
-  assets: [asset('mark-dark', 'Cloudflare cloud mark', '/brands/cloudflare/logos/mark.svg', 'light'), asset('mark-light', 'Cloudflare cloud mark / white', '/brands/cloudflare/logos/mark-white.svg', 'dark'), asset('wordmark', 'Cloudflare wordmark', '/brands/cloudflare/logos/wordmark.svg', 'light'), asset('wordmark-light', 'Cloudflare white wordmark', '/brands/cloudflare/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Cloudflare network horizon', '/brands/cloudflare/assets/network-horizon.svg', 'any', 'background'), asset('reference-homepage', 'Cloudflare homepage · July 2026', '/brands/cloudflare/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for the orange network field, infrastructure-scale typography, signal texture, and dark shell.')],
+  assets: [asset('mark-dark', 'Cloudflare cloud mark', '/brands/cloudflare/logos/mark.svg', 'light'), asset('mark-light', 'Cloudflare cloud mark / white', '/brands/cloudflare/logos/mark-white.svg', 'dark'), asset('wordmark', 'Cloudflare wordmark', '/brands/cloudflare/logos/wordmark.svg', 'light'), asset('wordmark-light', 'Cloudflare white wordmark', '/brands/cloudflare/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Cloudflare network horizon', '/brands/cloudflare/assets/network-horizon.svg', 'any', 'background'), asset('reference-homepage', 'Cloudflare homepage · July 2026', '/brands/cloudflare/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for the orange network field, infrastructure-scale typography, signal texture, and dark shell.'), ...researchLibraryAssets('cloudflare', 'Cloudflare', 'https://cloudflare.com')],
   audiences: ['Website and application teams', 'Security leaders', 'Network teams', 'Developers building at the edge'], builtIn: true,
   colors: [{ hex: '#404041', id: 'ink', name: 'Cloudflare charcoal', role: 'Primary type and infrastructure contrast' }, { hex: '#FFFFFF', id: 'paper', name: 'White', role: 'Primary documentation and product field' }, { hex: '#F7F7F5', id: 'muted', name: 'Fog', role: 'Network map and quiet surface' }, { hex: '#F38020', id: 'emphasis', name: 'Cloudflare orange', role: 'Official cloud, network path, and primary emphasis' }, { hex: '#FAAD3D', id: 'success', name: 'Sun', role: 'Cloud highlight and positive performance' }, { hex: '#FFF0DB', id: 'warning', name: 'Warm cloud', role: 'Soft orange data field' }, { hex: '#7A7A7A', id: 'progress', name: 'Graphite', role: 'Secondary network metadata' }, { hex: '#1D1D1F', id: 'error', name: 'Night network', role: 'Dark operational and campaign surface' }],
   contactEmail: 'press@cloudflare.com', description: 'An orange network identity for the connectivity cloud that protects, connects, and accelerates applications, networks, and people across a global edge.', fonts: CLOUDFLARE_FONT_ASSETS, greetings: ['Connect', 'Protect', 'Accelerate'],
@@ -770,7 +1015,7 @@ export const CLOUDFLARE_BRAND_IDENTITY: BrandIdentity = {
 export const STRIPE_BRAND_IDENTITY: BrandIdentity = {
   ...STRIPE_SYSTEM,
   applications: [application('identity', 'Economic infrastructure', 'foundation', '1600 × 1000', 'The Stripe wordmark sits inside a dimensional field of programmable money movement.'), application('logo', 'Stripe wordmark', 'foundation', 'Slate / blurple / white', 'Official wordmark colors only, with disciplined space and no unofficial symbol.'), application('payments', 'Payment surface', 'product', '1440 × 1024', 'Checkout, payments, subscriptions, tax, revenue, and risk presented as a coherent programmable platform.'), application('docs', 'Developer integration', 'developer', 'Responsive', 'API reference, code, request objects, and live payment evidence arranged for implementation speed.'), application('sessions', 'Stripe Sessions', 'event', 'Stage / badge', 'Dimensional gradients and precise product narratives for an economic infrastructure audience.'), application('report', 'Internet economy report', 'editorial', 'A4 / web', 'Data, business stories, and global economic signals in a rigorous editorial system.'), application('launch', 'Product launch', 'marketing', '16:9 / 4:5', 'A programmable gradient field reveals the specific workflow, object, or market unlocked.'), application('social', 'Economic signal', 'social', '1:1', 'Short evidence-led stories pairing bold type with restrained dimensional color.')],
-  assets: [asset('mark-dark', 'Official Stripe blurple wordmark', '/brands/stripe/logos/wordmark-blurple.svg', 'light'), asset('mark-light', 'Official Stripe white wordmark', '/brands/stripe/logos/wordmark-white.svg', 'dark'), asset('wordmark', 'Official Stripe slate wordmark', '/brands/stripe/logos/wordmark-slate.svg', 'light'), asset('wordmark-light', 'Official Stripe white wordmark', '/brands/stripe/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Stripe programmable field', '/brands/stripe/assets/programmable-field.svg', 'any', 'background'), asset('reference-homepage', 'Stripe homepage · July 2026', '/brands/stripe/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for dimensional color, economic narrative, customer proof, and precise product hierarchy.')],
+  assets: [asset('mark-dark', 'Official Stripe blurple wordmark', '/brands/stripe/logos/wordmark-blurple.svg', 'light'), asset('mark-light', 'Official Stripe white wordmark', '/brands/stripe/logos/wordmark-white.svg', 'dark'), asset('wordmark', 'Official Stripe slate wordmark', '/brands/stripe/logos/wordmark-slate.svg', 'light'), asset('wordmark-light', 'Official Stripe white wordmark', '/brands/stripe/logos/wordmark-white.svg', 'dark'), asset('identity-field', 'Stripe programmable field', '/brands/stripe/assets/programmable-field.svg', 'any', 'background'), asset('reference-homepage', 'Stripe homepage · July 2026', '/brands/stripe/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for dimensional color, economic narrative, customer proof, and precise product hierarchy.'), ...researchLibraryAssets('stripe', 'Stripe', 'https://stripe.com')],
   audiences: ['Developers', 'Internet businesses', 'Finance and revenue teams', 'Platforms and marketplaces'], builtIn: true,
   colors: [{ hex: '#061B31', id: 'ink', name: 'Stripe slate', role: 'Official wordmark and primary information color' }, { hex: '#FFFFFF', id: 'paper', name: 'White', role: 'Primary product and documentation surface' }, { hex: '#F6F9FC', id: 'muted', name: 'Cloud', role: 'Quiet product field and dimensional canvas' }, { hex: '#533AFD', id: 'emphasis', name: 'Blurple', role: 'Official wordmark option and primary product signal' }, { hex: '#00D4FF', id: 'success', name: 'Cyan', role: 'Dimensional gradient and positive movement' }, { hex: '#FF80A6', id: 'warning', name: 'Rose', role: 'Dimensional gradient and editorial contrast' }, { hex: '#7A73FF', id: 'progress', name: 'Periwinkle', role: 'Active data and atmospheric depth' }, { hex: '#0A2540', id: 'error', name: 'Deep slate', role: 'Dark product, editorial, and event surface' }],
   contactEmail: 'press@stripe.com', description: 'A precise, dimensional identity for the economic infrastructure platform that helps internet businesses accept payments, manage revenue, and build new business models.', fonts: STRIPE_FONT_ASSETS, greetings: ['Build', 'Sell', 'Grow'],
@@ -801,6 +1046,7 @@ export const BASEMENT_BRAND_IDENTITY: BrandIdentity = {
     asset('wordmark-light', 'Basement white wordmark', '/brands/basement/logos/wordmark-white.svg', 'dark'),
     asset('identity-field', 'Engineered interruption', '/brands/basement/assets/engineered-interruption.svg', 'any', 'background'),
     asset('reference-homepage', 'Basement homepage · July 2026', '/brands/basement/references/homepage-2026.png', 'any', 'reference', 'Official homepage reference for project-specific worlds, tactile darkness, deliberate low fidelity, and one strong visual move.'),
+    ...researchLibraryAssets('basement', 'Basement Studio', 'https://basement.studio'),
   ],
   audiences: ['Ambitious technology companies', 'Culture-shaping founders', 'Product and brand leaders', 'Teams whose digital presence must perform'],
   builtIn: true,

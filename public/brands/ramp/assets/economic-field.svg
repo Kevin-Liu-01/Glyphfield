@@ -1,6 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
-  <rect width="1600" height="1000" fill="#f4f0df"/>
-  <path d="M-220 920 880-180h430L210 920zm620 0L1500-180h320L720 920z" fill="#f7e154"/>
-  <path d="M1140 120h300v300h-300zM160 580h420v300H160z" fill="#252b32"/>
-  <path d="m1220 320 70-120 70 120z" fill="#f4f0df"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp finance operations map</title>
+  <desc id="desc">Corporate cards, accounts payable, and travel flow through policy and automation into a live ledger, cash visibility, and savings.</desc>
+  <rect width="1600" height="1000" fill="#f2efe6"/>
+  <g fill="none" stroke="#252525" stroke-width="2">
+    <rect x="72" y="92" width="1456" height="816"/>
+    <path d="M422 250H576M422 500H576M422 750H576M1024 250h154M1024 500h154M1024 750h154"/>
+    <path d="m562 240 20 10-20 10M562 490l20 10-20 10M562 740l20 10-20 10M1164 240l20 10-20 10M1164 490l20 10-20 10M1164 740l20 10-20 10"/>
+  </g>
+  <g font-family="Lausanne, Arial, sans-serif" fill="#252525">
+    <g font-size="26" font-weight="400">
+      <rect x="126" y="188" width="296" height="124" fill="#f2efe6" stroke="#252525" stroke-width="2"/>
+      <text x="166" y="258">Corporate cards</text>
+      <rect x="126" y="438" width="296" height="124" fill="#f2efe6" stroke="#252525" stroke-width="2"/>
+      <text x="166" y="508">Accounts payable</text>
+      <rect x="126" y="688" width="296" height="124" fill="#f2efe6" stroke="#252525" stroke-width="2"/>
+      <text x="166" y="758">Travel</text>
+    </g>
+    <rect x="582" y="188" width="442" height="624" fill="#d5ff4f" stroke="#252525" stroke-width="2"/>
+    <text x="803" y="460" text-anchor="middle" font-size="42" font-weight="400">Policy + automation</text>
+    <text x="803" y="516" text-anchor="middle" font-size="23" opacity=".72">Control every dollar as it moves</text>
+    <g font-size="26" font-weight="400">
+      <rect x="1184" y="188" width="290" height="124" fill="#252525"/>
+      <text x="1224" y="258" fill="#f2efe6">Live ledger</text>
+      <rect x="1184" y="438" width="290" height="124" fill="#252525"/>
+      <text x="1224" y="508" fill="#f2efe6">Cash visibility</text>
+      <rect x="1184" y="688" width="290" height="124" fill="#252525"/>
+      <text x="1224" y="758" fill="#f2efe6">Savings</text>
+    </g>
+    <text x="126" y="150" font-size="22" opacity=".66">Spend channels</text>
+    <text x="1184" y="150" font-size="22" opacity=".66">Finance outcomes</text>
+  </g>
 </svg>

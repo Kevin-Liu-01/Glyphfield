@@ -24,13 +24,13 @@ import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 const BRAND_LOGOS = [
-  { name: 'General Translation', src: '/brands/gt/logos/wordmark-black.svg' },
-  { name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg' },
-  { name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg' },
-  { name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg' },
-  { name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg' },
-  { name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg' },
-  { name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
+  { id: 'gt', name: 'General Translation', src: '/brands/gt/logos/mark-black.svg' },
+  { id: 'ramp', name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg' },
+  { id: 'mintlify', name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg' },
+  { id: 'tailwind', name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg' },
+  { id: 'viteplus', name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg' },
+  { id: 'stripe', name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg' },
+  { id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
 ] as const;
 
 const HERO_FIELD_SETTINGS = {
@@ -155,6 +155,7 @@ export default async function HomePage() {
         </section>
 
         <LogoRail gt={gt} />
+        <SectionSpacer coordinate='Y 018' />
 
         <section className='marketing-v5-composer' data-motion-reveal id='studio'>
           <div className='marketing-v5-composer-copy' data-motion-item>
@@ -177,6 +178,8 @@ export default async function HomePage() {
             <AnimationStudio embedded identity={MARKETING_ANIMATION_IDENTITY} />
           </div>
         </section>
+
+        <SectionSpacer coordinate='Y 032' />
 
         <section className='marketing-v5-capabilities' data-motion-reveal>
           <SectionHeading title='Foundations in. Useful artifacts out.'>
@@ -227,6 +230,8 @@ export default async function HomePage() {
           </article>
         </section>
 
+        <SectionSpacer coordinate='Y 054' dark />
+
         <section className='marketing-v5-agents' data-motion-reveal id='agents'>
           <div className='marketing-v5-agents-copy' data-motion-item>
             <h2><T>The visual system is also an interface.</T></h2>
@@ -246,6 +251,8 @@ export default async function HomePage() {
           </div>
           <AgentPanel />
         </section>
+
+        <SectionSpacer coordinate='Y 072' dark />
 
         <footer className='marketing-v5-footer' data-motion-footer>
           <div className='marketing-v5-footer-field' aria-hidden='true'>
@@ -275,17 +282,47 @@ export default async function HomePage() {
   );
 }
 
+function SectionSpacer({ coordinate, dark = false }: { coordinate: string; dark?: boolean }) {
+  return (
+    <div className={`marketing-v5-spacer${dark ? ' marketing-v5-spacer--dark' : ''}`} aria-hidden='true'>
+      <span className='marketing-v5-spacer-coordinate marketing-v5-spacer-coordinate--start'>
+        {coordinate}
+        <i />
+      </span>
+      <span className='marketing-v5-spacer-coordinate marketing-v5-spacer-coordinate--end'>
+        <i />
+        X 000 / 100
+      </span>
+    </div>
+  );
+}
+
 function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
     <section className='marketing-v5-logo-rail' aria-labelledby='example-identities'>
-      <div>
-        <p id='example-identities'><T>Example identity library</T></p>
-        <span><T>Actual source marks, not placeholders</T></span>
-      </div>
+      <Link className='marketing-v5-logo-rail-heading' href='/studio?folder=examples'>
+        <span id='example-identities'><T>View brands in the Studio</T></span>
+        <ArrowRight aria-hidden='true' />
+      </Link>
       <ul>
-        {BRAND_LOGOS.map(({ name, src }) => (
-          <li key={name} title={gt(name)}>
-            <Image alt={gt(`${name} wordmark`)} height={34} src={src} width={116} />
+        {BRAND_LOGOS.map(({ id, name, src }) => (
+          <li key={id}>
+            <Link
+              aria-label={gt(`Open ${name} in the Studio`)}
+              data-brand-id={id}
+              data-testid={`brand-launch-${id}`}
+              href={`/studio?project=${id}`}
+              title={gt(`Open ${name} in the Studio`)}
+            >
+              <Image
+                alt=''
+                aria-hidden='true'
+                className={id === 'gt' ? 'marketing-v5-logo-rail-gt' : undefined}
+                height={id === 'gt' ? 64 : 34}
+                src={src}
+                width={id === 'gt' ? 64 : 116}
+              />
+            </Link>
           </li>
         ))}
       </ul>

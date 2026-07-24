@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#fff"/>
+  <g fill="none" stroke="#111" stroke-width="4">
+    <path d="M180 450h1240"/>
+    <path d="m1378 422 42 28-42 28"/>
+  </g>
+  <g fill="#fff" stroke="#111" stroke-width="4">
+    <rect x="110" y="342" width="230" height="216"/>
+    <rect x="398" y="342" width="230" height="216"/>
+    <rect x="686" y="342" width="230" height="216"/>
+    <rect x="974" y="342" width="230" height="216"/>
+    <rect x="1262" y="342" width="230" height="216"/>
+  </g>
+  <g fill="#111" font-family="Inter,Arial,sans-serif">
+    <text x="110" y="122" font-size="28" letter-spacing="3">GENERAL TRANSLATION / LOCADEX</text>
+    <text x="110" y="200" font-size="72" font-weight="500">Code to translated pull request.</text>
+    <g font-size="22" letter-spacing="2">
+      <text x="142" y="390">01</text>
+      <text x="430" y="390">02</text>
+      <text x="718" y="390">03</text>
+      <text x="1006" y="390">04</text>
+      <text x="1294" y="390">05</text>
+    </g>
+    <g font-size="34" font-weight="500">
+      <text x="142" y="475">Push</text>
+      <text x="430" y="475">Scan</text>
+      <text x="718" y="475">Edit</text>
+      <text x="1006" y="475">Translate</text>
+      <text x="1294" y="475">Open PR</text>
+    </g>
+    <g font-size="18" opacity=".62">
+      <text x="142" y="515">Commit or PR</text>
+      <text x="430" y="515">Map changes</text>
+      <text x="718" y="515">Internationalize</text>
+      <text x="1006" y="515">Use context</text>
+      <text x="1294" y="515">Review safely</text>
+    </g>
+    <text x="110" y="790" font-size="22">SOURCE COPY</text>
+    <text x="1492" y="790" text-anchor="end" font-size="22">120 LANGUAGES</text>
+  </g>
+</svg>
