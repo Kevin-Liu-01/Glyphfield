@@ -1,7 +1,6 @@
 'use client';
 
-import { BookOpen, PanelLeft, PanelsTopLeft } from 'lucide-react';
-import Link from 'next/link';
+import { BookOpen, PanelLeft } from 'lucide-react';
 import { T, useGT } from 'gt-next';
 import { useDocsLayout } from 'fumadocs-ui/layouts/docs';
 
@@ -33,9 +32,7 @@ export default function DocsHeader({ className, ...props }: ComponentProps<'head
         {SearchFull ? <SearchFull hideIfDisabled /> : null}
       </div>
       <nav aria-label={gt('Documentation utilities')} className='glyphfield-docs-header-actions'>
-        <Link className='glyphfield-docs-header-studio' href='/studio'><PanelsTopLeft aria-hidden='true' /><T>Studio</T></Link>
-        <Link href='/docs/agents'><T>Agent API</T></Link>
-        {ThemeSwitch ? <ThemeSwitch className='glyphfield-docs-theme-switch' /> : null}
+        {ThemeSwitch ? <ThemeSwitch className='glyphfield-docs-header-mobile-theme' /> : null}
         {SearchSmall ? <SearchSmall className='glyphfield-docs-mobile-search' hideIfDisabled /> : null}
         <SidebarTrigger aria-label={gt('Open documentation navigation')} className='glyphfield-docs-sidebar-trigger'>
           <PanelLeft aria-hidden='true' />

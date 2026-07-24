@@ -105,7 +105,6 @@ export const AGENT_GENERATION_CONTRACT = {
         background: 'Optional six-digit HEX',
         backgroundImageDataUrl: 'Optional base64 image data URL, maximum 5 MB',
         body: 'Optional string, maximum 1000 characters; newline-delimited for lists',
-        eyebrow: 'Optional string, maximum 80 characters',
         foreground: 'Optional six-digit HEX',
         identity: 'Agent identity object',
         kind: 'template',

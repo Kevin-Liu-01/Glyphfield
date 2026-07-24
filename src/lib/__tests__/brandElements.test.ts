@@ -72,7 +72,7 @@ describe('createBrandElementSettings', () => {
     const webCard = BRAND_ELEMENTS.find(({ id }) => id === 'web-card')!;
     const settings = createBrandElementSettings(webCard, GT_BRAND_IDENTITY);
 
-    expect(settings.eyebrow).toBe('');
+    expect(settings).not.toHaveProperty('eyebrow');
     expect(settings.headline).not.toBe(webCard.name);
   });
 });

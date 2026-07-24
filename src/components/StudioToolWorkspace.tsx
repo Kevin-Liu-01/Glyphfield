@@ -359,12 +359,6 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const backgroundOptions = identity.assets.filter(({ type }) => type === 'background' || type === 'image' || type === 'product' || type === 'texture');
   const logoOptions = identity.assets.filter(({ type }) => type === 'logo' || type === 'icon');
   const [title, setTitle] = useStudioDraft(identity.id, tool.id, 'title', identity.tagline);
-  const [eyebrow, setEyebrow] = useStudioDraft(
-    identity.id,
-    tool.id,
-    'eyebrow',
-    `${identity.name.toLocaleUpperCase()} / PRODUCT`
-  );
   const [surface, setSurface] = useStudioDraft<'light' | 'dark'>(
     identity.id,
     tool.id,
@@ -427,13 +421,13 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       const titleLines = lines
         .map(
           (line, index) =>
-            `<text x="72" y="${260 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-2">${escapeXml(line)}</text>`
+            `<text x="72" y="${232 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-2">${escapeXml(line)}</text>`
         )
         .join('');
       const resolvedLogoSize = 52 * (logoScale / 100);
       const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
       const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="550">${escapeXml(identity.shortName)}</text><text x="72" y="188" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="17" letter-spacing="2">${escapeXml(eyebrow)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="550">${escapeXml(identity.shortName)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text></svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -443,9 +437,6 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const inspector = (
     <>
       <ControlSection title={<T>Content</T>}>
-        <Field label={<T>Eyebrow</T>}>
-          <input className={INPUT_CLASS} onChange={(event) => setEyebrow(event.target.value)} value={eyebrow} />
-        </Field>
         <Field label={<T>Headline</T>}>
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
@@ -538,8 +529,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
               <span aria-hidden='true' className='size-10 shrink-0' />
               <span className='text-sm font-semibold'>{identity.shortName}</span>
             </div>
-            <div className='flex max-w-[86%] flex-col gap-5'>
-              <p className='font-mono text-xs tracking-widest opacity-60'>{eyebrow}</p>
+            <div className='flex max-w-[86%] flex-col'>
               <p className='break-words text-2xl font-semibold leading-[1.04] tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl'>
                 {title}
               </p>
@@ -1155,13 +1145,11 @@ const DEFAULT_TEMPLATE_LAYER: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 
 function SlideTemplatePreview({
   body,
-  eyebrow,
   foreground,
   layout,
   title,
 }: {
   body: string;
-  eyebrow: string;
   foreground: string;
   layout: SlideLayout;
   title: string;
@@ -1169,19 +1157,19 @@ function SlideTemplatePreview({
   const items = body.split('\n').map((item) => item.trim()).filter(Boolean);
   const resolvedItems = items.length > 0 ? items : ['Foundation', 'Expression', 'Application', 'Delivery'];
   if (layout === 'section') return <div className='relative flex flex-1 items-center'><span className='absolute -left-[1cqw] text-[30cqw] font-bold leading-none opacity-[0.08]'>01</span><h2 className='relative ml-[23cqw] max-w-[62cqw] text-[7cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2></div>;
-  if (layout === 'agenda') return <div className='grid flex-1 grid-cols-[1fr_0.8fr] items-center gap-[7cqw]'><div><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] text-[5.2cqw] font-semibold leading-[1.02] tracking-[-0.05em]'>{title}</h2></div><div className='flex flex-col'>{resolvedItems.slice(0, 4).map((item, index) => <div className='grid grid-cols-[4cqw_1fr] border-b py-[1.6cqw] text-[1.6cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}><span className='font-mono opacity-35'>0{index + 1}</span><span>{item}</span></div>)}</div></div>;
-  if (layout === 'split') return <div className='grid flex-1 grid-cols-2 items-center gap-[7cqw]'><div><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] text-[5cqw] font-semibold leading-[1] tracking-[-0.05em]'>{title}</h2></div><div className='border-l pl-[5cqw]' style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}>{resolvedItems.slice(0, 5).map((item, index) => <p className='mb-[2cqw] flex gap-[2cqw] text-[1.6cqw]' key={item}><span className='font-mono opacity-35'>0{index + 1}</span>{item}</p>)}</div></div>;
-  if (layout === 'metrics') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[5cqw] grid grid-cols-3 gap-[1cqw]'>{[['98.7%', 'Coverage'], ['42', 'Markets'], ['7d', 'Launch']].map(([value, label]) => <div className='border p-[3cqw]' key={label} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='text-[5cqw] font-semibold tracking-[-0.05em]'>{value}</p><p className='mt-[1cqw] font-mono text-[1.1cqw] opacity-50'>{label}</p></div>)}</div></div>;
+  if (layout === 'agenda') return <div className='grid flex-1 grid-cols-[1fr_0.8fr] items-center gap-[7cqw]'><div><h2 className='mt-[2cqw] text-[5.2cqw] font-semibold leading-[1.02] tracking-[-0.05em]'>{title}</h2></div><div className='flex flex-col'>{resolvedItems.slice(0, 4).map((item, index) => <div className='grid grid-cols-[4cqw_1fr] border-b py-[1.6cqw] text-[1.6cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}><span className='font-mono opacity-35'>0{index + 1}</span><span>{item}</span></div>)}</div></div>;
+  if (layout === 'split') return <div className='grid flex-1 grid-cols-2 items-center gap-[7cqw]'><div><h2 className='mt-[2cqw] text-[5cqw] font-semibold leading-[1] tracking-[-0.05em]'>{title}</h2></div><div className='border-l pl-[5cqw]' style={{ borderColor: `color-mix(in srgb, ${foreground} 18%, transparent)` }}>{resolvedItems.slice(0, 5).map((item, index) => <p className='mb-[2cqw] flex gap-[2cqw] text-[1.6cqw]' key={item}><span className='font-mono opacity-35'>0{index + 1}</span>{item}</p>)}</div></div>;
+  if (layout === 'metrics') return <div className='flex flex-1 flex-col justify-center'><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[5cqw] grid grid-cols-3 gap-[1cqw]'>{[['98.7%', 'Coverage'], ['42', 'Markets'], ['7d', 'Launch']].map(([value, label]) => <div className='border p-[3cqw]' key={label} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='text-[5cqw] font-semibold tracking-[-0.05em]'>{value}</p><p className='mt-[1cqw] font-mono text-[1.1cqw] opacity-50'>{label}</p></div>)}</div></div>;
   if (layout === 'quote') return <div className='relative flex flex-1 items-center pl-[9cqw]'><span className='absolute left-0 top-[9cqw] font-serif text-[16cqw] leading-none opacity-10'>“</span><div><h2 className='max-w-[75cqw] text-[5cqw] font-semibold leading-[1.08] tracking-[-0.045em]'>{title}</h2><p className='mt-[4cqw] font-mono text-[1.2cqw] opacity-55'>{resolvedItems[0] ?? 'Alex Morgan · Customer'}</p></div></div>;
-  if (layout === 'timeline') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.5cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='relative mt-[7cqw] grid grid-cols-4'><span className='absolute left-0 right-0 top-[0.5cqw] h-px opacity-20' style={{ backgroundColor: foreground }} />{resolvedItems.slice(0, 4).map((item, index) => <div className='relative pt-[3cqw]' key={item}><span className='absolute top-0 size-[1cqw] rounded-full' style={{ backgroundColor: foreground }} /><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[0.8cqw] text-[1.5cqw]'>{item}</p></div>)}</div></div>;
-  if (layout === 'statement') return <div className='flex flex-1 flex-col items-center justify-center text-center'><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[2cqw] max-w-[88cqw] text-[9cqw] font-semibold leading-[0.9] tracking-[-0.07em]'>{title}</h2></div>;
-  if (layout === 'comparison') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[4cqw] grid grid-cols-2 gap-[1cqw]'>{[resolvedItems[0] ?? 'Before', resolvedItems[1] ?? 'After'].map((item, index) => <div className='min-h-[22cqw] border p-[3cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[7cqw] text-[3cqw] font-semibold tracking-[-0.04em]'>{item}</p></div>)}</div></div>;
-  if (layout === 'process') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[5cqw] grid grid-cols-4 gap-[1cqw]'>{resolvedItems.slice(0, 4).map((item, index) => <div className='min-h-[18cqw] border p-[2cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[7cqw] text-[1.8cqw] font-semibold'>{item}</p></div>)}</div></div>;
-  if (layout === 'chart') return <div className='grid flex-1 grid-cols-[0.7fr_1.3fr] items-center gap-[7cqw]'><div><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[2cqw] text-[4.2cqw] font-semibold leading-[1] tracking-[-0.05em]'>{title}</h2><p className='mt-[4cqw] text-[8cqw] font-semibold tracking-[-0.07em]'>+42%</p><p className='font-mono text-[1cqw] opacity-40'>YEAR OVER YEAR</p></div><div className='flex h-[30cqw] items-end gap-[2cqw] border-b px-[2cqw]' style={{ borderColor: `color-mix(in srgb, ${foreground} 24%, transparent)` }}>{[42, 68, 55, 88, 76].map((value, index) => <span className='flex-1' key={value} style={{ backgroundColor: foreground, height: `${value}%`, opacity: 0.28 + index * 0.13 }} />)}</div></div>;
-  if (layout === 'team') return <div className='flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[6cqw] grid grid-cols-3 gap-[4cqw]'>{resolvedItems.slice(0, 3).map((item, index) => <div className='text-center' key={item}><span className='mx-auto grid size-[12cqw] place-items-center rounded-full text-[3cqw] font-semibold' style={{ backgroundColor: `color-mix(in srgb, ${foreground} ${12 + index * 8}%, transparent)` }}>{item.slice(0, 2).toLocaleUpperCase()}</span><p className='mt-[2cqw] text-[1.5cqw] font-semibold'>{item}</p></div>)}</div></div>;
-  if (layout === 'image') return <div className='grid flex-1 grid-cols-[0.82fr_1.18fr] items-center gap-[6cqw]'><div><p className='template-eyebrow font-mono opacity-45'>{eyebrow}</p><h2 className='mt-[2cqw] text-[5cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2><p className='mt-[3cqw] text-[1.4cqw] leading-[1.6] opacity-55'>{body}</p></div><div className='relative aspect-[4/3] overflow-hidden' style={{ backgroundColor: `color-mix(in srgb, ${foreground} 8%, transparent)` }}><span className='absolute inset-[12%] rounded-full border opacity-20' style={{ borderColor: foreground }} /><span className='absolute inset-0 bg-[linear-gradient(135deg,transparent_49.8%,currentColor_50%,transparent_50.2%)] opacity-10' /></div></div>;
-  if (layout === 'closing') return <div className='flex flex-1 flex-col items-center justify-center text-center'><p className='template-eyebrow font-mono opacity-55'>{eyebrow}</p><h2 className='mt-[2cqw] max-w-[75cqw] text-[7cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2><p className='mt-[3cqw] max-w-[60cqw] text-[1.5cqw] opacity-55'>{body}</p></div>;
-  return <div className='template-copy flex flex-1 flex-col justify-center'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title mt-[2cqw] break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>;
+  if (layout === 'timeline') return <div className='flex flex-1 flex-col justify-center'><h2 className='mt-[1.5cqw] text-[4.5cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='relative mt-[7cqw] grid grid-cols-4'><span className='absolute left-0 right-0 top-[0.5cqw] h-px opacity-20' style={{ backgroundColor: foreground }} />{resolvedItems.slice(0, 4).map((item, index) => <div className='relative pt-[3cqw]' key={item}><span className='absolute top-0 size-[1cqw] rounded-full' style={{ backgroundColor: foreground }} /><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[0.8cqw] text-[1.5cqw]'>{item}</p></div>)}</div></div>;
+  if (layout === 'statement') return <div className='flex flex-1 flex-col items-center justify-center text-center'><h2 className='mt-[2cqw] max-w-[88cqw] text-[9cqw] font-semibold leading-[0.9] tracking-[-0.07em]'>{title}</h2></div>;
+  if (layout === 'comparison') return <div className='flex flex-1 flex-col justify-center'><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[4cqw] grid grid-cols-2 gap-[1cqw]'>{[resolvedItems[0] ?? 'Before', resolvedItems[1] ?? 'After'].map((item, index) => <div className='min-h-[22cqw] border p-[3cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[7cqw] text-[3cqw] font-semibold tracking-[-0.04em]'>{item}</p></div>)}</div></div>;
+  if (layout === 'process') return <div className='flex flex-1 flex-col justify-center'><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[5cqw] grid grid-cols-4 gap-[1cqw]'>{resolvedItems.slice(0, 4).map((item, index) => <div className='min-h-[18cqw] border p-[2cqw]' key={item} style={{ borderColor: `color-mix(in srgb, ${foreground} 20%, transparent)` }}><p className='font-mono text-[1cqw] opacity-35'>0{index + 1}</p><p className='mt-[7cqw] text-[1.8cqw] font-semibold'>{item}</p></div>)}</div></div>;
+  if (layout === 'chart') return <div className='grid flex-1 grid-cols-[0.7fr_1.3fr] items-center gap-[7cqw]'><div><h2 className='mt-[2cqw] text-[4.2cqw] font-semibold leading-[1] tracking-[-0.05em]'>{title}</h2><p className='mt-[4cqw] text-[8cqw] font-semibold tracking-[-0.07em]'>+42%</p><p className='font-mono text-[1cqw] opacity-40'>YEAR OVER YEAR</p></div><div className='flex h-[30cqw] items-end gap-[2cqw] border-b px-[2cqw]' style={{ borderColor: `color-mix(in srgb, ${foreground} 24%, transparent)` }}>{[42, 68, 55, 88, 76].map((value, index) => <span className='flex-1' key={value} style={{ backgroundColor: foreground, height: `${value}%`, opacity: 0.28 + index * 0.13 }} />)}</div></div>;
+  if (layout === 'team') return <div className='flex flex-1 flex-col justify-center'><h2 className='mt-[1.5cqw] text-[4.2cqw] font-semibold tracking-[-0.045em]'>{title}</h2><div className='mt-[6cqw] grid grid-cols-3 gap-[4cqw]'>{resolvedItems.slice(0, 3).map((item, index) => <div className='text-center' key={item}><span className='mx-auto grid size-[12cqw] place-items-center rounded-full text-[3cqw] font-semibold' style={{ backgroundColor: `color-mix(in srgb, ${foreground} ${12 + index * 8}%, transparent)` }}>{item.slice(0, 2).toLocaleUpperCase()}</span><p className='mt-[2cqw] text-[1.5cqw] font-semibold'>{item}</p></div>)}</div></div>;
+  if (layout === 'image') return <div className='grid flex-1 grid-cols-[0.82fr_1.18fr] items-center gap-[6cqw]'><div><h2 className='mt-[2cqw] text-[5cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2><p className='mt-[3cqw] text-[1.4cqw] leading-[1.6] opacity-55'>{body}</p></div><div className='relative aspect-[4/3] overflow-hidden' style={{ backgroundColor: `color-mix(in srgb, ${foreground} 8%, transparent)` }}><span className='absolute inset-[12%] rounded-full border opacity-20' style={{ borderColor: foreground }} /><span className='absolute inset-0 bg-[linear-gradient(135deg,transparent_49.8%,currentColor_50%,transparent_50.2%)] opacity-10' /></div></div>;
+  if (layout === 'closing') return <div className='flex flex-1 flex-col items-center justify-center text-center'><h2 className='mt-[2cqw] max-w-[75cqw] text-[7cqw] font-semibold leading-[0.98] tracking-[-0.055em]'>{title}</h2><p className='mt-[3cqw] max-w-[60cqw] text-[1.5cqw] opacity-55'>{body}</p></div>;
+  return <div className='template-copy flex flex-1 flex-col justify-center'><h2 className='template-title mt-[2cqw] break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>;
 }
 
 function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind: TemplateKind; tool: StudioTool }) {
@@ -1207,12 +1195,6 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       : kind === 'blog'
         ? identity.voice.phrases[0] ?? identity.tagline
         : identity.tagline
-  );
-  const [eyebrow, setEyebrow] = useStudioDraft(
-    identity.id,
-    tool.id,
-    'eyebrow',
-    kind === 'blog' ? 'ENGINEERING / JULY 2026' : `${identity.name.toLocaleUpperCase()} / STUDIO`
   );
   const [body, setBody] = useStudioDraft(
     identity.id,
@@ -1347,7 +1329,6 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         contentScale: contentLayer.scale,
         contentX: contentLayer.x,
         contentY: contentLayer.y,
-        eyebrow,
         foreground,
         fontData,
         fontFamily: displayFont,
@@ -1381,9 +1362,6 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const inspector = (
     <>
       <ControlSection title={<T>Content</T>}>
-        <Field label={<T>Label</T>}>
-          <input className={INPUT_CLASS} onChange={(event) => setEyebrow(event.target.value)} value={eyebrow} />
-        </Field>
         <Field label={<T>Title</T>}>
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
@@ -1518,7 +1496,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           </EditableCanvasLayer>
           <EditableCanvasLayer {...layerGeometries.content} canvasHeight={height} canvasWidth={width} label={gt('Content')} onChange={(transform) => updateLayer('content', transform)} onSelect={() => setSelectedLayer('content')} selected={selectedLayer === 'content'} transform={contentLayer} zIndex={layerOrder.indexOf('content') + 5}>
             <div className='flex size-full flex-col justify-center'>
-              {isSlide ? <SlideTemplatePreview body={body} eyebrow={eyebrow} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><p className='template-eyebrow font-mono tracking-widest opacity-60'>{eyebrow}</p><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
+              {isSlide ? <SlideTemplatePreview body={body} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
             </div>
           </EditableCanvasLayer>
           <EditableCanvasLayer {...layerGeometries.footer} canvasHeight={height} canvasWidth={width} label={gt('Footer')} onChange={(transform) => updateLayer('footer', transform)} onSelect={() => setSelectedLayer('footer')} selected={selectedLayer === 'footer'} transform={footerLayer} zIndex={layerOrder.indexOf('footer') + 5}>
@@ -1786,10 +1764,12 @@ function ToolPlaceholder({ tool }: { tool: StudioTool }) {
 }
 
 export default function StudioToolWorkspace({
+  hasPendingIdentityChanges,
   identity,
   onIdentityChange,
   tool,
 }: {
+  hasPendingIdentityChanges: boolean;
   identity: BrandIdentity;
   onIdentityChange: (identity: BrandIdentity) => void;
   tool: StudioTool;
@@ -1801,7 +1781,7 @@ export default function StudioToolWorkspace({
     buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
-    identity: <BrandSettingsStudio identity={identity} onChange={onIdentityChange} tool={tool} />,
+    identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
     logo: <LogoTool identity={identity} tool={tool} />,
     'logo-shader': <LogoShaderStudio identity={identity} tool={tool} />,
     opengraph: <OpenGraphTool identity={identity} tool={tool} />,

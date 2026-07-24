@@ -69,7 +69,6 @@ export type AgentTemplatePlan = AgentGenerationBase & {
   background: string;
   body: string;
   brandLogoPath: string | null;
-  eyebrow: string;
   foreground: string;
   height: number;
   kind: 'template';
@@ -454,12 +453,6 @@ function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
       1000
     ),
     brandLogoPath: identity.logoDataUrl ? null : brandLogo?.path ?? null,
-    eyebrow: textValue(
-      input.eyebrow,
-      `${identity.name.toLocaleUpperCase()} / STUDIO`,
-      'eyebrow',
-      80
-    ),
     filename: `${slug(identity.name)}-${template}-${width}x${height}.svg`,
     foreground: colorValue(
       input.foreground,
@@ -601,7 +594,6 @@ export function renderAgentGeneration(
       backgroundImage: plan.backgroundImageDataUrl,
       body: plan.body,
       brandLogo,
-      eyebrow: plan.eyebrow,
       foreground: plan.foreground,
       height: plan.height,
       identityName: plan.identity.name,

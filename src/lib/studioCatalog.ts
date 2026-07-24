@@ -204,9 +204,60 @@ export function filterStudioTools(
   );
 }
 
-export function getProjectTabDensity(tabCount: number) {
-  if (tabCount >= 10) return 'scroll' as const;
-  if (tabCount >= 7) return 'marks' as const;
-  if (tabCount >= 4) return 'compact' as const;
-  return 'full' as const;
+const PROJECT_TAB_GAP = 6;
+const PROJECT_TAB_TRAILING_SPACE = 40;
+const PROJECT_TAB_SCROLL_CUE_THRESHOLD = 18;
+
+function clampedTabWidth(minimum: number, preferred: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, preferred));
+}
+
+function requiredProjectTabWidth(tabCount: number, tabWidth: number) {
+  return (
+    tabCount * tabWidth +
+    Math.max(0, tabCount - 1) * PROJECT_TAB_GAP +
+    PROJECT_TAB_TRAILING_SPACE
+  );
+}
+
+export function getProjectTabDensity(
+  tabCount: number,
+  availableWidth = 0,
+  viewportWidth = 0
+) {
+  if (availableWidth <= 0 || viewportWidth <= 0) {
+    if (tabCount >= 14) return 'scroll' as const;
+    if (tabCount >= 10) return 'marks' as const;
+    if (tabCount >= 6) return 'compact' as const;
+    return 'full' as const;
+  }
+
+  const fullWidth = clampedTabWidth(150, viewportWidth * 0.14, 224);
+  if (requiredProjectTabWidth(tabCount, fullWidth) <= availableWidth) {
+    return 'full' as const;
+  }
+
+  const compactWidth = clampedTabWidth(92, viewportWidth * 0.08, 128);
+  if (requiredProjectTabWidth(tabCount, compactWidth) <= availableWidth) {
+    return 'compact' as const;
+  }
+
+  if (requiredProjectTabWidth(tabCount, 44) <= availableWidth) {
+    return 'marks' as const;
+  }
+
+  return 'scroll' as const;
+}
+
+export function getProjectTabScrollCues(
+  scrollLeft: number,
+  clientWidth: number,
+  scrollWidth: number
+) {
+  const hiddenLeft = Math.max(0, scrollLeft);
+  const hiddenRight = Math.max(0, scrollWidth - clientWidth - hiddenLeft);
+  return {
+    canScrollLeft: hiddenLeft > PROJECT_TAB_SCROLL_CUE_THRESHOLD,
+    canScrollRight: hiddenRight > PROJECT_TAB_SCROLL_CUE_THRESHOLD,
+  };
 }

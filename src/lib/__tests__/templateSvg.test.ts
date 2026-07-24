@@ -5,7 +5,6 @@ import { buildTemplateSvg } from '../templateSvg';
 const baseOptions = {
   background: '#FFFFFF',
   brandLogo: 'data:image/svg+xml;base64,BRAND',
-  eyebrow: 'BRAND / STUDIO',
   foreground: '#181818',
   height: 600,
   identityName: 'Brand',

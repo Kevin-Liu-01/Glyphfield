@@ -229,11 +229,6 @@ function ElementEditor({
     ['cli-banner', 'terminal-theme', 'event-backdrop', 'partnership-lockup'].includes(
       element.id
     );
-  const eyebrowSupported =
-    !contentless &&
-    !['email-signature', 'ascii-mark', 'cli-banner', 'partnership-lockup', 'business-card', 'sticker-sheet', 'letterhead'].includes(
-      element.id
-    );
   const actionSupported =
     !contentless &&
     !personOnly &&
@@ -265,7 +260,6 @@ function ElementEditor({
             <RotateCcw aria-hidden='true' />
           </Button>
         </div>
-        {eyebrowSupported ? <ElementTextControl label={<T>Eyebrow</T>} onChange={(eyebrow) => onChange({ eyebrow })} value={settings.eyebrow} /> : null}
         {!headlineHidden ? <ElementTextControl label={<T>Headline</T>} multiline onChange={(headline) => onChange({ headline })} value={settings.headline} /> : null}
         {!bodyHidden ? <ElementTextControl label={<T>Supporting copy</T>} multiline onChange={(body) => onChange({ body })} value={settings.body} /> : null}
         {actionSupported ? <ElementTextControl label={<T>Action</T>} onChange={(cta) => onChange({ cta })} value={settings.cta} /> : null}
@@ -477,7 +471,7 @@ function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; 
             <p className='max-w-[85%] text-center text-2xl font-semibold tracking-[-0.04em] text-white sm:text-4xl'>{identity.greetings.join(' · ')}</p>
           )}
         </div>
-        {settings.eyebrow ? <p className='mb-3 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}
+
         <h2 className='text-3xl font-semibold leading-tight tracking-[-0.045em] sm:text-4xl'>{settings.headline}</h2>
         <p className='mt-4 text-sm opacity-80'>Hi Alex,</p>
         <p className='mt-2 max-w-xl text-base leading-7 opacity-65'>{settings.body}</p>
@@ -520,8 +514,8 @@ function TransactionalEmailPreview({ element, identity, settings }: { element: B
       <ElementPattern settings={settings} />
       <div className='relative z-10'>
         {settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : null}
-        {settings.eyebrow ? <p className='mt-12 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}
-        <h2 className='mt-4 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2>
+
+        <h2 className='mt-12 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2>
         <p className='mt-4 text-base leading-7 opacity-60'>{settings.body}</p>
         {settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}
         {settings.showWebsite ? <p className='mt-12 border-t pt-5 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>{identity.website}</p> : null}
@@ -581,8 +575,8 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
       <div className='relative mx-auto w-full max-w-4xl overflow-hidden border p-6 font-mono sm:p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
         <ElementPattern settings={settings} />
         <div className='relative z-10'>
-          <div className='mb-10 flex items-center justify-between border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
-            <span>{settings.eyebrow}</span><span>● ● ●</span>
+          <div className='mb-10 flex items-center justify-end border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
+            <span>● ● ●</span>
           </div>
           <p><span style={{ color: settings.accentColor }}>import</span> {'{ '}tx{' }'} <span style={{ color: settings.accentColor }}>from</span> &apos;{identity.id}&apos;;</p>
           <p className='mt-6'><span style={{ color: settings.accentColor }}>export function</span> Greeting() {'{'}</p>
@@ -600,7 +594,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
         <ElementPattern settings={settings} />
         <div className='relative z-10 flex flex-col justify-center p-8 sm:p-12'>
           {settings.showLogo ? <IdentityMark className='mb-8 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}
-          {settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}
+
           <h2 className='mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl'>{settings.headline}</h2>
           <p className='mt-4 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p>
           {settings.cta ? <code className='mt-6 w-fit border px-3 py-2 text-xs' style={{ borderColor: settings.foregroundColor }}>{settings.cta}</code> : null}
@@ -645,7 +639,7 @@ function SocialPreview({ element, identity, settings }: { element: BrandElement;
           {settings.showLogo ? <IdentityMark className='size-11 object-contain text-xs' identity={identity} inverted={dark} /> : null}
           <div>
             <p className='text-sm font-semibold'>{identity.name}</p>
-            {settings.eyebrow ? <p className='font-mono text-xs opacity-45'>{settings.eyebrow}</p> : null}
+
           </div>
         </div>
         <div className={centered ? 'my-auto' : ''}>
@@ -669,7 +663,7 @@ function EditorialPreview({ element, identity, settings }: { element: BrandEleme
       <ElementPattern settings={settings} />
       <div className='relative z-10 flex w-full items-center justify-between'>
         {settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}
-        {settings.eyebrow ? <span className='font-mono text-xs uppercase tracking-widest opacity-40'>{settings.eyebrow}</span> : null}
+
       </div>
       <div className='relative z-10 max-w-4xl'>
         <h2 className={`font-semibold leading-[0.96] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2>
@@ -700,7 +694,7 @@ function EventPreview({ element, identity, settings }: { element: BrandElement; 
     return (
       <div className='relative mx-auto flex aspect-[16/9] w-full max-w-5xl flex-col justify-between overflow-hidden p-10 shadow-sm sm:p-16' style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
-        <div className='relative z-10 flex items-center justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : <span />}{settings.eyebrow ? <span className='font-mono text-xs uppercase tracking-widest opacity-50'>{settings.eyebrow}</span> : null}</div>
+        <div className='relative z-10 flex items-center justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : <span />}</div>
         <h2 className={`relative z-10 max-w-4xl font-semibold leading-[0.94] tracking-[-0.06em] ${typeScale(settings)}`}>{settings.headline}</h2>
         {settings.showWebsite ? <p className='relative z-10 font-mono text-xs opacity-50'>{identity.website}</p> : null}
       </div>
@@ -715,7 +709,7 @@ function EventPreview({ element, identity, settings }: { element: BrandElement; 
             {settings.showLogo ? <IdentityMark className='size-20 object-contain text-2xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}
           </div>
           <div className='p-6'>
-            {settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-40'>{settings.eyebrow}</p> : null}
+
             <p className='mt-10 text-3xl font-semibold tracking-[-0.04em]'>{settings.personName}</p>
             <p className='mt-4 text-sm opacity-55'>{settings.personRole}</p>
             <div className='mt-10 flex items-end justify-between'>
@@ -747,7 +741,7 @@ function PhysicalPreview({ element, identity, settings }: { element: BrandElemen
         <div className='relative aspect-[3/2] w-full max-w-2xl overflow-hidden border p-8' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
           <ElementPattern settings={settings} />
           <div className='relative z-10 flex h-full flex-col justify-between'>
-            <div className='flex justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-lg' identity={identity} inverted={dark} /> : <span />}{settings.eyebrow ? <span className='font-mono text-xs opacity-45'>{settings.eyebrow}</span> : null}</div>
+            <div className='flex justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-lg' identity={identity} inverted={dark} /> : <span />}</div>
             <div><h2 className='text-4xl font-semibold tracking-[-0.05em]'>{settings.headline}</h2><p className='mt-3 max-w-md text-sm leading-6 opacity-55'>{settings.body}</p></div>
             {settings.showWebsite ? <span className='font-mono text-xs opacity-45'>{identity.website}</span> : null}
           </div>
@@ -794,7 +788,7 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
     return (
       <div className='relative mx-auto grid aspect-[16/10] w-full max-w-4xl place-items-center overflow-hidden p-10 text-center shadow-sm' style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
-        <div className='relative z-10 max-w-xl'>{settings.showLogo ? <IdentityMark className='mx-auto mb-10 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}<p className='font-mono text-sm opacity-40'>{settings.eyebrow}</p><h2 className={`mt-3 font-semibold tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mx-auto mt-5 max-w-md text-sm leading-6 opacity-60'>{settings.body}</p>{settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}</div>
+        <div className='relative z-10 max-w-xl'>{settings.showLogo ? <IdentityMark className='mx-auto mb-10 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}<h2 className={`mt-3 font-semibold tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mx-auto mt-5 max-w-md text-sm leading-6 opacity-60'>{settings.body}</p>{settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}</div>
       </div>
     );
   }
@@ -804,7 +798,7 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
       <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>
         {settings.showLogo ? <IdentityMark className='size-10 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}
         <div>
-          {settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-40'>{settings.eyebrow}</p> : null}
+
           <h2 className={`mt-4 font-semibold leading-[1.02] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2>
           {settings.body ? <p className='mt-5 max-w-lg text-sm leading-6 opacity-60'>{settings.body}</p> : null}
           {settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}
@@ -839,7 +833,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     return (
       <div className={`relative mx-auto grid aspect-[16/9] w-full max-w-5xl overflow-hidden shadow-sm ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'md:grid-cols-[1.1fr_0.9fr]'}`} style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
-        <div className='relative z-10 flex flex-col justify-center p-8 sm:p-14'>{logo}{settings.eyebrow ? <p className='mt-12 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`mt-4 max-w-3xl font-semibold leading-[0.98] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p><div className='mt-7'>{action}</div></div>
+        <div className='relative z-10 flex flex-col justify-center p-8 sm:p-14'>{logo}<h2 className={`mt-12 max-w-3xl font-semibold leading-[0.98] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p><div className='mt-7'>{action}</div></div>
         {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><div className='grid size-48 place-items-center border border-white/25 text-6xl font-semibold' style={{ color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{identity.shortName}</div></div> : null}
       </div>
     );
@@ -849,7 +843,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     return (
       <div className='relative mx-auto grid aspect-[16/10] w-full max-w-4xl overflow-hidden shadow-sm md:grid-cols-[1fr_0.9fr]' style={{ ...elementSurfaceStyle(settings), borderRadius: radius }}>
         <ElementPattern settings={settings} />
-        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>{logo}<div><p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p><h2 className='mt-3 text-4xl font-semibold tracking-[-0.05em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p></div><span className='font-mono text-xs opacity-40'>{identity.website}</span></div>
+        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>{logo}<div><h2 className='mt-3 text-4xl font-semibold tracking-[-0.05em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p></div><span className='font-mono text-xs opacity-40'>{identity.website}</span></div>
         <div className='relative z-10 flex flex-col justify-center gap-4 p-8' style={{ backgroundColor: mutedSurface }}><label className='text-xs opacity-60'>Email<input className='mt-2 h-11 w-full border bg-transparent px-3 text-sm opacity-100' style={{ borderColor, borderRadius: Math.min(radius, 10) }} value={identity.contactEmail} readOnly /></label><label className='text-xs opacity-60'>Password<input className='mt-2 h-11 w-full border bg-transparent px-3 text-sm opacity-100' style={{ borderColor, borderRadius: Math.min(radius, 10) }} value='••••••••••' readOnly /></label><span className='mt-2 inline-flex h-11 items-center justify-center text-sm font-semibold' style={{ ...actionStyle(settings), borderRadius: Math.min(radius, 10) }}>{settings.cta || 'Continue'}</span></div>
       </div>
     );
@@ -860,7 +854,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     return (
       <div className='relative mx-auto grid min-h-[540px] w-full max-w-5xl overflow-hidden shadow-sm md:grid-cols-[240px_1fr]' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}>
         <aside className='relative z-10 flex flex-col border-r p-5' style={{ borderColor }}><div className='flex items-center gap-3'>{logo}<strong>{identity.name}</strong></div><div className='mt-10 flex flex-col gap-1'>{destinations.map((item, index) => <span className='px-3 py-2 text-sm' key={item} style={{ backgroundColor: index === 0 ? mutedSurface : undefined, borderRadius: Math.min(radius, 8) }}>{item}</span>)}</div><span className='mt-auto text-xs opacity-45'>{identity.socialHandle}</span></aside>
-        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'><div><p className='font-mono text-xs opacity-40'>{settings.eyebrow}</p><h2 className='mt-3 text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2></div><div className='grid gap-3 sm:grid-cols-3'>{identity.values.slice(0, 3).map((value, index) => <div className='min-h-32 border p-4' key={value} style={{ borderColor, borderRadius: Math.min(radius, 12) }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-10 font-semibold'>{value}</p></div>)}</div></div>
+        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'><div><h2 className='mt-3 text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2></div><div className='grid gap-3 sm:grid-cols-3'>{identity.values.slice(0, 3).map((value, index) => <div className='min-h-32 border p-4' key={value} style={{ borderColor, borderRadius: Math.min(radius, 12) }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-10 font-semibold'>{value}</p></div>)}</div></div>
       </div>
     );
   }
@@ -874,7 +868,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
   if (element.id === 'onboarding-checklist') {
     const steps = settings.body.split('\n').map((item) => item.trim()).filter(Boolean);
     return (
-      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<p className='mt-8 font-mono text-xs opacity-40'>{settings.eyebrow}</p><h2 className='mt-3 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><div className='mt-8 flex flex-col gap-2'>{steps.map((step, index) => <div className='flex items-center gap-3 border p-4 text-sm' key={step} style={{ borderColor, borderRadius: Math.min(radius, 10) }}><span className='grid size-6 place-items-center text-xs' style={{ backgroundColor: index < 2 ? settings.accentColor : mutedSurface, color: index < 2 && isDarkSurface(settings.accentColor) ? '#fff' : settings.foregroundColor, borderRadius: 99 }}>{index < 2 ? '✓' : index + 1}</span><span>{step}</span></div>)}</div><div className='mt-7'>{action}</div></div></div>
+      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><div className='mt-8 flex flex-col gap-2'>{steps.map((step, index) => <div className='flex items-center gap-3 border p-4 text-sm' key={step} style={{ borderColor, borderRadius: Math.min(radius, 10) }}><span className='grid size-6 place-items-center text-xs' style={{ backgroundColor: index < 2 ? settings.accentColor : mutedSurface, color: index < 2 && isDarkSurface(settings.accentColor) ? '#fff' : settings.foregroundColor, borderRadius: 99 }}>{index < 2 ? '✓' : index + 1}</span><span>{step}</span></div>)}</div><div className='mt-7'>{action}</div></div></div>
     );
   }
 
@@ -887,14 +881,14 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
   if (element.id === 'status-page') {
     const services = settings.body.split('\n').map((item) => item.trim()).filter(Boolean);
     return (
-      <div className='relative mx-auto w-full max-w-4xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex items-start justify-between gap-8'>{logo}<span className='font-mono text-xs opacity-40'>{settings.eyebrow}</span></div><div className='relative z-10 mt-16 flex items-center gap-3'><span className='size-3 rounded-full bg-status-success' /><h2 className='text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2></div><div className='relative z-10 mt-10 flex flex-col'>{services.map((service) => <div className='flex items-center justify-between border-t py-4 text-sm' key={service} style={{ borderColor }}><span>{service}</span><span className='text-status-success'>Operational</span></div>)}</div></div>
+      <div className='relative mx-auto w-full max-w-4xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex items-start justify-between gap-8'>{logo}</div><div className='relative z-10 mt-16 flex items-center gap-3'><span className='size-3 rounded-full bg-status-success' /><h2 className='text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2></div><div className='relative z-10 mt-10 flex flex-col'>{services.map((service) => <div className='flex items-center justify-between border-t py-4 text-sm' key={service} style={{ borderColor }}><span>{service}</span><span className='text-status-success'>Operational</span></div>)}</div></div>
     );
   }
 
   if (element.id === 'feature-grid') {
     const features = identity.strategy.pillars.slice(0, 3);
     return (
-      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{settings.eyebrow ? <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 max-w-3xl text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><p className='mt-4 max-w-2xl text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-12 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{features.map((title, index) => <div className='min-h-44 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-14 text-lg font-semibold'>{title}</p><p className='mt-2 text-xs uppercase tracking-wide opacity-35'>{identity.values[index] ?? identity.name}</p></div>)}</div></div></div>
+      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><h2 className='max-w-3xl text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><p className='mt-4 max-w-2xl text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-12 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{features.map((title, index) => <div className='min-h-44 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-14 text-lg font-semibold'>{title}</p><p className='mt-2 text-xs uppercase tracking-wide opacity-35'>{identity.values[index] ?? identity.name}</p></div>)}</div></div></div>
     );
   }
 
@@ -902,31 +896,31 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     const testimonial = element.id === 'testimonial-card';
     const checkout = element.id === 'checkout-card';
     return (
-      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}{settings.eyebrow ? <p className='mt-10 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
+      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
     );
   }
 
   if (['form-controls', 'settings-panel'].includes(element.id)) {
     return (
-      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<p className='mt-8 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p><h2 className='mt-3 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><input checked readOnly type='checkbox' /></label></div><div className='mt-7'>{action}</div></div></div>
+      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><input checked readOnly type='checkbox' /></label></div><div className='mt-7'>{action}</div></div></div>
     );
   }
 
   if (['command-menu', 'modal-dialog', 'toast-notification', 'empty-state'].includes(element.id)) {
     const compact = element.id === 'toast-notification';
     return (
-      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}{settings.eyebrow ? <p className='mt-5 font-mono text-xs uppercase tracking-widest opacity-45'>{settings.eyebrow}</p> : null}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
+      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
     );
   }
 
   if (element.id === 'data-table') {
     return (
-      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><div className='flex items-end justify-between gap-6'><div><p className='font-mono text-xs opacity-40'>{settings.eyebrow}</p><h2 className='mt-2 text-3xl font-semibold'>{settings.headline}</h2></div>{action}</div><div className='mt-8 overflow-hidden border' style={{ borderColor }}><div className='grid grid-cols-[1.4fr_1fr_0.8fr] p-3 font-mono text-[10px] uppercase opacity-45'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product launch', 'Documentation', 'Email system', 'Design board'].map((item, index) => <div className='grid grid-cols-[1.4fr_1fr_0.8fr] border-t p-4 text-sm' key={item} style={{ borderColor }}><span className='font-medium'>{item}</span><span><i className='mr-2 inline-block size-2 rounded-full' style={{ backgroundColor: settings.accentColor }} />{index % 2 ? 'Draft' : 'Ready'}</span><span className='opacity-45'>Today</span></div>)}</div></div></div>
+      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><div className='flex items-end justify-between gap-6'><div><h2 className='text-3xl font-semibold'>{settings.headline}</h2></div>{action}</div><div className='mt-8 overflow-hidden border' style={{ borderColor }}><div className='grid grid-cols-[1.4fr_1fr_0.8fr] p-3 font-mono text-[10px] uppercase opacity-45'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product launch', 'Documentation', 'Email system', 'Design board'].map((item, index) => <div className='grid grid-cols-[1.4fr_1fr_0.8fr] border-t p-4 text-sm' key={item} style={{ borderColor }}><span className='font-medium'>{item}</span><span><i className='mr-2 inline-block size-2 rounded-full' style={{ backgroundColor: settings.accentColor }} />{index % 2 ? 'Draft' : 'Ready'}</span><span className='opacity-45'>Today</span></div>)}</div></div></div>
     );
   }
 
   return (
-    <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}<span className='font-mono text-xs opacity-45'>{settings.eyebrow}</span></div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
+    <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}</div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
   );
 }
 

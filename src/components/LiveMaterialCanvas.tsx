@@ -1,12 +1,13 @@
 'use client';
 
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import type { RefObject } from 'react';
 
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { normalizeLiveMaterialId, type LiveMaterialId, type LiveMaterialSettings } from '@/lib/liveMaterials';
+import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
 
 export type LiveMaterialCanvasProps = {
   className?: string;
@@ -216,153 +217,69 @@ function compileShader(
   context.shaderSource(shader, source);
   context.compileShader(shader);
   if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-    const message = context.getShaderInfoLog(shader) ?? 'Shader compilation failed';
+    const message = context.getShaderInfoLog(shader)?.trim()
+      || (context.isContextLost()
+        ? 'WebGL context lost during shader compilation'
+        : 'Shader compilation failed');
     context.deleteShader(shader);
     throw new Error(message);
   }
   return shader;
 }
 
-function OriginalMaterialCanvas({
-  canvasRef,
-  fragmentSource,
+function ShaderGradientSurface({
+  className,
+  onContextLost,
   paused,
   renderScale,
   settings,
 }: {
-  canvasRef: RefObject<HTMLCanvasElement | null>;
-  fragmentSource: string;
+  className: string;
+  onContextLost: () => void;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
-  const pausedRef = useRef(paused);
-  const settingsRef = useRef(settings);
-  pausedRef.current = paused;
-  settingsRef.current = settings;
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useMountEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext('webgl', {
-      alpha: false,
-      antialias: true,
-      preserveDrawingBuffer: true,
-    });
-    if (!context) return;
-    const drawingCanvas: HTMLCanvasElement = canvas;
-    const drawingContext: WebGLRenderingContext = context;
+    const surface = rootRef.current;
+    if (!surface) return;
+    const mountedSurface: HTMLDivElement = surface;
+    const canvases = new Set<HTMLCanvasElement>();
 
-    const vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SOURCE);
-    const fragmentShader = compileShader(context, context.FRAGMENT_SHADER, fragmentSource);
-    const program = context.createProgram();
-    if (!program) {
-      context.deleteShader(fragmentShader);
-      context.deleteShader(vertexShader);
-      return;
-    }
-    context.attachShader(program, vertexShader);
-    context.attachShader(program, fragmentShader);
-    context.linkProgram(program);
-    if (!context.getProgramParameter(program, context.LINK_STATUS)) {
-      context.deleteProgram(program);
-      context.deleteShader(fragmentShader);
-      context.deleteShader(vertexShader);
-      return;
-    }
-    const buffer = context.createBuffer();
-    if (!buffer) {
-      context.deleteProgram(program);
-      context.deleteShader(fragmentShader);
-      context.deleteShader(vertexShader);
-      return;
-    }
-    context.bindBuffer(context.ARRAY_BUFFER, buffer);
-    context.bufferData(
-      context.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      context.STATIC_DRAW
-    );
-    context.useProgram(program);
-    const position = context.getAttribLocation(program, 'a_position');
-    context.enableVertexAttribArray(position);
-    context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0);
-
-    const resolutionLocation = context.getUniformLocation(program, 'u_resolution');
-    const timeLocation = context.getUniformLocation(program, 'u_time');
-    const colorALocation = context.getUniformLocation(program, 'u_color_a');
-    const colorBLocation = context.getUniformLocation(program, 'u_color_b');
-    const colorCLocation = context.getUniformLocation(program, 'u_color_c');
-    const strengthLocation = context.getUniformLocation(program, 'u_strength');
-    const detailLocation = context.getUniformLocation(program, 'u_detail');
-    const frequencyLocation = context.getUniformLocation(program, 'u_frequency');
-    const grainLocation = context.getUniformLocation(program, 'u_grain');
-    const amplitudeLocation = context.getUniformLocation(program, 'u_amplitude');
-    const densityLocation = context.getUniformLocation(program, 'u_density');
-    const brightnessLocation = context.getUniformLocation(program, 'u_brightness');
-    const rotationLocation = context.getUniformLocation(program, 'u_rotation');
-
-    let frame = 0;
-    let elapsed = 0;
-    let previous = performance.now();
-
-    function draw(time: number) {
-      const current = settingsRef.current;
-      const delta = Math.min(64, time - previous);
-      previous = time;
-      if (!pausedRef.current) elapsed += delta * current.speed;
-      const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
-      const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
-      const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
-      if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
-        drawingCanvas.width = width;
-        drawingCanvas.height = height;
-      }
-      drawingContext.viewport(0, 0, width, height);
-      drawingContext.uniform2f(resolutionLocation, width, height);
-      drawingContext.uniform1f(timeLocation, elapsed / 1000);
-      drawingContext.uniform3fv(colorALocation, hexToRgb(current.colorA));
-      drawingContext.uniform3fv(colorBLocation, hexToRgb(current.colorB));
-      drawingContext.uniform3fv(colorCLocation, hexToRgb(current.colorC));
-      drawingContext.uniform1f(strengthLocation, current.strength);
-      drawingContext.uniform1f(detailLocation, current.detail);
-      drawingContext.uniform1f(frequencyLocation, current.frequency);
-      drawingContext.uniform1f(grainLocation, current.grain);
-      drawingContext.uniform1f(amplitudeLocation, current.amplitude);
-      drawingContext.uniform1f(densityLocation, current.density);
-      drawingContext.uniform1f(brightnessLocation, current.brightness);
-      drawingContext.uniform1f(rotationLocation, current.rotationZ);
-      drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
-      frame = requestAnimationFrame(draw);
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      window.setTimeout(onContextLost, 120);
     }
 
-    frame = requestAnimationFrame(draw);
+    function bindCanvases() {
+      mountedSurface.querySelectorAll('canvas').forEach((canvas) => {
+        if (canvases.has(canvas)) return;
+        canvases.add(canvas);
+        cancelWebGLContextRelease(canvas);
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+      });
+    }
+
+    bindCanvases();
+    const observer = new MutationObserver(bindCanvases);
+    observer.observe(mountedSurface, { childList: true, subtree: true });
+
     return () => {
-      cancelAnimationFrame(frame);
-      drawingContext.deleteBuffer(buffer);
-      drawingContext.deleteProgram(program);
-      drawingContext.deleteShader(fragmentShader);
-      drawingContext.deleteShader(vertexShader);
+      observer.disconnect();
+      canvases.forEach((canvas) => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+        if (context) scheduleWebGLContextRelease(canvas, context);
+      });
     };
   });
 
-  return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
-}
-
-export default function LiveMaterialCanvas({
-  className = '',
-  materialId,
-  paused = false,
-  renderScale = 1,
-  settings,
-}: LiveMaterialCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const resolvedMaterialId = normalizeLiveMaterialId(materialId);
-
-  if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
-    return (
+  return (
+    <div className={`absolute inset-0 size-full ${className}`} ref={rootRef}>
       <ShaderGradientCanvas
-        className={className}
+        className='absolute inset-0 size-full'
         fov={45}
         pixelDensity={Math.min(2, renderScale)}
         pointerEvents='none'
@@ -404,6 +321,213 @@ export default function LiveMaterialCanvas({
           zoomOut
         />
       </ShaderGradientCanvas>
+    </div>
+  );
+}
+
+function OriginalMaterialCanvas({
+  canvasRef,
+  fragmentSource,
+  onContextLost,
+  paused,
+  renderScale,
+  settings,
+}: {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  fragmentSource: string;
+  onContextLost: () => void;
+  paused: boolean;
+  renderScale: number;
+  settings: LiveMaterialSettings;
+}) {
+  const pausedRef = useRef(paused);
+  const settingsRef = useRef(settings);
+  pausedRef.current = paused;
+  settingsRef.current = settings;
+
+  useMountEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: true,
+      preserveDrawingBuffer: true,
+    });
+    if (!context) return;
+    const drawingCanvas: HTMLCanvasElement = canvas;
+    const drawingContext: WebGLRenderingContext = context;
+    cancelWebGLContextRelease(drawingCanvas);
+
+    let vertexShader: WebGLShader;
+    let fragmentShader: WebGLShader;
+    try {
+      vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SOURCE);
+      fragmentShader = compileShader(context, context.FRAGMENT_SHADER, fragmentSource);
+    } catch {
+      scheduleWebGLContextRelease(drawingCanvas, context);
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
+    const program = context.createProgram();
+    if (!program) {
+      context.deleteShader(fragmentShader);
+      context.deleteShader(vertexShader);
+      scheduleWebGLContextRelease(drawingCanvas, context);
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
+    context.attachShader(program, vertexShader);
+    context.attachShader(program, fragmentShader);
+    context.linkProgram(program);
+    if (!context.getProgramParameter(program, context.LINK_STATUS)) {
+      context.deleteProgram(program);
+      context.deleteShader(fragmentShader);
+      context.deleteShader(vertexShader);
+      scheduleWebGLContextRelease(drawingCanvas, context);
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
+    const buffer = context.createBuffer();
+    if (!buffer) {
+      context.deleteProgram(program);
+      context.deleteShader(fragmentShader);
+      context.deleteShader(vertexShader);
+      scheduleWebGLContextRelease(drawingCanvas, context);
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
+    context.bindBuffer(context.ARRAY_BUFFER, buffer);
+    context.bufferData(
+      context.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      context.STATIC_DRAW
+    );
+    context.useProgram(program);
+    const position = context.getAttribLocation(program, 'a_position');
+    context.enableVertexAttribArray(position);
+    context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0);
+
+    const resolutionLocation = context.getUniformLocation(program, 'u_resolution');
+    const timeLocation = context.getUniformLocation(program, 'u_time');
+    const colorALocation = context.getUniformLocation(program, 'u_color_a');
+    const colorBLocation = context.getUniformLocation(program, 'u_color_b');
+    const colorCLocation = context.getUniformLocation(program, 'u_color_c');
+    const strengthLocation = context.getUniformLocation(program, 'u_strength');
+    const detailLocation = context.getUniformLocation(program, 'u_detail');
+    const frequencyLocation = context.getUniformLocation(program, 'u_frequency');
+    const grainLocation = context.getUniformLocation(program, 'u_grain');
+    const amplitudeLocation = context.getUniformLocation(program, 'u_amplitude');
+    const densityLocation = context.getUniformLocation(program, 'u_density');
+    const brightnessLocation = context.getUniformLocation(program, 'u_brightness');
+    const rotationLocation = context.getUniformLocation(program, 'u_rotation');
+
+    let frame = 0;
+    let elapsed = 0;
+    let previous = performance.now();
+    let disposed = false;
+
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      cancelAnimationFrame(frame);
+      if (!disposed) window.setTimeout(onContextLost, 0);
+    }
+
+    drawingCanvas.addEventListener('webglcontextlost', handleContextLost);
+
+    function draw(time: number) {
+      const current = settingsRef.current;
+      const delta = Math.min(64, time - previous);
+      previous = time;
+      if (!pausedRef.current) elapsed += delta * current.speed;
+      const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
+      const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
+      const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
+      if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
+        drawingCanvas.width = width;
+        drawingCanvas.height = height;
+      }
+      drawingContext.viewport(0, 0, width, height);
+      drawingContext.uniform2f(resolutionLocation, width, height);
+      drawingContext.uniform1f(timeLocation, elapsed / 1000);
+      drawingContext.uniform3fv(colorALocation, hexToRgb(current.colorA));
+      drawingContext.uniform3fv(colorBLocation, hexToRgb(current.colorB));
+      drawingContext.uniform3fv(colorCLocation, hexToRgb(current.colorC));
+      drawingContext.uniform1f(strengthLocation, current.strength);
+      drawingContext.uniform1f(detailLocation, current.detail);
+      drawingContext.uniform1f(frequencyLocation, current.frequency);
+      drawingContext.uniform1f(grainLocation, current.grain);
+      drawingContext.uniform1f(amplitudeLocation, current.amplitude);
+      drawingContext.uniform1f(densityLocation, current.density);
+      drawingContext.uniform1f(brightnessLocation, current.brightness);
+      drawingContext.uniform1f(rotationLocation, current.rotationZ);
+      drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
+      frame = requestAnimationFrame(draw);
+    }
+
+    frame = requestAnimationFrame(draw);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
+      drawingContext.deleteBuffer(buffer);
+      drawingContext.deleteProgram(program);
+      drawingContext.deleteShader(fragmentShader);
+      drawingContext.deleteShader(vertexShader);
+      scheduleWebGLContextRelease(drawingCanvas, drawingContext);
+    };
+  });
+
+  return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
+}
+
+export default function LiveMaterialCanvas({
+  className = '',
+  materialId,
+  paused = false,
+  renderScale = 1,
+  settings,
+}: LiveMaterialCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const resolvedMaterialId = normalizeLiveMaterialId(materialId);
+  const [contextRecovery, setContextRecovery] = useState(() => ({
+    failed: false,
+    materialId: resolvedMaterialId,
+    version: 0,
+  }));
+  const activeRecovery = contextRecovery.materialId === resolvedMaterialId
+    ? contextRecovery
+    : { failed: false, materialId: resolvedMaterialId, version: 0 };
+  const recoverContext = () => {
+    setContextRecovery((current) => {
+      const currentVersion = current.materialId === resolvedMaterialId ? current.version : 0;
+      return {
+        failed: currentVersion >= 2,
+        materialId: resolvedMaterialId,
+        version: Math.min(2, currentVersion + 1),
+      };
+    });
+  };
+
+  if (activeRecovery.failed) {
+    return (
+      <div
+        aria-label='Static shader fallback'
+        className={`absolute inset-0 size-full ${className}`}
+        style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+      />
+    );
+  }
+
+  if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
+    return (
+      <ShaderGradientSurface
+        className={className}
+        key={`shadergradient-${activeRecovery.version}`}
+        onContextLost={recoverContext}
+        paused={paused}
+        renderScale={renderScale}
+        settings={settings}
+      />
     );
   }
 
@@ -412,7 +536,8 @@ export default function LiveMaterialCanvas({
       <OriginalMaterialCanvas
         canvasRef={canvasRef}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
-        key={resolvedMaterialId}
+        key={`${resolvedMaterialId}-${activeRecovery.version}`}
+        onContextLost={recoverContext}
         paused={paused}
         renderScale={renderScale}
         settings={settings}

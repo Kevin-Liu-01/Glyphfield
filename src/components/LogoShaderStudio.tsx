@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import {
@@ -116,7 +117,10 @@ function compileShader(
   context.shaderSource(shader, source);
   context.compileShader(shader);
   if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
-    const message = context.getShaderInfoLog(shader) ?? 'Shader compilation failed';
+    const message = context.getShaderInfoLog(shader)?.trim()
+      || (context.isContextLost()
+        ? 'WebGL context lost during shader compilation'
+        : 'Shader compilation failed');
     context.deleteShader(shader);
     throw new Error(message);
   }
@@ -167,6 +171,7 @@ function ShaderCanvas({
       onError('WebGL is unavailable in this browser.');
       return;
     }
+    cancelWebGLContextRelease(canvas);
     const shaderCanvas = canvas;
     const webgl = context;
 
@@ -245,6 +250,7 @@ function ShaderCanvas({
       if (program) context.deleteProgram(program);
       if (fragmentShader) context.deleteShader(fragmentShader);
       if (vertexShader) context.deleteShader(vertexShader);
+      scheduleWebGLContextRelease(canvas, context);
     };
   });
 

@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   Palette,
   SlidersHorizontal,
+  Save,
   Trash2,
   Type,
   Upload,
@@ -167,10 +168,12 @@ function downloadIdentity(identity: BrandIdentity) {
 }
 
 export default function BrandSettingsStudio({
+  hasPendingChanges,
   identity,
   onChange,
   tool,
 }: {
+  hasPendingChanges: boolean;
   identity: BrandIdentity;
   onChange: (identity: BrandIdentity) => void;
   tool: StudioTool;
@@ -288,14 +291,17 @@ export default function BrandSettingsStudio({
           <small>{identity.name}</small>
         </div>
         <div className='brand-identity-header-actions'>
-          <span><Check aria-hidden='true' /><T>Saved locally</T></span>
+          <span data-pending={hasPendingChanges ? 'true' : 'false'}>
+            {hasPendingChanges ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
+            {hasPendingChanges ? <T>Changes pending</T> : <T>Saved locally</T>}
+          </span>
           <Button onClick={() => downloadIdentity(identity)} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
         </div>
       </header>
 
       <div className='brand-identity-body'>
         <nav aria-label={gt('Brand identity sections')} className='app-navbar brand-identity-nav'>
-          <div className='brand-identity-nav-title'><T>Identity source</T><span>{String(SECTIONS.length).padStart(2, '0')}</span></div>
+          <div className='brand-identity-nav-title'><T>Identity settings</T></div>
           {SECTIONS.map((section) => {
             const Icon = section.icon;
             return (
@@ -313,7 +319,6 @@ export default function BrandSettingsStudio({
               {darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}
             </div>
             <div className='min-w-0'>
-              <p>{identity.kind} identity / {identity.id}</p>
               <h1 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.name}</h1>
               <span>{identity.tagline}</span>
             </div>
@@ -345,11 +350,12 @@ export default function BrandSettingsStudio({
                     {lightMark ? <img alt='' src={lightMark} /> : <span>{identity.shortName}</span>}
                     <small>{identity.website}</small>
                   </div>
-                  <div className='brand-identity-preview-statement'>
-                    <small>POSITION / 001</small>
-                    <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.tagline}</h2>
+                  <div className='brand-identity-preview-copy'>
+                    <div className='brand-identity-preview-statement'>
+                      <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.tagline}</h2>
+                    </div>
+                    <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: bodyTypography.weight, letterSpacing: `${bodyTypography.letterSpacing}px`, lineHeight: bodyTypography.lineHeight }}>{identity.positioning}</p>
                   </div>
-                  <p style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: bodyTypography.weight, letterSpacing: `${bodyTypography.letterSpacing}px`, lineHeight: bodyTypography.lineHeight }}>{identity.positioning}</p>
                   <div className='brand-identity-preview-principles'>{identity.voice.principles.slice(0, 4).map((principle, index) => <span key={principle}>{String(index + 1).padStart(2, '0')} / {principle}</span>)}</div>
                 </div>
               </Panel>

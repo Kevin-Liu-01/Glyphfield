@@ -28,6 +28,7 @@ import {
   PanelsTopLeft,
   Plus,
   Rocket,
+  Save,
   Search,
   ScanLine,
   Settings2,
@@ -42,6 +43,7 @@ import {
 
 import AnimationStudio from '@/components/AnimationStudio';
 import BrandFontFaces from '@/components/BrandFontFaces';
+import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import StudioToolWorkspace from '@/components/StudioToolWorkspace';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -61,6 +63,7 @@ import { PRODUCT_BRAND } from '@/lib/productBrand';
 import {
   filterStudioTools,
   getProjectTabDensity,
+  getProjectTabScrollCues,
   STUDIO_CATEGORIES,
   STUDIO_TOOLS,
   type StudioToolId,
@@ -636,6 +639,7 @@ export default function StudioApp() {
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
   );
+  const [pendingIdentities, setPendingIdentities] = useState<Record<string, BrandIdentity>>({});
   const [identitiesReady, setIdentitiesReady] = useState(false);
   const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
@@ -644,8 +648,10 @@ export default function StudioApp() {
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
   const workspaceDirectionRef = useRef<'backward' | 'forward'>('forward');
   const [tabScrollState, setTabScrollState] = useState({
+    availableWidth: 0,
     canScrollLeft: false,
     canScrollRight: false,
+    viewportWidth: 0,
   });
   const [openIdentityIds, setOpenIdentityIds] = usePersistentState<string[]>(
     OPEN_TABS_STORAGE_KEY,
@@ -664,18 +670,29 @@ export default function StudioApp() {
       : resolvedAppearance.theme;
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
+  const resolvedIdentities = useMemo(
+    () => identities.map((identity) => pendingIdentities[identity.id] ?? identity),
+    [identities, pendingIdentities]
+  );
   const activeIdentity =
-    identities.find(({ id }) => id === activeIdentityId) ?? identities[0];
+    resolvedIdentities.find(({ id }) => id === activeIdentityId) ?? resolvedIdentities[0];
+  const activeIdentityHasPendingChanges = Boolean(
+    activeIdentity && pendingIdentities[activeIdentity.id]
+  );
   const visibleIdentities = useMemo(
     () =>
-      identities.filter(
+      resolvedIdentities.filter(
         (identity) =>
           openIdentityIds.includes(identity.id) &&
           identityBelongsToFolder(identity, activeFolderId)
       ),
-    [activeFolderId, identities, openIdentityIds]
+    [activeFolderId, openIdentityIds, resolvedIdentities]
   );
-  const projectTabDensity = getProjectTabDensity(visibleIdentities.length);
+  const projectTabDensity = getProjectTabDensity(
+    visibleIdentities.length,
+    tabScrollState.availableWidth,
+    tabScrollState.viewportWidth
+  );
   const activeProjectTabIndex = visibleIdentities.findIndex(
     ({ id }) => id === activeIdentity?.id
   );
@@ -685,10 +702,10 @@ export default function StudioApp() {
       Object.fromEntries(
         PROJECT_FOLDERS.map((folder) => [
           folder.id,
-          identities.filter((identity) => identityBelongsToFolder(identity, folder.id)).length,
+          resolvedIdentities.filter((identity) => identityBelongsToFolder(identity, folder.id)).length,
         ])
       ) as Record<ProjectFolderId, number>,
-    [identities]
+    [resolvedIdentities]
   );
 
   useMountEffect(() => {
@@ -750,14 +767,21 @@ export default function StudioApp() {
     const updateScrollState = () => {
       window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
+        const scrollCues = getProjectTabScrollCues(
+          rail.scrollLeft,
+          rail.clientWidth,
+          rail.scrollWidth
+        );
         const nextState = {
-          canScrollLeft: rail.scrollLeft > 2,
-          canScrollRight:
-            rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2,
+          availableWidth: rail.clientWidth,
+          ...scrollCues,
+          viewportWidth: window.innerWidth,
         };
         setTabScrollState((current) =>
+          current.availableWidth === nextState.availableWidth &&
           current.canScrollLeft === nextState.canScrollLeft &&
-          current.canScrollRight === nextState.canScrollRight
+          current.canScrollRight === nextState.canScrollRight &&
+          current.viewportWidth === nextState.viewportWidth
             ? current
             : nextState
         );
@@ -767,6 +791,10 @@ export default function StudioApp() {
     const resizeObserver = new ResizeObserver(updateScrollState);
     const mutationObserver = new MutationObserver(updateScrollState);
     resizeObserver.observe(rail);
+    const tabList = rail.querySelector<HTMLElement>('.project-tabs-tablist');
+    const addButton = rail.querySelector<HTMLElement>('.project-tab-add');
+    if (tabList) resizeObserver.observe(tabList);
+    if (addButton) resizeObserver.observe(addButton);
     mutationObserver.observe(rail, { childList: true, subtree: true });
     rail.addEventListener('scroll', updateScrollState, { passive: true });
     updateScrollState();
@@ -925,46 +953,65 @@ export default function StudioApp() {
   }
 
   function renameIdentity(identityId: string, name: string) {
+    const currentIdentity = resolvedIdentities.find((identity) => identity.id === identityId);
+    if (!currentIdentity) return;
     const trimmedWords = name.trim().split(/\s+/).filter(Boolean);
     const shortName = trimmedWords
       .map((word) => word[0])
       .join('')
       .slice(0, 3)
       .toLocaleUpperCase();
-    commitIdentities(
-      identities.map((identity) =>
-        identity.id === identityId
-          ? {
-              ...identity,
-              assets: identity.assets.some(({ label }) =>
-                label.startsWith('Generated pixel mark')
-              )
-                ? updateGeneratedPixelAssets(
-                    identity.assets,
-                    shortName || identity.shortName,
-                    identity.id
-                  )
-                : identity.assets,
-              name,
-              shortName: shortName || identity.shortName,
-            }
-          : identity
+    updateIdentity({
+      ...currentIdentity,
+      assets: currentIdentity.assets.some(({ label }) =>
+        label.startsWith('Generated pixel mark')
       )
-    );
+        ? updateGeneratedPixelAssets(
+            currentIdentity.assets,
+            shortName || currentIdentity.shortName,
+            currentIdentity.id
+          )
+        : currentIdentity.assets,
+      name,
+      shortName: shortName || currentIdentity.shortName,
+    });
   }
 
   function updateIdentity(nextIdentity: BrandIdentity) {
+    setPendingIdentities((current) => ({
+      ...current,
+      [nextIdentity.id]: nextIdentity,
+    }));
+  }
+
+  function saveIdentityChanges(identityId: string) {
+    const pendingIdentity = pendingIdentities[identityId];
+    if (!pendingIdentity) return;
     commitIdentities(
       identities.map((identity) =>
-        identity.id === nextIdentity.id ? nextIdentity : identity
+        identity.id === identityId ? pendingIdentity : identity
       )
     );
+    setPendingIdentities((current) => {
+      const nextPendingIdentities = { ...current };
+      delete nextPendingIdentities[identityId];
+      return nextPendingIdentities;
+    });
+  }
+
+  function ignoreIdentityChanges(identityId: string) {
+    setPendingIdentities((current) => {
+      const nextPendingIdentities = { ...current };
+      delete nextPendingIdentities[identityId];
+      return nextPendingIdentities;
+    });
   }
 
   function removeIdentity() {
     if (!activeIdentity || activeIdentity.builtIn) return;
     const nextIdentities = identities.filter(({ id }) => id !== activeIdentity.id);
     commitIdentities(nextIdentities);
+    ignoreIdentityChanges(activeIdentity.id);
     setOpenIdentityIds((current) => current.filter((id) => id !== activeIdentity.id));
     setActiveFolderId('all');
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
@@ -1157,16 +1204,7 @@ export default function StudioApp() {
       </header>
 
       <div className='project-tabs-shell bg-background'>
-        <div className='project-dither-panel' aria-hidden='true'>
-          <span className='project-dither-field' />
-          <span className='project-dither-sweep' />
-          <span className='project-dither-symbols'>
-            <span>G</span>
-            <span>ϟ</span>
-            <span>@</span>
-            <span>{'{ }'}</span>
-          </span>
-        </div>
+        <SidebarDitherPanel />
         <div
           className='app-navbar project-tabs flex min-w-0 items-end gap-2 px-2'
           data-tab-density={projectTabDensity}
@@ -1236,7 +1274,7 @@ export default function StudioApp() {
               activeIdentityId={activeIdentity.id}
               activeFolderId={activeFolderId}
               folderCounts={folderCounts}
-              identities={identities}
+              identities={resolvedIdentities}
               onOpenProject={selectIdentity}
               onSelect={selectProjectFolder}
               openIdentityIds={openIdentityIds}
@@ -1320,7 +1358,12 @@ export default function StudioApp() {
             ) : activeToolId === 'animation' ? (
               <AnimationStudio embedded identity={activeIdentity} />
             ) : (
-              <StudioToolWorkspace identity={activeIdentity} onIdentityChange={updateIdentity} tool={activeTool} />
+              <StudioToolWorkspace
+                hasPendingIdentityChanges={activeIdentityHasPendingChanges}
+                identity={activeIdentity}
+                onIdentityChange={updateIdentity}
+                tool={activeTool}
+              />
             )}
           </div>
         </section>
@@ -1334,6 +1377,30 @@ export default function StudioApp() {
           setQuery={setQuery}
           tools={filteredTools}
         />
+      ) : null}
+      {activeIdentityHasPendingChanges ? (
+        <div aria-live='polite' className='studio-save-toast' role='status'>
+          <div className='studio-save-toast-copy'>
+            <strong><T>Save these brand changes?</T></strong>
+            <span><T>Apply them across every design, or ignore this draft.</T></span>
+          </div>
+          <Button
+            onClick={() => ignoreIdentityChanges(activeIdentity.id)}
+            size='sm'
+            type='button'
+            variant='ghost'
+          >
+            <T>Ignore</T>
+          </Button>
+          <Button
+            onClick={() => saveIdentityChanges(activeIdentity.id)}
+            size='sm'
+            type='button'
+          >
+            <Save aria-hidden='true' />
+            <T>Save changes</T>
+          </Button>
+        </div>
       ) : null}
     </main>
   );

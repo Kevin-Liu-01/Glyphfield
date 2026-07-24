@@ -62,6 +62,49 @@ const GT_FONT_ASSETS: BrandFontAsset[] = [
   },
 ];
 
+const RAMP_FONT_ASSETS: BrandFontAsset[] = [
+  {
+    family: 'Lausanne',
+    fileName: 'TWKLausanne_300.woff2',
+    format: 'woff2',
+    id: 'ramp-lausanne-300',
+    label: 'Lausanne Light',
+    path: 'https://ramp.com/_next/static/media/TWKLausanne_300-s.p.0pg2wi~d-txnj.woff2',
+    style: 'normal',
+    weight: 300,
+  },
+  {
+    family: 'Lausanne',
+    fileName: 'TWKLausanne_350.woff2',
+    format: 'woff2',
+    id: 'ramp-lausanne-350',
+    label: 'Lausanne Book',
+    path: 'https://ramp.com/_next/static/media/TWKLausanne_350-s.p.02ce1jk2zf5hx.woff2',
+    style: 'normal',
+    weight: 350,
+  },
+  {
+    family: 'Lausanne',
+    fileName: 'TWKLausanne_400.woff2',
+    format: 'woff2',
+    id: 'ramp-lausanne-400',
+    label: 'Lausanne Regular',
+    path: 'https://ramp.com/_next/static/media/TWKLausanne_400-s.p.05uo~7m0a0ta~.woff2',
+    style: 'normal',
+    weight: 400,
+  },
+  {
+    family: 'Lausanne',
+    fileName: 'TWKLausanne_700.woff2',
+    format: 'woff2',
+    id: 'ramp-lausanne-700',
+    label: 'Lausanne Bold',
+    path: 'https://ramp.com/_next/static/media/TWKLausanne_700-s.p.010k27_h~buh-.woff2',
+    style: 'normal',
+    weight: 700,
+  },
+];
+
 export const GT_BRAND_IDENTITY: BrandIdentity = {
   applications: [
     application('identity', 'Identity thesis', 'foundation', '1600 × 1000', 'The GT mark, multilingual promise, and source-of-truth idea in one opening composition.'),
@@ -157,7 +200,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   website: 'generaltranslation.com',
 };
 
-export const TEMPLATE_BRAND_IDENTITY: BrandIdentity = {
+const TEMPLATE_BRAND_IDENTITY: BrandIdentity = {
   applications: [
     application('thesis', 'Brand thesis', 'foundation', '1600 × 1000', 'Define the problem, promise, concept, and recognizable device before decorating outputs.'),
     application('logo', 'Logo architecture', 'foundation', 'Responsive family', 'Map mark, wordmark, lockups, clear space, minimum size, and surface variants.'),
@@ -336,6 +379,7 @@ export const RAMP_BRAND_IDENTITY: BrandIdentity = {
   ],
   contactEmail: 'press@ramp.com',
   description: 'A proof-first identity for the finance operations platform built to save businesses time and money and free finance teams to focus on higher-value work.',
+  fonts: RAMP_FONT_ASSETS,
   greetings: ['Save time', 'Save money', 'Move faster'],
   graphicSystem: { composition: 'Large economic proof leads; interface details and ledger rules organize the supporting story.', description: 'The savings ledger converts financial operations into visible evidence: money, time, transactions, controls, and the work a team gets back.', device: 'The savings ledger', imageDirection: 'Confident product evidence, cards, operator portraits, and candid workplace imagery with warm editorial crops.', pattern: 'steps', rules: ['Lead with quantified customer value', 'Use the ledger to align evidence', 'Keep the official logo slate or white', 'Balance financial rigor with human time regained'] },
   id: 'ramp',
@@ -347,14 +391,19 @@ export const RAMP_BRAND_IDENTITY: BrandIdentity = {
   products: ['Corporate cards', 'Expense management', 'Accounts payable', 'Travel', 'Procurement', 'Treasury'],
   proof: ['70,000+ customers', '$12B+ saved', '27M+ hours eliminated', 'Books closed 8 days faster'],
   proofAssets: [],
-  revision: REVISION,
+  revision: REVISION + 1,
   shortName: 'R',
   socialHandle: '@tryramp',
-  sourceNotes: ['Official Ramp press page and 2026 press kit', 'Official Ramp slate and white logo archive', 'Current Ramp company positioning and published proof points'],
+  sourceNotes: ['Official Ramp press page and 2026 press kit', 'Official Ramp slate and white logo archive', 'Current Ramp company positioning and published proof points', 'Current Ramp site CSS and its published Lausanne webfont weights'],
   strategy: { challenge: 'Finance teams lose strategic time to fragmented cards, reimbursements, bills, approvals, accounting work, and legacy systems designed to increase spend.', concept: 'Time is money—make both forms of savings visible.', outcome: 'A rigorous but energetic system that makes the value of finance automation immediately legible to executives and operators.', personality: ['Decisive', 'Economical', 'Modern', 'Operator-minded'], pillars: ['Save time', 'Save money', 'Automate the manual', 'Give finance control without friction'], promise: 'Ramp gives finance teams time back and makes every dollar work harder.' },
   style: { borderRadius: 2, density: 'compact', grid: 'none', imageTreatment: 'natural', logoScale: 94 },
   tagline: 'Time is money. Save both.',
-  typography: [{ family: 'Ramp Sans', role: 'Display', usage: 'Oversized economic proof and editorial statements' }, { family: 'Inter', role: 'Body', usage: 'Product UI and explanatory copy' }, { family: 'Times New Roman', role: 'Accent', usage: 'Editorial contrast in reports and thought leadership' }, { family: 'Geist Mono', role: 'Code', usage: 'Amounts, dates, ledger states, and evidence labels' }],
+  typography: [
+    { family: 'Lausanne', fontId: 'ramp-lausanne-350', letterSpacing: -1.1, lineHeight: 0.96, role: 'Display', usage: 'Oversized economic proof and editorial statements', weight: 350 },
+    { family: 'Lausanne', fontId: 'ramp-lausanne-300', letterSpacing: -0.1, lineHeight: 1.48, role: 'Body', usage: 'Product UI and explanatory copy', weight: 300 },
+    { family: 'Lausanne', fontId: 'ramp-lausanne-400', letterSpacing: -0.2, lineHeight: 1.2, role: 'Accent', usage: 'Reports, customer proof, and thought leadership', weight: 400 },
+    { family: 'Lausanne', fontId: 'ramp-lausanne-400', letterSpacing: 0.2, lineHeight: 1.4, role: 'Code', usage: 'Amounts, dates, ledger states, and evidence labels', weight: 400 },
+  ],
   values: ['Grow without fear', 'Take ownership', 'We win when customers win', 'Amp it up'],
   voice: { avoid: ['Abstract fintech futurism', 'Benefits without quantified evidence', 'Complexity disguised as expertise'], phrases: ['Time is money. Save both.', 'Setting finance free.', 'Build healthier businesses.'], principles: ['Proof-first', 'Economical', 'Confident', 'Operator-aware'] },
   website: 'ramp.com',
@@ -587,7 +636,6 @@ export const BASEMENT_BRAND_IDENTITY: BrandIdentity = {
 
 export const BUILT_IN_BRAND_IDENTITIES: readonly BrandIdentity[] = [
   STARTER_BRAND_IDENTITY,
-  TEMPLATE_BRAND_IDENTITY,
   BASEMENT_BRAND_IDENTITY,
   GT_BRAND_IDENTITY,
   RAMP_BRAND_IDENTITY,

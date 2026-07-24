@@ -3,7 +3,6 @@ import {
   BUILT_IN_BRAND_IDENTITIES,
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
-  TEMPLATE_BRAND_IDENTITY,
 } from './identityPresets';
 import { capVisibleFontWeight } from './typography';
 
@@ -12,7 +11,6 @@ export {
   BUILT_IN_BRAND_IDENTITIES,
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
-  TEMPLATE_BRAND_IDENTITY,
 };
 
 export type BrandAsset = {
@@ -251,7 +249,7 @@ export function brandFontFaceCss(identity: BrandIdentity): string {
       const weight = font.weightMin !== undefined && font.weightMax !== undefined
         ? `${font.weightMin} ${font.weightMax}`
         : String(font.weight);
-      return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)});font-style:${font.style};font-weight:${weight};font-display:swap;}`;
+      return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)});font-style:${font.style};font-weight:${weight};font-display:block;}`;
     })
     .join('');
 }
@@ -542,8 +540,9 @@ function isBrandIdentity(value: unknown): value is BrandIdentity {
 export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   const storedIdentities = Array.isArray(value) ? value.filter(isBrandIdentity) : [];
   const builtInIds = new Set(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id));
+  const retiredBuiltInIds = new Set(['template']);
   const customIdentities = storedIdentities.filter(
-    ({ id }) => !builtInIds.has(id)
+    ({ id }) => !builtInIds.has(id) && !retiredBuiltInIds.has(id)
   );
   const builtInIdentities = BUILT_IN_BRAND_IDENTITIES.map((preset) => {
     const storedIdentity = storedIdentities.find(({ id }) => id === preset.id);

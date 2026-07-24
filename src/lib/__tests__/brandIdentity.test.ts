@@ -10,6 +10,7 @@ import {
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
+  STARTER_BRAND_IDENTITY,
 } from '../brandIdentity';
 
 describe('BASEMENT_BRAND_IDENTITY', () => {
@@ -73,10 +74,9 @@ describe('GT_BRAND_IDENTITY', () => {
 });
 
 describe('BUILT_IN_BRAND_IDENTITIES', () => {
-  it('ships the complete template, starter, GT, and reference identity library', () => {
+  it('ships Starter, GT, and the reference identity library', () => {
     expect(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id)).toEqual([
       'starter',
-      'template',
       'basement',
       'gt',
       'ramp',
@@ -100,6 +100,22 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       ).toBe(true);
       expect(brandTypographyFamily(identity, 'Display')).toBeTruthy();
     }
+  });
+
+  it('renders Ramp exclusively with its registered Lausanne family', () => {
+    const ramp = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'ramp')!;
+    const fontIds = new Set(brandFontAssets(ramp).map(({ id }) => id));
+
+    expect(brandFontAssets(ramp).map(({ family }) => family)).toEqual([
+      'Lausanne',
+      'Lausanne',
+      'Lausanne',
+      'Lausanne',
+    ]);
+    expect(ramp.typography.every(({ fontId }) => fontId && fontIds.has(fontId))).toBe(true);
+    expect(['Display', 'Body', 'Accent', 'Code'].map((role) => (
+      brandTypographyFamily(ramp, role as 'Display' | 'Body' | 'Accent' | 'Code')
+    ))).toEqual(['Lausanne', 'Lausanne', 'Lausanne', 'Lausanne']);
   });
 });
 
@@ -156,15 +172,25 @@ describe('createBrandIdentity', () => {
 });
 
 describe('hydrateBrandIdentities', () => {
-  it('places templates first, keeps custom tabs, and preserves current-revision built-in edits', () => {
+  it('places Starter first, keeps custom tabs, and preserves current-revision built-in edits', () => {
     const oldGt = { ...GT_BRAND_IDENTITY, name: 'Old GT' };
     const custom = createBrandIdentity('Acme', 'acme');
 
     const identities = hydrateBrandIdentities([oldGt, custom]);
 
-    expect(identities.slice(0, 2).map(({ id }) => id)).toEqual(['starter', 'template']);
+    expect(identities.slice(0, 2).map(({ id }) => id)).toEqual(['starter', 'acme']);
     expect(identities.find(({ id }) => id === 'acme')).toEqual(custom);
     expect(identities.find(({ id }) => id === 'gt')).toMatchObject({ builtIn: true, id: 'gt', kind: 'example', name: 'Old GT' });
+  });
+
+  it('drops the retired Template project from saved state', () => {
+    const retiredTemplate = {
+      ...STARTER_BRAND_IDENTITY,
+      id: 'template',
+      name: 'Template',
+    };
+
+    expect(hydrateBrandIdentities([retiredTemplate]).some(({ id }) => id === 'template')).toBe(false);
   });
 
   it('adds generated marks to legacy custom projects without assets', () => {

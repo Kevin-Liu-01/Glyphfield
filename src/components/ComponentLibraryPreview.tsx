@@ -18,7 +18,7 @@ import {
 
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
-import type { BrandIdentity } from '@/lib/brandIdentity';
+import { brandTypographyFamily, type BrandIdentity } from '@/lib/brandIdentity';
 
 export type ComponentFamily =
   | 'actions'
@@ -324,6 +324,6 @@ export default function ComponentLibraryPreview({
 export function componentPreviewStyle(radius: number, identity: BrandIdentity): CSSProperties {
   return {
     '--component-radius': `${radius}px`,
-    fontFamily: identity.typography.find(({ role }) => role === 'Body')?.family ?? 'Switzer',
+    fontFamily: brandTypographyFamily(identity, 'Body'),
   } as CSSProperties;
 }

@@ -78,7 +78,6 @@ Fields:
 - template: slides | blog | partnership
 - texture: white | dark | grid | noise
 - title: optional, maximum 240 characters
-- eyebrow: optional, maximum 80 characters
 - body: optional, maximum 1000 characters; use newline-delimited items for list layouts
 - slideLayout: title | section | agenda | split | metrics | quote | timeline | closing
 - foreground: optional six-digit HEX

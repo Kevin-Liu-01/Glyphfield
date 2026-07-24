@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import { getDocsMdxComponents } from '@/components/DocsMdx';
+import DocsTocActions from '@/components/DocsTocActions';
 import { docsSource, getDocumentationImage } from '@/lib/docsSource';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
@@ -25,7 +26,12 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
   const location = page.slugs.length > 0 ? page.slugs.join(' / ') : 'overview';
 
   return (
-    <DocsPage breadcrumb={{ enabled: false }} className='glyphfield-doc-page' toc={page.data.toc}>
+    <DocsPage
+      breadcrumb={{ enabled: false }}
+      className='glyphfield-doc-page'
+      tableOfContent={{ header: <DocsTocActions /> }}
+      toc={page.data.toc}
+    >
       <header className='glyphfield-doc-page-header'>
         <div className='glyphfield-doc-page-kicker'><span>GLYPHFIELD / DOCS</span><span>{location}</span></div>
         <DocsTitle className='glyphfield-doc-title'>{page.data.title}</DocsTitle>
