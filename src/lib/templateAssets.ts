@@ -34,6 +34,12 @@ export function templatePartnerOptions(identity: BrandIdentity): BrandAsset[] {
   return [NORTHSTAR_PARTNER, ...identity.proofAssets];
 }
 
+export function templateBackgroundOptions(identity: BrandIdentity): BrandAsset[] {
+  return identity.assets.filter(
+    ({ type }) => type === 'background' || type === 'image' || type === 'texture'
+  );
+}
+
 export function defaultTemplatePartner(identity: BrandIdentity): BrandAsset {
   return identity.proofAssets.find(({ id }) => id === 'ramp')
     ?? identity.proofAssets[0]

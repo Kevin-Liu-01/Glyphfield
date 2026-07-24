@@ -96,6 +96,9 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.applications.length).toBeGreaterThanOrEqual(8);
       expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
       expect(identity.assets.some(({ type }) => type === 'background')).toBe(true);
+      if (identity.id !== 'starter') {
+        expect(identity.assets.some(({ type }) => type === 'image')).toBe(true);
+      }
       expect(
         brandFontAssets(identity).every(({ path }) => /\.(?:otf|ttf|woff2)$/.test(path))
       ).toBe(true);

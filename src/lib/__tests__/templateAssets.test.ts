@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { GT_BRAND_IDENTITY, STARTER_BRAND_IDENTITY } from '../brandIdentity';
 import {
   defaultTemplatePartner,
+  templateBackgroundOptions,
   templateBrandLogo,
   templatePartnerOptions,
 } from '../templateAssets';
@@ -28,6 +29,15 @@ describe('template assets', () => {
     expect(templatePartnerOptions(GT_BRAND_IDENTITY).map(({ id }) => id)).toEqual(
       expect.arrayContaining(['ramp', 'cursor', 'template-northstar'])
     );
+  });
+
+  it('keeps product identities out of background artwork options', () => {
+    const options = templateBackgroundOptions(GT_BRAND_IDENTITY);
+
+    expect(options.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(['identity-field', 'reference-homepage'])
+    );
+    expect(options.map(({ id }) => id)).not.toContain('locadex');
   });
 
   it('gives a blank project a designed template partner instead of a text placeholder', () => {

@@ -10,6 +10,7 @@ const assets = {
   monoFont: 'data:font/woff2;base64,MONO',
   motionPreview: 'data:image/gif;base64,MOTION',
   proofMarks: ['data:image/svg+xml;base64,PROOF'],
+  referenceImages: ['data:image/png;base64,REFERENCE'],
 };
 
 describe('buildMoodboardSvg', () => {
@@ -37,6 +38,8 @@ describe('buildMoodboardSvg', () => {
     expect(svg).toContain('Localization');
     expect(svg).toContain('workspace');
     expect(svg).toContain('Language morph');
+    expect(svg).toContain(assets.referenceImages[0]);
+    expect(svg).toContain(assets.motionPreview);
     expect(svg).not.toContain('#3B82F6');
     expect(svg).not.toContain('#F97316');
   });
@@ -50,6 +53,9 @@ describe('buildMoodboardSvg', () => {
     expect(svg).toContain('class="application-panel type-application"');
     expect(svg).toContain('class="application-panel product-application"');
     expect(svg).toContain('class="application-panel system-application"');
+    expect(svg).toContain(assets.referenceImages[0]);
+    expect(svg).toContain(assets.proofMarks[0]);
+    expect(svg).toContain(assets.motionPreview);
     expect(svg).not.toContain('01 / GT IDENTITY');
   });
 

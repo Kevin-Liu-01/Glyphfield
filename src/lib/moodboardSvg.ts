@@ -13,6 +13,7 @@ export type MoodboardSvgAssets = {
   monoFont?: string;
   motionPreview?: string;
   proofMarks?: readonly string[];
+  referenceImages?: readonly string[];
 };
 
 function escapeXml(value: string): string {
@@ -63,6 +64,28 @@ function color(identity: BrandIdentity, id: string, fallback: string): string {
 function embeddedFont(name: string, source: string | undefined): string {
   if (!source) return '';
   return `@font-face{font-family:'${name}';src:url('${escapeXml(source)}');font-style:normal;font-weight:100 900;font-display:block;}`;
+}
+
+function referenceFilter(treatment: BrandIdentity['style']['imageTreatment']): string {
+  if (treatment === 'monochrome') {
+    return '<filter id="reference-treatment"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.08" intercept="-.04"/><feFuncG type="linear" slope="1.08" intercept="-.04"/><feFuncB type="linear" slope="1.08" intercept="-.04"/></feComponentTransfer></filter>';
+  }
+  if (treatment === 'duotone') {
+    return '<filter id="reference-treatment"><feColorMatrix values=".62 .24 .14 0 .06 .28 .52 .2 0 .03 .12 .24 .64 0 0 0 0 0 1 0"/></filter>';
+  }
+  return '';
+}
+
+function referenceImage(
+  source: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  treatment: BrandIdentity['style']['imageTreatment'],
+  opacity = 1
+): string {
+  return `<image href="${escapeXml(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" opacity="${opacity}"${treatment === 'natural' ? '' : ' filter="url(#reference-treatment)"'}/>`;
 }
 
 function logo(
@@ -152,6 +175,8 @@ function buildShowcaseMoodboardSvg(
   const primary = color(identity, 'emphasis', '#E4E4E4');
   const deep = color(identity, 'error', '#262626');
   const applications = selectedApplications(identity);
+  const proofMarks = assets.proofMarks ?? [];
+  const references = assets.referenceImages ?? [];
   const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
   const heroLines = wrapText(identity.tagline, 19, 4);
   const storyLines = wrapText(identity.strategy.concept, 26, 4);
@@ -160,7 +185,7 @@ function buildShowcaseMoodboardSvg(
   const thirdApplication = applications[2] ?? identity.applications[2] ?? firstApplication;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" data-board-mode="showcase" data-brand="${escapeXml(identity.name)}">
-<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style></defs>
+<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>${referenceFilter(identity.style.imageTreatment)}</defs>
 <rect width="1600" height="900" fill="${muted}"/>
 
 <g class="application-panel hero-application" transform="translate(24 24)">
@@ -168,19 +193,18 @@ function buildShowcaseMoodboardSvg(
   ${logo(assets.markLight, identity.shortName, 42, 38, 132, 58, paper)}
   <text x="886" y="58" text-anchor="end" class="mono" fill="${paper}" opacity=".42" font-size="9">${escapeXml(identity.website.toLocaleUpperCase())}</text>
   ${textLines(heroLines, 42, 190, 74, `class="sans" fill="${paper}" font-size="68" font-weight="550" letter-spacing="-4"`)}
-  <text x="42" y="452" class="mono" fill="${paper}" opacity=".48" font-size="9" letter-spacing="1.2">${escapeXml(identity.positioning.toLocaleUpperCase().slice(0, 105))}</text>
+  ${proofMarks.length > 0
+    ? `<rect y="416" width="928" height="58" fill="${paper}"/>${proofMarks.slice(0, 4).map((mark, index) => `<image href="${escapeXml(mark)}" x="${42 + index * 188}" y="431" width="132" height="26" preserveAspectRatio="xMinYMid meet"/>`).join('')}`
+    : `<text x="42" y="452" class="mono" fill="${paper}" opacity=".48" font-size="9" letter-spacing="1.2">${escapeXml(identity.positioning.toLocaleUpperCase().slice(0, 105))}</text>`}
   <rect y="474" width="928" height="26" fill="${primary}"/>
   <rect y="474" width="318" height="26" fill="${paper}"/>
 </g>
 
 <g class="application-panel editorial-application" transform="translate(976 24)">
   <rect width="600" height="500" fill="${paper}"/>
-  <text x="32" y="42" class="mono" fill="${ink}" opacity=".42" font-size="9">CASE STUDY / ${escapeXml(firstApplication?.name.toLocaleUpperCase() ?? 'SELECTED WORK')}</text>
-  <path d="M32 62H568" stroke="${ink}" stroke-opacity=".16"/>
-  ${textLines(storyLines, 32, 148, 52, `class="sans" fill="${ink}" font-size="44" font-weight="550" letter-spacing="-2.3"`)}
-  <text x="32" y="392" class="sans" fill="${ink}" opacity=".58" font-size="13">${escapeXml(firstApplication?.description.slice(0, 96) ?? identity.description.slice(0, 96))}</text>
-  <rect x="32" y="432" width="536" height="36" fill="${deep}"/>
-  <text x="48" y="455" class="mono" fill="${paper}" font-size="8" letter-spacing="1.2">PROBLEM → IDEA → SYSTEM → IMPACT</text>
+  ${references[0]
+    ? `${referenceImage(references[0], 0, 0, 600, 354, identity.style.imageTreatment)}<rect y="354" width="600" height="146" fill="${paper}"/><text x="28" y="385" class="mono" fill="${ink}" opacity=".46" font-size="8">LIVE REFERENCE / ${escapeXml(identity.website.toLocaleUpperCase())}</text>${textLines(wrapText(identity.strategy.concept, 44, 2), 28, 426, 28, `class="sans" fill="${ink}" font-size="22" font-weight="550" letter-spacing="-.8"`)}<text x="572" y="476" text-anchor="end" class="mono" fill="${ink}" opacity=".38" font-size="7">CAPTURED / JUL 2026</text>`
+    : `<text x="32" y="42" class="mono" fill="${ink}" opacity=".42" font-size="9">CASE STUDY / ${escapeXml(firstApplication?.name.toLocaleUpperCase() ?? 'SELECTED WORK')}</text><path d="M32 62H568" stroke="${ink}" stroke-opacity=".16"/>${textLines(storyLines, 32, 148, 52, `class="sans" fill="${ink}" font-size="44" font-weight="550" letter-spacing="-2.3"`)}<text x="32" y="392" class="sans" fill="${ink}" opacity=".58" font-size="13">${escapeXml(firstApplication?.description.slice(0, 96) ?? identity.description.slice(0, 96))}</text><rect x="32" y="432" width="536" height="36" fill="${deep}"/><text x="48" y="455" class="mono" fill="${paper}" font-size="8" letter-spacing="1.2">PROBLEM → IDEA → SYSTEM → IMPACT</text>`}
 </g>
 
 <g class="application-panel type-application" transform="translate(24 548)">
@@ -202,6 +226,7 @@ function buildShowcaseMoodboardSvg(
     <path d="M0 180H592" stroke="${ink}" stroke-opacity=".14"/>
     ${identity.products.slice(0, 3).map((product, index) => `<text x="${index * 198}" y="214" class="mono" fill="${ink}" opacity="${index === 0 ? '.9' : '.42'}" font-size="8">0${index + 1} / ${escapeXml(product.toLocaleUpperCase())}</text>`).join('')}
   </g>
+  ${assets.motionPreview ? `${referenceImage(assets.motionPreview, 332, 78, 284, 164, identity.style.imageTreatment)}<rect x="332" y="242" width="284" height="34" fill="${ink}"/><text x="346" y="263" class="mono" fill="${paper}" opacity=".7" font-size="7">SYSTEM / MOTION / PRODUCT</text>` : ''}
 </g>
 
 <g class="application-panel system-application" transform="translate(1192 548)">
@@ -227,6 +252,7 @@ function buildSystemMoodboardSvg(
   const deep = color(identity, 'error', '#262626');
   const applications = selectedApplications(identity);
   const logos = assets.logoMarks ?? [];
+  const references = assets.referenceImages ?? [];
   const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
   const palette = identity.colors.slice(0, 8);
   const heroTitle = wrapText(identity.tagline, 25, 3);
@@ -234,7 +260,7 @@ function buildSystemMoodboardSvg(
   const deviceLines = wrapText(identity.graphicSystem.description, 54, 4);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000" data-board-mode="system">
-<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style></defs>
+<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>${referenceFilter(identity.style.imageTreatment)}</defs>
 <rect width="1600" height="2000" fill="${muted}"/>
 
 <g class="application-panel identity-panel" transform="translate(24 24)">
@@ -300,7 +326,9 @@ function buildSystemMoodboardSvg(
     ${textLines(deviceLines, 0, 88, 19, `class="sans" fill="${ink}" opacity=".58" font-size="12"`)}
     ${identity.graphicSystem.rules.slice(0, 3).map((rule, index) => `<text x="0" y="${190 + index * 25}" class="mono" fill="${ink}" opacity=".62" font-size="8">0${index + 1} / ${escapeXml(rule.toLocaleUpperCase().slice(0, 62))}</text>`).join('')}
   </g>
-  <g transform="translate(910 0)" opacity=".86">${graphicMotif(identity.graphicSystem, 642, 350, ink, primary)}</g>
+  ${assets.motionPreview
+    ? `${referenceImage(assets.motionPreview, 910, 0, 642, 350, identity.style.imageTreatment)}<rect x="910" width="642" height="350" fill="${ink}" opacity=".08"/>`
+    : `<g transform="translate(910 0)" opacity=".86">${graphicMotif(identity.graphicSystem, 642, 350, ink, primary)}</g>`}
 </g>
 
 <g class="application-panel applications-panel" transform="translate(24 1550)">
@@ -310,7 +338,10 @@ function buildSystemMoodboardSvg(
     const x = 30 + index * 502;
     const cardFill = index === 1 ? primary : paper;
     const cardText = isLight(cardFill) ? ink : paper;
-    return `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/><text x="20" y="30" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 19, 3), 20, 126, 39, `class="sans" fill="${cardText}" font-size="33" font-weight="550" letter-spacing="-1.6"`)}<text x="20" y="260" class="sans" fill="${cardText}" opacity=".56" font-size="10">${escapeXml(application.description.slice(0, 78))}</text><text x="20" y="292" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`;
+    const visual = references[index];
+    return visual
+      ? `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/>${referenceImage(visual, 0, 0, 478, 174, identity.style.imageTreatment)}<rect y="174" width="478" height="144" fill="${cardFill}"/><text x="20" y="202" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 25, 2), 20, 249, 34, `class="sans" fill="${cardText}" font-size="29" font-weight="550" letter-spacing="-1.3"`)}<text x="458" y="294" text-anchor="end" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`
+      : `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/><text x="20" y="30" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 19, 3), 20, 126, 39, `class="sans" fill="${cardText}" font-size="33" font-weight="550" letter-spacing="-1.6"`)}<text x="20" y="260" class="sans" fill="${cardText}" opacity=".56" font-size="10">${escapeXml(application.description.slice(0, 78))}</text><text x="20" y="292" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`;
   }).join('')}
   <text x="1522" y="409" text-anchor="end" class="mono" fill="${accent}" font-size="8">${escapeXml(identity.voice.phrases[0]?.toLocaleUpperCase() ?? identity.tagline.toLocaleUpperCase())}</text>
 </g>

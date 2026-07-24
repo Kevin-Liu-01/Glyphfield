@@ -109,6 +109,16 @@ export default function DesignBoard({
         .map(({ path }) => path),
     [identity.assets]
   );
+  const referencePaths = useMemo(
+    () =>
+      [
+        ...identity.assets.filter(({ type }) => type === 'image'),
+        ...identity.assets.filter(({ type }) => type === 'background'),
+      ]
+        .slice(0, 3)
+        .map(({ path }) => path),
+    [identity.assets]
+  );
   const previewSvg = useMemo(
     () =>
       buildMoodboardSvg(
@@ -119,19 +129,20 @@ export default function DesignBoard({
           markDark: markDarkPath,
           markLight: markLightPath,
           monoFont: fontPath(identity, 'Code'),
-          motionPreview: identity.motion[0]?.previewPath ?? fieldPath,
+          motionPreview: identity.motion[0]?.previewPath || fieldPath,
           proofMarks: identity.proofAssets.map(({ path }) => path),
+          referenceImages: referencePaths,
         },
         composition
       ),
-    [composition, fieldPath, identity, logoPaths, markDarkPath, markLightPath]
+    [composition, fieldPath, identity, logoPaths, markDarkPath, markLightPath, referencePaths]
   );
 
   async function exportBoard() {
     setExporting(true);
     try {
-      const motionPreviewPath = identity.motion[0]?.previewPath ?? fieldPath;
-      const [{ interFont, monoFont }, logoMarks, markDark, markLight, motionPreview, proofMarks] =
+      const motionPreviewPath = identity.motion[0]?.previewPath || fieldPath;
+      const [{ interFont, monoFont }, logoMarks, markDark, markLight, motionPreview, proofMarks, referenceImages] =
         await Promise.all([
           loadFontAssets(identity),
           Promise.all(logoPaths.map((path) => imageUrlToDataUrl(path))),
@@ -141,6 +152,7 @@ export default function DesignBoard({
           Promise.all(
             identity.proofAssets.slice(0, 4).map(({ path }) => imageUrlToDataUrl(path))
           ),
+          Promise.all(referencePaths.map((path) => imageUrlToDataUrl(path))),
         ]);
       const svg = buildMoodboardSvg(
         identity,
@@ -152,6 +164,7 @@ export default function DesignBoard({
           monoFont,
           motionPreview,
           proofMarks,
+          referenceImages,
         },
         composition
       );

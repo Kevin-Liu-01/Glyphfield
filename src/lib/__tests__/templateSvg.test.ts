@@ -37,6 +37,7 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain(`href="${baseOptions.brandLogo}"`);
     expect(svg).toContain('A&amp;B &lt;launch&gt;');
     expect(svg).not.toContain('A&B <launch>');
+    expect(svg).not.toContain('ui-monospace');
   });
 
   it('exports background opacity and independent artwork placement', () => {
