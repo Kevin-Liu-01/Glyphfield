@@ -404,18 +404,24 @@ function declaredAspectRatio(dimensions: string): number | undefined {
   return width / height;
 }
 
-function ElementFrame({ aspectRatio, children, codeFontFamily, fontFamily, fontWeight, logoFilter }: { aspectRatio?: number; children: ReactNode; codeFontFamily: string; fontFamily: string; fontWeight: number; logoFilter: string }) {
-  const visibleFontWeight = capVisibleFontWeight(fontWeight);
+function ElementFrame({ accentFontFamily, accentFontWeight, aspectRatio, bodyFontFamily, bodyFontWeight, children, codeFontFamily, codeFontWeight, displayFontFamily, displayFontWeight, logoFilter }: { accentFontFamily: string; accentFontWeight: number; aspectRatio?: number; bodyFontFamily: string; bodyFontWeight: number; children: ReactNode; codeFontFamily: string; codeFontWeight: number; displayFontFamily: string; displayFontWeight: number; logoFilter: string }) {
+  const visibleDisplayWeight = capVisibleFontWeight(displayFontWeight);
   return (
     <div
       className='flex w-full max-w-5xl flex-col'
       style={{
-        '--brand-element-font': fontFamily,
-        '--brand-element-weight': visibleFontWeight,
+        '--brand-element-font': displayFontFamily,
+        '--brand-element-weight': visibleDisplayWeight,
+        '--brand-font-accent': accentFontFamily,
+        '--brand-font-accent-weight': capVisibleFontWeight(accentFontWeight),
+        '--brand-font-body': bodyFontFamily,
+        '--brand-font-body-strong-weight': capVisibleFontWeight(Math.max(bodyFontWeight, 500)),
+        '--brand-font-body-weight': capVisibleFontWeight(bodyFontWeight),
         '--brand-font-code': codeFontFamily,
+        '--brand-font-code-weight': capVisibleFontWeight(codeFontWeight),
         '--brand-logo-filter': logoFilter,
-        fontFamily,
-        fontWeight: visibleFontWeight,
+        fontFamily: bodyFontFamily,
+        fontWeight: capVisibleFontWeight(bodyFontWeight),
       } as CSSProperties}
     >
       <div className='min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
@@ -468,7 +474,7 @@ function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; 
           {motion ? (
             <img alt='' className='size-full object-cover' src={motion} style={artworkStyle(settings)} />
           ) : (
-            <p className='max-w-[85%] text-center text-2xl font-semibold tracking-[-0.04em] text-white sm:text-4xl'>{identity.greetings.join(' · ')}</p>
+            <p className='brand-element-accent max-w-[85%] text-center text-2xl tracking-[-0.04em] text-white sm:text-4xl'>{identity.greetings.join(' · ')}</p>
           )}
         </div>
 
@@ -484,7 +490,7 @@ function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; 
                 <p className='mt-2 text-sm leading-5 opacity-60'>{body}</p>
                 <p className='mt-3 text-xs font-semibold'>Open →</p>
               </div>
-              <div className='grid place-items-center overflow-hidden text-7xl font-semibold opacity-10'>{letter}</div>
+              <div className='brand-element-accent grid place-items-center overflow-hidden text-7xl opacity-10'>{letter}</div>
             </div>
           ))}
         </div>
@@ -620,7 +626,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
         <p className='mt-8 font-mono text-sm opacity-45'>$ {settings.cta || `npx ${identity.id} init`}</p>
         <p className='mt-3 font-mono text-sm'>✓ {identity.name} installed</p>
         <p className='mt-2 font-mono text-sm' style={{ color: settings.accentColor }}>✓ Brand context loaded</p>
-        <p className='mt-8 max-w-xl text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</p>
+        <p className='brand-element-display mt-8 max-w-xl text-2xl tracking-[-0.035em]'>{settings.headline}</p>
       </div>
     </div>
   );
@@ -643,7 +649,7 @@ function SocialPreview({ element, identity, settings }: { element: BrandElement;
           </div>
         </div>
         <div className={centered ? 'my-auto' : ''}>
-          <p className={`max-w-2xl font-semibold leading-[1.02] tracking-[-0.05em] ${typeScale(settings)}`}>{settings.headline}</p>
+          <p className={`brand-element-display max-w-2xl leading-[1.02] tracking-[-0.05em] ${typeScale(settings)}`}>{settings.headline}</p>
           {settings.body ? <p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p> : null}
           {settings.cta ? <p className='mt-6 text-sm font-semibold'>{settings.cta} →</p> : null}
         </div>
@@ -1155,10 +1161,15 @@ export default function BrandElementsStudio({
             </div>
             <CanvasViewport className='min-h-[560px] flex-1' identityId={identity.id} stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8' toolId={tool.id}>
               <ElementFrame
+                accentFontFamily={brandTypographyFamily(identity, 'Accent')}
+                accentFontWeight={brandTypographyRole(identity, 'Accent').weight ?? 400}
                 aspectRatio={declaredAspectRatio(selectedElement.dimensions)}
+                bodyFontFamily={brandTypographyFamily(identity, 'Body')}
+                bodyFontWeight={brandTypographyRole(identity, 'Body').weight ?? 400}
                 codeFontFamily={brandTypographyFamily(identity, 'Code')}
-                fontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-                fontWeight={selectedSettings.fontWeight}
+                codeFontWeight={brandTypographyRole(identity, 'Code').weight ?? 400}
+                displayFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+                displayFontWeight={selectedSettings.fontWeight}
                 logoFilter={logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance })}
               >
                 <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />

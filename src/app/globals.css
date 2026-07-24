@@ -1540,6 +1540,48 @@ body {
   box-shadow: 0 32px 100px hsl(0 0% 0% / 0.34);
 }
 
+.shader-export-overlay {
+  position: fixed;
+  z-index: 210;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: hsl(0 0% 0% / 0.56);
+  backdrop-filter: blur(12px);
+}
+
+.shader-export-dialog {
+  width: min(1100px, 100%);
+  max-height: min(820px, calc(100vh - 2.5rem));
+  overflow: auto;
+  border: 1px solid hsl(var(--foreground) / 0.24);
+  border-radius: var(--studio-corner-lg);
+  background: hsl(var(--background));
+  box-shadow: 0 32px 100px hsl(0 0% 0% / 0.36);
+}
+
+.shader-export-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+}
+
+@media (max-width: 760px) {
+  .shader-export-overlay {
+    place-items: end center;
+    padding: 0.75rem;
+  }
+
+  .shader-export-content {
+    grid-template-columns: 1fr;
+  }
+
+  .shader-export-content > aside {
+    border-top: 1px solid hsl(var(--border));
+    border-left: 0;
+  }
+}
+
 .studio-save-toast {
   position: fixed;
   z-index: 180;
@@ -2502,20 +2544,38 @@ body {
 .brand-element-artboard {
   --brand-element-font: 'Switzer', var(--font-schibsted-grotesk), Arial, sans-serif;
   --brand-element-weight: 550;
-  --brand-font-code: monospace;
+  --brand-font-accent: 'Switzer', var(--font-schibsted-grotesk), Arial, sans-serif;
+  --brand-font-accent-weight: 400;
+  --brand-font-body: 'Switzer', var(--font-schibsted-grotesk), Arial, sans-serif;
+  --brand-font-body-strong-weight: 500;
+  --brand-font-body-weight: 400;
+  --brand-font-code: 'Geist Mono', monospace;
+  --brand-font-code-weight: 400;
+  font-family: var(--brand-font-body);
+  font-weight: var(--brand-font-body-weight);
 }
 
 .brand-identity-mark {
   filter: var(--brand-logo-filter, none);
 }
 
-.brand-element-artboard :is(h1, h2, h3, .font-semibold, .font-bold) {
+.brand-element-artboard :is(h1, h2, h3, .brand-element-display) {
   font-family: var(--brand-element-font) !important;
   font-weight: var(--brand-element-weight) !important;
 }
 
+.brand-element-artboard :is(.font-semibold, .font-bold):not(h1):not(h2):not(h3):not(.brand-element-display) {
+  font-weight: var(--brand-font-body-strong-weight) !important;
+}
+
+.brand-element-artboard .brand-element-accent {
+  font-family: var(--brand-font-accent) !important;
+  font-weight: var(--brand-font-accent-weight) !important;
+}
+
 .brand-element-artboard .font-mono {
   font-family: var(--brand-font-code) !important;
+  font-weight: var(--brand-font-code-weight) !important;
 }
 
 .brand-element-preview-composite {

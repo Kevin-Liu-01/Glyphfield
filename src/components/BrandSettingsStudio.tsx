@@ -406,7 +406,16 @@ export default function BrandSettingsStudio({
                 <div className='brand-font-file-list'>
                   {fonts.map((font) => (
                     <div key={font.id}>
-                      <span className='brand-font-file-glyph' style={{ fontFamily: font.family }}>Aa</span>
+                      <span
+                        className='brand-font-file-glyph'
+                        style={{
+                          fontFamily: font.family,
+                          fontStyle: font.style,
+                          fontWeight: capVisibleFontWeight(font.weight),
+                        }}
+                      >
+                        Aa
+                      </span>
                       <span><strong>{font.label}</strong><small>{font.fileName} · {font.format.toLocaleUpperCase()}</small></span>
                       <code>{font.weightMin ?? font.weight}{font.weightMax ? `–${font.weightMax}` : ''}</code>
                       <Button aria-label={gt('Remove {name}', { name: font.label })} disabled={fonts.length <= 1} onClick={() => removeFont(font.id)} size='icon-xs' type='button' variant='ghost'><Trash2 aria-hidden='true' /></Button>

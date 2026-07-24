@@ -1,7 +1,7 @@
 'use client';
 
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react';
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 
 import type { RefObject } from 'react';
 
@@ -11,6 +11,7 @@ import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/we
 
 export type LiveMaterialCanvasProps = {
   className?: string;
+  captureTimeMs?: number | null;
   materialId: LiveMaterialId;
   paused?: boolean;
   renderScale?: number;
@@ -228,105 +229,68 @@ function compileShader(
 }
 
 function ShaderGradientSurface({
+  captureTimeMs,
   className,
-  onContextLost,
   paused,
   renderScale,
   settings,
 }: {
+  captureTimeMs: number | null;
   className: string;
-  onContextLost: () => void;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useMountEffect(() => {
-    const surface = rootRef.current;
-    if (!surface) return;
-    const mountedSurface: HTMLDivElement = surface;
-    const canvases = new Set<HTMLCanvasElement>();
-
-    function handleContextLost(event: Event) {
-      event.preventDefault();
-      window.setTimeout(onContextLost, 120);
-    }
-
-    function bindCanvases() {
-      mountedSurface.querySelectorAll('canvas').forEach((canvas) => {
-        if (canvases.has(canvas)) return;
-        canvases.add(canvas);
-        cancelWebGLContextRelease(canvas);
-        canvas.addEventListener('webglcontextlost', handleContextLost);
-      });
-    }
-
-    bindCanvases();
-    const observer = new MutationObserver(bindCanvases);
-    observer.observe(mountedSurface, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-      canvases.forEach((canvas) => {
-        canvas.removeEventListener('webglcontextlost', handleContextLost);
-        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
-        if (context) scheduleWebGLContextRelease(canvas, context);
-      });
-    };
-  });
-
   return (
-    <div className={`absolute inset-0 size-full ${className}`} ref={rootRef}>
-      <ShaderGradientCanvas
-        className='absolute inset-0 size-full'
-        fov={45}
-        pixelDensity={Math.min(2, renderScale)}
-        pointerEvents='none'
-        preserveDrawingBuffer
-        style={{ height: '100%', inset: 0, position: 'absolute', width: '100%' }}
-      >
-        <ShaderGradient
-          animate={paused ? 'off' : 'on'}
-          brightness={settings.brightness}
-          cAzimuthAngle={270}
-          cDistance={0.5}
-          cPolarAngle={180}
-          cameraZoom={15.1}
-          color1={settings.colorA}
-          color2={settings.colorB}
-          color3={settings.colorC}
-          control='props'
-          envPreset='city'
-          grain={settings.grain > 0 ? 'on' : 'off'}
-          lightType='env'
-          positionX={-0.1}
-          positionY={0}
-          positionZ={0}
-          range='enabled'
-          rangeEnd={40}
-          rangeStart={0}
-          rotationX={settings.rotationX}
-          rotationY={settings.rotationY}
-          rotationZ={settings.rotationZ}
-          shader='defaults'
-          type='sphere'
-          uAmplitude={settings.amplitude}
-          uDensity={settings.density}
-          uFrequency={settings.frequency}
-          uSpeed={paused ? 0 : settings.speed}
-          uStrength={settings.strength}
-          uTime={0}
-          wireframe={false}
-          zoomOut
-        />
-      </ShaderGradientCanvas>
-    </div>
+    <ShaderGradientCanvas
+      className={`absolute inset-0 size-full ${className}`}
+      fov={45}
+      pixelDensity={Math.min(2, renderScale)}
+      pointerEvents='none'
+      preserveDrawingBuffer
+      style={{ height: '100%', inset: 0, position: 'absolute', width: '100%' }}
+    >
+      <ShaderGradient
+        animate={paused || captureTimeMs !== null ? 'off' : 'on'}
+        brightness={settings.brightness}
+        cAzimuthAngle={270}
+        cDistance={0.5}
+        cPolarAngle={180}
+        cameraZoom={15.1}
+        color1={settings.colorA}
+        color2={settings.colorB}
+        color3={settings.colorC}
+        control='props'
+        envPreset='city'
+        grain={settings.grain > 0 ? 'on' : 'off'}
+        lightType='env'
+        positionX={-0.1}
+        positionY={0}
+        positionZ={0}
+        range='enabled'
+        rangeEnd={40}
+        rangeStart={0}
+        rotationX={settings.rotationX}
+        rotationY={settings.rotationY}
+        rotationZ={settings.rotationZ}
+        shader='defaults'
+        type='sphere'
+        uAmplitude={settings.amplitude}
+        uDensity={settings.density}
+        uFrequency={settings.frequency}
+        uSpeed={paused || captureTimeMs !== null ? 0 : settings.speed}
+        uStrength={settings.strength}
+        uTime={captureTimeMs === null ? 0 : captureTimeMs / 1000 * settings.speed}
+        wireframe={false}
+        zoomOut
+      />
+    </ShaderGradientCanvas>
   );
 }
 
 function OriginalMaterialCanvas({
   canvasRef,
+  captureTimeMs,
   fragmentSource,
   onContextLost,
   paused,
@@ -334,14 +298,17 @@ function OriginalMaterialCanvas({
   settings,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  captureTimeMs: number | null;
   fragmentSource: string;
   onContextLost: () => void;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
+  const captureTimeRef = useRef(captureTimeMs);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
+  captureTimeRef.current = captureTimeMs;
   pausedRef.current = paused;
   settingsRef.current = settings;
 
@@ -436,9 +403,11 @@ function OriginalMaterialCanvas({
 
     function draw(time: number) {
       const current = settingsRef.current;
+      const controlledTime = captureTimeRef.current;
       const delta = Math.min(64, time - previous);
       previous = time;
-      if (!pausedRef.current) elapsed += delta * current.speed;
+      if (controlledTime === null && !pausedRef.current) elapsed += delta * current.speed;
+      const renderedTime = controlledTime === null ? elapsed : controlledTime * current.speed;
       const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
       const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
@@ -448,7 +417,7 @@ function OriginalMaterialCanvas({
       }
       drawingContext.viewport(0, 0, width, height);
       drawingContext.uniform2f(resolutionLocation, width, height);
-      drawingContext.uniform1f(timeLocation, elapsed / 1000);
+      drawingContext.uniform1f(timeLocation, renderedTime / 1000);
       drawingContext.uniform3fv(colorALocation, hexToRgb(current.colorA));
       drawingContext.uniform3fv(colorBLocation, hexToRgb(current.colorB));
       drawingContext.uniform3fv(colorCLocation, hexToRgb(current.colorC));
@@ -480,8 +449,9 @@ function OriginalMaterialCanvas({
   return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
 }
 
-export default function LiveMaterialCanvas({
+function LiveMaterialCanvas({
   className = '',
+  captureTimeMs = null,
   materialId,
   paused = false,
   renderScale = 1,
@@ -521,9 +491,9 @@ export default function LiveMaterialCanvas({
   if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
     return (
       <ShaderGradientSurface
+        captureTimeMs={captureTimeMs}
         className={className}
         key={`shadergradient-${activeRecovery.version}`}
-        onContextLost={recoverContext}
         paused={paused}
         renderScale={renderScale}
         settings={settings}
@@ -535,6 +505,7 @@ export default function LiveMaterialCanvas({
     <div className={`absolute inset-0 size-full ${className}`}>
       <OriginalMaterialCanvas
         canvasRef={canvasRef}
+        captureTimeMs={captureTimeMs}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
         key={`${resolvedMaterialId}-${activeRecovery.version}`}
         onContextLost={recoverContext}
@@ -545,3 +516,5 @@ export default function LiveMaterialCanvas({
     </div>
   );
 }
+
+export default memo(LiveMaterialCanvas);

@@ -249,7 +249,7 @@ export function brandFontFaceCss(identity: BrandIdentity): string {
       const weight = font.weightMin !== undefined && font.weightMax !== undefined
         ? `${font.weightMin} ${font.weightMax}`
         : String(font.weight);
-      return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)});font-style:${font.style};font-weight:${weight};font-display:block;}`;
+      return `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)});font-style:${font.style};font-weight:${weight};font-display:swap;}`;
     })
     .join('');
 }

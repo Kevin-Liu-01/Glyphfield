@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
-import { Download, ExternalLink, Pause, Play } from 'lucide-react';
+import { Download, ExternalLink, Pause, Play, X } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
@@ -91,6 +91,8 @@ const EXPORT_QUALITY_OPTIONS: readonly { label: string; multiplier: number; valu
   { label: 'High · 1×', multiplier: 1, value: 'high' },
   { label: 'Ultra · 1.5×', multiplier: 1.5, value: 'ultra' },
 ];
+const GIF_FRAME_DELAY_MS = 80;
+const GIF_FRAME_COUNT = 25;
 
 function normalizeShaderEngine(value: string): ShaderEngine {
   if (value === 'studio-glsl' || value === 'shadergradient' || value === 'shaders' || value === 'custom-glsl') return value;
@@ -129,6 +131,7 @@ function compileShader(
 
 function ShaderCanvas({
   canvasRef,
+  captureTimeMs,
   colorA,
   colorB,
   onError,
@@ -139,6 +142,7 @@ function ShaderCanvas({
   speed,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  captureTimeMs: number | null;
   colorA: string;
   colorB: string;
   onError: (message: string | null) => void;
@@ -148,11 +152,13 @@ function ShaderCanvas({
   renderScale: number;
   speed: number;
 }) {
+  const captureTimeRef = useRef(captureTimeMs);
   const colorARef = useRef(colorA);
   const colorBRef = useRef(colorB);
   const pausedRef = useRef(paused);
   const parametersRef = useRef(parameters);
   const speedRef = useRef(speed);
+  captureTimeRef.current = captureTimeMs;
   colorARef.current = colorA;
   colorBRef.current = colorB;
   pausedRef.current = paused;
@@ -209,9 +215,11 @@ function ShaderCanvas({
 
       function render(time: number) {
         if (!program) return;
+        const controlledTime = captureTimeRef.current;
         const delta = Math.min(64, time - previousTime);
         previousTime = time;
-        if (!pausedRef.current) elapsed += delta * speedRef.current;
+        if (controlledTime === null && !pausedRef.current) elapsed += delta * speedRef.current;
+        const renderedTime = controlledTime === null ? elapsed : controlledTime * speedRef.current;
         const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
         const width = Math.max(1, Math.round(shaderCanvas.clientWidth * pixelRatio));
         const height = Math.max(1, Math.round(shaderCanvas.clientHeight * pixelRatio));
@@ -221,7 +229,7 @@ function ShaderCanvas({
         }
         webgl.viewport(0, 0, width, height);
         webgl.uniform2f(webgl.getUniformLocation(program, 'u_resolution'), width, height);
-        webgl.uniform1f(webgl.getUniformLocation(program, 'u_time'), elapsed / 1000);
+        webgl.uniform1f(webgl.getUniformLocation(program, 'u_time'), renderedTime / 1000);
         webgl.uniform3fv(
           webgl.getUniformLocation(program, 'u_color_a'),
           hexToRgb(colorARef.current)
@@ -291,6 +299,7 @@ export default function LogoShaderStudio({
 }) {
   const gt = useGT();
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
+  const exportPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const materialCanvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundLayerRef = useRef<HTMLDivElement>(null);
   const materialLayerRef = useRef<HTMLDivElement>(null);
@@ -388,7 +397,9 @@ export default function LogoShaderStudio({
   const finish = normalizeMaterialFinish(storedFinish);
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
+  const [exportDialog, setExportDialog] = useState<'png' | 'gif' | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
+  const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logoSelected, setLogoSelected] = useState(false);
   const engine = normalizeShaderEngine(storedEngine);
@@ -412,14 +423,19 @@ export default function LogoShaderStudio({
         id: preset.id,
         name: preset.name,
       };
-  const resolvedLiveSettings: LiveMaterialSettings = {
+  const resolvedLiveSettings = useMemo<LiveMaterialSettings>(() => ({
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     ...liveSettings,
     colorA,
     colorB,
     colorC,
     speed,
-  };
+  }), [colorA, colorB, colorC, liveSettings, speed]);
+  const reversedLiveSettings = useMemo<LiveMaterialSettings>(() => ({
+    ...resolvedLiveSettings,
+    colorA: resolvedLiveSettings.colorB,
+    colorB: resolvedLiveSettings.colorA,
+  }), [resolvedLiveSettings]);
   const identityLogoPath = brandAssetPath(identity, logoTone === 'light' ? 'mark-light' : 'mark-dark');
   const logoPath = customLogo?.url ?? identityLogoPath ?? monogramMask(identity);
   const aspectRatio = ratio === 'square' ? '1 / 1' : ratio === 'opengraph' ? '1200 / 630' : '16 / 10';
@@ -573,6 +589,67 @@ export default function LogoShaderStudio({
     );
   }
 
+  const composeFrameRef = useRef(composeFrame);
+  const exportDialogRef = useRef(exportDialog);
+  const previewLogoPathRef = useRef(logoPath);
+  composeFrameRef.current = composeFrame;
+  exportDialogRef.current = exportDialog;
+  previewLogoPathRef.current = logoPath;
+
+  useMountEffect(() => {
+    let animationFrame = 0;
+    let disposed = false;
+    let loadedLogo: HTMLImageElement | null = null;
+    let loadedPath = '';
+    let loadingPath = '';
+    let previousDraw = 0;
+    let rendering = false;
+
+    function drawPreview(time: number) {
+      const canvas = exportPreviewCanvasRef.current;
+      const path = previewLogoPathRef.current;
+      if (exportDialogRef.current && canvas) {
+        if (path !== loadedPath && path !== loadingPath) {
+          loadingPath = path;
+          void loadImage(path).then((image) => {
+            if (disposed || previewLogoPathRef.current !== path) return;
+            loadedLogo = image;
+            loadedPath = path;
+            loadingPath = '';
+          }).catch(() => {
+            loadingPath = '';
+          });
+        }
+
+        if (loadedLogo && loadedPath === path && !rendering && time - previousDraw >= 1000 / 24) {
+          const bounds = canvas.getBoundingClientRect();
+          const pixelRatio = Math.min(1.5, window.devicePixelRatio || 1);
+          const width = Math.max(1, Math.round(bounds.width * pixelRatio));
+          const height = Math.max(1, Math.round(bounds.height * pixelRatio));
+          if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+          }
+          const context = canvas.getContext('2d');
+          if (context) {
+            rendering = true;
+            previousDraw = time;
+            void composeFrameRef.current(context, width, height, loadedLogo).finally(() => {
+              rendering = false;
+            });
+          }
+        }
+      }
+      animationFrame = requestAnimationFrame(drawPreview);
+    }
+
+    animationFrame = requestAnimationFrame(drawPreview);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(animationFrame);
+    };
+  });
+
   async function capturePng() {
     setExporting('png');
     try {
@@ -596,8 +673,6 @@ export default function LogoShaderStudio({
     setExporting('gif');
     setExportProgress(0);
     try {
-      const fps = 20;
-      const frameCount = 30;
       const { height, width } = outputDimensions();
       const output = document.createElement('canvas');
       output.width = width;
@@ -609,28 +684,31 @@ export default function LogoShaderStudio({
       const gif = GIFEncoder();
       const useTransparency = target === 'logo' && transparent;
       const format = useTransparency ? 'rgba4444' : 'rgb565';
-      for (let index = 0; index < frameCount; index += 1) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000 / fps));
+      let sharedPalette: ReturnType<typeof quantize> | undefined;
+      let transparentIndex = -1;
+      for (let index = 0; index < GIF_FRAME_COUNT; index += 1) {
+        setCaptureTimeMs(index * GIF_FRAME_DELAY_MS);
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
         await composeFrame(context, width, height, logo);
         const frame = context.getImageData(0, 0, width, height).data;
-        const palette = quantize(frame, 256, {
-          format,
-          oneBitAlpha: useTransparency,
-        });
-        const indexed = applyPalette(frame, palette, format);
-        const transparentIndex = palette.findIndex((color) => (color[3] ?? 255) === 0);
+        if (!sharedPalette) {
+          sharedPalette = quantize(frame, 256, {
+            format,
+            oneBitAlpha: useTransparency,
+          });
+          transparentIndex = sharedPalette.findIndex((color) => (color[3] ?? 255) === 0);
+        }
+        const indexed = applyPalette(frame, sharedPalette, format);
         gif.writeFrame(indexed, width, height, {
-          delay: Math.round(1000 / fps),
+          delay: GIF_FRAME_DELAY_MS,
           dispose: 2,
-          palette,
           transparent: transparentIndex >= 0,
-          ...(index === 0 ? { repeat: 0 } : {}),
+          ...(index === 0 ? { palette: sharedPalette, repeat: 0 } : {}),
           ...(transparentIndex >= 0 ? { transparentIndex } : {}),
         });
-        setExportProgress((index + 1) / frameCount);
-        if (index % 2 === 0) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        }
+        setExportProgress((index + 1) / GIF_FRAME_COUNT);
       }
       gif.finish();
       downloadBlob(
@@ -638,6 +716,7 @@ export default function LogoShaderStudio({
         `${identity.id}-${activeMaterial.id}-${target}.gif`
       );
     } finally {
+      setCaptureTimeMs(null);
       setExporting(null);
       setExportProgress(0);
     }
@@ -650,14 +729,15 @@ export default function LogoShaderStudio({
     if (isLiveMaterial) {
       return (
         <LiveMaterialCanvas
+          captureTimeMs={captureTimeMs}
           className='absolute inset-0 size-full'
           key={`${placement}-${engine}-${resolvedLiveMaterialId}-${exportQuality}`}
           materialId={resolvedLiveMaterialId}
-          paused={paused}
+          paused={paused || captureTimeMs !== null}
           renderScale={exportRenderScale}
           settings={
             placement === 'logo'
-              ? { ...resolvedLiveSettings, colorA: colorB, colorB: colorA }
+              ? reversedLiveSettings
               : resolvedLiveSettings
           }
         />
@@ -667,12 +747,13 @@ export default function LogoShaderStudio({
     return (
       <ShaderCanvas
         canvasRef={canvasRef}
+        captureTimeMs={captureTimeMs}
         colorA={placement === 'logo' ? colorB : colorA}
         colorB={placement === 'logo' ? colorA : colorB}
         key={`${placement}-${engine}-${preset.id}-${customVersion}-${exportQuality}`}
         onError={setError}
         parameters={parameters}
-        paused={paused}
+        paused={paused || captureTimeMs !== null}
         preset={preset}
         renderScale={exportRenderScale}
         speed={speed}
@@ -697,13 +778,13 @@ export default function LogoShaderStudio({
           >
             {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
           </Button>
-          <Button loading={exporting === 'png'} onClick={capturePng} type='button' variant='outline'>
+          <Button onClick={() => setExportDialog('png')} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <T>PNG</T>
           </Button>
-          <Button loading={exporting === 'gif'} onClick={captureGif} type='button'>
+          <Button onClick={() => setExportDialog('gif')} type='button'>
             <Download aria-hidden='true' />
-            {exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : <T>GIF</T>}
+            <T>GIF</T>
           </Button>
         </div>
       </header>
@@ -987,8 +1068,8 @@ export default function LogoShaderStudio({
                 zIndex={12}
               >
                 <div className='relative grid size-full place-items-center' style={{ opacity: logoOpacity / 100 }}>
-                  {finish.glassEnabled ? <div aria-hidden='true' className='absolute' style={glassPreviewStyle} /> : null}
-                  <div className='relative size-full' style={logoFinishStyle}>
+                  {finish.glassEnabled ? <div aria-hidden='true' className='absolute' key='glass-finish' style={glassPreviewStyle} /> : null}
+                  <div className='relative size-full' key='logo-finish' style={logoFinishStyle}>
                     {target === 'logo' || target === 'both' ? (
                       <div
                         className='relative size-full overflow-hidden'
@@ -1044,6 +1125,78 @@ export default function LogoShaderStudio({
           </CanvasViewport>
         </div>
       </div>
+      {exportDialog ? (
+        <div
+          className='shader-export-overlay'
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !exporting) setExportDialog(null);
+          }}
+        >
+          <section
+            aria-label={gt('{format} export preview', { format: exportDialog.toLocaleUpperCase() })}
+            aria-modal='true'
+            className='shader-export-dialog'
+            role='dialog'
+          >
+            <header className='flex items-start justify-between gap-6 border-b border-border p-5'>
+              <div>
+                <h2 className='text-lg font-semibold tracking-tight'><T>Review export</T></h2>
+                <p className='mt-1 text-sm text-muted-foreground'>
+                  {exportDialog === 'gif'
+                    ? <T>Preview the exact shader speed before encoding.</T>
+                    : <T>Preview the live surface before saving the current frame.</T>}
+                </p>
+              </div>
+              <Button aria-label={gt('Close export preview')} disabled={Boolean(exporting)} onClick={() => setExportDialog(null)} size='icon-sm' type='button' variant='ghost'>
+                <X aria-hidden='true' />
+              </Button>
+            </header>
+
+            <div className='shader-export-content'>
+              <div className='min-w-0 bg-muted/35 p-5'>
+                <canvas
+                  aria-label={gt('Live export preview')}
+                  className={`artifact-frame mx-auto block h-auto w-full max-w-4xl ${target === 'logo' && transparent ? 'studio-stage' : 'bg-black'}`}
+                  ref={exportPreviewCanvasRef}
+                  style={{ aspectRatio }}
+                />
+              </div>
+
+              <aside className='flex min-w-0 flex-col gap-5 border-l border-border p-5'>
+                <div>
+                  <p className='text-sm font-semibold'>{exportDialog.toLocaleUpperCase()}</p>
+                  <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                    {outputDimensions().width} × {outputDimensions().height} · {exportDialog === 'gif' ? '2.0 s · 12.5 fps · 256 colors' : 'Lossless RGBA'}
+                  </p>
+                </div>
+                <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+                  <span className='flex items-center justify-between gap-3'>
+                    <T>Shader speed</T>
+                    <output className='text-xs tabular-nums'>{speed.toFixed(2)}×</output>
+                  </span>
+                  <input className='studio-range' max='2' min='0.2' onChange={(event) => setSpeed(Number(event.target.value))} step='0.05' type='range' value={speed} />
+                </label>
+                <div className='mt-auto flex gap-2 pt-3'>
+                  <Button className='flex-1' disabled={Boolean(exporting)} onClick={() => setExportDialog(null)} type='button' variant='outline'><T>Cancel</T></Button>
+                  <Button
+                    className='flex-1'
+                    loading={exporting === exportDialog}
+                    onClick={async () => {
+                      if (exportDialog === 'gif') await captureGif();
+                      else await capturePng();
+                      setExportDialog(null);
+                    }}
+                    type='button'
+                  >
+                    <Download aria-hidden='true' />
+                    {exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : <T>Download</T>}
+                  </Button>
+                </div>
+              </aside>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

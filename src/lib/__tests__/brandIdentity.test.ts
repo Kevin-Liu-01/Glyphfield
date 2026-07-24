@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BASEMENT_BRAND_IDENTITY,
+  brandFontFaceCss,
   brandFontAssets,
   brandTypographyFamily,
   brandTypographyRole,
@@ -96,8 +97,11 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
       expect(identity.assets.some(({ type }) => type === 'background')).toBe(true);
       expect(
-        brandFontAssets(identity).every(({ path }) => /\.(?:ttf|woff2)$/.test(path))
+        brandFontAssets(identity).every(({ path }) => /\.(?:otf|ttf|woff2)$/.test(path))
       ).toBe(true);
+      const fontIds = new Set(brandFontAssets(identity).map(({ id }) => id));
+      expect(identity.typography).toHaveLength(4);
+      expect(identity.typography.every(({ fontId }) => fontId && fontIds.has(fontId))).toBe(true);
       expect(brandTypographyFamily(identity, 'Display')).toBeTruthy();
     }
   });
@@ -116,6 +120,10 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
     expect(['Display', 'Body', 'Accent', 'Code'].map((role) => (
       brandTypographyFamily(ramp, role as 'Display' | 'Body' | 'Accent' | 'Code')
     ))).toEqual(['Lausanne', 'Lausanne', 'Lausanne', 'Lausanne']);
+
+    expect(brandFontFaceCss(ramp)).toContain(
+      '@font-face{font-family:"Lausanne";src:url("/fonts/brands/ramp/lausanne-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap;}'
+    );
   });
 });
 
@@ -232,8 +240,7 @@ describe('hydrateBrandIdentities', () => {
     expect(gt.style).toEqual(GT_BRAND_IDENTITY.style);
     expect(gt.values).toEqual(GT_BRAND_IDENTITY.values);
     expect(brandFontAssets(gt).map(({ path }) => path)).toEqual([
-      '/fonts/switzer-400.ttf',
-      '/fonts/switzer-500.ttf',
+      '/fonts/inter-variable.ttf',
       '/fonts/geist-mono-variable.ttf',
     ]);
     expect(gt.assets.some(({ type }) => type === 'background')).toBe(true);
