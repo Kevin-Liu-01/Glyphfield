@@ -1,3 +1,5 @@
+import { normalizeHex } from '@/lib/color';
+
 export type MaterialFinishPresetId =
   | 'none'
   | 'soft-depth'
@@ -140,9 +142,65 @@ export const MATERIAL_FINISH_PRESETS: readonly {
 ];
 
 export function normalizeMaterialFinish(
-  finish?: Partial<MaterialFinishSettings>
+  finish?: unknown
 ): MaterialFinishSettings {
-  return { ...DEFAULT_MATERIAL_FINISH, ...finish };
+  const source = finish && typeof finish === 'object'
+    ? finish as Partial<MaterialFinishSettings>
+    : {};
+
+  function numberValue(
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number
+  ): number {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? Math.max(min, Math.min(max, value))
+      : fallback;
+  }
+
+  function colorValue(value: unknown, fallback: string): string {
+    if (typeof value !== 'string') return fallback;
+    try {
+      return normalizeHex(value);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function presetValue(value: unknown): MaterialFinishSettings['presetId'] {
+    if (value === 'custom') return value;
+    return MATERIAL_FINISH_PRESETS.some((preset) => preset.id === value)
+      ? value as MaterialFinishPresetId
+      : DEFAULT_MATERIAL_FINISH.presetId;
+  }
+
+  return {
+    borderColor: colorValue(source.borderColor, DEFAULT_MATERIAL_FINISH.borderColor),
+    borderEnabled: typeof source.borderEnabled === 'boolean' ? source.borderEnabled : DEFAULT_MATERIAL_FINISH.borderEnabled,
+    borderOpacity: numberValue(source.borderOpacity, DEFAULT_MATERIAL_FINISH.borderOpacity, 0, 100),
+    borderWidth: numberValue(source.borderWidth, DEFAULT_MATERIAL_FINISH.borderWidth, 0, 16),
+    glassBlur: numberValue(source.glassBlur, DEFAULT_MATERIAL_FINISH.glassBlur, 0, 80),
+    glassEnabled: typeof source.glassEnabled === 'boolean' ? source.glassEnabled : DEFAULT_MATERIAL_FINISH.glassEnabled,
+    glassHighlight: numberValue(source.glassHighlight, DEFAULT_MATERIAL_FINISH.glassHighlight, 0, 100),
+    glassOpacity: numberValue(source.glassOpacity, DEFAULT_MATERIAL_FINISH.glassOpacity, 0, 100),
+    glassPadding: numberValue(source.glassPadding, DEFAULT_MATERIAL_FINISH.glassPadding, 0, 120),
+    glassRadius: numberValue(source.glassRadius, DEFAULT_MATERIAL_FINISH.glassRadius, 0, 120),
+    glassRefraction: numberValue(source.glassRefraction, DEFAULT_MATERIAL_FINISH.glassRefraction, 0, 30),
+    glassTint: colorValue(source.glassTint, DEFAULT_MATERIAL_FINISH.glassTint),
+    presetId: presetValue(source.presetId),
+    reflectionBlur: numberValue(source.reflectionBlur, DEFAULT_MATERIAL_FINISH.reflectionBlur, 0, 32),
+    reflectionEnabled: typeof source.reflectionEnabled === 'boolean' ? source.reflectionEnabled : DEFAULT_MATERIAL_FINISH.reflectionEnabled,
+    reflectionGap: numberValue(source.reflectionGap, DEFAULT_MATERIAL_FINISH.reflectionGap, 0, 120),
+    reflectionLength: numberValue(source.reflectionLength, DEFAULT_MATERIAL_FINISH.reflectionLength, 10, 150),
+    reflectionOpacity: numberValue(source.reflectionOpacity, DEFAULT_MATERIAL_FINISH.reflectionOpacity, 0, 100),
+    shadowBlur: numberValue(source.shadowBlur, DEFAULT_MATERIAL_FINISH.shadowBlur, 0, 100),
+    shadowColor: colorValue(source.shadowColor, DEFAULT_MATERIAL_FINISH.shadowColor),
+    shadowEnabled: typeof source.shadowEnabled === 'boolean' ? source.shadowEnabled : DEFAULT_MATERIAL_FINISH.shadowEnabled,
+    shadowOffsetX: numberValue(source.shadowOffsetX, DEFAULT_MATERIAL_FINISH.shadowOffsetX, -80, 80),
+    shadowOffsetY: numberValue(source.shadowOffsetY, DEFAULT_MATERIAL_FINISH.shadowOffsetY, -80, 80),
+    shadowOpacity: numberValue(source.shadowOpacity, DEFAULT_MATERIAL_FINISH.shadowOpacity, 0, 100),
+  };
 }
 
 export function materialFinishPreset(id: MaterialFinishPresetId): MaterialFinishSettings {
@@ -151,7 +209,7 @@ export function materialFinishPreset(id: MaterialFinishPresetId): MaterialFinish
   return { ...preset.settings };
 }
 
-export function hasMaterialFinish(finish?: Partial<MaterialFinishSettings>): boolean {
+export function hasMaterialFinish(finish?: unknown): boolean {
   const resolved = normalizeMaterialFinish(finish);
   return resolved.borderEnabled
     || resolved.glassEnabled
@@ -160,7 +218,12 @@ export function hasMaterialFinish(finish?: Partial<MaterialFinishSettings>): boo
 }
 
 export function finishColor(color: string, opacity: number): string {
-  const normalized = color.replace('#', '');
+  let normalized: string;
+  try {
+    normalized = normalizeHex(color).slice(1);
+  } catch {
+    normalized = '000000';
+  }
   const expanded = normalized.length === 3
     ? normalized.split('').map((character) => `${character}${character}`).join('')
     : normalized.padEnd(6, '0').slice(0, 6);
@@ -303,12 +366,18 @@ export function compositeFinishedLayer(
   context: CanvasRenderingContext2D,
   layer: HTMLCanvasElement,
   bounds: MaterialBounds,
-  finishInput?: Partial<MaterialFinishSettings>,
+  finishInput?: unknown,
   alpha = 1,
   backdrop?: CanvasImageSource
 ): void {
   const finish = normalizeMaterialFinish(finishInput);
-  drawLiquidGlassPanel(context, bounds, finish, alpha, backdrop);
+  let resolvedBackdrop = backdrop;
+  if (finish.glassEnabled && !resolvedBackdrop) {
+    const snapshot = createCanvas(context.canvas.width, context.canvas.height);
+    snapshot.getContext('2d')?.drawImage(context.canvas, 0, 0);
+    resolvedBackdrop = snapshot;
+  }
+  drawLiquidGlassPanel(context, bounds, finish, alpha, resolvedBackdrop);
   drawReflection(context, layer, bounds, finish);
   drawOutline(context, layer, finish);
   context.save();

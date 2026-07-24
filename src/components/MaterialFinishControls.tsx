@@ -79,7 +79,10 @@ export default function MaterialFinishControls({
         <T>Finish preset</T>
         <StudioSelect
           ariaLabel={gt('Finish preset')}
-          onValueChange={(value) => onChange(materialFinishPreset(value as MaterialFinishPresetId))}
+          onValueChange={(value) => {
+            if (value === 'custom') return;
+            onChange(materialFinishPreset(value as MaterialFinishPresetId));
+          }}
           options={[
             ...MATERIAL_FINISH_PRESETS.map((preset) => ({
               label: `${gt(preset.label)} · ${gt(preset.description)}`,

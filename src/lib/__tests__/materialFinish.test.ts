@@ -17,6 +17,26 @@ describe('material finishes', () => {
     });
   });
 
+  it('repairs malformed persisted finish settings before rendering', () => {
+    expect(normalizeMaterialFinish({
+      borderColor: null,
+      borderOpacity: Number.POSITIVE_INFINITY,
+      borderWidth: 400,
+      glassPadding: -20,
+      glassTint: 'not-a-color',
+      presetId: 'removed-preset',
+      shadowEnabled: 'yes',
+    })).toMatchObject({
+      borderColor: DEFAULT_MATERIAL_FINISH.borderColor,
+      borderOpacity: DEFAULT_MATERIAL_FINISH.borderOpacity,
+      borderWidth: 16,
+      glassPadding: 0,
+      glassTint: DEFAULT_MATERIAL_FINISH.glassTint,
+      presetId: DEFAULT_MATERIAL_FINISH.presetId,
+      shadowEnabled: DEFAULT_MATERIAL_FINISH.shadowEnabled,
+    });
+  });
+
   it('ships independently configurable reflection and liquid-glass presets', () => {
     expect(materialFinishPreset('mirror')).toMatchObject({
       presetId: 'mirror',
@@ -34,5 +54,6 @@ describe('material finishes', () => {
     expect(hasMaterialFinish(DEFAULT_MATERIAL_FINISH)).toBe(false);
     expect(hasMaterialFinish({ borderEnabled: true })).toBe(true);
     expect(finishColor('#73BFC4', 0.35)).toBe('rgba(115, 191, 196, 0.35)');
+    expect(finishColor('invalid', 0.35)).toBe('rgba(0, 0, 0, 0.35)');
   });
 });
