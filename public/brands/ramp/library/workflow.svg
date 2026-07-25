@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp financial operations workflow</title>
+  <desc id="desc">Cards, spend controls, accounting, and close resolve through one connected ledger.</desc>
+  <rect width="1600" height="1000" fill="#292827"/>
+  <g fill="none" stroke="#d7ff64" stroke-width="5">
+    <path d="M210 500h1180"/>
+    <path d="m1350 466 40 34-40 34"/>
+  </g>
+  <g font-family="Lausanne, Arial, sans-serif" text-anchor="middle">
+    <g transform="translate(250 500)"><circle r="112" fill="#f8f7f3"/><text y="12" fill="#292827" font-size="34">CARDS</text></g>
+    <g transform="translate(620 500)"><circle r="112" fill="#f8f7f3"/><text y="12" fill="#292827" font-size="34">SPEND</text></g>
+    <g transform="translate(990 500)"><circle r="112" fill="#d7ff64"/><text y="12" fill="#292827" font-size="34">LEDGER</text></g>
+    <g transform="translate(1360 500)"><circle r="112" fill="#f8f7f3"/><text y="12" fill="#292827" font-size="34">CLOSE</text></g>
+  </g>
+</svg>

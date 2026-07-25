@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Starter evidence workflow</title><desc id="desc">Evidence becomes direction, a system, and a finished artifact.</desc>
+  <rect width="1600" height="1000" fill="#181818"/>
+  <path d="M170 500h1260" stroke="#2e64f3" stroke-width="8"/><path d="m1385 458 48 42-48 42" fill="none" stroke="#2e64f3" stroke-width="8"/>
+  <g fill="#f8f5ed" font-family="Switzer, Arial, sans-serif" font-size="32" text-anchor="middle"><rect x="130" y="400" width="300" height="200"/><rect x="485" y="400" width="300" height="200"/><rect x="840" y="400" width="300" height="200"/><rect x="1195" y="400" width="300" height="200"/><text x="280" y="515" fill="#181818">EVIDENCE</text><text x="635" y="515" fill="#181818">DIRECTION</text><text x="990" y="515" fill="#181818">SYSTEM</text><text x="1345" y="515" fill="#181818">ARTIFACT</text></g>
+</svg>

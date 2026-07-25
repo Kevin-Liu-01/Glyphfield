@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatOklch, normalizeHex, oklchToHex, parseOklch } from '../color';
+import {
+  formatOklch,
+  hexToHsv,
+  hsvToHex,
+  normalizeHex,
+  oklchToHex,
+  parseOklch,
+} from '../color';
 
 describe('normalizeHex', () => {
   it('normalizes supported shorthand and full HEX values', () => {
@@ -21,5 +28,14 @@ describe('formatOklch', () => {
     expect(parsed).not.toBeNull();
     expect(oklchToHex(parsed!)).toBe('#3B82F6');
     expect(parseOklch('rgb(20 30 40)')).toBeNull();
+  });
+});
+
+describe('HSV color editing', () => {
+  it('round-trips primary colors and preserves neutral brightness', () => {
+    expect(hexToHsv('#FF0000')).toEqual({ hue: 0, saturation: 1, value: 1 });
+    expect(hsvToHex(120, 1, 1)).toBe('#00FF00');
+    expect(hsvToHex(240, 1, 1)).toBe('#0000FF');
+    expect(hsvToHex(25, 0, 0.5)).toBe('#808080');
   });
 });

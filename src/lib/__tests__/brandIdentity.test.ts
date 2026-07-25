@@ -75,6 +75,27 @@ describe('GT_BRAND_IDENTITY', () => {
       expect(green).toBe(blue);
     }
   });
+
+  it('isolates the official Rasmus Inter face across every non-code GT role', () => {
+    const roles = ['Display', 'Body', 'Accent'] as const;
+
+    expect(roles.map((role) => brandTypographyFamily(GT_BRAND_IDENTITY, role))).toEqual([
+      'Rasmus Inter',
+      'Rasmus Inter',
+      'Rasmus Inter',
+    ]);
+    expect(brandTypographyFamily(GT_BRAND_IDENTITY, 'Code')).toBe('Geist Mono');
+    expect(brandFontAssets(GT_BRAND_IDENTITY).find(({ id }) => id === 'inter-variable')).toMatchObject({
+      family: 'Rasmus Inter',
+      label: 'Rasmus Inter Variable',
+      path: '/fonts/inter-variable.ttf',
+      weightMax: 900,
+      weightMin: 100,
+    });
+    expect(brandFontFaceCss(GT_BRAND_IDENTITY)).toContain(
+      '@font-face{font-family:"Rasmus Inter";src:url("/fonts/inter-variable.ttf") format("truetype");font-style:normal;font-weight:100 900;font-display:swap;}'
+    );
+  });
 });
 
 describe('BUILT_IN_BRAND_IDENTITIES', () => {

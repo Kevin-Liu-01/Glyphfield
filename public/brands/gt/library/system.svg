@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Source-to-locale system</title>
+  <desc id="description">A monochrome diagram showing one source becoming coordinated product language across locales.</desc>
+  <rect width="1600" height="900" fill="#181818"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#fff">
+    <text x="96" y="104" font-size="22" letter-spacing="4" opacity=".58">ONE SOURCE / COORDINATED OUTPUT</text>
+    <text x="96" y="240" font-size="74" font-weight="500" letter-spacing="-2">Language moves with the product.</text>
+    <g transform="translate(96 344)">
+      <rect width="360" height="282" fill="#fff"/>
+      <text x="34" y="62" fill="#181818" font-size="18" letter-spacing="2">SOURCE OF TRUTH</text>
+      <text x="34" y="148" fill="#181818" font-size="42" font-weight="500">Hello, world.</text>
+      <text x="34" y="222" fill="#666" font-size="20">copy.tsx · docs.mdx · messages.json</text>
+      <path d="M360 141H516" stroke="#fff" stroke-width="2"/>
+      <rect x="516" width="300" height="282" fill="#353535"/>
+      <text x="550" y="62" font-size="18" letter-spacing="2">GT CONTEXT</text>
+      <text x="550" y="142" font-size="36" font-weight="500">Meaning</text>
+      <text x="550" y="192" font-size="20" fill="#aaa">Style · audience</text>
+      <text x="550" y="228" font-size="20" fill="#aaa">Product · locale</text>
+      <path d="M816 141H972" stroke="#fff" stroke-width="2"/>
+      <g transform="translate(972)">
+        <rect width="436" height="282" fill="#fff"/>
+        <text x="32" y="62" fill="#181818" font-size="18" letter-spacing="2">NATIVE OUTPUT</text>
+        <text x="32" y="124" fill="#181818" font-size="30" font-weight="500">Hola, mundo.</text>
+        <text x="32" y="170" fill="#181818" font-size="30" font-weight="500">你好，世界。</text>
+        <text x="32" y="216" fill="#181818" font-size="30" font-weight="500">こんにちは、世界。</text>
+      </g>
+    </g>
+    <text x="96" y="790" font-size="20" opacity=".54">AUTHOR ONCE · REVIEW IN CONTEXT · SHIP TOGETHER</text>
+  </g>
+</svg>

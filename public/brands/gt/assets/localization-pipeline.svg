@@ -12,7 +12,7 @@
     <rect x="1262" y="342" width="230" height="216"/>
   </g>
   <g fill="#111" font-family="Inter,Arial,sans-serif">
-    <text x="110" y="122" font-size="28" letter-spacing="3">GENERAL TRANSLATION / LOCADEX</text>
+    <text x="110" y="122" font-size="28" letter-spacing="3">GENERAL TRANSLATION / WORKFLOW</text>
     <text x="110" y="200" font-size="72" font-weight="500">Code to translated pull request.</text>
     <g font-size="22" letter-spacing="2">
       <text x="142" y="390">01</text>

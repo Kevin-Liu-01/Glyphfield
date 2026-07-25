@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0b1220"/>
+  <g transform="translate(72 72)" font-family="ui-sans-serif, sans-serif"><text x="0" y="48" font-size="62" font-weight="500" fill="#f8fafc">The utility system</text>
+    <g transform="translate(0 106)"><rect width="1056" height="126" rx="18" fill="#111c2f"/><text x="28" y="48" font-family="ui-monospace, monospace" font-size="18" fill="#38bdf8">TOKENS</text><text x="28" y="92" font-size="24" fill="#cbd5e1">spacing · color · type · breakpoint · shadow</text></g>
+    <g transform="translate(0 254)"><rect width="1056" height="126" rx="18" fill="#0c4a6e"/><text x="28" y="48" font-family="ui-monospace, monospace" font-size="18" fill="#7dd3fc">UTILITIES</text><text x="28" y="92" font-size="24" fill="#f8fafc">p-6 · text-balance · grid · @container · dark:</text></g>
+    <g transform="translate(0 402)"><rect width="1056" height="184" rx="18" fill="#f8fafc"/><text x="28" y="48" font-family="ui-monospace, monospace" font-size="18" fill="#0284c7">INTERFACE</text><g transform="translate(28 76)"><rect width="300" height="78" rx="14" fill="#e0f2fe"/><rect x="330" width="300" height="78" rx="14" fill="#0f172a"/><rect x="660" width="340" height="78" rx="14" fill="#38bdf8"/></g></g>
+  </g>
+</svg>

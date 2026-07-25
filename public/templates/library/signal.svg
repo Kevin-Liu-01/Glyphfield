@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Starter signal study</title><desc id="desc">A single star signal moves through a measured system.</desc>
+  <rect width="1600" height="1000" fill="#181818"/><g stroke="#f8f5ed" stroke-opacity=".15"><path d="M0 250h1600M0 500h1600M0 750h1600"/><path d="M400 0v1000M800 0v1000M1200 0v1000"/></g>
+  <path d="M800 190c42 160 100 218 260 260-160 42-218 100-260 260-42-160-100-218-260-260 160-42 218-100 260-260Z" fill="#2e64f3"/>
+  <path d="M170 820h1260" stroke="#f8f5ed" stroke-width="3"/><circle cx="800" cy="820" r="18" fill="#2e64f3"/>
+</svg>

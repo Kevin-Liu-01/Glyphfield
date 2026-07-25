@@ -1159,15 +1159,22 @@ export default function BrandElementsStudio({
                 <span className='rounded-md border border-border px-2 py-1'>{selectedElement.format}</span>
               </div>
             </div>
-            <CanvasViewport className='min-h-[560px] flex-1' identityId={identity.id} stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8' toolId={tool.id}>
+            <CanvasViewport
+              className='min-h-[560px] flex-1'
+              fontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+              fontWeight={capVisibleFontWeight(selectedSettings.fontWeight)}
+              identityId={identity.id}
+              stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8'
+              toolId={tool.id}
+            >
               <ElementFrame
-                accentFontFamily={brandTypographyFamily(identity, 'Accent')}
-                accentFontWeight={brandTypographyRole(identity, 'Accent').weight ?? 400}
+                accentFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+                accentFontWeight={selectedSettings.fontWeight}
                 aspectRatio={declaredAspectRatio(selectedElement.dimensions)}
-                bodyFontFamily={brandTypographyFamily(identity, 'Body')}
-                bodyFontWeight={brandTypographyRole(identity, 'Body').weight ?? 400}
-                codeFontFamily={brandTypographyFamily(identity, 'Code')}
-                codeFontWeight={brandTypographyRole(identity, 'Code').weight ?? 400}
+                bodyFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+                bodyFontWeight={selectedSettings.fontWeight}
+                codeFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
+                codeFontWeight={selectedSettings.fontWeight}
                 displayFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
                 displayFontWeight={selectedSettings.fontWeight}
                 logoFilter={logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance })}

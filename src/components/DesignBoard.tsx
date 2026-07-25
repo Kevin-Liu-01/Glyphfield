@@ -17,6 +17,7 @@ import {
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
 import {
   moodboardFilename,
+  moodboardAssets,
   MOODBOARD_EXPORT_PRESETS,
   resolveMoodboardExport,
   type MoodboardComposition,
@@ -25,18 +26,23 @@ import {
 import { buildMoodboardSvg } from '@/lib/moodboardSvg';
 import type { StudioTool } from '@/lib/studioCatalog';
 
-function fontPath(identity: BrandIdentity, role: 'Display' | 'Code'): string {
+function fontPath(
+  identity: BrandIdentity,
+  role: 'Accent' | 'Body' | 'Code' | 'Display'
+): string {
   const typography = brandTypographyRole(identity, role);
   return brandFontAssets(identity).find(({ id }) => id === typography.fontId)?.path
     ?? (role === 'Code' ? '/fonts/geist-mono-variable.ttf' : '/fonts/inter-variable.ttf');
 }
 
 async function loadFontAssets(identity: BrandIdentity) {
-  const [interFont, monoFont] = await Promise.all([
-    imageUrlToDataUrl(fontPath(identity, 'Display')),
+  const [accentFont, bodyFont, codeFont, displayFont] = await Promise.all([
+    imageUrlToDataUrl(fontPath(identity, 'Accent')),
+    imageUrlToDataUrl(fontPath(identity, 'Body')),
     imageUrlToDataUrl(fontPath(identity, 'Code')),
+    imageUrlToDataUrl(fontPath(identity, 'Display')),
   ]);
-  return { interFont, monoFont };
+  return { accentFont, bodyFont, codeFont, displayFont };
 }
 
 async function loadOptionalAsset(source: string | undefined): Promise<string | undefined> {
@@ -100,7 +106,6 @@ export default function DesignBoard({
   );
   const markDarkPath = brandAssetPath(identity, 'mark-dark');
   const markLightPath = brandAssetPath(identity, 'mark-light');
-  const fieldPath = identity.assets.find(({ type }) => type === 'background')?.path;
   const logoPaths = useMemo(
     () =>
       identity.assets
@@ -109,62 +114,50 @@ export default function DesignBoard({
         .map(({ path }) => path),
     [identity.assets]
   );
-  const referencePaths = useMemo(
-    () =>
-      [
-        ...identity.assets.filter(({ type }) => type === 'image' || type === 'reference'),
-        ...identity.assets.filter(({ type }) => type === 'background'),
-      ]
-        .slice(0, 3)
-        .map(({ path }) => path),
-    [identity.assets]
-  );
+  const boardAssets = useMemo(() => moodboardAssets(identity), [identity]);
   const previewSvg = useMemo(
     () =>
       buildMoodboardSvg(
         identity,
         {
-          interFont: fontPath(identity, 'Display'),
+          accentFont: fontPath(identity, 'Accent'),
+          artAssets: boardAssets,
+          bodyFont: fontPath(identity, 'Body'),
+          codeFont: fontPath(identity, 'Code'),
+          displayFont: fontPath(identity, 'Display'),
           logoMarks: logoPaths,
           markDark: markDarkPath,
           markLight: markLightPath,
-          monoFont: fontPath(identity, 'Code'),
-          motionPreview: identity.motion[0]?.previewPath || fieldPath,
-          proofMarks: identity.proofAssets.map(({ path }) => path),
-          referenceImages: referencePaths,
         },
         composition
       ),
-    [composition, fieldPath, identity, logoPaths, markDarkPath, markLightPath, referencePaths]
+    [boardAssets, composition, identity, logoPaths, markDarkPath, markLightPath]
   );
 
   async function exportBoard() {
     setExporting(true);
     try {
-      const motionPreviewPath = identity.motion[0]?.previewPath || fieldPath;
-      const [{ interFont, monoFont }, logoMarks, markDark, markLight, motionPreview, proofMarks, referenceImages] =
+      const [fontAssets, logoMarks, markDark, markLight, embeddedBoardAssets] =
         await Promise.all([
           loadFontAssets(identity),
           Promise.all(logoPaths.map((path) => imageUrlToDataUrl(path))),
           loadOptionalAsset(markDarkPath),
           loadOptionalAsset(markLightPath),
-          loadOptionalAsset(motionPreviewPath),
           Promise.all(
-            identity.proofAssets.slice(0, 4).map(({ path }) => imageUrlToDataUrl(path))
+            boardAssets.map(async (asset) => ({
+              ...asset,
+              path: await imageUrlToDataUrl(asset.path),
+            }))
           ),
-          Promise.all(referencePaths.map((path) => imageUrlToDataUrl(path))),
         ]);
       const svg = buildMoodboardSvg(
         identity,
         {
-          interFont,
+          ...fontAssets,
+          artAssets: embeddedBoardAssets,
           logoMarks,
           markDark,
           markLight,
-          monoFont,
-          motionPreview,
-          proofMarks,
-          referenceImages,
         },
         composition
       );
@@ -239,6 +232,7 @@ export default function DesignBoard({
                 options={[
                   { label: 'Showcase · application collage', value: 'showcase' },
                   { label: 'System · foundations and rules', value: 'system' },
+                  { label: 'All formats · complete contact sheet', value: 'catalog' },
                 ]}
                 value={composition}
               />
@@ -246,16 +240,26 @@ export default function DesignBoard({
             <p className='text-xs leading-5 text-muted-foreground'>
               {composition === 'showcase' ? (
                 <T>
-                  Present the identity as a paced set of editorial, product, typographic,
-                  and system applications.
+                  Six finished compositions using only original or source-native brand assets.
+                </T>
+              ) : composition === 'system' ? (
+                <T>
+                  Review the logo, typography, color, imagery, applications, and system as one contact sheet.
                 </T>
               ) : (
                 <T>
-                  Review the strategy, logo architecture, color, typography, graphic rules,
-                  and core applications.
+                  Lay out every system view, eligible source asset, and generated application in one complete review board.
                 </T>
               )}
             </p>
+            <div className='border border-border bg-muted/50 p-3'>
+              <p className='text-xs font-medium'>
+                <T>Original asset audit</T>
+              </p>
+              <p className='mt-1 text-xs text-muted-foreground'>
+                {boardAssets.length} eligible assets · screenshot captures excluded
+              </p>
+            </div>
             <div className='flex flex-col gap-2 text-sm'>
               <span className='text-muted-foreground'>
                 <T>Output size</T>
@@ -295,16 +299,21 @@ export default function DesignBoard({
               </p>
               <p className='mt-1 font-mono text-[10px] text-muted-foreground'>
                 PNG / {exportDimensions.megapixels.toFixed(1)} MP /{' '}
-                {composition === 'showcase' ? '16:9' : '4:5'}
+                {composition === 'showcase' ? '16:9' : composition === 'system' ? '4:5' : '2:3'}
               </p>
             </div>
           </section>
 
           <section className='flex flex-col gap-3 border-b border-border p-5'>
-            <h2 className='text-sm font-semibold'>
-              <T>Generated applications</T>
-            </h2>
-            {identity.applications.slice(0, 10).map((application, index) => (
+            <div className='flex items-center justify-between gap-3'>
+              <h2 className='text-sm font-semibold'>
+                <T>Generated applications</T>
+              </h2>
+              <span className='font-mono text-[10px] text-muted-foreground'>
+                {identity.applications.length} TOTAL
+              </span>
+            </div>
+            {identity.applications.map((application, index) => (
               <div className='flex items-center justify-between gap-4 text-sm' key={application.id}>
                 <span className='min-w-0'>
                   <span className='block truncate text-muted-foreground'>{application.name}</span>
@@ -341,7 +350,7 @@ export default function DesignBoard({
         </aside>
 
         <div className='tool-canvas min-h-0 overflow-auto'>
-          <CanvasViewport identityId={identity.id} stageClassName='p-5 sm:p-8' toolId={tool.id}>
+          <CanvasViewport className='moodboard-canvas' identityId={identity.id} stageClassName='moodboard-canvas-stage p-5 sm:p-8' toolId={tool.id}>
           <div
             aria-label={`${identity.name} ${composition} moodboard with brand foundations and generated applications`}
             className='moodboard-preview mx-auto w-full max-w-[1200px] shadow-sm'

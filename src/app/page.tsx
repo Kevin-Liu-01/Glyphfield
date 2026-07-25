@@ -5,8 +5,10 @@ import { getGT } from 'gt-next/server';
 import {
   ArrowRight,
   Bot,
+  BookOpen,
   Braces,
   Film,
+  Github,
   Layers3,
   Palette,
   ScanLine,
@@ -105,10 +107,28 @@ export default async function HomePage() {
         <nav className='marketing-v5-nav' aria-label={gt('Main navigation')}>
           <a href='#studio'><T>Studio</T></a>
           <a href='#agents'><T>Agents</T></a>
-          <Link href='/docs'><T>Docs</T></Link>
+          <a href='#open-source'><T>Open source</T></a>
         </nav>
         <div className='marketing-v5-header-actions'>
           <MarketingThemeToggle />
+          <a
+            aria-label={gt('Open Glyphfield on GitHub')}
+            className='marketing-v5-header-icon-link'
+            href='https://github.com/Kevin-Liu-01/Glyphfield'
+            rel='noreferrer'
+            target='_blank'
+            title={gt('GitHub')}
+          >
+            <Github aria-hidden='true' />
+          </a>
+          <Link
+            aria-label={gt('Open documentation')}
+            className='marketing-v5-header-icon-link'
+            href='/docs'
+            title={gt('Docs')}
+          >
+            <BookOpen aria-hidden='true' />
+          </Link>
           <Link className='marketing-v5-primary-link' href='/studio'>
             <T>Open Studio</T>
             <ArrowRight aria-hidden='true' />
@@ -117,7 +137,8 @@ export default async function HomePage() {
       </header>
 
       <div id='main'>
-        <section className='marketing-v5-hero' aria-labelledby='hero-title'>
+        <section className='marketing-v5-hero marketing-v7-corner-frame' aria-labelledby='hero-title'>
+          <FrameTriangles />
           <div className='marketing-v5-hero-copy' data-motion-reveal>
             <h1 id='hero-title' data-motion-item>
               <T>One studio for</T>{' '}
@@ -140,24 +161,26 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className='marketing-v5-hero-field' data-motion-reveal>
+          <div className='marketing-v5-hero-field marketing-v7-corner-frame' data-motion-reveal>
+            <FrameTriangles dark />
             <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
             <div className='marketing-v5-product-window' data-motion-item>
               <ProductFrame
-                alt={gt('Glyphfield Studio showing the General Translation identity moodboard')}
-                darkSrc='/screenshots/studio-moodboard-dark-2026.png'
-                label='Moodboard / General Translation'
+                alt={gt('Glyphfield Studio showing the General Translation identity source')}
+                label='Brand identity / General Translation'
                 priority
-                src='/screenshots/studio-moodboard-light-2026.png'
+                src='/screenshots/studio-gt-identity-2026.png'
+                themeLabel='Dark / Studio'
               />
             </div>
           </div>
         </section>
 
         <LogoRail gt={gt} />
-        <SectionSpacer coordinate='Y 018' />
+        <SectionSpacer />
 
-        <section className='marketing-v5-composer' data-motion-reveal id='studio'>
+        <section className='marketing-v5-composer marketing-v7-corner-frame' data-motion-reveal id='studio'>
+          <FrameTriangles />
           <div className='marketing-v5-composer-copy' data-motion-item>
             <div>
               <h2><T>The Animation Studio, live.</T></h2>
@@ -179,9 +202,10 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <SectionSpacer coordinate='Y 032' />
+        <SectionSpacer />
 
-        <section className='marketing-v5-capabilities' data-motion-reveal>
+        <section className='marketing-v5-capabilities marketing-v7-corner-frame' data-motion-reveal>
+          <FrameTriangles />
           <SectionHeading title='Foundations in. Useful artifacts out.'>
             <T>
               Every tool inherits the active identity, preserves the right aspect ratio, and exposes
@@ -190,7 +214,8 @@ export default async function HomePage() {
           </SectionHeading>
           <div className='marketing-v5-capability-grid'>
             {FEATURES.map(({ description, icon: Icon, label }) => (
-              <article data-motion-item key={label}>
+              <article className='marketing-v7-corner-frame' data-motion-item key={label}>
+                <FrameTriangles />
                 <Icon aria-hidden='true' />
                 <h3>{gt(label)}</h3>
                 <p>{gt(description)}</p>
@@ -201,38 +226,42 @@ export default async function HomePage() {
 
         <ThemeGallery gt={gt} />
 
-        <section className='marketing-v5-product-grid' data-motion-reveal>
-          <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
+        <section className='marketing-v5-product-grid marketing-v7-corner-frame' data-motion-reveal>
+          <FrameTriangles />
+          <article className='marketing-v5-product-card marketing-v5-product-card--wide marketing-v7-corner-frame' data-motion-item>
+            <FrameTriangles />
             <h2><T>See the system as designed work.</T></h2>
             <p>
-              <T>Fonts, color, logo family, product surfaces, and motion resolve into a composed board.</T>
+              <T>Original brand assets, typography, color, and composition resolve into a finished board.</T>
             </p>
             <div className='marketing-v5-product-card-image'>
               <Image
-                alt={gt('General Translation identity moodboard in Glyphfield')}
+                alt={gt('Tailwind CSS moodboard composed in Glyphfield')}
                 fill
                 sizes='(max-width: 800px) 96vw, 64vw'
-                src='/screenshots/studio-moodboard-gt-2026.jpg'
+                src='/screenshots/studio-tailwind-moodboard-2026.png'
               />
             </div>
           </article>
-          <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
+          <article className='marketing-v5-product-card marketing-v5-product-card--dark marketing-v7-corner-frame' data-motion-item>
+            <FrameTriangles dark />
             <h2><T>Give the logo a surface.</T></h2>
-            <p><T>Mask live Shaders.com materials inside the mark or place them behind it.</T></p>
+            <p><T>Mask live shader materials inside the mark or place them behind it.</T></p>
             <div className='marketing-v5-product-card-image'>
               <Image
-                alt={gt('Glyphfield logo shader workspace')}
+                alt={gt('General Translation logo shader workspace in Glyphfield')}
                 fill
                 sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-logo-shader-gt-2026.jpg'
+                src='/screenshots/studio-gt-logo-shader-2026.png'
               />
             </div>
           </article>
         </section>
 
-        <SectionSpacer coordinate='Y 054' dark />
+        <SectionSpacer dark />
 
-        <section className='marketing-v5-agents' data-motion-reveal id='agents'>
+        <section className='marketing-v5-agents marketing-v7-corner-frame' data-motion-reveal id='agents'>
+          <FrameTriangles dark />
           <div className='marketing-v5-agents-copy' data-motion-item>
             <h2><T>The visual system is also an interface.</T></h2>
             <p>
@@ -252,9 +281,45 @@ export default async function HomePage() {
           <AgentPanel />
         </section>
 
-        <SectionSpacer coordinate='Y 072' dark />
+        <SectionSpacer dark />
 
-        <footer className='marketing-v5-footer' data-motion-footer>
+        <section className='marketing-v7-open-source marketing-v7-corner-frame' data-motion-reveal id='open-source'>
+          <FrameTriangles dark />
+          <div className='marketing-v7-open-source-copy' data-motion-item>
+            <h2><T>Free, open source, and built to extend.</T></h2>
+            <p>
+              <T>
+                Read the source, fork the Studio, add a tool, or connect an agent. Glyphfield is MIT
+                licensed and the artifact format is documented.
+              </T>
+            </p>
+            <div className='marketing-v7-social-links'>
+              <a href='https://github.com/Kevin-Liu-01/Glyphfield' rel='noreferrer' target='_blank'>
+                <Github aria-hidden='true' />
+                <T>View on GitHub</T>
+                <ArrowRight aria-hidden='true' />
+              </a>
+              <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>
+                <XSocialIcon />
+                <T>Share on X</T>
+                <ArrowRight aria-hidden='true' />
+              </a>
+            </div>
+          </div>
+          <div className='marketing-v7-open-source-panel marketing-v7-corner-frame' data-motion-item>
+            <FrameTriangles dark />
+            <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
+            <div>
+              <strong>MIT</strong>
+              <span><T>Source, agent API, and artifact model included.</T></span>
+            </div>
+          </div>
+        </section>
+
+        <SectionSpacer dark />
+
+        <footer className='marketing-v5-footer marketing-v7-corner-frame' data-motion-footer>
+          <FrameTriangles dark />
           <div className='marketing-v5-footer-field' aria-hidden='true'>
             <i /><i /><i />
           </div>
@@ -273,6 +338,8 @@ export default async function HomePage() {
               <Link href='/studio'><T>Studio</T> ↗</Link>
               <Link href='/docs'><T>Docs</T> ↗</Link>
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
+              <a href='https://github.com/Kevin-Liu-01/Glyphfield' rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>
+              <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>X ↗</a>
               <Link href='/llms.txt'>llms.txt ↗</Link>
             </div>
           </div>
@@ -282,24 +349,16 @@ export default async function HomePage() {
   );
 }
 
-function SectionSpacer({ coordinate, dark = false }: { coordinate: string; dark?: boolean }) {
+function SectionSpacer({ dark = false }: { dark?: boolean }) {
   return (
-    <div className={`marketing-v5-spacer${dark ? ' marketing-v5-spacer--dark' : ''}`} aria-hidden='true'>
-      <span className='marketing-v5-spacer-coordinate marketing-v5-spacer-coordinate--start'>
-        {coordinate}
-        <i />
-      </span>
-      <span className='marketing-v5-spacer-coordinate marketing-v5-spacer-coordinate--end'>
-        <i />
-        X 000 / 100
-      </span>
-    </div>
+    <div className={`marketing-v5-spacer${dark ? ' marketing-v5-spacer--dark' : ''}`} aria-hidden='true' />
   );
 }
 
 function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
-    <section className='marketing-v5-logo-rail' aria-labelledby='example-identities'>
+    <section className='marketing-v5-logo-rail marketing-v7-corner-frame' aria-labelledby='example-identities'>
+      <FrameTriangles />
       <Link className='marketing-v5-logo-rail-heading' href='/studio?folder=examples'>
         <span id='example-identities'><T>View brands in the Studio</T></span>
         <ArrowRight aria-hidden='true' />
@@ -339,6 +398,22 @@ function SectionHeading({ children, title }: { children: ReactNode; title: strin
   );
 }
 
+function FrameTriangles({ dark = false }: { dark?: boolean }) {
+  return (
+    <span className={`marketing-v6-triangles${dark ? ' marketing-v6-triangles--dark' : ''}`} aria-hidden='true'>
+      <i /><i /><i /><i />
+    </span>
+  );
+}
+
+function XSocialIcon() {
+  return (
+    <svg aria-hidden='true' viewBox='0 0 24 24'>
+      <path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817-5.966 6.817H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z' />
+    </svg>
+  );
+}
+
 function ProductFrame({
   alt,
   darkSrc,
@@ -355,7 +430,8 @@ function ProductFrame({
   themeLabel?: string;
 }) {
   return (
-    <figure className={`marketing-v5-studio-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
+    <figure className={`marketing-v5-studio-frame marketing-v7-corner-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
+      <FrameTriangles dark />
       <figcaption>
         <span><i /><i /><i />{label}</span>
         <small className='marketing-v5-studio-label marketing-v5-studio-label--light'>{themeLabel}</small>
@@ -371,17 +447,34 @@ function ProductFrame({
 
 function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
-    <section className='marketing-v5-theme-gallery' data-motion-reveal id='themes'>
+    <section className='marketing-v5-theme-gallery marketing-v7-corner-frame' data-motion-reveal id='themes'>
+      <FrameTriangles />
       <div className='marketing-v5-theme-gallery-copy' data-motion-item>
-        <h2><T>The same working Studio, in both modes.</T></h2>
-        <p><T>Light and dark appearance changes the workspace chrome while the brand artifact remains accurate.</T></p>
+        <h2><T>Current Studio. Real brand materials.</T></h2>
+        <p>
+          <T>
+            See identity settings and an art-directed moodboard inside the same working workspace.
+          </T>
+        </p>
       </div>
       <div className='marketing-v5-theme-gallery-grid'>
-        <div data-motion-item>
-          <ProductFrame alt={gt('Glyphfield Studio moodboard in light mode')} label='Moodboard / Light' src='/screenshots/studio-moodboard-light-2026.png' />
+        <div className='marketing-v7-corner-frame' data-motion-item>
+          <FrameTriangles />
+          <ProductFrame
+            alt={gt('General Translation identity settings in Glyphfield Studio')}
+            label='Brand identity / General Translation'
+            src='/screenshots/studio-gt-identity-2026.png'
+            themeLabel='Dark / Studio'
+          />
         </div>
-        <div data-motion-item>
-          <ProductFrame alt={gt('Glyphfield Studio moodboard in dark mode')} label='Moodboard / Dark' src='/screenshots/studio-moodboard-dark-2026.png' themeLabel='Dark / Studio' />
+        <div className='marketing-v7-corner-frame' data-motion-item>
+          <FrameTriangles />
+          <ProductFrame
+            alt={gt('Tailwind CSS moodboard in Glyphfield Studio')}
+            label='Moodboard / Tailwind CSS'
+            src='/screenshots/studio-tailwind-moodboard-2026.png'
+            themeLabel='Dark / Studio'
+          />
         </div>
       </div>
     </section>
@@ -390,7 +483,8 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
 
 function AgentPanel() {
   return (
-    <div className='marketing-v5-agent-panel' data-motion-item>
+    <div className='marketing-v5-agent-panel marketing-v7-corner-frame' data-motion-item>
+      <FrameTriangles dark />
       <header>
         <span><Braces aria-hidden='true' /> POST /api/generate</span>
         <small>200 · image/svg+xml</small>

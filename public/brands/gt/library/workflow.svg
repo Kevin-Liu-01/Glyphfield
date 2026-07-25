@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Context-aware translation workflow</title>
+  <desc id="description">Source copy, product context, translation and review move through one monochrome General Translation workflow.</desc>
+  <rect width="1600" height="900" fill="#f7f7f5"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#181818">
+    <text x="96" y="104" font-size="22" letter-spacing="4">GENERAL TRANSLATION / CONTEXT-AWARE WORKFLOW</text>
+    <text x="96" y="208" font-size="68" font-weight="500" letter-spacing="-2">One source. Every language.</text>
+    <g transform="translate(96 330)" font-size="20">
+      <rect width="260" height="230" fill="#181818"/>
+      <text x="28" y="52" fill="#f7f7f5" font-size="16" letter-spacing="2">01 / SOURCE</text>
+      <text x="28" y="132" fill="#fff" font-size="34" font-weight="500">Product copy</text>
+      <text x="28" y="184" fill="#aaa">Code · docs · UI</text>
+      <path d="M260 115H330" stroke="#181818" stroke-width="2"/>
+      <rect x="330" width="260" height="230" fill="#fff" stroke="#181818"/>
+      <text x="358" y="52" font-size="16" letter-spacing="2">02 / CONTEXT</text>
+      <text x="358" y="132" font-size="34" font-weight="500">Meaning</text>
+      <text x="358" y="184" fill="#666">Tone · glossary · intent</text>
+      <path d="M590 115H660" stroke="#181818" stroke-width="2"/>
+      <rect x="660" width="260" height="230" fill="#e3e3df"/>
+      <text x="688" y="52" font-size="16" letter-spacing="2">03 / TRANSLATE</text>
+      <text x="688" y="132" font-size="34" font-weight="500">Locales</text>
+      <text x="688" y="184" fill="#666">ES · ZH · JA · AR</text>
+      <path d="M920 115H990" stroke="#181818" stroke-width="2"/>
+      <rect x="990" width="260" height="230" fill="#fff" stroke="#181818"/>
+      <text x="1018" y="52" font-size="16" letter-spacing="2">04 / REVIEW</text>
+      <text x="1018" y="132" font-size="34" font-weight="500">In product</text>
+      <text x="1018" y="184" fill="#666">Preview · approve · ship</text>
+    </g>
+    <text x="96" y="764" font-size="26" font-weight="500">Copy, documentation, and code stay synchronized.</text>
+    <text x="1504" y="804" text-anchor="end" font-size="18" fill="#666">generaltranslation.com</text>
+  </g>
+</svg>

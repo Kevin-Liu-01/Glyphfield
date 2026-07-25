@@ -1,4 +1,8 @@
 import { escapeXml } from '@/lib/download';
+import {
+  compositeFinishedLayer,
+  DEFAULT_MATERIAL_FINISH,
+} from '@/lib/materialFinish';
 
 export type LogoAppearanceSettings = {
   borderColor: string;
@@ -81,4 +85,46 @@ export function buildLogoSvgFilter(
   ].join('');
 
   return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feFlood flood-color="${escapeXml(color)}" result="logo-color"/><feComposite in="logo-color" in2="SourceAlpha" operator="in" result="colored"/>${invert}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;
+}
+
+export function drawLogoAppearanceLayer(
+  context: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  settings: LogoAppearanceSettings,
+  opacity = 1
+): void {
+  const layer = document.createElement('canvas');
+  layer.width = context.canvas.width;
+  layer.height = context.canvas.height;
+  const layerContext = layer.getContext('2d');
+  if (!layerContext) return;
+
+  layerContext.save();
+  layerContext.globalAlpha = Math.max(0, Math.min(1, opacity));
+  layerContext.filter = settings.invert ? 'invert(1)' : 'none';
+  layerContext.drawImage(source, x, y, width, height);
+  layerContext.restore();
+
+  compositeFinishedLayer(
+    context,
+    layer,
+    { height, width, x, y },
+    {
+      ...DEFAULT_MATERIAL_FINISH,
+      borderColor: settings.borderColor,
+      borderEnabled: settings.borderEnabled,
+      borderOpacity: settings.borderOpacity,
+      borderWidth: settings.borderWidth,
+      shadowBlur: settings.shadowBlur,
+      shadowColor: settings.shadowColor,
+      shadowEnabled: settings.shadowEnabled,
+      shadowOffsetX: settings.shadowOffsetX,
+      shadowOffsetY: settings.shadowOffsetY,
+      shadowOpacity: settings.shadowOpacity,
+    }
+  );
 }

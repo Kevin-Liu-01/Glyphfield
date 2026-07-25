@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Starter material field</title><desc id="desc">A quiet people-free blue and paper material field.</desc>
+  <defs><radialGradient id="g" cx="38%" cy="32%" r="76%"><stop stop-color="#7aa4ff"/><stop offset=".48" stop-color="#2e64f3"/><stop offset="1" stop-color="#17307f"/></radialGradient><filter id="n"><feTurbulence baseFrequency=".62" numOctaves="2" seed="7"/><feColorMatrix values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .16 0"/></filter></defs>
+  <rect width="1600" height="1000" fill="url(#g)"/><rect width="1600" height="1000" filter="url(#n)" opacity=".24"/><circle cx="820" cy="520" r="310" fill="none" stroke="#f8f5ed" stroke-opacity=".5" stroke-width="2"/><circle cx="820" cy="520" r="210" fill="none" stroke="#f8f5ed" stroke-opacity=".35" stroke-width="2"/>
+</svg>

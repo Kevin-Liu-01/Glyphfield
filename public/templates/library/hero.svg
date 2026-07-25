@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Starter focus window</title><desc id="desc">A centered research window on a quiet blue field.</desc>
+  <rect width="1600" height="1000" fill="#f8f5ed"/><rect x="150" y="130" width="1300" height="740" fill="#2e64f3"/>
+  <rect x="460" y="285" width="680" height="430" rx="18" fill="#fff" stroke="#181818" stroke-width="4"/>
+  <circle cx="510" cy="335" r="10" fill="#181818"/><circle cx="545" cy="335" r="10" fill="#c9c7bf"/><circle cx="580" cy="335" r="10" fill="#c9c7bf"/>
+  <path d="M520 460h560M520 525h430M520 590h500" stroke="#181818" stroke-width="18"/>
+</svg>

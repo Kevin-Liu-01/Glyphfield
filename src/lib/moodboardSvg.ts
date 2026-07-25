@@ -1,19 +1,70 @@
 import type {
-  BrandApplication,
-  BrandGraphicSystem,
+  BrandArtDirection,
+  BrandAsset,
   BrandIdentity,
 } from './brandIdentity';
 import type { MoodboardComposition } from './moodboard';
 
 export type MoodboardSvgAssets = {
-  interFont?: string;
+  accentFont?: string;
+  artAssets?: readonly Pick<
+    BrandAsset,
+    'focalPoint' | 'id' | 'label' | 'path' | 'type'
+  >[];
+  bodyFont?: string;
+  codeFont?: string;
+  displayFont?: string;
   logoMarks?: readonly string[];
   markDark?: string;
   markLight?: string;
-  monoFont?: string;
-  motionPreview?: string;
-  proofMarks?: readonly string[];
-  referenceImages?: readonly string[];
+};
+
+type BoardTileKind =
+  | 'application'
+  | 'editorial'
+  | 'hero'
+  | 'logo'
+  | 'motion'
+  | 'palette'
+  | 'system'
+  | 'triptych'
+  | 'type';
+
+const COMPLETE_BOARD_TILES: readonly BoardTileKind[] = [
+  'hero',
+  'logo',
+  'type',
+  'palette',
+  'system',
+  'triptych',
+  'editorial',
+  'application',
+  'motion',
+];
+
+type BoardRecipe = {
+  applicationIds: readonly [string, string];
+  heroId: string;
+  heroTone: 'dark' | 'light';
+  id: BrandArtDirection['moodboard'];
+  showcaseOrder: readonly [
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+  ];
+  systemId: string;
+  systemOrder: readonly [
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+    BoardTileKind,
+  ];
+  triptychIds: readonly [string, string, string];
 };
 
 function escapeXml(value: string): string {
@@ -61,31 +112,54 @@ function color(identity: BrandIdentity, id: string, fallback: string): string {
   return identity.colors.find((entry) => entry.id === id)?.hex ?? fallback;
 }
 
+function isLight(hex: string): boolean {
+  const normalized = hex.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return true;
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 156;
+}
+
 function embeddedFont(name: string, source: string | undefined): string {
   if (!source) return '';
   return `@font-face{font-family:'${name}';src:url('${escapeXml(source)}');font-style:normal;font-weight:100 900;font-display:block;}`;
 }
 
-function referenceFilter(treatment: BrandIdentity['style']['imageTreatment']): string {
+function imageFilter(treatment: BrandIdentity['style']['imageTreatment']): string {
   if (treatment === 'monochrome') {
-    return '<filter id="reference-treatment"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.08" intercept="-.04"/><feFuncG type="linear" slope="1.08" intercept="-.04"/><feFuncB type="linear" slope="1.08" intercept="-.04"/></feComponentTransfer></filter>';
+    return '<filter id="brand-image-treatment"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.05" intercept="-.025"/><feFuncG type="linear" slope="1.05" intercept="-.025"/><feFuncB type="linear" slope="1.05" intercept="-.025"/></feComponentTransfer></filter>';
   }
   if (treatment === 'duotone') {
-    return '<filter id="reference-treatment"><feColorMatrix values=".62 .24 .14 0 .06 .28 .52 .2 0 .03 .12 .24 .64 0 0 0 0 0 1 0"/></filter>';
+    return '<filter id="brand-image-treatment"><feColorMatrix values=".62 .24 .14 0 .06 .28 .52 .2 0 .03 .12 .24 .64 0 0 0 0 0 1 0"/></filter>';
   }
   return '';
 }
 
-function referenceImage(
-  source: string,
+function artAsset(
+  assets: MoodboardSvgAssets,
+  id: string
+): Pick<BrandAsset, 'focalPoint' | 'id' | 'label' | 'path' | 'type'> | undefined {
+  return assets.artAssets?.find((asset) => asset.id === id);
+}
+
+function assetImage(
+  asset: Pick<BrandAsset, 'focalPoint' | 'id' | 'label' | 'path' | 'type'> | undefined,
   x: number,
   y: number,
   width: number,
   height: number,
-  treatment: BrandIdentity['style']['imageTreatment'],
-  opacity = 1
+  treatment: BrandIdentity['style']['imageTreatment']
 ): string {
-  return `<image href="${escapeXml(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" opacity="${opacity}"${treatment === 'natural' ? '' : ' filter="url(#reference-treatment)"'}/>`;
+  if (!asset) return '';
+  const focalX = asset.focalPoint?.x ?? 0.5;
+  const focalY = asset.focalPoint?.y ?? 0.5;
+  const alignX = focalX < 0.4 ? 'xMin' : focalX > 0.6 ? 'xMax' : 'xMid';
+  const alignY = focalY < 0.4 ? 'YMin' : focalY > 0.6 ? 'YMax' : 'YMid';
+  const applyTreatment = treatment !== 'natural' && !asset.path.endsWith('.svg');
+  const inset = Math.max(6, Math.min(width, height) * 0.045);
+
+  return `<image href="${escapeXml(asset.path)}" x="${x + inset}" y="${y + inset}" width="${Math.max(1, width - inset * 2)}" height="${Math.max(1, height - inset * 2)}" preserveAspectRatio="${alignX}${alignY} meet"${applyTreatment ? ' filter="url(#brand-image-treatment)"' : ''}/>`;
 }
 
 function logo(
@@ -100,252 +174,438 @@ function logo(
   if (source) {
     return `<image href="${escapeXml(source)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMinYMid meet"/>`;
   }
-  return `<text x="${x}" y="${y + height * 0.72}" class="sans" fill="${fill}" font-size="${Math.min(width, height) * 0.58}" font-weight="550">${escapeXml(fallback)}</text>`;
+  return `<text x="${x}" y="${y + height * 0.72}" class="display" fill="${fill}" font-size="${Math.min(width, height) * 0.58}" font-weight="500">${escapeXml(fallback)}</text>`;
 }
 
-function label(index: number, name: string, fill: string, x = 30, y = 34): string {
-  return `<text x="${x}" y="${y}" class="mono" fill="${fill}" opacity=".52" font-size="9" letter-spacing="1.7">${String(index).padStart(2, '0')} / ${escapeXml(name.toLocaleUpperCase())}</text>`;
-}
-
-function isLight(hex: string): boolean {
-  const normalized = hex.replace('#', '');
-  if (!/^[0-9a-f]{6}$/i.test(normalized)) return true;
-  const red = Number.parseInt(normalized.slice(0, 2), 16);
-  const green = Number.parseInt(normalized.slice(2, 4), 16);
-  const blue = Number.parseInt(normalized.slice(4, 6), 16);
-  return red * 0.299 + green * 0.587 + blue * 0.114 > 156;
-}
-
-function graphicMotif(
-  graphicSystem: BrandGraphicSystem,
-  width: number,
-  height: number,
-  foreground: string,
-  accent: string
-): string {
-  switch (graphicSystem.pattern) {
-    case 'brackets':
-      return `<path d="M42 36H18V${height - 36}h24M${width - 42} 36h24v${height - 72}h-24" fill="none" stroke="${accent}" stroke-width="8"/><path d="M72 ${height / 2}H${width - 72}" stroke="${foreground}" stroke-opacity=".14"/><circle cx="${width / 2}" cy="${height / 2}" r="5" fill="${accent}"/>`;
-    case 'burst':
-    case 'rays':
-      return Array.from({ length: 11 }, (_, index) => {
-        const x = (index / 10) * width;
-        return `<path d="M${width * 0.22} ${height * 0.82}L${x} 0" stroke="${index === 6 ? accent : foreground}" stroke-opacity="${index === 6 ? '.74' : '.12'}" stroke-width="${index === 6 ? 8 : 2}"/>`;
-      }).join('');
-    case 'flow':
-    case 'wave':
-      return Array.from({ length: 5 }, (_, index) => `<path d="M-30 ${54 + index * 46}C${width * 0.28} ${8 + index * 32},${width * 0.58} ${height - 12 - index * 34},${width + 30} ${46 + index * 41}" fill="none" stroke="${index === 2 ? accent : foreground}" stroke-opacity="${index === 2 ? '.72' : '.12'}" stroke-width="${index === 2 ? 8 : 2}"/>`).join('');
-    case 'orbit':
-      return Array.from({ length: 4 }, (_, index) => `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${70 + index * 58}" ry="${34 + index * 30}" fill="none" stroke="${index === 2 ? accent : foreground}" stroke-opacity="${index === 2 ? '.72' : '.14'}" stroke-width="${index === 2 ? 7 : 2}" transform="rotate(-18 ${width / 2} ${height / 2})"/>`).join('');
-    case 'circuit':
-    case 'steps':
-      return Array.from({ length: 5 }, (_, index) => `<path d="M${24 + index * 30} ${height - 34 - index * 38}H${width - 30 - index * 18}" stroke="${index === 3 ? accent : foreground}" stroke-opacity="${index === 3 ? '.72' : '.13'}" stroke-width="${index === 3 ? 7 : 2}"/>`).join('');
-    case 'blocks':
-      return `<rect x="0" y="${height * 0.39}" width="${width}" height="${height * 0.22}" fill="${foreground}" opacity=".12"/><rect x="0" y="${height * 0.39}" width="${width * 0.36}" height="${height * 0.22}" fill="${accent}"/><path d="M${width * 0.36} ${height * 0.39}v${height * 0.22}" stroke="${foreground}" stroke-opacity=".4"/>`;
-    case 'grid':
+function recipe(identity: BrandIdentity): BoardRecipe {
+  switch (identity.artDirection.moodboard) {
+    case 'monochrome-language':
+      return {
+        applicationIds: ['library-workflow', 'library-system'],
+        heroId: 'library-hero',
+        heroTone: 'dark',
+        id: 'monochrome-language',
+        showcaseOrder: ['hero', 'triptych', 'application', 'type', 'logo', 'system'],
+        systemId: 'library-system',
+        systemOrder: ['logo', 'type', 'palette', 'application', 'triptych', 'system'],
+        triptychIds: ['library-workflow', 'library-system', 'library-signal'],
+      };
+    case 'research-wall':
+      return {
+        applicationIds: ['library-interface', 'library-detail'],
+        heroId: 'library-hero',
+        heroTone: 'light',
+        id: 'research-wall',
+        showcaseOrder: ['hero', 'editorial', 'triptych', 'palette', 'system', 'type'],
+        systemId: 'library-system',
+        systemOrder: ['editorial', 'logo', 'triptych', 'type', 'palette', 'system'],
+        triptychIds: ['library-editorial', 'library-material', 'library-signal'],
+      };
+    case 'editorial-evidence':
+      return {
+        applicationIds: ['library-overview', 'library-interface'],
+        heroId: 'library-campaign',
+        heroTone: 'dark',
+        id: 'editorial-evidence',
+        showcaseOrder: ['hero', 'application', 'editorial', 'triptych', 'palette', 'type'],
+        systemId: 'library-system',
+        systemOrder: ['logo', 'editorial', 'palette', 'application', 'type', 'system'],
+        triptychIds: ['library-editorial', 'library-detail', 'library-motion'],
+      };
+    case 'knowledge-system':
+      return {
+        applicationIds: ['library-hero', 'library-workflow'],
+        heroId: 'library-atmosphere',
+        heroTone: 'dark',
+        id: 'knowledge-system',
+        showcaseOrder: ['hero', 'application', 'triptych', 'editorial', 'type', 'palette'],
+        systemId: 'library-system',
+        systemOrder: ['logo', 'type', 'system', 'palette', 'application', 'editorial'],
+        triptychIds: ['library-system', 'library-material', 'library-signal'],
+      };
+    case 'utility-current':
+      return {
+        applicationIds: ['library-interface', 'library-workflow'],
+        heroId: 'library-hero',
+        heroTone: 'dark',
+        id: 'utility-current',
+        showcaseOrder: ['hero', 'triptych', 'application', 'type', 'palette', 'system'],
+        systemId: 'library-system',
+        systemOrder: ['editorial', 'logo', 'type', 'system', 'palette', 'application'],
+        triptychIds: ['library-overview', 'library-editorial', 'library-signal'],
+      };
+    case 'cinematic-field':
+      return {
+        applicationIds: ['library-editorial', 'library-detail'],
+        heroId: 'library-overview',
+        heroTone: 'dark',
+        id: 'cinematic-field',
+        showcaseOrder: ['hero', 'motion', 'application', 'triptych', 'type', 'system'],
+        systemId: 'library-workflow',
+        systemOrder: ['logo', 'system', 'type', 'palette', 'editorial', 'application'],
+        triptychIds: ['library-material', 'library-signal', 'library-campaign'],
+      };
+    case 'network-atlas':
+      return {
+        applicationIds: ['library-overview', 'library-workflow'],
+        heroId: 'library-hero',
+        heroTone: 'dark',
+        id: 'network-atlas',
+        showcaseOrder: ['hero', 'triptych', 'system', 'application', 'palette', 'editorial'],
+        systemId: 'library-system',
+        systemOrder: ['logo', 'palette', 'system', 'type', 'application', 'editorial'],
+        triptychIds: ['library-material', 'library-signal', 'library-atmosphere'],
+      };
+    case 'product-spectrum':
+      return {
+        applicationIds: ['library-overview', 'library-interface'],
+        heroId: 'library-atmosphere',
+        heroTone: 'dark',
+        id: 'product-spectrum',
+        showcaseOrder: ['hero', 'triptych', 'application', 'editorial', 'palette', 'type'],
+        systemId: 'library-motion',
+        systemOrder: ['logo', 'type', 'palette', 'application', 'system', 'editorial'],
+        triptychIds: ['library-editorial', 'library-detail', 'library-material'],
+      };
+    case 'modular-proof':
     default:
-      return `<path d="${Array.from({ length: 8 }, (_, index) => `M${index * width / 7} 0V${height}`).join('')}${Array.from({ length: 5 }, (_, index) => `M0 ${index * height / 4}H${width}`).join('')}" stroke="${foreground}" stroke-opacity=".1"/><rect x="${width * 0.58}" y="${height * 0.3}" width="${width * 0.2}" height="${height * 0.36}" fill="${accent}"/>`;
+      return {
+        applicationIds: ['library-interface', 'library-workflow'],
+        heroId: 'library-hero',
+        heroTone: 'dark',
+        id: 'modular-proof',
+        showcaseOrder: ['hero', 'triptych', 'editorial', 'type', 'palette', 'system'],
+        systemId: 'library-system',
+        systemOrder: ['editorial', 'triptych', 'logo', 'palette', 'type', 'system'],
+        triptychIds: ['library-editorial', 'library-material', 'library-signal'],
+      };
   }
 }
 
-function selectedApplications(identity: BrandIdentity): BrandApplication[] {
-  const preferred = ['editorial', 'product', 'marketing', 'developer', 'event', 'physical', 'social'] as const;
-  const selected: BrandApplication[] = [];
-  for (const category of preferred) {
-    const match = identity.applications.find(
-      (application) => application.category === category && !selected.includes(application)
-    );
-    if (match) selected.push(match);
-    if (selected.length === 3) break;
-  }
-  for (const application of identity.applications) {
-    if (selected.length >= 3) break;
-    if (!selected.includes(application)) selected.push(application);
-  }
-  return selected;
+function panelLabel(value: string, x: number, y: number, fill: string, large: boolean): string {
+  return `<text x="${x}" y="${y}" class="body" fill="${fill}" opacity=".62" font-size="${large ? 14 : 9}" font-weight="500" letter-spacing="${large ? 2.2 : 1.5}">${escapeXml(value.toLocaleUpperCase())}</text>`;
 }
 
-function buildShowcaseMoodboardSvg(
+function renderHero(
   identity: BrandIdentity,
-  assets: MoodboardSvgAssets
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const emphasis = color(identity, 'emphasis', ink);
+  const large = height > 400;
+  const heroFill = identity.id === 'gt' ? ink : emphasis;
+  const titleFill = isLight(heroFill) ? ink : paper;
+  const pad = large ? 42 : 26;
+  const titleSize = large ? 68 : 34;
+  const lineHeight = large ? 70 : 35;
+  const title = wrapText(identity.tagline, large ? 24 : 29, 2);
+  const mark = isLight(heroFill) ? assets.markDark : assets.markLight;
+
+  return `<rect width="${width}" height="${height}" fill="${heroFill}"/>${logo(mark, identity.shortName, pad, pad, large ? 156 : 92, large ? 58 : 34, titleFill)}${textLines(title, pad, height - pad - (title.length - 1) * lineHeight, lineHeight, `class="display" fill="${titleFill}" font-size="${titleSize}" font-weight="500" letter-spacing="${large ? -2.4 : -1.2}"`)}<text x="${width - pad}" y="${pad + (large ? 18 : 11)}" text-anchor="end" class="body" fill="${titleFill}" font-size="${large ? 14 : 9}">${escapeXml(identity.website)}</text>`;
+}
+
+function renderTriptych(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
+): string {
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const ink = color(identity, 'ink', '#181818');
+  const large = height > 400;
+  const gap = large ? 16 : 10;
+  const pad = large ? 28 : 18;
+  const labelHeight = large ? 64 : 40;
+  const imageWidth = (width - pad * 2 - gap * 2) / 3;
+
+  return `<rect width="${width}" height="${height}" fill="${paper}"/>${boardRecipe.triptychIds.map((id, index) => {
+    const source = artAsset(assets, id);
+    const x = pad + index * (imageWidth + gap);
+    return `<g transform="translate(${x} ${pad})"><rect width="${imageWidth}" height="${height - pad * 2}" fill="${color(identity, 'muted', '#F4F4F4')}"/>${assetImage(source, 0, 0, imageWidth, height - pad * 2 - labelHeight, identity.style.imageTreatment)}<rect y="${height - pad * 2 - labelHeight}" width="${imageWidth}" height="${labelHeight}" fill="${index === 1 ? ink : paper}"/><text x="${large ? 18 : 12}" y="${height - pad * 2 - (large ? 25 : 16)}" class="body" fill="${index === 1 ? paper : ink}" font-size="${large ? 15 : 9}" font-weight="500">${escapeXml(source?.label ?? identity.name)}</text></g>`;
+  }).join('')}`;
+}
+
+function renderEditorial(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const large = height > 400;
+  const imageWidth = width * (large ? 0.46 : 0.42);
+  const source = artAsset(assets, boardRecipe.applicationIds[0]);
+  const pad = large ? 42 : 26;
+  const concept = wrapText(identity.strategy.concept, large ? 30 : 26, large ? 4 : 3);
+
+  return `<rect width="${width}" height="${height}" fill="${paper}"/><rect width="${imageWidth}" height="${height}" fill="${color(identity, 'muted', '#F4F4F4')}"/>${assetImage(source, 0, 0, imageWidth, height, identity.style.imageTreatment)}<g transform="translate(${imageWidth} 0)"><rect width="${width - imageWidth}" height="${height}" fill="${paper}"/>${panelLabel(identity.strategy.promise, pad, pad + (large ? 12 : 6), ink, large)}${textLines(concept, pad, large ? 170 : 100, large ? 48 : 28, `class="display" fill="${ink}" font-size="${large ? 42 : 23}" font-weight="500" letter-spacing="${large ? -1.4 : -.5}"`)}<text x="${pad}" y="${height - pad}" class="body" fill="${ink}" font-size="${large ? 14 : 9}">${escapeXml(identity.name)}</text></g>`;
+}
+
+function renderPalette(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const large = height > 400;
+  const palette = identity.colors.slice(0, 4);
+  const swatchWidth = width / Math.max(1, palette.length);
+  const logoHeight = large ? 158 : 86;
+
+  return `<rect width="${width}" height="${height}" fill="${paper}"/>${palette.map(({ hex, name }, index) => {
+    const textColor = isLight(hex) ? ink : paper;
+    return `<g transform="translate(${index * swatchWidth} 0)"><rect width="${swatchWidth}" height="${height - logoHeight}" fill="${escapeXml(hex)}"/><text x="${large ? 20 : 12}" y="${height - logoHeight - (large ? 50 : 28)}" class="body" fill="${textColor}" font-size="${large ? 17 : 10}" font-weight="500">${escapeXml(name)}</text><text x="${large ? 20 : 12}" y="${height - logoHeight - (large ? 22 : 12)}" class="body" fill="${textColor}" opacity=".62" font-size="${large ? 13 : 8}">${escapeXml(hex.toLocaleUpperCase())}</text></g>`;
+  }).join('')}<rect y="${height - logoHeight}" width="${width}" height="${logoHeight}" fill="${paper}"/>${logo(assets.logoMarks?.[2] ?? assets.markDark, identity.name, large ? 30 : 18, height - logoHeight + (large ? 34 : 20), width * 0.52, large ? 86 : 46, ink)}<text x="${width - (large ? 30 : 18)}" y="${height - (large ? 30 : 18)}" text-anchor="end" class="body" fill="${ink}" opacity=".52" font-size="${large ? 13 : 8}">COLOR / SURFACE / CONTRAST</text>`;
+}
+
+function renderType(identity: BrandIdentity, width: number, height: number): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const accent = color(identity, 'emphasis', '#E4E4E4');
+  const large = height > 400;
+  const display = identity.typography.find(({ role }) => role === 'Display');
+  const body = identity.typography.find(({ role }) => role === 'Body');
+  const specimen = 'Aa';
+
+  return `<rect width="${width}" height="${height}" fill="${ink}"/>${panelLabel('Typography', large ? 34 : 22, large ? 54 : 32, paper, large)}<text x="${large ? 34 : 22}" y="${height * 0.63}" class="display" fill="${paper}" font-size="${large ? 232 : 116}" font-weight="500" letter-spacing="${large ? -12 : -6}">${escapeXml(specimen)}</text><path d="M${width * 0.48} 0V${height}" stroke="${paper}" stroke-opacity=".18"/><text x="${width * 0.54}" y="${height * 0.35}" class="display" fill="${paper}" font-size="${large ? 34 : 19}" font-weight="500">${escapeXml(display?.family ?? identity.name)}</text><text x="${width * 0.54}" y="${height * 0.44}" class="body" fill="${paper}" opacity=".58" font-size="${large ? 17 : 10}">${escapeXml(body?.family ?? display?.family ?? identity.name)}</text><text x="${width * 0.54}" y="${height * 0.62}" class="body" fill="${accent}" font-size="${large ? 22 : 13}" font-weight="400">${escapeXml(identity.greetings.slice(0, 3).join(' · '))}</text><text x="${width * 0.54}" y="${height * 0.78}" class="body" fill="${paper}" opacity=".46" font-size="${large ? 13 : 8}">${escapeXml((display?.usage ?? 'Display typography').toLocaleUpperCase())}</text>`;
+}
+
+function renderLogo(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const large = height > 400;
+  const half = width / 2;
+  const markWidth = large ? half * 0.5 : half * 0.42;
+  const markHeight = large ? height * 0.36 : height * 0.34;
+
+  return `<rect width="${half}" height="${height}" fill="${paper}"/><rect x="${half}" width="${half}" height="${height}" fill="${ink}"/>${logo(assets.logoMarks?.[0] ?? assets.markDark, identity.shortName, (half - markWidth) / 2, (height - markHeight) / 2, markWidth, markHeight, ink)}${logo(assets.logoMarks?.[1] ?? assets.markLight, identity.shortName, half + (half - markWidth) / 2, (height - markHeight) / 2, markWidth, markHeight, paper)}${panelLabel('Primary', large ? 28 : 16, large ? 48 : 28, ink, large)}${panelLabel('Reverse', half + (large ? 28 : 16), large ? 48 : 28, paper, large)}<text x="${half - (large ? 28 : 16)}" y="${height - (large ? 28 : 16)}" text-anchor="end" class="body" fill="${ink}" opacity=".5" font-size="${large ? 13 : 8}">LIGHT</text><text x="${width - (large ? 28 : 16)}" y="${height - (large ? 28 : 16)}" text-anchor="end" class="body" fill="${paper}" opacity=".5" font-size="${large ? 13 : 8}">DARK</text>`;
+}
+
+function renderSystem(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
 ): string {
   const ink = color(identity, 'ink', '#181818');
   const paper = color(identity, 'paper', '#FFFFFF');
   const muted = color(identity, 'muted', '#F4F4F4');
-  const primary = color(identity, 'emphasis', '#E4E4E4');
-  const deep = color(identity, 'error', '#262626');
-  const applications = selectedApplications(identity);
-  const proofMarks = assets.proofMarks ?? [];
-  const references = assets.referenceImages ?? [];
-  const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
-  const heroLines = wrapText(identity.tagline, 19, 4);
-  const storyLines = wrapText(identity.strategy.concept, 26, 4);
-  const firstApplication = applications[0] ?? identity.applications[0];
-  const secondApplication = applications[1] ?? identity.applications[1] ?? firstApplication;
-  const thirdApplication = applications[2] ?? identity.applications[2] ?? firstApplication;
+  const large = height > 400;
+  const source = artAsset(assets, boardRecipe.systemId);
+  const imageWidth = width * 0.62;
+  const pad = large ? 34 : 20;
+  const description = wrapText(identity.graphicSystem.composition, large ? 30 : 24, 4);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" data-board-mode="showcase" data-brand="${escapeXml(identity.name)}">
-<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>${referenceFilter(identity.style.imageTreatment)}</defs>
-<rect width="1600" height="900" fill="${muted}"/>
-
-<g class="application-panel hero-application" transform="translate(24 24)">
-  <rect width="928" height="500" fill="${ink}"/>
-  ${logo(assets.markLight, identity.shortName, 42, 38, 132, 58, paper)}
-  <text x="886" y="58" text-anchor="end" class="mono" fill="${paper}" opacity=".42" font-size="9">${escapeXml(identity.website.toLocaleUpperCase())}</text>
-  ${textLines(heroLines, 42, 190, 74, `class="sans" fill="${paper}" font-size="68" font-weight="550" letter-spacing="-4"`)}
-  ${proofMarks.length > 0
-    ? `<rect y="416" width="928" height="58" fill="${paper}"/>${proofMarks.slice(0, 4).map((mark, index) => `<image href="${escapeXml(mark)}" x="${42 + index * 188}" y="431" width="132" height="26" preserveAspectRatio="xMinYMid meet"/>`).join('')}`
-    : `<text x="42" y="452" class="mono" fill="${paper}" opacity=".48" font-size="9" letter-spacing="1.2">${escapeXml(identity.positioning.toLocaleUpperCase().slice(0, 105))}</text>`}
-  <rect y="474" width="928" height="26" fill="${primary}"/>
-  <rect y="474" width="318" height="26" fill="${paper}"/>
-</g>
-
-<g class="application-panel editorial-application" transform="translate(976 24)">
-  <rect width="600" height="500" fill="${paper}"/>
-  ${references[0]
-    ? `${referenceImage(references[0], 0, 0, 600, 354, identity.style.imageTreatment)}<rect y="354" width="600" height="146" fill="${paper}"/><text x="28" y="385" class="mono" fill="${ink}" opacity=".46" font-size="8">LIVE REFERENCE / ${escapeXml(identity.website.toLocaleUpperCase())}</text>${textLines(wrapText(identity.strategy.concept, 44, 2), 28, 426, 28, `class="sans" fill="${ink}" font-size="22" font-weight="550" letter-spacing="-.8"`)}<text x="572" y="476" text-anchor="end" class="mono" fill="${ink}" opacity=".38" font-size="7">CAPTURED / JUL 2026</text>`
-    : `<text x="32" y="42" class="mono" fill="${ink}" opacity=".42" font-size="9">CASE STUDY / ${escapeXml(firstApplication?.name.toLocaleUpperCase() ?? 'SELECTED WORK')}</text><path d="M32 62H568" stroke="${ink}" stroke-opacity=".16"/>${textLines(storyLines, 32, 148, 52, `class="sans" fill="${ink}" font-size="44" font-weight="550" letter-spacing="-2.3"`)}<text x="32" y="392" class="sans" fill="${ink}" opacity=".58" font-size="13">${escapeXml(firstApplication?.description.slice(0, 96) ?? identity.description.slice(0, 96))}</text><rect x="32" y="432" width="536" height="36" fill="${deep}"/><text x="48" y="455" class="mono" fill="${paper}" font-size="8" letter-spacing="1.2">PROBLEM → IDEA → SYSTEM → IMPACT</text>`}
-</g>
-
-<g class="application-panel type-application" transform="translate(24 548)">
-  <rect width="480" height="328" fill="${primary}"/>
-  <text x="24" y="32" class="mono" fill="${isLight(primary) ? ink : paper}" opacity=".55" font-size="8">TYPE / ${escapeXml(identity.typography[0]?.family.toLocaleUpperCase() ?? 'DISPLAY')}</text>
-  <text x="22" y="238" class="sans" fill="${isLight(primary) ? ink : paper}" font-size="222" font-weight="550" letter-spacing="-18">Aa</text>
-  <text x="454" y="298" text-anchor="end" class="mono" fill="${isLight(primary) ? ink : paper}" opacity=".5" font-size="8">${escapeXml(identity.typography[0]?.usage.toLocaleUpperCase().slice(0, 54) ?? 'DISPLAY')}</text>
-</g>
-
-<g class="application-panel product-application" transform="translate(528 548)">
-  <rect width="640" height="328" fill="${paper}"/>
-  <rect width="640" height="44" fill="${ink}"/>
-  ${logo(assets.markLight, identity.shortName, 20, 11, 70, 22, paper)}
-  <text x="616" y="27" text-anchor="end" class="mono" fill="${paper}" opacity=".5" font-size="7">${escapeXml(secondApplication?.format.toLocaleUpperCase() ?? 'RESPONSIVE')}</text>
-  <g transform="translate(24 74)">
-    <text class="mono" fill="${primary}" font-size="8">${escapeXml(secondApplication?.category.toLocaleUpperCase() ?? 'PRODUCT')} / 01</text>
-    ${textLines(wrapText(secondApplication?.name ?? identity.products[0] ?? identity.name, 24, 2), 0, 54, 35, `class="sans" fill="${ink}" font-size="30" font-weight="550" letter-spacing="-1.4"`)}
-    <text x="0" y="140" class="sans" fill="${ink}" opacity=".55" font-size="11">${escapeXml(secondApplication?.description.slice(0, 82) ?? identity.description.slice(0, 82))}</text>
-    <path d="M0 180H592" stroke="${ink}" stroke-opacity=".14"/>
-    ${identity.products.slice(0, 3).map((product, index) => `<text x="${index * 198}" y="214" class="mono" fill="${ink}" opacity="${index === 0 ? '.9' : '.42'}" font-size="8">0${index + 1} / ${escapeXml(product.toLocaleUpperCase())}</text>`).join('')}
-  </g>
-  ${assets.motionPreview ? `${referenceImage(assets.motionPreview, 332, 78, 284, 164, identity.style.imageTreatment)}<rect x="332" y="242" width="284" height="34" fill="${ink}"/><text x="346" y="263" class="mono" fill="${paper}" opacity=".7" font-size="7">SYSTEM / MOTION / PRODUCT</text>` : ''}
-</g>
-
-<g class="application-panel system-application" transform="translate(1192 548)">
-  <rect width="384" height="328" fill="${deep}"/>
-  <g opacity=".72">${graphicMotif(identity.graphicSystem, 384, 328, paper, primary)}</g>
-  <rect x="20" y="20" width="344" height="288" fill="none" stroke="${paper}" stroke-opacity=".2"/>
-  <text x="36" y="48" class="mono" fill="${paper}" opacity=".48" font-size="8">${escapeXml(identity.graphicSystem.device.toLocaleUpperCase())}</text>
-  <text x="36" y="282" class="sans" fill="${paper}" font-size="17" font-weight="550">${escapeXml(thirdApplication?.name ?? identity.name)}</text>
-</g>
-</svg>`;
+  return `<rect width="${width}" height="${height}" fill="${muted}"/>${assetImage(source, 0, 0, imageWidth, height, identity.style.imageTreatment)}<g transform="translate(${imageWidth} 0)"><rect width="${width - imageWidth}" height="${height}" fill="${paper}"/>${panelLabel(identity.graphicSystem.device, pad, pad + (large ? 12 : 6), ink, large)}${textLines(description, pad, large ? 132 : 78, large ? 27 : 17, `class="body" fill="${ink}" font-size="${large ? 16 : 10}" font-weight="400"`)}</g>`;
 }
 
-function buildSystemMoodboardSvg(
+function renderApplication(
   identity: BrandIdentity,
-  assets: MoodboardSvgAssets
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
 ): string {
   const ink = color(identity, 'ink', '#181818');
   const paper = color(identity, 'paper', '#FFFFFF');
   const muted = color(identity, 'muted', '#F4F4F4');
-  const primary = color(identity, 'emphasis', '#E4E4E4');
-  const secondary = color(identity, 'success', '#D4D4D4');
-  const accent = color(identity, 'warning', '#A3A3A3');
-  const deep = color(identity, 'error', '#262626');
-  const applications = selectedApplications(identity);
-  const logos = assets.logoMarks ?? [];
-  const references = assets.referenceImages ?? [];
-  const fontDefinitions = `${embeddedFont('Moodboard Sans', assets.interFont)}${embeddedFont('Moodboard Mono', assets.monoFont)}`;
-  const palette = identity.colors.slice(0, 8);
-  const heroTitle = wrapText(identity.tagline, 25, 3);
-  const conceptLines = wrapText(identity.strategy.concept, 38, 4);
-  const deviceLines = wrapText(identity.graphicSystem.description, 54, 4);
+  const large = height > 400;
+  const gap = large ? 18 : 10;
+  const pad = large ? 28 : 16;
+  const cardWidth = (width - pad * 2 - gap) / 2;
+  const labelHeight = large ? 88 : 50;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2000" viewBox="0 0 1600 2000" data-board-mode="system">
-<defs><style>${fontDefinitions}.sans{font-family:'Moodboard Sans';}.mono{font-family:'Moodboard Mono';}</style>${referenceFilter(identity.style.imageTreatment)}</defs>
-<rect width="1600" height="2000" fill="${muted}"/>
+  return `<rect width="${width}" height="${height}" fill="${muted}"/>${boardRecipe.applicationIds.map((id, index) => {
+    const source = artAsset(assets, id);
+    const x = pad + index * (cardWidth + gap);
+    const fill = index === 0 ? paper : ink;
+    const textColor = index === 0 ? ink : paper;
+    return `<g transform="translate(${x} ${pad})"><rect width="${cardWidth}" height="${height - pad * 2}" fill="${fill}"/>${assetImage(source, 0, 0, cardWidth, height - pad * 2 - labelHeight, identity.style.imageTreatment)}<rect y="${height - pad * 2 - labelHeight}" width="${cardWidth}" height="${labelHeight}" fill="${fill}"/><text x="${large ? 18 : 11}" y="${height - pad * 2 - (large ? 48 : 27)}" class="body" fill="${textColor}" opacity=".5" font-size="${large ? 12 : 7}">0${index + 1}</text><text x="${large ? 18 : 11}" y="${height - pad * 2 - (large ? 20 : 11)}" class="body" fill="${textColor}" font-size="${large ? 17 : 10}" font-weight="500">${escapeXml(source?.label ?? identity.products[index] ?? identity.name)}</text></g>`;
+  }).join('')}`;
+}
 
-<g class="application-panel identity-panel" transform="translate(24 24)">
-  <rect width="1552" height="430" fill="${ink}"/>
-  ${label(1, `${identity.shortName} identity`, paper, 38, 42)}
-  ${logo(assets.markLight, identity.shortName, 38, 64, 168, 74, paper)}
-  ${textLines(heroTitle, 38, 238, 67, `class="sans" fill="${paper}" font-size="61" font-weight="550" letter-spacing="-3.4"`)}
-  <text x="1514" y="404" text-anchor="end" class="mono" fill="${paper}" opacity=".45" font-size="9">${escapeXml(identity.website.toLocaleUpperCase())}</text>
-  <rect x="1002" y="0" width="550" height="430" fill="${paper}" opacity=".04"/>
-  <text x="1038" y="90" class="mono" fill="${primary}" font-size="9">PROMISE</text>
-  ${textLines(wrapText(identity.strategy.promise, 25, 4), 1038, 140, 42, `class="sans" fill="${paper}" font-size="34" font-weight="550" letter-spacing="-1.5"`)}
-  <path d="M1038 346H1504" stroke="${paper}" stroke-opacity=".18"/>
-  <text x="1038" y="378" class="mono" fill="${paper}" opacity=".42" font-size="8">MISSION / ${escapeXml(identity.mission.toLocaleUpperCase().slice(0, 72))}</text>
-</g>
+function renderMotion(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const large = height > 400;
+  const ids = ['library-motion', 'library-signal', boardRecipe.triptychIds[0]] as const;
+  const stripWidth = width / 3;
+  const labelHeight = large ? 62 : 38;
 
-<g class="application-panel strategy-panel" transform="translate(24 478)">
-  <rect width="760" height="320" fill="${paper}"/>
-  ${label(2, 'Strategy', ink)}
-  <text x="30" y="78" class="mono" fill="${primary}" font-size="8">CENTRAL IDEA</text>
-  ${textLines(conceptLines, 30, 118, 31, `class="sans" fill="${ink}" font-size="26" font-weight="550" letter-spacing="-1.1"`)}
-  <path d="M30 218H730" stroke="${ink}" stroke-opacity=".14"/>
-  ${identity.strategy.pillars.slice(0, 4).map((pillar, index) => `<text x="${30 + (index % 2) * 350}" y="${252 + Math.floor(index / 2) * 34}" class="mono" fill="${ink}" opacity=".62" font-size="8">0${index + 1} / ${escapeXml(pillar.toLocaleUpperCase().slice(0, 38))}</text>`).join('')}
-</g>
+  return `<rect width="${width}" height="${height}" fill="${muted}"/>${ids.map((id, index) => {
+    const source = artAsset(assets, id);
+    return `<g transform="translate(${index * stripWidth} 0)"><rect width="${stripWidth}" height="${height - labelHeight}" fill="${muted}"/>${assetImage(source, 0, 0, stripWidth, height - labelHeight, identity.style.imageTreatment)}<rect y="${height - labelHeight}" width="${stripWidth}" height="${labelHeight}" fill="${index === 1 ? ink : paper}"/><text x="${large ? 22 : 13}" y="${height - (large ? 24 : 15)}" class="body" fill="${index === 1 ? paper : ink}" font-size="${large ? 14 : 8}" font-weight="500">0${index + 1} / ${escapeXml(source?.label ?? 'MOTION STATE')}</text></g>`;
+  }).join('')}`;
+}
 
-<g class="application-panel color-panel" transform="translate(808 478)">
-  <rect width="768" height="320" fill="${paper}"/>
-  ${label(3, 'Color roles', ink)}
-  ${palette.map(({ hex, name }, index) => {
-    const x = 30 + (index % 4) * 178;
-    const y = 66 + Math.floor(index / 4) * 112;
-    const fill = isLight(hex) ? ink : paper;
-    return `<g transform="translate(${x} ${y})"><rect width="160" height="92" fill="${escapeXml(hex)}"/><text x="10" y="66" class="sans" fill="${fill}" font-size="10" font-weight="550">${escapeXml(name)}</text><text x="10" y="81" class="mono" fill="${fill}" opacity=".62" font-size="7">${escapeXml(hex.toLocaleUpperCase())}</text></g>`;
-  }).join('')}
-  <text x="30" y="298" class="mono" fill="${ink}" opacity=".4" font-size="8">COLOR HAS A JOB. IT IS NOT FILLER.</text>
-</g>
+function renderTile(
+  kind: BoardTileKind,
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  width: number,
+  height: number
+): string {
+  switch (kind) {
+    case 'application':
+      return renderApplication(identity, assets, boardRecipe, width, height);
+    case 'editorial':
+      return renderEditorial(identity, assets, boardRecipe, width, height);
+    case 'hero':
+      return renderHero(identity, assets, boardRecipe, width, height);
+    case 'logo':
+      return renderLogo(identity, assets, width, height);
+    case 'motion':
+      return renderMotion(identity, assets, boardRecipe, width, height);
+    case 'palette':
+      return renderPalette(identity, assets, width, height);
+    case 'system':
+      return renderSystem(identity, assets, boardRecipe, width, height);
+    case 'triptych':
+      return renderTriptych(identity, assets, boardRecipe, width, height);
+    case 'type':
+      return renderType(identity, width, height);
+  }
+}
 
-<g class="application-panel logo-panel" transform="translate(24 822)">
-  <rect width="760" height="330" fill="${paper}"/>
-  ${label(4, 'Logo architecture', ink)}
-  <g transform="translate(30 62)"><rect width="336" height="156" fill="${muted}"/>${logo(logos[0] ?? assets.markDark, identity.shortName, 86, 42, 164, 72, ink)}<text x="14" y="140" class="mono" fill="${ink}" opacity=".4" font-size="7">PRIMARY / LIGHT</text></g>
-  <g transform="translate(384 62)"><rect width="346" height="156" fill="${ink}"/>${logo(logos[1] ?? assets.markLight, identity.shortName, 88, 42, 170, 72, paper)}<text x="14" y="140" class="mono" fill="${paper}" opacity=".45" font-size="7">REVERSE / DARK</text></g>
-  <g transform="translate(30 236)"><rect width="700" height="62" fill="none" stroke="${ink}" stroke-opacity=".14"/>${logo(logos[2] ?? logos[0] ?? assets.markDark, identity.name, 18, 13, 320, 36, ink)}<text x="680" y="38" text-anchor="end" class="mono" fill="${ink}" opacity=".4" font-size="7">CLEAR SPACE / SURFACE / SCALE</text></g>
-</g>
+function renderCatalogHeader(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const applicationCount = identity.applications.length;
+  const assetCount = assets.artAssets?.length ?? 0;
 
-<g class="application-panel typography-panel" transform="translate(808 822)">
-  <rect width="768" height="330" fill="${deep}"/>
-  ${label(5, 'Typography', paper)}
-  <text x="30" y="194" class="sans" fill="${paper}" font-size="148" font-weight="550" letter-spacing="-10">Aa</text>
-  <text x="242" y="105" class="sans" fill="${paper}" font-size="25" font-weight="550">${escapeXml(identity.typography.find(({ role }) => role === 'Display')?.family ?? 'Display')}</text>
-  <text x="242" y="134" class="sans" fill="${paper}" opacity=".52" font-size="11">DISPLAY / ${escapeXml(identity.typography.find(({ role }) => role === 'Display')?.usage.slice(0, 58) ?? 'Headlines')}</text>
-  <path d="M242 164H738" stroke="${paper}" stroke-opacity=".14"/>
-  <text x="242" y="205" class="sans" fill="${paper}" font-size="17">${escapeXml(identity.greetings.slice(0, 3).join(' · '))}</text>
-  <text x="242" y="242" class="mono" fill="${secondary}" font-size="10">${escapeXml(identity.typography.find(({ role }) => role === 'Code')?.family ?? 'MONO')} / CODE + METADATA</text>
-  <text x="242" y="282" class="mono" fill="${paper}" opacity=".35" font-size="8">12 / 14 / 18 / 28 / 48 / 72 / 148</text>
-</g>
+  return `<rect width="${width}" height="${height}" fill="${paper}"/>${logo(assets.markDark, identity.shortName, 28, 30, 118, 48, ink)}<text x="176" y="54" class="body" fill="${ink}" opacity=".5" font-size="12" font-weight="500" letter-spacing="2">COMPLETE BRAND SYSTEM</text><text x="28" y="116" class="display" fill="${ink}" font-size="44" font-weight="500" letter-spacing="-1.8">${escapeXml(identity.name)}</text><text x="28" y="148" class="body" fill="${ink}" opacity=".62" font-size="16">${escapeXml(identity.tagline)}</text><rect x="${width - 414}" y="24" width="386" height="${height - 48}" fill="${muted}"/><text x="${width - 386}" y="68" class="code" fill="${ink}" font-size="12" opacity=".52">SYSTEM VIEWS</text><text x="${width - 386}" y="106" class="display" fill="${ink}" font-size="30" font-weight="500">${COMPLETE_BOARD_TILES.length}</text><text x="${width - 258}" y="68" class="code" fill="${ink}" font-size="12" opacity=".52">SOURCE ASSETS</text><text x="${width - 258}" y="106" class="display" fill="${ink}" font-size="30" font-weight="500">${assetCount}</text><text x="${width - 126}" y="68" class="code" fill="${ink}" font-size="12" opacity=".52">APPLICATIONS</text><text x="${width - 126}" y="106" class="display" fill="${ink}" font-size="30" font-weight="500">${applicationCount}</text>`;
+}
 
-<g class="application-panel graphic-system-panel" transform="translate(24 1176)">
-  <rect width="1552" height="350" fill="${paper}"/>
-  ${label(6, identity.graphicSystem.device, ink)}
-  <g transform="translate(30 72)">
-    <text class="mono" fill="${primary}" font-size="8">RECOGNIZABLE DEVICE</text>
-    <text y="48" class="sans" fill="${ink}" font-size="36" font-weight="550" letter-spacing="-1.5">${escapeXml(identity.graphicSystem.device)}</text>
-    ${textLines(deviceLines, 0, 88, 19, `class="sans" fill="${ink}" opacity=".58" font-size="12"`)}
-    ${identity.graphicSystem.rules.slice(0, 3).map((rule, index) => `<text x="0" y="${190 + index * 25}" class="mono" fill="${ink}" opacity=".62" font-size="8">0${index + 1} / ${escapeXml(rule.toLocaleUpperCase().slice(0, 62))}</text>`).join('')}
-  </g>
-  ${assets.motionPreview
-    ? `${referenceImage(assets.motionPreview, 910, 0, 642, 350, identity.style.imageTreatment)}<rect x="910" width="642" height="350" fill="${ink}" opacity=".08"/>`
-    : `<g transform="translate(910 0)" opacity=".86">${graphicMotif(identity.graphicSystem, 642, 350, ink, primary)}</g>`}
-</g>
+function renderCatalogSources(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const columns = 6;
+  const gap = 12;
+  const sources = assets.artAssets ?? [];
+  const rows = Math.max(1, Math.ceil(sources.length / columns));
+  const cardWidth = (width - gap * (columns - 1)) / columns;
+  const cardHeight = (height - gap * (rows - 1)) / rows;
 
-<g class="application-panel applications-panel" transform="translate(24 1550)">
-  <rect width="1552" height="426" fill="${ink}"/>
-  ${label(7, 'Applications', paper)}
-  ${applications.map((application, index) => {
-    const x = 30 + index * 502;
-    const cardFill = index === 1 ? primary : paper;
-    const cardText = isLight(cardFill) ? ink : paper;
-    const visual = references[index];
-    return visual
-      ? `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/>${referenceImage(visual, 0, 0, 478, 174, identity.style.imageTreatment)}<rect y="174" width="478" height="144" fill="${cardFill}"/><text x="20" y="202" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 25, 2), 20, 249, 34, `class="sans" fill="${cardText}" font-size="29" font-weight="550" letter-spacing="-1.3"`)}<text x="458" y="294" text-anchor="end" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`
-      : `<g transform="translate(${x} 68)"><rect width="478" height="318" fill="${cardFill}"/><text x="20" y="30" class="mono" fill="${cardText}" opacity=".5" font-size="7">0${index + 1} / ${escapeXml(application.category.toLocaleUpperCase())}</text>${textLines(wrapText(application.name, 19, 3), 20, 126, 39, `class="sans" fill="${cardText}" font-size="33" font-weight="550" letter-spacing="-1.6"`)}<text x="20" y="260" class="sans" fill="${cardText}" opacity=".56" font-size="10">${escapeXml(application.description.slice(0, 78))}</text><text x="20" y="292" class="mono" fill="${cardText}" opacity=".42" font-size="7">${escapeXml(application.format.toLocaleUpperCase())}</text></g>`;
-  }).join('')}
-  <text x="1522" y="409" text-anchor="end" class="mono" fill="${accent}" font-size="8">${escapeXml(identity.voice.phrases[0]?.toLocaleUpperCase() ?? identity.tagline.toLocaleUpperCase())}</text>
-</g>
-</svg>`;
+  if (sources.length === 0) {
+    return `<rect width="${width}" height="${height}" fill="${paper}"/><text x="24" y="${height / 2}" class="body" fill="${ink}" opacity=".45" font-size="14">NO ELIGIBLE SOURCE ASSETS</text>`;
+  }
+
+  return sources.map((source, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = column * (cardWidth + gap);
+    const y = row * (cardHeight + gap);
+    const captionHeight = 30;
+    return `<g class="source-asset" data-asset="${escapeXml(source.id)}" transform="translate(${x} ${y})"><rect width="${cardWidth}" height="${cardHeight}" fill="${paper}"/>${assetImage(source, 0, 0, cardWidth, cardHeight - captionHeight, identity.style.imageTreatment)}<rect y="${cardHeight - captionHeight}" width="${cardWidth}" height="${captionHeight}" fill="${muted}"/><text x="10" y="${cardHeight - 11}" class="body" fill="${ink}" font-size="9" font-weight="500">${escapeXml(source.label.toLocaleUpperCase().slice(0, 34))}</text></g>`;
+  }).join('');
+}
+
+function renderCatalogApplications(
+  identity: BrandIdentity,
+  width: number,
+  height: number
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const muted = color(identity, 'muted', '#F4F4F4');
+  const emphasis = color(identity, 'emphasis', '#E4E4E4');
+  const columns = 3;
+  const gap = 16;
+  const applications = identity.applications;
+  const rows = Math.max(1, Math.ceil(applications.length / columns));
+  const cardWidth = (width - gap * (columns - 1)) / columns;
+  const cardHeight = (height - gap * (rows - 1)) / rows;
+
+  return applications.map((application, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = column * (cardWidth + gap);
+    const y = row * (cardHeight + gap);
+    const description = wrapText(application.description, cardHeight < 145 ? 54 : 62, cardHeight < 145 ? 2 : 3);
+    const meta = `${application.category} / ${application.format}`.toLocaleUpperCase();
+    const accentFill = index % 3 === 0 ? emphasis : index % 3 === 1 ? muted : ink;
+    const accentText = isLight(accentFill) ? ink : paper;
+
+    return `<g class="generated-application" data-application="${escapeXml(application.id)}" transform="translate(${x} ${y})"><rect width="${cardWidth}" height="${cardHeight}" fill="${paper}"/><rect width="8" height="${cardHeight}" fill="${accentFill}"/><text x="24" y="30" class="code" fill="${ink}" opacity=".46" font-size="9">${String(index + 1).padStart(2, '0')} / ${escapeXml(meta.slice(0, 56))}</text><text x="24" y="60" class="display" fill="${ink}" font-size="20" font-weight="500" letter-spacing="-.5">${escapeXml(application.name)}</text>${textLines(description, 24, 86, 17, `class="body" fill="${ink}" opacity=".62" font-size="11"`)}<rect x="${cardWidth - 48}" y="18" width="28" height="28" fill="${accentFill}"/><text x="${cardWidth - 34}" y="37" text-anchor="middle" class="code" fill="${accentText}" font-size="10">${escapeXml(identity.shortName)}</text></g>`;
+  }).join('');
+}
+
+function renderCompleteCatalog(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  boardRecipe: BoardRecipe,
+  dimensions: ReturnType<typeof boardDimensions>
+): string {
+  const ink = color(identity, 'ink', '#181818');
+  const paper = color(identity, 'paper', '#FFFFFF');
+  const margin = dimensions.margin;
+  const contentWidth = dimensions.width - margin * 2;
+  const headerHeight = 174;
+  const systemTop = margin + headerHeight + 44;
+  const systemGap = 14;
+  const systemTileHeight = 276;
+  const systemTileWidth = (contentWidth - systemGap * 2) / 3;
+  const systemBottom = systemTop + systemTileHeight * 3 + systemGap * 2;
+  const sourcesLabelY = systemBottom + 44;
+  const sourcesTop = sourcesLabelY + 18;
+  const sourceRows = Math.max(1, Math.ceil((assets.artAssets?.length ?? 0) / 6));
+  const sourcesHeight = sourceRows * 100 + (sourceRows - 1) * 12;
+  const applicationsLabelY = sourcesTop + sourcesHeight + 44;
+  const applicationsTop = applicationsLabelY + 18;
+  const applicationsHeight = dimensions.height - applicationsTop - margin;
+
+  return `<g transform="translate(${margin} ${margin})">${renderCatalogHeader(identity, assets, contentWidth, headerHeight)}</g><text x="${margin}" y="${systemTop - 16}" class="code" fill="${ink}" opacity=".54" font-size="11" font-weight="500" letter-spacing="2">ALL SYSTEM VIEWS</text>${COMPLETE_BOARD_TILES.map((kind, index) => {
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const x = margin + column * (systemTileWidth + systemGap);
+    const y = systemTop + row * (systemTileHeight + systemGap);
+    return `<g class="application-panel ${kind}-panel" data-panel="${kind}" transform="translate(${x} ${y})"><rect width="${systemTileWidth}" height="${systemTileHeight}" fill="${paper}"/>${renderTile(kind, identity, assets, boardRecipe, systemTileWidth, systemTileHeight)}</g>`;
+  }).join('')}<text x="${margin}" y="${sourcesLabelY}" class="code" fill="${ink}" opacity=".54" font-size="11" font-weight="500" letter-spacing="2">ALL SOURCE ASSETS · ${assets.artAssets?.length ?? 0}</text><g data-panel="source-catalog" transform="translate(${margin} ${sourcesTop})">${renderCatalogSources(identity, assets, contentWidth, sourcesHeight)}</g><text x="${margin}" y="${applicationsLabelY}" class="code" fill="${ink}" opacity=".54" font-size="11" font-weight="500" letter-spacing="2">ALL GENERATED APPLICATIONS · ${identity.applications.length}</text><g data-panel="application-catalog" transform="translate(${margin} ${applicationsTop})">${renderCatalogApplications(identity, contentWidth, applicationsHeight)}</g>`;
+}
+
+function boardDimensions(composition: MoodboardComposition) {
+  if (composition === 'showcase') {
+    return { gap: 18, height: 900, margin: 24, tileHeight: 272, width: 1600 };
+  }
+  if (composition === 'catalog') {
+    return { gap: 16, height: 2400, margin: 30, tileHeight: 276, width: 1600 };
+  }
+  return { gap: 24, height: 2000, margin: 30, tileHeight: 630, width: 1600 };
 }
 
 export function buildMoodboardSvg(
@@ -353,7 +613,29 @@ export function buildMoodboardSvg(
   assets: MoodboardSvgAssets,
   composition: MoodboardComposition
 ): string {
-  return composition === 'showcase'
-    ? buildShowcaseMoodboardSvg(identity, assets)
-    : buildSystemMoodboardSvg(identity, assets);
+  const boardRecipe = recipe(identity);
+  const dimensions = boardDimensions(composition);
+  const order = composition === 'showcase'
+    ? boardRecipe.showcaseOrder
+    : boardRecipe.systemOrder;
+  const tileWidth = (dimensions.width - dimensions.margin * 2 - dimensions.gap) / 2;
+  const fontDefinitions = [
+    embeddedFont('Brand Display', assets.displayFont),
+    embeddedFont('Brand Body', assets.bodyFont ?? assets.displayFont),
+    embeddedFont('Brand Accent', assets.accentFont ?? assets.displayFont),
+    embeddedFont('Brand Code', assets.codeFont ?? assets.bodyFont ?? assets.displayFont),
+  ].join('');
+  const boardFill = '#C8C8C2';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" viewBox="0 0 ${dimensions.width} ${dimensions.height}" data-board-mode="${composition}" data-board-recipe="${boardRecipe.id}" data-brand="${escapeXml(identity.id)}">
+<defs><style>${fontDefinitions}.display{font-family:'Brand Display';}.body{font-family:'Brand Body';}.accent{font-family:'Brand Accent';}.code{font-family:'Brand Code';}</style>${imageFilter(identity.style.imageTreatment)}</defs>
+<rect width="${dimensions.width}" height="${dimensions.height}" fill="${boardFill}"/>
+${composition === 'catalog' ? renderCompleteCatalog(identity, assets, boardRecipe, dimensions) : order.map((kind, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const x = dimensions.margin + column * (tileWidth + dimensions.gap);
+    const y = dimensions.margin + row * (dimensions.tileHeight + dimensions.gap);
+    return `<g class="application-panel ${kind}-panel" data-panel="${kind}" transform="translate(${x} ${y})"><rect width="${tileWidth}" height="${dimensions.tileHeight}" fill="${color(identity, 'paper', '#FFFFFF')}"/>${renderTile(kind, identity, assets, boardRecipe, tileWidth, dimensions.tileHeight)}</g>`;
+  }).join('')}
+</svg>`;
 }

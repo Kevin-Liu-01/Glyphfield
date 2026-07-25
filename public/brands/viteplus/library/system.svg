@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Vite+ toolchain system</title>
+  <desc id="description">An isometric stack connecting the runtime, package manager, dev server, checks, tests, and build.</desc>
+  <defs>
+    <linearGradient id="spectrum" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#2BFDD2"/>
+      <stop offset=".48" stop-color="#6254FE"/>
+      <stop offset="1" stop-color="#B988FE"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="#F4F3EC"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#14121A">
+    <text x="96" y="102" font-size="22" letter-spacing="4" opacity=".5">THE UNIFIED TOOLCHAIN</text>
+    <text x="96" y="216" font-size="72" font-weight="500" letter-spacing="-2">From environment to output.</text>
+    <g transform="translate(230 322)">
+      <g transform="translate(0 210)">
+        <path d="M0 100 190 0l190 100-190 100z" fill="#14121A"/>
+        <text x="190" y="114" text-anchor="middle" fill="#fff" font-size="26" font-weight="500">Runtime + packages</text>
+      </g>
+      <g transform="translate(370 106)">
+        <path d="M0 100 190 0l190 100-190 100z" fill="#6254FE"/>
+        <text x="190" y="114" text-anchor="middle" fill="#fff" font-size="26" font-weight="500">Develop + check</text>
+      </g>
+      <g transform="translate(740 0)">
+        <path d="M0 100 190 0l190 100-190 100z" fill="url(#spectrum)"/>
+        <text x="190" y="114" text-anchor="middle" fill="#14121A" font-size="26" font-weight="500">Test + build</text>
+      </g>
+      <path d="M380 310 560 206M750 206 930 102" stroke="#14121A" stroke-width="3" stroke-dasharray="10 12"/>
+    </g>
+    <text x="96" y="790" font-size="20" opacity=".5">ONE CONFIGURATION · ONE VOCABULARY · ONE SUCCESSFUL RUN</text>
+  </g>
+</svg>

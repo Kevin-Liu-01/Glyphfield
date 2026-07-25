@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  <g transform="translate(68 90)"><text x="0" y="42" font-family="ui-sans-serif, sans-serif" font-size="58" font-weight="500" fill="#0f172a">From class to rendered state.</text>
+    <g transform="translate(0 110)"><rect width="310" height="500" rx="22" fill="#0f172a"/><text x="28" y="52" font-family="ui-monospace, monospace" font-size="19" fill="#64748b">SOURCE</text><text x="28" y="114" font-family="ui-monospace, monospace" font-size="22" fill="#38bdf8">flex</text><text x="28" y="158" font-family="ui-monospace, monospace" font-size="22" fill="#38bdf8">gap-6</text><text x="28" y="202" font-family="ui-monospace, monospace" font-size="22" fill="#38bdf8">md:grid-cols-2</text><text x="28" y="246" font-family="ui-monospace, monospace" font-size="22" fill="#38bdf8">dark:bg-slate-950</text></g>
+    <path d="M350 360H474" stroke="#0ea5e9" stroke-width="8"/><path d="m458 340 22 20-22 20" fill="none" stroke="#0ea5e9" stroke-width="8"/>
+    <g transform="translate(510 110)"><rect width="554" height="500" rx="22" fill="#e0f2fe"/><text x="28" y="52" font-family="ui-monospace, monospace" font-size="19" fill="#0284c7">RESULT</text><rect x="28" y="90" width="498" height="160" rx="18" fill="#ffffff"/><rect x="54" y="118" width="100" height="14" rx="7" fill="#38bdf8"/><rect x="54" y="166" width="324" height="20" rx="10" fill="#0f172a"/><rect x="28" y="278" width="236" height="190" rx="18" fill="#ffffff"/><rect x="290" y="278" width="236" height="190" rx="18" fill="#0f172a"/></g>
+  </g>
+</svg>

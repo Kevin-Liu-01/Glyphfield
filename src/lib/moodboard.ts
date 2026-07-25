@@ -1,3 +1,5 @@
+import type { BrandAsset, BrandIdentity } from './brandIdentity';
+
 export type MoodboardExportPresetId =
   | 'standard'
   | 'retina'
@@ -5,7 +7,7 @@ export type MoodboardExportPresetId =
   | 'ultra'
   | 'custom';
 
-export type MoodboardComposition = 'showcase' | 'system';
+export type MoodboardComposition = 'showcase' | 'system' | 'catalog';
 
 export type MoodboardExportPreset = {
   height: number;
@@ -18,9 +20,39 @@ export type MoodboardExportDimensions = MoodboardExportPreset & {
   megapixels: number;
 };
 
+const MOODBOARD_ASSET_TYPES: readonly BrandAsset['type'][] = [
+  'background',
+  'image',
+  'motion',
+  'product',
+  'texture',
+];
+
+const SCREEN_CAPTURE_PATH = /(?:^|\/)(?:references|screenshots)(?:\/|$)|(?:screen[-_ ]?shot|capture|homepage)/i;
+
+export function isMoodboardAsset(asset: BrandAsset): boolean {
+  if (!asset.id.startsWith('library-')) return false;
+  if (!MOODBOARD_ASSET_TYPES.includes(asset.type)) return false;
+  if (SCREEN_CAPTURE_PATH.test(asset.path)) return false;
+  if (asset.tags?.some((tag) => /screen[-_ ]?shot|site-capture|browser-capture/i.test(tag))) {
+    return false;
+  }
+
+  return Boolean(
+    asset.tags?.includes('source-native') ||
+    asset.tags?.includes('brand-diagram') ||
+    asset.tags?.includes('original-system')
+  );
+}
+
+export function moodboardAssets(identity: BrandIdentity): BrandAsset[] {
+  return identity.assets.filter(isMoodboardAsset);
+}
+
 const MINIMUM_CUSTOM_WIDTH = 800;
 const MAXIMUM_CUSTOM_WIDTH = 4800;
 const BOARD_HEIGHT_RATIOS: Record<MoodboardComposition, number> = {
+  catalog: 3 / 2,
   showcase: 9 / 16,
   system: 5 / 4,
 };

@@ -17,6 +17,10 @@ describe('BRAND_ELEMENTS', () => {
     expect(BRAND_ELEMENTS.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
         'welcome-email',
+        'lifecycle-email-sequence',
+        'utility-email',
+        'billing-alert-email',
+        'email-system-sheet',
         'cli-banner',
         'ascii-mark',
         'x-post',

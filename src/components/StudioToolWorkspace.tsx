@@ -32,6 +32,7 @@ import ComponentLibraryPreview, {
 } from '@/components/ComponentLibraryPreview';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
+import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -69,6 +70,7 @@ import {
 import {
   buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
+  drawLogoAppearanceLayer,
   logoAppearanceCssFilter,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
@@ -388,6 +390,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const selectedLogo = logoOptions.find(({ id }) => id === libraryLogoId);
   const selectedTypography = brandTypographyRole(identity, fontRole);
   const selectedBrandFont = brandFontAssets(identity).find(({ id }) => id === selectedTypography.fontId);
+  const selectedFontFamily = customFont.font?.family ?? brandTypographyFamily(identity, fontRole);
 
   async function exportOpenGraph() {
     setExporting(true);
@@ -428,7 +431,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       const resolvedLogoSize = 52 * (logoScale / 100);
       const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
       const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="550">${escapeXml(identity.shortName)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="monospace" font-size="16">${escapeXml(identity.website)}</text></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="${capVisibleFontWeight(fontWeight)}">${escapeXml(identity.shortName)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="${fontFamily}" font-size="16" font-weight="${capVisibleFontWeight(fontWeight)}">${escapeXml(identity.website)}</text></svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -516,7 +519,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       inspector={inspector}
       tool={tool}
     >
-      <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
+      <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm' onPointerDown={() => setLogoSelected(false)}>
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
           {backgroundAsset.asset || selectedBackground ? (
@@ -524,7 +527,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           ) : null}
           <div
             className='absolute inset-0 flex flex-col justify-between p-[6%]'
-            style={{ color: foreground, fontFamily: customFont.font?.family ?? brandTypographyFamily(identity, fontRole), fontWeight: capVisibleFontWeight(fontWeight) }}
+            style={{ color: foreground, fontFamily: selectedFontFamily, fontWeight: capVisibleFontWeight(fontWeight) }}
           >
             <div className='flex items-center gap-3'>
               <span aria-hidden='true' className='size-10 shrink-0' />
@@ -624,16 +627,16 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
         tintedContext.globalCompositeOperation = 'source-in';
         tintedContext.fillStyle = selectedColor.hex;
         tintedContext.fillRect(0, 0, markSize, markSize);
-        context.filter = logoAppearanceCssFilter(appearance);
         const resolvedMarkSize = markSize * logoTransform.scale;
-        context.drawImage(
+        drawLogoAppearanceLayer(
+          context,
           tinted,
           inset + logoTransform.x * (size / 512) - (resolvedMarkSize - markSize) / 2,
           inset + logoTransform.y * (size / 512) - (resolvedMarkSize - markSize) / 2,
           resolvedMarkSize,
-          resolvedMarkSize
+          resolvedMarkSize,
+          appearance
         );
-        context.filter = 'none';
         const url = output.toDataURL('image/png');
         const link = document.createElement('a');
         link.download = `${identity.id}-mark-${tone}-${size}.png`;
@@ -773,20 +776,15 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
             transform={logoTransform}
             zIndex={2}
           >
-            <div
-              aria-label={`${identity.name} logo preview`}
-              className='gt-logo-mask size-full'
-              style={{
-                backgroundColor: markPath ? selectedColor.hex : 'transparent',
-                color: selectedColor.hex,
-                filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...appearance }),
-                maskImage: markPath ? `url('${markPath}')` : undefined,
-              }}
-            >
-              {markPath ? null : (
+            <LogoAppearancePreview
+              ariaLabel={`${identity.name} logo preview`}
+              color={selectedColor.hex}
+              fallback={
                 <span className='grid size-full place-items-center text-5xl font-semibold'>{identity.shortName}</span>
-              )}
-            </div>
+              }
+              logoPath={markPath}
+              settings={{ ...DEFAULT_LOGO_APPEARANCE, ...appearance }}
+            />
           </EditableCanvasLayer>
         </div>
       </CanvasViewport>
@@ -1471,7 +1469,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       inspector={inspector}
       tool={tool}
     >
-      <CanvasViewport identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
+      <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
           className={`artifact-preview ratio-safe template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
           onPointerDown={() => setSelectedLayer(null)}

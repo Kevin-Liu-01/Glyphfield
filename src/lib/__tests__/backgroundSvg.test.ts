@@ -52,4 +52,28 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('opacity="0.35"');
     expect(svg.indexOf('base64,FIELD')).toBeLessThan(svg.indexOf('base64,MARK'));
   });
+
+  it('applies shape-aware outline and shadow effects to the exported logo', () => {
+    const svg = buildBackgroundSvg(DEFAULT_BACKGROUND_SETTINGS, {
+      logo: 'data:image/svg+xml;base64,MARK',
+      logoAppearance: {
+        borderColor: '#FF0000',
+        borderEnabled: true,
+        borderOpacity: 75,
+        borderWidth: 4,
+        invert: false,
+        shadowBlur: 24,
+        shadowColor: '#000000',
+        shadowEnabled: true,
+        shadowOffsetX: 3,
+        shadowOffsetY: 9,
+        shadowOpacity: 40,
+      },
+      name: 'GT',
+    });
+
+    expect(svg).toContain('<feMorphology in="SourceAlpha" operator="dilate" radius="4"');
+    expect(svg).toContain('<feDropShadow in="colored" dx="3" dy="9" stdDeviation="12"');
+    expect(svg).toContain('<g filter="url(#background-logo)">');
+  });
 });

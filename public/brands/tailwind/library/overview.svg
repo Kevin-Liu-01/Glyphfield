@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0b1220"/>
+  <rect x="72" y="72" width="1056" height="656" fill="#111c2f" stroke="#263449"/>
+  <g font-family="ui-monospace, monospace" font-size="24" fill="#94a3b8">
+    <text x="112" y="142">class=</text><text x="112" y="186" fill="#38bdf8">"grid gap-6 md:grid-cols-2"</text>
+    <text x="112" y="254">@theme {</text><text x="152" y="298" fill="#7dd3fc">--color-brand: oklch(.72 .15 220);</text><text x="112" y="342">}</text>
+  </g>
+  <g transform="translate(690 132)">
+    <rect width="344" height="480" rx="24" fill="#f8fafc"/>
+    <rect x="28" y="28" width="108" height="16" rx="8" fill="#38bdf8"/>
+    <rect x="28" y="82" width="288" height="168" rx="18" fill="#e0f2fe"/>
+    <path d="M60 212c70-104 128 42 226-82" fill="none" stroke="#0ea5e9" stroke-width="10" stroke-linecap="round"/>
+    <rect x="28" y="286" width="242" height="18" rx="9" fill="#0f172a"/>
+    <rect x="28" y="324" width="284" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="28" y="352" width="228" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="28" y="408" width="120" height="44" rx="12" fill="#0ea5e9"/>
+  </g>
+  <text x="112" y="664" font-family="ui-sans-serif, sans-serif" font-size="56" font-weight="500" fill="#f8fafc">Utilities become interface.</text>
+</svg>

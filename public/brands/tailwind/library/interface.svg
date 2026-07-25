@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#e2e8f0"/>
+  <g transform="translate(68 66)"><rect width="1064" height="668" rx="26" fill="#ffffff"/>
+    <rect width="1064" height="64" rx="26" fill="#0f172a"/><circle cx="34" cy="32" r="7" fill="#38bdf8"/><rect x="64" y="25" width="126" height="14" rx="7" fill="#334155"/>
+    <rect x="28" y="94" width="250" height="546" rx="18" fill="#f1f5f9"/><rect x="52" y="122" width="126" height="16" rx="8" fill="#0ea5e9"/><g fill="#94a3b8"><rect x="52" y="180" width="164" height="10" rx="5"/><rect x="52" y="220" width="132" height="10" rx="5"/><rect x="52" y="260" width="148" height="10" rx="5"/></g>
+    <rect x="310" y="94" width="726" height="268" rx="18" fill="#0f172a"/><text x="342" y="148" font-family="ui-monospace, monospace" font-size="22" fill="#94a3b8">&lt;section class=</text><text x="342" y="190" font-family="ui-monospace, monospace" font-size="22" fill="#38bdf8">"grid gap-8 lg:grid-cols-3"</text><text x="342" y="232" font-family="ui-monospace, monospace" font-size="22" fill="#94a3b8">&gt;</text>
+    <g transform="translate(310 394)"><rect width="224" height="246" rx="18" fill="#e0f2fe"/><rect x="24" y="24" width="68" height="12" rx="6" fill="#38bdf8"/><rect x="24" y="78" width="176" height="90" rx="14" fill="#bae6fd"/><rect x="24" y="196" width="142" height="14" rx="7" fill="#0f172a"/></g>
+    <g transform="translate(560 394)"><rect width="224" height="246" rx="18" fill="#0f172a"/><circle cx="112" cy="102" r="56" fill="#38bdf8"/><rect x="32" y="196" width="160" height="12" rx="6" fill="#64748b"/></g>
+    <g transform="translate(810 394)"><rect width="226" height="246" rx="18" fill="#f8fafc" stroke="#cbd5e1"/><rect x="26" y="30" width="174" height="24" rx="12" fill="#0f172a"/><rect x="26" y="86" width="174" height="12" rx="6" fill="#94a3b8"/><rect x="26" y="118" width="134" height="12" rx="6" fill="#94a3b8"/><rect x="26" y="182" width="96" height="38" rx="12" fill="#38bdf8"/></g>
+  </g>
+</svg>

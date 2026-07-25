@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
+  <title id="title">Welcome in eight languages</title>
+  <desc id="description">A monochrome General Translation greeting that types and erases English, Spanish, Chinese, Japanese, Arabic, Hindi, French, and Korean.</desc>
+  <style>
+    @font-face {
+      font-family: 'GT Inter';
+      src: url('inter-bold.woff2') format('woff2');
+      font-style: normal;
+      font-weight: 700;
+    }
+    .phrase {
+      opacity: 0;
+      animation: language-type 13.44s cubic-bezier(.45, 0, .55, 1) infinite forwards;
+    }
+    .p0 { animation-delay: -.5s; }
+    .p1 { animation-delay: 1.18s; }
+    .p2 { animation-delay: 2.86s; }
+    .p3 { animation-delay: 4.54s; }
+    .p4 { animation-name: language-type-rtl; animation-delay: 6.22s; }
+    .p5 { animation-delay: 7.9s; }
+    .p6 { animation-delay: 9.58s; }
+    .p7 { animation-delay: 11.26s; }
+    @keyframes language-type {
+      0% { opacity: 1; clip-path: inset(0 100% 0 0); }
+      3.72%, 8.93% { opacity: 1; clip-path: inset(0 0 0 0); }
+      11.9% { opacity: 1; clip-path: inset(0 100% 0 0); }
+      11.91%, 100% { opacity: 0; clip-path: inset(0 100% 0 0); }
+    }
+    @keyframes language-type-rtl {
+      0% { opacity: 1; clip-path: inset(0 0 0 100%); }
+      3.72%, 8.93% { opacity: 1; clip-path: inset(0 0 0 0); }
+      11.9% { opacity: 1; clip-path: inset(0 0 0 100%); }
+      11.91%, 100% { opacity: 0; clip-path: inset(0 0 0 100%); }
+    }
+  </style>
+
+  <rect width="1200" height="360" fill="#000000" />
+
+  <g fill="#ffffff" font-family="'GT Inter', Inter, 'PingFang SC', 'Hiragino Sans', 'SF Arabic', 'Kohinoor Devanagari', 'Apple SD Gothic Neo', Arial, sans-serif" font-weight="700" text-anchor="middle">
+    <text class="phrase p0" x="600" y="207" font-size="108" letter-spacing="-4">Welcome</text>
+    <text class="phrase p1" x="600" y="207" font-size="100" letter-spacing="-4">Bienvenidos</text>
+    <text class="phrase p2" x="600" y="207" font-size="116">你好</text>
+    <text class="phrase p3" x="600" y="207" font-size="108">ようこそ</text>
+    <text class="phrase p4" x="600" y="207" font-size="100" direction="rtl">أهلاً وسهلاً</text>
+    <text class="phrase p5" x="600" y="207" font-size="100">स्वागत है</text>
+    <text class="phrase p6" x="600" y="207" font-size="104" letter-spacing="-4">Bienvenue</text>
+    <text class="phrase p7" x="600" y="207" font-size="106">환영합니다</text>
+  </g>
+
+  <image href="gt-mark-white.png" x="44" y="282" width="76" height="48" />
+</svg>

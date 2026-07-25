@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#020617"/>
+  <g transform="translate(78 78)" font-family="ui-monospace, monospace">
+    <text x="0" y="38" font-size="22" fill="#64748b">DESIGN TOKENS / CSS VARIABLES</text>
+    <g transform="translate(0 92)">
+      <rect width="1044" height="124" fill="#0f172a" stroke="#1e293b"/>
+      <text x="34" y="52" font-size="25" fill="#7dd3fc">--spacing</text><text x="850" y="52" font-size="25" fill="#f8fafc">0.25rem</text>
+      <g fill="#38bdf8"><rect x="34" y="82" width="24" height="12"/><rect x="74" y="82" width="48" height="12"/><rect x="138" y="82" width="72" height="12"/><rect x="226" y="82" width="96" height="12"/><rect x="338" y="82" width="144" height="12"/></g>
+    </g>
+    <g transform="translate(0 236)"><rect width="1044" height="124" fill="#0f172a" stroke="#1e293b"/><text x="34" y="52" font-size="25" fill="#7dd3fc">--color-sky-400</text><text x="850" y="52" font-size="25" fill="#f8fafc">oklch()</text><rect x="34" y="78" width="448" height="18" fill="url(#s)"/></g>
+    <g transform="translate(0 380)"><rect width="1044" height="124" fill="#0f172a" stroke="#1e293b"/><text x="34" y="52" font-size="25" fill="#7dd3fc">--breakpoint-md</text><text x="850" y="52" font-size="25" fill="#f8fafc">48rem</text><path d="M34 91H1010" stroke="#334155"/><circle cx="576" cy="91" r="10" fill="#38bdf8"/></g>
+    <text x="0" y="574" font-family="ui-sans-serif, sans-serif" font-size="58" font-weight="500" fill="#f8fafc">One system. Every utility.</text>
+  </g>
+  <defs><linearGradient id="s"><stop stop-color="#bae6fd"/><stop offset=".5" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/></linearGradient></defs>
+</svg>

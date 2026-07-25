@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0f172a"/>
+  <g transform="translate(72 70)"><rect width="1056" height="660" fill="#f8fafc"/>
+    <text x="58" y="76" font-family="ui-monospace, monospace" font-size="20" fill="#0284c7">TAILWIND CSS / UTILITY-FIRST</text>
+    <text x="58" y="220" font-family="ui-sans-serif, sans-serif" font-size="104" font-weight="500" fill="#0f172a">Compose the</text><text x="58" y="322" font-family="ui-sans-serif, sans-serif" font-size="104" font-weight="500" fill="#0f172a">interface.</text>
+    <path d="M60 478c176-152 318 132 488-28s302-36 448 68" fill="none" stroke="#38bdf8" stroke-width="42" stroke-linecap="round"/>
+    <text x="58" y="604" font-family="ui-monospace, monospace" font-size="22" fill="#475569">flex · gap-6 · text-balance · md:grid-cols-2</text>
+  </g>
+</svg>

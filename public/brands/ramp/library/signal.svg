@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp savings signal</title>
+  <desc id="desc">A verified savings metric resolves against a compact evidence ledger.</desc>
+  <rect width="1600" height="1000" fill="#292827"/>
+  <rect x="86" y="86" width="1428" height="828" fill="none" stroke="#f8f7f3" stroke-opacity=".34"/>
+  <text x="150" y="244" fill="#d7ff64" font-family="Lausanne, Arial, sans-serif" font-size="64">SAVINGS / VERIFIED</text>
+  <text x="140" y="610" fill="#f8f7f3" font-family="Lausanne, Arial, sans-serif" font-size="270" letter-spacing="-12">$12B+</text>
+  <path d="M1050 288v356h380" fill="none" stroke="#d7ff64" stroke-width="9"/>
+  <path d="m1080 590 90-96 82 52 138-174" fill="none" stroke="#f8f7f3" stroke-width="16"/>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Vite+ unified workflow</title>
+  <desc id="description">One vp command line unifies environment, packages, development, checks, tests and builds.</desc>
+  <defs>
+    <linearGradient id="energy" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2BFDD2"/>
+      <stop offset=".52" stop-color="#6254FE"/>
+      <stop offset="1" stop-color="#B988FE"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="#14121A"/>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="96" y="102" fill="#F4F3EC" font-size="22" letter-spacing="4" opacity=".55">VITE+ / UNIFIED WORKFLOW</text>
+    <text x="96" y="220" fill="#F4F3EC" font-size="72" font-weight="500" letter-spacing="-2">One command model.</text>
+    <g transform="translate(96 330)">
+      <rect width="1408" height="308" rx="22" fill="#0B0A0E" stroke="#45404F"/>
+      <text x="42" y="66" fill="#F4F3EC" font-family="monospace" font-size="24">$ vp</text>
+      <g font-size="24" font-weight="500" text-anchor="middle">
+        <g transform="translate(86 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#2BFDD2">create</text></g>
+        <g transform="translate(292 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#F4F3EC">install</text></g>
+        <g transform="translate(498 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#B988FE">dev</text></g>
+        <g transform="translate(704 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#F4F3EC">check</text></g>
+        <g transform="translate(910 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#2BFDD2">test</text></g>
+        <g transform="translate(1116 132)"><rect width="176" height="102" rx="14" fill="#211D2A"/><text x="88" y="62" fill="#B988FE">build</text></g>
+      </g>
+      <path d="M174 260H1204" stroke="url(#energy)" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <text x="96" y="754" fill="#F4F3EC" font-size="26" font-weight="500">Runtime, packages, frontend tools, and production move through one fast surface.</text>
+    <text x="1504" y="804" text-anchor="end" fill="#F4F3EC" opacity=".48" font-size="18">viteplus.dev</text>
+  </g>
+</svg>

@@ -16,7 +16,7 @@ import {
   VITEPLUS_SYSTEM,
 } from './brandDossiers';
 
-const REVISION = 14;
+const REVISION = 22;
 
 function asset(
   id: string,
@@ -56,13 +56,18 @@ type LibraryAssetSource = Pick<
 
 const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSource[]>> = {
   basement: [
-    ['overview', 'Basement project world', 'https://cdn.sanity.io/images/9syto90m/production/8bf48dd1e263265f620df71ce37a24c643fac451-3840x2160.webp', 'image'],
+    ['overview', 'Basement project world', 'https://cdn.sanity.io/images/9syto90m/production/8bf48dd1e263265f620df71ce37a24c643fac451-3840x2160.webp', 'product'],
     ['editorial', 'Basement editorial scene', 'https://cdn.sanity.io/images/9syto90m/production/9e8ab8d6720ea7a776522fb3987329df79fa73ff-3840x2160.webp', 'image'],
     ['detail', 'Basement material detail', 'https://cdn.sanity.io/images/9syto90m/production/d73be0f8121eb45862ad218c84deac9afe3c6d0e-3840x2160.jpg', 'image'],
     ['atmosphere', 'Basement atmospheric field', 'https://cdn.sanity.io/images/9syto90m/production/e8e2aa0cd6a444844d99a38be72b1dde34f0c218-1968x1104.webp', 'texture'],
     ['campaign', 'Speakeasy campaign world', 'https://cdn.sanity.io/images/9syto90m/production/6222254949305697d6f71dcef95ef99d090d1825-3840x2161.png?w=1600&auto=format', 'image'],
     ['interface', 'Speakeasy identity application', 'https://cdn.sanity.io/images/9syto90m/production/650f72163b89639849cd4255311e4411f59bd545-3841x2161.png?w=1600&auto=format', 'product'],
     ['motion', 'Speakeasy system sequence', 'https://cdn.sanity.io/images/9syto90m/production/d1d929331c98e10117b1e295b04279f26b6f8620-7686x2840.png?w=1600&auto=format', 'motion'],
+    ['hero', 'Basement arcade introduction', 'https://basement.studio/3d/textures/arcade-introScreen-4c437c4d.jpg', 'product'],
+    ['workflow', 'Basement shader laboratory', 'https://basement.studio/3d/textures/arcade-shader-lab.png', 'product'],
+    ['system', 'Basement cityscape system', 'https://basement.studio/3d/textures/arcade-cityscape-bdf3692b.png', 'image'],
+    ['material', 'Basement atmospheric skybox', 'https://basement.studio/3d/textures/arcade-skybox-f8dd9185.webp', 'texture'],
+    ['signal', 'Basement chronicles scene', 'https://basement.studio/3d/textures/arcade-chronicles.png', 'image'],
   ].map(([name, label, sourceUrl, type]) => ({
     attribution: 'Native project media published by Basement Studio. Speakeasy project rights remain with their respective owners.',
     id: `library-${name}`,
@@ -77,34 +82,46 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
     usage: 'Art-directed project evidence for editorial layouts, identity studies, and application boards.',
   })),
   cloudflare: [
-    ['overview', 'Cloudflare global network', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/4TrmSfUqwNi5D8Aacs4QER/82602aaf6971340f597e558827459fa7/Cloudflare_Network_275__Cities_in_100__Countries.png', 'image'],
-    ['editorial', 'Cloudflare founders press card', 'https://cf-assets.www.cloudflare.com/v2/image/e5gg2pqbjl18d0fdkpn8i8be6o/headshot-MM-cards-press-kit.png', 'image'],
-    ['detail', 'Matthew Prince portrait', 'https://cf-assets.www.cloudflare.com/v2/image/81hrvoj6np6kp6r4i961jd5q6t/headshot_leadership_Matthew-prince.png', 'image'],
+    ['overview', 'Cloudflare global network', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/4TrmSfUqwNi5D8Aacs4QER/82602aaf6971340f597e558827459fa7/Cloudflare_Network_275__Cities_in_100__Countries.png', 'product'],
+    ['editorial', 'Cloudflare network illustration field', 'https://www.cloudflare.com/img/cf-social-card.png', 'image'],
+    ['detail', 'Cloudflare orange signal field', 'https://www.cloudflare.com/static/hero-poster.avif', 'image'],
     ['atmosphere', 'Cloudflare orange signal field', 'https://cf-assets.www.cloudflare.com/v2/image/bpffgr36b53sj7g3psktcdiq3c/background-cloudflare-card-press-kit.png', 'texture'],
     ['campaign', 'Cloudflare press field', 'https://cf-assets.www.cloudflare.com/v2/image/cq6fq2vvjl7h160fp14ilfaa2d/background-2-cards-press-kit.png', 'image'],
-    ['interface', 'Michelle Zatlyn portrait', 'https://cf-assets.www.cloudflare.com/v2/image/f91nhuj8097q72dk4j6k7tkn3d/headshot_leadership_Michelle-zatlyn.png', 'image'],
+    ['interface', 'Cloudflare connectivity stack', 'https://www.cloudflare.com/learning/cloud/what-is-the-cloud/', 'product'],
     ['motion', 'Cloudflare badge field', 'https://cf-assets.www.cloudflare.com/v2/image/k316ijcui506735m4fd2qhc73d/background-3-badge-card.png', 'motion'],
+    ['hero', 'Cloudflare delivery field', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/6gop7WZsws8lJlwMgJbkQK/64af01a1993935c8c70ca0512c9209e2/4delivery_hero.png', 'product'],
+    ['workflow', 'Cloudflare AI security system', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/3dsYRfZfIUBdQxbSm3wiC6/cf7117f3bda654849a0c178202b5d2d3/ai_security-thumbnail.png', 'product'],
+    ['system', 'Cloudflare global connectivity diagram', 'https://cf-assets.www.cloudflare.com/v2/image/bs92q5rh093g9cl61igokjjp0b/application-services-page_global_connectivity_diagram.png', 'product'],
+    ['material', 'Cloudflare orange material field', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/1xDcnImx6lNgwE09njm64g/8413083889c46633db391e9f1bedcdb2/Background.png', 'texture'],
+    ['signal', 'Cloudflare insights signal', 'https://cf-assets.www.cloudflare.com/dzlvafdwdttg/04Lu8TYpWwmxyhBD4R9xW/be634736bc235195a609d75ed4f12892/Insights-Thumbnail-5.png', 'image'],
   ].map(([name, label, sourceUrl, type]) => ({
-    attribution: 'Native media file published in the official Cloudflare press kit.',
+    attribution: name === 'interface'
+      ? 'Original Glyphfield diagram based on Cloudflare connectivity-cloud product architecture.'
+      : 'Native media file published by Cloudflare.',
     id: `library-${name}`,
     label,
     license: 'Cloudflare press-kit and trademark terms apply',
     path: `/brands/cloudflare/library/${name}.png`,
     redistribution: 'research-only' as const,
-    sourceOwner: 'Cloudflare',
+    sourceOwner: name === 'interface' ? 'Glyphfield' : 'Cloudflare',
     sourceUrl,
-    tags: [type, 'source-native', 'official-press-kit'],
+    tags: [type, name === 'interface' ? 'brand-diagram' : 'source-native', 'official-site'],
     type: type as BrandAsset['type'],
-    usage: 'Official network, leadership, and signal imagery for infrastructure-scale brand applications.',
+    usage: 'Official network and signal imagery, plus an authored connectivity diagram, for infrastructure-scale brand applications.',
   })),
   mintlify: [
-    ['overview', 'Mintlify Replit documentation world', 'https://www.mintlify.com/new/startups/replit-dark.webp', 'product'],
+    ['overview', 'Mintlify web editor', 'https://www.mintlify.com/docs/editor/index', 'product'],
     ['editorial', 'Mintlify agent score editorial', 'https://www.mintlify.com/new/blog/agent-score.webp', 'image'],
-    ['detail', 'Mintlify docs automation detail', 'https://www.mintlify.com/new/blog/docs-automations-event.png', 'product'],
+    ['detail', 'Mintlify project domain overview', 'https://www.mintlify.com/docs/quickstart', 'product'],
     ['atmosphere', 'Mintlify Decagon documentation world', 'https://www.mintlify.com/new/startups/decagon-dark.webp', 'texture'],
     ['campaign', 'Mintlify campaign field', 'https://www.mintlify.com/_next/static/media/og.28576e75.png', 'image'],
-    ['interface', 'Mintlify editor', 'https://www.mintlify.com/new/blog/editor.webp', 'product'],
-    ['motion', 'Mintlify Harvey documentation world', 'https://www.mintlify.com/new/startups/harvey-dark.webp', 'motion'],
+    ['interface', 'Mintlify live document editor', 'https://www.mintlify.com/docs/quickstart', 'product'],
+    ['motion', 'Mintlify dark editor state', 'https://www.mintlify.com/docs/editor/index', 'motion'],
+    ['hero', 'Mintlify visual editor', 'https://www.mintlify.com/new/blog/editor.webp', 'product'],
+    ['workflow', 'Mintlify documentation automation', 'https://www.mintlify.com/new/blog/docs-automations-event.png', 'product'],
+    ['system', 'Replit documentation world', 'https://www.mintlify.com/new/startups/replit-dark.webp', 'product'],
+    ['material', 'Lovable documentation world', 'https://www.mintlify.com/new/startups/lovable-dark.webp', 'product'],
+    ['signal', 'Perplexity documentation world', 'https://www.mintlify.com/new/startups/perplexity-dark.webp', 'product'],
   ].map(([name, label, sourceUrl, type]) => ({
     attribution: 'Native product or editorial media published by Mintlify.',
     id: `library-${name}`,
@@ -120,35 +137,49 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
   })),
   ramp: [
     ['overview', 'Ramp finance platform overview', 'Ramp-overview-OG.png', 'product'],
-    ['editorial', 'Ramp card handoff', '20220305_Ramp_Cards_0007.jpg', 'image'],
-    ['detail', 'Ramp card material detail', '20220305_Ramp_Cards_0017.jpg', 'image'],
-    ['atmosphere', 'Ramp olive product field', 'Ramp_r1_80123.jpg', 'texture'],
+    ['editorial', 'Ramp card study', '20220305_Ramp_Cards_0007.jpg', 'product'],
+    ['detail', 'Ramp card material detail', '20220305_Ramp_Cards_0017.jpg', 'product'],
+    ['atmosphere', 'Ramp economic operations field', 'Glyphfield economic-field.svg', 'texture'],
     ['campaign', 'Ramp card campaign image', '20220305_Ramp_Cards_0022.jpg', 'image'],
     ['interface', 'Ramp finance platform', 'Ramp-finance-platform.jpg', 'product'],
     ['motion', 'Ramp card sequence frame', '20220305_Ramp_Cards_0023.png', 'motion'],
-  ].map(([name, label, fileName, type]) => ({
-    attribution: `Native media file from Ramp's official press kit: ${fileName}.`,
+    ['hero', 'Ramp finance operations field', 'Glyphfield ramp-hero.svg', 'product', 'svg'],
+    ['workflow', 'Ramp approval workflow', 'Glyphfield ramp-workflow.svg', 'product', 'svg'],
+    ['system', 'Ramp control system', 'Glyphfield ramp-system.svg', 'product', 'svg'],
+    ['material', 'Ramp ledger material', 'Glyphfield ramp-material.svg', 'texture', 'svg'],
+    ['signal', 'Ramp economic signal', 'Glyphfield ramp-signal.svg', 'image', 'svg'],
+  ].map(([name, label, fileName, type, extension = 'png']) => ({
+    attribution: ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name)
+      ? 'Original Glyphfield diagram based on Ramp finance-operations workflows.'
+      : `Native media file from Ramp's official press kit: ${fileName}.`,
     id: `library-${name}`,
     label,
     license: 'Ramp press kit — royalty free for web and print',
-    path: `/brands/ramp/library/${name}.png`,
+    path: `/brands/ramp/library/${name}.${extension}`,
     redistribution: 'research-only' as const,
-    sourceOwner: 'Ramp',
-    sourceUrl: `https://assets.ramp.com/press_kit/ramp_june_26_press_kit.zip#${fileName}`,
-    tags: [type, 'source-native', 'official-press-kit', 'finance-operations'],
+    sourceOwner: ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name) ? 'Glyphfield' : 'Ramp',
+    sourceUrl: ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name)
+      ? 'https://ramp.com/'
+      : `https://assets.ramp.com/press_kit/ramp_june_26_press_kit.zip#${fileName}`,
+    tags: [type, ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name) ? 'brand-diagram' : 'source-native', 'official-press-kit', 'finance-operations'],
     type: type as BrandAsset['type'],
     usage: 'Official product and card photography for finance, product, campaign, and editorial compositions.',
   })),
   stripe: [
-    ['overview', 'Stripe office environment', 'https://images.stripeassets.com/fzn2n1nzq965/2bYb8Ul1JnR0Fq8FS3Sdhz/0a9f5ee18d61ca2220912272bff696b2/NewsInformationHero.jpg?q=80&w=1620', 'image'],
-    ['editorial', 'John and Patrick Collison', 'https://images.stripeassets.com/fzn2n1nzq965/2d5vw8d4viykg9Jzkx3Zm0/0b8d6572f37b38a09e1b5824cc3289f8/john_patrick_collison_newsroom.jpg?q=80&w=1082', 'image'],
-    ['detail', 'Patrick Collison portrait', 'https://images.stripeassets.com/fzn2n1nzq965/5TGCamYpNVFC4Uo6UptKEz/af4c4cbdd3091affd276dea2233326a3/Patrick_Collison.png?q=80&w=1082', 'image'],
-    ['atmosphere', 'Stripe Sessions spectrum', 'https://images.stripeassets.com/fzn2n1nzq965/1fXkzdGTGUqFS4khCdLKq8/5bc54c1739b62111a740119871d3582e/sessions-2026-nav-bg.png?q=80', 'texture'],
+    ['overview', 'Stripe startup platform field', 'https://images.stripeassets.com/fzn2n1nzq965/1DZkp4Ce0kiwj2F2Z0kJ16/fcb4904fd728f49521385059618245b9/card_startups.png?w=1170&q=90', 'product'],
+    ['editorial', 'Stripe programmable wave crop', 'https://images.stripeassets.com/fzn2n1nzq965/m9HBEK464p46FeNIhs2PV/f5054a93c8a0a6aabdd1c47675d610ae/wave_crop.jpg?w=592&q=90', 'image'],
+    ['detail', 'Stripe payment field', 'https://images.stripeassets.com/fzn2n1nzq965/vYmk6v8n7oDAwbDpwhjV6/846f9b3e214549b8f14e2b8c8cfe9343/payment-bento-background.jpg?w=860&q=90', 'image'],
+    ['atmosphere', 'Stripe programmable wave', 'https://images.stripeassets.com/fzn2n1nzq965/115d4Vd5LVAsqFGDR1ClAv/0ceb2c44a7a7182cd624262420af7544/wave-fallback-desktop.png?w=1392&q=80', 'texture'],
     ['campaign', 'Stripe newsroom campaign field', 'https://images.stripeassets.com/fzn2n1nzq965/3I8VZjmeW0Kb4uNFyYdYx3/953c5936e18e5f8f42417f7cb7409d4f/newsroom-stripe-default-social-card.png?q=80', 'image'],
-    ['interface', 'Will Gaybrick portrait', 'https://images.stripeassets.com/fzn2n1nzq965/2V8UpuoDuP3zR8ehtLwjoN/796ff6de2354596236223bc835e3b0e0/Will_Gaybrick.png?q=80&w=1082', 'image'],
-    ['motion', 'John Collison portrait', 'https://images.stripeassets.com/fzn2n1nzq965/11uWDnjAvpBIhZhhc1vvNg/31dcdb0d833f5ef42de481cde2a55ef9/John_Collison.png?q=80&w=1082', 'motion'],
+    ['interface', 'Stripe economic data field', 'https://images.stripeassets.com/fzn2n1nzq965/63zO5Z4CABvFl3pLLhnu3l/a9c12c883f820dc29d29fa0b9dcb0814/DatavizStatic3x.png?w=1536&q=90', 'product'],
+    ['motion', 'Stripe Connect flow field', 'https://images.stripeassets.com/fzn2n1nzq965/1j4wM9h2bBsyRFvTv6Wsn0/07f4b9b1e1e17fdc509d9087454dd8bc/ConnectBentoBackground.jpg?w=1242&q=90', 'motion'],
+    ['hero', 'Lovable economic platform', 'https://images.stripeassets.com/fzn2n1nzq965/1CBkJePR5Cwf2QNIVCia1I/c0a702cec7a3814c69f21f86b89ed718/lovable.png?w=864&q=90', 'product'],
+    ['workflow', 'Browserbase economic platform', 'https://images.stripeassets.com/fzn2n1nzq965/1NiQJZA0rKbwXZ7mD4BCrM/0abdaba77e564f858a33241a9aab0939/browserbase.png?w=864&q=90', 'product'],
+    ['system', 'Decagon economic platform', 'https://images.stripeassets.com/fzn2n1nzq965/1hreJwxuVJ5ucPtuA7pRKH/3c5630387bca898d01ae17fc7ae2890a/decagon.png?w=864&q=90', 'product'],
+    ['material', 'Stripe programmable palette', 'https://images.stripeassets.com/fzn2n1nzq965/5DrmXrFYpKk43Kj0I1MXQr/287b3c2a13ae8d4d7d0bf8305037de4e/palette.png?q=95', 'texture'],
+    ['signal', 'Linear economic platform', 'https://images.stripeassets.com/fzn2n1nzq965/4b8Ubw7N2kYwb7QZl3Ogri/422cc19f725aa68e647d90ce2833c8d0/linear.png?w=864&q=90', 'product'],
   ].map(([name, label, sourceUrl, type]) => ({
-    attribution: 'Native newsroom media published by Stripe.',
+    attribution: 'Native product or newsroom media published by Stripe.',
     id: `library-${name}`,
     label,
     license: 'Stripe media-asset and marks usage terms apply',
@@ -156,30 +187,39 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
     redistribution: 'research-only' as const,
     sourceOwner: 'Stripe',
     sourceUrl,
-    tags: [type, 'source-native', 'official-newsroom', 'economic-infrastructure'],
+    tags: [type, 'source-native', 'official-site', 'economic-infrastructure'],
     type: type as BrandAsset['type'],
-    usage: 'Official environmental, leadership, and spectrum media for economic-infrastructure stories.',
+    usage: 'Official product, data, and spectral media for economic-infrastructure stories.',
   })),
   tailwind: [
-    ['overview', 'Tailwind 3D transform example', 'https://tailwindcss.com/_next/static/media/3d-transforms.02bsrv~jiqeb9.jpeg', 'product'],
-    ['editorial', 'Tailwind CSS grid example one', 'https://tailwindcss.com/_next/static/media/css-grid-1.0c8bc8q87-upx.png', 'product'],
-    ['detail', 'Tailwind CSS grid example two', 'https://tailwindcss.com/_next/static/media/css-grid-2.15b-x2ty8.g~z.png', 'product'],
-    ['atmosphere', 'Tailwind dark-mode example', 'https://tailwindcss.com/_next/static/media/dark-mode.dark.11szx9d7s4zjz.png', 'texture'],
-    ['campaign', 'Tailwind filters example', 'https://tailwindcss.com/_next/static/media/filters.17z4w2mm8xht2.png', 'image'],
-    ['interface', 'Tailwind responsive example', 'https://tailwindcss.com/_next/static/media/responsive-3.00654hu_8u-c4.png', 'product'],
-    ['motion', 'Tailwind template sequence', 'https://tailwindcss.com/_next/static/media/templates-col-1.11i0onn5v96dx.png', 'motion'],
-  ].map(([name, label, sourceUrl, type]) => ({
-    attribution: 'Native example media published by Tailwind CSS.',
+    ['overview', 'Utilities become interface', 'product'],
+    ['editorial', 'Responsive composition study', 'image'],
+    ['detail', 'CSS variable token system', 'product'],
+    ['atmosphere', 'Tailwind utility current', 'texture'],
+    ['campaign', 'Compose the interface', 'image'],
+    ['interface', 'Code and component canvas', 'product'],
+    ['motion', 'Utility assembly sequence', 'motion'],
+    ['hero', 'Build directly in markup', 'image'],
+    ['workflow', 'Class-to-interface workflow', 'product'],
+    ['system', 'Token-to-utility architecture', 'product'],
+    ['material', 'Cyan utility material', 'texture'],
+    ['signal', 'Active utility path', 'image'],
+  ].map(([name, label, type]) => ({
+    attribution: 'Original Glyphfield diagram based on Tailwind CSS utility, responsive, theme-variable, and container-query concepts.',
     id: `library-${name}`,
     label,
-    license: 'Tailwind CSS trademark and source terms apply',
-    path: `/brands/tailwind/library/${name}.png`,
-    redistribution: 'research-only' as const,
-    sourceOwner: 'Tailwind CSS',
-    sourceUrl,
-    tags: [type, 'source-native', 'official-site', 'utility-example'],
+    license: 'Glyphfield original; Tailwind CSS trademark terms apply to the separate official marks',
+    path: `/brands/tailwind/library/${name}.svg`,
+    redistribution: 'original' as const,
+    sourceOwner: 'Glyphfield',
+    sourceUrl: name === 'editorial'
+      ? 'https://tailwindcss.com/docs/responsive-design'
+      : name === 'detail' || name === 'system'
+        ? 'https://tailwindcss.com/blog/tailwindcss-v4'
+        : 'https://tailwindcss.com/',
+    tags: [type, 'brand-diagram', 'original-system', 'utility-example'],
     type: type as BrandAsset['type'],
-    usage: 'Official utility and responsive examples for technical, product, and educational layouts.',
+    usage: 'Authored utility, responsive, token, and composition studies for technical, product, and educational layouts without browser captures.',
   })),
   viteplus: [
     ['overview', 'Vite+ electric footer field', 'https://viteplus.dev/assets/footer-background.BOazVP_q.jpg', 'texture'],
@@ -189,19 +229,34 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
     ['campaign', 'Vite+ open graph field', 'https://viteplus.dev/og.jpg', 'image'],
     ['interface', 'Oxc toolchain tile', 'https://viteplus.dev/assets/oxc.DAkC6Vtt.png', 'product'],
     ['motion', 'Vite toolchain tile', 'https://viteplus.dev/assets/vite.FkFFz4VB.png', 'motion'],
-  ].map(([name, label, sourceUrl, type]) => ({
-    attribution: 'Native product media published by Vite+.',
-    id: `library-${name}`,
-    label,
-    license: 'Research-only; Vite+ source terms apply',
-    path: `/brands/viteplus/library/${name}.png`,
-    redistribution: 'research-only' as const,
-    sourceOwner: 'Vite+',
-    sourceUrl,
-    tags: [type, 'source-native', 'official-site', 'toolchain'],
-    type: type as BrandAsset['type'],
-    usage: 'Official toolchain, framework, and electric-field media for product and terminal compositions.',
-  })),
+    ['hero', 'Vitest toolchain tile', 'https://viteplus.dev/assets/vitest.D3fIboCf.png', 'product', 'png'],
+    ['workflow', 'Cloudflare framework mark', 'https://viteplus.dev/assets/cloudflare.DZ-s4paJ.svg', 'product', 'svg'],
+    ['system', 'Nitro framework mark', 'https://viteplus.dev/assets/nitro.DXLEH_hm.svg', 'product', 'svg'],
+    ['material', 'Vite+ light system mark', 'https://viteplus.dev/assets/viteplus-light.BSbP_zQt.svg', 'product', 'svg'],
+    ['signal', 'Vite+ test signal', 'https://viteplus.dev/assets/test.DqwICtpI.svg', 'product', 'svg'],
+  ].map(([name, label, sourceUrl, type, extension = 'png']) => {
+    const originalSystem = name === 'workflow' || name === 'system';
+
+    return {
+      attribution: originalSystem
+        ? 'Original Glyphfield diagram based on the Vite+ command model and documented toolchain.'
+        : 'Native product media published by Vite+.',
+      id: `library-${name}`,
+      label: originalSystem
+        ? name === 'workflow' ? 'Vite+ unified workflow' : 'Vite+ toolchain system'
+        : label,
+      license: originalSystem ? 'Glyphfield original' : 'Research-only; Vite+ source terms apply',
+      path: `/brands/viteplus/library/${name}.${extension}`,
+      redistribution: originalSystem ? 'original' as const : 'research-only' as const,
+      sourceOwner: originalSystem ? 'Glyphfield' : 'Vite+',
+      sourceUrl,
+      tags: [type, originalSystem ? 'brand-diagram' : 'source-native', originalSystem ? 'original-system' : 'official-site', 'toolchain'],
+      type: type as BrandAsset['type'],
+      usage: originalSystem
+        ? 'Authored workflow and toolchain diagrams for product, terminal, and architecture compositions.'
+        : 'Official toolchain, framework, and electric-field media for product and terminal compositions.',
+    };
+  }),
 };
 
 function originalLibraryAssets(
@@ -218,34 +273,61 @@ function originalLibraryAssets(
         '/examples/gt-morph.gif',
         '/examples/gt-type-delete.gif',
         '/examples/gt-morph-one-second.gif',
+        '/brands/gt/library/hero.svg',
+        '/brands/gt/library/workflow.svg',
+        '/brands/gt/library/system.svg',
+        '/brands/gt/library/material.png',
+        '/brands/gt/library/signal.svg',
       ]
-    : ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'].map(
-        (name) => `${basePath}/library/${name}.png`
-      );
+    : [
+        ...['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'].map(
+          (name) => `${basePath}/library/${name}.png`
+        ),
+        ...['hero', 'workflow', 'system', 'material', 'signal'].map(
+          (name) => `${basePath}/library/${name}.svg`
+        ),
+      ];
   const labels = brandId === 'gt'
-    ? ['Localization pipeline', 'Multilingual language field', 'Context stack', 'Translation field', 'Centered language morph', 'Type and delete motion', 'One-second language morph']
-    : ['Visual overview', 'Editorial crop', 'Product detail', 'Atmosphere strip', 'Campaign field', 'Interface evidence', 'Motion frame'];
-  const types: BrandAsset['type'][] = ['background', 'image', 'product', 'texture', 'motion', 'motion', 'motion'];
+    ? ['Translation workflow', 'Multilingual language field', 'Context stack', 'Translation field', 'Centered language morph', 'Type and delete motion', 'One-second language morph', 'Multilingual welcome field', 'Context-aware workflow', 'Source-to-locale system', 'Language ribbon', 'Translation signal']
+    : ['Visual overview', 'Editorial crop', 'Product detail', 'Atmosphere strip', 'Campaign field', 'Interface evidence', 'Motion frame', 'Research hero', 'Evidence workflow', 'Identity system', 'Material field', 'Focus signal'];
+  const types: BrandAsset['type'][] = ['background', 'image', 'product', 'texture', 'motion', 'motion', 'motion', 'image', 'product', 'product', 'texture', 'image'];
+  const slots = ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion', 'hero', 'workflow', 'system', 'material', 'signal'];
 
-  return paths.map((path, index) => ({
-    alt: `${sourceOwner} ${labels[index]}`,
-    attribution: brandId === 'gt'
-      ? 'Original Glyphfield interpretation of the documented General Translation workflow; not official GT artwork.'
-      : 'Original Glyphfield Starter artwork.',
-    id: `library-${['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'][index]}`,
-    label: `${sourceOwner} ${labels[index]}`,
-    license: 'Glyphfield original',
-    path,
-    redistribution: 'original',
-    sourceOwner: 'Glyphfield',
-    sourceUrl: brandId === 'gt' ? 'https://generaltranslation.com/en-US/' : 'https://glyphfield.app',
-    surface: 'any',
-    tags: [types[index], 'brand-diagram', 'original-system'],
-    type: types[index],
-    usage: brandId === 'gt'
-      ? 'Reusable monochrome system diagram or motion study for explaining localization without decorative screenshots.'
-      : 'Original evidence for Starter previews, moodboards, and identity applications.',
-  }));
+  return paths.map((path, index) => {
+    const isOriginalGtAsset = brandId === 'gt' && [0, 1, 2, 3, 8, 9, 11].includes(index);
+    const isNativeGtAsset = brandId === 'gt' && !isOriginalGtAsset;
+
+    return {
+      alt: `${sourceOwner} ${labels[index]}`,
+      attribution: isNativeGtAsset
+        ? 'Native General Translation multilingual and onboarding artwork.'
+        : brandId === 'gt'
+          ? 'Original Glyphfield interpretation of the documented General Translation workflow; not official GT artwork.'
+          : 'Original Glyphfield Starter artwork.',
+      id: `library-${slots[index]}`,
+      label: `${sourceOwner} ${labels[index]}`,
+      license: isNativeGtAsset ? 'General Translation source terms apply' : 'Glyphfield original',
+      path,
+      focalPoint: types[index] === 'product' ? { x: 0.5, y: 0.5 } : undefined,
+      redistribution: isNativeGtAsset ? 'research-only' : 'original',
+      sourceOwner: isNativeGtAsset ? 'General Translation' : 'Glyphfield',
+      sourceUrl: brandId === 'gt' ? 'https://generaltranslation.com/en-US/' : 'https://glyphfield.app',
+      surface: 'any',
+      tags: [
+        types[index],
+        ...(isNativeGtAsset ? ['source-native', 'official-site'] : ['brand-diagram', 'original-system']),
+        'people-free',
+        ...(types[index] === 'product' ? ['centered-product'] : []),
+        ...(types[index] === 'background' || types[index] === 'texture' ? ['background-safe'] : []),
+      ],
+      type: types[index],
+      usage: brandId === 'gt'
+        ? isNativeGtAsset
+          ? 'Native multilingual or onboarding artwork for GT identity studies and motion direction.'
+          : 'Reusable monochrome system diagram for explaining localization without decorative screenshots.'
+        : 'Original evidence for Starter previews, moodboards, and identity applications.',
+    };
+  });
 }
 
 function researchLibraryAssets(
@@ -261,11 +343,23 @@ function researchLibraryAssets(
 
   const records = OFFICIAL_LIBRARY_ASSETS[brandId] ?? [];
 
-  return records.map((record) => ({
-    ...record,
-    alt: record.label,
-    surface: 'any',
-  }));
+  return records.map((record) => {
+    const centeredProduct = record.type === 'product';
+    const backgroundSafe = record.type === 'background' || record.type === 'texture';
+
+    return {
+      ...record,
+      alt: record.label,
+      focalPoint: centeredProduct ? { x: 0.5, y: 0.5 } : undefined,
+      surface: 'any',
+      tags: [
+        ...(record.tags ?? []),
+        'people-free',
+        ...(centeredProduct ? ['centered-product'] : []),
+        ...(backgroundSafe ? ['background-safe'] : []),
+      ],
+    };
+  });
 }
 
 function application(
@@ -280,11 +374,11 @@ function application(
 
 const GT_FONT_ASSETS: BrandFontAsset[] = [
   {
-    family: 'Inter',
+    family: 'Rasmus Inter',
     fileName: 'Inter-Variable.ttf',
     format: 'truetype',
     id: 'inter-variable',
-    label: 'Inter Variable',
+    label: 'Rasmus Inter Variable',
     path: '/fonts/inter-variable.ttf',
     style: 'normal',
     weight: 400,
@@ -605,6 +699,10 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     application('logo-family', 'Logo family', 'foundation', 'Responsive system', 'Mark, banner, wordmark, product lockups, and strict black-or-white surface behavior.'),
     application('language-motion', 'Language morph', 'marketing', 'GIF / video', 'Centered greetings move between writing systems with a short cubic-bezier morph fade.'),
     application('welcome-email', 'Welcome email', 'marketing', '640 px / responsive', 'A spare onboarding email that introduces the platform through language, product paths, and community.'),
+    application('onboarding-sequence', 'Onboarding email sequence', 'marketing', 'Day 1 / 3 / 5 / 6', 'A milestone-aware program that adapts the next action to API-key, translation, and activation state.'),
+    application('utility-email', 'Utility email family', 'product', 'Magic link / invitation', 'Straightforward authentication and invitation messages with one trusted action and concise recovery guidance.'),
+    application('billing-alerts', 'Billing alert family', 'product', 'Balance / payment / limits', 'Operational threshold alerts that make urgency, account state, and the recovery action immediately legible.'),
+    application('email-system-sheet', 'Email system contact sheet', 'foundation', '12+ templates', 'The complete lifecycle, utility, transactional, and billing program arranged for side-by-side system review.'),
     application('cli', 'Developer CLI', 'developer', '80 columns', 'Commands, locale state, diffs, and Locadex handoff rendered as a credible developer surface.'),
     application('product', 'Localization workspace', 'product', '1440 × 1024', 'Repository context, translation status, review state, and delivery are treated as one system.'),
     application('editorial', 'Engineering story', 'editorial', '1600 × 900', 'A high-contrast editorial cover pairing multilingual type with code-level detail.'),
@@ -667,7 +765,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     asset('clickhouse', 'ClickHouse', '/brands/gt/proof/clickhouse.svg', 'light', 'proof'),
     asset('windsurf', 'Windsurf', '/brands/gt/proof/windsurf.svg', 'light', 'proof'),
   ],
-  revision: REVISION,
+  revision: REVISION + 1,
   shortName: 'GT',
   socialHandle: '@generaltranslation',
   sourceNotes: ['GT official homepage and product documentation · captured July 2026', 'GT product and landing applications', 'GT package, CLI, Locadex, and onboarding language', 'Black-and-white interface tokens and component behavior', 'Multilingual email motion studies created in Glyphfield'],
@@ -682,9 +780,9 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
   tagline: 'One source of truth. Every language.',
   typography: [
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: -0.35, lineHeight: 1.08, role: 'Display', usage: 'Open, measured headlines and product statements', weight: 500 },
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0, lineHeight: 1.62, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
-    { family: 'Inter', fontId: 'inter-variable', letterSpacing: 0.1, lineHeight: 1.36, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 400 },
+    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: -0.35, lineHeight: 1.08, role: 'Display', usage: 'Open, measured headlines and product statements', weight: 500 },
+    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0, lineHeight: 1.62, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
+    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0.1, lineHeight: 1.36, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 400 },
     { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0.25, lineHeight: 1.5, role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata', weight: 400 },
   ],
   values: ['Source of truth', 'Context over strings', 'Developer agency', 'Global by default'],
@@ -885,7 +983,7 @@ export const RAMP_BRAND_IDENTITY: BrandIdentity = {
   description: 'A proof-first identity for the finance operations platform built to save businesses time and money and free finance teams to focus on higher-value work.',
   fonts: RAMP_FONT_ASSETS,
   greetings: ['Save time', 'Save money', 'Move faster'],
-  graphicSystem: { composition: 'Large economic proof leads; interface details and ledger rules organize the supporting story.', description: 'The savings ledger converts financial operations into visible evidence: money, time, transactions, controls, and the work a team gets back.', device: 'The savings ledger', imageDirection: 'Confident product evidence, cards, operator portraits, and candid workplace imagery with warm editorial crops.', pattern: 'steps', rules: ['Lead with quantified customer value', 'Use the ledger to align evidence', 'Keep the official logo slate or white', 'Balance financial rigor with human time regained'] },
+  graphicSystem: { composition: 'Large economic proof leads; interface details and ledger rules organize the supporting story.', description: 'The savings ledger converts financial operations into visible evidence: money, time, transactions, controls, and the work a team gets back.', device: 'The savings ledger', imageDirection: 'Confident product UI, cards, receipts, and finance artifacts centered as evidence; people-free ledger fields and diagrams behind content.', pattern: 'steps', rules: ['Lead with quantified customer value', 'Use the ledger to align evidence', 'Keep the official logo slate or white', 'Balance financial rigor with human time regained'] },
   id: 'ramp',
   kind: 'example',
   mission: 'Set finance free to build healthier businesses.',

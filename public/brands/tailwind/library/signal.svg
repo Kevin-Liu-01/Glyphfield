@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  <g transform="translate(100 90)"><text x="0" y="40" font-family="ui-monospace, monospace" font-size="20" fill="#0284c7">UTILITY CURRENT / ACTIVE PATH</text>
+    <path d="M0 330c160-210 290 122 470-66s324-108 530 36" fill="none" stroke="#e2e8f0" stroke-width="70" stroke-linecap="round"/>
+    <path d="M0 330c160-210 290 122 470-66s324-108 530 36" fill="none" stroke="#38bdf8" stroke-width="18" stroke-linecap="round"/>
+    <g fill="#0f172a"><circle cx="152" cy="238" r="11"/><circle cx="476" cy="258" r="11"/><circle cx="814" cy="192" r="11"/></g>
+    <g font-family="ui-monospace, monospace" font-size="18" fill="#475569"><text x="104" y="202">flex</text><text x="428" y="222">md:grid</text><text x="766" y="156">@container</text></g>
+    <text x="0" y="604" font-family="ui-sans-serif, sans-serif" font-size="72" font-weight="500" fill="#0f172a">Small classes. Complete control.</text>
+  </g>
+</svg>

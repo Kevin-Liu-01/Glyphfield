@@ -1,67 +1,107 @@
 import { describe, expect, it } from 'vitest';
 
 import { GT_BRAND_IDENTITY } from '../brandIdentity';
+import { BUILT_IN_BRAND_IDENTITIES } from '../identityPresets';
+import { moodboardAssets } from '../moodboard';
 import { buildMoodboardSvg } from '../moodboardSvg';
 
+const artAssetIds = [
+  'library-overview',
+  'library-editorial',
+  'library-detail',
+  'library-atmosphere',
+  'library-campaign',
+  'library-interface',
+  'library-motion',
+  'library-hero',
+  'library-workflow',
+  'library-system',
+  'library-material',
+  'library-signal',
+] as const;
+
 const assets = {
-  interFont: 'data:font/woff2;base64,INTER',
+  accentFont: 'data:font/woff2;base64,ACCENT',
+  artAssets: artAssetIds.map((id) => ({
+    id,
+    label: id.replace('library-', ''),
+    path: `data:image/svg+xml;base64,${id}`,
+    type: 'image' as const,
+  })),
+  bodyFont: 'data:font/woff2;base64,BODY',
+  codeFont: 'data:font/woff2;base64,CODE',
+  displayFont: 'data:font/woff2;base64,DISPLAY',
+  logoMarks: ['data:image/svg+xml;base64,LOGO-DARK', 'data:image/svg+xml;base64,LOGO-LIGHT'],
   markDark: 'data:image/svg+xml;base64,DARK',
   markLight: 'data:image/svg+xml;base64,LIGHT',
-  monoFont: 'data:font/woff2;base64,MONO',
-  motionPreview: 'data:image/gif;base64,MOTION',
-  proofMarks: ['data:image/svg+xml;base64,PROOF'],
-  referenceImages: ['data:image/png;base64,REFERENCE'],
 };
 
 describe('buildMoodboardSvg', () => {
-  it('embeds the selected sans and mono fonts without browser fallbacks', () => {
+  it('embeds each brand typography role without interface-font fallbacks', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
 
-    expect(svg).toContain("font-family:'Moodboard Sans'");
-    expect(svg).toContain("font-family:'Moodboard Mono'");
-    expect(svg).toContain(assets.interFont);
-    expect(svg).toContain(assets.monoFont);
+    expect(svg).toContain("font-family:'Brand Display'");
+    expect(svg).toContain("font-family:'Brand Body'");
+    expect(svg).toContain("font-family:'Brand Accent'");
+    expect(svg).toContain("font-family:'Brand Code'");
+    expect(svg).toContain(assets.displayFont);
+    expect(svg).toContain(assets.bodyFont);
     expect(svg).not.toContain('Arial');
+    expect(svg).not.toContain('Moodboard Sans');
   });
 
-  it('composes brand foundations and concrete applications as one board', () => {
+  it('renders a simple six-panel identity contact sheet from eligible assets', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
 
-    expect(svg.match(/class="application-panel/g)).toHaveLength(7);
-    expect(svg).toContain('GT IDENTITY');
-    expect(svg).toContain('STRATEGY');
-    expect(svg).toContain('LOGO ARCHITECTURE');
-    expect(svg).toContain('COLOR ROLES');
-    expect(svg).toContain('TYPOGRAPHY');
-    expect(svg).toContain('THE TRANSLATION FRAME');
-    expect(svg).toContain('Engineering story');
-    expect(svg).toContain('Localization');
-    expect(svg).toContain('workspace');
-    expect(svg).toContain('Language morph');
-    expect(svg).toContain(assets.referenceImages[0]);
-    expect(svg).toContain(assets.motionPreview);
-    expect(svg).not.toContain('#3B82F6');
-    expect(svg).not.toContain('#F97316');
+    expect(svg.match(/class="application-panel/g)).toHaveLength(6);
+    expect(svg).toContain('data-board-mode="system"');
+    expect(svg).toContain('data-board-recipe="monochrome-language"');
+    expect(svg).toContain('data-panel="logo"');
+    expect(svg).toContain('data-panel="type"');
+    expect(svg).toContain('data-panel="palette"');
+    expect(svg).toContain('data-panel="system"');
+    expect(svg).toContain('data:image/svg+xml;base64,library-system');
+    expect(svg).toContain('<rect width="1600" height="2000" fill="#C8C8C2"/>');
+    expect(svg).not.toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).not.toContain('LIVE REFERENCE');
+    expect(svg).not.toContain('CAPTURED');
   });
 
-  it('composes a presentation-ready application collage without guideline chrome', () => {
+  it('renders a presentation-ready application board with side-by-side image compositions', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'showcase');
 
     expect(svg).toContain('data-board-mode="showcase"');
-    expect(svg).toContain('class="application-panel hero-application"');
-    expect(svg).toContain('class="application-panel editorial-application"');
-    expect(svg).toContain('class="application-panel type-application"');
-    expect(svg).toContain('class="application-panel product-application"');
-    expect(svg).toContain('class="application-panel system-application"');
-    expect(svg).toContain(assets.referenceImages[0]);
-    expect(svg).toContain(assets.proofMarks[0]);
-    expect(svg).toContain(assets.motionPreview);
-    expect(svg).not.toContain('01 / GT IDENTITY');
+    expect(svg.match(/class="application-panel/g)).toHaveLength(6);
+    expect(svg).toContain('data-panel="hero"');
+    expect(svg).toContain('data-panel="triptych"');
+    expect(svg).toContain('data-panel="application"');
+    expect(svg).not.toContain('data:image/svg+xml;base64,library-hero');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(svg).not.toContain('opacity=".94"');
+    expect(svg).not.toContain('/screenshots/');
+    expect(svg).not.toContain('/references/');
+  });
+
+  it('renders every system view, source asset, and generated application in the complete catalog', () => {
+    const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'catalog');
+
+    expect(svg).toContain('data-board-mode="catalog"');
+    expect(svg.match(/class="application-panel/g)).toHaveLength(9);
+    expect(svg.match(/class="source-asset"/g)).toHaveLength(assets.artAssets.length);
+    expect(svg.match(/class="generated-application"/g)).toHaveLength(
+      GT_BRAND_IDENTITY.applications.length
+    );
+    expect(svg).toContain('data-panel="source-catalog"');
+    expect(svg).toContain('data-panel="application-catalog"');
+
+    for (const application of GT_BRAND_IDENTITY.applications) {
+      expect(svg).toContain(`data-application="${application.id}"`);
+    }
   });
 
   it('escapes identity copy before placing it in the SVG', () => {
     const svg = buildMoodboardSvg(
-      { ...GT_BRAND_IDENTITY, name: 'A&B <Studio>' },
+      { ...GT_BRAND_IDENTITY, tagline: 'A&B <Studio>' },
       assets,
       'showcase'
     );
@@ -69,4 +109,37 @@ describe('buildMoodboardSvg', () => {
     expect(svg).toContain('A&amp;B &lt;Studio&gt;');
     expect(svg).not.toContain('A&B <Studio>');
   });
+
+  it.each(BUILT_IN_BRAND_IDENTITIES.map((identity) => [identity.name, identity] as const))(
+    'renders both canonical %s boards from original or source-native assets',
+    (_name, identity) => {
+      const boardAssets = moodboardAssets(identity);
+      const logoMarks = identity.assets
+        .filter((asset) => asset.type === 'logo')
+        .map((asset) => asset.path);
+
+      for (const composition of ['showcase', 'system', 'catalog'] as const) {
+        const svg = buildMoodboardSvg(
+          identity,
+          {
+            artAssets: boardAssets,
+            logoMarks,
+            markDark: logoMarks[0],
+            markLight: logoMarks[1],
+          },
+          composition
+        );
+
+        expect(svg.match(/class="application-panel/g)).toHaveLength(
+          composition === 'catalog' ? 9 : 6
+        );
+        expect(svg).toContain(`data-brand="${identity.id}"`);
+        expect(svg).toContain(`data-board-mode="${composition}"`);
+        expect(svg).not.toContain(' slice"');
+        expect(svg).not.toContain('opacity=".94"');
+        expect(svg).not.toMatch(/\/(?:references|screenshots)\//i);
+        expect(svg).not.toMatch(/(?:screen[-_ ]?shot|capture|homepage)/i);
+      }
+    }
+  );
 });

@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import {
   brandTypographyFamily,
   brandTypographyRole,
@@ -18,12 +17,12 @@ type BrandIdentityPreviewProps = {
 const PREVIEW_TITLES: Readonly<Record<string, string>> = {
   basement: 'Cool work that performs.',
   cloudflare: 'A better Internet, built everywhere.',
-  gt: 'One source. Every language.',
-  mintlify: 'Knowledge, beautifully organized.',
+  gt: 'Launch in every language.',
+  mintlify: 'Knowledge infrastructure for agents.',
   ramp: 'Save time. Save money.',
   starter: 'Make the signal visible.',
   stripe: 'Build the internet economy.',
-  tailwind: 'Build exactly what you imagine.',
+  tailwind: 'CSS-first. Built for the modern web.',
   viteplus: 'One toolchain for the web.',
 };
 
@@ -43,7 +42,20 @@ function EvidenceImage({
   className?: string;
 }) {
   if (!asset) return null;
-  return <img alt={asset.alt ?? asset.label} className={className} src={asset.path} />;
+  const centeredProduct = asset.tags?.includes('centered-product') ?? false;
+  const objectPosition = asset.focalPoint
+    ? `${asset.focalPoint.x * 100}% ${asset.focalPoint.y * 100}%`
+    : '50% 50%';
+
+  return (
+    <img
+      alt={asset.alt ?? asset.label}
+      className={className}
+      data-fit={centeredProduct ? 'contain' : 'cover'}
+      src={asset.path}
+      style={{ objectPosition }}
+    />
+  );
 }
 
 function PreviewTitle({ children }: { children: ReactNode }) {
@@ -53,9 +65,12 @@ function PreviewTitle({ children }: { children: ReactNode }) {
 function PreviewShell({ children, identity }: { children: ReactNode; identity: BrandIdentity }) {
   const display = brandTypographyRole(identity, 'Display');
   const body = brandTypographyRole(identity, 'Body');
+  const code = brandTypographyRole(identity, 'Code');
   const style = {
     '--brand-body': brandTypographyFamily(identity, 'Body'),
     '--brand-body-weight': capVisibleFontWeight(body.weight ?? 400),
+    '--brand-code': brandTypographyFamily(identity, 'Code'),
+    '--brand-code-weight': capVisibleFontWeight(code.weight ?? 400),
     '--brand-display': brandTypographyFamily(identity, 'Display'),
     '--brand-display-tracking': `${display.letterSpacing ?? 0}px`,
     '--brand-display-weight': capVisibleFontWeight(display.weight ?? 500),
@@ -93,20 +108,39 @@ export default function BrandIdentityPreview({
   if (recipe === 'translation-frame') {
     return (
       <PreviewShell identity={identity}>
-        <div className='brand-art-translation-rail'>
+        <header className='brand-art-gt-header'>
           <Mark name={identity.name} path={darkMark} />
-          <span>GENERAL TRANSLATION / 01</span>
-        </div>
-        <div className='brand-art-translation-copy'>
-          <div>
-            <PreviewTitle>{title}</PreviewTitle>
-            <p>Product language and code move together.</p>
-          </div>
-          <div aria-label='Greetings in multiple languages' className='brand-art-language-stack'>
-            {identity.greetings.slice(0, 5).map((greeting, index) => <span data-active={index === 1 ? 'true' : 'false'} key={greeting}>{greeting}</span>)}
+          <span>$ npx gt@latest</span>
+        </header>
+        <div className='brand-art-gt-copy'>
+          <PreviewTitle>{title}</PreviewTitle>
+          <p>Localize apps, docs, and websites without separating language from code.</p>
+          <div className='brand-art-gt-frameworks'>
+            {['Next.js', 'React', 'Python'].map((framework) => <span key={framework}>{framework}</span>)}
           </div>
         </div>
-        <div className='brand-art-translation-footer'>{identity.products.slice(0, 4).map((product) => <span key={product}>{product}</span>)}</div>
+        <div className='brand-art-gt-workspace'>
+          <div className='brand-art-gt-workspace-header'>
+            <span>translations/home.tsx</span>
+            <strong>Synced</strong>
+          </div>
+          <div className='brand-art-gt-string'>
+            <small>Source</small>
+            <b>Launch in every language.</b>
+          </div>
+          <div className='brand-art-gt-string'>
+            <small>German · de-DE</small>
+            <b>In jeder Sprache veröffentlichen.</b>
+          </div>
+          <div className='brand-art-gt-locales'>
+            {['ES', 'JA', 'AR', '+117'].map((locale) => <span key={locale}>{locale}</span>)}
+          </div>
+        </div>
+        <div className='brand-art-gt-pipeline'>
+          {['Push to repo', 'Scan codebase', 'Translate', 'Open PR'].map((step, index) => (
+            <span key={step}><b>{String(index + 1).padStart(2, '0')}</b>{step}</span>
+          ))}
+        </div>
       </PreviewShell>
     );
   }
@@ -138,7 +172,6 @@ export default function BrandIdentityPreview({
             <EvidenceImage asset={editorial ?? detail} />
             <span>{identity.products.slice(0, 3).join(' · ')}</span>
           </div>
-          <BrandSystemDiagram compact identity={identity} />
         </div>
       </PreviewShell>
     );
@@ -147,12 +180,24 @@ export default function BrandIdentityPreview({
   if (recipe === 'knowledge-beam') {
     return (
       <PreviewShell identity={identity}>
-        <header><Mark name={identity.name} path={lightMark} /><span>DOCS THAT FEEL BUILT IN</span></header>
-        <div className='brand-art-knowledge-copy'><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-        <div className='brand-art-knowledge-browser'>
-          <div className='brand-art-browser-bar'><i /><i /><i /><span>Search documentation</span></div>
-          <EvidenceImage asset={overview} />
-          <div className='brand-art-doc-stack'>{identity.products.slice(0, 3).map((product, index) => <span key={product}><b>{index + 1}</b>{product}</span>)}</div>
+        <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /><span>Knowledge for people + agents</span></header>
+        <div className='brand-art-mintlify-copy'>
+          <PreviewTitle>{title}</PreviewTitle>
+          <p>Self-updating documentation for startups, enterprises, and agents.</p>
+        </div>
+        <div className='brand-art-mintlify-system'>
+          <div className='brand-art-mintlify-sources'>
+            {['GitHub', 'Slack', 'Product'].map((source) => <span key={source}>{source}</span>)}
+          </div>
+          <div className='brand-art-mintlify-agent'>
+            <Mark name={identity.name} path={lightMark} />
+            <div><small>Mintlify agent</small><strong>Knowledge stays current.</strong></div>
+            <i />
+          </div>
+          <div className='brand-art-mintlify-status'>
+            <span><b>24/7</b> agents at work</span>
+            <span><b>3</b> sources connected</span>
+          </div>
         </div>
       </PreviewShell>
     );
@@ -161,12 +206,22 @@ export default function BrandIdentityPreview({
   if (recipe === 'utility-wave') {
     return (
       <PreviewShell identity={identity}>
-        <header><Mark name={identity.name} path={lightMark} /><span>UTILITY → INTERFACE</span></header>
-        <div className='brand-art-utility-result'><EvidenceImage asset={interfaceEvidence ?? overview} /></div>
-        <div className='brand-art-utility-copy'>
-          <div className='brand-art-utility-code'><span>className=</span><strong>&quot;grid gap-6 text-cyan-400&quot;</strong></div>
+        <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /><span>v4.0 / CSS-first configuration</span></header>
+        <div className='brand-art-tailwind-copy'>
           <PreviewTitle>{title}</PreviewTitle>
-          <p>{identity.strategy.promise}</p>
+          <p>Compose utilities in markup, define tokens in CSS, and build at microsecond speed.</p>
+          <strong>100× <small>faster incremental builds</small></strong>
+        </div>
+        <div className='brand-art-tailwind-code'>
+          <span>app.css</span>
+          <code><i>@import</i> &quot;tailwindcss&quot;;</code>
+          <code><i>@theme</i> {'{'}</code>
+          <code>&nbsp;&nbsp;--color-lagoon: <b>oklch(.72 .16 210)</b>;</code>
+          <code>&nbsp;&nbsp;--ease-fluid: <b>cubic-bezier(.3,0,0,1)</b>;</code>
+          <code>{'}'}</code>
+        </div>
+        <div className='brand-art-tailwind-spectrum' aria-label='Tailwind vivid P3 palette'>
+          {['sky', 'violet', 'rose', 'amber', 'lime'].map((tone) => <i data-tone={tone} key={tone} />)}
         </div>
       </PreviewShell>
     );

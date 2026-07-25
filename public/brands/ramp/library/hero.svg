@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp card on a financial working surface</title>
+  <desc id="desc">A centered white corporate card surrounded by a restrained ledger and highlighter field.</desc>
+  <rect width="1600" height="1000" fill="#f8f7f3"/>
+  <path d="M0 188h1600M0 812h1600" stroke="#292827" stroke-opacity=".14"/>
+  <path d="M220 0v1000M1380 0v1000" stroke="#292827" stroke-opacity=".14"/>
+  <rect x="296" y="188" width="1008" height="624" fill="#d7ff64"/>
+  <g transform="translate(480 290)">
+    <rect width="640" height="420" rx="32" fill="#fff" stroke="#292827" stroke-width="4"/>
+    <path d="M64 90c34-10 54-34 64-72 9 38 30 62 64 72-34 10-55 34-64 72-10-38-30-62-64-72Z" fill="#292827"/>
+    <rect x="64" y="246" width="74" height="54" rx="9" fill="#e8e7e2" stroke="#292827" stroke-width="3"/>
+    <text x="64" y="355" fill="#292827" font-family="Lausanne, Arial, sans-serif" font-size="31">FINANCE OPERATIONS</text>
+    <text x="510" y="355" fill="#292827" font-family="Lausanne, Arial, sans-serif" font-size="31">VISA</text>
+  </g>
+</svg>

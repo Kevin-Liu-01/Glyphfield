@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Folder,
   Grid3X3,
+  Github,
   Image as ImageIcon,
   LayoutGrid,
   Monitor,
@@ -1050,21 +1051,25 @@ export default function StudioApp() {
     selectIdentity(STARTER_BRAND_IDENTITY.id);
   }
 
-  function renderProjectMark(identity: BrandIdentity) {
+  function renderProjectMark(identity: BrandIdentity, selected: boolean) {
     const darkMark = brandAssetPath(identity, 'mark-dark');
     const lightMark = brandAssetPath(identity, 'mark-light');
-    const markPath = resolvedTheme === 'dark' ? lightMark ?? darkMark : darkMark ?? lightMark;
-    const invertFallback = resolvedTheme === 'dark' && !lightMark && Boolean(darkMark);
+    const markSurfaceIsDark = selected ? resolvedTheme === 'light' : resolvedTheme === 'dark';
+    const markPath = markSurfaceIsDark ? lightMark ?? darkMark : darkMark ?? lightMark;
+    const usesContrastVariant = Boolean(darkMark && lightMark && darkMark !== lightMark);
 
     if (markPath) {
       return (
-        <span className='project-tab-mark' aria-hidden='true'>
+        <span
+          aria-hidden='true'
+          className='project-tab-mark'
+          data-logo-treatment={usesContrastVariant ? 'contrast-variant' : 'native-color'}
+        >
           <Image
             alt=''
             className='size-full object-contain'
             height={20}
             src={markPath}
-            style={{ filter: invertFallback ? 'invert(1)' : undefined }}
             width={20}
           />
         </span>
@@ -1095,7 +1100,7 @@ export default function StudioApp() {
       >
         {selected && identity.kind === 'custom' ? (
           <div className='project-tab-editor flex min-w-0 flex-1 items-center gap-2'>
-            {renderProjectMark(identity)}
+            {renderProjectMark(identity, selected)}
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <input
               aria-label={gt('Project name')}
@@ -1111,7 +1116,7 @@ export default function StudioApp() {
             onClick={() => selectIdentity(identity.id)}
             type='button'
           >
-            {renderProjectMark(identity)}
+            {renderProjectMark(identity, selected)}
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <span className={`project-tab-name truncate ${selected ? 'font-medium text-foreground' : ''}`}>
               {identity.name}
@@ -1187,6 +1192,16 @@ export default function StudioApp() {
             <kbd className='hidden border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
           </button>
           <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
+            <Button asChild size='icon-sm' title={gt('GitHub')} variant='outline'>
+              <a
+                aria-label={gt('Open Glyphfield on GitHub')}
+                href='https://github.com/Kevin-Liu-01/Glyphfield'
+                rel='noreferrer'
+                target='_blank'
+              >
+                <Github aria-hidden='true' />
+              </a>
+            </Button>
             <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
               <Link aria-label={gt('Open documentation')} href='/docs'>
                 <BookOpen aria-hidden='true' />
@@ -1326,7 +1341,7 @@ export default function StudioApp() {
               <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
             </Button>
           </nav>
-          <div className='min-h-0 flex-1 overflow-y-auto px-2 py-3'>
+          <div className='studio-sidebar-scroll min-h-0 flex-1 overflow-y-auto px-2 py-3'>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;

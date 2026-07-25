@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp ledger material field</title>
+  <desc id="desc">A people-free warm paper field with graphite rules and one highlighter signal.</desc>
+  <rect width="1600" height="1000" fill="#f8f7f3"/>
+  <g stroke="#292827" stroke-opacity=".12"><path d="M0 160h1600M0 320h1600M0 480h1600M0 640h1600M0 800h1600"/><path d="M240 0v1000M560 0v1000M880 0v1000M1200 0v1000"/></g>
+  <path d="M120 390h1360v220H120z" fill="#d7ff64"/>
+  <g fill="#292827"><rect x="180" y="456" width="470" height="24"/><rect x="180" y="526" width="310" height="24"/><rect x="1050" y="456" width="370" height="94"/></g>
+</svg>

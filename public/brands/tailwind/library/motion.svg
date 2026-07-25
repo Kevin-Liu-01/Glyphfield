@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#020617"/>
+  <g transform="translate(60 112)" font-family="ui-monospace, monospace">
+    <g><rect width="330" height="520" rx="22" fill="#0f172a" stroke="#1e293b"/><text x="24" y="46" font-size="18" fill="#64748b">01 / UTILITIES</text><g fill="#38bdf8"><rect x="24" y="94" width="124" height="36" rx="9"/><rect x="164" y="94" width="108" height="36" rx="9"/><rect x="24" y="148" width="94" height="36" rx="9"/><rect x="134" y="148" width="160" height="36" rx="9"/></g></g>
+    <g transform="translate(375)"><rect width="330" height="520" rx="22" fill="#0f172a" stroke="#1e293b"/><text x="24" y="46" font-size="18" fill="#64748b">02 / COMPOSE</text><rect x="34" y="106" width="262" height="276" rx="18" fill="#e0f2fe"/><rect x="58" y="134" width="84" height="12" rx="6" fill="#38bdf8"/><rect x="58" y="184" width="214" height="102" rx="12" fill="#bae6fd"/><rect x="58" y="318" width="170" height="14" rx="7" fill="#0f172a"/></g>
+    <g transform="translate(750)"><rect width="330" height="520" rx="22" fill="#f8fafc"/><text x="24" y="46" font-size="18" fill="#0284c7">03 / INTERFACE</text><rect x="34" y="106" width="262" height="276" rx="18" fill="#0f172a"/><path d="M64 310c62-118 120 38 204-96" fill="none" stroke="#38bdf8" stroke-width="10"/><rect x="34" y="420" width="180" height="18" rx="9" fill="#0f172a"/><rect x="34" y="456" width="240" height="10" rx="5" fill="#94a3b8"/></g>
+  </g>
+</svg>

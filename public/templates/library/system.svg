@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Starter identity system</title><desc id="desc">A modular system of logo, typography, color, imagery, and motion.</desc>
+  <rect width="1600" height="1000" fill="#f8f5ed"/>
+  <g transform="translate(130 120)" stroke="#181818" stroke-width="3"><rect width="1340" height="760" fill="#fff"/><rect width="430" height="300" fill="#2e64f3"/><rect x="470" width="870" height="300" fill="#181818"/><rect y="340" width="640" height="420" fill="#f8f5ed"/><rect x="680" y="340" width="660" height="420" fill="#fff"/></g>
+  <g fill="#fff"><path d="m305 205 35 75 82 10-60 57 15 81-72-39-72 39 15-81-60-57 82-10z"/><rect x="655" y="220" width="580" height="38"/><rect x="655" y="290" width="390" height="24"/></g>
+  <g fill="#181818"><circle cx="320" cy="670" r="120"/><circle cx="560" cy="670" r="70"/><rect x="880" y="560" width="380" height="32"/><rect x="880" y="630" width="260" height="32"/></g>
+</svg>

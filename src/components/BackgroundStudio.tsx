@@ -8,6 +8,7 @@ import CanvasViewport from '@/components/CanvasViewport';
 import CanvasLayerPanel from '@/components/CanvasLayerPanel';
 import EditableCanvasLayer, { alignCanvasLayer, type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
+import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -30,7 +31,7 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
-import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter, type LogoAppearanceSettings } from '@/lib/logoAppearance';
+import { DEFAULT_LOGO_APPEARANCE, drawLogoAppearanceLayer, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const SIZE_PRESETS = [
@@ -232,7 +233,6 @@ export default function BackgroundStudio({
           const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
           const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
           const markY = (settings.height - markSize) / 2 + (settings.logoY / 100) * settings.height;
-          context.globalAlpha = settings.logoOpacity / 100;
           if (logoPath) {
             const image = new Image();
             image.src = logoPath;
@@ -246,15 +246,24 @@ export default function BackgroundStudio({
             tintedContext.globalCompositeOperation = 'source-in';
             tintedContext.fillStyle = settings.logoColor;
             tintedContext.fillRect(0, 0, markSize, markSize);
-            context.filter = logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance });
-            context.drawImage(tinted, markX, markY, markSize, markSize);
-            context.filter = 'none';
+            drawLogoAppearanceLayer(
+              context,
+              tinted,
+              markX,
+              markY,
+              markSize,
+              markSize,
+              { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
+              settings.logoOpacity / 100
+            );
           } else {
+            context.globalAlpha = settings.logoOpacity / 100;
             context.fillStyle = settings.logoColor;
             context.font = `600 ${markSize * 0.42}px Switzer, sans-serif`;
             context.textAlign = 'center';
             context.textBaseline = 'middle';
             context.fillText(identity.shortName, settings.width / 2, settings.height / 2);
+            context.globalAlpha = 1;
           }
         }
         const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
@@ -551,25 +560,14 @@ export default function BackgroundStudio({
                     transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
                     zIndex={3}
                   >
-                    {logoPath ? (
-                      <div
-                        aria-label={`${identity.name} logo`}
-                        className='size-full'
-                        style={{ backgroundColor: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), maskImage: `url('${logoPath}')`, maskPosition: 'center', maskRepeat: 'no-repeat', maskSize: 'contain', opacity: settings.logoOpacity / 100 }}
-                      />
-                    ) : (
-                      <span
-                        className='font-semibold'
-                        style={{
-                          color: settings.logoColor,
-                          filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }),
-                          fontSize: `${settings.logoScale / 2}cqw`,
-                          opacity: settings.logoOpacity / 100,
-                        }}
-                      >
-                        {identity.shortName}
-                      </span>
-                    )}
+                    <LogoAppearancePreview
+                      ariaLabel={`${identity.name} logo`}
+                      color={settings.logoColor}
+                      fallback={<span className='font-semibold' style={{ fontSize: `${settings.logoScale / 2}cqw` }}>{identity.shortName}</span>}
+                      logoPath={logoPath}
+                      opacity={settings.logoOpacity / 100}
+                      settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
+                    />
                   </EditableCanvasLayer>
                 ) : null}
               </div>
@@ -597,7 +595,14 @@ export default function BackgroundStudio({
                     transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
                     zIndex={3}
                   >
-                    {logoPath ? <div aria-label={`${identity.name} logo`} className='size-full' style={{ backgroundColor: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), maskImage: `url('${logoPath}')`, maskPosition: 'center', maskRepeat: 'no-repeat', maskSize: 'contain', opacity: settings.logoOpacity / 100 }} /> : <span className='grid size-full place-items-center font-semibold' style={{ color: settings.logoColor, filter: logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }), opacity: settings.logoOpacity / 100 }}>{identity.shortName}</span>}
+                    <LogoAppearancePreview
+                      ariaLabel={`${identity.name} logo`}
+                      color={settings.logoColor}
+                      fallback={<span className='grid size-full place-items-center font-semibold'>{identity.shortName}</span>}
+                      logoPath={logoPath}
+                      opacity={settings.logoOpacity / 100}
+                      settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
+                    />
                   </EditableCanvasLayer>
                 ) : null}
               </div>

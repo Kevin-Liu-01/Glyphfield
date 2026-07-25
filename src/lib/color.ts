@@ -10,6 +10,12 @@ type Oklch = {
   lightness: number;
 };
 
+type Hsv = {
+  hue: number;
+  saturation: number;
+  value: number;
+};
+
 export function normalizeHex(value: string): string {
   const raw = value.trim().replace(/^#/, '');
   const expanded =
@@ -36,6 +42,30 @@ function hexToRgb(value: string): Rgb {
   };
 }
 
+export function hexToHsv(value: string): Hsv {
+  const rgb = hexToRgb(value);
+  const maximum = Math.max(rgb.red, rgb.green, rgb.blue);
+  const minimum = Math.min(rgb.red, rgb.green, rgb.blue);
+  const delta = maximum - minimum;
+  let hue = 0;
+
+  if (delta > 0) {
+    if (maximum === rgb.red) {
+      hue = 60 * (((rgb.green - rgb.blue) / delta) % 6);
+    } else if (maximum === rgb.green) {
+      hue = 60 * ((rgb.blue - rgb.red) / delta + 2);
+    } else {
+      hue = 60 * ((rgb.red - rgb.green) / delta + 4);
+    }
+  }
+
+  return {
+    hue: hue < 0 ? hue + 360 : hue,
+    saturation: maximum === 0 ? 0 : delta / maximum,
+    value: maximum,
+  };
+}
+
 function linearize(channel: number): number {
   return channel <= 0.04045
     ? channel / 12.92
@@ -57,6 +87,28 @@ function channelToHex(channel: number): string {
     .toString(16)
     .padStart(2, '0')
     .toLocaleUpperCase();
+}
+
+export function hsvToHex(hue: number, saturation: number, value: number): string {
+  const normalizedHue = ((hue % 360) + 360) % 360;
+  const normalizedSaturation = clampChannel(saturation);
+  const normalizedValue = clampChannel(value);
+  const chroma = normalizedValue * normalizedSaturation;
+  const sector = normalizedHue / 60;
+  const secondary = chroma * (1 - Math.abs((sector % 2) - 1));
+  const offset = normalizedValue - chroma;
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (sector < 1) [red, green, blue] = [chroma, secondary, 0];
+  else if (sector < 2) [red, green, blue] = [secondary, chroma, 0];
+  else if (sector < 3) [red, green, blue] = [0, chroma, secondary];
+  else if (sector < 4) [red, green, blue] = [0, secondary, chroma];
+  else if (sector < 5) [red, green, blue] = [secondary, 0, chroma];
+  else [red, green, blue] = [chroma, 0, secondary];
+
+  return `#${channelToHex(red + offset)}${channelToHex(green + offset)}${channelToHex(blue + offset)}`;
 }
 
 export function hexToOklch(value: string): Oklch {

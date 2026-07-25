@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Ramp product system</title>
+  <desc id="desc">A modular view of the finance platform with one highlighted control plane.</desc>
+  <rect width="1600" height="1000" fill="#f8f7f3"/>
+  <g transform="translate(176 170)" stroke="#292827" stroke-width="3">
+    <rect width="1248" height="660" fill="#fff"/>
+    <rect width="280" height="660" fill="#292827"/>
+    <g fill="#f8f7f3" stroke="none"><rect x="48" y="70" width="140" height="18"/><rect x="48" y="132" width="184" height="18"/><rect x="48" y="194" width="116" height="18"/></g>
+    <rect x="328" y="64" width="840" height="92" fill="#d7ff64"/>
+    <g fill="#f8f7f3"><rect x="328" y="206" width="400" height="184"/><rect x="768" y="206" width="400" height="184"/><rect x="328" y="438" width="840" height="154"/></g>
+    <g stroke="#292827" stroke-opacity=".2"><path d="M368 270h320M368 320h240M808 270h320M808 320h260M368 490h760M368 540h620"/></g>
+  </g>
+</svg>

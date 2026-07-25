@@ -15,6 +15,8 @@ export default function CanvasViewport({
   children,
   className = '',
   draftKey = 'canvas-zoom',
+  fontFamily,
+  fontWeight,
   identityId,
   stageClassName = '',
   toolId,
@@ -22,6 +24,8 @@ export default function CanvasViewport({
   children: ReactNode;
   className?: string;
   draftKey?: string;
+  fontFamily?: CSSProperties['fontFamily'];
+  fontWeight?: CSSProperties['fontWeight'];
   identityId: string;
   stageClassName?: string;
   toolId: string;
@@ -55,7 +59,13 @@ export default function CanvasViewport({
       <div className='canvas-viewport-scroll'>
         <div
           className={`canvas-viewport-stage ${stageClassName}`}
-          style={{ '--canvas-zoom': zoom / 100 } as CSSProperties}
+          data-canvas-font={fontFamily ? 'enforced' : undefined}
+          style={{
+            '--canvas-selected-font': fontFamily,
+            '--canvas-zoom': zoom / 100,
+            fontFamily,
+            fontWeight,
+          } as CSSProperties}
         >
           {children}
         </div>
