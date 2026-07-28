@@ -20,7 +20,7 @@ describe('planAgentGeneration', () => {
       template: 'partnership',
     });
     expect(agentAssetPaths(plan)).toEqual([
-      '/brands/gt/logos/wordmark-black.svg',
+      '/brands/gt/logos/mark-black.svg',
       '/brands/gt/proof/ramp.svg',
     ]);
   });
@@ -33,6 +33,7 @@ describe('planAgentGeneration', () => {
         colorA: '#0A2540',
         colorB: '#635BFF',
         height: 630,
+        lightingEnabled: false,
         style: 'grain-gradient',
         width: 1200,
       },
@@ -42,6 +43,7 @@ describe('planAgentGeneration', () => {
       id: 'stripe',
       name: 'Stripe',
     });
+    expect(plan).toMatchObject({ settings: { lightingEnabled: false } });
     expect(agentAssetPaths(plan)).toEqual([
       '/brands/stripe/logos/wordmark-white.svg',
     ]);
@@ -61,6 +63,12 @@ describe('planAgentGeneration', () => {
         settings: { ditherMatrix: 3 },
       })
     ).toThrow('ditherMatrix');
+    expect(() =>
+      planAgentGeneration({
+        kind: 'background',
+        settings: { lightingEnabled: 'no' },
+      })
+    ).toThrow('lightingEnabled');
   });
 
   it('rejects element briefs for IDs outside the public catalog', () => {

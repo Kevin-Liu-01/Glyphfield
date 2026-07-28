@@ -4,6 +4,7 @@ import {
   buildFrameSchedule,
   cycleDurationMs,
   cubicBezierAt,
+  resolveContinuousSourceFrame,
   resolveBezierControlPoint,
   resolveAnchor,
   resolveTimeline,
@@ -58,6 +59,27 @@ describe('resolveTimeline', () => {
   });
 });
 
+describe('resolveContinuousSourceFrame', () => {
+  it('plays through the hold and rests on the last frame during a transition', () => {
+    const timing = { holdMs: 1000, transitionMs: 200 };
+
+    expect(
+      resolveContinuousSourceFrame(
+        resolveTimeline(500, { ...timing, itemCount: 2 }),
+        timing,
+        61
+      )
+    ).toBe(30);
+    expect(
+      resolveContinuousSourceFrame(
+        resolveTimeline(1100, { ...timing, itemCount: 2 }),
+        timing,
+        61
+      )
+    ).toBe(60);
+  });
+});
+
 describe('buildFrameSchedule', () => {
   it('gives every completed state its exact requested hold time', () => {
     const schedule = buildFrameSchedule({
@@ -75,6 +97,18 @@ describe('buildFrameSchedule', () => {
     }
 
     expect(schedule.filter((frame) => frame.position.phase === 'transition').at(-1)?.position.progress).toBeLessThan(1);
+  });
+
+  it('samples a held source continuously only when requested', () => {
+    const timing = {
+      fps: 20,
+      holdMs: 1000,
+      itemCount: 1,
+      transitionMs: 200,
+    };
+
+    expect(buildFrameSchedule(timing)).toHaveLength(1);
+    expect(buildFrameSchedule({ ...timing, sampleHoldFrames: true })).toHaveLength(20);
   });
 });
 

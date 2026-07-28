@@ -47,6 +47,20 @@ export default function LogoAppearanceControls({
         <input checked={settings.invert} onChange={(event) => onChange({ invert: event.target.checked })} type='checkbox' />
       </label>
       <label className='flex items-center justify-between gap-4 text-sm'>
+        <span><T>Dither logo</T></span>
+        <input checked={settings.ditherEnabled} onChange={(event) => onChange({ ditherEnabled: event.target.checked })} type='checkbox' />
+      </label>
+      {settings.ditherEnabled ? (
+        <div className='flex flex-col gap-4 border-l border-border pl-3'>
+          <p className='text-xs leading-5 text-muted-foreground'>
+            <T>Resolve the selected mark through an ordered print field without changing the source asset.</T>
+          </p>
+          <AppearanceRange label={gt('Dither amount')} max={100} min={0} onChange={(ditherAmount) => onChange({ ditherAmount })} suffix='%' value={settings.ditherAmount} />
+          <AppearanceRange label={gt('Cell size')} max={18} min={2} onChange={(ditherScale) => onChange({ ditherScale })} suffix='px' value={settings.ditherScale} />
+          <AppearanceRange label={gt('Dither direction')} max={360} min={0} onChange={(ditherAngle) => onChange({ ditherAngle })} suffix='°' value={settings.ditherAngle} />
+        </div>
+      ) : null}
+      <label className='flex items-center justify-between gap-4 text-sm'>
         <span><T>Outline SVG shape</T></span>
         <input checked={settings.borderEnabled} onChange={(event) => onChange({ borderEnabled: event.target.checked })} type='checkbox' />
       </label>

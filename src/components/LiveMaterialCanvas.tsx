@@ -12,6 +12,7 @@ import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/we
 export type LiveMaterialCanvasProps = {
   className?: string;
   captureTimeMs?: number | null;
+  enabled?: boolean;
   materialId: LiveMaterialId;
   paused?: boolean;
   renderScale?: number;
@@ -82,7 +83,64 @@ vec3 finishColor(vec3 color) {
 }
 `;
 
-const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere'>, string> = {
+const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere' | 'glyphfield-glyph-field'>, string> = {
+  'glyphfield-mesh-gradient': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.24;
+  vec2 focusA = vec2(-0.52 + sin(time) * 0.18, -0.36 + cos(time * 0.7) * 0.16);
+  vec2 focusB = vec2(0.48 + cos(time * 0.8) * 0.2, 0.4 + sin(time * 0.6) * 0.18);
+  float fieldA = exp(-length(p - focusA) * (1.5 + u_frequency * 0.12));
+  float fieldB = exp(-length(p - focusB) * (1.3 + u_frequency * 0.1));
+  float warp = fbm(p * max(0.65, u_detail * 0.42) + time) * u_strength;
+  vec3 color = mix(u_color_a, u_color_b, clamp(fieldA + warp * 0.22, 0.0, 1.0));
+  color = mix(color, u_color_c, clamp(fieldB + warp * 0.16, 0.0, 1.0));
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'glyphfield-grain-gradient': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.3;
+  float pigment = fbm(p * max(0.72, u_detail * 0.38) + vec2(time, -time * 0.72));
+  pigment += sin((p.x * 0.7 + p.y) * u_frequency + time) * 0.13 * u_strength;
+  float tone = smoothstep(0.08, 0.92, pigment);
+  vec3 color = colorRamp(tone);
+  float paper = hash(floor(gl_FragCoord.xy * 0.72) + floor(time * 5.0)) - 0.5;
+  color += paper * (0.025 + u_grain / 100.0 * 0.22);
+  gl_FragColor = vec4(max(vec3(0.0), color * u_brightness), 1.0);
+}`,
+  'glyphfield-dither-gradient': `
+float bayer4(vec2 position) {
+  vec2 cell = mod(floor(position), 4.0);
+  float index = cell.x + cell.y * 4.0;
+  if (index < 0.5) return 0.0 / 16.0;
+  if (index < 1.5) return 8.0 / 16.0;
+  if (index < 2.5) return 2.0 / 16.0;
+  if (index < 3.5) return 10.0 / 16.0;
+  if (index < 4.5) return 12.0 / 16.0;
+  if (index < 5.5) return 4.0 / 16.0;
+  if (index < 6.5) return 14.0 / 16.0;
+  if (index < 7.5) return 6.0 / 16.0;
+  if (index < 8.5) return 3.0 / 16.0;
+  if (index < 9.5) return 11.0 / 16.0;
+  if (index < 10.5) return 1.0 / 16.0;
+  if (index < 11.5) return 9.0 / 16.0;
+  if (index < 12.5) return 15.0 / 16.0;
+  if (index < 13.5) return 7.0 / 16.0;
+  if (index < 14.5) return 13.0 / 16.0;
+  return 5.0 / 16.0;
+}
+
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.36;
+  float flow = 0.5 + 0.5 * sin((p.x + p.y * 0.38 + fbm(p * max(0.8, u_detail) + time) * u_strength) * u_frequency);
+  float cellSize = mix(2.0, 10.0, u_grain / 100.0);
+  float threshold = bayer4(gl_FragCoord.xy / cellSize);
+  float level = floor(clamp(flow + 0.5 - threshold, 0.0, 1.0) * 2.0) / 2.0;
+  vec3 color = level < 0.25 ? u_color_a : level < 0.75 ? u_color_b : u_color_c;
+  gl_FragColor = vec4(max(vec3(0.0), color * u_brightness), 1.0);
+}`,
   'shaders-pixel-beams': `
 void main() {
   vec2 p = studioUv();
@@ -128,15 +186,38 @@ void main() {
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
   'shaders-fluid-chrome': `
+float chromeLobe(float value, float center, float width) {
+  float position = (value - center) / max(width, 0.001);
+  return exp(-position * position);
+}
+
+float chromeEnvironment(float reflection) {
+  float broadSky = chromeLobe(reflection, -0.68, 0.43) * 0.3;
+  float upperStrip = chromeLobe(reflection, -0.28, 0.06) * 0.9;
+  float blackCard = chromeLobe(reflection, -0.02, 0.12) * 0.31;
+  float lowerRoom = chromeLobe(reflection, 0.25, 0.27) * 0.55;
+  float edgeStrip = chromeLobe(reflection, 0.61, 0.045) * 1.08;
+  return clamp(0.018 + broadSky + upperStrip - blackCard + lowerRoom + edgeStrip, 0.0, 1.15);
+}
+
 void main() {
   vec2 p = studioUv();
-  float field = fbm(p * max(0.8, u_detail) + vec2(u_time * 0.18, u_time * 0.09));
-  float fold = abs(sin((p.x - p.y * 0.6 + field * (2.0 + u_strength * 3.0)) * u_frequency));
-  float ridge = smoothstep(0.18, 0.95, fold);
-  float glint = pow(ridge, 5.0 - min(3.0, u_strength));
-  vec3 tinted = colorRamp(clamp(field * 0.7 + fold * 0.45, 0.0, 1.0));
-  vec3 chrome = mix(vec3(0.025), vec3(1.0), glint);
-  vec3 color = mix(tinted, chrome, 0.38 + u_strength * 0.24);
+  float time = u_time * 0.1;
+  float field = fbm(p * max(0.76, u_detail * 0.52) + vec2(time, -time * 0.68));
+  float fineField = fbm(p * max(1.8, u_detail * 1.35) - vec2(time * 0.45, time));
+  float displacement = (field - 0.5) * (0.28 + u_strength * 0.66);
+  float reflection = dot(p, normalize(vec2(0.24, 0.97)));
+  reflection += displacement + (fineField - 0.5) * u_strength * 0.13;
+  reflection += sin(p.x * 1.35 - p.y * 0.48 + time) * 0.08 * u_strength;
+  float environment = chromeEnvironment(reflection);
+  float edge = pow(smoothstep(0.5, 1.48, length(p)), 3.4) * 0.18;
+  float brush = (hash(vec2(floor(gl_FragCoord.y * 1.8), floor(gl_FragCoord.x * 0.015))) - 0.5) * 0.014;
+  vec3 shadow = mix(vec3(0.006), u_color_a * 0.18, 0.42);
+  vec3 silver = mix(vec3(0.74), u_color_b, 0.28);
+  vec3 color = mix(shadow, silver, clamp(environment, 0.0, 1.0));
+  color += max(0.0, environment - 1.0) * vec3(0.9);
+  color += edge * mix(vec3(0.3), u_color_c, 0.12) + brush;
+  color = pow(max(color, vec3(0.0)), vec3(0.92));
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
   'shaders-chroma-flow': `
@@ -206,6 +287,189 @@ function hexToRgb(hex: string): readonly [number, number, number] {
     ((value >> 8) & 255) / 255,
     (value & 255) / 255,
   ];
+}
+
+function cssRgb(
+  color: readonly [number, number, number],
+  opacity: number
+): string {
+  return `rgb(${Math.round(color[0] * 255)} ${Math.round(color[1] * 255)} ${Math.round(color[2] * 255)} / ${Math.max(0, Math.min(1, opacity))})`;
+}
+
+function blendRgb(
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+  progress: number
+): readonly [number, number, number] {
+  const amount = Math.max(0, Math.min(1, progress));
+  return [
+    from[0] + (to[0] - from[0]) * amount,
+    from[1] + (to[1] - from[1]) * amount,
+    from[2] + (to[2] - from[2]) * amount,
+  ];
+}
+
+function GlyphFieldCanvas({
+  active,
+  canvasRef,
+  captureTimeMs,
+  paused,
+  renderScale,
+  settings,
+}: {
+  active: boolean;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  captureTimeMs: number | null;
+  paused: boolean;
+  renderScale: number;
+  settings: LiveMaterialSettings;
+}) {
+  const activeRef = useRef(active);
+  const captureTimeRef = useRef(captureTimeMs);
+  const pausedRef = useRef(paused);
+  const settingsRef = useRef(settings);
+  activeRef.current = active;
+  captureTimeRef.current = captureTimeMs;
+  pausedRef.current = paused;
+  settingsRef.current = settings;
+
+  useMountEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d', { alpha: false });
+    if (!canvas || !context) return;
+    const drawingCanvas: HTMLCanvasElement = canvas;
+    const drawingContext: CanvasRenderingContext2D = context;
+
+    const glyphs = 'GLYPHFIELD';
+    let elapsed = 0;
+    let frame = 0;
+    let timeout = 0;
+    let previous = performance.now();
+
+    function scheduleNextFrame() {
+      if (!activeRef.current || (pausedRef.current && captureTimeRef.current === null)) {
+        timeout = window.setTimeout(
+          () => { frame = requestAnimationFrame(draw); },
+          activeRef.current ? 120 : 400
+        );
+        return;
+      }
+      frame = requestAnimationFrame(draw);
+    }
+
+    function draw(time: number) {
+      if (!activeRef.current && captureTimeRef.current === null) {
+        previous = time;
+        scheduleNextFrame();
+        return;
+      }
+      const current = settingsRef.current;
+      const controlledTime = captureTimeRef.current;
+      const delta = Math.min(64, time - previous);
+      previous = time;
+      if (controlledTime === null && !pausedRef.current) elapsed += delta * current.speed;
+      const renderedTime = (controlledTime === null ? elapsed : controlledTime * current.speed) / 1000;
+      const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
+      const width = Math.max(1, drawingCanvas.clientWidth);
+      const height = Math.max(1, drawingCanvas.clientHeight);
+      const outputWidth = Math.round(width * pixelRatio);
+      const outputHeight = Math.round(height * pixelRatio);
+      if (drawingCanvas.width !== outputWidth || drawingCanvas.height !== outputHeight) {
+        drawingCanvas.width = outputWidth;
+        drawingCanvas.height = outputHeight;
+      }
+
+      drawingContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      drawingContext.fillStyle = current.colorA;
+      drawingContext.fillRect(0, 0, width, height);
+
+      const background = hexToRgb(current.colorA);
+      const foreground = hexToRgb(current.colorB);
+      const accent = hexToRgb(current.colorC);
+      const columns = Math.round(34 + Math.min(7, current.detail) * 3.2);
+      const rows = Math.round(22 + Math.min(7, current.detail) * 2.2);
+      const fieldScale = Math.min(width, height) * (0.72 + current.amplitude * 0.025);
+      const rotation = Math.sin(renderedTime * 0.46) * (0.18 + current.strength * 0.09);
+      const cosRotation = Math.cos(rotation);
+      const sinRotation = Math.sin(rotation);
+      const points: Array<{
+        color: readonly [number, number, number];
+        glyph: string;
+        opacity: number;
+        size: number;
+        x: number;
+        y: number;
+        z: number;
+      }> = [];
+
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const x = (column / (columns - 1)) * 2 - 1;
+          const y = (row / (rows - 1)) * 2 - 1;
+          const radius = Math.hypot(x, y);
+          const ring = radius > 0.45 && radius < 0.88;
+          const opening = x > 0.18 && Math.abs(y) < 0.32;
+          const crossbar = x > 0.08 && x < 0.82 && y > -0.08 && y < 0.18;
+          const isGlyph = (ring && !opening) || crossbar;
+          const seed = (row * 83 + column * 37) % 101;
+          const keep = seed / 100 <= Math.min(1, 0.42 + current.density * 0.68);
+          if (!isGlyph || !keep) continue;
+
+          const wave = Math.sin(x * current.frequency + renderedTime * 1.2)
+            * Math.cos(y * (current.frequency * 0.7) - renderedTime * 0.82);
+          const depth = wave * (0.12 + current.strength * 0.18)
+            + Math.sin((x + y) * current.detail + seed) * 0.035;
+          const rotatedX = x * cosRotation + depth * sinRotation;
+          const rotatedZ = -x * sinRotation + depth * cosRotation;
+          const perspective = 1 / (1.8 - rotatedZ * 0.42);
+          const screenX = width * 0.5 + rotatedX * fieldScale * perspective;
+          const screenY = height * 0.5 + y * fieldScale * perspective;
+          const depthProgress = Math.max(0, Math.min(1, 0.5 + rotatedZ * 0.75));
+          const baseColor = blendRgb(foreground, accent, depthProgress);
+          points.push({
+            color: blendRgb(background, baseColor, 0.62 + depthProgress * 0.38),
+            glyph: glyphs[(row * 3 + column) % glyphs.length]!,
+            opacity: (0.28 + depthProgress * 0.72) * Math.min(1.25, current.brightness),
+            size: Math.max(5.5, Math.min(14, fieldScale / columns * 1.05)) * (0.78 + perspective * 0.55),
+            x: screenX,
+            y: screenY,
+            z: rotatedZ,
+          });
+        }
+      }
+
+      points.sort((a, b) => a.z - b.z);
+      drawingContext.textAlign = 'center';
+      drawingContext.textBaseline = 'middle';
+      for (const point of points) {
+        drawingContext.fillStyle = cssRgb(point.color, point.opacity);
+        drawingContext.font = `500 ${point.size}px Switzer, Arial, sans-serif`;
+        drawingContext.fillText(point.glyph, point.x, point.y);
+      }
+
+      const particleCount = Math.round(28 + current.grain * 0.72);
+      for (let index = 0; index < particleCount; index += 1) {
+        const phase = index * 29.17;
+        const particleX = ((Math.sin(phase * 12.9898) * 43758.5453) % 1 + 1) % 1;
+        const particleY = ((Math.sin(phase * 78.233) * 15731.743) % 1 + 1) % 1;
+        const drift = Math.sin(renderedTime * 0.3 + phase) * 18;
+        const color = blendRgb(foreground, accent, index % 5 / 4);
+        drawingContext.fillStyle = cssRgb(color, 0.1 + (index % 7) * 0.018);
+        drawingContext.font = `500 ${5 + (index % 4)}px Switzer, Arial, sans-serif`;
+        drawingContext.fillText(glyphs[index % glyphs.length]!, particleX * width + drift, particleY * height);
+      }
+
+      scheduleNextFrame();
+    }
+
+    frame = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  });
+
+  return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
 }
 
 function compileShader(
@@ -289,6 +553,7 @@ function ShaderGradientSurface({
 }
 
 function OriginalMaterialCanvas({
+  active,
   canvasRef,
   captureTimeMs,
   fragmentSource,
@@ -297,6 +562,7 @@ function OriginalMaterialCanvas({
   renderScale,
   settings,
 }: {
+  active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
   fragmentSource: string;
@@ -305,9 +571,11 @@ function OriginalMaterialCanvas({
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
+  const activeRef = useRef(active);
   const captureTimeRef = useRef(captureTimeMs);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
+  activeRef.current = active;
   captureTimeRef.current = captureTimeMs;
   pausedRef.current = paused;
   settingsRef.current = settings;
@@ -389,6 +657,7 @@ function OriginalMaterialCanvas({
     const rotationLocation = context.getUniformLocation(program, 'u_rotation');
 
     let frame = 0;
+    let timeout = 0;
     let elapsed = 0;
     let previous = performance.now();
     let disposed = false;
@@ -396,12 +665,29 @@ function OriginalMaterialCanvas({
     function handleContextLost(event: Event) {
       event.preventDefault();
       cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
       if (!disposed) window.setTimeout(onContextLost, 0);
     }
 
     drawingCanvas.addEventListener('webglcontextlost', handleContextLost);
 
+    function scheduleNextFrame() {
+      if (!activeRef.current || (pausedRef.current && captureTimeRef.current === null)) {
+        timeout = window.setTimeout(
+          () => { frame = requestAnimationFrame(draw); },
+          activeRef.current ? 120 : 400
+        );
+        return;
+      }
+      frame = requestAnimationFrame(draw);
+    }
+
     function draw(time: number) {
+      if (!activeRef.current && captureTimeRef.current === null) {
+        previous = time;
+        scheduleNextFrame();
+        return;
+      }
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
       const delta = Math.min(64, time - previous);
@@ -430,13 +716,14 @@ function OriginalMaterialCanvas({
       drawingContext.uniform1f(brightnessLocation, current.brightness);
       drawingContext.uniform1f(rotationLocation, current.rotationZ);
       drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
-      frame = requestAnimationFrame(draw);
+      scheduleNextFrame();
     }
 
     frame = requestAnimationFrame(draw);
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
       drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
       drawingContext.deleteBuffer(buffer);
       drawingContext.deleteProgram(program);
@@ -452,13 +739,16 @@ function OriginalMaterialCanvas({
 function LiveMaterialCanvas({
   className = '',
   captureTimeMs = null,
+  enabled = true,
   materialId,
   paused = false,
   renderScale = 1,
   settings,
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
+  const [renderVisible, setRenderVisible] = useState(true);
   const [contextRecovery, setContextRecovery] = useState(() => ({
     failed: false,
     materialId: resolvedMaterialId,
@@ -467,6 +757,7 @@ function LiveMaterialCanvas({
   const activeRecovery = contextRecovery.materialId === resolvedMaterialId
     ? contextRecovery
     : { failed: false, materialId: resolvedMaterialId, version: 0 };
+  const renderActive = renderVisible && enabled;
   const recoverContext = () => {
     setContextRecovery((current) => {
       const currentVersion = current.materialId === resolvedMaterialId ? current.version : 0;
@@ -478,11 +769,32 @@ function LiveMaterialCanvas({
     });
   };
 
+  useMountEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let intersecting = true;
+    const updateVisibility = () => {
+      const nextVisible = intersecting && document.visibilityState !== 'hidden';
+      setRenderVisible((current) => current === nextVisible ? current : nextVisible);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      intersecting = entry?.isIntersecting ?? true;
+      updateVisibility();
+    }, { rootMargin: '160px' });
+    observer.observe(container);
+    document.addEventListener('visibilitychange', updateVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', updateVisibility);
+    };
+  });
+
   if (activeRecovery.failed) {
     return (
       <div
         aria-label='Static shader fallback'
         className={`absolute inset-0 size-full ${className}`}
+        ref={containerRef}
         style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
       />
     );
@@ -490,26 +802,44 @@ function LiveMaterialCanvas({
 
   if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
     return (
-      <ShaderGradientSurface
-        captureTimeMs={captureTimeMs}
-        className={className}
-        key={`shadergradient-${activeRecovery.version}`}
-        paused={paused}
-        renderScale={renderScale}
-        settings={settings}
-      />
+      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+        <ShaderGradientSurface
+          captureTimeMs={captureTimeMs}
+          className=''
+          key={`shadergradient-${activeRecovery.version}`}
+          paused={paused || !renderActive}
+          renderScale={renderScale}
+          settings={settings}
+        />
+      </div>
+    );
+  }
+
+  if (resolvedMaterialId === 'glyphfield-glyph-field') {
+    return (
+      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+        <GlyphFieldCanvas
+          active={renderActive}
+          canvasRef={canvasRef}
+          captureTimeMs={captureTimeMs}
+          paused={paused || !renderActive}
+          renderScale={renderScale}
+          settings={settings}
+        />
+      </div>
     );
   }
 
   return (
-    <div className={`absolute inset-0 size-full ${className}`}>
+    <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
       <OriginalMaterialCanvas
+        active={renderActive}
         canvasRef={canvasRef}
         captureTimeMs={captureTimeMs}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
         key={`${resolvedMaterialId}-${activeRecovery.version}`}
         onContextLost={recoverContext}
-        paused={paused}
+        paused={paused || !renderActive}
         renderScale={renderScale}
         settings={settings}
       />

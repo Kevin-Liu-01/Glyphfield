@@ -17,6 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Folder,
+  FileJson2,
+  Frame,
   Grid3X3,
   Github,
   Image as ImageIcon,
@@ -34,24 +36,25 @@ import {
   ScanLine,
   Settings2,
   Shapes,
-  Sparkles,
   Sun,
   Trash2,
   Type,
+  Waves,
   X,
   type LucideIcon,
 } from 'lucide-react';
 
 import AnimationStudio from '@/components/AnimationStudio';
 import BrandFontFaces from '@/components/BrandFontFaces';
+import LottieStudio from '@/components/LottieStudio';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import StudioToolWorkspace from '@/components/StudioToolWorkspace';
+import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import {
-  brandAssetPath,
   createBrandIdentity,
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
@@ -80,10 +83,13 @@ const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
   'design-board': PanelsTopLeft,
   identity: Settings2,
   logo: Aperture,
-  'logo-shader': Sparkles,
+  'logo-shader': Waves,
+  lottie: FileJson2,
+  material: Waves,
   opengraph: ImageIcon,
   partnership: Shapes,
   slides: MonitorPlay,
+  surface: Frame,
   terminal: Braces,
   typography: Type,
 };
@@ -98,6 +104,10 @@ const LEGACY_PROJECTS_STORAGE_KEYS = [
   'gt-studio-identities-v2',
   'gt-studio-identities-v1',
 ] as const;
+const LEGACY_SURFACE_TOOL_MODES = {
+  backgrounds: 'background',
+  logo: 'logo',
+} as const;
 
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
 
@@ -163,7 +173,6 @@ function ProjectFolderMenu({
   onOpenProject,
   onSelect,
   openIdentityIds,
-  theme,
 }: {
   activeIdentityId: string;
   activeFolderId: ProjectFolderId;
@@ -172,7 +181,6 @@ function ProjectFolderMenu({
   onOpenProject: (identityId: string) => void;
   onSelect: (folderId: ProjectFolderId) => void;
   openIdentityIds: string[];
-  theme: ResolvedTheme;
 }) {
   const gt = useGT();
   const [open, setOpen] = useState(false);
@@ -253,10 +261,6 @@ function ProjectFolderMenu({
           </div>
           <div className='project-folder-projects'>
             {folderProjects.map((identity) => {
-              const darkMark = brandAssetPath(identity, 'mark-dark');
-              const lightMark = brandAssetPath(identity, 'mark-light');
-              const markPath = theme === 'dark' ? lightMark ?? darkMark : darkMark ?? lightMark;
-              const invertFallback = theme === 'dark' && !lightMark && Boolean(darkMark);
               const isOpen = openIdentityIds.includes(identity.id);
               const isActive = identity.id === activeIdentityId;
 
@@ -273,17 +277,7 @@ function ProjectFolderMenu({
                   type='button'
                 >
                   <span className='project-folder-project-mark' aria-hidden='true'>
-                    {markPath ? (
-                      <Image
-                        alt=''
-                        height={22}
-                        src={markPath}
-                        style={{ filter: invertFallback ? 'invert(1)' : undefined }}
-                        width={22}
-                      />
-                    ) : (
-                      identity.shortName.slice(0, 2)
-                    )}
+                    <ThemeAwareBrandMark className='size-[19px]' identity={identity} />
                   </span>
                   <span>
                     <strong>{identity.name}</strong>
@@ -761,7 +755,26 @@ export default function StudioApp() {
           window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, nextActiveIdentity.id);
         }
       }
-      if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
+      if (storedActiveTool === 'logo-shader') {
+        setActiveToolId('material');
+      } else if (storedActiveTool && storedActiveTool in LEGACY_SURFACE_TOOL_MODES) {
+        window.localStorage.setItem(
+          `glyphfield-draft-v1:${nextActiveIdentity.id}:surface:mode-v2`,
+          JSON.stringify(
+            LEGACY_SURFACE_TOOL_MODES[
+              storedActiveTool as keyof typeof LEGACY_SURFACE_TOOL_MODES
+            ]
+          )
+        );
+        setActiveToolId('surface');
+      } else if (
+        storedActiveTool === 'surface' &&
+        window.localStorage.getItem(
+          `glyphfield-draft-v1:${nextActiveIdentity.id}:surface:mode`
+        ) === JSON.stringify('material')
+      ) {
+        setActiveToolId('material');
+      } else if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
         setActiveToolId(storedActiveTool as StudioToolId);
       }
       if (
@@ -1052,34 +1065,12 @@ export default function StudioApp() {
   }
 
   function renderProjectMark(identity: BrandIdentity, selected: boolean) {
-    const darkMark = brandAssetPath(identity, 'mark-dark');
-    const lightMark = brandAssetPath(identity, 'mark-light');
-    const markSurfaceIsDark = selected ? resolvedTheme === 'light' : resolvedTheme === 'dark';
-    const markPath = markSurfaceIsDark ? lightMark ?? darkMark : darkMark ?? lightMark;
-    const usesContrastVariant = Boolean(darkMark && lightMark && darkMark !== lightMark);
-
-    if (markPath) {
-      return (
-        <span
-          aria-hidden='true'
-          className='project-tab-mark'
-          data-logo-treatment={usesContrastVariant ? 'contrast-variant' : 'native-color'}
-        >
-          <Image
-            alt=''
-            className='size-full object-contain'
-            height={20}
-            src={markPath}
-            width={20}
-          />
-        </span>
-      );
-    }
-
     return (
-      <span className='project-tab-mark project-tab-monogram' aria-hidden='true'>
-        {identity.shortName.slice(0, 2)}
-      </span>
+      <ThemeAwareBrandMark
+        className='project-tab-mark'
+        identity={identity}
+        inverse={selected}
+      />
     );
   }
 
@@ -1325,7 +1316,6 @@ export default function StudioApp() {
               onOpenProject={selectIdentity}
               onSelect={selectProjectFolder}
               openIdentityIds={openIdentityIds}
-              theme={resolvedTheme}
             />
           </div>
         </div>
@@ -1404,6 +1394,8 @@ export default function StudioApp() {
               </div>
             ) : activeToolId === 'animation' ? (
               <AnimationStudio embedded identity={activeIdentity} />
+            ) : activeToolId === 'lottie' ? (
+              <LottieStudio identity={activeIdentity} />
             ) : (
               <StudioToolWorkspace
                 hasPendingIdentityChanges={activeIdentityHasPendingChanges}

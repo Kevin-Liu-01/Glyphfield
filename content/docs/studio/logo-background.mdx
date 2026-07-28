@@ -1,16 +1,20 @@
 ---
-title: Logos, color, type, and backgrounds
-description: Work with foundational marks, semantic color, typography roles, and generated background systems.
+title: Surface Lab, color, and typography
+description: Build backgrounds and logo applications from one shared surface workspace.
 icon: Palette
 ---
 
-## Logo lab
+## Surface Lab
 
-Logo lab previews the active mark in identity colors and at common application sizes.
+Surface Lab consolidates background and logo tools into one workspace. Switch modes from the header while the active brand, saved drafts, canvas behavior, appearance controls, and export system remain in context. Animated shader work lives in the dedicated **Material** tool under Motion.
+
+### Logo mode
+
+Logo mode previews the active mark in identity colors and at common application sizes.
 
 - Select ink, paper, emphasis, or success color.
 - Set any custom logo color with the shared HEX and OKLCH color control.
-- Invert the resolved mark, add an outline that follows the SVG alpha, or add a configurable shadow.
+- Invert the resolved mark, resolve it through an editable ordered-dither field, add an outline that follows the SVG alpha, or add a configurable shadow.
 - Select the mark on the canvas to drag, resize, nudge, or align it.
 - Switch between base white, base dark, grid, noise, and live GPU surfaces.
 - Choose any ShaderGradient or Shaders.com-inspired material and edit its colors in HEX or OKLCH.
@@ -31,20 +35,26 @@ Typography compares Display, Body, Accent, and Code roles in one view. Select a 
 
 Uploaded font files are loaded with the browser FontFace API. They are not uploaded to Glyphfield.
 
-## Background lab
+### Background mode
 
-Background lab builds exportable SVG layers or live GPU materials and downloads a PNG.
+Background mode builds exportable SVG layers or live rendered materials and downloads a PNG.
 
 ### Recipes
 
-- Linear or radial gradient
-- Grainy gradient
-- Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices
+- Linear, radial, band, orbit, or wave gradient
+- Mirrored band fields with editable peak, count, depth, gap, and optional gradient lighting
+- Three-color grainy gradients with focal-point and relief controls
+- Named spectral, mineral, paper, and signal presets
+- Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
 - Pattern field
-- ShaderGradient and Shaders.com-inspired live materials
+- ShaderGradient, the spatial Glyph Field, original Glyphfield mesh/grain/dither materials, and Shaders.com-inspired live materials
+
+Glyph Field forms a dimensional mark from hundreds of animated letters. Density, detail, frequency, amplitude, speed, grain, and the three-color palette remain editable in the Surface Lab canvas, and the same renderer is used for preview and export.
 
 ### Overlays
 
-Add dots, lines, or grids and control spacing and opacity. Logos can use a brand preset or custom color, invert independently, and add alpha-aware outlines and shadows. Select the mark directly on the canvas to drag, resize, nudge, or align it.
+Add dots, lines, or grids and control spacing and opacity. Logos can use a brand preset or custom color, invert independently, add ordered dither with amount, cell size, and direction, and add alpha-aware outlines and shadows. Select the mark directly on the canvas to drag, resize, nudge, or align it.
 
 Output presets cover common square, landscape, OpenGraph, and presentation sizes. Static recipes remain available to the agent API as deterministic SVG; live WebGL materials are rendered and downloaded in the browser.
+
+Background and Logo keep independent saved settings under Surface Lab, so switching modes never resets an existing design. Material preserves the former logo-shader draft scope, which keeps existing shader projects available after the navigation split.

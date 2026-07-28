@@ -185,10 +185,10 @@ function recipe(identity: BrandIdentity): BoardRecipe {
         heroId: 'library-hero',
         heroTone: 'dark',
         id: 'monochrome-language',
-        showcaseOrder: ['hero', 'triptych', 'application', 'type', 'logo', 'system'],
+        showcaseOrder: ['hero', 'logo', 'triptych', 'type', 'palette', 'system'],
         systemId: 'library-system',
-        systemOrder: ['logo', 'type', 'palette', 'application', 'triptych', 'system'],
-        triptychIds: ['library-workflow', 'library-system', 'library-signal'],
+        systemOrder: ['logo', 'type', 'palette', 'hero', 'triptych', 'system'],
+        triptychIds: ['library-workflow', 'library-material', 'library-signal'],
       };
     case 'research-wall':
       return {
@@ -304,6 +304,13 @@ function renderHero(
   const lineHeight = large ? 70 : 35;
   const title = wrapText(identity.tagline, large ? 24 : 29, 2);
   const mark = isLight(heroFill) ? assets.markDark : assets.markLight;
+
+  if (identity.id === 'gt') {
+    const source = artAsset(assets, boardRecipe.heroId);
+    const markWidth = large ? 190 : 116;
+    const markHeight = large ? 108 : 68;
+    return `<rect width="${width}" height="${height}" fill="#050606"/>${source ? `<image href="${escapeXml(source.path)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet"/>` : ''}${logo(assets.markLight, identity.shortName, width / 2 - markWidth / 2, height / 2 - markHeight / 2, markWidth, markHeight, '#FFFFFF')}`;
+  }
 
   return `<rect width="${width}" height="${height}" fill="${heroFill}"/>${logo(mark, identity.shortName, pad, pad, large ? 156 : 92, large ? 58 : 34, titleFill)}${textLines(title, pad, height - pad - (title.length - 1) * lineHeight, lineHeight, `class="display" fill="${titleFill}" font-size="${titleSize}" font-weight="500" letter-spacing="${large ? -2.4 : -1.2}"`)}<text x="${width - pad}" y="${pad + (large ? 18 : 11)}" text-anchor="end" class="body" fill="${titleFill}" font-size="${large ? 14 : 9}">${escapeXml(identity.website)}</text>`;
 }
@@ -490,6 +497,128 @@ function renderTile(
   }
 }
 
+function renderGtMaterialPanel(
+  _assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const gap = 14;
+  const pad = 18;
+  const panelWidth = (width - pad * 2 - gap * 2) / 3;
+  const panelHeight = height - pad * 2;
+  const labelY = panelHeight - 18;
+
+  return `<defs>
+    <linearGradient id="gt-soft-field" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#f2f2f2"/><stop offset="1" stop-color="#cfcfcf"/></linearGradient>
+    <linearGradient id="gt-matte-glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".9"/><stop offset=".52" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient>
+    <radialGradient id="gt-light-pool" cx="50%" cy="45%" r="60%"><stop stop-color="#fff" stop-opacity=".72"/><stop offset=".4" stop-color="#a8a8a8" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <pattern id="gt-fine-dither" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".75" fill="#fff" fill-opacity=".2"/></pattern>
+  </defs>
+  <rect width="${width}" height="${height}" fill="#080808"/>
+  <g transform="translate(${pad} ${pad})"><rect width="${panelWidth}" height="${panelHeight}" fill="url(#gt-soft-field)"/><rect x="${panelWidth * 0.2}" y="${panelHeight * 0.2}" width="${panelWidth * 0.6}" height="${panelHeight * 0.46}" fill="#fff" fill-opacity=".52" stroke="#000" stroke-opacity=".1"/><text x="14" y="${labelY}" class="body" fill="#111" opacity=".62" font-size="10">01 / SOFT LIGHT</text></g>
+  <g transform="translate(${pad + panelWidth + gap} ${pad})"><rect width="${panelWidth}" height="${panelHeight}" fill="#050505"/><rect width="${panelWidth}" height="${panelHeight - 44}" fill="url(#gt-light-pool)"/><rect width="${panelWidth}" height="${panelHeight - 44}" fill="url(#gt-fine-dither)"/><text x="14" y="${labelY}" class="body" fill="#fff" opacity=".62" font-size="10">02 / FINE DITHER</text></g>
+  <g transform="translate(${pad + (panelWidth + gap) * 2} ${pad})"><rect width="${panelWidth}" height="${panelHeight}" fill="#e6e6e6"/><rect x="${panelWidth * 0.14}" y="${panelHeight * 0.16}" width="${panelWidth * 0.72}" height="${panelHeight * 0.5}" rx="6" fill="url(#gt-matte-glass)" stroke="#111" stroke-opacity=".16"/><rect x="${panelWidth * 0.29}" y="${panelHeight * 0.28}" width="${panelWidth * 0.42}" height="${panelHeight * 0.26}" rx="3" fill="#111"/><text x="14" y="${labelY}" class="body" fill="#111" opacity=".62" font-size="10">03 / MATTE GLASS</text></g>`;
+}
+
+function renderGtStudyGallery(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  ids: readonly string[],
+  width: number,
+  height: number
+): string {
+  const pad = 16;
+  const gap = 12;
+  const labelHeight = 46;
+  const cardWidth = (width - pad * 2 - gap * (ids.length - 1)) / ids.length;
+  const cardHeight = height - pad * 2;
+
+  return `<rect width="${width}" height="${height}" fill="#f4f4f3"/>${ids.map((id, index) => {
+    const source = artAsset(assets, id);
+    const x = pad + index * (cardWidth + gap);
+    const labelFill = index === 1 ? '#171717' : '#ffffff';
+    const labelColor = index === 1 ? '#ffffff' : '#181818';
+
+    return `<g transform="translate(${x} ${pad})"><rect width="${cardWidth}" height="${cardHeight}" fill="#ffffff"/>${assetImage(source, 0, 0, cardWidth, cardHeight - labelHeight, identity.style.imageTreatment)}<rect y="${cardHeight - labelHeight}" width="${cardWidth}" height="${labelHeight}" fill="${labelFill}"/><text x="14" y="${cardHeight - 18}" class="body" fill="${labelColor}" font-size="10" font-weight="500">0${index + 1} / ${escapeXml(source?.label ?? 'MONOCHROME STUDY')}</text></g>`;
+  }).join('')}`;
+}
+
+function renderGtTypePanel(
+  identity: BrandIdentity,
+  width: number,
+  height: number
+): string {
+  const display = identity.typography.find(({ role }) => role === 'Display');
+  const body = identity.typography.find(({ role }) => role === 'Body');
+  const pad = height > 500 ? 34 : 24;
+  const dividerX = width * 0.5;
+  const specimenSize = Math.min(height * 0.44, width * 0.42);
+  const greetingY = height * 0.67;
+
+  return `<rect width="${width}" height="${height}" fill="#0a0b0c"/>${panelLabel('Typography', pad, pad + 18, '#fff', height > 500)}<text x="${pad}" y="${height * 0.58}" class="display" fill="#fff" font-size="${specimenSize}" font-weight="500" letter-spacing="${-specimenSize * 0.055}">Aa</text><path d="M${dividerX} 0V${height}" stroke="#fff" stroke-opacity=".18"/><text x="${dividerX + pad}" y="${height * 0.28}" class="display" fill="#fff" font-size="${height > 500 ? 32 : 21}" font-weight="500">${escapeXml(display?.family ?? 'Switzer')}</text><text x="${dividerX + pad}" y="${height * 0.37}" class="body" fill="#fff" opacity=".58" font-size="${height > 500 ? 16 : 11}">${escapeXml(body?.family ?? 'Rasmus Inter')}</text><text x="${dividerX + pad}" y="${greetingY}" class="body" fill="#fff" font-size="${height > 500 ? 18 : 12}" font-weight="400">Welcome · Bienvenidos</text><text x="${dividerX + pad}" y="${greetingY + (height > 500 ? 34 : 24)}" class="body" fill="#fff" opacity=".66" font-size="${height > 500 ? 18 : 12}" font-weight="400">你好 · ようこそ · أهلاً</text><text x="${dividerX + pad}" y="${height - pad}" class="body" fill="#fff" opacity=".42" font-size="${height > 500 ? 11 : 8}" letter-spacing="1.2">DISPLAY / INTERFACE / MULTILINGUAL</text>`;
+}
+
+function renderGtHeroPanel(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  width: number,
+  height: number
+): string {
+  const markWidth = Math.min(width * 0.18, 156);
+  const markHeight = markWidth * 0.54;
+
+  const fieldX = width * 0.48;
+  const fieldY = height * 0.34;
+  const fieldWidth = width - fieldX;
+  const fieldHeight = height - fieldY;
+
+  return `<defs>
+    <radialGradient id="gt-hero-field" cx="100%" cy="100%" r="108%"><stop stop-color="#f7f7f7"/><stop offset=".16" stop-color="#bdbdbd"/><stop offset=".38" stop-color="#575757"/><stop offset=".66" stop-color="#171717"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <pattern id="gt-hero-dither" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".62" fill="#fff" fill-opacity=".1"/></pattern>
+  </defs>
+  <rect width="${width}" height="${height}" fill="#050505"/>
+  <rect x="${fieldX}" y="${fieldY}" width="${fieldWidth}" height="${fieldHeight}" fill="url(#gt-hero-field)"/>
+  <rect x="${fieldX}" y="${fieldY}" width="${fieldWidth}" height="${fieldHeight}" fill="url(#gt-hero-dither)"/>
+  ${logo(assets.markLight, identity.shortName, 30, 28, markWidth, markHeight, '#fff')}
+  <text x="30" y="${height - 38}" class="display" fill="#fff" font-size="28" font-weight="500">Language, in sync.</text>`;
+}
+
+function renderGtBoard(
+  identity: BrandIdentity,
+  assets: MoodboardSvgAssets,
+  composition: Exclude<MoodboardComposition, 'catalog'>,
+  dimensions: ReturnType<typeof boardDimensions>
+): string {
+  const margin = dimensions.margin;
+  const gap = dimensions.gap;
+
+  if (composition === 'showcase') {
+    const tileWidth = (dimensions.width - margin * 2 - gap) / 2;
+    const tileHeight = (dimensions.height - margin * 2 - gap * 2) / 3;
+    const secondY = margin + tileHeight + gap;
+    const thirdY = secondY + tileHeight + gap;
+    const rightX = margin + tileWidth + gap;
+    const boardRecipe = recipe(identity);
+
+    return `<g class="application-panel hero-panel" data-panel="hero" transform="translate(${margin} ${margin})">${renderGtHeroPanel(identity, assets, tileWidth, tileHeight)}</g><g class="application-panel triptych-panel" data-panel="triptych" transform="translate(${rightX} ${margin})">${renderGtStudyGallery(identity, assets, ['library-material', 'library-signal', 'library-campaign'], tileWidth, tileHeight)}</g><g class="application-panel application-study-panel" data-panel="application" transform="translate(${margin} ${secondY})">${renderGtStudyGallery(identity, assets, ['library-workflow', 'library-system'], tileWidth, tileHeight)}</g><g class="application-panel type-panel" data-panel="type" transform="translate(${rightX} ${secondY})">${renderGtTypePanel(identity, tileWidth, tileHeight)}</g><g class="application-panel logo-panel" data-panel="logo" transform="translate(${margin} ${thirdY})">${renderLogo(identity, assets, tileWidth, tileHeight)}</g><g class="application-panel system-panel" data-panel="system" transform="translate(${rightX} ${thirdY})">${renderSystem(identity, assets, boardRecipe, tileWidth, tileHeight)}</g>`;
+  }
+
+  const contentWidth = dimensions.width - margin * 2;
+  const topHeight = 500;
+  const secondY = margin + topHeight + gap;
+  const secondHeight = 620;
+  const thirdY = secondY + secondHeight + gap;
+  const thirdHeight = dimensions.height - thirdY - margin;
+  const heroWidth = 988;
+  const sideWidth = contentWidth - gap - heroWidth;
+  const halfWidth = (contentWidth - gap) / 2;
+  const paletteWidth = 520;
+  const systemWidth = contentWidth - gap - paletteWidth;
+  const boardRecipe = recipe(identity);
+
+  return `<g class="application-panel hero-panel" data-panel="hero" transform="translate(${margin} ${margin})">${renderGtHeroPanel(identity, assets, heroWidth, topHeight)}</g><g class="application-panel logo-panel" data-panel="logo" transform="translate(${margin + heroWidth + gap} ${margin})">${renderLogo(identity, assets, sideWidth, topHeight)}</g><g class="application-panel triptych-panel" data-panel="triptych" transform="translate(${margin} ${secondY})">${renderGtMaterialPanel(assets, halfWidth, secondHeight)}</g><g class="application-panel type-panel" data-panel="type" transform="translate(${margin + halfWidth + gap} ${secondY})">${renderGtTypePanel(identity, halfWidth, secondHeight)}</g><g class="application-panel palette-panel" data-panel="palette" transform="translate(${margin} ${thirdY})">${renderPalette(identity, assets, paletteWidth, thirdHeight)}</g><g class="application-panel system-panel" data-panel="system" transform="translate(${margin + paletteWidth + gap} ${thirdY})">${renderSystem(identity, assets, boardRecipe, systemWidth, thirdHeight)}</g>`;
+}
+
 function renderCatalogHeader(
   identity: BrandIdentity,
   assets: MoodboardSvgAssets,
@@ -625,17 +754,27 @@ export function buildMoodboardSvg(
     embeddedFont('Brand Accent', assets.accentFont ?? assets.displayFont),
     embeddedFont('Brand Code', assets.codeFont ?? assets.bodyFont ?? assets.displayFont),
   ].join('');
-  const boardFill = '#C8C8C2';
+  const boardFill = identity.id === 'gt' && composition === 'showcase'
+    ? '#C8C8C2'
+    : identity.id === 'gt'
+      ? '#1A1A1A'
+      : '#C8C8C2';
+
+  const boardContent = identity.id === 'gt' && composition !== 'catalog'
+    ? renderGtBoard(identity, assets, composition, dimensions)
+    : composition === 'catalog'
+      ? renderCompleteCatalog(identity, assets, boardRecipe, dimensions)
+      : order.map((kind, index) => {
+        const column = index % 2;
+        const row = Math.floor(index / 2);
+        const x = dimensions.margin + column * (tileWidth + dimensions.gap);
+        const y = dimensions.margin + row * (dimensions.tileHeight + dimensions.gap);
+        return `<g class="application-panel ${kind}-panel" data-panel="${kind}" transform="translate(${x} ${y})"><rect width="${tileWidth}" height="${dimensions.tileHeight}" fill="${color(identity, 'paper', '#FFFFFF')}"/>${renderTile(kind, identity, assets, boardRecipe, tileWidth, dimensions.tileHeight)}</g>`;
+      }).join('');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" viewBox="0 0 ${dimensions.width} ${dimensions.height}" data-board-mode="${composition}" data-board-recipe="${boardRecipe.id}" data-brand="${escapeXml(identity.id)}">
 <defs><style>${fontDefinitions}.display{font-family:'Brand Display';}.body{font-family:'Brand Body';}.accent{font-family:'Brand Accent';}.code{font-family:'Brand Code';}</style>${imageFilter(identity.style.imageTreatment)}</defs>
 <rect width="${dimensions.width}" height="${dimensions.height}" fill="${boardFill}"/>
-${composition === 'catalog' ? renderCompleteCatalog(identity, assets, boardRecipe, dimensions) : order.map((kind, index) => {
-    const column = index % 2;
-    const row = Math.floor(index / 2);
-    const x = dimensions.margin + column * (tileWidth + dimensions.gap);
-    const y = dimensions.margin + row * (dimensions.tileHeight + dimensions.gap);
-    return `<g class="application-panel ${kind}-panel" data-panel="${kind}" transform="translate(${x} ${y})"><rect width="${tileWidth}" height="${dimensions.tileHeight}" fill="${color(identity, 'paper', '#FFFFFF')}"/>${renderTile(kind, identity, assets, boardRecipe, tileWidth, dimensions.tileHeight)}</g>`;
-  }).join('')}
+${boardContent}
 </svg>`;
 }

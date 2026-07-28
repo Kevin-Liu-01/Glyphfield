@@ -1,14 +1,24 @@
 ---
 title: Motion and GIFs
-description: Animate text, images, and shader-masked logos with deterministic timing and downloadable GIF output.
+description: Create frame animation, edit Lottie vectors, and apply live materials in three focused motion workspaces.
 icon: Blend
 ---
 
-Glyphfield includes two motion systems: frame-based Animation and live WebGL Logo shader.
+Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Material for live WebGL motion.
 
 ## Animation
 
-Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Select any state to tune its position, scale, rotation, opacity, typography or image fit without changing the rest of the sequence.
+Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources and layer order on the left, the shared canvas and timeline in the center, and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography or image fit without changing the rest of the sequence.
+
+## Lottie
+
+Lottie is a separate Motion tool with its own vector playback model. Import a local `.lottie` bundle or Lottie JSON document, or begin with the Orbit, Signal, and Geometric Fold examples. Its source library sits to the left of the canvas; playback, appearance, and live-material properties remain visible in the right inspector.
+
+The editor includes play, pause, restart, scrubbing, speed, forward/reverse/bounce modes, looping, interpolation, in/out trimming, contain/cover/fill layout, transparent or solid canvases, and high-resolution frame export. Generic JSON artwork can be recolored directly. `.lottie` bundles retain embedded colors unless they provide their own named themes.
+
+The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation, Material, and Surface Lab. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
+
+## Animation details
 
 The canvas uses direct manipulation: selecting a state pauses on that frame, dragging moves it, arrow keys nudge it by one canvas pixel, Shift + arrow nudges by ten, and the corner handle scales it. Inspector values and canvas gestures update the same persisted frame data.
 
@@ -32,11 +42,13 @@ The playhead is deterministic: preview and export resolve from the same timing m
 
 ### GIF output
 
-Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. Email, HD, and 2× presets are included. New and migrated projects default to the GIF format’s full 256-color palette with RGB565 quantization. The export composites the same mixed sources, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
+Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. Email, HD, and 2× presets are included. New and migrated projects default to the GIF format’s full 256-color palette with RGB565 quantization. The export composites the same text, image, logo, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
 
-## Logo shader
+The same per-frame preparation hook is the basis for Glyphfield's general HTML/canvas-to-GIF pipeline: a source resolves its visual state at an exact timeline position, then the shared renderer captures that state.
 
-Logo shader applies live WebGL material to the background, the alpha-masked logo, or both.
+## Material
+
+Material applies live WebGL motion to the background, the alpha-masked logo, or both. It lives beside Animation in the Motion section so shader work has a focused workspace while Surface Lab remains dedicated to backgrounds and logo applications.
 
 The material engine includes:
 

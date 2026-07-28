@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import BrandVisualAudit from '@/components/BrandVisualAudit';
+import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
@@ -358,7 +359,7 @@ export default function BrandSettingsStudio({
         <div className='brand-identity-content' data-identity={identity.id} role='main'>
           <section className='brand-identity-masthead'>
             <div className='brand-identity-masthead-mark'>
-              {darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}
+              <ThemeAwareBrandMark className='size-[46px]' identity={identity} />
             </div>
             <div className='min-w-0'>
               <h1 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight, letterSpacing: `${displayTypography.letterSpacing}px`, lineHeight: displayTypography.lineHeight }}>{identity.name}</h1>

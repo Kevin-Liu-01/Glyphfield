@@ -5,6 +5,7 @@ import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -57,20 +58,6 @@ function downloadIdentity(identity: BrandIdentity) {
   link.href = url;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function BrandMark({ identity }: { identity: BrandIdentity }) {
-  const path = brandAssetPath(identity, 'mark-dark');
-
-  if (path) {
-    return <img alt='' className='size-full object-contain' src={path} />;
-  }
-
-  return (
-    <span className='grid size-full place-items-center text-2xl font-semibold tracking-[-0.06em]'>
-      {identity.shortName}
-    </span>
-  );
 }
 
 export default function DesignBoard({
@@ -197,7 +184,7 @@ export default function DesignBoard({
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div className='flex items-center gap-3'>
               <div className='grid size-10 place-items-center overflow-hidden rounded-md border border-border p-1.5'>
-                <BrandMark identity={identity} />
+                <ThemeAwareBrandMark className='size-full' identity={identity} />
               </div>
               <div className='min-w-0'>
                 <p className='truncate text-sm font-semibold'>{identity.name}</p>
@@ -349,7 +336,7 @@ export default function DesignBoard({
           </section>
         </aside>
 
-        <div className='tool-canvas min-h-0 overflow-auto'>
+        <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport className='moodboard-canvas' identityId={identity.id} stageClassName='moodboard-canvas-stage p-5 sm:p-8' toolId={tool.id}>
           <div
             aria-label={`${identity.name} ${composition} moodboard with brand foundations and generated applications`}

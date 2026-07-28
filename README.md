@@ -26,13 +26,13 @@
 ## One identity, every surface
 
 Glyphfield keeps the foundations and the outputs in the same system. Define a
-brand once, then use the active identity across 15 focused tools and 66
+brand once, then use the active identity across 14 focused tools and 66
 production touchpoints without rebuilding the context for every artifact.
 
 | Foundation | Expression | Application | Delivery |
 | --- | --- | --- | --- |
 | Logo family | Motion packages | OpenGraph + social | PNG |
-| Color tokens | Live logo shaders | Slides + blog covers | SVG |
+| Color tokens | Material shaders | Slides + blog covers | SVG |
 | Typography | Dither + grain + gradients | Email + product UI | GIF |
 | Voice + positioning | Terminal themes | CLI + documentation | JSON |
 
@@ -92,20 +92,21 @@ flowchart LR
 </table>
 
 Both are generated from the Studio’s reusable animation model: reorderable
-text, logo, and image states; per-frame composition; configurable hold timing;
-cubic-bezier transitions; animated solid, gradient, and shader backgrounds;
-and frame-accurate GIF export.
+text, logo, and image states; per-frame composition;
+configurable hold timing; cubic-bezier transitions; animated solid, gradient,
+and shader backgrounds; and frame-accurate GIF export. Lottie has its own
+focused vector editor for examples, local `.lottie` and JSON imports, trim,
+speed, direction, recoloring, playback, source download, and frame export.
 
 ## Built for real brand work
 
 - Design boards switch between a 16:9 showcase collage—campaign, product,
   social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
   review, with export up to 4800 px wide.
-- Logo Shader combines the supplied ShaderGradient sphere, ten original local
-  GLSL recipes based on the public material techniques documented by Shaders.com, and Studio materials across live
-  backdrops and alpha-masked marks, with still PNG and animated GIF export.
-- Background Lab creates gradients, grain, ordered Bayer dithering, dots,
-  lines, and grids as portable SVG-composed images.
+- Surface Lab combines background and logo modes; Material keeps animated shaders focused under Motion.
+  It creates portable SVG gradients, grain, ordered Bayer dithering, patterns,
+  live ShaderGradient and local GLSL fields, alpha-masked marks, still PNGs,
+  and animated GIFs without duplicating canvas or appearance controls.
 - Studio appearance persists light or dark mode, accent, canvas density, and a
   choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
 - Templates include fourteen slide layouts plus blog, partnership, OpenGraph,

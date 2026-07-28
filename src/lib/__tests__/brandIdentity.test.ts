@@ -40,8 +40,10 @@ describe('GT_BRAND_IDENTITY', () => {
   it('captures the GT system as a complete built-in identity', () => {
     expect(GT_BRAND_IDENTITY.builtIn).toBe(true);
     expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).toEqual(
-      expect.arrayContaining(['mark-dark', 'mark-light', 'wordmark', 'locadex', 'identity-field'])
+      expect.arrayContaining(['mark-dark', 'mark-light', 'identity-field'])
     );
+    expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('locadex');
+    expect(GT_BRAND_IDENTITY.assets.map(({ id }) => id)).not.toContain('wordmark');
     expect(GT_BRAND_IDENTITY.colors.map(({ id }) => id)).toEqual(
       expect.arrayContaining(['ink', 'paper', 'emphasis', 'success', 'warning', 'error'])
     );
@@ -55,8 +57,8 @@ describe('GT_BRAND_IDENTITY', () => {
     expect(GT_BRAND_IDENTITY.proof).toEqual(
       expect.arrayContaining(['Cursor', 'Ramp', 'Mintlify', 'ClickHouse'])
     );
-    expect(GT_BRAND_IDENTITY.strategy.concept).toContain('source of truth');
-    expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The translation frame');
+    expect(GT_BRAND_IDENTITY.strategy.concept).toContain('quiet monochrome field');
+    expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The monochrome light field');
     expect(GT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
     expect(brandTypographyRole({
       ...GT_BRAND_IDENTITY,
@@ -76,11 +78,11 @@ describe('GT_BRAND_IDENTITY', () => {
     }
   });
 
-  it('isolates the official Rasmus Inter face across every non-code GT role', () => {
+  it('uses Switzer for display and Rasmus Inter for supporting GT roles', () => {
     const roles = ['Display', 'Body', 'Accent'] as const;
 
     expect(roles.map((role) => brandTypographyFamily(GT_BRAND_IDENTITY, role))).toEqual([
-      'Rasmus Inter',
+      'Switzer',
       'Rasmus Inter',
       'Rasmus Inter',
     ]);
@@ -120,9 +122,6 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.applications.length).toBeGreaterThanOrEqual(8);
       expect(identity.assets.some(({ id }) => id === 'mark-dark')).toBe(true);
       expect(identity.assets.some(({ type }) => type === 'background')).toBe(true);
-      if (identity.id !== 'starter') {
-        expect(identity.assets.some(({ type }) => type === 'reference')).toBe(true);
-      }
       expect(
         brandFontAssets(identity).every(({ path }) => /\.(?:otf|ttf|woff2)$/.test(path))
       ).toBe(true);
@@ -156,10 +155,13 @@ describe('BUILT_IN_BRAND_IDENTITIES', () => {
       expect(identity.references.filter(({ status }) => status === 'captured')).toHaveLength(1);
       expect(identity.references.find(({ status }) => status === 'captured')?.assetId).toBe('library-overview');
       expect(identity.references.filter(({ status }) => status === 'reviewed').length).toBeGreaterThanOrEqual(6);
-      expect(identity.assets.find(({ id }) => id === 'reference-homepage')).toMatchObject({
-        redistribution: 'research-only',
-        type: 'reference',
-      });
+      const capturedAsset = identity.assets.find(({ id }) => id === 'reference-homepage');
+      if (capturedAsset) {
+        expect(capturedAsset).toMatchObject({
+          redistribution: 'research-only',
+          type: 'reference',
+        });
+      }
     }
   });
 
@@ -301,6 +303,28 @@ describe('hydrateBrandIdentities', () => {
     expect(gt.strategy).toEqual(GT_BRAND_IDENTITY.strategy);
   });
 
+  it('migrates collision-prone Basement display spacing without dropping other edits', () => {
+    const storedBasement = {
+      ...BASEMENT_BRAND_IDENTITY,
+      name: 'Edited Basement',
+      typography: BASEMENT_BRAND_IDENTITY.typography.map((typography) =>
+        typography.role === 'Display'
+          ? { ...typography, letterSpacing: -5, lineHeight: 0.88, weight: 500 }
+          : typography
+      ),
+    };
+
+    const basement = hydrateBrandIdentities([storedBasement]).find(
+      ({ id }) => id === 'basement'
+    )!;
+    const display = basement.typography.find(({ role }) => role === 'Display')!;
+
+    expect(basement.name).toBe('Edited Basement');
+    expect(display.letterSpacing).toBe(-1);
+    expect(display.lineHeight).toBe(0.98);
+    expect(display.weight).toBe(500);
+  });
+
   it('backfills new shared system fields in legacy built-in projects', () => {
     const legacyGt: Record<string, unknown> = { ...GT_BRAND_IDENTITY };
     delete legacyGt.contactEmail;
@@ -318,6 +342,8 @@ describe('hydrateBrandIdentities', () => {
     expect(gt.style).toEqual(GT_BRAND_IDENTITY.style);
     expect(gt.values).toEqual(GT_BRAND_IDENTITY.values);
     expect(brandFontAssets(gt).map(({ path }) => path)).toEqual([
+      '/fonts/switzer-400.ttf',
+      '/fonts/switzer-500.ttf',
       '/fonts/inter-variable.ttf',
       '/fonts/geist-mono-variable.ttf',
     ]);

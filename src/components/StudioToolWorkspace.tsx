@@ -34,6 +34,8 @@ import LogoShaderStudio from '@/components/LogoShaderStudio';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import LiveMaterialControls from '@/components/LiveMaterialControls';
+import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -63,7 +65,8 @@ import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
   DEFAULT_LIVE_MATERIAL_ID,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
-  LIVE_MATERIAL_OPTIONS,
+  brandMaterialPalette,
+  getLiveMaterial,
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
@@ -186,7 +189,7 @@ function ToolShell({
         {actions ? <div className='flex shrink-0 items-center gap-2'>{actions}</div> : null}
       </header>
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
           {inspector}
         </aside>
         <div className='tool-canvas min-h-0 overflow-auto'>{children}</div>
@@ -519,7 +522,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       inspector={inspector}
       tool={tool}
     >
-      <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
+      <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm' onPointerDown={() => setLogoSelected(false)}>
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
           {backgroundAsset.asset || selectedBackground ? (
@@ -570,8 +573,17 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
 
 type LogoSurface = 'white' | 'dark' | 'grid' | 'noise' | 'shader';
 
-function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+function LogoTool({
+  identity,
+  navigation,
+  tool,
+}: {
+  identity: BrandIdentity;
+  navigation?: ReactNode;
+  tool: StudioTool;
+}) {
   const gt = useGT();
+  const defaultPalette = brandMaterialPalette(identity);
   const previewRef = useRef<HTMLDivElement>(null);
   const markPath = brandAssetPath(identity, 'mark-dark');
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
@@ -588,7 +600,17 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
   const [size, setSize] = useStudioDraft<64 | 128>(identity.id, tool.id, 'size', 128);
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
   const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, tool.id, 'material', DEFAULT_LIVE_MATERIAL_ID);
-  const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(identity.id, tool.id, 'material-settings', DEFAULT_LIVE_MATERIAL_SETTINGS);
+  const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(
+    identity.id,
+    tool.id,
+    'material-settings',
+    () => ({
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      colorA: defaultPalette.colors[0],
+      colorB: defaultPalette.colors[1],
+      colorC: defaultPalette.colors[2],
+    })
+  );
   const [appearance, setAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
   const [logoTransform, setLogoTransform] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'logo-transform', { scale: 1, x: 0, y: 0 });
   const [logoSelected, setLogoSelected] = useState(false);
@@ -705,24 +727,13 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
         />
         {surface === 'shader' ? (
           <div className='flex flex-col gap-3 border-t border-border pt-4'>
-            <StudioSelect
-              ariaLabel={gt('Logo background material')}
-              onValueChange={(value) => setMaterialId(value as LiveMaterialId)}
-              options={LIVE_MATERIAL_OPTIONS.map((material) => ({
-                label: `${material.engine} / ${material.name}`,
-                value: material.id,
-              }))}
-              value={materialId}
+            <LiveMaterialControls
+              identity={identity}
+              materialId={materialId}
+              onMaterialIdChange={setMaterialId}
+              onSettingsChange={setMaterialSettings}
+              settings={materialSettings}
             />
-            {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
-              <ColorControl
-                ariaLabel={gt('Material color {number}', { number: index + 1 })}
-                key={key}
-                label={gt('Color {number}', { number: index + 1 })}
-                onChange={(value) => setMaterialSettings((current) => ({ ...current, [key]: value }))}
-                value={materialSettings[key]}
-              />
-            ))}
           </div>
         ) : null}
         <label className='flex items-center justify-between gap-4 text-sm'>
@@ -746,15 +757,18 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
   return (
     <ToolShell
       actions={
-        <Button loading={exporting} onClick={exportLogo} type='button'>
-          <Download aria-hidden='true' />
-          <T>Download logo</T>
-        </Button>
+        <>
+          {navigation}
+          <Button loading={exporting} onClick={exportLogo} type='button'>
+            <Download aria-hidden='true' />
+            <T>Download logo</T>
+          </Button>
+        </>
       }
       inspector={inspector}
       tool={tool}
     >
-      <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-8' toolId={tool.id}>
+      <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-8' toolId={tool.id}>
         <div
           className={`artifact-frame logo-surface logo-surface-${surface} relative grid aspect-square w-full max-w-xl place-items-center overflow-hidden rounded-md`}
           onPointerDown={() => setLogoSelected(false)}
@@ -762,6 +776,12 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
           style={{ '--brand-ink': ink, '--brand-paper': paper } as CSSProperties}
         >
           {surface === 'shader' ? <LiveMaterialCanvas materialId={materialId} settings={materialSettings} /> : null}
+          {surface === 'shader' ? (
+            <LiveMaterialSourceBadge
+              className='pointer-events-none absolute right-3 bottom-3 z-10 border border-white/20 bg-black/55 px-2 py-1 text-white opacity-100 backdrop-blur-sm'
+              engine={getLiveMaterial(materialId).engine}
+            />
+          ) : null}
           <EditableCanvasLayer
             baseHeight={300}
             baseWidth={300}
@@ -790,6 +810,63 @@ function LogoTool({ identity, tool }: { identity: BrandIdentity; tool: StudioToo
       </CanvasViewport>
     </ToolShell>
   );
+}
+
+function SurfaceModeNavigation({
+  mode,
+  onChange,
+}: {
+  mode: 'background' | 'logo';
+  onChange: (mode: 'background' | 'logo') => void;
+}) {
+  return (
+    <div
+      aria-label='Surface Lab mode'
+      className='surface-lab-mode-tabs flex items-center gap-1 rounded-md border border-border bg-background p-1'
+      role='tablist'
+    >
+      {([
+        ['background', 'Background'],
+        ['logo', 'Logo'],
+      ] as const).map(([value, label]) => (
+        <Button
+          aria-selected={mode === value}
+          className='border-0'
+          key={value}
+          onClick={() => onChange(value)}
+          role='tab'
+          size='sm'
+          type='button'
+          variant={mode === value ? 'default' : 'ghost'}
+        >
+          <T>{label}</T>
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function SurfaceTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const [mode, setMode] = useStudioDraft<'background' | 'logo'>(
+    identity.id,
+    tool.id,
+    'mode-v2',
+    'background'
+  );
+  const navigation = <SurfaceModeNavigation mode={mode} onChange={setMode} />;
+  const draftTool: StudioTool = {
+    ...tool,
+    id: mode === 'background' ? 'backgrounds' : 'logo',
+  };
+
+  if (mode === 'background') {
+    return <BackgroundStudio identity={identity} navigation={navigation} tool={draftTool} />;
+  }
+  return <LogoTool identity={identity} navigation={navigation} tool={draftTool} />;
+}
+
+function MaterialTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  return <LogoShaderStudio identity={identity} tool={{ ...tool, id: 'logo-shader' }} />;
 }
 
 type EditableColor = {
@@ -989,8 +1066,12 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   const [codeFontRole, setCodeFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'code-font-role', 'Code');
   const [codeFontWeight, setCodeFontWeight] = useStudioDraft(identity.id, tool.id, 'code-font-weight', brandTypographyRole(identity, 'Code').weight ?? 450);
   const terminalAssets = [...identity.assets, ...identity.proofAssets].filter((asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf'));
-  const defaultTerminalAsset = terminalAssets.find(({ type }) => type === 'background');
-  const [terminalAssetId, setTerminalAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', defaultTerminalAsset?.id ?? 'none');
+  const [terminalAssetId, setTerminalAssetId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'background-asset-id-v2',
+    'none'
+  );
   const [terminalAssetOpacity, setTerminalAssetOpacity] = useStudioDraft(identity.id, tool.id, 'asset-opacity', 14);
   const terminalAsset = terminalAssets.find(({ id }) => id === terminalAssetId);
   const titleTypography = brandTypographyRole(identity, titleFontRole);
@@ -1469,7 +1550,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       inspector={inspector}
       tool={tool}
     >
-      <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
+      <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setSelectedLayer(null)} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
         <div
           className={`artifact-preview ratio-safe template-artboard template-artboard-${kind} relative w-full max-w-5xl overflow-hidden border border-border`}
           onPointerDown={() => setSelectedLayer(null)}
@@ -1560,8 +1641,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
   const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Body');
   const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Body').weight ?? 400);
   const componentAssets = [...identity.assets, ...identity.proofAssets].filter((asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf'));
-  const defaultComponentAsset = componentAssets.find(({ type }) => type === 'background');
-  const [componentAssetId, setComponentAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', defaultComponentAsset?.id ?? 'none');
+  const [componentAssetId, setComponentAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', 'none');
   const [componentAssetOpacity, setComponentAssetOpacity] = useStudioDraft(identity.id, tool.id, 'asset-opacity', 10);
   const componentAsset = componentAssets.find(({ id }) => id === componentAssetId);
   const resolvedDensity = useBrandDefaults ? identity.style.density : density;
@@ -1723,7 +1803,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
           style={{ ...componentPreviewStyle(resolvedRadius, identity), fontFamily: brandTypographyFamily(identity, fontRole), fontWeight: capVisibleFontWeight(fontWeight) }}
         >
           {componentAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={componentAsset.path} style={{ opacity: componentAssetOpacity / 100 }} /> : null}
-          <header className='relative z-10 flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
+          <header className='component-library-header relative z-10 flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
             <div>
               <p className='text-sm font-semibold'>{gt(selectedPatternConfig.label)}</p>
               <p className='mt-1 text-xs capitalize opacity-55'>{family} · {resolvedDensity}</p>
@@ -1774,18 +1854,17 @@ export default function StudioToolWorkspace({
   tool: StudioTool;
 }) {
   const renderers: Partial<Record<StudioToolId, ReactNode>> = {
-    backgrounds: <BackgroundStudio identity={identity} tool={tool} />,
     blog: <TemplateTool identity={identity} kind='blog' tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
     buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
-    logo: <LogoTool identity={identity} tool={tool} />,
-    'logo-shader': <LogoShaderStudio identity={identity} tool={tool} />,
+    material: <MaterialTool identity={identity} tool={tool} />,
     opengraph: <OpenGraphTool identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,
+    surface: <SurfaceTool identity={identity} tool={tool} />,
     terminal: <TerminalTool identity={identity} tool={tool} />,
     typography: <TypographyTool identity={identity} onIdentityChange={onIdentityChange} tool={tool} />,
   };

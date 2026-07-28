@@ -1,24 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="640" viewBox="0 0 2400 640" role="img" aria-labelledby="title description">
-  <title id="title">Translation signal</title>
-  <desc id="description">A black-and-white language signal that moves one message across five writing systems.</desc>
-  <rect width="2400" height="640" fill="#181818"/>
-  <g font-family="Inter, Arial, sans-serif" fill="#fff">
-    <text x="88" y="96" font-size="22" letter-spacing="4" opacity=".5">ONE MESSAGE / MANY LOCALES</text>
-    <path d="M88 322H2312" stroke="#fff" stroke-width="2" opacity=".28"/>
-    <g font-size="66" font-weight="500" text-anchor="middle">
-      <text x="260" y="298">Hello</text>
-      <text x="705" y="298">Hola</text>
-      <text x="1150" y="298">你好</text>
-      <text x="1595" y="298">ようこそ</text>
-      <text x="2040" y="298">مرحباً</text>
-    </g>
-    <g font-size="18" letter-spacing="3" text-anchor="middle" opacity=".5">
-      <text x="260" y="384">EN</text>
-      <text x="705" y="384">ES</text>
-      <text x="1150" y="384">ZH</text>
-      <text x="1595" y="384">JA</text>
-      <text x="2040" y="384">AR</text>
-    </g>
-    <circle cx="2312" cy="322" r="10" fill="#fff"/>
-  </g>
+  <title id="title">Dithered light field</title>
+  <desc id="description">A broad, soft white signal fades into black through fine dither.</desc>
+  <defs>
+    <radialGradient id="light" cx="50%" cy="50%" r="60%"><stop stop-color="#fff"/><stop offset=".24" stop-color="#ddd"/><stop offset=".58" stop-color="#555"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <pattern id="dither" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#000" fill-opacity=".18"/></pattern>
+  </defs>
+  <rect width="2400" height="640" fill="url(#light)"/>
+  <rect width="2400" height="640" fill="url(#dither)"/>
 </svg>

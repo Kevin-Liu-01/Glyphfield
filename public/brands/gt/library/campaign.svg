@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Soft light study</title>
+  <desc id="description">A quiet black-and-white field held inside one matte plane.</desc>
+  <defs>
+    <radialGradient id="light" cx="50%" cy="48%" r="58%"><stop stop-color="#fff"/><stop offset=".24" stop-color="#e7e7e7"/><stop offset=".62" stop-color="#777"/><stop offset="1" stop-color="#111"/></radialGradient>
+    <pattern id="dither" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".65" fill="#000" fill-opacity=".15"/></pattern>
+  </defs>
+  <rect width="1600" height="900" fill="#f4f4f4"/>
+  <rect x="286" y="150" width="1028" height="600" rx="10" fill="url(#light)"/>
+  <rect x="286" y="150" width="1028" height="600" rx="10" fill="url(#dither)"/>
+</svg>

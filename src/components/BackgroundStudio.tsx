@@ -1,23 +1,28 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasLayerPanel from '@/components/CanvasLayerPanel';
 import EditableCanvasLayer, { alignCanvasLayer, type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
+import LiveMaterialControls from '@/components/LiveMaterialControls';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
+import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
+  BACKGROUND_PRESETS,
   DEFAULT_BACKGROUND_SETTINGS,
   buildBackgroundSvg,
+  type BackgroundDitherShape,
   type BackgroundGradient,
   type BackgroundPattern,
   type BackgroundSettings,
@@ -27,9 +32,8 @@ import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
-  LIVE_MATERIAL_OPTIONS,
-  type LiveMaterialId,
-  type LiveMaterialSettings,
+  brandMaterialPalette,
+  getLiveMaterial,
 } from '@/lib/liveMaterials';
 import { DEFAULT_LOGO_APPEARANCE, drawLogoAppearanceLayer, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
@@ -78,12 +82,21 @@ function RangeControl({
 
 export default function BackgroundStudio({
   identity,
+  navigation,
   tool,
 }: {
   identity: BrandIdentity;
+  navigation?: ReactNode;
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const defaultPalette = brandMaterialPalette(identity);
+  const defaultLiveSettings = {
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    colorA: defaultPalette.colors[0],
+    colorB: defaultPalette.colors[1],
+    colorC: defaultPalette.colors[2],
+  };
   const liveLayerRef = useRef<HTMLDivElement>(null);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
@@ -93,13 +106,11 @@ export default function BackgroundStudio({
   const availableBrandAssets = [...identity.assets, ...identity.proofAssets].filter(
     (asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf')
   );
-  const defaultBrandAsset = availableBrandAssets.find(({ type }) => type === 'background')
-    ?? availableBrandAssets.find(({ type }) => type === 'texture');
   const [brandAssetId, setBrandAssetId] = useStudioDraft(
     identity.id,
     tool.id,
     'brand-asset-id',
-    defaultBrandAsset?.id ?? 'none'
+    'none'
   );
   const [brandAssetOpacity, setBrandAssetOpacity] = useStudioDraft(
     identity.id,
@@ -120,8 +131,10 @@ export default function BackgroundStudio({
     'settings',
     () => ({
       ...DEFAULT_BACKGROUND_SETTINGS,
-      colorA: identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF',
-      colorB: identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#181818',
+      colorA: defaultPalette.colors[0],
+      colorB: defaultPalette.colors[1],
+      colorC: defaultPalette.colors[2],
+      liveSettings: defaultLiveSettings,
     })
   );
   const settings = {
@@ -129,12 +142,28 @@ export default function BackgroundStudio({
     ...storedSettings,
     liveMaterialId: storedSettings.liveMaterialId ?? DEFAULT_BACKGROUND_SETTINGS.liveMaterialId!,
     liveSettings: {
-      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      ...defaultLiveSettings,
       ...storedSettings.liveSettings,
     },
   };
+  const backgroundPresets = [
+    {
+      description: defaultPalette.description,
+      id: defaultPalette.id,
+      name: defaultPalette.name,
+      settings: {
+        colorA: defaultPalette.colors[0],
+        colorB: defaultPalette.colors[1],
+        colorC: defaultPalette.colors[2],
+      },
+    },
+    ...BACKGROUND_PRESETS,
+  ];
   const selectedSizePreset = SIZE_PRESETS.find(
     ({ height, width }) => height === settings.height && width === settings.width
+  );
+  const selectedBackgroundPreset = backgroundPresets.find(({ settings: preset }) =>
+    Object.entries(preset).every(([key, value]) => settings[key as keyof BackgroundSettings] === value)
   );
   const sizeOptions = [
     ...(selectedSizePreset
@@ -177,17 +206,6 @@ export default function BackgroundStudio({
 
   function updateSettings(patch: Partial<BackgroundSettings>) {
     setStoredSettings((current) => ({ ...current, ...patch }));
-  }
-
-  function updateLiveSettings(patch: Partial<LiveMaterialSettings>) {
-    setStoredSettings((current) => ({
-      ...current,
-      liveSettings: {
-        ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-        ...current.liveSettings,
-        ...patch,
-      },
-    }));
   }
 
   function selectCustomLogo(file: File) {
@@ -311,6 +329,7 @@ export default function BackgroundStudio({
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
+          {navigation}
           <Button loading={exporting} onClick={exportPng} type='button'>
             <Download aria-hidden='true' />
             <T>Download PNG</T>
@@ -319,13 +338,31 @@ export default function BackgroundStudio({
       </header>
 
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
               <h2 className='text-sm font-semibold'><T>Surface</T></h2>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                <T>Build an exportable field from SVG layers or live GPU materials.</T>
+                <T>Build an exportable field from SVG layers or live rendered materials.</T>
               </p>
+            </div>
+            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <T>Preset</T>
+              <StudioSelect
+                ariaLabel={gt('Background preset')}
+                onValueChange={(value) => {
+                  const preset = backgroundPresets.find(({ id }) => id === value);
+                  if (preset) updateSettings(preset.settings);
+                }}
+                options={[
+                  ...(selectedBackgroundPreset ? [] : [{ label: gt('Custom'), value: 'custom' }]),
+                  ...backgroundPresets.map((preset) => ({ label: preset.name, value: preset.id })),
+                ]}
+                value={selectedBackgroundPreset?.id ?? 'custom'}
+              />
+              {selectedBackgroundPreset ? (
+                <p className='text-xs leading-5'>{selectedBackgroundPreset.description}</p>
+              ) : null}
             </div>
             <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Recipe</T>
@@ -359,39 +396,32 @@ export default function BackgroundStudio({
                 options={[
                   { label: gt('Linear'), value: 'linear' },
                   { label: gt('Radial'), value: 'radial' },
+                  { label: gt('Bands'), value: 'mesh' },
+                  { label: gt('Orbit'), value: 'orbit' },
+                  { label: gt('Wave'), value: 'wave' },
                 ]}
                 value={settings.gradient}
               />
             </div>
             {settings.style === 'live-shader' ? (
-              <div className='flex flex-col gap-3'>
-                <StudioSelect
-                  ariaLabel={gt('Live material')}
-                  onValueChange={(value) => updateSettings({ liveMaterialId: value as LiveMaterialId })}
-                  options={LIVE_MATERIAL_OPTIONS.map((material) => ({
-                    label: `${material.engine} / ${material.name}`,
-                    value: material.id,
-                  }))}
-                  value={settings.liveMaterialId}
-                />
-                {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
-                  <ColorControl
-                    ariaLabel={gt('Material color {number}', { number: index + 1 })}
-                    key={key}
-                    label={gt('Color {number}', { number: index + 1 })}
-                    onChange={(value) => updateLiveSettings({ [key]: value })}
-                    value={settings.liveSettings[key]}
-                  />
-                ))}
-                <RangeControl label={gt('Speed')} max={2} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.05} suffix='×' value={settings.liveSettings.speed} />
-                <RangeControl label={gt('Strength')} max={2} min={0} onChange={(strength) => updateLiveSettings({ strength })} step={0.05} suffix='' value={settings.liveSettings.strength} />
-                <RangeControl label={gt('Grain')} max={100} min={0} onChange={(grain) => updateLiveSettings({ grain })} suffix='%' value={settings.liveSettings.grain} />
-              </div>
+              <LiveMaterialControls
+                identity={identity}
+                materialId={settings.liveMaterialId}
+                onMaterialIdChange={(liveMaterialId) => updateSettings({ liveMaterialId })}
+                onSettingsChange={(liveSettings) => updateSettings({ liveSettings })}
+                settings={settings.liveSettings}
+              />
             ) : (
               <div className='grid gap-3'>
+                <MaterialPalettePresets
+                  identity={identity}
+                  onSelect={([colorA, colorB, colorC]) => updateSettings({ colorA, colorB, colorC })}
+                  value={[settings.colorA, settings.colorB, settings.colorC]}
+                />
                 {([
                   ['colorA', 'Color A'],
                   ['colorB', 'Color B'],
+                  ['colorC', 'Color C'],
                 ] as const).map(([key, label]) => (
                   <ColorControl
                     ariaLabel={gt(label)}
@@ -404,17 +434,52 @@ export default function BackgroundStudio({
               </div>
             )}
             {settings.style === 'live-shader' ? null : <RangeControl label={gt('Angle')} max={180} min={0} onChange={(angle) => updateSettings({ angle })} suffix='°' value={settings.angle} />}
+            {settings.style !== 'live-shader' && ['radial', 'orbit'].includes(settings.gradient) ? (
+              <div className='grid grid-cols-2 gap-3'>
+                <RangeControl label={gt('Focus X')} max={100} min={0} onChange={(focalX) => updateSettings({ focalX })} suffix='%' value={settings.focalX} />
+                <RangeControl label={gt('Focus Y')} max={100} min={0} onChange={(focalY) => updateSettings({ focalY })} suffix='%' value={settings.focalY} />
+              </div>
+            ) : null}
+            {settings.style !== 'live-shader' && settings.gradient === 'mesh' ? (
+              <div className='grid gap-3'>
+                <label className='flex items-center justify-between gap-4 text-sm'>
+                  <T>Band lighting</T>
+                  <input
+                    aria-label={gt('Band lighting')}
+                    checked={settings.lightingEnabled}
+                    onChange={(event) => updateSettings({ lightingEnabled: event.target.checked })}
+                    type='checkbox'
+                  />
+                </label>
+                <RangeControl label={gt('Peak position')} max={95} min={5} onChange={(focalX) => updateSettings({ focalX })} suffix='%' value={settings.focalX} />
+                <RangeControl label={gt('Band count')} max={24} min={3} onChange={(bandCount) => updateSettings({ bandCount })} suffix='' value={settings.bandCount} />
+                <RangeControl label={gt('Band depth')} max={100} min={0} onChange={(bandDepth) => updateSettings({ bandDepth })} suffix='%' value={settings.bandDepth} />
+                <RangeControl label={gt('Band gap')} max={32} min={0} onChange={(bandGap) => updateSettings({ bandGap })} suffix='px' value={settings.bandGap} />
+              </div>
+            ) : null}
+            {settings.style !== 'live-shader' && ['wave', 'orbit'].includes(settings.gradient) ? (
+              <RangeControl label={gt('Relief')} max={80} min={0} onChange={(relief) => updateSettings({ relief })} suffix='%' value={settings.relief} />
+            ) : null}
             {settings.style === 'grain-gradient' ? (
               <RangeControl label={gt('Grain')} max={70} min={0} onChange={(grain) => updateSettings({ grain })} suffix='%' value={settings.grain} />
             ) : null}
             {settings.style === 'dither' ? (
-              <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
-                <T>Bayer matrix</T>
-                <StudioSelect ariaLabel={gt('Bayer matrix')} onValueChange={(value) => updateSettings({ ditherMatrix: Number(value) as 2 | 4 | 8 })} options={[
-                  { label: '2 × 2', value: '2' },
-                  { label: '4 × 4', value: '4' },
-                  { label: '8 × 8', value: '8' },
-                ]} value={String(settings.ditherMatrix)} />
+              <div className='grid gap-3'>
+                <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+                  <T>Dither shape</T>
+                  <StudioSelect ariaLabel={gt('Dither shape')} onValueChange={(value) => updateSettings({ ditherShape: value as BackgroundDitherShape })} options={[
+                    { label: gt('Halftone dots'), value: 'dots' },
+                    { label: gt('Pixel squares'), value: 'squares' },
+                  ]} value={settings.ditherShape} />
+                </div>
+                <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+                  <T>Bayer matrix</T>
+                  <StudioSelect ariaLabel={gt('Bayer matrix')} onValueChange={(value) => updateSettings({ ditherMatrix: Number(value) as 2 | 4 | 8 })} options={[
+                    { label: '2 × 2', value: '2' },
+                    { label: '4 × 4', value: '4' },
+                    { label: '8 × 8', value: '8' },
+                  ]} value={String(settings.ditherMatrix)} />
+                </div>
               </div>
             ) : null}
           </section>
@@ -523,8 +588,8 @@ export default function BackgroundStudio({
           </section>
         </aside>
 
-        <div className='tool-canvas min-h-0 overflow-auto'>
-          <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
+        <div className='tool-canvas min-h-0 overflow-hidden'>
+          <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
             {settings.style === 'live-shader' ? (
               <div
@@ -609,9 +674,16 @@ export default function BackgroundStudio({
             )}
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
               <p className='text-sm font-medium'>{settings.style.replace('-', ' ')}</p>
-              <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
-                {settings.style === 'live-shader' ? 'GPU material' : 'SVG layers'} / {settings.width} × {settings.height}
-              </p>
+              <div className='flex items-center gap-4 text-muted-foreground'>
+                <p className='font-mono text-[10px] uppercase tracking-wider'>
+                  {settings.style === 'live-shader'
+                    ? settings.liveMaterialId === 'glyphfield-glyph-field' ? 'Canvas material' : 'GPU material'
+                    : 'SVG layers'} / {settings.width} × {settings.height}
+                </p>
+                {settings.style === 'live-shader' ? (
+                  <LiveMaterialSourceBadge engine={getLiveMaterial(settings.liveMaterialId).engine} />
+                ) : null}
+              </div>
             </div>
           </div>
           </CanvasViewport>

@@ -9,11 +9,11 @@ icon: TableProperties
 | Brand settings | Persistent identity | Identity object in every request |
 | Brand elements | JSON brief | `element-brief` JSON |
 | Moodboard | PNG, identity JSON | Browser only |
-| Animation | GIF | Browser only |
-| Logo shader | PNG, GIF | Browser only |
+| Animation | GIF from text, image, and logo sequences with live per-frame materials | Browser only |
+| Lottie | Edited JSON or `.lottie`, high-resolution frame PNG composited over solid, transparent, or live-material backgrounds | Browser only |
+| Material | PNG and animated GIF | Browser only |
+| Surface Lab | PNG; static background SVG through generation API | `background` SVG for deterministic recipes |
 | OpenGraph | PNG | Compose with template/background SVG |
-| Logo lab | PNG | Embed preset/custom logo in generated SVG |
-| Background lab | PNG | `background` SVG |
 | Color tokens | Copied CSS tokens | Identity HEX fields |
 | Typography | Browser preview, local font | Documented font stack only |
 | Terminal card | PNG | Browser only |
@@ -31,7 +31,7 @@ icon: TableProperties
 | Editable layers | Select, drag, resize, keyboard nudge | Transform values feed the same renderer used for export |
 | Layer panel | Reorder, six-way alignment, reset, boundary-disabled actions | Layer order and transforms saved per project and template |
 | Material finishes | Reflections, shadows, borders, glass, and presets | Finish object travels with animation and shader settings |
-| Uploaded assets | Logos, fonts, backgrounds, and partner marks | Object URLs remain local; supported exports embed resolved data |
+| Uploaded assets | Logos, fonts, backgrounds, partner marks, Lottie JSON, and `.lottie` bundles | Sources remain local; supported exports embed resolved visual frames |
 
 ## Browser-only reasons
 

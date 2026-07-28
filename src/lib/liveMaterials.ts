@@ -1,5 +1,11 @@
+import type { BrandIdentity } from './brandIdentity';
+
 export type LiveMaterialId =
   | 'shadergradient-prismatic-sphere'
+  | 'glyphfield-glyph-field'
+  | 'glyphfield-mesh-gradient'
+  | 'glyphfield-grain-gradient'
+  | 'glyphfield-dither-gradient'
   | 'shaders-pixel-beams'
   | 'shaders-soft-register'
   | 'shaders-spectral-bloom'
@@ -30,7 +36,7 @@ export type LiveMaterialSettings = {
 
 export type LiveMaterialOption = {
   description: string;
-  engine: 'ShaderGradient' | 'Shaders.com study';
+  engine: 'ShaderGradient' | 'Shaders.com study' | 'Glyphfield';
   id: LiveMaterialId;
   name: string;
 };
@@ -40,6 +46,14 @@ export type LiveMaterialPalette = {
   description: string;
   id: string;
   name: string;
+};
+
+export type LiveMaterialLookPreset = {
+  description: string;
+  id: string;
+  materialId: LiveMaterialId;
+  name: string;
+  settings: Partial<LiveMaterialSettings>;
 };
 
 export const SHADER_GRADIENT_SOURCE_URL =
@@ -77,12 +91,116 @@ export const LIVE_MATERIAL_PALETTES: readonly LiveMaterialPalette[] = [
   { colors: ['#07112F', '#345DFF', '#A7D8FF'], description: 'Saturated cobalt with a soft atmospheric bloom.', id: 'cobalt-bloom', name: 'Cobalt bloom' },
 ];
 
+export const LIVE_MATERIAL_LOOK_PRESETS: readonly LiveMaterialLookPreset[] = [
+  {
+    description: 'A restrained mesh with broad color movement and a fine surface grain.',
+    id: 'quiet-mesh',
+    materialId: 'glyphfield-mesh-gradient',
+    name: 'Quiet mesh',
+    settings: { amplitude: 1.8, brightness: 0.86, density: 0.72, detail: 2.2, frequency: 3.4, grain: 14, speed: 0.18, strength: 0.28 },
+  },
+  {
+    description: 'Architectural black-card reflections with narrow highlights and restrained motion.',
+    id: 'polished-chrome',
+    materialId: 'shaders-fluid-chrome',
+    name: 'Polished chrome',
+    settings: { amplitude: 2.2, brightness: 0.82, density: 0.7, detail: 4.8, frequency: 4.2, grain: 8, rotationZ: 8, speed: 0.12, strength: 0.46 },
+  },
+  {
+    description: 'A soft, pigment-like field with visible paper grain and slow atmospheric drift.',
+    id: 'soft-grain',
+    materialId: 'glyphfield-grain-gradient',
+    name: 'Soft grain',
+    settings: { amplitude: 2.6, brightness: 0.92, density: 0.9, detail: 2.8, frequency: 3.2, grain: 42, speed: 0.16, strength: 0.34 },
+  },
+  {
+    description: 'A crisp ordered-dither field with graphic contrast and a steady directional flow.',
+    id: 'graphic-dither',
+    materialId: 'glyphfield-dither-gradient',
+    name: 'Graphic dither',
+    settings: { amplitude: 3.4, brightness: 0.9, density: 1.1, detail: 3.6, frequency: 5.8, grain: 56, rotationZ: 18, speed: 0.24, strength: 0.62 },
+  },
+  {
+    description: 'A luminous radial field with focused spectral energy and a polished highlight.',
+    id: 'spectral-focus',
+    materialId: 'shaders-spectral-bloom',
+    name: 'Spectral focus',
+    settings: { amplitude: 4.2, brightness: 1.08, density: 0.78, detail: 4.4, frequency: 6.4, grain: 18, rotationZ: 32, speed: 0.38, strength: 0.74 },
+  },
+  {
+    description: 'A dense glyph volume with deliberate depth, measured movement, and a clean silhouette.',
+    id: 'deep-glyph-field',
+    materialId: 'glyphfield-glyph-field',
+    name: 'Deep glyph field',
+    settings: { amplitude: 4.8, brightness: 0.88, density: 1.28, detail: 5.2, frequency: 4.8, grain: 22, rotationX: 8, rotationY: 22, rotationZ: 0, speed: 0.2, strength: 0.58 },
+  },
+  {
+    description: 'High-contrast directional energy with sharper repetition and faster motion.',
+    id: 'kinetic-signal',
+    materialId: 'shaders-pistons',
+    name: 'Kinetic signal',
+    settings: { amplitude: 5.6, brightness: 1.12, density: 1.2, detail: 5.8, frequency: 7.6, grain: 20, rotationZ: 26, speed: 0.62, strength: 1.05 },
+  },
+];
+
+export function liveMaterialLookPreset(id: string): LiveMaterialLookPreset | undefined {
+  return LIVE_MATERIAL_LOOK_PRESETS.find((preset) => preset.id === id);
+}
+
+export function brandMaterialPalette(
+  identity: Pick<BrandIdentity, 'colors' | 'id' | 'name' | 'shortName'>
+): LiveMaterialPalette {
+  const label = identity.shortName.length > 1 ? identity.shortName : identity.name;
+  const colorById = (...ids: string[]) =>
+    ids
+      .map((id) => identity.colors.find((color) => color.id === id)?.hex)
+      .find((color): color is string => color !== undefined);
+  const ink = colorById('ink', 'error', 'progress') ?? identity.colors[0]?.hex ?? '#181818';
+  const accent = colorById('emphasis', 'primary', 'success', 'progress')
+    ?? identity.colors.find(({ hex }) => hex !== ink)?.hex
+    ?? '#737373';
+  const highlight = colorById('paper', 'warning', 'success', 'muted')
+    ?? identity.colors.find(({ hex }) => hex !== ink && hex !== accent)?.hex
+    ?? '#FFFFFF';
+
+  return {
+    colors: [ink, accent, highlight],
+    description: `The active ${identity.name} color system, applied as the default material palette.`,
+    id: `brand-${identity.id}`,
+    name: `${label} colors`,
+  };
+}
+
 export const LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
   {
     description: 'The supplied animated sphere preset with environment light and film grain.',
     engine: 'ShaderGradient',
     id: 'shadergradient-prismatic-sphere',
     name: 'Prismatic sphere',
+  },
+  {
+    description: 'A spatial letterform built from hundreds of live glyphs, with editable depth, motion, density, and color.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-glyph-field',
+    name: 'Glyph field',
+  },
+  {
+    description: 'An original three-color mesh field with broad, editable focal movement.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-mesh-gradient',
+    name: 'Mesh gradient',
+  },
+  {
+    description: 'A tactile gradient with animated pigment movement and integrated film grain.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-grain-gradient',
+    name: 'Grain gradient',
+  },
+  {
+    description: 'A three-color flow resolved through a crisp ordered-dither matrix.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-dither-gradient',
+    name: 'Dither gradient',
   },
   {
     description: 'Plasma sliced through an adjustable ordered-dither field.',
@@ -109,10 +227,10 @@ export const LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
     name: 'Pistons',
   },
   {
-    description: 'A refractive glass lens over an animated swirl and flow field.',
+    description: 'Architectural chrome shaped by dark reflection cards, narrow strip lights, and restrained movement.',
     engine: 'Shaders.com study',
     id: 'shaders-fluid-chrome',
-    name: 'Fluid Chrome',
+    name: 'Architectural Chrome',
   },
   {
     description: 'Directional chroma movement viewed through fluted glass.',

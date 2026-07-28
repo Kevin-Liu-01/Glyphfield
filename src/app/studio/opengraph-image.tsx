@@ -1,12 +1,14 @@
 import { ImageResponse } from 'next/og';
 
 import BrandOpenGraphImage, { OPEN_GRAPH_SIZE } from '@/components/BrandOpenGraphImage';
+import { getOpenGraphFonts } from '@/lib/openGraphFonts';
 
 export const alt = 'Glyphfield Studio — build the identity, then make everything else';
 export const contentType = 'image/png';
+export const runtime = 'nodejs';
 export const size = OPEN_GRAPH_SIZE;
 
-export default function OpenGraphImage() {
+export default async function OpenGraphImage() {
   return new ImageResponse(
     <BrandOpenGraphImage
       accent='#20d8c7'
@@ -15,6 +17,6 @@ export default function OpenGraphImage() {
       kicker='Interactive workspace'
       title='Build the identity. Make everything else.'
     />,
-    size
+    { ...size, fonts: await getOpenGraphFonts() }
   );
 }

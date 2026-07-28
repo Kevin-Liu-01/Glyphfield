@@ -22,10 +22,13 @@ describe('filterStudioTools', () => {
       'design-board'
     );
     expect(filterStudioTools(STUDIO_TOOLS, 'shader').map(({ id }) => id)).toContain(
-      'logo-shader'
+      'material'
+    );
+    expect(filterStudioTools(STUDIO_TOOLS, 'lottie').map(({ id }) => id)).toContain(
+      'lottie'
     );
     expect(filterStudioTools(STUDIO_TOOLS, 'dither').map(({ id }) => id)).toContain(
-      'backgrounds'
+      'surface'
     );
     expect(filterStudioTools(STUDIO_TOOLS, 'lanyard').map(({ id }) => id)).toContain(
       'brand-elements'
@@ -35,6 +38,22 @@ describe('filterStudioTools', () => {
   it('returns the full navigable catalog for an empty query', () => {
     expect(filterStudioTools(STUDIO_TOOLS, '')).toHaveLength(STUDIO_TOOLS.length);
     expect(new Set(STUDIO_TOOLS.map(({ id }) => id)).size).toBe(STUDIO_TOOLS.length);
+  });
+
+  it('keeps surface unified while exposing material as focused motion', () => {
+    expect(STUDIO_TOOLS.filter(({ id }) => id === 'surface')).toHaveLength(1);
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'material')?.category).toBe('Motion');
+    expect(STUDIO_TOOLS.map(({ id }) => id)).not.toEqual(
+      expect.arrayContaining(['logo', 'logo-shader', 'backgrounds'])
+    );
+  });
+
+  it('keeps Lottie as a dedicated motion tool', () => {
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'lottie')).toMatchObject({
+      category: 'Motion',
+      name: 'Lottie',
+    });
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'animation')?.keywords).not.toContain('lottie');
   });
 });
 

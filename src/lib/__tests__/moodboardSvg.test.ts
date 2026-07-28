@@ -61,7 +61,8 @@ describe('buildMoodboardSvg', () => {
     expect(svg).toContain('data-panel="palette"');
     expect(svg).toContain('data-panel="system"');
     expect(svg).toContain('data:image/svg+xml;base64,library-system');
-    expect(svg).toContain('<rect width="1600" height="2000" fill="#C8C8C2"/>');
+    expect(svg).toContain('<rect width="1600" height="2000" fill="#1A1A1A"/>');
+    expect(svg).toContain('id="gt-fine-dither"');
     expect(svg).not.toContain('preserveAspectRatio="xMidYMid slice"');
     expect(svg).not.toContain('LIVE REFERENCE');
     expect(svg).not.toContain('CAPTURED');
@@ -74,9 +75,16 @@ describe('buildMoodboardSvg', () => {
     expect(svg.match(/class="application-panel/g)).toHaveLength(6);
     expect(svg).toContain('data-panel="hero"');
     expect(svg).toContain('data-panel="triptych"');
+    expect(svg).toContain('data-panel="logo"');
     expect(svg).toContain('data-panel="application"');
-    expect(svg).not.toContain('data:image/svg+xml;base64,library-hero');
-    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(svg).toContain('data-panel="system"');
+    expect(svg).toContain('<rect width="1600" height="900" fill="#C8C8C2"/>');
+    expect(svg).toContain('id="gt-hero-field"');
+    expect(svg).toContain('id="gt-hero-dither"');
+    expect(svg).toContain('Language, in sync.');
+    expect(svg).not.toContain('ONE SOURCE / EVERY LANGUAGE');
+    expect(svg).not.toContain('id="gt-hero-fade"');
+    expect(svg).toContain('preserveAspectRatio="xMinYMid meet"');
     expect(svg).not.toContain('opacity=".94"');
     expect(svg).not.toContain('/screenshots/');
     expect(svg).not.toContain('/references/');
@@ -101,7 +109,7 @@ describe('buildMoodboardSvg', () => {
 
   it('escapes identity copy before placing it in the SVG', () => {
     const svg = buildMoodboardSvg(
-      { ...GT_BRAND_IDENTITY, tagline: 'A&B <Studio>' },
+      { ...GT_BRAND_IDENTITY, id: 'custom', tagline: 'A&B <Studio>' },
       assets,
       'showcase'
     );

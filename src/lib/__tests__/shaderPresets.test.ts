@@ -7,7 +7,15 @@ describe('SHADER_PRESETS', () => {
     expect(SHADER_PRESETS.length).toBeGreaterThanOrEqual(8);
     expect(new Set(SHADER_PRESETS.map(({ id }) => id)).size).toBe(SHADER_PRESETS.length);
     expect(SHADER_PRESETS.map(({ id }) => id)).toEqual(
-      expect.arrayContaining(['liquid-metal', 'mercury', 'brushed-steel'])
+      expect.arrayContaining([
+        'liquid-metal',
+        'polished-chrome',
+        'brushed-aluminum',
+        'black-nickel',
+        'satin-steel',
+        'mercury',
+        'brushed-steel',
+      ])
     );
 
     for (const preset of SHADER_PRESETS) {

@@ -105,6 +105,23 @@ export function resolveTimeline(
   };
 }
 
+export function resolveContinuousSourceFrame(
+  position: TimelinePosition,
+  timing: Pick<TimelineTiming, 'holdMs' | 'transitionMs'>,
+  totalFrames: number
+): number {
+  const lastFrame = Math.max(0, totalFrames - 1);
+  if (lastFrame === 0) return 0;
+
+  const holdMs = Math.max(1, timing.holdMs);
+  const segmentMs = holdMs + Math.max(0, timing.transitionMs);
+  const segmentElapsed = position.elapsedMs - position.index * segmentMs;
+  const progress = position.phase === 'transition'
+    ? 1
+    : clamp(segmentElapsed / holdMs, 0, 1);
+  return progress * lastFrame;
+}
+
 function normalizeGifDuration(durationMs: number): number {
   return Math.max(10, Math.round(durationMs / 10) * 10);
 }
@@ -125,8 +142,9 @@ export function buildFrameSchedule({
   fps,
   holdMs,
   itemCount,
+  sampleHoldFrames = false,
   transitionMs,
-}: TimelineTiming & { fps: number }): FrameSchedule[] {
+}: TimelineTiming & { fps: number; sampleHoldFrames?: boolean }): FrameSchedule[] {
   if (itemCount <= 0) return [];
 
   const frameDuration = normalizeGifDuration(1000 / clamp(fps, 1, 60));
@@ -135,7 +153,9 @@ export function buildFrameSchedule({
   const transitionDuration = hasTransition
     ? normalizeGifDuration(transitionMs)
     : 0;
-  const holdFrameCount = 1;
+  const holdFrameCount = sampleHoldFrames
+    ? Math.max(1, Math.round(holdDuration / frameDuration))
+    : 1;
   const transitionFrameCount =
     !hasTransition
       ? 0

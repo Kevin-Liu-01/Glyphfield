@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Glass metal frame</title>
+  <desc id="description">A precise assembly of black glass planes and brushed chrome rails.</desc>
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2=".12"><stop stop-color="#080a0b"/><stop offset=".14" stop-color="#25292b"/><stop offset=".29" stop-color="#aeb2b4"/><stop offset=".335" stop-color="#fafafa"/><stop offset=".38" stop-color="#6e7375"/><stop offset=".49" stop-color="#111416"/><stop offset=".68" stop-color="#606568"/><stop offset=".79" stop-color="#dfe2e3"/><stop offset=".825" stop-color="#fff"/><stop offset=".86" stop-color="#7a7f82"/><stop offset="1" stop-color="#0a0c0d"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".12"/><stop offset=".42" stop-color="#8d9498" stop-opacity=".05"/><stop offset=".58" stop-color="#fff" stop-opacity=".14"/><stop offset="1" stop-color="#fff" stop-opacity=".025"/></linearGradient>
+    <linearGradient id="reflection"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".48" stop-color="#fff" stop-opacity=".42"/><stop offset=".53" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="brushed" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".82 .006" numOctaves="2" seed="19" result="grain"/><feColorMatrix in="grain" values=".333 .333 .333 0 0 .333 .333 .333 0 0 .333 .333 .333 0 0 0 0 0 .105 0" result="grainTone"/><feBlend in="SourceGraphic" in2="grainTone" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="#050607"/>
+  <rect x="566" y="104" width="850" height="692" rx="24" fill="url(#glass)" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="606" y="144" width="770" height="612" rx="16" fill="#080a0b" fill-opacity=".68" stroke="#fff" stroke-opacity=".08"/>
+  <g filter="url(#brushed)"><rect x="478" y="226" width="738" height="142" rx="10" fill="url(#chrome)"/><rect x="1018" y="226" width="142" height="474" rx="10" fill="url(#chrome)"/><rect x="728" y="558" width="432" height="142" rx="10" fill="url(#chrome)"/></g>
+  <rect x="728" y="368" width="290" height="190" rx="10" fill="#030405" stroke="#fff" stroke-opacity=".24"/>
+  <rect x="600" y="144" width="70" height="612" fill="url(#reflection)" opacity=".48"/>
+  <path d="M478 368H1018M1160 226V700M728 558V700" fill="none" stroke="#fff" stroke-opacity=".26"/>
+</svg>

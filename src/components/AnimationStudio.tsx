@@ -4,14 +4,19 @@ import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
+import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import StudioControls from '@/components/StudioControls';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
+import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
-import { cycleDurationMs, resolveTimeline } from '@/lib/animation';
+import {
+  cycleDurationMs,
+  resolveTimeline,
+} from '@/lib/animation';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
 import { renderFrame, type StudioSource } from '@/lib/renderFrame';
@@ -123,7 +128,10 @@ export default function AnimationStudio({
     'frame-settings',
     {}
   );
-  const [selectedSourceId, setSelectedSourceId] = useState('brand-logo');
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [selectedEffectTarget, setSelectedEffectTarget] = useState<
+    'background' | 'content'
+  >('content');
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackRate, setPlaybackRate] = useStudioDraft(
     identityId,
@@ -136,7 +144,9 @@ export default function AnimationStudio({
   const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
+  useCanvasSelectionDismiss(canvasSelectionRef, () => setSelectedSourceId(null));
 
   const textSources = useMemo<StudioSource[]>(
     () =>
@@ -178,7 +188,7 @@ export default function AnimationStudio({
     [baseSources, frameSettings, sequenceOrder, settings]
   );
   const selectedSource =
-    sources.find((source) => source.id === selectedSourceId) ?? sources[0] ?? null;
+    sources.find((source) => source.id === selectedSourceId) ?? null;
   const selectedFrameSettings = selectedSource
     ? frameSettings[selectedSource.id] ?? createDefaultFrameSettings(settings)
     : null;
@@ -191,6 +201,15 @@ export default function AnimationStudio({
     transitionMs: settings.transitionMs,
   });
   const visiblePlayhead = totalMs === 0 ? 0 : Math.min(playheadMs, totalMs);
+  const visibleTimeline = resolveTimeline(visiblePlayhead, {
+    holdMs: settings.holdMs,
+    itemCount: Math.max(1, sources.length),
+    transitionMs: settings.transitionMs,
+  });
+  const activeShaderSourceIds = new Set([
+    sources[visibleTimeline.index]?.id,
+    sources[visibleTimeline.nextIndex]?.id,
+  ]);
   const canvasWidth = Math.max(120, settings.width);
   const canvasHeight = Math.max(120, settings.height);
   const selectedBounds = selectedSource?.kind === 'text'
@@ -271,6 +290,7 @@ export default function AnimationStudio({
 
     let animationFrame = 0;
     let previousTimestamp = performance.now();
+    let previousRenderTimestamp = 0;
     let previousUiTimestamp = 0;
 
     function tick(timestamp: number) {
@@ -298,7 +318,10 @@ export default function AnimationStudio({
       }
 
       const canvas = canvasRef.current;
-      if (canvas) {
+      const shouldRender = document.visibilityState !== 'hidden'
+        && (isPlayingRef.current || timestamp - previousRenderTimestamp >= 120);
+      if (canvas && shouldRender) {
+        previousRenderTimestamp = timestamp;
         const width = Math.max(120, currentSettings.width);
         const height = Math.max(120, currentSettings.height);
         if (canvas.width !== width) canvas.width = width;
@@ -351,7 +374,10 @@ export default function AnimationStudio({
           .map(loadImportedImage)
       );
       setImages((current) => [...current, ...imported]);
-      if (imported[0]) setSelectedSourceId(imported[0].id);
+      if (imported[0]) {
+        setSelectedSourceId(imported[0].id);
+        setSelectedEffectTarget('content');
+      }
       setMode('sequence');
       setError(null);
       seek(0);
@@ -371,6 +397,7 @@ export default function AnimationStudio({
       delete next[id];
       return next;
     });
+    if (selectedSourceId === id) setSelectedSourceId(null);
     seek(0);
   }
 
@@ -438,6 +465,7 @@ export default function AnimationStudio({
 
   function changePlaying(playing: boolean) {
     if (playing && totalMs > 0 && playheadRef.current >= totalMs) seek(0);
+    if (playing) setSelectedSourceId(null);
     isPlayingRef.current = playing;
     setIsPlaying(playing);
   }
@@ -480,7 +508,8 @@ export default function AnimationStudio({
     setIncludeBrandLogo(Boolean(identity));
     setSequenceOrder([]);
     setFrameSettings({});
-    setSelectedSourceId('brand-logo');
+    setSelectedSourceId(null);
+    setSelectedEffectTarget('content');
     setError(null);
     setPlaybackRate(1);
     if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
@@ -489,6 +518,43 @@ export default function AnimationStudio({
     changePlaying(true);
     seek(0);
   }
+
+  const studioControlProps = {
+    brandLogoAvailable: Boolean(brandLogo),
+    frameSettings: selectedFrameSettings,
+    hasImageSources: sources.some((source) => source.kind === 'image'),
+    identity,
+    images,
+    includeBrandLogo,
+    mode,
+    onBackgroundChange: updateSelectedBackground,
+    onFiles: importFiles,
+    onFrameSettingsChange: updateSelectedFrame,
+    onIncludeBrandLogoChange: (include: boolean) => {
+      setIncludeBrandLogo(include);
+      if (!include && selectedSourceId === 'brand-logo') setSelectedSourceId(null);
+      seek(0);
+    },
+    onModeChange: changeMode,
+    onMoveSource: moveSource,
+    onRemoveImage: removeImage,
+    onResetFrame: resetSelectedFrame,
+    onSelectedEffectTargetChange: setSelectedEffectTarget,
+    onSelectSource: (id: string) => {
+      setSelectedSourceId(id);
+      setSelectedEffectTarget('content');
+      changePlaying(false);
+      const index = sources.findIndex((source) => source.id === id);
+      seek(Math.max(0, index) * (settings.holdMs + settings.transitionMs));
+    },
+    onSettingsChange: updateSettings,
+    onTextFramesChange: setTextFrames,
+    selectedSource,
+    selectedEffectTarget,
+    settings,
+    sources,
+    textFrames,
+  };
 
   return (
     <div
@@ -563,42 +629,8 @@ export default function AnimationStudio({
         </div>
       </header>
 
-      <div className={embedded ? 'animation-body' : 'studio-body'}>
-        <StudioControls
-          brandLogoAvailable={Boolean(brandLogo)}
-          frameSettings={selectedFrameSettings}
-          hasImageSources={sources.some((source) => source.kind === 'image')}
-          images={images}
-          includeBrandLogo={includeBrandLogo}
-          mode={mode}
-          onBackgroundChange={updateSelectedBackground}
-          onFiles={importFiles}
-          onFrameSettingsChange={updateSelectedFrame}
-          onIncludeBrandLogoChange={(include) => {
-            setIncludeBrandLogo(include);
-            if (include) {
-              setSelectedSourceId('brand-logo');
-              changePlaying(false);
-            }
-            seek(0);
-          }}
-          onModeChange={changeMode}
-          onMoveSource={moveSource}
-          onRemoveImage={removeImage}
-          onResetFrame={resetSelectedFrame}
-          onSelectSource={(id) => {
-            setSelectedSourceId(id);
-            changePlaying(false);
-            const index = sources.findIndex((source) => source.id === id);
-            seek(Math.max(0, index) * (settings.holdMs + settings.transitionMs));
-          }}
-          onSettingsChange={updateSettings}
-          onTextFramesChange={setTextFrames}
-          selectedSource={selectedSource}
-          settings={settings}
-          sources={sources}
-          textFrames={textFrames}
-        />
+      <div className={embedded ? 'animation-body' : 'studio-body animation-body'}>
+        <StudioControls {...studioControlProps} panel='source' />
 
         <section className='flex min-w-0 flex-col bg-background'>
           <div className='flex min-h-0 flex-1 flex-col'>
@@ -611,9 +643,17 @@ export default function AnimationStudio({
               </span>
             </div>
 
-            <div className='studio-stage flex min-h-[420px] flex-1 items-center justify-center overflow-auto p-8'>
+            <CanvasViewport
+              className='min-h-[420px] flex-1'
+              identityId={identityId}
+              onDeselect={() => setSelectedSourceId(null)}
+              stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
+              toolId='animation'
+            >
               <div
                 className='relative w-full max-w-5xl border border-foreground/20 bg-black shadow-[0_24px_80px_rgba(0,0,0,0.12)]'
+                onPointerDown={() => setSelectedSourceId(null)}
+                ref={canvasSelectionRef}
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
                 {sources.map((source) =>
@@ -628,6 +668,7 @@ export default function AnimationStudio({
                       }}
                     >
                       <LiveMaterialCanvas
+                        enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
                         materialId={source.background.materialId}
                         paused={!isPlaying && exportProgress === null}
                         settings={{
@@ -685,7 +726,7 @@ export default function AnimationStudio({
                   style={{ top: `${(((selectedFrameSettings?.alignY ?? settings.alignY) + 1) / 2) * 100}%` }}
                 />
               </div>
-            </div>
+            </CanvasViewport>
 
             {error ? (
               <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>
@@ -711,6 +752,7 @@ export default function AnimationStudio({
             transitionMs={settings.transitionMs}
           />
         </section>
+        <StudioControls {...studioControlProps} panel='properties' />
       </div>
     </div>
   );

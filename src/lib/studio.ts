@@ -27,6 +27,16 @@ export type ImportedImage = {
   width: number;
 };
 
+export function isSupportedLottieFile(name: string, type: string): boolean {
+  const normalizedName = name.toLowerCase();
+  return (
+    normalizedName.endsWith('.lottie') ||
+    normalizedName.endsWith('.json') ||
+    type === 'application/json' ||
+    type === 'application/zip+dotlottie'
+  );
+}
+
 export type StudioFrameSettings = {
   alignX: number;
   alignY: number;
@@ -93,6 +103,7 @@ export function createDefaultFrameSettings(
       colorA: settings.background,
       colorB: settings.backgroundSecondary,
       colorC: settings.shaderSettings.colorC,
+      finish: { ...DEFAULT_MATERIAL_FINISH },
       materialId: DEFAULT_LIVE_MATERIAL_ID,
       materialSettings: { ...settings.shaderSettings },
       style: settings.backgroundStyle,
@@ -118,6 +129,7 @@ export function applyFrameSettings(
     alignY: frame.alignY,
     background: {
       ...frame.background,
+      finish: normalizeMaterialFinish(frame.background.finish),
       materialSettings: {
         ...DEFAULT_LIVE_MATERIAL_SETTINGS,
         ...frame.background.materialSettings,

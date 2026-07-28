@@ -22,6 +22,59 @@ ${body}
 `;
 }
 
+const METAL_UTILITIES = `
+float metalHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float metalNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(metalHash(i), metalHash(i + vec2(1.0, 0.0)), f.x),
+    mix(metalHash(i + vec2(0.0, 1.0)), metalHash(i + vec2(1.0)), f.x),
+    f.y
+  );
+}
+
+float metalFbm(vec2 p) {
+  float value = 0.0;
+  float amplitude = 0.54;
+  for (int index = 0; index < 5; index++) {
+    value += metalNoise(p) * amplitude;
+    p = mat2(1.72, 1.11, -1.11, 1.72) * p + 0.19;
+    amplitude *= 0.47;
+  }
+  return value;
+}
+
+float metalLobe(float value, float center, float width) {
+  float position = (value - center) / max(width, 0.001);
+  return exp(-position * position);
+}
+
+float metalEnvironment(float reflection, float polish) {
+  float broadSky = metalLobe(reflection, -0.68, 0.42) * 0.32;
+  float upperStrip = metalLobe(reflection, -0.28, mix(0.17, 0.055, polish)) * 0.88;
+  float darkCard = metalLobe(reflection, -0.02, 0.115) * 0.3;
+  float lowerRoom = metalLobe(reflection, 0.25, 0.27) * 0.54;
+  float edgeStrip = metalLobe(reflection, 0.61, mix(0.14, 0.038, polish)) * 1.08;
+  return clamp(0.022 + broadSky + upperStrip - darkCard + lowerRoom + edgeStrip, 0.0, 1.15);
+}
+
+vec3 metalTone(float reflection, float polish, float fresnel, float grain) {
+  float environment = metalEnvironment(reflection, polish);
+  vec3 shadow = mix(vec3(0.008), u_color_a * 0.2, 0.5);
+  vec3 silver = mix(vec3(0.72), u_color_b, 0.34);
+  vec3 color = mix(shadow, silver, clamp(environment, 0.0, 1.0));
+  color += max(0.0, environment - 1.0) * vec3(0.92);
+  color += fresnel * mix(vec3(0.2), u_color_b, 0.18);
+  color += grain;
+  return max(color, vec3(0.0));
+}
+`;
+
 export const SHADER_PRESETS: readonly ShaderPreset[] = [
   {
     description: 'Soft bands of color moving through a deep atmospheric field.',
@@ -45,54 +98,127 @@ void main() {
     name: 'Aurora',
   },
   {
-    description: 'Deep liquid chrome with folded reflections, soft valleys, and controlled contour light.',
+    description: 'Fluid architectural chrome with dark reflection valleys and narrow studio highlights.',
     fragmentSource: fragment(`
-float metalHash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float metalNoise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(metalHash(i), metalHash(i + vec2(1.0, 0.0)), f.x), mix(metalHash(i + vec2(0.0, 1.0)), metalHash(i + vec2(1.0)), f.x), f.y);
-}
-
-float metalFbm(vec2 p) {
-  float value = 0.0;
-  float amplitude = 0.55;
-  for (int index = 0; index < 5; index++) {
-    value += metalNoise(p) * amplitude;
-    p = mat2(1.62, 1.18, -1.18, 1.62) * p + 0.17;
-    amplitude *= 0.48;
-  }
-  return value;
-}
+${METAL_UTILITIES}
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   vec2 p = uv * 2.0 - 1.0;
   p.x *= u_resolution.x / u_resolution.y;
   p *= u_scale;
-  float t = u_time * 0.34;
-  float warp = metalFbm(p * 1.35 + vec2(t, -t * 0.72)) * 2.0 - 1.0;
-  vec2 folded = p + vec2(warp, metalFbm(p.yx * 1.8 - t) - 0.5) * u_distortion;
-  float direction = dot(folded, normalize(vec2(0.72, 0.44)));
-  float flow = direction * u_repetition + warp * (2.0 + u_distortion * 7.0) + t * 4.2;
-  float secondary = sin(flow * 0.48 - folded.y * 3.6 + t) * 0.5 + 0.5;
-  float band = sin(flow) * 0.5 + 0.5;
-  float valley = smoothstep(0.02, 0.96, band);
-  float ridge = pow(1.0 - abs(sin(flow + secondary * 1.4)), mix(3.0, 18.0, u_softness));
-  float edge = pow(1.0 - abs(sin(flow * 0.5 - 0.7)), 8.0) * u_contour;
-  float vignette = 1.0 - smoothstep(0.55, 1.75, length(p));
-  vec3 shadow = mix(vec3(0.005), u_color_a * 0.22, 0.65);
-  vec3 body = mix(shadow, u_color_b, valley * 0.82 + secondary * 0.18);
-  vec3 color = body + (ridge * 1.08 + edge * 0.38) * mix(vec3(0.82), vec3(1.0), vignette);
-  color *= 0.78 + vignette * 0.28;
+  float time = u_time * 0.12;
+  float field = metalFbm(p * 0.86 + vec2(time, -time * 0.7));
+  float fineField = metalFbm(p * 2.4 - vec2(time * 0.6, time));
+  float displacement = (field - 0.5) * (0.34 + u_distortion * 0.84);
+  float reflection = dot(p, normalize(vec2(0.28, 0.96)));
+  reflection += displacement + (fineField - 0.5) * u_distortion * 0.17;
+  reflection += sin(p.x * 1.55 - p.y * 0.72 + time) * 0.11 * u_distortion;
+  float edgeDistance = length(p * vec2(0.72, 1.0));
+  float fresnel = pow(smoothstep(0.42, 1.42, edgeDistance), 3.0) * u_contour * 0.24;
+  float brush = (metalHash(vec2(floor(gl_FragCoord.y * 1.7), floor(gl_FragCoord.x * 0.018))) - 0.5) * 0.018;
+  float polish = mix(0.7, 0.98, u_softness);
+  vec3 color = metalTone(reflection, polish, fresnel, brush);
+  color *= 1.0 - smoothstep(0.8, 1.72, edgeDistance) * 0.18;
+  color = pow(color, vec3(0.92));
   gl_FragColor = vec4(color, 1.0);
 }`),
     id: 'liquid-metal',
     name: 'Liquid metal',
+  },
+  {
+    description: 'Calm mirror chrome with crisp black cards, white strip lights, and minimal movement.',
+    fragmentSource: fragment(`
+${METAL_UTILITIES}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  vec2 p = uv * 2.0 - 1.0;
+  p.x *= u_resolution.x / u_resolution.y;
+  p *= u_scale;
+  float time = u_time * 0.055;
+  float surface = (metalFbm(p * 1.15 + vec2(time, 0.0)) - 0.5) * u_distortion * 0.08;
+  float reflection = p.y * 0.9 + p.x * 0.08 + surface + sin(p.x * 0.8 + time) * 0.035;
+  float fresnel = pow(smoothstep(0.58, 1.55, length(p)), 4.0) * u_contour * 0.2;
+  float microBrush = (metalHash(vec2(floor(gl_FragCoord.y * 2.2), floor(gl_FragCoord.x * 0.012))) - 0.5) * 0.009;
+  vec3 color = metalTone(reflection, 0.995, fresnel, microBrush);
+  color = pow(color, vec3(0.9));
+  gl_FragColor = vec4(color, 1.0);
+}`),
+    id: 'polished-chrome',
+    name: 'Polished chrome',
+  },
+  {
+    description: 'Fine directional brushing under a broad, cool aluminum reflection.',
+    fragmentSource: fragment(`
+${METAL_UTILITIES}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  vec2 p = uv * 2.0 - 1.0;
+  p.x *= u_resolution.x / u_resolution.y;
+  p *= u_scale;
+  float time = u_time * 0.045;
+  float longBrush = metalNoise(vec2(p.x * 0.42 + time, gl_FragCoord.y * 0.72));
+  float hairline = metalHash(vec2(floor(gl_FragCoord.y * 2.7), floor(gl_FragCoord.x * 0.026))) - 0.5;
+  float reflection = p.y * 0.76 + sin(p.x * 0.72 + time) * 0.075 * u_distortion;
+  reflection += (longBrush - 0.5) * 0.075;
+  float environment = metalEnvironment(reflection, 0.36);
+  float grain = hairline * mix(0.035, 0.095, u_contour) + (longBrush - 0.5) * 0.055;
+  vec3 aluminum = mix(vec3(0.15, 0.17, 0.18), vec3(0.91, 0.93, 0.94), environment * 0.78 + 0.14);
+  aluminum += grain;
+  aluminum *= 0.92 + smoothstep(-1.0, 0.7, p.y) * 0.08;
+  gl_FragColor = vec4(max(aluminum, vec3(0.0)), 1.0);
+}`),
+    id: 'brushed-aluminum',
+    name: 'Brushed aluminum',
+  },
+  {
+    description: 'Near-black nickel with restrained cool reflections and a precise silver edge.',
+    fragmentSource: fragment(`
+${METAL_UTILITIES}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  vec2 p = uv * 2.0 - 1.0;
+  p.x *= u_resolution.x / u_resolution.y;
+  p *= u_scale;
+  float time = u_time * 0.07;
+  float warp = (metalFbm(p * 1.08 + vec2(time, -time * 0.4)) - 0.5) * u_distortion * 0.24;
+  float reflection = p.y * 0.94 + p.x * 0.13 + warp;
+  float environment = metalEnvironment(reflection, 0.94);
+  float edge = pow(smoothstep(0.52, 1.5, length(p)), 4.5) * (0.12 + u_contour * 0.24);
+  float grain = (metalHash(vec2(floor(gl_FragCoord.y * 1.9), floor(gl_FragCoord.x * 0.015))) - 0.5) * 0.012;
+  vec3 nickel = mix(vec3(0.006, 0.008, 0.011), vec3(0.42, 0.47, 0.5), environment * 0.7);
+  nickel += pow(environment, 7.0) * vec3(0.62, 0.67, 0.7);
+  nickel += edge + grain;
+  gl_FragColor = vec4(max(nickel, vec3(0.0)), 1.0);
+}`),
+    id: 'black-nickel',
+    name: 'Black nickel',
+  },
+  {
+    description: 'Diffuse satin steel with soft architectural light and a low-contrast micrograin.',
+    fragmentSource: fragment(`
+${METAL_UTILITIES}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  vec2 p = uv * 2.0 - 1.0;
+  p.x *= u_resolution.x / u_resolution.y;
+  p *= u_scale;
+  float time = u_time * 0.035;
+  float brush = metalNoise(vec2(p.x * 0.3 + time, gl_FragCoord.y * 0.34));
+  float reflection = p.y * 0.67 + (brush - 0.5) * 0.12 + sin(p.x * 0.55 + time) * 0.045;
+  float environment = metalEnvironment(reflection, 0.12);
+  float grain = (metalHash(vec2(floor(gl_FragCoord.y), floor(gl_FragCoord.x * 0.02))) - 0.5) * 0.04;
+  vec3 steel = mix(vec3(0.2, 0.215, 0.225), vec3(0.79, 0.81, 0.82), environment * 0.58 + 0.2);
+  steel += grain * (0.35 + u_contour * 0.45);
+  steel = mix(steel, u_color_b, 0.055);
+  gl_FragColor = vec4(max(steel, vec3(0.0)), 1.0);
+}`),
+    id: 'satin-steel',
+    name: 'Satin steel',
   },
   {
     description: 'Rounded mercury cells merge and separate under a broad studio reflection.',
@@ -137,25 +263,23 @@ void main() {
     name: 'Mercury',
   },
   {
-    description: 'Directional brushed steel with restrained grain and a traveling reflected beam.',
+    description: 'Directional brushed steel with multi-scale grain and a broad reflected softbox.',
     fragmentSource: fragment(`
-float steelHash(vec2 p) {
-  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
+${METAL_UTILITIES}
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   vec2 p = uv * 2.0 - 1.0;
   p.x *= u_resolution.x / u_resolution.y;
   p *= u_scale;
-  float brush = steelHash(vec2(floor(gl_FragCoord.y * 0.72), floor(u_time * 3.0))) - 0.5;
-  float longGrain = sin(p.y * u_repetition * 7.0 + brush * 2.0) * 0.5 + 0.5;
-  float bend = sin(p.y * 2.2 - u_time * 0.22) * u_distortion;
-  float beam = pow(max(0.0, 1.0 - abs(p.x + bend - sin(u_time * 0.18) * 0.42)), mix(3.0, 14.0, u_softness));
-  float edge = 1.0 - smoothstep(0.2, 1.4, length(p));
-  vec3 color = mix(u_color_a * 0.1, u_color_b * (0.45 + longGrain * 0.3), 0.72);
-  color += beam * (0.52 + u_contour * 0.48) * edge;
-  color += brush * 0.055;
+  float brush = metalNoise(vec2(p.x * 0.34 + u_time * 0.025, gl_FragCoord.y * 0.52));
+  float hairline = metalHash(vec2(floor(gl_FragCoord.y * 2.1), floor(gl_FragCoord.x * 0.018))) - 0.5;
+  float bend = sin(p.x * 0.68 - u_time * 0.08) * u_distortion * 0.08;
+  float reflection = p.y * 0.74 + bend + (brush - 0.5) * 0.12;
+  float environment = metalEnvironment(reflection, mix(0.18, 0.52, u_softness));
+  float edge = pow(smoothstep(0.58, 1.52, length(p)), 4.0) * u_contour * 0.18;
+  vec3 color = mix(vec3(0.08, 0.09, 0.1), mix(vec3(0.7), u_color_b, 0.18), environment * 0.76 + 0.12);
+  color += hairline * 0.07 + (brush - 0.5) * 0.045 + edge;
   gl_FragColor = vec4(color, 1.0);
 }`),
     id: 'brushed-steel',

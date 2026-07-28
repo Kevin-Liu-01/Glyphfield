@@ -33,6 +33,11 @@ import {
   type BrandElementSettings,
 } from '@/lib/brandElements';
 import {
+  EMAIL_LIFECYCLE_TEMPLATES,
+  getEmailLifecycleTemplate,
+  type EmailLifecycleSupportingCard,
+} from '@/lib/emailLifecycle';
+import {
   brandAssetPath,
   brandTypographyFamily,
   brandTypographyRole,
@@ -245,7 +250,8 @@ function ElementEditor({
     );
   const logoSupported = !['ascii-mark', 'terminal-theme', 'cli-banner'].includes(element.id);
   const artworkSupported =
-    ['welcome-email', 'logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph'].includes(
+    Boolean(getEmailLifecycleTemplate(element.id)?.artworkPath) ||
+    ['logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph'].includes(
       element.id
     );
   const websiteSupported =
@@ -450,51 +456,106 @@ function actionStyle(settings: BrandElementSettings): CSSProperties {
   };
 }
 
-function WelcomeEmailPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
-  const motion = identity.motion.find(({ id }) => id === 'morph-1250')?.previewPath;
-  const cards = identity.id === 'gt'
-    ? [
-        ['Add GT to your stack', 'Connect your product and start translating in context.', '文'],
-        ['Join the Community', 'Meet builders working on products for every locale.', 'ع'],
-        ['Let Locadex Open the PR', 'Turn translation work into reviewed repository changes.', 'A'],
-      ]
-    : identity.applications.slice(0, 3).map(({ description, name }, index) => [
-        name,
-        description,
-        `0${index + 1}`,
-      ]);
+function EmailSupportingCard({
+  card,
+  settings,
+}: {
+  card: EmailLifecycleSupportingCard;
+  settings: BrandElementSettings;
+}) {
+  return (
+    <article
+      className='grid min-h-[132px] grid-cols-[minmax(0,1fr)_132px] overflow-hidden border'
+      style={{ borderColor: `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)` }}
+    >
+      <div className='flex min-w-0 flex-col justify-center p-5'>
+        <p className='text-base font-semibold leading-5'>{card.title}</p>
+        <p className='mt-2 max-w-sm text-sm leading-5 opacity-60'>{card.body}</p>
+      </div>
+      <div
+        className='grid place-items-center overflow-hidden'
+        style={{ backgroundColor: card.imageBackgroundColor }}
+      >
+        <img alt='' className='size-full object-cover' src={card.imagePath} />
+      </div>
+    </article>
+  );
+}
+
+function LifecycleEmailPreview({
+  identity,
+  settings,
+  template,
+}: {
+  identity: BrandIdentity;
+  settings: BrandElementSettings;
+  template: NonNullable<ReturnType<typeof getEmailLifecycleTemplate>>;
+}) {
   const dark = isDarkSurface(settings.backgroundColor);
+  const plainText = template.artworkPath === null;
+
+  if (plainText) {
+    return (
+      <div
+        className='mx-auto w-full max-w-[640px] border p-8 shadow-sm sm:p-12'
+        style={{
+          ...elementSurfaceStyle(settings),
+          borderColor: `color-mix(in srgb, ${settings.foregroundColor} 18%, transparent)`,
+        }}
+      >
+        <p className='text-base leading-7'>Hi Alex,</p>
+        <p className='mt-7 whitespace-pre-line text-base leading-7'>{settings.body}</p>
+        <p className='mt-7 text-base leading-7'>All best,<br />Archie<br />CEO, {identity.name}</p>
+        <p className='mt-10 text-xs opacity-45'>Unsubscribe: {identity.website}/account</p>
+      </div>
+    );
+  }
 
   return (
-    <div className='relative mx-auto w-full max-w-[640px] overflow-hidden p-6 shadow-sm sm:p-8' style={elementSurfaceStyle(settings)}>
+    <div className='relative mx-auto w-full max-w-[640px] overflow-hidden shadow-sm' style={elementSurfaceStyle(settings)}>
       <ElementPattern settings={settings} />
       <div className='relative z-10'>
-        {settings.showLogo ? <IdentityMark className='mb-7 size-10 object-contain text-lg' identity={identity} inverted={dark} /> : null}
-        <div className='mb-8 grid aspect-[10/3] place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}>
-          {motion ? (
-            <img alt='' className='size-full object-cover' src={motion} style={artworkStyle(settings)} />
-          ) : (
-            <p className='brand-element-accent max-w-[85%] text-center text-2xl tracking-[-0.04em] text-white sm:text-4xl'>{identity.greetings.join(' · ')}</p>
-          )}
+        <div className='aspect-[1200/380] w-full overflow-hidden bg-black'>
+          <img
+            alt=''
+            className='size-full object-cover'
+            src={template.artworkPath}
+            style={artworkStyle(settings)}
+          />
         </div>
-
-        <h2 className='text-3xl font-semibold leading-tight tracking-[-0.045em] sm:text-4xl'>{settings.headline}</h2>
-        <p className='mt-4 text-sm opacity-80'>Hi Alex,</p>
-        <p className='mt-2 max-w-xl text-base leading-7 opacity-65'>{settings.body}</p>
-        {settings.cta ? <span className='mt-6 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}
-        <div className='mt-10 flex flex-col gap-3'>
-          {cards.map(([title, body, letter]) => (
-            <div className='grid min-h-28 grid-cols-[1fr_104px] overflow-hidden' key={title} style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 6%, ${settings.backgroundColor})` }}>
-              <div className='p-5'>
-                <p className='text-base font-semibold'>{title}</p>
-                <p className='mt-2 text-sm leading-5 opacity-60'>{body}</p>
-                <p className='mt-3 text-xs font-semibold'>Open →</p>
-              </div>
-              <div className='brand-element-accent grid place-items-center overflow-hidden text-7xl opacity-10'>{letter}</div>
+        <div className='p-6 sm:p-8'>
+          {settings.showLogo ? (
+            <IdentityMark
+              className='mb-8 size-9 object-contain text-sm'
+              identity={identity}
+              inverted={dark}
+            />
+          ) : null}
+          <h2 className='max-w-[540px] text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-[38px]'>
+            {settings.headline}
+          </h2>
+          <p className='mt-5 text-base opacity-80'>Hi Alex,</p>
+          <p className='mt-2 max-w-[540px] text-base leading-7 opacity-65'>{settings.body}</p>
+          {settings.cta ? (
+            <span className='mt-6 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>
+              {settings.cta} →
+            </span>
+          ) : null}
+          {template.supportingCards.length > 0 ? (
+            <div className='mt-8 grid gap-3'>
+              {template.supportingCards.map((card) => (
+                <EmailSupportingCard card={card} key={card.imagePath} settings={settings} />
+              ))}
             </div>
-          ))}
+          ) : null}
+          <div
+            className='mt-8 flex items-center justify-between gap-5 border-t pt-5 text-xs leading-5 opacity-50'
+            style={{ borderColor: settings.foregroundColor }}
+          >
+            <p>Questions? Reply and the {identity.name} team will help.</p>
+            <p>{template.timing}</p>
+          </div>
         </div>
-        <div className='mt-6 flex items-center justify-between gap-4 text-xs leading-5 opacity-50'><p>Questions? Reply and the {identity.name} team will help.</p>{settings.showWebsite ? <p className='font-mono'>{identity.website}</p> : null}</div>
       </div>
     </div>
   );
@@ -530,8 +591,53 @@ function TransactionalEmailPreview({ element, identity, settings }: { element: B
   );
 }
 
+function EmailSystemSheetPreview({ settings }: { settings: BrandElementSettings }) {
+  return (
+    <div
+      className='mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden border sm:grid-cols-3 lg:grid-cols-4'
+      style={{
+        backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 14%, ${settings.backgroundColor})`,
+        borderColor: `color-mix(in srgb, ${settings.foregroundColor} 18%, transparent)`,
+      }}
+    >
+      {EMAIL_LIFECYCLE_TEMPLATES.map((template) => (
+        <article
+          className='flex min-h-52 flex-col'
+          key={template.id}
+          style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}
+        >
+          {template.artworkPath ? (
+            <img alt='' className='aspect-[1200/380] w-full object-cover' src={template.artworkPath} />
+          ) : (
+            <div
+              className='flex aspect-[1200/380] items-center px-4 text-xs leading-5'
+              style={{
+                backgroundColor: settings.foregroundColor,
+                color: settings.backgroundColor,
+              }}
+            >
+              Hi Alex,<br />A plain-text note from Archie.
+            </div>
+          )}
+          <div className='flex flex-1 flex-col p-4'>
+            <p className='text-sm font-semibold leading-5'>{template.subject}</p>
+            <p className='mt-auto pt-5 text-xs opacity-50'>{template.timing}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function EmailPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  return element.id === 'welcome-email' ? <WelcomeEmailPreview identity={identity} settings={settings} /> : <TransactionalEmailPreview element={element} identity={identity} settings={settings} />;
+  if (element.id === 'email-system-sheet') {
+    return <EmailSystemSheetPreview settings={settings} />;
+  }
+  const template = getEmailLifecycleTemplate(element.id);
+  if (template) {
+    return <LifecycleEmailPreview identity={identity} settings={settings} template={template} />;
+  }
+  return <TransactionalEmailPreview element={element} identity={identity} settings={settings} />;
 }
 
 function DeveloperPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {

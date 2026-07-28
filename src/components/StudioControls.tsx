@@ -13,14 +13,16 @@ import {
 } from 'lucide-react';
 
 import BezierEditor from '@/components/BezierEditor';
+import LiveMaterialControls from '@/components/LiveMaterialControls';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
+  brandMaterialPalette,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
-  LIVE_MATERIAL_OPTIONS,
 } from '@/lib/liveMaterials';
+import type { BrandIdentity } from '@/lib/brandIdentity';
 import type { StudioSource } from '@/lib/renderFrame';
 import {
   EASING_PRESETS,
@@ -30,6 +32,7 @@ import {
   type StudioSettings,
 } from '@/lib/studio';
 import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { normalizeMaterialFinish } from '@/lib/materialFinish';
 
 import type { AnimationPackageId } from '@/lib/renderFrame';
 
@@ -48,10 +51,14 @@ type StudioControlsProps = {
   onMoveSource: (id: string, direction: -1 | 1) => void;
   onRemoveImage: (id: string) => void;
   onResetFrame: () => void;
+  onSelectedEffectTargetChange: (target: 'background' | 'content') => void;
   onSelectSource: (id: string) => void;
   onSettingsChange: (patch: Partial<StudioSettings>) => void;
   onTextFramesChange: (value: string) => void;
+  identity?: Pick<BrandIdentity, 'colors' | 'id' | 'name' | 'shortName'>;
+  panel: 'properties' | 'source';
   selectedSource: StudioSource | null;
+  selectedEffectTarget: 'background' | 'content';
   settings: StudioSettings;
   sources: readonly StudioSource[];
   textFrames: string;
@@ -171,10 +178,14 @@ export default function StudioControls({
   onMoveSource,
   onRemoveImage,
   onResetFrame,
+  onSelectedEffectTargetChange,
   onSelectSource,
   onSettingsChange,
   onTextFramesChange,
+  identity,
+  panel,
   selectedSource,
+  selectedEffectTarget,
   settings,
   sources,
   textFrames,
@@ -184,10 +195,26 @@ export default function StudioControls({
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     ...frameSettings?.background.materialSettings,
   };
+  const materialIdentity = identity ?? {
+    colors: [
+      { hex: settings.background, id: 'ink', name: 'Background', role: 'Primary background' },
+      { hex: settings.backgroundSecondary, id: 'emphasis', name: 'Secondary', role: 'Secondary background' },
+      { hex: settings.foreground, id: 'paper', name: 'Foreground', role: 'Primary foreground' },
+    ],
+    id: 'animation',
+    name: 'Animation',
+    shortName: 'AN',
+  };
+  const brandMaterialColors = brandMaterialPalette(materialIdentity).colors;
+  const usesGenericMaterialColors =
+    frameMaterialSettings.colorA === DEFAULT_LIVE_MATERIAL_SETTINGS.colorA &&
+    frameMaterialSettings.colorB === DEFAULT_LIVE_MATERIAL_SETTINGS.colorB &&
+    frameMaterialSettings.colorC === DEFAULT_LIVE_MATERIAL_SETTINGS.colorC;
 
   return (
-    <aside className='studio-inspector border-r border-border bg-background'>
-      <InspectorSection index='01' title={<T>Source</T>}>
+    <aside className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-l border-border'}`} data-canvas-selection-preserve>
+      {panel === 'source' ? (
+        <InspectorSection index='01' title={<T>Source</T>}>
         <div className='grid grid-cols-3'>
           {([
             ['sequence', gt('Sequence')],
@@ -329,8 +356,9 @@ export default function StudioControls({
             </div>
           </div>
         ) : null}
-      </InspectorSection>
-
+        </InspectorSection>
+      ) : (
+        <>
       <InspectorSection index='02' title={<T>Selected frame</T>}>
         {frameSettings && selectedSource ? (
           <>
@@ -353,109 +381,141 @@ export default function StudioControls({
                 <RotateCcw aria-hidden='true' />
               </Button>
             </div>
-            <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
-            <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
-            <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
-            <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
-            <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
-            {selectedSource.kind === 'text' ? (
+            <div className='grid grid-cols-2'>
+              <Button
+                className='rounded-r-none'
+                onClick={() => onSelectedEffectTargetChange('content')}
+                type='button'
+                variant={selectedEffectTarget === 'content' ? 'default' : 'outline'}
+              >
+                {selectedSource.kind === 'text' ? <T>Text</T> : <T>Artwork</T>}
+              </Button>
+              <Button
+                className='rounded-l-none border-l-0'
+                onClick={() => onSelectedEffectTargetChange('background')}
+                type='button'
+                variant={selectedEffectTarget === 'background' ? 'default' : 'outline'}
+              >
+                <T>Background</T>
+              </Button>
+            </div>
+
+            {selectedEffectTarget === 'content' ? (
               <>
-                <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
-                <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
-                <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Foreground</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
+                <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
+                <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
+                <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
+                <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
+                <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
+                {selectedSource.kind === 'text' ? (
+                  <>
+                    <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
+                    <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
+                    <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Text color</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
+                  </>
+                ) : (
+                  <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                    <T>Image fit</T>
+                    <StudioSelect
+                      ariaLabel={gt('Image fit')}
+                      onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })}
+                      options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]}
+                      value={frameSettings.fit}
+                    />
+                  </div>
+                )}
+                <div className='border-t border-border pt-4'>
+                  <div className='mb-3'>
+                    <p className='text-sm font-semibold'>
+                      {selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}
+                    </p>
+                    <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shadows, outlines, glass, and reflections render in preview and GIF export.</T></p>
+                  </div>
+                  <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
+                </div>
               </>
             ) : (
-              <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-                <T>Image fit</T>
-                <StudioSelect
-                  ariaLabel={gt('Image fit')}
-                  onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })}
-                  options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]}
-                  value={frameSettings.fit}
-                />
-              </div>
-            )}
-
-            <div className='border-t border-border pt-4'>
-              <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-                <T>Background</T>
-                <StudioSelect
-                  ariaLabel={gt('Frame background')}
-                  onValueChange={(style) => onBackgroundChange({ style: style as StudioFrameSettings['background']['style'] })}
-                  options={[
-                    { label: gt('Solid'), value: 'solid' },
-                    { label: gt('Gradient'), value: 'gradient' },
-                    { label: gt('Live shader'), value: 'shader' },
-                  ]}
-                  value={frameSettings.background.style}
-                />
-              </div>
-            </div>
-            <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={frameSettings.background.colorA} />
-            {frameSettings.background.style === 'solid' ? null : (
-              <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={frameSettings.background.colorB} />
-            )}
-            {frameSettings.background.style === 'shader' ? (
               <>
-                <ColorControl ariaLabel={gt('Background color C')} label={<T>Color C</T>} onChange={(colorC) => onBackgroundChange({ colorC })} value={frameSettings.background.colorC} />
                 <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-                  <T>Shader</T>
+                  <T>Background type</T>
                   <StudioSelect
-                    ariaLabel={gt('Frame shader')}
-                    onValueChange={(materialId) => onBackgroundChange({ materialId: materialId as StudioFrameSettings['background']['materialId'] })}
-                    options={LIVE_MATERIAL_OPTIONS.map((material) => ({ label: material.name, value: material.id }))}
-                    value={frameSettings.background.materialId}
+                    ariaLabel={gt('Frame background')}
+                    onValueChange={(style) => {
+                      const nextStyle = style as StudioFrameSettings['background']['style'];
+                      if (nextStyle === 'shader' && usesGenericMaterialColors) {
+                        onBackgroundChange({
+                          colorA: brandMaterialColors[0],
+                          colorB: brandMaterialColors[1],
+                          colorC: brandMaterialColors[2],
+                          materialSettings: {
+                            ...frameMaterialSettings,
+                            colorA: brandMaterialColors[0],
+                            colorB: brandMaterialColors[1],
+                            colorC: brandMaterialColors[2],
+                          },
+                          style: nextStyle,
+                        });
+                        return;
+                      }
+                      onBackgroundChange({ style: nextStyle });
+                    }}
+                    options={[
+                      { label: gt('Solid'), value: 'solid' },
+                      { label: gt('Gradient'), value: 'gradient' },
+                      { label: gt('Live shader'), value: 'shader' },
+                    ]}
+                    value={frameSettings.background.style}
                   />
                 </div>
-                {([
-                  ['Shader speed', 'speed', 0, 2, 0.05, '×'],
-                  ['Strength', 'strength', 0, 2, 0.05, ''],
-                  ['Detail', 'detail', 0.5, 8, 0.1, ''],
-                  ['Frequency', 'frequency', 0.2, 12, 0.1, ''],
-                  ['Amplitude', 'amplitude', 0, 8, 0.1, ''],
-                  ['Density', 'density', 0.1, 2, 0.05, ''],
-                  ['Brightness', 'brightness', 0.1, 2, 0.05, ''],
-                  ['Grain', 'grain', 0, 100, 1, '%'],
-                  ['Rotation X', 'rotationX', 0, 360, 1, '°'],
-                  ['Rotation Y', 'rotationY', 0, 360, 1, '°'],
-                  ['Rotation Z', 'rotationZ', 0, 360, 1, '°'],
-                ] as const).map(([label, key, min, max, step, unit]) => (
-                  <RangeControl
-                    key={key}
-                    label={gt(label)}
-                    max={max}
-                    min={min}
-                    onChange={(value) => onBackgroundChange({ materialSettings: { ...frameMaterialSettings, [key]: value } })}
-                    step={step}
-                    unit={unit}
-                    value={frameMaterialSettings[key]}
+                {frameSettings.background.style === 'shader' ? (
+                  <LiveMaterialControls
+                    identity={materialIdentity}
+                    materialId={frameSettings.background.materialId}
+                    onMaterialIdChange={(materialId) => onBackgroundChange({ materialId })}
+                    onSettingsChange={(materialSettings) => onBackgroundChange({
+                      colorA: materialSettings.colorA,
+                      colorB: materialSettings.colorB,
+                      colorC: materialSettings.colorC,
+                      materialSettings,
+                    })}
+                    settings={frameMaterialSettings}
                   />
-                ))}
+                ) : (
+                  <>
+                    <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={frameSettings.background.colorA} />
+                    {frameSettings.background.style === 'solid' ? null : (
+                      <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={frameSettings.background.colorB} />
+                    )}
+                  </>
+                )}
+                {frameSettings.background.style === 'gradient' ? (
+                  <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={frameSettings.background.angle} />
+                ) : null}
+                <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                  <T>Background transition</T>
+                  <StudioSelect
+                    ariaLabel={gt('Background transition')}
+                    onValueChange={(backgroundTransition) => onSettingsChange({ backgroundTransition: backgroundTransition as StudioSettings['backgroundTransition'] })}
+                    options={[
+                      { label: gt('Crossfade'), value: 'crossfade' },
+                      { label: gt('Directional wipe'), value: 'wipe' },
+                      { label: gt('Radial reveal'), value: 'radial' },
+                    ]}
+                    value={settings.backgroundTransition}
+                  />
+                </div>
+                <div className='border-t border-border pt-4'>
+                  <div className='mb-3'>
+                    <p className='text-sm font-semibold'><T>Background effects</T></p>
+                    <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Add edge light, glass, reflection, or depth to the frame background.</T></p>
+                  </div>
+                  <MaterialFinishControls
+                    onChange={(finish) => onBackgroundChange({ finish })}
+                    settings={normalizeMaterialFinish(frameSettings.background.finish)}
+                  />
+                </div>
               </>
-            ) : null}
-            {frameSettings.background.style === 'solid' ? null : (
-              <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={frameSettings.background.angle} />
             )}
-            <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-              <T>Background transition</T>
-              <StudioSelect
-                ariaLabel={gt('Background transition')}
-                onValueChange={(backgroundTransition) => onSettingsChange({ backgroundTransition: backgroundTransition as StudioSettings['backgroundTransition'] })}
-                options={[
-                  { label: gt('Crossfade'), value: 'crossfade' },
-                  { label: gt('Directional wipe'), value: 'wipe' },
-                  { label: gt('Radial reveal'), value: 'radial' },
-                ]}
-                value={settings.backgroundTransition}
-              />
-            </div>
-            <div className='border-t border-border pt-4'>
-              <div className='mb-3'>
-                <p className='text-sm font-semibold'><T>Surface finish</T></p>
-                <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Applies to this frame in both preview and GIF export.</T></p>
-              </div>
-              <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
-            </div>
           </>
         ) : (
           <p className='text-sm leading-5 text-muted-foreground'><T>Add or select a frame to edit it.</T></p>
@@ -672,6 +732,8 @@ export default function StudioControls({
           />
         </label>
       </InspectorSection>
+        </>
+      )}
     </aside>
   );
 }

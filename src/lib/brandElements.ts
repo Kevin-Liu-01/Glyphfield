@@ -1,3 +1,5 @@
+import { EMAIL_LIFECYCLE_TEMPLATES, getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
+
 export type BrandElementCategory =
   | 'Digital'
   | 'Product'
@@ -71,61 +73,17 @@ export const BRAND_ELEMENT_CATEGORIES: readonly BrandElementCategory[] = [
 ];
 
 export const BRAND_ELEMENTS: readonly BrandElement[] = [
-  {
+  ...EMAIL_LIFECYCLE_TEMPLATES.map<BrandElement>((template) => ({
     category: 'Digital',
-    description: 'A complete onboarding email with motion, hierarchy, actions, and supporting modules.',
+    description: template.description,
     dimensions: '640 px / responsive',
-    format: 'HTML + GIF',
-    id: 'welcome-email',
-    symbol: '✉',
-    keywords: ['email', 'welcome', 'onboarding', 'newsletter', 'motion'],
-    name: 'Welcome email',
+    format: template.artworkPath ? 'HTML + GIF' : 'Plain text',
+    id: template.id,
+    symbol: template.symbol,
+    keywords: ['email', template.group.toLocaleLowerCase(), ...template.keywords],
+    name: template.name,
     preview: 'email',
-  },
-  {
-    category: 'Digital',
-    description: 'A concise system email for verification, receipts, alerts, and account events.',
-    dimensions: '600 px / responsive',
-    format: 'HTML',
-    id: 'transactional-email',
-    symbol: '✓',
-    keywords: ['email', 'transactional', 'receipt', 'verify', 'notification'],
-    name: 'Transactional email',
-    preview: 'email',
-  },
-  {
-    category: 'Digital',
-    description: 'A branching day 1–6 onboarding sequence with milestone-aware content, motion, cards, and clear next actions.',
-    dimensions: '640 px / responsive',
-    format: 'HTML + GIF',
-    id: 'lifecycle-email-sequence',
-    symbol: '1→6',
-    keywords: ['email', 'onboarding', 'lifecycle', 'drip', 'sequence', 'resend'],
-    name: 'Lifecycle email sequence',
-    preview: 'email',
-  },
-  {
-    category: 'Digital',
-    description: 'A direct authentication or invitation email optimized for recognition, trust, and one primary action.',
-    dimensions: '600 px / responsive',
-    format: 'HTML',
-    id: 'utility-email',
-    symbol: '↗',
-    keywords: ['email', 'utility', 'authentication', 'magic link', 'invitation', 'account'],
-    name: 'Utility email',
-    preview: 'email',
-  },
-  {
-    category: 'Digital',
-    description: 'A high-signal operational email for balance, spend-limit, payment, and account threshold alerts.',
-    dimensions: '600 px / responsive',
-    format: 'HTML',
-    id: 'billing-alert-email',
-    symbol: '!',
-    keywords: ['email', 'billing', 'alert', 'balance', 'payment', 'threshold'],
-    name: 'Billing alert email',
-    preview: 'email',
-  },
+  })),
   {
     category: 'Digital',
     description: 'A multi-template review board that shows an entire email program, states, cadence, and visual hierarchy at once.',
@@ -876,41 +834,18 @@ export function createBrandElementSettings(
     showLogo: true,
     showWebsite: true,
   };
+  const emailTemplate = getEmailLifecycleTemplate(element.id);
+  const emailTemplateOverrides: BrandElementOverrides = emailTemplate
+    ? {
+        body: emailTemplate.body,
+        cta: emailTemplate.cta,
+        headline: emailTemplate.subject,
+        layout: 'stacked',
+        pattern: 'none',
+      }
+    : {};
 
   const overrides: Partial<Record<string, BrandElementOverrides>> = {
-    'welcome-email': {
-      cta: 'Get started',
-      headline: `Welcome to ${identity.name}!`,
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'transactional-email': {
-      cta: 'Open workspace',
-      headline: 'Your workspace is ready.',
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'lifecycle-email-sequence': {
-      body: 'A milestone-aware sequence that helps every customer reach the next useful product moment.',
-      cta: 'Continue setup',
-      headline: 'Your next step is ready.',
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'utility-email': {
-      body: `Use this secure link to continue to ${identity.name}.`,
-      cta: 'Continue',
-      headline: `Continue to ${identity.name}`,
-      layout: 'stacked',
-      pattern: 'none',
-    },
-    'billing-alert-email': {
-      body: 'Review your current usage and billing settings to keep service running without interruption.',
-      cta: 'Review billing',
-      headline: 'Your account needs attention.',
-      layout: 'stacked',
-      pattern: 'none',
-    },
     'email-system-sheet': {
       body: 'Review onboarding, utility, transactional, lifecycle, and billing states as one coherent system.',
       cta: 'Review system',
@@ -1089,7 +1024,12 @@ export function createBrandElementSettings(
       }
     : {};
 
-  return { ...defaults, ...overrides[element.id], ...basementOverrides[element.id] };
+  return {
+    ...defaults,
+    ...emailTemplateOverrides,
+    ...overrides[element.id],
+    ...basementOverrides[element.id],
+  };
 }
 
 export function filterBrandElements(

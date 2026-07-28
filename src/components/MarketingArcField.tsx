@@ -27,12 +27,8 @@ export default function MarketingArcField({
     }
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setVisible(true);
-        observer.disconnect();
-      },
-      { rootMargin: '500px' }
+      ([entry]) => setVisible(entry?.isIntersecting ?? false),
+      { rootMargin: '320px' }
     );
 
     observer.observe(container);

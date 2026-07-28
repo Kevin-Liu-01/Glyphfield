@@ -1,18 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
-  <rect width="1600" height="900" fill="#fff"/>
-  <g font-family="Inter,Arial,sans-serif" fill="#111">
-    <text x="120" y="116" font-size="24" letter-spacing="3">CONTEXT PLATFORM / 03</text>
-    <text x="120" y="220" font-size="72" font-weight="500">Translation reads the whole product.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Context diffraction</title>
+  <desc id="description">Concentric monochrome contours refract around a clear core.</desc>
+  <defs>
+    <linearGradient id="stroke" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#050606" stop-opacity="0"/><stop offset=".5" stop-color="#050606" stop-opacity=".68"/><stop offset="1" stop-color="#050606" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="#f7f7f7"/>
+  <g fill="none" stroke="url(#stroke)" stroke-width="2">
+    <ellipse cx="800" cy="450" rx="160" ry="112"/><ellipse cx="800" cy="450" rx="246" ry="172" opacity=".86"/><ellipse cx="800" cy="450" rx="340" ry="238" opacity=".72"/><ellipse cx="800" cy="450" rx="446" ry="312" opacity=".58"/><ellipse cx="800" cy="450" rx="570" ry="398" opacity=".42"/>
   </g>
-  <g stroke="#111" stroke-width="3">
-    <rect x="120" y="326" width="1360" height="112" fill="#111"/>
-    <rect x="120" y="458" width="1360" height="112" fill="#fff"/>
-    <rect x="120" y="590" width="1360" height="112" fill="#ededed"/>
-  </g>
-  <g font-family="Inter,Arial,sans-serif" font-size="30">
-    <text x="164" y="395" fill="#fff">01 / Source code and component location</text>
-    <text x="164" y="527" fill="#111">02 / Glossary, style, audience, and locale rules</text>
-    <text x="164" y="659" fill="#111">03 / Screenshots, nearby copy, and product intent</text>
-  </g>
-  <text x="1480" y="798" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="24" fill="#111">CONTEXT IN / NATIVE COPY OUT</text>
+  <path d="M0 450c290 0 360-92 570-92 172 0 216 184 430 184 208 0 280-92 600-92" fill="none" stroke="#050606" stroke-width="34" opacity=".08"/>
+  <circle cx="800" cy="450" r="72" fill="#050606"/>
 </svg>

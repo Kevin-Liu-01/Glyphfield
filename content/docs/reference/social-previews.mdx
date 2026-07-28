@@ -1,0 +1,35 @@
+---
+title: Social previews
+description: Keep OpenGraph image routes reachable by social crawlers and verify the metadata they receive.
+---
+
+Glyphfield serves deterministic 1200 × 630 PNG previews from `/api/og-home`, `/api/og`, the Next.js file-based OpenGraph routes, and the documentation image route.
+
+## Crawler access
+
+`public/robots.txt` explicitly allows the preview routes for Twitterbot and the common Facebook, LinkedIn, Discord, Slack, Telegram, and Pinterest link-preview crawlers. Keep the following Twitter block when changing the crawler policy:
+
+```txt
+User-Agent: Twitterbot
+Allow: /
+Allow: /api/og
+Allow: /api/og-home
+Allow: /opengraph-image
+Allow: /twitter-image
+```
+
+An `Allow` rule does not create an image endpoint. The route must return a successful `image/png` response without authentication, cookies, JavaScript, or browser-only state.
+
+## Verification
+
+Before deploying, check all three layers:
+
+1. Fetch `/robots.txt` with the crawler user agent and confirm the image path is allowed.
+2. Inspect the page HTML for absolute `og:image` and `twitter:image` values.
+3. Fetch that exact image URL and confirm a `200` response with `content-type: image/png`.
+
+Social networks cache previews independently. A correct redeploy may still require the network's card debugger or a versioned image URL before the old card disappears.
+
+## Dynamic preview endpoint
+
+`GET /api/og` accepts bounded `title`, `description`, `kicker`, `index`, and six-digit `accent` query parameters. It uses the same renderer and embedded Switzer font files as the homepage, Studio, Twitter, and documentation previews.

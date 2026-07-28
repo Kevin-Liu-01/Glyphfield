@@ -8,13 +8,21 @@ import { buildLogoSvgFilter, DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSetting
 
 export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'pattern' | 'live-shader';
 export type BackgroundPattern = 'none' | 'dots' | 'lines' | 'grid';
-export type BackgroundGradient = 'linear' | 'radial';
+export type BackgroundGradient = 'linear' | 'radial' | 'mesh' | 'orbit' | 'wave';
+export type BackgroundDitherShape = 'dots' | 'squares';
 
 export type BackgroundSettings = {
   angle: number;
+  bandCount: number;
+  bandDepth: number;
+  bandGap: number;
   colorA: string;
   colorB: string;
+  colorC: string;
   ditherMatrix: 2 | 4 | 8;
+  ditherShape: BackgroundDitherShape;
+  focalX: number;
+  focalY: number;
   gradient: BackgroundGradient;
   grain: number;
   height: number;
@@ -24,10 +32,12 @@ export type BackgroundSettings = {
   logoTone: 'black' | 'white';
   logoX: number;
   logoY: number;
+  lightingEnabled: boolean;
   liveMaterialId?: LiveMaterialId;
   liveSettings?: LiveMaterialSettings;
   pattern: BackgroundPattern;
   patternOpacity: number;
+  relief: number;
   spacing: number;
   style: BackgroundStyle;
   width: number;
@@ -35,9 +45,16 @@ export type BackgroundSettings = {
 
 export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   angle: 32,
+  bandCount: 15,
+  bandDepth: 56,
+  bandGap: 0,
   colorA: '#FFFFFF',
   colorB: '#181818',
+  colorC: '#737373',
   ditherMatrix: 4,
+  ditherShape: 'dots',
+  focalX: 42,
+  focalY: 38,
   gradient: 'linear',
   grain: 18,
   height: 750,
@@ -47,14 +64,60 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   logoTone: 'white',
   logoX: 0,
   logoY: 0,
+  lightingEnabled: true,
   liveMaterialId: DEFAULT_LIVE_MATERIAL_ID,
   liveSettings: DEFAULT_LIVE_MATERIAL_SETTINGS,
   pattern: 'none',
-  patternOpacity: 24,
+  patternOpacity: 12,
+  relief: 24,
   spacing: 24,
   style: 'gradient',
   width: 1200,
 };
+
+export const BACKGROUND_PRESETS = [
+  {
+    description: 'A clean mirrored aperture built from a dense shared-gradient field.',
+    id: 'spectral-mesh',
+    name: 'Spectral aperture',
+    settings: { angle: 90, bandCount: 15, bandDepth: 58, bandGap: 0, colorA: '#02030A', colorB: '#284CFF', colorC: '#FFC1D8', focalX: 50, gradient: 'mesh', grain: 16, lightingEnabled: true, relief: 0, style: 'grain-gradient' },
+  },
+  {
+    description: 'Warm amber, coral, and lilac moving through an orbit field.',
+    id: 'solar-orbit',
+    name: 'Solar orbit',
+    settings: { angle: 24, colorA: '#25113D', colorB: '#FF763D', colorC: '#FFD06A', focalX: 62, focalY: 46, gradient: 'orbit', grain: 18, relief: 18, style: 'grain-gradient' },
+  },
+  {
+    description: 'A quiet cyan field with broad directional movement.',
+    id: 'mineral-wave',
+    name: 'Mineral wave',
+    settings: { angle: 138, colorA: '#061A22', colorB: '#28B9B1', colorC: '#B9FFF2', gradient: 'wave', grain: 15, relief: 38, style: 'grain-gradient' },
+  },
+  {
+    description: 'Soft paper neutrals with a restrained radial glow.',
+    id: 'paper-light',
+    name: 'Paper light',
+    settings: { colorA: '#F7F5F0', colorB: '#D9D5CC', colorC: '#FFFFFF', focalX: 36, focalY: 28, gradient: 'radial', grain: 8, relief: 8, style: 'grain-gradient' },
+  },
+  {
+    description: 'A monochrome ordered-dither transition for marks and fields.',
+    id: 'ink-dither',
+    name: 'Ink dither',
+    settings: { angle: 24, colorA: '#F4F4F0', colorB: '#181818', colorC: '#737373', ditherMatrix: 4, ditherShape: 'dots', spacing: 16, style: 'dither' },
+  },
+  {
+    description: 'Electric violet and mint resolved into a compact pixel field.',
+    id: 'signal-dither',
+    name: 'Signal dither',
+    settings: { angle: 145, colorA: '#130A33', colorB: '#795CFF', colorC: '#7BFFD9', ditherMatrix: 8, ditherShape: 'squares', spacing: 13, style: 'dither' },
+  },
+] as const satisfies ReadonlyArray<{
+  description: string;
+  id: string;
+  name: string;
+  settings: Partial<BackgroundSettings>;
+}>;
 
 const BAYER_2 = [0, 2, 3, 1] as const;
 const BAYER_4 = [
@@ -74,7 +137,7 @@ function bayerValue(x: number, y: number, size: 2 | 4 | 8): number {
 
 function patternDefinition(settings: BackgroundSettings): string {
   const spacing = Math.max(8, settings.spacing);
-  const stroke = settings.logoTone === 'white' ? '#FFFFFF' : '#000000';
+  const stroke = settings.colorB;
 
   if (settings.pattern === 'dots') {
     return `<pattern id="pattern-dots" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><circle cx="${spacing / 2}" cy="${spacing / 2}" r="1.6" fill="${stroke}"/></pattern>`;
@@ -93,19 +156,78 @@ function ditherField(settings: BackgroundSettings): string {
   const columns = Math.ceil(settings.width / cell);
   const rows = Math.ceil(settings.height / cell);
   const circles: string[] = [];
+  const radians = (settings.angle * Math.PI) / 180;
+  const directionX = Math.cos(radians);
+  const directionY = Math.sin(radians);
 
   for (let row = 0; row < rows; row += 1) {
     for (let column = 0; column < columns; column += 1) {
-      const progress = (column + row * 0.34) / (columns + rows * 0.34);
+      const normalizedX = (column + 0.5) / Math.max(columns, 1) - 0.5;
+      const normalizedY = (row + 0.5) / Math.max(rows, 1) - 0.5;
+      const progress = Math.max(0, Math.min(1, 0.5 + normalizedX * directionX + normalizedY * directionY));
       const threshold = bayerValue(column, row, settings.ditherMatrix);
-      const radius = progress > threshold ? cell * 0.42 : cell * 0.1;
-      circles.push(
-        `<circle cx="${column * cell + cell / 2}" cy="${row * cell + cell / 2}" r="${radius.toFixed(2)}" fill="${settings.colorB}"/>`
-      );
+      const active = progress > threshold;
+      const size = active ? cell * 0.84 : cell * 0.16;
+      const color = progress > 0.62 ? settings.colorC : settings.colorB;
+      if (settings.ditherShape === 'squares') {
+        circles.push(`<rect x="${(column * cell + (cell - size) / 2).toFixed(2)}" y="${(row * cell + (cell - size) / 2).toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" fill="${color}"/>`);
+      } else {
+        circles.push(`<circle cx="${column * cell + cell / 2}" cy="${row * cell + cell / 2}" r="${(size / 2).toFixed(2)}" fill="${color}"/>`);
+      }
     }
   }
 
-  return `<g data-dither-matrix="${settings.ditherMatrix}">${circles.join('')}</g>`;
+  return `<g data-dither-matrix="${settings.ditherMatrix}" data-dither-shape="${settings.ditherShape}">${circles.join('')}</g>`;
+}
+
+function gradientDefinition(settings: BackgroundSettings): string {
+  const radians = (settings.angle * Math.PI) / 180;
+  const x1 = 50 - Math.cos(radians) * 50;
+  const y1 = 50 - Math.sin(radians) * 50;
+  const x2 = 50 + Math.cos(radians) * 50;
+  const y2 = 50 + Math.sin(radians) * 50;
+
+  if (settings.gradient === 'radial') {
+    return `<radialGradient id="surface-gradient" cx="${settings.focalX}%" cy="${settings.focalY}%" r="82%"><stop stop-color="${settings.colorC}"/><stop offset=".48" stop-color="${settings.colorA}"/><stop offset="1" stop-color="${settings.colorB}"/></radialGradient>`;
+  }
+  if (settings.gradient === 'mesh') {
+    return `<linearGradient id="band-gradient" gradientUnits="userSpaceOnUse" x1="${(settings.width * x1 / 100).toFixed(2)}" y1="${(settings.height * y1 / 100).toFixed(2)}" x2="${(settings.width * x2 / 100).toFixed(2)}" y2="${(settings.height * y2 / 100).toFixed(2)}"><stop stop-color="${settings.colorA}"/><stop offset=".48" stop-color="${settings.colorB}"/><stop offset="1" stop-color="${settings.colorC}"/></linearGradient>`;
+  }
+  if (settings.gradient === 'orbit') {
+    return `<radialGradient id="surface-gradient" cx="${settings.focalX}%" cy="${settings.focalY}%" r="76%" gradientTransform="rotate(${settings.angle} .5 .5) scale(1 .72)"><stop stop-color="${settings.colorC}"/><stop offset=".24" stop-color="${settings.colorB}"/><stop offset=".58" stop-color="${settings.colorA}"/><stop offset=".82" stop-color="${settings.colorB}"/><stop offset="1" stop-color="${settings.colorA}"/></radialGradient>`;
+  }
+  return `<linearGradient id="surface-gradient" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%"><stop stop-color="${settings.colorA}"/><stop offset=".5" stop-color="${settings.colorC}"/><stop offset="1" stop-color="${settings.colorB}"/></linearGradient>`;
+}
+
+function bandSurface(settings: BackgroundSettings): string {
+  const count = Math.max(3, Math.min(24, Math.round(settings.bandCount)));
+  const segmentWidth = settings.width / count;
+  const gap = Math.max(0, Math.min(segmentWidth * 0.8, settings.bandGap));
+  const peak = Math.max(0.05, Math.min(0.95, settings.focalX / 100));
+  const depth = settings.height * Math.max(0, Math.min(1, settings.bandDepth / 100));
+  const bars = Array.from({ length: count }, (_, index) => {
+    const position = (index + 0.5) / count;
+    const distance = position < peak
+      ? (peak - position) / peak
+      : (position - peak) / (1 - peak);
+    const top = Math.pow(Math.max(0, Math.min(1, distance)), 1.65) * depth;
+    const x = index * segmentWidth + gap / 2;
+    const width = Math.max(0.5, segmentWidth - gap);
+    const fill = settings.lightingEnabled ? 'url(#band-gradient)' : settings.colorB;
+    return `<rect data-band-index="${index}" x="${x.toFixed(2)}" y="${top.toFixed(2)}" width="${width.toFixed(2)}" height="${Math.max(0.5, settings.height - top).toFixed(2)}" fill="${fill}"/>`;
+  });
+
+  return `<rect width="100%" height="100%" fill="${settings.colorA}"/><g data-gradient-layout="bands" data-band-count="${count}">${bars.join('')}</g>`;
+}
+
+function gradientSurface(settings: BackgroundSettings): string {
+  const reliefFilter = settings.relief > 0 && ['orbit', 'wave'].includes(settings.gradient)
+    ? ' filter="url(#surface-relief)"'
+    : '';
+  if (settings.gradient === 'mesh') {
+    return bandSurface(settings);
+  }
+  return `<rect x="-4%" y="-4%" width="108%" height="108%" fill="url(#surface-gradient)"${reliefFilter}/>`;
 }
 
 export function buildBackgroundSvg(
@@ -120,17 +242,10 @@ export function buildBackgroundSvg(
     showLogo?: boolean;
   }
 ): string {
-  const radians = (settings.angle * Math.PI) / 180;
-  const x1 = 50 - Math.cos(radians) * 50;
-  const y1 = 50 - Math.sin(radians) * 50;
-  const x2 = 50 + Math.cos(radians) * 50;
-  const y2 = 50 + Math.sin(radians) * 50;
-  const gradient =
-    settings.gradient === 'radial'
-      ? `<radialGradient id="surface-gradient" cx="42%" cy="38%" r="78%"><stop stop-color="${settings.colorA}"/><stop offset="1" stop-color="${settings.colorB}"/></radialGradient>`
-      : `<linearGradient id="surface-gradient" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%"><stop stop-color="${settings.colorA}"/><stop offset="1" stop-color="${settings.colorB}"/></linearGradient>`;
+  const gradient = gradientDefinition(settings);
   const pattern = patternDefinition(settings);
   const grain = `<filter id="surface-grain" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="4" seed="12" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 ${Math.max(0, Math.min(1, settings.grain / 100))}"/></feComponentTransfer></filter>`;
+  const relief = `<filter id="surface-relief" x="-12%" y="-12%" width="124%" height="124%"><feTurbulence type="fractalNoise" baseFrequency=".006 .018" numOctaves="2" seed="19" result="relief-noise"/><feDisplacementMap in="SourceGraphic" in2="relief-noise" scale="${Math.max(0, settings.relief)}" xChannelSelector="R" yChannelSelector="B"/></filter>`;
   const patternLayer =
     settings.pattern === 'none'
       ? ''
@@ -140,7 +255,7 @@ export function buildBackgroundSvg(
       ? `<rect width="100%" height="100%" fill="${settings.colorA}"/>${ditherField(settings)}`
       : settings.style === 'pattern'
         ? `<rect width="100%" height="100%" fill="${settings.colorA}"/>`
-        : `<rect width="100%" height="100%" fill="url(#surface-gradient)"/>`;
+        : gradientSurface(settings);
   const grainLayer =
     settings.style === 'grain-gradient' && settings.grain > 0
       ? `<rect width="100%" height="100%" fill="#FFFFFF" filter="url(#surface-grain)" style="mix-blend-mode:soft-light"/>`
@@ -163,5 +278,5 @@ export function buildBackgroundSvg(
     ? `<image href="${identity.asset.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" width="100%" height="100%" preserveAspectRatio="xMidYMid ${identity.assetFit === 'contain' ? 'meet' : 'slice'}" opacity="${Math.max(0, Math.min(1, (identity.assetOpacity ?? 100) / 100))}"/>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${pattern}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${relief}${pattern}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
 }

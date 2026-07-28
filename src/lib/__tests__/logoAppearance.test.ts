@@ -36,4 +36,19 @@ describe('logo appearance', () => {
     expect(filter).toContain('<feComponentTransfer in="colored"');
     expect(filter).toContain('<feDropShadow in="inverted"');
   });
+
+  it('adds a configurable dither pass before outline and shadow composition', () => {
+    const filter = buildLogoSvgFilter({
+      ...DEFAULT_LOGO_APPEARANCE,
+      ditherAmount: 80,
+      ditherAngle: 45,
+      ditherEnabled: true,
+      ditherScale: 8,
+      shadowEnabled: true,
+    }, '#FFFFFF', 'dither-logo');
+
+    expect(filter).toContain('result="dither-noise"');
+    expect(filter).toContain('result="dithered"');
+    expect(filter).toContain('<feDropShadow in="dithered"');
+  });
 });

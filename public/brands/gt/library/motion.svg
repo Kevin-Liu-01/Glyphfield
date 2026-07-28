@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Frame motion study</title>
+  <desc id="description">Five rectilinear states show a solid source opening into a glass frame and resolving again.</desc>
+  <defs><linearGradient id="metal"><stop stop-color="#151718"/><stop offset=".34" stop-color="#fff"/><stop offset=".47" stop-color="#666a6c"/><stop offset=".72" stop-color="#eef0f0"/><stop offset="1" stop-color="#181a1b"/></linearGradient></defs>
+  <rect width="1600" height="900" fill="#050607"/>
+  <g fill="url(#metal)">
+    <rect x="106" y="370" width="160" height="160" rx="10"/>
+    <path d="M392 330h220v240H392zm54 54v132h112V384z" fill-rule="evenodd"/>
+    <path d="M680 274h240v352H680zm62 62v228h116V336z" fill-rule="evenodd"/>
+    <path d="M988 330h220v240H988zm54 54v132h112V384z" fill-rule="evenodd"/>
+    <rect x="1334" y="370" width="160" height="160" rx="10"/>
+  </g>
+  <path d="M266 450H392M612 450H680M920 450H988M1208 450H1334" stroke="#fff" stroke-opacity=".2"/>
+</svg>

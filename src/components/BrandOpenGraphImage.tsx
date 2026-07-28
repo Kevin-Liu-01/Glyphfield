@@ -13,13 +13,17 @@ type BrandOpenGraphImageProps = {
   title: string;
 };
 
-const frameStyle: CSSProperties = {
-  alignItems: 'center',
-  border: '1px solid rgba(255,255,255,0.28)',
-  display: 'flex',
-  justifyContent: 'center',
-  position: 'absolute',
-};
+const FIELD_BANDS = [
+  { height: 218, opacity: 0.36 },
+  { height: 294, opacity: 0.48 },
+  { height: 376, opacity: 0.62 },
+  { height: 430, opacity: 0.76 },
+  { height: 472, opacity: 0.94 },
+  { height: 430, opacity: 0.8 },
+  { height: 376, opacity: 0.66 },
+  { height: 294, opacity: 0.5 },
+  { height: 218, opacity: 0.38 },
+] as const;
 
 function GlyphfieldMark({ color = '#ffffff', size = 52 }: { color?: string; size?: number }) {
   return (
@@ -31,123 +35,127 @@ function GlyphfieldMark({ color = '#ffffff', size = 52 }: { color?: string; size
   );
 }
 
-function OutputStack({ accent }: { accent: string }) {
+function CornerTriangle({ position }: { position: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' }) {
+  const vertical = position.startsWith('top') ? { top: 0 } : { bottom: 0 };
+  const horizontal = position.endsWith('left') ? { left: 0 } : { right: 0 };
+  const rotation = {
+    'bottom-left': 'rotate(270deg)',
+    'bottom-right': 'rotate(180deg)',
+    'top-left': 'rotate(0deg)',
+    'top-right': 'rotate(90deg)',
+  }[position];
+
   return (
     <div
       style={{
-        alignItems: 'center',
+        ...vertical,
+        ...horizontal,
+        borderBottom: '9px solid transparent',
+        borderLeft: '9px solid rgba(255,255,255,0.55)',
+        borderTop: '9px solid transparent',
         display: 'flex',
-        height: 452,
+        height: 0,
+        position: 'absolute',
+        transform: rotation,
+        width: 0,
+      }}
+    />
+  );
+}
+
+function GlyphField({ accent }: { accent: string }) {
+  return (
+    <div
+      style={{
+        alignItems: 'flex-end',
+        background: '#07080b',
+        display: 'flex',
+        height: '100%',
         justifyContent: 'center',
+        overflow: 'hidden',
         position: 'relative',
-        width: 398,
+        width: '100%',
       }}
     >
       <div
         style={{
-          backgroundImage: `radial-gradient(circle at 44% 42%, rgba(255,255,255,0.92) 0, ${accent} 20%, ${accent}44 48%, transparent 72%)`,
-          borderRadius: 999,
-          filter: 'blur(4px)',
-          height: 360,
-          opacity: 0.95,
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.16) 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+          display: 'flex',
+          inset: 0,
+          opacity: 0.28,
           position: 'absolute',
-          width: 360,
         }}
       />
       <div
         style={{
-          ...frameStyle,
-          background: 'rgba(12,12,14,0.5)',
-          height: 250,
-          left: 50,
-          top: 62,
-          transform: 'rotate(-8deg)',
-          width: 292,
-        }}
-      />
-      <div
-        style={{
-          ...frameStyle,
-          background: 'rgba(255,255,255,0.08)',
-          height: 250,
-          left: 44,
-          top: 83,
-          transform: 'rotate(5deg)',
-          width: 292,
-        }}
-      />
-      <div
-        style={{
-          ...frameStyle,
-          alignItems: 'stretch',
-          background: '#f7f7f4',
-          boxShadow: '0 28px 80px rgba(0,0,0,0.36)',
-          flexDirection: 'column',
-          height: 250,
-          left: 48,
-          padding: 22,
-          top: 104,
-          width: 292,
+          alignItems: 'flex-end',
+          bottom: -1,
+          display: 'flex',
+          height: 516,
+          justifyContent: 'center',
+          position: 'absolute',
+          width: 420,
         }}
       >
-        <div style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between' }}>
-          <GlyphfieldMark color='#18181b' size={31} />
-          <div style={{ color: '#77777d', display: 'flex', fontSize: 12, letterSpacing: 2 }}>
-            OUTPUT / 01
-          </div>
-        </div>
-        <div
-          style={{
-            background: '#18181b',
-            display: 'flex',
-            height: 7,
-            marginTop: 38,
-            width: 175,
-          }}
-        />
-        <div
-          style={{
-            background: '#18181b',
-            display: 'flex',
-            height: 7,
-            marginTop: 10,
-            opacity: 0.2,
-            width: 218,
-          }}
-        />
-        <div
-          style={{
-            backgroundImage: `linear-gradient(135deg, ${accent}, #f7f7f4 72%)`,
-            border: '1px solid rgba(24,24,27,0.2)',
-            display: 'flex',
-            height: 44,
-            marginTop: 'auto',
-            width: '100%',
-          }}
-        />
+        {FIELD_BANDS.map((band, index) => (
+          <div
+            key={`${band.height}-${index}`}
+            style={{
+              backgroundImage: `linear-gradient(180deg, #07080b 0%, ${accent} 57%, #f7f7f4 100%)`,
+              display: 'flex',
+              height: band.height,
+              opacity: band.opacity,
+              width: 44,
+            }}
+          />
+        ))}
       </div>
       <div
         style={{
-          border: `1px solid ${accent}`,
+          alignItems: 'center',
+          border: '1px solid rgba(255,255,255,0.42)',
           display: 'flex',
-          height: 22,
+          height: 146,
+          justifyContent: 'center',
+          left: 137,
           position: 'absolute',
-          right: 26,
-          top: 38,
-          width: 22,
+          top: 218,
+          width: 146,
         }}
-      />
+      >
+        <GlyphfieldMark size={78} />
+        <CornerTriangle position='top-left' />
+        <CornerTriangle position='top-right' />
+        <CornerTriangle position='bottom-left' />
+        <CornerTriangle position='bottom-right' />
+      </div>
       <div
         style={{
-          background: accent,
+          color: 'rgba(255,255,255,0.58)',
           display: 'flex',
-          height: 8,
+          fontSize: 12,
+          left: 28,
+          letterSpacing: 2.4,
           position: 'absolute',
-          right: 33,
-          top: 45,
-          width: 8,
+          top: 28,
         }}
-      />
+      >
+        GLYPH FIELD / LIVE SYSTEM
+      </div>
+      <div
+        style={{
+          bottom: 26,
+          color: 'rgba(255,255,255,0.58)',
+          display: 'flex',
+          fontSize: 12,
+          letterSpacing: 2.4,
+          position: 'absolute',
+          right: 28,
+        }}
+      >
+        1200 × 630
+      </div>
     </div>
   );
 }
@@ -159,100 +167,54 @@ export default function BrandOpenGraphImage({
   kicker,
   title,
 }: BrandOpenGraphImageProps) {
-  const titleSize = title.length > 58 ? 56 : title.length > 38 ? 64 : 76;
+  const titleSize = title.length > 58 ? 55 : title.length > 38 ? 63 : 72;
+  const shellStyle: CSSProperties = {
+    background: '#f4f3ef',
+    color: '#111113',
+    display: 'flex',
+    fontFamily: 'Switzer, Arial, sans-serif',
+    height: '100%',
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+  };
 
   return (
-    <div
-      style={{
-        background: '#111113',
-        color: '#f7f7f4',
-        display: 'flex',
-        fontFamily: 'Switzer, Arial, sans-serif',
-        height: '100%',
-        overflow: 'hidden',
-        position: 'relative',
-        width: '100%',
-      }}
-    >
+    <div style={shellStyle}>
       <div
         style={{
-          backgroundImage:
-            'radial-gradient(circle, rgba(255,255,255,0.16) 1.2px, transparent 1.2px)',
-          backgroundSize: '18px 18px',
-          display: 'flex',
-          inset: 0,
-          maskImage: 'linear-gradient(90deg, rgba(0,0,0,0.75), transparent 72%)',
-          opacity: 0.48,
-          position: 'absolute',
-        }}
-      />
-      <div
-        style={{
-          borderBottom: '1px solid rgba(255,255,255,0.14)',
-          display: 'flex',
-          height: 92,
-          left: 0,
-          position: 'absolute',
-          right: 0,
-          top: 0,
-        }}
-      />
-      <div
-        style={{
-          borderLeft: '1px solid rgba(255,255,255,0.14)',
-          bottom: 0,
-          display: 'flex',
-          left: 812,
-          position: 'absolute',
-          top: 0,
-        }}
-      />
-      <div
-        style={{
-          background: accent,
-          bottom: 0,
-          display: 'flex',
-          height: 10,
-          left: 0,
-          position: 'absolute',
-          right: 0,
-        }}
-      />
-
-      <div
-        style={{
+          borderRight: '1px solid rgba(17,17,19,0.2)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          padding: '25px 0 29px 42px',
+          padding: '34px 44px 30px',
           position: 'relative',
-          width: 812,
+          width: 746,
         }}
       >
-        <div style={{ alignItems: 'center', display: 'flex', height: 50 }}>
-          <GlyphfieldMark size={43} />
+        <div style={{ alignItems: 'center', display: 'flex', height: 48 }}>
+          <GlyphfieldMark color='#111113' size={40} />
           <div
             style={{
               display: 'flex',
               fontSize: 20,
               fontWeight: 550,
-              letterSpacing: -0.6,
-              marginLeft: 15,
+              letterSpacing: -0.45,
+              marginLeft: 14,
             }}
           >
-            GLYPH/FIELD
+            Glyphfield
           </div>
           <div
             style={{
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(17,17,19,0.52)',
               display: 'flex',
-              fontSize: 13,
-              letterSpacing: 2.6,
+              fontSize: 12,
+              letterSpacing: 2.3,
               marginLeft: 'auto',
-              marginRight: 30,
             }}
           >
-            BRAND STUDIO
+            OPEN BRAND STUDIO
           </div>
         </div>
 
@@ -261,23 +223,15 @@ export default function BrandOpenGraphImage({
             alignItems: 'center',
             color: accent,
             display: 'flex',
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: 550,
-            letterSpacing: 3.5,
-            marginTop: 68,
+            letterSpacing: 2.6,
+            marginTop: 76,
             textTransform: 'uppercase',
           }}
         >
           <span style={{ display: 'flex' }}>{index}</span>
-          <span
-            style={{
-              background: accent,
-              display: 'flex',
-              height: 1,
-              margin: '0 14px',
-              width: 36,
-            }}
-          />
+          <span style={{ background: accent, display: 'flex', height: 1, margin: '0 13px', width: 34 }} />
           <span style={{ display: 'flex' }}>{kicker}</span>
         </div>
 
@@ -285,24 +239,24 @@ export default function BrandOpenGraphImage({
           style={{
             display: 'flex',
             fontSize: titleSize,
-            fontWeight: 550,
-            letterSpacing: -3.6,
+            fontWeight: 500,
+            letterSpacing: -3.4,
             lineHeight: 0.98,
-            marginTop: 22,
-            maxWidth: 720,
+            marginTop: 24,
+            maxWidth: 650,
           }}
         >
           {title}
         </div>
         <div
           style={{
-            color: 'rgba(247,247,244,0.67)',
+            color: 'rgba(17,17,19,0.62)',
             display: 'flex',
-            fontSize: 24,
-            letterSpacing: -0.45,
+            fontSize: 22,
+            letterSpacing: -0.35,
             lineHeight: 1.35,
-            marginTop: 23,
-            maxWidth: 690,
+            marginTop: 24,
+            maxWidth: 624,
           }}
         >
           {description}
@@ -311,31 +265,23 @@ export default function BrandOpenGraphImage({
         <div
           style={{
             alignItems: 'center',
-            color: 'rgba(255,255,255,0.46)',
+            borderTop: '1px solid rgba(17,17,19,0.22)',
+            color: 'rgba(17,17,19,0.56)',
             display: 'flex',
-            fontSize: 13,
-            letterSpacing: 2.2,
+            fontSize: 12,
+            justifyContent: 'space-between',
+            letterSpacing: 2,
             marginTop: 'auto',
+            paddingTop: 20,
           }}
         >
-          GLYPHFIELD.STUDIO
-          <span style={{ display: 'flex', margin: '0 10px' }}>·</span>
-          OPEN SOURCE / MIT
+          <span style={{ display: 'flex' }}>GLYPHFIELD.STUDIO</span>
+          <span style={{ display: 'flex' }}>LOCAL-FIRST / MIT</span>
         </div>
       </div>
 
-      <div
-        style={{
-          alignItems: 'center',
-          display: 'flex',
-          height: '100%',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          position: 'relative',
-          width: 388,
-        }}
-      >
-        <OutputStack accent={accent} />
+      <div style={{ display: 'flex', height: '100%', width: 454 }}>
+        <GlyphField accent={accent} />
       </div>
     </div>
   );

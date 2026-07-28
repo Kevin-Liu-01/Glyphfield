@@ -1,7 +1,5 @@
 export type StudioToolCategory =
   | 'Brand'
-  | 'Elements'
-  | 'Boards'
   | 'Motion'
   | 'Foundations'
   | 'Expressions'
@@ -11,6 +9,10 @@ export type StudioToolId =
   | 'brand-elements'
   | 'design-board'
   | 'animation'
+  | 'lottie'
+  | 'material'
+  | 'surface'
+  // These IDs remain valid draft scopes even though they are absent from STUDIO_TOOLS.
   | 'logo-shader'
   | 'identity'
   | 'opengraph'
@@ -35,8 +37,6 @@ export type StudioTool = {
 
 export const STUDIO_CATEGORIES: readonly StudioToolCategory[] = [
   'Brand',
-  'Elements',
-  'Boards',
   'Motion',
   'Foundations',
   'Expressions',
@@ -53,7 +53,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     shortcut: 'I',
   },
   {
-    category: 'Elements',
+    category: 'Brand',
     description: 'Apply the active identity across digital, developer, social, editorial, event, and physical touchpoints.',
     id: 'brand-elements',
     keywords: [
@@ -77,7 +77,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     shortcut: 'E',
   },
   {
-    category: 'Boards',
+    category: 'Brand',
     description: 'Compose the identity as an application showcase or complete system board, then export a high-resolution PNG.',
     id: 'design-board',
     keywords: ['brand board', 'design board', 'moodboard', 'style tile', 'identity', 'guidelines'],
@@ -94,11 +94,30 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Motion',
-    description: 'Apply editable ShaderGradient and local GLSL materials behind or inside the active logo.',
-    id: 'logo-shader',
-    keywords: ['shader', 'webgl', 'logo background', 'gradient', 'shadergradient', 'shaders', 'liquid glass', 'aurora', 'plasma', 'animated'],
-    name: 'Logo shader',
-    shortcut: 'G',
+    description: 'Import, recolor, trim, preview, and export Lottie JSON or .lottie vector animation.',
+    id: 'lottie',
+    keywords: ['lottie', 'dotlottie', 'vector animation', 'json animation', 'playback', 'trim', 'recolor'],
+    name: 'Lottie',
+    shortcut: 'L',
+  },
+  {
+    category: 'Motion',
+    description: 'Apply animated materials and shaders to backgrounds, logos, and transparent marks.',
+    id: 'material',
+    keywords: [
+      'material',
+      'shader',
+      'webgl',
+      'shadergradient',
+      'liquid glass',
+      'liquid metal',
+      'aurora',
+      'plasma',
+      'animated',
+      'gif',
+    ],
+    name: 'Material',
+    shortcut: 'M',
   },
   {
     category: 'Expressions',
@@ -110,19 +129,26 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Preview and download the active identity mark across colors, static surfaces, live shaders, and sizes.',
-    id: 'logo',
-    keywords: ['logomark', 'transparent', 'white', 'black', 'primary', 'secondary', 'download'],
-    name: 'Logo lab',
-    shortcut: 'L',
-  },
-  {
-    category: 'Foundations',
-    description: 'Build exportable gradients, grain, dithering, patterns, and live GPU logo surfaces.',
-    id: 'backgrounds',
-    keywords: ['background', 'dither', 'gradient', 'grain', 'noise', 'dots', 'lines', 'grid', 'texture', 'bayer'],
-    name: 'Background lab',
-    shortcut: 'F',
+    description: 'Design backgrounds and logo applications in one focused surface workspace.',
+    id: 'surface',
+    keywords: [
+      'surface lab',
+      'background',
+      'dither',
+      'gradient',
+      'grain',
+      'noise',
+      'dots',
+      'lines',
+      'grid',
+      'texture',
+      'bayer',
+      'logo',
+      'logomark',
+      'transparent',
+    ],
+    name: 'Surface Lab',
+    shortcut: 'U',
   },
   {
     category: 'Foundations',

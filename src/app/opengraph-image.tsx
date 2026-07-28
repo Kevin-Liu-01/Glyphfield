@@ -1,13 +1,15 @@
 import { ImageResponse } from 'next/og';
 
 import BrandOpenGraphImage, { OPEN_GRAPH_SIZE } from '@/components/BrandOpenGraphImage';
+import { getOpenGraphFonts } from '@/lib/openGraphFonts';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 export const alt = 'Glyphfield — one brand studio for every surface';
 export const contentType = 'image/png';
+export const runtime = 'nodejs';
 export const size = OPEN_GRAPH_SIZE;
 
-export default function OpenGraphImage() {
+export default async function OpenGraphImage() {
   return new ImageResponse(
     <BrandOpenGraphImage
       accent='#8b5cf6'
@@ -16,6 +18,6 @@ export default function OpenGraphImage() {
       kicker='Identity systems'
       title='One brand studio for every surface.'
     />,
-    size
+    { ...size, fonts: await getOpenGraphFonts() }
   );
 }

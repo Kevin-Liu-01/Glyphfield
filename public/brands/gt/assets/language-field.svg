@@ -1,12 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
-  <rect width="1600" height="900" fill="#111"/>
-  <g fill="#fff" font-family="Inter,Arial,sans-serif" text-anchor="middle">
-    <text x="800" y="132" font-size="20" letter-spacing="4" opacity=".58">ONE MESSAGE / MANY LOCALES</text>
-    <text x="800" y="285" font-size="92" font-weight="500">Welcome</text>
-    <text x="800" y="398" font-size="92" font-weight="500">Bienvenidos</text>
-    <text x="800" y="511" font-size="92" font-weight="500">你好</text>
-    <text x="800" y="624" font-size="92" font-weight="500">ようこそ</text>
-    <text x="800" y="737" font-size="92" font-weight="500">أهلاً وسهلاً</text>
-  </g>
-  <path d="M180 800h1240" stroke="#fff" stroke-width="2" opacity=".35"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Language lens</title>
+  <desc id="description">A soft monochrome lens bends a fine dither field toward one center.</desc>
+  <defs>
+    <radialGradient id="light"><stop stop-color="#fff" stop-opacity=".92"/><stop offset=".26" stop-color="#fff" stop-opacity=".2"/><stop offset=".72" stop-color="#fff" stop-opacity=".03"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#fff" opacity=".28"/></pattern>
+    <mask id="lens"><ellipse cx="820" cy="450" rx="650" ry="390" fill="url(#light)"/></mask>
+  </defs>
+  <rect width="1600" height="900" fill="#050606"/>
+  <ellipse cx="820" cy="450" rx="650" ry="390" fill="url(#light)"/>
+  <rect width="1600" height="900" fill="url(#dots)" mask="url(#lens)"/>
+  <ellipse cx="820" cy="450" rx="276" ry="276" fill="none" stroke="#fff" opacity=".16"/>
+  <ellipse cx="820" cy="450" rx="190" ry="190" fill="none" stroke="#fff" opacity=".3"/>
 </svg>

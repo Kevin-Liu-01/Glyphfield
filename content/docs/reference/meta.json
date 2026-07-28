@@ -4,6 +4,7 @@
   "pages": [
     "index",
     "endpoints",
+    "social-previews",
     "capability-matrix",
     "shortcuts"
   ]

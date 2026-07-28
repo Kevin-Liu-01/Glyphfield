@@ -1,6 +1,7 @@
 import {
   buildBackgroundSvg,
   DEFAULT_BACKGROUND_SETTINGS,
+  type BackgroundDitherShape,
   type BackgroundGradient,
   type BackgroundPattern,
   type BackgroundSettings,
@@ -177,6 +178,14 @@ function numberValue(
   return value;
 }
 
+function booleanValue(value: unknown, fallback: boolean, field: string): boolean {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') {
+    throw new AgentGenerationError(`${field} must be a boolean.`, field);
+  }
+  return value;
+}
+
 function numericOneOf<T extends number>(
   value: unknown,
   values: readonly T[],
@@ -330,17 +339,29 @@ function backgroundSettings(value: unknown): BackgroundSettings {
 
   return {
     angle: numberValue(input.angle, DEFAULT_BACKGROUND_SETTINGS.angle, 'settings.angle', -360, 360),
+    bandCount: numberValue(input.bandCount, DEFAULT_BACKGROUND_SETTINGS.bandCount, 'settings.bandCount', 3, 24, true),
+    bandDepth: numberValue(input.bandDepth, DEFAULT_BACKGROUND_SETTINGS.bandDepth, 'settings.bandDepth', 0, 100),
+    bandGap: numberValue(input.bandGap, DEFAULT_BACKGROUND_SETTINGS.bandGap, 'settings.bandGap', 0, 64),
     colorA: colorValue(input.colorA, DEFAULT_BACKGROUND_SETTINGS.colorA, 'settings.colorA'),
     colorB: colorValue(input.colorB, DEFAULT_BACKGROUND_SETTINGS.colorB, 'settings.colorB'),
+    colorC: colorValue(input.colorC, DEFAULT_BACKGROUND_SETTINGS.colorC, 'settings.colorC'),
     ditherMatrix: numericOneOf(
       input.ditherMatrix,
       [2, 4, 8] as const,
       DEFAULT_BACKGROUND_SETTINGS.ditherMatrix,
       'settings.ditherMatrix',
     ),
+    ditherShape: oneOf(
+      input.ditherShape,
+      ['dots', 'squares'] as const satisfies readonly BackgroundDitherShape[],
+      DEFAULT_BACKGROUND_SETTINGS.ditherShape,
+      'settings.ditherShape'
+    ),
+    focalX: numberValue(input.focalX, DEFAULT_BACKGROUND_SETTINGS.focalX, 'settings.focalX', 0, 100),
+    focalY: numberValue(input.focalY, DEFAULT_BACKGROUND_SETTINGS.focalY, 'settings.focalY', 0, 100),
     gradient: oneOf(
       input.gradient,
-      ['linear', 'radial'] as const satisfies readonly BackgroundGradient[],
+      ['linear', 'radial', 'mesh', 'orbit', 'wave'] as const satisfies readonly BackgroundGradient[],
       DEFAULT_BACKGROUND_SETTINGS.gradient,
       'settings.gradient'
     ),
@@ -352,6 +373,11 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     logoTone: oneOf(input.logoTone, ['black', 'white'] as const, DEFAULT_BACKGROUND_SETTINGS.logoTone, 'settings.logoTone'),
     logoX: numberValue(input.logoX, DEFAULT_BACKGROUND_SETTINGS.logoX, 'settings.logoX', -50, 50),
     logoY: numberValue(input.logoY, DEFAULT_BACKGROUND_SETTINGS.logoY, 'settings.logoY', -50, 50),
+    lightingEnabled: booleanValue(
+      input.lightingEnabled,
+      DEFAULT_BACKGROUND_SETTINGS.lightingEnabled,
+      'settings.lightingEnabled'
+    ),
     pattern: oneOf(
       input.pattern,
       ['none', 'dots', 'lines', 'grid'] as const satisfies readonly BackgroundPattern[],
@@ -359,6 +385,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
       'settings.pattern'
     ),
     patternOpacity: numberValue(input.patternOpacity, DEFAULT_BACKGROUND_SETTINGS.patternOpacity, 'settings.patternOpacity', 0, 100),
+    relief: numberValue(input.relief, DEFAULT_BACKGROUND_SETTINGS.relief, 'settings.relief', 0, 80),
     spacing: numberValue(input.spacing, DEFAULT_BACKGROUND_SETTINGS.spacing, 'settings.spacing', 8, 256, true),
     style: oneOf(
       input.style,

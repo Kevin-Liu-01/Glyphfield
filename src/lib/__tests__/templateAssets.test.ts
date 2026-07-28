@@ -9,12 +9,12 @@ import {
 } from '../templateAssets';
 
 describe('template assets', () => {
-  it('uses the real GT logo family for template surfaces', () => {
+  it('uses the mark-only GT logo family for template surfaces', () => {
     expect(templateBrandLogo(GT_BRAND_IDENTITY, 'partnership', false)?.path).toBe(
-      '/brands/gt/logos/wordmark-black.svg'
+      '/brands/gt/logos/mark-black.svg'
     );
     expect(templateBrandLogo(GT_BRAND_IDENTITY, 'slides', true)?.path).toBe(
-      '/brands/gt/logos/wordmark-white.svg'
+      '/brands/gt/logos/mark-white.svg'
     );
     expect(templateBrandLogo(GT_BRAND_IDENTITY, 'blog', false)?.path).toBe(
       '/brands/gt/logos/mark-black.svg'
@@ -35,8 +35,9 @@ describe('template assets', () => {
     const options = templateBackgroundOptions(GT_BRAND_IDENTITY);
 
     expect(options.map(({ id }) => id)).toEqual(
-      expect.arrayContaining(['identity-field', 'reference-homepage'])
+      expect.arrayContaining(['identity-field', 'library-atmosphere', 'library-signal'])
     );
+    expect(options.map(({ id }) => id)).not.toContain('reference-homepage');
     expect(options.map(({ id }) => id)).not.toContain('locadex');
   });
 

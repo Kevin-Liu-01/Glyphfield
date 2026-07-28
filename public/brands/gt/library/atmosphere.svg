@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Black mirror field</title>
+  <desc id="description">A restrained black brushed surface interrupted by one exact vertical reflection.</desc>
+  <defs>
+    <linearGradient id="field"><stop stop-color="#020303"/><stop offset=".34" stop-color="#0b0c0c"/><stop offset=".495" stop-color="#5e6162"/><stop offset=".505" stop-color="#f6f7f7"/><stop offset=".515" stop-color="#383a3b"/><stop offset=".7" stop-color="#080909"/><stop offset="1" stop-color="#020303"/></linearGradient>
+    <filter id="brush" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".72 .009" numOctaves="2" seed="37" result="n"/><feColorMatrix in="n" values=".333 .333 .333 0 0 .333 .333 .333 0 0 .333 .333 .333 0 0 0 0 0 .12 0"/><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#field)" filter="url(#brush)"/>
+  <path d="M800 0v900" stroke="#fff" stroke-width="1" opacity=".46"/>
+</svg>

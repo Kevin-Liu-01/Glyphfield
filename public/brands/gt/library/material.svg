@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Grayscale range</title>
+  <desc id="description">Six broad grayscale bands move evenly from ink to paper.</desc>
+  <rect width="1600" height="900" fill="#050505"/>
+  <rect x="80" y="90" width="240" height="720" fill="#050505"/>
+  <rect x="320" y="90" width="240" height="720" fill="#222"/>
+  <rect x="560" y="90" width="240" height="720" fill="#555"/>
+  <rect x="800" y="90" width="240" height="720" fill="#999"/>
+  <rect x="1040" y="90" width="240" height="720" fill="#d8d8d8"/>
+  <rect x="1280" y="90" width="240" height="720" fill="#fff"/>
+</svg>

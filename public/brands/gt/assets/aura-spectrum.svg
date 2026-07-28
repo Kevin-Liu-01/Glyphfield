@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">GT glass metal field</title>
+  <desc id="description">A modular black-glass field is held by precise chrome rails.</desc>
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2=".1"><stop stop-color="#080a0b"/><stop offset=".16" stop-color="#2c3032"/><stop offset=".305" stop-color="#b8bcbe"/><stop offset=".345" stop-color="#fff"/><stop offset=".39" stop-color="#707577"/><stop offset=".5" stop-color="#111416"/><stop offset=".68" stop-color="#62676a"/><stop offset=".795" stop-color="#e2e4e5"/><stop offset=".83" stop-color="#fff"/><stop offset=".87" stop-color="#7a7f82"/><stop offset="1" stop-color="#0a0c0d"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".1"/><stop offset=".5" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
+    <filter id="brushed" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".84 .006" numOctaves="2" seed="23" result="grain"/><feColorMatrix in="grain" values=".333 .333 .333 0 0 .333 .333 .333 0 0 .333 .333 .333 0 0 0 0 0 .1 0" result="grainTone"/><feBlend in="SourceGraphic" in2="grainTone" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="#050607"/>
+  <rect x="146" y="108" width="1308" height="684" rx="24" fill="url(#glass)" stroke="#fff" stroke-opacity=".16"/>
+  <g filter="url(#brushed)"><rect x="294" y="212" width="1012" height="116" rx="10" fill="url(#chrome)"/><rect x="294" y="328" width="116" height="360" rx="10" fill="url(#chrome)"/><rect x="410" y="572" width="896" height="116" rx="10" fill="url(#chrome)"/><rect x="1190" y="328" width="116" height="244" rx="10" fill="url(#chrome)"/></g>
+  <rect x="520" y="366" width="560" height="168" rx="12" fill="#030405" stroke="#fff" stroke-opacity=".2"/>
+</svg>

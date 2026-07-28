@@ -10,14 +10,14 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 
 | Component | Responsibility | State owner | Reused by |
 | --- | --- | --- | --- |
-| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Background lab, Logo shader, Brand elements, material finishes |
-| `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Logo shader, Background lab |
+| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Surface Lab, Brand elements, material finishes |
+| `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Surface Lab |
 | `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
 | `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
 | `canvasDocument` | Versioned pages, elements, constraints, resources, history, checkpoints, and export preflight | Immutable scene graph and command history | Migration target for every editable artifact and agent operation |
 | `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
 | `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
-| `LogoAppearanceControls` | Inversion, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Logo lab, Background lab, OpenGraph, Logo shader, and Brand elements |
+| `LogoAppearanceControls` | Inversion, ordered dither, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Surface Lab, OpenGraph, and Brand elements |
 | `useStudioDraft` | Project-and-tool-scoped browser persistence | `localStorage` through one shared hook | Tool fields, zoom, layers, surfaces, layout, and export settings |
 
 ## Color control
@@ -102,6 +102,7 @@ The current direct-manipulation components are adapters over tool-specific trans
 `LogoAppearanceControls` and `src/lib/logoAppearance.ts` keep logo treatment consistent across every generator. Preview filters, SVG export filters, and Canvas exports resolve from the same values.
 
 - **Invert** reverses the current resolved mark without requiring a second uploaded asset.
+- **Dither** applies a non-destructive ordered print field with editable amount, cell size, and direction.
 - **Outline** follows the alpha of the SVG or transparent image instead of drawing a box around its bounds.
 - **Shadow** exposes color, opacity, blur, and X/Y offset.
 - **Custom color** always uses `ColorControl`, so HEX and OKLCH stay interchangeable.
@@ -120,6 +121,7 @@ Third-party packages sit behind local components so individual Studio tools do n
 | `@shadergradient/react` | Live-material adapter | Editable ShaderGradient sphere presets |
 | `camera-controls` + `three-stdlib` | Material canvas | Stable camera behavior and Three.js utilities |
 | `gifenc` | GIF export pipeline | Deterministic browser GIF encoding and palette control |
+| `@lottiefiles/dotlottie-web` | Animation source adapter | Local `.lottie` and Lottie JSON playback, exact frame seeking, and GIF capture |
 | PrismJS | Code-highlighting adapter | TypeScript, Python, Bash, JSON, and shell token color |
 | Lucide | Component-local icons | Consistent semantic control icons |
 | `gt-next` | `<T>` and `useGT` | Translatable Studio labels and accessible names |

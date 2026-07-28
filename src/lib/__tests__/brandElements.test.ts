@@ -9,7 +9,7 @@ import { GT_BRAND_IDENTITY } from '../brandIdentity';
 
 describe('BRAND_ELEMENTS', () => {
   it('covers digital, developer, social, editorial, event, and physical identity applications', () => {
-    expect(BRAND_ELEMENTS.length).toBeGreaterThanOrEqual(66);
+    expect(BRAND_ELEMENTS.length).toBeGreaterThanOrEqual(84);
     expect(new Set(BRAND_ELEMENTS.map(({ id }) => id)).size).toBe(BRAND_ELEMENTS.length);
     expect(new Set(BRAND_ELEMENTS.map(({ category }) => category))).toEqual(
       new Set(['Digital', 'Product', 'Developer', 'Social', 'Editorial', 'Event', 'Physical'])
@@ -17,9 +17,18 @@ describe('BRAND_ELEMENTS', () => {
     expect(BRAND_ELEMENTS.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
         'welcome-email',
-        'lifecycle-email-sequence',
-        'utility-email',
-        'billing-alert-email',
+        'onboarding-day3-no-api-key-email',
+        'onboarding-day3-api-key-email',
+        'onboarding-day3-live-email',
+        'onboarding-day5-no-api-key-email',
+        'onboarding-day6-api-key-email',
+        'onboarding-day6-live-email',
+        'auth-magic-link-email',
+        'membership-invitation-email',
+        'enterprise-intro-email',
+        'billing-payment-failed-email',
+        'usage-hard-limit-email',
+        'locadex-setup-complete-email',
         'email-system-sheet',
         'cli-banner',
         'ascii-mark',
@@ -46,7 +55,7 @@ describe('BRAND_ELEMENTS', () => {
 
 describe('filterBrandElements', () => {
   it.each([
-    ['email', ['welcome-email', 'transactional-email', 'email-signature']],
+    ['email', ['welcome-email', 'auth-magic-link-email', 'email-signature']],
     ['twitter', ['x-post']],
     ['ascii', ['ascii-mark', 'cli-banner']],
     ['lanyard', ['lanyard']],

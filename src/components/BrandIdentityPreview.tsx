@@ -17,7 +17,7 @@ type BrandIdentityPreviewProps = {
 const PREVIEW_TITLES: Readonly<Record<string, string>> = {
   basement: 'Cool work that performs.',
   cloudflare: 'A better Internet, built everywhere.',
-  gt: 'Launch in every language.',
+  gt: 'Every language. One source.',
   mintlify: 'Knowledge infrastructure for agents.',
   ramp: 'Save time. Save money.',
   starter: 'Make the signal visible.',
@@ -72,6 +72,7 @@ function PreviewShell({ children, identity }: { children: ReactNode; identity: B
     '--brand-code': brandTypographyFamily(identity, 'Code'),
     '--brand-code-weight': capVisibleFontWeight(code.weight ?? 400),
     '--brand-display': brandTypographyFamily(identity, 'Display'),
+    '--brand-display-line-height': display.lineHeight ?? 0.98,
     '--brand-display-tracking': `${display.letterSpacing ?? 0}px`,
     '--brand-display-weight': capVisibleFontWeight(display.weight ?? 500),
     '--brand-emphasis': identity.colors.find((color) => color.id === 'emphasis')?.hex ?? '#2f6bff',
@@ -108,38 +109,28 @@ export default function BrandIdentityPreview({
   if (recipe === 'translation-frame') {
     return (
       <PreviewShell identity={identity}>
+        <div aria-hidden='true' className='brand-art-gt-material'>
+          <div className='brand-art-gt-metal-stage'>
+            {identity.greetings.map((greeting, index) => (
+              <span
+                className='brand-art-gt-metal-language'
+                dir={index === identity.greetings.length - 1 ? 'rtl' : undefined}
+                key={greeting}
+              >
+                {greeting}
+              </span>
+            ))}
+          </div>
+        </div>
         <header className='brand-art-gt-header'>
-          <Mark name={identity.name} path={darkMark} />
-          <span>$ npx gt@latest</span>
+          <Mark name={identity.name} path={lightMark} />
         </header>
         <div className='brand-art-gt-copy'>
-          <PreviewTitle>{title}</PreviewTitle>
-          <p>Localize apps, docs, and websites without separating language from code.</p>
-          <div className='brand-art-gt-frameworks'>
-            {['Next.js', 'React', 'Python'].map((framework) => <span key={framework}>{framework}</span>)}
-          </div>
-        </div>
-        <div className='brand-art-gt-workspace'>
-          <div className='brand-art-gt-workspace-header'>
-            <span>translations/home.tsx</span>
-            <strong>Synced</strong>
-          </div>
-          <div className='brand-art-gt-string'>
-            <small>Source</small>
-            <b>Launch in every language.</b>
-          </div>
-          <div className='brand-art-gt-string'>
-            <small>German · de-DE</small>
-            <b>In jeder Sprache veröffentlichen.</b>
-          </div>
-          <div className='brand-art-gt-locales'>
-            {['ES', 'JA', 'AR', '+117'].map((locale) => <span key={locale}>{locale}</span>)}
-          </div>
-        </div>
-        <div className='brand-art-gt-pipeline'>
-          {['Push to repo', 'Scan codebase', 'Translate', 'Open PR'].map((step, index) => (
-            <span key={step}><b>{String(index + 1).padStart(2, '0')}</b>{step}</span>
-          ))}
+          <PreviewTitle>
+            <span>Every language.</span>
+            <span>One source.</span>
+          </PreviewTitle>
+          <p>Product language stays connected to code, context, and delivery.</p>
         </div>
       </PreviewShell>
     );

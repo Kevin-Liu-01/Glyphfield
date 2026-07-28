@@ -35,6 +35,15 @@ const BRAND_LOGOS = [
   { id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
 ] as const;
 
+const GLYPH_FIELD_ROWS = [
+  'GLYPHFIELD GLYPHFIELD',
+  'GLYPH',
+  'GLYPH',
+  'GLYPH      FIELDGLYPH',
+  'GLYPH           FIELD',
+  'GLYPHFIELD GLYPHFIELD',
+] as const;
+
 const HERO_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
   amplitude: 2.6,
@@ -50,34 +59,55 @@ const HERO_FIELD_SETTINGS = {
   strength: 0.64,
 };
 
+const OPEN_SOURCE_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 4.5,
+  brightness: 1.18,
+  colorA: '#0A0A0B',
+  colorB: '#FFFFFF',
+  colorC: '#9A86FF',
+  density: 1.18,
+  detail: 5.4,
+  frequency: 4.8,
+  grain: 20,
+  speed: 0.12,
+  strength: 0.56,
+};
+
 const FEATURES = [
   {
     description: 'Logo families, source assets, fonts, color roles, voice, and layout rules stay connected.',
+    image: '/screenshots/studio-gt-identity-2026.png',
     icon: Palette,
     label: 'Identity source',
   },
   {
     description: 'Compose moodboards, email, decks, product UI, editorial graphics, and physical pieces.',
+    image: '/screenshots/studio-gt-elements-2026.png',
     icon: Layers3,
     label: 'Brand applications',
   },
   {
     description: 'Morph text, logos, images, and live backgrounds with editable curves and deterministic timing.',
+    image: '/screenshots/studio-gt-animation-2026.png',
     icon: Film,
     label: 'Motion system',
   },
   {
     description: 'Use shader materials, grain, dither, gradients, grids, and image treatments behind any mark.',
+    image: '/screenshots/studio-gt-material-lab-2026.png',
     icon: Sparkles,
     label: 'Material lab',
   },
   {
     description: 'Select, drag, resize, layer, zoom, and export from a direct-manipulation canvas.',
+    image: '/screenshots/studio-gt-background-lab-2026.png',
     icon: ScanLine,
     label: 'Editable canvas',
   },
   {
     description: 'Agents discover the same identities and tools, then generate stable SVG and browser artifacts.',
+    image: '/screenshots/studio-gt-components-2026.png',
     icon: Bot,
     label: 'Agent interface',
   },
@@ -161,8 +191,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className='marketing-v5-hero-field marketing-v7-corner-frame' data-motion-reveal>
-            <FrameTriangles dark />
+          <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
             <div className='marketing-v5-product-window' data-motion-item>
               <ProductFrame
@@ -213,12 +242,16 @@ export default async function HomePage() {
             </T>
           </SectionHeading>
           <div className='marketing-v5-capability-grid'>
-            {FEATURES.map(({ description, icon: Icon, label }) => (
-              <article className='marketing-v7-corner-frame' data-motion-item key={label}>
-                <FrameTriangles />
+            {FEATURES.map(({ description, icon: Icon, image, label }) => (
+              <article data-motion-item key={label}>
                 <Icon aria-hidden='true' />
-                <h3>{gt(label)}</h3>
-                <p>{gt(description)}</p>
+                <div className='marketing-v5-capability-copy'>
+                  <h3>{gt(label)}</h3>
+                  <p>{gt(description)}</p>
+                </div>
+                <div className='marketing-v5-capability-preview' aria-hidden='true'>
+                  <Image alt='' fill sizes='(max-width: 760px) 54vw, (max-width: 1100px) 38vw, 18vw' src={image} />
+                </div>
               </article>
             ))}
           </div>
@@ -228,31 +261,29 @@ export default async function HomePage() {
 
         <section className='marketing-v5-product-grid marketing-v7-corner-frame' data-motion-reveal>
           <FrameTriangles />
-          <article className='marketing-v5-product-card marketing-v5-product-card--wide marketing-v7-corner-frame' data-motion-item>
-            <FrameTriangles />
-            <h2><T>See the system as designed work.</T></h2>
+          <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
+            <h2><T>Build the brand where it will live.</T></h2>
             <p>
-              <T>Original brand assets, typography, color, and composition resolve into a finished board.</T>
+              <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
             </p>
             <div className='marketing-v5-product-card-image'>
               <Image
-                alt={gt('Tailwind CSS moodboard composed in Glyphfield')}
+                alt={gt('General Translation welcome email open in the Glyphfield brand-elements editor')}
                 fill
                 sizes='(max-width: 800px) 96vw, 64vw'
-                src='/screenshots/studio-tailwind-moodboard-2026.png'
+                src='/screenshots/studio-gt-elements-2026.png'
               />
             </div>
           </article>
-          <article className='marketing-v5-product-card marketing-v5-product-card--dark marketing-v7-corner-frame' data-motion-item>
-            <FrameTriangles dark />
-            <h2><T>Give the logo a surface.</T></h2>
-            <p><T>Mask live shader materials inside the mark or place them behind it.</T></p>
+          <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
+            <h2><T>Design the mark and its motion together.</T></h2>
+            <p><T>Apply live type, material, depth, and timing to a mark, then reuse the result across every export.</T></p>
             <div className='marketing-v5-product-card-image'>
               <Image
-                alt={gt('General Translation logo shader workspace in Glyphfield')}
+                alt={gt('A General Translation mark surrounded by an animated Glyphfield letter field')}
                 fill
                 sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-gt-logo-shader-2026.png'
+                src='/screenshots/studio-glyph-field-lab-2026.png'
               />
             </div>
           </article>
@@ -285,6 +316,14 @@ export default async function HomePage() {
 
         <section className='marketing-v7-open-source marketing-v7-corner-frame' data-motion-reveal id='open-source'>
           <FrameTriangles dark />
+          <MarketingArcField
+            className='marketing-v8-open-source-glyph-field'
+            materialId='glyphfield-glyph-field'
+            settings={OPEN_SOURCE_FIELD_SETTINGS}
+          />
+          <div className='marketing-v8-open-source-letterform' aria-hidden='true'>
+            {GLYPH_FIELD_ROWS.map((row, index) => <span key={`${index}-${row}`}>{row}</span>)}
+          </div>
           <div className='marketing-v7-open-source-copy' data-motion-item>
             <h2><T>Free, open source, and built to extend.</T></h2>
             <p>
@@ -306,10 +345,9 @@ export default async function HomePage() {
               </a>
             </div>
           </div>
-          <div className='marketing-v7-open-source-panel marketing-v7-corner-frame' data-motion-item>
-            <FrameTriangles dark />
+          <div className='marketing-v7-open-source-panel' data-motion-item>
             <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
-            <div>
+            <div className='marketing-v7-open-source-meta'>
               <strong>MIT</strong>
               <span><T>Source, agent API, and artifact model included.</T></span>
             </div>
@@ -430,8 +468,7 @@ function ProductFrame({
   themeLabel?: string;
 }) {
   return (
-    <figure className={`marketing-v5-studio-frame marketing-v7-corner-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
-      <FrameTriangles dark />
+    <figure className={`marketing-v5-studio-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
       <figcaption>
         <span><i /><i /><i />{label}</span>
         <small className='marketing-v5-studio-label marketing-v5-studio-label--light'>{themeLabel}</small>
@@ -458,22 +495,20 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
         </p>
       </div>
       <div className='marketing-v5-theme-gallery-grid'>
-        <div className='marketing-v7-corner-frame' data-motion-item>
-          <FrameTriangles />
+        <div data-motion-item>
           <ProductFrame
             alt={gt('General Translation identity settings in Glyphfield Studio')}
+            darkSrc='/screenshots/studio-gt-identity-2026.png'
             label='Brand identity / General Translation'
-            src='/screenshots/studio-gt-identity-2026.png'
-            themeLabel='Dark / Studio'
+            src='/screenshots/studio-gt-identity-light-2026.png'
           />
         </div>
-        <div className='marketing-v7-corner-frame' data-motion-item>
-          <FrameTriangles />
+        <div data-motion-item>
           <ProductFrame
-            alt={gt('Tailwind CSS moodboard in Glyphfield Studio')}
-            label='Moodboard / Tailwind CSS'
-            src='/screenshots/studio-tailwind-moodboard-2026.png'
-            themeLabel='Dark / Studio'
+            alt={gt('Stripe moodboard in Glyphfield Studio')}
+            darkSrc='/screenshots/studio-stripe-moodboard-dark-2026.png'
+            label='Moodboard / Stripe'
+            src='/screenshots/studio-stripe-moodboard-light-2026.png'
           />
         </div>
       </div>

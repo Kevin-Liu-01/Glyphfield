@@ -5,6 +5,7 @@ import {
   applyFrameSettings,
   createDefaultFrameSettings,
   DEFAULT_SETTINGS,
+  isSupportedLottieFile,
   orderStudioSources,
 } from '../studio';
 
@@ -34,6 +35,15 @@ describe('orderStudioSources', () => {
   });
 });
 
+describe('isSupportedLottieFile', () => {
+  it('accepts dotLottie bundles and Lottie JSON without accepting arbitrary files', () => {
+    expect(isSupportedLottieFile('motion.lottie', '')).toBe(true);
+    expect(isSupportedLottieFile('motion.json', 'application/json')).toBe(true);
+    expect(isSupportedLottieFile('motion.bin', 'application/zip+dotlottie')).toBe(true);
+    expect(isSupportedLottieFile('motion.png', 'image/png')).toBe(false);
+  });
+});
+
 describe('createDefaultFrameSettings', () => {
   it('inherits composition and background defaults from the studio', () => {
     const frame = createDefaultFrameSettings({
@@ -50,6 +60,7 @@ describe('createDefaultFrameSettings', () => {
       background: {
         colorA: '#112233',
         colorB: '#445566',
+        finish: { presetId: 'none' },
         materialSettings: expect.objectContaining({ colorA: '#73BFC4' }),
         style: 'gradient',
       },
@@ -70,6 +81,7 @@ describe('applyFrameSettings', () => {
 
     expect(applyFrameSettings(textSource, frame)).toMatchObject({
       id: 'text-0',
+      background: { finish: { presetId: 'none' } },
       finish: { presetId: 'none' },
       kind: 'text',
       opacity: 0.6,

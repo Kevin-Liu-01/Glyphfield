@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Parallel scripts</title>
+  <desc id="description">A quiet sequence of polished vertical forms shares one continuous top edge.</desc>
+  <defs>
+    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0b0c0c"/><stop offset=".18" stop-color="#717475"/><stop offset=".34" stop-color="#fff"/><stop offset=".43" stop-color="#505354"/><stop offset=".76" stop-color="#141516"/><stop offset=".92" stop-color="#bfc1c1"/><stop offset="1" stop-color="#252728"/></linearGradient>
+    <filter id="grain" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".82 .014" numOctaves="2" seed="41" result="n"/><feColorMatrix in="n" values=".333 .333 .333 0 0 .333 .333 .333 0 0 .333 .333 .333 0 0 0 0 0 .12 0"/><feComposite in2="SourceAlpha" operator="in" result="c"/><feBlend in="SourceGraphic" in2="c" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="#f6f6f4"/>
+  <g filter="url(#grain)"><path d="M212 176h176v548H212zM412 176h176v548H412zM612 176h176v548H612zM812 176h176v548H812zM1012 176h176v548h-176zM1212 176h176v548h-176z" fill="url(#blade)"/></g>
+  <path d="M212 176h1176" stroke="#fff" stroke-width="3"/><path d="M212 724h1176" stroke="#050606" opacity=".48"/>
+</svg>

@@ -1,13 +1,16 @@
 'use client';
 
-import { useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, ExternalLink, Pause, Play, X } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import LiveMaterialControls from '@/components/LiveMaterialControls';
+import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
+import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -18,9 +21,8 @@ import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import {
   DEFAULT_LIVE_MATERIAL_ID,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
+  brandMaterialPalette,
   getLiveMaterial,
-  LIVE_MATERIAL_PALETTES,
-  LIVE_MATERIAL_OPTIONS,
   normalizeLiveMaterialId,
   SHADER_GRADIENT_SOURCE_URL,
   SHADERS_SOURCE_URL,
@@ -46,7 +48,7 @@ void main() {
 `;
 
 const DEFAULT_SHADER_PRESET =
-  SHADER_PRESETS.find(({ id }) => id === 'liquid-metal') ?? SHADER_PRESETS[0]!;
+  SHADER_PRESETS.find(({ id }) => id === 'polished-chrome') ?? SHADER_PRESETS[0]!;
 
 const CUSTOM_FRAGMENT_TEMPLATE = `precision highp float;
 uniform vec2 u_resolution;
@@ -68,7 +70,7 @@ void main() {
 type ShaderRatio = 'square' | 'wide' | 'opengraph';
 type LogoTone = 'light' | 'dark';
 type EffectTarget = 'background' | 'logo' | 'both';
-type ShaderEngine = 'studio-glsl' | 'shadergradient' | 'shaders' | 'custom-glsl';
+type ShaderEngine = 'studio-glsl' | 'shadergradient' | 'glyphfield' | 'shaders' | 'custom-glsl';
 type ExportQuality = 'standard' | 'high' | 'ultra';
 type ShaderParameters = {
   contour: number;
@@ -95,7 +97,7 @@ const GIF_FRAME_DELAY_MS = 80;
 const GIF_FRAME_COUNT = 25;
 
 function normalizeShaderEngine(value: string): ShaderEngine {
-  if (value === 'studio-glsl' || value === 'shadergradient' || value === 'shaders' || value === 'custom-glsl') return value;
+  if (value === 'studio-glsl' || value === 'shadergradient' || value === 'glyphfield' || value === 'shaders' || value === 'custom-glsl') return value;
   return 'shaders';
 }
 
@@ -292,12 +294,15 @@ function downloadBlob(blob: Blob, name: string) {
 
 export default function LogoShaderStudio({
   identity,
+  navigation,
   tool,
 }: {
   identity: BrandIdentity;
+  navigation?: ReactNode;
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const defaultPalette = brandMaterialPalette(identity);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const exportPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const materialCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -327,7 +332,12 @@ export default function LogoShaderStudio({
     identity.id,
     tool.id,
     'live-settings',
-    DEFAULT_LIVE_MATERIAL_SETTINGS
+    () => ({
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      colorA: defaultPalette.colors[0],
+      colorB: defaultPalette.colors[1],
+      colorC: defaultPalette.colors[2],
+    })
   );
   const [customDraft, setCustomDraft] = useStudioDraft(
     identity.id,
@@ -351,19 +361,19 @@ export default function LogoShaderStudio({
     identity.id,
     tool.id,
     'color-a',
-    DEFAULT_LIVE_MATERIAL_SETTINGS.colorA
+    defaultPalette.colors[0]
   );
   const [colorB, setColorB] = useStudioDraft(
     identity.id,
     tool.id,
     'color-b',
-    DEFAULT_LIVE_MATERIAL_SETTINGS.colorB
+    defaultPalette.colors[1]
   );
   const [colorC, setColorC] = useStudioDraft(
     identity.id,
     tool.id,
     'color-c',
-    DEFAULT_LIVE_MATERIAL_SETTINGS.colorC
+    defaultPalette.colors[2]
   );
   const [logoTone, setLogoTone] = useStudioDraft<LogoTone>(identity.id, tool.id, 'logo-tone', 'light');
   const [logoColor, setLogoColor] = useStudioDraft(identity.id, tool.id, 'logo-color', '#FFFFFF');
@@ -404,7 +414,7 @@ export default function LogoShaderStudio({
   const [logoSelected, setLogoSelected] = useState(false);
   const engine = normalizeShaderEngine(storedEngine);
   const resolvedLiveMaterialId = normalizeLiveMaterialId(liveMaterialId);
-  const isLiveMaterial = engine === 'shadergradient' || engine === 'shaders';
+  const isLiveMaterial = engine === 'shadergradient' || engine === 'glyphfield' || engine === 'shaders';
   const preset: ShaderPreset =
     engine === 'custom-glsl'
       ? {
@@ -506,10 +516,46 @@ export default function LogoShaderStudio({
     if (nextEngine === 'shaders' && !resolvedLiveMaterialId.startsWith('shaders-')) {
       setLiveMaterialId('shaders-fluid-chrome');
     }
+    if (nextEngine === 'glyphfield' && !resolvedLiveMaterialId.startsWith('glyphfield-')) {
+      setLiveMaterialId('glyphfield-glyph-field');
+      setColorA('#08080A');
+      setColorB('#F4F4F0');
+      setColorC('#8A73FF');
+      updateLiveSettings({
+        colorA: '#08080A',
+        colorB: '#F4F4F0',
+        colorC: '#8A73FF',
+        density: 0.9,
+        detail: 4.2,
+        frequency: 4.6,
+        grain: 28,
+        strength: 0.52,
+      });
+    }
   }
 
   function updateLiveSettings(patch: Partial<LiveMaterialSettings>) {
     setLiveSettings((current) => ({ ...DEFAULT_LIVE_MATERIAL_SETTINGS, ...current, ...patch }));
+  }
+
+  function replaceLiveSettings(settings: LiveMaterialSettings) {
+    setLiveSettings(settings);
+    setColorA(settings.colorA);
+    setColorB(settings.colorB);
+    setColorC(settings.colorC);
+    setSpeed(settings.speed);
+  }
+
+  function selectLiveMaterial(materialId: LiveMaterialId) {
+    setLiveMaterialId(materialId);
+    setEngine(
+      materialId === 'shadergradient-prismatic-sphere'
+        ? 'shadergradient'
+        : materialId.startsWith('glyphfield-')
+          ? 'glyphfield'
+          : 'shaders'
+    );
+    setError(null);
   }
 
   function outputDimensions(quality: ExportQuality = exportQuality) {
@@ -769,6 +815,7 @@ export default function LogoShaderStudio({
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
+          {navigation}
           <Button
             aria-label={paused ? gt('Play shader') : gt('Pause shader')}
             onClick={() => setPaused((current) => !current)}
@@ -790,7 +837,7 @@ export default function LogoShaderStudio({
       </header>
 
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
           <section className='flex flex-col gap-3 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Apply shader to</T></h2>
             <div className='grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border bg-border'>
@@ -814,7 +861,10 @@ export default function LogoShaderStudio({
           </section>
           <section className='flex flex-col gap-3 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Material engine</T></h2>
+              <div className='flex items-center justify-between gap-4'>
+                <h2 className='text-sm font-semibold'><T>Material engine</T></h2>
+                {isLiveMaterial ? <LiveMaterialSourceBadge engine={liveMaterial.engine} /> : null}
+              </div>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
             </div>
             <StudioSelect
@@ -822,6 +872,7 @@ export default function LogoShaderStudio({
               onValueChange={(value) => selectEngine(value as ShaderEngine)}
               options={[
                 { label: 'ShaderGradient / Three.js', value: 'shadergradient' },
+                { label: 'Glyphfield materials / Canvas', value: 'glyphfield' },
                 { label: 'Shaders.com studies / local WebGL', value: 'shaders' },
                 { label: 'Studio GLSL', value: 'studio-glsl' },
                 { label: gt('Custom GLSL'), value: 'custom-glsl' },
@@ -834,17 +885,6 @@ export default function LogoShaderStudio({
                 onValueChange={setPresetId}
                 options={SHADER_PRESETS.map((shader) => ({ label: shader.name, value: shader.id }))}
                 value={preset.id}
-              />
-            ) : null}
-            {engine === 'shaders' ? (
-              <StudioSelect
-                ariaLabel={gt('Shaders.com study')}
-                onValueChange={(value) => setLiveMaterialId(value as LiveMaterialId)}
-                options={LIVE_MATERIAL_OPTIONS.filter(({ engine: materialEngine }) => materialEngine === 'Shaders.com study').map((material) => ({
-                  label: material.name,
-                  value: material.id,
-                }))}
-                value={resolvedLiveMaterialId}
               />
             ) : null}
             {engine === 'shadergradient' ? (
@@ -888,57 +928,38 @@ export default function LogoShaderStudio({
             ) : null}
           </section>
 
-          <section className='flex flex-col gap-4 border-b border-border p-5'>
-            <h2 className='text-sm font-semibold'><T>Material colors</T></h2>
-            <div className='grid grid-cols-2 gap-2'>
-              {LIVE_MATERIAL_PALETTES.map((palette) => (
-                <button
-                  className='flex min-w-0 flex-col gap-2 border border-border p-2 text-left hover:border-foreground hover:bg-muted'
-                  key={palette.id}
-                  onClick={() => {
-                    const [nextA, nextB, nextC] = palette.colors;
-                    setColorA(nextA);
-                    setColorB(nextB);
-                    setColorC(nextC);
-                    updateLiveSettings({ colorA: nextA, colorB: nextB, colorC: nextC });
-                  }}
-                  title={palette.description}
-                  type='button'
-                >
-                  <span className='grid h-5 w-full grid-cols-3 overflow-hidden border border-border'>{palette.colors.map((color) => <span key={color} style={{ backgroundColor: color }} />)}</span>
-                  <span className='truncate text-[10px] font-medium'>{palette.name}</span>
-                </button>
-              ))}
-            </div>
-            <ColorControl ariaLabel={gt('Material color one')} label={<T>Color 1</T>} onChange={setColorA} value={colorA} />
-            <ColorControl ariaLabel={gt('Material color two')} label={<T>Color 2</T>} onChange={setColorB} value={colorB} />
-            {isLiveMaterial ? <ColorControl ariaLabel={gt('Material color three')} label={<T>Color 3</T>} onChange={setColorC} value={colorC} /> : null}
-          </section>
-
-          <section className='flex flex-col gap-4 border-b border-border p-5'>
-            <div>
-              <h2 className='text-sm font-semibold'><T>Material</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Controls are shared across previews and downloaded frames.</T></p>
-            </div>
-            {isLiveMaterial
-              ? ([
-                  ['Strength', 'strength', 0, 2, 0.01],
-                  ['Detail', 'detail', 0.5, 8, 0.1],
-                  ['Frequency', 'frequency', 0.2, 10, 0.1],
-                  ['Amplitude', 'amplitude', 0, 8, 0.1],
-                  ['Density', 'density', 0.1, 2, 0.05],
-                  ['Brightness', 'brightness', 0.1, 2, 0.05],
-                  ['Grain', 'grain', 0, 100, 1],
-                  ['Rotation X', 'rotationX', 0, 360, 1],
-                  ['Rotation Y', 'rotationY', 0, 360, 1],
-                  ['Rotation Z', 'rotationZ', 0, 360, 1],
-                ] as const).map(([label, key, min, max, step]) => (
-                  <label className='flex flex-col gap-2 text-sm text-muted-foreground' key={key}>
-                    <span className='flex justify-between gap-3'><span>{label}</span><span className='font-mono text-xs'>{resolvedLiveSettings[key].toFixed(step < 1 ? 2 : 0)}{key === 'grain' ? '%' : ''}</span></span>
-                    <input className='studio-range' max={max} min={min} onChange={(event) => updateLiveSettings({ [key]: Number(event.target.value) })} step={step} type='range' value={resolvedLiveSettings[key]} />
-                  </label>
-                ))
-              : ([
+          {isLiveMaterial ? (
+            <section className='flex flex-col gap-4 border-b border-border p-5'>
+              <div>
+                <h2 className='text-sm font-semibold'><T>Material controls</T></h2>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>The same engine, presets, and parameters are available in Surface Lab.</T></p>
+              </div>
+              <LiveMaterialControls
+                identity={identity}
+                materialId={resolvedLiveMaterialId}
+                onMaterialIdChange={selectLiveMaterial}
+                onSettingsChange={replaceLiveSettings}
+                settings={resolvedLiveSettings}
+              />
+            </section>
+          ) : (
+            <>
+              <section className='flex flex-col gap-4 border-b border-border p-5'>
+                <h2 className='text-sm font-semibold'><T>Material colors</T></h2>
+                <MaterialPalettePresets
+                  identity={identity}
+                  onSelect={([nextA, nextB]) => { setColorA(nextA); setColorB(nextB); }}
+                  value={[colorA, colorB, colorC]}
+                />
+                <ColorControl ariaLabel={gt('Material color one')} label={<T>Color 1</T>} onChange={setColorA} value={colorA} />
+                <ColorControl ariaLabel={gt('Material color two')} label={<T>Color 2</T>} onChange={setColorB} value={colorB} />
+              </section>
+              <section className='flex flex-col gap-4 border-b border-border p-5'>
+                <div>
+                  <h2 className='text-sm font-semibold'><T>Material</T></h2>
+                  <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Controls are shared across previews and downloaded frames.</T></p>
+                </div>
+                {([
                   ['Scale', 'scale', 0.5, 2.4, 0.05],
                   ['Distortion', 'distortion', 0, 1, 0.01],
                   ['Softness', 'softness', 0, 1, 0.01],
@@ -950,7 +971,9 @@ export default function LogoShaderStudio({
                     <input className='studio-range' max={max} min={min} onChange={(event) => setParameters((current) => ({ ...current, [key]: Number(event.target.value) }))} step={step} type='range' value={parameters[key]} />
                   </label>
                 ))}
-          </section>
+              </section>
+            </>
+          )}
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
@@ -1036,8 +1059,8 @@ export default function LogoShaderStudio({
           </section>
         </aside>
 
-        <div className='tool-canvas min-h-0 overflow-auto'>
-          <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
+        <div className='tool-canvas min-h-0 overflow-hidden'>
+          <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
             <div
               className={`artifact-frame relative w-full overflow-hidden ${target === 'logo' && transparent ? 'studio-stage' : 'bg-black'}`}
@@ -1116,9 +1139,12 @@ export default function LogoShaderStudio({
                 <p className='text-sm font-semibold'>{activeMaterial.name}</p>
                 <p className='mt-1 max-w-xl text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
               </div>
-              <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
-                {identity.name} / {ratio} / {speed.toFixed(2)}× / {finish.presetId}
-              </p>
+              <div className='flex items-center gap-4 text-muted-foreground'>
+                <p className='font-mono text-[10px] uppercase tracking-wider'>
+                  {identity.name} / {ratio} / {speed.toFixed(2)}× / {finish.presetId}
+                </p>
+                {isLiveMaterial ? <LiveMaterialSourceBadge engine={liveMaterial.engine} /> : null}
+              </div>
             </div>
             {error ? <p className='border-x border-b border-status-error-border bg-status-error-background p-3 text-sm text-status-error' role='alert'>{error}</p> : null}
           </div>
@@ -1162,7 +1188,7 @@ export default function LogoShaderStudio({
                 />
               </div>
 
-              <aside className='flex min-w-0 flex-col gap-5 border-l border-border p-5'>
+              <aside className='flex min-w-0 flex-col gap-5 border-l border-border p-5' data-canvas-selection-preserve>
                 <div>
                   <p className='text-sm font-semibold'>{exportDialog.toLocaleUpperCase()}</p>
                   <p className='mt-1 text-xs leading-5 text-muted-foreground'>

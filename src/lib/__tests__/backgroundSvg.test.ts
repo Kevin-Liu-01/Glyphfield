@@ -35,7 +35,46 @@ describe('buildBackgroundSvg', () => {
     });
 
     expect(svg).toContain('data-dither-matrix="4"');
+    expect(svg).toContain('data-dither-shape="dots"');
     expect(svg.match(/<circle /g)?.length).toBeGreaterThan(100);
+  });
+
+  it('renders band and square-dither recipes as portable SVG', () => {
+    const mesh = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      colorC: '#7BFFD9',
+      gradient: 'mesh',
+      relief: 42,
+      style: 'grain-gradient',
+    });
+    const dither = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      ditherShape: 'squares',
+      style: 'dither',
+    });
+
+    expect(mesh).toContain('id="band-gradient"');
+    expect(mesh).toContain('data-gradient-layout="bands"');
+    expect(mesh).toContain('data-band-count="15"');
+    expect(mesh.match(/data-band-index=/g)?.length).toBe(15);
+    expect(mesh).toContain('id="surface-relief"');
+    expect(mesh).not.toContain('<g filter="url(#surface-relief)">');
+    expect(dither).toContain('data-dither-shape="squares"');
+    expect(dither.match(/<rect /g)?.length).toBeGreaterThan(100);
+  });
+
+  it('can render flat bands without gradient lighting', () => {
+    const svg = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      colorA: '#000000',
+      colorB: '#FFFFFF',
+      gradient: 'mesh',
+      lightingEnabled: false,
+    });
+
+    expect(svg).toContain('data-gradient-layout="bands"');
+    expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).not.toContain('fill="url(#band-gradient)"');
   });
 
   it('composes a reusable identity asset below the logo', () => {
@@ -61,6 +100,10 @@ describe('buildBackgroundSvg', () => {
         borderEnabled: true,
         borderOpacity: 75,
         borderWidth: 4,
+        ditherAmount: 72,
+        ditherAngle: 24,
+        ditherEnabled: false,
+        ditherScale: 6,
         invert: false,
         shadowBlur: 24,
         shadowColor: '#000000',

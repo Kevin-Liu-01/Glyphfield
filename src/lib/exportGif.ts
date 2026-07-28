@@ -1,4 +1,4 @@
-import { buildFrameSchedule } from './animation';
+import { buildFrameSchedule, type FrameSchedule } from './animation';
 import {
   renderFrame,
   type RenderConfig,
@@ -14,12 +14,16 @@ export type GifExportConfig = RenderConfig & {
 };
 
 export async function exportGif({
+  beforeFrame,
   config,
   onProgress,
+  sampleHoldFrames = false,
   sources,
 }: {
+  beforeFrame?: (frame: FrameSchedule) => Promise<void> | void;
   config: GifExportConfig;
   onProgress?: (progress: number) => void;
+  sampleHoldFrames?: boolean;
   sources: readonly StudioSource[];
 }): Promise<Blob> {
   if (sources.length === 0) {
@@ -31,6 +35,7 @@ export async function exportGif({
     fps: config.fps,
     holdMs: config.holdMs,
     itemCount: sources.length,
+    sampleHoldFrames,
     transitionMs: config.transitionMs,
   });
   const canvas = document.createElement('canvas');
@@ -43,6 +48,7 @@ export async function exportGif({
   for (let index = 0; index < schedule.length; index += 1) {
     const frame = schedule[index];
     if (!frame) continue;
+    await beforeFrame?.(frame);
     renderFrame(context, sources, config, frame.position);
     const rgba = context.getImageData(0, 0, config.width, config.height).data;
     const palette = quantize(rgba, config.colors, { format: 'rgb565' });

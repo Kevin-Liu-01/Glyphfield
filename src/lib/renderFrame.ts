@@ -11,6 +11,7 @@ import {
 } from './liveMaterials';
 import {
   compositeFinishedLayer,
+  finishColor,
   hasMaterialFinish,
   normalizeMaterialFinish,
   type MaterialBounds,
@@ -34,6 +35,7 @@ export type StudioBackground = {
   colorA: string;
   colorB: string;
   colorC: string;
+  finish?: MaterialFinishSettings;
   image?: CanvasImageSource;
   materialId: LiveMaterialId;
   materialSettings: LiveMaterialSettings;
@@ -224,7 +226,7 @@ function fallbackBackground(config: RenderConfig): StudioBackground {
   };
 }
 
-function drawBackgroundLayer(
+function drawBackgroundContent(
   context: CanvasRenderingContext2D,
   background: StudioBackground,
   config: RenderConfig,
@@ -271,6 +273,120 @@ function drawBackgroundLayer(
   }
   context.fillRect(0, 0, config.width, config.height);
   context.restore();
+}
+
+function drawBackgroundFinish(
+  context: CanvasRenderingContext2D,
+  finishInput: MaterialFinishSettings,
+  config: RenderConfig,
+  alpha: number
+): void {
+  const finish = normalizeMaterialFinish(finishInput);
+  if (finish.shadowEnabled && finish.shadowOpacity > 0) {
+    const depth = Math.max(1, finish.shadowBlur * 1.5);
+    const gradient = context.createRadialGradient(
+      config.width / 2 + finish.shadowOffsetX,
+      config.height / 2 + finish.shadowOffsetY,
+      Math.min(config.width, config.height) * 0.2,
+      config.width / 2,
+      config.height / 2,
+      Math.hypot(config.width, config.height) * 0.62
+    );
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(
+      Math.min(
+        0.95,
+        Math.max(0.45, 1 - depth / Math.max(config.width, config.height))
+      ),
+      'rgba(0,0,0,0)'
+    );
+    gradient.addColorStop(
+      1,
+      finishColor(
+        finish.shadowColor,
+        (finish.shadowOpacity / 100) * alpha
+      )
+    );
+    context.save();
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, config.width, config.height);
+    context.restore();
+  }
+
+  if (finish.glassEnabled) {
+    const highlight = context.createLinearGradient(
+      0,
+      0,
+      config.width,
+      config.height
+    );
+    highlight.addColorStop(
+      0,
+      finishColor('#FFFFFF', (finish.glassHighlight / 100) * 0.28 * alpha)
+    );
+    highlight.addColorStop(0.46, 'rgba(255,255,255,0)');
+    highlight.addColorStop(
+      1,
+      finishColor(finish.glassTint, (finish.glassOpacity / 100) * alpha)
+    );
+    context.save();
+    context.fillStyle = highlight;
+    context.fillRect(0, 0, config.width, config.height);
+    context.restore();
+  }
+
+  if (finish.reflectionEnabled && finish.reflectionOpacity > 0) {
+    const reflection = context.createLinearGradient(
+      0,
+      0,
+      0,
+      config.height * Math.max(0.1, finish.reflectionLength / 100)
+    );
+    reflection.addColorStop(
+      0,
+      finishColor('#FFFFFF', (finish.reflectionOpacity / 100) * 0.32 * alpha)
+    );
+    reflection.addColorStop(1, 'rgba(255,255,255,0)');
+    context.save();
+    context.fillStyle = reflection;
+    context.fillRect(0, 0, config.width, config.height);
+    context.restore();
+  }
+
+  if (finish.borderEnabled && finish.borderWidth > 0) {
+    context.save();
+    context.globalAlpha = alpha;
+    context.lineWidth = finish.borderWidth;
+    context.strokeStyle = finishColor(
+      finish.borderColor,
+      finish.borderOpacity / 100
+    );
+    const inset = finish.borderWidth / 2;
+    context.strokeRect(
+      inset,
+      inset,
+      Math.max(0, config.width - finish.borderWidth),
+      Math.max(0, config.height - finish.borderWidth)
+    );
+    context.restore();
+  }
+}
+
+function drawBackgroundLayer(
+  context: CanvasRenderingContext2D,
+  background: StudioBackground,
+  config: RenderConfig,
+  alpha = 1
+): void {
+  drawBackgroundContent(context, background, config, alpha);
+  if (hasMaterialFinish(background.finish)) {
+    drawBackgroundFinish(
+      context,
+      normalizeMaterialFinish(background.finish),
+      config,
+      alpha
+    );
+  }
 }
 
 function drawBackgroundTransition(

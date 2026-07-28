@@ -3,12 +3,14 @@ import { ImageResponse } from 'next/og';
 
 import BrandOpenGraphImage, { OPEN_GRAPH_SIZE } from '@/components/BrandOpenGraphImage';
 import { docsSource } from '@/lib/docsSource';
+import { getOpenGraphFonts } from '@/lib/openGraphFonts';
 
 type DocumentationImageRouteProps = {
   params: Promise<{ slug: string[] }>;
 };
 
 export const revalidate = false;
+export const runtime = 'nodejs';
 
 export async function GET(_request: Request, { params }: DocumentationImageRouteProps) {
   const { slug } = await params;
@@ -23,7 +25,7 @@ export async function GET(_request: Request, { params }: DocumentationImageRoute
       kicker='Documentation'
       title={page.data.title}
     />,
-    OPEN_GRAPH_SIZE
+    { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }
   );
 }
 

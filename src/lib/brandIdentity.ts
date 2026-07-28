@@ -172,7 +172,7 @@ export type BrandGraphicSystem = {
   description: string;
   device: string;
   imageDirection: string;
-  pattern: 'blocks' | 'brackets' | 'burst' | 'circuit' | 'flow' | 'grid' | 'orbit' | 'rays' | 'steps' | 'wave';
+  pattern: 'blocks' | 'brackets' | 'burst' | 'circuit' | 'flow' | 'grid' | 'none' | 'orbit' | 'rays' | 'steps' | 'wave';
   rules: string[];
 };
 
@@ -678,9 +678,31 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   );
   const builtInIdentities = BUILT_IN_BRAND_IDENTITIES.map((preset) => {
     const storedIdentity = storedIdentities.find(({ id }) => id === preset.id);
+    const storedDisplay = storedIdentity?.typography.find(({ role }) => role === 'Display');
+    const presetDisplay = preset.typography.find(({ role }) => role === 'Display');
+    const migratedStoredIdentity =
+      preset.id === 'basement' &&
+      storedIdentity &&
+      storedDisplay?.letterSpacing === -5 &&
+      storedDisplay.lineHeight === 0.88 &&
+      presetDisplay
+        ? {
+            ...storedIdentity,
+            typography: storedIdentity.typography.map((typography) =>
+              typography.role === 'Display'
+                ? {
+                    ...typography,
+                    letterSpacing: presetDisplay.letterSpacing,
+                    lineHeight: presetDisplay.lineHeight,
+                    usage: presetDisplay.usage,
+                  }
+                : typography
+            ),
+          }
+        : storedIdentity;
     const identity =
-      storedIdentity?.revision === preset.revision
-        ? mergeBrandIdentity(storedIdentity, preset)
+      migratedStoredIdentity?.revision === preset.revision
+        ? mergeBrandIdentity(migratedStoredIdentity, preset)
         : cloneBrandIdentity(preset);
     return {
       ...identity,
