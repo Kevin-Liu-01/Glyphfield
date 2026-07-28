@@ -1595,6 +1595,17 @@ body {
   justify-content: center;
 }
 
+.project-tabs[data-tab-density='marks']
+  .project-tab
+  > button:not(.project-tab-close),
+.project-tabs[data-tab-density='scroll']
+  .project-tab
+  > button:not(.project-tab-close) {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
 .project-tabs[data-tab-density='marks'] :is(.project-tab-name, .project-tab-separator),
 .project-tabs[data-tab-density='scroll'] :is(.project-tab-name, .project-tab-separator) {
   display: none;
@@ -1611,6 +1622,7 @@ body {
   background: hsl(var(--foreground));
   color: hsl(var(--background));
   opacity: 0;
+  pointer-events: none;
 }
 
 .project-tabs[data-tab-density='marks'] .project-tab:hover .project-tab-close,
@@ -1618,6 +1630,7 @@ body {
 .project-tabs[data-tab-density='marks'] .project-tab-close:focus-visible,
 .project-tabs[data-tab-density='scroll'] .project-tab-close:focus-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .project-tabs[data-tab-density='scroll'] .project-tabs-tablist {
@@ -5525,7 +5538,7 @@ body {
 .brand-art-gt-material {
   position: absolute;
   z-index: 0;
-  inset: 8% 2.5% 6% 46%;
+  inset: 6% 2.5% 6% 39%;
   overflow: hidden;
   pointer-events: none;
 }
@@ -5538,14 +5551,13 @@ body {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
   grid-template-rows: repeat(3, minmax(0, 1fr));
   align-items: center;
-  gap: clamp(0.45rem, 1.4cqw, 1.1rem) clamp(0.7rem, 2cqw, 1.6rem);
-  padding: 8% 6%;
+  gap: clamp(0.5rem, 1.4cqw, 1.2rem) clamp(0.6rem, 1.6cqw, 1.35rem);
+  padding: 5.5% 4.5%;
   background:
-    radial-gradient(circle, rgb(255 255 255 / 0.09) 0 0.75px, transparent 0.95px) 0 0 / 9px 9px,
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 4px),
+    radial-gradient(circle, rgb(255 255 255 / 0.09) 0 0.7px, transparent 0.9px) 0 0 / 11px 11px,
     #050606;
 }
 
@@ -5557,29 +5569,46 @@ body {
 .brand-art-gt-metal-language {
   position: relative;
   z-index: 1;
-  display: block;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  padding: 0 clamp(0.55rem, 1.5cqw, 1.25rem);
   text-align: center;
   white-space: nowrap;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 2px, rgb(255 255 255 / 0.08) 2px 3px),
-    linear-gradient(102deg, #505354 0%, #f7f7f7 17%, #777b7d 30%, #fff 43%, #2f3233 58%, #dfe1e2 74%, #676a6c 86%, #fafafa 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #d5d7d8 44%, #888b8d 58%, #f5f5f5 100%);
   background-clip: text;
-  background-size: 180% 100%;
   color: transparent;
   font-family: var(--brand-body), sans-serif;
-  font-size: clamp(1rem, 3.1cqw, 2.8rem);
+  font-size: clamp(1.35rem, 4.25cqw, 3.9rem);
   font-weight: 500;
-  letter-spacing: 0.035em;
-  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.18)) drop-shadow(0 -1px 0 rgb(0 0 0 / 0.72));
+  letter-spacing: -0.025em;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.7));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
+.brand-art-gt-metal-language:nth-child(2) {
+  font-size: clamp(1.7rem, 5.2cqw, 4.7rem);
+}
+
+.brand-art-gt-metal-language:nth-child(3) {
+  font-size: clamp(1.2rem, 3.65cqw, 3.35rem);
+}
+
+.brand-art-gt-metal-language:nth-child(4) {
+  font-size: clamp(1.45rem, 4.5cqw, 4.1rem);
+}
+
 .brand-art-gt-metal-language:last-child {
   grid-column: 1 / -1;
+  width: 68%;
+  justify-self: center;
+  font-size: clamp(1.3rem, 4cqw, 3.7rem);
 }
 
 .brand-art-gt-metal-language::after {
@@ -5644,16 +5673,17 @@ body {
   }
 
   .brand-art-gt-material {
-    inset: 12% 2% 8% 44%;
+    inset: 12% 2% 8% 41%;
   }
 
   .brand-art-gt-metal-stage {
     gap: 0.35rem 0.55rem;
-    padding: 8% 5%;
+    padding: 6% 4%;
   }
 
   .brand-art-gt-metal-language {
-    font-size: clamp(0.72rem, 3cqw, 1.15rem);
+    padding-inline: 0.35rem;
+    font-size: clamp(0.72rem, 3.65cqw, 1.35rem);
   }
 }
 

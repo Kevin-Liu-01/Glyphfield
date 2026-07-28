@@ -57,11 +57,46 @@ describe('buildBackgroundSvg', () => {
     expect(mesh).toContain('data-gradient-layout="bands"');
     expect(mesh).toContain('data-band-count="15"');
     expect(mesh.match(/data-band-index=/g)?.length).toBe(15);
-    expect(mesh).toContain('id="surface-relief"');
-    expect(mesh).not.toContain('<g filter="url(#surface-relief)">');
+    expect(mesh).not.toContain('id="surface-relief"');
+    expect(mesh).not.toContain('filter="url(#surface-relief)"');
     expect(dither).toContain('data-dither-shape="squares"');
     expect(dither.match(/<rect /g)?.length).toBeGreaterThan(100);
   });
+
+  it.each([
+    ['linear', 'linear'],
+    ['radial', 'radial'],
+    ['mesh', 'bands'],
+    ['orbit', 'orbit'],
+    ['wave', 'wave'],
+  ] as const)('renders the %s gradient with a smooth portable field', (gradient, layout) => {
+    const svg = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      gradient,
+      relief: 64,
+    });
+
+    expect(svg).toContain(`data-gradient-layout="${layout}"`);
+    expect(svg).toContain('color-interpolation="sRGB"');
+    expect(svg).not.toContain('filter="url(#surface-relief)"');
+  });
+
+  it.each(['linear', 'radial', 'mesh', 'orbit', 'wave'] as const)(
+    'interpolates intermediate colors through the %s field',
+    (gradient) => {
+      const svg = buildBackgroundSvg({
+        ...DEFAULT_BACKGROUND_SETTINGS,
+        colorA: '#000000',
+        colorB: '#FFFFFF',
+        colorC: '#808080',
+        gradient,
+      });
+
+      expect(svg).toContain('#404040');
+      expect(svg).toContain('#BFBFBF');
+      expect(svg.match(/<stop /g)?.length).toBeGreaterThanOrEqual(17);
+    }
+  );
 
   it('can render flat bands without gradient lighting', () => {
     const svg = buildBackgroundSvg({

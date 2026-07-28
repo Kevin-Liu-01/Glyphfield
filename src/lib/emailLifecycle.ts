@@ -1,3 +1,5 @@
+import type { BrandIdentity } from '@/lib/brandIdentity';
+
 const EMAIL_ARTWORK_ROOT = '/examples/email-lifecycle';
 const EMAIL_CARD_ROOT = `${EMAIL_ARTWORK_ROOT}/cards`;
 
@@ -374,6 +376,340 @@ const EMAIL_LIFECYCLE_TEMPLATE_DEFINITIONS = [
   },
 ] as const;
 
+const BRAND_EMAIL_PROGRAMS = {
+  basement: {
+    activatedBody: 'The project space is live. Add the team, collect the source material, and move the strongest direction forward.',
+    activatedSubject: 'Your first Basement project is open',
+    firstAction: 'open a project and frame the first creative decision',
+    noun: 'project',
+    outcome: 'cool work that performs',
+    startSubject: 'Open your first Basement project',
+  },
+  cloudflare: {
+    activatedBody: 'Your first connection is live. Review traffic, security posture, and performance from one control plane.',
+    activatedSubject: 'Your first Cloudflare connection is live',
+    firstAction: 'connect an application or network to the edge',
+    noun: 'connection',
+    outcome: 'a faster, safer Internet',
+    startSubject: 'Connect your first application to Cloudflare',
+  },
+  mintlify: {
+    activatedBody: 'Your documentation is live. Invite collaborators, add navigation, and keep every page current.',
+    activatedSubject: 'Your first Mintlify page is live',
+    firstAction: 'publish your first documentation page',
+    noun: 'documentation space',
+    outcome: 'documentation people want to use',
+    startSubject: 'Publish your first Mintlify page',
+  },
+  ramp: {
+    activatedBody: 'Your finance workspace is ready. Connect spend, policy, and reporting so the team can move with control.',
+    activatedSubject: 'Your Ramp finance workspace is ready',
+    firstAction: 'connect your first finance workflow',
+    noun: 'finance workspace',
+    outcome: 'more time and control',
+    startSubject: 'Put your Ramp finance workspace to work',
+  },
+  starter: {
+    activatedBody: 'Your identity direction is saved. Add evidence, refine the system, and turn it into reusable applications.',
+    activatedSubject: 'Your first identity direction is ready',
+    firstAction: 'shape your first identity direction',
+    noun: 'identity system',
+    outcome: 'a clear, repeatable brand',
+    startSubject: 'Shape your first brand system',
+  },
+  stripe: {
+    activatedBody: 'Your payment flow is ready. Run a test transaction, inspect the event, and prepare the integration for launch.',
+    activatedSubject: 'Your first Stripe payment flow is ready',
+    firstAction: 'create and test your first payment flow',
+    noun: 'payment flow',
+    outcome: 'programmable economic infrastructure',
+    startSubject: 'Run your first Stripe payment',
+  },
+  tailwind: {
+    activatedBody: 'Your first interface is composed. Extract the repeated patterns and keep building directly in your markup.',
+    activatedSubject: 'Your first Tailwind interface is composed',
+    firstAction: 'compose your first interface from utilities',
+    noun: 'interface system',
+    outcome: 'custom interfaces at utility speed',
+    startSubject: 'Compose your first Tailwind interface',
+  },
+  template: {
+    activatedBody: 'Your identity direction is saved. Add evidence, refine the system, and turn it into reusable applications.',
+    activatedSubject: 'Your first identity direction is ready',
+    firstAction: 'shape your first identity direction',
+    noun: 'identity system',
+    outcome: 'a clear, repeatable brand',
+    startSubject: 'Shape your first template identity',
+  },
+  viteplus: {
+    activatedBody: 'Your unified toolchain is running. Use one command model to develop, check, test, and build.',
+    activatedSubject: 'Your Vite+ toolchain is running',
+    firstAction: 'run your first unified toolchain command',
+    noun: 'toolchain',
+    outcome: 'one fast flow from setup to build',
+    startSubject: 'Run your first Vite+ command',
+  },
+} as const;
+
+function capitalize(value: string): string {
+  return `${value.charAt(0).toLocaleUpperCase()}${value.slice(1)}`;
+}
+
+function createIdentityEmailTemplate(
+  template: (typeof EMAIL_LIFECYCLE_TEMPLATES)[number],
+  identity: BrandIdentity
+) {
+  const program = BRAND_EMAIL_PROGRAMS[
+    identity.id as keyof typeof BRAND_EMAIL_PROGRAMS
+  ] ?? {
+    activatedBody: `Your ${identity.name} workspace is ready. Invite the team, review the system, and keep the next decision moving.`,
+    activatedSubject: `Your ${identity.name} workspace is ready`,
+    firstAction: `set up your first ${identity.products[0]?.toLocaleLowerCase() ?? 'workspace'} workflow`,
+    noun: identity.products[0]?.toLocaleLowerCase() ?? 'workspace',
+    outcome: identity.tagline,
+    startSubject: `Start building with ${identity.name}`,
+  };
+  const noun = program.noun;
+  const name = identity.name;
+  const common = {
+    ...template,
+    supportingCards: [] as const,
+  };
+
+  switch (template.id) {
+    case 'welcome-email':
+      return {
+        ...common,
+        body: `Your ${name} workspace is ready. Choose a starting point, invite your team, or open the studio and begin.`,
+        cta: 'Open workspace',
+        description: `The account welcome for ${name}, with a direct path into the brand's first meaningful action.`,
+        keywords: ['welcome', 'signup', 'onboarding', name.toLocaleLowerCase()],
+        subject: `Welcome to ${name}`,
+      };
+    case 'onboarding-day3-no-api-key-email':
+      return {
+        ...common,
+        body: `You are a few minutes from a useful ${noun}. Open the workspace to ${program.firstAction}.`,
+        cta: `Start ${noun}`,
+        description: `The first-action prompt for a new ${name} workspace.`,
+        keywords: ['onboarding', 'setup', noun],
+        name: 'Start setup',
+        subject: program.startSubject,
+        timing: 'Setup not started',
+      };
+    case 'onboarding-day3-api-key-email':
+      return {
+        ...common,
+        body: `The foundation is connected. Finish the first ${noun} and see the full ${name} workflow in context.`,
+        cta: `Create ${noun}`,
+        description: `Activation guidance after the ${name} foundation is connected.`,
+        keywords: ['onboarding', 'connected', noun],
+        name: `First ${noun}`,
+        subject: `Your first ${noun} is one step away`,
+        symbol: '01',
+        timing: 'Foundation connected',
+      };
+    case 'onboarding-day3-live-email':
+      return {
+        ...common,
+        body: program.activatedBody,
+        cta: 'Open workspace',
+        description: `Guidance for an activated ${name} workspace.`,
+        keywords: ['onboarding', 'activated', noun],
+        name: `${capitalize(noun)} live`,
+        subject: program.activatedSubject,
+        timing: 'First outcome complete',
+      };
+    case 'onboarding-day5-no-api-key-email':
+      return {
+        ...common,
+        body: `Your workspace is waiting. Return when you are ready to ${program.firstAction}.`,
+        cta: 'Continue setup',
+        description: `A restrained setup reminder for ${name}.`,
+        keywords: ['onboarding', 'reminder', 'setup'],
+        name: 'Setup reminder',
+        subject: `${name} is ready when you are`,
+        timing: 'Setup incomplete',
+      };
+    case 'onboarding-day6-api-key-email':
+      return {
+        ...common,
+        body: `Everything is connected. Create the first ${noun} and put ${name} into a real workflow.`,
+        cta: `Build ${noun}`,
+        description: `The final activation prompt before the first ${name} outcome.`,
+        keywords: ['onboarding', 'activation', noun],
+        name: `${capitalize(noun)} launch`,
+        subject: `Put ${name} to work`,
+        symbol: '01',
+        timing: 'First outcome pending',
+      };
+    case 'onboarding-day6-live-email':
+      return {
+        ...common,
+        body: `${program.activatedBody} The next step is turning that first result into ${program.outcome}.`,
+        cta: 'Explore workspace',
+        description: `Next-step guidance for an active ${name} team.`,
+        keywords: ['onboarding', 'guidance', 'active'],
+        name: 'Activated guidance',
+        subject: `Get more from ${name}`,
+        timing: 'Workspace active',
+      };
+    case 'onboarding-payment-confirmation-email':
+      return {
+        ...common,
+        body: `Billing is set up and your ${name} workspace is ready for the team.`,
+        cta: 'Open workspace',
+        description: `The ${name} billing-setup confirmation.`,
+        keywords: ['onboarding', 'billing', 'confirmation'],
+        name: 'Workspace ready',
+        subject: `Your ${name} workspace is ready`,
+        timing: 'After billing setup',
+      };
+    case 'auth-magic-link-email':
+      return {
+        ...common,
+        body: `Use the secure link below to sign in to ${name}. The link expires in 24 hours.`,
+        description: `A time-limited sign-in email for ${name}.`,
+        subject: `Your sign-in link for ${name}`,
+      };
+    case 'membership-invitation-email':
+      return {
+        ...common,
+        body: `Taylor invited you to join the Acme workspace on ${name}. This invitation expires in 7 days.`,
+        description: `A recognizable ${name} workspace invitation.`,
+        subject: `You've been invited to join Acme on ${name}`,
+      };
+    case 'enterprise-intro-email':
+      return {
+        ...common,
+        body: `I'd love to show how ${name} helps teams build ${program.outcome}. Happy to walk through the system with you.`,
+        description: `A natural plain-text introduction for a qualified ${name} lead.`,
+        keywords: ['enterprise', 'sales', 'intro', 'plain text'],
+        subject: `${name} intro`,
+      };
+    case 'enterprise-day3-follow-up-email':
+      return {
+        ...common,
+        body: `Following up on my note about ${name}. Happy to walk through how the workflow could fit your team.`,
+        description: `The first plain-text follow-up in the ${name} introduction thread.`,
+        keywords: ['enterprise', 'sales', 'follow up', 'plain text'],
+        subject: `${name} intro`,
+      };
+    case 'enterprise-day7-follow-up-email':
+      return {
+        ...common,
+        body: `Last note from me for now. If you would like to revisit ${name}, reply whenever it is useful.`,
+        description: `The final plain-text follow-up in the ${name} introduction thread.`,
+        keywords: ['enterprise', 'sales', 'follow up', 'plain text'],
+        subject: `${name} intro`,
+      };
+    case 'balance-soft-limit-email':
+      return {
+        ...common,
+        body: `Your ${name} balance is running low. Add funds or enable automatic reload to keep the workspace running.`,
+        cta: 'Review balance',
+        description: `A soft account-balance warning for ${name}.`,
+        keywords: ['billing', 'balance', 'warning'],
+        name: 'Balance warning',
+        subject: 'Your balance is running low',
+        timing: '80% of balance used',
+      };
+    case 'balance-hard-limit-email':
+      return {
+        ...common,
+        body: `Your ${name} balance is depleted. Add funds to resume the workspace.`,
+        cta: 'Add funds',
+        description: `A hard-stop account-balance alert for ${name}.`,
+        keywords: ['billing', 'balance', 'paused'],
+        name: 'Balance depleted',
+        subject: 'Your workspace is paused',
+        timing: 'Balance reaches zero',
+      };
+    case 'free-credit-soft-limit-email':
+      return {
+        ...common,
+        body: `You have used most of the included ${name} allowance. Add a payment method to continue without interruption.`,
+        cta: 'Add payment method',
+        description: `A soft included-allowance warning for ${name}.`,
+        keywords: ['billing', 'allowance', 'warning'],
+        name: 'Allowance warning',
+        subject: 'You have used 80% of your included allowance',
+        timing: '80% of allowance used',
+      };
+    case 'free-credit-hard-limit-email':
+      return {
+        ...common,
+        body: `Your included ${name} allowance is exhausted. Add a payment method to resume immediately.`,
+        cta: 'Add payment method',
+        description: `A hard-stop included-allowance alert for ${name}.`,
+        keywords: ['billing', 'allowance', 'paused'],
+        name: 'Allowance exhausted',
+        subject: 'Your included allowance is exhausted',
+        timing: 'Allowance exhausted',
+      };
+    case 'usage-soft-limit-email':
+      return {
+        ...common,
+        body: `Your ${name} workspace is approaching its usage cap. Review the limit now to avoid interruption.`,
+        description: `A soft usage-cap warning for ${name}.`,
+        subject: 'You are nearing your usage limit',
+      };
+    case 'usage-hard-limit-email':
+      return {
+        ...common,
+        body: `Your ${name} usage limit has been reached. Raise the cap or wait for the reset to resume.`,
+        description: `A hard-stop usage-cap alert for ${name}.`,
+        subject: 'Your workspace is paused',
+      };
+    case 'billing-payment-failed-email':
+      return {
+        ...common,
+        body: `We could not charge the card on file for ${name}. Update the payment method to keep the workspace running.`,
+        description: `A failed-payment alert for ${name}.`,
+      };
+    case 'billing-plan-canceled-email':
+      return {
+        ...common,
+        body: `We could not collect a recent charge, so your ${name} workspace moved to the free plan. Your work is safe.`,
+        description: `A plan-state alert for ${name}.`,
+      };
+    case 'upgrade-confirmation-email':
+      return {
+        ...common,
+        body: `Your payment method is saved and the ${name} plan is active.`,
+        cta: 'Open workspace',
+        description: `A paid-plan activation confirmation for ${name}.`,
+        subject: `Your ${name} plan is active`,
+      };
+    case 'locadex-setup-complete-email':
+      return {
+        ...common,
+        body: `The first ${name} automation is configured and ready for review.`,
+        cta: 'Review automation',
+        description: `An automation-ready confirmation for ${name}.`,
+        group: 'Automation',
+        keywords: ['automation', 'setup', 'review'],
+        name: 'Automation ready',
+        subject: `Your ${name} automation is ready`,
+        symbol: '↗',
+        timing: 'After automation setup',
+      };
+    case 'locadex-pr-reminder-email':
+      return {
+        ...common,
+        body: `A ${name} automation is waiting for review. Open it to keep the workflow moving.`,
+        cta: 'Review automation',
+        description: `A pending-automation reminder for ${name}.`,
+        group: 'Automation',
+        keywords: ['automation', 'reminder', 'review'],
+        name: 'Automation reminder',
+        subject: `A ${name} automation is waiting for review`,
+        symbol: '↗',
+        timing: 'While review is pending',
+      };
+  }
+}
+
 export const EMAIL_LIFECYCLE_TEMPLATES = EMAIL_LIFECYCLE_TEMPLATE_DEFINITIONS.map(
   (template) => ({
     ...template,
@@ -381,6 +717,8 @@ export const EMAIL_LIFECYCLE_TEMPLATES = EMAIL_LIFECYCLE_TEMPLATE_DEFINITIONS.ma
   })
 );
 
-export function getEmailLifecycleTemplate(elementId: string) {
-  return EMAIL_LIFECYCLE_TEMPLATES.find(({ id }) => id === elementId);
+export function getEmailLifecycleTemplate(elementId: string, identity?: BrandIdentity) {
+  const template = EMAIL_LIFECYCLE_TEMPLATES.find(({ id }) => id === elementId);
+  if (!template || !identity || identity.id === 'gt') return template;
+  return createIdentityEmailTemplate(template, identity);
 }

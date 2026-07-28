@@ -89,6 +89,19 @@ function channelToHex(channel: number): string {
     .toLocaleUpperCase();
 }
 
+export function mixHexColors(start: string, end: string, amount: number): string {
+  const from = hexToRgb(start);
+  const to = hexToRgb(end);
+  const progress = clampChannel(amount);
+  const channel = (first: number, second: number) =>
+    Math.round((first + (second - first) * progress) * 255)
+      .toString(16)
+      .padStart(2, '0')
+      .toLocaleUpperCase();
+
+  return `#${channel(from.red, to.red)}${channel(from.green, to.green)}${channel(from.blue, to.blue)}`;
+}
+
 export function hsvToHex(hue: number, saturation: number, value: number): string {
   const normalizedHue = ((hue % 360) + 360) % 360;
   const normalizedSaturation = clampChannel(saturation);

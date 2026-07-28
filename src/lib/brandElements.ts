@@ -834,7 +834,7 @@ export function createBrandElementSettings(
     showLogo: true,
     showWebsite: true,
   };
-  const emailTemplate = getEmailLifecycleTemplate(element.id);
+  const emailTemplate = getEmailLifecycleTemplate(element.id, identity);
   const emailTemplateOverrides: BrandElementOverrides = emailTemplate
     ? {
         body: emailTemplate.body,

@@ -250,7 +250,7 @@ function ElementEditor({
     );
   const logoSupported = !['ascii-mark', 'terminal-theme', 'cli-banner'].includes(element.id);
   const artworkSupported =
-    Boolean(getEmailLifecycleTemplate(element.id)?.artworkPath) ||
+    Boolean(getEmailLifecycleTemplate(element.id, identity)?.artworkPath) ||
     ['logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph'].includes(
       element.id
     );
@@ -491,7 +491,6 @@ function LifecycleEmailPreview({
   settings: BrandElementSettings;
   template: NonNullable<ReturnType<typeof getEmailLifecycleTemplate>>;
 }) {
-  const dark = isDarkSurface(settings.backgroundColor);
   const plainText = template.artworkPath === null;
 
   if (plainText) {
@@ -505,7 +504,7 @@ function LifecycleEmailPreview({
       >
         <p className='text-base leading-7'>Hi Alex,</p>
         <p className='mt-7 whitespace-pre-line text-base leading-7'>{settings.body}</p>
-        <p className='mt-7 text-base leading-7'>All best,<br />Archie<br />CEO, {identity.name}</p>
+        <p className='mt-7 text-base leading-7'>All best,<br />The {identity.name} team</p>
         <p className='mt-10 text-xs opacity-45'>Unsubscribe: {identity.website}/account</p>
       </div>
     );
@@ -515,22 +514,8 @@ function LifecycleEmailPreview({
     <div className='relative mx-auto w-full max-w-[640px] overflow-hidden shadow-sm' style={elementSurfaceStyle(settings)}>
       <ElementPattern settings={settings} />
       <div className='relative z-10'>
-        <div className='aspect-[1200/380] w-full overflow-hidden bg-black'>
-          <img
-            alt=''
-            className='size-full object-cover'
-            src={template.artworkPath}
-            style={artworkStyle(settings)}
-          />
-        </div>
+        <LifecycleEmailArtwork identity={identity} settings={settings} template={template} />
         <div className='p-6 sm:p-8'>
-          {settings.showLogo ? (
-            <IdentityMark
-              className='mb-8 size-9 object-contain text-sm'
-              identity={identity}
-              inverted={dark}
-            />
-          ) : null}
           <h2 className='max-w-[540px] text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-[38px]'>
             {settings.headline}
           </h2>
@@ -591,7 +576,60 @@ function TransactionalEmailPreview({ element, identity, settings }: { element: B
   );
 }
 
-function EmailSystemSheetPreview({ settings }: { settings: BrandElementSettings }) {
+function LifecycleEmailArtwork({
+  compact = false,
+  identity,
+  settings,
+  template,
+}: {
+  compact?: boolean;
+  identity: BrandIdentity;
+  settings: BrandElementSettings;
+  template: NonNullable<ReturnType<typeof getEmailLifecycleTemplate>>;
+}) {
+  if (identity.id === 'gt' && template.artworkPath) {
+    return (
+      <div className='aspect-[1200/380] w-full overflow-hidden bg-black'>
+        <img alt='' className='size-full object-cover' src={template.artworkPath} style={artworkStyle(settings)} />
+      </div>
+    );
+  }
+
+  const dark = isDarkSurface(settings.foregroundColor);
+  return (
+    <div
+      className={`relative flex aspect-[1200/380] w-full items-center overflow-hidden ${compact ? 'p-4' : 'p-6 sm:p-8'}`}
+      style={{ backgroundColor: settings.foregroundColor, color: settings.backgroundColor }}
+    >
+      <div
+        aria-hidden='true'
+        className='absolute inset-x-0 bottom-0 h-1'
+        style={{ backgroundColor: settings.accentColor }}
+      />
+      <div className='flex w-full items-center justify-between gap-5'>
+        <div className='flex min-w-0 items-center gap-4'>
+          <IdentityMark
+            className={compact ? 'size-7 shrink-0 object-contain' : 'size-10 shrink-0 object-contain'}
+            identity={identity}
+            inverted={dark}
+          />
+          <p className={`min-w-0 truncate font-semibold ${compact ? 'text-sm' : 'text-xl sm:text-2xl'}`}>
+            {template.name}
+          </p>
+        </div>
+        <span className={`shrink-0 font-semibold opacity-35 ${compact ? 'text-xl' : 'text-4xl'}`} aria-hidden='true'>
+          {template.symbol}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function EmailSystemSheetPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
+  const templates = EMAIL_LIFECYCLE_TEMPLATES.map((template) =>
+    getEmailLifecycleTemplate(template.id, identity)
+  ).filter((template): template is NonNullable<typeof template> => Boolean(template));
+
   return (
     <div
       className='mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden border sm:grid-cols-3 lg:grid-cols-4'
@@ -600,14 +638,14 @@ function EmailSystemSheetPreview({ settings }: { settings: BrandElementSettings 
         borderColor: `color-mix(in srgb, ${settings.foregroundColor} 18%, transparent)`,
       }}
     >
-      {EMAIL_LIFECYCLE_TEMPLATES.map((template) => (
+      {templates.map((template) => (
         <article
           className='flex min-h-52 flex-col'
           key={template.id}
           style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}
         >
           {template.artworkPath ? (
-            <img alt='' className='aspect-[1200/380] w-full object-cover' src={template.artworkPath} />
+            <LifecycleEmailArtwork compact identity={identity} settings={settings} template={template} />
           ) : (
             <div
               className='flex aspect-[1200/380] items-center px-4 text-xs leading-5'
@@ -616,7 +654,7 @@ function EmailSystemSheetPreview({ settings }: { settings: BrandElementSettings 
                 color: settings.backgroundColor,
               }}
             >
-              Hi Alex,<br />A plain-text note from Archie.
+              Hi Alex,<br />A plain-text note from the {identity.name} team.
             </div>
           )}
           <div className='flex flex-1 flex-col p-4'>
@@ -631,9 +669,9 @@ function EmailSystemSheetPreview({ settings }: { settings: BrandElementSettings 
 
 function EmailPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
   if (element.id === 'email-system-sheet') {
-    return <EmailSystemSheetPreview settings={settings} />;
+    return <EmailSystemSheetPreview identity={identity} settings={settings} />;
   }
-  const template = getEmailLifecycleTemplate(element.id);
+  const template = getEmailLifecycleTemplate(element.id, identity);
   if (template) {
     return <LifecycleEmailPreview identity={identity} settings={settings} template={template} />;
   }
@@ -1125,15 +1163,31 @@ export default function BrandElementsStudio({
   const [elementOverrides, setElementOverrides] = useStudioDraft<
     Record<string, BrandElementOverrides>
   >(identity.id, tool.id, 'element-settings', {});
+  const identityElements = useMemo(
+    () =>
+      BRAND_ELEMENTS.map((element) => {
+        const template = getEmailLifecycleTemplate(element.id, identity);
+        if (!template) return element;
+        return {
+          ...element,
+          description: template.description,
+          format: template.artworkPath ? 'HTML + motion' : 'Plain text',
+          keywords: ['email', template.group.toLocaleLowerCase(), ...template.keywords],
+          name: template.name,
+          symbol: template.symbol,
+        };
+      }),
+    [identity]
+  );
   const filteredElements = useMemo(
     () =>
-      filterBrandElements(BRAND_ELEMENTS, query).filter(
+      filterBrandElements(identityElements, query).filter(
         (element) => category === 'All' || element.category === category
       ),
-    [category, query]
+    [category, identityElements, query]
   );
   const selectedElement =
-    BRAND_ELEMENTS.find(({ id }) => id === selectedElementId) ?? BRAND_ELEMENTS[0]!;
+    identityElements.find(({ id }) => id === selectedElementId) ?? identityElements[0]!;
   const selectedSettings = {
     ...createBrandElementSettings(selectedElement, identity),
     ...elementOverrides[selectedElement.id],
@@ -1250,7 +1304,7 @@ export default function BrandElementsStudio({
                 className='brand-elements-mobile-select hidden'
                 onValueChange={setSelectedElementId}
                 options={BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
-                  BRAND_ELEMENTS.filter((element) => element.category === elementCategory).map((element) => ({
+                  identityElements.filter((element) => element.category === elementCategory).map((element) => ({
                     label: `${gt(elementCategory)} / ${gt(element.name)}`,
                     value: element.id,
                   }))

@@ -7,6 +7,7 @@ import {
   EMAIL_LIFECYCLE_TEMPLATES,
   getEmailLifecycleTemplate,
 } from '../emailLifecycle';
+import { BUILT_IN_BRAND_IDENTITIES } from '../identityPresets';
 
 describe('EMAIL_LIFECYCLE_TEMPLATES', () => {
   it('includes every user-facing template from the lifecycle redesign', () => {
@@ -82,6 +83,60 @@ describe('EMAIL_LIFECYCLE_TEMPLATES', () => {
 
       for (const { imagePath } of supportingCards) {
         expect(existsSync(join(process.cwd(), 'public', imagePath))).toBe(true);
+      }
+    }
+  });
+
+  it('builds distinct onboarding programs for every bundled identity', () => {
+    const starter = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'starter')!;
+    const identities = [
+      ...BUILT_IN_BRAND_IDENTITIES,
+      { ...starter, id: 'template', name: 'Template', shortName: 'TM' },
+    ];
+    const programs = identities.map((identity) => ({
+      identity,
+      start: getEmailLifecycleTemplate('onboarding-day3-no-api-key-email', identity),
+      welcome: getEmailLifecycleTemplate('welcome-email', identity),
+    }));
+
+    expect(new Set(programs.map(({ start }) => start?.subject)).size).toBe(
+      identities.length
+    );
+
+    for (const { identity, start, welcome } of programs) {
+      expect(welcome?.subject).toContain(identity.name);
+      expect(start?.body).toBeTruthy();
+      expect(start?.name).toBeTruthy();
+
+      if (identity.id !== 'gt') {
+        expect(`${start?.name} ${start?.subject} ${start?.body}`).not.toMatch(
+          /translat|localiz|locale|locadex|api key/i
+        );
+        expect(start?.supportingCards).toEqual([]);
+      }
+    }
+  });
+
+  it('removes GT product language from every non-GT email field', () => {
+    const starter = BUILT_IN_BRAND_IDENTITIES.find(({ id }) => id === 'starter')!;
+    const identities = [
+      ...BUILT_IN_BRAND_IDENTITIES.filter(({ id }) => id !== 'gt'),
+      { ...starter, id: 'template', name: 'Template', shortName: 'TM' },
+    ];
+
+    for (const identity of identities) {
+      for (const sourceTemplate of EMAIL_LIFECYCLE_TEMPLATES) {
+        const template = getEmailLifecycleTemplate(sourceTemplate.id, identity)!;
+        expect(
+          [
+            template.body,
+            template.description,
+            template.name,
+            template.subject,
+            ...template.keywords,
+          ].join(' ')
+        ).not.toMatch(/translat|localiz|locale|locadex|api key/i);
+        expect(template.supportingCards).toEqual([]);
       }
     }
   });
