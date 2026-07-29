@@ -750,7 +750,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   ],
   contactEmail: 'hello@generaltranslation.com',
   description: 'A premium black-and-white identity where soft light, fine dither, exact type, and quiet matte surfaces make one source resolving across every language feel modern and unmistakably technical.',
-  greetings: ['Welcome', '你好', 'Bienvenidos', 'ようこそ', 'أهلاً وسهلاً'],
+  greetings: ['Welcome', '你好', '환영합니다', 'ようこそ', 'أهلاً وسهلاً', 'Bienvenidos'],
   fonts: GT_FONT_ASSETS,
   graphicSystem: {
     composition: 'One decisive statement sits beside one restrained monochrome light field, with enough negative space for both to feel deliberate.',

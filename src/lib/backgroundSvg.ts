@@ -76,12 +76,26 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   width: 1200,
 };
 
+export const BACKGROUND_GRADIENT_DEFAULTS: Readonly<Record<BackgroundGradient, Partial<BackgroundSettings>>> = {
+  linear: { angle: 24 },
+  radial: { focalX: 38, focalY: 42 },
+  mesh: { bandCount: 9, bandDepth: 72, bandGap: 2, focalX: 50, lightingEnabled: true },
+  orbit: { angle: 24, focalX: 62, focalY: 46, relief: 12 },
+  wave: { angle: 138, focalY: 38, relief: 24 },
+};
+
 export const BACKGROUND_PRESETS = [
   {
-    description: 'A clean mirrored aperture built from a dense shared-gradient field.',
+    description: 'A quiet directional field with smooth tonal separation and deep edge contrast.',
+    id: 'signal-axis',
+    name: 'Signal axis',
+    settings: { angle: 24, colorA: '#07090D', colorB: '#394457', colorC: '#F5F7FA', gradient: 'linear', grain: 3, relief: 0, style: 'grain-gradient' },
+  },
+  {
+    description: 'Full-height architectural strips hold crisp edges over a controlled vertical falloff.',
     id: 'spectral-mesh',
-    name: 'Spectral aperture',
-    settings: { angle: 90, bandCount: 15, bandDepth: 58, bandGap: 0, colorA: '#02030A', colorB: '#284CFF', colorC: '#FFC1D8', focalX: 50, gradient: 'mesh', grain: 7, lightingEnabled: true, relief: 0, style: 'grain-gradient' },
+    name: 'Signal terraces',
+    settings: { angle: 90, bandCount: 9, bandDepth: 72, bandGap: 2, colorA: '#06070A', colorB: '#28334A', colorC: '#EEF2FF', focalX: 50, gradient: 'mesh', grain: 3, lightingEnabled: true, relief: 0, style: 'grain-gradient' },
   },
   {
     description: 'Warm amber, coral, and lilac moving through an orbit field.',
@@ -96,10 +110,10 @@ export const BACKGROUND_PRESETS = [
     settings: { angle: 138, colorA: '#061A22', colorB: '#28B9B1', colorC: '#B9FFF2', gradient: 'wave', grain: 6, relief: 24, style: 'grain-gradient' },
   },
   {
-    description: 'Soft paper neutrals with a restrained radial glow.',
+    description: 'A focused off-axis aperture with a soft paper falloff and restrained vignette.',
     id: 'paper-light',
-    name: 'Paper light',
-    settings: { colorA: '#F7F5F0', colorB: '#D9D5CC', colorC: '#FFFFFF', focalX: 36, focalY: 28, gradient: 'radial', grain: 4, relief: 8, style: 'grain-gradient' },
+    name: 'Paper aperture',
+    settings: { angle: 18, colorA: '#DDD8CE', colorB: '#F3F0EA', colorC: '#FFFFFF', focalX: 34, focalY: 31, gradient: 'radial', grain: 2, relief: 8, style: 'grain-gradient' },
   },
   {
     description: 'A monochrome ordered-dither transition for marks and fields.',
@@ -182,8 +196,8 @@ function ditherField(settings: BackgroundSettings): string {
 }
 
 function smoothGradientStops(start: string, middle: string, end: string): string {
-  return Array.from({ length: 17 }, (_, index) => {
-    const offset = index / 16;
+  return Array.from({ length: 33 }, (_, index) => {
+    const offset = index / 32;
     const color = offset <= 0.5
       ? mixHexColors(start, middle, offset * 2)
       : mixHexColors(middle, end, (offset - 0.5) * 2);
@@ -203,16 +217,10 @@ function gradientDefinition(settings: BackgroundSettings): string {
   const reverseStops = smoothGradientStops(settings.colorC, settings.colorB, settings.colorA);
 
   if (settings.gradient === 'radial') {
-    return `<radialGradient id="surface-gradient" cx="${settings.focalX}%" cy="${settings.focalY}%" fx="${settings.focalX}%" fy="${settings.focalY}%" r="92%" color-interpolation="sRGB">${forwardStops}</radialGradient>`;
+    return `<radialGradient id="radial-aperture" cx="${settings.focalX}%" cy="${settings.focalY}%" fx="${settings.focalX}%" fy="${settings.focalY}%" r="76%" gradientTransform="rotate(${settings.angle} .5 .5) scale(1 .72)" color-interpolation="sRGB"><stop offset="0" stop-color="${settings.colorC}"/><stop offset=".34" stop-color="${mixHexColors(settings.colorC, settings.colorB, 0.5)}"/><stop offset=".62" stop-color="${settings.colorB}"/><stop offset="1" stop-color="${settings.colorA}"/></radialGradient><radialGradient id="radial-vignette" cx="${100 - settings.focalX}%" cy="${100 - settings.focalY}%" r="88%" color-interpolation="sRGB"><stop offset=".42" stop-color="${settings.colorA}" stop-opacity="0"/><stop offset="1" stop-color="${settings.colorB}" stop-opacity=".22"/></radialGradient>`;
   }
   if (settings.gradient === 'mesh') {
-    const peak = Math.max(0.12, Math.min(0.88, settings.focalX / 100));
-    const depth = settings.height * Math.max(0.08, Math.min(0.92, settings.bandDepth / 100));
-    const peakX = settings.width * peak;
-    const leftControl = settings.width * peak * 0.62;
-    const rightControl = settings.width * (peak + (1 - peak) * 0.38);
-    const bandShape = `M 0 ${depth.toFixed(2)} C ${leftControl.toFixed(2)} ${depth.toFixed(2)}, ${(peakX - settings.width * 0.1).toFixed(2)} 0, ${peakX.toFixed(2)} 0 C ${(peakX + settings.width * 0.1).toFixed(2)} 0, ${rightControl.toFixed(2)} ${depth.toFixed(2)}, ${settings.width} ${depth.toFixed(2)} L ${settings.width} ${settings.height} L 0 ${settings.height} Z`;
-    return `<linearGradient id="band-gradient" gradientUnits="userSpaceOnUse" x1="${(settings.width * x1 / 100).toFixed(2)}" y1="${(settings.height * y1 / 100).toFixed(2)}" x2="${(settings.width * x2 / 100).toFixed(2)}" y2="${(settings.height * y2 / 100).toFixed(2)}" color-interpolation="sRGB">${forwardStops}</linearGradient><clipPath id="band-shape"><path d="${bandShape}"/></clipPath>`;
+    return '';
   }
   if (settings.gradient === 'orbit') {
     return `<radialGradient id="orbit-primary" cx="${settings.focalX}%" cy="${settings.focalY}%" r="84%" gradientTransform="rotate(${settings.angle} .5 .5) scale(1 .68)" color-interpolation="sRGB">${forwardStops}</radialGradient><radialGradient id="orbit-secondary" cx="${100 - settings.focalX}%" cy="${100 - settings.focalY}%" r="78%" gradientTransform="rotate(${settings.angle + 90} .5 .5) scale(1 .74)" color-interpolation="sRGB">${reverseStops}</radialGradient>`;
@@ -227,15 +235,28 @@ function bandSurface(settings: BackgroundSettings): string {
   const count = Math.max(3, Math.min(24, Math.round(settings.bandCount)));
   const segmentWidth = settings.width / count;
   const gap = Math.max(0, Math.min(segmentWidth * 0.8, settings.bandGap));
+  const depth = Math.max(0.28, Math.min(1, settings.bandDepth / 100));
+  const split = Math.max(0.18, Math.min(0.82, settings.focalX / 100));
   const bars = Array.from({ length: count }, (_, index) => {
     const x = index * segmentWidth + gap / 2;
     const width = Math.max(0.5, segmentWidth - gap);
-    const fill = settings.lightingEnabled ? 'url(#band-gradient)' : settings.colorB;
-    const opacity = settings.lightingEnabled ? 0.86 + ((Math.sin(index * 1.7) + 1) / 2) * 0.14 : 1;
-    return `<rect data-band-index="${index}" x="${x.toFixed(2)}" y="0" width="${width.toFixed(2)}" height="${settings.height}" fill="${fill}" opacity="${opacity.toFixed(3)}"/>`;
+    const progress = count === 1 ? 0 : index / (count - 1);
+    const tone = progress <= split
+      ? mixHexColors(settings.colorA, settings.colorB, progress / split)
+      : mixHexColors(settings.colorB, settings.colorC, (progress - split) / (1 - split));
+    const lowerTone = mixHexColors(tone, settings.colorC, 0.22);
+    const gradientId = `band-strip-${index}`;
+    const definition = settings.lightingEnabled
+      ? `<linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${settings.colorA}"/><stop offset="${(1 - depth).toFixed(2)}" stop-color="${settings.colorA}"/><stop offset=".78" stop-color="${tone}"/><stop offset="1" stop-color="${lowerTone}"/></linearGradient>`
+      : '';
+    const fill = settings.lightingEnabled ? `url(#${gradientId})` : tone;
+    return {
+      definition,
+      rect: `<rect data-band-index="${index}" x="${x.toFixed(2)}" y="0" width="${width.toFixed(2)}" height="${settings.height}" fill="${fill}"/>`,
+    };
   });
 
-  return `<rect width="100%" height="100%" fill="${settings.colorA}"/><g data-gradient-layout="bands" data-band-count="${count}" clip-path="url(#band-shape)">${bars.join('')}</g>`;
+  return `<rect width="100%" height="100%" fill="${settings.colorA}"/><g data-gradient-layout="bands" data-band-count="${count}" data-band-geometry="full-height"><defs>${bars.map(({ definition }) => definition).join('')}</defs>${bars.map(({ rect }) => rect).join('')}</g>`;
 }
 
 function gradientSurface(settings: BackgroundSettings): string {
@@ -256,6 +277,9 @@ function gradientSurface(settings: BackgroundSettings): string {
     const normalizedAngle = ((settings.angle % 180) + 180) % 180;
     const waveTilt = (normalizedAngle - 90) * 0.28;
     return `<g data-gradient-layout="wave"><rect x="-4%" y="-4%" width="108%" height="108%" fill="url(#surface-gradient)"/><g transform="rotate(${waveTilt.toFixed(2)} ${settings.width / 2} ${settings.height / 2})" filter="url(#wave-soften)" opacity=".72"><path d="${wavePath}" fill="none" stroke="url(#wave-gradient)" stroke-width="${strokeWidth.toFixed(2)}" stroke-linecap="round"/><path d="${secondWavePath}" fill="none" stroke="${settings.colorC}" stroke-opacity=".28" stroke-width="${(strokeWidth * 0.58).toFixed(2)}" stroke-linecap="round"/></g></g>`;
+  }
+  if (settings.gradient === 'radial') {
+    return `<g data-gradient-layout="radial"><rect width="100%" height="100%" fill="${settings.colorA}"/><rect x="-8%" y="-8%" width="116%" height="116%" fill="url(#radial-aperture)"/><rect width="100%" height="100%" fill="url(#radial-vignette)"/></g>`;
   }
   return `<rect data-gradient-layout="${settings.gradient}" x="-4%" y="-4%" width="108%" height="108%" fill="url(#surface-gradient)"/>`;
 }

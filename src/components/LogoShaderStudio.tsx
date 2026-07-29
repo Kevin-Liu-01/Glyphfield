@@ -31,7 +31,6 @@ import {
 } from '@/lib/liveMaterials';
 import {
   compositeFinishedLayer,
-  finishColor,
   materialFinishPreset,
   normalizeMaterialFinish,
   type MaterialFinishSettings,
@@ -405,6 +404,10 @@ export default function LogoShaderStudio({
     materialFinishPreset('soft-depth')
   );
   const finish = normalizeMaterialFinish(storedFinish);
+  const hasInteractiveFinish = finish.borderEnabled
+    || finish.glassEnabled
+    || finish.reflectionEnabled
+    || finish.shadowEnabled;
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
   const [exportDialog, setExportDialog] = useState<'png' | 'gif' | null>(null);
@@ -452,40 +455,21 @@ export default function LogoShaderStudio({
   const previewDimensions = outputDimensions('high');
   const previewLogoSize = Math.min(previewDimensions.width, previewDimensions.height) * 0.4;
   const exportRenderScale = EXPORT_QUALITY_OPTIONS.find(({ value }) => value === exportQuality)?.multiplier ?? 1;
-  const outlineFilter = finish.borderEnabled && finish.borderWidth > 0
-    ? [
-        [finish.borderWidth, 0],
-        [-finish.borderWidth, 0],
-        [0, finish.borderWidth],
-        [0, -finish.borderWidth],
-        [finish.borderWidth * 0.72, finish.borderWidth * 0.72],
-        [-finish.borderWidth * 0.72, finish.borderWidth * 0.72],
-        [finish.borderWidth * 0.72, -finish.borderWidth * 0.72],
-        [-finish.borderWidth * 0.72, -finish.borderWidth * 0.72],
-      ].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${finishColor(finish.borderColor, finish.borderOpacity / 100)})`).join(' ')
-    : '';
-  const shadowFilter = finish.shadowEnabled && !finish.glassEnabled
-    ? `drop-shadow(${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${finish.shadowBlur}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)})`
-    : '';
-  const logoFinishStyle: CSSProperties = {
-    filter: [logoInvert ? 'invert(1)' : '', outlineFilter, shadowFilter].filter(Boolean).join(' ') || undefined,
-    WebkitBoxReflect: finish.reflectionEnabled
-      ? `below ${finish.reflectionGap}px linear-gradient(to bottom, ${finishColor('#000000', finish.reflectionOpacity / 100)}, transparent ${finish.reflectionLength}%)`
-      : undefined,
+  const logoMaskStyle: CSSProperties = {
+    WebkitMaskImage: `url('${logoPath}')`,
+    WebkitMaskPosition: 'center',
+    WebkitMaskRepeat: 'no-repeat',
+    WebkitMaskSize: 'contain',
+    maskImage: `url('${logoPath}')`,
+    maskPosition: 'center',
+    maskRepeat: 'no-repeat',
+    maskSize: 'contain',
   };
-  const glassPreviewStyle: CSSProperties = {
-    backdropFilter: `blur(${finish.glassBlur}px)`,
-    background: `linear-gradient(135deg, ${finishColor('#FFFFFF', finish.glassHighlight / 100)}, ${finishColor(finish.glassTint, finish.glassOpacity / 100)} 44%, ${finishColor(finish.glassTint, finish.glassOpacity / 250)})`,
-    border: finish.borderEnabled
-      ? `${finish.borderWidth}px solid ${finishColor(finish.borderColor, finish.borderOpacity / 100)}`
-      : undefined,
-    borderRadius: finish.glassRadius,
-    boxShadow: finish.shadowEnabled
-      ? `${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${finish.shadowBlur}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)}`
-      : undefined,
-    inset: -finish.glassPadding,
-    transform: `scale(${1 + finish.glassRefraction / 300})`,
-    WebkitBackdropFilter: `blur(${finish.glassBlur}px)`,
+  const logoFinishStyle: CSSProperties = {
+    filter: logoInvert ? 'invert(1)' : undefined,
+  };
+  const staticMaterialPreviewStyle: CSSProperties = {
+    background: `linear-gradient(135deg, ${colorA} 0%, ${colorB} 48%, ${colorC} 100%)`,
   };
 
   customLogoRef.current = customLogo;
@@ -1069,7 +1053,9 @@ export default function LogoShaderStudio({
             >
               {target === 'background' || target === 'both' ? (
                 <div className='absolute inset-0 size-full' ref={backgroundLayerRef}>
-                  {renderMaterial(backgroundCanvasRef, 'background')}
+                  {hasInteractiveFinish ? (
+                    <div className='size-full' style={staticMaterialPreviewStyle} />
+                  ) : renderMaterial(backgroundCanvasRef, 'background')}
                 </div>
               ) : null}
               <EditableCanvasLayer
@@ -1091,39 +1077,24 @@ export default function LogoShaderStudio({
                 zIndex={12}
               >
                 <div className='relative grid size-full place-items-center' style={{ opacity: logoOpacity / 100 }}>
-                  {finish.glassEnabled ? <div aria-hidden='true' className='absolute' key='glass-finish' style={glassPreviewStyle} /> : null}
                   <div className='relative size-full' key='logo-finish' style={logoFinishStyle}>
                     {target === 'logo' || target === 'both' ? (
                       <div
                         className='relative size-full overflow-hidden'
                         ref={materialLayerRef}
-                        style={{
-                          WebkitMaskImage: `url('${logoPath}')`,
-                          WebkitMaskPosition: 'center',
-                          WebkitMaskRepeat: 'no-repeat',
-                          WebkitMaskSize: 'contain',
-                          maskImage: `url('${logoPath}')`,
-                          maskPosition: 'center',
-                          maskRepeat: 'no-repeat',
-                          maskSize: 'contain',
-                        }}
+                        style={logoMaskStyle}
                       >
-                        {renderMaterial(materialCanvasRef, 'logo')}
+                        {hasInteractiveFinish ? (
+                          <div className='size-full' style={staticMaterialPreviewStyle} />
+                        ) : renderMaterial(materialCanvasRef, 'logo')}
                       </div>
                     ) : (
                       <div
                         aria-label={`${identity.name} logo`}
                         className='size-full'
                         style={{
+                          ...logoMaskStyle,
                           backgroundColor: logoColor,
-                          WebkitMaskImage: `url('${logoPath}')`,
-                          WebkitMaskPosition: 'center',
-                          WebkitMaskRepeat: 'no-repeat',
-                          WebkitMaskSize: 'contain',
-                          maskImage: `url('${logoPath}')`,
-                          maskPosition: 'center',
-                          maskRepeat: 'no-repeat',
-                          maskSize: 'contain',
                         }}
                       />
                     )}

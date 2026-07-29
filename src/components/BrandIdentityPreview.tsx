@@ -107,14 +107,27 @@ export default function BrandIdentityPreview({
   const interfaceEvidence = libraryAsset(identity, 'library-interface');
 
   if (recipe === 'translation-frame') {
+    const savedGreetings = identity.greetings.includes('환영합니다')
+      ? identity.greetings
+      : [...identity.greetings, '환영합니다'];
+    const spanishIndex = savedGreetings.indexOf('Bienvenidos');
+    const koreanIndex = savedGreetings.indexOf('환영합니다');
+    const greetings = spanishIndex < koreanIndex
+      ? savedGreetings.map((greeting) => {
+          if (greeting === 'Bienvenidos') return '환영합니다';
+          if (greeting === '환영합니다') return 'Bienvenidos';
+          return greeting;
+        })
+      : savedGreetings;
+
     return (
       <PreviewShell identity={identity}>
         <div aria-hidden='true' className='brand-art-gt-material'>
           <div className='brand-art-gt-metal-stage'>
-            {identity.greetings.map((greeting, index) => (
+            {greetings.map((greeting) => (
               <span
                 className='brand-art-gt-metal-language'
-                dir={index === identity.greetings.length - 1 ? 'rtl' : undefined}
+                dir={/[\u0600-\u06ff]/.test(greeting) ? 'rtl' : undefined}
                 key={greeting}
               >
                 {greeting}

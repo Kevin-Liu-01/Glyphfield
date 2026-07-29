@@ -51,7 +51,7 @@ function FinishToggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className={`flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-md border px-3 text-sm ${checked ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-foreground'}`}>
+    <label className={`relative flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-md border px-3 text-sm ${checked ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-foreground'}`}>
       <span>{label}</span>
       <input checked={checked} className='sr-only' onChange={(event) => onChange(event.target.checked)} type='checkbox' />
       <span aria-hidden='true' className={`size-2 rounded-full ${checked ? 'bg-background' : 'bg-muted-foreground/35'}`} />

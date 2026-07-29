@@ -19,6 +19,7 @@ import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
+  BACKGROUND_GRADIENT_DEFAULTS,
   BACKGROUND_PRESETS,
   DEFAULT_BACKGROUND_SETTINGS,
   buildBackgroundSvg,
@@ -392,7 +393,10 @@ export default function BackgroundStudio({
               <StudioSelect
                 ariaLabel={gt('Gradient')}
                 disabled={settings.style === 'dither' || settings.style === 'pattern' || settings.style === 'live-shader'}
-                onValueChange={(value) => updateSettings({ gradient: value as BackgroundGradient })}
+                onValueChange={(value) => {
+                  const gradient = value as BackgroundGradient;
+                  updateSettings({ gradient, ...BACKGROUND_GRADIENT_DEFAULTS[gradient] });
+                }}
                 options={[
                   { label: gt('Linear'), value: 'linear' },
                   { label: gt('Radial'), value: 'radial' },

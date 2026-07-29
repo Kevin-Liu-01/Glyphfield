@@ -4,6 +4,7 @@ import {
   DEFAULT_MATERIAL_FINISH,
   finishColor,
   hasMaterialFinish,
+  materialFinishOutlineOffsets,
   materialFinishPreset,
   normalizeMaterialFinish,
 } from '../materialFinish';
@@ -55,5 +56,16 @@ describe('material finishes', () => {
     expect(hasMaterialFinish({ borderEnabled: true })).toBe(true);
     expect(finishColor('#73BFC4', 0.35)).toBe('rgba(115, 191, 196, 0.35)');
     expect(finishColor('invalid', 0.35)).toBe('rgba(0, 0, 0, 0.35)');
+  });
+
+  it('builds a bounded circular outline without relying on CSS filters', () => {
+    const offsets = materialFinishOutlineOffsets(4);
+    expect(offsets).toHaveLength(16);
+    expect(offsets[0]).toEqual([4, 0]);
+    expect(offsets[4]?.[0]).toBeCloseTo(0);
+    expect(offsets[4]?.[1]).toBeCloseTo(4);
+    expect(materialFinishOutlineOffsets(0)).toEqual([]);
+    expect(materialFinishOutlineOffsets(Number.NaN)).toEqual([]);
+    expect(materialFinishOutlineOffsets(40)[0]).toEqual([16, 0]);
   });
 });

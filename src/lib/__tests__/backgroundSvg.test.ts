@@ -53,10 +53,14 @@ describe('buildBackgroundSvg', () => {
       style: 'dither',
     });
 
-    expect(mesh).toContain('id="band-gradient"');
     expect(mesh).toContain('data-gradient-layout="bands"');
     expect(mesh).toContain('data-band-count="15"');
+    expect(mesh).toContain('data-band-geometry="full-height"');
     expect(mesh.match(/data-band-index=/g)?.length).toBe(15);
+    expect(mesh).toContain('id="band-strip-0"');
+    expect(mesh).toContain('height="750"');
+    expect(mesh).not.toContain('clip-path=');
+    expect(mesh).not.toContain('<path');
     expect(mesh).not.toContain('id="surface-relief"');
     expect(mesh).not.toContain('filter="url(#surface-relief)"');
     expect(dither).toContain('data-dither-shape="squares"');
@@ -69,7 +73,7 @@ describe('buildBackgroundSvg', () => {
     ['mesh', 'bands'],
     ['orbit', 'orbit'],
     ['wave', 'wave'],
-  ] as const)('renders the %s gradient with a smooth portable field', (gradient, layout) => {
+  ] as const)('renders the %s gradient as a portable mode-specific field', (gradient, layout) => {
     const svg = buildBackgroundSvg({
       ...DEFAULT_BACKGROUND_SETTINGS,
       gradient,
@@ -77,11 +81,11 @@ describe('buildBackgroundSvg', () => {
     });
 
     expect(svg).toContain(`data-gradient-layout="${layout}"`);
-    expect(svg).toContain('color-interpolation="sRGB"');
+    if (gradient !== 'mesh') expect(svg).toContain('color-interpolation="sRGB"');
     expect(svg).not.toContain('filter="url(#surface-relief)"');
   });
 
-  it.each(['linear', 'radial', 'mesh', 'orbit', 'wave'] as const)(
+  it.each(['linear', 'orbit', 'wave'] as const)(
     'interpolates intermediate colors through the %s field',
     (gradient) => {
       const svg = buildBackgroundSvg({
@@ -98,18 +102,51 @@ describe('buildBackgroundSvg', () => {
     }
   );
 
+  it('uses a focused aperture instead of the linear color ramp for radial fields', () => {
+    const svg = buildBackgroundSvg({ ...DEFAULT_BACKGROUND_SETTINGS, gradient: 'radial' });
+
+    expect(svg).toContain('id="radial-aperture"');
+    expect(svg).toContain('id="radial-vignette"');
+    expect(svg).not.toContain('id="surface-gradient"');
+  });
+
   it('can render flat bands without gradient lighting', () => {
     const svg = buildBackgroundSvg({
       ...DEFAULT_BACKGROUND_SETTINGS,
       colorA: '#000000',
       colorB: '#FFFFFF',
+      colorC: '#FFFFFF',
       gradient: 'mesh',
       lightingEnabled: false,
     });
 
     expect(svg).toContain('data-gradient-layout="bands"');
     expect(svg).toContain('fill="#FFFFFF"');
-    expect(svg).not.toContain('fill="url(#band-gradient)"');
+    expect(svg).not.toContain('id="band-gradient"');
+    expect(svg).not.toContain('id="band-strip-0"');
+  });
+
+  it('renders orbit and wave as full background fields', () => {
+    const orbit = buildBackgroundSvg({ ...DEFAULT_BACKGROUND_SETTINGS, gradient: 'orbit' });
+    const wave = buildBackgroundSvg({ ...DEFAULT_BACKGROUND_SETTINGS, gradient: 'wave' });
+
+    expect(orbit).toContain('id="orbit-primary"');
+    expect(orbit).toContain('id="orbit-secondary"');
+    expect(orbit).not.toContain('<ellipse');
+    expect(wave).toContain('id="surface-gradient"');
+    expect(wave).toContain('id="wave-gradient"');
+    expect(wave.match(/<path /g)?.length).toBe(2);
+    expect(wave).toContain('fill="url(#surface-gradient)"');
+  });
+
+  it('lets band depth reach the top edge', () => {
+    const bands = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      bandDepth: 100,
+      gradient: 'mesh',
+    });
+
+    expect(bands).toContain('<stop offset="0.00" stop-color="#FFFFFF"/>');
   });
 
   it('composes a reusable identity asset below the logo', () => {

@@ -9,6 +9,7 @@ import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   clampCanvasZoom,
+  resolveCanvasWheelDelta,
   resolveZoomedScrollPosition,
 } from '@/lib/canvasViewport';
 
@@ -73,11 +74,10 @@ export default function CanvasViewport({
     const scrollElement = scrollRef.current;
     const stageElement = stageRef.current;
     if (!scrollElement || !stageElement) return;
-    const scale = zoom / 100;
     const fittedZoom = Math.min(
       100,
-      scrollElement.clientWidth / Math.max(1, stageElement.scrollWidth / scale) * 100,
-      scrollElement.clientHeight / Math.max(1, stageElement.scrollHeight / scale) * 100
+      scrollElement.clientWidth / Math.max(1, stageElement.scrollWidth) * 100,
+      scrollElement.clientHeight / Math.max(1, stageElement.scrollHeight) * 100
     );
     changeZoom(fittedZoom);
   }
@@ -136,6 +136,7 @@ export default function CanvasViewport({
             startX: event.clientX,
             startY: event.clientY,
           };
+          event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           event.currentTarget.setAttribute('data-panning', 'true');
         }}
@@ -155,13 +156,32 @@ export default function CanvasViewport({
           }
         }}
         onWheel={(event) => {
-          if (!event.ctrlKey && !event.metaKey) return;
-          event.preventDefault();
-          const bounds = event.currentTarget.getBoundingClientRect();
-          changeZoom(zoom + (event.deltaY < 0 ? 10 : -10), {
-            x: event.clientX - bounds.left,
-            y: event.clientY - bounds.top,
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            const bounds = event.currentTarget.getBoundingClientRect();
+            changeZoom(zoom + (event.deltaY < 0 ? 10 : -10), {
+              x: event.clientX - bounds.left,
+              y: event.clientY - bounds.top,
+            });
+            return;
+          }
+
+          const scrollElement = event.currentTarget;
+          const canPanHorizontally = scrollElement.scrollWidth > scrollElement.clientWidth;
+          const canPanVertically = scrollElement.scrollHeight > scrollElement.clientHeight;
+          if (!canPanHorizontally && !canPanVertically) return;
+
+          const delta = resolveCanvasWheelDelta({
+            deltaMode: event.deltaMode,
+            deltaX: event.deltaX,
+            deltaY: event.deltaY,
+            pageHeight: scrollElement.clientHeight,
+            pageWidth: scrollElement.clientWidth,
+            shiftKey: event.shiftKey,
           });
+          event.preventDefault();
+          scrollElement.scrollLeft += delta.left;
+          scrollElement.scrollTop += delta.top;
         }}
         ref={scrollRef}
       >

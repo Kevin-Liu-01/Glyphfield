@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { BookOpen, Github, PanelLeft } from 'lucide-react';
+import { BookOpen, PanelLeft } from 'lucide-react';
 import { T, useGT } from 'gt-next';
 import { useDocsLayout } from 'fumadocs-ui/layouts/docs';
 
@@ -13,7 +12,6 @@ export default function DocsHeader({ className, ...props }: ComponentProps<'head
   const NavTitle = slots.navTitle;
   const SearchFull = slots.searchTrigger ? slots.searchTrigger.full : null;
   const SearchSmall = slots.searchTrigger ? slots.searchTrigger.sm : null;
-  const ThemeSwitch = slots.themeSwitch || null;
   const SidebarTrigger = slots.sidebar.trigger;
 
   return (
@@ -33,25 +31,6 @@ export default function DocsHeader({ className, ...props }: ComponentProps<'head
         {SearchFull ? <SearchFull hideIfDisabled /> : null}
       </div>
       <nav aria-label={gt('Documentation utilities')} className='glyphfield-docs-header-actions'>
-        <a
-          aria-label={gt('Open Glyphfield on GitHub')}
-          className='glyphfield-docs-header-link'
-          href='https://github.com/Kevin-Liu-01/Glyphfield'
-          rel='noreferrer'
-          target='_blank'
-          title={gt('GitHub')}
-        >
-          <Github aria-hidden='true' />
-        </a>
-        <Link
-          aria-label={gt('Open documentation')}
-          className='glyphfield-docs-header-link glyphfield-docs-header-link--current'
-          href='/docs'
-          title={gt('Docs')}
-        >
-          <BookOpen aria-hidden='true' />
-        </Link>
-        {ThemeSwitch ? <ThemeSwitch className='glyphfield-docs-header-mobile-theme' /> : null}
         {SearchSmall ? <SearchSmall className='glyphfield-docs-mobile-search' hideIfDisabled /> : null}
         <SidebarTrigger aria-label={gt('Open documentation navigation')} className='glyphfield-docs-sidebar-trigger'>
           <PanelLeft aria-hidden='true' />

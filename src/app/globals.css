@@ -557,16 +557,20 @@ body {
 }
 
 .glyphfield-docs-toc-actions {
-  position: relative;
-  width: 100%;
-  margin: 0 0 15px;
-  padding: 0 0 15px;
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 52px;
+  padding: 8px 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 38px;
-  grid-template-rows: repeat(2, 34px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: 34px;
   gap: 6px;
   border-bottom: 1px solid var(--docs-line);
-  background: transparent;
+  background: color-mix(in srgb, var(--docs-bg) 94%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .glyphfield-docs-toc-actions :is(a, button) {
@@ -611,24 +615,6 @@ body {
   width: 13px;
   height: 13px;
   flex: none;
-}
-
-.glyphfield-docs-toc-actions .glyphfield-docs-toc-theme {
-  width: 38px;
-  height: 74px;
-  padding: 3px;
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0;
-}
-
-.glyphfield-docs-toc-actions .glyphfield-docs-toc-theme svg {
-  width: 24px;
-  height: 24px;
-  padding: 6px;
-  border-radius: 3px;
 }
 
 .glyphfield-docs #toc-title {
@@ -779,7 +765,8 @@ body {
 }
 
 .glyphfield-docs-body pre {
-  border: 1px solid var(--docs-line);
+  border: 0;
+  border-radius: 0 !important;
   background: #181818 !important;
   box-shadow: none;
 }
@@ -2785,7 +2772,7 @@ body {
   width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
   transform-origin: 50% 30%;
   animation: studio-workspace-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -3220,7 +3207,8 @@ body {
 .canvas-viewport-stage {
   width: 100%;
   min-height: 100%;
-  zoom: var(--canvas-zoom);
+  transform: scale(var(--canvas-zoom));
+  transform-origin: top left;
   contain: layout paint style;
 }
 
@@ -5538,7 +5526,7 @@ body {
 .brand-art-gt-material {
   position: absolute;
   z-index: 0;
-  inset: 6% 2.5% 6% 39%;
+  inset: 6% 2.5% 5% 46%;
   overflow: hidden;
   pointer-events: none;
 }
@@ -5605,9 +5593,7 @@ body {
 }
 
 .brand-art-gt-metal-language:last-child {
-  grid-column: 1 / -1;
-  width: 68%;
-  justify-self: center;
+  width: 100%;
   font-size: clamp(1.3rem, 4cqw, 3.7rem);
 }
 
@@ -5624,18 +5610,19 @@ body {
   justify-content: space-between;
 }
 
-.brand-art-gt-header img {
-  width: clamp(48px, 7cqw, 76px);
-  max-height: clamp(28px, 4cqw, 44px);
+.brand-art-preview .brand-art-gt-header img {
+  width: clamp(84px, 16cqw, 164px);
+  max-height: clamp(40px, 8cqw, 76px);
   object-fit: contain;
   object-position: left center;
 }
 
 .brand-art-gt-copy {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  min-height: 0;
-  align-self: center;
+  bottom: clamp(1.2rem, 4.4cqw, 3.8rem);
+  left: clamp(1.2rem, 4.4cqw, 3.8rem);
+  width: min(36%, 38rem);
   display: grid;
   gap: clamp(0.85rem, 1.6cqw, 1.25rem);
 }
@@ -5673,7 +5660,18 @@ body {
   }
 
   .brand-art-gt-material {
-    inset: 12% 2% 8% 41%;
+    inset: 12% 2% 7% 47%;
+  }
+
+  .brand-art-preview .brand-art-gt-header img {
+    width: clamp(104px, 18cqw, 144px);
+    max-height: clamp(60px, 11cqw, 84px);
+  }
+
+  .brand-art-gt-copy {
+    bottom: clamp(1rem, 4.2cqw, 1.5rem);
+    left: clamp(1rem, 4.2cqw, 1.5rem);
+    width: 40%;
   }
 
   .brand-art-gt-metal-stage {

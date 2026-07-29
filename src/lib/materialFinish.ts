@@ -234,6 +234,18 @@ export function finishColor(color: string, opacity: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
+export function materialFinishOutlineOffsets(width: number): readonly (readonly [number, number])[] {
+  if (!Number.isFinite(width) || width <= 0) return [];
+  const resolvedWidth = Math.min(16, width);
+  return Array.from({ length: 16 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 16;
+    return [
+      Math.cos(angle) * resolvedWidth,
+      Math.sin(angle) * resolvedWidth,
+    ] as const;
+  });
+}
+
 function createCanvas(width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -351,14 +363,8 @@ function drawOutline(
   tintContext.globalCompositeOperation = 'source-in';
   tintContext.fillStyle = finishColor(finish.borderColor, finish.borderOpacity / 100);
   tintContext.fillRect(0, 0, tint.width, tint.height);
-  const samples = Math.max(8, Math.min(24, Math.ceil(finish.borderWidth * 4)));
-  for (let index = 0; index < samples; index += 1) {
-    const angle = (Math.PI * 2 * index) / samples;
-    context.drawImage(
-      tint,
-      Math.cos(angle) * finish.borderWidth,
-      Math.sin(angle) * finish.borderWidth
-    );
+  for (const [offsetX, offsetY] of materialFinishOutlineOffsets(finish.borderWidth)) {
+    context.drawImage(tint, offsetX, offsetY);
   }
 }
 

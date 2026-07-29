@@ -23,3 +23,37 @@ export function resolveZoomedScrollPosition({
     top: (scrollTop + pointY) * ratio - pointY,
   };
 }
+
+export function resolveCanvasWheelDelta({
+  deltaMode,
+  deltaX,
+  deltaY,
+  pageHeight,
+  pageWidth,
+  shiftKey,
+}: {
+  deltaMode: number;
+  deltaX: number;
+  deltaY: number;
+  pageHeight: number;
+  pageWidth: number;
+  shiftKey: boolean;
+}): { left: number; top: number } {
+  const lineScale = 16;
+  const horizontalScale = deltaMode === 1
+    ? lineScale
+    : deltaMode === 2
+      ? pageWidth
+      : 1;
+  const verticalScale = deltaMode === 1
+    ? lineScale
+    : deltaMode === 2
+      ? pageHeight
+      : 1;
+  const shiftToHorizontal = shiftKey && Math.abs(deltaX) < Math.abs(deltaY);
+
+  return {
+    left: shiftToHorizontal ? deltaY * horizontalScale : deltaX * horizontalScale,
+    top: shiftToHorizontal ? 0 : deltaY * verticalScale,
+  };
+}
