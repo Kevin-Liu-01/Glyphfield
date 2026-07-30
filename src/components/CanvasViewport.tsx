@@ -1,17 +1,13 @@
 'use client';
 
-import { useRef, type CSSProperties, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
-import { Maximize2, Minus, Plus } from 'lucide-react';
+import { Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useStudioDraft } from '@/hooks/usePersistentState';
-import {
-  clampCanvasZoom,
-  resolveCanvasWheelDelta,
-  resolveZoomedScrollPosition,
-} from '@/lib/canvasViewport';
+import { clampCanvasZoom } from '@/lib/canvasViewport';
 
 export default function CanvasViewport({
   children,
@@ -38,36 +34,36 @@ export default function CanvasViewport({
   const viewportRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const wheelDeltaRef = useRef(0);
   const panRef = useRef<{
     pointerId: number;
+    startPanX: number;
+    startPanY: number;
     startX: number;
     startY: number;
-    startScrollLeft: number;
-    startScrollTop: number;
   } | null>(null);
   const [zoom, setZoom] = useStudioDraft(identityId, toolId, draftKey, 100);
+  const zoomRef = useRef(zoom);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   useCanvasSelectionDismiss(viewportRef, onDeselect);
+  zoomRef.current = zoom;
 
   function changeZoom(value: number, point?: { x: number; y: number }) {
     const nextZoom = clampCanvasZoom(value);
     const scrollElement = scrollRef.current;
-    if (!scrollElement || nextZoom === zoom) return;
+    const currentZoom = zoomRef.current;
+    if (!scrollElement || nextZoom === currentZoom) return;
     const anchor = point ?? {
       x: scrollElement.clientWidth / 2,
       y: scrollElement.clientHeight / 2,
     };
-    const nextScroll = resolveZoomedScrollPosition({
-      currentZoom: zoom,
-      nextZoom,
-      pointX: anchor.x,
-      pointY: anchor.y,
-      scrollLeft: scrollElement.scrollLeft,
-      scrollTop: scrollElement.scrollTop,
-    });
+    const ratio = nextZoom / Math.max(1, currentZoom);
+    setPanOffset((current) => ({
+      x: anchor.x - (anchor.x - current.x) * ratio,
+      y: anchor.y - (anchor.y - current.y) * ratio,
+    }));
+    zoomRef.current = nextZoom;
     setZoom(nextZoom);
-    window.requestAnimationFrame(() => {
-      scrollElement.scrollTo(nextScroll);
-    });
   }
 
   function fitCanvas() {
@@ -80,6 +76,14 @@ export default function CanvasViewport({
       scrollElement.clientHeight / Math.max(1, stageElement.scrollHeight) * 100
     );
     changeZoom(fittedZoom);
+    setPanOffset({ x: 0, y: 0 });
+  }
+
+  function resetView() {
+    wheelDeltaRef.current = 0;
+    zoomRef.current = 100;
+    setZoom(100);
+    setPanOffset({ x: 0, y: 0 });
   }
 
   return (
@@ -111,6 +115,9 @@ export default function CanvasViewport({
           <Plus aria-hidden='true' />
         </Button>
         <span className='canvas-toolbar-divider' />
+        <Button aria-label={gt('Reset view')} onClick={resetView} size='icon-sm' title={gt('Reset view')} type='button' variant='ghost'>
+          <RotateCcw aria-hidden='true' />
+        </Button>
         <Button aria-label={gt('Fit canvas')} onClick={fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
           <Maximize2 aria-hidden='true' />
         </Button>
@@ -131,8 +138,8 @@ export default function CanvasViewport({
           ) return;
           panRef.current = {
             pointerId: event.pointerId,
-            startScrollLeft: event.currentTarget.scrollLeft,
-            startScrollTop: event.currentTarget.scrollTop,
+            startPanX: panOffset.x,
+            startPanY: panOffset.y,
             startX: event.clientX,
             startY: event.clientY,
           };
@@ -144,8 +151,10 @@ export default function CanvasViewport({
           const pan = panRef.current;
           if (!pan || pan.pointerId !== event.pointerId) return;
           event.preventDefault();
-          event.currentTarget.scrollLeft = pan.startScrollLeft - (event.clientX - pan.startX);
-          event.currentTarget.scrollTop = pan.startScrollTop - (event.clientY - pan.startY);
+          setPanOffset({
+            x: pan.startPanX + event.clientX - pan.startX,
+            y: pan.startPanY + event.clientY - pan.startY,
+          });
         }}
         onPointerUp={(event) => {
           if (panRef.current?.pointerId !== event.pointerId) return;
@@ -156,32 +165,22 @@ export default function CanvasViewport({
           }
         }}
         onWheel={(event) => {
-          if (event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            const bounds = event.currentTarget.getBoundingClientRect();
-            changeZoom(zoom + (event.deltaY < 0 ? 10 : -10), {
-              x: event.clientX - bounds.left,
-              y: event.clientY - bounds.top,
-            });
-            return;
-          }
-
-          const scrollElement = event.currentTarget;
-          const canPanHorizontally = scrollElement.scrollWidth > scrollElement.clientWidth;
-          const canPanVertically = scrollElement.scrollHeight > scrollElement.clientHeight;
-          if (!canPanHorizontally && !canPanVertically) return;
-
-          const delta = resolveCanvasWheelDelta({
-            deltaMode: event.deltaMode,
-            deltaX: event.deltaX,
-            deltaY: event.deltaY,
-            pageHeight: scrollElement.clientHeight,
-            pageWidth: scrollElement.clientWidth,
-            shiftKey: event.shiftKey,
-          });
           event.preventDefault();
-          scrollElement.scrollLeft += delta.left;
-          scrollElement.scrollTop += delta.top;
+          const deltaScale = event.deltaMode === 1
+            ? 16
+            : event.deltaMode === 2
+              ? event.currentTarget.clientHeight
+              : 1;
+          const delta = (Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX) * deltaScale;
+          wheelDeltaRef.current += delta;
+          const zoomSteps = Math.trunc(wheelDeltaRef.current / 40);
+          if (zoomSteps === 0) return;
+          wheelDeltaRef.current -= zoomSteps * 40;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          changeZoom(zoomRef.current - zoomSteps * 5, {
+            x: event.clientX - bounds.left,
+            y: event.clientY - bounds.top,
+          });
         }}
         ref={scrollRef}
       >
@@ -194,6 +193,7 @@ export default function CanvasViewport({
             '--canvas-zoom': zoom / 100,
             fontFamily,
             fontWeight,
+            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${zoom / 100})`,
           } as CSSProperties}
         >
           {children}

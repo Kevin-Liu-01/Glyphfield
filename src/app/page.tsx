@@ -19,6 +19,7 @@ import type { ReactNode } from 'react';
 
 import AnimationStudio from '@/components/AnimationStudio';
 import MarketingArcField from '@/components/MarketingArcField';
+import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import MarketingMotion from '@/components/MarketingMotion';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { GT_BRAND_IDENTITY } from '@/lib/brandIdentity';
@@ -130,6 +131,7 @@ export default async function HomePage() {
       </a>
 
       <header className='marketing-v5-header'>
+        <span className='marketing-v5-header-triangles' aria-hidden='true'><i /><i /></span>
         <Link className='marketing-v5-brand' href='/' aria-label={gt('Glyphfield home')}>
           <Image alt='' aria-hidden='true' height={30} priority src={PRODUCT_BRAND.markPath} width={30} />
           <span>{PRODUCT_BRAND.name}</span>
@@ -170,6 +172,16 @@ export default async function HomePage() {
         <section className='marketing-v5-hero marketing-v7-corner-frame' aria-labelledby='hero-title'>
           <FrameTriangles />
           <div className='marketing-v5-hero-copy' data-motion-reveal>
+            <Image
+              alt=''
+              aria-hidden='true'
+              className='marketing-v5-hero-mark'
+              data-motion-item
+              height={48}
+              priority
+              src={PRODUCT_BRAND.markPath}
+              width={48}
+            />
             <h1 id='hero-title' data-motion-item>
               <T>One studio for</T>{' '}
               <em><T>the whole brand.</T></em>
@@ -181,14 +193,21 @@ export default async function HomePage() {
               </T>
             </p>
             <div className='marketing-v5-actions' data-motion-item>
-              <Link className='marketing-v5-primary-link marketing-v5-primary-link--large' href='/studio'>
+              <Link
+                className='marketing-v5-primary-link marketing-v5-primary-link--large marketing-v5-primary-link--iridescent'
+                href='/studio'
+              >
                 <T>Open Glyphfield</T>
                 <ArrowRight aria-hidden='true' />
               </Link>
               <Link className='marketing-v5-secondary-link' href='/docs/getting-started'>
-                <T>Read the docs</T>
+                <T>Docs</T>
               </Link>
+              <MarketingCopyPromptButton />
             </div>
+            <p className='marketing-v5-hero-license' data-motion-item>
+              <T>Free and open source under the MIT License.</T>
+            </p>
           </div>
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
