@@ -1,6 +1,6 @@
 ---
 title: Editor systems and plugins
-description: Reuse the stateful color, canvas, layer, select, material, and persistence primitives that keep Studio tools consistent.
+description: Reuse the stateful color, canvas, source, layer, select, material, and persistence primitives that keep Studio tools consistent.
 icon: Blocks
 ---
 
@@ -14,6 +14,8 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Surface Lab |
 | `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
 | `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
+| `SourceCodeDrawer` | Right-side source editing, validation feedback, apply, reset, and close | Host supplies the current serialized source and an apply function | Identity, boards, motion, surfaces, templates, foundations, and components |
+| `sourceCode` helpers | Parse JSON objects and read constrained strings, numbers, booleans, arrays, and nested objects | Stateless validation helpers | Every source-enabled Studio tool |
 | `canvasDocument` | Versioned pages, elements, constraints, resources, history, checkpoints, and export preflight | Immutable scene graph and command history | Migration target for every editable artifact and agent operation |
 | `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
 | `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
@@ -48,6 +50,22 @@ The conversion functions live in `src/lib/color.ts`, so the inspector, generated
 - **Reset** — selecting the percentage restores 100 percent.
 - **Fit** — restores the stable whole-canvas view.
 - **Persisted** — zoom is stored independently for each brand project and Studio tool.
+
+The shared viewport also supports wheel/trackpad zoom, drag-to-pan on empty workspace, and an explicit original-view reset. These gestures change only the view transform; the artifact document and export geometry remain unchanged.
+
+## Source code drawer
+
+`SourceCodeDrawer` keeps exact source editing adjacent to the canvas instead of moving users into a separate editor route. The component is intentionally controlled:
+
+- `source` is the host tool's current serialized document.
+- `onApply` parses and validates edits, then updates the host state.
+- Apply errors appear inside the drawer and do not replace the visual document.
+- Reset reloads the current visual snapshot.
+- Closing the drawer preserves the active tool and canvas position.
+
+The drawer is a shared interaction shell, not a universal schema. Each tool owns its field constraints and converts valid source into the same state used by its visual controls. Raw Lottie JSON remains a Lottie document; material configuration can carry custom GLSL; template and component drawers expose their own configuration objects.
+
+See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).
 
 ## Layers and direct manipulation
 
@@ -138,5 +156,6 @@ GSAP and Lenis are reserved for the marketing experience; editor manipulation us
 5. Pair `EditableCanvasLayer` with `CanvasLayerPanel` when an artifact has multiple selectable objects.
 6. Use `StudioSelect`, shared buttons, upload fields, and range controls instead of native one-off styling.
 7. Build exports from the same resolved settings that drive the preview.
+8. Serialize the editable state and mount `SourceCodeDrawer` so advanced edits round-trip through the same validators and state setters.
 
 This boundary keeps a new tool visually native to Glyphfield while leaving its artifact renderer free to be SVG, Canvas, HTML, or WebGL.

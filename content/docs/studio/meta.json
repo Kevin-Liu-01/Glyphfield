@@ -3,6 +3,7 @@
   "icon": "PanelsTopLeft",
   "pages": [
     "index",
+    "source-editing",
     "brand-settings",
     "brand-elements",
     "moodboards",

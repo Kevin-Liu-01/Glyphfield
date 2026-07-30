@@ -6,7 +6,9 @@ icon: PanelsTopLeft
 
 The Studio is the visual workspace at `/studio`. It is built around persistent brand-project tabs and a shared tool catalog.
 
-Every generator uses the same [editor systems](/docs/studio/editor-systems) for color, canvas zoom, selection, layers, alignment, assets, and persistent drafts. This makes an interaction learned in one tool available everywhere it applies.
+Every generator uses the same [editor systems](/docs/studio/editor-systems) for color, canvas zoom, selection, layers, alignment, assets, persistent drafts, and source editing. This makes an interaction learned in one tool available everywhere it applies.
+
+The **Code** action opens a right-side source drawer for the active artifact. Valid JSON or material source applies back into the same state used by the visual inspector, canvas, and export. Read [Source code editing](/docs/studio/source-editing) for formats, validation, and round-trip behavior.
 
 <DocsThemeGallery />
 
@@ -16,7 +18,7 @@ Every generator uses the same [editor systems](/docs/studio/editor-systems) for 
 | --- | --- |
 | Elements | Brand elements |
 | Boards | Moodboard |
-| Motion | Animation, Material |
+| Motion | Animation, Lottie, Material |
 | Foundations | Brand settings, Surface Lab, Color tokens, Typography |
 | Expressions | OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates |
 | Components | Component library |
@@ -40,6 +42,8 @@ Reusable canvas controls appear over generators and boards:
 - The percentage resets to 100%.
 - Fit restores the default view.
 - The slider provides fine-grained zoom from 40% to 200%.
+- Wheel or trackpad input over the stage changes zoom, while dragging the empty workspace pans around a zoomed artifact.
+- Reset restores the original centered view.
 
 Zoom is saved per project and tool.
 
@@ -73,3 +77,5 @@ Generated brand surfaces use identity colors and remain stable when the Studio t
 ## Persistence
 
 Project identities, open tabs, active tool, folder, appearance, and most editor drafts are saved in browser `localStorage`. Local file object URLs last for the current page session unless a tool explicitly embeds them into a downloaded artifact.
+
+Source changes follow the same persistence rules as visual edits. Opening or closing the drawer does not create a second copy of the artifact.

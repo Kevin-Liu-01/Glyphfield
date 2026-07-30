@@ -16,6 +16,8 @@ import { useRef, useState, type ReactNode } from 'react';
 import CanvasViewport from '@/components/CanvasViewport';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -39,6 +41,7 @@ import {
 import { isSupportedLottieFile } from '@/lib/studio';
 import { templateBrandLogo } from '@/lib/templateAssets';
 import type { BackgroundStyle } from '@/lib/renderFrame';
+import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 
 type LottieSource = {
   category: string;
@@ -242,6 +245,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const [segmentEnd, setSegmentEnd] = useState(239);
   const [isSourceTransitioning, setIsSourceTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shaderLayerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<DotLottie | null>(null);
@@ -446,6 +450,26 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       sourceTransitionRef.current = null;
       loadSource(nextSource);
       }, 220);
+  }
+
+  function applyLottieSource(nextSource: string) {
+    if (source.format === 'dotlottie') {
+      throw new TypeError('Binary .lottie bundles cannot be edited as text. Import or select a JSON animation first.');
+    }
+    const document = parseSourceObject(nextSource) as LottieDocument;
+    if (!Array.isArray(document.layers) || typeof document.fr !== 'number') {
+      throw new TypeError('Lottie source must include a layers array and numeric frame rate.');
+    }
+    const next: LottieSource = {
+      ...source,
+      data: document,
+      fileName: source.fileName.replace(/\.lottie$/i, '.json'),
+      format: 'json',
+      id: `code-${crypto.randomUUID()}`,
+      name: source.name,
+      provenance: 'Local import',
+    };
+    selectSource(next);
   }
 
   async function importFile(file: File) {
@@ -656,13 +680,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col bg-background text-foreground'>
-      <header className='app-navbar flex min-h-14 items-center justify-between gap-4 border-b border-border bg-background px-5'>
+    <div className='source-code-host flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground'>
+      <header className='app-navbar studio-tool-titlebar flex items-center justify-between gap-4 border-b border-border bg-background px-5'>
         <div className='min-w-0'>
           <h1 className='truncate text-lg font-semibold tracking-tight'><T>Lottie</T></h1>
-          <p className='truncate text-xs text-muted-foreground'><T>Configurable product motion</T></p>
         </div>
         <div className='flex items-center gap-2'>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button aria-label={gt('Reset Lottie editor')} onClick={resetEditor} size='icon' type='button' variant='outline'>
             <RotateCcw aria-hidden='true' />
           </Button>
@@ -678,7 +702,11 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       </header>
 
       <div className='lottie-editor-body min-h-0 flex-1'>
-        <aside className='lottie-source-sidebar min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <ResizableSidebar
+          className='lottie-source-sidebar min-h-0 border-r border-border bg-background'
+          label={gt('Lottie sources')}
+          storageKey={`lottie-source-${identity.id}`}
+        >
           <InspectorSection index='01' title={<T>Source</T>}>
             <label className='flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-4 py-5 text-sm font-medium hover:bg-muted'>
               <Upload aria-hidden='true' className='size-4' />
@@ -718,9 +746,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             </a>
             <p className='text-xs leading-5 text-muted-foreground'><T>Imported files stay local. Verify the license before redistributing third-party animation work.</T></p>
           </InspectorSection>
-        </aside>
+        </ResizableSidebar>
 
-        <aside className='lottie-properties-sidebar min-h-0 overflow-y-auto border-l border-border bg-background'>
+        <ResizableSidebar
+          className='lottie-properties-sidebar min-h-0 border-r border-border bg-background'
+          label={gt('Lottie properties')}
+          storageKey={`lottie-properties-${identity.id}`}
+        >
           <InspectorSection index='02' title={<T>Playback</T>}>
             <div className='grid grid-cols-2 gap-2'>
               <Button onClick={togglePlayback} type='button' variant='outline'>
@@ -793,7 +825,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
               />
             </InspectorSection>
           )}
-        </aside>
+        </ResizableSidebar>
 
         <section className='lottie-canvas flex min-h-0 min-w-0 flex-col bg-muted/20'>
           <div className='flex h-10 items-center justify-between border-b border-border bg-background px-4 text-xs text-muted-foreground'>
@@ -829,6 +861,20 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           {error ? <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>{error}</div> : null}
         </section>
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format={source.format === 'json' ? 'Lottie JSON' : 'Binary .lottie'}
+          onApply={applyLottieSource}
+          onClose={() => setSourceOpen(false)}
+          source={source.format === 'json'
+            ? stringifySource(source.data)
+            : stringifySource({
+                fileName: source.fileName,
+                message: 'Binary .lottie bundles are downloadable but not editable as text. Select a JSON source to edit exact animation code.',
+              })}
+          title={gt('Lottie source')}
+        />
+      ) : null}
     </div>
   );
 }

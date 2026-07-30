@@ -15,6 +15,7 @@ import {
 import BezierEditor from '@/components/BezierEditor';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
+import ResizableSidebar from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -212,7 +213,11 @@ export default function StudioControls({
     frameMaterialSettings.colorC === DEFAULT_LIVE_MATERIAL_SETTINGS.colorC;
 
   return (
-    <aside className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-l border-border'}`} data-canvas-selection-preserve>
+    <ResizableSidebar
+      className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-r border-border'}`}
+      label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
+      storageKey={`animation-${panel}-${identity?.id ?? 'default'}`}
+    >
       {panel === 'source' ? (
         <InspectorSection index='01' title={<T>Source</T>}>
         <div className='grid grid-cols-3'>
@@ -734,6 +739,6 @@ export default function StudioControls({
       </InspectorSection>
         </>
       )}
-    </aside>
+    </ResizableSidebar>
   );
 }

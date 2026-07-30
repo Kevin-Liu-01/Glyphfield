@@ -31,6 +31,8 @@ import ComponentLibraryPreview, {
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
@@ -86,6 +88,16 @@ import {
 } from '@/lib/templateAssets';
 import { buildTemplateSvg, type SlideLayout, type TemplateLayerId, type TemplateTexture } from '@/lib/templateSvg';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import {
+  parseSourceObject,
+  sourceBoolean,
+  sourceNumber,
+  sourceObject,
+  sourceObjectArray,
+  sourceString,
+  sourceStringArray,
+  stringifySource,
+} from '@/lib/sourceCode';
 
 const INPUT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -170,29 +182,56 @@ function ToolShell({
   actions,
   children,
   inspector,
+  sourceCode,
   tool,
 }: {
   actions?: ReactNode;
   children: ReactNode;
   inspector: ReactNode;
+  sourceCode?: {
+    format: string;
+    onApply: (source: string) => void;
+    source: string;
+    title?: string;
+  };
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const [sourceOpen, setSourceOpen] = useState(false);
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{gt(tool.name)}</p>
           <p className='truncate text-sm text-muted-foreground'>{gt(tool.description)}</p>
         </div>
-        {actions ? <div className='flex shrink-0 items-center gap-2'>{actions}</div> : null}
+        {actions || sourceCode ? (
+          <div className='flex shrink-0 items-center gap-2'>
+            {sourceCode ? <SourceCodeButton onClick={() => setSourceOpen(true)} /> : null}
+            {actions}
+          </div>
+        ) : null}
       </header>
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
+        <ResizableSidebar
+          className='tool-inspector min-h-0 border-r border-border bg-background'
+          label={gt(`${tool.name} controls`)}
+          storageKey={`tool-${tool.id}`}
+        >
           {inspector}
-        </aside>
+        </ResizableSidebar>
         <div className='tool-canvas min-h-0 overflow-auto'>{children}</div>
+        {sourceCode && sourceOpen ? (
+          <SourceCodeDrawer
+            format={sourceCode.format}
+            key={tool.id}
+            onApply={sourceCode.onApply}
+            onClose={() => setSourceOpen(false)}
+            source={sourceCode.source}
+            title={sourceCode.title ?? gt(`${tool.name} source`)}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -322,10 +361,16 @@ function splitLines(value: string, limit: number, maximumLines = 3): string[] {
   const words = value.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
 
-  for (const word of words) {
+  for (const [index, word] of words.entries()) {
     const current = lines.at(-1);
     if (!current || current.length + word.length + 1 > limit) {
-      if (lines.length === maximumLines) break;
+      if (lines.length === maximumLines) {
+        const lastLine = lines.at(-1);
+        if (lastLine && index < words.length) {
+          lines[lines.length - 1] = `${lastLine.replace(/[.\u2026]+$/, '')}\u2026`;
+        }
+        break;
+      }
       lines.push(word);
     } else {
       lines[lines.length - 1] = `${current} ${word}`;
@@ -357,28 +402,135 @@ async function resolveBrandMark(identity: BrandIdentity, inverted: boolean): Pro
   return path ? imageUrlToDataUrl(path) : monogramDataUrl(identity, inverted ? '#FFFFFF' : '#18181B');
 }
 
+const OPEN_GRAPH_TITLES: Readonly<Record<string, string>> = {
+  basement: 'Cool work that performs.',
+  cloudflare: 'A better Internet, built everywhere.',
+  gt: 'Every language. One source.',
+  mintlify: 'Knowledge infrastructure for agents.',
+  ramp: 'Save time. Save money.',
+  starter: 'Make the signal visible.',
+  stripe: 'Build the internet economy.',
+  tailwind: 'CSS-first. Built for the modern web.',
+  viteplus: 'One toolchain for the web.',
+};
+
+function openGraphDefaultAssetId(identity: BrandIdentity): string {
+  const preferredIds: Readonly<Record<BrandIdentity['artDirection']['preview'], string[]>> = {
+    'economic-ledger': ['library-editorial', 'library-detail', 'library-overview'],
+    'editorial-interruption': ['library-editorial', 'library-overview', 'library-detail'],
+    'focus-window': ['library-overview', 'library-editorial', 'library-detail'],
+    'knowledge-beam': ['library-interface', 'library-overview', 'library-detail'],
+    'network-horizon': ['library-overview', 'library-detail', 'library-atmosphere'],
+    'programmable-field': ['library-overview', 'library-interface', 'library-detail'],
+    'translation-frame': [],
+    'unified-terminal': ['library-overview', 'library-atmosphere', 'library-detail'],
+    'utility-wave': ['library-interface', 'library-overview', 'library-detail'],
+  };
+  const availableAssets = [...identity.assets, ...identity.proofAssets];
+
+  return preferredIds[identity.artDirection.preview]
+    .find((id) => availableAssets.some((asset) => asset.id === id)) ?? '';
+}
+
+function openGraphRecipeLabel(identity: BrandIdentity): string {
+  const labels: Readonly<Record<BrandIdentity['artDirection']['preview'], string>> = {
+    'economic-ledger': 'FINANCE OPERATIONS / CONTROL',
+    'editorial-interruption': 'INDEPENDENT DIGITAL STUDIO',
+    'focus-window': 'RESEARCH / DIRECTION / SYSTEM',
+    'knowledge-beam': 'KNOWLEDGE FOR PEOPLE + AGENTS',
+    'network-horizon': 'CONNECTIVITY CLOUD',
+    'programmable-field': 'PROGRAMMABLE ECONOMY',
+    'translation-frame': 'ONE SOURCE / EVERY LANGUAGE',
+    'unified-terminal': 'ONE CONFIGURATION / ONE FLOW',
+    'utility-wave': 'CSS-FIRST / MODERN WEB',
+  };
+
+  return labels[identity.artDirection.preview];
+}
+
+function openGraphPanelColor(identity: BrandIdentity, background: string): string {
+  const emphasis = identity.colors.find(({ id }) => id === 'emphasis')?.hex;
+  const muted = identity.colors.find(({ id }) => id === 'muted')?.hex;
+  const recipe = identity.artDirection.preview;
+
+  if (recipe === 'translation-frame') return '#101010';
+  if (recipe === 'knowledge-beam') return '#0C2F25';
+  if (recipe === 'utility-wave') return '#0F172A';
+  if (recipe === 'unified-terminal') return '#17131D';
+  if (recipe === 'programmable-field') return emphasis ?? '#635BFF';
+  if (recipe === 'network-horizon') return emphasis ?? '#F48120';
+  if (recipe === 'focus-window') return emphasis ?? '#2F6BFF';
+  if (recipe === 'editorial-interruption') return muted ?? '#E9E6DE';
+  return muted ?? background;
+}
+
+function openGraphDefaultSurface(
+  identity: BrandIdentity
+): 'light' | 'dark' {
+  return [
+    'knowledge-beam',
+    'translation-frame',
+    'utility-wave',
+  ].includes(identity.artDirection.preview)
+    ? 'dark'
+    : 'light';
+}
+
+function openGraphPanelIsDark(identity: BrandIdentity): boolean {
+  return [
+    'focus-window',
+    'knowledge-beam',
+    'network-horizon',
+    'programmable-field',
+    'translation-frame',
+    'unified-terminal',
+    'utility-wave',
+  ].includes(identity.artDirection.preview);
+}
+
 function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
   const backgroundAsset = useLocalAsset();
   const customFont = useCustomFont();
   const logoAsset = useLocalAsset();
-  const backgroundOptions = useMemo(() => templateBackgroundOptions(identity), [identity]);
+  const backgroundOptions = useMemo(
+    () => templateBackgroundOptions(identity).filter(
+      (asset) => identity.id !== 'ramp' || asset.tags?.includes('source-native')
+    ),
+    [identity]
+  );
   const logoOptions = identity.assets.filter(({ type }) => type === 'logo' || type === 'icon');
-  const [title, setTitle] = useStudioDraft(identity.id, tool.id, 'title', identity.tagline);
+  const defaultSurface = openGraphDefaultSurface(identity);
+  const [title, setTitle] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'identity-title-v2',
+    OPEN_GRAPH_TITLES[identity.id] ?? identity.tagline
+  );
   const [surface, setSurface] = useStudioDraft<'light' | 'dark'>(
     identity.id,
     tool.id,
-    'surface',
-    'light'
+    'identity-surface-v2',
+    defaultSurface
   );
-  const [libraryBackgroundId, setLibraryBackgroundId] = useStudioDraft(identity.id, tool.id, 'library-background', backgroundOptions[0]?.id ?? '');
-  const [libraryLogoId, setLibraryLogoId] = useStudioDraft(identity.id, tool.id, 'library-logo', surface === 'dark' ? 'mark-light' : 'mark-dark');
+  const [libraryBackgroundId, setLibraryBackgroundId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'identity-media-v5',
+    openGraphDefaultAssetId(identity) || 'none'
+  );
+  const [libraryLogoId, setLibraryLogoId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'identity-logo-v2',
+    defaultSurface === 'dark' ? 'mark-light' : 'mark-dark'
+  );
   const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Display');
   const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Display').weight ?? MAX_VISIBLE_FONT_WEIGHT);
-  const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'background-opacity', 28);
-  const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'background-x', 0);
-  const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'background-y', 0);
-  const [backgroundScale, setBackgroundScale] = useStudioDraft(identity.id, tool.id, 'background-scale', 100);
+  const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'media-opacity-v2', 100);
+  const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'media-x-v2', 0);
+  const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'media-y-v2', 0);
+  const [backgroundScale, setBackgroundScale] = useStudioDraft(identity.id, tool.id, 'media-scale-v2', 100);
   const [logoX, setLogoX] = useStudioDraft(identity.id, tool.id, 'logo-x', 0);
   const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
   const [logoScale, setLogoScale] = useStudioDraft(identity.id, tool.id, 'logo-scale', 100);
@@ -389,11 +541,94 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const foreground = surface === 'dark' ? paper : ink;
   const background = surface === 'dark' ? ink : paper;
-  const selectedBackground = backgroundOptions.find(({ id }) => id === libraryBackgroundId);
+  const defaultBackgroundId = openGraphDefaultAssetId(identity);
+  const effectiveBackgroundId = libraryBackgroundId === 'none'
+    ? ''
+    : backgroundOptions.some(({ id }) => id === libraryBackgroundId)
+      ? libraryBackgroundId
+      : backgroundOptions.some(({ id }) => id === defaultBackgroundId)
+        ? defaultBackgroundId
+        : backgroundOptions[0]?.id ?? '';
+  const selectedBackground = backgroundOptions.find(({ id }) => id === effectiveBackgroundId);
   const selectedLogo = logoOptions.find(({ id }) => id === libraryLogoId);
   const selectedTypography = brandTypographyRole(identity, fontRole);
   const selectedBrandFont = brandFontAssets(identity).find(({ id }) => id === selectedTypography.fontId);
   const selectedFontFamily = customFont.font?.family ?? brandTypographyFamily(identity, fontRole);
+  const recipe = identity.artDirection.preview;
+  const recipeLabel = openGraphRecipeLabel(identity);
+  const panelColor = openGraphPanelColor(identity, background);
+  const panelForeground = openGraphPanelIsDark(identity) ? paper : ink;
+  const emphasis = identity.colors.find(({ id }) => id === 'emphasis')?.hex ?? foreground;
+  const proof = identity.proof[0] ?? identity.products[0] ?? '';
+  const mediaObjectPosition = backgroundAsset.asset
+    ? '50% 50%'
+    : selectedBackground?.focalPoint
+    ? `${selectedBackground.focalPoint.x * 100}% ${selectedBackground.focalPoint.y * 100}%`
+    : '50% 50%';
+  const mediaObjectFit = !backgroundAsset.asset && selectedBackground?.tags?.includes('centered-product')
+    ? 'contain'
+    : 'cover';
+  const titleLines = splitLines(
+    title,
+    recipe === 'economic-ledger' ? 17 : 22,
+    2
+  );
+  const promiseLines = splitLines(identity.strategy.promise, 44, 3);
+
+  const sourceCode = stringifySource({
+    background: {
+      assetId: libraryBackgroundId === 'none' ? 'none' : effectiveBackgroundId,
+      opacity: backgroundOpacity,
+      scale: backgroundScale,
+      x: backgroundX,
+      y: backgroundY,
+    },
+    fontRole,
+    fontWeight,
+    logo: {
+      appearance: logoAppearance,
+      assetId: libraryLogoId,
+      scale: logoScale,
+      x: logoX,
+      y: logoY,
+    },
+    surface,
+    title,
+  });
+
+  function applySourceCode(source: string) {
+    const value = parseSourceObject(source);
+    const nextSurface = sourceString(value, 'surface', surface);
+    if (nextSurface !== 'light' && nextSurface !== 'dark') {
+      throw new TypeError('surface must be "light" or "dark".');
+    }
+    setTitle(sourceString(value, 'title', title));
+    setSurface(nextSurface);
+    setFontWeight(sourceNumber(value, 'fontWeight', fontWeight));
+    const nextFontRole = sourceString(value, 'fontRole', fontRole);
+    if (identity.typography.some(({ role }) => role === nextFontRole)) {
+      setFontRole(nextFontRole as BrandTypography['role']);
+    }
+    const nextBackground = sourceObject(value, 'background');
+    if (nextBackground) {
+      setLibraryBackgroundId(sourceString(nextBackground, 'assetId', libraryBackgroundId));
+      setBackgroundOpacity(sourceNumber(nextBackground, 'opacity', backgroundOpacity));
+      setBackgroundScale(sourceNumber(nextBackground, 'scale', backgroundScale));
+      setBackgroundX(sourceNumber(nextBackground, 'x', backgroundX));
+      setBackgroundY(sourceNumber(nextBackground, 'y', backgroundY));
+    }
+    const nextLogo = sourceObject(value, 'logo');
+    if (nextLogo) {
+      setLibraryLogoId(sourceString(nextLogo, 'assetId', libraryLogoId));
+      setLogoScale(sourceNumber(nextLogo, 'scale', logoScale));
+      setLogoX(sourceNumber(nextLogo, 'x', logoX));
+      setLogoY(sourceNumber(nextLogo, 'y', logoY));
+      const nextAppearance = sourceObject(nextLogo, 'appearance');
+      if (nextAppearance) {
+        setLogoAppearance((current) => ({ ...current, ...nextAppearance } as LogoAppearanceSettings));
+      }
+    }
+  }
 
   async function exportOpenGraph() {
     setExporting(true);
@@ -417,24 +652,50 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         ? `<style>@font-face{font-family:'StudioCustom';src:url('${fontData}')}</style>`
         : '';
       const fontFamily = fontData ? 'StudioCustom' : brandTypographyFamily(identity, fontRole);
-      const lines = splitLines(title, 27, 3);
-      const resolvedBackgroundWidth = 1200 * (backgroundScale / 100);
-      const resolvedBackgroundHeight = 630 * (backgroundScale / 100);
-      const resolvedBackgroundX = (1200 - resolvedBackgroundWidth) / 2 + (backgroundX / 100) * 1200;
-      const resolvedBackgroundY = (630 - resolvedBackgroundHeight) / 2 + (backgroundY / 100) * 630;
-      const imageLayer = backgroundImage
-        ? `<rect width="1200" height="630" fill="${background}"/><image href="${backgroundImage}" x="${resolvedBackgroundX}" y="${resolvedBackgroundY}" width="${resolvedBackgroundWidth}" height="${resolvedBackgroundHeight}" preserveAspectRatio="xMidYMid slice" opacity="${backgroundOpacity / 100}"/>`
-        : `<rect width="1200" height="630" fill="${background}"/>`;
-      const titleLines = lines
+      const mediaX = 684;
+      const mediaY = 136;
+      const mediaWidth = 444;
+      const mediaHeight = 366;
+      const resolvedMediaWidth = mediaWidth * (backgroundScale / 100);
+      const resolvedMediaHeight = mediaHeight * (backgroundScale / 100);
+      const resolvedMediaX = mediaX + (mediaWidth - resolvedMediaWidth) / 2 + (backgroundX / 100) * mediaWidth;
+      const resolvedMediaY = mediaY + (mediaHeight - resolvedMediaHeight) / 2 + (backgroundY / 100) * mediaHeight;
+      const exportedTitleLines = titleLines
         .map(
           (line, index) =>
-            `<text x="72" y="${232 + index * 82}" fill="${foreground}" font-family="${fontFamily}" font-size="72" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-2">${escapeXml(line)}</text>`
+            `<text x="72" y="${titleLines.length === 1 ? 392 : 350 + index * 58}" fill="${foreground}" font-family="${fontFamily}" font-size="56" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-1.8">${escapeXml(line)}</text>`
         )
         .join('');
+      const promiseStartY = titleLines.length === 1 ? 438 : 350 + titleLines.length * 58 + 26;
+      const exportedPromiseLines = promiseLines
+        .map(
+          (line, index) =>
+            `<text x="72" y="${promiseStartY + index * 20}" fill="${foreground}" opacity="0.72" font-family="${fontFamily}" font-size="16" font-weight="400">${escapeXml(line)}</text>`
+        )
+        .join('');
+      const proofChipIsDark = [
+        'focus-window',
+        'knowledge-beam',
+        'network-horizon',
+        'programmable-field',
+        'translation-frame',
+        'unified-terminal',
+        'utility-wave',
+      ].includes(recipe);
+      const proofChipBackground = proofChipIsDark && emphasis === ink ? paper : emphasis;
+      const chipTextColor = proofChipIsDark ? (proofChipBackground === paper ? ink : paper) : ink;
+      const proofChip = proof
+        ? `<rect x="72" y="${Math.min(536, promiseStartY + promiseLines.length * 20 + 18)}" width="${Math.min(330, Math.max(114, proof.length * 8.5 + 28))}" height="32" fill="${proofChipBackground}"/><text x="86" y="${Math.min(558, promiseStartY + promiseLines.length * 20 + 40)}" fill="${chipTextColor}" font-family="${fontFamily}" font-size="13" font-weight="500">${escapeXml(proof)}</text>`
+        : '';
+      const mediaLayer = backgroundImage
+        ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><g clip-path="url(#opengraph-media)"><image href="${backgroundImage}" x="${resolvedMediaX}" y="${resolvedMediaY}" width="${resolvedMediaWidth}" height="${resolvedMediaHeight}" preserveAspectRatio="${mediaObjectFit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice'}" opacity="${backgroundOpacity / 100}"/></g>`
+        : recipe === 'translation-frame'
+          ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="url(#opengraph-dots)"/><text x="724" y="242" fill="${panelForeground}" opacity="0.78" font-family="${fontFamily}" font-size="30" font-weight="500">Welcome</text><text x="934" y="242" fill="${panelForeground}" opacity="0.92" font-family="${fontFamily}" font-size="34" font-weight="500">你好</text><text x="724" y="348" fill="${panelForeground}" opacity="0.72" font-family="${fontFamily}" font-size="26" font-weight="500">Bienvenidos</text><text x="932" y="348" fill="${panelForeground}" opacity="0.84" font-family="${fontFamily}" font-size="30" font-weight="500">ようこそ</text><text x="820" y="448" fill="${panelForeground}" opacity="0.74" font-family="${fontFamily}" font-size="30" font-weight="500">أهلاً وسهلاً</text>`
+          : `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><text x="${mediaX + 34}" y="${mediaY + 56}" fill="${panelForeground}" opacity="0.6" font-family="${fontFamily}" font-size="12" font-weight="500" letter-spacing="1.4">${escapeXml(recipeLabel)}</text><rect x="${mediaX + 34}" y="${mediaY + 100}" width="${mediaWidth - 68}" height="54" fill="${panelForeground}" opacity="0.12"/><rect x="${mediaX + 34}" y="${mediaY + 174}" width="${mediaWidth - 132}" height="54" fill="${panelForeground}" opacity="0.2"/><rect x="${mediaX + 34}" y="${mediaY + 248}" width="${mediaWidth - 92}" height="54" fill="${panelForeground}" opacity="0.1"/>`;
       const resolvedLogoSize = 52 * (logoScale / 100);
       const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
       const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs>${imageLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="146" y="98" fill="${foreground}" font-family="${fontFamily}" font-size="20" font-weight="${capVisibleFontWeight(fontWeight)}">${escapeXml(identity.shortName)}</text>${titleLines}<text x="72" y="574" fill="${foreground}" opacity="0.62" font-family="${fontFamily}" font-size="16" font-weight="${capVisibleFontWeight(fontWeight)}">${escapeXml(identity.website)}</text></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}<clipPath id="opengraph-media"><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}"/></clipPath><pattern id="opengraph-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${panelForeground}" opacity="0.08"/></pattern>${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${mediaLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="1128" y="88" text-anchor="end" fill="${foreground}" opacity="0.62" font-family="${fontFamily}" font-size="12" font-weight="500" letter-spacing="1.2">${escapeXml(recipeLabel)}</text>${exportedTitleLines}${exportedPromiseLines}${proofChip}<text x="1128" y="574" text-anchor="end" fill="${foreground}" opacity="0.58" font-family="${fontFamily}" font-size="13" font-weight="450">${escapeXml(identity.website)}</text></svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -464,13 +725,13 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         <UploadField
           accept='image/*'
           fileName={backgroundAsset.asset?.name}
-          label='Add background image'
+          label='Add supporting image'
           onFile={backgroundAsset.select}
         />
-        {backgroundOptions.length > 0 ? <Field label={<T>Brand background asset</T>}><StudioSelect ariaLabel='Brand background asset' onValueChange={setLibraryBackgroundId} options={[{ label: gt('No library background'), value: '' }, ...backgroundOptions.map((asset) => ({ label: asset.label, value: asset.id }))]} value={libraryBackgroundId} /></Field> : null}
+        {backgroundOptions.length > 0 ? <Field label={<T>Identity evidence</T>}><StudioSelect ariaLabel='Identity evidence' onValueChange={setLibraryBackgroundId} options={[{ label: gt('No supporting image'), value: 'none' }, ...backgroundOptions.map((asset) => ({ label: asset.label, value: asset.id }))]} value={libraryBackgroundId === 'none' ? 'none' : effectiveBackgroundId} /></Field> : null}
         {backgroundAsset.asset || selectedBackground ? (
           <div className='flex flex-col gap-4 border-t border-border pt-4'>
-            <p className='text-xs font-semibold'><T>Background image</T></p>
+            <p className='text-xs font-semibold'><T>Supporting image</T></p>
             <RangeField label={<T>Opacity</T>} max={100} min={0} onChange={setBackgroundOpacity} suffix='%' value={backgroundOpacity} />
             <RangeField label={<T>Horizontal</T>} max={100} min={-100} onChange={setBackgroundX} suffix='%' value={backgroundX} />
             <RangeField label={<T>Vertical</T>} max={100} min={-100} onChange={setBackgroundY} suffix='%' value={backgroundY} />
@@ -520,29 +781,91 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         </Button>
       }
       inspector={inspector}
+      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('OpenGraph source') }}
       tool={tool}
     >
       <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm' onPointerDown={() => setLogoSelected(false)}>
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
-          {backgroundAsset.asset || selectedBackground ? (
-            <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
-          ) : null}
-          <div
-            className='absolute inset-0 flex flex-col justify-between p-[6%]'
-            style={{ color: foreground, fontFamily: selectedFontFamily, fontWeight: capVisibleFontWeight(fontWeight) }}
+          <p
+            className='absolute right-[6%] top-[11%] max-w-[34%] text-right text-[clamp(7px,1.15vw,12px)] font-medium tracking-[0.1em] opacity-60'
+            style={{ color: foreground, fontFamily: selectedFontFamily }}
           >
-            <div className='flex items-center gap-3'>
-              <span aria-hidden='true' className='size-10 shrink-0' />
-              <span className='text-sm font-semibold'>{identity.shortName}</span>
-            </div>
-            <div className='flex max-w-[86%] flex-col'>
-              <p className='break-words text-2xl font-semibold leading-[1.04] tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl'>
-                {title}
-              </p>
-            </div>
-            <p className='font-mono text-xs opacity-60'>{identity.website}</p>
+            {recipeLabel}
+          </p>
+          <div
+            className='absolute bottom-[12%] left-[6%] flex w-[43%] flex-col items-start'
+            style={{ color: foreground, fontFamily: selectedFontFamily }}
+          >
+            <p className='text-[clamp(22px,4.65vw,56px)] font-medium leading-[1.02] tracking-[-0.035em]'>
+              {titleLines.map((line, index) => (
+                <span className='block max-w-full overflow-hidden text-ellipsis whitespace-nowrap' key={`${line}-${index}`}>{line}</span>
+              ))}
+            </p>
+            <p className='mt-[5%] line-clamp-3 max-w-[92%] text-[clamp(8px,1.35vw,16px)] font-normal leading-[1.35] opacity-70'>
+              {identity.strategy.promise}
+            </p>
+            {proof ? (
+              <span
+                className='mt-[5%] max-w-full truncate px-[3%] py-[1.5%] text-[clamp(7px,1.1vw,13px)] font-medium'
+                style={{
+                  backgroundColor: openGraphPanelIsDark(identity) && emphasis === ink ? paper : emphasis,
+                  color: openGraphPanelIsDark(identity)
+                    ? (emphasis === ink ? ink : paper)
+                    : ink,
+                }}
+              >
+                {proof}
+              </span>
+            ) : null}
           </div>
+          <div
+            className='absolute left-[57%] top-[21.6%] h-[58%] w-[37%] overflow-hidden'
+            style={{ backgroundColor: panelColor }}
+          >
+            {backgroundAsset.asset || selectedBackground ? (
+              <img
+                alt=''
+                className='size-full'
+                src={backgroundAsset.asset?.url ?? selectedBackground?.path}
+                style={{
+                  objectFit: mediaObjectFit,
+                  objectPosition: mediaObjectPosition,
+                  opacity: backgroundOpacity / 100,
+                  transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`,
+                  transformOrigin: 'center',
+                }}
+              />
+            ) : recipe === 'translation-frame' ? (
+              <div
+                className='grid size-full grid-cols-2 place-items-center gap-x-[6%] px-[8%] py-[10%] text-center font-medium'
+                style={{
+                  backgroundImage: `radial-gradient(${panelForeground}18 1px, transparent 1px)`,
+                  backgroundSize: '14px 14px',
+                  color: panelForeground,
+                }}
+              >
+                <span className='text-[clamp(13px,2.5vw,30px)] opacity-80'>Welcome</span>
+                <span className='text-[clamp(15px,2.8vw,34px)] opacity-95'>你好</span>
+                <span className='text-[clamp(12px,2.2vw,26px)] opacity-75'>Bienvenidos</span>
+                <span className='text-[clamp(13px,2.5vw,30px)] opacity-85'>ようこそ</span>
+                <span className='col-span-2 text-[clamp(13px,2.5vw,30px)] opacity-75'>أهلاً وسهلاً</span>
+              </div>
+            ) : (
+              <div className='flex size-full flex-col gap-[6%] p-[8%]' style={{ color: panelForeground }}>
+                <p className='text-[clamp(6px,1vw,11px)] font-medium tracking-[0.1em] opacity-60'>{recipeLabel}</p>
+                <span className='mt-[4%] h-[16%] w-full bg-current opacity-10' />
+                <span className='h-[16%] w-[82%] bg-current opacity-20' />
+                <span className='h-[16%] w-[90%] bg-current opacity-10' />
+              </div>
+            )}
+          </div>
+          <p
+            className='absolute bottom-[8%] right-[6%] text-[clamp(7px,1.15vw,13px)] font-normal opacity-60'
+            style={{ color: foreground, fontFamily: selectedFontFamily }}
+          >
+            {identity.website}
+          </p>
           <EditableCanvasLayer
             baseHeight={52}
             baseWidth={52}
@@ -621,6 +944,57 @@ function LogoTool({
     name: 'Custom',
   };
   const surfaceColor = surface === 'dark' ? ink : paper;
+
+  const sourceCode = stringifySource({
+    appearance,
+    color: logoColor,
+    material: {
+      id: materialId,
+      settings: materialSettings,
+    },
+    size,
+    surface,
+    tone,
+    transform: logoTransform,
+    transparent,
+  });
+
+  function applySourceCode(source: string) {
+    const value = parseSourceObject(source);
+    const nextSurface = sourceString(value, 'surface', surface);
+    if (!['white', 'dark', 'grid', 'noise', 'shader'].includes(nextSurface)) {
+      throw new TypeError('surface is not a supported logo surface.');
+    }
+    const nextSize = sourceNumber(value, 'size', size);
+    if (nextSize !== 64 && nextSize !== 128) {
+      throw new TypeError('size must be 64 or 128.');
+    }
+    setTone(sourceString(value, 'tone', tone));
+    setLogoColor(sourceString(value, 'color', logoColor));
+    setSurface(nextSurface as LogoSurface);
+    setSize(nextSize);
+    setTransparent(sourceBoolean(value, 'transparent', transparent));
+    const nextTransform = sourceObject(value, 'transform');
+    if (nextTransform) {
+      setLogoTransform({
+        scale: sourceNumber(nextTransform, 'scale', logoTransform.scale),
+        x: sourceNumber(nextTransform, 'x', logoTransform.x),
+        y: sourceNumber(nextTransform, 'y', logoTransform.y),
+      });
+    }
+    const nextAppearance = sourceObject(value, 'appearance');
+    if (nextAppearance) {
+      setAppearance((current) => ({ ...current, ...nextAppearance } as LogoAppearanceSettings));
+    }
+    const nextMaterial = sourceObject(value, 'material');
+    if (nextMaterial) {
+      setMaterialId(sourceString(nextMaterial, 'id', materialId) as LiveMaterialId);
+      const nextSettings = sourceObject(nextMaterial, 'settings');
+      if (nextSettings) {
+        setMaterialSettings((current) => ({ ...current, ...nextSettings } as LiveMaterialSettings));
+      }
+    }
+  }
 
   async function exportLogo() {
     setExporting(true);
@@ -766,6 +1140,7 @@ function LogoTool({
         </>
       }
       inspector={inspector}
+      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Logo source') }}
       tool={tool}
     >
       <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-8' toolId={tool.id}>
@@ -885,6 +1260,19 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     () => identity.colors.map(({ hex, name, role }) => ({ hex, name, opacity: 100, role }))
   );
   const [copied, setCopied] = useState(false);
+  const sourceCode = stringifySource({ colors });
+
+  function applySourceCode(source: string) {
+    const value = parseSourceObject(source);
+    const nextColors = sourceObjectArray(value, 'colors');
+    if (!nextColors) throw new TypeError('colors must be an array of color objects.');
+    setColors(nextColors.map((color, index) => ({
+      hex: sourceString(color, 'hex', colors[index]?.hex ?? '#000000'),
+      name: sourceString(color, 'name', colors[index]?.name ?? `Color ${index + 1}`),
+      opacity: sourceNumber(color, 'opacity', colors[index]?.opacity ?? 100),
+      role: sourceString(color, 'role', colors[index]?.role ?? ''),
+    })));
+  }
 
   async function copyTokens() {
     const value = colors
@@ -936,6 +1324,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
         </Button>
       }
       inspector={inspector}
+      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Color system source') }}
       tool={tool}
     >
       <div className='grid min-h-full content-center gap-px bg-border lg:grid-cols-2'>
@@ -971,7 +1360,27 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
 }
 
 function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandIdentity; onIdentityChange: (identity: BrandIdentity) => void; tool: StudioTool }) {
+  const gt = useGT();
   const fonts = brandFontAssets(identity);
+  const sourceCode = stringifySource({ typography: identity.typography });
+
+  function applySourceCode(source: string) {
+    const value = parseSourceObject(source);
+    const typography = sourceObjectArray(value, 'typography');
+    if (!typography) throw new TypeError('typography must be an array of typography roles.');
+    const nextTypography = identity.typography.map((current) => {
+      const next = typography.find((item) => sourceString(item, 'role', '') === current.role);
+      return next ? {
+        ...current,
+        family: sourceString(next, 'family', current.family),
+        fontId: sourceString(next, 'fontId', current.fontId ?? '') || undefined,
+        letterSpacing: sourceNumber(next, 'letterSpacing', current.letterSpacing ?? 0),
+        lineHeight: sourceNumber(next, 'lineHeight', current.lineHeight ?? 1.2),
+        weight: sourceNumber(next, 'weight', current.weight ?? 400),
+      } : current;
+    });
+    onIdentityChange({ ...identity, typography: nextTypography });
+  }
 
   function updateRole(role: BrandTypography['role'], patch: Partial<BrandTypography>) {
     onIdentityChange({
@@ -1025,7 +1434,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
   const code = brandTypographyRole(identity, 'Code');
 
   return (
-    <ToolShell inspector={inspector} tool={tool}>
+    <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Typography source') }} tool={tool}>
       <div className='flex min-h-full flex-col justify-center gap-10 p-8 sm:p-12 lg:p-16'>
         <section className='flex flex-col gap-3 border-b border-border pb-10'>
           <p className='text-sm uppercase tracking-widest text-muted-foreground'>DISPLAY / {brandTypographyFamily(identity, 'Display')}</p>
@@ -1048,6 +1457,7 @@ const CODE_SAMPLES = {
 } as const;
 
 function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+  const gt = useGT();
   const [language, setLanguage] = useStudioDraft<CodeLanguage>(identity.id, tool.id, 'language', 'typescript');
   const [code, setCode] = useStudioDraft<string>(
     identity.id,
@@ -1080,6 +1490,38 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   const codeFont = brandFontAssets(identity).find(({ id }) => id === codeTypography.fontId);
   const [exporting, setExporting] = useState(false);
   const highlightedLines = useMemo(() => highlightCode(code, language), [code, language]);
+  const sourceCode = stringifySource({
+    background: { assetId: terminalAssetId, opacity: terminalAssetOpacity },
+    code,
+    codeTypography: { role: codeFontRole, weight: codeFontWeight },
+    language,
+    title,
+    titleTypography: { role: titleFontRole, weight: titleFontWeight },
+  });
+
+  function applySourceCode(source: string) {
+    const value = parseSourceObject(source);
+    const nextLanguage = sourceString(value, 'language', language);
+    if (!Object.hasOwn(CODE_SAMPLES, nextLanguage)) throw new TypeError('language must be typescript, python, or bash.');
+    setLanguage(nextLanguage as CodeLanguage);
+    setCode(sourceString(value, 'code', code));
+    setTitle(sourceString(value, 'title', title));
+    const titleType = sourceObject(value, 'titleTypography');
+    const codeType = sourceObject(value, 'codeTypography');
+    const backgroundConfig = sourceObject(value, 'background');
+    if (titleType) {
+      setTitleFontRole(sourceString(titleType, 'role', titleFontRole) as BrandTypography['role']);
+      setTitleFontWeight(sourceNumber(titleType, 'weight', titleFontWeight));
+    }
+    if (codeType) {
+      setCodeFontRole(sourceString(codeType, 'role', codeFontRole) as BrandTypography['role']);
+      setCodeFontWeight(sourceNumber(codeType, 'weight', codeFontWeight));
+    }
+    if (backgroundConfig) {
+      setTerminalAssetId(sourceString(backgroundConfig, 'assetId', terminalAssetId));
+      setTerminalAssetOpacity(sourceNumber(backgroundConfig, 'opacity', terminalAssetOpacity));
+    }
+  }
 
   function changeLanguage(nextLanguage: CodeLanguage) {
     setLanguage(nextLanguage);
@@ -1160,6 +1602,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
         </Button>
       }
       inspector={inspector}
+      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Terminal source') }}
       tool={tool}
     >
       <div className='grid min-h-full place-items-center p-8 lg:p-14'>
@@ -1376,6 +1819,87 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     );
   }
 
+  const sourceCode = stringifySource({
+    background: {
+      libraryAssetId: libraryBackgroundId,
+      opacity: backgroundOpacity,
+      scale: backgroundScale,
+      x: backgroundX,
+      y: backgroundY,
+    },
+    body,
+    brandLogo: { scale: brandLogoScale, x: brandLogoX, y: brandLogoY },
+    kind,
+    layers: {
+      brand: brandLayer,
+      content: contentLayer,
+      footer: footerLayer,
+      order: layerOrder,
+    },
+    partner: {
+      id: partnerId,
+      scale: partnerLogoScale,
+      x: partnerLogoX,
+      y: partnerLogoY,
+    },
+    slideLayout,
+    texture: { opacity: textureOpacity, type: texture },
+    title,
+    typography: { role: fontRole, weight: fontWeight },
+  });
+
+  function applySourceCode(source: string) {
+    const next = parseSourceObject(source);
+    const backgroundSource = sourceObject(next, 'background') ?? {};
+    const brandLogoSource = sourceObject(next, 'brandLogo') ?? {};
+    const layersSource = sourceObject(next, 'layers') ?? {};
+    const partnerSource = sourceObject(next, 'partner') ?? {};
+    const textureSource = sourceObject(next, 'texture') ?? {};
+    const typographySource = sourceObject(next, 'typography') ?? {};
+    const nextLayout = sourceString(next, 'slideLayout', slideLayout);
+    const nextTexture = sourceString(textureSource, 'type', texture);
+    const nextRole = sourceString(typographySource, 'role', fontRole);
+    const nextOrder = sourceStringArray(layersSource, 'order', layerOrder);
+    const allowedLayers = ['brand', 'content', 'footer'];
+    if (!SLIDE_LAYOUTS.some(({ id }) => id === nextLayout)) throw new Error(gt('Unknown slide layout.'));
+    if (!['white', 'dark', 'grid', 'noise'].includes(nextTexture)) throw new Error(gt('Unknown surface texture.'));
+    if (!identity.typography.some(({ role }) => role === nextRole)) throw new Error(gt('Unknown typography role.'));
+    if (nextOrder.length !== allowedLayers.length || nextOrder.some((id) => !allowedLayers.includes(id))) {
+      throw new Error(gt('Layer order must contain brand, content, and footer exactly once.'));
+    }
+    const readTransform = (key: TemplateLayerId, current: CanvasLayerTransform) => {
+      const value = sourceObject(layersSource, key) ?? {};
+      return {
+        scale: sourceNumber(value, 'scale', current.scale),
+        x: sourceNumber(value, 'x', current.x),
+        y: sourceNumber(value, 'y', current.y),
+      };
+    };
+    setTitle(sourceString(next, 'title', title));
+    setBody(sourceString(next, 'body', body));
+    setSlideLayout(nextLayout as SlideLayout);
+    setTexture(nextTexture as TemplateTexture);
+    setTextureOpacity(sourceNumber(textureSource, 'opacity', textureOpacity));
+    setLibraryBackgroundId(sourceString(backgroundSource, 'libraryAssetId', libraryBackgroundId));
+    setBackgroundOpacity(sourceNumber(backgroundSource, 'opacity', backgroundOpacity));
+    setBackgroundScale(sourceNumber(backgroundSource, 'scale', backgroundScale));
+    setBackgroundX(sourceNumber(backgroundSource, 'x', backgroundX));
+    setBackgroundY(sourceNumber(backgroundSource, 'y', backgroundY));
+    setBrandLogoScale(sourceNumber(brandLogoSource, 'scale', brandLogoScale));
+    setBrandLogoX(sourceNumber(brandLogoSource, 'x', brandLogoX));
+    setBrandLogoY(sourceNumber(brandLogoSource, 'y', brandLogoY));
+    setPartnerId(sourceString(partnerSource, 'id', partnerId));
+    setPartnerLogoScale(sourceNumber(partnerSource, 'scale', partnerLogoScale));
+    setPartnerLogoX(sourceNumber(partnerSource, 'x', partnerLogoX));
+    setPartnerLogoY(sourceNumber(partnerSource, 'y', partnerLogoY));
+    setFontRole(nextRole as BrandTypography['role']);
+    setFontWeight(sourceNumber(typographySource, 'weight', fontWeight));
+    setBrandLayer(readTransform('brand', brandLayer));
+    setContentLayer(readTransform('content', contentLayer));
+    setFooterLayer(readTransform('footer', footerLayer));
+    setLayerOrder(nextOrder as TemplateLayerId[]);
+  }
+
   async function exportTemplate() {
     setExporting(true);
     try {
@@ -1548,6 +2072,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         </Button>
       }
       inspector={inspector}
+      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt(`${tool.name} source`) }}
       tool={tool}
     >
       <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setSelectedLayer(null)} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
@@ -1570,7 +2095,6 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             ) : (
               <div className='template-brand-lockup h-full'>
                 <img alt={identity.name} className='template-brand-logo object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
-                {kind === 'blog' ? <span>{identity.name}</span> : null}
               </div>
             )}
           </EditableCanvasLayer>
@@ -1664,6 +2188,54 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     if (!nextPatternConfig) return;
     setFamily(nextPatternConfig.family);
     setPattern(nextPattern);
+  }
+
+  const sourceCode = stringifySource({
+    asset: { id: componentAssetId, opacity: componentAssetOpacity },
+    density,
+    disabled,
+    family,
+    label,
+    pattern: selectedPattern,
+    radius,
+    size,
+    supportingCopy,
+    surface,
+    typography: { role: fontRole, weight: fontWeight },
+    useBrandDefaults,
+  });
+
+  function applySourceCode(source: string) {
+    const next = parseSourceObject(source);
+    const assetSource = sourceObject(next, 'asset') ?? {};
+    const typographySource = sourceObject(next, 'typography') ?? {};
+    const nextFamily = sourceString(next, 'family', family);
+    const nextPattern = sourceString(next, 'pattern', selectedPattern);
+    const nextDensity = sourceString(next, 'density', density);
+    const nextSurface = sourceString(next, 'surface', surface);
+    const nextSize = sourceString(next, 'size', size);
+    const nextRole = sourceString(typographySource, 'role', fontRole);
+    const patternConfig = COMPONENT_PATTERNS.find(({ id }) => id === nextPattern);
+    if (!COMPONENT_FAMILY_OPTIONS.some(({ value }) => value === nextFamily)) throw new Error(gt('Unknown component family.'));
+    if (!patternConfig || patternConfig.family !== nextFamily) throw new Error(gt('The component does not belong to that family.'));
+    if (!['compact', 'comfortable', 'spacious'].includes(nextDensity)) throw new Error(gt('Unknown component density.'));
+    if (!['base', 'soft', 'inverse'].includes(nextSurface)) throw new Error(gt('Unknown component surface.'));
+    if (!['sm', 'default', 'lg'].includes(nextSize)) throw new Error(gt('Unknown component size.'));
+    if (!identity.typography.some(({ role }) => role === nextRole)) throw new Error(gt('Unknown typography role.'));
+    setFamily(nextFamily as ComponentFamily);
+    setPattern(nextPattern as ComponentPatternId);
+    setDensity(nextDensity as typeof density);
+    setSurface(nextSurface as typeof surface);
+    setSize(nextSize as typeof size);
+    setFontRole(nextRole as BrandTypography['role']);
+    setLabel(sourceString(next, 'label', label));
+    setSupportingCopy(sourceString(next, 'supportingCopy', supportingCopy));
+    setDisabled(sourceBoolean(next, 'disabled', disabled));
+    setRadius(sourceNumber(next, 'radius', radius));
+    setUseBrandDefaults(sourceBoolean(next, 'useBrandDefaults', useBrandDefaults));
+    setFontWeight(sourceNumber(typographySource, 'weight', fontWeight));
+    setComponentAssetId(sourceString(assetSource, 'id', componentAssetId));
+    setComponentAssetOpacity(sourceNumber(assetSource, 'opacity', componentAssetOpacity));
   }
 
   const inspector = (
@@ -1795,7 +2367,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
   );
 
   return (
-    <ToolShell inspector={inspector} tool={tool}>
+    <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Component source') }} tool={tool}>
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
           className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden border border-border shadow-sm`}
@@ -1861,7 +2433,7 @@ export default function StudioToolWorkspace({
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
     material: <MaterialTool identity={identity} tool={tool} />,
-    opengraph: <OpenGraphTool identity={identity} tool={tool} />,
+    opengraph: <OpenGraphTool key={`${identity.id}:${tool.id}`} identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,
     surface: <SurfaceTool identity={identity} tool={tool} />,

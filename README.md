@@ -26,8 +26,8 @@
 ## One identity, every surface
 
 Glyphfield keeps the foundations and the outputs in the same system. Define a
-brand once, then use the active identity across 14 focused tools and 66
-production touchpoints without rebuilding the context for every artifact.
+brand once, then use the active identity across focused Studio tools and a
+complete production catalog without rebuilding the context for every artifact.
 
 | Foundation | Expression | Application | Delivery |
 | --- | --- | --- | --- |
@@ -36,8 +36,8 @@ production touchpoints without rebuilding the context for every artifact.
 | Typography | Dither + grain + gradients | Email + product UI | GIF |
 | Voice + positioning | Terminal themes | CLI + documentation | JSON |
 
-The Studio ships with two creation systems—Starter and Template—plus complete
-reference identities for General Translation, Ramp, Mintlify, Tailwind CSS,
+The Studio ships with a Starter creation system plus complete reference
+identities for General Translation, Ramp, Mintlify, Tailwind CSS,
 Vite+, Cloudflare, and Stripe. Each reference connects a strategic idea to a
 recognizable graphic device and a set of real applications. Project tabs are
 independent local workspaces; closing a tab never deletes its brand.
@@ -71,6 +71,8 @@ flowchart LR
 ```
 
 - Humans compose, tune, preview, and download in `/studio`.
+- Every artifact can open a right-side Code drawer for exact validated source
+  edits that round-trip into the same visual controls and renderer.
 - Agents discover capabilities through `/llms.txt`, `/api/agent`, and
   `/openapi.json`.
 - `POST /api/generate` produces deterministic SVG templates, backgrounds, and
@@ -113,7 +115,10 @@ speed, direction, recoloring, playback, source download, and frame export.
   terminal, email, and brand-element systems. Slide foreground groups use a
   direct-manipulation canvas with selection, drag, scale, keyboard nudge, and
   persistent front-to-back layer order.
-- Fumadocs powers 24 feature, artifact, integration, and API guides.
+- Visual inspectors and source drawers are two views of the same saved tool
+  state. Identity, board, motion, Lottie, material, surface, template,
+  foundation, and component configurations can all be edited directly.
+- Fumadocs powers the feature, artifact, integration, and API guides.
 - Landing, Studio, and every documentation page receive generated 1200 × 630
   OpenGraph and Twitter artwork from one shared brand renderer.
 
@@ -157,10 +162,12 @@ URLs.
 | Resource | Purpose |
 | --- | --- |
 | [`/llms.txt`](./public/llms.txt) | Operational agent runbook |
+| [`Source editing`](./content/docs/studio/source-editing.mdx) | Visual/source round-trip workflow |
+| [`Source formats`](./content/docs/reference/source-formats.mdx) | Exact browser document constraints |
 | `/api/agent` | Versioned manifest and generation contract |
 | `/openapi.json` | OpenAPI 3.1 document |
 | `/api/catalog` | Structured Studio tool catalog |
-| `/api/identities` | Nine built-in template and reference identities |
+| `/api/identities` | Built-in template and reference identities |
 | `/api/elements` | Complete brand-element taxonomy |
 
 ## Project structure

@@ -28,13 +28,19 @@ GIF exports contain a fixed color palette and frame rate. They are broadly compa
 
 ## JSON
 
-Glyphfield produces three useful JSON shapes:
+Glyphfield produces several useful JSON shapes:
 
 1. **Brand identity** — the browser project’s shared foundation record.
 2. **Element brief** — a catalog application resolved against an identity.
 3. **Artifact envelope** — API metadata plus embedded SVG content.
+4. **Studio tool source** — the active browser generator's editable configuration.
+5. **Lottie JSON** — a vector animation document with layers and frame timing.
 
 All versioned agent responses include `schemaVersion`. Callers should retain and inspect it before assuming a future response shape.
+
+Studio tool source is local editor state and does not use the API artifact-envelope schema. Material source may include custom GLSL inside its configuration. Raw Lottie JSON can round-trip through the drawer; binary `.lottie` archives remain binary and are downloaded as the original bundle.
+
+See [Source format reference](/docs/reference/source-formats) for browser document constraints.
 
 ## Filenames
 

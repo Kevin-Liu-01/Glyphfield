@@ -58,3 +58,9 @@ Add dots, lines, or grids and control spacing and opacity. Logos can use a brand
 Output presets cover common square, landscape, OpenGraph, and presentation sizes. Static recipes remain available to the agent API as deterministic SVG; live WebGL materials are rendered and downloaded in the browser.
 
 Background and Logo keep independent saved settings under Surface Lab, so switching modes never resets an existing design. Material preserves the former logo-shader draft scope, which keeps existing shader projects available after the navigation split.
+
+## Exact source editing
+
+The **Code** action opens the Surface Lab document in a right-side drawer. Its JSON contains the active surface settings, logo appearance, brand-asset fit, background opacity, logo visibility, and selected brand asset. Applying valid source updates the same preview used by the inspector and PNG export.
+
+This is configuration source, not a flattened picture. Gradient recipes, pattern opacity, dither, logo outline and shadow, material selection, and custom colors remain editable after a round trip. See [Source code editing](/docs/studio/source-editing).

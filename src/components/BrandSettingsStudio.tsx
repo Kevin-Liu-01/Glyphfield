@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/Button';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import BrandVisualAudit from '@/components/BrandVisualAudit';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -39,6 +41,7 @@ import {
 } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 
 const INPUT_CLASS =
@@ -209,6 +212,7 @@ export default function BrandSettingsStudio({
   const [activeSection, setActiveSection] = useState<IdentitySection>('overview');
   const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const fonts = brandFontAssets(identity);
   const allAssets = [...identity.assets, ...identity.proofAssets];
   const primaryReference = identity.references
@@ -227,6 +231,20 @@ export default function BrandSettingsStudio({
 
   function update(patch: Partial<BrandIdentity>) {
     onChange({ ...identity, ...patch });
+  }
+
+  function applySource(source: string) {
+    const next = parseSourceObject(source);
+    if (
+      typeof next.id !== 'string'
+      || typeof next.name !== 'string'
+      || !Array.isArray(next.assets)
+      || !Array.isArray(next.colors)
+      || !Array.isArray(next.typography)
+    ) {
+      throw new TypeError('Identity source must include id, name, assets, colors, and typography.');
+    }
+    onChange(next as unknown as BrandIdentity);
   }
 
   function updateTypography(role: BrandTypography['role'], patch: Partial<BrandTypography>) {
@@ -338,23 +356,32 @@ export default function BrandSettingsStudio({
             {hasPendingChanges ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
             {hasPendingChanges ? <T>Changes pending</T> : <T>Saved locally</T>}
           </span>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button onClick={() => downloadIdentity(identity)} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
         </div>
       </header>
 
       <div className='brand-identity-body'>
-        <nav aria-label={gt('Brand identity sections')} className='app-navbar brand-identity-nav'>
-          <div className='brand-identity-nav-title'><T>Identity settings</T></div>
-          {SECTIONS.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button aria-current={activeSection === section.id ? 'page' : undefined} key={section.id} onClick={() => setActiveSection(section.id)} type='button'>
-                <Icon aria-hidden='true' />
-                <span>{gt(section.label)}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <ResizableSidebar
+          className='brand-identity-sidebar border-r border-border bg-background'
+          defaultWidth={216}
+          label={gt('Brand identity sections')}
+          minWidth={190}
+          storageKey={`brand-identity-${identity.id}`}
+        >
+          <nav aria-label={gt('Brand identity sections')} className='app-navbar brand-identity-nav'>
+            <div className='brand-identity-nav-title'><T>Identity settings</T></div>
+            {SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button aria-current={activeSection === section.id ? 'page' : undefined} key={section.id} onClick={() => setActiveSection(section.id)} type='button'>
+                  <Icon aria-hidden='true' />
+                  <span>{gt(section.label)}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </ResizableSidebar>
 
         <div className='brand-identity-content' data-identity={identity.id} role='main'>
           <section className='brand-identity-masthead'>
@@ -629,6 +656,15 @@ export default function BrandSettingsStudio({
           </section>
         </div>
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · complete brand identity'
+          onApply={applySource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource(identity)}
+          title={`${identity.name} identity source`}
+        />
+      ) : null}
     </div>
   );
 }

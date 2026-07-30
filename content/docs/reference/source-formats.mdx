@@ -1,0 +1,71 @@
+---
+title: Source format reference
+description: Validate the JSON and GLSL-bearing documents accepted by Studio source drawers.
+icon: Braces
+---
+
+The Studio source drawer exposes the working state of the active browser tool. Every source document is a JSON object. The exact fields vary by tool, and the source already visible in the drawer is the authoritative starting point for that project.
+
+## Common contract
+
+- The top level must parse as a JSON object.
+- Unknown top-level fields are not a compatibility mechanism; preserve the fields supplied by the current Studio version.
+- Invalid fields remain unapplied and produce an inline error.
+- Successful application writes into the same project-scoped state as the visual inspector.
+- Reset returns the editor to the current visual snapshot.
+- Browser source documents are not the same schema as `POST /api/generate` requests.
+
+## Tool formats
+
+| Tool | Required or constrained fields | Notes |
+| --- | --- | --- |
+| Brand settings | `id`, `name`, `assets[]`, `colors[]`, `typography[]` | Applies a complete identity object |
+| Brand elements | JSON object | Treated as the selected element override |
+| Moodboard | `composition`, `exportPresetId`, `customWidth` | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to 800–4800 px |
+| Animation | `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `playbackRate` | Mode is `sequence`, `text`, or `images`; playback rate must be greater than zero and no more than four |
+| Lottie | Numeric `fr`, `layers[]` | Raw Lottie JSON only; binary `.lottie` bundles are not text-editable |
+| Material | `engine`, `target`, `ratio`, `exportQuality`, `colors`, parameters and finish objects | Custom GLSL is stored in `customSource` |
+| Surface Lab | `settings`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | Asset fit is `contain` or `cover`; opacity is 0–100 |
+| OpenGraph, Terminal, templates, components | Tool-specific JSON object | Open the corresponding drawer to obtain the current schema |
+
+## Material enums
+
+| Field | Accepted values |
+| --- | --- |
+| `engine` | `studio-glsl`, `shadergradient`, `glyphfield`, `shaders`, `custom-glsl` |
+| `target` | `background`, `logo`, `both` |
+| `ratio` | `square`, `wide`, `opengraph` |
+| `exportQuality` | `standard`, `high`, `ultra` |
+
+Material documents can also contain `presetId`, `liveMaterialId`, `parameters`, `liveSettings`, `finish`, `logo`, `speed`, and `customSource`. Preserve engine-specific objects when changing another property.
+
+## Lottie validation
+
+Glyphfield validates the document before replacing the active animation:
+
+```json
+{
+  "v": "5.12.2",
+  "fr": 30,
+  "ip": 0,
+  "op": 90,
+  "w": 1200,
+  "h": 750,
+  "layers": []
+}
+```
+
+`fr` must be numeric and `layers` must be an array. The remaining Lottie structure is passed to the vector player. Unsupported Lottie features follow the rendering limits of the browser player.
+
+## Portability
+
+Source drawers are intended for precise browser editing and round trips between visual controls and code. To move a finished result elsewhere:
+
+- Download raw or edited Lottie JSON from Lottie.
+- Download identity or element JSON where the tool provides it.
+- Download PNG, SVG, or GIF for rendered artifacts.
+- Use [`POST /api/generate`](/docs/agents/generate) for a versioned, headless generation contract.
+- Package authorized fonts and source assets separately when the target format does not embed them.
+
+See [Source code editing](/docs/studio/source-editing) for the browser workflow and [Formats and portability](/docs/artifacts/formats-and-portability) for output behavior.
+

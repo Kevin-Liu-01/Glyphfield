@@ -13,6 +13,8 @@ import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -38,6 +40,14 @@ import {
 } from '@/lib/liveMaterials';
 import { DEFAULT_LOGO_APPEARANCE, drawLogoAppearanceLayer, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
+import {
+  parseSourceObject,
+  sourceBoolean,
+  sourceNumber,
+  sourceObject,
+  sourceString,
+  stringifySource,
+} from '@/lib/sourceCode';
 
 const SIZE_PRESETS = [
   { height: 630, id: 'og', label: 'OpenGraph', width: 1200 },
@@ -126,6 +136,7 @@ export default function BackgroundStudio({
     'cover'
   );
   const [exporting, setExporting] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [storedSettings, setStoredSettings] = useStudioDraft<BackgroundSettings>(
     identity.id,
     tool.id,
@@ -207,6 +218,38 @@ export default function BackgroundStudio({
 
   function updateSettings(patch: Partial<BackgroundSettings>) {
     setStoredSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function applySurfaceSource(source: string) {
+    const parsed = parseSourceObject(source);
+    const nextSettings = sourceObject(parsed, 'settings');
+    const nextAppearance = sourceObject(parsed, 'logoAppearance');
+    const nextFit = sourceString(parsed, 'brandAssetFit', brandAssetFit);
+    if (!['contain', 'cover'].includes(nextFit)) {
+      throw new TypeError('Brand asset fit must be contain or cover.');
+    }
+    const nextOpacity = sourceNumber(parsed, 'brandAssetOpacity', brandAssetOpacity);
+    if (nextOpacity < 0 || nextOpacity > 100) {
+      throw new RangeError('Brand asset opacity must be between 0 and 100.');
+    }
+
+    if (nextSettings) {
+      setStoredSettings((current) => ({
+        ...current,
+        ...nextSettings,
+      } as BackgroundSettings));
+    }
+    if (nextAppearance) {
+      setLogoAppearance((current) => ({
+        ...current,
+        ...nextAppearance,
+      } as LogoAppearanceSettings));
+    }
+    setShowLogo(sourceBoolean(parsed, 'showLogo', showLogo));
+    setBrandAssetId(sourceString(parsed, 'brandAssetId', brandAssetId));
+    setBrandAssetOpacity(nextOpacity);
+    setBrandAssetFit(nextFit as 'contain' | 'cover');
+    setLogoSelected(false);
   }
 
   function selectCustomLogo(file: File) {
@@ -324,13 +367,14 @@ export default function BackgroundStudio({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
           {navigation}
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button loading={exporting} onClick={exportPng} type='button'>
             <Download aria-hidden='true' />
             <T>Download PNG</T>
@@ -339,7 +383,11 @@ export default function BackgroundStudio({
       </header>
 
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
+        <ResizableSidebar
+          className='tool-inspector min-h-0 border-r border-border bg-background'
+          label={gt(`${tool.name} controls`)}
+          storageKey={`tool-${tool.id}`}
+        >
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
               <h2 className='text-sm font-semibold'><T>Surface</T></h2>
@@ -590,7 +638,7 @@ export default function BackgroundStudio({
               value={selectedSizePreset?.id ?? 'custom'}
             />
           </section>
-        </aside>
+        </ResizableSidebar>
 
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
@@ -693,6 +741,22 @@ export default function BackgroundStudio({
           </CanvasViewport>
         </div>
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · surface scene'
+          onApply={applySurfaceSource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource({
+            brandAssetFit,
+            brandAssetId,
+            brandAssetOpacity,
+            logoAppearance,
+            settings,
+            showLogo,
+          })}
+          title={gt('Surface source')}
+        />
+      ) : null}
     </div>
   );
 }

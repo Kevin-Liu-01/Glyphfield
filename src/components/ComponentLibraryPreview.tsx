@@ -146,7 +146,13 @@ export default function ComponentLibraryPreview({
             <p className='font-mono text-xs uppercase tracking-widest opacity-50'><T>Reversed</T></p>
             <div className='flex flex-wrap gap-3'>
               <Button size={buttonSize} variant='secondary'>{label}</Button>
-              <Button className='border-background/30 text-background hover:text-foreground' size={buttonSize} variant='outline'><T>Learn more</T></Button>
+              <Button
+                className='!border-background/30 !bg-transparent !text-background hover:!bg-background hover:!text-foreground'
+                size={buttonSize}
+                variant='outline'
+              >
+                <T>Learn more</T>
+              </Button>
             </div>
           </section>
         </div>

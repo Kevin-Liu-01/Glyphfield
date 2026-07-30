@@ -69,3 +69,21 @@ Every application has a name, category, format, and design intent. Edit these re
 - Agent element briefs after the identity is supplied in a request
 
 Existing per-tool overrides remain overrides. Reset a tool or element to return to its identity-derived defaults.
+
+## Edit the identity as source
+
+Select **Code** to open the complete active `BrandIdentity` as JSON in the shared right-side drawer. This is the same identity object used by the forms, previews, project persistence, and downstream generators.
+
+The top-level source must remain a JSON object and include:
+
+- `id`
+- `name`
+- `assets` as an array
+- `colors` as an array
+- `typography` as an array
+
+Select **Apply** to validate and replace the active identity. Invalid JSON or missing required collections remains unapplied and appears as an inline error. **Reset** reloads the latest identity snapshot produced by the visual controls.
+
+Use the source drawer for precise bulk edits, asset metadata, or identity handoff. Use the visual sections when a field benefits from previews, upload validation, or direct manipulation. Both workflows update the same project-scoped identity.
+
+See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).

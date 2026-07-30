@@ -19,7 +19,7 @@ The local Studio runs at `http://localhost:3012/studio`.
 
 The project library contains three project kinds:
 
-- **Starter** and **Template** are complete creation systems that can be duplicated into a new identity.
+- **Starter** is the complete creation system you can duplicate into a new identity.
 - **Examples** are audited reference identities for General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, and Stripe.
 - **My brands** are local identities you create or duplicate.
 
@@ -46,7 +46,7 @@ Every generator reads the active identity. A change here flows into boards, temp
 
 Use the left navigation or press `⌘K` / `Ctrl+K` and search for a capability such as `email`, `logo`, `dither`, `slide`, or `terminal`.
 
-The 15 tools are grouped into Elements, Boards, Motion, Foundations, Expressions, and Components.
+Tools are grouped into Brand, Motion, Foundations, Expressions, and Components.
 
 ## 4. Edit and inspect
 
@@ -55,7 +55,11 @@ Most tools use the same layout:
 - The left inspector controls content, layout, surface, and uploaded assets.
 - The center canvas renders the current artifact.
 - The canvas toolbar supports zoom out, zoom in, reset, and fit.
+- Wheel or trackpad input zooms the canvas, and dragging empty workspace pans a zoomed view.
+- **Code** opens the exact artifact configuration in a right-side drawer.
 - The top-right action downloads the artifact or production brief.
+
+In the source drawer, **Apply** validates and writes the edited source into the same state used by the visual controls. Invalid source remains in the drawer with an inline error and does not alter the canvas. **Reset** reloads the current visual snapshot; it does not restore a stale copy from when the drawer first opened.
 
 Use **Visual settings** to switch light, dark, or automatic system appearance and choose Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans for the interface. Studio appearance never changes the selected brand surface or exported colors.
 
@@ -69,3 +73,5 @@ Download actions are specific to each tool. Common outputs include:
 - SVG from the agent API
 
 Continue with [Download and use artifacts](/docs/artifacts/download-and-use).
+
+For exact editing, continue with [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).

@@ -7,6 +7,7 @@ import { Download, RotateCcw } from 'lucide-react';
 import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StudioControls from '@/components/StudioControls';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +21,15 @@ import {
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
 import { renderFrame, type StudioSource } from '@/lib/renderFrame';
+import {
+  parseSourceObject,
+  sourceBoolean,
+  sourceNumber,
+  sourceObject,
+  sourceString,
+  sourceStringArray,
+  stringifySource,
+} from '@/lib/sourceCode';
 import {
   applyFrameSettings,
   createDefaultFrameSettings,
@@ -143,6 +153,7 @@ export default function AnimationStudio({
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
@@ -519,6 +530,32 @@ export default function AnimationStudio({
     seek(0);
   }
 
+  function applyStudioSource(source: string) {
+    const parsed = parseSourceObject(source);
+    const nextMode = sourceString(parsed, 'mode', mode);
+    if (!['sequence', 'text', 'images'].includes(nextMode)) {
+      throw new TypeError('Mode must be sequence, text, or images.');
+    }
+    const nextSettings = sourceObject(parsed, 'settings');
+    const nextFrameSettings = sourceObject(parsed, 'frameSettings');
+    const nextPlaybackRate = sourceNumber(parsed, 'playbackRate', playbackRate);
+    if (nextPlaybackRate <= 0 || nextPlaybackRate > 4) {
+      throw new RangeError('Playback rate must be greater than 0 and no more than 4.');
+    }
+
+    setMode(nextMode as SourceMode);
+    setTextFrames(sourceString(parsed, 'textFrames', textFrames));
+    setIncludeBrandLogo(sourceBoolean(parsed, 'includeBrandLogo', includeBrandLogo));
+    setSequenceOrder(sourceStringArray(parsed, 'sequenceOrder', sequenceOrder));
+    if (nextSettings) setStoredSettings(nextSettings as StudioSettings);
+    if (nextFrameSettings) {
+      setFrameSettings(nextFrameSettings as Record<string, StudioFrameSettings>);
+    }
+    setPlaybackRate(nextPlaybackRate);
+    setSelectedSourceId(null);
+    seek(0);
+  }
+
   const studioControlProps = {
     brandLogoAvailable: Boolean(brandLogo),
     frameSettings: selectedFrameSettings,
@@ -596,6 +633,7 @@ export default function AnimationStudio({
         )}
 
         <div className='flex items-center justify-end gap-2 px-4'>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           {lastExport ? (
             <Button asChild className='hidden font-mono text-xs xl:inline-flex' variant='outline'>
               <a download={`studio-${settings.packageId}.gif`} href={lastExport.url}>
@@ -754,6 +792,23 @@ export default function AnimationStudio({
         </section>
         <StudioControls {...studioControlProps} panel='properties' />
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · animation scene'
+          onApply={applyStudioSource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource({
+            frameSettings,
+            includeBrandLogo,
+            mode,
+            playbackRate,
+            sequenceOrder,
+            settings,
+            textFrames,
+          })}
+          title={gt('Animation source')}
+        />
+      ) : null}
     </div>
   );
 }

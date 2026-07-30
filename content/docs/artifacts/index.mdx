@@ -14,7 +14,7 @@ Use the Studio for visual composition, local files, fonts, Canvas, WebGL, and an
 | --- | --- |
 | PNG | Moodboard, Surface Lab, OpenGraph, Terminal card, Partnership, Blog, Slides |
 | GIF | Animation, Material |
-| JSON | Identity export, Brand element brief |
+| JSON | Identity export, Brand element brief, editable Studio configuration, Lottie source |
 
 ## Agent API
 
@@ -29,5 +29,7 @@ Use `POST /api/generate` for deterministic HTTP generation without operating the
 ## Choose the path
 
 Use the API when the artifact can be fully expressed by the versioned JSON contract. Use the browser when output depends on local fonts, local interactive layout, WebGL, Canvas, or multi-frame GIF encoding.
+
+The Studio's **Code** drawer is part of the browser path. It edits the configuration behind the current visual artifact and can be used before any PNG, GIF, JSON, or browser-rendered export. It is distinct from the request body accepted by `/api/generate`.
 
 Continue with [Download and use artifacts](/docs/artifacts/download-and-use) for exact commands and integration examples.

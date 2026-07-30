@@ -41,3 +41,19 @@ Use **Identity JSON** to download the complete active `BrandIdentity`. The file 
 3. Check logo reversal, small type, and application spacing.
 4. Export Standard for routine sharing or Retina/High for presentation.
 5. Use Ultra only when the additional raster dimensions are needed.
+
+## Edit board configuration as source
+
+Select **Code** to edit the current board configuration without replacing the preview. The source document contains:
+
+```json
+{
+  "composition": "showcase",
+  "exportPresetId": "retina",
+  "customWidth": 2400
+}
+```
+
+`composition` accepts `showcase`, `system`, or `catalog`. `exportPresetId` must match an available output preset, and `customWidth` is clamped to 800–4800 pixels. Applying a valid object updates the same board controls used by preview and PNG export.
+
+Board source configures presentation and output only. Identity content, assets, fonts, and art direction continue to come from Brand settings. See [Source code editing](/docs/studio/source-editing) for the shared Apply and Reset behavior.

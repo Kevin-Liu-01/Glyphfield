@@ -10,6 +10,10 @@ Each generator exposes its action in the top-right header. Configure the canvas 
 
 The browser writes the file through its normal download mechanism. Local uploads are embedded where the tool supports portable export.
 
+Before downloading, select **Code** when you need to inspect or precisely edit the artifact’s working source. Applying source updates the same state used by preview and export. Download the rendered artifact through the normal output action; the drawer itself is not an export format.
+
+Raw Lottie JSON is the exception: it is both editable source and a portable animation document. Binary `.lottie` bundles remain downloadable but are not expanded into editable JSON automatically.
+
 ## Download raw SVG from the API
 
 Set `output` to `raw` and save the response directly:

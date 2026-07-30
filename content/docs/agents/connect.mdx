@@ -83,3 +83,9 @@ Do not use undocumented enum values.
 ```
 
 This keeps the deployment’s current contract authoritative.
+
+## Browser source workflow
+
+When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and select **Code**. Read the current source before editing it, apply the change, resolve any inline validation error, and visually verify the canvas before downloading.
+
+Do not paste a Studio source document into `POST /api/generate`. The drawer is the browser-local document for an open tool; the generation route is a separate versioned HTTP contract. See [Browser workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).

@@ -5,6 +5,8 @@ import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -25,6 +27,12 @@ import {
   type MoodboardExportPresetId,
 } from '@/lib/moodboard';
 import { buildMoodboardSvg } from '@/lib/moodboardSvg';
+import {
+  parseSourceObject,
+  sourceNumber,
+  sourceString,
+  stringifySource,
+} from '@/lib/sourceCode';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 function fontPath(
@@ -68,6 +76,7 @@ export default function DesignBoard({
   tool: StudioTool;
 }) {
   const [exporting, setExporting] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [exportPresetId, setExportPresetId] = useStudioDraft<MoodboardExportPresetId>(
     identity.id,
     tool.id,
@@ -160,14 +169,30 @@ export default function DesignBoard({
     }
   }
 
+  function applySource(source: string) {
+    const next = parseSourceObject(source);
+    const nextComposition = sourceString(next, 'composition', composition);
+    const nextPreset = sourceString(next, 'exportPresetId', exportPresetId);
+    if (!['showcase', 'system', 'catalog'].includes(nextComposition)) {
+      throw new TypeError('Composition must be showcase, system, or catalog.');
+    }
+    if (!MOODBOARD_EXPORT_PRESETS.some(({ id }) => id === nextPreset)) {
+      throw new TypeError('Export preset does not exist.');
+    }
+    setComposition(nextComposition as MoodboardComposition);
+    setExportPresetId(nextPreset as MoodboardExportPresetId);
+    setCustomWidth(Math.min(4800, Math.max(800, sourceNumber(next, 'customWidth', customWidth))));
+  }
+
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button onClick={() => downloadIdentity(identity)} type='button' variant='outline'>
             <FileJson aria-hidden='true' />
             <T>Identity JSON</T>
@@ -180,7 +205,11 @@ export default function DesignBoard({
       </header>
 
       <div className='design-board-body tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <ResizableSidebar
+          className='tool-inspector min-h-0 border-r border-border bg-background'
+          label={`${tool.name} controls`}
+          storageKey={`tool-${tool.id}`}
+        >
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div className='flex items-center gap-3'>
               <div className='grid size-10 place-items-center overflow-hidden rounded-md border border-border p-1.5'>
@@ -334,7 +363,7 @@ export default function DesignBoard({
               </p>
             ))}
           </section>
-        </aside>
+        </ResizableSidebar>
 
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport className='moodboard-canvas' identityId={identity.id} stageClassName='moodboard-canvas-stage p-5 sm:p-8' toolId={tool.id}>
@@ -348,6 +377,15 @@ export default function DesignBoard({
           </CanvasViewport>
         </div>
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · moodboard composition'
+          onApply={applySource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource({ composition, customWidth, exportPresetId })}
+          title={`${identity.name} moodboard source`}
+        />
+      ) : null}
     </div>
   );
 }

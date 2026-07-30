@@ -11,6 +11,8 @@ import LiveMaterialControls from '@/components/LiveMaterialControls';
 import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -36,6 +38,14 @@ import {
   type MaterialFinishSettings,
 } from '@/lib/materialFinish';
 import { SHADER_PRESETS, type ShaderPreset } from '@/lib/shaderPresets';
+import {
+  parseSourceObject,
+  sourceBoolean,
+  sourceNumber,
+  sourceObject,
+  sourceString,
+  stringifySource,
+} from '@/lib/sourceCode';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 const VERTEX_SOURCE = `
@@ -415,6 +425,7 @@ export default function LogoShaderStudio({
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logoSelected, setLogoSelected] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const engine = normalizeShaderEngine(storedEngine);
   const resolvedLiveMaterialId = normalizeLiveMaterialId(liveMaterialId);
   const isLiveMaterial = engine === 'shadergradient' || engine === 'glyphfield' || engine === 'shaders';
@@ -539,6 +550,94 @@ export default function LogoShaderStudio({
           ? 'glyphfield'
           : 'shaders'
     );
+    setError(null);
+  }
+
+  function applyMaterialSource(source: string) {
+    const parsed = parseSourceObject(source);
+    const nextEngine = sourceString(parsed, 'engine', engine);
+    const nextTarget = sourceString(parsed, 'target', target);
+    const nextRatio = sourceString(parsed, 'ratio', ratio);
+    const nextQuality = sourceString(parsed, 'exportQuality', exportQuality);
+    const nextColors = sourceObject(parsed, 'colors');
+    const nextLogo = sourceObject(parsed, 'logo');
+    const nextParameters = sourceObject(parsed, 'parameters');
+    const nextLiveSettings = sourceObject(parsed, 'liveSettings');
+    const nextFinish = sourceObject(parsed, 'finish');
+    const nextSpeed = sourceNumber(parsed, 'speed', speed);
+    const nextColorA = nextColors ? sourceString(nextColors, 'a', colorA) : colorA;
+    const nextColorB = nextColors ? sourceString(nextColors, 'b', colorB) : colorB;
+    const nextColorC = nextColors ? sourceString(nextColors, 'c', colorC) : colorC;
+
+    if (!['studio-glsl', 'shadergradient', 'glyphfield', 'shaders', 'custom-glsl'].includes(nextEngine)) {
+      throw new TypeError('Engine must be a supported material engine.');
+    }
+    if (!['background', 'logo', 'both'].includes(nextTarget)) {
+      throw new TypeError('Target must be background, logo, or both.');
+    }
+    if (!['square', 'wide', 'opengraph'].includes(nextRatio)) {
+      throw new TypeError('Ratio must be square, wide, or opengraph.');
+    }
+    if (!['standard', 'high', 'ultra'].includes(nextQuality)) {
+      throw new TypeError('Export quality must be standard, high, or ultra.');
+    }
+
+    setEngine(nextEngine as ShaderEngine);
+    setTarget(nextTarget as EffectTarget);
+    setRatio(nextRatio as ShaderRatio);
+    setExportQuality(nextQuality as ExportQuality);
+    setPresetId(sourceString(parsed, 'presetId', presetId));
+    setLiveMaterialId(normalizeLiveMaterialId(sourceString(parsed, 'liveMaterialId', resolvedLiveMaterialId)));
+    setCustomDraft(sourceString(parsed, 'customSource', customDraft));
+    setCustomSource(sourceString(parsed, 'customSource', customSource));
+    setCustomVersion((current) => current + 1);
+    setTransparent(sourceBoolean(parsed, 'transparent', transparent));
+    setSpeed(nextSpeed);
+
+    if (nextColors) {
+      setColorA(nextColorA);
+      setColorB(nextColorB);
+      setColorC(nextColorC);
+    }
+    if (nextParameters) {
+      setParameters({
+        contour: sourceNumber(nextParameters, 'contour', parameters.contour),
+        distortion: sourceNumber(nextParameters, 'distortion', parameters.distortion),
+        repetition: sourceNumber(nextParameters, 'repetition', parameters.repetition),
+        scale: sourceNumber(nextParameters, 'scale', parameters.scale),
+        softness: sourceNumber(nextParameters, 'softness', parameters.softness),
+      });
+    }
+    if (nextLiveSettings) {
+      replaceLiveSettings({
+        ...resolvedLiveSettings,
+        ...nextLiveSettings,
+        colorA: nextColorA,
+        colorB: nextColorB,
+        colorC: nextColorC,
+        speed: nextSpeed,
+      } as LiveMaterialSettings);
+    }
+    if (nextFinish) {
+      setStoredFinish(normalizeMaterialFinish({
+        ...finish,
+        ...nextFinish,
+      } as MaterialFinishSettings));
+    }
+    if (nextLogo) {
+      const nextTone = sourceString(nextLogo, 'tone', logoTone);
+      if (!['light', 'dark'].includes(nextTone)) {
+        throw new TypeError('Logo tone must be light or dark.');
+      }
+      setLogoTone(nextTone as LogoTone);
+      setLogoColor(sourceString(nextLogo, 'color', logoColor));
+      setLogoInvert(sourceBoolean(nextLogo, 'invert', logoInvert));
+      setLogoScale(sourceNumber(nextLogo, 'scale', logoScale));
+      setLogoOpacity(sourceNumber(nextLogo, 'opacity', logoOpacity));
+      setLogoX(sourceNumber(nextLogo, 'x', logoX));
+      setLogoY(sourceNumber(nextLogo, 'y', logoY));
+    }
+    setLogoSelected(false);
     setError(null);
   }
 
@@ -793,13 +892,14 @@ export default function LogoShaderStudio({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
           {navigation}
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button
             aria-label={paused ? gt('Play shader') : gt('Pause shader')}
             onClick={() => setPaused((current) => !current)}
@@ -821,7 +921,11 @@ export default function LogoShaderStudio({
       </header>
 
       <div className='tool-body'>
-        <aside className='tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background' data-canvas-selection-preserve>
+        <ResizableSidebar
+          className='tool-inspector min-h-0 border-r border-border bg-background'
+          label={gt(`${tool.name} controls`)}
+          storageKey={`tool-${tool.id}`}
+        >
           <section className='flex flex-col gap-3 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Apply shader to</T></h2>
             <div className='grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border bg-border'>
@@ -1041,7 +1145,7 @@ export default function LogoShaderStudio({
               </label>
             ) : null}
           </section>
-        </aside>
+        </ResizableSidebar>
 
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
@@ -1193,6 +1297,38 @@ export default function LogoShaderStudio({
             </div>
           </section>
         </div>
+      ) : null}
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · material scene + GLSL'
+          onApply={applyMaterialSource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource({
+            colors: { a: colorA, b: colorB, c: colorC },
+            customSource,
+            engine,
+            exportQuality,
+            finish,
+            liveMaterialId: resolvedLiveMaterialId,
+            liveSettings: resolvedLiveSettings,
+            logo: {
+              color: logoColor,
+              invert: logoInvert,
+              opacity: logoOpacity,
+              scale: logoScale,
+              tone: logoTone,
+              x: logoX,
+              y: logoY,
+            },
+            parameters,
+            presetId,
+            ratio,
+            speed,
+            target,
+            transparent,
+          })}
+          title={gt('Material source')}
+        />
       ) : null}
     </div>
   );

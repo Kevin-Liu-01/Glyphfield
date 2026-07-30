@@ -51,3 +51,9 @@ Templates expose independent Brand, Content, and Footer layers. Nothing is selec
 Layer transforms and stacking order are persisted per project and template tool. The same transforms are passed into the SVG/PNG export so the downloaded artifact matches the canvas.
 
 The API can generate the same slide layouts as standalone SVG. Browser downloads rasterize the selected layout to PNG.
+
+## Source editing
+
+Every expression tool exposes **Code** in the right-side drawer. OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates each serialize the configuration that drives their visual controls and renderer. You can edit copy, layout choices, surface settings, asset references, and layer transforms in source, apply the result, then continue arranging it on the canvas.
+
+The drawer validates the tool's own document shape before applying it. It does not turn an artifact into arbitrary HTML, and it does not bypass asset or font rules. See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).

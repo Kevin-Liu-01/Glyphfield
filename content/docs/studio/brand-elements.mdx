@@ -1,6 +1,6 @@
 ---
 title: Brand elements
-description: Apply one identity to 47 searchable digital, product, developer, social, editorial, event, and physical applications.
+description: Apply one identity to a searchable catalog of digital, product, developer, social, editorial, event, and physical applications.
 icon: LayoutGrid
 ---
 
@@ -36,6 +36,14 @@ Depending on the selected application, the editor exposes:
 
 All controls are stored per project and element. **Reset** removes the element override and returns to identity-derived defaults.
 
+## Edit the selected element as source
+
+Select **Code** to edit the selected element override as JSON. The drawer contains only the mutable override for that application; the catalog record and identity-derived defaults remain separate inputs.
+
+Applying valid source updates the selected preview immediately and persists under the active project and `element.id`. Resetting the drawer restores the current visual override. Using the element’s normal **Reset** action removes that override entirely and returns the application to its identity-derived state.
+
+This distinction matters when automating edits: source **Reset** reloads the current override, while element **Reset** deletes it.
+
 ## Element brief
 
 **Element brief** downloads JSON containing:
@@ -47,3 +55,5 @@ All controls are stored per project and element. **Reset** removes the element o
 - A suggested Studio preview family
 
 The same result is available to agents with `kind: "element-brief"`. See [Generation API](/docs/agents/generate#element-brief).
+
+For browser source editing, see [Source code editing](/docs/studio/source-editing). For headless generation, keep using the versioned [`element-brief` API contract](/docs/agents/generate#element-brief); the drawer object is not an API request body.

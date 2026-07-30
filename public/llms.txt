@@ -17,7 +17,7 @@ Agent connection guide: /docs/agents/connect
 
 1. GET /api/agent.
 2. GET /api/identities when using any built-in preset.
-3. GET /api/elements when selecting one of the 47 brand applications.
+3. GET /api/elements when selecting a brand application.
 4. GET /api/generate before constructing a request. Treat this response as the current schema.
 5. POST application/json to /api/generate.
 6. Use output="json" when the caller needs metadata plus artifact content. Use output="raw" when the caller can accept image/svg+xml directly.
@@ -26,6 +26,38 @@ Agent connection guide: /docs/agents/connect
 
 Do not infer undocumented enum values. Do not scrape application JavaScript when /api/agent, /openapi.json, or a catalog endpoint provides the same information.
 Use /docs for human-readable feature, artifact, and integration guides. Treat the versioned API responses as authoritative for machine validation.
+
+## Studio source editing
+
+Every major Studio artifact exposes a Code action that opens a right-side source drawer. This is the editable browser document for the active tool, not a POST /api/generate request body.
+
+Source-enabled surfaces include Brand settings, Brand elements, Moodboard, Animation, Lottie, Material, Surface Lab, OpenGraph, Color tokens, Typography, Terminal card, Partnership lockup, Blog cover, Slide templates, and Component library.
+
+Drawer workflow:
+
+1. Open /studio and select the project and tool.
+2. Activate the visible Code action.
+3. Read or edit the source in the drawer.
+4. Activate Apply.
+5. If an inline validation error appears, correct the source. The visual document has not changed.
+6. Verify the canvas. Visual controls can continue editing the applied state.
+7. Activate Reset only when the drawer should reload the current visual snapshot.
+8. Download from the tool's normal output action.
+
+Common constraints:
+
+- Source must be a JSON object unless the tool explicitly exposes another text format.
+- Animation playbackRate must be greater than 0 and at most 4.
+- Moodboard composition is showcase, system, or catalog; customWidth is clamped to 800–4800.
+- Lottie JSON must contain layers as an array and fr as a number.
+- Binary .lottie archives are preserved and downloaded as bundles; they are not editable as raw JSON.
+- Material source may select studio-glsl, shadergradient, glyphfield, shaders, or custom-glsl and may include custom GLSL in customSource.
+- Surface Lab source includes surface settings, logo appearance, asset fit, opacity, logo visibility, and selected brand asset.
+
+Human-readable workflow: /docs/studio/source-editing
+Exact browser formats: /docs/reference/source-formats
+
+Never submit a Studio drawer document to /api/generate without translating it into the versioned HTTP contract returned by GET /api/generate.
 
 ## POST /api/generate
 
@@ -224,7 +256,7 @@ The response contains the complete element record, its symbol, dimensions, forma
 
 ## Brand element catalog
 
-/api/elements returns 66 applications grouped into:
+/api/elements returns the current application catalog grouped into:
 
 - Digital: welcome email, transactional email, email signature, web card, logo background, OpenGraph, 404, favicon, and app icon.
 - Product: navigation, heroes, feature grids, pricing, testimonials, forms, command menus, modals, feedback, tables, metrics, empty states, checkout, and settings.
@@ -256,8 +288,10 @@ Workflow:
 2. Open /studio.
 3. Select the tool by visible name or search.
 4. Select a built-in identity or create a local brand project.
-5. Configure inputs in the inspector.
-6. Use the visible Download action.
+5. Configure inputs in the inspector or open Code for an exact source edit.
+6. Apply the source and resolve any inline validation error.
+7. Verify the canvas at 100 percent.
+8. Use the visible Download action.
 
 Browser-local projects persist in localStorage. API generation requests do not read or mutate browser-local projects.
 

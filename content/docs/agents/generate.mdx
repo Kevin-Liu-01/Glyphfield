@@ -108,3 +108,9 @@ The response describes the element, dimensions, format, keywords, resolved ident
 ```
 
 Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
+
+## Studio source is a separate contract
+
+The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, animation, Lottie, materials, Surface Lab, templates, foundations, and components. Those documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
+
+Use the HTTP contract on this page for deterministic remote generation. Use [Source code editing](/docs/studio/source-editing) when a browser-capable agent or person needs to edit the exact active artifact and keep working visually.

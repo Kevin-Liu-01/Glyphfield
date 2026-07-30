@@ -14,8 +14,8 @@ Glyphfield exposes a public, versioned agent interface. An agent can discover th
 | `/api/agent` | Versioned manifest, policies, resources, and generation contract |
 | `/openapi.json` | OpenAPI 3.1 route document |
 | `/api/catalog` | Studio tools and capability keywords |
-| `/api/identities` | Nine built-in template and reference identity records |
-| `/api/elements` | All 66 brand applications |
+| `/api/identities` | Built-in template and reference identity records |
+| `/api/elements` | Searchable brand application records |
 | `/api/generate` | GET contract and POST generation endpoint |
 | `/studio` | Browser-local visual workspace |
 
@@ -27,7 +27,7 @@ Use HTTP when the desired artifact is a template SVG, background SVG, or element
 
 ### Browser operation
 
-Use the Studio when a task requires Canvas, WebGL, local fonts, local images, visual placement, high-resolution PNG rasterization, or GIF capture.
+Use the Studio when a task requires Canvas, WebGL, local fonts, local images, visual placement, high-resolution PNG rasterization, GIF capture, or exact source edits to an active browser artifact. Browser-capable agents can open **Code**, apply validated source, inspect the resulting canvas, and continue with visual controls.
 
 An agent should prefer the structured API whenever it can fully express the requested artifact.
 

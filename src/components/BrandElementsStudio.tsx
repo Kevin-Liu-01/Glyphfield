@@ -18,6 +18,8 @@ import {
 
 import CanvasViewport from '@/components/CanvasViewport';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
+import ResizableSidebar from '@/components/ResizableSidebar';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -46,6 +48,7 @@ import {
 import { hexToOklch } from '@/lib/color';
 import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 
 const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
@@ -258,7 +261,11 @@ function ElementEditor({
     !contentless && !['ascii-mark', 'terminal-theme', 'cli-banner', 'modal-dialog', 'toast-notification'].includes(element.id);
 
   return (
-    <aside className='brand-elements-editor min-h-0 overflow-y-auto border-l border-border bg-background'>
+    <ResizableSidebar
+      className='brand-elements-editor min-h-0 border-r border-border bg-background'
+      label={gt('Element editor')}
+      storageKey={`brand-elements-editor-${identity.id}`}
+    >
       {!contentless || hasPerson || hasPartner ? <section className='element-editor-section'>
         <div className='element-editor-heading'>
           <h2><T>Content</T></h2>
@@ -375,7 +382,7 @@ function ElementEditor({
           <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
         </label> : null}
       </section>
-    </aside>
+    </ResizableSidebar>
   );
 }
 
@@ -1147,6 +1154,7 @@ export default function BrandElementsStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(
     identity.id,
@@ -1208,21 +1216,36 @@ export default function BrandElementsStudio({
     });
   }
 
+  function applySource(source: string) {
+    const next = parseSourceObject(source);
+    setElementOverrides((current) => ({
+      ...current,
+      [selectedElement.id]: next as BrandElementOverrides,
+    }));
+  }
+
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar brand-elements-header tool-header flex min-h-16 items-center justify-between gap-4 border-b border-border px-5 py-3'>
+      <header className='app-navbar brand-elements-header tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
         <div className='min-w-0'>
           <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
-        <Button onClick={() => downloadElementBrief(identity, selectedElement, selectedSettings)} type='button' variant='outline'>
-          <Download aria-hidden='true' />
-          <T>Element brief</T>
-        </Button>
+        <div className='flex items-center gap-2'>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <Button onClick={() => downloadElementBrief(identity, selectedElement, selectedSettings)} type='button' variant='outline'>
+            <Download aria-hidden='true' />
+            <T>Element brief</T>
+          </Button>
+        </div>
       </header>
 
       <div className='brand-elements-body tool-body'>
-        <aside className='brand-elements-catalog tool-inspector min-h-0 overflow-y-auto border-r border-border bg-background'>
+        <ResizableSidebar
+          className='brand-elements-catalog tool-inspector min-h-0 border-r border-border bg-background'
+          label={gt('Brand element catalog')}
+          storageKey={`brand-elements-catalog-${identity.id}`}
+        >
           <div className='flex flex-col gap-3 border-b border-border p-4'>
             <label className='flex h-9 items-center gap-2 rounded-md border border-input px-3 focus-within:border-foreground'>
               <Search className='size-4 text-muted-foreground' aria-hidden='true' />
@@ -1294,7 +1317,7 @@ export default function BrandElementsStudio({
               </div>
             ) : null}
           </div>
-        </aside>
+        </ResizableSidebar>
 
         <div className='brand-elements-canvas tool-canvas min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>
@@ -1352,6 +1375,15 @@ export default function BrandElementsStudio({
           settings={selectedSettings}
         />
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · artifact configuration'
+          onApply={applySource}
+          onClose={() => setSourceOpen(false)}
+          source={stringifySource(selectedSettings)}
+          title={`${selectedElement.name} source`}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,7 @@ Some capabilities are intentionally browser-only because their output depends on
 - Local font, image, logo, and shader inputs
 - Visual placement, opacity, scale, and zoom inspection
 - Shared Brand settings that update all browser-local designs
+- Exact source editing for the active artifact through the right-side Code drawer
 
 ## Discovery before operation
 
@@ -23,9 +24,11 @@ Some capabilities are intentionally browser-only because their output depends on
 3. Open `/studio`.
 4. Choose a built-in identity or create a local project.
 5. Open the matching tool with navigation or Studio search.
-6. Configure fields in the inspector.
-7. Verify the canvas.
-8. Activate the visible download action.
+6. Configure fields in the inspector, or open **Code** for exact source editing.
+7. When using source, edit the drawer and activate **Apply**.
+8. Resolve any inline validation error before continuing; an error means the visual document was not changed.
+9. Verify the canvas at 100% and use Reset/Fit when needed.
+10. Activate the visible download action.
 
 ## Reliable interaction
 
@@ -35,6 +38,7 @@ Some capabilities are intentionally browser-only because their output depends on
 - Confirm surface and logo reversal in both light and dark compositions.
 - Treat browser download completion as the terminal success condition.
 - Do not delete projects unless the user explicitly requests deletion.
+- Do not assume the drawer document is a `/api/generate` payload. Use the tool's [source format](/docs/reference/source-formats).
 
 ## Persistence boundary
 
