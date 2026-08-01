@@ -564,7 +564,7 @@ export default function StudioControls({
         <div className='grid grid-cols-5 gap-1'>
           {[750, 1000, 1250, 1500, 1750].map((holdMs) => (
             <Button
-              className='px-1 font-mono text-xs'
+              className={`px-1 font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}
               key={holdMs}
               onClick={() => onSettingsChange({ holdMs })}
               size='sm'
@@ -575,7 +575,7 @@ export default function StudioControls({
             </Button>
           ))}
         </div>
-        <div className='grid grid-cols-4 gap-1'>
+        <div className={`grid gap-1 ${compact ? 'grid-cols-2' : 'grid-cols-4'}`}>
           {Object.entries(EASING_PRESETS).map(([name, bezier]) => (
             <Button
               className='px-1 capitalize'
@@ -590,6 +590,7 @@ export default function StudioControls({
           ))}
         </div>
         <BezierEditor
+          compact={compact}
           curve={settings.bezier}
           onChange={(bezier) => onSettingsChange({ bezier })}
         />

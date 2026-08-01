@@ -1,5 +1,6 @@
 'use client';
 
+import NextImage from 'next/image';
 import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
@@ -42,6 +43,7 @@ import {
   type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
+import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 async function loadImportedImage(file: File): Promise<ImportedImage> {
   const url = URL.createObjectURL(file);
@@ -637,14 +639,24 @@ export default function AnimationStudio({
       <header
         className={`app-navbar ${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
       >
-        <div className='flex min-w-0 items-center gap-4 border-r border-border px-5 py-3'>
+        <div className={`flex min-w-0 items-center border-r border-border ${compactControls ? 'gap-2 px-3 py-2' : 'gap-4 px-5 py-3'}`}>
           {embedded ? null : (
             <div className='grid size-9 shrink-0 place-items-center bg-foreground font-mono text-xs font-bold text-background'>
               ST
             </div>
           )}
+          {embedded && compactControls ? (
+            <NextImage
+              alt=''
+              aria-hidden='true'
+              className='size-5 shrink-0 object-contain'
+              height={20}
+              src={PRODUCT_BRAND.markWhitePath}
+              width={20}
+            />
+          ) : null}
           <div className='min-w-0'>
-            <h1 className='truncate text-lg font-semibold tracking-tight'>
+            <h1 className={`truncate font-semibold tracking-tight ${compactControls ? 'text-sm' : 'text-lg'}`}>
               <T>Animation</T>
             </h1>
             {embedded ? null : (

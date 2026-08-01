@@ -10,11 +10,12 @@ import {
 } from '@/lib/animation';
 
 type BezierEditorProps = {
+  compact?: boolean;
   curve: CubicBezier;
   onChange: (curve: CubicBezier) => void;
 };
 
-export default function BezierEditor({ curve, onChange }: BezierEditorProps) {
+export default function BezierEditor({ compact = false, curve, onChange }: BezierEditorProps) {
   const [x1, y1, x2, y2] = curve;
   const path = `M 12 108 C ${12 + x1 * 96} ${108 - y1 * 96}, ${12 + x2 * 96} ${108 - y2 * 96}, 108 12`;
   const controlPoints = [
@@ -80,18 +81,18 @@ export default function BezierEditor({ curve, onChange }: BezierEditorProps) {
 
   return (
     <div className='flex flex-col gap-3 border-t border-border pt-4'>
-      <div className='flex items-center justify-between gap-4'>
+      <div className={compact ? 'grid gap-1' : 'flex items-center justify-between gap-4'}>
         <span className='text-sm font-medium'>
           <T>Cubic bezier</T>
         </span>
-        <code className='font-mono text-xs text-muted-foreground'>
+        <code className={`font-mono text-xs text-muted-foreground ${compact ? 'whitespace-nowrap' : ''}`}>
           {curve.map((value) => value.toFixed(2)).join(', ')}
         </code>
       </div>
-      <div className='grid grid-cols-[120px_1fr] gap-4'>
+      <div className={`grid ${compact ? 'grid-cols-[96px_minmax(0,1fr)] gap-3' : 'grid-cols-[120px_1fr] gap-4'}`}>
         <svg
           aria-label='Cubic bezier preview'
-          className='size-[120px] border border-border bg-background'
+          className={`${compact ? 'size-24' : 'size-[120px]'} border border-border bg-background`}
           viewBox='0 0 120 120'
         >
           <path d='M12 108H108M12 108V12' fill='none' stroke='var(--color-border)' />
@@ -154,7 +155,7 @@ export default function BezierEditor({ curve, onChange }: BezierEditorProps) {
             <label className='flex flex-col gap-1 font-mono text-xs' key={index}>
               <span className='text-muted-foreground'>{['X1', 'Y1', 'X2', 'Y2'][index]}</span>
               <input
-                className='h-9 border border-input bg-background px-2 tabular-nums outline-none focus:border-foreground'
+                className={`${compact ? 'h-8 px-1' : 'h-9 px-2'} min-w-0 border border-input bg-background tabular-nums outline-none focus:border-foreground`}
                 max={index % 2 === 0 ? 1 : 2}
                 min={index % 2 === 0 ? 0 : -1}
                 onChange={(event) => update(index, Number(event.target.value))}

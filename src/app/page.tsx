@@ -244,7 +244,7 @@ export default async function HomePage() {
           </div>
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
-            <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
+            <MarketingArcField materialId='paper-image-dithering-noise' settings={HERO_FIELD_SETTINGS} />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
             </div>
