@@ -81,6 +81,7 @@ void main() {
 type ShaderRatio = 'square' | 'wide' | 'opengraph';
 type LogoTone = 'light' | 'dark';
 type EffectTarget = 'background' | 'logo' | 'both';
+type ShaderLayer = 'background' | 'logo';
 type ShaderEngine = 'studio-glsl' | 'shadergradient' | 'glyphfield' | 'shaders' | 'fluid' | 'paper' | 'custom-glsl';
 type ExportQuality = 'standard' | 'high' | 'ultra';
 type PreviewFinishStyle = CSSProperties & { WebkitBoxReflect?: string };
@@ -110,6 +111,14 @@ const GIF_FRAME_COUNT = 25;
 
 function normalizeShaderEngine(value: string): ShaderEngine {
   if (value === 'studio-glsl' || value === 'shadergradient' || value === 'glyphfield' || value === 'shaders' || value === 'fluid' || value === 'paper' || value === 'custom-glsl') return value;
+  return 'shaders';
+}
+
+function engineForLiveMaterial(materialId: LiveMaterialId): ShaderEngine {
+  if (materialId === 'shadergradient-prismatic-sphere') return 'shadergradient';
+  if (materialId === 'pavel-fluid-energy') return 'fluid';
+  if (isPaperLiveMaterialId(materialId)) return 'paper';
+  if (materialId.startsWith('glyphfield-')) return 'glyphfield';
   return 'shaders';
 }
 
@@ -351,6 +360,23 @@ export default function LogoShaderStudio({
       colorC: defaultPalette.colors[2],
     })
   );
+  const [logoLiveMaterialId, setLogoLiveMaterialId] = useStudioDraft<LiveMaterialId>(
+    identity.id,
+    tool.id,
+    'logo-live-material',
+    DEFAULT_LIVE_MATERIAL_ID
+  );
+  const [logoLiveSettings, setLogoLiveSettings] = useStudioDraft<LiveMaterialSettings>(
+    identity.id,
+    tool.id,
+    'logo-live-settings',
+    () => ({
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      colorA: defaultPalette.colors[1],
+      colorB: defaultPalette.colors[0],
+      colorC: defaultPalette.colors[2],
+    })
+  );
   const [customDraft, setCustomDraft] = useStudioDraft(
     identity.id,
     tool.id,
@@ -395,6 +421,7 @@ export default function LogoShaderStudio({
   const [logoX, setLogoX] = useStudioDraft(identity.id, tool.id, 'logo-x', 0);
   const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
   const [target, setTarget] = useStudioDraft<EffectTarget>(identity.id, tool.id, 'target', 'background');
+  const [selectedLayer, setSelectedLayer] = useStudioDraft<ShaderLayer>(identity.id, tool.id, 'selected-layer', 'background');
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
   const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'ratio', 'wide');
   const [exportQuality, setExportQuality] = useStudioDraft<ExportQuality>(identity.id, tool.id, 'export-quality', 'high');
@@ -428,6 +455,7 @@ export default function LogoShaderStudio({
   const [shaderLibraryOpen, setShaderLibraryOpen] = useState(true);
   const engine = normalizeShaderEngine(storedEngine);
   const resolvedLiveMaterialId = normalizeLiveMaterialId(liveMaterialId);
+  const resolvedLogoLiveMaterialId = normalizeLiveMaterialId(logoLiveMaterialId);
   const isLiveMaterial = engine === 'shadergradient' || engine === 'glyphfield' || engine === 'shaders' || engine === 'fluid' || engine === 'paper';
   const preset: ShaderPreset =
     engine === 'custom-glsl'
@@ -438,9 +466,9 @@ export default function LogoShaderStudio({
           name: 'Custom GLSL',
         }
       : SHADER_PRESETS.find(({ id }) => id === presetId) ?? DEFAULT_SHADER_PRESET;
-  const liveMaterial = getLiveMaterial(resolvedLiveMaterialId);
-  const activeMaterial = isLiveMaterial
-    ? liveMaterial
+  const backgroundMaterial = getLiveMaterial(resolvedLiveMaterialId);
+  const backgroundActiveMaterial = isLiveMaterial
+    ? backgroundMaterial
     : {
         description: preset.description,
         engine: 'WebGL / GLSL',
@@ -455,11 +483,44 @@ export default function LogoShaderStudio({
     colorC,
     speed,
   }), [colorA, colorB, colorC, liveSettings, speed]);
-  const reversedLiveSettings = useMemo<LiveMaterialSettings>(() => ({
-    ...resolvedLiveSettings,
-    colorA: resolvedLiveSettings.colorB,
-    colorB: resolvedLiveSettings.colorA,
-  }), [resolvedLiveSettings]);
+  const resolvedLogoLiveSettings = useMemo<LiveMaterialSettings>(() => ({
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    ...logoLiveSettings,
+  }), [logoLiveSettings]);
+  const logoMaterial = getLiveMaterial(resolvedLogoLiveMaterialId);
+  const backgroundShaderEnabled = target === 'background' || target === 'both';
+  const logoShaderEnabled = target === 'logo' || target === 'both';
+  const selectedMaterialId = selectedLayer === 'background'
+    ? resolvedLiveMaterialId
+    : resolvedLogoLiveMaterialId;
+  const selectedMaterialSettings = selectedLayer === 'background'
+    ? resolvedLiveSettings
+    : resolvedLogoLiveSettings;
+  const selectedMaterial = selectedLayer === 'background'
+    ? backgroundActiveMaterial
+    : logoMaterial;
+  const selectedLayerUsesLiveMaterial = selectedLayer === 'logo' || isLiveMaterial;
+  const selectedLayerEnabled = selectedLayer === 'background'
+    ? backgroundShaderEnabled
+    : logoShaderEnabled;
+  const selectedLayerSpeed = selectedLayer === 'background'
+    ? resolvedLiveSettings.speed
+    : resolvedLogoLiveSettings.speed;
+  const exportMaterialId = target === 'both'
+    ? `${backgroundActiveMaterial.id}-${logoMaterial.id}`
+    : target === 'logo'
+      ? logoMaterial.id
+      : backgroundActiveMaterial.id;
+  const canvasMaterialName = target === 'both'
+    ? `BG · ${backgroundActiveMaterial.name}  /  LOGO · ${logoMaterial.name}`
+    : target === 'logo'
+      ? `LOGO · ${logoMaterial.name}`
+      : `BG · ${backgroundActiveMaterial.name}`;
+  const canvasMaterialDescription = target === 'both'
+    ? `${backgroundActiveMaterial.description} Logo: ${logoMaterial.description}`
+    : target === 'logo'
+      ? logoMaterial.description
+      : backgroundActiveMaterial.description;
   const identityLogoPath = brandAssetPath(identity, logoTone === 'light' ? 'mark-light' : 'mark-dark');
   const logoPath = customLogo?.url ?? identityLogoPath ?? monogramMask(identity);
   const aspectRatio = ratio === 'square' ? '1 / 1' : ratio === 'opengraph' ? '1200 / 630' : '16 / 10';
@@ -568,33 +629,92 @@ export default function LogoShaderStudio({
     setSpeed(settings.speed);
   }
 
-  function selectLiveMaterial(materialId: LiveMaterialId) {
-    setLiveMaterialId(materialId);
-    setEngine(
-      materialId === 'shadergradient-prismatic-sphere'
-        ? 'shadergradient'
-        : materialId === 'pavel-fluid-energy'
-          ? 'fluid'
-          : isPaperLiveMaterialId(materialId)
-            ? 'paper'
-            : materialId.startsWith('glyphfield-')
-              ? 'glyphfield'
-              : 'shaders'
+  function setLayerEnabled(layer: ShaderLayer, enabled: boolean) {
+    const nextBackgroundEnabled = layer === 'background' ? enabled : backgroundShaderEnabled;
+    const nextLogoEnabled = layer === 'logo' ? enabled : logoShaderEnabled;
+    if (!nextBackgroundEnabled && !nextLogoEnabled) return;
+    setTarget(
+      nextBackgroundEnabled && nextLogoEnabled
+        ? 'both'
+        : nextBackgroundEnabled
+          ? 'background'
+          : 'logo'
     );
+  }
+
+  function replaceSelectedLiveSettings(settings: LiveMaterialSettings) {
+    if (selectedLayer === 'background') {
+      replaceLiveSettings(settings);
+      return;
+    }
+    setLogoLiveSettings(settings);
+  }
+
+  function setSelectedLayerSpeed(nextSpeed: number) {
+    if (selectedLayer === 'background') {
+      if (isLiveMaterial) {
+        replaceLiveSettings({ ...resolvedLiveSettings, speed: nextSpeed });
+      } else {
+        setSpeed(nextSpeed);
+      }
+      return;
+    }
+    setLogoLiveSettings({ ...resolvedLogoLiveSettings, speed: nextSpeed });
+  }
+
+  function selectLiveMaterial(materialId: LiveMaterialId) {
+    if (selectedLayer === 'background') {
+      setLiveMaterialId(materialId);
+      setEngine(engineForLiveMaterial(materialId));
+    } else {
+      setLogoLiveMaterialId(materialId);
+    }
+    setLayerEnabled(selectedLayer, true);
+    setError(null);
+  }
+
+  function applySelectedShaderToBoth() {
+    if (selectedLayer === 'background') {
+      if (!isLiveMaterial) return;
+      setLogoLiveMaterialId(resolvedLiveMaterialId);
+      setLogoLiveSettings(resolvedLiveSettings);
+    } else {
+      setLiveMaterialId(resolvedLogoLiveMaterialId);
+      setEngine(engineForLiveMaterial(resolvedLogoLiveMaterialId));
+      replaceLiveSettings(resolvedLogoLiveSettings);
+    }
+    setTarget('both');
     setError(null);
   }
 
   function applyMaterialSource(source: string) {
     const parsed = parseSourceObject(source);
-    const nextEngine = sourceString(parsed, 'engine', engine);
-    const nextTarget = sourceString(parsed, 'target', target);
+    const nextLayers = sourceObject(parsed, 'layers');
+    const nextBackgroundLayer = nextLayers ? sourceObject(nextLayers, 'background') : undefined;
+    const nextLogoLayer = nextLayers ? sourceObject(nextLayers, 'logo') : undefined;
+    const nextEngine = sourceString(nextBackgroundLayer ?? parsed, 'engine', engine);
+    const nextBackgroundEnabled = nextBackgroundLayer
+      ? sourceBoolean(nextBackgroundLayer, 'enabled', backgroundShaderEnabled)
+      : backgroundShaderEnabled;
+    const nextLogoEnabled = nextLogoLayer
+      ? sourceBoolean(nextLogoLayer, 'enabled', logoShaderEnabled)
+      : logoShaderEnabled;
+    const nextTarget = nextLayers
+      ? nextBackgroundEnabled && nextLogoEnabled
+        ? 'both'
+        : nextBackgroundEnabled
+          ? 'background'
+          : 'logo'
+      : sourceString(parsed, 'target', target);
     const nextRatio = sourceString(parsed, 'ratio', ratio);
     const nextQuality = sourceString(parsed, 'exportQuality', exportQuality);
     const nextColors = sourceObject(parsed, 'colors');
     const nextLogo = sourceObject(parsed, 'logo');
-    const nextParameters = sourceObject(parsed, 'parameters');
-    const nextLiveSettings = sourceObject(parsed, 'liveSettings');
-    const nextFinish = sourceObject(parsed, 'finish');
+    const nextParameters = sourceObject(nextBackgroundLayer ?? parsed, 'parameters');
+    const nextLiveSettings = sourceObject(nextBackgroundLayer ?? parsed, 'liveSettings');
+    const nextLogoLiveSettings = nextLogoLayer ? sourceObject(nextLogoLayer, 'liveSettings') : undefined;
+    const nextFinish = (nextLogoLayer ? sourceObject(nextLogoLayer, 'finish') : undefined)
+      ?? sourceObject(parsed, 'finish');
     const nextSpeed = sourceNumber(parsed, 'speed', speed);
     const nextColorA = nextColors ? sourceString(nextColors, 'a', colorA) : colorA;
     const nextColorB = nextColors ? sourceString(nextColors, 'b', colorB) : colorB;
@@ -602,6 +722,9 @@ export default function LogoShaderStudio({
 
     if (!['studio-glsl', 'shadergradient', 'glyphfield', 'shaders', 'fluid', 'paper', 'custom-glsl'].includes(nextEngine)) {
       throw new TypeError('Engine must be a supported material engine.');
+    }
+    if (nextLayers && !nextBackgroundEnabled && !nextLogoEnabled) {
+      throw new TypeError('At least one shader layer must be enabled.');
     }
     if (!['background', 'logo', 'both'].includes(nextTarget)) {
       throw new TypeError('Target must be background, logo, or both.');
@@ -617,8 +740,11 @@ export default function LogoShaderStudio({
     setTarget(nextTarget as EffectTarget);
     setRatio(nextRatio as ShaderRatio);
     setExportQuality(nextQuality as ExportQuality);
-    setPresetId(sourceString(parsed, 'presetId', presetId));
-    setLiveMaterialId(normalizeLiveMaterialId(sourceString(parsed, 'liveMaterialId', resolvedLiveMaterialId)));
+    setPresetId(sourceString(nextBackgroundLayer ?? parsed, 'presetId', presetId));
+    setLiveMaterialId(normalizeLiveMaterialId(sourceString(nextBackgroundLayer ?? parsed, 'liveMaterialId', resolvedLiveMaterialId)));
+    if (nextLogoLayer) {
+      setLogoLiveMaterialId(normalizeLiveMaterialId(sourceString(nextLogoLayer, 'liveMaterialId', resolvedLogoLiveMaterialId)));
+    }
     setCustomDraft(sourceString(parsed, 'customSource', customDraft));
     setCustomSource(sourceString(parsed, 'customSource', customSource));
     setCustomVersion((current) => current + 1);
@@ -643,10 +769,16 @@ export default function LogoShaderStudio({
       replaceLiveSettings({
         ...resolvedLiveSettings,
         ...nextLiveSettings,
-        colorA: nextColorA,
-        colorB: nextColorB,
-        colorC: nextColorC,
-        speed: nextSpeed,
+        colorA: sourceString(nextLiveSettings, 'colorA', nextColorA),
+        colorB: sourceString(nextLiveSettings, 'colorB', nextColorB),
+        colorC: sourceString(nextLiveSettings, 'colorC', nextColorC),
+        speed: sourceNumber(nextLiveSettings, 'speed', nextSpeed),
+      } as LiveMaterialSettings);
+    }
+    if (nextLogoLiveSettings) {
+      setLogoLiveSettings({
+        ...resolvedLogoLiveSettings,
+        ...nextLogoLiveSettings,
       } as LiveMaterialSettings);
     }
     if (nextFinish) {
@@ -823,7 +955,7 @@ export default function LogoShaderStudio({
       await composeFrame(context, width, height, logo);
       const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
       if (!blob) return;
-      downloadBlob(blob, `${identity.id}-${activeMaterial.id}-${target}.png`);
+      downloadBlob(blob, `${identity.id}-${exportMaterialId}-${target}.png`);
     } finally {
       setExporting(null);
     }
@@ -873,7 +1005,7 @@ export default function LogoShaderStudio({
       gif.finish();
       downloadBlob(
         new Blob([Uint8Array.from(gif.bytes())], { type: 'image/gif' }),
-        `${identity.id}-${activeMaterial.id}-${target}.gif`
+        `${identity.id}-${exportMaterialId}-${target}.gif`
       );
     } finally {
       setCaptureTimeMs(null);
@@ -886,20 +1018,30 @@ export default function LogoShaderStudio({
     canvasRef: RefObject<HTMLCanvasElement | null>,
     placement: 'background' | 'logo'
   ) {
+    if (placement === 'logo') {
+      return (
+        <LiveMaterialCanvas
+          captureTimeMs={captureTimeMs}
+          className='absolute inset-0 size-full'
+          key={`logo-${resolvedLogoLiveMaterialId}-${exportQuality}`}
+          materialId={resolvedLogoLiveMaterialId}
+          paused={paused || captureTimeMs !== null}
+          renderScale={exportRenderScale}
+          settings={resolvedLogoLiveSettings}
+        />
+      );
+    }
+
     if (isLiveMaterial) {
       return (
         <LiveMaterialCanvas
           captureTimeMs={captureTimeMs}
           className='absolute inset-0 size-full'
-          key={`${placement}-${engine}-${resolvedLiveMaterialId}-${exportQuality}`}
+          key={`background-${engine}-${resolvedLiveMaterialId}-${exportQuality}`}
           materialId={resolvedLiveMaterialId}
           paused={paused || captureTimeMs !== null}
           renderScale={exportRenderScale}
-          settings={
-            placement === 'logo'
-              ? reversedLiveSettings
-              : resolvedLiveSettings
-          }
+          settings={resolvedLiveSettings}
         />
       );
     }
@@ -908,9 +1050,9 @@ export default function LogoShaderStudio({
       <ShaderCanvas
         canvasRef={canvasRef}
         captureTimeMs={captureTimeMs}
-        colorA={placement === 'logo' ? colorB : colorA}
-        colorB={placement === 'logo' ? colorA : colorB}
-        key={`${placement}-${engine}-${preset.id}-${customVersion}-${exportQuality}`}
+        colorA={colorA}
+        colorB={colorB}
+        key={`background-${engine}-${preset.id}-${customVersion}-${exportQuality}`}
         onError={setError}
         parameters={parameters}
         paused={paused || captureTimeMs !== null}
@@ -941,13 +1083,13 @@ export default function LogoShaderStudio({
           >
             {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
           </Button>
-          <Button onClick={() => setExportDialog('png')} type='button' variant='outline'>
+          <Button aria-label={gt('Export PNG')} onClick={() => setExportDialog('png')} title={gt('Export PNG')} type='button' variant='outline'>
             <Download aria-hidden='true' />
-            <T>PNG</T>
+            <span className='responsive-toolbar-label'><T>PNG</T></span>
           </Button>
-          <Button onClick={() => setExportDialog('gif')} type='button'>
+          <Button aria-label={gt('Export GIF')} onClick={() => setExportDialog('gif')} title={gt('Export GIF')} type='button'>
             <Download aria-hidden='true' />
-            <T>GIF</T>
+            <span className='responsive-toolbar-label'><T>GIF</T></span>
           </Button>
         </div>
       </header>
@@ -955,10 +1097,10 @@ export default function LogoShaderStudio({
       <div className={`tool-body ${shaderLibraryOpen ? 'tool-body-with-shader-library' : ''}`}>
         {shaderLibraryOpen ? (
           <ShaderLibrarySidebar
-            activeMaterialId={resolvedLiveMaterialId}
+            activeMaterialId={selectedMaterialId}
             onClose={() => setShaderLibraryOpen(false)}
             onSelect={selectLiveMaterial}
-            settings={resolvedLiveSettings}
+            settings={selectedMaterialSettings}
             storageKey='material-shader-library'
           />
         ) : null}
@@ -967,37 +1109,68 @@ export default function LogoShaderStudio({
           label={gt(`${tool.name} controls`)}
           storageKey={`tool-${tool.id}`}
         >
-          <section className='flex flex-col gap-3 border-b border-border p-5'>
-            <h2 className='text-sm font-semibold'><T>Apply shader to</T></h2>
-            <div className='grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border bg-border'>
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Shader layers</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Choose and edit the background and logo independently.</T></p>
+            </div>
+            <div className='grid grid-cols-2 gap-px overflow-hidden border border-border bg-border'>
               {([
-                ['background', 'Behind'],
-                ['logo', 'Logo'],
-                ['both', 'Both'],
-              ] as const).map(([value, label]) => (
-                <Button className='rounded-none border-0 px-2' key={value} onClick={() => setTarget(value)} size='sm' type='button' variant={target === value ? 'default' : 'secondary'}>
-                  {label}
-                </Button>
+                ['background', 'Behind', backgroundShaderEnabled],
+                ['logo', 'Logo', logoShaderEnabled],
+              ] as const).map(([layer, label, enabled]) => (
+                <button
+                  aria-pressed={selectedLayer === layer}
+                  className='flex min-w-0 flex-col items-start gap-1 bg-background px-3 py-2.5 text-left hover:bg-muted aria-pressed:bg-foreground aria-pressed:text-background'
+                  key={layer}
+                  onClick={() => setSelectedLayer(layer)}
+                  type='button'
+                >
+                  <span className='text-xs font-semibold'>{label}</span>
+                  <span className={`font-mono text-[9px] uppercase tracking-wider ${selectedLayer === layer ? 'text-background/65' : 'text-muted-foreground'}`}>
+                    {enabled ? gt('On') : gt('Off')}
+                  </span>
+                </button>
               ))}
             </div>
-            <p className='text-xs leading-5 text-muted-foreground'>
-              {target === 'logo'
-                ? gt('The shader is cut to the logo alpha, producing a material-filled mark.')
-                : target === 'both'
-                  ? gt('The live field fills the surface and the cutout logo.')
-                  : gt('The shader stays behind a solid identity mark.')}
-            </p>
+            <div className='flex items-center justify-between gap-3'>
+              <div className='min-w-0'>
+                <p className='text-xs font-medium'>{selectedLayer === 'background' ? <T>Background shader</T> : <T>Logo shader</T>}</p>
+                <p className='mt-0.5 truncate text-[10px] text-muted-foreground'>{selectedMaterial.name}</p>
+              </div>
+              <Button
+                disabled={selectedLayerEnabled && (selectedLayer === 'background' ? !logoShaderEnabled : !backgroundShaderEnabled)}
+                onClick={() => setLayerEnabled(selectedLayer, !selectedLayerEnabled)}
+                size='sm'
+                type='button'
+                variant={selectedLayerEnabled ? 'default' : 'outline'}
+              >
+                {selectedLayerEnabled ? <T>Enabled</T> : <T>Enable</T>}
+              </Button>
+            </div>
+            <Button
+              disabled={selectedLayer === 'background' && !isLiveMaterial}
+              onClick={applySelectedShaderToBoth}
+              size='sm'
+              type='button'
+              variant='outline'
+            >
+              <T>Apply this shader to both</T>
+            </Button>
           </section>
-          {isLiveMaterial ? (
+          {selectedLayerUsesLiveMaterial ? (
             <section className='flex flex-col gap-4 border-b border-border p-5'>
-              <h2 className='text-sm font-semibold'><T>Selected shader</T></h2>
+              <div>
+                <h2 className='text-sm font-semibold'>{selectedLayer === 'background' ? <T>Background shader</T> : <T>Logo shader</T>}</h2>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'>{selectedMaterial.description}</p>
+              </div>
               <LiveMaterialControls
                 identity={identity}
-                materialId={resolvedLiveMaterialId}
+                materialId={selectedMaterialId}
                 onMaterialIdChange={selectLiveMaterial}
-                onSettingsChange={replaceLiveSettings}
+                onSettingsChange={replaceSelectedLiveSettings}
                 showMaterialSelector={false}
-                settings={resolvedLiveSettings}
+                settings={selectedMaterialSettings}
               />
             </section>
           ) : (
@@ -1033,16 +1206,18 @@ export default function LogoShaderStudio({
             </>
           )}
 
-          <section className='flex flex-col gap-4 border-b border-border p-5'>
-            <div>
-              <h2 className='text-sm font-semibold'><T>Surface finish</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Layer glass, reflection, edge, and depth over the live material.</T></p>
-            </div>
-            <MaterialFinishControls onChange={setStoredFinish} settings={finish} />
-          </section>
+          {selectedLayer === 'logo' ? (
+            <>
+              <section className='flex flex-col gap-4 border-b border-border p-5'>
+                <div>
+                  <h2 className='text-sm font-semibold'><T>Logo finish</T></h2>
+                  <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Add outline, glass, reflection, shadow, and depth to the logo layer.</T></p>
+                </div>
+                <MaterialFinishControls onChange={setStoredFinish} settings={finish} />
+              </section>
 
-          <section className='flex flex-col gap-4 border-b border-border p-5'>
-            <h2 className='text-sm font-semibold'><T>Logo</T></h2>
+              <section className='flex flex-col gap-4 border-b border-border p-5'>
+                <h2 className='text-sm font-semibold'><T>Logo artwork</T></h2>
             <div className='grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border'>
               {(['light', 'dark'] as const).map((tone) => (
                 <Button className='rounded-none border-0' key={tone} onClick={() => { setLogoTone(tone); setLogoColor(tone === 'light' ? '#FFFFFF' : '#000000'); }} size='sm' type='button' variant={logoTone === tone ? 'default' : 'secondary'}>
@@ -1087,9 +1262,11 @@ export default function LogoShaderStudio({
                 type='file'
               />
             </label>
-          </section>
+              </section>
+            </>
+          ) : null}
 
-          <details className='border-b border-border p-5' open={!isLiveMaterial}>
+          {selectedLayer === 'background' ? <details className='border-b border-border p-5' open={!isLiveMaterial}>
             <summary className='cursor-pointer text-sm font-semibold'><T>Advanced GLSL</T></summary>
             <div className='mt-4 flex flex-col gap-3'>
               <p className='text-xs leading-5 text-muted-foreground'><T>Studio and custom GLSL remain available here. Choosing any library preview returns to live materials.</T></p>
@@ -1132,7 +1309,7 @@ export default function LogoShaderStudio({
                 </div>
               ) : null}
             </div>
-          </details>
+          </details> : null}
 
           <section className='flex flex-col gap-4 p-5'>
             <h2 className='text-sm font-semibold'><T>Output</T></h2>
@@ -1149,10 +1326,12 @@ export default function LogoShaderStudio({
               <StudioSelect ariaLabel={gt('Export quality')} onValueChange={(value) => setExportQuality(value as ExportQuality)} options={EXPORT_QUALITY_OPTIONS.map((option) => ({ label: option.label, value: option.value }))} value={exportQuality} />
               <p className='font-mono text-[10px]'>{outputDimensions().width} × {outputDimensions().height} · PNG lossless · GIF 256 colors</p>
             </div>
-            <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-              <span className='flex justify-between gap-3'><T>Speed</T><span className='font-mono'>{speed.toFixed(2)}×</span></span>
-              <input className='studio-range' max='2' min='0.2' onChange={(event) => setSpeed(Number(event.target.value))} step='0.05' type='range' value={speed} />
-            </label>
+            {selectedLayer === 'background' && !isLiveMaterial ? (
+              <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+                <span className='flex justify-between gap-3'><T>GLSL speed</T><span className='font-mono'>{speed.toFixed(2)}×</span></span>
+                <input className='studio-range' max='2' min='0.2' onChange={(event) => setSpeed(Number(event.target.value))} step='0.05' type='range' value={speed} />
+              </label>
+            ) : null}
             {target === 'logo' ? (
               <label className='flex items-center justify-between gap-4 text-sm'>
                 <T>Transparent export</T>
@@ -1200,7 +1379,7 @@ export default function LogoShaderStudio({
                         aria-hidden='true'
                         className='pointer-events-none absolute z-0'
                         data-material-glass-preview
-                        style={glassFinishStyle}
+                        style={{ ...glassFinishStyle, ...logoMaskStyle }}
                       />
                     ) : null}
                     <div className='relative z-10 size-full' style={logoFinishStyle}>
@@ -1227,19 +1406,20 @@ export default function LogoShaderStudio({
                 </div>
               </EditableCanvasLayer>
               <div className='pointer-events-none absolute top-4 left-4 font-mono text-[10px] uppercase tracking-widest text-white/60 mix-blend-difference'>
-                {activeMaterial.name} / {activeMaterial.engine}
+                {canvasMaterialName}
               </div>
             </div>
             <div className='flex flex-wrap items-start justify-between gap-4 border-x border-b border-border bg-background p-4'>
               <div>
-                <p className='text-sm font-semibold'>{activeMaterial.name}</p>
-                <p className='mt-1 max-w-xl text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
+                <p className='text-sm font-semibold'>{canvasMaterialName}</p>
+                <p className='mt-1 max-w-xl text-xs leading-5 text-muted-foreground'>{canvasMaterialDescription}</p>
               </div>
               <div className='flex items-center gap-4 text-muted-foreground'>
                 <p className='font-mono text-[10px] uppercase tracking-wider'>
-                  {identity.name} / {ratio} / {speed.toFixed(2)}× / {finish.presetId}
+                  {identity.name} / {ratio} / {target === 'both' ? '2 layers' : '1 layer'} / {finish.presetId}
                 </p>
-                {isLiveMaterial ? <LiveMaterialSourceBadge engine={liveMaterial.engine} /> : null}
+                {target !== 'logo' && isLiveMaterial ? <LiveMaterialSourceBadge engine={backgroundMaterial.engine} /> : null}
+                {target !== 'background' ? <LiveMaterialSourceBadge engine={logoMaterial.engine} /> : null}
               </div>
             </div>
             {error ? <p className='border-x border-b border-status-error-border bg-status-error-background p-3 text-sm text-status-error' role='alert'>{error}</p> : null}
@@ -1293,10 +1473,10 @@ export default function LogoShaderStudio({
                 </div>
                 <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
                   <span className='flex items-center justify-between gap-3'>
-                    <T>Shader speed</T>
-                    <output className='text-xs tabular-nums'>{speed.toFixed(2)}×</output>
+                    {selectedLayer === 'background' ? <T>Background speed</T> : <T>Logo speed</T>}
+                    <output className='text-xs tabular-nums'>{selectedLayerSpeed.toFixed(2)}×</output>
                   </span>
-                  <input className='studio-range' max='2' min='0.2' onChange={(event) => setSpeed(Number(event.target.value))} step='0.05' type='range' value={speed} />
+                  <input className='studio-range' max='2' min='0.2' onChange={(event) => setSelectedLayerSpeed(Number(event.target.value))} step='0.05' type='range' value={selectedLayerSpeed} />
                 </label>
                 <div className='mt-auto flex gap-2 pt-3'>
                   <Button className='flex-1' disabled={Boolean(exporting)} onClick={() => setExportDialog(null)} type='button' variant='outline'><T>Cancel</T></Button>
@@ -1330,6 +1510,22 @@ export default function LogoShaderStudio({
             engine,
             exportQuality,
             finish,
+            layers: {
+              background: {
+                enabled: backgroundShaderEnabled,
+                engine,
+                liveMaterialId: resolvedLiveMaterialId,
+                liveSettings: resolvedLiveSettings,
+                parameters,
+                presetId,
+              },
+              logo: {
+                enabled: logoShaderEnabled,
+                finish,
+                liveMaterialId: resolvedLogoLiveMaterialId,
+                liveSettings: resolvedLogoLiveSettings,
+              },
+            },
             liveMaterialId: resolvedLiveMaterialId,
             liveSettings: resolvedLiveSettings,
             logo: {
@@ -1348,7 +1544,7 @@ export default function LogoShaderStudio({
             target,
             transparent,
           })}
-          title={gt('Material source')}
+          title={gt('Shader layers source')}
         />
       ) : null}
     </div>

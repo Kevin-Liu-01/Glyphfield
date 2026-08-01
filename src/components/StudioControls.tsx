@@ -39,6 +39,7 @@ import { normalizeMaterialFinish } from '@/lib/materialFinish';
 
 type StudioControlsProps = {
   brandLogoAvailable: boolean;
+  compact?: boolean;
   frameSettings: StudioFrameSettings | null;
   hasImageSources: boolean;
   images: readonly ImportedImage[];
@@ -128,6 +129,7 @@ function RangeControl({
 
 export default function StudioControls({
   brandLogoAvailable,
+  compact = false,
   frameSettings,
   hasImageSources,
   images,
@@ -186,10 +188,11 @@ export default function StudioControls({
   return (
     <ResizableSidebar
       className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-r border-border'}`}
-      defaultWidth={panel === 'source' ? 416 : 360}
+      defaultWidth={panel === 'source' ? (compact ? 280 : 416) : compact ? 240 : 360}
       label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
-      minWidth={panel === 'source' ? 350 : 280}
-      storageKey={`animation-${panel}-v2-${identity?.id ?? 'default'}`}
+      maxWidth={compact ? (panel === 'source' ? 360 : 320) : 520}
+      minWidth={panel === 'source' ? (compact ? 220 : 350) : compact ? 200 : 280}
+      storageKey={`animation-${compact ? 'compact-' : ''}${panel}-v2-${identity?.id ?? 'default'}`}
     >
       {panel === 'source' ? (
         <>

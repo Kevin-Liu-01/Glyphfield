@@ -78,9 +78,11 @@ async function loadImageSource(path: string, name: string): Promise<StudioSource
 }
 
 export default function AnimationStudio({
+  compactControls = false,
   embedded = false,
   identity,
 }: {
+  compactControls?: boolean;
   embedded?: boolean;
   identity?: BrandIdentity;
 }) {
@@ -587,6 +589,7 @@ export default function AnimationStudio({
 
   const studioControlProps = {
     brandLogoAvailable: Boolean(brandLogo),
+    compact: compactControls,
     frameSettings: selectedFrameSettings,
     hasImageSources: sources.some((source) => source.kind === 'image'),
     identity,
@@ -627,7 +630,7 @@ export default function AnimationStudio({
     <div
       className={
         embedded
-          ? 'animation-studio h-full min-h-0 bg-background text-foreground'
+          ? `animation-studio h-full min-h-0 bg-background text-foreground${compactControls ? ' animation-studio-compact-controls' : ''}`
           : 'studio-grid min-h-dvh bg-background text-foreground'
       }
     >

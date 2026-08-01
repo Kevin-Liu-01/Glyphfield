@@ -34,7 +34,7 @@ export function SourceCodeButton({ onClick }: { onClick: () => void }) {
       variant='outline'
     >
       <Code2 aria-hidden='true' />
-      <T>Code</T>
+      <span className='responsive-toolbar-label'><T>Code</T></span>
     </Button>
   );
 }

@@ -179,6 +179,23 @@ float splat(vec2 uv, vec2 center, float radius) {
   return exp(-dot(delta, delta) / max(0.001, radius));
 }
 
+float filament(vec2 uv, vec2 center, vec2 direction, float radius) {
+  vec2 delta = uv - center;
+  vec2 axis = normalize(direction);
+  vec2 normal = vec2(-axis.y, axis.x);
+  float along = dot(delta, axis);
+  float across = dot(delta, normal);
+  float body = exp(
+    -across * across / max(0.00008, radius * 0.16)
+    -along * along / max(0.0002, radius * 5.5)
+  );
+  float core = exp(
+    -across * across / max(0.00004, radius * 0.045)
+    -along * along / max(0.0002, radius * 3.4)
+  );
+  return body * 0.58 + core * 0.72;
+}
+
 void main() {
   vec2 velocity = texture2D(u_velocity, v_uv).xy * 2.0 - 1.0;
   vec2 previousUv = clamp(v_uv - velocity * u_dt, u_texel, 1.0 - u_texel);
@@ -188,13 +205,22 @@ void main() {
   vec2 sourceA = vec2(0.27 + sin(motion * 0.83) * 0.14, 0.38 + cos(motion * 0.71) * 0.16);
   vec2 sourceB = vec2(0.7 + cos(motion * 0.64) * 0.16, 0.64 + sin(motion * 0.77) * 0.14);
   vec2 sourceC = vec2(0.5 + sin(motion * 0.39) * 0.2, 0.5 + cos(motion * 0.48) * 0.2);
-  float radius = 0.0028 + u_amplitude * 0.0009;
-  float injection = 0.03 + u_strength * 0.024;
-  dye += u_color_a * splat(v_uv, sourceA, radius) * injection;
-  dye += u_color_b * splat(v_uv, sourceB, radius * 1.15) * injection;
-  dye += u_color_c * splat(v_uv, sourceC, radius * 0.82) * injection * 0.8;
-  dye += u_color_c * splat(v_uv, u_pointer, radius * 0.7) * u_pointer_active * 0.12;
-  gl_FragColor = vec4(clamp(dye, 0.0, 1.35), 1.0);
+  float radius = 0.0018 + u_amplitude * 0.00055;
+  float injection = 0.024 + u_strength * 0.02;
+  float plumeA = splat(v_uv, sourceA, radius * 1.1)
+    + filament(v_uv, sourceA, vec2(0.92, 0.38), radius) * 0.92;
+  float plumeB = splat(v_uv, sourceB, radius * 1.28)
+    + filament(v_uv, sourceB, vec2(-0.72, 0.7), radius * 1.08) * 0.88;
+  float plumeC = splat(v_uv, sourceC, radius * 0.88)
+    + filament(v_uv, sourceC, vec2(0.48, -0.88), radius * 0.82) * 0.76;
+  dye += u_color_a * plumeA * injection;
+  dye += u_color_b * plumeB * injection;
+  dye += u_color_c * plumeC * injection;
+  dye += u_color_c * (
+    splat(v_uv, u_pointer, radius * 0.64)
+    + filament(v_uv, u_pointer, vec2(0.8, 0.6), radius * 0.58)
+  ) * u_pointer_active * 0.09;
+  gl_FragColor = vec4(clamp(dye, 0.0, 1.5), 1.0);
 }
 `;
 
@@ -213,14 +239,22 @@ float displayHash(vec2 p) {
 
 void main() {
   vec3 dye = texture2D(u_dye, v_uv).rgb;
-  vec3 dyeX = texture2D(u_dye, v_uv + vec2(u_texel.x, 0.0)).rgb;
-  vec3 dyeY = texture2D(u_dye, v_uv + vec2(0.0, u_texel.y)).rgb;
-  float edge = length(dyeX - dye) + length(dyeY - dye);
-  float luminance = dot(dye, vec3(0.2126, 0.7152, 0.0722));
-  vec3 color = dye * u_brightness;
-  color += edge * vec3(0.34, 0.42, 0.58) * 0.28;
-  color += pow(max(0.0, luminance), 2.0) * dye * 0.18;
-  float grain = (displayHash(gl_FragCoord.xy + floor(u_time * 12.0)) - 0.5) * u_grain * 0.0015;
+  vec3 dyeLeft = texture2D(u_dye, v_uv - vec2(u_texel.x, 0.0)).rgb;
+  vec3 dyeRight = texture2D(u_dye, v_uv + vec2(u_texel.x, 0.0)).rgb;
+  vec3 dyeDown = texture2D(u_dye, v_uv - vec2(0.0, u_texel.y)).rgb;
+  vec3 dyeUp = texture2D(u_dye, v_uv + vec2(0.0, u_texel.y)).rgb;
+  vec3 localAverage = (dyeLeft + dyeRight + dyeDown + dyeUp) * 0.25;
+  vec3 sharpened = max(vec3(0.0), dye + (dye - localAverage) * 0.74);
+  float edge = length(dyeRight - dyeLeft) + length(dyeUp - dyeDown);
+  float luminance = dot(sharpened, vec3(0.2126, 0.7152, 0.0722));
+  vec3 color = sharpened * u_brightness;
+  vec3 edgeTint = mix(vec3(0.34, 0.48, 0.72), normalize(sharpened + 0.045), 0.72);
+  color += edge * edgeTint * 0.42;
+  color += pow(max(0.0, luminance), 2.0) * sharpened * 0.22;
+  color = mix(vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), color, 1.12);
+  color = color / (vec3(1.0) + color * 0.12);
+  color = pow(max(vec3(0.0), color), vec3(0.9));
+  float grain = (displayHash(gl_FragCoord.xy + floor(u_time * 10.0)) - 0.5) * u_grain * 0.00038;
   gl_FragColor = vec4(max(vec3(0.0), color + grain), 1.0);
 }
 `;
@@ -1311,7 +1345,7 @@ function FluidSimulationCanvas({
       previous = time;
       if (captureTimeRef.current === null && !pausedRef.current) elapsed += deltaMs * current.speed;
       const renderedTime = captureTimeRef.current === null ? elapsed / 1000 : captureTimeRef.current / 1000 * current.speed;
-      const pixelRatio = Math.min(2, (window.devicePixelRatio || 1) * renderScale);
+      const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
       const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
       if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
@@ -1319,7 +1353,10 @@ function FluidSimulationCanvas({
         drawingCanvas.height = height;
       }
       const aspect = width / Math.max(1, height);
-      const simulationSize = Math.round(Math.min(320, 164 + current.detail * 20) * Math.min(1.35, Math.max(0.75, renderScale)));
+      const simulationScale = Math.min(1.65, Math.max(0.6, renderScale * Math.sqrt(pixelRatio)));
+      const simulationSize = Math.round(
+        Math.min(720, 250 + current.detail * 48) * simulationScale
+      );
       const nextSimulationWidth = Math.max(64, aspect >= 1 ? simulationSize : Math.round(simulationSize * aspect));
       const nextSimulationHeight = Math.max(64, aspect >= 1 ? Math.round(simulationSize / aspect) : simulationSize);
 

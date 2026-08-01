@@ -56,6 +56,9 @@ importers:
       next:
         specifier: ^16.2.10
         version: 16.2.11(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      next-themes:
+        specifier: 0.4.6
+        version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0

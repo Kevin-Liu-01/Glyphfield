@@ -24,11 +24,11 @@ The Studio source drawer exposes the working state of the active browser tool. E
 | Moodboard | `composition`, `exportPresetId`, `customWidth` | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to 800–4800 px |
 | Animation | `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `playbackRate` | Mode is `sequence`, `text`, or `images`; playback rate must be greater than zero and no more than four |
 | Lottie | Numeric `fr`, `layers[]` | Raw Lottie JSON only; binary `.lottie` bundles are not text-editable |
-| Material | `engine`, `target`, `ratio`, `exportQuality`, `colors`, parameters and finish objects | Custom GLSL is stored in `customSource` |
+| Shaders | `layers.background`, `layers.logo`, `target`, `ratio`, `exportQuality`, logo artwork and finish objects | Each layer stores independent material settings; custom background GLSL is stored in `customSource` |
 | Surface Lab | `settings`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | Asset fit is `contain` or `cover`; opacity is 0–100 |
 | OpenGraph, Terminal, templates, components | Tool-specific JSON object | Open the corresponding drawer to obtain the current schema |
 
-## Material enums
+## Shader enums
 
 | Field | Accepted values |
 | --- | --- |
@@ -37,7 +37,7 @@ The Studio source drawer exposes the working state of the active browser tool. E
 | `ratio` | `square`, `wide`, `opengraph` |
 | `exportQuality` | `standard`, `high`, `ultra` |
 
-Material documents can also contain `presetId`, `liveMaterialId`, `parameters`, `liveSettings`, `finish`, `logo`, `speed`, and `customSource`. `liveMaterialId` identifies the exact Shader Library card; `liveSettings` contains the shared three-color and numeric controls. Preserve engine-specific objects when changing another property.
+Shader documents contain `layers.background` and `layers.logo`. Each layer has `enabled`, `liveMaterialId`, and `liveSettings`; the background layer additionally carries its engine, preset, and GLSL parameters, while the logo layer owns `finish`. `liveMaterialId` identifies the exact Shader Library card and `liveSettings` contains that layer's three colors and numeric controls. The legacy top-level `engine`, `target`, `liveMaterialId`, and `liveSettings` fields remain available for backward-compatible readers.
 
 ## Lottie validation
 

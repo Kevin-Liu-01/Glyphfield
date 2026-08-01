@@ -95,8 +95,8 @@ function ShaderLibraryButton({
       variant='outline'
     >
       <LibraryBig aria-hidden='true' />
-      <T>Shaders</T>
-      <span className='text-[10px] tabular-nums text-muted-foreground'>{LIVE_MATERIAL_OPTIONS.length}</span>
+      <span className='responsive-toolbar-label'><T>Shaders</T></span>
+      <span className='responsive-toolbar-count text-[10px] tabular-nums text-muted-foreground'>{LIVE_MATERIAL_OPTIONS.length}</span>
     </Button>
   );
 }
@@ -157,7 +157,7 @@ function ShaderLibraryBrowser({
             value={query}
           />
         </label>
-        <div aria-label={gt('Shader source filter')} className='mt-2 flex gap-1 overflow-x-auto pb-1' role='group'>
+        <div aria-label={gt('Shader source filter')} className='mt-2 flex flex-wrap gap-1' role='group'>
           {SOURCE_OPTIONS.map((option) => (
             <button
               aria-pressed={source === option.value}
@@ -222,7 +222,6 @@ function ShaderLibrarySidebar({
     <ResizableSidebar
       className={`shader-library-sidebar shader-library-sidebar-${side} min-h-0 border-border bg-background ${side === 'left' ? 'border-r' : 'border-l'}`}
       defaultWidth={368}
-      hoverExpandBy={56}
       label={gt('shader library')}
       maxWidth={520}
       minWidth={300}

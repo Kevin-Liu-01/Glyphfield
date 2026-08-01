@@ -119,7 +119,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'shadow',
       'gif',
     ],
-    name: 'Material',
+    name: 'Shaders',
     shortcut: 'M',
   },
   {

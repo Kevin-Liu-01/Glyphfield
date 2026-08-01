@@ -2,8 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
+import { useTheme } from 'next-themes';
 import {
   Aperture,
   Blend,
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react';
 
 import AnimationStudio from '@/components/AnimationStudio';
+import { useThemeOverride } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import LottieStudio from '@/components/LottieStudio';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
@@ -132,20 +134,6 @@ const DEFAULT_APPEARANCE: StudioAppearance = {
 };
 
 type ResolvedTheme = 'light' | 'dark';
-
-function subscribeToSystemTheme(onChange: () => void): () => void {
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  media.addEventListener('change', onChange);
-  return () => media.removeEventListener('change', onChange);
-}
-
-function getSystemThemeSnapshot(): boolean {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-function getServerThemeSnapshot(): boolean {
-  return false;
-}
 
 const PROJECT_FOLDERS: readonly { id: ProjectFolderId; label: string }[] = [
   { id: 'all', label: 'All projects' },
@@ -625,11 +613,11 @@ function StudioCommandPalette({
 
 export default function StudioApp() {
   const gt = useGT();
-  const systemDark = useSyncExternalStore(
-    subscribeToSystemTheme,
-    getSystemThemeSnapshot,
-    getServerThemeSnapshot
-  );
+  const setThemeOverride = useThemeOverride();
+  const {
+    setTheme: setProviderTheme,
+    systemTheme,
+  } = useTheme();
   const [activeToolId, setActiveToolId] = useState<StudioToolId>('identity');
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
@@ -659,10 +647,17 @@ export default function StudioApp() {
   const resolvedAppearance = { ...DEFAULT_APPEARANCE, ...appearance };
   const resolvedTheme: ResolvedTheme =
     resolvedAppearance.theme === 'system'
-      ? systemDark
+      ? systemTheme === 'dark'
         ? 'dark'
         : 'light'
       : resolvedAppearance.theme;
+
+  useEffect(() => {
+    setProviderTheme(resolvedAppearance.theme);
+    setThemeOverride(resolvedTheme);
+
+    return () => setThemeOverride(undefined);
+  }, [resolvedAppearance.theme, resolvedTheme, setProviderTheme, setThemeOverride]);
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
   const resolvedIdentities = useMemo(
@@ -1200,13 +1195,14 @@ export default function StudioApp() {
             </Button>
             <AppearanceMenu
               appearance={resolvedAppearance}
-              onChange={(patch) =>
+              onChange={(patch) => {
+                if (patch.theme) setProviderTheme(patch.theme);
                 setAppearance((current) => ({
                   ...DEFAULT_APPEARANCE,
                   ...current,
                   ...patch,
-                }))
-              }
+                }));
+              }}
             />
             <Button
               aria-label={
@@ -1214,13 +1210,15 @@ export default function StudioApp() {
                   ? gt('Switch to dark mode')
                   : gt('Switch to light mode')
               }
-              onClick={() =>
+              onClick={() => {
+                const nextTheme = resolvedTheme === 'light' ? 'dark' : 'light';
+                setProviderTheme(nextTheme);
                 setAppearance((current) => ({
                   ...DEFAULT_APPEARANCE,
                   ...current,
-                  theme: resolvedTheme === 'light' ? 'dark' : 'light',
-                }))
-              }
+                  theme: nextTheme,
+                }));
+              }}
               size='icon-sm'
               title={
                 resolvedTheme === 'light'

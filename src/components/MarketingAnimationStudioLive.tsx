@@ -10,5 +10,5 @@ const MARKETING_ANIMATION_IDENTITY = {
 };
 
 export default function MarketingAnimationStudioLive() {
-  return <AnimationStudio embedded identity={MARKETING_ANIMATION_IDENTITY} />;
+  return <AnimationStudio compactControls embedded identity={MARKETING_ANIMATION_IDENTITY} />;
 }

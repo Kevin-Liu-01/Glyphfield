@@ -236,8 +236,8 @@ export const OPENAPI_DOCUMENT = {
     },
     '/api/materials': {
       get: {
-        responses: { '200': { description: 'Complete shader library, controls, palettes, presets, and attribution' } },
-        summary: 'List every shader material available in the shared library',
+        responses: { '200': { description: 'Complete shader library, controls, palettes, presets, attribution, and background/logo layer compatibility' } },
+        summary: 'List every shader available for independent background and logo layers',
       },
     },
   },

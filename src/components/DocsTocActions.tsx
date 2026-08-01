@@ -1,16 +1,19 @@
 'use client';
 
+import { useDocsLayout } from 'fumadocs-ui/layouts/docs';
 import { T, useGT } from 'gt-next';
-import { Braces, Github, PanelsTopLeft } from 'lucide-react';
-import Link from 'next/link';
+import { Github } from 'lucide-react';
 
 export default function DocsTocActions() {
   const gt = useGT();
+  const { slots } = useDocsLayout();
+  const SearchFull = slots.searchTrigger ? slots.searchTrigger.full : null;
 
   return (
     <nav aria-label={gt('Documentation utilities')} className='glyphfield-docs-toc-actions'>
-      <Link href='/studio'><PanelsTopLeft aria-hidden='true' /><T>Studio</T></Link>
-      <Link href='/docs/agents'><Braces aria-hidden='true' /><T>Agent API</T></Link>
+      {SearchFull ? (
+        <SearchFull className='glyphfield-docs-toc-search' hideIfDisabled />
+      ) : null}
       <a
         href='https://github.com/Kevin-Liu-01/Glyphfield'
         rel='noreferrer'

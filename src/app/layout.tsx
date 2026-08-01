@@ -2,6 +2,8 @@ import './globals.css';
 
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { GTProvider } from 'gt-next';
+
+import AppThemeProvider from '@/components/AppThemeProvider';
 import {
   Be_Vietnam_Pro,
   Geist_Mono,
@@ -90,9 +92,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className='flex min-h-screen flex-col'>
-        <RootProvider>
-          <GTProvider>{children}</GTProvider>
-        </RootProvider>
+        <AppThemeProvider>
+          <RootProvider theme={{ enabled: false }}>
+            <GTProvider>{children}</GTProvider>
+          </RootProvider>
+        </AppThemeProvider>
       </body>
     </html>
   );

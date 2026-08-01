@@ -105,8 +105,8 @@ speed, direction, recoloring, playback, source download, and frame export.
 - Design boards switch between a 16:9 showcase collage—campaign, product,
   social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
   review, with export up to 4800 px wide.
-- Surface Lab combines background and logo modes; Material keeps animated shaders focused under Motion.
-  Their shared, quality-sorted Shader Library provides more than 140 searchable live previews from original Glyphfield materials, ShaderGradient, Paper, Fluid Energy, Shaders.com studies, and attributed design studies. The same three-color palettes and form, light, grain, orientation, and speed controls carry across Material, Surface Lab, and per-frame Animation backgrounds.
+- Surface Lab handles static backgrounds; Shaders keeps animated GPU materials under Motion.
+  Its background and alpha-masked logo are independent layers: use either alone, copy one shader to both, or assign each a different material and settings. Logo-only outline, glass, reflection, shadow, and depth controls travel with that layer. The shared, quality-sorted Shader Library provides more than 140 searchable live previews from original Glyphfield materials, ShaderGradient, Paper, Fluid Energy, Shaders.com studies, and attributed design studies.
 - Animation places real two-column motion previews and the Shader Library beneath its source sequence. Shader backgrounds remain editable per frame, while direct canvas-edge and corner handles change output dimensions without leaving the preview.
 - Studio appearance persists light or dark mode, accent, canvas density, and a
   choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.

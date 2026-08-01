@@ -4,7 +4,7 @@ description: Create frame animation, preview motion packages, edit Lottie vector
 icon: Blend
 ---
 
-Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Material for live WebGL motion. Animation and Material share the same [Shader Library](/docs/studio/shader-library), palettes, and live-material settings.
+Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Shaders for live WebGL motion. Animation and Shaders share the same [Shader Library](/docs/studio/shader-library), palettes, and live-material settings.
 
 ## Animation
 
@@ -52,9 +52,9 @@ Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, t
 
 The same per-frame preparation hook is the basis for Glyphfield's general HTML/canvas-to-GIF pipeline: a source resolves its visual state at an exact timeline position, then the shared renderer captures that state.
 
-## Material
+## Shaders
 
-Material applies live WebGL motion to the background, the alpha-masked logo, or both. Its resizable Shader Library opens by default as a second sidebar; selecting a preview updates the main canvas and exposes shared controls and live surface finishes beside it. Surface Lab is the static SVG-background counterpart.
+Shaders composes two independent live layers: the canvas background and the alpha-masked logo. Either layer can be enabled alone, one shader can be copied to both, or each layer can use a different library shader and its own colors, form, light, grain, orientation, and speed. Logo-only artwork and finish controls contain outline, glass, reflection, shadow, and depth. Surface Lab is the static SVG-background counterpart.
 
 The quality-sorted library includes more than 140 materials and presets:
 
@@ -70,7 +70,7 @@ Every material color accepts HEX or OKLCH input. The palette picker combines the
 
 Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
 
-Open **Code** to edit the complete material configuration, including engine, target, aspect ratio, export quality, colors, logo, parameters, live settings, finish, speed, preset identifiers, and custom GLSL. The drawer and visual inspectors resolve into the same renderer, so a source edit can be refined visually without conversion.
+Open **Code** to edit the complete shader composition. `layers.background` and `layers.logo` each store enablement, material ID, and live settings; the logo layer also owns its finish object. Legacy top-level engine, target, and live-material fields remain readable. The drawer and visual inspectors resolve into the same renderer, so a source edit can be refined visually without conversion.
 
 ### Shader output
 
