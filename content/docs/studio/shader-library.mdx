@@ -1,0 +1,80 @@
+---
+title: Shader library
+description: Browse, preview, customize, and reuse live GPU materials across Material and Animation.
+icon: LibraryBig
+---
+
+The Shader Library is Glyphfield's shared catalog of live GPU materials. It keeps material discovery separate from editing: choose a moving preview in the library, then refine that shader with the common color, form, light, texture, orientation, and motion controls.
+
+The catalog currently contains more than 140 materials and presets. Results are curated by visual quality rather than grouped by provider, so the strongest starting points appear first in **All sources**.
+
+## Where it appears
+
+| Workspace | Library behavior | Selection result |
+| --- | --- | --- |
+| Material | Opens by default as a resizable secondary sidebar | Replaces the active material while preserving the shared inspector workflow |
+| Animation | Appears below sources and the two-column animation-package gallery | Applies a shader background to the selected frame, or the first frame when nothing is selected |
+
+Use the **Shaders** button in Material to close and reopen the secondary sidebar. Its width is resizable and saved independently from the main inspector.
+
+## Browse and select
+
+Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. Source filters include:
+
+- Design studies
+- Paper
+- Glyphfield
+- Shaders.com
+- WebGL Fluid
+- ShaderGradient
+
+Choosing a source filter narrows the current quality-sorted catalog; it does not change how the shader is rendered or edited.
+
+Previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints allow many moving choices to remain visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
+
+## Shared controls
+
+After choosing a material, use the adjacent inspector to edit it. Paper presets, Glyphfield materials, design studies, ShaderGradient, Shaders.com studies, and Fluid Energy all resolve through the same high-level controls:
+
+- **Color system:** the active brand palette, reusable three-color palettes, and individual HEX or OKLCH colors
+- **Form:** strength, detail, frequency, amplitude, and density
+- **Light and texture:** brightness and grain
+- **Orientation:** X, Y, and Z rotation
+- **Motion:** playback speed
+
+The palette menu includes the active identity plus the original material looks and Surface Lab's signal, mineral, paper, and dither palettes. Each palette applies a coordinated group of three colors without locking later edits.
+
+Not every underlying shader interprets a control identically. The common settings are mapped into the vocabulary of each renderer so switching materials remains predictable while each family keeps its own character.
+
+## Catalog sources
+
+The shared catalog combines several implementation types:
+
+- Original Glyphfield mesh, grain, dither, glyph-volume, and GLSL materials
+- The editable ShaderGradient sphere
+- Nine original studies of public Shaders.com visual techniques, including Spectral Bloom, Architectural Chrome, Soft Register, and Circuit
+- **Fluid Energy**, adapted from Pavel Dobryakov's MIT-licensed [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
+- 29 Paper shader families and 120 upstream-authored presets rendered with [`@paper-design/shaders-react`](https://github.com/paper-design/shaders)
+- Original design studies informed by [Evil Rabbit Shaders](https://shaders.evilrabbit.com/), [GRADIENTOOL](https://www.gradientool.com/), and [Grainient](https://grainient.supply/freebies)
+
+Source badges identify the family directly on each preview. When a selected material has an upstream project or visual reference, the inspector exposes that link. The referenced Evil Rabbit, GRADIENTOOL, and Grainient studies are original implementations; their source code and downloadable assets are not bundled.
+
+Dedalus Bloom is not part of the catalog. Existing saved IDs are normalized to a supported material instead of leaving the canvas in a broken state.
+
+See the repository's [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) for license and attribution details.
+
+## Animation backgrounds
+
+Shader backgrounds are stored per animation frame. Select a frame before choosing a library card to give that state its own material. The frame inspector then controls its three colors, form, grain, motion, finish, and the transition into the next background.
+
+The main animation canvas renders only the shader layers needed by the current transition. Preview and GIF export use the same frame configuration, so material changes are not flattened before capture.
+
+The animation canvas also supports direct size editing: drag the right edge to change width, the bottom edge to change height, or the corner handle to change both. The live dimension readout and inspector values update the same persisted canvas settings.
+
+## Output and portability
+
+Material exports still PNG or animated GIF. Animation composites selected shader backgrounds into its GIF. Live WebGL output is browser-only; Surface Lab is now dedicated to deterministic static SVG background recipes.
+
+The Material **Code** drawer preserves `liveMaterialId`, `liveSettings`, and the complete finish object. Animation stores the material ID and settings inside each frame background. Use the source already shown by the current drawer as the authoritative schema for round trips.
+
+See [Motion and GIFs](/docs/studio/motion), [Surface Lab, color, and typography](/docs/studio/logo-background), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.

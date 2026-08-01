@@ -174,6 +174,59 @@ describe('Lottie product presets', () => {
     }
   });
 
+  it('uses one wide quiet shell with sharp cards and a centered header', () => {
+    for (const example of LOTTIE_EXAMPLES) {
+      const layers = example.data.layers as Record<string, unknown>[];
+      const records = collectRecords(example.data);
+      const strokes = records.filter(
+        (record) => record.ty === 'st',
+      );
+      const workspaceBase = records.find(
+        ({ nm, ty }) => nm === 'Workspace base' && ty === 'rc',
+      );
+      const workspaceSize = workspaceBase?.s as Record<string, unknown> | undefined;
+      const cardRectangles = records.filter(
+        ({ nm, ty }) => ty === 'rc' && typeof nm === 'string' && nm.endsWith(' base'),
+      );
+      const description = layers.find(
+        ({ nm }) => typeof nm === 'string' && nm.endsWith('Scene description'),
+      );
+      const descriptionTransform = description?.ks as Record<string, unknown> | undefined;
+      const descriptionPosition = descriptionTransform?.p as Record<string, unknown> | undefined;
+      const text = description?.t as Record<string, unknown> | undefined;
+      const documentData = text?.d as Record<string, unknown> | undefined;
+      const keyframes = Array.isArray(documentData?.k) ? documentData.k : [];
+      const firstKeyframe = keyframes[0] as Record<string, unknown> | undefined;
+      const style = firstKeyframe?.s as Record<string, unknown> | undefined;
+
+      expect(
+        records.some(({ nm }) => nm === 'Workspace focus'),
+      ).toBe(false);
+      expect(
+        records.some(({ nm }) => typeof nm === 'string' && nm.endsWith(' highlight')),
+      ).toBe(false);
+      expect(
+        records.some(({ nm }) => ['Workspace accent', 'Workspace title rail', 'Workspace status', 'Workspace end rail'].includes(String(nm))),
+      ).toBe(false);
+      expect(strokes.length).toBeGreaterThan(0);
+      expect(
+        strokes.every((stroke) => {
+          const opacity = stroke.o as Record<string, unknown> | undefined;
+          return typeof opacity?.k === 'number' && opacity.k <= 35;
+        }),
+      ).toBe(true);
+      expect(numericValues(workspaceSize?.k)).toEqual([900, 640]);
+      expect(cardRectangles.length).toBeGreaterThan(0);
+      expect(cardRectangles.every((rectangle) => {
+        const radius = rectangle.r as Record<string, unknown> | undefined;
+        return typeof radius?.k === 'number' && radius.k <= 8;
+      })).toBe(true);
+      expect(description).toBeDefined();
+      expect(descriptionPosition?.k).toEqual([480, 92, 0]);
+      expect(style?.j).toBe(2);
+    }
+  });
+
   it('applies three brand colors and shared geometry controls', () => {
     const customized = customizeLottieDocument(LOTTIE_EXAMPLES[0]?.data ?? {}, {
       colors: ['#FF0000', '#00FF00', '#0000FF'],

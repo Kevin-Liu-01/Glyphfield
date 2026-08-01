@@ -20,6 +20,12 @@ function SourceMark({ engine }: { engine: LiveMaterialOption['engine'] }) {
     );
   }
 
+  if (engine === 'Paper Shaders') {
+    return (
+      <span aria-hidden='true' className='grid size-3.5 place-items-center border border-current/30 font-mono text-[8px] font-semibold'>P</span>
+    );
+  }
+
   return (
     <svg aria-hidden='true' className='size-3.5' viewBox='0 0 16 16'>
       <path d='M2 5.25 5.25 2M2 10.75 5.25 14M14 5.25 10.75 2M14 10.75 10.75 14' fill='none' stroke='currentColor' strokeLinecap='square' strokeWidth='1.4' />
@@ -30,6 +36,9 @@ function SourceMark({ engine }: { engine: LiveMaterialOption['engine'] }) {
 
 function sourceName(engine: LiveMaterialOption['engine']) {
   if (engine === 'Shaders.com study') return 'Shaders.com';
+  if (engine === 'WebGL Fluid') return 'PavelDoGreat';
+  if (engine === 'Paper Shaders') return 'Paper';
+  if (engine === 'Design study') return 'Study';
   return engine;
 }
 

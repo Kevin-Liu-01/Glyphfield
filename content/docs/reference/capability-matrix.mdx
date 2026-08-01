@@ -11,7 +11,8 @@ icon: TableProperties
 | Moodboard | PNG, identity JSON | Composition, size, and export configuration | Browser only |
 | Animation | GIF from text, image, and logo sequences with live per-frame materials | Sequence and timing JSON | Browser only |
 | Lottie | Edited JSON or `.lottie`, high-resolution frame PNG composited over solid, transparent, or live-material backgrounds | Raw Lottie JSON; binary `.lottie` remains bundled | Browser only |
-| Material | PNG and animated GIF | Material configuration with optional GLSL | Browser only |
+| Shader Library | Live selection shared by Material and per-frame Animation backgrounds | Material ID and common live settings are stored by the host tool | Browser only |
+| Material | PNG and animated GIF with live shadow, outline, reflection, and glass previews | Material configuration, finish object, and optional GLSL | Browser only |
 | Surface Lab | PNG; static background SVG through generation API | Surface and logo appearance JSON | `background` SVG for deterministic recipes |
 | OpenGraph | PNG | Tool configuration JSON | Compose with template/background SVG |
 | Color tokens | Copied CSS tokens | Token configuration JSON | Identity HEX fields |
@@ -28,6 +29,8 @@ icon: TableProperties
 | --- | --- | --- |
 | Color control | Native picker, HEX, OKLCH, optional opacity | Controlled value shared by previews and exports |
 | Canvas viewport | Zoom from 40–200 percent, reset, and fit | Zoom saved per project and tool; intrinsic artifact ratio is unchanged |
+| Canvas dimension handles | Drag width, height, or both directly on the Animation canvas | Output dimensions update the same persistent settings used by preview and GIF export |
+| Shader gallery | Quality-sorted, searchable two-column live previews with source filters and badges | Shared catalog used by Material and Animation |
 | Editable layers | Select, drag, resize, keyboard nudge | Transform values feed the same renderer used for export |
 | Layer panel | Reorder, six-way alignment, reset, boundary-disabled actions | Layer order and transforms saved per project and template |
 | Material finishes | Reflections, shadows, borders, glass, and presets | Finish object travels with animation and shader settings |

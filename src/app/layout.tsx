@@ -1,4 +1,3 @@
-import 'lenis/dist/lenis.css';
 import './globals.css';
 
 import { RootProvider } from 'fumadocs-ui/provider/next';

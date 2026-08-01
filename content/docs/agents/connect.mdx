@@ -10,11 +10,13 @@ An agent should follow this sequence for every new deployment origin:
 
 1. Fetch `/llms.txt` for operational instructions.
 2. Fetch `/api/agent` for the current version, policies, resources, and contract.
-3. Fetch `/api/identities` when using any built-in preset.
-4. Fetch `/api/elements` when choosing a brand application.
-5. Fetch `GET /api/generate` immediately before constructing a request.
-6. `POST application/json` to `/api/generate`.
-7. Save raw SVG or extract the artifact from its JSON envelope.
+3. Fetch `/api/labs` to discover the current Studio plugin surface.
+4. Fetch `/api/materials` when selecting a shader or editing shared material controls.
+5. Fetch `/api/identities` when using any built-in preset.
+6. Fetch `/api/elements` when choosing a brand application.
+7. Fetch `GET /api/generate` immediately before constructing a request.
+8. `POST application/json` to `/api/generate`.
+9. Save raw SVG or extract the artifact from its JSON envelope.
 
 Do not infer undocumented enum values. Do not scrape the client bundle when a structured endpoint provides the same information.
 
@@ -25,6 +27,8 @@ BASE_URL=http://localhost:3012
 
 curl -fsS "$BASE_URL/llms.txt"
 curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources }'
+curl -fsS "$BASE_URL/api/labs" | jq '{ count, plugins: [.plugins[].id] }'
+curl -fsS "$BASE_URL/api/materials" | jq '{ count, engines, sharedBy }'
 curl -fsS "$BASE_URL/api/generate" | jq '.kinds | keys'
 ```
 
@@ -35,14 +39,16 @@ For a deployed instance, replace `BASE_URL` with its origin.
 ```ts
 const baseUrl = 'http://localhost:3012';
 
-const [manifest, generation, identities, elements] = await Promise.all([
+const [manifest, labs, materials, generation, identities, elements] = await Promise.all([
   fetch(`${baseUrl}/api/agent`).then((response) => response.json()),
+  fetch(`${baseUrl}/api/labs`).then((response) => response.json()),
+  fetch(`${baseUrl}/api/materials`).then((response) => response.json()),
   fetch(`${baseUrl}/api/generate`).then((response) => response.json()),
   fetch(`${baseUrl}/api/identities`).then((response) => response.json()),
   fetch(`${baseUrl}/api/elements`).then((response) => response.json()),
 ]);
 
-console.log(manifest.version, generation.schemaVersion);
+console.log(manifest.version, labs.count, materials.count, generation.schemaVersion);
 console.log(identities.identities.length, elements.elements.length);
 ```
 

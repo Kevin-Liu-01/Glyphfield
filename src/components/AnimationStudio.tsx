@@ -5,6 +5,7 @@ import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
@@ -454,6 +455,34 @@ export default function AnimationStudio({
     });
   }
 
+  function applyLibraryBackground(
+    patch: Partial<StudioFrameSettings['background']>
+  ) {
+    const target = selectedSource ?? sources[0];
+    if (!target) return;
+    setFrameSettings((current) => {
+      const base = current[target.id] ?? createDefaultFrameSettings(settings);
+      return {
+        ...current,
+        [target.id]: {
+          ...base,
+          background: {
+            ...base.background,
+            ...patch,
+            materialSettings: patch.materialSettings
+              ?? base.background.materialSettings
+              ?? settings.shaderSettings,
+          },
+        },
+      };
+    });
+    setSelectedSourceId(target.id);
+    setSelectedEffectTarget('background');
+    changePlaying(false);
+    const index = sources.findIndex((source) => source.id === target.id);
+    seek(Math.max(0, index) * (settings.holdMs + settings.transitionMs));
+  }
+
   function resetSelectedFrame() {
     if (!selectedSource) return;
     setFrameSettings((current) => {
@@ -565,6 +594,7 @@ export default function AnimationStudio({
     includeBrandLogo,
     mode,
     onBackgroundChange: updateSelectedBackground,
+    onLibraryBackgroundChange: applyLibraryBackground,
     onFiles: importFiles,
     onFrameSettingsChange: updateSelectedFrame,
     onIncludeBrandLogoChange: (include: boolean) => {
@@ -762,6 +792,12 @@ export default function AnimationStudio({
                   aria-hidden='true'
                   className='pointer-events-none absolute inset-x-0 z-20 h-px bg-white/20'
                   style={{ top: `${(((selectedFrameSettings?.alignY ?? settings.alignY) + 1) / 2) * 100}%` }}
+                />
+                <CanvasDimensionHandles
+                  canvasRef={canvasSelectionRef}
+                  height={canvasHeight}
+                  onChange={({ height, width }) => updateSettings({ height, width })}
+                  width={canvasWidth}
                 />
               </div>
             </CanvasViewport>

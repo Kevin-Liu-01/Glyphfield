@@ -1,14 +1,14 @@
 ---
 title: Motion and GIFs
-description: Create frame animation, edit Lottie vectors, and apply live materials in three focused motion workspaces.
+description: Create frame animation, preview motion packages, edit Lottie vectors, and apply shared live materials.
 icon: Blend
 ---
 
-Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Material for live WebGL motion.
+Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Material for live WebGL motion. Animation and Material share the same [Shader Library](/docs/studio/shader-library), palettes, and live-material settings.
 
 ## Animation
 
-Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources and layer order on the left, the shared canvas and timeline in the center, and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography or image fit without changing the rest of the sequence.
+Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources, live animation-package previews, and the background shader gallery on the left; the shared canvas and timeline in the center; and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography, image fit, or background without changing the rest of the sequence.
 
 Open **Code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, per-frame settings, and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
 
@@ -18,17 +18,19 @@ Lottie is a separate Motion tool with its own vector playback model. Import a lo
 
 The editor includes play, pause, restart, scrubbing, speed, forward/reverse/bounce modes, looping, interpolation, in/out trimming, contain/cover/fill layout, transparent or solid canvases, and high-resolution frame export. Generic JSON artwork can be recolored directly. `.lottie` bundles retain embedded colors unless they provide their own named themes.
 
-The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation, Material, and Surface Lab. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
+The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation and Material. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
 
 The source drawer exposes raw Lottie JSON for documents that can be represented as text. Apply requires a JSON object with a `layers` array and numeric `fr` frame rate. A `.lottie` bundle is a binary archive, so Glyphfield preserves and downloads that original bundle instead of presenting it as editable JSON.
 
 ## Animation details
 
-The canvas uses direct manipulation: selecting a state pauses on that frame, dragging moves it, arrow keys nudge it by one canvas pixel, Shift + arrow nudges by ten, and the corner handle scales it. Inspector values and canvas gestures update the same persisted frame data.
+The canvas uses direct manipulation: selecting a state pauses on that frame, dragging moves it, arrow keys nudge it by one canvas pixel, Shift + arrow nudges by ten, and the content corner handle scales it. Separate canvas handles resize the output itself: drag the right or bottom edge for one dimension, or the corner for both. Inspector values, the live dimension readout, and canvas gestures update the same persisted data.
 
-Each state also owns its background. Choose a solid color, two-color gradient, or any live ShaderGradient/Shaders.com-inspired material, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. Shader colors, speed, strength, frequency, grain, and material are editable in the same frame inspector.
+Each state also owns its background. Choose a solid color, two-color gradient, or any material from the shared Shader Library, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. The library applies to the selected frame, or the first frame when no state is selected. Shader colors, speed, strength, frequency, grain, finish, and material remain editable in the frame inspector.
 
 ### Animation packages
+
+Packages appear as a two-column gallery of real, looping previews instead of text-only options. Cards outside the visible panel stop drawing, and all visible cards share a capped preview clock.
 
 - Morph fade
 - Type and delete
@@ -52,16 +54,19 @@ The same per-frame preparation hook is the basis for Glyphfield's general HTML/c
 
 ## Material
 
-Material applies live WebGL motion to the background, the alpha-masked logo, or both. It lives beside Animation in the Motion section so shader work has a focused workspace while Surface Lab remains dedicated to backgrounds and logo applications.
+Material applies live WebGL motion to the background, the alpha-masked logo, or both. Its resizable Shader Library opens by default as a second sidebar; selecting a preview updates the main canvas and exposes shared controls and live surface finishes beside it. Surface Lab is the static SVG-background counterpart.
 
-The material engine includes:
+The quality-sorted library includes more than 140 materials and presets:
 
 - The editable ShaderGradient sphere preset, including three colors, environment brightness, amplitude, density, frequency, strength, grain, rotation, and speed.
-- Ten original local GLSL recipes for the public material techniques documented by Shaders.com: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Fluid Chrome, Chroma Flow, Drift, Mosaic, Circuit, and Dedalus Bloom.
-- Studio GLSL presets including liquid metal, mercury, brushed steel, aurora, topographic, plasma, radial beams, halftone, warped grid, glass waves, iridescent, heatmap, gem smoke, and grain gradient.
+- Original Glyphfield mesh, grain, dither, glyph-volume, and GLSL materials.
+- Nine original local studies of public Shaders.com visual techniques: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Architectural Chrome, Chroma Flow, Drift, Mosaic, and Circuit.
+- Fluid Energy, adapted from Pavel Dobryakov's MIT-licensed WebGL Fluid Simulation.
+- 29 Paper shader families with 120 upstream-authored presets.
+- Original design studies informed by Evil Rabbit Shaders, GRADIENTOOL, and Grainient, with reference links in the inspector.
 - A local custom GLSL editor using the same time, resolution, color, and material uniforms.
 
-Every material color accepts HEX or OKLCH input, and the eight included combinations provide considered monochrome, mercury, ultraviolet, signal, copper, arctic, vermilion, and cobalt starting points. PNG and GIF export use the same live canvas visible in the preview.
+Every material color accepts HEX or OKLCH input. The palette picker combines the active brand with considered monochrome, mercury, ultraviolet, signal, copper, arctic, vermilion, cobalt, and Surface Lab starting points. PNG and GIF export use the same live canvas visible in the preview.
 
 Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
 

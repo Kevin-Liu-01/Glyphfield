@@ -21,29 +21,46 @@ export default function MarketingArcField({
 
   useMountEffect(() => {
     const container = containerRef.current;
+    let intersecting = false;
+
+    function syncVisibility() {
+      setVisible(intersecting && document.visibilityState === 'visible');
+    }
+
     if (!container || !('IntersectionObserver' in window)) {
-      setVisible(true);
-      return;
+      intersecting = true;
+      syncVisibility();
+      document.addEventListener('visibilitychange', syncVisibility);
+      return () => document.removeEventListener('visibilitychange', syncVisibility);
     }
 
     const observer = new IntersectionObserver(
-      ([entry]) => setVisible(entry?.isIntersecting ?? false),
-      { rootMargin: '320px' }
+      ([entry]) => {
+        intersecting = entry?.isIntersecting ?? false;
+        syncVisibility();
+      },
+      { rootMargin: '180px' }
     );
 
     observer.observe(container);
-    return () => observer.disconnect();
+    document.addEventListener('visibilitychange', syncVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', syncVisibility);
+    };
   });
 
   return (
     <div className={`marketing-v5-arc-field ${className}`} ref={containerRef} aria-hidden='true'>
       <div className='marketing-v5-field-fallback' />
       {visible ? (
-        <LazyLiveMaterialCanvas materialId={materialId} renderScale={0.82} settings={settings} />
+        <LazyLiveMaterialCanvas
+          frameRate={24}
+          materialId={materialId}
+          renderScale={0.5}
+          settings={settings}
+        />
       ) : null}
-      <i className='marketing-v5-field-arc marketing-v5-field-arc--one' />
-      <i className='marketing-v5-field-arc marketing-v5-field-arc--two' />
-      <i className='marketing-v5-field-arc marketing-v5-field-arc--three' />
       <div className='marketing-v5-field-grain' />
     </div>
   );

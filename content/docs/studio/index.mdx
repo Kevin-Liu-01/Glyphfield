@@ -6,7 +6,7 @@ icon: PanelsTopLeft
 
 The Studio is the visual workspace at `/studio`. It is built around persistent brand-project tabs and a shared tool catalog.
 
-Every generator uses the same [editor systems](/docs/studio/editor-systems) for color, canvas zoom, selection, layers, alignment, assets, persistent drafts, and source editing. This makes an interaction learned in one tool available everywhere it applies.
+Every generator uses the same [editor systems](/docs/studio/editor-systems) for color, canvas zoom, selection, layers, alignment, assets, persistent drafts, and source editing. This makes an interaction learned in one tool available everywhere it applies. The shared [Shader Library](/docs/studio/shader-library) adds more than 140 quality-sorted live materials and presets to Material and Animation, while Surface Lab stays focused on deterministic static backgrounds.
 
 The **Code** action opens a right-side source drawer for the active artifact. Valid JSON or material source applies back into the same state used by the visual inspector, canvas, and export. Read [Source code editing](/docs/studio/source-editing) for formats, validation, and round-trip behavior.
 
@@ -18,7 +18,7 @@ The **Code** action opens a right-side source drawer for the active artifact. Va
 | --- | --- |
 | Elements | Brand elements |
 | Boards | Moodboard |
-| Motion | Animation, Lottie, Material |
+| Motion | Animation, Lottie, Material, shared Shader Library |
 | Foundations | Brand settings, Surface Lab, Color tokens, Typography |
 | Expressions | OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates |
 | Components | Component library |
@@ -44,6 +44,8 @@ Reusable canvas controls appear over generators and boards:
 - The slider provides fine-grained zoom from 40% to 200%.
 - Wheel or trackpad input over the stage changes zoom, while dragging the empty workspace pans around a zoomed artifact.
 - Reset restores the original centered view.
+
+Animation also exposes edge and corner handles on the artifact itself. Drag them to change output width, height, or both while keeping the canvas and numeric settings synchronized.
 
 Zoom is saved per project and tool.
 

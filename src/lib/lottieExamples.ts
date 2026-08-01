@@ -148,7 +148,7 @@ function stroke(slot: number, width = 3, opacity = 100) {
     lj: 2,
     ml: 4,
     nm: `Palette ${slot + 1}`,
-    o: { a: 0, k: opacity },
+    o: { a: 0, k: Math.min(opacity, 35) },
     ty: 'st',
     w: { a: 0, k: width },
   };
@@ -294,8 +294,6 @@ type PanelOptions = {
   accentSlot?: number;
   fillOpacity?: number;
   fillSlot?: number;
-  glazeOpacity?: number;
-  highlightOpacity?: number;
   rimOpacity?: number;
   rimSlot?: number;
 };
@@ -307,23 +305,9 @@ function sceneBackdrop(index: number, name: string, accentSlot = 2) {
     opacity: loopOpacity(0, 224, 100),
     position: [480, 360, 0],
     shapes: [
-      rectangleGroup('Workspace base', [844, 608], 1, [0, 0], 24, 5),
-      outlinedRectangleGroup('Workspace rim', [844, 608], 0, [0, 0], 24, 1, 22),
-      rectangleGroup('Workspace header rule', [772, 1], 0, [0, -216], 1, 12),
-      gradientRectangleGroup('Workspace accent', [52, 2], 1, accentSlot, [-360, -252], 1, 72),
-      rectangleGroup('Workspace title rail', [150, 2], 0, [-254, -252], 1, 14),
-      rectangleGroup('Workspace status', [34, 2], accentSlot, [369, 252], 1, 54),
-      rectangleGroup('Workspace end rail', [54, 2], 0, [325, 252], 1, 12),
-      ...panelGroups('Workspace focus', [812, 568], [0, 12], 18, {
-        accentOpacity: 0,
-        accentSide: 'top',
-        accentSlot,
-        fillOpacity: 0,
-        fillSlot: 1,
-        glazeOpacity: 0,
-        highlightOpacity: 0,
-        rimOpacity: 5,
-      }),
+      rectangleGroup('Workspace base', [900, 640], 1, [0, 0], 8, 5),
+      outlinedRectangleGroup('Workspace rim', [900, 640], 0, [0, 0], 8, 1, 18),
+      gradientRectangleGroup('Workspace header rule', [840, 1], 1, accentSlot, [0, -228], 0, 14),
     ],
   });
 }
@@ -332,52 +316,27 @@ function panelGroups(
   name: string,
   size: Size,
   position: [number, number] = [0, 0],
-  radius = 18,
+  radius = 8,
   {
     accentOpacity = 72,
     accentSide,
     accentSlot = 2,
     fillOpacity = 10,
     fillSlot = 1,
-    glazeOpacity = 0,
-    highlightOpacity = 20,
     rimOpacity = 32,
     rimSlot = 0,
   }: PanelOptions = {},
 ) {
   const [width, height] = size;
   const [x, y] = position;
+  const resolvedRadius = Math.min(radius, 8);
   const groups: Array<
-    | ReturnType<typeof gradientRectangleGroup>
     | ReturnType<typeof outlinedRectangleGroup>
     | ReturnType<typeof rectangleGroup>
   > = [
-    rectangleGroup(`${name} base`, size, fillSlot, position, radius, fillOpacity),
-    outlinedRectangleGroup(`${name} rim`, size, rimSlot, position, radius, 1, rimOpacity),
+    rectangleGroup(`${name} base`, size, fillSlot, position, resolvedRadius, fillOpacity),
+    outlinedRectangleGroup(`${name} rim`, size, rimSlot, position, resolvedRadius, 1, rimOpacity),
   ];
-
-  if (highlightOpacity > 0) {
-    groups.push(rectangleGroup(
-      `${name} highlight`,
-      [Math.max(24, width - 28), 1],
-      0,
-      [x, y - height / 2 + 7],
-      1,
-      Math.min(highlightOpacity, 14),
-    ));
-  }
-
-  if (glazeOpacity > 0) {
-    groups.splice(2, 0, gradientRectangleGroup(
-      `${name} glaze`,
-      [Math.max(24, width - 8), Math.max(24, height - 8)],
-      fillSlot,
-      accentSlot,
-      position,
-      Math.max(0, radius - 4),
-      glazeOpacity,
-    ));
-  }
 
   if (accentSide) {
     const vertical = accentSide === 'left' || accentSide === 'right';
@@ -455,6 +414,7 @@ function textLayer(
   weight: 400 | 500 | 600 = 400,
   opacity: AnimatedProperty = loopOpacity(0, FADE_OUT_START, 100),
   tracking = 0,
+  justification: 0 | 1 | 2 = 0,
 ) {
   const fontStyle = weight === 600 ? 'Semibold' : weight === 500 ? 'Medium' : 'Regular';
   const staticPosition: Point = Array.isArray(position) ? position as Point : [0, 0, 0];
@@ -482,7 +442,7 @@ function textLayer(
           s: {
             f: `GlyphfieldSans-${fontStyle}`,
             fc: (PALETTE[colorSlot] ?? PALETTE[0]).slice(0, 3),
-            j: 0,
+            j: justification,
             lh: fontSize * 1.18,
             ls: 0,
             s: fontSize,
@@ -497,6 +457,21 @@ function textLayer(
     },
     ty: 5,
   };
+}
+
+function sceneDescriptionLayer(index: number, text: string) {
+  return textLayer(
+    index,
+    'Scene description',
+    text,
+    [480, 92, 0],
+    17,
+    0,
+    500,
+    loopOpacity(0, FADE_OUT_START, 100),
+    0,
+    2,
+  );
 }
 
 function baseDocument(name: string, layers: unknown[]): LottieDocument {
@@ -531,7 +506,7 @@ function brandLogoLayer(
   const maximumHeight = 48;
   const scale = Math.min(1, maximumWidth / width, maximumHeight / height);
   const renderedWidth = width * scale;
-  const centerX = 88 + renderedWidth / 2;
+  const centerX = 60 + renderedWidth / 2;
   const centerY = 84;
   const scalePercent = scale * 100;
 
@@ -573,12 +548,11 @@ function dashboardLaunchDocument(): LottieDocument {
       index: 1,
       name: 'Dashboard shell',
       opacity: loopOpacity(6),
-      position: [480, 395, 0],
+      position: [480, 400, 0],
       scale: revealScale(6, 96),
       shapes: [
-        ...panelGroups('Shell', [730, 500], [0, 0], 24, { fillOpacity: 7, rimOpacity: 22 }),
-        rectangleGroup('Top bar', [690, 1], 0, [0, -184], 1, 18),
-        rectangleGroup('Sidebar', [1, 356], 0, [-236, 18], 1, 18),
+        ...panelGroups('Shell', [810, 480], [0, 0], 8, { fillOpacity: 7, rimOpacity: 18 }),
+        rectangleGroup('Sidebar divider', [1, 336], 0, [-236, 18], 0, 12),
       ],
     }),
     shapeLayer({
@@ -593,7 +567,7 @@ function dashboardLaunchDocument(): LottieDocument {
         { ease: 'linear', t: COMPOSITION_FRAMES, value: [191, 280, 0] },
       ]),
       opacity: loopOpacity(24),
-      shapes: [rectangleGroup('Active item', [74, 34], 2, [0, 0], 9, 62)],
+      shapes: [rectangleGroup('Active item', [74, 34], 2, [0, 0], 5, 62)],
     }),
     shapeLayer({
       index: 3,
@@ -602,7 +576,7 @@ function dashboardLaunchDocument(): LottieDocument {
       position: settlePosition(18, [390, 314, 0], [390, 286, 0]),
       scale: revealScale(18),
       shapes: [
-        ...panelGroups('Metric card', [220, 112], [0, 0], 16, { accentSide: 'left', fillOpacity: 9, rimOpacity: 24 }),
+        ...panelGroups('Metric card', [220, 112], [0, 0], 8, { accentSide: 'left', fillOpacity: 9, rimOpacity: 22 }),
       ],
     }),
     shapeLayer({
@@ -612,7 +586,7 @@ function dashboardLaunchDocument(): LottieDocument {
       position: settlePosition(30, [642, 314, 0], [642, 286, 0]),
       scale: revealScale(30),
       shapes: [
-        ...panelGroups('Metric card', [220, 112], [0, 0], 16, { accentOpacity: 42, accentSide: 'left', fillOpacity: 7, rimOpacity: 20 }),
+        ...panelGroups('Metric card', [220, 112], [0, 0], 8, { accentOpacity: 42, accentSide: 'left', fillOpacity: 7, rimOpacity: 18 }),
       ],
     }),
     shapeLayer({
@@ -621,7 +595,7 @@ function dashboardLaunchDocument(): LottieDocument {
       opacity: loopOpacity(38),
       position: [516, 474, 0],
       shapes: [
-        ...panelGroups('Activity', [472, 184], [0, 0], 18, { fillOpacity: 6, rimOpacity: 20 }),
+        ...panelGroups('Activity', [472, 184], [0, 0], 8, { fillOpacity: 6, rimOpacity: 18 }),
       ],
     }),
   ];
@@ -642,12 +616,12 @@ function dashboardLaunchDocument(): LottieDocument {
         { ease: 'inCubic', t: 212, value: [100, 100, 100] },
         { ease: 'linear', t: COMPOSITION_FRAMES, value: [100, 0, 100] },
       ]),
-      shapes: [rectangleGroup('Bar', [28, height], index % 3 === 2 ? 2 : 0, [0, 0], 7, index % 3 === 2 ? 82 : 66)],
+      shapes: [rectangleGroup('Bar', [28, height], index % 3 === 2 ? 2 : 0, [0, 0], 4, index % 3 === 2 ? 82 : 66)],
     }));
   });
 
   layers.unshift(
-    textLayer(40, 'Scene title', 'Product overview', [88, 132, 0], 30, 0, 600),
+    sceneDescriptionLayer(40, 'Product overview'),
     textLayer(41, 'Metric one label', 'Locales', [306, 270, 0], 14, 1, 500, loopOpacity(18)),
     textLayer(42, 'Metric one value', '24', [306, 312, 0], 30, 0, 600, loopOpacity(18)),
     textLayer(43, 'Metric two label', 'Coverage', [558, 270, 0], 14, 1, 500, loopOpacity(30)),
@@ -764,7 +738,7 @@ function apiExchangeDocument(): LottieDocument {
   });
 
   layers.unshift(
-    textLayer(40, 'Scene title', 'API exchange', [88, 132, 0], 30, 0, 600),
+    sceneDescriptionLayer(40, 'API exchange'),
     textLayer(41, 'Client label', 'CLIENT', [146, 286, 0], 13, 1, 500, loopOpacity(8), 80),
     textLayer(42, 'Client value', 'POST /translate', [146, 344, 0], 20, 0, 500, loopOpacity(8)),
     textLayer(43, 'API label', 'TRANSLATION API', [666, 286, 0], 13, 1, 500, loopOpacity(20), 60),
@@ -805,7 +779,6 @@ function localeMatrixDocument(): LottieDocument {
             accentOpacity: (row + column) % 3 === 0 ? 78 : 0,
             accentSide: (row + column) % 3 === 0 ? 'bottom' : undefined,
             fillOpacity: 6 + ((row + column) % 3) * 2,
-            highlightOpacity: 12,
             rimOpacity: 20,
           }),
         ],
@@ -824,8 +797,7 @@ function localeMatrixDocument(): LottieDocument {
   }
 
   layers.unshift(
-    textLayer(60, 'Scene title', 'Locale coverage', [88, 132, 0], 30, 0, 600),
-    textLayer(61, 'Scene description', '12 markets ready', [88, 170, 0], 16, 1, 400),
+    sceneDescriptionLayer(60, 'Locale coverage'),
   );
 
   layers.push(sceneBackdrop(90, 'Locale matrix'));
@@ -856,7 +828,6 @@ function releaseStackDocument(): LottieDocument {
         ...panelGroups('Release plane', [width, 60], [0, 0], 14, {
           accentSide: index === 3 ? 'bottom' : undefined,
           fillOpacity: index === 3 ? 10 : 5 + index,
-          highlightOpacity: 10,
           rimOpacity: index === 3 ? 32 : 20,
         }),
         ...orbGroups('Lock', 18, [width / 2 - 44, 0], index === 3 ? 0 : 2),
@@ -895,7 +866,7 @@ function releaseStackDocument(): LottieDocument {
     ));
   });
   layers.unshift(
-    textLayer(50, 'Scene title', 'Release stack', [88, 132, 0], 30, 0, 600),
+    sceneDescriptionLayer(50, 'Release stack'),
     textLayer(51, 'Completion label', 'Ready to ship', [390, 548, 0], 18, 2, 600, loopOpacity(66, 208)),
   );
 
@@ -1005,7 +976,7 @@ function contentSyncDocument(): LottieDocument {
   });
 
   layers.unshift(
-    textLayer(50, 'Scene title', 'Content sync', [88, 132, 0], 30, 0, 600),
+    sceneDescriptionLayer(50, 'Content sync'),
     textLayer(51, 'Source label', 'SOURCE', [164, 220, 0], 13, 1, 500, loopOpacity(8), 80),
     textLayer(52, 'Source value', 'product.json', [164, 250, 0], 18, 0, 500, loopOpacity(8)),
     textLayer(53, 'Localized label', 'LOCALIZED', [584, 220, 0], 13, 1, 500, loopOpacity(24), 80),
@@ -1084,8 +1055,7 @@ function conversionFlowDocument(): LottieDocument {
     ));
   });
   layers.unshift(
-    textLayer(50, 'Scene title', 'Onboarding', [88, 132, 0], 30, 0, 600),
-    textLayer(51, 'Step count', '3 steps', [88, 170, 0], 16, 1, 400),
+    sceneDescriptionLayer(50, 'Onboarding'),
   );
 
   layers.push(sceneBackdrop(90, 'Conversion flow'));
@@ -1148,7 +1118,7 @@ function agentQueueDocument(): LottieDocument {
         { ease: 'linear', t: COMPOSITION_FRAMES, value: [98, 98, 100] },
       ]),
       shapes: [
-        ...panelGroups('Task', [176, 54], [0, 0], 13, { accentOpacity: 76, accentSide: 'left', fillOpacity: 6 + (index % 2) * 2, highlightOpacity: 10, rimOpacity: 20 }),
+        ...panelGroups('Task', [176, 54], [0, 0], 13, { accentOpacity: 76, accentSide: 'left', fillOpacity: 6 + (index % 2) * 2, rimOpacity: 20 }),
         ellipseGroup('State', [14, 14], 2, [62, 0], 78),
       ],
     }));
@@ -1207,7 +1177,7 @@ function agentQueueDocument(): LottieDocument {
   }));
 
   layers.unshift(
-    textLayer(50, 'Scene title', 'Agent queue', [88, 132, 0], 30, 0, 600),
+    sceneDescriptionLayer(50, 'Agent queue'),
     textLayer(51, 'Hub label', 'AGENT', [468, 366, 0], 14, 0, 600, loopOpacity(8), 80),
     textLayer(52, 'Output label', 'OUTPUT', [690, 286, 0], 13, 1, 500, loopOpacity(34), 80),
     textLayer(53, 'Output value', 'Ready', [690, 334, 0], 22, 2, 600, loopOpacity(154, 208)),
@@ -1449,7 +1419,7 @@ export function customizeLottieDocument(
 export function recolorLottieDocument(document: LottieDocument, hex: string): LottieDocument {
   return customizeLottieDocument(document, {
     colors: [hex],
-    cornerRadius: 18,
-    strokeWidth: 3,
+    cornerRadius: 8,
+    strokeWidth: 2,
   });
 }

@@ -1,27 +1,31 @@
 ---
 title: Surface Lab, color, and typography
-description: Build backgrounds and logo applications from one shared surface workspace.
+description: Build deterministic static backgrounds, color systems, and type foundations.
 icon: Palette
 ---
 
 ## Surface Lab
 
-Surface Lab consolidates background and logo tools into one workspace. Switch modes from the header while the active brand, saved drafts, canvas behavior, appearance controls, and export system remain in context. Animated shader work lives in the dedicated **Material** tool under Motion.
+Surface Lab is the static-background counterpart to [Material](/docs/studio/shader-library). It builds deterministic SVG layers without WebGL, playback, or a shader browser. Use Material when the design needs a live shader, alpha-masked material, glass, reflection, depth, or animated GIF output.
 
-### Logo mode
+Surface Lab keeps the static composition workflow in one canvas:
 
-Logo mode previews the active mark in identity colors and at common application sizes.
+- Linear, radial, band, orbit, and wave gradients
+- Three-color grainy gradients with focal-point and relief controls
+- Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
+- Dot, line, and grid pattern overlays with editable spacing and opacity
+- Named spectral, mineral, paper, signal, and active-brand color presets
+- Reusable brand-image and texture layers with contain or cover fitting
+- Logo placement, direct dragging and scaling, custom color, dither, outline, and shadow
+- Square, landscape, and OpenGraph output sizes
 
-- Select ink, paper, emphasis, or success color.
-- Set any custom logo color with the shared HEX and OKLCH color control.
-- Invert the resolved mark, resolve it through an editable ordered-dither field, add an outline that follows the SVG alpha, or add a configurable shadow.
-- Select the mark on the canvas to drag, resize, nudge, or align it.
-- Switch between base white, base dark, grid, noise, and live GPU surfaces.
-- Choose any ShaderGradient or Shaders.com-inspired material and edit its colors in HEX or OKLCH.
-- Choose 64 px or 128 px output.
-- Enable transparent export when the mark should have no background.
+Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. The original live shader catalog remains available in Material, so no material or attribution is removed from Studio.
 
-The preview surface is derived from identity colors and does not change with Studio light or dark mode.
+### Output and source
+
+**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand asset.
+
+Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Material. Static background recipes remain available to the agent API as deterministic SVG.
 
 ## Color tokens
 
@@ -35,32 +39,4 @@ Typography compares Display, Body, Accent, and Code roles in one view. Select a 
 
 Uploaded font files are loaded with the browser FontFace API. They are not uploaded to Glyphfield.
 
-### Background mode
-
-Background mode builds exportable SVG layers or live rendered materials and downloads a PNG.
-
-### Recipes
-
-- Linear, radial, band, orbit, or wave gradient
-- Mirrored band fields with editable peak, count, depth, gap, and optional gradient lighting
-- Three-color grainy gradients with focal-point and relief controls
-- Named spectral, mineral, paper, and signal presets
-- Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
-- Pattern field
-- ShaderGradient, the spatial Glyph Field, original Glyphfield mesh/grain/dither materials, and Shaders.com-inspired live materials
-
-Glyph Field forms a dimensional mark from hundreds of animated letters. Density, detail, frequency, amplitude, speed, grain, and the three-color palette remain editable in the Surface Lab canvas, and the same renderer is used for preview and export.
-
-### Overlays
-
-Add dots, lines, or grids and control spacing and opacity. Logos can use a brand preset or custom color, invert independently, add ordered dither with amount, cell size, and direction, and add alpha-aware outlines and shadows. Select the mark directly on the canvas to drag, resize, nudge, or align it.
-
-Output presets cover common square, landscape, OpenGraph, and presentation sizes. Static recipes remain available to the agent API as deterministic SVG; live WebGL materials are rendered and downloaded in the browser.
-
-Background and Logo keep independent saved settings under Surface Lab, so switching modes never resets an existing design. Material preserves the former logo-shader draft scope, which keeps existing shader projects available after the navigation split.
-
-## Exact source editing
-
-The **Code** action opens the Surface Lab document in a right-side drawer. Its JSON contains the active surface settings, logo appearance, brand-asset fit, background opacity, logo visibility, and selected brand asset. Applying valid source updates the same preview used by the inspector and PNG export.
-
-This is configuration source, not a flattened picture. Gradient recipes, pattern opacity, dither, logo outline and shadow, material selection, and custom colors remain editable after a round trip. See [Source code editing](/docs/studio/source-editing).
+See [Source code editing](/docs/studio/source-editing) for validation and round-trip behavior.

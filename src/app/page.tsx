@@ -17,14 +17,14 @@ import {
 
 import type { ReactNode } from 'react';
 
-import AnimationStudio from '@/components/AnimationStudio';
 import MarketingArcField from '@/components/MarketingArcField';
+import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import MarketingMotion from '@/components/MarketingMotion';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
-import { GT_BRAND_IDENTITY } from '@/lib/brandIdentity';
-import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
+import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { STUDIO_TOOLS } from '@/lib/studioCatalog';
 
 const BRAND_LOGOS = [
   { id: 'gt', name: 'General Translation', src: '/brands/gt/logos/mark-black.svg' },
@@ -47,17 +47,17 @@ const GLYPH_FIELD_ROWS = [
 
 const HERO_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 2.6,
-  brightness: 1.06,
+  amplitude: 3.6,
+  brightness: 1.02,
   colorA: '#1B0A47',
   colorB: '#725CFF',
   colorC: '#D7FFF7',
-  detail: 4.2,
-  frequency: 5.8,
-  grain: 38,
+  detail: 2.8,
+  frequency: 3.8,
+  grain: 14,
   rotationZ: 24,
-  speed: 0.14,
-  strength: 0.64,
+  speed: 0.16,
+  strength: 0.82,
 };
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
@@ -73,6 +73,45 @@ const OPEN_SOURCE_FIELD_SETTINGS = {
   grain: 20,
   speed: 0.12,
   strength: 0.56,
+};
+
+const AGENT_LABS_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  brightness: 0.72,
+  colorA: '#07070A',
+  colorB: '#725CFF',
+  colorC: '#D7FFF7',
+  density: 1.35,
+  detail: 4.2,
+  frequency: 6.4,
+  grain: 10,
+  speed: 0.13,
+  strength: 0.78,
+};
+
+const AGENT_MATERIALS_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  brightness: 0.78,
+  colorA: '#090511',
+  colorB: '#725CFF',
+  colorC: '#D9FFF8',
+  detail: 3.8,
+  grain: 12,
+  speed: 0.14,
+  strength: 0.86,
+};
+
+const AGENT_GENERATE_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  brightness: 0.68,
+  colorA: '#050807',
+  colorB: '#22D789',
+  colorC: '#D7FFF7',
+  density: 1.2,
+  detail: 3.2,
+  grain: 8,
+  speed: 0.12,
+  strength: 0.74,
 };
 
 const FEATURES = [
@@ -113,12 +152,6 @@ const FEATURES = [
     label: 'Agent interface',
   },
 ] as const;
-
-const MARKETING_ANIMATION_IDENTITY = {
-  ...GT_BRAND_IDENTITY,
-  builtIn: false,
-  id: 'marketing-animation-demo',
-};
 
 export default async function HomePage() {
   const gt = await getGT();
@@ -212,14 +245,8 @@ export default async function HomePage() {
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField materialId='shaders-spectral-bloom' settings={HERO_FIELD_SETTINGS} />
-            <div className='marketing-v5-product-window' data-motion-item>
-              <ProductFrame
-                alt={gt('Glyphfield Studio showing the General Translation identity source')}
-                label='Brand identity / General Translation'
-                priority
-                src='/screenshots/studio-gt-identity-2026.png'
-                themeLabel='Dark / Studio'
-              />
+            <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
+              <MarketingAnimationDemo eager />
             </div>
           </div>
         </section>
@@ -227,32 +254,7 @@ export default async function HomePage() {
         <LogoRail gt={gt} />
         <SectionSpacer />
 
-        <section className='marketing-v5-composer marketing-v7-corner-frame' data-motion-reveal id='studio'>
-          <FrameTriangles />
-          <div className='marketing-v5-composer-copy' data-motion-item>
-            <div>
-              <h2><T>The Animation Studio, live.</T></h2>
-              <p>
-                <T>
-                  This is the same editor used inside Glyphfield: the real source sequence,
-                  per-frame controls, Bézier editor, canvas, playback, and timeline.
-                </T>
-              </p>
-            </div>
-            <Link className='marketing-v5-text-link' href='/studio'>
-              <T>Open the full Studio</T>
-              <ArrowRight aria-hidden='true' />
-            </Link>
-          </div>
-
-          <div className='marketing-v5-animation-demo' data-motion-item>
-            <AnimationStudio embedded identity={MARKETING_ANIMATION_IDENTITY} />
-          </div>
-        </section>
-
-        <SectionSpacer />
-
-        <section className='marketing-v5-capabilities marketing-v7-corner-frame' data-motion-reveal>
+        <section className='marketing-v5-capabilities marketing-v7-corner-frame' data-motion-reveal id='studio'>
           <FrameTriangles />
           <SectionHeading title='Foundations in. Useful artifacts out.'>
             <T>
@@ -285,24 +287,29 @@ export default async function HomePage() {
             <p>
               <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
             </p>
-            <div className='marketing-v5-product-card-image'>
+            <div className='marketing-v5-product-card-image marketing-v5-product-card-image--artifacts'>
               <Image
-                alt={gt('General Translation welcome email open in the Glyphfield brand-elements editor')}
+                alt={gt('General Translation brand elements open in the complete Glyphfield Studio workspace')}
                 fill
                 sizes='(max-width: 800px) 96vw, 64vw'
                 src='/screenshots/studio-gt-elements-2026.png'
+                unoptimized
               />
             </div>
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
-            <h2><T>Design the mark and its motion together.</T></h2>
+            <h2 className='marketing-v5-product-card-title--motion'>
+              <span><T>Design the mark</T></span>{' '}
+              <span><T>and its motion together.</T></span>
+            </h2>
             <p><T>Apply live type, material, depth, and timing to a mark, then reuse the result across every export.</T></p>
-            <div className='marketing-v5-product-card-image'>
+            <div className='marketing-v5-product-card-image marketing-v5-product-card-image--animation'>
               <Image
-                alt={gt('A General Translation mark surrounded by an animated Glyphfield letter field')}
+                alt={gt('The complete Glyphfield Animation Studio applying a shader to the General Translation mark')}
                 fill
                 sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-glyph-field-lab-2026.png'
+                src='/screenshots/studio-gt-animation-2026.png'
+                unoptimized
               />
             </div>
           </article>
@@ -313,22 +320,76 @@ export default async function HomePage() {
         <section className='marketing-v5-agents marketing-v7-corner-frame' data-motion-reveal id='agents'>
           <FrameTriangles dark />
           <div className='marketing-v5-agents-copy' data-motion-item>
-            <h2><T>The visual system is also an interface.</T></h2>
+            <h2 className='marketing-v5-agent-title'>
+              <span><T>Plug the system</T></span>{' '}
+              <span><T>into any agent.</T></span>
+            </h2>
             <p>
               <T>
-                Agents can discover identities, inspect tools, generate deterministic SVG, and know
-                when a browser render is required. The catalog and the canvas speak the same language.
+                Start from one manifest. Discover every Studio lab, inspect every shader and its
+                attribution, then choose deterministic generation or a browser-rendered workflow.
               </T>
             </p>
+            <div className='marketing-v5-agent-stats' aria-label={gt('Agent API coverage')}>
+              <div>
+                <strong>{STUDIO_TOOLS.length}</strong>
+                <span><T>Lab plugins</T></span>
+                <code>/api/labs</code>
+              </div>
+              <div>
+                <strong>{LIVE_MATERIAL_OPTIONS.length}</strong>
+                <span><T>Live shaders</T></span>
+                <code>/api/materials</code>
+              </div>
+              <div>
+                <strong>1</strong>
+                <span><T>Shared contract</T></span>
+                <code>/api/agent</code>
+              </div>
+            </div>
             <div className='marketing-v5-agent-links'>
-              <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/docs/agents'>
-                <T>Read agent docs</T><ArrowRight aria-hidden='true' />
+              <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/docs/agents/connect'>
+                <T>Connect an agent</T><ArrowRight aria-hidden='true' />
               </Link>
-              <Link href='/api/catalog'><T>Catalog</T> ↗</Link>
-              <Link href='/llms.txt'>llms.txt ↗</Link>
+              <Link href='/api/agent'><T>Manifest</T> ↗</Link>
+              <Link href='/openapi.json'>OpenAPI ↗</Link>
             </div>
           </div>
-          <AgentPanel />
+          <div className='marketing-v5-agent-integration' data-motion-item>
+            <nav aria-label={gt('Agent API endpoints')} className='marketing-v5-agent-endpoints'>
+              <Link href='/api/labs'>
+                <MarketingArcField
+                  className='marketing-v5-agent-endpoint-shader'
+                  materialId='study-line-field'
+                  settings={AGENT_LABS_FIELD_SETTINGS}
+                />
+                <span><b>GET</b><code>/api/labs</code></span>
+                <strong><T>Discover capabilities</T></strong>
+                <small>{STUDIO_TOOLS.length} <T>Studio plugins</T></small>
+              </Link>
+              <Link href='/api/materials'>
+                <MarketingArcField
+                  className='marketing-v5-agent-endpoint-shader'
+                  materialId='shaders-spectral-bloom'
+                  settings={AGENT_MATERIALS_FIELD_SETTINGS}
+                />
+                <span><b>GET</b><code>/api/materials</code></span>
+                <strong><T>Select a material</T></strong>
+                <small>{LIVE_MATERIAL_OPTIONS.length} <T>licensed shaders</T></small>
+              </Link>
+              <Link href='/api/generate'>
+                <MarketingArcField
+                  className='marketing-v5-agent-endpoint-shader'
+                  materialId='pavel-fluid-energy'
+                  settings={AGENT_GENERATE_FIELD_SETTINGS}
+                />
+                <span><b>POST</b><code>/api/generate</code></span>
+                <strong><T>Generate an artifact</T></strong>
+                <small><T>JSON or raw SVG</T></small>
+              </Link>
+            </nav>
+            <AgentPanel />
+          </div>
         </section>
 
         <SectionSpacer dark />
@@ -506,7 +567,10 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
     <section className='marketing-v5-theme-gallery marketing-v7-corner-frame' data-motion-reveal id='themes'>
       <FrameTriangles />
       <div className='marketing-v5-theme-gallery-copy' data-motion-item>
-        <h2><T>Current Studio. Real brand materials.</T></h2>
+        <h2 className='marketing-v5-theme-gallery-title'>
+          <span><T>Current Studio.</T></span>{' '}
+          <span><T>Real brand materials.</T></span>
+        </h2>
         <p>
           <T>
             See identity settings and an art-directed moodboard inside the same working workspace.
@@ -537,26 +601,39 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
 
 function AgentPanel() {
   return (
-    <div className='marketing-v5-agent-panel marketing-v7-corner-frame' data-motion-item>
-      <FrameTriangles dark />
+    <div className='marketing-v5-agent-panel' data-motion-item>
       <header>
-        <span><Braces aria-hidden='true' /> POST /api/generate</span>
-        <small>200 · image/svg+xml</small>
+        <span className='marketing-v5-agent-request'>
+          <Braces aria-hidden='true' />
+          <strong>GET</strong>
+          <code>/api/materials</code>
+        </span>
+        <span className='marketing-v5-agent-status'>
+          <strong>200</strong>
+          <small>application/json</small>
+        </span>
       </header>
       <pre><code>{`{
-  "kind": "template",
-  "template": "logo-motion",
-  "identity": { "preset": "gt" },
-  "settings": {
-    "sequence": ["logo", "text", "image"],
-    "material": "spectral-bloom",
-    "curve": [0.2, 0.8, 0.2, 1]
+  "count": ${LIVE_MATERIAL_OPTIONS.length},
+  "materials": [{
+    "id": "paper-liquid-metal-noir",
+    "engine": "Paper Shaders",
+    "sourceLabel": "Paper · Apache-2.0"
+  }],
+  "sharedBy": [
+    "animation",
+    "material",
+    "surface"
+  ],
+  "controls": {
+    "colorA": { "type": "hex-color" },
+    "strength": { "min": 0, "max": 2 }
   },
-  "output": "raw"
+  "schemaVersion": 1
 }`}</code></pre>
       <footer>
-        <span><i /> deterministic artifact</span>
-        <span>identity.json</span>
+        <span><i /> live catalog synchronized</span>
+        <span>{STUDIO_TOOLS.length} labs · {LIVE_MATERIAL_OPTIONS.length} shaders</span>
       </footer>
     </div>
   );

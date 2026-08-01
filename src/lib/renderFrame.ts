@@ -24,7 +24,14 @@ export type AnimationPackageId =
   | 'type-delete'
   | 'crossfade'
   | 'scale-fade'
-  | 'slide-fade';
+  | 'slide-fade'
+  | 'rise-fade'
+  | 'zoom-through'
+  | 'blur-swipe'
+  | 'flip-fade'
+  | 'spring-pop'
+  | 'rotate-fade'
+  | 'drift-fade';
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'shader';
 
@@ -93,7 +100,10 @@ type DrawOptions = {
   blur?: number;
   offsetX?: number;
   offsetY?: number;
+  rotation?: number;
   scale?: number;
+  scaleX?: number;
+  scaleY?: number;
   textOverride?: string;
 };
 
@@ -128,8 +138,11 @@ function drawSourceContent(
     anchor.x + (options.offsetX ?? 0),
     anchor.y + (options.offsetY ?? 0)
   );
-  context.rotate(((source.rotation ?? 0) * Math.PI) / 180);
-  context.scale(scale, scale);
+  context.rotate((((source.rotation ?? 0) + (options.rotation ?? 0)) * Math.PI) / 180);
+  context.scale(
+    scale * (options.scaleX ?? 1),
+    scale * (options.scaleY ?? 1)
+  );
 
   if (source.kind === 'text') {
     const text = options.textOverride ?? source.text;
@@ -553,6 +566,118 @@ export function renderFrame(
       alpha: eased,
       backdrop,
       offsetX: travel * (1 - eased),
+    });
+    return;
+  }
+
+  if (config.packageId === 'rise-fade') {
+    const travel = config.height * 0.14;
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      offsetY: -travel * eased,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      offsetY: travel * (1 - eased),
+    });
+    return;
+  }
+
+  if (config.packageId === 'zoom-through') {
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      scale: 1 + eased * 0.24,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      scale: 0.76 + eased * 0.24,
+    });
+    return;
+  }
+
+  if (config.packageId === 'blur-swipe') {
+    const travel = config.width * 0.13;
+    const blur = config.blur * 1.35 * Math.sin(Math.PI * eased);
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      blur,
+      offsetX: travel * eased,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      blur,
+      offsetX: -travel * (1 - eased),
+    });
+    return;
+  }
+
+  if (config.packageId === 'flip-fade') {
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      scaleX: Math.max(0.04, 1 - eased),
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      scaleX: Math.max(0.04, eased),
+    });
+    return;
+  }
+
+  if (config.packageId === 'spring-pop') {
+    const lift = Math.sin(Math.PI * eased);
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      scale: 1 + lift * 0.08,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      scale: 0.72 + eased * 0.28 + lift * 0.13,
+    });
+    return;
+  }
+
+  if (config.packageId === 'rotate-fade') {
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      rotation: -8 * eased,
+      scale: 1 - eased * 0.05,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      rotation: 8 * (1 - eased),
+      scale: 0.95 + eased * 0.05,
+    });
+    return;
+  }
+
+  if (config.packageId === 'drift-fade') {
+    const travelX = config.width * 0.07;
+    const travelY = config.height * 0.09;
+    drawSource(context, current, config, {
+      alpha: 1 - eased,
+      backdrop,
+      offsetX: -travelX * eased,
+      offsetY: travelY * eased,
+      rotation: -3 * eased,
+    });
+    drawSource(context, next, config, {
+      alpha: eased,
+      backdrop,
+      offsetX: travelX * (1 - eased),
+      offsetY: -travelY * (1 - eased),
+      rotation: 3 * (1 - eased),
     });
     return;
   }

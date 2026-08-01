@@ -6,9 +6,13 @@ import {
   LIVE_MATERIAL_LOOK_PRESETS,
   LIVE_MATERIAL_PALETTES,
   LIVE_MATERIAL_OPTIONS,
+  PAPER_LIVE_MATERIAL_IDS,
+  PAPER_SHADER_FAMILIES,
+  PAPER_SHADERS_SOURCE_URL,
   liveMaterialLookPreset,
   normalizeLiveMaterialId,
   SHADER_GRADIENT_SOURCE_URL,
+  WEBGL_FLUID_SOURCE_URL,
 } from '../liveMaterials';
 
 describe('live materials', () => {
@@ -30,9 +34,9 @@ describe('live materials', () => {
     expect(SHADER_GRADIENT_SOURCE_URL).toContain('grain=on');
   });
 
-  it('offers the ten Shaders.com study scene families alongside ShaderGradient', () => {
+  it('offers the curated Shaders.com study scene families without Dedalus Bloom', () => {
     const shadersMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Shaders.com study');
-    expect(shadersMaterials).toHaveLength(10);
+    expect(shadersMaterials).toHaveLength(9);
     expect(shadersMaterials.map(({ id }) => id)).toEqual(
       expect.arrayContaining([
         'shaders-fluid-chrome',
@@ -41,6 +45,7 @@ describe('live materials', () => {
         'shaders-circuit',
       ])
     );
+    expect(LIVE_MATERIAL_OPTIONS.some(({ id }) => String(id) === 'shaders-dedalus-bloom')).toBe(false);
   });
 
   it('offers the glyph field alongside original mesh, grain, and dither gradient materials', () => {
@@ -53,14 +58,55 @@ describe('live materials', () => {
     ]);
   });
 
+  it('credits the MIT-licensed WebGL fluid material at its source', () => {
+    expect(LIVE_MATERIAL_OPTIONS.find(({ id }) => id === 'pavel-fluid-energy')).toMatchObject({
+      engine: 'WebGL Fluid',
+      sourceLabel: 'PavelDoGreat · MIT',
+      sourceUrl: WEBGL_FLUID_SOURCE_URL,
+    });
+    expect(WEBGL_FLUID_SOURCE_URL).toBe('https://github.com/PavelDoGreat/WebGL-Fluid-Simulation');
+  });
+
+  it('offers the shared Apache-licensed Paper shader collection', () => {
+    const paperMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Paper Shaders');
+    expect(PAPER_SHADER_FAMILIES).toHaveLength(29);
+    expect(paperMaterials).toHaveLength(120);
+    expect(LIVE_MATERIAL_OPTIONS).toHaveLength(141);
+    expect(paperMaterials.map(({ id }) => id)).toEqual(expect.arrayContaining(PAPER_LIVE_MATERIAL_IDS));
+    expect(new Set(PAPER_LIVE_MATERIAL_IDS).size).toBe(PAPER_LIVE_MATERIAL_IDS.length);
+    expect(new Set(paperMaterials.map(({ sourceUrl }) => sourceUrl))).toEqual(new Set([PAPER_SHADERS_SOURCE_URL]));
+    expect(paperMaterials.every(({ sourceLabel }) => sourceLabel === 'Paper · Apache-2.0')).toBe(true);
+  });
+
+  it('curates all sources by visual quality and includes attributable design studies', () => {
+    const qualityScores = LIVE_MATERIAL_OPTIONS.map(({ qualityScore }) => qualityScore);
+    expect(qualityScores).toEqual(qualityScores.toSorted((left, right) => right - left));
+    expect(LIVE_MATERIAL_OPTIONS.slice(0, 12).map(({ engine }) => engine)).toEqual(
+      expect.arrayContaining(['Shaders.com study', 'Design study', 'WebGL Fluid', 'Paper Shaders'])
+    );
+    expect(LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Design study').map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        'study-line-field',
+        'study-relief-gradient',
+        'study-radiant-void',
+        'study-galactic-rings',
+      ])
+    );
+  });
+
   it('ships original color combinations and migrates legacy scene prefixes', () => {
-    expect(LIVE_MATERIAL_PALETTES).toHaveLength(8);
-    expect(new Set(LIVE_MATERIAL_PALETTES.flatMap(({ colors }) => colors)).size).toBeGreaterThan(16);
+    expect(LIVE_MATERIAL_PALETTES).toHaveLength(15);
+    expect(new Set(LIVE_MATERIAL_PALETTES.flatMap(({ colors }) => colors)).size).toBeGreaterThan(32);
+    expect(LIVE_MATERIAL_PALETTES.map(({ id }) => id)).toEqual(expect.arrayContaining([
+      'surface-paper-aperture',
+      'surface-signal-dither',
+      'surface-solar-orbit',
+    ]));
     expect(normalizeLiveMaterialId('legacy-fluid-chrome')).toBe('shaders-fluid-chrome');
   });
 
   it('shares a broad set of editable look presets across material surfaces', () => {
-    expect(LIVE_MATERIAL_LOOK_PRESETS).toHaveLength(7);
+    expect(LIVE_MATERIAL_LOOK_PRESETS).toHaveLength(8);
     expect(new Set(LIVE_MATERIAL_LOOK_PRESETS.map(({ materialId }) => materialId)).size).toBeGreaterThan(5);
     expect(liveMaterialLookPreset('polished-chrome')).toMatchObject({
       materialId: 'shaders-fluid-chrome',

@@ -102,7 +102,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Motion',
-    description: 'Apply animated materials and shaders to backgrounds, logos, and transparent marks.',
+    description: 'Apply live shaders, material finishes, glass, reflection, and depth to backgrounds and marks.',
     id: 'material',
     keywords: [
       'material',
@@ -114,6 +114,9 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'aurora',
       'plasma',
       'animated',
+      'finish',
+      'reflection',
+      'shadow',
       'gif',
     ],
     name: 'Material',
@@ -129,7 +132,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Design backgrounds and logo applications in one focused surface workspace.',
+    description: 'Build static SVG backgrounds with gradients, grain, dither, patterns, assets, and logo placement.',
     id: 'surface',
     keywords: [
       'surface lab',

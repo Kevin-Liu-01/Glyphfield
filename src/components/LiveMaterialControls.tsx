@@ -1,8 +1,9 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
+import { ExternalLink } from 'lucide-react';
 
-import { LiveMaterialOptionLabel } from '@/components/LiveMaterialSourceLabel';
+import { LiveMaterialOptionLabel, LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -11,7 +12,9 @@ import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
   LIVE_MATERIAL_OPTIONS,
+  SHADERS_SOURCE_URL,
   liveMaterialLookPreset,
+  getLiveMaterial,
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
@@ -93,18 +96,23 @@ export default function LiveMaterialControls({
   materialId,
   onMaterialIdChange,
   onSettingsChange,
+  showMaterialSelector = true,
   settings,
 }: {
   identity: Pick<BrandIdentity, 'colors' | 'id' | 'name' | 'shortName'>;
   materialId: LiveMaterialId;
   onMaterialIdChange: (materialId: LiveMaterialId) => void;
   onSettingsChange: (settings: LiveMaterialSettings) => void;
+  showMaterialSelector?: boolean;
   settings: LiveMaterialSettings;
 }) {
   const gt = useGT();
   const resolvedSettings = { ...DEFAULT_LIVE_MATERIAL_SETTINGS, ...settings };
   const activeLookId = selectedLookId(materialId, resolvedSettings);
   const activeLook = liveMaterialLookPreset(activeLookId);
+  const activeMaterial = getLiveMaterial(materialId);
+  const sourceUrl = activeMaterial.sourceUrl
+    ?? (activeMaterial.engine === 'Shaders.com study' ? SHADERS_SOURCE_URL : undefined);
 
   function update(patch: Partial<LiveMaterialSettings>) {
     onSettingsChange({ ...resolvedSettings, ...patch });
@@ -112,8 +120,31 @@ export default function LiveMaterialControls({
 
   return (
     <div className='flex flex-col gap-5'>
+      {!showMaterialSelector ? (
+        <div>
+          <div className='flex items-start justify-between gap-3'>
+            <div className='min-w-0'>
+              <p className='truncate text-sm font-semibold'>{activeMaterial.name}</p>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
+            </div>
+            <LiveMaterialSourceBadge className='shrink-0' engine={activeMaterial.engine} />
+          </div>
+          {sourceUrl ? (
+            <a
+              className='mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground'
+              href={sourceUrl}
+              rel='noreferrer'
+              target='_blank'
+            >
+              <span>{activeMaterial.sourceLabel ?? activeMaterial.engine}</span>
+              <ExternalLink aria-hidden='true' className='size-3' />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
-        <T>Look preset</T>
+        <T>Quick look</T>
         <StudioSelect
           ariaLabel={gt('Material look preset')}
           onValueChange={(value) => {
@@ -134,7 +165,7 @@ export default function LiveMaterialControls({
         {activeLook ? <p className='text-xs leading-5'>{gt(activeLook.description)}</p> : null}
       </div>
 
-      <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+      {showMaterialSelector ? <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
         <T>Material</T>
         <StudioSelect
           ariaLabel={gt('Live material')}
@@ -145,7 +176,18 @@ export default function LiveMaterialControls({
           }))}
           value={materialId}
         />
-      </div>
+        {sourceUrl ? (
+          <a
+            className='inline-flex items-center gap-1.5 text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground'
+            href={sourceUrl}
+            rel='noreferrer'
+            target='_blank'
+          >
+            <span>{activeMaterial.sourceLabel ?? activeMaterial.engine}</span>
+            <ExternalLink aria-hidden='true' className='size-3' />
+          </a>
+        ) : null}
+      </div> : null}
 
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <div>

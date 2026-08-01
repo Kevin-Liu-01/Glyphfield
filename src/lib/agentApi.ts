@@ -135,7 +135,7 @@ export const AGENT_GENERATION_CONTRACT = {
 } as const;
 
 export const AGENT_MANIFEST = {
-  description: 'Discover and generate Glyphfield brand-system artifacts without operating the UI.',
+  description: 'Discover Glyphfield labs, shaders, identities, and generation contracts from one agent-readable interface.',
   generation: AGENT_GENERATION_CONTRACT,
   name: 'Glyphfield Agent API',
   policies: {
@@ -151,6 +151,8 @@ export const AGENT_MANIFEST = {
     identities: '/api/identities',
     instructions: '/llms.txt',
     integrationGuide: '/docs/agents/connect',
+    labs: '/api/labs',
+    materials: '/api/materials',
     openapi: '/openapi.json',
     workspace: '/studio',
   },
@@ -224,6 +226,18 @@ export const OPENAPI_DOCUMENT = {
       get: {
         responses: { '200': { description: 'Built-in template, GT, and reference identity records' } },
         summary: 'List built-in brand identities and asset IDs',
+      },
+    },
+    '/api/labs': {
+      get: {
+        responses: { '200': { description: 'Complete Studio lab-plugin catalog and shared-library capabilities' } },
+        summary: 'List every Studio lab plugin available to agents',
+      },
+    },
+    '/api/materials': {
+      get: {
+        responses: { '200': { description: 'Complete shader library, controls, palettes, presets, and attribution' } },
+        summary: 'List every shader material available in the shared library',
       },
     },
   },

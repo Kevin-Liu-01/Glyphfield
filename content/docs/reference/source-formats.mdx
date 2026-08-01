@@ -32,12 +32,12 @@ The Studio source drawer exposes the working state of the active browser tool. E
 
 | Field | Accepted values |
 | --- | --- |
-| `engine` | `studio-glsl`, `shadergradient`, `glyphfield`, `shaders`, `custom-glsl` |
+| `engine` | `studio-glsl`, `shadergradient`, `glyphfield`, `shaders`, `fluid`, `paper`, `custom-glsl` |
 | `target` | `background`, `logo`, `both` |
 | `ratio` | `square`, `wide`, `opengraph` |
 | `exportQuality` | `standard`, `high`, `ultra` |
 
-Material documents can also contain `presetId`, `liveMaterialId`, `parameters`, `liveSettings`, `finish`, `logo`, `speed`, and `customSource`. Preserve engine-specific objects when changing another property.
+Material documents can also contain `presetId`, `liveMaterialId`, `parameters`, `liveSettings`, `finish`, `logo`, `speed`, and `customSource`. `liveMaterialId` identifies the exact Shader Library card; `liveSettings` contains the shared three-color and numeric controls. Preserve engine-specific objects when changing another property.
 
 ## Lottie validation
 
@@ -68,4 +68,3 @@ Source drawers are intended for precise browser editing and round trips between 
 - Package authorized fonts and source assets separately when the target format does not embed them.
 
 See [Source code editing](/docs/studio/source-editing) for the browser workflow and [Formats and portability](/docs/artifacts/formats-and-portability) for output behavior.
-

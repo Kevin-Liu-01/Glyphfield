@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Check,
@@ -34,10 +34,6 @@ import LogoShaderStudio from '@/components/LogoShaderStudio';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
-import LogoAppearancePreview from '@/components/LogoAppearancePreview';
-import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
-import LiveMaterialControls from '@/components/LiveMaterialControls';
-import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -52,7 +48,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
-import { formatOklch, normalizeHex } from '@/lib/color';
+import { formatOklch, hexToOklch, normalizeHex } from '@/lib/color';
 import {
   CODE_THEME,
   highlightCode,
@@ -65,17 +61,8 @@ import {
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
-  DEFAULT_LIVE_MATERIAL_ID,
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brandMaterialPalette,
-  getLiveMaterial,
-  type LiveMaterialId,
-  type LiveMaterialSettings,
-} from '@/lib/liveMaterials';
-import {
   buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
-  drawLogoAppearanceLayer,
   logoAppearanceCssFilter,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
@@ -380,18 +367,6 @@ function splitLines(value: string, limit: number, maximumLines = 3): string[] {
   return lines;
 }
 
-function textureDefinition(texture: string, background: string): string {
-  if (texture === 'grid') {
-    return `<defs><pattern id="texture" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#9A9A93" stroke-opacity="0.22" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="${background}"/><rect width="100%" height="100%" fill="url(#texture)"/>`;
-  }
-
-  if (texture === 'noise') {
-    return `<defs><filter id="noise"><feTurbulence baseFrequency="0.75" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.08"/></feComponentTransfer></filter></defs><rect width="100%" height="100%" fill="${background}"/><rect width="100%" height="100%" filter="url(#noise)" opacity="0.45"/>`;
-  }
-
-  return `<rect width="100%" height="100%" fill="${background}"/>`;
-}
-
 function monogramDataUrl(identity: BrandIdentity, color: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="none"/><text x="256" y="310" text-anchor="middle" fill="${color}" font-family="Switzer, Arial, sans-serif" font-size="180" font-weight="550">${escapeXml(identity.shortName)}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -406,11 +381,11 @@ const OPEN_GRAPH_TITLES: Readonly<Record<string, string>> = {
   basement: 'Cool work that performs.',
   cloudflare: 'A better Internet, built everywhere.',
   gt: 'Every language. One source.',
-  mintlify: 'Knowledge infrastructure for agents.',
+  mintlify: 'Documentation that works for everyone.',
   ramp: 'Save time. Save money.',
   starter: 'Make the signal visible.',
   stripe: 'Build the internet economy.',
-  tailwind: 'CSS-first. Built for the modern web.',
+  tailwind: 'Build anything. Directly in your markup.',
   viteplus: 'One toolchain for the web.',
 };
 
@@ -419,33 +394,17 @@ function openGraphDefaultAssetId(identity: BrandIdentity): string {
     'economic-ledger': ['library-editorial', 'library-detail', 'library-overview'],
     'editorial-interruption': ['library-editorial', 'library-overview', 'library-detail'],
     'focus-window': ['library-overview', 'library-editorial', 'library-detail'],
-    'knowledge-beam': ['library-interface', 'library-overview', 'library-detail'],
+    'knowledge-beam': [],
     'network-horizon': ['library-overview', 'library-detail', 'library-atmosphere'],
     'programmable-field': ['library-overview', 'library-interface', 'library-detail'],
     'translation-frame': [],
     'unified-terminal': ['library-overview', 'library-atmosphere', 'library-detail'],
-    'utility-wave': ['library-interface', 'library-overview', 'library-detail'],
+    'utility-wave': [],
   };
   const availableAssets = [...identity.assets, ...identity.proofAssets];
 
   return preferredIds[identity.artDirection.preview]
     .find((id) => availableAssets.some((asset) => asset.id === id)) ?? '';
-}
-
-function openGraphRecipeLabel(identity: BrandIdentity): string {
-  const labels: Readonly<Record<BrandIdentity['artDirection']['preview'], string>> = {
-    'economic-ledger': 'FINANCE OPERATIONS / CONTROL',
-    'editorial-interruption': 'INDEPENDENT DIGITAL STUDIO',
-    'focus-window': 'RESEARCH / DIRECTION / SYSTEM',
-    'knowledge-beam': 'KNOWLEDGE FOR PEOPLE + AGENTS',
-    'network-horizon': 'CONNECTIVITY CLOUD',
-    'programmable-field': 'PROGRAMMABLE ECONOMY',
-    'translation-frame': 'ONE SOURCE / EVERY LANGUAGE',
-    'unified-terminal': 'ONE CONFIGURATION / ONE FLOW',
-    'utility-wave': 'CSS-FIRST / MODERN WEB',
-  };
-
-  return labels[identity.artDirection.preview];
 }
 
 function openGraphPanelColor(identity: BrandIdentity, background: string): string {
@@ -501,10 +460,12 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   );
   const logoOptions = identity.assets.filter(({ type }) => type === 'logo' || type === 'icon');
   const defaultSurface = openGraphDefaultSurface(identity);
+  const recipe = identity.artDirection.preview;
+  const defaultFontRole: BrandTypography['role'] = recipe === 'knowledge-beam' ? 'Body' : 'Display';
   const [title, setTitle] = useStudioDraft(
     identity.id,
     tool.id,
-    'identity-title-v2',
+    'identity-title-v3',
     OPEN_GRAPH_TITLES[identity.id] ?? identity.tagline
   );
   const [surface, setSurface] = useStudioDraft<'light' | 'dark'>(
@@ -516,7 +477,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const [libraryBackgroundId, setLibraryBackgroundId] = useStudioDraft(
     identity.id,
     tool.id,
-    'identity-media-v5',
+    'identity-media-v8',
     openGraphDefaultAssetId(identity) || 'none'
   );
   const [libraryLogoId, setLibraryLogoId] = useStudioDraft(
@@ -525,8 +486,8 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     'identity-logo-v2',
     defaultSurface === 'dark' ? 'mark-light' : 'mark-dark'
   );
-  const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Display');
-  const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Display').weight ?? MAX_VISIBLE_FONT_WEIGHT);
+  const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role-v2', defaultFontRole);
+  const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight-v2', brandTypographyRole(identity, defaultFontRole).weight ?? MAX_VISIBLE_FONT_WEIGHT);
   const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'media-opacity-v2', 100);
   const [backgroundX, setBackgroundX] = useStudioDraft(identity.id, tool.id, 'media-x-v2', 0);
   const [backgroundY, setBackgroundY] = useStudioDraft(identity.id, tool.id, 'media-y-v2', 0);
@@ -554,25 +515,46 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const selectedTypography = brandTypographyRole(identity, fontRole);
   const selectedBrandFont = brandFontAssets(identity).find(({ id }) => id === selectedTypography.fontId);
   const selectedFontFamily = customFont.font?.family ?? brandTypographyFamily(identity, fontRole);
-  const recipe = identity.artDirection.preview;
-  const recipeLabel = openGraphRecipeLabel(identity);
+  const isMintlifyOpenGraph = recipe === 'knowledge-beam';
+  const isTailwindOpenGraph = recipe === 'utility-wave';
+  const usesMintlifyAtmosphere =
+    !backgroundAsset.asset && !selectedBackground && isMintlifyOpenGraph;
+  const usesTailwindAtmosphere =
+    !backgroundAsset.asset && !selectedBackground && isTailwindOpenGraph;
+  const usesBrandAtmosphere = usesMintlifyAtmosphere || usesTailwindAtmosphere;
+  const hasOpenGraphMedia =
+    usesBrandAtmosphere || Boolean(backgroundAsset.asset || selectedBackground);
+  const hasCustomOpenGraphScene =
+    !usesBrandAtmosphere &&
+    !backgroundAsset.asset &&
+    !selectedBackground &&
+    (isMintlifyOpenGraph || isTailwindOpenGraph);
   const panelColor = openGraphPanelColor(identity, background);
   const panelForeground = openGraphPanelIsDark(identity) ? paper : ink;
   const emphasis = identity.colors.find(({ id }) => id === 'emphasis')?.hex ?? foreground;
-  const proof = identity.proof[0] ?? identity.products[0] ?? '';
+  const proof =
+    identity.id === 'gt'
+      ? identity.website
+      : identity.proof[0] ?? identity.products[0] ?? '';
   const mediaObjectPosition = backgroundAsset.asset
     ? '50% 50%'
     : selectedBackground?.focalPoint
     ? `${selectedBackground.focalPoint.x * 100}% ${selectedBackground.focalPoint.y * 100}%`
     : '50% 50%';
-  const mediaObjectFit = !backgroundAsset.asset && selectedBackground?.tags?.includes('centered-product')
-    ? 'contain'
-    : 'cover';
-  const titleLines = splitLines(
-    title,
-    recipe === 'economic-ledger' ? 17 : 22,
-    2
-  );
+  const titleLines = identity.id === 'gt' && title.trim() === OPEN_GRAPH_TITLES.gt
+    ? ['Every language.', 'One source.']
+    : identity.id === 'stripe' && title.trim() === OPEN_GRAPH_TITLES.stripe
+      ? ['Build the internet', 'economy.']
+      : isTailwindOpenGraph && title.trim() === 'Build anything. Directly in your markup.'
+        ? ['Build anything.', 'Directly in your markup.']
+        : splitLines(
+            title,
+            recipe === 'economic-ledger' ? 17 : isTailwindOpenGraph ? 22 : isMintlifyOpenGraph ? 26 : 22,
+            2
+          );
+  const longestTitleLine = Math.max(...titleLines.map((line) => line.length), 1);
+  const titleFontSize = longestTitleLine > 20 ? 48 : longestTitleLine > 17 ? 52 : 56;
+  const titleLineHeight = Math.round(titleFontSize * 1.04);
   const promiseLines = splitLines(identity.strategy.promise, 44, 3);
 
   const sourceCode = stringifySource({
@@ -652,10 +634,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         ? `<style>@font-face{font-family:'StudioCustom';src:url('${fontData}')}</style>`
         : '';
       const fontFamily = fontData ? 'StudioCustom' : brandTypographyFamily(identity, fontRole);
-      const mediaX = 684;
-      const mediaY = 136;
-      const mediaWidth = 444;
-      const mediaHeight = 366;
+      const mediaX = 620;
+      const mediaY = 0;
+      const mediaWidth = 580;
+      const mediaHeight = 630;
       const resolvedMediaWidth = mediaWidth * (backgroundScale / 100);
       const resolvedMediaHeight = mediaHeight * (backgroundScale / 100);
       const resolvedMediaX = mediaX + (mediaWidth - resolvedMediaWidth) / 2 + (backgroundX / 100) * mediaWidth;
@@ -663,10 +645,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       const exportedTitleLines = titleLines
         .map(
           (line, index) =>
-            `<text x="72" y="${titleLines.length === 1 ? 392 : 350 + index * 58}" fill="${foreground}" font-family="${fontFamily}" font-size="56" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-1.8">${escapeXml(line)}</text>`
+            `<text x="72" y="${titleLines.length === 1 ? 392 : 350 + index * titleLineHeight}" fill="${foreground}" font-family="${fontFamily}" font-size="${titleFontSize}" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="${titleFontSize >= 54 ? -1.8 : -1.4}">${escapeXml(line)}</text>`
         )
         .join('');
-      const promiseStartY = titleLines.length === 1 ? 438 : 350 + titleLines.length * 58 + 26;
+      const promiseStartY = titleLines.length === 1 ? 438 : 350 + titleLines.length * titleLineHeight + 26;
       const exportedPromiseLines = promiseLines
         .map(
           (line, index) =>
@@ -688,14 +670,37 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         ? `<rect x="72" y="${Math.min(536, promiseStartY + promiseLines.length * 20 + 18)}" width="${Math.min(330, Math.max(114, proof.length * 8.5 + 28))}" height="32" fill="${proofChipBackground}"/><text x="86" y="${Math.min(558, promiseStartY + promiseLines.length * 20 + 40)}" fill="${chipTextColor}" font-family="${fontFamily}" font-size="13" font-weight="500">${escapeXml(proof)}</text>`
         : '';
       const mediaLayer = backgroundImage
-        ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><g clip-path="url(#opengraph-media)"><image href="${backgroundImage}" x="${resolvedMediaX}" y="${resolvedMediaY}" width="${resolvedMediaWidth}" height="${resolvedMediaHeight}" preserveAspectRatio="${mediaObjectFit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice'}" opacity="${backgroundOpacity / 100}"/></g>`
+        ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><g clip-path="url(#opengraph-media)"><image href="${backgroundImage}" x="${resolvedMediaX}" y="${resolvedMediaY}" width="${resolvedMediaWidth}" height="${resolvedMediaHeight}" preserveAspectRatio="xMidYMid slice" opacity="${backgroundOpacity / 100}"/></g>`
         : recipe === 'translation-frame'
           ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="url(#opengraph-dots)"/><text x="724" y="242" fill="${panelForeground}" opacity="0.78" font-family="${fontFamily}" font-size="30" font-weight="500">Welcome</text><text x="934" y="242" fill="${panelForeground}" opacity="0.92" font-family="${fontFamily}" font-size="34" font-weight="500">你好</text><text x="724" y="348" fill="${panelForeground}" opacity="0.72" font-family="${fontFamily}" font-size="26" font-weight="500">Bienvenidos</text><text x="932" y="348" fill="${panelForeground}" opacity="0.84" font-family="${fontFamily}" font-size="30" font-weight="500">ようこそ</text><text x="820" y="448" fill="${panelForeground}" opacity="0.74" font-family="${fontFamily}" font-size="30" font-weight="500">أهلاً وسهلاً</text>`
-          : `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><text x="${mediaX + 34}" y="${mediaY + 56}" fill="${panelForeground}" opacity="0.6" font-family="${fontFamily}" font-size="12" font-weight="500" letter-spacing="1.4">${escapeXml(recipeLabel)}</text><rect x="${mediaX + 34}" y="${mediaY + 100}" width="${mediaWidth - 68}" height="54" fill="${panelForeground}" opacity="0.12"/><rect x="${mediaX + 34}" y="${mediaY + 174}" width="${mediaWidth - 132}" height="54" fill="${panelForeground}" opacity="0.2"/><rect x="${mediaX + 34}" y="${mediaY + 248}" width="${mediaWidth - 92}" height="54" fill="${panelForeground}" opacity="0.1"/>`;
+          : `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><rect x="${mediaX + 42}" y="154" width="${mediaWidth - 84}" height="76" fill="${panelForeground}" opacity="0.12"/><rect x="${mediaX + 42}" y="254" width="${mediaWidth - 164}" height="76" fill="${panelForeground}" opacity="0.2"/><rect x="${mediaX + 42}" y="354" width="${mediaWidth - 112}" height="76" fill="${panelForeground}" opacity="0.1"/>`;
+      const mediaMetadataColor = backgroundImage ? '#FFFFFF' : panelForeground;
+      const websiteMetadataLayer =
+        identity.id === 'gt'
+          ? ''
+          : `<text x="1160" y="590" text-anchor="end" fill="${mediaMetadataColor}" opacity="0.84" font-family="${fontFamily}" font-size="13" font-weight="450">${escapeXml(identity.website)}</text>`;
+      const mediaMetadataLayer = `${backgroundImage && identity.id !== 'gt' ? `<rect x="${mediaX}" y="480" width="${mediaWidth}" height="150" fill="url(#opengraph-media-bottom-scrim)"/>` : ''}${websiteMetadataLayer}`;
       const resolvedLogoSize = 52 * (logoScale / 100);
       const resolvedLogoX = 72 - (resolvedLogoSize - 52) / 2 + logoX;
       const resolvedLogoY = 64 - (resolvedLogoSize - 52) / 2 + logoY;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}<clipPath id="opengraph-media"><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}"/></clipPath><pattern id="opengraph-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${panelForeground}" opacity="0.08"/></pattern>${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${mediaLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/><text x="1128" y="88" text-anchor="end" fill="${foreground}" opacity="0.62" font-family="${fontFamily}" font-size="12" font-weight="500" letter-spacing="1.2">${escapeXml(recipeLabel)}</text>${exportedTitleLines}${exportedPromiseLines}${proofChip}<text x="1128" y="574" text-anchor="end" fill="${foreground}" opacity="0.58" font-family="${fontFamily}" font-size="13" font-weight="450">${escapeXml(identity.website)}</text></svg>`;
+      if (hasCustomOpenGraphScene) {
+        const customTitle = titleLines
+          .map((line, index) => `<text x="72" y="${isMintlifyOpenGraph ? 318 + index * 62 : 326 + index * 54}" fill="${foreground}" font-family="${fontFamily}" font-size="${isMintlifyOpenGraph ? 54 : 46}" font-weight="${capVisibleFontWeight(fontWeight)}" letter-spacing="-1.5">${escapeXml(line)}</text>`)
+          .join('');
+        const customGradientDefinitions = isMintlifyOpenGraph
+          ? `<linearGradient id="mintlify-panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F7FBF9"/><stop offset="1" stop-color="#EAF6F0"/></linearGradient><linearGradient id="mintlify-accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0D9373"/><stop offset="1" stop-color="#54D6A0"/></linearGradient>`
+          : `<linearGradient id="tailwind-signal" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0EA5E9"/><stop offset="1" stop-color="#67E8F9"/></linearGradient>`;
+        const customScene = isMintlifyOpenGraph
+          ? `<rect x="620" y="72" width="508" height="486" fill="url(#mintlify-panel)"/><rect x="620" y="72" width="508" height="54" fill="#FFFFFF"/><circle cx="646" cy="99" r="4" fill="#0D9373"/><rect x="664" y="88" width="250" height="22" rx="11" fill="#E8F1ED"/><circle cx="682" cy="99" r="5" fill="none" stroke="#62746D" stroke-width="1.5"/><line x1="686" y1="103" x2="691" y2="108" stroke="#62746D" stroke-width="1.5"/><text x="702" y="103" fill="#62746D" font-family="${fontFamily}" font-size="10">Search documentation</text><rect x="620" y="126" width="132" height="432" fill="#EDF5F1"/><text x="642" y="166" fill="#66746E" font-family="${fontFamily}" font-size="10" font-weight="500">DOCUMENTATION</text><rect x="634" y="184" width="104" height="32" rx="4" fill="#DDF0E7"/><rect x="642" y="196" width="4" height="8" rx="2" fill="#0D9373"/><text x="654" y="203" fill="#12372C" font-family="${fontFamily}" font-size="11" font-weight="500">Introduction</text><text x="654" y="242" fill="#62746D" font-family="${fontFamily}" font-size="11">Quickstart</text><text x="654" y="276" fill="#62746D" font-family="${fontFamily}" font-size="11">Components</text><text x="654" y="310" fill="#62746D" font-family="${fontFamily}" font-size="11">API reference</text><text x="790" y="174" fill="#0F172A" font-family="${fontFamily}" font-size="11" font-weight="500">GETTING STARTED</text><text x="790" y="216" fill="#0F172A" font-family="${fontFamily}" font-size="30" font-weight="520" letter-spacing="-0.8">Build with context.</text><text x="790" y="248" fill="#62746D" font-family="${fontFamily}" font-size="12">Documentation for readers, builders,</text><text x="790" y="266" fill="#62746D" font-family="${fontFamily}" font-size="12">and the agents working beside them.</text><rect x="790" y="302" width="294" height="98" rx="8" fill="#10211C"/><circle cx="812" cy="326" r="5" fill="#54D6A0"/><text x="828" y="330" fill="#D8EEE5" font-family="${fontFamily}" font-size="11">Install the SDK</text><text x="812" y="365" fill="#8EAEA1" font-family="${fontFamily}" font-size="11">npm install @mintlify/sdk</text><rect x="790" y="424" width="138" height="84" rx="8" fill="#FFFFFF"/><rect x="946" y="424" width="138" height="84" rx="8" fill="#FFFFFF"/><rect x="806" y="442" width="28" height="28" rx="6" fill="url(#mintlify-accent)"/><rect x="962" y="442" width="28" height="28" rx="6" fill="#DDF0E7"/><text x="806" y="491" fill="#17372C" font-family="${fontFamily}" font-size="11" font-weight="500">Human-ready</text><text x="962" y="491" fill="#17372C" font-family="${fontFamily}" font-size="11" font-weight="500">Agent-ready</text>`
+          : `<rect x="628" y="92" width="500" height="446" fill="#081A2B"/><rect x="628" y="92" width="500" height="54" fill="#0B2135"/><circle cx="652" cy="119" r="4" fill="#38BDF8"/><text x="670" y="123" fill="#BAE6FD" font-family="${fontFamily}" font-size="11" font-weight="500">component.tsx</text><text x="654" y="183" fill="#7DD3FC" font-family="${fontFamily}" font-size="11">&lt;div className=</text><text x="758" y="183" fill="#E0F2FE" font-family="${fontFamily}" font-size="11">&quot;grid gap-4 sm:grid-cols-2&quot;</text><text x="654" y="207" fill="#7DD3FC" font-family="${fontFamily}" font-size="11">&gt;</text><rect x="654" y="236" width="448" height="2" fill="url(#tailwind-signal)"/><rect x="654" y="270" width="448" height="224" rx="8" fill="#F8FAFC"/><rect x="678" y="294" width="186" height="176" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/><rect x="888" y="294" width="190" height="176" rx="6" fill="#0F172A"/><rect x="698" y="316" width="74" height="10" rx="5" fill="#38BDF8"/><rect x="698" y="344" width="130" height="8" rx="4" fill="#CBD5E1"/><rect x="698" y="362" width="104" height="8" rx="4" fill="#E2E8F0"/><rect x="698" y="410" width="92" height="32" rx="5" fill="#0EA5E9"/><rect x="910" y="316" width="62" height="10" rx="5" fill="#7DD3FC"/><rect x="910" y="344" width="126" height="8" rx="4" fill="#334155"/><rect x="910" y="362" width="92" height="8" rx="4" fill="#334155"/><path d="M914 426 C938 396 964 446 990 414 S1040 426 1054 394" fill="none" stroke="url(#tailwind-signal)" stroke-width="6" stroke-linecap="round"/>`;
+        const customDescription = isMintlifyOpenGraph
+          ? `<text x="72" y="452" fill="${foreground}" opacity="0.68" font-family="${fontFamily}" font-size="17">One workspace for product knowledge,</text><text x="72" y="477" fill="${foreground}" opacity="0.68" font-family="${fontFamily}" font-size="17">from first read to final answer.</text>`
+          : `<text x="72" y="458" fill="${foreground}" opacity="0.7" font-family="${fontFamily}" font-size="17">Compose the interface you mean</text><text x="72" y="483" fill="${foreground}" opacity="0.7" font-family="${fontFamily}" font-size="17">without leaving your markup.</text>`;
+        const customSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${customGradientDefinitions}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${customScene}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/>${customTitle}${customDescription}</svg>`;
+        await downloadSvgAsPng(customSvg, 1200, 630, 'studio-opengraph.png');
+        return;
+      }
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}<clipPath id="opengraph-media"><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}"/></clipPath><linearGradient id="opengraph-media-top-scrim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000000" stop-opacity="0.58"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></linearGradient><linearGradient id="opengraph-media-bottom-scrim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.58"/></linearGradient><pattern id="opengraph-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${panelForeground}" opacity="0.08"/></pattern>${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${mediaLayer}${mediaMetadataLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/>${exportedTitleLines}${exportedPromiseLines}${proofChip}</svg>`;
       await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
     } finally {
       setExporting(false);
@@ -785,87 +790,342 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       tool={tool}
     >
       <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
-        <div className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm' onPointerDown={() => setLogoSelected(false)}>
+        <div
+          className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm'
+          onPointerDown={() => setLogoSelected(false)}
+          style={{ containerType: 'inline-size' }}
+        >
           <div className='absolute inset-0' style={{ backgroundColor: background }} />
-          <p
-            className='absolute right-[6%] top-[11%] max-w-[34%] text-right text-[clamp(7px,1.15vw,12px)] font-medium tracking-[0.1em] opacity-60'
-            style={{ color: foreground, fontFamily: selectedFontFamily }}
-          >
-            {recipeLabel}
-          </p>
-          <div
-            className='absolute bottom-[12%] left-[6%] flex w-[43%] flex-col items-start'
-            style={{ color: foreground, fontFamily: selectedFontFamily }}
-          >
-            <p className='text-[clamp(22px,4.65vw,56px)] font-medium leading-[1.02] tracking-[-0.035em]'>
-              {titleLines.map((line, index) => (
-                <span className='block max-w-full overflow-hidden text-ellipsis whitespace-nowrap' key={`${line}-${index}`}>{line}</span>
-              ))}
-            </p>
-            <p className='mt-[5%] line-clamp-3 max-w-[92%] text-[clamp(8px,1.35vw,16px)] font-normal leading-[1.35] opacity-70'>
-              {identity.strategy.promise}
-            </p>
-            {proof ? (
-              <span
-                className='mt-[5%] max-w-full truncate px-[3%] py-[1.5%] text-[clamp(7px,1.1vw,13px)] font-medium'
-                style={{
-                  backgroundColor: openGraphPanelIsDark(identity) && emphasis === ink ? paper : emphasis,
-                  color: openGraphPanelIsDark(identity)
-                    ? (emphasis === ink ? ink : paper)
-                    : ink,
-                }}
-              >
-                {proof}
-              </span>
-            ) : null}
-          </div>
-          <div
-            className='absolute left-[57%] top-[21.6%] h-[58%] w-[37%] overflow-hidden'
-            style={{ backgroundColor: panelColor }}
-          >
-            {backgroundAsset.asset || selectedBackground ? (
-              <img
-                alt=''
-                className='size-full'
-                src={backgroundAsset.asset?.url ?? selectedBackground?.path}
-                style={{
-                  objectFit: mediaObjectFit,
-                  objectPosition: mediaObjectPosition,
-                  opacity: backgroundOpacity / 100,
-                  transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`,
-                  transformOrigin: 'center',
-                }}
-              />
-            ) : recipe === 'translation-frame' ? (
+          {hasCustomOpenGraphScene ? (
+            <>
               <div
-                className='grid size-full grid-cols-2 place-items-center gap-x-[6%] px-[8%] py-[10%] text-center font-medium'
-                style={{
-                  backgroundImage: `radial-gradient(${panelForeground}18 1px, transparent 1px)`,
-                  backgroundSize: '14px 14px',
-                  color: panelForeground,
-                }}
+                className='absolute bottom-[15%] left-[6%] flex w-[40%] flex-col items-start'
+                style={{ color: foreground, fontFamily: selectedFontFamily }}
               >
-                <span className='text-[clamp(13px,2.5vw,30px)] opacity-80'>Welcome</span>
-                <span className='text-[clamp(15px,2.8vw,34px)] opacity-95'>你好</span>
-                <span className='text-[clamp(12px,2.2vw,26px)] opacity-75'>Bienvenidos</span>
-                <span className='text-[clamp(13px,2.5vw,30px)] opacity-85'>ようこそ</span>
-                <span className='col-span-2 text-[clamp(13px,2.5vw,30px)] opacity-75'>أهلاً وسهلاً</span>
+                <p className={`${isTailwindOpenGraph ? 'text-[clamp(20px,3.1vw,38px)]' : 'text-[clamp(22px,4.6vw,56px)]'} font-medium leading-[1.04] tracking-[-0.035em]`}>
+                  {titleLines.map((line, index) => (
+                    <span className='block whitespace-nowrap' key={`${line}-${index}`}>{line}</span>
+                  ))}
+                </p>
+                <p className='mt-[7%] max-w-[84%] text-[clamp(8px,1.35vw,16px)] font-normal leading-[1.45] opacity-[0.68]'>
+                  {isMintlifyOpenGraph
+                    ? 'One workspace for product knowledge, from first read to final answer.'
+                    : 'Compose the interface you mean without leaving your markup.'}
+                </p>
               </div>
-            ) : (
-              <div className='flex size-full flex-col gap-[6%] p-[8%]' style={{ color: panelForeground }}>
-                <p className='text-[clamp(6px,1vw,11px)] font-medium tracking-[0.1em] opacity-60'>{recipeLabel}</p>
-                <span className='mt-[4%] h-[16%] w-full bg-current opacity-10' />
-                <span className='h-[16%] w-[82%] bg-current opacity-20' />
-                <span className='h-[16%] w-[90%] bg-current opacity-10' />
+              {isMintlifyOpenGraph ? (
+                <div className='absolute left-[51.7%] top-[11.4%] h-[77.1%] w-[42.3%] overflow-hidden bg-[#f3f8f5] text-[#17372c]'>
+                  <div className='flex h-[11%] items-center border-b border-[#dbe8e1] bg-white px-[4.6%]'>
+                    <span className='size-[clamp(3px,0.55vw,6px)] rounded-full bg-[#0d9373]' />
+                    <div className='ml-[4%] flex h-[43%] w-[58%] items-center rounded-full bg-[#e8f1ed] px-[4%] text-[clamp(5px,0.8vw,9px)] text-[#62746d]'>
+                      <span className='mr-[4%] size-[clamp(4px,0.65vw,7px)] rounded-full border border-[#62746d]' />
+                      Search documentation
+                    </div>
+                  </div>
+                  <div className='flex h-[89%]'>
+                    <div className='w-[26%] bg-[#edf5f1] px-[5%] py-[7%]'>
+                      <p className='text-[clamp(4px,0.7vw,8px)] font-medium tracking-[0.08em] text-[#66746e]'>DOCUMENTATION</p>
+                      <div className='mt-[12%] flex h-[10%] items-center rounded-[4px] bg-[#ddf0e7] px-[8%] text-[clamp(5px,0.8vw,9px)] font-medium text-[#12372c]'>
+                        <span className='mr-[8%] h-[36%] w-[3px] rounded-full bg-[#0d9373]' />
+                        Introduction
+                      </div>
+                      <div className='mt-[14%] space-y-[14%] pl-[8%] text-[clamp(5px,0.8vw,9px)] text-[#62746d]'>
+                        <p>Quickstart</p>
+                        <p>Components</p>
+                        <p>API reference</p>
+                      </div>
+                    </div>
+                    <div className='w-[74%] px-[8%] py-[9%]'>
+                      <p className='text-[clamp(5px,0.8vw,9px)] font-medium tracking-[0.08em]'>GETTING STARTED</p>
+                      <p className='mt-[6%] text-[clamp(14px,2.45vw,28px)] font-medium leading-none tracking-[-0.025em]'>Build with context.</p>
+                      <p className='mt-[5%] max-w-[88%] text-[clamp(5px,0.9vw,10px)] leading-[1.5] text-[#62746d]'>Documentation for readers, builders, and the agents working beside them.</p>
+                      <div className='mt-[8%] rounded-[6px] bg-[#10211c] px-[6%] py-[5%] text-[clamp(5px,0.82vw,9px)] text-[#d8eee5]'>
+                        <div className='flex items-center'><span className='mr-[4%] size-[clamp(4px,0.7vw,7px)] rounded-full bg-[#54d6a0]' />Install the SDK</div>
+                        <p className='mt-[6%] text-[#8eaea1]'>npm install @mintlify/sdk</p>
+                      </div>
+                      <div className='mt-[7%] grid grid-cols-2 gap-[5%]'>
+                        <div className='bg-white p-[9%]'><span className='block size-[clamp(12px,2.2vw,25px)] rounded-[5px] bg-gradient-to-br from-[#0d9373] to-[#54d6a0]' /><p className='mt-[10%] text-[clamp(5px,0.82vw,9px)] font-medium'>Human-ready</p></div>
+                        <div className='bg-white p-[9%]'><span className='block size-[clamp(12px,2.2vw,25px)] rounded-[5px] bg-[#ddf0e7]' /><p className='mt-[10%] text-[clamp(5px,0.82vw,9px)] font-medium'>Agent-ready</p></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className='absolute left-[52.3%] top-[14.6%] h-[70.8%] w-[41.7%] overflow-hidden bg-[#081a2b] text-[#e0f2fe]'>
+                  <div className='flex h-[12%] items-center bg-[#0b2135] px-[5%] text-[clamp(5px,0.9vw,10px)] font-medium text-[#bae6fd]'>
+                    <span className='mr-[4%] size-[clamp(3px,0.6vw,6px)] rounded-full bg-[#38bdf8]' />component.tsx
+                  </div>
+                  <div className='px-[5%] py-[7%]'>
+                    <p className='text-[clamp(5px,0.9vw,10px)] text-[#7dd3fc]'>&lt;div className=<span className='text-[#e0f2fe]'>&quot;grid gap-4 sm:grid-cols-2&quot;</span>&gt;</p>
+                    <div className='mt-[7%] h-[2px] w-full bg-gradient-to-r from-[#0ea5e9] to-[#67e8f9]' />
+                    <div className='mt-[7%] grid grid-cols-2 gap-[5%] rounded-[7px] bg-[#f8fafc] p-[5%]'>
+                      <div className='rounded-[5px] border border-[#e2e8f0] bg-white p-[9%]'>
+                        <span className='block h-[6px] w-[42%] rounded-full bg-[#38bdf8]' />
+                        <span className='mt-[10%] block h-[5px] w-[78%] rounded-full bg-[#cbd5e1]' />
+                        <span className='mt-[6%] block h-[5px] w-[60%] rounded-full bg-[#e2e8f0]' />
+                        <span className='mt-[24%] block h-[clamp(14px,2.5vw,28px)] w-[55%] rounded-[4px] bg-[#0ea5e9]' />
+                      </div>
+                      <div className='rounded-[5px] bg-[#0f172a] p-[9%]'>
+                        <span className='block h-[6px] w-[38%] rounded-full bg-[#7dd3fc]' />
+                        <span className='mt-[10%] block h-[5px] w-[75%] rounded-full bg-[#334155]' />
+                        <span className='mt-[6%] block h-[5px] w-[54%] rounded-full bg-[#334155]' />
+                        <svg aria-hidden='true' className='mt-[18%] h-[34%] w-full' viewBox='0 0 160 50'>
+                          <defs><linearGradient id='tailwind-preview-signal'><stop stopColor='#0ea5e9' /><stop offset='1' stopColor='#67e8f9' /></linearGradient></defs>
+                          <path d='M4 36 C28 6 52 48 78 18 S128 32 156 8' fill='none' stroke='url(#tailwind-preview-signal)' strokeLinecap='round' strokeWidth='6' />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div
+                className='absolute bottom-[12%] left-[6%] flex w-[45.5%] flex-col items-start'
+                style={{ color: foreground, fontFamily: selectedFontFamily }}
+              >
+                <p
+                  className='font-medium leading-[1.02] tracking-[-0.035em]'
+                  style={{ fontSize: `clamp(18px, ${(titleFontSize / 12).toFixed(3)}cqw, ${titleFontSize}px)` }}
+                >
+                  {titleLines.map((line, index) => (
+                    <span className='block max-w-full whitespace-nowrap' key={`${line}-${index}`}>{line}</span>
+                  ))}
+                </p>
+                <p className='mt-[5%] line-clamp-3 max-w-[92%] text-[clamp(8px,1.35vw,16px)] font-normal leading-[1.35] opacity-70'>
+                  {identity.strategy.promise}
+                </p>
+                {proof ? (
+                  <span
+                    className='mt-[5%] max-w-full truncate px-[3%] py-[1.5%] text-[clamp(7px,1.1vw,13px)] font-medium'
+                    style={{
+                      backgroundColor: openGraphPanelIsDark(identity) && emphasis === ink ? paper : emphasis,
+                      color: openGraphPanelIsDark(identity)
+                        ? (emphasis === ink ? ink : paper)
+                        : ink,
+                    }}
+                  >
+                    {proof}
+                  </span>
+                ) : null}
               </div>
-            )}
-          </div>
-          <p
-            className='absolute bottom-[8%] right-[6%] text-[clamp(7px,1.15vw,13px)] font-normal opacity-60'
-            style={{ color: foreground, fontFamily: selectedFontFamily }}
-          >
-            {identity.website}
-          </p>
+              <div
+                className='absolute inset-y-0 right-0 w-[48.33%] overflow-hidden'
+                style={{ backgroundColor: panelColor }}
+              >
+                {backgroundAsset.asset || selectedBackground ? (
+                  <img
+                    alt=''
+                    className='size-full'
+                    src={backgroundAsset.asset?.url ?? selectedBackground?.path}
+                    style={{
+                      objectFit: 'cover',
+                      objectPosition: mediaObjectPosition,
+                      opacity: backgroundOpacity / 100,
+                      transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`,
+                      transformOrigin: 'center',
+                    }}
+                  />
+                ) : usesMintlifyAtmosphere ? (
+                  <div className='relative size-full overflow-hidden bg-[#04110D]'>
+                    <svg
+                      aria-hidden='true'
+                      className='size-full'
+                      preserveAspectRatio='xMidYMid slice'
+                      viewBox='0 0 580 630'
+                    >
+                      <defs>
+                        <radialGradient
+                          id={`${identity.id}-og-mint-glow`}
+                          cx='52%'
+                          cy='42%'
+                          r='74%'
+                        >
+                          <stop offset='0%' stopColor='#70F1C2' stopOpacity='0.54' />
+                          <stop offset='46%' stopColor='#18B985' stopOpacity='0.2' />
+                          <stop offset='100%' stopColor='#04110D' stopOpacity='0' />
+                        </radialGradient>
+                        <linearGradient
+                          id={`${identity.id}-og-mint-beam`}
+                          x1='0%'
+                          x2='100%'
+                          y1='100%'
+                          y2='0%'
+                        >
+                          <stop offset='0%' stopColor='#0A6A50' />
+                          <stop offset='48%' stopColor='#7EF2CA' />
+                          <stop offset='100%' stopColor='#E9FFF8' />
+                        </linearGradient>
+                        <pattern
+                          id={`${identity.id}-og-mint-dots`}
+                          width='18'
+                          height='18'
+                          patternUnits='userSpaceOnUse'
+                        >
+                          <circle cx='1' cy='1' r='1' fill='#D9FFF2' opacity='0.12' />
+                        </pattern>
+                      </defs>
+                      <rect width='580' height='630' fill='#04110D' />
+                      <rect
+                        width='580'
+                        height='630'
+                        fill={`url(#${identity.id}-og-mint-glow)`}
+                      />
+                      <path
+                        d='M-120 600 C40 480 150 390 250 270 S470 70 700 -80'
+                        fill='none'
+                        stroke={`url(#${identity.id}-og-mint-beam)`}
+                        strokeWidth='104'
+                        opacity='0.88'
+                      />
+                      <path
+                        d='M-90 650 C80 530 210 430 315 300 S500 90 680 -30'
+                        fill='none'
+                        stroke='#DFFFF4'
+                        strokeWidth='22'
+                        opacity='0.28'
+                      />
+                      <path
+                        d='M-80 500 C80 410 170 315 260 215 S470 45 660 -60'
+                        fill='none'
+                        stroke='#72EDC1'
+                        strokeWidth='2'
+                        opacity='0.78'
+                      />
+                      <rect
+                        width='580'
+                        height='630'
+                        fill={`url(#${identity.id}-og-mint-dots)`}
+                      />
+                    </svg>
+                  </div>
+                ) : usesTailwindAtmosphere ? (
+                  <div className='relative size-full overflow-hidden bg-[#061724]'>
+                    <svg
+                      aria-hidden='true'
+                      className='size-full'
+                      preserveAspectRatio='xMidYMid slice'
+                      viewBox='0 0 580 630'
+                    >
+                      <defs>
+                        <linearGradient
+                          id={`${identity.id}-og-tailwind-current`}
+                          x1='0%'
+                          x2='100%'
+                          y1='20%'
+                          y2='80%'
+                        >
+                          <stop offset='0%' stopColor='#0EA5E9' />
+                          <stop offset='50%' stopColor='#67E8F9' />
+                          <stop offset='100%' stopColor='#38BDF8' />
+                        </linearGradient>
+                        <radialGradient
+                          id={`${identity.id}-og-tailwind-glow`}
+                          cx='58%'
+                          cy='46%'
+                          r='70%'
+                        >
+                          <stop offset='0%' stopColor='#38BDF8' stopOpacity='0.24' />
+                          <stop offset='100%' stopColor='#061724' stopOpacity='0' />
+                        </radialGradient>
+                        <pattern
+                          id={`${identity.id}-og-tailwind-dots`}
+                          width='20'
+                          height='20'
+                          patternUnits='userSpaceOnUse'
+                        >
+                          <circle cx='1' cy='1' r='1' fill='#BAE6FD' opacity='0.1' />
+                        </pattern>
+                      </defs>
+                      <rect width='580' height='630' fill='#061724' />
+                      <rect
+                        width='580'
+                        height='630'
+                        fill={`url(#${identity.id}-og-tailwind-glow)`}
+                      />
+                      <path
+                        d='M-100 125 C40 10 155 245 310 130 S540 40 700 135'
+                        fill='none'
+                        stroke='#0EA5E9'
+                        strokeWidth='90'
+                        opacity='0.08'
+                      />
+                      <path
+                        d='M-100 125 C40 10 155 245 310 130 S540 40 700 135'
+                        fill='none'
+                        stroke={`url(#${identity.id}-og-tailwind-current)`}
+                        strokeWidth='20'
+                        opacity='0.92'
+                      />
+                      <path
+                        d='M-110 310 C50 205 175 420 330 310 S555 220 700 315'
+                        fill='none'
+                        stroke='#38BDF8'
+                        strokeWidth='74'
+                        opacity='0.07'
+                      />
+                      <path
+                        d='M-110 310 C50 205 175 420 330 310 S555 220 700 315'
+                        fill='none'
+                        stroke={`url(#${identity.id}-og-tailwind-current)`}
+                        strokeWidth='16'
+                        opacity='0.78'
+                      />
+                      <path
+                        d='M-100 495 C45 390 190 575 345 480 S545 385 700 480'
+                        fill='none'
+                        stroke={`url(#${identity.id}-og-tailwind-current)`}
+                        strokeWidth='12'
+                        opacity='0.62'
+                      />
+                      <rect
+                        width='580'
+                        height='630'
+                        fill={`url(#${identity.id}-og-tailwind-dots)`}
+                      />
+                    </svg>
+                  </div>
+                ) : recipe === 'translation-frame' ? (
+                  <div
+                    className='grid size-full grid-cols-2 place-items-center gap-x-[6%] px-[8%] py-[10%] text-center font-medium'
+                    style={{
+                      backgroundImage: `radial-gradient(${panelForeground}18 1px, transparent 1px)`,
+                      backgroundSize: '14px 14px',
+                      color: panelForeground,
+                    }}
+                  >
+                    <span className='text-[clamp(13px,2.5vw,30px)] opacity-80'>Welcome</span>
+                    <span className='text-[clamp(15px,2.8vw,34px)] opacity-95'>你好</span>
+                    <span className='text-[clamp(12px,2.2vw,26px)] opacity-75'>Bienvenidos</span>
+                    <span className='text-[clamp(13px,2.5vw,30px)] opacity-85'>ようこそ</span>
+                    <span className='col-span-2 text-[clamp(13px,2.5vw,30px)] opacity-75'>أهلاً وسهلاً</span>
+                  </div>
+                ) : (
+                  <div className='flex size-full flex-col gap-[6%] p-[8%]' style={{ color: panelForeground }}>
+                    <span className='mt-[18%] h-[16%] w-full bg-current opacity-10' />
+                    <span className='h-[16%] w-[82%] bg-current opacity-20' />
+                    <span className='h-[16%] w-[90%] bg-current opacity-10' />
+                  </div>
+                )}
+                {hasOpenGraphMedia ? (
+                  <span className='pointer-events-none absolute inset-x-0 bottom-0 h-[24%] bg-gradient-to-t from-black/60 to-transparent' />
+                ) : null}
+                {identity.id !== 'gt' ? (
+                  <p
+                    className='absolute bottom-[6%] right-[7%] text-[clamp(7px,1.15vw,13px)] font-normal'
+                    style={{
+                      color: hasOpenGraphMedia ? '#FFFFFF' : panelForeground,
+                      fontFamily: selectedFontFamily,
+                      opacity: 0.84,
+                    }}
+                  >
+                    {identity.website}
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
           <EditableCanvasLayer
             baseHeight={52}
             baseWidth={52}
@@ -894,350 +1154,8 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   );
 }
 
-type LogoSurface = 'white' | 'dark' | 'grid' | 'noise' | 'shader';
-
-function LogoTool({
-  identity,
-  navigation,
-  tool,
-}: {
-  identity: BrandIdentity;
-  navigation?: ReactNode;
-  tool: StudioTool;
-}) {
-  const gt = useGT();
-  const defaultPalette = brandMaterialPalette(identity);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const markPath = brandAssetPath(identity, 'mark-dark');
-  const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
-  const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
-  const logoColors = [
-    identity.colors.find(({ id }) => id === 'ink'),
-    identity.colors.find(({ id }) => id === 'paper'),
-    identity.colors.find(({ id }) => id === 'emphasis'),
-    identity.colors.find(({ id }) => id === 'success'),
-  ].filter((color) => color !== undefined);
-  const [tone, setTone] = useStudioDraft(identity.id, tool.id, 'tone', logoColors[0]?.id ?? 'ink');
-  const [logoColor, setLogoColor] = useStudioDraft(identity.id, tool.id, 'logo-color', logoColors[0]?.hex ?? '#18181B');
-  const [surface, setSurface] = useStudioDraft<LogoSurface>(identity.id, tool.id, 'surface', 'white');
-  const [size, setSize] = useStudioDraft<64 | 128>(identity.id, tool.id, 'size', 128);
-  const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
-  const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, tool.id, 'material', DEFAULT_LIVE_MATERIAL_ID);
-  const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(
-    identity.id,
-    tool.id,
-    'material-settings',
-    () => ({
-      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-      colorA: defaultPalette.colors[0],
-      colorB: defaultPalette.colors[1],
-      colorC: defaultPalette.colors[2],
-    })
-  );
-  const [appearance, setAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
-  const [logoTransform, setLogoTransform] = useStudioDraft<CanvasLayerTransform>(identity.id, tool.id, 'logo-transform', { scale: 1, x: 0, y: 0 });
-  const [logoSelected, setLogoSelected] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const selectedColor = logoColors.find(({ id }) => id === tone) ?? {
-    hex: logoColor,
-    id: 'ink',
-    name: 'Custom',
-  };
-  const surfaceColor = surface === 'dark' ? ink : paper;
-
-  const sourceCode = stringifySource({
-    appearance,
-    color: logoColor,
-    material: {
-      id: materialId,
-      settings: materialSettings,
-    },
-    size,
-    surface,
-    tone,
-    transform: logoTransform,
-    transparent,
-  });
-
-  function applySourceCode(source: string) {
-    const value = parseSourceObject(source);
-    const nextSurface = sourceString(value, 'surface', surface);
-    if (!['white', 'dark', 'grid', 'noise', 'shader'].includes(nextSurface)) {
-      throw new TypeError('surface is not a supported logo surface.');
-    }
-    const nextSize = sourceNumber(value, 'size', size);
-    if (nextSize !== 64 && nextSize !== 128) {
-      throw new TypeError('size must be 64 or 128.');
-    }
-    setTone(sourceString(value, 'tone', tone));
-    setLogoColor(sourceString(value, 'color', logoColor));
-    setSurface(nextSurface as LogoSurface);
-    setSize(nextSize);
-    setTransparent(sourceBoolean(value, 'transparent', transparent));
-    const nextTransform = sourceObject(value, 'transform');
-    if (nextTransform) {
-      setLogoTransform({
-        scale: sourceNumber(nextTransform, 'scale', logoTransform.scale),
-        x: sourceNumber(nextTransform, 'x', logoTransform.x),
-        y: sourceNumber(nextTransform, 'y', logoTransform.y),
-      });
-    }
-    const nextAppearance = sourceObject(value, 'appearance');
-    if (nextAppearance) {
-      setAppearance((current) => ({ ...current, ...nextAppearance } as LogoAppearanceSettings));
-    }
-    const nextMaterial = sourceObject(value, 'material');
-    if (nextMaterial) {
-      setMaterialId(sourceString(nextMaterial, 'id', materialId) as LiveMaterialId);
-      const nextSettings = sourceObject(nextMaterial, 'settings');
-      if (nextSettings) {
-        setMaterialSettings((current) => ({ ...current, ...nextSettings } as LiveMaterialSettings));
-      }
-    }
-  }
-
-  async function exportLogo() {
-    setExporting(true);
-    try {
-      const mark = await resolveBrandMark(identity, false);
-      if (surface === 'shader' && !transparent) {
-        const shaderCanvas = previewRef.current?.querySelector('canvas');
-        if (!shaderCanvas) return;
-        const output = document.createElement('canvas');
-        output.width = size;
-        output.height = size;
-        const context = output.getContext('2d');
-        if (!context) return;
-        context.drawImage(shaderCanvas, 0, 0, size, size);
-        const image = new Image();
-        image.src = mark;
-        await image.decode();
-        const inset = Math.round(size * 0.14);
-        const markSize = size - inset * 2;
-        const tinted = document.createElement('canvas');
-        tinted.width = markSize;
-        tinted.height = markSize;
-        const tintedContext = tinted.getContext('2d');
-        if (!tintedContext) return;
-        tintedContext.drawImage(image, 0, 0, markSize, markSize);
-        tintedContext.globalCompositeOperation = 'source-in';
-        tintedContext.fillStyle = selectedColor.hex;
-        tintedContext.fillRect(0, 0, markSize, markSize);
-        const resolvedMarkSize = markSize * logoTransform.scale;
-        drawLogoAppearanceLayer(
-          context,
-          tinted,
-          inset + logoTransform.x * (size / 512) - (resolvedMarkSize - markSize) / 2,
-          inset + logoTransform.y * (size / 512) - (resolvedMarkSize - markSize) / 2,
-          resolvedMarkSize,
-          resolvedMarkSize,
-          appearance
-        );
-        const url = output.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.download = `${identity.id}-mark-${tone}-${size}.png`;
-        link.href = url;
-        link.click();
-        return;
-      }
-      const backgroundLayer = transparent
-        ? ''
-        : textureDefinition(surface, surfaceColor);
-      const inset = Math.round(size * 0.14);
-      const markSize = size - inset * 2;
-      const resolvedMarkSize = markSize * logoTransform.scale;
-      const resolvedMarkX = inset + logoTransform.x * (size / 512) - (resolvedMarkSize - markSize) / 2;
-      const resolvedMarkY = inset + logoTransform.y * (size / 512) - (resolvedMarkSize - markSize) / 2;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${backgroundLayer}<defs>${buildLogoSvgFilter(appearance, selectedColor.hex, 'logo-appearance')}</defs><image href="${mark}" x="${resolvedMarkX}" y="${resolvedMarkY}" width="${resolvedMarkSize}" height="${resolvedMarkSize}" filter="url(#logo-appearance)"/></svg>`;
-      await downloadSvgAsPng(svg, size, size, `${identity.id}-mark-${tone}-${size}.png`);
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  const inspector = (
-    <>
-      <ControlSection title={<T>Logo color</T>}>
-        <div className='grid grid-cols-2 gap-2'>
-          {logoColors.map((color) => (
-            <Button
-              className='justify-start'
-              key={color.id}
-              onClick={() => { setTone(color.id); setLogoColor(color.hex); }}
-              type='button'
-              variant={tone === color.id ? 'default' : 'outline'}
-            >
-              <span className='size-3 rounded-full border border-border' style={{ backgroundColor: color.hex }} />
-              {color.name}
-            </Button>
-          ))}
-        </div>
-        <ColorControl ariaLabel={gt('Custom logo color')} label={<T>Custom logo color</T>} onChange={(value) => { setLogoColor(value); setTone('custom'); }} value={logoColor} />
-      </ControlSection>
-      <ControlSection title={<T>Logo appearance</T>}>
-        <LogoAppearanceControls onChange={(patch) => setAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...appearance }} />
-      </ControlSection>
-      <ControlSection title={<T>Canvas layer</T>}>
-        <CanvasLayerPanel
-          layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: logoTransform }]}
-          onAlign={(alignment) => setLogoTransform(alignCanvasLayer(logoTransform, { baseHeight: 300, baseWidth: 300, baseX: 106, baseY: 106 }, 512, 512, alignment))}
-          onMove={() => undefined}
-          onReset={() => setLogoTransform({ scale: 1, x: 0, y: 0 })}
-          onSelect={() => setLogoSelected(true)}
-          selectedLayerId={logoSelected ? 'logo' : null}
-        />
-      </ControlSection>
-      <ControlSection title={<T>Background</T>}>
-        <SegmentedChoice
-          onChange={setSurface}
-          options={[
-            { label: 'Base white', value: 'white' },
-            { label: 'Base dark', value: 'dark' },
-            { label: 'Grid', value: 'grid' },
-            { label: 'Noise', value: 'noise' },
-            { label: 'Live shader', value: 'shader' },
-          ]}
-          value={surface}
-        />
-        {surface === 'shader' ? (
-          <div className='flex flex-col gap-3 border-t border-border pt-4'>
-            <LiveMaterialControls
-              identity={identity}
-              materialId={materialId}
-              onMaterialIdChange={setMaterialId}
-              onSettingsChange={setMaterialSettings}
-              settings={materialSettings}
-            />
-          </div>
-        ) : null}
-        <label className='flex items-center justify-between gap-4 text-sm'>
-          <T>Transparent export</T>
-          <input checked={transparent} onChange={(event) => setTransparent(event.target.checked)} type='checkbox' />
-        </label>
-      </ControlSection>
-      <ControlSection title={<T>Output size</T>}>
-        <SegmentedChoice
-          onChange={setSize}
-          options={[
-            { label: '64 px', value: 64 },
-            { label: '128 px', value: 128 },
-          ]}
-          value={size}
-        />
-      </ControlSection>
-    </>
-  );
-
-  return (
-    <ToolShell
-      actions={
-        <>
-          {navigation}
-          <Button loading={exporting} onClick={exportLogo} type='button'>
-            <Download aria-hidden='true' />
-            <T>Download logo</T>
-          </Button>
-        </>
-      }
-      inspector={inspector}
-      sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Logo source') }}
-      tool={tool}
-    >
-      <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-8' toolId={tool.id}>
-        <div
-          className={`artifact-frame logo-surface logo-surface-${surface} relative grid aspect-square w-full max-w-xl place-items-center overflow-hidden rounded-md`}
-          onPointerDown={() => setLogoSelected(false)}
-          ref={previewRef}
-          style={{ '--brand-ink': ink, '--brand-paper': paper } as CSSProperties}
-        >
-          {surface === 'shader' ? <LiveMaterialCanvas materialId={materialId} settings={materialSettings} /> : null}
-          {surface === 'shader' ? (
-            <LiveMaterialSourceBadge
-              className='pointer-events-none absolute right-3 bottom-3 z-10 border border-white/20 bg-black/55 px-2 py-1 text-white opacity-100 backdrop-blur-sm'
-              engine={getLiveMaterial(materialId).engine}
-            />
-          ) : null}
-          <EditableCanvasLayer
-            baseHeight={300}
-            baseWidth={300}
-            baseX={106}
-            baseY={106}
-            canvasHeight={512}
-            canvasWidth={512}
-            label={gt('Logo')}
-            onChange={setLogoTransform}
-            onSelect={() => setLogoSelected(true)}
-            selected={logoSelected}
-            transform={logoTransform}
-            zIndex={2}
-          >
-            <LogoAppearancePreview
-              ariaLabel={`${identity.name} logo preview`}
-              color={selectedColor.hex}
-              fallback={
-                <span className='grid size-full place-items-center text-5xl font-semibold'>{identity.shortName}</span>
-              }
-              logoPath={markPath}
-              settings={{ ...DEFAULT_LOGO_APPEARANCE, ...appearance }}
-            />
-          </EditableCanvasLayer>
-        </div>
-      </CanvasViewport>
-    </ToolShell>
-  );
-}
-
-function SurfaceModeNavigation({
-  mode,
-  onChange,
-}: {
-  mode: 'background' | 'logo';
-  onChange: (mode: 'background' | 'logo') => void;
-}) {
-  return (
-    <div
-      aria-label='Surface Lab mode'
-      className='surface-lab-mode-tabs flex items-center gap-1 rounded-md border border-border bg-background p-1'
-      role='tablist'
-    >
-      {([
-        ['background', 'Background'],
-        ['logo', 'Logo'],
-      ] as const).map(([value, label]) => (
-        <Button
-          aria-selected={mode === value}
-          className='border-0'
-          key={value}
-          onClick={() => onChange(value)}
-          role='tab'
-          size='sm'
-          type='button'
-          variant={mode === value ? 'default' : 'ghost'}
-        >
-          <T>{label}</T>
-        </Button>
-      ))}
-    </div>
-  );
-}
-
 function SurfaceTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
-  const [mode, setMode] = useStudioDraft<'background' | 'logo'>(
-    identity.id,
-    tool.id,
-    'mode-v2',
-    'background'
-  );
-  const navigation = <SurfaceModeNavigation mode={mode} onChange={setMode} />;
-  const draftTool: StudioTool = {
-    ...tool,
-    id: mode === 'background' ? 'backgrounds' : 'logo',
-  };
-
-  if (mode === 'background') {
-    return <BackgroundStudio identity={identity} navigation={navigation} tool={draftTool} />;
-  }
-  return <LogoTool identity={identity} navigation={navigation} tool={draftTool} />;
+  return <BackgroundStudio identity={identity} tool={{ ...tool, id: 'backgrounds' }} />;
 }
 
 function MaterialTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
@@ -1432,19 +1350,136 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
   const body = brandTypographyRole(identity, 'Body');
   const accent = brandTypographyRole(identity, 'Accent');
   const code = brandTypographyRole(identity, 'Code');
+  const displayFamily = brandTypographyFamily(identity, 'Display');
+  const bodyFamily = brandTypographyFamily(identity, 'Body');
+  const accentFamily = brandTypographyFamily(identity, 'Accent');
+  const codeFamily = brandTypographyFamily(identity, 'Code');
+  const displayWeight = capVisibleFontWeight(display.weight ?? 400);
+  const bodyWeight = capVisibleFontWeight(body.weight ?? 400);
+  const accentWeight = capVisibleFontWeight(accent.weight ?? 400);
+  const codeWeight = capVisibleFontWeight(code.weight ?? 400);
+  const displayLineHeight = display.lineHeight ?? 1;
+  const bodyLineHeight = body.lineHeight ?? 1.5;
+  const primaryColor = identity.colors.find(({ id }) => id === 'emphasis')?.hex
+    ?? identity.colors.find(({ name }) => name.toLocaleLowerCase() === 'primary')?.hex
+    ?? identity.colors[0]?.hex
+    ?? '#181818';
+  const primaryForeground = hexToOklch(primaryColor).lightness < 0.58 ? '#FFFFFF' : '#111111';
+  const codeLabel = identity.id === 'ramp' ? 'Operational data' : 'Command line';
+  const codeSample = identity.id === 'ramp'
+    ? '$24,680.00  /  Q3 2026  /  APPROVED'
+    : `$ npx ${identity.id} build --brand`;
 
   return (
     <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Typography source') }} tool={tool}>
-      <div className='flex min-h-full flex-col justify-center gap-10 p-8 sm:p-12 lg:p-16'>
-        <section className='flex flex-col gap-3 border-b border-border pb-10'>
-          <p className='text-sm uppercase tracking-widest text-muted-foreground'>DISPLAY / {brandTypographyFamily(identity, 'Display')}</p>
-          <p className='max-w-5xl text-5xl text-balance lg:text-7xl' style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight, letterSpacing: `${display.letterSpacing}px`, lineHeight: display.lineHeight }}>{identity.tagline}</p>
-          <p className='text-2xl text-muted-foreground' style={{ fontFamily: brandTypographyFamily(identity, 'Accent'), fontWeight: accent.weight, letterSpacing: `${accent.letterSpacing}px`, lineHeight: accent.lineHeight }}>{identity.greetings.join(' · ')}</p>
-        </section>
-        <div className='grid gap-8 md:grid-cols-2'>
-          <section className='flex flex-col gap-3' style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: body.weight, letterSpacing: `${body.letterSpacing}px`, lineHeight: body.lineHeight }}><p className='text-sm font-semibold'>BODY / {brandTypographyFamily(identity, 'Body')}</p><p className='max-w-xl text-lg text-muted-foreground'>{identity.positioning}</p></section>
-          <section className='flex flex-col gap-3' style={{ fontFamily: brandTypographyFamily(identity, 'Code'), fontWeight: code.weight, letterSpacing: `${code.letterSpacing}px`, lineHeight: code.lineHeight }}><p className='text-sm font-semibold'>CODE / {brandTypographyFamily(identity, 'Code')}</p><p className='rounded-md bg-foreground p-5 text-sm text-background'>$ npx {identity.id} translate --locales es,ja,ar</p></section>
-        </div>
+      <div className='flex min-h-full items-center p-4 sm:p-7 xl:p-10'>
+        <article className='mx-auto w-full max-w-[1480px] overflow-hidden border border-border/80 bg-background/90 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-sm'>
+          <section
+            className='px-5 pb-10 pt-8 sm:px-8 sm:pb-12 sm:pt-10 lg:px-12 lg:pb-14 lg:pt-12'
+            style={{ backgroundColor: primaryColor, color: primaryForeground }}
+          >
+            <div className='flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] opacity-65'>
+              <p>Display / {displayFamily}</p>
+              <p className='flex gap-4 tabular-nums'>
+                <span>Wt {displayWeight}</span>
+                <span>Lh {displayLineHeight.toFixed(2)}</span>
+                <span>Tr {display.letterSpacing ?? 0}</span>
+              </p>
+            </div>
+            <h2
+              className='mt-7 max-w-[13ch] text-balance text-[clamp(3.5rem,8.5vw,8.75rem)] text-current'
+              style={{
+                fontFamily: displayFamily,
+                fontWeight: displayWeight,
+                letterSpacing: `${display.letterSpacing}px`,
+                lineHeight: Math.min(displayLineHeight, 1.02),
+              }}
+            >
+              {identity.tagline}
+            </h2>
+            <p
+              className='mt-7 text-[clamp(1rem,1.55vw,1.35rem)] text-current opacity-70'
+              style={{
+                fontFamily: accentFamily,
+                fontWeight: accentWeight,
+                letterSpacing: `${accent.letterSpacing}px`,
+                lineHeight: accent.lineHeight,
+              }}
+            >
+              {identity.greetings.join('  ·  ')}
+            </p>
+          </section>
+
+          <div className='grid border-t border-border/80 lg:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.75fr)]'>
+            <section className='flex min-h-[20rem] flex-col justify-between p-5 sm:p-8 lg:border-r lg:border-border/80 lg:p-10'>
+              <div>
+                <div className='flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground'>
+                  <p>Body / {bodyFamily}</p>
+                  <p className='tabular-nums'>Wt {bodyWeight} / {bodyLineHeight.toFixed(2)}</p>
+                </div>
+                <p
+                  className='mt-7 max-w-[39ch] text-[clamp(1.2rem,2vw,1.75rem)] text-foreground/80'
+                  style={{
+                    fontFamily: bodyFamily,
+                    fontWeight: bodyWeight,
+                    letterSpacing: `${body.letterSpacing}px`,
+                    lineHeight: bodyLineHeight,
+                  }}
+                >
+                  {identity.positioning}
+                </p>
+              </div>
+              <div
+                className='mt-10 grid gap-3 border-t border-border/70 pt-5 text-sm text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end'
+                style={{ fontFamily: bodyFamily, fontWeight: bodyWeight }}
+              >
+                <p className='break-words tracking-[0.08em]'>Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm</p>
+                <p className='tabular-nums tracking-[0.12em]'>0123456789</p>
+              </div>
+            </section>
+
+            <div className='grid border-t border-border/80 lg:border-t-0'>
+              <section className='p-5 sm:p-8 lg:p-10'>
+                <div className='flex flex-wrap items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground'>
+                  <p>Code / {codeFamily}</p>
+                  <p className='tabular-nums'>Wt {codeWeight}</p>
+                </div>
+                <div
+                  className='mt-6 bg-foreground p-5 text-background shadow-[inset_0_0_0_1px_rgba(127,127,127,0.2)] sm:p-6'
+                  style={{
+                    fontFamily: codeFamily,
+                    fontWeight: codeWeight,
+                    letterSpacing: `${code.letterSpacing}px`,
+                    lineHeight: code.lineHeight,
+                  }}
+                >
+                  <p className='text-[11px] uppercase tracking-[0.14em] opacity-55'>{codeLabel}</p>
+                  <p className='mt-5 overflow-x-auto whitespace-nowrap text-[clamp(0.8rem,1.2vw,1rem)]'>
+                    {identity.id === 'ramp' ? codeSample : <><span className='mr-3 opacity-45'>$</span>{codeSample.slice(2)}</>}
+                  </p>
+                </div>
+              </section>
+              <section className='grid grid-cols-[auto_1fr] items-center gap-5 border-t border-border/80 p-5 sm:gap-8 sm:p-8 lg:p-10'>
+                <p
+                  className='text-6xl text-foreground sm:text-7xl'
+                  style={{
+                    fontFamily: accentFamily,
+                    fontWeight: accentWeight,
+                    letterSpacing: `${accent.letterSpacing}px`,
+                    lineHeight: 0.8,
+                  }}
+                >
+                  Aa
+                </p>
+                <div className='min-w-0'>
+                  <p className='text-[11px] uppercase tracking-[0.16em] text-muted-foreground'>Accent</p>
+                  <p className='mt-2 truncate text-sm text-foreground'>{accentFamily}</p>
+                  <p className='mt-1 text-xs text-muted-foreground'>{accent.usage}</p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
       </div>
     </ToolShell>
   );

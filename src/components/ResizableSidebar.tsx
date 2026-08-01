@@ -23,6 +23,7 @@ type ResizableSidebarProps = {
   children: ReactNode;
   className?: string;
   defaultWidth?: number;
+  hoverExpandBy?: number;
   label: string;
   maxWidth?: number;
   minWidth?: number;
@@ -51,6 +52,7 @@ export default function ResizableSidebar({
   children,
   className = '',
   defaultWidth = 292,
+  hoverExpandBy = 0,
   label,
   maxWidth = 520,
   minWidth = 220,
@@ -63,6 +65,7 @@ export default function ResizableSidebar({
     clamp(defaultWidth, minWidth, maxWidth)
   );
   const [collapsed, setCollapsed] = useState(false);
+  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [resizing, setResizing] = useState(false);
   const dragRef = useRef({
     currentWidth: width,
@@ -80,6 +83,7 @@ export default function ResizableSidebar({
 
   const style = {
     '--resizable-sidebar-expanded-width': `${width}px`,
+    '--resizable-sidebar-hover-width': `${width + hoverExpandBy}px`,
     width: collapsed ? `${COLLAPSED_WIDTH}px` : `${width}px`,
   } as CSSProperties;
 
@@ -97,6 +101,7 @@ export default function ResizableSidebar({
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (collapsed || event.button !== 0) return;
     event.preventDefault();
+    setHoverExpanded(false);
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       currentWidth: width,
@@ -144,6 +149,7 @@ export default function ResizableSidebar({
 
   function toggleCollapsed() {
     const nextCollapsed = !collapsed;
+    setHoverExpanded(false);
     setCollapsed(nextCollapsed);
     window.localStorage.setItem(collapsedStorageKey, String(nextCollapsed));
   }
@@ -157,8 +163,11 @@ export default function ResizableSidebar({
       className={`resizable-sidebar ${className}`}
       data-canvas-selection-preserve
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-hover-expand={hoverExpandBy > 0 ? 'true' : 'false'}
+      data-hover-expanded={hoverExpanded ? 'true' : 'false'}
       data-resize-edge={resizeEdge}
       data-resizing={resizing ? 'true' : 'false'}
+      onPointerLeave={() => setHoverExpanded(false)}
       style={style}
     >
       <div className='resizable-sidebar-scroll'>{children}</div>
@@ -178,9 +187,16 @@ export default function ResizableSidebar({
         aria-valuemin={minWidth}
         aria-valuenow={width}
         className='resizable-sidebar-handle'
+        onBlur={() => setHoverExpanded(false)}
+        onFocus={() => {
+          if (!collapsed && hoverExpandBy > 0) setHoverExpanded(true);
+        }}
         onKeyDown={handleResizeKeyDown}
         onPointerCancel={finishResize}
         onPointerDown={handlePointerDown}
+        onPointerEnter={() => {
+          if (!collapsed && !resizing && hoverExpandBy > 0) setHoverExpanded(true);
+        }}
         onPointerMove={handlePointerMove}
         onPointerUp={finishResize}
         role='separator'

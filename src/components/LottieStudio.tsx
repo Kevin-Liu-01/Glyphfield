@@ -83,6 +83,8 @@ const CANVAS_PRESETS = {
 } as const;
 
 const DEFAULT_LOTTIE_BACKGROUND = '#0B0D10';
+const DEFAULT_LOTTIE_CORNER_RADIUS = 8;
+const DEFAULT_LOTTIE_STROKE_WIDTH = 2;
 
 type CanvasPreset = keyof typeof CANVAS_PRESETS;
 
@@ -230,8 +232,8 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const [artColor, setArtColor] = useStudioDraft(identity.id, 'lottie', 'art-color-v3', defaultSurface);
   const [secondaryColor, setSecondaryColor] = useStudioDraft(identity.id, 'lottie', 'secondary-color-v3', defaultSecondary);
   const [accentColor, setAccentColor] = useStudioDraft(identity.id, 'lottie', 'accent-color-v3', defaultAccent);
-  const [cornerRadius, setCornerRadius] = useStudioDraft(identity.id, 'lottie', 'corner-radius', 18);
-  const [strokeWidth, setStrokeWidth] = useStudioDraft(identity.id, 'lottie', 'stroke-width-v2', 3);
+  const [cornerRadius, setCornerRadius] = useStudioDraft(identity.id, 'lottie', 'corner-radius-v2', DEFAULT_LOTTIE_CORNER_RADIUS);
+  const [strokeWidth, setStrokeWidth] = useStudioDraft(identity.id, 'lottie', 'stroke-width-v3', DEFAULT_LOTTIE_STROKE_WIDTH);
   const [speed, setSpeed] = useStudioDraft(identity.id, 'lottie', 'speed', 1);
   const [loop, setLoop] = useStudioDraft(identity.id, 'lottie', 'loop', true);
   const [interpolate, setInterpolate] = useStudioDraft(identity.id, 'lottie', 'interpolate', true);
@@ -656,8 +658,8 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     setArtColor(defaultSurface);
     setSecondaryColor(defaultSecondary);
     setAccentColor(defaultAccent);
-    setCornerRadius(18);
-    setStrokeWidth(3);
+    setCornerRadius(DEFAULT_LOTTIE_CORNER_RADIUS);
+    setStrokeWidth(DEFAULT_LOTTIE_STROKE_WIDTH);
     setSpeed(1);
     setLoop(true);
     setInterpolate(true);
@@ -669,8 +671,8 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     artColorRef.current = defaultSurface;
     secondaryColorRef.current = defaultSecondary;
     accentColorRef.current = defaultAccent;
-    cornerRadiusRef.current = 18;
-    strokeWidthRef.current = 3;
+    cornerRadiusRef.current = DEFAULT_LOTTIE_CORNER_RADIUS;
+    strokeWidthRef.current = DEFAULT_LOTTIE_STROKE_WIDTH;
     speedRef.current = 1;
     loopRef.current = true;
     interpolateRef.current = true;
@@ -838,7 +840,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
             toolId='lottie'
           >
-            <div className='relative w-full max-w-6xl overflow-hidden rounded-md border border-border shadow-[0_12px_36px_rgba(0,0,0,0.1)]' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
+            <div className='relative w-full max-w-6xl overflow-hidden rounded-sm border border-border shadow-[0_12px_36px_rgba(0,0,0,0.1)]' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
               {transparent || backgroundStyle !== 'shader' ? null : (
                 <div className='absolute inset-0' ref={shaderLayerRef}>
                   <LiveMaterialCanvas materialId={materialId} paused={!isPlaying} settings={materialSettings} />

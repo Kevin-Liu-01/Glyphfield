@@ -1,17 +1,14 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasLayerPanel from '@/components/CanvasLayerPanel';
 import EditableCanvasLayer, { alignCanvasLayer, type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
-import LiveMaterialControls from '@/components/LiveMaterialControls';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview from '@/components/LogoAppearancePreview';
-import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
-import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
@@ -33,12 +30,8 @@ import {
 } from '@/lib/backgroundSvg';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
-import {
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brandMaterialPalette,
-  getLiveMaterial,
-} from '@/lib/liveMaterials';
-import { DEFAULT_LOGO_APPEARANCE, drawLogoAppearanceLayer, type LogoAppearanceSettings } from '@/lib/logoAppearance';
+import { brandMaterialPalette } from '@/lib/liveMaterials';
+import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 import {
   parseSourceObject,
@@ -93,22 +86,13 @@ function RangeControl({
 
 export default function BackgroundStudio({
   identity,
-  navigation,
   tool,
 }: {
   identity: BrandIdentity;
-  navigation?: ReactNode;
   tool: StudioTool;
 }) {
   const gt = useGT();
   const defaultPalette = brandMaterialPalette(identity);
-  const defaultLiveSettings = {
-    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-    colorA: defaultPalette.colors[0],
-    colorB: defaultPalette.colors[1],
-    colorC: defaultPalette.colors[2],
-  };
-  const liveLayerRef = useRef<HTMLDivElement>(null);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
@@ -146,17 +130,14 @@ export default function BackgroundStudio({
       colorA: defaultPalette.colors[0],
       colorB: defaultPalette.colors[1],
       colorC: defaultPalette.colors[2],
-      liveSettings: defaultLiveSettings,
     })
   );
   const settings = {
     ...DEFAULT_BACKGROUND_SETTINGS,
     ...storedSettings,
-    liveMaterialId: storedSettings.liveMaterialId ?? DEFAULT_BACKGROUND_SETTINGS.liveMaterialId!,
-    liveSettings: {
-      ...defaultLiveSettings,
-      ...storedSettings.liveSettings,
-    },
+    style: storedSettings.style === 'live-shader'
+      ? 'grain-gradient' as const
+      : storedSettings.style ?? DEFAULT_BACKGROUND_SETTINGS.style,
   };
   const backgroundPresets = [
     {
@@ -234,9 +215,14 @@ export default function BackgroundStudio({
     }
 
     if (nextSettings) {
+      const nextStyle = sourceString(nextSettings, 'style', settings.style);
+      if (!['gradient', 'grain-gradient', 'dither', 'pattern'].includes(nextStyle)) {
+        throw new TypeError('Surface Lab supports static gradient, grain, dither, and pattern recipes. Use Material for live shaders.');
+      }
       setStoredSettings((current) => ({
         ...current,
         ...nextSettings,
+        style: nextStyle as BackgroundStyle,
       } as BackgroundSettings));
     }
     if (nextAppearance) {
@@ -263,81 +249,6 @@ export default function BackgroundStudio({
   async function exportPng() {
     setExporting(true);
     try {
-      if (settings.style === 'live-shader') {
-        const shaderCanvas = liveLayerRef.current?.querySelector('canvas');
-        if (!shaderCanvas) return;
-        const output = document.createElement('canvas');
-        output.width = settings.width;
-        output.height = settings.height;
-        const context = output.getContext('2d');
-        if (!context) return;
-        context.drawImage(shaderCanvas, 0, 0, settings.width, settings.height);
-        if (selectedBrandAsset) {
-          const image = new Image();
-          image.src = selectedBrandAsset.path;
-          await image.decode();
-          const imageScale = brandAssetFit === 'cover'
-            ? Math.max(settings.width / image.naturalWidth, settings.height / image.naturalHeight)
-            : Math.min(settings.width / image.naturalWidth, settings.height / image.naturalHeight);
-          const imageWidth = image.naturalWidth * imageScale;
-          const imageHeight = image.naturalHeight * imageScale;
-          context.globalAlpha = brandAssetOpacity / 100;
-          context.drawImage(
-            image,
-            (settings.width - imageWidth) / 2,
-            (settings.height - imageHeight) / 2,
-            imageWidth,
-            imageHeight
-          );
-          context.globalAlpha = 1;
-        }
-        if (showLogo) {
-          const markSize = Math.min(settings.width, settings.height) * (settings.logoScale / 100);
-          const markX = (settings.width - markSize) / 2 + (settings.logoX / 100) * settings.width;
-          const markY = (settings.height - markSize) / 2 + (settings.logoY / 100) * settings.height;
-          if (logoPath) {
-            const image = new Image();
-            image.src = logoPath;
-            await image.decode();
-            const tinted = document.createElement('canvas');
-            tinted.width = Math.ceil(markSize);
-            tinted.height = Math.ceil(markSize);
-            const tintedContext = tinted.getContext('2d');
-            if (!tintedContext) return;
-            tintedContext.drawImage(image, 0, 0, markSize, markSize);
-            tintedContext.globalCompositeOperation = 'source-in';
-            tintedContext.fillStyle = settings.logoColor;
-            tintedContext.fillRect(0, 0, markSize, markSize);
-            drawLogoAppearanceLayer(
-              context,
-              tinted,
-              markX,
-              markY,
-              markSize,
-              markSize,
-              { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
-              settings.logoOpacity / 100
-            );
-          } else {
-            context.globalAlpha = settings.logoOpacity / 100;
-            context.fillStyle = settings.logoColor;
-            context.font = `600 ${markSize * 0.42}px Switzer, sans-serif`;
-            context.textAlign = 'center';
-            context.textBaseline = 'middle';
-            context.fillText(identity.shortName, settings.width / 2, settings.height / 2);
-            context.globalAlpha = 1;
-          }
-        }
-        const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `${identity.id}-${settings.liveMaterialId}-${settings.width}x${settings.height}.png`;
-        link.href = url;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        return;
-      }
       const [embeddedLogo, embeddedBrandAsset] = await Promise.all([
         showLogo && logoPath ? imageUrlToDataUrl(logoPath) : undefined,
         selectedBrandAsset ? imageUrlToDataUrl(selectedBrandAsset.path) : undefined,
@@ -373,7 +284,6 @@ export default function BackgroundStudio({
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
-          {navigation}
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button loading={exporting} onClick={exportPng} type='button'>
             <Download aria-hidden='true' />
@@ -390,12 +300,10 @@ export default function BackgroundStudio({
         >
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Surface</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                <T>Build an exportable field from SVG layers or live rendered materials.</T>
-              </p>
+              <h2 className='text-sm font-semibold'><T>Static background</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Build export-ready SVG gradients, grain, dither, and patterns. Live shaders stay in Material.</T></p>
             </div>
-            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Preset</T>
               <StudioSelect
                 ariaLabel={gt('Background preset')}
@@ -431,7 +339,6 @@ export default function BackgroundStudio({
                   { label: gt('Grainy gradient'), value: 'grain-gradient' },
                   { label: gt('Ordered dither'), value: 'dither' },
                   { label: gt('Pattern field'), value: 'pattern' },
-                  { label: gt('Live shader'), value: 'live-shader' },
                 ]}
                 value={settings.style}
               />
@@ -440,7 +347,7 @@ export default function BackgroundStudio({
               <T>Gradient</T>
               <StudioSelect
                 ariaLabel={gt('Gradient')}
-                disabled={settings.style === 'dither' || settings.style === 'pattern' || settings.style === 'live-shader'}
+                disabled={settings.style === 'dither' || settings.style === 'pattern'}
                 onValueChange={(value) => {
                   const gradient = value as BackgroundGradient;
                   updateSettings({ gradient, ...BACKGROUND_GRADIENT_DEFAULTS[gradient] });
@@ -455,16 +362,7 @@ export default function BackgroundStudio({
                 value={settings.gradient}
               />
             </div>
-            {settings.style === 'live-shader' ? (
-              <LiveMaterialControls
-                identity={identity}
-                materialId={settings.liveMaterialId}
-                onMaterialIdChange={(liveMaterialId) => updateSettings({ liveMaterialId })}
-                onSettingsChange={(liveSettings) => updateSettings({ liveSettings })}
-                settings={settings.liveSettings}
-              />
-            ) : (
-              <div className='grid gap-3'>
+            <div className='grid gap-3'>
                 <MaterialPalettePresets
                   identity={identity}
                   onSelect={([colorA, colorB, colorC]) => updateSettings({ colorA, colorB, colorC })}
@@ -483,16 +381,15 @@ export default function BackgroundStudio({
                     value={settings[key]}
                   />
                 ))}
-              </div>
-            )}
-            {settings.style === 'live-shader' ? null : <RangeControl label={gt('Angle')} max={180} min={0} onChange={(angle) => updateSettings({ angle })} suffix='°' value={settings.angle} />}
-            {settings.style !== 'live-shader' && ['radial', 'orbit'].includes(settings.gradient) ? (
+            </div>
+            <RangeControl label={gt('Angle')} max={180} min={0} onChange={(angle) => updateSettings({ angle })} suffix='°' value={settings.angle} />
+            {['radial', 'orbit'].includes(settings.gradient) ? (
               <div className='grid grid-cols-2 gap-3'>
                 <RangeControl label={gt('Focus X')} max={100} min={0} onChange={(focalX) => updateSettings({ focalX })} suffix='%' value={settings.focalX} />
                 <RangeControl label={gt('Focus Y')} max={100} min={0} onChange={(focalY) => updateSettings({ focalY })} suffix='%' value={settings.focalY} />
               </div>
             ) : null}
-            {settings.style !== 'live-shader' && settings.gradient === 'mesh' ? (
+            {settings.gradient === 'mesh' ? (
               <div className='grid gap-3'>
                 <label className='flex items-center justify-between gap-4 text-sm'>
                   <T>Band lighting</T>
@@ -509,7 +406,7 @@ export default function BackgroundStudio({
                 <RangeControl label={gt('Band gap')} max={32} min={0} onChange={(bandGap) => updateSettings({ bandGap })} suffix='px' value={settings.bandGap} />
               </div>
             ) : null}
-            {settings.style !== 'live-shader' && ['wave', 'orbit'].includes(settings.gradient) ? (
+            {['wave', 'orbit'].includes(settings.gradient) ? (
               <RangeControl label={gt('Relief')} max={80} min={0} onChange={(relief) => updateSettings({ relief })} suffix='%' value={settings.relief} />
             ) : null}
             {settings.style === 'grain-gradient' ? (
@@ -536,7 +433,7 @@ export default function BackgroundStudio({
             ) : null}
           </section>
 
-          {settings.style === 'live-shader' ? null : <section className='flex flex-col gap-4 border-b border-border p-5'>
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
             <h2 className='text-sm font-semibold'><T>Pattern overlay</T></h2>
             <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Pattern</T>
@@ -549,7 +446,7 @@ export default function BackgroundStudio({
             </div>
             <RangeControl label={gt('Spacing')} max={72} min={8} onChange={(spacing) => updateSettings({ spacing })} suffix='px' value={settings.spacing} />
             <RangeControl label={gt('Opacity')} max={100} min={0} onChange={(patternOpacity) => updateSettings({ patternOpacity })} suffix='%' value={settings.patternOpacity} />
-          </section>}
+          </section>
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
@@ -643,98 +540,46 @@ export default function BackgroundStudio({
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
-            {settings.style === 'live-shader' ? (
-              <div
-                aria-label={`${identity.name} live shader background preview`}
-                className='artifact-frame artifact-preview relative overflow-hidden bg-black'
-                ref={liveLayerRef}
-                role='img'
-                onPointerDown={() => setLogoSelected(false)}
-                style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
-              >
-                <LiveMaterialCanvas materialId={settings.liveMaterialId} settings={settings.liveSettings} />
-                {selectedBrandAsset ? (
-                  <img
-                    alt=''
-                    aria-hidden='true'
-                    className={`pointer-events-none absolute inset-0 size-full ${brandAssetFit === 'contain' ? 'object-contain' : 'object-cover'}`}
-                    src={selectedBrandAsset.path}
-                    style={{ opacity: brandAssetOpacity / 100 }}
+            <div
+              aria-label={`${identity.name} ${settings.style} background preview`}
+              className='artifact-frame artifact-preview relative overflow-hidden bg-white'
+              role='img'
+              onPointerDown={() => setLogoSelected(false)}
+              style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
+            >
+              <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
+              {showLogo ? (
+                <EditableCanvasLayer
+                  baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                  baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                  baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                  baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                  canvasHeight={settings.height}
+                  canvasWidth={settings.width}
+                  label={gt('Logo')}
+                  onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
+                  onSelect={() => setLogoSelected(true)}
+                  selected={logoSelected}
+                  transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
+                  zIndex={3}
+                >
+                  <LogoAppearancePreview
+                    ariaLabel={`${identity.name} logo`}
+                    color={settings.logoColor}
+                    fallback={<span className='grid size-full place-items-center font-semibold'>{identity.shortName}</span>}
+                    logoPath={logoPath}
+                    opacity={settings.logoOpacity / 100}
+                    settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
                   />
-                ) : null}
-                {showLogo ? (
-                  <EditableCanvasLayer
-                    baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                    baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                    baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                    baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                    canvasHeight={settings.height}
-                    canvasWidth={settings.width}
-                    label={gt('Logo')}
-                    onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
-                    onSelect={() => setLogoSelected(true)}
-                    selected={logoSelected}
-                    transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
-                    zIndex={3}
-                  >
-                    <LogoAppearancePreview
-                      ariaLabel={`${identity.name} logo`}
-                      color={settings.logoColor}
-                      fallback={<span className='font-semibold' style={{ fontSize: `${settings.logoScale / 2}cqw` }}>{identity.shortName}</span>}
-                      logoPath={logoPath}
-                      opacity={settings.logoOpacity / 100}
-                      settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
-                    />
-                  </EditableCanvasLayer>
-                ) : null}
-              </div>
-            ) : (
-              <div
-                aria-label={`${identity.name} ${settings.style} background preview`}
-                className='artifact-frame artifact-preview relative overflow-hidden bg-white'
-                role='img'
-                onPointerDown={() => setLogoSelected(false)}
-                style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
-              >
-                <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
-                {showLogo ? (
-                  <EditableCanvasLayer
-                    baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                    baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                    baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                    baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                    canvasHeight={settings.height}
-                    canvasWidth={settings.width}
-                    label={gt('Logo')}
-                    onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
-                    onSelect={() => setLogoSelected(true)}
-                    selected={logoSelected}
-                    transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
-                    zIndex={3}
-                  >
-                    <LogoAppearancePreview
-                      ariaLabel={`${identity.name} logo`}
-                      color={settings.logoColor}
-                      fallback={<span className='grid size-full place-items-center font-semibold'>{identity.shortName}</span>}
-                      logoPath={logoPath}
-                      opacity={settings.logoOpacity / 100}
-                      settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
-                    />
-                  </EditableCanvasLayer>
-                ) : null}
-              </div>
-            )}
+                </EditableCanvasLayer>
+              ) : null}
+            </div>
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
               <p className='text-sm font-medium'>{settings.style.replace('-', ' ')}</p>
               <div className='flex items-center gap-4 text-muted-foreground'>
                 <p className='font-mono text-[10px] uppercase tracking-wider'>
-                  {settings.style === 'live-shader'
-                    ? settings.liveMaterialId === 'glyphfield-glyph-field' ? 'Canvas material' : 'GPU material'
-                    : 'SVG layers'} / {settings.width} × {settings.height}
+                  SVG layers / {settings.width} × {settings.height}
                 </p>
-                {settings.style === 'live-shader' ? (
-                  <LiveMaterialSourceBadge engine={getLiveMaterial(settings.liveMaterialId).engine} />
-                ) : null}
               </div>
             </div>
           </div>
@@ -751,7 +596,11 @@ export default function BackgroundStudio({
             brandAssetId,
             brandAssetOpacity,
             logoAppearance,
-            settings,
+            settings: {
+              ...settings,
+              liveMaterialId: undefined,
+              liveSettings: undefined,
+            },
             showLogo,
           })}
           title={gt('Surface source')}

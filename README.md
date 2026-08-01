@@ -32,7 +32,7 @@ complete production catalog without rebuilding the context for every artifact.
 | Foundation | Expression | Application | Delivery |
 | --- | --- | --- | --- |
 | Logo family | Motion packages | OpenGraph + social | PNG |
-| Color tokens | Material shaders | Slides + blog covers | SVG |
+| Color tokens | Shared shader library | Slides + blog covers | SVG |
 | Typography | Dither + grain + gradients | Email + product UI | GIF |
 | Voice + positioning | Terminal themes | CLI + documentation | JSON |
 
@@ -106,9 +106,8 @@ speed, direction, recoloring, playback, source download, and frame export.
   social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
   review, with export up to 4800 px wide.
 - Surface Lab combines background and logo modes; Material keeps animated shaders focused under Motion.
-  It creates portable SVG gradients, grain, ordered Bayer dithering, patterns,
-  live ShaderGradient and local GLSL fields, alpha-masked marks, still PNGs,
-  and animated GIFs without duplicating canvas or appearance controls.
+  Their shared, quality-sorted Shader Library provides more than 140 searchable live previews from original Glyphfield materials, ShaderGradient, Paper, Fluid Energy, Shaders.com studies, and attributed design studies. The same three-color palettes and form, light, grain, orientation, and speed controls carry across Material, Surface Lab, and per-frame Animation backgrounds.
+- Animation places real two-column motion previews and the Shader Library beneath its source sequence. Shader backgrounds remain editable per frame, while direct canvas-edge and corner handles change output dimensions without leaving the preview.
 - Studio appearance persists light or dark mode, accent, canvas density, and a
   choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
 - Templates include fourteen slide layouts plus blog, partnership, OpenGraph,
@@ -188,6 +187,9 @@ recorded in [Studio library routing](./docs/library-routing.md).
 Glyphfield is open-source software released under the [MIT License](./LICENSE).
 Bundled third-party marks and reference-brand assets remain the property of
 their respective owners.
+
+Open-source code adapted inside Glyphfield is credited in
+[Third-party notices](./THIRD_PARTY_NOTICES.md).
 
 Official brand references and source assets are documented in
 [Identities and custom assets](./content/docs/agents/identity-assets.mdx). Their

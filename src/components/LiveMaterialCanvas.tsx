@@ -1,18 +1,88 @@
 'use client';
 
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react';
-import { memo, useRef, useState } from 'react';
+import {
+  ColorPanels,
+  Dithering,
+  DotGrid,
+  DotOrbit,
+  FlutedGlass,
+  GemSmoke,
+  GodRays,
+  GrainGradient,
+  HalftoneCmyk,
+  HalftoneDots,
+  Heatmap,
+  ImageDithering,
+  LiquidMetal,
+  MeshGradient,
+  Metaballs,
+  NeuroNoise,
+  PaperTexture,
+  PerlinNoise,
+  PulsingBorder,
+  SimplexNoise,
+  SmokeRing,
+  Spiral,
+  StaticMeshGradient,
+  StaticRadialGradient,
+  Swirl,
+  Voronoi,
+  Warp,
+  Water,
+  Waves,
+  colorPanelsPresets,
+  ditheringPresets,
+  dotGridPresets,
+  dotOrbitPresets,
+  flutedGlassPresets,
+  gemSmokePresets,
+  godRaysPresets,
+  grainGradientPresets,
+  halftoneCmykPresets,
+  halftoneDotsPresets,
+  heatmapPresets,
+  imageDitheringPresets,
+  liquidMetalPresets,
+  meshGradientPresets,
+  metaballsPresets,
+  neuroNoisePresets,
+  paperTexturePresets,
+  perlinNoisePresets,
+  pulsingBorderPresets,
+  simplexNoisePresets,
+  smokeRingPresets,
+  spiralPresets,
+  staticMeshGradientPresets,
+  staticRadialGradientPresets,
+  swirlPresets,
+  voronoiPresets,
+  warpPresets,
+  waterPresets,
+  wavesPresets,
+  type ShaderComponentProps,
+} from '@paper-design/shaders-react';
+import { createElement, memo, useRef, useState, type ComponentType } from 'react';
 
 import type { RefObject } from 'react';
 
 import { useMountEffect } from '@/hooks/useMountEffect';
-import { normalizeLiveMaterialId, type LiveMaterialId, type LiveMaterialSettings } from '@/lib/liveMaterials';
+import {
+  getPaperLiveMaterialDefinition,
+  isPaperLiveMaterialId,
+  normalizeLiveMaterialId,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+  type PaperLiveMaterialId,
+  type PaperShaderFamilyId,
+} from '@/lib/liveMaterials';
 import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
 
 export type LiveMaterialCanvasProps = {
   className?: string;
   captureTimeMs?: number | null;
   enabled?: boolean;
+  frameRate?: number;
   materialId: LiveMaterialId;
   paused?: boolean;
   renderScale?: number;
@@ -24,6 +94,134 @@ attribute vec2 a_position;
 
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+const FLUID_VERTEX_SOURCE = `
+attribute vec2 a_position;
+varying vec2 v_uv;
+
+void main() {
+  v_uv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+const FLUID_VELOCITY_SOURCE = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_velocity;
+uniform vec2 u_texel;
+uniform vec2 u_pointer;
+uniform vec2 u_pointer_velocity;
+uniform float u_pointer_active;
+uniform float u_dt;
+uniform float u_time;
+uniform float u_strength;
+uniform float u_frequency;
+
+vec2 decodeVelocity(vec2 value) {
+  return value * 2.0 - 1.0;
+}
+
+vec2 vortex(vec2 uv, vec2 center, float direction, float radius) {
+  vec2 delta = uv - center;
+  float influence = exp(-dot(delta, delta) / max(0.001, radius));
+  return vec2(-delta.y, delta.x) * influence * direction;
+}
+
+void main() {
+  vec2 velocity = decodeVelocity(texture2D(u_velocity, v_uv).xy);
+  vec2 previousUv = clamp(v_uv - velocity * u_dt, u_texel, 1.0 - u_texel);
+  velocity = decodeVelocity(texture2D(u_velocity, previousUv).xy) * 0.996;
+
+  float motion = u_time * (1.35 + u_frequency * 0.06);
+  vec2 sourceA = vec2(0.27 + sin(motion * 0.83) * 0.14, 0.38 + cos(motion * 0.71) * 0.16);
+  vec2 sourceB = vec2(0.7 + cos(motion * 0.64) * 0.16, 0.64 + sin(motion * 0.77) * 0.14);
+  vec2 sourceC = vec2(0.5 + sin(motion * 0.39) * 0.2, 0.5 + cos(motion * 0.48) * 0.2);
+  float force = 0.032 + u_strength * 0.026;
+  velocity += vortex(v_uv, sourceA, 1.0, 0.035) * force;
+  velocity += vortex(v_uv, sourceB, -1.0, 0.04) * force;
+  velocity += vortex(v_uv, sourceC, 0.7, 0.06) * force;
+  velocity += vec2(
+    sin((v_uv.y + motion * 0.08) * 6.2831),
+    cos((v_uv.x - motion * 0.06) * 6.2831)
+  ) * (0.0008 + u_strength * 0.0007);
+
+  vec2 pointerDelta = v_uv - u_pointer;
+  float pointerForce = exp(-dot(pointerDelta, pointerDelta) * 120.0) * u_pointer_active;
+  velocity += u_pointer_velocity * pointerForce * 0.24;
+  velocity = clamp(velocity, vec2(-0.46), vec2(0.46));
+  gl_FragColor = vec4(velocity * 0.5 + 0.5, 0.0, 1.0);
+}
+`;
+
+const FLUID_DYE_SOURCE = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_dye;
+uniform sampler2D u_velocity;
+uniform vec3 u_color_a;
+uniform vec3 u_color_b;
+uniform vec3 u_color_c;
+uniform vec2 u_texel;
+uniform vec2 u_pointer;
+uniform float u_pointer_active;
+uniform float u_dt;
+uniform float u_time;
+uniform float u_amplitude;
+uniform float u_density;
+uniform float u_strength;
+uniform float u_frequency;
+
+float splat(vec2 uv, vec2 center, float radius) {
+  vec2 delta = uv - center;
+  return exp(-dot(delta, delta) / max(0.001, radius));
+}
+
+void main() {
+  vec2 velocity = texture2D(u_velocity, v_uv).xy * 2.0 - 1.0;
+  vec2 previousUv = clamp(v_uv - velocity * u_dt, u_texel, 1.0 - u_texel);
+  vec3 dye = texture2D(u_dye, previousUv).rgb * mix(0.982, 0.997, clamp(u_density * 0.5, 0.0, 1.0));
+
+  float motion = u_time * (1.35 + u_frequency * 0.06);
+  vec2 sourceA = vec2(0.27 + sin(motion * 0.83) * 0.14, 0.38 + cos(motion * 0.71) * 0.16);
+  vec2 sourceB = vec2(0.7 + cos(motion * 0.64) * 0.16, 0.64 + sin(motion * 0.77) * 0.14);
+  vec2 sourceC = vec2(0.5 + sin(motion * 0.39) * 0.2, 0.5 + cos(motion * 0.48) * 0.2);
+  float radius = 0.0028 + u_amplitude * 0.0009;
+  float injection = 0.03 + u_strength * 0.024;
+  dye += u_color_a * splat(v_uv, sourceA, radius) * injection;
+  dye += u_color_b * splat(v_uv, sourceB, radius * 1.15) * injection;
+  dye += u_color_c * splat(v_uv, sourceC, radius * 0.82) * injection * 0.8;
+  dye += u_color_c * splat(v_uv, u_pointer, radius * 0.7) * u_pointer_active * 0.12;
+  gl_FragColor = vec4(clamp(dye, 0.0, 1.35), 1.0);
+}
+`;
+
+const FLUID_DISPLAY_SOURCE = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_dye;
+uniform vec2 u_texel;
+uniform float u_brightness;
+uniform float u_grain;
+uniform float u_time;
+
+float displayHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  vec3 dye = texture2D(u_dye, v_uv).rgb;
+  vec3 dyeX = texture2D(u_dye, v_uv + vec2(u_texel.x, 0.0)).rgb;
+  vec3 dyeY = texture2D(u_dye, v_uv + vec2(0.0, u_texel.y)).rgb;
+  float edge = length(dyeX - dye) + length(dyeY - dye);
+  float luminance = dot(dye, vec3(0.2126, 0.7152, 0.0722));
+  vec3 color = dye * u_brightness;
+  color += edge * vec3(0.34, 0.42, 0.58) * 0.28;
+  color += pow(max(0.0, luminance), 2.0) * dye * 0.18;
+  float grain = (displayHash(gl_FragCoord.xy + floor(u_time * 12.0)) - 0.5) * u_grain * 0.0015;
+  gl_FragColor = vec4(max(vec3(0.0), color + grain), 1.0);
 }
 `;
 
@@ -83,7 +281,7 @@ vec3 finishColor(vec3 color) {
 }
 `;
 
-const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere' | 'glyphfield-glyph-field'>, string> = {
+const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere' | 'glyphfield-glyph-field' | 'pavel-fluid-energy' | PaperLiveMaterialId>, string> = {
   'glyphfield-mesh-gradient': `
 void main() {
   vec2 p = studioUv();
@@ -166,12 +364,41 @@ void main() {
   'shaders-spectral-bloom': `
 void main() {
   vec2 p = studioUv();
-  float radius = length(p);
-  float angle = atan(p.y, p.x);
-  float rays = 0.5 + 0.5 * sin(angle * max(3.0, u_frequency) + radius * u_amplitude * 3.0 - u_time);
-  float rings = 0.5 + 0.5 * sin(radius * (8.0 + u_detail * 4.0) - u_time * 1.4);
-  vec3 color = colorRamp(fract(rays * 0.75 + rings * 0.5 + radius));
-  color *= 1.0 - smoothstep(0.72, 1.4, radius) * 0.72;
+  float time = u_time * 0.72;
+  float strength = clamp(u_strength, 0.0, 1.5);
+  float frequency = 1.25 + u_frequency * 0.22;
+
+  vec2 flow = p;
+  flow += vec2(
+    sin(p.y * (1.35 + u_detail * 0.12) + time * 0.62),
+    cos(p.x * (1.15 + u_detail * 0.1) - time * 0.48)
+  ) * (0.1 + strength * 0.075);
+
+  float radius = length(flow);
+  float currentA = 0.5 + 0.5 * sin(
+    (flow.x * 0.72 + flow.y) * frequency
+    + radius * (1.4 + u_amplitude * 0.34)
+    - time
+  );
+  float currentB = 0.5 + 0.5 * sin(
+    (flow.x * 1.08 - flow.y * 0.58) * (frequency * 0.86)
+    - radius * (1.8 + u_detail * 0.18)
+    + time * 0.74
+  );
+  float pulse = 0.5 + 0.5 * sin(radius * (2.2 + u_detail * 0.24) - time * 0.56);
+  float convergence = 1.0 - abs(currentA - currentB);
+  float energy = currentA * 0.42 + currentB * 0.3 + pulse * 0.16 + convergence * 0.12;
+  energy = smoothstep(0.08, 0.94, energy);
+
+  float core = 1.0 - smoothstep(0.04, 1.6, radius);
+  float bloom = smoothstep(0.12, 0.92, energy + core * 0.16);
+  float crest = smoothstep(0.56, 1.08, energy + currentA * 0.14 + core * 0.08);
+  vec3 color = mix(u_color_a, u_color_b, 0.1 + bloom * 0.74);
+  color = mix(color, u_color_c, crest * (0.42 + strength * 0.22));
+  color += mix(u_color_b, u_color_c, 0.5) * bloom * core * 0.08;
+
+  float falloff = 1.0 - smoothstep(0.72, 1.78, length(p));
+  color *= mix(0.34, 1.0, falloff);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
   'shaders-pistons': `
@@ -266,16 +493,113 @@ void main() {
   color = mix(color, u_color_c, grid);
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
-  'shaders-dedalus-bloom': `
+  'study-line-field': `
 void main() {
   vec2 p = studioUv();
-  float field = fbm(p * max(1.0, u_detail) - vec2(u_time * 0.1, u_time * 0.14));
-  vec2 center = vec2(0.08, 0.16);
-  float radius = length(p - center + (field - 0.5) * u_strength * 0.32);
-  float bloom = smoothstep(0.78 + u_strength * 0.18, 0.12, radius);
-  float wave = smoothstep(0.12, 0.0, abs(p.y + 0.55 + sin(p.x * u_frequency + u_time) * 0.12));
-  vec3 color = mix(u_color_a, colorRamp(field), bloom);
-  color = mix(color, u_color_c, wave * 0.72);
+  float time = u_time * 0.42;
+  float warp = fbm(p * max(0.8, u_detail * 0.55) + vec2(time * 0.35, -time * 0.2));
+  float sweep = p.y + sin(p.x * (1.2 + u_detail * 0.16) + time) * (0.18 + u_strength * 0.08);
+  sweep += (warp - 0.5) * (0.34 + u_strength * 0.24);
+  float bands = abs(fract(sweep * (1.4 + u_frequency * 0.28)) - 0.5);
+  float line = smoothstep(0.13, 0.012, bands);
+  float halo = smoothstep(0.34, 0.02, bands) * (0.18 + u_strength * 0.12);
+  float crossFlow = 0.5 + 0.5 * sin((p.x - p.y * 0.42 + warp) * u_frequency - time * 0.7);
+  vec3 color = mix(u_color_a, u_color_b, crossFlow * 0.42 + halo);
+  color = mix(color, u_color_c, line * (0.64 + u_strength * 0.16));
+  color += mix(u_color_b, u_color_c, 0.5) * halo * 0.18;
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'study-chrome-glares': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.12;
+  float flow = fbm(p * max(0.7, u_detail * 0.58) + vec2(time, -time * 0.7));
+  float reflection = p.y + (flow - 0.5) * (0.38 + u_strength * 0.3);
+  reflection += sin(p.x * (1.2 + u_frequency * 0.08) + time) * 0.12;
+  float broad = exp(-pow((reflection + 0.42) / 0.42, 2.0)) * 0.36;
+  float stripA = exp(-pow((reflection + 0.08) / 0.045, 2.0));
+  float stripB = exp(-pow((reflection - 0.48) / 0.028, 2.0));
+  float darkCard = exp(-pow((reflection - 0.14) / 0.11, 2.0)) * 0.5;
+  float metal = clamp(0.025 + broad + stripA * 0.85 + stripB * 1.15 - darkCard, 0.0, 1.2);
+  float rim = pow(smoothstep(0.48, 1.5, length(p)), 3.0);
+  vec3 shadow = mix(vec3(0.004), u_color_a, 0.16);
+  vec3 silver = mix(vec3(0.82), u_color_b, 0.26);
+  vec3 color = mix(shadow, silver, clamp(metal, 0.0, 1.0));
+  color += max(0.0, metal - 1.0) * mix(vec3(1.0), u_color_c, 0.24);
+  color += rim * u_color_c * 0.1;
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'study-relief-gradient': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.18;
+  float turbulence = fbm(p * max(0.9, u_detail * 0.48) + vec2(time, -time * 0.45));
+  float field = p.x * 0.7 + p.y * 0.42 + (turbulence - 0.5) * (0.9 + u_strength * 0.55);
+  float ridges = sin(field * (2.2 + u_frequency * 0.52) + time);
+  float relief = 0.5 + 0.5 * ridges;
+  float edgeLight = pow(1.0 - abs(ridges), 3.0);
+  float shadow = smoothstep(0.16, 0.9, relief);
+  vec3 color = colorRamp(smoothstep(0.04, 0.96, relief));
+  color *= 0.64 + shadow * 0.48;
+  color += u_color_c * edgeLight * (0.16 + u_strength * 0.18);
+  color = mix(color, u_color_a, smoothstep(0.84, 1.6, length(p)) * 0.36);
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'study-orbit-gradient': `
+float orbitLobe(vec2 p, vec2 center, float radius) {
+  vec2 delta = p - center;
+  return exp(-dot(delta, delta) / max(0.01, radius));
+}
+
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.25;
+  float orbitRadius = 0.34 + u_amplitude * 0.018;
+  vec2 centerA = vec2(cos(time), sin(time * 0.9)) * orbitRadius;
+  vec2 centerB = vec2(cos(time * 0.74 + 2.1), sin(time * 0.82 + 2.1)) * orbitRadius * 1.2;
+  vec2 centerC = vec2(cos(-time * 0.62 + 4.2), sin(-time * 0.7 + 4.2)) * orbitRadius * 0.82;
+  float lobeA = orbitLobe(p, centerA, 0.18 + u_density * 0.06);
+  float lobeB = orbitLobe(p, centerB, 0.22 + u_density * 0.05);
+  float lobeC = orbitLobe(p, centerC, 0.15 + u_density * 0.05);
+  float texture = fbm(p * max(0.7, u_detail * 0.42) + time * 0.12);
+  vec3 color = mix(u_color_a, u_color_b, clamp(lobeA + texture * 0.16, 0.0, 1.0));
+  color = mix(color, u_color_c, clamp(lobeB * 0.82 + lobeC * 0.72, 0.0, 1.0));
+  color += mix(u_color_b, u_color_c, 0.5) * lobeA * lobeC * u_strength * 0.28;
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'study-radiant-void': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.2;
+  float angle = atan(p.y, p.x);
+  float distortion = fbm(p * max(0.8, u_detail * 0.5) + vec2(time, -time * 0.7));
+  float radius = length(p) + (distortion - 0.5) * (0.16 + u_strength * 0.08);
+  float aperture = smoothstep(0.19, 0.56, radius);
+  float ring = exp(-pow((radius - 0.62) / (0.1 + u_amplitude * 0.008), 2.0));
+  float rays = pow(0.5 + 0.5 * sin(angle * max(3.0, u_frequency) + time), 8.0);
+  vec3 color = mix(u_color_a * 0.12, u_color_b, aperture * 0.48);
+  color = mix(color, u_color_c, ring * (0.68 + rays * 0.24));
+  color += mix(u_color_b, u_color_c, 0.5) * ring * rays * u_strength * 0.2;
+  color *= 1.0 - smoothstep(1.0, 1.8, radius) * 0.68;
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
+  'study-galactic-rings': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.24;
+  float radius = length(p);
+  float angle = atan(p.y, p.x);
+  float warp = fbm(p * max(0.75, u_detail * 0.48) + vec2(time * 0.3, -time * 0.22));
+  float ringCoordinate = radius * (3.6 + u_frequency * 0.42) + angle * 0.34;
+  ringCoordinate += (warp - 0.5) * (1.2 + u_strength * 0.8) - time;
+  float rings = 0.5 + 0.5 * sin(ringCoordinate * 3.14159);
+  float crest = pow(rings, 5.0);
+  float glass = smoothstep(0.08, 0.92, rings + warp * 0.18);
+  vec3 color = mix(u_color_a, u_color_b, glass * 0.72);
+  color = mix(color, u_color_c, crest * (0.58 + u_strength * 0.18));
+  float innerLight = 1.0 - smoothstep(0.0, 0.9, radius);
+  color += mix(u_color_b, u_color_c, 0.5) * innerLight * crest * 0.16;
+  color *= 1.0 - smoothstep(1.0, 1.75, radius) * 0.52;
   gl_FragColor = vec4(finishColor(color), 1.0);
 }`,
 };
@@ -556,6 +880,7 @@ function OriginalMaterialCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  frameRate,
   fragmentSource,
   onContextLost,
   paused,
@@ -565,6 +890,7 @@ function OriginalMaterialCanvas({
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
+  frameRate: number;
   fragmentSource: string;
   onContextLost: () => void;
   paused: boolean;
@@ -573,10 +899,12 @@ function OriginalMaterialCanvas({
 }) {
   const activeRef = useRef(active);
   const captureTimeRef = useRef(captureTimeMs);
+  const frameRateRef = useRef(frameRate);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
   activeRef.current = active;
   captureTimeRef.current = captureTimeMs;
+  frameRateRef.current = frameRate;
   pausedRef.current = paused;
   settingsRef.current = settings;
 
@@ -585,7 +913,7 @@ function OriginalMaterialCanvas({
     if (!canvas) return;
     const context = canvas.getContext('webgl', {
       alpha: false,
-      antialias: true,
+      antialias: false,
       preserveDrawingBuffer: true,
     });
     if (!context) return;
@@ -659,6 +987,7 @@ function OriginalMaterialCanvas({
     let frame = 0;
     let timeout = 0;
     let elapsed = 0;
+    let lastDrawn = 0;
     let previous = performance.now();
     let disposed = false;
 
@@ -688,6 +1017,17 @@ function OriginalMaterialCanvas({
         scheduleNextFrame();
         return;
       }
+      const frameInterval = 1000 / Math.max(1, frameRateRef.current);
+      if (
+        captureTimeRef.current === null
+        && !pausedRef.current
+        && lastDrawn > 0
+        && time - lastDrawn < frameInterval
+      ) {
+        scheduleNextFrame();
+        return;
+      }
+      lastDrawn = time;
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
       const delta = Math.min(64, time - previous);
@@ -736,10 +1076,594 @@ function OriginalMaterialCanvas({
   return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
 }
 
+type FluidRenderTarget = {
+  framebuffer: WebGLFramebuffer;
+  height: number;
+  texture: WebGLTexture;
+  width: number;
+};
+
+function FluidSimulationCanvas({
+  active,
+  canvasRef,
+  captureTimeMs,
+  frameRate,
+  onContextLost,
+  paused,
+  renderScale,
+  settings,
+}: {
+  active: boolean;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  captureTimeMs: number | null;
+  frameRate: number;
+  onContextLost: () => void;
+  paused: boolean;
+  renderScale: number;
+  settings: LiveMaterialSettings;
+}) {
+  const activeRef = useRef(active);
+  const captureTimeRef = useRef(captureTimeMs);
+  const frameRateRef = useRef(frameRate);
+  const pausedRef = useRef(paused);
+  const settingsRef = useRef(settings);
+  activeRef.current = active;
+  captureTimeRef.current = captureTimeMs;
+  frameRateRef.current = frameRate;
+  pausedRef.current = paused;
+  settingsRef.current = settings;
+
+  useMountEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: true,
+      premultipliedAlpha: false,
+    });
+    if (!context) return;
+    const drawingCanvas: HTMLCanvasElement = canvas;
+    const gl: WebGLRenderingContext = context;
+    cancelWebGLContextRelease(drawingCanvas);
+
+    const shaders: WebGLShader[] = [];
+    const programs: WebGLProgram[] = [];
+    const targets: FluidRenderTarget[] = [];
+    let buffer: WebGLBuffer | null = null;
+    let disposed = false;
+
+    function createProgram(fragmentSource: string): WebGLProgram {
+      const vertexShader = compileShader(gl, gl.VERTEX_SHADER, FLUID_VERTEX_SOURCE);
+      const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+      shaders.push(vertexShader, fragmentShader);
+      const program = gl.createProgram();
+      if (!program) throw new Error('Fluid program allocation failed');
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        const message = gl.getProgramInfoLog(program)?.trim() || 'Fluid program linking failed';
+        gl.deleteProgram(program);
+        throw new Error(message);
+      }
+      programs.push(program);
+      return program;
+    }
+
+    function createTarget(width: number, height: number): FluidRenderTarget {
+      const texture = gl.createTexture();
+      const framebuffer = gl.createFramebuffer();
+      if (!texture || !framebuffer) throw new Error('Fluid render target allocation failed');
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        gl.deleteFramebuffer(framebuffer);
+        gl.deleteTexture(texture);
+        throw new Error('Fluid framebuffer is incomplete');
+      }
+      const target = { framebuffer, height, texture, width };
+      targets.push(target);
+      return target;
+    }
+
+    function deleteTargets() {
+      targets.splice(0).forEach((target) => {
+        gl.deleteFramebuffer(target.framebuffer);
+        gl.deleteTexture(target.texture);
+      });
+    }
+
+    function prepareProgram(program: WebGLProgram, target: FluidRenderTarget | null, width: number, height: number) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);
+      gl.viewport(0, 0, width, height);
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      const position = gl.getAttribLocation(program, 'a_position');
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    }
+
+    function bindTexture(program: WebGLProgram, name: string, texture: WebGLTexture, unit: number) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform1i(gl.getUniformLocation(program, name), unit);
+    }
+
+    let velocityProgram: WebGLProgram;
+    let dyeProgram: WebGLProgram;
+    let displayProgram: WebGLProgram;
+    try {
+      velocityProgram = createProgram(FLUID_VELOCITY_SOURCE);
+      dyeProgram = createProgram(FLUID_DYE_SOURCE);
+      displayProgram = createProgram(FLUID_DISPLAY_SOURCE);
+      buffer = gl.createBuffer();
+      if (!buffer) throw new Error('Fluid geometry allocation failed');
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+    } catch {
+      if (buffer) gl.deleteBuffer(buffer);
+      programs.forEach((program) => gl.deleteProgram(program));
+      shaders.forEach((shader) => gl.deleteShader(shader));
+      deleteTargets();
+      scheduleWebGLContextRelease(drawingCanvas, gl);
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
+
+    let velocityRead: FluidRenderTarget | null = null;
+    let velocityWrite: FluidRenderTarget | null = null;
+    let dyeRead: FluidRenderTarget | null = null;
+    let dyeWrite: FluidRenderTarget | null = null;
+    let simulationWidth = 0;
+    let simulationHeight = 0;
+    let frame = 0;
+    let timeout = 0;
+    let previous = performance.now();
+    let elapsed = 0;
+    let lastDrawn = 0;
+    const pointer = { activeUntil: 0, lastX: 0.5, lastY: 0.5, velocityX: 0, velocityY: 0, x: 0.5, y: 0.5 };
+
+    function initializeTargets(width: number, height: number, current: LiveMaterialSettings) {
+      deleteTargets();
+      velocityRead = createTarget(width, height);
+      velocityWrite = createTarget(width, height);
+      dyeRead = createTarget(width, height);
+      dyeWrite = createTarget(width, height);
+      simulationWidth = width;
+      simulationHeight = height;
+      gl.viewport(0, 0, width, height);
+      for (const target of [velocityRead, velocityWrite]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        gl.clearColor(0.5, 0.5, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      const base = hexToRgb(current.colorA);
+      for (const target of [dyeRead, dyeWrite]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        gl.clearColor(base[0] * 0.08, base[1] * 0.08, base[2] * 0.08, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const bounds = drawingCanvas.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) return;
+      const nextX = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      const nextY = Math.max(0, Math.min(1, 1 - (event.clientY - bounds.top) / bounds.height));
+      pointer.velocityX = Math.max(-0.35, Math.min(0.35, (nextX - pointer.lastX) * 2.8));
+      pointer.velocityY = Math.max(-0.35, Math.min(0.35, (nextY - pointer.lastY) * 2.8));
+      pointer.x = nextX;
+      pointer.y = nextY;
+      pointer.lastX = nextX;
+      pointer.lastY = nextY;
+      pointer.activeUntil = performance.now() + 140;
+    }
+
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+      if (!disposed) window.setTimeout(onContextLost, 0);
+    }
+
+    drawingCanvas.addEventListener('pointermove', handlePointerMove, { passive: true });
+    drawingCanvas.addEventListener('webglcontextlost', handleContextLost);
+
+    function scheduleNextFrame() {
+      if (!activeRef.current || (pausedRef.current && captureTimeRef.current === null)) {
+        timeout = window.setTimeout(
+          () => { frame = requestAnimationFrame(draw); },
+          activeRef.current ? 120 : 400
+        );
+        return;
+      }
+      frame = requestAnimationFrame(draw);
+    }
+
+    function draw(time: number) {
+      if (!activeRef.current && captureTimeRef.current === null) {
+        previous = time;
+        scheduleNextFrame();
+        return;
+      }
+      const maximumRate = Math.min(45, Math.max(1, frameRateRef.current));
+      const frameInterval = 1000 / maximumRate;
+      if (captureTimeRef.current === null && !pausedRef.current && lastDrawn > 0 && time - lastDrawn < frameInterval) {
+        scheduleNextFrame();
+        return;
+      }
+      lastDrawn = time;
+      const current = settingsRef.current;
+      const deltaMs = Math.min(42, Math.max(1, time - previous));
+      previous = time;
+      if (captureTimeRef.current === null && !pausedRef.current) elapsed += deltaMs * current.speed;
+      const renderedTime = captureTimeRef.current === null ? elapsed / 1000 : captureTimeRef.current / 1000 * current.speed;
+      const pixelRatio = Math.min(2, (window.devicePixelRatio || 1) * renderScale);
+      const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
+      const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
+      if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
+        drawingCanvas.width = width;
+        drawingCanvas.height = height;
+      }
+      const aspect = width / Math.max(1, height);
+      const simulationSize = Math.round(Math.min(320, 164 + current.detail * 20) * Math.min(1.35, Math.max(0.75, renderScale)));
+      const nextSimulationWidth = Math.max(64, aspect >= 1 ? simulationSize : Math.round(simulationSize * aspect));
+      const nextSimulationHeight = Math.max(64, aspect >= 1 ? Math.round(simulationSize / aspect) : simulationSize);
+
+      try {
+        if (!velocityRead || !velocityWrite || !dyeRead || !dyeWrite || simulationWidth !== nextSimulationWidth || simulationHeight !== nextSimulationHeight) {
+          initializeTargets(nextSimulationWidth, nextSimulationHeight, current);
+        }
+        if (!velocityRead || !velocityWrite || !dyeRead || !dyeWrite) return;
+        const texelX = 1 / simulationWidth;
+        const texelY = 1 / simulationHeight;
+        const dt = Math.min(0.032, deltaMs / 1000 * (0.72 + current.speed * 0.6));
+        const pointerActive = time < pointer.activeUntil ? 1 : 0;
+
+        prepareProgram(velocityProgram, velocityWrite, simulationWidth, simulationHeight);
+        bindTexture(velocityProgram, 'u_velocity', velocityRead.texture, 0);
+        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_texel'), texelX, texelY);
+        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer'), pointer.x, pointer.y);
+        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer_velocity'), pointer.velocityX, pointer.velocityY);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_pointer_active'), pointerActive);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_dt'), dt);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_time'), renderedTime);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_strength'), current.strength);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_frequency'), current.frequency);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        [velocityRead, velocityWrite] = [velocityWrite, velocityRead];
+
+        prepareProgram(dyeProgram, dyeWrite, simulationWidth, simulationHeight);
+        bindTexture(dyeProgram, 'u_dye', dyeRead.texture, 0);
+        bindTexture(dyeProgram, 'u_velocity', velocityRead.texture, 1);
+        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_a'), hexToRgb(current.colorA));
+        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_b'), hexToRgb(current.colorB));
+        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_c'), hexToRgb(current.colorC));
+        gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_texel'), texelX, texelY);
+        gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_pointer'), pointer.x, pointer.y);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_pointer_active'), pointerActive);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_dt'), dt);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_time'), renderedTime);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_amplitude'), current.amplitude);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_density'), current.density);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_strength'), current.strength);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_frequency'), current.frequency);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        [dyeRead, dyeWrite] = [dyeWrite, dyeRead];
+
+        prepareProgram(displayProgram, null, width, height);
+        bindTexture(displayProgram, 'u_dye', dyeRead.texture, 0);
+        gl.uniform2f(gl.getUniformLocation(displayProgram, 'u_texel'), texelX, texelY);
+        gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_brightness'), current.brightness);
+        gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_grain'), current.grain);
+        gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_time'), renderedTime);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      } catch {
+        if (!disposed) window.setTimeout(onContextLost, 0);
+        return;
+      }
+      pointer.velocityX *= 0.82;
+      pointer.velocityY *= 0.82;
+      scheduleNextFrame();
+    }
+
+    frame = requestAnimationFrame(draw);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+      drawingCanvas.removeEventListener('pointermove', handlePointerMove);
+      drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
+      deleteTargets();
+      if (buffer) gl.deleteBuffer(buffer);
+      programs.forEach((program) => gl.deleteProgram(program));
+      shaders.forEach((shader) => gl.deleteShader(shader));
+      scheduleWebGLContextRelease(drawingCanvas, gl);
+    };
+  });
+
+  return <canvas aria-label='Interactive WebGL fluid material' className='absolute inset-0 size-full' ref={canvasRef} />;
+}
+
+type PaperShaderPreset = {
+  name: string;
+  params: Record<string, unknown>;
+};
+
+type PaperShaderRenderer = {
+  component: ComponentType<ShaderComponentProps & Record<string, unknown>>;
+  presets: readonly PaperShaderPreset[];
+};
+
+function paperShaderRenderer(component: unknown, presets: readonly unknown[]): PaperShaderRenderer {
+  return {
+    component: component as PaperShaderRenderer['component'],
+    presets: presets as readonly PaperShaderPreset[],
+  };
+}
+
+const PAPER_SHADER_RENDERERS: Record<PaperShaderFamilyId, PaperShaderRenderer> = {
+  'color-panels': paperShaderRenderer(ColorPanels, colorPanelsPresets),
+  'dithering': paperShaderRenderer(Dithering, ditheringPresets),
+  'dot-grid': paperShaderRenderer(DotGrid, dotGridPresets),
+  'dot-orbit': paperShaderRenderer(DotOrbit, dotOrbitPresets),
+  'fluted-glass': paperShaderRenderer(FlutedGlass, flutedGlassPresets),
+  'gem-smoke': paperShaderRenderer(GemSmoke, gemSmokePresets),
+  'god-rays': paperShaderRenderer(GodRays, godRaysPresets),
+  'grain-gradient': paperShaderRenderer(GrainGradient, grainGradientPresets),
+  'halftone-cmyk': paperShaderRenderer(HalftoneCmyk, halftoneCmykPresets),
+  'halftone-dots': paperShaderRenderer(HalftoneDots, halftoneDotsPresets),
+  'heatmap': paperShaderRenderer(Heatmap, heatmapPresets),
+  'image-dithering': paperShaderRenderer(ImageDithering, imageDitheringPresets),
+  'liquid-metal': paperShaderRenderer(LiquidMetal, liquidMetalPresets),
+  'mesh-gradient': paperShaderRenderer(MeshGradient, meshGradientPresets),
+  'metaballs': paperShaderRenderer(Metaballs, metaballsPresets),
+  'neuro-noise': paperShaderRenderer(NeuroNoise, neuroNoisePresets),
+  'paper-texture': paperShaderRenderer(PaperTexture, paperTexturePresets),
+  'perlin-noise': paperShaderRenderer(PerlinNoise, perlinNoisePresets),
+  'pulsing-border': paperShaderRenderer(PulsingBorder, pulsingBorderPresets),
+  'simplex-noise': paperShaderRenderer(SimplexNoise, simplexNoisePresets),
+  'smoke-ring': paperShaderRenderer(SmokeRing, smokeRingPresets),
+  'spiral': paperShaderRenderer(Spiral, spiralPresets),
+  'static-mesh-gradient': paperShaderRenderer(StaticMeshGradient, staticMeshGradientPresets),
+  'static-radial-gradient': paperShaderRenderer(StaticRadialGradient, staticRadialGradientPresets),
+  'swirl': paperShaderRenderer(Swirl, swirlPresets),
+  'voronoi': paperShaderRenderer(Voronoi, voronoiPresets),
+  'warp': paperShaderRenderer(Warp, warpPresets),
+  'water': paperShaderRenderer(Water, waterPresets),
+  'waves': paperShaderRenderer(Waves, wavesPresets),
+};
+
+const PAPER_IMAGE_SHADER_FAMILIES = new Set<PaperShaderFamilyId>([
+  'fluted-glass',
+  'gem-smoke',
+  'halftone-cmyk',
+  'halftone-dots',
+  'heatmap',
+  'image-dithering',
+  'water',
+]);
+
+const PAPER_PROCEDURAL_BACKDROP_FAMILIES = new Set<PaperShaderFamilyId>([
+  'gem-smoke',
+  'liquid-metal',
+]);
+
+function paperControlOverrides(params: Record<string, unknown>, settings: LiveMaterialSettings): Record<string, unknown> {
+  const overrides: Record<string, unknown> = {};
+  const setIfPresent = (key: string, value: unknown) => {
+    if (Object.prototype.hasOwnProperty.call(params, key)) overrides[key] = value;
+  };
+  const scaledIfPresent = (
+    keys: readonly string[],
+    factor: number,
+    zeroSpan = 0.25,
+    integer = false
+  ) => {
+    keys.forEach((key) => {
+      const original = params[key];
+      if (typeof original !== 'number') return;
+      const scaled = original === 0
+        ? Math.max(0, (factor - 1) * zeroSpan)
+        : Math.max(0, original * factor);
+      overrides[key] = integer ? Math.max(1, Math.round(scaled)) : scaled;
+    });
+  };
+  const factorFromDefault = (value: number, defaultValue: number, minimum: number, maximum: number) =>
+    Math.min(maximum, Math.max(minimum, 0.4 + (value / defaultValue) * 0.6));
+  const strengthFactor = factorFromDefault(settings.strength, 0.3, 0.35, 3.4);
+  const detailFactor = factorFromDefault(settings.detail, 3.2, 0.35, 2.5);
+  const frequencyFactor = factorFromDefault(settings.frequency, 5.5, 0.3, 2.3);
+  const amplitudeFactor = factorFromDefault(settings.amplitude, 3.2, 0.3, 2.4);
+  const densityFactor = factorFromDefault(settings.density, 0.8, 0.35, 2.2);
+  const palette = [settings.colorB, settings.colorC, settings.colorA];
+  if (Array.isArray(params.colors)) {
+    overrides.colors = params.colors.map((_, index) => palette[index % palette.length]);
+  }
+  setIfPresent('colorBack', settings.colorA);
+  setIfPresent('colorGap', settings.colorA);
+  setIfPresent('colorShadow', settings.colorA);
+  setIfPresent('colorFill', settings.colorB);
+  setIfPresent('colorFront', settings.colorB);
+  setIfPresent('colorInner', settings.colorB);
+  setIfPresent('colorMid', settings.colorB);
+  setIfPresent('colorBloom', settings.colorC);
+  setIfPresent('colorGlow', settings.colorC);
+  setIfPresent('colorHighlight', settings.colorC);
+  setIfPresent('colorStroke', settings.colorC);
+  setIfPresent('colorTint', settings.colorC);
+  setIfPresent('colorC', settings.colorB);
+  setIfPresent('colorM', settings.colorC);
+  setIfPresent('colorY', settings.colorB);
+  setIfPresent('colorK', settings.colorA);
+
+  scaledIfPresent(
+    ['intensity', 'contrast', 'bloom', 'outerGlow', 'innerGlow', 'highlights', 'glow'],
+    strengthFactor,
+    0.35
+  );
+  scaledIfPresent(
+    ['noiseIterations', 'octaveCount', 'foldCount', 'count', 'bandCount', 'stepsPerColor', 'layering', 'edges'],
+    detailFactor,
+    2,
+    true
+  );
+  scaledIfPresent(
+    ['frequency', 'noiseFrequency', 'noiseScale', 'repetition', 'spots', 'gapX', 'gapY', 'strokeWidth'],
+    frequencyFactor,
+    1.5
+  );
+  scaledIfPresent(
+    ['amplitude', 'waves', 'waveX', 'waveY', 'thickness', 'radius', 'size', 'distortion', 'swirl', 'stretch'],
+    amplitudeFactor,
+    0.3
+  );
+  scaledIfPresent(
+    ['density', 'proportion', 'spreading', 'softness', 'spotty', 'smoke', 'noise', 'roughness', 'fiber', 'crumples', 'folds'],
+    densityFactor,
+    0.25
+  );
+
+  const presetScale = typeof params.scale === 'number' ? params.scale : 1;
+  setIfPresent(
+    'scale',
+    presetScale * amplitudeFactor * Math.sqrt(frequencyFactor) * (0.92 + detailFactor * 0.08)
+  );
+  const presetRotation = typeof params.rotation === 'number' ? params.rotation : 0;
+  setIfPresent('rotation', presetRotation + settings.rotationZ);
+  const presetOffsetX = typeof params.offsetX === 'number' ? params.offsetX : 0;
+  const presetOffsetY = typeof params.offsetY === 'number' ? params.offsetY : 0;
+  setIfPresent('offsetX', presetOffsetX + Math.sin(settings.rotationY * Math.PI / 180) * 0.34);
+  setIfPresent('offsetY', presetOffsetY - Math.sin(settings.rotationX * Math.PI / 180) * 0.34);
+
+  const grainAmount = Math.min(1, Math.max(0, settings.grain / 100));
+  setIfPresent('grainMixer', grainAmount);
+  setIfPresent('grainOverlay', grainAmount);
+  setIfPresent('grainSize', 0.12 + grainAmount * 1.6);
+  setIfPresent('gridNoise', grainAmount);
+  if (typeof params.brightness === 'number') {
+    overrides.brightness = params.brightness * settings.brightness;
+  }
+  return overrides;
+}
+
+function PaperShaderSurface({
+  captureTimeMs,
+  materialId,
+  paused,
+  renderScale,
+  settings,
+}: {
+  captureTimeMs: number | null;
+  materialId: PaperLiveMaterialId;
+  paused: boolean;
+  renderScale: number;
+  settings: LiveMaterialSettings;
+}) {
+  const definition = getPaperLiveMaterialDefinition(materialId);
+  const renderer = PAPER_SHADER_RENDERERS[definition.family];
+  const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
+  const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
+  const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
+  const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
+  const controlledParams = {
+    ...preset.params,
+    ...paperControlOverrides(preset.params, settings),
+  };
+  const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
+    && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
+  const rendersBackdrop = usesImage || PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
+  const rotation = typeof controlledParams.rotation === 'number' ? controlledParams.rotation : 0;
+  const baseScale = typeof controlledParams.scale === 'number' ? controlledParams.scale : 1;
+  const rotationCoverBoost = 1 + Math.abs(Math.sin(rotation * Math.PI / 180)) * 1.15;
+  const backdropParams = rendersBackdrop ? {
+    fit: 'cover',
+    scale: Math.min(4, Math.max(1, baseScale) * rotationCoverBoost),
+    worldHeight: 0,
+    worldWidth: 0,
+  } : {};
+  // Canvas-fill mode exposes a flat rectangular plate in these edge-driven shaders.
+  // Oversized organic masks keep the material full-bleed without hiding its texture.
+  const proceduralBackdropParams = definition.family === 'gem-smoke'
+    ? {
+        colorInner: '#00000000',
+        image: undefined,
+        scale: Math.min(1.45, Math.max(1.12, baseScale * 1.45)),
+        shape: 'metaballs',
+      }
+    : definition.family === 'liquid-metal'
+      ? {
+          image: undefined,
+          shape: 'metaballs',
+        }
+      : {};
+  const surfaceProps: ShaderComponentProps = {
+    className: 'size-full',
+    height: '100%',
+    maxPixelCount: Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
+    minPixelRatio: 0.5,
+    style: { height: '100%', width: '100%' },
+    webGlContextAttributes: {
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: true,
+    },
+    width: '100%',
+  };
+  const surface = createElement(renderer.component, {
+    ...surfaceProps,
+    ...controlledParams,
+    ...backdropParams,
+    ...(usesImage ? { image: '/shader-source-art.svg' } : {}),
+    ...proceduralBackdropParams,
+    frame: captureTimeMs === null
+      ? presetFrame
+      : presetFrame + captureTimeMs / 1000 * motionSpeed * settings.speed,
+    speed: paused || captureTimeMs !== null ? 0 : motionSpeed * settings.speed,
+  });
+
+  return (
+    <div
+      aria-label={`Paper Shaders ${definition.name} material`}
+      className='absolute inset-0 size-full overflow-hidden'
+      style={{
+        filter: [
+          `brightness(${settings.brightness})`,
+          `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
+          `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
+        ].join(' '),
+      }}
+    >
+      {surface}
+      {settings.grain > 0 ? (
+        <span
+          aria-hidden='true'
+          className='paper-material-grain pointer-events-none absolute inset-0'
+          style={{ opacity: Math.min(0.34, settings.grain / 260) }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function LiveMaterialCanvas({
   className = '',
   captureTimeMs = null,
   enabled = true,
+  frameRate = 60,
   materialId,
   paused = false,
   renderScale = 1,
@@ -830,12 +1754,46 @@ function LiveMaterialCanvas({
     );
   }
 
+  if (resolvedMaterialId === 'pavel-fluid-energy') {
+    return (
+      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+        <FluidSimulationCanvas
+          active={renderActive}
+          canvasRef={canvasRef}
+          captureTimeMs={captureTimeMs}
+          frameRate={frameRate}
+          key={`pavel-fluid-${activeRecovery.version}`}
+          onContextLost={recoverContext}
+          paused={paused || !renderActive}
+          renderScale={renderScale}
+          settings={settings}
+        />
+      </div>
+    );
+  }
+
+  if (isPaperLiveMaterialId(resolvedMaterialId)) {
+    return (
+      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+        <PaperShaderSurface
+          captureTimeMs={captureTimeMs}
+          key={`paper-${resolvedMaterialId}-${activeRecovery.version}`}
+          materialId={resolvedMaterialId}
+          paused={paused || !renderActive}
+          renderScale={renderScale}
+          settings={settings}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
       <OriginalMaterialCanvas
         active={renderActive}
         canvasRef={canvasRef}
         captureTimeMs={captureTimeMs}
+        frameRate={frameRate}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
         key={`${resolvedMaterialId}-${activeRecovery.version}`}
         onContextLost={recoverContext}

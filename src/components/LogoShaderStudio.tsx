@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
-import { Download, ExternalLink, Pause, Play, X } from 'lucide-react';
+import { Download, Pause, Play, X } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
@@ -12,6 +12,7 @@ import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import ResizableSidebar from '@/components/ResizableSidebar';
+import ShaderLibrarySidebar, { ShaderLibraryButton } from '@/components/ShaderLibrarySidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -25,15 +26,16 @@ import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   brandMaterialPalette,
   getLiveMaterial,
+  isPaperLiveMaterialId,
   normalizeLiveMaterialId,
-  SHADER_GRADIENT_SOURCE_URL,
-  SHADERS_SOURCE_URL,
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
   compositeFinishedLayer,
+  finishColor,
   materialFinishPreset,
+  materialFinishOutlineOffsets,
   normalizeMaterialFinish,
   type MaterialFinishSettings,
 } from '@/lib/materialFinish';
@@ -79,8 +81,9 @@ void main() {
 type ShaderRatio = 'square' | 'wide' | 'opengraph';
 type LogoTone = 'light' | 'dark';
 type EffectTarget = 'background' | 'logo' | 'both';
-type ShaderEngine = 'studio-glsl' | 'shadergradient' | 'glyphfield' | 'shaders' | 'custom-glsl';
+type ShaderEngine = 'studio-glsl' | 'shadergradient' | 'glyphfield' | 'shaders' | 'fluid' | 'paper' | 'custom-glsl';
 type ExportQuality = 'standard' | 'high' | 'ultra';
+type PreviewFinishStyle = CSSProperties & { WebkitBoxReflect?: string };
 type ShaderParameters = {
   contour: number;
   distortion: number;
@@ -106,7 +109,7 @@ const GIF_FRAME_DELAY_MS = 80;
 const GIF_FRAME_COUNT = 25;
 
 function normalizeShaderEngine(value: string): ShaderEngine {
-  if (value === 'studio-glsl' || value === 'shadergradient' || value === 'glyphfield' || value === 'shaders' || value === 'custom-glsl') return value;
+  if (value === 'studio-glsl' || value === 'shadergradient' || value === 'glyphfield' || value === 'shaders' || value === 'fluid' || value === 'paper' || value === 'custom-glsl') return value;
   return 'shaders';
 }
 
@@ -414,10 +417,6 @@ export default function LogoShaderStudio({
     materialFinishPreset('soft-depth')
   );
   const finish = normalizeMaterialFinish(storedFinish);
-  const hasInteractiveFinish = finish.borderEnabled
-    || finish.glassEnabled
-    || finish.reflectionEnabled
-    || finish.shadowEnabled;
   const [paused, setPaused] = useState(false);
   const [exporting, setExporting] = useState<'png' | 'gif' | null>(null);
   const [exportDialog, setExportDialog] = useState<'png' | 'gif' | null>(null);
@@ -426,9 +425,10 @@ export default function LogoShaderStudio({
   const [error, setError] = useState<string | null>(null);
   const [logoSelected, setLogoSelected] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [shaderLibraryOpen, setShaderLibraryOpen] = useState(true);
   const engine = normalizeShaderEngine(storedEngine);
   const resolvedLiveMaterialId = normalizeLiveMaterialId(liveMaterialId);
-  const isLiveMaterial = engine === 'shadergradient' || engine === 'glyphfield' || engine === 'shaders';
+  const isLiveMaterial = engine === 'shadergradient' || engine === 'glyphfield' || engine === 'shaders' || engine === 'fluid' || engine === 'paper';
   const preset: ShaderPreset =
     engine === 'custom-glsl'
       ? {
@@ -476,13 +476,34 @@ export default function LogoShaderStudio({
     maskRepeat: 'no-repeat',
     maskSize: 'contain',
   };
-  const logoFinishStyle: CSSProperties = {
-    filter: logoInvert ? 'invert(1)' : undefined,
+  const outlineFilters = finish.borderEnabled && finish.borderWidth > 0 && finish.borderOpacity > 0
+    ? materialFinishOutlineOffsets(finish.borderWidth).map(
+        ([x, y], index) => ({ index, value: `drop-shadow(${x.toFixed(2)}px ${y.toFixed(2)}px 0 ${finishColor(finish.borderColor, finish.borderOpacity / 100)})` })
+      ).filter(({ index }) => index % 4 === 0).map(({ value }) => value)
+    : [];
+  const shadowFilter = finish.shadowEnabled && !finish.glassEnabled && finish.shadowOpacity > 0
+    ? `drop-shadow(${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${finish.shadowBlur}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)})`
+    : '';
+  const logoFinishStyle: PreviewFinishStyle = {
+    filter: [logoInvert ? 'invert(1)' : '', ...outlineFilters, shadowFilter].filter(Boolean).join(' ') || undefined,
+    WebkitBoxReflect: finish.reflectionEnabled && finish.reflectionOpacity > 0
+      ? `below ${finish.reflectionGap}px linear-gradient(to bottom, ${finishColor('#000000', finish.reflectionOpacity / 100)} 0%, transparent ${Math.min(100, finish.reflectionLength)}%)`
+      : undefined,
   };
-  const staticMaterialPreviewStyle: CSSProperties = {
-    background: `linear-gradient(135deg, ${colorA} 0%, ${colorB} 48%, ${colorC} 100%)`,
+  const glassFinishStyle: CSSProperties = {
+    WebkitBackdropFilter: `blur(${Math.min(24, finish.glassBlur)}px)`,
+    backdropFilter: `blur(${Math.min(24, finish.glassBlur)}px)`,
+    background: `linear-gradient(135deg, ${finishColor('#FFFFFF', finish.glassHighlight / 100)}, ${finishColor(finish.glassTint, finish.glassOpacity / 100)} 42%, ${finishColor(finish.glassTint, finish.glassOpacity / 250)})`,
+    border: finish.borderEnabled && finish.borderWidth > 0
+      ? `${finish.borderWidth}px solid ${finishColor(finish.borderColor, finish.borderOpacity / 100)}`
+      : undefined,
+    borderRadius: `${finish.glassRadius}px`,
+    boxShadow: finish.shadowEnabled && finish.shadowOpacity > 0
+      ? `${finish.shadowOffsetX}px ${finish.shadowOffsetY}px ${Math.min(48, finish.shadowBlur)}px ${finishColor(finish.shadowColor, finish.shadowOpacity / 100)}`
+      : undefined,
+    inset: `-${finish.glassPadding}px`,
+    transform: `scale(${1 + finish.glassRefraction / 100})`,
   };
-
   customLogoRef.current = customLogo;
   useMountEffect(
     () => () => {
@@ -510,6 +531,12 @@ export default function LogoShaderStudio({
     }
     if (nextEngine === 'shaders' && !resolvedLiveMaterialId.startsWith('shaders-')) {
       setLiveMaterialId('shaders-fluid-chrome');
+    }
+    if (nextEngine === 'fluid' && resolvedLiveMaterialId !== 'pavel-fluid-energy') {
+      setLiveMaterialId('pavel-fluid-energy');
+    }
+    if (nextEngine === 'paper' && !isPaperLiveMaterialId(resolvedLiveMaterialId)) {
+      setLiveMaterialId('paper-mesh-gradient');
     }
     if (nextEngine === 'glyphfield' && !resolvedLiveMaterialId.startsWith('glyphfield-')) {
       setLiveMaterialId('glyphfield-glyph-field');
@@ -546,9 +573,13 @@ export default function LogoShaderStudio({
     setEngine(
       materialId === 'shadergradient-prismatic-sphere'
         ? 'shadergradient'
-        : materialId.startsWith('glyphfield-')
-          ? 'glyphfield'
-          : 'shaders'
+        : materialId === 'pavel-fluid-energy'
+          ? 'fluid'
+          : isPaperLiveMaterialId(materialId)
+            ? 'paper'
+            : materialId.startsWith('glyphfield-')
+              ? 'glyphfield'
+              : 'shaders'
     );
     setError(null);
   }
@@ -569,7 +600,7 @@ export default function LogoShaderStudio({
     const nextColorB = nextColors ? sourceString(nextColors, 'b', colorB) : colorB;
     const nextColorC = nextColors ? sourceString(nextColors, 'c', colorC) : colorC;
 
-    if (!['studio-glsl', 'shadergradient', 'glyphfield', 'shaders', 'custom-glsl'].includes(nextEngine)) {
+    if (!['studio-glsl', 'shadergradient', 'glyphfield', 'shaders', 'fluid', 'paper', 'custom-glsl'].includes(nextEngine)) {
       throw new TypeError('Engine must be a supported material engine.');
     }
     if (!['background', 'logo', 'both'].includes(nextTarget)) {
@@ -898,6 +929,7 @@ export default function LogoShaderStudio({
           <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
+          <ShaderLibraryButton onClick={() => setShaderLibraryOpen((current) => !current)} open={shaderLibraryOpen} />
           {navigation}
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <Button
@@ -920,7 +952,16 @@ export default function LogoShaderStudio({
         </div>
       </header>
 
-      <div className='tool-body'>
+      <div className={`tool-body ${shaderLibraryOpen ? 'tool-body-with-shader-library' : ''}`}>
+        {shaderLibraryOpen ? (
+          <ShaderLibrarySidebar
+            activeMaterialId={resolvedLiveMaterialId}
+            onClose={() => setShaderLibraryOpen(false)}
+            onSelect={selectLiveMaterial}
+            settings={resolvedLiveSettings}
+            storageKey='material-shader-library'
+          />
+        ) : null}
         <ResizableSidebar
           className='tool-inspector min-h-0 border-r border-border bg-background'
           label={gt(`${tool.name} controls`)}
@@ -947,86 +988,15 @@ export default function LogoShaderStudio({
                   : gt('The shader stays behind a solid identity mark.')}
             </p>
           </section>
-          <section className='flex flex-col gap-3 border-b border-border p-5'>
-            <div>
-              <div className='flex items-center justify-between gap-4'>
-                <h2 className='text-sm font-semibold'><T>Material engine</T></h2>
-                {isLiveMaterial ? <LiveMaterialSourceBadge engine={liveMaterial.engine} /> : null}
-              </div>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
-            </div>
-            <StudioSelect
-              ariaLabel={gt('Material engine')}
-              onValueChange={(value) => selectEngine(value as ShaderEngine)}
-              options={[
-                { label: 'ShaderGradient / Three.js', value: 'shadergradient' },
-                { label: 'Glyphfield materials / Canvas', value: 'glyphfield' },
-                { label: 'Shaders.com studies / local WebGL', value: 'shaders' },
-                { label: 'Studio GLSL', value: 'studio-glsl' },
-                { label: gt('Custom GLSL'), value: 'custom-glsl' },
-              ]}
-              value={engine}
-            />
-            {engine === 'studio-glsl' ? (
-              <StudioSelect
-                ariaLabel={gt('Studio shader')}
-                onValueChange={setPresetId}
-                options={SHADER_PRESETS.map((shader) => ({ label: shader.name, value: shader.id }))}
-                value={preset.id}
-              />
-            ) : null}
-            {engine === 'shadergradient' ? (
-              <a
-                className='flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted'
-                href={SHADER_GRADIENT_SOURCE_URL}
-                rel='noreferrer'
-                target='_blank'
-              >
-                <span><T>Open supplied ShaderGradient preset</T></span>
-                <ExternalLink className='size-3.5' aria-hidden='true' />
-              </a>
-            ) : null}
-            {engine === 'shaders' ? (
-              <a className='flex items-center justify-between border border-border px-3 py-2 text-xs font-medium hover:bg-muted' href={SHADERS_SOURCE_URL} rel='noreferrer' target='_blank'>
-                <span><T>Explore Shaders.com</T></span>
-                <ExternalLink className='size-3.5' aria-hidden='true' />
-              </a>
-            ) : null}
-            {engine === 'custom-glsl' ? (
-              <div className='flex flex-col gap-2'>
-                <textarea
-                  aria-label={gt('Custom fragment shader')}
-                  className='min-h-64 w-full resize-y rounded-md border border-input bg-foreground p-3 font-mono text-xs leading-5 text-background outline-none focus:border-emphasis'
-                  onChange={(event) => setCustomDraft(event.target.value)}
-                  spellCheck={false}
-                  value={customDraft}
-                />
-                <Button
-                  onClick={() => {
-                    setCustomSource(customDraft);
-                    setCustomVersion((current) => current + 1);
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='outline'
-                >
-                  <T>Compile shader</T>
-                </Button>
-              </div>
-            ) : null}
-          </section>
-
           {isLiveMaterial ? (
             <section className='flex flex-col gap-4 border-b border-border p-5'>
-              <div>
-                <h2 className='text-sm font-semibold'><T>Material controls</T></h2>
-                <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>The same engine, presets, and parameters are available in Surface Lab.</T></p>
-              </div>
+              <h2 className='text-sm font-semibold'><T>Selected shader</T></h2>
               <LiveMaterialControls
                 identity={identity}
                 materialId={resolvedLiveMaterialId}
                 onMaterialIdChange={selectLiveMaterial}
                 onSettingsChange={replaceLiveSettings}
+                showMaterialSelector={false}
                 settings={resolvedLiveSettings}
               />
             </section>
@@ -1119,6 +1089,51 @@ export default function LogoShaderStudio({
             </label>
           </section>
 
+          <details className='border-b border-border p-5' open={!isLiveMaterial}>
+            <summary className='cursor-pointer text-sm font-semibold'><T>Advanced GLSL</T></summary>
+            <div className='mt-4 flex flex-col gap-3'>
+              <p className='text-xs leading-5 text-muted-foreground'><T>Studio and custom GLSL remain available here. Choosing any library preview returns to live materials.</T></p>
+              <div className='grid grid-cols-2 gap-2'>
+                <Button onClick={() => selectEngine('studio-glsl')} size='sm' type='button' variant={engine === 'studio-glsl' ? 'default' : 'outline'}>
+                  <T>Studio GLSL</T>
+                </Button>
+                <Button onClick={() => selectEngine('custom-glsl')} size='sm' type='button' variant={engine === 'custom-glsl' ? 'default' : 'outline'}>
+                  <T>Custom GLSL</T>
+                </Button>
+              </div>
+              {engine === 'studio-glsl' ? (
+                <StudioSelect
+                  ariaLabel={gt('Studio shader')}
+                  onValueChange={setPresetId}
+                  options={SHADER_PRESETS.map((shader) => ({ label: shader.name, value: shader.id }))}
+                  value={preset.id}
+                />
+              ) : null}
+              {engine === 'custom-glsl' ? (
+                <div className='flex flex-col gap-2'>
+                  <textarea
+                    aria-label={gt('Custom fragment shader')}
+                    className='min-h-64 w-full resize-y rounded-md border border-input bg-foreground p-3 font-mono text-xs leading-5 text-background outline-none focus:border-emphasis'
+                    onChange={(event) => setCustomDraft(event.target.value)}
+                    spellCheck={false}
+                    value={customDraft}
+                  />
+                  <Button
+                    onClick={() => {
+                      setCustomSource(customDraft);
+                      setCustomVersion((current) => current + 1);
+                    }}
+                    size='sm'
+                    type='button'
+                    variant='outline'
+                  >
+                    <T>Compile shader</T>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </details>
+
           <section className='flex flex-col gap-4 p-5'>
             <h2 className='text-sm font-semibold'><T>Output</T></h2>
             <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
@@ -1157,9 +1172,7 @@ export default function LogoShaderStudio({
             >
               {target === 'background' || target === 'both' ? (
                 <div className='absolute inset-0 size-full' ref={backgroundLayerRef}>
-                  {hasInteractiveFinish ? (
-                    <div className='size-full' style={staticMaterialPreviewStyle} />
-                  ) : renderMaterial(backgroundCanvasRef, 'background')}
+                  {renderMaterial(backgroundCanvasRef, 'background')}
                 </div>
               ) : null}
               <EditableCanvasLayer
@@ -1181,27 +1194,35 @@ export default function LogoShaderStudio({
                 zIndex={12}
               >
                 <div className='relative grid size-full place-items-center' style={{ opacity: logoOpacity / 100 }}>
-                  <div className='relative size-full' key='logo-finish' style={logoFinishStyle}>
-                    {target === 'logo' || target === 'both' ? (
+                  <div className='relative size-full' data-material-finish-preview={finish.presetId} key='logo-finish'>
+                    {finish.glassEnabled ? (
                       <div
-                        className='relative size-full overflow-hidden'
-                        ref={materialLayerRef}
-                        style={logoMaskStyle}
-                      >
-                        {hasInteractiveFinish ? (
-                          <div className='size-full' style={staticMaterialPreviewStyle} />
-                        ) : renderMaterial(materialCanvasRef, 'logo')}
-                      </div>
-                    ) : (
-                      <div
-                        aria-label={`${identity.name} logo`}
-                        className='size-full'
-                        style={{
-                          ...logoMaskStyle,
-                          backgroundColor: logoColor,
-                        }}
+                        aria-hidden='true'
+                        className='pointer-events-none absolute z-0'
+                        data-material-glass-preview
+                        style={glassFinishStyle}
                       />
-                    )}
+                    ) : null}
+                    <div className='relative z-10 size-full' style={logoFinishStyle}>
+                      {target === 'logo' || target === 'both' ? (
+                        <div
+                          className='relative size-full overflow-hidden'
+                          ref={materialLayerRef}
+                          style={logoMaskStyle}
+                        >
+                          {renderMaterial(materialCanvasRef, 'logo')}
+                        </div>
+                      ) : (
+                        <div
+                          aria-label={`${identity.name} logo`}
+                          className='size-full'
+                          style={{
+                            ...logoMaskStyle,
+                            backgroundColor: logoColor,
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </EditableCanvasLayer>

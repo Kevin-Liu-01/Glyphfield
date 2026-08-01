@@ -12,10 +12,12 @@ import {
   Type,
 } from 'lucide-react';
 
+import AnimationPackageGallery from '@/components/AnimationPackageGallery';
 import BezierEditor from '@/components/BezierEditor';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import ResizableSidebar from '@/components/ResizableSidebar';
+import { ShaderLibraryBrowser } from '@/components/ShaderLibrarySidebar';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -35,8 +37,6 @@ import {
 import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { normalizeMaterialFinish } from '@/lib/materialFinish';
 
-import type { AnimationPackageId } from '@/lib/renderFrame';
-
 type StudioControlsProps = {
   brandLogoAvailable: boolean;
   frameSettings: StudioFrameSettings | null;
@@ -45,6 +45,7 @@ type StudioControlsProps = {
   includeBrandLogo: boolean;
   mode: SourceMode;
   onBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
+  onLibraryBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
   onFiles: (files: FileList) => void;
   onFrameSettingsChange: (patch: Partial<StudioFrameSettings>) => void;
   onIncludeBrandLogoChange: (include: boolean) => void;
@@ -125,45 +126,6 @@ function RangeControl({
   );
 }
 
-function PackageChoice({
-  description,
-  disabled = false,
-  id,
-  label,
-  onSelect,
-  selected,
-}: {
-  description: ReactNode;
-  disabled?: boolean;
-  id: AnimationPackageId;
-  label: ReactNode;
-  onSelect: (id: AnimationPackageId) => void;
-  selected: boolean;
-}) {
-  return (
-    <Button
-      className={`h-auto w-full items-start justify-start rounded-md px-3 py-3 text-left ${
-        selected
-          ? 'border-foreground text-background'
-          : 'border-border bg-background text-foreground hover:!bg-muted'
-      }`}
-      disabled={disabled}
-      onClick={() => onSelect(id)}
-      type='button'
-      variant={selected ? 'default' : 'outline'}
-    >
-      <span className='flex min-w-0 flex-col gap-1 whitespace-normal'>
-        <span className='text-sm font-semibold'>{label}</span>
-        <span
-          className={`text-xs leading-4 ${selected ? 'text-background/70' : 'text-muted-foreground'}`}
-        >
-          {description}
-        </span>
-      </span>
-    </Button>
-  );
-}
-
 export default function StudioControls({
   brandLogoAvailable,
   frameSettings,
@@ -172,6 +134,7 @@ export default function StudioControls({
   includeBrandLogo,
   mode,
   onBackgroundChange,
+  onLibraryBackgroundChange,
   onFiles,
   onFrameSettingsChange,
   onIncludeBrandLogoChange,
@@ -211,14 +174,25 @@ export default function StudioControls({
     frameMaterialSettings.colorA === DEFAULT_LIVE_MATERIAL_SETTINGS.colorA &&
     frameMaterialSettings.colorB === DEFAULT_LIVE_MATERIAL_SETTINGS.colorB &&
     frameMaterialSettings.colorC === DEFAULT_LIVE_MATERIAL_SETTINGS.colorC;
+  const shaderGallerySettings = usesGenericMaterialColors
+    ? {
+        ...frameMaterialSettings,
+        colorA: brandMaterialColors[0],
+        colorB: brandMaterialColors[1],
+        colorC: brandMaterialColors[2],
+      }
+    : frameMaterialSettings;
 
   return (
     <ResizableSidebar
       className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-r border-border'}`}
+      defaultWidth={panel === 'source' ? 416 : 360}
       label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
-      storageKey={`animation-${panel}-${identity?.id ?? 'default'}`}
+      minWidth={panel === 'source' ? 350 : 280}
+      storageKey={`animation-${panel}-v2-${identity?.id ?? 'default'}`}
     >
       {panel === 'source' ? (
+        <>
         <InspectorSection index='01' title={<T>Source</T>}>
         <div className='grid grid-cols-3'>
           {([
@@ -362,9 +336,48 @@ export default function StudioControls({
           </div>
         ) : null}
         </InspectorSection>
+        <InspectorSection index='02' title={<T>Animation packages</T>}>
+          <p className='text-xs leading-5 text-muted-foreground'>
+            <T>Choose by motion. Previews pause automatically when they leave the panel.</T>
+          </p>
+          <AnimationPackageGallery
+            hasImageSources={hasImageSources}
+            onSelect={(packageId) => onSettingsChange({ packageId })}
+            selectedId={settings.packageId}
+            settings={settings}
+          />
+        </InspectorSection>
+        <InspectorSection index='03' title={<T>Background shaders</T>}>
+          <div className='flex items-start justify-between gap-3 text-xs leading-5 text-muted-foreground'>
+            <p>
+              {selectedSource ? (
+                <T>Applies to the selected frame. Color and finish controls stay in frame properties.</T>
+              ) : (
+                <T>Choose a shader to apply it to the first frame.</T>
+              )}
+            </p>
+            <span className='shrink-0 font-mono text-[10px] uppercase'>
+              {selectedSource?.kind ?? 'sequence'}
+            </span>
+          </div>
+          <ShaderLibraryBrowser
+            activeMaterialId={frameSettings?.background.materialId ?? 'shadergradient-prismatic-sphere'}
+            compact
+            onSelect={(materialId) => onLibraryBackgroundChange({
+              colorA: shaderGallerySettings.colorA,
+              colorB: shaderGallerySettings.colorB,
+              colorC: shaderGallerySettings.colorC,
+              materialId,
+              materialSettings: shaderGallerySettings,
+              style: 'shader',
+            })}
+            settings={shaderGallerySettings}
+          />
+        </InspectorSection>
+        </>
       ) : (
         <>
-      <InspectorSection index='02' title={<T>Selected frame</T>}>
+      <InspectorSection index='04' title={<T>Selected frame</T>}>
         {frameSettings && selectedSource ? (
           <>
             <div className='flex items-center justify-between gap-3'>
@@ -526,48 +539,7 @@ export default function StudioControls({
           <p className='text-sm leading-5 text-muted-foreground'><T>Add or select a frame to edit it.</T></p>
         )}
       </InspectorSection>
-      <InspectorSection index='03' title={<T>Animation package</T>}>
-        <div className='grid grid-cols-1 gap-2'>
-          <PackageChoice
-            description={<T>Blurred cross-dissolve with stable shared centering.</T>}
-            id='morph-fade'
-            label={<T>Morph fade</T>}
-            onSelect={(packageId) => onSettingsChange({ packageId })}
-            selected={settings.packageId === 'morph-fade'}
-          />
-          <PackageChoice
-            description={<T>Grapheme-by-grapheme erase and type. No cursor.</T>}
-            disabled={hasImageSources}
-            id='type-delete'
-            label={<T>Type / delete</T>}
-            onSelect={(packageId) => onSettingsChange({ packageId })}
-            selected={settings.packageId === 'type-delete'}
-          />
-          <PackageChoice
-            description={<T>A clean opacity handoff without spatial movement.</T>}
-            id='crossfade'
-            label={<T>Crossfade</T>}
-            onSelect={(packageId) => onSettingsChange({ packageId })}
-            selected={settings.packageId === 'crossfade'}
-          />
-          <PackageChoice
-            description={<T>Soft depth change through opposing scale and opacity.</T>}
-            id='scale-fade'
-            label={<T>Scale fade</T>}
-            onSelect={(packageId) => onSettingsChange({ packageId })}
-            selected={settings.packageId === 'scale-fade'}
-          />
-          <PackageChoice
-            description={<T>A short direction-aware move with a faded handoff.</T>}
-            id='slide-fade'
-            label={<T>Slide fade</T>}
-            onSelect={(packageId) => onSettingsChange({ packageId })}
-            selected={settings.packageId === 'slide-fade'}
-          />
-        </div>
-      </InspectorSection>
-
-      <InspectorSection index='04' title={<T>Timing</T>}>
+      <InspectorSection index='05' title={<T>Timing</T>}>
         <RangeControl
           label={<T>Hold</T>}
           max={3000}
@@ -620,7 +592,7 @@ export default function StudioControls({
         />
       </InspectorSection>
 
-      <InspectorSection index='05' title={<T>Default composition</T>}>
+      <InspectorSection index='06' title={<T>Default composition</T>}>
         <RangeControl
           label={<T>Horizontal anchor</T>}
           max={1}
@@ -669,7 +641,7 @@ export default function StudioControls({
         </div>
       </InspectorSection>
 
-      <InspectorSection index='06' title={<T>Output</T>}>
+      <InspectorSection index='07' title={<T>Output</T>}>
         <div className='grid grid-cols-3 gap-1'>
           {([
             ['Email', 1000, 300],
