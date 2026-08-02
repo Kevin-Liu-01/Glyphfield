@@ -11,8 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
+  DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   LIVE_MATERIAL_LOOK_PRESETS,
-  LIVE_MATERIAL_OPTIONS,
   type LiveMaterialId,
   type LiveMaterialOption,
   type LiveMaterialSettings,
@@ -106,7 +106,7 @@ function ShaderLibraryButton({
     >
       <LibraryBig aria-hidden='true' />
       <span className='responsive-toolbar-label'><T>Shaders</T></span>
-      <span className='responsive-toolbar-count text-[10px] tabular-nums text-muted-foreground'>{LIVE_MATERIAL_OPTIONS.length}</span>
+      <span className='responsive-toolbar-count text-[10px] tabular-nums text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length}</span>
     </Button>
   );
 }
@@ -129,7 +129,7 @@ function ShaderLibraryBrowser({
   const [source, setSource] = useState<ShaderSourceFilter>('all');
   const filteredMaterials = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    return LIVE_MATERIAL_OPTIONS.filter((material) => {
+    return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => {
       if (source !== 'all' && material.engine !== source) return false;
       if (!normalizedQuery) return true;
       return `${material.name} ${material.description} ${material.engine}`
@@ -147,7 +147,7 @@ function ShaderLibraryBrowser({
           <div className='flex items-start justify-between gap-4'>
           <div>
             <p className='text-sm font-semibold'><T>Shader library</T></p>
-            <p className='mt-1 text-xs text-muted-foreground'>{LIVE_MATERIAL_OPTIONS.length} licensed materials · live previews</p>
+            <p className='mt-1 text-xs text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} licensed materials · live previews</p>
           </div>
           {onClose ? (
             <Button aria-label={gt('Close shader library')} onClick={onClose} size='icon-xs' type='button' variant='ghost'>

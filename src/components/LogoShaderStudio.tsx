@@ -20,7 +20,11 @@ import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
-import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
+import {
+  cancelWebGLContextRelease,
+  markWebGLContextUnavailable,
+  scheduleWebGLContextRelease,
+} from '@/lib/webglContext';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import {
@@ -214,6 +218,7 @@ function ShaderCanvas({
       preserveDrawingBuffer: true,
     });
     if (!context) {
+      markWebGLContextUnavailable();
       onError('WebGL is unavailable in this browser.');
       return;
     }

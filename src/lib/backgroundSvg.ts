@@ -11,6 +11,18 @@ export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'patter
 export type BackgroundPattern = 'none' | 'dots' | 'lines' | 'grid' | 'fibers' | 'speckles' | 'topographic' | 'crosshatch';
 export type BackgroundGradient = 'linear' | 'radial' | 'mesh' | 'orbit' | 'wave' | 'bloom';
 export type BackgroundDitherShape = 'dots' | 'squares';
+export type SurfaceMaterial =
+  | 'none'
+  | 'kerf-wood'
+  | 'woven-wire'
+  | 'perforated-metal'
+  | 'carved-stone'
+  | 'embossed-paper'
+  | 'brushed-metal'
+  | 'hammered-foil'
+  | 'corrugated-polymer'
+  | 'cork-composite'
+  | 'frosted-glass';
 
 export type BackgroundSettings = {
   angle: number;
@@ -41,6 +53,13 @@ export type BackgroundSettings = {
   relief: number;
   spacing: number;
   style: BackgroundStyle;
+  surfaceAngle: number;
+  surfaceDepth: number;
+  surfaceMaterial: SurfaceMaterial;
+  surfaceMetallic: number;
+  surfaceOpenArea: number;
+  surfaceRoughness: number;
+  surfaceScale: number;
   width: number;
 };
 
@@ -73,6 +92,13 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   relief: 18,
   spacing: 24,
   style: 'gradient',
+  surfaceAngle: 28,
+  surfaceDepth: 28,
+  surfaceMaterial: 'none',
+  surfaceMetallic: 0,
+  surfaceOpenArea: 52,
+  surfaceRoughness: 58,
+  surfaceScale: 44,
   width: 1200,
 };
 
@@ -240,8 +266,148 @@ export const BACKGROUND_PRESETS = [
     name: 'Anodized cobalt',
     settings: { angle: 90, bandCount: 14, bandDepth: 88, bandGap: 1, colorA: '#020714', colorB: '#123D9B', colorC: '#7BCBFF', focalX: 62, gradient: 'mesh', grain: 7, lightingEnabled: true, style: 'grain-gradient' },
   },
+  {
+    category: 'Wood',
+    description: 'Warm oak grain crossed by deep CNC-style kerf cuts, with visible directional relief.',
+    id: 'kerf-cut-oak',
+    name: 'Kerf-cut oak',
+    settings: { angle: 18, colorA: '#2B160D', colorB: '#8A5630', colorC: '#D8A66A', grain: 12, style: 'grain-gradient', surfaceAngle: 8, surfaceDepth: 76, surfaceMaterial: 'kerf-wood', surfaceMetallic: 0, surfaceOpenArea: 18, surfaceRoughness: 72, surfaceScale: 58 },
+  },
+  {
+    category: 'Wood',
+    description: 'Pale ash with broad growth lines and shallow routed channels for a quieter architectural panel.',
+    id: 'routed-ash',
+    name: 'Routed ash',
+    settings: { angle: 6, colorA: '#8B7358', colorB: '#C7A97E', colorC: '#F0D9B4', gradient: 'linear', grain: 9, style: 'grain-gradient', surfaceAngle: 2, surfaceDepth: 46, surfaceMaterial: 'kerf-wood', surfaceMetallic: 0, surfaceOpenArea: 8, surfaceRoughness: 64, surfaceScale: 92 },
+  },
+  {
+    category: 'Architecture',
+    description: 'Interlaced stainless cable with adjustable open area, raised crossings, and tight specular highlights.',
+    id: 'woven-cable-mesh',
+    name: 'Woven cable mesh',
+    settings: { colorA: '#101317', colorB: '#727A83', colorC: '#F1F4F6', gradient: 'linear', grain: 2, style: 'gradient', surfaceAngle: 45, surfaceDepth: 68, surfaceMaterial: 'woven-wire', surfaceMetallic: 92, surfaceOpenArea: 64, surfaceRoughness: 24, surfaceScale: 38 },
+  },
+  {
+    category: 'Architecture',
+    description: 'A dark perforated panel with staggered openings and a low-gloss powder-coated face.',
+    id: 'perforated-graphite',
+    name: 'Perforated graphite',
+    settings: { colorA: '#050607', colorB: '#25292D', colorC: '#8A9198', gradient: 'radial', grain: 3, style: 'gradient', surfaceAngle: 0, surfaceDepth: 54, surfaceMaterial: 'perforated-metal', surfaceMetallic: 58, surfaceOpenArea: 48, surfaceRoughness: 52, surfaceScale: 42 },
+  },
+  {
+    category: 'Architecture',
+    description: 'Chiseled mineral planes and hairline fissures with a dry, diffuse stone response.',
+    id: 'carved-basalt',
+    name: 'Carved basalt',
+    settings: { colorA: '#111315', colorB: '#3C4144', colorC: '#8A908F', gradient: 'bloom', grain: 18, style: 'grain-gradient', surfaceAngle: 22, surfaceDepth: 72, surfaceMaterial: 'carved-stone', surfaceMetallic: 4, surfaceOpenArea: 14, surfaceRoughness: 88, surfaceScale: 86 },
+  },
+  {
+    category: 'Paper',
+    description: 'Raised geometric impressions pressed into uncoated stock, with soft shadows and no gloss.',
+    id: 'blind-emboss-stock',
+    name: 'Blind emboss stock',
+    settings: { colorA: '#D4CEC2', colorB: '#ECE7DE', colorC: '#FFFDF8', gradient: 'radial', grain: 14, style: 'grain-gradient', surfaceAngle: 0, surfaceDepth: 34, surfaceMaterial: 'embossed-paper', surfaceMetallic: 0, surfaceOpenArea: 38, surfaceRoughness: 92, surfaceScale: 62 },
+  },
+  {
+    category: 'Metal',
+    description: 'Fine directional brushing over cool anodized aluminum with a stretched, controlled reflection.',
+    id: 'brushed-aluminum',
+    name: 'Brushed aluminum',
+    settings: { angle: 90, colorA: '#252B31', colorB: '#89939D', colorC: '#F3F6F8', gradient: 'linear', grain: 5, style: 'grain-gradient', surfaceAngle: 90, surfaceDepth: 24, surfaceMaterial: 'brushed-metal', surfaceMetallic: 96, surfaceOpenArea: 0, surfaceRoughness: 28, surfaceScale: 28 },
+  },
+  {
+    category: 'Metal',
+    description: 'Irregular shallow dimples break a warm foil reflection into soft, premium highlights.',
+    id: 'hammered-brass',
+    name: 'Hammered brass',
+    settings: { colorA: '#3A2109', colorB: '#B4741E', colorC: '#FFE3A0', gradient: 'bloom', grain: 5, style: 'grain-gradient', surfaceAngle: 18, surfaceDepth: 58, surfaceMaterial: 'hammered-foil', surfaceMetallic: 94, surfaceOpenArea: 22, surfaceRoughness: 36, surfaceScale: 52 },
+  },
+  {
+    category: 'Polymer',
+    description: 'Tight molded ribs with deep directional shadow, suited to technical housings and grip surfaces.',
+    id: 'ribbed-polymer',
+    name: 'Ribbed polymer',
+    settings: { colorA: '#05070A', colorB: '#1E2630', colorC: '#647384', gradient: 'linear', grain: 3, style: 'gradient', surfaceAngle: 90, surfaceDepth: 82, surfaceMaterial: 'corrugated-polymer', surfaceMetallic: 8, surfaceOpenArea: 26, surfaceRoughness: 68, surfaceScale: 34 },
+  },
+  {
+    category: 'Natural',
+    description: 'Compressed cork cells, dark inclusions, and fibrous grain form a warm acoustic composite.',
+    id: 'cork-acoustic',
+    name: 'Cork acoustic',
+    settings: { colorA: '#3A2414', colorB: '#8B5D32', colorC: '#D0A66D', gradient: 'radial', grain: 24, style: 'grain-gradient', surfaceAngle: 12, surfaceDepth: 42, surfaceMaterial: 'cork-composite', surfaceMetallic: 0, surfaceOpenArea: 34, surfaceRoughness: 96, surfaceScale: 46 },
+  },
+  {
+    category: 'Glass',
+    description: 'A translucent etched field with dense micro-pitting and a broad pearlescent light response.',
+    id: 'frosted-pearl-glass',
+    name: 'Frosted pearl glass',
+    settings: { colorA: '#71808B', colorB: '#C6D4D8', colorC: '#FFF8EE', gradient: 'bloom', grain: 16, style: 'grain-gradient', surfaceAngle: 30, surfaceDepth: 18, surfaceMaterial: 'frosted-glass', surfaceMetallic: 18, surfaceOpenArea: 72, surfaceRoughness: 78, surfaceScale: 32 },
+  },
+  {
+    category: 'Static shaders',
+    description: 'A deterministic, non-moving translation of the soft Sea mesh vocabulary from the shader library.',
+    id: 'static-mesh-sea',
+    name: 'Static mesh · Sea',
+    settings: { colorA: '#06131D', colorB: '#1B7181', colorC: '#9EF0DB', focalX: 38, focalY: 34, gradient: 'bloom', grain: 3, relief: 20, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'The original static mesh family rebuilt as a portable three-color SVG field.',
+    id: 'static-mesh-default',
+    name: 'Static mesh · Default',
+    settings: { colorA: '#17151F', colorB: '#6C5CE7', colorC: '#E8E2FF', focalX: 44, focalY: 38, gradient: 'bloom', grain: 3, relief: 22, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'Warm period color and broad mesh falloff translated into a still SVG recipe.',
+    id: 'static-mesh-1960s',
+    name: 'Static mesh · 1960s',
+    settings: { angle: 28, colorA: '#4A1814', colorB: '#E86A33', colorC: '#F4D27A', focalX: 35, focalY: 42, gradient: 'orbit', grain: 8, relief: 16, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'Coral, violet, and gold hold a sunset mesh without a render loop.',
+    id: 'static-mesh-sunset',
+    name: 'Static mesh · Sunset',
+    settings: { angle: 142, colorA: '#251239', colorB: '#F45D63', colorC: '#FFCF70', focalX: 62, focalY: 32, gradient: 'bloom', grain: 6, relief: 30, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'A portable cross-section radial field with no playback or GPU dependency.',
+    id: 'static-radial-cross-section',
+    name: 'Static radial · Cross section',
+    settings: { angle: 72, colorA: '#09090B', colorB: '#8874FF', colorC: '#F8EFDD', focalX: 28, focalY: 48, gradient: 'radial', grain: 2, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'The base radial shader composition recast as a focused, editable SVG aperture.',
+    id: 'static-radial-default',
+    name: 'Static radial · Default',
+    settings: { angle: 28, colorA: '#0D1017', colorB: '#5D6BFF', colorC: '#F7FAFF', focalX: 42, focalY: 38, gradient: 'radial', grain: 2, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'Low-resolution color steps, restrained noise, and a deliberately graphic radial falloff.',
+    id: 'static-radial-lofi',
+    name: 'Static radial · Lo-Fi',
+    settings: { angle: 15, colorA: '#19121F', colorB: '#CE5A67', colorC: '#F1D7A0', ditherMatrix: 8, ditherShape: 'squares', focalX: 34, focalY: 42, gradient: 'radial', grain: 14, spacing: 18, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'A centered halo with clean concentric light and portable vector construction.',
+    id: 'static-radial-radial',
+    name: 'Static radial · Radial',
+    settings: { colorA: '#030A13', colorB: '#1686A2', colorC: '#E6FFF8', focalX: 50, focalY: 50, gradient: 'radial', grain: 4, style: 'grain-gradient' },
+  },
+  {
+    category: 'Static shaders',
+    description: 'Cardboard fibers and particulate grain rebuilt as a deterministic SVG paper recipe.',
+    id: 'static-paper-cardboard',
+    name: 'Paper texture · Cardboard',
+    settings: { angle: 12, colorA: '#5C3F26', colorB: '#9A7047', colorC: '#D1AD7A', gradient: 'linear', grain: 26, pattern: 'fibers', patternOpacity: 30, spacing: 22, style: 'grain-gradient', surfaceDepth: 18, surfaceMaterial: 'embossed-paper', surfaceRoughness: 94, surfaceScale: 34 },
+  },
 ] as const satisfies ReadonlyArray<{
-  category: 'Gradient' | 'Paper' | 'Print' | 'Film';
+  category: 'Gradient' | 'Paper' | 'Print' | 'Film' | 'Wood' | 'Architecture' | 'Metal' | 'Polymer' | 'Natural' | 'Glass' | 'Static shaders';
   description: string;
   id: string;
   name: string;
@@ -417,6 +583,62 @@ function gradientSurface(settings: BackgroundSettings): string {
   return `<rect data-gradient-layout="${settings.gradient}" x="-4%" y="-4%" width="108%" height="108%" fill="url(#surface-gradient)"/>`;
 }
 
+function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions: string; layer: string } {
+  if (settings.surfaceMaterial === 'none') return { definitions: '', layer: '' };
+
+  const scale = Math.max(12, Math.min(140, settings.surfaceScale));
+  const depth = Math.max(0, Math.min(100, settings.surfaceDepth));
+  const roughness = Math.max(0, Math.min(100, settings.surfaceRoughness));
+  const metallic = Math.max(0, Math.min(100, settings.surfaceMetallic));
+  const openArea = Math.max(0, Math.min(92, settings.surfaceOpenArea));
+  const angle = settings.surfaceAngle;
+  const elevation = Math.max(18, 76 - depth * 0.32);
+  const surfaceScale = (0.6 + depth * 0.12).toFixed(2);
+  const blur = (0.18 + roughness * 0.012).toFixed(2);
+  const specularConstant = (0.04 + metallic * 0.012).toFixed(2);
+  const specularExponent = Math.max(3, Math.round(72 - roughness * 0.64));
+  const layerOpacity = Math.min(0.92, 0.24 + depth / 170 + metallic / 420).toFixed(2);
+  const patternTransform = `rotate(${angle} ${scale / 2} ${scale / 2})`;
+  let pattern = '';
+
+  if (settings.surfaceMaterial === 'kerf-wood') {
+    const width = scale * 4;
+    const cut = Math.max(1.2, scale * (0.045 + (100 - openArea) / 2200));
+    pattern = `<pattern id="physical-surface-pattern" width="${width}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M-${scale} ${scale * 0.22} C${scale * 0.35} ${scale * 0.02},${scale * 0.75} ${scale * 0.58},${scale * 1.65} ${scale * 0.28} S${scale * 3.1} ${scale * 0.5},${scale * 5} ${scale * 0.18}" fill="none" stroke="${settings.colorC}" stroke-opacity=".72" stroke-width="${Math.max(0.8, scale * 0.025)}"/><path d="M-${scale} ${scale * 0.62} C${scale * 0.4} ${scale * 0.38},${scale * 1.1} ${scale * 0.94},${scale * 2.1} ${scale * 0.57} S${scale * 3.35} ${scale * 0.82},${scale * 5} ${scale * 0.52}" fill="none" stroke="${settings.colorB}" stroke-opacity=".8" stroke-width="${Math.max(0.7, scale * 0.018)}"/><path d="M${scale * 0.72} -${scale * 0.2}L${scale * 0.5} ${scale * 1.2}M${scale * 2.7} -${scale * 0.2}L${scale * 2.48} ${scale * 1.2}" stroke="${settings.colorA}" stroke-width="${cut}" stroke-linecap="square"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'woven-wire') {
+    const wire = Math.max(1.2, scale * (0.045 + (92 - openArea) / 720));
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M-${scale / 2} ${scale}L${scale} -${scale / 2}M0 ${scale * 1.5}L${scale * 1.5} 0" stroke="${settings.colorC}" stroke-opacity=".9" stroke-width="${wire}"/><path d="M-${scale / 2} 0L${scale} ${scale * 1.5}M0 -${scale / 2}L${scale * 1.5} ${scale}" stroke="${settings.colorB}" stroke-opacity=".8" stroke-width="${wire}"/><circle cx="${scale / 2}" cy="${scale / 2}" r="${wire * 0.74}" fill="${settings.colorC}"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'perforated-metal') {
+    const hole = scale * (0.12 + openArea / 210);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale * 0.866}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="${settings.colorB}" fill-opacity=".48"/><circle cx="${scale * 0.25}" cy="${scale * 0.22}" r="${hole}" fill="${settings.colorA}"/><circle cx="${scale * 0.75}" cy="${scale * 0.65}" r="${hole}" fill="${settings.colorA}"/><circle cx="${scale * 0.25 - hole * 0.22}" cy="${scale * 0.22 - hole * 0.22}" r="${Math.max(0.7, hole * 0.08)}" fill="${settings.colorC}" fill-opacity=".72"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'carved-stone') {
+    const width = scale * 3;
+    pattern = `<pattern id="physical-surface-pattern" width="${width}" height="${scale * 2}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M-${scale * 0.2} ${scale * 0.35}L${scale * 0.62} ${scale * 0.18}L${scale * 1.08} ${scale * 0.78}L${scale * 1.84} ${scale * 0.62}L${scale * 2.5} ${scale * 1.36}L${scale * 3.2} ${scale * 1.08}" fill="none" stroke="${settings.colorA}" stroke-width="${Math.max(1.3, scale * 0.052)}"/><path d="M${scale * 0.9} ${scale * 0.72}L${scale * 0.72} ${scale * 1.42}L${scale * 1.22} ${scale * 1.92}M${scale * 2.46} ${scale * 1.3}L${scale * 2.18} ${scale * 1.88}" fill="none" stroke="${settings.colorC}" stroke-opacity=".68" stroke-width="${Math.max(0.8, scale * 0.022)}"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'embossed-paper') {
+    const radius = scale * (0.12 + openArea / 520);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><circle cx="${scale / 2}" cy="${scale / 2}" r="${radius}" fill="none" stroke="${settings.colorC}" stroke-opacity=".7" stroke-width="${Math.max(1, scale * 0.045)}"/><circle cx="${scale / 2}" cy="${scale / 2}" r="${radius * 0.56}" fill="${settings.colorC}" fill-opacity=".2"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'brushed-metal') {
+    const gap = Math.max(3, scale * 0.14);
+    pattern = `<pattern id="physical-surface-pattern" width="${gap}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M1 0V${scale}" stroke="${settings.colorC}" stroke-opacity=".82" stroke-width=".8"/><path d="M${gap * 0.58} 0V${scale}" stroke="${settings.colorA}" stroke-opacity=".62" stroke-width=".45"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'hammered-foil') {
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 2}" height="${scale * 1.6}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><circle cx="${scale * 0.28}" cy="${scale * 0.36}" r="${scale * 0.22}" fill="${settings.colorC}" fill-opacity=".58"/><circle cx="${scale * 0.88}" cy="${scale * 0.72}" r="${scale * 0.34}" fill="${settings.colorB}" fill-opacity=".72"/><circle cx="${scale * 1.56}" cy="${scale * 0.32}" r="${scale * 0.28}" fill="${settings.colorC}" fill-opacity=".44"/><circle cx="${scale * 1.48}" cy="${scale * 1.26}" r="${scale * 0.4}" fill="${settings.colorA}" fill-opacity=".34"/><circle cx="${scale * 0.42}" cy="${scale * 1.28}" r="${scale * 0.24}" fill="${settings.colorB}" fill-opacity=".52"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'corrugated-polymer') {
+    const ridge = scale * (0.18 + (100 - openArea) / 560);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect x="${scale * 0.14}" width="${ridge}" height="100%" rx="${ridge / 2}" fill="${settings.colorC}" fill-opacity=".72"/><rect x="${scale * 0.14 + ridge * 0.34}" width="${Math.max(1, ridge * 0.16)}" height="100%" fill="#FFFFFF" fill-opacity=".42"/><rect x="${scale * 0.14 + ridge}" width="${scale * 0.18}" height="100%" fill="${settings.colorA}" fill-opacity=".48"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'cork-composite') {
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.8}" height="${scale * 1.4}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><ellipse cx="${scale * 0.28}" cy="${scale * 0.3}" rx="${scale * 0.22}" ry="${scale * 0.14}" fill="${settings.colorA}" fill-opacity=".7"/><ellipse cx="${scale * 0.92}" cy="${scale * 0.62}" rx="${scale * 0.3}" ry="${scale * 0.18}" fill="${settings.colorC}" fill-opacity=".46"/><ellipse cx="${scale * 1.52}" cy="${scale * 0.28}" rx="${scale * 0.19}" ry="${scale * 0.26}" fill="${settings.colorA}" fill-opacity=".56"/><ellipse cx="${scale * 1.42}" cy="${scale * 1.14}" rx="${scale * 0.28}" ry="${scale * 0.16}" fill="${settings.colorB}" fill-opacity=".68"/><circle cx="${scale * 0.4}" cy="${scale * 1.08}" r="${scale * 0.13}" fill="${settings.colorC}" fill-opacity=".38"/></pattern>`;
+  } else {
+    const dot = Math.max(0.8, scale * 0.045);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="#FFFFFF" fill-opacity=".08"/><circle cx="${scale * 0.18}" cy="${scale * 0.24}" r="${dot}" fill="#FFFFFF" fill-opacity=".8"/><circle cx="${scale * 0.68}" cy="${scale * 0.58}" r="${dot * 1.4}" fill="${settings.colorC}" fill-opacity=".52"/><circle cx="${scale * 0.42}" cy="${scale * 0.84}" r="${dot * 0.72}" fill="${settings.colorA}" fill-opacity=".42"/></pattern>`;
+  }
+
+  const lighting = `<filter id="physical-surface-light" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="${blur}" result="surface-height"/><feDiffuseLighting in="surface-height" surfaceScale="${surfaceScale}" diffuseConstant=".78" lighting-color="#FFFFFF" result="surface-diffuse"><feDistantLight azimuth="${(angle + 315) % 360}" elevation="${elevation}"/></feDiffuseLighting><feComposite in="surface-diffuse" in2="SourceAlpha" operator="in" result="surface-diffuse-cut"/><feSpecularLighting in="surface-height" surfaceScale="${surfaceScale}" specularConstant="${specularConstant}" specularExponent="${specularExponent}" lighting-color="#FFFFFF" result="surface-specular"><feDistantLight azimuth="${(angle + 315) % 360}" elevation="${elevation}"/></feSpecularLighting><feComposite in="surface-specular" in2="SourceAlpha" operator="in" result="surface-specular-cut"/><feBlend in="SourceGraphic" in2="surface-diffuse-cut" mode="multiply" result="surface-lit"/><feBlend in="surface-lit" in2="surface-specular-cut" mode="screen"/></filter>`;
+  const blendMode = metallic >= 55 ? 'screen' : 'soft-light';
+  const layer = `<g data-surface-material="${settings.surfaceMaterial}" data-surface-depth="${depth}" data-surface-roughness="${roughness}" data-surface-metallic="${metallic}" data-surface-open-area="${openArea}" opacity="${layerOpacity}" style="mix-blend-mode:${blendMode}"><rect x="-4%" y="-4%" width="108%" height="108%" fill="url(#physical-surface-pattern)" filter="url(#physical-surface-light)"/></g>`;
+
+  return { definitions: `${pattern}${lighting}`, layer };
+}
+
 export function buildBackgroundSvg(
   settings: BackgroundSettings,
   identity?: {
@@ -431,6 +653,7 @@ export function buildBackgroundSvg(
 ): string {
   const gradient = gradientDefinition(settings);
   const pattern = patternDefinition(settings);
+  const physicalSurface = physicalSurfaceDefinition(settings);
   const grain = `<filter id="surface-grain" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".52" numOctaves="2" seed="12" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 ${Math.max(0, Math.min(0.45, settings.grain / 180))}"/></feComponentTransfer></filter>`;
   const waveBlur = Math.max(18, Math.min(settings.width, settings.height) * 0.045);
   const smoothFilters = `<filter id="wave-soften" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${waveBlur.toFixed(2)}"/></filter>`;
@@ -466,5 +689,5 @@ export function buildBackgroundSvg(
     ? `<image href="${identity.asset.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" width="100%" height="100%" preserveAspectRatio="xMidYMid ${identity.assetFit === 'contain' ? 'meet' : 'slice'}" opacity="${Math.max(0, Math.min(1, (identity.assetOpacity ?? 100) / 100))}"/>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${smoothFilters}${pattern}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${smoothFilters}${pattern}${physicalSurface.definitions}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${physicalSurface.layer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
 }

@@ -132,7 +132,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Build static SVG backgrounds with gradients, grain, dither, patterns, assets, and logo placement.',
+    description: 'Build tactile static SVG surfaces with editable relief, roughness, metal response, gradients, and assets.',
     id: 'surface',
     keywords: [
       'surface lab',
@@ -145,6 +145,13 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'lines',
       'grid',
       'texture',
+      'wood',
+      'wire mesh',
+      'perforated metal',
+      'stone',
+      'emboss',
+      'roughness',
+      'relief',
       'bayer',
       'logo',
       'logomark',

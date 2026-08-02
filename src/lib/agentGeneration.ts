@@ -6,6 +6,7 @@ import {
   type BackgroundPattern,
   type BackgroundSettings,
   type BackgroundStyle,
+  type SurfaceMaterial,
 } from '@/lib/backgroundSvg';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
@@ -361,7 +362,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     focalY: numberValue(input.focalY, DEFAULT_BACKGROUND_SETTINGS.focalY, 'settings.focalY', 0, 100),
     gradient: oneOf(
       input.gradient,
-      ['linear', 'radial', 'mesh', 'orbit', 'wave'] as const satisfies readonly BackgroundGradient[],
+      ['linear', 'radial', 'mesh', 'orbit', 'wave', 'bloom'] as const satisfies readonly BackgroundGradient[],
       DEFAULT_BACKGROUND_SETTINGS.gradient,
       'settings.gradient'
     ),
@@ -380,7 +381,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     ),
     pattern: oneOf(
       input.pattern,
-      ['none', 'dots', 'lines', 'grid'] as const satisfies readonly BackgroundPattern[],
+      ['none', 'dots', 'lines', 'grid', 'fibers', 'speckles', 'topographic', 'crosshatch'] as const satisfies readonly BackgroundPattern[],
       DEFAULT_BACKGROUND_SETTINGS.pattern,
       'settings.pattern'
     ),
@@ -393,6 +394,18 @@ function backgroundSettings(value: unknown): BackgroundSettings {
       DEFAULT_BACKGROUND_SETTINGS.style,
       'settings.style'
     ),
+    surfaceAngle: numberValue(input.surfaceAngle, DEFAULT_BACKGROUND_SETTINGS.surfaceAngle, 'settings.surfaceAngle', 0, 180),
+    surfaceDepth: numberValue(input.surfaceDepth, DEFAULT_BACKGROUND_SETTINGS.surfaceDepth, 'settings.surfaceDepth', 0, 100),
+    surfaceMaterial: oneOf(
+      input.surfaceMaterial,
+      ['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'] as const satisfies readonly SurfaceMaterial[],
+      DEFAULT_BACKGROUND_SETTINGS.surfaceMaterial,
+      'settings.surfaceMaterial'
+    ),
+    surfaceMetallic: numberValue(input.surfaceMetallic, DEFAULT_BACKGROUND_SETTINGS.surfaceMetallic, 'settings.surfaceMetallic', 0, 100),
+    surfaceOpenArea: numberValue(input.surfaceOpenArea, DEFAULT_BACKGROUND_SETTINGS.surfaceOpenArea, 'settings.surfaceOpenArea', 0, 92),
+    surfaceRoughness: numberValue(input.surfaceRoughness, DEFAULT_BACKGROUND_SETTINGS.surfaceRoughness, 'settings.surfaceRoughness', 0, 100),
+    surfaceScale: numberValue(input.surfaceScale, DEFAULT_BACKGROUND_SETTINGS.surfaceScale, 'settings.surfaceScale', 12, 140),
     width,
   };
 }

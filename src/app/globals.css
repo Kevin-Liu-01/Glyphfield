@@ -708,7 +708,7 @@ body {
 
 .glyphfield-doc-page {
   max-width: 980px;
-  padding: 2rem clamp(1.25rem, 3.5vw, 3.25rem) 6rem;
+  padding: 2rem clamp(1.25rem, 3.5vw, 3.25rem);
   gap: 0;
 }
 
@@ -1030,7 +1030,7 @@ body {
   }
 
   .glyphfield-doc-page {
-    padding: 0.75rem 0.75rem 4rem;
+    padding: 0.75rem 0.75rem 1.5rem;
   }
 
   .glyphfield-doc-page-header,
@@ -10360,9 +10360,13 @@ body {
 }
 
 .marketing-v5-hero-copy > h1 em {
-  color: var(--marketing-v5-purple);
+  color: #e84412;
   font-style: normal;
   font-weight: inherit;
+}
+
+.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-hero-copy > h1 em {
+  color: #ff6b32;
 }
 
 .marketing-v5-hero-copy > p:not(.marketing-v5-kicker) {
@@ -14119,17 +14123,62 @@ body {
 .marketing-v7-open-source-panel {
   position: relative;
   z-index: 4;
-  min-height: 250px;
+  width: min(100%, 520px);
+  min-height: 0;
+  aspect-ratio: 1;
+  justify-self: end;
   padding: clamp(1.5rem, 4vw, 3rem);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
   border: 1px solid #484848;
-  background: rgb(27 27 27 / 0.84);
-  backdrop-filter: blur(8px);
+  background: #090605;
   isolation: isolate;
   overflow: hidden;
+}
+
+.marketing-v7-open-source-panel::before,
+.marketing-v7-open-source-panel::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+}
+
+.marketing-v7-open-source-panel::before {
+  z-index: 2;
+  background-image: radial-gradient(circle, rgb(255 226 180 / 0.5) 0 1.1px, transparent 1.25px);
+  background-size: 6px 6px;
+  mix-blend-mode: soft-light;
+  opacity: 0.76;
+}
+
+.marketing-v7-open-source-panel::after {
+  z-index: 3;
+  background:
+    linear-gradient(180deg, rgb(5 3 2 / 0.08), rgb(5 3 2 / 0.58)),
+    radial-gradient(circle at 72% 28%, transparent 0 22%, rgb(5 3 2 / 0.34) 74%, rgb(5 3 2 / 0.72) 100%);
+}
+
+.marketing-v8-open-source-panel-material {
+  z-index: 0;
+  background: #090605;
+}
+
+.marketing-v8-open-source-panel-material .marketing-v5-field-fallback {
+  background:
+    radial-gradient(circle at 76% 24%, rgb(255 210 107 / 0.9), transparent 20%),
+    radial-gradient(circle at 23% 74%, rgb(240 74 24 / 0.92), transparent 38%),
+    linear-gradient(145deg, #070403 0%, #351006 52%, #8f260d 76%, #120806 100%);
+}
+
+.marketing-v8-open-source-panel-material canvas {
+  filter: saturate(1.12) contrast(1.08);
+}
+
+.marketing-v8-open-source-panel-material .marketing-v5-field-grain {
+  opacity: 0.14;
 }
 
 .marketing-v7-open-source-panel > img {
@@ -14212,7 +14261,8 @@ body {
   }
 
   .marketing-v7-open-source-panel {
-    min-height: 220px;
+    width: min(100%, 520px);
+    justify-self: start;
   }
 }
 
@@ -14432,14 +14482,14 @@ body {
 }
 
 .marketing-v5-hero-metal-field {
-  background: #0a0618;
+  background: #050403;
 }
 
 .marketing-v5-hero-metal-field .marketing-v5-field-fallback {
   background:
-    radial-gradient(circle at 52% 4%, rgb(123 255 217 / 0.5), transparent 24%),
-    radial-gradient(circle at 14% 72%, rgb(121 92 255 / 0.92), transparent 42%),
-    linear-gradient(145deg, #080411 0%, #24105d 48%, #725cff 72%, #112e2a 100%);
+    radial-gradient(circle at 72% 18%, rgb(255 211 106 / 0.72), transparent 20%),
+    radial-gradient(circle at 18% 78%, rgb(255 75 22 / 0.9), transparent 38%),
+    linear-gradient(145deg, #050403 0%, #2b0c05 48%, #9f250b 72%, #231207 100%);
 }
 
 .marketing-v5-hero-metal-field::after {
@@ -14447,15 +14497,15 @@ body {
   z-index: 4;
   inset: 0;
   background:
-    linear-gradient(105deg, rgb(19 10 51 / 0.48), transparent 28% 72%, rgb(123 255 217 / 0.12)),
-    radial-gradient(ellipse at 50% 42%, transparent 30%, rgb(5 2 14 / 0.24) 100%);
+    linear-gradient(105deg, rgb(5 4 3 / 0.5), transparent 28% 72%, rgb(255 211 106 / 0.12)),
+    radial-gradient(ellipse at 50% 42%, transparent 30%, rgb(5 3 2 / 0.3) 100%);
   content: '';
   mix-blend-mode: multiply;
   pointer-events: none;
 }
 
 .marketing-v5-hero-metal-field canvas {
-  filter: saturate(1.22) contrast(1.08);
+  filter: saturate(1.16) contrast(1.1);
 }
 
 .marketing-v5-hero-metal-field .marketing-v5-field-grain {
@@ -14475,8 +14525,8 @@ body {
   border-radius: 4px;
   background: #111;
   box-shadow:
-    0 44px 120px rgb(5 2 16 / 0.58),
-    0 0 0 1px rgb(123 255 217 / 0.08);
+    0 44px 120px rgb(25 6 2 / 0.62),
+    0 0 0 1px rgb(255 211 106 / 0.1);
   container-type: inline-size;
 }
 

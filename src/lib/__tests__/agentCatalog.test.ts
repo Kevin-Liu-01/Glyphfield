@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_MANIFEST, OPENAPI_DOCUMENT } from '../agentApi';
-import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY } from '../agentCatalog';
+import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
+import { BACKGROUND_PRESETS } from '../backgroundSvg';
 import { LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
 import { STUDIO_TOOLS } from '../studioCatalog';
 
@@ -24,6 +25,14 @@ describe('agent discovery catalogs', () => {
         .filter(({ capabilities }) => capabilities.sharedShaderLibrary)
         .map(({ id }) => id)
     ).toEqual(['animation', 'material']);
+  });
+
+  it('publishes every deterministic Surface Lab recipe and its physical controls', () => {
+    expect(AGENT_SURFACE_LIBRARY.count).toBe(BACKGROUND_PRESETS.length);
+    expect(AGENT_SURFACE_LIBRARY.presets.map(({ id }) => id)).toEqual(BACKGROUND_PRESETS.map(({ id }) => id));
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('woven-wire');
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('kerf-wood');
+    expect(AGENT_SURFACE_LIBRARY.staticShaderIds).toHaveLength(8);
   });
 
   it('publishes the lab and material endpoints from the manifest and OpenAPI document', () => {

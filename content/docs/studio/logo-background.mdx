@@ -6,7 +6,7 @@ icon: Palette
 
 ## Surface Lab
 
-Surface Lab is the static-background counterpart to [Material](/docs/studio/shader-library). It builds deterministic SVG layers without WebGL, playback, or a shader browser. Use Material when the design needs a live shader, alpha-masked material, glass, reflection, depth, or animated GIF output.
+Surface Lab is the physical, static counterpart to [Shaders](/docs/studio/shader-library). Shaders is for time-based GPU motion; Surface Lab is for tactile construction that should hold on a package, panel, card, wall, sticker, or exported background. It builds deterministic SVG without WebGL or playback.
 
 Surface Lab keeps the static composition workflow in one canvas:
 
@@ -15,9 +15,17 @@ Surface Lab keeps the static composition workflow in one canvas:
 - Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
 - Dot, line, and grid pattern overlays with editable spacing and opacity
 - Named spectral, mineral, paper, signal, and active-brand color presets
+- Physical materials for kerf-cut wood, woven cable mesh, perforated metal, carved stone, embossed paper, brushed metal, hammered foil, ribbed polymer, cork composite, and frosted glass
+- Independent relief depth, physical scale, orientation, roughness, metallic response, and open-area or porosity controls
 - Reusable brand-image and texture layers with contain or cover fitting
 - Logo placement, direct dragging and scaling, custom color, dither, outline, and shadow
 - Square, landscape, and OpenGraph output sizes
+
+### Physical material channels
+
+Every physical recipe separates structure from color. **Relief depth** controls the height response; **roughness** spreads or tightens the highlight; **metallic response** controls specular intensity; **physical scale** changes the repeat size; and **open area / porosity** changes the density of mesh, holes, grooves, and cells. These values map to SVG pattern, diffuse-lighting, and specular-lighting primitives and survive both source editing and export.
+
+The Surface Gallery groups finishes by physical family. It also owns the eight explicitly static **Static Mesh** and **Static Radial** looks previously discovered in the live Shader Library. Their old material IDs remain readable for saved-project compatibility, but new selection happens in Surface Lab as non-moving SVG recipes.
 
 ### Converted artwork and stickers
 
@@ -25,13 +33,13 @@ Surface Lab shares the local conversion library with Brand settings and Shaders.
 
 In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
 
-Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. The original live shader catalog remains available in Material, so no material or attribution is removed from Studio.
+Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. Live and image-aware Paper effects remain in Shaders; only the explicitly static Mesh and Radial families are routed to Surface Lab discovery. Upstream attribution remains in the material catalog for saved documents.
 
 ### Output and source
 
 **Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
 
-Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Material. Static background recipes remain available to the agent API as deterministic SVG.
+Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceMaterial`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`.
 
 ## Color tokens
 

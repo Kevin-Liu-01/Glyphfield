@@ -86,10 +86,12 @@ export default function AnimationStudio({
   compactControls = false,
   embedded = false,
   identity,
+  initialSequenceBackground,
 }: {
   compactControls?: boolean;
   embedded?: boolean;
   identity?: BrandIdentity;
+  initialSequenceBackground?: Partial<StudioBackgroundSettings>;
 }) {
   const gt = useGT();
   const identitySettings = {
@@ -146,7 +148,11 @@ export default function AnimationStudio({
     'frame-settings',
     {}
   );
-  const defaultSequenceBackground = createDefaultFrameSettings(settings).background;
+  const defaultSequenceBackground = mergeStudioBackground(
+    createDefaultFrameSettings(settings).background,
+    initialSequenceBackground ?? {},
+    settings.shaderSettings
+  );
   const [storedSequenceBackground, setStoredSequenceBackground] = useStudioDraft<StudioBackgroundSettings>(
     identityId,
     'animation',

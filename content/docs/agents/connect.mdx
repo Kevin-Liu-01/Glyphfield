@@ -11,12 +11,13 @@ An agent should follow this sequence for every new deployment origin:
 1. Fetch `/llms.txt` for operational instructions.
 2. Fetch `/api/agent` for the current version, policies, resources, and contract.
 3. Fetch `/api/labs` to discover the current Studio plugin surface.
-4. Fetch `/api/materials` when selecting a shader or editing shared material controls.
-5. Fetch `/api/identities` when using any built-in preset.
-6. Fetch `/api/elements` when choosing a brand application.
-7. Fetch `GET /api/generate` immediately before constructing a request.
-8. `POST application/json` to `/api/generate`.
-9. Save raw SVG or extract the artifact from its JSON envelope.
+4. Fetch `/api/catalog` when selecting a deterministic Surface Lab recipe; its `surfaceLibrary` contains every preset and physical control.
+5. Fetch `/api/materials` when selecting a shader or editing shared material controls.
+6. Fetch `/api/identities` when using any built-in preset.
+7. Fetch `/api/elements` when choosing a brand application.
+8. Fetch `GET /api/generate` immediately before constructing a request.
+9. `POST application/json` to `/api/generate`.
+10. Save raw SVG or extract the artifact from its JSON envelope.
 
 Do not infer undocumented enum values. Do not scrape the client bundle when a structured endpoint provides the same information.
 
@@ -28,6 +29,7 @@ BASE_URL=http://localhost:3012
 curl -fsS "$BASE_URL/llms.txt"
 curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources }'
 curl -fsS "$BASE_URL/api/labs" | jq '{ count, plugins: [.plugins[].id] }'
+curl -fsS "$BASE_URL/api/catalog" | jq '{ surfaces: .surfaceLibrary.count, surfaceControls: (.surfaceLibrary.controls | keys) }'
 curl -fsS "$BASE_URL/api/materials" | jq '{ count, engines, sharedBy }'
 curl -fsS "$BASE_URL/api/generate" | jq '.kinds | keys'
 ```

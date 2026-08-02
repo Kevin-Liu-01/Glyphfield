@@ -31,6 +31,7 @@ import {
   type BackgroundPattern,
   type BackgroundSettings,
   type BackgroundStyle,
+  type SurfaceMaterial,
 } from '@/lib/backgroundSvg';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
@@ -278,12 +279,17 @@ export default function BackgroundStudio({
     if (nextSettings) {
       const nextStyle = sourceString(nextSettings, 'style', settings.style);
       if (!['gradient', 'grain-gradient', 'dither', 'pattern'].includes(nextStyle)) {
-        throw new TypeError('Surface Lab supports static gradient, grain, dither, and pattern recipes. Use Material for live shaders.');
+        throw new TypeError('Surface Lab supports static gradient, grain, dither, pattern, and physical-material recipes. Use Shaders for live motion.');
+      }
+      const nextSurfaceMaterial = sourceString(nextSettings, 'surfaceMaterial', settings.surfaceMaterial);
+      if (!['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'].includes(nextSurfaceMaterial)) {
+        throw new TypeError('Surface material must be a supported physical Surface Lab structure.');
       }
       setStoredSettings((current) => ({
         ...current,
         ...nextSettings,
         style: nextStyle as BackgroundStyle,
+        surfaceMaterial: nextSurfaceMaterial as SurfaceMaterial,
       } as BackgroundSettings));
     }
     if (nextAppearance) {
@@ -373,7 +379,7 @@ export default function BackgroundStudio({
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
               <h2 className='text-sm font-semibold'><T>Surface gallery</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Static gradients, papers, print textures, and films. Every recipe exports as SVG or PNG without a live shader.</T></p>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Physical materials, static shader fields, gradients, papers, print textures, and films. Every recipe exports as SVG or PNG without a live shader.</T></p>
             </div>
             <div className='grid grid-cols-2 border border-border'>
               {(['background', 'sticker'] as const).map((value) => (
@@ -395,6 +401,54 @@ export default function BackgroundStudio({
             <p className='text-xs leading-5 text-muted-foreground'>
               {selectedBackgroundPreset?.description ?? <T>Custom surface recipe.</T>}
             </p>
+          </section>
+
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Physical material</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shape the surface itself: relief, reflectivity, tooth, scale, and open area remain editable and export as deterministic SVG.</T></p>
+            </div>
+            <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
+              <T>Material structure</T>
+              <StudioSelect
+                ariaLabel={gt('Material structure')}
+                onValueChange={(value) => updateSettings({ surfaceMaterial: value as SurfaceMaterial })}
+                options={[
+                  { label: gt('None / smooth'), value: 'none' },
+                  { label: gt('Kerf-cut wood'), value: 'kerf-wood' },
+                  { label: gt('Woven wire mesh'), value: 'woven-wire' },
+                  { label: gt('Perforated metal'), value: 'perforated-metal' },
+                  { label: gt('Carved stone'), value: 'carved-stone' },
+                  { label: gt('Embossed paper'), value: 'embossed-paper' },
+                  { label: gt('Brushed metal'), value: 'brushed-metal' },
+                  { label: gt('Hammered foil'), value: 'hammered-foil' },
+                  { label: gt('Corrugated polymer'), value: 'corrugated-polymer' },
+                  { label: gt('Cork composite'), value: 'cork-composite' },
+                  { label: gt('Frosted glass'), value: 'frosted-glass' },
+                ]}
+                value={settings.surfaceMaterial}
+              />
+            </div>
+            {settings.surfaceMaterial !== 'none' ? (
+              <div className='grid gap-4'>
+                <div className='grid grid-cols-2 gap-3 border border-border bg-muted/30 p-3'>
+                  <div>
+                    <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'><T>Height</T></p>
+                    <p className='mt-1 text-sm font-medium'>{settings.surfaceDepth}%</p>
+                  </div>
+                  <div>
+                    <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'><T>Response</T></p>
+                    <p className='mt-1 text-sm font-medium'>{settings.surfaceMetallic > 55 ? <T>Reflective</T> : <T>Diffuse</T>}</p>
+                  </div>
+                </div>
+                <RangeControl label={gt('Relief depth')} max={100} min={0} onChange={(surfaceDepth) => updateSettings({ surfaceDepth })} suffix='%' value={settings.surfaceDepth} />
+                <RangeControl label={gt('Physical scale')} max={140} min={12} onChange={(surfaceScale) => updateSettings({ surfaceScale })} suffix='px' value={settings.surfaceScale} />
+                <RangeControl label={gt('Orientation')} max={180} min={0} onChange={(surfaceAngle) => updateSettings({ surfaceAngle })} suffix='°' value={settings.surfaceAngle} />
+                <RangeControl label={gt('Roughness')} max={100} min={0} onChange={(surfaceRoughness) => updateSettings({ surfaceRoughness })} suffix='%' value={settings.surfaceRoughness} />
+                <RangeControl label={gt('Metallic response')} max={100} min={0} onChange={(surfaceMetallic) => updateSettings({ surfaceMetallic })} suffix='%' value={settings.surfaceMetallic} />
+                <RangeControl label={gt('Open area / porosity')} max={92} min={0} onChange={(surfaceOpenArea) => updateSettings({ surfaceOpenArea })} suffix='%' value={settings.surfaceOpenArea} />
+              </div>
+            ) : null}
           </section>
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>

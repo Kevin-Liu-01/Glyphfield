@@ -62,7 +62,16 @@ import {
   wavesPresets,
   type ShaderComponentProps,
 } from '@paper-design/shaders-react';
-import { createElement, memo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import {
+  Component,
+  createElement,
+  memo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 
 import type { RefObject } from 'react';
 
@@ -79,6 +88,7 @@ import {
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
+  markWebGLContextUnavailable,
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
 
@@ -916,6 +926,27 @@ function ShaderGradientSurface({
   );
 }
 
+class WebGLProviderBoundary extends Component<{
+  children: ReactNode;
+  fallback: ReactNode;
+  onFailure: () => void;
+}, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    markWebGLContextUnavailable();
+    this.props.onFailure();
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 function ProviderContextGuard({
   children,
   className = '',
@@ -1036,6 +1067,7 @@ function OriginalMaterialCanvas({
       preserveDrawingBuffer: true,
     });
     if (!context) {
+      markWebGLContextUnavailable();
       window.setTimeout(onContextLost, 120);
       return;
     }
@@ -1245,6 +1277,7 @@ function FluidSimulationCanvas({
       premultipliedAlpha: false,
     });
     if (!context) {
+      markWebGLContextUnavailable();
       window.setTimeout(onContextLost, 120);
       return;
     }
@@ -1871,6 +1904,11 @@ function LiveMaterialCanvas({
       };
     });
   };
+  const failProviderContext = () => {
+    markWebGLContextUnavailable();
+    setWebGL2Available(false);
+    recoverContext();
+  };
 
   useMountEffect(() => {
     setWebGL2Available(browserSupportsWebGL2());
@@ -1909,20 +1947,45 @@ function LiveMaterialCanvas({
   }
 
   if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
+    if (webGL2Available !== true) {
+      return (
+        <StaticMaterialFallback
+          className={className}
+          containerRef={containerRef}
+          settings={settings}
+          sourceImage={sourceImage}
+          sourceImageOpacity={sourceImageOpacity}
+        />
+      );
+    }
+
+    const providerFallback = (
+      <div
+        aria-label='Static shader fallback'
+        className='absolute inset-0 size-full'
+        style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+      />
+    );
     return (
       <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
-        <ProviderContextGuard
-          key={`shadergradient-${activeRecovery.version}`}
-          onContextLost={recoverContext}
+        <WebGLProviderBoundary
+          fallback={providerFallback}
+          key={`shadergradient-boundary-${activeRecovery.version}`}
+          onFailure={failProviderContext}
         >
-          <ShaderGradientSurface
-            captureTimeMs={captureTimeMs}
-            className=''
-            paused={paused || !renderActive}
-            renderScale={renderScale}
-            settings={settings}
-          />
-        </ProviderContextGuard>
+          <ProviderContextGuard
+            key={`shadergradient-${activeRecovery.version}`}
+            onContextLost={failProviderContext}
+          >
+            <ShaderGradientSurface
+              captureTimeMs={captureTimeMs}
+              className=''
+              paused={paused || !renderActive}
+              renderScale={renderScale}
+              settings={settings}
+            />
+          </ProviderContextGuard>
+        </WebGLProviderBoundary>
         <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
     );
@@ -1980,7 +2043,7 @@ function LiveMaterialCanvas({
       <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
         <ProviderContextGuard
           key={`paper-${resolvedMaterialId}-${activeRecovery.version}`}
-          onContextLost={recoverContext}
+          onContextLost={failProviderContext}
         >
           <PaperShaderSurface
             captureTimeMs={captureTimeMs}

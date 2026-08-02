@@ -45,20 +45,20 @@ const GLYPH_FIELD_ROWS = [
   'GLYPHFIELD GLYPHFIELD',
 ] as const;
 
-const HERO_FIELD_SETTINGS = {
+const HERO_GEM_SMOKE_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 2.2,
-  brightness: 0.92,
-  colorA: '#130A33',
-  colorB: '#795CFF',
-  colorC: '#7BFFD9',
-  density: 0.7,
-  detail: 4.8,
-  frequency: 4.2,
-  grain: 7,
-  rotationZ: 8,
-  speed: 0.12,
-  strength: 0.58,
+  amplitude: 3.8,
+  brightness: 0.88,
+  colorA: '#050403',
+  colorB: '#FF4B16',
+  colorC: '#FFD36A',
+  density: 0.92,
+  detail: 4.4,
+  frequency: 4.8,
+  grain: 10,
+  rotationZ: -8,
+  speed: 0.18,
+  strength: 0.72,
 };
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
@@ -74,6 +74,22 @@ const OPEN_SOURCE_FIELD_SETTINGS = {
   grain: 20,
   speed: 0.12,
   strength: 0.56,
+};
+
+const OPEN_SOURCE_MIT_HALFTONE_FIRE_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 3.8,
+  brightness: 0.92,
+  colorA: '#070403',
+  colorB: '#F04A18',
+  colorC: '#FFD26B',
+  density: 1.08,
+  detail: 4.6,
+  frequency: 5.2,
+  grain: 8,
+  rotationZ: -10,
+  speed: 0.16,
+  strength: 0.78,
 };
 
 const AGENT_LABS_FIELD_SETTINGS = {
@@ -247,8 +263,8 @@ export default async function HomePage() {
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField
               className='marketing-v5-hero-metal-field'
-              materialId='shaders-fluid-chrome'
-              settings={HERO_FIELD_SETTINGS}
+              materialId='paper-gem-smoke-fire'
+              settings={HERO_GEM_SMOKE_SETTINGS}
             />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
@@ -431,6 +447,11 @@ export default async function HomePage() {
             </div>
           </div>
           <div className='marketing-v7-open-source-panel' data-motion-item>
+            <MarketingArcField
+              className='marketing-v8-open-source-panel-material'
+              materialId='paper-gem-smoke-fire'
+              settings={OPEN_SOURCE_MIT_HALFTONE_FIRE_SETTINGS}
+            />
             <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
             <div className='marketing-v7-open-source-meta'>
               <strong>MIT</strong>

@@ -206,4 +206,44 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('<feDropShadow in="colored" dx="3" dy="9" stdDeviation="12"');
     expect(svg).toContain('<g filter="url(#background-logo)">');
   });
+
+  it.each([
+    'kerf-wood',
+    'woven-wire',
+    'perforated-metal',
+    'carved-stone',
+    'embossed-paper',
+    'brushed-metal',
+    'hammered-foil',
+    'corrugated-polymer',
+    'cork-composite',
+    'frosted-glass',
+  ] as const)('renders the %s physical surface as editable SVG relief', (surfaceMaterial) => {
+    const svg = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      surfaceDepth: 64,
+      surfaceMaterial,
+      surfaceMetallic: 72,
+      surfaceOpenArea: 44,
+      surfaceRoughness: 36,
+      surfaceScale: 52,
+    });
+
+    expect(svg).toContain(`data-surface-material="${surfaceMaterial}"`);
+    expect(svg).toContain('data-surface-depth="64"');
+    expect(svg).toContain('data-surface-roughness="36"');
+    expect(svg).toContain('data-surface-metallic="72"');
+    expect(svg).toContain('data-surface-open-area="44"');
+    expect(svg).toContain('id="physical-surface-pattern"');
+    expect(svg).toContain('id="physical-surface-light"');
+    expect(svg).toContain('<feDiffuseLighting');
+    expect(svg).toContain('<feSpecularLighting');
+  });
+
+  it('omits physical surface filters for the smooth material', () => {
+    const svg = buildBackgroundSvg(DEFAULT_BACKGROUND_SETTINGS);
+
+    expect(svg).not.toContain('data-surface-material=');
+    expect(svg).not.toContain('id="physical-surface-light"');
+  });
 });

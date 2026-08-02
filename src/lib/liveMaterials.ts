@@ -493,6 +493,20 @@ const ALL_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
 export const LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [...ALL_LIVE_MATERIAL_OPTIONS]
   .sort((left, right) => right.qualityScore - left.qualityScore || left.name.localeCompare(right.name));
 
+export const STATIC_SURFACE_MATERIAL_IDS: readonly LiveMaterialId[] =
+  PAPER_LIVE_MATERIAL_DEFINITIONS
+    .filter(({ family }) => family === 'static-mesh-gradient' || family === 'static-radial-gradient')
+    .map(({ id }) => id);
+
+const STATIC_SURFACE_MATERIAL_ID_SET = new Set<LiveMaterialId>(STATIC_SURFACE_MATERIAL_IDS);
+
+export function isSurfaceLabStaticMaterial(id: LiveMaterialId): boolean {
+  return STATIC_SURFACE_MATERIAL_ID_SET.has(id);
+}
+
+export const DISCOVERABLE_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] =
+  LIVE_MATERIAL_OPTIONS.filter(({ id }) => !isSurfaceLabStaticMaterial(id));
+
 export function normalizeLiveMaterialId(value: string): LiveMaterialId {
   const exact = LIVE_MATERIAL_OPTIONS.find(({ id }) => id === value);
   if (exact) return exact.id;

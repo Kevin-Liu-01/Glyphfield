@@ -9,6 +9,8 @@ import {
   PAPER_LIVE_MATERIAL_IDS,
   PAPER_SHADER_FAMILIES,
   PAPER_SHADERS_SOURCE_URL,
+  STATIC_SURFACE_MATERIAL_IDS,
+  DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   liveMaterialLookPreset,
   normalizeLiveMaterialId,
   SHADER_GRADIENT_SOURCE_URL,
@@ -76,6 +78,16 @@ describe('live materials', () => {
     expect(new Set(PAPER_LIVE_MATERIAL_IDS).size).toBe(PAPER_LIVE_MATERIAL_IDS.length);
     expect(new Set(paperMaterials.map(({ sourceUrl }) => sourceUrl))).toEqual(new Set([PAPER_SHADERS_SOURCE_URL]));
     expect(paperMaterials.every(({ sourceLabel }) => sourceLabel === 'Paper · Apache-2.0')).toBe(true);
+  });
+
+  it('routes explicitly static Paper fields to Surface Lab discovery', () => {
+    expect(STATIC_SURFACE_MATERIAL_IDS).toHaveLength(8);
+    expect(STATIC_SURFACE_MATERIAL_IDS.every((id) =>
+      String(id).startsWith('paper-static-mesh-gradient')
+      || String(id).startsWith('paper-static-radial-gradient')
+    )).toBe(true);
+    expect(DISCOVERABLE_LIVE_MATERIAL_OPTIONS).toHaveLength(LIVE_MATERIAL_OPTIONS.length - 8);
+    expect(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.some(({ id }) => STATIC_SURFACE_MATERIAL_IDS.includes(id))).toBe(false);
   });
 
   it('curates all sources by visual quality and includes attributable design studies', () => {

@@ -25,7 +25,7 @@ The Studio source drawer exposes the working state of the active browser tool. E
 | Animation | `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `playbackRate` | Mode is `sequence`, `text`, or `images`; playback rate must be greater than zero and no more than four |
 | Lottie | Numeric `fr`, `layers[]` | Raw Lottie JSON only; binary `.lottie` bundles are not text-editable |
 | Shaders | `layers.background`, `layers.logo`, `target`, `ratio`, `exportQuality`, logo artwork and finish objects | Each layer stores independent material settings; custom background GLSL is stored in `customSource` |
-| Surface Lab | `settings`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | Asset fit is `contain` or `cover`; opacity is 0–100 |
+| Surface Lab | `settings`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | Physical settings include `surfaceMaterial`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`; asset fit is `contain` or `cover` |
 | OpenGraph, Terminal, templates, components | Tool-specific JSON object | Open the corresponding drawer to obtain the current schema |
 
 ## Shader enums

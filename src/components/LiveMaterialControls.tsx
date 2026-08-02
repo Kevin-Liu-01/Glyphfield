@@ -11,7 +11,7 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
-  LIVE_MATERIAL_OPTIONS,
+  DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   SHADERS_SOURCE_URL,
   liveMaterialLookPreset,
   getLiveMaterial,
@@ -170,7 +170,7 @@ export default function LiveMaterialControls({
         <StudioSelect
           ariaLabel={gt('Live material')}
           onValueChange={(value) => onMaterialIdChange(value as LiveMaterialId)}
-          options={LIVE_MATERIAL_OPTIONS.map((material) => ({
+          options={DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map((material) => ({
             label: <LiveMaterialOptionLabel material={material} />,
             value: material.id,
           }))}

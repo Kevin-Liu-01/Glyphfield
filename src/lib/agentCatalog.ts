@@ -3,7 +3,9 @@ import {
   LIVE_MATERIAL_LOOK_PRESETS,
   LIVE_MATERIAL_OPTIONS,
   LIVE_MATERIAL_PALETTES,
+  STATIC_SURFACE_MATERIAL_IDS,
 } from './liveMaterials';
+import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from './backgroundSvg';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 
 const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
@@ -47,6 +49,27 @@ export const AGENT_SHADER_LIBRARY = {
   palettes: LIVE_MATERIAL_PALETTES,
   schemaVersion: 1,
   sharedBy: ['animation', 'material'] as const,
+} as const;
+
+export const AGENT_SURFACE_LIBRARY = {
+  controls: {
+    surfaceAngle: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceAngle, maximum: 180, minimum: 0, step: 1, type: 'number' },
+    surfaceDepth: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceDepth, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    surfaceMaterial: {
+      default: DEFAULT_BACKGROUND_SETTINGS.surfaceMaterial,
+      options: ['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'],
+      type: 'enum',
+    },
+    surfaceMetallic: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceMetallic, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    surfaceOpenArea: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceOpenArea, maximum: 92, minimum: 0, step: 1, type: 'number' },
+    surfaceRoughness: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceRoughness, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    surfaceScale: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceScale, maximum: 140, minimum: 12, step: 1, type: 'number' },
+  },
+  count: BACKGROUND_PRESETS.length,
+  generationKind: 'background',
+  presets: BACKGROUND_PRESETS,
+  schemaVersion: 1,
+  staticShaderIds: STATIC_SURFACE_MATERIAL_IDS,
 } as const;
 
 export const AGENT_LAB_CATALOG = {

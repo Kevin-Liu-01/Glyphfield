@@ -1,5 +1,5 @@
 import { AGENT_CORS_HEADERS } from '@/lib/agentApi';
-import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY } from '@/lib/agentCatalog';
+import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '@/lib/agentCatalog';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS } from '@/lib/studioCatalog';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
@@ -18,6 +18,7 @@ export function GET() {
       counts: {
         labPlugins: AGENT_LAB_CATALOG.count,
         shaders: AGENT_SHADER_LIBRARY.count,
+        surfaces: AGENT_SURFACE_LIBRARY.count,
       },
       labPlugins: AGENT_LAB_CATALOG.plugins,
       localOnly: false,
@@ -36,6 +37,7 @@ export function GET() {
         workspace: '/studio',
       },
       shaderLibrary: AGENT_SHADER_LIBRARY,
+      surfaceLibrary: AGENT_SURFACE_LIBRARY,
       tools: STUDIO_TOOLS,
       version: '0.2.0',
     },
