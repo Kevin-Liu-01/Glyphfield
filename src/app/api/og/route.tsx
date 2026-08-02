@@ -27,8 +27,6 @@ export async function GET(request: Request) {
         'Build, tune, and export a connected brand system with Glyphfield.',
         180
       )}
-      index={valueFromSearchParams(searchParams, 'index', 'GF', 8)}
-      kicker={valueFromSearchParams(searchParams, 'kicker', 'Brand studio', 42)}
       title={valueFromSearchParams(searchParams, 'title', 'Make the identity visible.', 84)}
     />,
     { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }

@@ -10443,6 +10443,21 @@ body {
   pointer-events: none;
 }
 
+.marketing-v5-hero-field-bars {
+  position: absolute;
+  z-index: 2;
+  bottom: -1px;
+  left: 50%;
+  width: min(100%, 1440px);
+  height: 104%;
+  opacity: 0.92;
+  pointer-events: none;
+  filter: saturate(1.14) contrast(1.03);
+  mix-blend-mode: screen;
+  transform: translateX(-50%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 100%);
+}
+
 .marketing-v5-field-coordinates {
   position: absolute;
   z-index: 3;

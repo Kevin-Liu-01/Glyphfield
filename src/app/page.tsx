@@ -17,6 +17,7 @@ import {
 
 import type { ReactNode } from 'react';
 
+import BrandFieldBars from '@/components/BrandFieldBars';
 import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
@@ -245,6 +246,7 @@ export default async function HomePage() {
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField materialId='paper-image-dithering-noise' settings={HERO_FIELD_SETTINGS} />
+            <BrandFieldBars accent='#725CFF' className='marketing-v5-hero-field-bars' />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
             </div>

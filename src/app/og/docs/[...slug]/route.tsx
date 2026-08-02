@@ -21,8 +21,6 @@ export async function GET(_request: Request, { params }: DocumentationImageRoute
     <BrandOpenGraphImage
       accent='#a7f35a'
       description={page.data.description ?? 'Learn how to build and operate a connected brand system with Glyphfield.'}
-      index='DOC'
-      kicker='Documentation'
       title={page.data.title}
     />,
     { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }

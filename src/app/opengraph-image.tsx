@@ -14,8 +14,7 @@ export default async function OpenGraphImage() {
     <BrandOpenGraphImage
       accent='#8b5cf6'
       description={PRODUCT_BRAND.description}
-      index='01'
-      kicker='Identity systems'
+      highlightedTitle='One brand studio'
       title='One brand studio for every surface.'
     />,
     { ...size, fonts: await getOpenGraphFonts() }
