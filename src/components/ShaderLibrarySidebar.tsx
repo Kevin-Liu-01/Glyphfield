@@ -2,7 +2,7 @@
 
 import { T, useGT } from 'gt-next';
 import { LibraryBig, Search, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
@@ -17,6 +17,7 @@ import {
   type LiveMaterialOption,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
 
 type ShaderSourceFilter = 'all' | LiveMaterialOption['engine'];
 
@@ -51,6 +52,7 @@ function ShaderLibraryPreview({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [hasRenderSlot, setHasRenderSlot] = useState(false);
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -62,12 +64,20 @@ function ShaderLibraryPreview({
     return () => observer.disconnect();
   });
 
+  useEffect(() => {
+    if (!visible) {
+      setHasRenderSlot(false);
+      return;
+    }
+    return requestShaderPreviewSlot(() => setHasRenderSlot(true));
+  }, [visible]);
+
   return (
     <div
       className='shader-library-preview relative overflow-hidden bg-black'
       ref={containerRef}
     >
-      {visible ? (
+      {visible && hasRenderSlot ? (
         <LiveMaterialCanvas
           frameRate={16}
           materialId={material.id}

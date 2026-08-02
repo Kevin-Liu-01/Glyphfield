@@ -5,6 +5,7 @@ import { T, useGT } from 'gt-next';
 import { Download, ImagePlus } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import CanvasLayerPanel from '@/components/CanvasLayerPanel';
 import EditableCanvasLayer, { alignCanvasLayer, type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
@@ -12,10 +13,13 @@ import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import StickerFinishControls from '@/components/StickerFinishControls';
+import SurfaceGallery from '@/components/SurfaceGallery';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   BACKGROUND_GRADIENT_DEFAULTS,
@@ -33,6 +37,12 @@ import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
 import { brandMaterialPalette } from '@/lib/liveMaterials';
 import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
+import {
+  buildSurfaceStickerSvg,
+  DEFAULT_STICKER_FINISH,
+  normalizeStickerFinish,
+  type StickerFinishSettings,
+} from '@/lib/surfaceSticker';
 import {
   parseSourceObject,
   sourceBoolean,
@@ -92,10 +102,23 @@ export default function BackgroundStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
-  const defaultPalette = brandMaterialPalette(identity);
+  const convertedAssetLibrary = useConvertedAssets();
+  const defaultPalette = useMemo(() => brandMaterialPalette(identity), [identity]);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
   const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
   const [showLogo, setShowLogo] = useStudioDraft(identity.id, tool.id, 'show-logo', true);
+  const [application, setApplication] = useStudioDraft<'background' | 'sticker'>(
+    identity.id,
+    tool.id,
+    'surface-application-v1',
+    'background'
+  );
+  const [stickerFinish, setStickerFinish] = useStudioDraft<StickerFinishSettings>(
+    identity.id,
+    tool.id,
+    'sticker-finish-v1',
+    DEFAULT_STICKER_FINISH
+  );
   const [logoAppearance, setLogoAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
   const [logoSelected, setLogoSelected] = useState(false);
   const availableBrandAssets = [...identity.assets, ...identity.proofAssets].filter(
@@ -105,6 +128,12 @@ export default function BackgroundStudio({
     identity.id,
     tool.id,
     'brand-asset-id',
+    'none'
+  );
+  const [convertedAssetId, setConvertedAssetId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'converted-asset-id-v1',
     'none'
   );
   const [brandAssetOpacity, setBrandAssetOpacity] = useStudioDraft(
@@ -139,19 +168,23 @@ export default function BackgroundStudio({
       ? 'grain-gradient' as const
       : storedSettings.style ?? DEFAULT_BACKGROUND_SETTINGS.style,
   };
-  const backgroundPresets = [
-    {
-      description: defaultPalette.description,
-      id: defaultPalette.id,
-      name: defaultPalette.name,
-      settings: {
-        colorA: defaultPalette.colors[0],
-        colorB: defaultPalette.colors[1],
-        colorC: defaultPalette.colors[2],
+  const backgroundPresets = useMemo(
+    () => [
+      {
+        category: 'Brand',
+        description: defaultPalette.description,
+        id: defaultPalette.id,
+        name: defaultPalette.name,
+        settings: {
+          colorA: defaultPalette.colors[0],
+          colorB: defaultPalette.colors[1],
+          colorC: defaultPalette.colors[2],
+        },
       },
-    },
-    ...BACKGROUND_PRESETS,
-  ];
+      ...BACKGROUND_PRESETS,
+    ],
+    [defaultPalette]
+  );
   const selectedSizePreset = SIZE_PRESETS.find(
     ({ height, width }) => height === settings.height && width === settings.width
   );
@@ -171,23 +204,31 @@ export default function BackgroundStudio({
     identity,
     settings.logoTone === 'white' ? 'mark-light' : 'mark-dark'
   );
-  const logoPath = customLogo?.url ?? identityLogo;
+  const selectedConvertedAsset = convertedAssetLibrary.assets.find(({ id }) => id === convertedAssetId);
+  const logoPath = customLogo?.url ?? (application === 'sticker' ? selectedConvertedAsset?.convertedDataUrl : undefined) ?? identityLogo;
   const selectedBrandAsset = availableBrandAssets.find(({ id }) => id === brandAssetId);
+  const selectedSurfaceAssetPath = selectedConvertedAsset?.convertedDataUrl ?? selectedBrandAsset?.path;
   const previewSvg = useMemo(
     () =>
-      buildBackgroundSvg(
-        settings,
-        {
-          asset: selectedBrandAsset?.path,
-          assetFit: brandAssetFit,
-          assetOpacity: brandAssetOpacity,
-          logo: showLogo ? logoPath : undefined,
-          logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
-          name: identity.shortName,
-          showLogo: false,
-        }
-      ),
-    [brandAssetFit, brandAssetOpacity, identity.shortName, logoAppearance, logoPath, selectedBrandAsset?.path, settings, showLogo]
+      application === 'sticker'
+        ? buildSurfaceStickerSvg(settings, {
+            finish: stickerFinish,
+            logo: showLogo ? logoPath : undefined,
+            name: identity.shortName,
+          })
+        : buildBackgroundSvg(
+            settings,
+            {
+              asset: selectedSurfaceAssetPath,
+              assetFit: brandAssetFit,
+              assetOpacity: brandAssetOpacity,
+              logo: showLogo ? logoPath : undefined,
+              logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
+              name: identity.shortName,
+              showLogo: false,
+            }
+          ),
+    [application, brandAssetFit, brandAssetOpacity, identity.shortName, logoAppearance, logoPath, selectedSurfaceAssetPath, settings, showLogo, stickerFinish]
   );
 
   customLogoRef.current = customLogo;
@@ -201,10 +242,30 @@ export default function BackgroundStudio({
     setStoredSettings((current) => ({ ...current, ...patch }));
   }
 
+  function applySurfacePreset(preset: Partial<BackgroundSettings>) {
+    setStoredSettings((current) => ({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      ...preset,
+      height: current.height,
+      logoColor: current.logoColor,
+      logoOpacity: current.logoOpacity,
+      logoScale: current.logoScale,
+      logoTone: current.logoTone,
+      logoX: current.logoX,
+      logoY: current.logoY,
+      width: current.width,
+    }));
+  }
+
   function applySurfaceSource(source: string) {
     const parsed = parseSourceObject(source);
     const nextSettings = sourceObject(parsed, 'settings');
     const nextAppearance = sourceObject(parsed, 'logoAppearance');
+    const nextStickerFinish = sourceObject(parsed, 'stickerFinish');
+    const nextApplication = sourceString(parsed, 'application', application);
+    if (!['background', 'sticker'].includes(nextApplication)) {
+      throw new TypeError('Surface application must be background or sticker.');
+    }
     const nextFit = sourceString(parsed, 'brandAssetFit', brandAssetFit);
     if (!['contain', 'cover'].includes(nextFit)) {
       throw new TypeError('Brand asset fit must be contain or cover.');
@@ -231,8 +292,13 @@ export default function BackgroundStudio({
         ...nextAppearance,
       } as LogoAppearanceSettings));
     }
+    if (nextStickerFinish) {
+      setStickerFinish(normalizeStickerFinish(nextStickerFinish));
+    }
+    setApplication(nextApplication as 'background' | 'sticker');
     setShowLogo(sourceBoolean(parsed, 'showLogo', showLogo));
     setBrandAssetId(sourceString(parsed, 'brandAssetId', brandAssetId));
+    setConvertedAssetId(sourceString(parsed, 'convertedAssetId', convertedAssetId));
     setBrandAssetOpacity(nextOpacity);
     setBrandAssetFit(nextFit as 'contain' | 'cover');
     setLogoSelected(false);
@@ -251,25 +317,31 @@ export default function BackgroundStudio({
     try {
       const [embeddedLogo, embeddedBrandAsset] = await Promise.all([
         showLogo && logoPath ? imageUrlToDataUrl(logoPath) : undefined,
-        selectedBrandAsset ? imageUrlToDataUrl(selectedBrandAsset.path) : undefined,
+        selectedSurfaceAssetPath ? imageUrlToDataUrl(selectedSurfaceAssetPath) : undefined,
       ]);
-      const svg = buildBackgroundSvg(
-        settings,
-        {
-          asset: embeddedBrandAsset,
-          assetFit: brandAssetFit,
-          assetOpacity: brandAssetOpacity,
-          logo: showLogo ? embeddedLogo : undefined,
-          logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
-          name: identity.shortName,
-          showLogo,
-        }
-      );
+      const svg = application === 'sticker'
+        ? buildSurfaceStickerSvg(settings, {
+            finish: stickerFinish,
+            logo: showLogo ? embeddedLogo : undefined,
+            name: identity.shortName,
+          })
+        : buildBackgroundSvg(
+            settings,
+            {
+              asset: embeddedBrandAsset,
+              assetFit: brandAssetFit,
+              assetOpacity: brandAssetOpacity,
+              logo: showLogo ? embeddedLogo : undefined,
+              logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance },
+              name: identity.shortName,
+              showLogo,
+            }
+          );
       await downloadSvgAsPng(
         svg,
         settings.width,
         settings.height,
-        `${identity.id}-${settings.style}-background-${settings.width}x${settings.height}.png`
+        `${identity.id}-${settings.style}-${application}-${settings.width}x${settings.height}.png`
       );
     } finally {
       setExporting(false);
@@ -300,26 +372,35 @@ export default function BackgroundStudio({
         >
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Static background</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Build export-ready SVG gradients, grain, dither, and patterns. Live shaders stay in Material.</T></p>
+              <h2 className='text-sm font-semibold'><T>Surface gallery</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Static gradients, papers, print textures, and films. Every recipe exports as SVG or PNG without a live shader.</T></p>
             </div>
-              <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
-              <T>Preset</T>
-              <StudioSelect
-                ariaLabel={gt('Background preset')}
-                onValueChange={(value) => {
-                  const preset = backgroundPresets.find(({ id }) => id === value);
-                  if (preset) updateSettings(preset.settings);
-                }}
-                options={[
-                  ...(selectedBackgroundPreset ? [] : [{ label: gt('Custom'), value: 'custom' }]),
-                  ...backgroundPresets.map((preset) => ({ label: preset.name, value: preset.id })),
-                ]}
-                value={selectedBackgroundPreset?.id ?? 'custom'}
-              />
-              {selectedBackgroundPreset ? (
-                <p className='text-xs leading-5'>{selectedBackgroundPreset.description}</p>
-              ) : null}
+            <div className='grid grid-cols-2 border border-border'>
+              {(['background', 'sticker'] as const).map((value) => (
+                <button
+                  className={`min-h-10 px-3 text-sm ${application === value ? 'bg-foreground text-background' : 'bg-background text-foreground hover:bg-muted'} ${value === 'sticker' ? 'border-l border-border' : ''}`}
+                  key={value}
+                  onClick={() => setApplication(value)}
+                  type='button'
+                >
+                  {value === 'background' ? <T>Background</T> : <T>Sticker</T>}
+                </button>
+              ))}
+            </div>
+            <SurfaceGallery
+              onSelect={(preset) => applySurfacePreset(preset.settings)}
+              presets={backgroundPresets}
+              selectedId={selectedBackgroundPreset?.id}
+            />
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {selectedBackgroundPreset?.description ?? <T>Custom surface recipe.</T>}
+            </p>
+          </section>
+
+          <section className='flex flex-col gap-4 border-b border-border p-5'>
+            <div>
+              <h2 className='text-sm font-semibold'><T>Tune surface</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Refine the selected recipe without losing its static, exportable construction.</T></p>
             </div>
             <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
               <T>Recipe</T>
@@ -355,6 +436,7 @@ export default function BackgroundStudio({
                 options={[
                   { label: gt('Linear'), value: 'linear' },
                   { label: gt('Radial'), value: 'radial' },
+                  { label: gt('Soft mesh'), value: 'bloom' },
                   { label: gt('Bands'), value: 'mesh' },
                   { label: gt('Orbit'), value: 'orbit' },
                   { label: gt('Wave'), value: 'wave' },
@@ -442,35 +524,51 @@ export default function BackgroundStudio({
                 { label: gt('Dots'), value: 'dots' },
                 { label: gt('Lines'), value: 'lines' },
                 { label: gt('Grid'), value: 'grid' },
+                { label: gt('Paper fibers'), value: 'fibers' },
+                { label: gt('Pulp speckles'), value: 'speckles' },
+                { label: gt('Topographic'), value: 'topographic' },
+                { label: gt('Crosshatch'), value: 'crosshatch' },
               ]} value={settings.pattern} />
             </div>
             <RangeControl label={gt('Spacing')} max={72} min={8} onChange={(spacing) => updateSettings({ spacing })} suffix='px' value={settings.spacing} />
             <RangeControl label={gt('Opacity')} max={100} min={0} onChange={(patternOpacity) => updateSettings({ patternOpacity })} suffix='%' value={settings.patternOpacity} />
           </section>
 
+          {application === 'sticker' ? (
+            <section className='flex flex-col gap-4 border-b border-border p-5'>
+              <div>
+                <h2 className='text-sm font-semibold'><T>Sticker finish</T></h2>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Layer a production-inspired laminate over the selected surface, then tune its light response and die-cut edge.</T></p>
+              </div>
+              <StickerFinishControls onChange={setStickerFinish} settings={stickerFinish} />
+            </section>
+          ) : null}
+
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Brand asset layer</T></h2>
+              <h2 className='text-sm font-semibold'><T>Converted artwork</T></h2>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                <T>Reuse an image, texture, or field from this identity.</T>
+                {application === 'sticker'
+                  ? <T>Use a converted asset as the sticker artwork and die-cut silhouette.</T>
+                  : <T>Place a converted asset over the static surface recipe.</T>}
               </p>
             </div>
-            <StudioSelect
-              ariaLabel={gt('Brand asset layer')}
-              onValueChange={setBrandAssetId}
-              options={[
-                { label: gt('None'), value: 'none' },
-                ...availableBrandAssets.map((asset) => ({
-                  label: `${asset.label} · ${asset.type}`,
-                  value: asset.id,
-                })),
-              ]}
-              value={selectedBrandAsset?.id ?? 'none'}
+            <AssetConversionLibrary
+              compact
+              library={convertedAssetLibrary}
+              onSelect={(asset) => {
+                setConvertedAssetId(asset?.id ?? 'none');
+                if (asset) {
+                  setBrandAssetId('none');
+                  if (application === 'sticker') setShowLogo(true);
+                }
+              }}
+              selectedAssetId={selectedConvertedAsset?.id}
             />
-            {selectedBrandAsset ? (
+            {selectedConvertedAsset && application === 'background' ? (
               <>
                 <StudioSelect
-                  ariaLabel={gt('Brand asset fit')}
+                  ariaLabel={gt('Converted asset fit')}
                   onValueChange={(value) => setBrandAssetFit(value as typeof brandAssetFit)}
                   options={[
                     { label: gt('Cover canvas'), value: 'cover' },
@@ -483,36 +581,86 @@ export default function BackgroundStudio({
             ) : null}
           </section>
 
+          {application === 'background' ? (
+            <section className='flex flex-col gap-4 border-b border-border p-5'>
+              <div>
+                <h2 className='text-sm font-semibold'><T>Brand asset layer</T></h2>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                  <T>Reuse an image, texture, or field from this identity.</T>
+                </p>
+              </div>
+              <StudioSelect
+                ariaLabel={gt('Brand asset layer')}
+                onValueChange={(value) => {
+                  setBrandAssetId(value);
+                  if (value !== 'none') setConvertedAssetId('none');
+                }}
+                options={[
+                  { label: gt('None'), value: 'none' },
+                  ...availableBrandAssets.map((asset) => ({
+                    label: `${asset.label} · ${asset.type}`,
+                    value: asset.id,
+                  })),
+                ]}
+                value={selectedBrandAsset?.id ?? 'none'}
+              />
+              {selectedBrandAsset ? (
+                <>
+                  <StudioSelect
+                    ariaLabel={gt('Brand asset fit')}
+                    onValueChange={(value) => setBrandAssetFit(value as typeof brandAssetFit)}
+                    options={[
+                      { label: gt('Cover canvas'), value: 'cover' },
+                      { label: gt('Contain asset'), value: 'contain' },
+                    ]}
+                    value={brandAssetFit}
+                  />
+                  <RangeControl label={gt('Asset opacity')} max={100} min={0} onChange={setBrandAssetOpacity} suffix='%' value={brandAssetOpacity} />
+                </>
+              ) : null}
+            </section>
+          ) : null}
+
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div className='flex items-center justify-between gap-4'>
-              <h2 className='text-sm font-semibold'><T>Logo</T></h2>
+              <h2 className='text-sm font-semibold'>{application === 'sticker' ? <T>Sticker artwork</T> : <T>Logo</T>}</h2>
               <input aria-label={gt('Show logo')} checked={showLogo} onChange={(event) => setShowLogo(event.target.checked)} type='checkbox' />
             </div>
-            <div className='flex gap-2'>
-              {(['white', 'black'] as const).map((tone) => (
-                <Button className='flex-1' key={tone} onClick={() => updateSettings({ logoColor: tone === 'white' ? '#FFFFFF' : '#000000', logoTone: tone })} size='sm' type='button' variant={settings.logoTone === tone ? 'default' : 'outline'}>
-                  {tone === 'white' ? <T>White</T> : <T>Black</T>}
-                </Button>
-              ))}
-            </div>
-            <ColorControl ariaLabel={gt('Custom logo color')} label={<T>Custom logo color</T>} onChange={(logoColor) => updateSettings({ logoColor })} value={settings.logoColor} />
+            {application === 'background' ? (
+              <>
+                <div className='flex gap-2'>
+                  {(['white', 'black'] as const).map((tone) => (
+                    <Button className='flex-1' key={tone} onClick={() => updateSettings({ logoColor: tone === 'white' ? '#FFFFFF' : '#000000', logoTone: tone })} size='sm' type='button' variant={settings.logoTone === tone ? 'default' : 'outline'}>
+                      {tone === 'white' ? <T>White</T> : <T>Black</T>}
+                    </Button>
+                  ))}
+                </div>
+                <ColorControl ariaLabel={gt('Custom logo color')} label={<T>Custom logo color</T>} onChange={(logoColor) => updateSettings({ logoColor })} value={settings.logoColor} />
+              </>
+            ) : (
+              <p className='text-xs leading-5 text-muted-foreground'><T>The selected surface becomes the printed artwork inside the die-cut mark.</T></p>
+            )}
             <RangeControl label={gt('Logo size')} max={64} min={10} onChange={(logoScale) => updateSettings({ logoScale })} suffix='%' value={settings.logoScale} />
-            <RangeControl label={gt('Logo opacity')} max={100} min={0} onChange={(logoOpacity) => updateSettings({ logoOpacity })} suffix='%' value={settings.logoOpacity} />
+            {application === 'background' ? <RangeControl label={gt('Logo opacity')} max={100} min={0} onChange={(logoOpacity) => updateSettings({ logoOpacity })} suffix='%' value={settings.logoOpacity} /> : null}
             <RangeControl label={gt('Horizontal')} max={50} min={-50} onChange={(logoX) => updateSettings({ logoX })} suffix='%' value={settings.logoX} />
             <RangeControl label={gt('Vertical')} max={50} min={-50} onChange={(logoY) => updateSettings({ logoY })} suffix='%' value={settings.logoY} />
-            <LogoAppearanceControls onChange={(patch) => setLogoAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }} />
-            <CanvasLayerPanel
-              layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: { scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height } }]}
-              onAlign={(alignment) => {
-                const markSize = Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100);
-                const next = alignCanvasLayer({ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }, { baseHeight: markSize, baseWidth: markSize, baseX: (settings.width - markSize) / 2, baseY: (settings.height - markSize) / 2 }, settings.width, settings.height, alignment);
-                updateSettings({ logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 });
-              }}
-              onMove={() => undefined}
-              onReset={() => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale, logoX: 0, logoY: 0 })}
-              onSelect={() => setLogoSelected(true)}
-              selectedLayerId={logoSelected ? 'logo' : null}
-            />
+            {application === 'background' ? (
+              <>
+                <LogoAppearanceControls onChange={(patch) => setLogoAppearance((current) => ({ ...current, ...patch }))} settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }} />
+                <CanvasLayerPanel
+                  layers={[{ canMoveBackward: false, canMoveForward: false, id: 'logo', label: gt('Logo'), transform: { scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height } }]}
+                  onAlign={(alignment) => {
+                    const markSize = Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100);
+                    const next = alignCanvasLayer({ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }, { baseHeight: markSize, baseWidth: markSize, baseX: (settings.width - markSize) / 2, baseY: (settings.height - markSize) / 2 }, settings.width, settings.height, alignment);
+                    updateSettings({ logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 });
+                  }}
+                  onMove={() => undefined}
+                  onReset={() => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale, logoX: 0, logoY: 0 })}
+                  onSelect={() => setLogoSelected(true)}
+                  selectedLayerId={logoSelected ? 'logo' : null}
+                />
+              </>
+            ) : null}
             <label className='flex min-h-16 cursor-pointer items-center gap-3 border border-dashed border-input p-3 text-sm'>
               <ImagePlus className='size-4 text-muted-foreground' aria-hidden='true' />
               <span className='min-w-0 flex-1'>
@@ -541,14 +689,14 @@ export default function BackgroundStudio({
           <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
             <div
-              aria-label={`${identity.name} ${settings.style} background preview`}
+              aria-label={`${identity.name} ${settings.style} ${application} preview`}
               className='artifact-frame artifact-preview relative overflow-hidden bg-white'
               role='img'
               onPointerDown={() => setLogoSelected(false)}
               style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
             >
               <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
-              {showLogo ? (
+              {showLogo && application === 'background' ? (
                 <EditableCanvasLayer
                   baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
                   baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
@@ -575,10 +723,10 @@ export default function BackgroundStudio({
               ) : null}
             </div>
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
-              <p className='text-sm font-medium'>{settings.style.replace('-', ' ')}</p>
+              <p className='text-sm font-medium'>{selectedBackgroundPreset?.name ?? settings.style.replace('-', ' ')}</p>
               <div className='flex items-center gap-4 text-muted-foreground'>
                 <p className='font-mono text-[10px] uppercase tracking-wider'>
-                  SVG layers / {settings.width} × {settings.height}
+                  {application === 'sticker' ? `${stickerFinish.presetId} / ` : ''}SVG layers / {settings.width} × {settings.height}
                 </p>
               </div>
             </div>
@@ -592,10 +740,13 @@ export default function BackgroundStudio({
           onApply={applySurfaceSource}
           onClose={() => setSourceOpen(false)}
           source={stringifySource({
+            application,
             brandAssetFit,
             brandAssetId,
             brandAssetOpacity,
+            convertedAssetId,
             logoAppearance,
+            stickerFinish,
             settings: {
               ...settings,
               liveMaterialId: undefined,

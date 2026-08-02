@@ -515,3 +515,17 @@ export function getPaperLiveMaterialDefinition(id: PaperLiveMaterialId): PaperLi
   return PAPER_LIVE_MATERIAL_DEFINITIONS.find((material) => material.id === id)
     ?? PAPER_LIVE_MATERIAL_DEFINITIONS[0]!;
 }
+
+const PAPER_NATIVE_IMAGE_FAMILIES: readonly PaperShaderFamilyId[] = [
+  'fluted-glass',
+  'halftone-cmyk',
+  'halftone-dots',
+  'heatmap',
+  'image-dithering',
+  'water',
+];
+
+export function liveMaterialConsumesSourceImage(id: LiveMaterialId): boolean {
+  if (!isPaperLiveMaterialId(id)) return false;
+  return PAPER_NATIVE_IMAGE_FAMILIES.includes(getPaperLiveMaterialDefinition(id).family);
+}

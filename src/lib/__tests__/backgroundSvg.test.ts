@@ -73,6 +73,7 @@ describe('buildBackgroundSvg', () => {
     ['mesh', 'bands'],
     ['orbit', 'orbit'],
     ['wave', 'wave'],
+    ['bloom', 'bloom'],
   ] as const)('renders the %s gradient as a portable mode-specific field', (gradient, layout) => {
     const svg = buildBackgroundSvg({
       ...DEFAULT_BACKGROUND_SETTINGS,
@@ -138,6 +139,20 @@ describe('buildBackgroundSvg', () => {
     expect(wave.match(/<path /g)?.length).toBe(2);
     expect(wave).toContain('fill="url(#surface-gradient)"');
   });
+
+  it.each(['fibers', 'speckles', 'topographic', 'crosshatch'] as const)(
+    'renders the %s static surface texture as portable SVG',
+    (pattern) => {
+      const svg = buildBackgroundSvg({
+        ...DEFAULT_BACKGROUND_SETTINGS,
+        pattern,
+        patternOpacity: 30,
+      });
+
+      expect(svg).toContain(`id="pattern-${pattern}"`);
+      expect(svg).toContain(`fill="url(#pattern-${pattern})"`);
+    }
+  );
 
   it('lets band depth reach the top edge', () => {
     const bands = buildBackgroundSvg({

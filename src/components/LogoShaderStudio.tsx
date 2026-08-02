@@ -5,6 +5,7 @@ import { T, useGT } from 'gt-next';
 import { Download, Pause, Play, X } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
@@ -27,6 +29,7 @@ import {
   brandMaterialPalette,
   getLiveMaterial,
   isPaperLiveMaterialId,
+  liveMaterialConsumesSourceImage,
   normalizeLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialSettings,
@@ -130,6 +133,20 @@ function hexToRgb(hex: string): readonly [number, number, number] {
     ((value >> 8) & 255) / 255,
     (value & 255) / 255,
   ];
+}
+
+function drawImageCover(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  const scale = Math.max(width / Math.max(1, image.naturalWidth), height / Math.max(1, image.naturalHeight));
+  const drawnWidth = image.naturalWidth * scale;
+  const drawnHeight = image.naturalHeight * scale;
+  context.drawImage(image, x + (width - drawnWidth) / 2, y + (height - drawnHeight) / 2, drawnWidth, drawnHeight);
 }
 
 function compileShader(
@@ -323,10 +340,12 @@ export default function LogoShaderStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const convertedAssetLibrary = useConvertedAssets();
   const defaultPalette = brandMaterialPalette(identity);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const exportPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const materialCanvasRef = useRef<HTMLCanvasElement>(null);
+  const convertedImageCacheRef = useRef(new Map<string, Promise<HTMLImageElement>>());
   const backgroundLayerRef = useRef<HTMLDivElement>(null);
   const materialLayerRef = useRef<HTMLDivElement>(null);
   const customLogoRef = useRef<{ name: string; url: string } | null>(null);
@@ -422,6 +441,10 @@ export default function LogoShaderStudio({
   const [logoY, setLogoY] = useStudioDraft(identity.id, tool.id, 'logo-y', 0);
   const [target, setTarget] = useStudioDraft<EffectTarget>(identity.id, tool.id, 'target', 'background');
   const [selectedLayer, setSelectedLayer] = useStudioDraft<ShaderLayer>(identity.id, tool.id, 'selected-layer', 'background');
+  const [backgroundSourceAssetId, setBackgroundSourceAssetId] = useStudioDraft(identity.id, tool.id, 'background-source-asset-v1', 'none');
+  const [logoSourceAssetId, setLogoSourceAssetId] = useStudioDraft(identity.id, tool.id, 'logo-source-asset-v1', 'none');
+  const [backgroundSourceAssetOpacity, setBackgroundSourceAssetOpacity] = useStudioDraft(identity.id, tool.id, 'background-source-asset-opacity-v1', 36);
+  const [logoSourceAssetOpacity, setLogoSourceAssetOpacity] = useStudioDraft(identity.id, tool.id, 'logo-source-asset-opacity-v1', 36);
   const [transparent, setTransparent] = useStudioDraft(identity.id, tool.id, 'transparent', false);
   const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'ratio', 'wide');
   const [exportQuality, setExportQuality] = useStudioDraft<ExportQuality>(identity.id, tool.id, 'export-quality', 'high');
@@ -503,6 +526,10 @@ export default function LogoShaderStudio({
   const selectedLayerEnabled = selectedLayer === 'background'
     ? backgroundShaderEnabled
     : logoShaderEnabled;
+  const backgroundSourceAsset = convertedAssetLibrary.assets.find(({ id }) => id === backgroundSourceAssetId);
+  const logoSourceAsset = convertedAssetLibrary.assets.find(({ id }) => id === logoSourceAssetId);
+  const selectedSourceAssetId = selectedLayer === 'background' ? backgroundSourceAssetId : logoSourceAssetId;
+  const selectedSourceAssetOpacity = selectedLayer === 'background' ? backgroundSourceAssetOpacity : logoSourceAssetOpacity;
   const selectedLayerSpeed = selectedLayer === 'background'
     ? resolvedLiveSettings.speed
     : resolvedLogoLiveSettings.speed;
@@ -678,10 +705,14 @@ export default function LogoShaderStudio({
       if (!isLiveMaterial) return;
       setLogoLiveMaterialId(resolvedLiveMaterialId);
       setLogoLiveSettings(resolvedLiveSettings);
+      setLogoSourceAssetId(backgroundSourceAssetId);
+      setLogoSourceAssetOpacity(backgroundSourceAssetOpacity);
     } else {
       setLiveMaterialId(resolvedLogoLiveMaterialId);
       setEngine(engineForLiveMaterial(resolvedLogoLiveMaterialId));
       replaceLiveSettings(resolvedLogoLiveSettings);
+      setBackgroundSourceAssetId(logoSourceAssetId);
+      setBackgroundSourceAssetOpacity(logoSourceAssetOpacity);
     }
     setTarget('both');
     setError(null);
@@ -744,7 +775,11 @@ export default function LogoShaderStudio({
     setLiveMaterialId(normalizeLiveMaterialId(sourceString(nextBackgroundLayer ?? parsed, 'liveMaterialId', resolvedLiveMaterialId)));
     if (nextLogoLayer) {
       setLogoLiveMaterialId(normalizeLiveMaterialId(sourceString(nextLogoLayer, 'liveMaterialId', resolvedLogoLiveMaterialId)));
+      setLogoSourceAssetId(sourceString(nextLogoLayer, 'sourceAssetId', logoSourceAssetId));
+      setLogoSourceAssetOpacity(sourceNumber(nextLogoLayer, 'sourceAssetOpacity', logoSourceAssetOpacity));
     }
+    setBackgroundSourceAssetId(sourceString(nextBackgroundLayer ?? parsed, 'sourceAssetId', backgroundSourceAssetId));
+    setBackgroundSourceAssetOpacity(sourceNumber(nextBackgroundLayer ?? parsed, 'sourceAssetOpacity', backgroundSourceAssetOpacity));
     setCustomDraft(sourceString(parsed, 'customSource', customDraft));
     setCustomSource(sourceString(parsed, 'customSource', customSource));
     setCustomVersion((current) => current + 1);
@@ -827,11 +862,33 @@ export default function LogoShaderStudio({
       backgroundLayerRef.current?.querySelector('canvas') ?? backgroundCanvasRef.current;
     const materialCanvas =
       materialLayerRef.current?.querySelector('canvas') ?? materialCanvasRef.current;
+    const loadConvertedImage = (source: string | undefined) => {
+      if (!source) return null;
+      const cached = convertedImageCacheRef.current.get(source);
+      if (cached) return cached;
+      const loading = loadImage(source);
+      convertedImageCacheRef.current.set(source, loading);
+      return loading;
+    };
     if ((target === 'background' || target === 'both') && backgroundCanvas) {
       context.drawImage(backgroundCanvas, 0, 0, width, height);
     } else if (!transparent) {
       context.fillStyle = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
       context.fillRect(0, 0, width, height);
+    }
+    if (
+      (target === 'background' || target === 'both')
+      && backgroundSourceAsset
+      && !liveMaterialConsumesSourceImage(resolvedLiveMaterialId)
+    ) {
+      const sourceImage = await loadConvertedImage(backgroundSourceAsset.convertedDataUrl);
+      if (sourceImage) {
+        context.save();
+        context.globalAlpha = backgroundSourceAssetOpacity / 100;
+        context.globalCompositeOperation = 'soft-light';
+        drawImageCover(context, sourceImage, 0, 0, width, height);
+        context.restore();
+      }
     }
 
     const markSize = Math.round(Math.min(width, height) * (logoScale / 100));
@@ -857,6 +914,16 @@ export default function LogoShaderStudio({
       cutoutContext.imageSmoothingEnabled = true;
       cutoutContext.imageSmoothingQuality = 'high';
       cutoutContext.drawImage(materialCanvas, 0, 0, markSize, markSize);
+      if (logoSourceAsset && !liveMaterialConsumesSourceImage(resolvedLogoLiveMaterialId)) {
+        const sourceImage = await loadConvertedImage(logoSourceAsset.convertedDataUrl);
+        if (sourceImage) {
+          cutoutContext.save();
+          cutoutContext.globalAlpha = logoSourceAssetOpacity / 100;
+          cutoutContext.globalCompositeOperation = 'soft-light';
+          drawImageCover(cutoutContext, sourceImage, 0, 0, markSize, markSize);
+          cutoutContext.restore();
+        }
+      }
       cutoutContext.globalCompositeOperation = 'destination-in';
       cutoutContext.drawImage(logo, 0, 0, markSize, markSize);
       markContext.drawImage(cutout, markX, markY);
@@ -1028,6 +1095,8 @@ export default function LogoShaderStudio({
           paused={paused || captureTimeMs !== null}
           renderScale={exportRenderScale}
           settings={resolvedLogoLiveSettings}
+          sourceImage={logoSourceAsset?.convertedDataUrl}
+          sourceImageOpacity={logoSourceAssetOpacity}
         />
       );
     }
@@ -1042,6 +1111,8 @@ export default function LogoShaderStudio({
           paused={paused || captureTimeMs !== null}
           renderScale={exportRenderScale}
           settings={resolvedLiveSettings}
+          sourceImage={backgroundSourceAsset?.convertedDataUrl}
+          sourceImageOpacity={backgroundSourceAssetOpacity}
         />
       );
     }
@@ -1206,6 +1277,47 @@ export default function LogoShaderStudio({
             </>
           )}
 
+          {selectedLayerUsesLiveMaterial ? (
+            <section className='flex flex-col gap-4 border-b border-border p-5'>
+              <div>
+                <h2 className='text-sm font-semibold'><T>Source asset</T></h2>
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                  <T>Image-aware Paper shaders use the converted PNG as their native input. Other shaders blend it into the selected layer.</T>
+                </p>
+              </div>
+              <AssetConversionLibrary
+                compact
+                library={convertedAssetLibrary}
+                onSelect={(asset) => {
+                  if (selectedLayer === 'background') setBackgroundSourceAssetId(asset?.id ?? 'none');
+                  else setLogoSourceAssetId(asset?.id ?? 'none');
+                  if (asset) setLayerEnabled(selectedLayer, true);
+                }}
+                selectedAssetId={selectedSourceAssetId === 'none' ? null : selectedSourceAssetId}
+              />
+              {selectedSourceAssetId !== 'none' && !liveMaterialConsumesSourceImage(selectedMaterialId) ? (
+                <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
+                  <span className='flex justify-between gap-3'><T>Texture strength</T><span className='font-mono text-xs'>{selectedSourceAssetOpacity}%</span></span>
+                  <input
+                    className='studio-range'
+                    max='100'
+                    min='0'
+                    onChange={(event) => {
+                      const value = Number(event.target.value);
+                      if (selectedLayer === 'background') setBackgroundSourceAssetOpacity(value);
+                      else setLogoSourceAssetOpacity(value);
+                    }}
+                    type='range'
+                    value={selectedSourceAssetOpacity}
+                  />
+                </label>
+              ) : null}
+              {selectedSourceAssetId !== 'none' && liveMaterialConsumesSourceImage(selectedMaterialId) ? (
+                <p className='text-[10px] leading-4 text-muted-foreground'><T>This image-aware shader uses the converted PNG directly. Its material controls determine the final image response.</T></p>
+              ) : null}
+            </section>
+          ) : null}
+
           {selectedLayer === 'logo' ? (
             <>
               <section className='flex flex-col gap-4 border-b border-border p-5'>
@@ -1350,7 +1462,11 @@ export default function LogoShaderStudio({
               style={{ aspectRatio }}
             >
               {target === 'background' || target === 'both' ? (
-                <div className='absolute inset-0 size-full' ref={backgroundLayerRef}>
+                <div
+                  className='absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
+                  ref={backgroundLayerRef}
+                  style={{ contain: 'strict', isolation: 'isolate' }}
+                >
                   {renderMaterial(backgroundCanvasRef, 'background')}
                 </div>
               ) : null}
@@ -1385,9 +1501,9 @@ export default function LogoShaderStudio({
                     <div className='relative z-10 size-full' style={logoFinishStyle}>
                       {target === 'logo' || target === 'both' ? (
                         <div
-                          className='relative size-full overflow-hidden'
+                          className='relative size-full min-h-0 min-w-0 overflow-hidden'
                           ref={materialLayerRef}
-                          style={logoMaskStyle}
+                          style={{ ...logoMaskStyle, contain: 'strict', isolation: 'isolate' }}
                         >
                           {renderMaterial(materialCanvasRef, 'logo')}
                         </div>
@@ -1518,12 +1634,16 @@ export default function LogoShaderStudio({
                 liveSettings: resolvedLiveSettings,
                 parameters,
                 presetId,
+                sourceAssetId: backgroundSourceAssetId,
+                sourceAssetOpacity: backgroundSourceAssetOpacity,
               },
               logo: {
                 enabled: logoShaderEnabled,
                 finish,
                 liveMaterialId: resolvedLogoLiveMaterialId,
                 liveSettings: resolvedLogoLiveSettings,
+                sourceAssetId: logoSourceAssetId,
+                sourceAssetOpacity: logoSourceAssetOpacity,
               },
             },
             liveMaterialId: resolvedLiveMaterialId,

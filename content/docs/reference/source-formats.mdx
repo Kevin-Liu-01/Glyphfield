@@ -39,6 +39,8 @@ The Studio source drawer exposes the working state of the active browser tool. E
 
 Shader documents contain `layers.background` and `layers.logo`. Each layer has `enabled`, `liveMaterialId`, and `liveSettings`; the background layer additionally carries its engine, preset, and GLSL parameters, while the logo layer owns `finish`. `liveMaterialId` identifies the exact Shader Library card and `liveSettings` contains that layer's three colors and numeric controls. The legacy top-level `engine`, `target`, `liveMaterialId`, and `liveSettings` fields remain available for backward-compatible readers.
 
+Animation documents store the inherited canvas material in `sequenceBackground`. `backgroundOverrides` is an object keyed by frame ID; only IDs set to `true` use the background stored inside their corresponding `frameSettings` entry. Frames not listed there follow `sequenceBackground` automatically.
+
 ## Lottie validation
 
 Glyphfield validates the document before replacing the active animation:

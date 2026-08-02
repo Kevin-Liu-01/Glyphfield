@@ -13,7 +13,7 @@ The catalog currently contains more than 140 materials and presets. Results are 
 | Workspace | Library behavior | Selection result |
 | --- | --- | --- |
 | Material | Opens by default as a resizable secondary sidebar | Replaces the active material while preserving the shared inspector workflow |
-| Animation | Appears below sources and the two-column animation-package gallery | Applies a shader background to the selected frame, or the first frame when nothing is selected |
+| Animation | Appears below sources and the two-column animation-package gallery | Updates the shared sequence background by default, with explicit per-frame overrides |
 
 Use the **Shaders** button in Material to close and reopen the secondary sidebar. Its width is resizable and saved independently from the main inspector.
 
@@ -46,6 +46,14 @@ The palette menu includes the active identity plus the original material looks a
 
 Not every underlying shader interprets a control identically. The common settings are mapped into the vocabulary of each renderer so switching materials remains predictable while each family keeps its own character.
 
+## Converted source assets
+
+The shared conversion library accepts SVG, PNG, JPEG, WebP, GIF, AVIF, and BMP files. Glyphfield sanitizes SVG input, rasterizes a transparent working copy at 1024, 2048, or 4096 pixels, and stores both the original and shader-safe PNG locally in IndexedDB. Nothing is uploaded.
+
+Background and logo layers select source assets independently. Image-aware Paper shaders use the converted PNG as their native texture; other shaders blend it into the selected layer with an editable strength. Applying a shader to both layers also copies its source asset and strength, while later edits remain independent.
+
+The original file and converted PNG can both be downloaded from the library. PNG and GIF exports composite the same converted assets shown on the live canvas.
+
 ## Catalog sources
 
 The shared catalog combines several implementation types:
@@ -65,7 +73,7 @@ See the repository's [Third-party notices](https://github.com/Kevin-Liu-01/Glyph
 
 ## Animation backgrounds
 
-Shader backgrounds are stored per animation frame. Select a frame before choosing a library card to give that state its own material. The frame inspector then controls its three colors, form, grain, motion, finish, and the transition into the next background.
+Animation uses one sequence background by default. Choosing a library card or changing its colors, form, grain, motion, or finish updates every frame that follows the sequence background. Select **This frame only** before editing when one state needs an intentional variation; **Use sequence background** removes that override, and **Make all frames follow sequence** clears every override at once.
 
 The main animation canvas renders only the shader layers needed by the current transition. Preview and GIF export use the same frame configuration, so material changes are not flattened before capture.
 
@@ -75,6 +83,6 @@ The animation canvas also supports direct size editing: drag the right edge to c
 
 Material exports still PNG or animated GIF. Animation composites selected shader backgrounds into its GIF. Live WebGL output is browser-only; Surface Lab is now dedicated to deterministic static SVG background recipes.
 
-The Material **Code** drawer preserves `liveMaterialId`, `liveSettings`, and the complete finish object. Animation stores the material ID and settings inside each frame background. Use the source already shown by the current drawer as the authoritative schema for round trips.
+The Material **Code** drawer preserves `liveMaterialId`, `liveSettings`, `sourceAssetId`, `sourceAssetOpacity`, and the complete finish object. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source already shown by the current drawer as the authoritative schema for round trips.
 
 See [Motion and GIFs](/docs/studio/motion), [Surface Lab, color, and typography](/docs/studio/logo-background), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.

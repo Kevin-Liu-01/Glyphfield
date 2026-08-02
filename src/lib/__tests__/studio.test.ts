@@ -6,7 +6,9 @@ import {
   createDefaultFrameSettings,
   DEFAULT_SETTINGS,
   isSupportedLottieFile,
+  mergeStudioBackground,
   orderStudioSources,
+  resolveStudioFrameSettings,
 } from '../studio';
 
 const textSource: StudioSource = {
@@ -88,6 +90,32 @@ describe('applyFrameSettings', () => {
       rotation: -12,
       scale: 1.25,
       text: 'Welcome',
+    });
+  });
+});
+
+describe('sequence backgrounds', () => {
+  it('inherits one sequence background until a frame explicitly overrides it', () => {
+    const storedFrame = createDefaultFrameSettings(DEFAULT_SETTINGS);
+    storedFrame.background = mergeStudioBackground(
+      storedFrame.background,
+      { colorA: '#FF0000', style: 'solid' },
+      DEFAULT_SETTINGS.shaderSettings
+    );
+    const sequenceBackground = mergeStudioBackground(
+      createDefaultFrameSettings(DEFAULT_SETTINGS).background,
+      { colorA: '#112233', colorB: '#445566', style: 'gradient' },
+      DEFAULT_SETTINGS.shaderSettings
+    );
+
+    expect(resolveStudioFrameSettings(DEFAULT_SETTINGS, storedFrame, sequenceBackground, false).background).toMatchObject({
+      colorA: '#112233',
+      colorB: '#445566',
+      style: 'gradient',
+    });
+    expect(resolveStudioFrameSettings(DEFAULT_SETTINGS, storedFrame, sequenceBackground, true).background).toMatchObject({
+      colorA: '#FF0000',
+      style: 'solid',
     });
   });
 });

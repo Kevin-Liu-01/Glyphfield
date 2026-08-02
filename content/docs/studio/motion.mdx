@@ -8,9 +8,9 @@ Glyphfield includes three focused motion systems: frame-based Animation, a dedic
 
 ## Animation
 
-Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources, live animation-package previews, and the background shader gallery on the left; the shared canvas and timeline in the center; and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography, image fit, or background without changing the rest of the sequence.
+Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources, live animation-package previews, and the background shader gallery on the left; the shared canvas and timeline in the center; and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography, or image fit without changing the rest of the sequence. Background edits are sequence-wide by default.
 
-Open **Code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, per-frame settings, and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
+Open **Code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, `sequenceBackground`, `backgroundOverrides`, per-frame settings, and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
 
 ## Lottie
 
@@ -26,7 +26,7 @@ The source drawer exposes raw Lottie JSON for documents that can be represented 
 
 The canvas uses direct manipulation: selecting a state pauses on that frame, dragging moves it, arrow keys nudge it by one canvas pixel, Shift + arrow nudges by ten, and the content corner handle scales it. Separate canvas handles resize the output itself: drag the right or bottom edge for one dimension, or the corner for both. Inspector values, the live dimension readout, and canvas gestures update the same persisted data.
 
-Each state also owns its background. Choose a solid color, two-color gradient, or any material from the shared Shader Library, then transition between state backgrounds with a crossfade, directional wipe, or radial reveal. The library applies to the selected frame, or the first frame when no state is selected. Shader colors, speed, strength, frequency, grain, finish, and material remain editable in the frame inspector.
+Choose a solid color, two-color gradient, or any material from the shared Shader Library as the sequence background, then transition between states with a crossfade, directional wipe, or radial reveal. The library and background inspector target **Entire sequence** by default, so changing any material control updates every inheriting frame. Switch to **This frame only** to create an exception. An inherited frame can return to the shared look with **Use sequence background**, while **Make all frames follow sequence** removes all exceptions.
 
 ### Animation packages
 

@@ -41,6 +41,12 @@ Asset records support alt text, semantic role, focal point, tags, source owner, 
 
 The semantic roles are logo, background, texture, image, reference, motion, icon, product, and proof. A product or proof mark is never offered as background decoration unless its role is changed deliberately.
 
+## Conversion library
+
+The Asset library also contains a reusable local conversion workspace. It accepts SVG, PNG, JPEG, WebP, GIF, AVIF, and BMP files, sanitizes SVG markup, and creates a transparent shader-safe PNG at a selected maximum dimension. The original and converted file remain available for download and are stored in this browser rather than uploaded.
+
+Converted records are shared across projects in Shaders and Surface Lab. They do not automatically become identity assets with provenance metadata; use the identity asset uploader when a file should be part of the portable `BrandIdentity` record.
+
 ## Semantic colors
 
 Each color contains a name, role, and six-digit HEX value. The color tools also expose an OKLCH representation for perceptual comparison.

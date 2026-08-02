@@ -6,26 +6,31 @@ import { Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { clampCanvasZoom } from '@/lib/canvasViewport';
 
 export default function CanvasViewport({
+  autoFit = false,
   children,
   className = '',
   draftKey = 'canvas-zoom',
   fontFamily,
   fontWeight,
   identityId,
+  maxZoom = 200,
   onDeselect,
   stageClassName = '',
   toolId,
 }: {
+  autoFit?: boolean;
   children: ReactNode;
   className?: string;
   draftKey?: string;
   fontFamily?: CSSProperties['fontFamily'];
   fontWeight?: CSSProperties['fontWeight'];
   identityId: string;
+  maxZoom?: number;
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
@@ -43,13 +48,14 @@ export default function CanvasViewport({
     startY: number;
   } | null>(null);
   const [zoom, setZoom] = useStudioDraft(identityId, toolId, draftKey, 100);
+  const constrainedZoom = Math.min(zoom, maxZoom);
   const zoomRef = useRef(zoom);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   useCanvasSelectionDismiss(viewportRef, onDeselect);
-  zoomRef.current = zoom;
+  zoomRef.current = constrainedZoom;
 
   function changeZoom(value: number, point?: { x: number; y: number }) {
-    const nextZoom = clampCanvasZoom(value);
+    const nextZoom = Math.min(Math.max(40, maxZoom), clampCanvasZoom(value));
     const scrollElement = scrollRef.current;
     const currentZoom = zoomRef.current;
     if (!scrollElement || nextZoom === currentZoom) return;
@@ -79,6 +85,31 @@ export default function CanvasViewport({
     setPanOffset({ x: 0, y: 0 });
   }
 
+  useMountEffect(() => {
+    const scrollElement = scrollRef.current;
+    let animationFrame = 0;
+
+    function syncView() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        if (autoFit) fitCanvas();
+        else if (zoomRef.current > maxZoom) changeZoom(maxZoom);
+      });
+    }
+
+    syncView();
+    if (!autoFit || !scrollElement || !('ResizeObserver' in window)) {
+      return () => window.cancelAnimationFrame(animationFrame);
+    }
+
+    const observer = new ResizeObserver(syncView);
+    observer.observe(scrollElement);
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(animationFrame);
+    };
+  });
+
   function resetView() {
     wheelDeltaRef.current = 0;
     zoomRef.current = 100;
@@ -103,15 +134,15 @@ export default function CanvasViewport({
       ref={viewportRef}
     >
       <div className='canvas-viewport-toolbar' data-canvas-selection-preserve role='group' aria-label={gt('Canvas zoom')}>
-        <Button aria-label={gt('Zoom out')} disabled={zoom <= 40} onClick={() => changeZoom(zoom - 10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
+        <Button aria-label={gt('Zoom out')} disabled={constrainedZoom <= 40} onClick={() => changeZoom(constrainedZoom - 10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
           <Minus aria-hidden='true' />
         </Button>
         <label className='canvas-zoom-range'>
           <span className='sr-only'><T>Canvas zoom</T></span>
-          <input max={200} min={40} onChange={(event) => changeZoom(Number(event.target.value))} step={5} type='range' value={zoom} />
+          <input max={maxZoom} min={40} onChange={(event) => changeZoom(Number(event.target.value))} step={5} type='range' value={constrainedZoom} />
         </label>
-        <button className='canvas-zoom-value' onClick={() => changeZoom(100)} title={gt('Reset to 100%')} type='button'>{zoom}%</button>
-        <Button aria-label={gt('Zoom in')} disabled={zoom >= 200} onClick={() => changeZoom(zoom + 10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
+        <button className='canvas-zoom-value' onClick={() => changeZoom(100)} title={gt('Reset to 100%')} type='button'>{constrainedZoom}%</button>
+        <Button aria-label={gt('Zoom in')} disabled={constrainedZoom >= maxZoom} onClick={() => changeZoom(constrainedZoom + 10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
           <Plus aria-hidden='true' />
         </Button>
         <span className='canvas-toolbar-divider' />
@@ -190,10 +221,10 @@ export default function CanvasViewport({
           ref={stageRef}
           style={{
             '--canvas-selected-font': fontFamily,
-            '--canvas-zoom': zoom / 100,
+            '--canvas-zoom': constrainedZoom / 100,
             fontFamily,
             fontWeight,
-            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${zoom / 100})`,
+            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${constrainedZoom / 100})`,
           } as CSSProperties}
         >
           {children}

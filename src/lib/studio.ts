@@ -51,6 +51,8 @@ export type StudioFrameSettings = {
   scale: number;
 };
 
+export type StudioBackgroundSettings = StudioFrameSettings['background'];
+
 export type StudioSettings = GifExportConfig & {
   shaderSettings: LiveMaterialSettings;
 };
@@ -116,6 +118,41 @@ export function createDefaultFrameSettings(
     opacity: 1,
     rotation: 0,
     scale: settings.scale,
+  };
+}
+
+export function mergeStudioBackground(
+  base: StudioBackgroundSettings,
+  patch: Partial<StudioBackgroundSettings>,
+  fallbackSettings: LiveMaterialSettings
+): StudioBackgroundSettings {
+  return {
+    ...base,
+    ...patch,
+    finish: normalizeMaterialFinish(patch.finish ?? base.finish),
+    materialSettings: {
+      ...fallbackSettings,
+      ...base.materialSettings,
+      ...patch.materialSettings,
+    },
+  };
+}
+
+export function resolveStudioFrameSettings(
+  settings: StudioSettings,
+  storedFrame: StudioFrameSettings | undefined,
+  sequenceBackground: StudioBackgroundSettings,
+  hasBackgroundOverride: boolean
+): StudioFrameSettings {
+  const frame = storedFrame ?? createDefaultFrameSettings(settings);
+  if (hasBackgroundOverride) return frame;
+  return {
+    ...frame,
+    background: mergeStudioBackground(
+      sequenceBackground,
+      {},
+      settings.shaderSettings
+    ),
   };
 }
 

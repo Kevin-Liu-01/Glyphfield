@@ -2933,6 +2933,29 @@ body {
   mix-blend-mode: soft-light;
 }
 
+.paper-shader-host {
+  contain: strict;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 0;
+}
+
+.paper-shader-host > :not(.paper-material-grain),
+.paper-shader-host canvas {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
 .shader-library-browser-compact .shader-library-preview {
   aspect-ratio: 16 / 9;
 }
@@ -3980,6 +4003,8 @@ body {
 
 .animation-body > section {
   grid-area: canvas;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -14406,17 +14431,53 @@ body {
   background-size: auto;
 }
 
+.marketing-v5-hero-metal-field {
+  background: #0a0618;
+}
+
+.marketing-v5-hero-metal-field .marketing-v5-field-fallback {
+  background:
+    radial-gradient(circle at 52% 4%, rgb(123 255 217 / 0.5), transparent 24%),
+    radial-gradient(circle at 14% 72%, rgb(121 92 255 / 0.92), transparent 42%),
+    linear-gradient(145deg, #080411 0%, #24105d 48%, #725cff 72%, #112e2a 100%);
+}
+
+.marketing-v5-hero-metal-field::after {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  background:
+    linear-gradient(105deg, rgb(19 10 51 / 0.48), transparent 28% 72%, rgb(123 255 217 / 0.12)),
+    radial-gradient(ellipse at 50% 42%, transparent 30%, rgb(5 2 14 / 0.24) 100%);
+  content: '';
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.marketing-v5-hero-metal-field canvas {
+  filter: saturate(1.22) contrast(1.08);
+}
+
+.marketing-v5-hero-metal-field .marketing-v5-field-grain {
+  opacity: 0.16;
+  mix-blend-mode: soft-light;
+}
+
 .marketing-v5-product-window {
   box-shadow: 0 26px 70px rgb(15 7 55 / 0.28);
 }
 
 .marketing-v5-hero-studio {
   width: min(100%, 1320px);
-  height: clamp(720px, 64vw, 860px);
-  min-height: 0;
+  height: min(clamp(620px, 64vw, 860px), calc(100svh - 80px));
+  min-height: min(560px, calc(100svh - 80px));
   border: 1px solid rgb(255 255 255 / 0.34);
   border-radius: 4px;
   background: #111;
+  box-shadow:
+    0 44px 120px rgb(5 2 16 / 0.58),
+    0 0 0 1px rgb(123 255 217 / 0.08);
+  container-type: inline-size;
 }
 
 .marketing-v5-hero-studio .animation-studio {
@@ -14428,6 +14489,53 @@ body {
 .marketing-v5-hero-studio .animation-toolbar,
 .marketing-v5-hero-studio .animation-body {
   min-width: 0;
+}
+
+.marketing-v5-hero-studio .animation-toolbar {
+  grid-template-columns: 40% minmax(60%, 1fr);
+}
+
+.marketing-v5-hero-studio .animation-body {
+  grid-template-columns: minmax(220px, 20%) minmax(200px, 20%) minmax(60%, 1fr);
+}
+
+.marketing-v5-hero-studio .animation-body > .resizable-sidebar {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.marketing-v5-hero-studio .animation-body > .resizable-sidebar .resizable-sidebar-handle {
+  display: none;
+}
+
+@container (max-width: 1100px) {
+  .marketing-v5-hero-studio .animation-body {
+    grid-template-areas:
+      'canvas'
+      'source'
+      'properties';
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .marketing-v5-hero-studio .animation-body > .resizable-sidebar {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .marketing-v5-hero-studio .animation-body > .resizable-sidebar .resizable-sidebar-toggle {
+    display: none;
+  }
+
+  .marketing-v5-hero-studio .animation-body > .resizable-sidebar[data-collapsed='true'] .resizable-sidebar-scroll {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .marketing-v5-hero-studio .animation-canvas-section {
+    min-height: 560px;
+  }
 }
 
 .marketing-animation-lazy-shell {
@@ -14572,22 +14680,6 @@ html[data-marketing-theme='dark'] body {
 .marketing-page-v5[data-marketing-theme='dark'] {
   border-inline-color: #383836;
   outline-color: #383836;
-}
-
-html[data-marketing-theme] body::after {
-  position: fixed;
-  z-index: 59;
-  top: 63px;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: #deded9;
-  content: '';
-  pointer-events: none;
-}
-
-html[data-marketing-theme='dark'] body::after {
-  background: #383836;
 }
 
 /* Agent integration surface */

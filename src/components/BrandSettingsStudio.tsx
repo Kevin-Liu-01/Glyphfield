@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import BrandVisualAudit from '@/components/BrandVisualAudit';
@@ -43,6 +44,7 @@ import { formatOklch, hexToOklch } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 
 const INPUT_CLASS =
   'h-10 w-full border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -209,6 +211,7 @@ export default function BrandSettingsStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const convertedAssetLibrary = useConvertedAssets();
   const [activeSection, setActiveSection] = useState<IdentitySection>('overview');
   const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -493,6 +496,9 @@ export default function BrandSettingsStudio({
 
           {activeSection === 'assets' ? (
             <div className='brand-identity-section-stack'>
+              <Panel description={<T>Sanitize SVGs and normalize PNG, JPG, WebP, GIF, AVIF, or BMP files into transparent, shader-safe PNG working copies. Originals remain available locally.</T>} title={<T>Conversion library</T>}>
+                <AssetConversionLibrary library={convertedAssetLibrary} />
+              </Panel>
               <Panel description={<T>Upload once, then use the same file in email, cards, headers, banners, backgrounds, slides, social, and exports.</T>} title={<T>Asset library</T>}>
                 <div className='brand-asset-upload-row'>
                   <StudioSelect ariaLabel={gt('Asset type')} onValueChange={(value) => setAssetType(value as BrandAsset['type'])} options={ASSET_TYPES.map((type) => ({ label: gt(type), value: type }))} value={assetType} />

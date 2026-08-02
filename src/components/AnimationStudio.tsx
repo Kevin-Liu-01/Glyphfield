@@ -37,9 +37,12 @@ import {
   createDefaultFrameSettings,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_FRAMES,
+  mergeStudioBackground,
   orderStudioSources,
+  resolveStudioFrameSettings,
   type ImportedImage,
   type SourceMode,
+  type StudioBackgroundSettings,
   type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
@@ -143,6 +146,31 @@ export default function AnimationStudio({
     'frame-settings',
     {}
   );
+  const defaultSequenceBackground = createDefaultFrameSettings(settings).background;
+  const [storedSequenceBackground, setStoredSequenceBackground] = useStudioDraft<StudioBackgroundSettings>(
+    identityId,
+    'animation',
+    'sequence-background-v1',
+    defaultSequenceBackground
+  );
+  const sequenceBackground = mergeStudioBackground(
+    defaultSequenceBackground,
+    storedSequenceBackground,
+    settings.shaderSettings
+  );
+  const [backgroundOverrides, setBackgroundOverrides] = useStudioDraft<Record<string, boolean>>(
+    identityId,
+    'animation',
+    'background-overrides-v1',
+    {}
+  );
+  const [backgroundScopeMigrated, setBackgroundScopeMigrated] = useStudioDraft(
+    identityId,
+    'animation',
+    'background-scope-migrated-v1',
+    false
+  );
+  const [backgroundEditScope, setBackgroundEditScope] = useState<'sequence' | 'frame'>('sequence');
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [selectedEffectTarget, setSelectedEffectTarget] = useState<
     'background' | 'content'
@@ -162,7 +190,10 @@ export default function AnimationStudio({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
-  useCanvasSelectionDismiss(canvasSelectionRef, () => setSelectedSourceId(null));
+  useCanvasSelectionDismiss(canvasSelectionRef, () => {
+    setSelectedSourceId(null);
+    setBackgroundEditScope('sequence');
+  });
 
   const textSources = useMemo<StudioSource[]>(
     () =>
@@ -193,20 +224,29 @@ export default function AnimationStudio({
     ],
     [brandLogo, imageSources, includeBrandLogo, textSources]
   );
+  const resolvedFrameSettings = useMemo(
+    () => Object.fromEntries(baseSources.map((source) => [
+      source.id,
+      resolveStudioFrameSettings(
+        settings,
+        frameSettings[source.id],
+        sequenceBackground,
+        Boolean(backgroundOverrides[source.id])
+      ),
+    ])),
+    [backgroundOverrides, baseSources, frameSettings, sequenceBackground, settings]
+  );
   const sources = useMemo(
     () =>
       orderStudioSources(baseSources, sequenceOrder).map((source) =>
-        applyFrameSettings(
-          source,
-          frameSettings[source.id] ?? createDefaultFrameSettings(settings)
-        )
+        applyFrameSettings(source, resolvedFrameSettings[source.id] ?? createDefaultFrameSettings(settings))
       ),
-    [baseSources, frameSettings, sequenceOrder, settings]
+    [baseSources, resolvedFrameSettings, sequenceOrder, settings]
   );
   const selectedSource =
     sources.find((source) => source.id === selectedSourceId) ?? null;
   const selectedFrameSettings = selectedSource
-    ? frameSettings[selectedSource.id] ?? createDefaultFrameSettings(settings)
+    ? resolvedFrameSettings[selectedSource.id] ?? createDefaultFrameSettings(settings)
     : null;
   const labels = sources.map((source) =>
     source.kind === 'text' ? source.text : source.name
@@ -264,6 +304,35 @@ export default function AnimationStudio({
       colors: current.colors <= 64 ? 256 : current.colors,
     }));
     setQualityDefaultsMigrated(true);
+  });
+
+  useMountEffect(() => {
+    if (backgroundScopeMigrated) return;
+    try {
+      const storagePrefix = `glyphfield-draft-v1:${identityId}:animation:`;
+      const savedSettings = JSON.parse(window.localStorage.getItem(`${storagePrefix}settings`) ?? '{}') as Partial<StudioSettings>;
+      const savedFrames = JSON.parse(window.localStorage.getItem(`${storagePrefix}frame-settings`) ?? '{}') as Record<string, StudioFrameSettings>;
+      const legacySettings: StudioSettings = {
+        ...identitySettings,
+        ...savedSettings,
+        shaderSettings: {
+          ...identitySettings.shaderSettings,
+          ...savedSettings.shaderSettings,
+        },
+      };
+      const defaultFingerprint = JSON.stringify(createDefaultFrameSettings(legacySettings).background);
+      const inferredOverrides = Object.fromEntries(
+        Object.entries(savedFrames)
+          .filter(([, frame]) => JSON.stringify(frame.background) !== defaultFingerprint)
+          .map(([id]) => [id, true])
+      );
+      if (Object.keys(inferredOverrides).length > 0) {
+        setBackgroundOverrides(inferredOverrides);
+      }
+    } catch {
+      // Invalid legacy drafts are ignored by the persistent-state hook as well.
+    }
+    setBackgroundScopeMigrated(true);
   });
 
   useMountEffect(() => {
@@ -413,7 +482,15 @@ export default function AnimationStudio({
       delete next[id];
       return next;
     });
-    if (selectedSourceId === id) setSelectedSourceId(null);
+    setBackgroundOverrides((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    if (selectedSourceId === id) {
+      setSelectedSourceId(null);
+      setBackgroundEditScope('sequence');
+    }
     seek(0);
   }
 
@@ -444,47 +521,76 @@ export default function AnimationStudio({
     });
   }
 
-  function updateSelectedBackground(
-    patch: Partial<StudioFrameSettings['background']>
+  function updateSequenceBackground(
+    patch: Partial<StudioBackgroundSettings>
   ) {
-    if (!selectedFrameSettings) return;
-    updateSelectedFrame({
-      background: {
-        ...selectedFrameSettings.background,
-        ...patch,
-        materialSettings: patch.materialSettings
-          ?? selectedFrameSettings.background.materialSettings
-          ?? settings.shaderSettings,
-      },
-    });
+    const next = mergeStudioBackground(
+      sequenceBackground,
+      patch,
+      settings.shaderSettings
+    );
+    setStoredSequenceBackground(next);
+    setStoredSettings((current) => ({
+      ...current,
+      background: next.colorA,
+      backgroundSecondary: next.colorB,
+      backgroundStyle: next.style,
+      shaderSettings: next.materialSettings,
+    }));
   }
 
-  function applyLibraryBackground(
-    patch: Partial<StudioFrameSettings['background']>
+  function updateSelectedBackground(
+    patch: Partial<StudioBackgroundSettings>
   ) {
-    const target = selectedSource ?? sources[0];
-    if (!target) return;
+    if (backgroundEditScope !== 'frame' || !selectedSource) {
+      updateSequenceBackground(patch);
+      return;
+    }
     setFrameSettings((current) => {
-      const base = current[target.id] ?? createDefaultFrameSettings(settings);
+      const base = current[selectedSource.id] ?? createDefaultFrameSettings(settings);
+      const currentBackground = backgroundOverrides[selectedSource.id]
+        ? base.background
+        : sequenceBackground;
       return {
         ...current,
-        [target.id]: {
+        [selectedSource.id]: {
           ...base,
-          background: {
-            ...base.background,
-            ...patch,
-            materialSettings: patch.materialSettings
-              ?? base.background.materialSettings
-              ?? settings.shaderSettings,
-          },
+          background: mergeStudioBackground(
+            currentBackground,
+            patch,
+            settings.shaderSettings
+          ),
         },
       };
     });
-    setSelectedSourceId(target.id);
-    setSelectedEffectTarget('background');
+    setBackgroundOverrides((current) => ({ ...current, [selectedSource.id]: true }));
+  }
+
+  function applyLibraryBackground(
+    patch: Partial<StudioBackgroundSettings>
+  ) {
+    if (sources.length === 0) return;
+    updateSelectedBackground(patch);
+    if (selectedSource) setSelectedEffectTarget('background');
     changePlaying(false);
-    const index = sources.findIndex((source) => source.id === target.id);
+    const index = selectedSource
+      ? sources.findIndex((source) => source.id === selectedSource.id)
+      : 0;
     seek(Math.max(0, index) * (settings.holdMs + settings.transitionMs));
+  }
+
+  function resetSelectedBackgroundOverride() {
+    if (!selectedSource) return;
+    setBackgroundOverrides((current) => {
+      const next = { ...current };
+      delete next[selectedSource.id];
+      return next;
+    });
+  }
+
+  function clearBackgroundOverrides() {
+    setBackgroundOverrides({});
+    setBackgroundEditScope('sequence');
   }
 
   function resetSelectedFrame() {
@@ -494,6 +600,7 @@ export default function AnimationStudio({
       delete next[selectedSource.id];
       return next;
     });
+    resetSelectedBackgroundOverride();
   }
 
   function seek(timeMs: number) {
@@ -509,7 +616,10 @@ export default function AnimationStudio({
 
   function changePlaying(playing: boolean) {
     if (playing && totalMs > 0 && playheadRef.current >= totalMs) seek(0);
-    if (playing) setSelectedSourceId(null);
+    if (playing) {
+      setSelectedSourceId(null);
+      setBackgroundEditScope('sequence');
+    }
     isPlayingRef.current = playing;
     setIsPlaying(playing);
   }
@@ -547,11 +657,14 @@ export default function AnimationStudio({
 
   function resetStudio() {
     setStoredSettings(identitySettings);
+    setStoredSequenceBackground(createDefaultFrameSettings(identitySettings).background);
     setTextFrames(identityTextFrames);
     setMode('sequence');
     setIncludeBrandLogo(Boolean(identity));
     setSequenceOrder([]);
     setFrameSettings({});
+    setBackgroundOverrides({});
+    setBackgroundEditScope('sequence');
     setSelectedSourceId(null);
     setSelectedEffectTarget('content');
     setError(null);
@@ -571,6 +684,8 @@ export default function AnimationStudio({
     }
     const nextSettings = sourceObject(parsed, 'settings');
     const nextFrameSettings = sourceObject(parsed, 'frameSettings');
+    const nextSequenceBackground = sourceObject(parsed, 'sequenceBackground');
+    const nextBackgroundOverrides = sourceObject(parsed, 'backgroundOverrides');
     const nextPlaybackRate = sourceNumber(parsed, 'playbackRate', playbackRate);
     if (nextPlaybackRate <= 0 || nextPlaybackRate > 4) {
       throw new RangeError('Playback rate must be greater than 0 and no more than 4.');
@@ -584,33 +699,49 @@ export default function AnimationStudio({
     if (nextFrameSettings) {
       setFrameSettings(nextFrameSettings as Record<string, StudioFrameSettings>);
     }
+    if (nextSequenceBackground) {
+      setStoredSequenceBackground(nextSequenceBackground as StudioBackgroundSettings);
+    }
+    if (nextBackgroundOverrides) {
+      setBackgroundOverrides(nextBackgroundOverrides as Record<string, boolean>);
+    }
     setPlaybackRate(nextPlaybackRate);
     setSelectedSourceId(null);
+    setBackgroundEditScope('sequence');
     seek(0);
   }
 
   const studioControlProps = {
+    backgroundOverrideCount: sources.filter((source) => backgroundOverrides[source.id]).length,
+    backgroundScope: backgroundEditScope,
     brandLogoAvailable: Boolean(brandLogo),
     compact: compactControls,
     frameSettings: selectedFrameSettings,
+    hasSelectedBackgroundOverride: Boolean(selectedSource && backgroundOverrides[selectedSource.id]),
     hasImageSources: sources.some((source) => source.kind === 'image'),
     identity,
     images,
     includeBrandLogo,
     mode,
     onBackgroundChange: updateSelectedBackground,
+    onBackgroundScopeChange: setBackgroundEditScope,
+    onClearBackgroundOverrides: clearBackgroundOverrides,
     onLibraryBackgroundChange: applyLibraryBackground,
     onFiles: importFiles,
     onFrameSettingsChange: updateSelectedFrame,
     onIncludeBrandLogoChange: (include: boolean) => {
       setIncludeBrandLogo(include);
-      if (!include && selectedSourceId === 'brand-logo') setSelectedSourceId(null);
+      if (!include && selectedSourceId === 'brand-logo') {
+        setSelectedSourceId(null);
+        setBackgroundEditScope('sequence');
+      }
       seek(0);
     },
     onModeChange: changeMode,
     onMoveSource: moveSource,
     onRemoveImage: removeImage,
     onResetFrame: resetSelectedFrame,
+    onResetSelectedBackgroundOverride: resetSelectedBackgroundOverride,
     onSelectedEffectTargetChange: setSelectedEffectTarget,
     onSelectSource: (id: string) => {
       setSelectedSourceId(id);
@@ -623,6 +754,7 @@ export default function AnimationStudio({
     onTextFramesChange: setTextFrames,
     selectedSource,
     selectedEffectTarget,
+    sequenceBackground,
     settings,
     sources,
     textFrames,
@@ -715,7 +847,7 @@ export default function AnimationStudio({
       <div className={embedded ? 'animation-body' : 'studio-body animation-body'}>
         <StudioControls {...studioControlProps} panel='source' />
 
-        <section className='flex min-w-0 flex-col bg-background'>
+        <section className='animation-canvas-section flex min-w-0 flex-col bg-background'>
           <div className='flex min-h-0 flex-1 flex-col'>
             <div className='flex items-center justify-between gap-4 border-b border-border bg-background px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground'>
               <span>
@@ -727,15 +859,24 @@ export default function AnimationStudio({
             </div>
 
             <CanvasViewport
+              autoFit={compactControls}
               className='min-h-[420px] flex-1'
+              draftKey={compactControls ? 'compact-canvas-fit-v1' : 'canvas-zoom'}
               identityId={identityId}
-              onDeselect={() => setSelectedSourceId(null)}
+              maxZoom={compactControls ? 100 : 200}
+              onDeselect={() => {
+                setSelectedSourceId(null);
+                setBackgroundEditScope('sequence');
+              }}
               stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
               toolId='animation'
             >
               <div
                 className='relative w-full max-w-5xl border border-foreground/20 bg-black shadow-[0_24px_80px_rgba(0,0,0,0.12)]'
-                onPointerDown={() => setSelectedSourceId(null)}
+                onPointerDown={() => {
+                  setSelectedSourceId(null);
+                  setBackgroundEditScope('sequence');
+                }}
                 ref={canvasSelectionRef}
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
@@ -849,11 +990,13 @@ export default function AnimationStudio({
           onApply={applyStudioSource}
           onClose={() => setSourceOpen(false)}
           source={stringifySource({
+            backgroundOverrides,
             frameSettings,
             includeBrandLogo,
             mode,
             playbackRate,
             sequenceOrder,
+            sequenceBackground,
             settings,
             textFrames,
           })}

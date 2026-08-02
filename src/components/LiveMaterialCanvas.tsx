@@ -62,7 +62,7 @@ import {
   wavesPresets,
   type ShaderComponentProps,
 } from '@paper-design/shaders-react';
-import { createElement, memo, useRef, useState, type ComponentType } from 'react';
+import { createElement, memo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 
 import type { RefObject } from 'react';
 
@@ -76,7 +76,11 @@ import {
   type PaperLiveMaterialId,
   type PaperShaderFamilyId,
 } from '@/lib/liveMaterials';
-import { cancelWebGLContextRelease, scheduleWebGLContextRelease } from '@/lib/webglContext';
+import {
+  browserSupportsWebGL2,
+  cancelWebGLContextRelease,
+  scheduleWebGLContextRelease,
+} from '@/lib/webglContext';
 
 export type LiveMaterialCanvasProps = {
   className?: string;
@@ -87,6 +91,8 @@ export type LiveMaterialCanvasProps = {
   paused?: boolean;
   renderScale?: number;
   settings: LiveMaterialSettings;
+  sourceImage?: string;
+  sourceImageOpacity?: number;
 };
 
 const VERTEX_SOURCE = `
@@ -910,6 +916,85 @@ function ShaderGradientSurface({
   );
 }
 
+function ProviderContextGuard({
+  children,
+  className = '',
+  onContextLost,
+}: {
+  children: ReactNode;
+  className?: string;
+  onContextLost: () => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useMountEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const observedCanvases = new Set<HTMLCanvasElement>();
+    let disposed = false;
+    let recoveryRequested = false;
+    let recoveryTimer = 0;
+
+    const requestRecovery = () => {
+      if (disposed || recoveryRequested) return;
+      recoveryRequested = true;
+      recoveryTimer = window.setTimeout(onContextLost, 0);
+    };
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      requestRecovery();
+    };
+    const observeCanvases = () => {
+      host.querySelectorAll('canvas').forEach((canvas) => {
+        if (observedCanvases.has(canvas)) return;
+        observedCanvases.add(canvas);
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+      });
+    };
+
+    observeCanvases();
+    const observer = new MutationObserver(observeCanvases);
+    observer.observe(host, { childList: true, subtree: true });
+    const healthTimer = window.setTimeout(() => {
+      const canvas = host.querySelector('canvas');
+      if (!canvas || canvas.width < 1 || canvas.height < 1) requestRecovery();
+    }, 1200);
+
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      window.clearTimeout(healthTimer);
+      window.clearTimeout(recoveryTimer);
+      observedCanvases.forEach((canvas) => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+      });
+    };
+  });
+
+  return (
+    <div
+      className={`absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden ${className}`}
+      ref={hostRef}
+      style={{ contain: 'strict', isolation: 'isolate' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SourceAssetOverlay({ opacity, source }: { opacity: number; source?: string }) {
+  if (!source) return null;
+  return (
+    <img
+      alt=''
+      aria-hidden='true'
+      className='pointer-events-none absolute inset-0 z-[2] size-full object-cover'
+      src={source}
+      style={{ mixBlendMode: 'soft-light', opacity: Math.max(0, Math.min(1, opacity / 100)) }}
+    />
+  );
+}
+
 function OriginalMaterialCanvas({
   active,
   canvasRef,
@@ -950,7 +1035,10 @@ function OriginalMaterialCanvas({
       antialias: false,
       preserveDrawingBuffer: true,
     });
-    if (!context) return;
+    if (!context) {
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
     const drawingCanvas: HTMLCanvasElement = canvas;
     const drawingContext: WebGLRenderingContext = context;
     cancelWebGLContextRelease(drawingCanvas);
@@ -1156,7 +1244,10 @@ function FluidSimulationCanvas({
       preserveDrawingBuffer: true,
       premultipliedAlpha: false,
     });
-    if (!context) return;
+    if (!context) {
+      window.setTimeout(onContextLost, 120);
+      return;
+    }
     const drawingCanvas: HTMLCanvasElement = canvas;
     const gl: WebGLRenderingContext = context;
     cancelWebGLContextRelease(drawingCanvas);
@@ -1603,12 +1694,14 @@ function PaperShaderSurface({
   paused,
   renderScale,
   settings,
+  sourceImage,
 }: {
   captureTimeMs: number | null;
   materialId: PaperLiveMaterialId;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
+  sourceImage?: string;
 }) {
   const definition = getPaperLiveMaterialDefinition(materialId);
   const renderer = PAPER_SHADER_RENDERERS[definition.family];
@@ -1648,11 +1741,23 @@ function PaperShaderSurface({
         }
       : {};
   const surfaceProps: ShaderComponentProps = {
-    className: 'size-full',
+    className: 'absolute inset-0 block size-full max-h-none max-w-none overflow-hidden',
     height: '100%',
     maxPixelCount: Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
     minPixelRatio: 0.5,
-    style: { height: '100%', width: '100%' },
+    style: {
+      display: 'block',
+      height: '100%',
+      inset: 0,
+      margin: 0,
+      maxHeight: 'none',
+      maxWidth: 'none',
+      minHeight: 0,
+      minWidth: 0,
+      overflow: 'hidden',
+      position: 'absolute',
+      width: '100%',
+    },
     webGlContextAttributes: {
       alpha: false,
       antialias: false,
@@ -1664,7 +1769,7 @@ function PaperShaderSurface({
     ...surfaceProps,
     ...controlledParams,
     ...backdropParams,
-    ...(usesImage ? { image: '/shader-source-art.svg' } : {}),
+    ...(usesImage ? { image: sourceImage ?? '/shader-source-art.svg' } : {}),
     ...proceduralBackdropParams,
     frame: captureTimeMs === null
       ? presetFrame
@@ -1675,13 +1780,15 @@ function PaperShaderSurface({
   return (
     <div
       aria-label={`Paper Shaders ${definition.name} material`}
-      className='absolute inset-0 size-full overflow-hidden'
+      className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
       style={{
+        contain: 'strict',
         filter: [
           `brightness(${settings.brightness})`,
           `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
           `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
         ].join(' '),
+        isolation: 'isolate',
       }}
     >
       {surface}
@@ -1696,6 +1803,31 @@ function PaperShaderSurface({
   );
 }
 
+function StaticMaterialFallback({
+  className,
+  containerRef,
+  settings,
+  sourceImage,
+  sourceImageOpacity,
+}: {
+  className: string;
+  containerRef: RefObject<HTMLDivElement | null>;
+  settings: LiveMaterialSettings;
+  sourceImage?: string;
+  sourceImageOpacity: number;
+}) {
+  return (
+    <div
+      aria-label='Static shader fallback'
+      className={`absolute inset-0 size-full ${className}`}
+      ref={containerRef}
+      style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+    >
+      <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
+    </div>
+  );
+}
+
 function LiveMaterialCanvas({
   className = '',
   captureTimeMs = null,
@@ -1705,10 +1837,13 @@ function LiveMaterialCanvas({
   paused = false,
   renderScale = 1,
   settings,
+  sourceImage,
+  sourceImageOpacity = 36,
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
+  const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);
   const [contextRecovery, setContextRecovery] = useState(() => ({
     failed: false,
@@ -1719,16 +1854,27 @@ function LiveMaterialCanvas({
     ? contextRecovery
     : { failed: false, materialId: resolvedMaterialId, version: 0 };
   const renderActive = renderVisible && enabled;
+  const paperDefinition = isPaperLiveMaterialId(resolvedMaterialId)
+    ? getPaperLiveMaterialDefinition(resolvedMaterialId)
+    : null;
+  const paperUsesSourceImage = paperDefinition
+    ? PAPER_IMAGE_SHADER_FAMILIES.has(paperDefinition.family)
+      && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(paperDefinition.family)
+    : false;
   const recoverContext = () => {
     setContextRecovery((current) => {
       const currentVersion = current.materialId === resolvedMaterialId ? current.version : 0;
       return {
-        failed: currentVersion >= 2,
+        failed: currentVersion >= 5,
         materialId: resolvedMaterialId,
-        version: Math.min(2, currentVersion + 1),
+        version: Math.min(5, currentVersion + 1),
       };
     });
   };
+
+  useMountEffect(() => {
+    setWebGL2Available(browserSupportsWebGL2());
+  });
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -1752,11 +1898,12 @@ function LiveMaterialCanvas({
 
   if (activeRecovery.failed) {
     return (
-      <div
-        aria-label='Static shader fallback'
-        className={`absolute inset-0 size-full ${className}`}
-        ref={containerRef}
-        style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+      <StaticMaterialFallback
+        className={className}
+        containerRef={containerRef}
+        settings={settings}
+        sourceImage={sourceImage}
+        sourceImageOpacity={sourceImageOpacity}
       />
     );
   }
@@ -1764,14 +1911,19 @@ function LiveMaterialCanvas({
   if (resolvedMaterialId === 'shadergradient-prismatic-sphere') {
     return (
       <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
-        <ShaderGradientSurface
-          captureTimeMs={captureTimeMs}
-          className=''
+        <ProviderContextGuard
           key={`shadergradient-${activeRecovery.version}`}
-          paused={paused || !renderActive}
-          renderScale={renderScale}
-          settings={settings}
-        />
+          onContextLost={recoverContext}
+        >
+          <ShaderGradientSurface
+            captureTimeMs={captureTimeMs}
+            className=''
+            paused={paused || !renderActive}
+            renderScale={renderScale}
+            settings={settings}
+          />
+        </ProviderContextGuard>
+        <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
     );
   }
@@ -1787,6 +1939,7 @@ function LiveMaterialCanvas({
           renderScale={renderScale}
           settings={settings}
         />
+        <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
     );
   }
@@ -1805,21 +1958,40 @@ function LiveMaterialCanvas({
           renderScale={renderScale}
           settings={settings}
         />
+        <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
     );
   }
 
   if (isPaperLiveMaterialId(resolvedMaterialId)) {
+    if (webGL2Available !== true) {
+      return (
+        <StaticMaterialFallback
+          className={className}
+          containerRef={containerRef}
+          settings={settings}
+          sourceImage={sourceImage}
+          sourceImageOpacity={sourceImageOpacity}
+        />
+      );
+    }
+
     return (
       <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
-        <PaperShaderSurface
-          captureTimeMs={captureTimeMs}
+        <ProviderContextGuard
           key={`paper-${resolvedMaterialId}-${activeRecovery.version}`}
-          materialId={resolvedMaterialId}
-          paused={paused || !renderActive}
-          renderScale={renderScale}
-          settings={settings}
-        />
+          onContextLost={recoverContext}
+        >
+          <PaperShaderSurface
+            captureTimeMs={captureTimeMs}
+            materialId={resolvedMaterialId}
+            paused={paused || !renderActive}
+            renderScale={renderScale}
+            settings={settings}
+            sourceImage={sourceImage}
+          />
+        </ProviderContextGuard>
+        {paperUsesSourceImage ? null : <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />}
       </div>
     );
   }
@@ -1838,6 +2010,7 @@ function LiveMaterialCanvas({
         renderScale={renderScale}
         settings={settings}
       />
+      <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
     </div>
   );
 }

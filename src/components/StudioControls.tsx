@@ -31,6 +31,7 @@ import {
   EASING_PRESETS,
   type ImportedImage,
   type SourceMode,
+  type StudioBackgroundSettings,
   type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
@@ -38,14 +39,19 @@ import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { normalizeMaterialFinish } from '@/lib/materialFinish';
 
 type StudioControlsProps = {
+  backgroundOverrideCount: number;
+  backgroundScope: 'sequence' | 'frame';
   brandLogoAvailable: boolean;
   compact?: boolean;
   frameSettings: StudioFrameSettings | null;
+  hasSelectedBackgroundOverride: boolean;
   hasImageSources: boolean;
   images: readonly ImportedImage[];
   includeBrandLogo: boolean;
   mode: SourceMode;
   onBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
+  onBackgroundScopeChange: (scope: 'sequence' | 'frame') => void;
+  onClearBackgroundOverrides: () => void;
   onLibraryBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
   onFiles: (files: FileList) => void;
   onFrameSettingsChange: (patch: Partial<StudioFrameSettings>) => void;
@@ -54,6 +60,7 @@ type StudioControlsProps = {
   onMoveSource: (id: string, direction: -1 | 1) => void;
   onRemoveImage: (id: string) => void;
   onResetFrame: () => void;
+  onResetSelectedBackgroundOverride: () => void;
   onSelectedEffectTargetChange: (target: 'background' | 'content') => void;
   onSelectSource: (id: string) => void;
   onSettingsChange: (patch: Partial<StudioSettings>) => void;
@@ -62,6 +69,7 @@ type StudioControlsProps = {
   panel: 'properties' | 'source';
   selectedSource: StudioSource | null;
   selectedEffectTarget: 'background' | 'content';
+  sequenceBackground: StudioBackgroundSettings;
   settings: StudioSettings;
   sources: readonly StudioSource[];
   textFrames: string;
@@ -127,15 +135,89 @@ function RangeControl({
   );
 }
 
+function BackgroundScopeControl({
+  hasOverride,
+  onChange,
+  onClearOverrides,
+  onResetOverride,
+  overrideCount,
+  scope,
+  selected,
+  sourceCount,
+}: {
+  hasOverride: boolean;
+  onChange: (scope: 'sequence' | 'frame') => void;
+  onClearOverrides: () => void;
+  onResetOverride: () => void;
+  overrideCount: number;
+  scope: 'sequence' | 'frame';
+  selected: boolean;
+  sourceCount: number;
+}) {
+  const effectiveScope = scope === 'frame' && selected ? 'frame' : 'sequence';
+  return (
+    <div className='flex flex-col gap-2'>
+      <div className='grid grid-cols-2'>
+        <Button
+          className='rounded-r-none'
+          onClick={() => onChange('sequence')}
+          size='sm'
+          type='button'
+          variant={effectiveScope === 'sequence' ? 'default' : 'outline'}
+        >
+          <T>Entire sequence</T>
+        </Button>
+        <Button
+          className='rounded-l-none border-l-0'
+          disabled={!selected}
+          onClick={() => onChange('frame')}
+          size='sm'
+          type='button'
+          variant={effectiveScope === 'frame' ? 'default' : 'outline'}
+        >
+          <T>This frame only</T>
+        </Button>
+      </div>
+      <div className='flex items-start justify-between gap-3 text-[10px] leading-4 text-muted-foreground'>
+        <p>
+          {effectiveScope === 'sequence'
+            ? <T>Changes update every frame that follows the sequence background.</T>
+            : hasOverride
+              ? <T>This frame has its own background.</T>
+              : <T>Your next change creates an override for this frame.</T>}
+        </p>
+        <span className='shrink-0 font-mono uppercase'>
+          {effectiveScope === 'sequence' ? `${sourceCount} frames` : 'override'}
+        </span>
+      </div>
+      {effectiveScope === 'frame' && hasOverride ? (
+        <Button className='w-full' onClick={onResetOverride} size='sm' type='button' variant='outline'>
+          <T>Use sequence background</T>
+        </Button>
+      ) : null}
+      {effectiveScope === 'sequence' && overrideCount > 0 ? (
+        <Button className='w-full' onClick={onClearOverrides} size='sm' type='button' variant='ghost'>
+          <T>Make all frames follow sequence</T> · {overrideCount}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function StudioControls({
+  backgroundOverrideCount,
+  backgroundScope,
   brandLogoAvailable,
   compact = false,
   frameSettings,
+  hasSelectedBackgroundOverride,
   hasImageSources,
   images,
   includeBrandLogo,
   mode,
   onBackgroundChange,
+  onBackgroundScopeChange,
+  onClearBackgroundOverrides,
   onLibraryBackgroundChange,
   onFiles,
   onFrameSettingsChange,
@@ -144,6 +226,7 @@ export default function StudioControls({
   onMoveSource,
   onRemoveImage,
   onResetFrame,
+  onResetSelectedBackgroundOverride,
   onSelectedEffectTargetChange,
   onSelectSource,
   onSettingsChange,
@@ -152,14 +235,21 @@ export default function StudioControls({
   panel,
   selectedSource,
   selectedEffectTarget,
+  sequenceBackground,
   settings,
   sources,
   textFrames,
 }: StudioControlsProps) {
   const gt = useGT();
+  const effectiveBackgroundScope = backgroundScope === 'frame' && selectedSource
+    ? 'frame'
+    : 'sequence';
+  const editableBackground = effectiveBackgroundScope === 'frame' && frameSettings
+    ? frameSettings.background
+    : sequenceBackground;
   const frameMaterialSettings = {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-    ...frameSettings?.background.materialSettings,
+    ...editableBackground.materialSettings,
   };
   const materialIdentity = identity ?? {
     colors: [
@@ -351,20 +441,18 @@ export default function StudioControls({
           />
         </InspectorSection>
         <InspectorSection index='03' title={<T>Background shaders</T>}>
-          <div className='flex items-start justify-between gap-3 text-xs leading-5 text-muted-foreground'>
-            <p>
-              {selectedSource ? (
-                <T>Applies to the selected frame. Color and finish controls stay in frame properties.</T>
-              ) : (
-                <T>Choose a shader to apply it to the first frame.</T>
-              )}
-            </p>
-            <span className='shrink-0 font-mono text-[10px] uppercase'>
-              {selectedSource?.kind ?? 'sequence'}
-            </span>
-          </div>
+          <BackgroundScopeControl
+            hasOverride={hasSelectedBackgroundOverride}
+            onChange={onBackgroundScopeChange}
+            onClearOverrides={onClearBackgroundOverrides}
+            onResetOverride={onResetSelectedBackgroundOverride}
+            overrideCount={backgroundOverrideCount}
+            scope={backgroundScope}
+            selected={Boolean(selectedSource)}
+            sourceCount={sources.length}
+          />
           <ShaderLibraryBrowser
-            activeMaterialId={frameSettings?.background.materialId ?? 'shadergradient-prismatic-sphere'}
+            activeMaterialId={editableBackground.materialId}
             compact
             onSelect={(materialId) => onLibraryBackgroundChange({
               colorA: shaderGallerySettings.colorA,
@@ -457,6 +545,16 @@ export default function StudioControls({
               </>
             ) : (
               <>
+                <BackgroundScopeControl
+                  hasOverride={hasSelectedBackgroundOverride}
+                  onChange={onBackgroundScopeChange}
+                  onClearOverrides={onClearBackgroundOverrides}
+                  onResetOverride={onResetSelectedBackgroundOverride}
+                  overrideCount={backgroundOverrideCount}
+                  scope={backgroundScope}
+                  selected
+                  sourceCount={sources.length}
+                />
                 <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
                   <T>Background type</T>
                   <StudioSelect
@@ -485,13 +583,13 @@ export default function StudioControls({
                       { label: gt('Gradient'), value: 'gradient' },
                       { label: gt('Live shader'), value: 'shader' },
                     ]}
-                    value={frameSettings.background.style}
+                    value={editableBackground.style}
                   />
                 </div>
-                {frameSettings.background.style === 'shader' ? (
+                {editableBackground.style === 'shader' ? (
                   <LiveMaterialControls
                     identity={materialIdentity}
-                    materialId={frameSettings.background.materialId}
+                    materialId={editableBackground.materialId}
                     onMaterialIdChange={(materialId) => onBackgroundChange({ materialId })}
                     onSettingsChange={(materialSettings) => onBackgroundChange({
                       colorA: materialSettings.colorA,
@@ -503,14 +601,14 @@ export default function StudioControls({
                   />
                 ) : (
                   <>
-                    <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={frameSettings.background.colorA} />
-                    {frameSettings.background.style === 'solid' ? null : (
-                      <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={frameSettings.background.colorB} />
+                    <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={editableBackground.colorA} />
+                    {editableBackground.style === 'solid' ? null : (
+                      <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={editableBackground.colorB} />
                     )}
                   </>
                 )}
-                {frameSettings.background.style === 'gradient' ? (
-                  <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={frameSettings.background.angle} />
+                {editableBackground.style === 'gradient' ? (
+                  <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={editableBackground.angle} />
                 ) : null}
                 <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
                   <T>Background transition</T>
@@ -532,7 +630,7 @@ export default function StudioControls({
                   </div>
                   <MaterialFinishControls
                     onChange={(finish) => onBackgroundChange({ finish })}
-                    settings={normalizeMaterialFinish(frameSettings.background.finish)}
+                    settings={normalizeMaterialFinish(editableBackground.finish)}
                   />
                 </div>
               </>
@@ -639,10 +737,7 @@ export default function StudioControls({
           unit='px'
           value={settings.fontSize}
         />
-        <div className='grid gap-2'>
-          <ColorControl ariaLabel={gt('Background')} label={<T>Background</T>} onChange={(background) => onSettingsChange({ background })} value={settings.background} />
-          <ColorControl ariaLabel={gt('Foreground')} label={<T>Foreground</T>} onChange={(foreground) => onSettingsChange({ foreground })} value={settings.foreground} />
-        </div>
+        <ColorControl ariaLabel={gt('Default foreground')} label={<T>Default foreground</T>} onChange={(foreground) => onSettingsChange({ foreground })} value={settings.foreground} />
       </InspectorSection>
 
       <InspectorSection index='07' title={<T>Output</T>}>

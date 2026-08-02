@@ -17,7 +17,6 @@ import {
 
 import type { ReactNode } from 'react';
 
-import BrandFieldBars from '@/components/BrandFieldBars';
 import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
@@ -48,17 +47,18 @@ const GLYPH_FIELD_ROWS = [
 
 const HERO_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 3.6,
-  brightness: 1.02,
-  colorA: '#1B0A47',
-  colorB: '#725CFF',
-  colorC: '#D7FFF7',
-  detail: 2.8,
-  frequency: 3.8,
-  grain: 14,
-  rotationZ: 24,
-  speed: 0.16,
-  strength: 0.82,
+  amplitude: 2.2,
+  brightness: 0.92,
+  colorA: '#130A33',
+  colorB: '#795CFF',
+  colorC: '#7BFFD9',
+  density: 0.7,
+  detail: 4.8,
+  frequency: 4.2,
+  grain: 7,
+  rotationZ: 8,
+  speed: 0.12,
+  strength: 0.58,
 };
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
@@ -245,8 +245,11 @@ export default async function HomePage() {
           </div>
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
-            <MarketingArcField materialId='paper-image-dithering-noise' settings={HERO_FIELD_SETTINGS} />
-            <BrandFieldBars accent='#725CFF' className='marketing-v5-hero-field-bars' />
+            <MarketingArcField
+              className='marketing-v5-hero-metal-field'
+              materialId='shaders-fluid-chrome'
+              settings={HERO_FIELD_SETTINGS}
+            />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
             </div>

@@ -19,11 +19,17 @@ Surface Lab keeps the static composition workflow in one canvas:
 - Logo placement, direct dragging and scaling, custom color, dither, outline, and shadow
 - Square, landscape, and OpenGraph output sizes
 
+### Converted artwork and stickers
+
+Surface Lab shares the local conversion library with Brand settings and Shaders. Add an SVG, PNG, JPEG, WebP, GIF, AVIF, or BMP file once, choose a 1024, 2048, or 4096 pixel working size, and reuse the resulting transparent PNG without uploading it.
+
+In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
+
 Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. The original live shader catalog remains available in Material, so no material or attribution is removed from Studio.
 
 ### Output and source
 
-**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand asset.
+**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
 
 Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Material. Static background recipes remain available to the agent API as deterministic SVG.
 
