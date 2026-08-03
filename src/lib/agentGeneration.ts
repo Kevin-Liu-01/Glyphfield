@@ -8,6 +8,7 @@ import {
   type BackgroundSettings,
   type BackgroundStyle,
 } from '@/lib/backgroundSvg';
+import { OPEN_SURFACE_LIBRARY_IDS } from '@/lib/openSurfaceLibrary';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
   BUILT_IN_BRAND_IDENTITIES,
@@ -408,6 +409,12 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     surfaceScale: numberValue(input.surfaceScale, DEFAULT_BACKGROUND_SETTINGS.surfaceScale, 'settings.surfaceScale', 12, 140),
     surfaceTextureAmount: numberValue(input.surfaceTextureAmount, DEFAULT_BACKGROUND_SETTINGS.surfaceTextureAmount, 'settings.surfaceTextureAmount', 0, 100),
     surfaceIrregularity: numberValue(input.surfaceIrregularity, DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity, 'settings.surfaceIrregularity', 0, 100),
+    surfaceLibraryAssetId: oneOf(
+      input.surfaceLibraryAssetId,
+      ['', ...OPEN_SURFACE_LIBRARY_IDS],
+      DEFAULT_BACKGROUND_SETTINGS.surfaceLibraryAssetId,
+      'settings.surfaceLibraryAssetId'
+    ),
     width,
   };
 }

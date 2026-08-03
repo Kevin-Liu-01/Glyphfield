@@ -72,6 +72,7 @@ export type BackgroundSettings = {
   surfaceScale: number;
   surfaceTextureAmount: number;
   surfaceIrregularity: number;
+  surfaceLibraryAssetId: string;
   width: number;
 };
 
@@ -113,6 +114,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   surfaceScale: 44,
   surfaceTextureAmount: 72,
   surfaceIrregularity: 34,
+  surfaceLibraryAssetId: '',
   width: 1200,
 };
 
@@ -765,5 +767,5 @@ export function buildBackgroundSvg(
     ? `<image href="${identity.asset.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" width="100%" height="100%" preserveAspectRatio="xMidYMid ${identity.assetFit === 'contain' ? 'meet' : 'slice'}" opacity="${Math.max(0, Math.min(1, (identity.assetOpacity ?? 100) / 100))}"/>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}"><defs>${gradient}${grain}${smoothFilters}${pattern}${physicalSurface.definitions}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${physicalSurface.layer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" viewBox="0 0 ${settings.width} ${settings.height}" data-surface-library-asset="${settings.surfaceLibraryAssetId.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"><defs>${gradient}${grain}${smoothFilters}${pattern}${physicalSurface.definitions}${logoFilter}</defs>${surface}${grainLayer}${patternLayer}${physicalSurface.layer}${brandAsset}${mark ? `<g filter="url(#background-logo)">${mark}</g>` : ''}</svg>`;
 }

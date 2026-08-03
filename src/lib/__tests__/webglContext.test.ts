@@ -46,4 +46,24 @@ describe('WebGL context availability', () => {
     expect(browserSupportsWebGL2()).toBe(false);
     expect(createElement).not.toHaveBeenCalled();
   });
+
+  it('re-probes after a short failure cooldown instead of caching a transient failure', () => {
+    let currentTime = 0;
+    const getContext = vi.fn()
+      .mockReturnValueOnce(null)
+      .mockReturnValue({ getExtension: vi.fn(() => null) });
+    vi.stubGlobal('performance', { now: () => currentTime });
+    vi.stubGlobal('document', {
+      createElement: vi.fn(() => ({ getContext })),
+    });
+
+    expect(browserSupportsWebGL2()).toBe(false);
+    currentTime = 1_999;
+    expect(browserSupportsWebGL2()).toBe(false);
+    expect(getContext).toHaveBeenCalledOnce();
+
+    currentTime = 2_001;
+    expect(browserSupportsWebGL2()).toBe(true);
+    expect(getContext).toHaveBeenCalledTimes(2);
+  });
 });

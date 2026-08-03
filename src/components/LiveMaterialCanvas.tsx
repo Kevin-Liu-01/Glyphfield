@@ -66,6 +66,7 @@ import {
   Component,
   createElement,
   memo,
+  useEffect,
   useRef,
   useState,
   type ComponentType,
@@ -88,7 +89,6 @@ import {
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
-  markWebGLContextUnavailable,
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
 
@@ -104,6 +104,10 @@ export type LiveMaterialCanvasProps = {
   sourceImage?: string;
   sourceImageOpacity?: number;
 };
+
+const CONTEXT_RECOVERY_DELAY_MS = 350;
+const CONTEXT_RECOVERY_COOLDOWN_MS = 2_500;
+const WEBGL_SUPPORT_RETRY_MS = 2_500;
 
 const VERTEX_SOURCE = `
 attribute vec2 a_position;
@@ -938,7 +942,6 @@ class WebGLProviderBoundary extends Component<{
   }
 
   componentDidCatch(_error: Error, _info: ErrorInfo) {
-    markWebGLContextUnavailable();
     this.props.onFailure();
   }
 
@@ -1067,7 +1070,6 @@ function OriginalMaterialCanvas({
       preserveDrawingBuffer: true,
     });
     if (!context) {
-      markWebGLContextUnavailable();
       window.setTimeout(onContextLost, 120);
       return;
     }
@@ -1277,7 +1279,6 @@ function FluidSimulationCanvas({
       premultipliedAlpha: false,
     });
     if (!context) {
-      markWebGLContextUnavailable();
       window.setTimeout(onContextLost, 120);
       return;
     }
@@ -1854,7 +1855,7 @@ function StaticMaterialFallback({
       aria-label='Static shader fallback'
       className={`absolute inset-0 size-full ${className}`}
       ref={containerRef}
-      style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+      style={{ background: settings.colorA }}
     >
       <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
     </div>
@@ -1883,10 +1884,13 @@ function LiveMaterialCanvas({
     materialId: resolvedMaterialId,
     version: 0,
   }));
+  const recoveryTimerRef = useRef(0);
   const activeRecovery = contextRecovery.materialId === resolvedMaterialId
     ? contextRecovery
     : { failed: false, materialId: resolvedMaterialId, version: 0 };
   const renderActive = renderVisible && enabled;
+  const requiresWebGL2 = resolvedMaterialId === 'shadergradient-prismatic-sphere'
+    || isPaperLiveMaterialId(resolvedMaterialId);
   const paperDefinition = isPaperLiveMaterialId(resolvedMaterialId)
     ? getPaperLiveMaterialDefinition(resolvedMaterialId)
     : null;
@@ -1895,24 +1899,54 @@ function LiveMaterialCanvas({
       && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(paperDefinition.family)
     : false;
   const recoverContext = () => {
-    setContextRecovery((current) => {
-      const currentVersion = current.materialId === resolvedMaterialId ? current.version : 0;
-      return {
-        failed: currentVersion >= 5,
-        materialId: resolvedMaterialId,
-        version: Math.min(5, currentVersion + 1),
-      };
-    });
+    if (recoveryTimerRef.current) return;
+    recoveryTimerRef.current = window.setTimeout(() => {
+      recoveryTimerRef.current = 0;
+      setContextRecovery((current) => {
+        const currentVersion = current.materialId === resolvedMaterialId ? current.version : 0;
+        return {
+          failed: currentVersion >= 5,
+          materialId: resolvedMaterialId,
+          version: Math.min(5, currentVersion + 1),
+        };
+      });
+    }, CONTEXT_RECOVERY_DELAY_MS);
   };
-  const failProviderContext = () => {
-    markWebGLContextUnavailable();
-    setWebGL2Available(false);
-    recoverContext();
-  };
+  const failProviderContext = recoverContext;
 
-  useMountEffect(() => {
-    setWebGL2Available(browserSupportsWebGL2());
-  });
+  useEffect(() => {
+    if (!requiresWebGL2) {
+      setWebGL2Available(null);
+      return;
+    }
+
+    let disposed = false;
+    let retryTimer = 0;
+    const checkSupport = () => {
+      const available = browserSupportsWebGL2();
+      if (disposed) return;
+      setWebGL2Available(available);
+      if (!available) retryTimer = window.setTimeout(checkSupport, WEBGL_SUPPORT_RETRY_MS);
+    };
+    checkSupport();
+    return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+    };
+  }, [requiresWebGL2]);
+
+  useEffect(() => () => {
+    window.clearTimeout(recoveryTimerRef.current);
+    recoveryTimerRef.current = 0;
+  }, [resolvedMaterialId]);
+
+  useEffect(() => {
+    if (!activeRecovery.failed || !enabled) return;
+    const retryTimer = window.setTimeout(() => {
+      setContextRecovery({ failed: false, materialId: resolvedMaterialId, version: 0 });
+    }, CONTEXT_RECOVERY_COOLDOWN_MS);
+    return () => window.clearTimeout(retryTimer);
+  }, [activeRecovery.failed, enabled, resolvedMaterialId]);
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -1933,6 +1967,18 @@ function LiveMaterialCanvas({
       document.removeEventListener('visibilitychange', updateVisibility);
     };
   });
+
+  if (!enabled) {
+    return (
+      <StaticMaterialFallback
+        className={className}
+        containerRef={containerRef}
+        settings={settings}
+        sourceImage={sourceImage}
+        sourceImageOpacity={sourceImageOpacity}
+      />
+    );
+  }
 
   if (activeRecovery.failed) {
     return (

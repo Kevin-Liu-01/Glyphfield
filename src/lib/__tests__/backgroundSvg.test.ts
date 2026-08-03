@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { buildBackgroundSvg, DEFAULT_BACKGROUND_SETTINGS, SURFACE_MATERIAL_IDS } from '../backgroundSvg';
 
 describe('buildBackgroundSvg', () => {
+  it('records the selected open PBR source in portable output metadata', () => {
+    const svg = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      surfaceLibraryAssetId: 'polyhaven-oak-veneer',
+    });
+
+    expect(svg).toContain('data-surface-library-asset="polyhaven-oak-veneer"');
+  });
+
   it('builds configurable gradient, grain, pattern, and logo layers', () => {
     const svg = buildBackgroundSvg(
       {

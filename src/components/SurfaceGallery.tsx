@@ -14,7 +14,13 @@ export type SurfaceGalleryPreset = {
   description: string;
   id: string;
   name: string;
+  previewUrl?: string;
   settings: Partial<BackgroundSettings>;
+  source?: {
+    license: string;
+    name: string;
+    url: string;
+  };
 };
 
 export default function SurfaceGallery({
@@ -26,27 +32,30 @@ export default function SurfaceGallery({
   presets: readonly SurfaceGalleryPreset[];
   selectedId?: string;
 }) {
-  const [category, setCategory] = useState('Textures');
+  const [category, setCategory] = useState('Open PBR');
   const categories = useMemo(
-    () => ['Textures', 'Fields', 'All', ...Array.from(new Set(presets.map((preset) => preset.category)))],
+    () => ['Open PBR', 'Procedural', 'Fields', 'All', ...Array.from(new Set(presets.map((preset) => preset.category)))],
     [presets]
   );
   const visiblePresets = category === 'All'
     ? presets
-    : category === 'Textures'
-      ? presets.filter((preset) => preset.settings.surfaceMaterial && preset.settings.surfaceMaterial !== 'none')
+    : category === 'Open PBR'
+      ? presets.filter((preset) => preset.source)
+      : category === 'Procedural'
+        ? presets.filter((preset) => !preset.source && preset.settings.surfaceMaterial && preset.settings.surfaceMaterial !== 'none')
       : category === 'Fields'
         ? presets.filter((preset) => !preset.settings.surfaceMaterial || preset.settings.surfaceMaterial === 'none')
         : presets.filter((preset) => preset.category === category);
   const previews = useMemo(
-    () => new Map(presets.map((preset) => {
+    () => new Map(presets.flatMap((preset) => {
+      if (preset.previewUrl) return [];
       const previewSettings: BackgroundSettings = {
         ...DEFAULT_BACKGROUND_SETTINGS,
         ...preset.settings,
         height: 126,
         width: 216,
       };
-      return [preset.id, buildBackgroundSvg(previewSettings)] as const;
+      return [[preset.id, buildBackgroundSvg(previewSettings)] as const];
     })),
     [presets]
   );
@@ -79,9 +88,18 @@ export default function SurfaceGallery({
               title={preset.description}
               type='button'
             >
-              <span className='relative block aspect-[12/7] overflow-hidden bg-muted [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: preview }} />
-              <span className='flex min-h-11 items-center gap-2 border-t border-border bg-background px-2 py-2'>
-                <span className='min-w-0 flex-1 truncate text-[11px] font-medium'>{preset.name}</span>
+              {preset.previewUrl ? (
+                <span className='relative block aspect-[12/7] overflow-hidden bg-muted'>
+                  <img alt='' className='size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]' loading='lazy' src={preset.previewUrl} />
+                </span>
+              ) : (
+                <span className='relative block aspect-[12/7] overflow-hidden bg-muted [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: preview }} />
+              )}
+              <span className='flex min-h-12 items-center gap-2 border-t border-border bg-background px-2 py-2'>
+                <span className='min-w-0 flex-1'>
+                  <span className='block truncate text-[11px] font-medium'>{preset.name}</span>
+                  {preset.source ? <span className='mt-0.5 block truncate font-mono text-[8px] uppercase tracking-wider text-muted-foreground'>{preset.source.name} · {preset.source.license}</span> : null}
+                </span>
                 {selected ? <Check aria-hidden='true' className='size-3 shrink-0' /> : null}
               </span>
             </button>

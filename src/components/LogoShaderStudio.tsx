@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, Pause, Play, X } from 'lucide-react';
 
@@ -22,7 +22,6 @@ import { useMountEffect } from '@/hooks/useMountEffect';
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import {
   cancelWebGLContextRelease,
-  markWebGLContextUnavailable,
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -201,7 +200,9 @@ function ShaderCanvas({
   const colorBRef = useRef(colorB);
   const pausedRef = useRef(paused);
   const parametersRef = useRef(parameters);
+  const recoveryAttemptsRef = useRef(0);
   const speedRef = useRef(speed);
+  const [contextVersion, setContextVersion] = useState(0);
   captureTimeRef.current = captureTimeMs;
   colorARef.current = colorA;
   colorBRef.current = colorB;
@@ -209,18 +210,44 @@ function ShaderCanvas({
   parametersRef.current = parameters;
   speedRef.current = speed;
 
-  useMountEffect(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let animationFrame = 0;
+    let recoveryTimer = 0;
+    let disposed = false;
+
+    const requestRecovery = (message: string) => {
+      if (disposed || recoveryTimer) return;
+      cancelAnimationFrame(animationFrame);
+      recoveryAttemptsRef.current += 1;
+      if (recoveryAttemptsRef.current > 5) {
+        onError('WebGL remains unavailable. Retrying the live preview shortly…');
+        recoveryTimer = window.setTimeout(() => {
+          if (!disposed) {
+            recoveryAttemptsRef.current = 0;
+            setContextVersion((current) => current + 1);
+          }
+        }, 2_500);
+        return;
+      }
+      onError(message);
+      recoveryTimer = window.setTimeout(() => {
+        if (!disposed) setContextVersion((current) => current + 1);
+      }, 350);
+    };
+
     const context = canvas.getContext('webgl', {
       alpha: false,
       antialias: true,
       preserveDrawingBuffer: true,
     });
     if (!context) {
-      markWebGLContextUnavailable();
-      onError('WebGL is unavailable in this browser.');
-      return;
+      requestRecovery('WebGL is temporarily unavailable. Restoring the live preview…');
+      return () => {
+        disposed = true;
+        window.clearTimeout(recoveryTimer);
+      };
     }
     cancelWebGLContextRelease(canvas);
     const shaderCanvas = canvas;
@@ -230,9 +257,13 @@ function ShaderCanvas({
     let fragmentShader: WebGLShader | null = null;
     let program: WebGLProgram | null = null;
     let buffer: WebGLBuffer | null = null;
-    let animationFrame = 0;
     let elapsed = 0;
     let previousTime = performance.now();
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      requestRecovery('The WebGL context was interrupted. Restoring the live preview…');
+    };
+    shaderCanvas.addEventListener('webglcontextlost', handleContextLost);
 
     try {
       vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SOURCE);
@@ -260,6 +291,10 @@ function ShaderCanvas({
 
       function render(time: number) {
         if (!program) return;
+        if (webgl.isContextLost()) {
+          requestRecovery('The WebGL context was interrupted. Restoring the live preview…');
+          return;
+        }
         const controlledTime = captureTimeRef.current;
         const delta = Math.min(64, time - previousTime);
         previousTime = time;
@@ -289,25 +324,33 @@ function ShaderCanvas({
         webgl.uniform1f(webgl.getUniformLocation(program, 'u_repetition'), parametersRef.current.repetition);
         webgl.uniform1f(webgl.getUniformLocation(program, 'u_contour'), parametersRef.current.contour);
         webgl.drawArrays(webgl.TRIANGLES, 0, 6);
+        recoveryAttemptsRef.current = 0;
         animationFrame = requestAnimationFrame(render);
       }
 
       animationFrame = requestAnimationFrame(render);
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'The shader could not be rendered.');
+      if (context.isContextLost()) {
+        requestRecovery('The WebGL context was interrupted. Restoring the live preview…');
+      } else {
+        onError(error instanceof Error ? error.message : 'The shader could not be rendered.');
+      }
     }
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(animationFrame);
+      window.clearTimeout(recoveryTimer);
+      shaderCanvas.removeEventListener('webglcontextlost', handleContextLost);
       if (buffer) context.deleteBuffer(buffer);
       if (program) context.deleteProgram(program);
       if (fragmentShader) context.deleteShader(fragmentShader);
       if (vertexShader) context.deleteShader(vertexShader);
       scheduleWebGLContextRelease(canvas, context);
     };
-  });
+  }, [canvasRef, contextVersion, onError, preset.fragmentSource, renderScale]);
 
-  return <canvas aria-label='Live shader preview' className='absolute inset-0 size-full' ref={canvasRef} />;
+  return <canvas aria-label='Live shader preview' className='absolute inset-0 size-full' key={contextVersion} ref={canvasRef} />;
 }
 
 function loadImage(path: string): Promise<HTMLImageElement> {

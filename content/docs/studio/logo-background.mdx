@@ -10,6 +10,8 @@ Surface Lab is the physical, static counterpart to [Shaders](/docs/studio/shader
 
 Surface Lab keeps the static composition workflow in one canvas:
 
+- A first-class Open PBR gallery backed by real CC0 map sets from Poly Haven and ambientCG
+- Color, normal, displacement, roughness, and metalness maps rather than simulated CSS texture cards
 - Linear, radial, band, orbit, and wave gradients
 - Three-color grainy gradients with focal-point and relief controls
 - Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
@@ -22,6 +24,10 @@ Surface Lab keeps the static composition workflow in one canvas:
 - Square, landscape, and OpenGraph output sizes
 
 ### Texture construction
+
+The gallery opens on **Open PBR**. These entries are real, source-linked material captures from [Poly Haven](https://polyhaven.com/textures) and [ambientCG](https://ambientcg.com/). Both providers publish their assets under CC0. Glyphfield requests the selected 1K maps through a strict same-origin cache route, shows provider and license information in the card and inspector, and never accepts an arbitrary proxy URL.
+
+The live proof applies the captured color, normal, displacement, roughness, and—when available—metalness maps together. The existing procedural structures remain under **Procedural** as offline fallbacks and as deterministic building blocks for agent-generated SVG.
 
 Every texture recipe separates tactile structure from color. **Texture amount** controls how strongly the texture reads; **relief depth** controls its height response; **texture scale** changes the repeat size; **irregularity** moves a structure from manufactured to organic; **roughness** spreads or tightens the highlight; **metallic response** controls specular intensity; and **density / openness** changes mesh, holes, pores, grooves, threads, and cells. These values map to both the fixed-view PBR proof and deterministic SVG lighting primitives.
 
@@ -37,6 +43,8 @@ Surface Lab shares the local conversion library with Brand settings and Shaders.
 
 In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. Every sticker includes an explicit editable cut border around that silhouette, with independent border color and width controls. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
 
+Holographic sticker motion uses an adapted optical layer from the MIT-licensed [GMHoloSticker](https://github.com/HannulaTero/GMHoloSticker) spectrum/mask model. Prismatic and glitter motion adapt the public-domain [FoilStickerShader](https://github.com/TastiestLemon/FoilStickerShader) diagonal shimmer model. Their upstream project and license appear directly in the finish picker and selected-finish inspector; the repository also carries the required notices.
+
 The **Precision metal inset** finish turns a mark into an architectural emblem: a polished structural perimeter surrounds a microscopic dark separation seam and a recessed satin insert. The frame width, seam width, inset depth, texture, glint, physical depth, and outer sticker border remain editable, while the active three-color surface palette supplies the insert material.
 
 Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. Live and image-aware Paper effects remain in Shaders; only the explicitly static Mesh and Radial families are routed to Surface Lab discovery. Upstream attribution remains in the material catalog for saved documents.
@@ -45,7 +53,7 @@ Existing Surface Lab drafts that selected a live shader open as a static grain-g
 
 **Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, sticker application and finish settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
 
-Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`.
+Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceLibraryAssetId`, `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`. `GET /api/catalog` publishes the same open PBR catalog, provider links, licenses, map availability, procedural fallbacks, and sticker-shader sources used by the browser.
 
 ## Color tokens
 

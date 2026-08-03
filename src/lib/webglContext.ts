@@ -4,7 +4,7 @@ let cachedWebGL2SupportAt = 0;
 let webGLUnavailableUntil = 0;
 
 const SUPPORT_CACHE_MS = 30_000;
-const FAILURE_COOLDOWN_MS = 15_000;
+const FAILURE_COOLDOWN_MS = 2_000;
 
 function now(): number {
   return typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -28,7 +28,9 @@ export function browserSupportsWebGL2(): boolean {
   if (checkedAt < webGLUnavailableUntil) return false;
   if (
     cachedWebGL2Support !== null
-    && checkedAt - cachedWebGL2SupportAt < SUPPORT_CACHE_MS
+    && checkedAt - cachedWebGL2SupportAt < (
+      cachedWebGL2Support ? SUPPORT_CACHE_MS : FAILURE_COOLDOWN_MS
+    )
   ) return cachedWebGL2Support;
 
   try {

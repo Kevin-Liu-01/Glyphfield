@@ -6,6 +6,7 @@ import {
   STATIC_SURFACE_MATERIAL_IDS,
 } from './liveMaterials';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS, SURFACE_MATERIAL_IDS } from './backgroundSvg';
+import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_LIBRARY_IDS, OPEN_SURFACE_PRESETS } from './openSurfaceLibrary';
 import { DEFAULT_STICKER_FINISH, STICKER_FINISH_PRESETS } from './surfaceSticker';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 
@@ -73,10 +74,16 @@ export const AGENT_SURFACE_LIBRARY = {
     surfaceScale: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceScale, maximum: 140, minimum: 12, step: 1, type: 'number' },
     surfaceTextureAmount: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceTextureAmount, maximum: 100, minimum: 0, step: 1, type: 'number' },
     surfaceIrregularity: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    surfaceLibraryAssetId: {
+      default: DEFAULT_BACKGROUND_SETTINGS.surfaceLibraryAssetId,
+      options: ['', ...OPEN_SURFACE_LIBRARY_IDS],
+      type: 'enum',
+    },
   },
-  count: BACKGROUND_PRESETS.length,
+  count: BACKGROUND_PRESETS.length + OPEN_SURFACE_PRESETS.length,
   generationKind: 'background',
-  presets: BACKGROUND_PRESETS,
+  openPbrAssets: OPEN_SURFACE_LIBRARY,
+  presets: [...OPEN_SURFACE_PRESETS, ...BACKGROUND_PRESETS],
   schemaVersion: 1,
   stickerControls: {
     bevelWidth: { default: DEFAULT_STICKER_FINISH.bevelWidth, maximum: 32, minimum: 2, step: 1, type: 'number' },

@@ -28,6 +28,12 @@ export type StickerFinishSettings = {
   texture: number;
 };
 
+export type StickerShaderSource = {
+  license: 'MIT' | 'Unlicense';
+  name: 'FoilStickerShader' | 'GMHoloSticker';
+  url: string;
+};
+
 const DEFAULT_EDGE_ARCHITECTURE = {
   bevelWidth: 8,
   borderColor: '#F7F7F2',
@@ -40,6 +46,7 @@ export const STICKER_FINISH_PRESETS: readonly {
   id: StickerFinishId;
   label: string;
   settings: StickerFinishSettings;
+  source?: StickerShaderSource;
   swatch: string;
 }[] = [
   {
@@ -47,6 +54,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'holo-vinyl',
     label: 'Holo vinyl',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 46, edgeWidth: 15, glintAngle: 28, intensity: 76, presetId: 'holo-vinyl', texture: 22 },
+    source: { license: 'MIT', name: 'GMHoloSticker', url: 'https://github.com/HannulaTero/GMHoloSticker' },
     swatch: 'linear-gradient(130deg,#ffb7d5 0%,#fff3a4 22%,#9fffd9 44%,#89c8ff 66%,#d9a7ff 84%,#fff 100%)',
   },
   {
@@ -54,6 +62,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'prismatic',
     label: 'Prismatic',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 38, edgeWidth: 14, glintAngle: 52, intensity: 82, presetId: 'prismatic', texture: 34 },
+    source: { license: 'Unlicense', name: 'FoilStickerShader', url: 'https://github.com/TastiestLemon/FoilStickerShader' },
     swatch: 'conic-gradient(from 35deg,#ff6b9d,#ffe66d,#70ffcc,#59a9ff,#bd75ff,#ff6b9d)',
   },
   {
@@ -82,6 +91,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'glitter-flake',
     label: 'Glitter flake',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 42, edgeWidth: 15, glintAngle: 64, intensity: 78, presetId: 'glitter-flake', texture: 88 },
+    source: { license: 'Unlicense', name: 'FoilStickerShader', url: 'https://github.com/TastiestLemon/FoilStickerShader' },
     swatch: 'radial-gradient(circle at 25% 32%,#fff 0 3%,transparent 4%),radial-gradient(circle at 70% 62%,#fff 0 2%,transparent 3%),linear-gradient(135deg,#724cff,#ff81bd,#55e6d2)',
   },
   {
@@ -143,6 +153,10 @@ export function stickerFinishPreset(id: StickerFinishId): StickerFinishSettings 
   return {
     ...(STICKER_FINISH_PRESETS.find((preset) => preset.id === id) ?? STICKER_FINISH_PRESETS[0]).settings,
   };
+}
+
+export function stickerShaderSource(id: StickerFinishSettings['presetId']): StickerShaderSource | undefined {
+  return STICKER_FINISH_PRESETS.find((preset) => preset.id === id)?.source;
 }
 
 export function normalizeStickerFinish(value?: Partial<StickerFinishSettings>): StickerFinishSettings {
@@ -229,10 +243,19 @@ export function buildSurfaceStickerSvg(
     finish?: Partial<StickerFinishSettings>;
     logo?: string;
     name: string;
+    stage?: 'proof' | 'transparent';
+    surfaceAsset?: string;
   }
 ): string {
   const finish = normalizeStickerFinish(options.finish);
-  const surfaceSvg = buildBackgroundSvg(background);
+  const shaderSource = stickerShaderSource(finish.presetId);
+  const surfaceSvg = buildBackgroundSvg(background, options.surfaceAsset ? {
+    asset: options.surfaceAsset,
+    assetFit: 'cover',
+    assetOpacity: 100,
+    name: options.name,
+    showLogo: false,
+  } : undefined);
   const surfaceUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(surfaceSvg)}`;
   const width = background.width;
   const height = background.height;
@@ -264,5 +287,15 @@ export function buildSurfaceStickerSvg(
     ? `<rect width="100%" height="100%" fill="url(#precision-frame)" mask="url(#sticker-frame)" data-sticker-finish-layer="polished-frame"/><rect width="100%" height="100%" fill="#050608" fill-opacity="${(0.54 + finish.insetDepth / 220).toFixed(3)}" mask="url(#sticker-seam)" data-sticker-finish-layer="separation-seam"/>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="sticker-stage" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8e6e1"/><stop offset=".55" stop-color="#c9c6c0"/><stop offset="1" stop-color="#a7a49e"/></linearGradient><pattern id="sticker-stage-grid" width="${stageInset}" height="${stageInset}" patternUnits="userSpaceOnUse"><path d="M${stageInset} 0H0V${stageInset}" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1"/></pattern><filter id="sticker-dilate" x="-50%" y="-50%" width="200%" height="200%"><feMorphology in="SourceAlpha" operator="dilate" radius="${cutEdge.toFixed(2)}"/></filter><filter id="sticker-shadow" x="-60%" y="-60%" width="220%" height="240%"><feDropShadow dx="${(depth * 0.05).toFixed(2)}" dy="${(depth * 0.17).toFixed(2)}" stdDeviation="${(4 + depth * 0.16).toFixed(2)}" flood-color="#101014" flood-opacity="${(0.18 + depth / 220).toFixed(2)}"/></filter><mask id="sticker-art" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}"><g fill="#fff">${artShape}</g></mask><mask id="sticker-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}"><g fill="#fff" filter="url(#sticker-dilate)">${artShape}</g></mask>${precisionDefs}${overlay.defs}</defs><rect width="100%" height="100%" fill="url(#sticker-stage)"/><rect width="100%" height="100%" fill="url(#sticker-stage-grid)"/><g filter="url(#sticker-shadow)" data-sticker-finish="${finish.presetId}">${borderLayer}${precisionLayers}<image href="${escapeAttribute(surfaceUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" mask="url(#sticker-art)"/><g mask="url(#sticker-art)" opacity="${finishOpacity}" style="mix-blend-mode:${finish.presetId === 'soft-touch' ? 'multiply' : finishCoversInk ? 'normal' : 'screen'}">${overlay.layers}</g><rect width="100%" height="100%" fill="#fff" filter="url(#sticker-noise)" mask="url(#sticker-art)" opacity="${textureOpacity}" style="mix-blend-mode:soft-light"/><rect x="-${width * 0.3}" y="0" width="${width * 1.6}" height="100%" fill="url(#sticker-glint)" mask="url(#sticker-cut)" opacity="${glintOpacity}" transform="rotate(${finish.glintAngle} ${width / 2} ${height / 2})" style="mix-blend-mode:screen"/></g><text x="${stageInset}" y="${height - stageInset}" fill="#202124" fill-opacity=".58" font-family="ui-monospace,monospace" font-size="${Math.max(10, Math.min(width, height) * 0.018)}" letter-spacing=".14em">${escapeAttribute(options.name.toUpperCase())} / ${escapeAttribute(String(finish.presetId).toUpperCase().replaceAll('-', ' '))}</text></svg>`;
+  const sourceAttributes = shaderSource
+    ? ` data-sticker-shader-source="${escapeAttribute(shaderSource.name)}" data-sticker-shader-license="${escapeAttribute(shaderSource.license)}"`
+    : '';
+  const proofStage = options.stage !== 'transparent';
+  const stageLayers = proofStage
+    ? `<rect width="100%" height="100%" fill="url(#sticker-stage)"/><rect width="100%" height="100%" fill="url(#sticker-stage-grid)"/>`
+    : '';
+  const proofLabel = proofStage
+    ? `<text x="${stageInset}" y="${height - stageInset}" fill="#202124" fill-opacity=".58" font-family="ui-monospace,monospace" font-size="${Math.max(10, Math.min(width, height) * 0.018)}" letter-spacing=".14em">${escapeAttribute(options.name.toUpperCase())} / ${escapeAttribute(String(finish.presetId).toUpperCase().replaceAll('-', ' '))}</text>`
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-sticker-stage="${proofStage ? 'proof' : 'transparent'}"><defs><linearGradient id="sticker-stage" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8e6e1"/><stop offset=".55" stop-color="#c9c6c0"/><stop offset="1" stop-color="#a7a49e"/></linearGradient><pattern id="sticker-stage-grid" width="${stageInset}" height="${stageInset}" patternUnits="userSpaceOnUse"><path d="M${stageInset} 0H0V${stageInset}" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1"/></pattern><filter id="sticker-dilate" x="-50%" y="-50%" width="200%" height="200%"><feMorphology in="SourceAlpha" operator="dilate" radius="${cutEdge.toFixed(2)}"/></filter><filter id="sticker-shadow" x="-60%" y="-60%" width="220%" height="240%"><feDropShadow dx="${(depth * 0.05).toFixed(2)}" dy="${(depth * 0.17).toFixed(2)}" stdDeviation="${(4 + depth * 0.16).toFixed(2)}" flood-color="#101014" flood-opacity="${(0.18 + depth / 220).toFixed(2)}"/></filter><mask id="sticker-art" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}"><g fill="#fff">${artShape}</g></mask><mask id="sticker-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}"><g fill="#fff" filter="url(#sticker-dilate)">${artShape}</g></mask>${precisionDefs}${overlay.defs}</defs>${stageLayers}<g filter="url(#sticker-shadow)" data-sticker-finish="${finish.presetId}"${sourceAttributes}>${borderLayer}${precisionLayers}<image href="${escapeAttribute(surfaceUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" mask="url(#sticker-art)"/><g mask="url(#sticker-art)" opacity="${finishOpacity}" style="mix-blend-mode:${finish.presetId === 'soft-touch' ? 'multiply' : finishCoversInk ? 'normal' : 'screen'}">${overlay.layers}</g><rect width="100%" height="100%" fill="#fff" filter="url(#sticker-noise)" mask="url(#sticker-art)" opacity="${textureOpacity}" style="mix-blend-mode:soft-light"/><rect x="-${width * 0.3}" y="0" width="${width * 1.6}" height="100%" fill="url(#sticker-glint)" mask="url(#sticker-cut)" opacity="${glintOpacity}" transform="rotate(${finish.glintAngle} ${width / 2} ${height / 2})" style="mix-blend-mode:screen"/></g>${proofLabel}</svg>`;
 }

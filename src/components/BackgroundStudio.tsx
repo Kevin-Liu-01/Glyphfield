@@ -13,6 +13,7 @@ import LogoAppearancePreview from '@/components/LogoAppearancePreview';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import StickerDeviceScene from '@/components/StickerDeviceScene';
 import StickerFinishControls from '@/components/StickerFinishControls';
 import SurfaceGallery from '@/components/SurfaceGallery';
 import SurfaceMaterialStage from '@/components/SurfaceMaterialStage';
@@ -40,6 +41,13 @@ import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
 import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
 import { brandMaterialPalette } from '@/lib/liveMaterials';
 import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
+import {
+  getOpenSurfaceAsset,
+  openSurfaceMapPath,
+  OPEN_SURFACE_LIBRARY_IDS,
+  OPEN_SURFACE_PRESETS,
+} from '@/lib/openSurfaceLibrary';
+import { surfaceChannelInventory, type SurfaceChannelMode } from '@/lib/surfaceRendering';
 import type { StudioTool } from '@/lib/studioCatalog';
 import {
   buildSurfaceStickerSvg,
@@ -61,6 +69,13 @@ const SIZE_PRESETS = [
   { height: 1000, id: 'wide', label: 'Wide', width: 1600 },
   { height: 1200, id: 'square', label: 'Square', width: 1200 },
 ] as const;
+
+const SURFACE_CHANNEL_MODE_META: Record<SurfaceChannelMode, { dot: string; label: string }> = {
+  generated: { dot: 'bg-violet-400', label: 'Generated' },
+  map: { dot: 'bg-emerald-400', label: 'Map' },
+  uniform: { dot: 'bg-sky-400', label: 'Uniform' },
+  unused: { dot: 'bg-muted-foreground/30', label: 'Off' },
+};
 
 function RangeControl({
   label,
@@ -185,6 +200,7 @@ export default function BackgroundStudio({
           colorC: defaultPalette.colors[2],
         },
       },
+      ...OPEN_SURFACE_PRESETS,
       ...BACKGROUND_PRESETS,
     ],
     [defaultPalette]
@@ -211,7 +227,12 @@ export default function BackgroundStudio({
   const selectedConvertedAsset = convertedAssetLibrary.assets.find(({ id }) => id === convertedAssetId);
   const logoPath = customLogo?.url ?? (application === 'sticker' ? selectedConvertedAsset?.convertedDataUrl : undefined) ?? identityLogo;
   const selectedBrandAsset = availableBrandAssets.find(({ id }) => id === brandAssetId);
-  const selectedSurfaceAssetPath = selectedConvertedAsset?.convertedDataUrl ?? selectedBrandAsset?.path;
+  const selectedOpenSurfaceAsset = getOpenSurfaceAsset(settings.surfaceLibraryAssetId);
+  const selectedUserSurfaceAssetPath = selectedConvertedAsset?.convertedDataUrl ?? selectedBrandAsset?.path;
+  const selectedOpenSurfaceColorPath = selectedOpenSurfaceAsset?.mapNames.color
+    ? openSurfaceMapPath(selectedOpenSurfaceAsset.id, 'color')
+    : undefined;
+  const selectedSurfaceAssetPath = selectedUserSurfaceAssetPath ?? selectedOpenSurfaceColorPath;
   const previewSvg = useMemo(
     () =>
       application === 'sticker'
@@ -219,6 +240,7 @@ export default function BackgroundStudio({
             finish: stickerFinish,
             logo: showLogo ? logoPath : undefined,
             name: identity.shortName,
+            surfaceAsset: selectedSurfaceAssetPath,
           })
         : buildBackgroundSvg(
             settings,
@@ -233,6 +255,16 @@ export default function BackgroundStudio({
             }
           ),
     [application, brandAssetFit, brandAssetOpacity, identity.shortName, logoAppearance, logoPath, selectedSurfaceAssetPath, settings, showLogo, stickerFinish]
+  );
+  const deviceStickerSvg = useMemo(
+    () => buildSurfaceStickerSvg(settings, {
+      finish: stickerFinish,
+      logo: showLogo ? logoPath : undefined,
+      name: identity.shortName,
+      stage: 'transparent',
+      surfaceAsset: selectedSurfaceAssetPath,
+    }),
+    [identity.shortName, logoPath, selectedSurfaceAssetPath, settings, showLogo, stickerFinish]
   );
 
   customLogoRef.current = customLogo;
@@ -288,10 +320,15 @@ export default function BackgroundStudio({
       if (!SURFACE_MATERIAL_IDS.includes(nextSurfaceMaterial as SurfaceMaterial)) {
         throw new TypeError('Surface texture must be a supported tactile Surface Lab structure.');
       }
+      const nextSurfaceLibraryAssetId = sourceString(nextSettings, 'surfaceLibraryAssetId', settings.surfaceLibraryAssetId);
+      if (nextSurfaceLibraryAssetId && !OPEN_SURFACE_LIBRARY_IDS.includes(nextSurfaceLibraryAssetId)) {
+        throw new TypeError('Open surface library asset must be a supported CC0 material.');
+      }
       setStoredSettings((current) => ({
         ...current,
         ...nextSettings,
         style: nextStyle as BackgroundStyle,
+        surfaceLibraryAssetId: nextSurfaceLibraryAssetId,
         surfaceMaterial: nextSurfaceMaterial as SurfaceMaterial,
       } as BackgroundSettings));
     }
@@ -333,6 +370,7 @@ export default function BackgroundStudio({
             finish: stickerFinish,
             logo: showLogo ? embeddedLogo : undefined,
             name: identity.shortName,
+            surfaceAsset: embeddedBrandAsset,
           })
         : buildBackgroundSvg(
             settings,
@@ -415,11 +453,48 @@ export default function BackgroundStudio({
               <T>Base texture</T>
               <StudioSelect
                 ariaLabel={gt('Base texture')}
-                onValueChange={(value) => updateSettings({ surfaceMaterial: value as SurfaceMaterial })}
+                onValueChange={(value) => updateSettings({ surfaceLibraryAssetId: '', surfaceMaterial: value as SurfaceMaterial })}
                 options={SURFACE_TEXTURE_OPTIONS.map(({ id, label }) => ({ label: gt(label), value: id }))}
                 value={settings.surfaceMaterial}
               />
             </div>
+            {selectedOpenSurfaceAsset ? (
+              <div className='border border-border bg-muted/20 p-3'>
+                <p className='text-xs font-medium'>{selectedOpenSurfaceAsset.name}</p>
+                <p className='mt-1 text-[11px] leading-4 text-muted-foreground'>Real color, normal, displacement, and roughness maps loaded through the open material library.</p>
+                <a className='mt-2 inline-flex font-mono text-[9px] uppercase tracking-wider text-muted-foreground underline-offset-4 hover:text-foreground hover:underline' href={selectedOpenSurfaceAsset.sourceUrl} rel='noreferrer' target='_blank'>
+                  {selectedOpenSurfaceAsset.provider} · {selectedOpenSurfaceAsset.license}
+                </a>
+              </div>
+            ) : (
+              <p className='font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>Glyphfield procedural fallback</p>
+            )}
+            {settings.surfaceMaterial !== 'none' ? (
+              <div aria-label='Material texture channels' className='border border-border' role='group'>
+                <div className='flex items-center justify-between border-b border-border px-3 py-2'>
+                  <p className='text-[11px] font-medium'><T>Material channels</T></p>
+                  <p className='font-mono text-[8px] uppercase tracking-wider text-muted-foreground'>Live PBR</p>
+                </div>
+                <div className='grid grid-cols-5'>
+                  {surfaceChannelInventory(selectedOpenSurfaceAsset).map((channel, index) => {
+                    const mode = SURFACE_CHANNEL_MODE_META[channel.mode];
+                    return (
+                      <div
+                        aria-label={`${channel.label}: ${mode.label}`}
+                        className={`min-w-0 px-1.5 py-2 text-center ${index === 0 ? '' : 'border-l border-border'}`}
+                        key={channel.id}
+                      >
+                        <span className='block truncate text-[9px] font-medium'>{channel.label}</span>
+                        <span className='mt-1 flex items-center justify-center gap-1 font-mono text-[7px] uppercase tracking-wide text-muted-foreground'>
+                          <span aria-hidden='true' className={`size-1.5 rounded-full ${mode.dot}`} />
+                          <span className='truncate'>{mode.label}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             {settings.surfaceMaterial !== 'none' ? (
               <div className='grid gap-4'>
                 <div className='grid grid-cols-2 gap-3 border border-border bg-muted/30 p-3'>
@@ -735,62 +810,73 @@ export default function BackgroundStudio({
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-5 sm:p-8' toolId={tool.id}>
           <div className='w-full max-w-5xl'>
-            <div
-              aria-label={`${identity.name} ${settings.style} ${application} preview`}
-              className='artifact-frame artifact-preview relative overflow-hidden bg-white'
-              role='img'
-              onPointerDown={() => setLogoSelected(false)}
-              style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
-            >
-              <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
-              {application === 'background' && settings.surfaceMaterial !== 'none' ? (
-                <>
-                  <SurfaceMaterialStage
-                    className='pointer-events-none absolute inset-0 z-[1] size-full overflow-hidden'
-                    settings={settings}
-                  />
-                  {selectedSurfaceAssetPath ? (
-                    <img
-                      alt=''
-                      className='pointer-events-none absolute inset-0 z-[2] size-full'
-                      src={selectedSurfaceAssetPath}
-                      style={{ objectFit: brandAssetFit, opacity: brandAssetOpacity / 100 }}
+            {application === 'sticker' ? (
+              <StickerDeviceScene
+                artworkSvg={deviceStickerSvg}
+                finish={stickerFinish}
+                identity={identity}
+                logoPath={showLogo ? logoPath : undefined}
+                settings={settings}
+              />
+            ) : (
+              <div
+                aria-label={`${identity.name} ${settings.style} background preview`}
+                className='artifact-frame artifact-preview relative overflow-hidden bg-white'
+                onPointerDown={() => setLogoSelected(false)}
+                role='img'
+                style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
+              >
+                <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
+                {settings.surfaceMaterial !== 'none' ? (
+                  <>
+                    <SurfaceMaterialStage
+                      asset={selectedOpenSurfaceAsset}
+                      className='pointer-events-none absolute inset-0 z-[1] size-full overflow-hidden'
+                      settings={settings}
                     />
-                  ) : null}
-                </>
-              ) : null}
-              {showLogo && application === 'background' ? (
-                <EditableCanvasLayer
-                  baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                  baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
-                  baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                  baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
-                  canvasHeight={settings.height}
-                  canvasWidth={settings.width}
-                  label={gt('Logo')}
-                  onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
-                  onSelect={() => setLogoSelected(true)}
-                  selected={logoSelected}
-                  transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
-                  zIndex={3}
-                >
-                  <LogoAppearancePreview
-                    ariaLabel={`${identity.name} logo`}
-                    color={settings.logoColor}
-                    fallback={<span className='grid size-full place-items-center font-semibold'>{identity.shortName}</span>}
-                    logoPath={logoPath}
-                    opacity={settings.logoOpacity / 100}
-                    settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
-                  />
-                </EditableCanvasLayer>
-              ) : null}
-            </div>
+                    {selectedUserSurfaceAssetPath ? (
+                      <img
+                        alt=''
+                        className='pointer-events-none absolute inset-0 z-[2] size-full'
+                        src={selectedUserSurfaceAssetPath}
+                        style={{ objectFit: brandAssetFit, opacity: brandAssetOpacity / 100 }}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+                {showLogo ? (
+                  <EditableCanvasLayer
+                    baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseWidth={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
+                    baseX={(settings.width - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    baseY={(settings.height - Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)) / 2}
+                    canvasHeight={settings.height}
+                    canvasWidth={settings.width}
+                    label={gt('Logo')}
+                    onChange={(next: CanvasLayerTransform) => updateSettings({ logoScale: DEFAULT_BACKGROUND_SETTINGS.logoScale * next.scale, logoX: (next.x / settings.width) * 100, logoY: (next.y / settings.height) * 100 })}
+                    onSelect={() => setLogoSelected(true)}
+                    selected={logoSelected}
+                    transform={{ scale: settings.logoScale / DEFAULT_BACKGROUND_SETTINGS.logoScale, x: (settings.logoX / 100) * settings.width, y: (settings.logoY / 100) * settings.height }}
+                    zIndex={3}
+                  >
+                    <LogoAppearancePreview
+                      ariaLabel={`${identity.name} logo`}
+                      color={settings.logoColor}
+                      fallback={<span className='grid size-full place-items-center font-semibold'>{identity.shortName}</span>}
+                      logoPath={logoPath}
+                      opacity={settings.logoOpacity / 100}
+                      settings={{ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }}
+                    />
+                  </EditableCanvasLayer>
+                ) : null}
+              </div>
+            )}
             <div className='flex flex-wrap items-center justify-between gap-3 border-x border-b border-border bg-background px-4 py-3'>
               <p className='text-sm font-medium'>{selectedBackgroundPreset?.name ?? settings.style.replace('-', ' ')}</p>
               <div className='flex items-center gap-4 text-muted-foreground'>
                 <p className='font-mono text-[10px] uppercase tracking-wider'>
                   {application === 'background' && settings.surfaceMaterial !== 'none'
-                    ? `Physical relief / SVG export / ${settings.width} × ${settings.height}`
+                    ? `${selectedOpenSurfaceAsset ? `${selectedOpenSurfaceAsset.provider} PBR` : 'Procedural relief'} / SVG export / ${settings.width} × ${settings.height}`
                     : `${application === 'sticker' ? `${stickerFinish.presetId} / ` : ''}SVG layers / ${settings.width} × ${settings.height}`}
                 </p>
               </div>

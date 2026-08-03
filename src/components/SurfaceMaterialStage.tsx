@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Color,
   DataTexture,
@@ -9,17 +9,29 @@ import {
   RepeatWrapping,
   RGBAFormat,
   SRGBColorSpace,
+  Texture,
+  TextureLoader,
+  Vector2,
 } from 'three';
 
 import type { BackgroundSettings, SurfaceMaterial } from '@/lib/backgroundSvg';
-import { browserSupportsWebGL2, markWebGLContextUnavailable } from '@/lib/webglContext';
+import { openSurfaceMapPath, type OpenSurfaceAsset, type OpenSurfaceMap } from '@/lib/openSurfaceLibrary';
+import {
+  surfaceTextureCacheKey,
+  surfaceTextureSettings,
+  type SurfaceTextureSettings,
+} from '@/lib/surfaceRendering';
+import { browserSupportsWebGL2 } from '@/lib/webglContext';
 
 const TEXTURE_SIZE = 256;
 
 type SurfaceMaterialStageProps = {
+  asset?: OpenSurfaceAsset;
   className?: string;
   settings: BackgroundSettings;
 };
+
+type LoadedSurfaceMaps = Partial<Record<OpenSurfaceMap, Texture>>;
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -97,7 +109,7 @@ function reliefAt(material: SurfaceMaterial, x: number, y: number, openArea: num
   }
 }
 
-function buildSurfaceTextures(settings: BackgroundSettings) {
+function buildSurfaceTextures(settings: SurfaceTextureSettings) {
   const colorA = new Color(settings.colorA);
   const colorB = new Color(settings.colorB);
   const colorC = new Color(settings.colorC);
@@ -163,12 +175,70 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
   return null;
 }
 
-function SurfacePanel({ settings }: SurfaceMaterialStageProps) {
-  const { bumpTexture, colorTexture } = useMemo(() => buildSurfaceTextures(settings), [settings]);
+function useOpenSurfaceMaps(asset: OpenSurfaceAsset | undefined, settings: BackgroundSettings) {
+  const [maps, setMaps] = useState<LoadedSurfaceMaps | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loaded: Texture[] = [];
+    setMaps(null);
+    if (!asset) return () => undefined;
+
+    const loader = new TextureLoader();
+    const mapTypes = Object.keys(asset.mapNames) as OpenSurfaceMap[];
+    Promise.all(mapTypes.map(async (mapType) => {
+      try {
+        const texture = await loader.loadAsync(openSurfaceMapPath(asset.id, mapType));
+        loaded.push(texture);
+        return [mapType, texture] as const;
+      } catch {
+        return null;
+      }
+    })).then((entries) => {
+      if (!active) return;
+      const next = Object.fromEntries(
+        entries.filter((entry): entry is readonly [OpenSurfaceMap, Texture] => entry !== null)
+      ) as LoadedSurfaceMaps;
+      if (next.color) next.color.colorSpace = SRGBColorSpace;
+      setMaps(next);
+    });
+
+    return () => {
+      active = false;
+      loaded.forEach((texture) => texture.dispose());
+    };
+  }, [asset]);
+
+  useEffect(() => {
+    if (!maps) return;
+    const repeat = Math.max(0.55, 84 / Math.max(12, settings.surfaceScale));
+    const rotation = (settings.surfaceAngle * Math.PI) / 180;
+    Object.values(maps).forEach((texture) => {
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.center.set(0.5, 0.5);
+      texture.repeat.set(repeat, repeat);
+      texture.rotation = rotation;
+      texture.anisotropy = 4;
+      texture.needsUpdate = true;
+    });
+  }, [maps, settings.surfaceAngle, settings.surfaceScale]);
+
+  return maps;
+}
+
+function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
+  const textureCacheKey = surfaceTextureCacheKey(settings);
+  const { bumpTexture, colorTexture } = useMemo(
+    () => buildSurfaceTextures(surfaceTextureSettings(settings)),
+    [textureCacheKey]
+  );
+  const openMaps = useOpenSurfaceMaps(asset, settings);
   const isGlass = settings.surfaceMaterial === 'frosted-glass';
   const metallic = isGlass ? 0.05 : settings.surfaceMetallic / 100;
   const roughness = Math.max(0.08, settings.surfaceRoughness / 100);
   const bumpScale = 0.006 + settings.surfaceDepth / 100 * 0.22 * (settings.surfaceTextureAmount / 100);
+  const normalScale = useMemo(() => new Vector2(1, asset?.normalFormat === 'directx' ? -1 : 1), [asset?.normalFormat]);
 
   useEffect(() => () => {
     colorTexture.dispose();
@@ -186,15 +256,19 @@ function SurfacePanel({ settings }: SurfaceMaterialStageProps) {
         <mesh>
           <boxGeometry args={[4.5, 2.55, 0.2, 96, 56, 4]} />
           <meshPhysicalMaterial
-            bumpMap={bumpTexture}
+            bumpMap={openMaps?.displacement ?? bumpTexture}
             bumpScale={bumpScale}
             clearcoat={isGlass || metallic > 0.45 ? 0.78 : 0.2}
             clearcoatRoughness={Math.max(0.04, roughness * 0.42)}
             color='#ffffff'
             envMapIntensity={1.25}
             ior={1.46}
-            map={colorTexture}
+            map={openMaps?.color ?? colorTexture}
+            metalnessMap={openMaps?.metalness}
             metalness={metallic}
+            normalMap={openMaps?.normal}
+            normalScale={normalScale}
+            roughnessMap={openMaps?.roughness}
             roughness={roughness}
             thickness={isGlass ? 0.65 : 0}
             transmission={isGlass ? 0.62 : 0}
@@ -205,12 +279,37 @@ function SurfacePanel({ settings }: SurfaceMaterialStageProps) {
   );
 }
 
-export default function SurfaceMaterialStage({ className = '', settings }: SurfaceMaterialStageProps) {
+export default function SurfaceMaterialStage({ asset, className = '', settings }: SurfaceMaterialStageProps) {
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [contextVersion, setContextVersion] = useState(0);
+  const recoveryTimerRef = useRef(0);
 
   useEffect(() => {
-    setAvailable(browserSupportsWebGL2());
+    let disposed = false;
+    let retryTimer = 0;
+    const checkSupport = () => {
+      const supported = browserSupportsWebGL2();
+      if (disposed) return;
+      setAvailable(supported);
+      if (!supported) retryTimer = window.setTimeout(checkSupport, 2_500);
+    };
+    checkSupport();
+    return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+      window.clearTimeout(recoveryTimerRef.current);
+    };
   }, []);
+
+  const recoverContext = () => {
+    if (recoveryTimerRef.current) return;
+    setAvailable(false);
+    recoveryTimerRef.current = window.setTimeout(() => {
+      recoveryTimerRef.current = 0;
+      setContextVersion((current) => current + 1);
+      setAvailable(browserSupportsWebGL2());
+    }, 350);
+  };
 
   if (available !== true) return null;
 
@@ -221,15 +320,13 @@ export default function SurfaceMaterialStage({ className = '', settings }: Surfa
         dpr={[1, 1.5]}
         frameloop='demand'
         gl={{ alpha: false, antialias: true, powerPreference: 'low-power' }}
+        key={contextVersion}
       >
-        <ContextGuard onLost={() => {
-          markWebGLContextUnavailable();
-          setAvailable(false);
-        }} />
-        <SurfacePanel settings={settings} />
+        <ContextGuard onLost={recoverContext} />
+        <SurfacePanel asset={asset} settings={settings} />
       </Canvas>
       <div className='pointer-events-none absolute right-3 top-3 z-[1] border border-white/20 bg-black/55 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-white/70 backdrop-blur-sm'>
-        Fixed 3D relief preview
+        {asset ? `${asset.provider} · ${asset.license}` : 'Procedural fallback'}
       </div>
     </div>
   );

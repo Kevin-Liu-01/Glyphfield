@@ -4,6 +4,7 @@ import { AGENT_MANIFEST, OPENAPI_DOCUMENT } from '../agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
 import { LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
+import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_PRESETS } from '../openSurfaceLibrary';
 import { STICKER_FINISH_PRESETS } from '../surfaceSticker';
 import { STUDIO_TOOLS } from '../studioCatalog';
 
@@ -29,8 +30,13 @@ describe('agent discovery catalogs', () => {
   });
 
   it('publishes every deterministic Surface Lab recipe and its physical controls', () => {
-    expect(AGENT_SURFACE_LIBRARY.count).toBe(BACKGROUND_PRESETS.length);
-    expect(AGENT_SURFACE_LIBRARY.presets.map(({ id }) => id)).toEqual(BACKGROUND_PRESETS.map(({ id }) => id));
+    expect(AGENT_SURFACE_LIBRARY.count).toBe(BACKGROUND_PRESETS.length + OPEN_SURFACE_PRESETS.length);
+    expect(AGENT_SURFACE_LIBRARY.presets.map(({ id }) => id)).toEqual([
+      ...OPEN_SURFACE_PRESETS.map(({ id }) => id),
+      ...BACKGROUND_PRESETS.map(({ id }) => id),
+    ]);
+    expect(AGENT_SURFACE_LIBRARY.openPbrAssets).toHaveLength(OPEN_SURFACE_LIBRARY.length);
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceLibraryAssetId.options).toContain('polyhaven-oak-veneer');
     expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('woven-wire');
     expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('kerf-wood');
     expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('linen-weave');
@@ -41,6 +47,7 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SURFACE_LIBRARY.browserPreview).toMatchObject({ camera: 'fixed', userOrbit: false });
     expect(AGENT_SURFACE_LIBRARY.stickerFinishCount).toBe(STICKER_FINISH_PRESETS.length);
     expect(AGENT_SURFACE_LIBRARY.stickerFinishes.map(({ id }) => id)).toContain('precision-metal-inset');
+    expect(AGENT_SURFACE_LIBRARY.stickerFinishes.find(({ id }) => id === 'holo-vinyl')?.source).toMatchObject({ license: 'MIT', name: 'GMHoloSticker' });
     expect(AGENT_SURFACE_LIBRARY.stickerControls.borderColor.type).toBe('hex-color');
     expect(AGENT_SURFACE_LIBRARY.stickerControls.seamWidth.maximum).toBe(12);
     expect(AGENT_SURFACE_LIBRARY.staticShaderIds).toHaveLength(8);

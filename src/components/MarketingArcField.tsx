@@ -18,6 +18,7 @@ export default function MarketingArcField({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const isColorPanels = materialId.startsWith('paper-color-panels');
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -51,8 +52,15 @@ export default function MarketingArcField({
   });
 
   return (
-    <div className={`marketing-v5-arc-field ${className}`} ref={containerRef} aria-hidden='true'>
-      <div className='marketing-v5-field-fallback' />
+    <div
+      className={`marketing-v5-arc-field${isColorPanels ? ' marketing-v5-color-panels-field' : ''} ${className}`}
+      ref={containerRef}
+      aria-hidden='true'
+    >
+      <div
+        className='marketing-v5-field-fallback'
+        style={isColorPanels ? { background: settings.colorA } : undefined}
+      />
       {visible ? (
         <LazyLiveMaterialCanvas
           frameRate={24}
@@ -61,7 +69,7 @@ export default function MarketingArcField({
           settings={settings}
         />
       ) : null}
-      <div className='marketing-v5-field-grain' />
+      {isColorPanels ? null : <div className='marketing-v5-field-grain' />}
     </div>
   );
 }

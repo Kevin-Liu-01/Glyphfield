@@ -4,6 +4,7 @@ import { DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
 import {
   buildSurfaceStickerSvg,
   normalizeStickerFinish,
+  stickerShaderSource,
   STICKER_FINISH_PRESETS,
 } from '../surfaceSticker';
 
@@ -19,6 +20,8 @@ describe('surface stickers', () => {
       'embossed-foil',
       'precision-metal-inset',
     ]));
+    expect(stickerShaderSource('holo-vinyl')).toMatchObject({ license: 'MIT', name: 'GMHoloSticker' });
+    expect(stickerShaderSource('prismatic')).toMatchObject({ license: 'Unlicense', name: 'FoilStickerShader' });
   });
 
   it('clamps editable finish values', () => {
@@ -41,10 +44,13 @@ describe('surface stickers', () => {
         finish: { presetId: 'holo-vinyl' },
         logo: 'data:image/svg+xml;base64,MARK',
         name: 'Glyphfield',
+        surfaceAsset: 'data:image/png;base64,SURFACE',
       }
     );
 
     expect(svg).toContain('data-sticker-finish="holo-vinyl"');
+    expect(svg).toContain('data-sticker-shader-source="GMHoloSticker"');
+    expect(svg).toContain('data-sticker-shader-license="MIT"');
     expect(svg).toContain('id="sticker-cut"');
     expect(svg).toContain('id="sticker-art"');
     expect(svg).toContain('operator="dilate"');
@@ -52,6 +58,7 @@ describe('surface stickers', () => {
     expect(svg).toContain('data-sticker-finish-layer="cut-border"');
     expect(svg).toContain('fill="#F7F7F2"');
     expect(svg).toContain('data:image/svg+xml;base64,MARK');
+    expect(svg).toContain('data%3Aimage%2Fpng%3Bbase64%2CSURFACE');
     expect(svg).toContain('GLYPHFIELD / HOLO VINYL');
   });
 
@@ -72,5 +79,18 @@ describe('surface stickers', () => {
     expect(svg).toContain('data-sticker-finish-layer="separation-seam"');
     expect(svg).toContain('data-sticker-finish-layer="matte-inset"');
     expect(svg).toContain('data-sticker-finish-layer="satin-brush"');
+  });
+
+  it('can omit the proof board while preserving the finished cutout for device scenes', () => {
+    const svg = buildSurfaceStickerSvg(DEFAULT_BACKGROUND_SETTINGS, {
+      logo: 'data:image/svg+xml;base64,MARK',
+      name: 'Glyphfield',
+      stage: 'transparent',
+    });
+
+    expect(svg).toContain('data-sticker-stage="transparent"');
+    expect(svg).toContain('data-sticker-finish="holo-vinyl"');
+    expect(svg).not.toContain('<rect width="100%" height="100%" fill="url(#sticker-stage)"/>');
+    expect(svg).not.toContain('GLYPHFIELD / HOLO VINYL');
   });
 });

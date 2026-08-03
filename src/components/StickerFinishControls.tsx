@@ -7,6 +7,7 @@ import ColorControl from '@/components/ui/ColorControl';
 import {
   normalizeStickerFinish,
   stickerFinishPreset,
+  stickerShaderSource,
   STICKER_FINISH_PRESETS,
   type StickerFinishId,
   type StickerFinishSettings,
@@ -35,6 +36,26 @@ function RangeControl({
       </span>
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
     </label>
+  );
+}
+
+function ControlSection({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <section className='grid gap-4 border-t border-border pt-4'>
+      <div>
+        <h3 className='text-xs font-medium'>{title}</h3>
+        <p className='mt-1 text-[11px] leading-4 text-muted-foreground'>{description}</p>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -67,8 +88,11 @@ export default function StickerFinishControls({
               type='button'
             >
               <span className='block h-12' style={{ background: preset.swatch }} />
-              <span className='flex min-h-10 items-center gap-2 border-t border-border bg-background px-2 py-1.5'>
-                <span className='min-w-0 flex-1 truncate text-[10px] font-medium'>{preset.label}</span>
+              <span className='flex min-h-11 items-center gap-2 border-t border-border bg-background px-2 py-1.5'>
+                <span className='min-w-0 flex-1'>
+                  <span className='block truncate text-[10px] font-medium'>{preset.label}</span>
+                  {preset.source ? <span className='mt-0.5 block truncate font-mono text-[8px] uppercase tracking-wider text-muted-foreground'>{preset.source.name} · {preset.source.license}</span> : null}
+                </span>
                 {selected ? <Check aria-hidden='true' className='size-3 shrink-0' /> : null}
               </span>
             </button>
@@ -76,7 +100,21 @@ export default function StickerFinishControls({
         })}
       </div>
 
-      <div className='grid gap-4 border-t border-border pt-4'>
+      {stickerShaderSource(finish.presetId) ? (
+        <a
+          className='border border-border bg-muted/20 p-3 text-[11px] leading-4 text-muted-foreground hover:text-foreground'
+          href={stickerShaderSource(finish.presetId)?.url}
+          rel='noreferrer'
+          target='_blank'
+        >
+          Live optical layer adapted from {stickerShaderSource(finish.presetId)?.name} · {stickerShaderSource(finish.presetId)?.license}
+        </a>
+      ) : null}
+
+      <ControlSection
+        description='Set the printable outline and the clearance around the die-cut artwork.'
+        title='Cut channel'
+      >
         <ColorControl
           ariaLabel='Sticker border color'
           label='Sticker border color'
@@ -84,9 +122,21 @@ export default function StickerFinishControls({
           value={finish.borderColor}
         />
         <RangeControl label='Cut border' max={32} min={2} onChange={(edgeWidth) => update({ edgeWidth })} unit='px' value={finish.edgeWidth} />
+      </ControlSection>
+
+      <ControlSection
+        description='Tune the laminate, foil, or optical layer without changing the cut geometry.'
+        title='Finish channel'
+      >
         <RangeControl label='Finish intensity' max={100} min={0} onChange={(intensity) => update({ intensity })} unit='%' value={finish.intensity} />
         <RangeControl label='Glint angle' max={180} min={0} onChange={(glintAngle) => update({ glintAngle })} unit='°' value={finish.glintAngle} />
         <RangeControl label='Material texture' max={100} min={0} onChange={(texture) => update({ texture })} unit='%' value={finish.texture} />
+      </ControlSection>
+
+      <ControlSection
+        description='Control the perceived stock thickness, bevel, and inset construction.'
+        title='Structure channel'
+      >
         <RangeControl label='Physical depth' max={100} min={0} onChange={(depth) => update({ depth })} unit='%' value={finish.depth} />
         {finish.presetId === 'precision-metal-inset' ? (
           <div className='grid gap-4 border-t border-border pt-4'>
@@ -99,7 +149,7 @@ export default function StickerFinishControls({
             <RangeControl label='Inset depth' max={100} min={0} onChange={(insetDepth) => update({ insetDepth })} unit='%' value={finish.insetDepth} />
           </div>
         ) : null}
-      </div>
+      </ControlSection>
     </div>
   );
 }

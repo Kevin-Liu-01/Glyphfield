@@ -239,6 +239,18 @@ function fallbackBackground(config: RenderConfig): StudioBackground {
   };
 }
 
+export function resolveDrawableImageSize(
+  image: CanvasImageSource,
+  fallbackWidth: number,
+  fallbackHeight: number
+): { height: number; width: number } | null {
+  const width = 'width' in image ? Number(image.width) : fallbackWidth;
+  const height = 'height' in image ? Number(image.height) : fallbackHeight;
+  return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+    ? { height, width }
+    : null;
+}
+
 function drawBackgroundContent(
   context: CanvasRenderingContext2D,
   background: StudioBackground,
@@ -249,20 +261,22 @@ function drawBackgroundContent(
   context.globalAlpha = alpha;
 
   if (background.style === 'shader' && background.image) {
-    const sourceWidth = 'width' in background.image ? Number(background.image.width) : config.width;
-    const sourceHeight = 'height' in background.image ? Number(background.image.height) : config.height;
-    const scale = Math.max(config.width / sourceWidth, config.height / sourceHeight);
-    const width = sourceWidth * scale;
-    const height = sourceHeight * scale;
-    context.drawImage(
-      background.image,
-      (config.width - width) / 2,
-      (config.height - height) / 2,
-      width,
-      height
-    );
-    context.restore();
-    return;
+    const sourceSize = resolveDrawableImageSize(background.image, config.width, config.height);
+    if (sourceSize) {
+      const { height: sourceHeight, width: sourceWidth } = sourceSize;
+      const scale = Math.max(config.width / sourceWidth, config.height / sourceHeight);
+      const width = sourceWidth * scale;
+      const height = sourceHeight * scale;
+      context.drawImage(
+        background.image,
+        (config.width - width) / 2,
+        (config.height - height) / 2,
+        width,
+        height
+      );
+      context.restore();
+      return;
+    }
   }
 
   if (background.style === 'gradient' || background.style === 'shader') {
