@@ -6,6 +6,7 @@ export type StudioToolCategory =
   | 'Components';
 
 export type StudioToolId =
+  | 'brand-book'
   | 'brand-elements'
   | 'design-board'
   | 'animation'
@@ -83,6 +84,14 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     keywords: ['brand board', 'design board', 'moodboard', 'style tile', 'identity', 'guidelines'],
     name: 'Moodboard',
     shortcut: 'D',
+  },
+  {
+    category: 'Brand',
+    description: 'Read, review, and export a complete editorial brand book generated from the active identity system.',
+    id: 'brand-book',
+    keywords: ['brand book', 'brand guide', 'guidelines', 'standards', 'manual', 'identity book', 'pdf', 'foundations', 'logo', 'typography', 'color', 'illustration', 'iconography', 'composition', 'showcase'],
+    name: 'Brand book',
+    shortcut: 'K',
   },
   {
     category: 'Motion',

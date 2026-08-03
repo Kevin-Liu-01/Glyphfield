@@ -21,6 +21,9 @@ describe('filterStudioTools', () => {
     expect(filterStudioTools(STUDIO_TOOLS, 'moodboard').map(({ id }) => id)).toContain(
       'design-board'
     );
+    expect(filterStudioTools(STUDIO_TOOLS, 'brand guide').map(({ id }) => id)).toContain(
+      'brand-book'
+    );
     expect(filterStudioTools(STUDIO_TOOLS, 'shader').map(({ id }) => id)).toContain(
       'material'
     );

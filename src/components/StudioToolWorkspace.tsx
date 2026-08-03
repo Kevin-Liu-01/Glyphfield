@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import DesignBoard from '@/components/DesignBoard';
+import BrandBook from '@/components/BrandBook';
 import BrandElementsStudio from '@/components/BrandElementsStudio';
 import BackgroundStudio from '@/components/BackgroundStudio';
 import BrandSettingsStudio from '@/components/BrandSettingsStudio';
@@ -2462,6 +2463,7 @@ export default function StudioToolWorkspace({
 }) {
   const renderers: Partial<Record<StudioToolId, ReactNode>> = {
     blog: <TemplateTool identity={identity} kind='blog' tool={tool} />,
+    'brand-book': <BrandBook identity={identity} tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
     buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
