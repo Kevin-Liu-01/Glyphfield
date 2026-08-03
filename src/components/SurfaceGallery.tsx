@@ -26,14 +26,18 @@ export default function SurfaceGallery({
   presets: readonly SurfaceGalleryPreset[];
   selectedId?: string;
 }) {
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState('Textures');
   const categories = useMemo(
-    () => ['All', ...Array.from(new Set(presets.map((preset) => preset.category)))],
+    () => ['Textures', 'Fields', 'All', ...Array.from(new Set(presets.map((preset) => preset.category)))],
     [presets]
   );
   const visiblePresets = category === 'All'
     ? presets
-    : presets.filter((preset) => preset.category === category);
+    : category === 'Textures'
+      ? presets.filter((preset) => preset.settings.surfaceMaterial && preset.settings.surfaceMaterial !== 'none')
+      : category === 'Fields'
+        ? presets.filter((preset) => !preset.settings.surfaceMaterial || preset.settings.surfaceMaterial === 'none')
+        : presets.filter((preset) => preset.category === category);
   const previews = useMemo(
     () => new Map(presets.map((preset) => {
       const previewSettings: BackgroundSettings = {

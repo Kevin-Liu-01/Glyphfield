@@ -1,12 +1,12 @@
 import {
   buildBackgroundSvg,
   DEFAULT_BACKGROUND_SETTINGS,
+  SURFACE_MATERIAL_IDS,
   type BackgroundDitherShape,
   type BackgroundGradient,
   type BackgroundPattern,
   type BackgroundSettings,
   type BackgroundStyle,
-  type SurfaceMaterial,
 } from '@/lib/backgroundSvg';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
@@ -398,7 +398,7 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     surfaceDepth: numberValue(input.surfaceDepth, DEFAULT_BACKGROUND_SETTINGS.surfaceDepth, 'settings.surfaceDepth', 0, 100),
     surfaceMaterial: oneOf(
       input.surfaceMaterial,
-      ['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'] as const satisfies readonly SurfaceMaterial[],
+      SURFACE_MATERIAL_IDS,
       DEFAULT_BACKGROUND_SETTINGS.surfaceMaterial,
       'settings.surfaceMaterial'
     ),
@@ -406,6 +406,8 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     surfaceOpenArea: numberValue(input.surfaceOpenArea, DEFAULT_BACKGROUND_SETTINGS.surfaceOpenArea, 'settings.surfaceOpenArea', 0, 92),
     surfaceRoughness: numberValue(input.surfaceRoughness, DEFAULT_BACKGROUND_SETTINGS.surfaceRoughness, 'settings.surfaceRoughness', 0, 100),
     surfaceScale: numberValue(input.surfaceScale, DEFAULT_BACKGROUND_SETTINGS.surfaceScale, 'settings.surfaceScale', 12, 140),
+    surfaceTextureAmount: numberValue(input.surfaceTextureAmount, DEFAULT_BACKGROUND_SETTINGS.surfaceTextureAmount, 'settings.surfaceTextureAmount', 0, 100),
+    surfaceIrregularity: numberValue(input.surfaceIrregularity, DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity, 'settings.surfaceIrregularity', 0, 100),
     width,
   };
 }

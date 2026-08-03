@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { AGENT_MANIFEST, OPENAPI_DOCUMENT } from '../agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
-import { BACKGROUND_PRESETS } from '../backgroundSvg';
+import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
 import { LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
+import { STICKER_FINISH_PRESETS } from '../surfaceSticker';
 import { STUDIO_TOOLS } from '../studioCatalog';
 
 describe('agent discovery catalogs', () => {
@@ -32,6 +33,16 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SURFACE_LIBRARY.presets.map(({ id }) => id)).toEqual(BACKGROUND_PRESETS.map(({ id }) => id));
     expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('woven-wire');
     expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('kerf-wood');
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('linen-weave');
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('pebbled-leather');
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceMaterial.options).toContain('crackle-glaze');
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceTextureAmount.maximum).toBe(100);
+    expect(AGENT_SURFACE_LIBRARY.controls.surfaceIrregularity.default).toBe(DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity);
+    expect(AGENT_SURFACE_LIBRARY.browserPreview).toMatchObject({ camera: 'fixed', userOrbit: false });
+    expect(AGENT_SURFACE_LIBRARY.stickerFinishCount).toBe(STICKER_FINISH_PRESETS.length);
+    expect(AGENT_SURFACE_LIBRARY.stickerFinishes.map(({ id }) => id)).toContain('precision-metal-inset');
+    expect(AGENT_SURFACE_LIBRARY.stickerControls.borderColor.type).toBe('hex-color');
+    expect(AGENT_SURFACE_LIBRARY.stickerControls.seamWidth.maximum).toBe(12);
     expect(AGENT_SURFACE_LIBRARY.staticShaderIds).toHaveLength(8);
   });
 

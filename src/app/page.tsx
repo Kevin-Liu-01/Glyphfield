@@ -47,18 +47,18 @@ const GLYPH_FIELD_ROWS = [
 
 const HERO_GEM_SMOKE_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 3.8,
-  brightness: 0.88,
-  colorA: '#050403',
-  colorB: '#FF4B16',
-  colorC: '#FFD36A',
-  density: 0.92,
-  detail: 4.4,
-  frequency: 4.8,
-  grain: 10,
-  rotationZ: -8,
-  speed: 0.18,
-  strength: 0.72,
+  amplitude: 2.2,
+  brightness: 0.92,
+  colorA: '#130A33',
+  colorB: '#795CFF',
+  colorC: '#7BFFD9',
+  density: 0.7,
+  detail: 4.8,
+  frequency: 4.2,
+  grain: 7,
+  rotationZ: 8,
+  speed: 0.12,
+  strength: 0.58,
 };
 
 const OPEN_SOURCE_FIELD_SETTINGS = {

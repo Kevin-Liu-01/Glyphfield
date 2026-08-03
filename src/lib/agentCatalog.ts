@@ -5,7 +5,8 @@ import {
   LIVE_MATERIAL_PALETTES,
   STATIC_SURFACE_MATERIAL_IDS,
 } from './liveMaterials';
-import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from './backgroundSvg';
+import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS, SURFACE_MATERIAL_IDS } from './backgroundSvg';
+import { DEFAULT_STICKER_FINISH, STICKER_FINISH_PRESETS } from './surfaceSticker';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 
 const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
@@ -52,23 +53,44 @@ export const AGENT_SHADER_LIBRARY = {
 } as const;
 
 export const AGENT_SURFACE_LIBRARY = {
+  browserPreview: {
+    camera: 'fixed',
+    fallback: 'deterministic-svg',
+    renderer: 'react-three-fiber',
+    userOrbit: false,
+  },
   controls: {
     surfaceAngle: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceAngle, maximum: 180, minimum: 0, step: 1, type: 'number' },
     surfaceDepth: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceDepth, maximum: 100, minimum: 0, step: 1, type: 'number' },
     surfaceMaterial: {
       default: DEFAULT_BACKGROUND_SETTINGS.surfaceMaterial,
-      options: ['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'],
+      options: SURFACE_MATERIAL_IDS,
       type: 'enum',
     },
     surfaceMetallic: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceMetallic, maximum: 100, minimum: 0, step: 1, type: 'number' },
     surfaceOpenArea: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceOpenArea, maximum: 92, minimum: 0, step: 1, type: 'number' },
     surfaceRoughness: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceRoughness, maximum: 100, minimum: 0, step: 1, type: 'number' },
     surfaceScale: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceScale, maximum: 140, minimum: 12, step: 1, type: 'number' },
+    surfaceTextureAmount: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceTextureAmount, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    surfaceIrregularity: { default: DEFAULT_BACKGROUND_SETTINGS.surfaceIrregularity, maximum: 100, minimum: 0, step: 1, type: 'number' },
   },
   count: BACKGROUND_PRESETS.length,
   generationKind: 'background',
   presets: BACKGROUND_PRESETS,
   schemaVersion: 1,
+  stickerControls: {
+    bevelWidth: { default: DEFAULT_STICKER_FINISH.bevelWidth, maximum: 32, minimum: 2, step: 1, type: 'number' },
+    borderColor: { default: DEFAULT_STICKER_FINISH.borderColor, type: 'hex-color' },
+    depth: { default: DEFAULT_STICKER_FINISH.depth, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    edgeWidth: { default: DEFAULT_STICKER_FINISH.edgeWidth, maximum: 32, minimum: 2, step: 1, type: 'number' },
+    glintAngle: { default: DEFAULT_STICKER_FINISH.glintAngle, maximum: 180, minimum: 0, step: 1, type: 'number' },
+    insetDepth: { default: DEFAULT_STICKER_FINISH.insetDepth, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    intensity: { default: DEFAULT_STICKER_FINISH.intensity, maximum: 100, minimum: 0, step: 1, type: 'number' },
+    seamWidth: { default: DEFAULT_STICKER_FINISH.seamWidth, maximum: 12, minimum: 0, step: 1, type: 'number' },
+    texture: { default: DEFAULT_STICKER_FINISH.texture, maximum: 100, minimum: 0, step: 1, type: 'number' },
+  },
+  stickerFinishCount: STICKER_FINISH_PRESETS.length,
+  stickerFinishes: STICKER_FINISH_PRESETS,
   staticShaderIds: STATIC_SURFACE_MATERIAL_IDS,
 } as const;
 

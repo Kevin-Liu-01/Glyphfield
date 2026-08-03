@@ -644,13 +644,16 @@ export default function StudioApp() {
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
   );
+  const [themeReady, setThemeReady] = useState(false);
   const resolvedAppearance = { ...DEFAULT_APPEARANCE, ...appearance };
   const resolvedTheme: ResolvedTheme =
     resolvedAppearance.theme === 'system'
-      ? systemTheme === 'dark'
+      ? themeReady && systemTheme === 'dark'
         ? 'dark'
         : 'light'
       : resolvedAppearance.theme;
+
+  useEffect(() => setThemeReady(true), []);
 
   useEffect(() => {
     setProviderTheme(resolvedAppearance.theme);

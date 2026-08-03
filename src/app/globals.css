@@ -10360,13 +10360,9 @@ body {
 }
 
 .marketing-v5-hero-copy > h1 em {
-  color: #e84412;
+  color: var(--marketing-v5-purple);
   font-style: normal;
   font-weight: inherit;
-}
-
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-hero-copy > h1 em {
-  color: #ff6b32;
 }
 
 .marketing-v5-hero-copy > p:not(.marketing-v5-kicker) {
@@ -14304,6 +14300,7 @@ body {
   margin: 0 auto 1rem;
   display: block;
   object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(41%) sepia(86%) saturate(2474%) hue-rotate(233deg) brightness(103%) contrast(101%);
 }
 
 .marketing-v5-primary-link--iridescent {
@@ -14355,10 +14352,6 @@ body {
   margin-top: 0.8rem;
   font-size: 0.74rem;
   line-height: 1.4;
-}
-
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-hero-mark {
-  filter: invert(1);
 }
 
 /* Marketing v9 — ruled frame, aligned controls, lighter runtime */

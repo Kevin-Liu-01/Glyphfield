@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildBackgroundSvg, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
+import { buildBackgroundSvg, DEFAULT_BACKGROUND_SETTINGS, SURFACE_MATERIAL_IDS } from '../backgroundSvg';
 
 describe('buildBackgroundSvg', () => {
   it('builds configurable gradient, grain, pattern, and logo layers', () => {
@@ -207,18 +207,7 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('<g filter="url(#background-logo)">');
   });
 
-  it.each([
-    'kerf-wood',
-    'woven-wire',
-    'perforated-metal',
-    'carved-stone',
-    'embossed-paper',
-    'brushed-metal',
-    'hammered-foil',
-    'corrugated-polymer',
-    'cork-composite',
-    'frosted-glass',
-  ] as const)('renders the %s physical surface as editable SVG relief', (surfaceMaterial) => {
+  it.each(SURFACE_MATERIAL_IDS.filter((id) => id !== 'none'))('renders the %s physical surface as editable SVG relief', (surfaceMaterial) => {
     const svg = buildBackgroundSvg({
       ...DEFAULT_BACKGROUND_SETTINGS,
       surfaceDepth: 64,
@@ -227,6 +216,8 @@ describe('buildBackgroundSvg', () => {
       surfaceOpenArea: 44,
       surfaceRoughness: 36,
       surfaceScale: 52,
+      surfaceTextureAmount: 84,
+      surfaceIrregularity: 61,
     });
 
     expect(svg).toContain(`data-surface-material="${surfaceMaterial}"`);
@@ -234,6 +225,8 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('data-surface-roughness="36"');
     expect(svg).toContain('data-surface-metallic="72"');
     expect(svg).toContain('data-surface-open-area="44"');
+    expect(svg).toContain('data-surface-texture-amount="84"');
+    expect(svg).toContain('data-surface-irregularity="61"');
     expect(svg).toContain('id="physical-surface-pattern"');
     expect(svg).toContain('id="physical-surface-light"');
     expect(svg).toContain('<feDiffuseLighting');

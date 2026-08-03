@@ -15,31 +15,37 @@ Surface Lab keeps the static composition workflow in one canvas:
 - Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
 - Dot, line, and grid pattern overlays with editable spacing and opacity
 - Named spectral, mineral, paper, signal, and active-brand color presets
-- Physical materials for kerf-cut wood, woven cable mesh, perforated metal, carved stone, embossed paper, brushed metal, hammered foil, ribbed polymer, cork composite, and frosted glass
-- Independent relief depth, physical scale, orientation, roughness, metallic response, and open-area or porosity controls
+- Tactile textures for wood grain, woven wire, perforated metal, carved stone, embossed paper, brushed and hammered metal, molded polymer, cork, frosted glass, linen, felt, pebbled leather, crackle ceramic, mineral plaster, and carbon twill
+- Independent texture amount, relief depth, texture scale, grain direction, irregularity, roughness, metallic response, and density or openness controls
 - Reusable brand-image and texture layers with contain or cover fitting
 - Logo placement, direct dragging and scaling, custom color, dither, outline, and shadow
 - Square, landscape, and OpenGraph output sizes
 
-### Physical material channels
+### Texture construction
 
-Every physical recipe separates structure from color. **Relief depth** controls the height response; **roughness** spreads or tightens the highlight; **metallic response** controls specular intensity; **physical scale** changes the repeat size; and **open area / porosity** changes the density of mesh, holes, grooves, and cells. These values map to SVG pattern, diffuse-lighting, and specular-lighting primitives and survive both source editing and export.
+Every texture recipe separates tactile structure from color. **Texture amount** controls how strongly the texture reads; **relief depth** controls its height response; **texture scale** changes the repeat size; **irregularity** moves a structure from manufactured to organic; **roughness** spreads or tightens the highlight; **metallic response** controls specular intensity; and **density / openness** changes mesh, holes, pores, grooves, threads, and cells. These values map to both the fixed-view PBR proof and deterministic SVG lighting primitives.
 
-The Surface Gallery groups finishes by physical family. It also owns the eight explicitly static **Static Mesh** and **Static Radial** looks previously discovered in the live Shader Library. Their old material IDs remain readable for saved-project compatibility, but new selection happens in Surface Lab as non-moving SVG recipes.
+When a tactile texture is selected, the canvas becomes a fixed-camera PBR relief preview. It shows actual microstructure, bump depth, roughness, metallic response, and frosted-glass transmission without turning Surface Lab into an orbitable object editor. **Grain direction** rotates the texture itself; the presentation camera remains fixed. If WebGL is unavailable, the same canvas falls back to the deterministic SVG construction without throwing a renderer error.
+
+The 3D view is a material proof, while SVG remains the portable source of truth. PNG export rasterizes that deterministic SVG recipe at the selected output dimensions, so a surface remains reproducible in browsers, agents, and non-WebGL environments.
+
+The Texture Gallery opens on tactile recipes by default and separates them from non-textural color fields. It also owns the eight explicitly static **Static Mesh** and **Static Radial** looks previously discovered in the live Shader Library. Their old material IDs remain readable for saved-project compatibility, but new selection happens in Surface Lab as non-moving SVG recipes.
 
 ### Converted artwork and stickers
 
 Surface Lab shares the local conversion library with Brand settings and Shaders. Add an SVG, PNG, JPEG, WebP, GIF, AVIF, or BMP file once, choose a 1024, 2048, or 4096 pixel working size, and reuse the resulting transparent PNG without uploading it.
 
-In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
+In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. Every sticker includes an explicit editable cut border around that silhouette, with independent border color and width controls. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
+
+The **Precision metal inset** finish turns a mark into an architectural emblem: a polished structural perimeter surrounds a microscopic dark separation seam and a recessed satin insert. The frame width, seam width, inset depth, texture, glint, physical depth, and outer sticker border remain editable, while the active three-color surface palette supplies the insert material.
 
 Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. Live and image-aware Paper effects remain in Shaders; only the explicitly static Mesh and Radial families are routed to Surface Lab discovery. Upstream attribution remains in the material catalog for saved documents.
 
 ### Output and source
 
-**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
+**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, sticker application and finish settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
 
-Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceMaterial`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`.
+Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`.
 
 ## Color tokens
 

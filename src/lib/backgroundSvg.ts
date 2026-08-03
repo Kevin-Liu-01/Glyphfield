@@ -11,18 +11,28 @@ export type BackgroundStyle = 'gradient' | 'grain-gradient' | 'dither' | 'patter
 export type BackgroundPattern = 'none' | 'dots' | 'lines' | 'grid' | 'fibers' | 'speckles' | 'topographic' | 'crosshatch';
 export type BackgroundGradient = 'linear' | 'radial' | 'mesh' | 'orbit' | 'wave' | 'bloom';
 export type BackgroundDitherShape = 'dots' | 'squares';
-export type SurfaceMaterial =
-  | 'none'
-  | 'kerf-wood'
-  | 'woven-wire'
-  | 'perforated-metal'
-  | 'carved-stone'
-  | 'embossed-paper'
-  | 'brushed-metal'
-  | 'hammered-foil'
-  | 'corrugated-polymer'
-  | 'cork-composite'
-  | 'frosted-glass';
+export const SURFACE_TEXTURE_OPTIONS = [
+  { id: 'none', label: 'Smooth / no texture', substrate: 'Smooth' },
+  { id: 'kerf-wood', label: 'Wood · Grain and kerf cuts', substrate: 'Wood' },
+  { id: 'woven-wire', label: 'Metal · Woven wire', substrate: 'Metal' },
+  { id: 'perforated-metal', label: 'Metal · Perforated sheet', substrate: 'Metal' },
+  { id: 'carved-stone', label: 'Stone · Carved fissures', substrate: 'Stone' },
+  { id: 'embossed-paper', label: 'Paper · Blind emboss', substrate: 'Paper' },
+  { id: 'brushed-metal', label: 'Metal · Directional brush', substrate: 'Metal' },
+  { id: 'hammered-foil', label: 'Metal · Hammered dimples', substrate: 'Metal' },
+  { id: 'corrugated-polymer', label: 'Polymer · Molded ribs', substrate: 'Polymer' },
+  { id: 'cork-composite', label: 'Natural · Cork cells', substrate: 'Natural' },
+  { id: 'frosted-glass', label: 'Glass · Etched micro-pits', substrate: 'Glass' },
+  { id: 'linen-weave', label: 'Textile · Linen weave', substrate: 'Textile' },
+  { id: 'felted-wool', label: 'Textile · Felted wool', substrate: 'Textile' },
+  { id: 'pebbled-leather', label: 'Leather · Pebbled grain', substrate: 'Leather' },
+  { id: 'crackle-glaze', label: 'Ceramic · Crackle glaze', substrate: 'Ceramic' },
+  { id: 'sandblasted-plaster', label: 'Mineral · Sandblasted plaster', substrate: 'Mineral' },
+  { id: 'carbon-twill', label: 'Composite · Carbon twill', substrate: 'Composite' },
+] as const;
+
+export type SurfaceMaterial = (typeof SURFACE_TEXTURE_OPTIONS)[number]['id'];
+export const SURFACE_MATERIAL_IDS = SURFACE_TEXTURE_OPTIONS.map(({ id }) => id) as SurfaceMaterial[];
 
 export type BackgroundSettings = {
   angle: number;
@@ -60,6 +70,8 @@ export type BackgroundSettings = {
   surfaceOpenArea: number;
   surfaceRoughness: number;
   surfaceScale: number;
+  surfaceTextureAmount: number;
+  surfaceIrregularity: number;
   width: number;
 };
 
@@ -99,6 +111,8 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   surfaceOpenArea: 52,
   surfaceRoughness: 58,
   surfaceScale: 44,
+  surfaceTextureAmount: 72,
+  surfaceIrregularity: 34,
   width: 1200,
 };
 
@@ -344,6 +358,48 @@ export const BACKGROUND_PRESETS = [
     settings: { colorA: '#71808B', colorB: '#C6D4D8', colorC: '#FFF8EE', gradient: 'bloom', grain: 16, style: 'grain-gradient', surfaceAngle: 30, surfaceDepth: 18, surfaceMaterial: 'frosted-glass', surfaceMetallic: 18, surfaceOpenArea: 72, surfaceRoughness: 78, surfaceScale: 32 },
   },
   {
+    category: 'Textile',
+    description: 'Alternating warp and weft threads with subtle slub variation and a dry woven highlight.',
+    id: 'natural-linen-weave',
+    name: 'Natural linen',
+    settings: { colorA: '#726657', colorB: '#B8AA94', colorC: '#EEE5D5', gradient: 'linear', grain: 12, style: 'grain-gradient', surfaceAngle: 2, surfaceDepth: 42, surfaceIrregularity: 46, surfaceMaterial: 'linen-weave', surfaceMetallic: 0, surfaceOpenArea: 18, surfaceRoughness: 92, surfaceScale: 30, surfaceTextureAmount: 82 },
+  },
+  {
+    category: 'Textile',
+    description: 'Dense matted fibers form a quiet wool field with soft directional nap and almost no specular edge.',
+    id: 'graphite-felt',
+    name: 'Graphite felt',
+    settings: { colorA: '#111214', colorB: '#303235', colorC: '#74777A', gradient: 'radial', grain: 28, style: 'grain-gradient', surfaceAngle: 18, surfaceDepth: 24, surfaceIrregularity: 86, surfaceMaterial: 'felted-wool', surfaceMetallic: 0, surfaceOpenArea: 30, surfaceRoughness: 100, surfaceScale: 22, surfaceTextureAmount: 76 },
+  },
+  {
+    category: 'Leather',
+    description: 'Irregular raised pebble grain over a deep dyed hide, balancing soft valleys and polished high points.',
+    id: 'oxblood-pebbled-leather',
+    name: 'Oxblood leather',
+    settings: { colorA: '#160808', colorB: '#5A1E22', colorC: '#B56357', gradient: 'bloom', grain: 10, style: 'grain-gradient', surfaceAngle: 12, surfaceDepth: 48, surfaceIrregularity: 74, surfaceMaterial: 'pebbled-leather', surfaceMetallic: 0, surfaceOpenArea: 22, surfaceRoughness: 62, surfaceScale: 38, surfaceTextureAmount: 88 },
+  },
+  {
+    category: 'Ceramic',
+    description: 'Fine crackle lines sit beneath a glossy celadon glaze, with gentle pooling around the network.',
+    id: 'celadon-crackle',
+    name: 'Celadon crackle',
+    settings: { colorA: '#293E38', colorB: '#8AA89C', colorC: '#E5EEE6', gradient: 'radial', grain: 4, style: 'grain-gradient', surfaceAngle: 0, surfaceDepth: 18, surfaceIrregularity: 68, surfaceMaterial: 'crackle-glaze', surfaceMetallic: 4, surfaceOpenArea: 16, surfaceRoughness: 18, surfaceScale: 62, surfaceTextureAmount: 72 },
+  },
+  {
+    category: 'Mineral',
+    description: 'Fine aggregate and shallow pits create a chalky architectural plaster with diffuse mineral light.',
+    id: 'sandblasted-lime-plaster',
+    name: 'Lime plaster',
+    settings: { colorA: '#8F887B', colorB: '#C5BFB2', colorC: '#F3EFE5', gradient: 'linear', grain: 22, style: 'grain-gradient', surfaceAngle: 28, surfaceDepth: 34, surfaceIrregularity: 92, surfaceMaterial: 'sandblasted-plaster', surfaceMetallic: 0, surfaceOpenArea: 48, surfaceRoughness: 96, surfaceScale: 26, surfaceTextureAmount: 84 },
+  },
+  {
+    category: 'Composite',
+    description: 'A tight 2×2 carbon twill alternates raised bundles under a controlled resin sheen.',
+    id: 'carbon-twill-satin',
+    name: 'Carbon twill',
+    settings: { colorA: '#030405', colorB: '#171B20', colorC: '#68717A', gradient: 'linear', grain: 3, style: 'gradient', surfaceAngle: 45, surfaceDepth: 38, surfaceIrregularity: 12, surfaceMaterial: 'carbon-twill', surfaceMetallic: 48, surfaceOpenArea: 10, surfaceRoughness: 26, surfaceScale: 30, surfaceTextureAmount: 92 },
+  },
+  {
     category: 'Static shaders',
     description: 'A deterministic, non-moving translation of the soft Sea mesh vocabulary from the shader library.',
     id: 'static-mesh-sea',
@@ -407,7 +463,7 @@ export const BACKGROUND_PRESETS = [
     settings: { angle: 12, colorA: '#5C3F26', colorB: '#9A7047', colorC: '#D1AD7A', gradient: 'linear', grain: 26, pattern: 'fibers', patternOpacity: 30, spacing: 22, style: 'grain-gradient', surfaceDepth: 18, surfaceMaterial: 'embossed-paper', surfaceRoughness: 94, surfaceScale: 34 },
   },
 ] as const satisfies ReadonlyArray<{
-  category: 'Gradient' | 'Paper' | 'Print' | 'Film' | 'Wood' | 'Architecture' | 'Metal' | 'Polymer' | 'Natural' | 'Glass' | 'Static shaders';
+  category: 'Gradient' | 'Paper' | 'Print' | 'Film' | 'Wood' | 'Architecture' | 'Metal' | 'Polymer' | 'Natural' | 'Glass' | 'Textile' | 'Leather' | 'Ceramic' | 'Mineral' | 'Composite' | 'Static shaders';
   description: string;
   id: string;
   name: string;
@@ -591,13 +647,15 @@ function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions:
   const roughness = Math.max(0, Math.min(100, settings.surfaceRoughness));
   const metallic = Math.max(0, Math.min(100, settings.surfaceMetallic));
   const openArea = Math.max(0, Math.min(92, settings.surfaceOpenArea));
+  const textureAmount = Math.max(0, Math.min(100, settings.surfaceTextureAmount));
+  const irregularity = Math.max(0, Math.min(100, settings.surfaceIrregularity));
   const angle = settings.surfaceAngle;
   const elevation = Math.max(18, 76 - depth * 0.32);
-  const surfaceScale = (0.6 + depth * 0.12).toFixed(2);
-  const blur = (0.18 + roughness * 0.012).toFixed(2);
+  const surfaceScale = (0.4 + depth * 0.1 + textureAmount * 0.025).toFixed(2);
+  const blur = (0.14 + roughness * 0.009 + irregularity * 0.003).toFixed(2);
   const specularConstant = (0.04 + metallic * 0.012).toFixed(2);
   const specularExponent = Math.max(3, Math.round(72 - roughness * 0.64));
-  const layerOpacity = Math.min(0.92, 0.24 + depth / 170 + metallic / 420).toFixed(2);
+  const layerOpacity = Math.min(0.96, 0.08 + textureAmount / 145 + depth / 360 + metallic / 620).toFixed(2);
   const patternTransform = `rotate(${angle} ${scale / 2} ${scale / 2})`;
   let pattern = '';
 
@@ -627,6 +685,24 @@ function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions:
     pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect x="${scale * 0.14}" width="${ridge}" height="100%" rx="${ridge / 2}" fill="${settings.colorC}" fill-opacity=".72"/><rect x="${scale * 0.14 + ridge * 0.34}" width="${Math.max(1, ridge * 0.16)}" height="100%" fill="#FFFFFF" fill-opacity=".42"/><rect x="${scale * 0.14 + ridge}" width="${scale * 0.18}" height="100%" fill="${settings.colorA}" fill-opacity=".48"/></pattern>`;
   } else if (settings.surfaceMaterial === 'cork-composite') {
     pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.8}" height="${scale * 1.4}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><ellipse cx="${scale * 0.28}" cy="${scale * 0.3}" rx="${scale * 0.22}" ry="${scale * 0.14}" fill="${settings.colorA}" fill-opacity=".7"/><ellipse cx="${scale * 0.92}" cy="${scale * 0.62}" rx="${scale * 0.3}" ry="${scale * 0.18}" fill="${settings.colorC}" fill-opacity=".46"/><ellipse cx="${scale * 1.52}" cy="${scale * 0.28}" rx="${scale * 0.19}" ry="${scale * 0.26}" fill="${settings.colorA}" fill-opacity=".56"/><ellipse cx="${scale * 1.42}" cy="${scale * 1.14}" rx="${scale * 0.28}" ry="${scale * 0.16}" fill="${settings.colorB}" fill-opacity=".68"/><circle cx="${scale * 0.4}" cy="${scale * 1.08}" r="${scale * 0.13}" fill="${settings.colorC}" fill-opacity=".38"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'linen-weave') {
+    const thread = Math.max(1, scale * (0.045 + (100 - openArea) / 1800));
+    const slub = (0.8 + irregularity / 100 * 1.8).toFixed(2);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M${scale * 0.18} 0C${scale * 0.12} ${scale * 0.24},${scale * 0.25} ${scale * 0.66},${scale * 0.18} ${scale}M${scale * 0.68} 0C${scale * 0.76} ${scale * 0.34},${scale * 0.61} ${scale * 0.72},${scale * 0.68} ${scale}" fill="none" stroke="${settings.colorC}" stroke-opacity=".8" stroke-width="${thread * Number(slub)}"/><path d="M0 ${scale * 0.34}C${scale * 0.28} ${scale * 0.25},${scale * 0.7} ${scale * 0.42},${scale} ${scale * 0.34}M0 ${scale * 0.82}C${scale * 0.34} ${scale * 0.92},${scale * 0.68} ${scale * 0.73},${scale} ${scale * 0.82}" fill="none" stroke="${settings.colorB}" stroke-opacity=".74" stroke-width="${thread}"/><circle cx="${scale * 0.18}" cy="${scale * 0.34}" r="${thread * 0.64}" fill="${settings.colorC}"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'felted-wool') {
+    const fiber = Math.max(0.55, scale * 0.026);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.4}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M0 ${scale * 0.18}q${scale * 0.24} ${scale * 0.18} ${scale * 0.52} -.02t${scale * 0.72} .08M-${scale * 0.18} ${scale * 0.62}q${scale * 0.3} -.22 ${scale * 0.68} .02t${scale * 0.78} -.08M${scale * 0.2} ${scale * 0.9}q${scale * 0.22} -.14 ${scale * 0.54} .02" fill="none" stroke="${settings.colorC}" stroke-opacity="${(0.22 + irregularity / 220).toFixed(2)}" stroke-width="${fiber}"/><path d="M${scale * 0.12} ${scale * 0.05}l${scale * 0.22} ${scale * 0.28}m${scale * 0.38} -.18l${scale * 0.3} ${scale * 0.24}m${scale * 0.06} ${scale * 0.3}l${scale * 0.22} ${scale * 0.24}" stroke="${settings.colorA}" stroke-opacity=".58" stroke-width="${fiber * 0.72}"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'pebbled-leather') {
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.7}" height="${scale * 1.35}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><path d="M${scale * 0.08} ${scale * 0.42}C${scale * 0.18} ${scale * 0.05},${scale * 0.72} ${scale * 0.02},${scale * 0.82} ${scale * 0.34}S${scale * 0.58} ${scale * 0.92},${scale * 0.2} ${scale * 0.84}S${scale * 0.01} ${scale * 0.62},${scale * 0.08} ${scale * 0.42}ZM${scale * 0.92} ${scale * 0.22}C${scale * 1.08} -.04,${scale * 1.58} ${scale * 0.08},${scale * 1.62} ${scale * 0.42}S${scale * 1.42} ${scale * 0.9},${scale * 1.04} ${scale * 0.78}S${scale * 0.82} ${scale * 0.42},${scale * 0.92} ${scale * 0.22}Z" fill="${settings.colorC}" fill-opacity=".32" stroke="${settings.colorA}" stroke-opacity=".72" stroke-width="${Math.max(0.8, scale * 0.035)}"/><ellipse cx="${scale * 0.82}" cy="${scale * 1.12}" rx="${scale * 0.42}" ry="${scale * 0.2}" fill="${settings.colorB}" fill-opacity=".52"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'crackle-glaze') {
+    const crack = Math.max(0.6, scale * (0.018 + textureAmount / 6200));
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.8}" height="${scale * 1.5}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="${settings.colorC}" fill-opacity=".14"/><path d="M0 ${scale * 0.38}L${scale * 0.42} ${scale * 0.56}L${scale * 0.68} ${scale * 0.18}L${scale * 1.02} ${scale * 0.42}L${scale * 1.42} ${scale * 0.16}L${scale * 1.8} ${scale * 0.52}M${scale * 0.42} ${scale * 0.56}L${scale * 0.32} ${scale * 1.08}L${scale * 0.84} ${scale * 1.46}M${scale * 1.02} ${scale * 0.42}L${scale * 1.18} ${scale * 0.96}L${scale * 1.72} ${scale * 1.28}" fill="none" stroke="${settings.colorA}" stroke-opacity="${(0.42 + irregularity / 190).toFixed(2)}" stroke-width="${crack}"/><path d="M${scale * 0.68} ${scale * 0.18}L${scale * 0.58} 0M${scale * 1.18} ${scale * 0.96}L${scale * 0.86} ${scale * 1.18}" stroke="${settings.colorB}" stroke-width="${crack * 0.62}"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'sandblasted-plaster') {
+    const pit = scale * (0.025 + openArea / 1000);
+    pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><circle cx="${scale * 0.14}" cy="${scale * 0.24}" r="${pit}" fill="${settings.colorA}" fill-opacity=".72"/><circle cx="${scale * 0.52}" cy="${scale * 0.16}" r="${pit * 0.62}" fill="${settings.colorC}" fill-opacity=".52"/><circle cx="${scale * 0.78}" cy="${scale * 0.48}" r="${pit * 1.2}" fill="${settings.colorA}" fill-opacity=".56"/><circle cx="${scale * 0.34}" cy="${scale * 0.72}" r="${pit * 0.82}" fill="${settings.colorB}" fill-opacity=".74"/><circle cx="${scale * 0.88}" cy="${scale * 0.9}" r="${pit * 0.48}" fill="${settings.colorC}" fill-opacity=".48"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'carbon-twill') {
+    const bundle = scale * 0.48;
+    pattern = `<pattern id="physical-surface-pattern" width="${scale * 2}" height="${scale * 2}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="${settings.colorA}" fill-opacity=".48"/><path d="M-${bundle} ${bundle}L${bundle} -${bundle}M0 ${scale}L${scale} 0M${scale * 0.5} ${scale * 1.5}L${scale * 1.5} ${scale * 0.5}M${scale} ${scale * 2}L${scale * 2} ${scale}M${scale * 1.5} ${scale * 2.5}L${scale * 2.5} ${scale * 1.5}" stroke="${settings.colorC}" stroke-opacity=".62" stroke-width="${bundle}"/><path d="M0 0L${scale * 2} ${scale * 2}M-${scale} 0L${scale} ${scale * 2}M${scale} 0L${scale * 3} ${scale * 2}" stroke="${settings.colorB}" stroke-opacity=".68" stroke-width="${bundle * 0.72}"/></pattern>`;
   } else {
     const dot = Math.max(0.8, scale * 0.045);
     pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="#FFFFFF" fill-opacity=".08"/><circle cx="${scale * 0.18}" cy="${scale * 0.24}" r="${dot}" fill="#FFFFFF" fill-opacity=".8"/><circle cx="${scale * 0.68}" cy="${scale * 0.58}" r="${dot * 1.4}" fill="${settings.colorC}" fill-opacity=".52"/><circle cx="${scale * 0.42}" cy="${scale * 0.84}" r="${dot * 0.72}" fill="${settings.colorA}" fill-opacity=".42"/></pattern>`;
@@ -634,7 +710,7 @@ function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions:
 
   const lighting = `<filter id="physical-surface-light" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="${blur}" result="surface-height"/><feDiffuseLighting in="surface-height" surfaceScale="${surfaceScale}" diffuseConstant=".78" lighting-color="#FFFFFF" result="surface-diffuse"><feDistantLight azimuth="${(angle + 315) % 360}" elevation="${elevation}"/></feDiffuseLighting><feComposite in="surface-diffuse" in2="SourceAlpha" operator="in" result="surface-diffuse-cut"/><feSpecularLighting in="surface-height" surfaceScale="${surfaceScale}" specularConstant="${specularConstant}" specularExponent="${specularExponent}" lighting-color="#FFFFFF" result="surface-specular"><feDistantLight azimuth="${(angle + 315) % 360}" elevation="${elevation}"/></feSpecularLighting><feComposite in="surface-specular" in2="SourceAlpha" operator="in" result="surface-specular-cut"/><feBlend in="SourceGraphic" in2="surface-diffuse-cut" mode="multiply" result="surface-lit"/><feBlend in="surface-lit" in2="surface-specular-cut" mode="screen"/></filter>`;
   const blendMode = metallic >= 55 ? 'screen' : 'soft-light';
-  const layer = `<g data-surface-material="${settings.surfaceMaterial}" data-surface-depth="${depth}" data-surface-roughness="${roughness}" data-surface-metallic="${metallic}" data-surface-open-area="${openArea}" opacity="${layerOpacity}" style="mix-blend-mode:${blendMode}"><rect x="-4%" y="-4%" width="108%" height="108%" fill="url(#physical-surface-pattern)" filter="url(#physical-surface-light)"/></g>`;
+  const layer = `<g data-surface-material="${settings.surfaceMaterial}" data-surface-depth="${depth}" data-surface-roughness="${roughness}" data-surface-metallic="${metallic}" data-surface-open-area="${openArea}" data-surface-texture-amount="${textureAmount}" data-surface-irregularity="${irregularity}" opacity="${layerOpacity}" style="mix-blend-mode:${blendMode}"><rect x="-4%" y="-4%" width="108%" height="108%" fill="url(#physical-surface-pattern)" filter="url(#physical-surface-light)"/></g>`;
 
   return { definitions: `${pattern}${lighting}`, layer };
 }

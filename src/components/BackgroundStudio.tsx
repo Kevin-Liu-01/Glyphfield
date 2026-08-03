@@ -15,6 +15,7 @@ import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StickerFinishControls from '@/components/StickerFinishControls';
 import SurfaceGallery from '@/components/SurfaceGallery';
+import SurfaceMaterialStage from '@/components/SurfaceMaterialStage';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -25,6 +26,8 @@ import {
   BACKGROUND_GRADIENT_DEFAULTS,
   BACKGROUND_PRESETS,
   DEFAULT_BACKGROUND_SETTINGS,
+  SURFACE_MATERIAL_IDS,
+  SURFACE_TEXTURE_OPTIONS,
   buildBackgroundSvg,
   type BackgroundDitherShape,
   type BackgroundGradient,
@@ -282,8 +285,8 @@ export default function BackgroundStudio({
         throw new TypeError('Surface Lab supports static gradient, grain, dither, pattern, and physical-material recipes. Use Shaders for live motion.');
       }
       const nextSurfaceMaterial = sourceString(nextSettings, 'surfaceMaterial', settings.surfaceMaterial);
-      if (!['none', 'kerf-wood', 'woven-wire', 'perforated-metal', 'carved-stone', 'embossed-paper', 'brushed-metal', 'hammered-foil', 'corrugated-polymer', 'cork-composite', 'frosted-glass'].includes(nextSurfaceMaterial)) {
-        throw new TypeError('Surface material must be a supported physical Surface Lab structure.');
+      if (!SURFACE_MATERIAL_IDS.includes(nextSurfaceMaterial as SurfaceMaterial)) {
+        throw new TypeError('Surface texture must be a supported tactile Surface Lab structure.');
       }
       setStoredSettings((current) => ({
         ...current,
@@ -378,8 +381,8 @@ export default function BackgroundStudio({
         >
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Surface gallery</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Physical materials, static shader fields, gradients, papers, print textures, and films. Every recipe exports as SVG or PNG without a live shader.</T></p>
+              <h2 className='text-sm font-semibold'><T>Texture gallery</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Start with a tactile texture—fiber, grain, weave, pore, groove, emboss, or polished relief—then tune its physical response. Every recipe remains exportable without a live shader.</T></p>
             </div>
             <div className='grid grid-cols-2 border border-border'>
               {(['background', 'sticker'] as const).map((value) => (
@@ -405,27 +408,15 @@ export default function BackgroundStudio({
 
           <section className='flex flex-col gap-4 border-b border-border p-5'>
             <div>
-              <h2 className='text-sm font-semibold'><T>Physical material</T></h2>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shape the surface itself: relief, reflectivity, tooth, scale, and open area remain editable and export as deterministic SVG.</T></p>
+              <h2 className='text-sm font-semibold'><T>Texture construction</T></h2>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Control the substrate pattern and its microstructure. The camera stays fixed while texture depth, irregularity, density, and light response remain editable.</T></p>
             </div>
             <div className='flex flex-col gap-2 text-sm text-muted-foreground'>
-              <T>Material structure</T>
+              <T>Base texture</T>
               <StudioSelect
-                ariaLabel={gt('Material structure')}
+                ariaLabel={gt('Base texture')}
                 onValueChange={(value) => updateSettings({ surfaceMaterial: value as SurfaceMaterial })}
-                options={[
-                  { label: gt('None / smooth'), value: 'none' },
-                  { label: gt('Kerf-cut wood'), value: 'kerf-wood' },
-                  { label: gt('Woven wire mesh'), value: 'woven-wire' },
-                  { label: gt('Perforated metal'), value: 'perforated-metal' },
-                  { label: gt('Carved stone'), value: 'carved-stone' },
-                  { label: gt('Embossed paper'), value: 'embossed-paper' },
-                  { label: gt('Brushed metal'), value: 'brushed-metal' },
-                  { label: gt('Hammered foil'), value: 'hammered-foil' },
-                  { label: gt('Corrugated polymer'), value: 'corrugated-polymer' },
-                  { label: gt('Cork composite'), value: 'cork-composite' },
-                  { label: gt('Frosted glass'), value: 'frosted-glass' },
-                ]}
+                options={SURFACE_TEXTURE_OPTIONS.map(({ id, label }) => ({ label: gt(label), value: id }))}
                 value={settings.surfaceMaterial}
               />
             </div>
@@ -433,7 +424,7 @@ export default function BackgroundStudio({
               <div className='grid gap-4'>
                 <div className='grid grid-cols-2 gap-3 border border-border bg-muted/30 p-3'>
                   <div>
-                    <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'><T>Height</T></p>
+                    <p className='font-mono text-[10px] uppercase tracking-wider text-muted-foreground'><T>Relief</T></p>
                     <p className='mt-1 text-sm font-medium'>{settings.surfaceDepth}%</p>
                   </div>
                   <div>
@@ -441,12 +432,14 @@ export default function BackgroundStudio({
                     <p className='mt-1 text-sm font-medium'>{settings.surfaceMetallic > 55 ? <T>Reflective</T> : <T>Diffuse</T>}</p>
                   </div>
                 </div>
+                <RangeControl label={gt('Texture amount')} max={100} min={0} onChange={(surfaceTextureAmount) => updateSettings({ surfaceTextureAmount })} suffix='%' value={settings.surfaceTextureAmount} />
                 <RangeControl label={gt('Relief depth')} max={100} min={0} onChange={(surfaceDepth) => updateSettings({ surfaceDepth })} suffix='%' value={settings.surfaceDepth} />
-                <RangeControl label={gt('Physical scale')} max={140} min={12} onChange={(surfaceScale) => updateSettings({ surfaceScale })} suffix='px' value={settings.surfaceScale} />
-                <RangeControl label={gt('Orientation')} max={180} min={0} onChange={(surfaceAngle) => updateSettings({ surfaceAngle })} suffix='°' value={settings.surfaceAngle} />
+                <RangeControl label={gt('Texture scale')} max={140} min={12} onChange={(surfaceScale) => updateSettings({ surfaceScale })} suffix='px' value={settings.surfaceScale} />
+                <RangeControl label={gt('Grain direction')} max={180} min={0} onChange={(surfaceAngle) => updateSettings({ surfaceAngle })} suffix='°' value={settings.surfaceAngle} />
+                <RangeControl label={gt('Irregularity')} max={100} min={0} onChange={(surfaceIrregularity) => updateSettings({ surfaceIrregularity })} suffix='%' value={settings.surfaceIrregularity} />
                 <RangeControl label={gt('Roughness')} max={100} min={0} onChange={(surfaceRoughness) => updateSettings({ surfaceRoughness })} suffix='%' value={settings.surfaceRoughness} />
                 <RangeControl label={gt('Metallic response')} max={100} min={0} onChange={(surfaceMetallic) => updateSettings({ surfaceMetallic })} suffix='%' value={settings.surfaceMetallic} />
-                <RangeControl label={gt('Open area / porosity')} max={92} min={0} onChange={(surfaceOpenArea) => updateSettings({ surfaceOpenArea })} suffix='%' value={settings.surfaceOpenArea} />
+                <RangeControl label={gt('Density / openness')} max={92} min={0} onChange={(surfaceOpenArea) => updateSettings({ surfaceOpenArea })} suffix='%' value={settings.surfaceOpenArea} />
               </div>
             ) : null}
           </section>
@@ -750,6 +743,22 @@ export default function BackgroundStudio({
               style={{ aspectRatio: `${settings.width} / ${settings.height}` }}
             >
               <div className='absolute inset-0 size-full [&>svg]:size-full' dangerouslySetInnerHTML={{ __html: previewSvg }} />
+              {application === 'background' && settings.surfaceMaterial !== 'none' ? (
+                <>
+                  <SurfaceMaterialStage
+                    className='pointer-events-none absolute inset-0 z-[1] size-full overflow-hidden'
+                    settings={settings}
+                  />
+                  {selectedSurfaceAssetPath ? (
+                    <img
+                      alt=''
+                      className='pointer-events-none absolute inset-0 z-[2] size-full'
+                      src={selectedSurfaceAssetPath}
+                      style={{ objectFit: brandAssetFit, opacity: brandAssetOpacity / 100 }}
+                    />
+                  ) : null}
+                </>
+              ) : null}
               {showLogo && application === 'background' ? (
                 <EditableCanvasLayer
                   baseHeight={Math.min(settings.width, settings.height) * (DEFAULT_BACKGROUND_SETTINGS.logoScale / 100)}
@@ -780,7 +789,9 @@ export default function BackgroundStudio({
               <p className='text-sm font-medium'>{selectedBackgroundPreset?.name ?? settings.style.replace('-', ' ')}</p>
               <div className='flex items-center gap-4 text-muted-foreground'>
                 <p className='font-mono text-[10px] uppercase tracking-wider'>
-                  {application === 'sticker' ? `${stickerFinish.presetId} / ` : ''}SVG layers / {settings.width} × {settings.height}
+                  {application === 'background' && settings.surfaceMaterial !== 'none'
+                    ? `Physical relief / SVG export / ${settings.width} × ${settings.height}`
+                    : `${application === 'sticker' ? `${stickerFinish.presetId} / ` : ''}SVG layers / ${settings.width} × ${settings.height}`}
                 </p>
               </div>
             </div>

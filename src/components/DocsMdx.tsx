@@ -52,12 +52,12 @@ function DocsThemeGallery() {
 
 export function getDocsMdxComponents(components?: MDXComponents): MDXComponents {
   return {
-    ...defaultMdxComponents,
+    ...(defaultMdxComponents as unknown as MDXComponents),
     DocsPathCard,
     DocsPathGrid,
     DocsSystemGrid,
     DocsSystemItem,
     DocsThemeGallery,
     ...components,
-  };
+  } as unknown as MDXComponents;
 }

@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 
+import ColorControl from '@/components/ui/ColorControl';
 import {
   normalizeStickerFinish,
   stickerFinishPreset,
@@ -47,7 +48,7 @@ export default function StickerFinishControls({
   const finish = normalizeStickerFinish(settings);
 
   function update(patch: Partial<StickerFinishSettings>) {
-    onChange({ ...finish, ...patch, presetId: 'custom' });
+    onChange({ ...finish, ...patch });
   }
 
   return (
@@ -76,11 +77,28 @@ export default function StickerFinishControls({
       </div>
 
       <div className='grid gap-4 border-t border-border pt-4'>
+        <ColorControl
+          ariaLabel='Sticker border color'
+          label='Sticker border color'
+          onChange={(borderColor) => update({ borderColor })}
+          value={finish.borderColor}
+        />
+        <RangeControl label='Cut border' max={32} min={2} onChange={(edgeWidth) => update({ edgeWidth })} unit='px' value={finish.edgeWidth} />
         <RangeControl label='Finish intensity' max={100} min={0} onChange={(intensity) => update({ intensity })} unit='%' value={finish.intensity} />
         <RangeControl label='Glint angle' max={180} min={0} onChange={(glintAngle) => update({ glintAngle })} unit='°' value={finish.glintAngle} />
         <RangeControl label='Material texture' max={100} min={0} onChange={(texture) => update({ texture })} unit='%' value={finish.texture} />
-        <RangeControl label='Die-cut edge' max={32} min={2} onChange={(edgeWidth) => update({ edgeWidth })} unit='px' value={finish.edgeWidth} />
         <RangeControl label='Physical depth' max={100} min={0} onChange={(depth) => update({ depth })} unit='%' value={finish.depth} />
+        {finish.presetId === 'precision-metal-inset' ? (
+          <div className='grid gap-4 border-t border-border pt-4'>
+            <div>
+              <p className='text-sm font-medium'>Edge architecture</p>
+              <p className='mt-1 text-xs leading-5 text-muted-foreground'>Tune the polished frame, microscopic separation seam, and recessed satin insert.</p>
+            </div>
+            <RangeControl label='Polished frame' max={32} min={2} onChange={(bevelWidth) => update({ bevelWidth })} unit='px' value={finish.bevelWidth} />
+            <RangeControl label='Separation seam' max={12} min={0} onChange={(seamWidth) => update({ seamWidth })} unit='px' value={finish.seamWidth} />
+            <RangeControl label='Inset depth' max={100} min={0} onChange={(insetDepth) => update({ insetDepth })} unit='%' value={finish.insetDepth} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
