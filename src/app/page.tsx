@@ -21,6 +21,8 @@ import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import MarketingMotion from '@/components/MarketingMotion';
+import MarketingShaderMark from '@/components/MarketingShaderMark';
+import MarketingShaderText from '@/components/MarketingShaderText';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -36,76 +38,117 @@ const BRAND_LOGOS = [
   { id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
 ] as const;
 
-const HERO_COLOR_PANELS_SETTINGS = {
+const GLYPH_FIELD_ROWS = [
+  'GLYPHFIELD GLYPHFIELD',
+  'GLYPH',
+  'GLYPH',
+  'GLYPH      FIELDGLYPH',
+  'GLYPH           FIELD',
+  'GLYPHFIELD GLYPHFIELD',
+] as const;
+
+const HERO_DITHERING_SWIRL_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brightness: 1,
-  colorA: '#25165C',
-  colorB: '#745BFF',
-  colorC: '#B8ACFF',
+  amplitude: 1.3,
+  brightness: 0.98,
+  colorA: '#26145F',
+  colorB: '#C8C0FF',
+  colorC: '#7BFFD9',
+  frequency: 2.2,
   grain: 0,
+  rotationX: 0,
   rotationY: 0,
-  rotationZ: 0,
-  speed: 0.08,
+  rotationZ: -6,
+  speed: 0.32,
 };
 
-const OPEN_SOURCE_COLOR_PANELS_SETTINGS = {
+const HERO_MARK_DITHERING_SWIRL_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 3.4,
+  brightness: 1.04,
+  colorA: '#5632D6',
+  colorB: '#9A84FF',
+  colorC: '#6FFFD5',
+  density: 1.1,
+  detail: 4.4,
+  frequency: 6.8,
+  grain: 0,
+  rotationX: 0,
+  rotationY: 0,
+  rotationZ: -8,
+  speed: 0.46,
+  strength: 0.48,
+};
+
+const OPEN_SOURCE_FIELD_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 4.5,
+  brightness: 1.18,
+  colorA: '#0A0A0B',
+  colorB: '#FFFFFF',
+  colorC: '#9A86FF',
+  density: 1.18,
+  detail: 5.4,
+  frequency: 4.8,
+  grain: 20,
+  speed: 0.12,
+  strength: 0.56,
+};
+
+const OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 3.4,
   brightness: 0.96,
-  colorA: '#4E2A68',
-  colorB: '#D75D7A',
-  colorC: '#F2A56F',
+  colorA: '#401B45',
+  colorB: '#FF9B75',
+  colorC: '#FFD08F',
   grain: 0,
+  rotationX: 0,
   rotationY: 0,
-  rotationZ: 180,
-  speed: 0.07,
+  rotationZ: -12,
+  speed: 0.26,
 };
 
-const OPEN_SOURCE_PANEL_SETTINGS = {
+const AGENT_LABS_DITHERING_SINE_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 2.2,
   brightness: 0.94,
-  colorA: '#294D77',
-  colorB: '#5D88F5',
-  colorC: '#C7E7FF',
-  grain: 0,
-  rotationY: 0,
-  rotationZ: 76,
-  speed: 0.1,
-};
-
-const AGENT_LABS_COLOR_PANELS_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brightness: 0.92,
-  colorA: '#183B68',
-  colorB: '#4C86FF',
+  colorA: '#173E6B',
+  colorB: '#B7EBFF',
   colorC: '#B7E5FF',
   grain: 0,
+  rotationX: 0,
   rotationY: 0,
-  rotationZ: 14,
-  speed: 0.18,
+  rotationZ: -3,
+  speed: 0.36,
 };
 
-const AGENT_MATERIALS_COLOR_PANELS_SETTINGS = {
+const AGENT_MATERIALS_DITHERING_WARP_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brightness: 0.9,
-  colorA: '#4D2B73',
-  colorB: '#A45CFF',
+  amplitude: 3,
+  brightness: 0.92,
+  colorA: '#4C206D',
+  colorB: '#E8B4FF',
   colorC: '#F1C0FF',
   grain: 0,
+  rotationX: 0,
   rotationY: 0,
-  rotationZ: -18,
-  speed: 0.1,
+  rotationZ: 8,
+  speed: 0.28,
 };
 
-const AGENT_GENERATE_COLOR_PANELS_SETTINGS = {
+const AGENT_GENERATE_DITHERING_RIPPLE_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  brightness: 0.92,
-  colorA: '#1F5D52',
-  colorB: '#39C89C',
-  colorC: '#D9F29A',
+  amplitude: 2.8,
+  brightness: 0.94,
+  colorA: '#174C3E',
+  colorB: '#C6F29A',
+  colorC: '#D9F2A9',
   grain: 0,
+  rotationX: 0,
   rotationY: 0,
-  rotationZ: 18,
-  speed: 0.12,
+  rotationZ: 4,
+  speed: 0.32,
 };
 
 const FEATURES = [
@@ -199,19 +242,10 @@ export default async function HomePage() {
         <section className='marketing-v5-hero marketing-v7-corner-frame' aria-labelledby='hero-title'>
           <FrameTriangles />
           <div className='marketing-v5-hero-copy' data-motion-reveal>
-            <Image
-              alt=''
-              aria-hidden='true'
-              className='marketing-v5-hero-mark'
-              data-motion-item
-              height={48}
-              priority
-              src={PRODUCT_BRAND.markPath}
-              width={48}
-            />
+            <MarketingShaderMark settings={HERO_MARK_DITHERING_SWIRL_SETTINGS} />
             <h1 id='hero-title' data-motion-item>
               <T>One studio for</T>{' '}
-              <em><T>the whole brand.</T></em>
+              <MarketingShaderText settings={HERO_MARK_DITHERING_SWIRL_SETTINGS} text={gt('the whole brand.')} />
             </h1>
             <p data-motion-item>
               <T>
@@ -239,9 +273,9 @@ export default async function HomePage() {
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField
-              className='marketing-v5-hero-color-panels'
-              materialId='paper-color-panels-opening'
-              settings={HERO_COLOR_PANELS_SETTINGS}
+              className='marketing-v5-hero-dithering'
+              materialId='paper-dithering-swirl'
+              settings={HERO_DITHERING_SWIRL_SETTINGS}
             />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
@@ -358,8 +392,8 @@ export default async function HomePage() {
               <Link href='/api/labs'>
                 <MarketingArcField
                   className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-color-panels'
-                  settings={AGENT_LABS_COLOR_PANELS_SETTINGS}
+                  materialId='paper-dithering-sine-wave'
+                  settings={AGENT_LABS_DITHERING_SINE_SETTINGS}
                 />
                 <span><b>GET</b><code>/api/labs</code></span>
                 <strong><T>Discover capabilities</T></strong>
@@ -368,8 +402,8 @@ export default async function HomePage() {
               <Link href='/api/materials'>
                 <MarketingArcField
                   className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-color-panels-glass'
-                  settings={AGENT_MATERIALS_COLOR_PANELS_SETTINGS}
+                  materialId='paper-dithering-warp'
+                  settings={AGENT_MATERIALS_DITHERING_WARP_SETTINGS}
                 />
                 <span><b>GET</b><code>/api/materials</code></span>
                 <strong><T>Select a material</T></strong>
@@ -378,8 +412,8 @@ export default async function HomePage() {
               <Link href='/api/generate'>
                 <MarketingArcField
                   className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-color-panels-gradient'
-                  settings={AGENT_GENERATE_COLOR_PANELS_SETTINGS}
+                  materialId='paper-dithering-ripple'
+                  settings={AGENT_GENERATE_DITHERING_RIPPLE_SETTINGS}
                 />
                 <span><b>POST</b><code>/api/generate</code></span>
                 <strong><T>Generate an artifact</T></strong>
@@ -396,9 +430,12 @@ export default async function HomePage() {
           <FrameTriangles dark />
           <MarketingArcField
             className='marketing-v8-open-source-glyph-field'
-            materialId='paper-color-panels-opening'
-            settings={OPEN_SOURCE_COLOR_PANELS_SETTINGS}
+            materialId='glyphfield-glyph-field'
+            settings={OPEN_SOURCE_FIELD_SETTINGS}
           />
+          <div className='marketing-v8-open-source-letterform' aria-hidden='true'>
+            {GLYPH_FIELD_ROWS.map((row, index) => <span key={`${index}-${row}`}>{row}</span>)}
+          </div>
           <div className='marketing-v7-open-source-copy' data-motion-item>
             <h2><T>Free, open source, and built to extend.</T></h2>
             <p>
@@ -423,8 +460,8 @@ export default async function HomePage() {
           <div className='marketing-v7-open-source-panel' data-motion-item>
             <MarketingArcField
               className='marketing-v8-open-source-panel-material'
-              materialId='paper-color-panels-glass'
-              settings={OPEN_SOURCE_PANEL_SETTINGS}
+              materialId='paper-dithering-warp'
+              settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
             />
             <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
             <div className='marketing-v7-open-source-meta'>

@@ -93,6 +93,7 @@ import {
 } from '@/lib/webglContext';
 
 export type LiveMaterialCanvasProps = {
+  activeWhileMounted?: boolean;
   className?: string;
   captureTimeMs?: number | null;
   enabled?: boolean;
@@ -1743,6 +1744,7 @@ function PaperShaderSurface({
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
   const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
+  const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * settings.speed;
   const controlledParams = {
     ...preset.params,
     ...paperControlOverrides(preset.params, settings),
@@ -1808,13 +1810,15 @@ function PaperShaderSurface({
     frame: captureTimeMs === null
       ? presetFrame
       : presetFrame + captureTimeMs / 1000 * motionSpeed * settings.speed,
-    speed: paused || captureTimeMs !== null ? 0 : motionSpeed * settings.speed,
+    speed: effectiveSpeed,
   });
 
   return (
     <div
       aria-label={`Paper Shaders ${definition.name} material`}
       className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
+      data-paper-motion={effectiveSpeed === 0 ? 'paused' : 'running'}
+      data-paper-speed={effectiveSpeed}
       style={{
         contain: 'strict',
         filter: [
@@ -1863,6 +1867,7 @@ function StaticMaterialFallback({
 }
 
 function LiveMaterialCanvas({
+  activeWhileMounted = false,
   className = '',
   captureTimeMs = null,
   enabled = true,
@@ -1888,7 +1893,7 @@ function LiveMaterialCanvas({
   const activeRecovery = contextRecovery.materialId === resolvedMaterialId
     ? contextRecovery
     : { failed: false, materialId: resolvedMaterialId, version: 0 };
-  const renderActive = renderVisible && enabled;
+  const renderActive = (activeWhileMounted || renderVisible) && enabled;
   const requiresWebGL2 = resolvedMaterialId === 'shadergradient-prismatic-sphere'
     || isPaperLiveMaterialId(resolvedMaterialId);
   const paperDefinition = isPaperLiveMaterialId(resolvedMaterialId)
