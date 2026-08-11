@@ -1,14 +1,18 @@
 'use client';
 
-import { useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from 'lucide-react';
 
 export type CanvasLayerTransform = {
+  heightScale?: number;
   scale: number;
+  widthScale?: number;
   x: number;
   y: number;
 };
+
+export type CanvasLayerResizeMode = 'box' | 'scale';
 
 export type CanvasLayerAlignment =
   | 'left'
@@ -42,7 +46,9 @@ type PointerSession = {
   startSelected: boolean;
   startClientX: number;
   startClientY: number;
+  startHeightScale: number;
   startScale: number;
+  startWidthScale: number;
   startX: number;
   startY: number;
 };
@@ -80,6 +86,16 @@ function nearestSnap(
   return nearest;
 }
 
+export function canvasLayerDimensions(
+  transform: CanvasLayerTransform,
+  geometry: Pick<CanvasLayerGeometry, 'baseHeight' | 'baseWidth'>
+): { height: number; width: number } {
+  return {
+    height: geometry.baseHeight * (transform.heightScale ?? transform.scale),
+    width: geometry.baseWidth * (transform.widthScale ?? transform.scale),
+  };
+}
+
 export function snapCanvasLayer(
   transform: CanvasLayerTransform,
   geometry: CanvasLayerGeometry,
@@ -87,8 +103,7 @@ export function snapCanvasLayer(
   thresholdX: number,
   thresholdY: number
 ): { guides: CanvasSmartGuides; transform: CanvasLayerTransform } {
-  const scaledWidth = geometry.baseWidth * transform.scale;
-  const scaledHeight = geometry.baseHeight * transform.scale;
+  const { height: scaledHeight, width: scaledWidth } = canvasLayerDimensions(transform, geometry);
   const centerX = geometry.baseX + geometry.baseWidth / 2 + transform.x;
   const centerY = geometry.baseY + geometry.baseHeight / 2 + transform.y;
   const xSnap = nearestSnap(
@@ -122,8 +137,7 @@ export function alignCanvasLayer(
   canvasHeight: number,
   alignment: CanvasLayerAlignment
 ): CanvasLayerTransform {
-  const scaledWidth = geometry.baseWidth * transform.scale;
-  const scaledHeight = geometry.baseHeight * transform.scale;
+  const { height: scaledHeight, width: scaledWidth } = canvasLayerDimensions(transform, geometry);
   const centerX = geometry.baseX + geometry.baseWidth / 2;
   const centerY = geometry.baseY + geometry.baseHeight / 2;
 
@@ -154,10 +168,12 @@ export default function EditableCanvasLayer({
   canvasWidth,
   children,
   className = '',
+  fitContentHeight = false,
   label,
   onChange,
   onDeselect,
   onSelect,
+  resizeMode = 'scale',
   selected,
   transform,
   zIndex,
@@ -170,17 +186,35 @@ export default function EditableCanvasLayer({
   canvasWidth: number;
   children: ReactNode;
   className?: string;
+  fitContentHeight?: boolean;
   label: string;
   onChange: (transform: CanvasLayerTransform) => void;
   onDeselect: () => void;
   onSelect: () => void;
+  resizeMode?: CanvasLayerResizeMode;
   selected: boolean;
   transform: CanvasLayerTransform;
   zIndex: number;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<PointerSession | null>(null);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
+  const { height, width } = canvasLayerDimensions(transform, { baseHeight, baseWidth });
+
+  useLayoutEffect(() => {
+    if (!fitContentHeight) {
+      setContentHeight(null);
+      return;
+    }
+    const content = layerRef.current?.querySelector<HTMLElement>('.editable-canvas-layer-content > *');
+    if (!content) return;
+    const measure = () => setContentHeight(Math.ceil(Math.max(content.offsetHeight, content.scrollHeight)));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [fitContentHeight, width]);
 
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
@@ -194,7 +228,9 @@ export default function EditableCanvasLayer({
       startSelected: selected,
       startClientX: event.clientX,
       startClientY: event.clientY,
+      startHeightScale: transform.heightScale ?? transform.scale,
       startScale: transform.scale,
+      startWidthScale: transform.widthScale ?? transform.scale,
       startX: transform.x,
       startY: transform.y,
     };
@@ -214,12 +250,27 @@ export default function EditableCanvasLayer({
     const deltaY = ((event.clientY - session.startClientY) / bounds.height) * canvasHeight;
 
     if (session.mode === 'resize') {
+      if (resizeMode === 'box') {
+        const widthScale = clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3);
+        const heightScale = clamp(session.startHeightScale + deltaY / baseHeight, 0.2, 3);
+        const widthDelta = baseWidth * (widthScale - session.startWidthScale);
+        const heightDelta = baseHeight * (heightScale - session.startHeightScale);
+        onChange({
+          ...transform,
+          heightScale,
+          widthScale,
+          x: session.startX + widthDelta / 2,
+          y: session.startY + heightDelta / 2,
+        });
+        return;
+      }
       const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
       onChange({ ...transform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
       return;
     }
 
     const proposedTransform = {
+      ...transform,
       scale: session.startScale,
       x: clamp(session.startX + deltaX, -canvasWidth, canvasWidth),
       y: clamp(session.startY + deltaY, -canvasHeight, canvasHeight),
@@ -272,13 +323,15 @@ export default function EditableCanvasLayer({
     event.preventDefault();
   }
 
+  const centerX = baseX + baseWidth / 2 + transform.x;
+  const centerY = baseY + baseHeight / 2 + transform.y;
   const style: CSSProperties = {
-    height: `${(baseHeight / canvasHeight) * 100}%`,
-    left: `${((baseX + transform.x) / canvasWidth) * 100}%`,
-    top: `${((baseY + transform.y) / canvasHeight) * 100}%`,
-    transform: `scale(${transform.scale})`,
-    transformOrigin: 'center',
-    width: `${(baseWidth / canvasWidth) * 100}%`,
+    height: fitContentHeight && contentHeight !== null
+      ? `max(${(height / canvasHeight) * 100}%, ${contentHeight}px)`
+      : `${(height / canvasHeight) * 100}%`,
+    left: `${((centerX - width / 2) / canvasWidth) * 100}%`,
+    top: `${((centerY - height / 2) / canvasHeight) * 100}%`,
+    width: `${(width / canvasWidth) * 100}%`,
     zIndex,
   };
   const guideHost = layerRef.current?.parentElement ?? null;
@@ -289,6 +342,7 @@ export default function EditableCanvasLayer({
         aria-label={label}
         aria-selected={selected}
         className={`editable-canvas-layer ${className}`}
+        data-fit-content-height={fitContentHeight ? 'true' : undefined}
         onKeyDown={handleKeyDown}
         onPointerCancel={endPointer}
         onPointerDown={(event) => beginPointer(event, 'move')}

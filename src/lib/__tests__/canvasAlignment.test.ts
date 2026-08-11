@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   alignCanvasLayer,
+  canvasLayerDimensions,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerGeometry,
@@ -46,6 +47,22 @@ describe('alignCanvasLayer', () => {
         'vertical-center'
       )
     ).toEqual({ scale: 0.75, x: 36, y: 150 });
+  });
+
+  it('aligns independently resized text boxes without changing font scale', () => {
+    const transform = {
+      heightScale: 1.4,
+      scale: 0.8,
+      widthScale: 0.5,
+      x: 0,
+      y: 0,
+    };
+
+    expect(canvasLayerDimensions(transform, geometry)).toEqual({ height: 280, width: 200 });
+    expect(alignCanvasLayer(transform, geometry, 1000, 800, 'right')).toEqual({
+      ...transform,
+      x: 600,
+    });
   });
 });
 
