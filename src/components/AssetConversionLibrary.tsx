@@ -137,7 +137,7 @@ export default function AssetConversionLibrary({
       </div>
       {library.assets.length === 0 && !library.busy ? (
         <p className='mt-3 border border-dashed border-border p-4 text-center text-[10px] leading-4 text-muted-foreground'>
-          <T>Converted assets stay local in this browser and can be reused across Shaders and Surface Lab.</T>
+          <T>Converted assets stay local in this browser and can be reused across Shaders and Design Lab.</T>
         </p>
       ) : null}
     </div>

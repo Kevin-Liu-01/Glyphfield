@@ -349,4 +349,23 @@ describe('hydrateBrandIdentities', () => {
     ]);
     expect(gt.assets.some(({ type }) => type === 'background')).toBe(true);
   });
+
+  it('backfills newly registered built-in assets without replacing stored assets', () => {
+    const storedGt = {
+      ...GT_BRAND_IDENTITY,
+      assets: GT_BRAND_IDENTITY.assets
+        .filter(({ id }) => id !== 'library-advance' && id !== 'library-constellation')
+        .map((asset) => asset.id === 'mark-dark' ? { ...asset, label: 'Stored GT mark' } : asset),
+    };
+
+    const gt = hydrateBrandIdentities([storedGt]).find(({ id }) => id === 'gt')!;
+
+    expect(gt.assets.find(({ id }) => id === 'mark-dark')?.label).toBe('Stored GT mark');
+    expect(gt.assets.find(({ id }) => id === 'library-advance')?.path).toBe(
+      '/brands/gt/library/advance.png'
+    );
+    expect(gt.assets.find(({ id }) => id === 'library-constellation')?.path).toBe(
+      '/brands/gt/library/language-constellation.svg'
+    );
+  });
 });

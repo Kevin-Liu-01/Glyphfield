@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000" role="img" aria-labelledby="title description">
+  <title id="title">GT language constellation</title>
+  <desc id="description">Six greetings in different writing systems arranged across a precise monochrome dot field.</desc>
+  <defs>
+    <pattern id="dot-field" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#FFFFFF" opacity="0.12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="1000" fill="#050606"/>
+  <rect x="24" y="24" width="1152" height="952" fill="url(#dot-field)"/>
+  <g font-family="Switzer, Inter, Arial, sans-serif" font-weight="500" text-anchor="middle">
+    <text x="320" y="205" fill="#B8B8B8" font-size="76">Welcome</text>
+    <text x="895" y="205" fill="#E8E8E8" font-size="94">你好</text>
+    <text x="325" y="510" fill="#A7A7A7" font-size="70">환영합니다</text>
+    <text x="900" y="510" fill="#959595" font-size="96">ようこそ</text>
+    <text x="330" y="820" fill="#D8D8D8" font-size="82" direction="rtl">أهلاً وسهلاً</text>
+    <text x="895" y="820" fill="#C8C8C8" font-size="74">Bienvenidos</text>
+  </g>
+</svg>

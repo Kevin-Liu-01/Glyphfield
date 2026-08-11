@@ -185,6 +185,11 @@
   object-fit: contain;
 }
 
+.navigatorMark {
+  width: 100%;
+  height: 100%;
+}
+
 .navigatorIdentity > span {
   min-width: 0;
   display: grid;
@@ -314,7 +319,7 @@
 
 .pageButton:hover .page {
   z-index: 2;
-  box-shadow: 0 12px 34px #2d2c2830, 0 0 0 2px var(--book-accent);
+  box-shadow: var(--studio-shadow-md), 0 0 0 2px var(--book-accent);
   transform: translateY(-3px);
 }
 
@@ -349,11 +354,11 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid #1c1b180f;
+  border: 0;
   border-radius: calc(var(--book-radius) * 0.25);
   color: var(--book-paper-ink);
   background: var(--book-paper);
-  box-shadow: 0 2px 7px #2d2c2815;
+  box-shadow: var(--studio-shadow-ring-xs);
   container-type: inline-size;
   isolation: isolate;
   transition: box-shadow 180ms ease, transform 180ms ease;
@@ -1347,6 +1352,7 @@
 
 .imageLibraryGrid > div { overflow: hidden; }
 .imageLibraryGrid > div:first-child { grid-row: 1 / -1; }
+.imageLibraryGrid > div:last-child { grid-column: 2 / -1; }
 
 .imageDirectionPage {
   height: 100%;
@@ -1534,6 +1540,1722 @@
 .closingPage h1 { max-width: 72cqi; margin: auto 0; font-family: var(--book-display), sans-serif; font-size: 9cqi; font-weight: 520; letter-spacing: -0.065em; line-height: 0.92; }
 .closingPage > div { display: flex; justify-content: space-between; gap: 3cqi; border-top: 0.15cqi solid currentColor; padding-top: 2cqi; font-family: var(--book-code), monospace; font-size: 1.35cqi; }
 
+/* Brand-native book art direction ----------------------------------------- */
+
+.coverBackdrop,
+.coverMotif {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.coverBackdrop {
+  z-index: 0;
+  opacity: 0.48;
+}
+
+.coverBackdrop::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, var(--book-deep) 0 38%, transparent 82%);
+}
+
+.coverMotif {
+  z-index: 1;
+}
+
+.coverMotif i,
+.sectionCoverMotif i,
+.sectionIntroductionMotif i {
+  position: absolute;
+  display: block;
+}
+
+.bookCover {
+  z-index: 1;
+  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 2cqi 4cqi;
+  padding: 4.6cqi;
+}
+
+.coverTopline {
+  grid-column: 1 / -1;
+  align-items: center;
+  font-size: 1.35cqi;
+  letter-spacing: 0.04em;
+}
+
+.coverSignature {
+  position: relative;
+  z-index: 3;
+  grid-column: 1;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2cqi;
+}
+
+.coverSignature img {
+  width: min(30cqi, 80%);
+  max-height: 8cqi;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.coverSignature strong {
+  font-family: var(--book-display), sans-serif;
+  font-size: 5cqi;
+  letter-spacing: -0.05em;
+}
+
+.coverLogoLight {
+  display: none;
+}
+
+.page[data-tone='dark'] .coverLogoDark {
+  display: none;
+}
+
+.page[data-tone='dark'] .coverLogoLight {
+  display: block;
+}
+
+.coverNarrative {
+  position: relative;
+  z-index: 3;
+  grid-column: 1;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6cqi;
+  padding-bottom: 2cqi;
+}
+
+.coverNarrative > span {
+  font-family: var(--book-code), monospace;
+  font-size: 1.35cqi;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coverNarrative h1 {
+  max-width: 64cqi;
+  margin: 0;
+  font-family: var(--book-display), sans-serif;
+  font-size: 8cqi;
+  font-weight: 520;
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+}
+
+.coverNarrative p {
+  max-width: 48cqi;
+  margin: 0;
+  font-family: var(--book-body), sans-serif;
+  font-size: 1.6cqi;
+  line-height: 1.35;
+}
+
+.coverSignals,
+.coverLedger,
+.coverTerminal,
+.coverIndex {
+  position: relative;
+  z-index: 3;
+  display: none;
+}
+
+.coverBottom {
+  z-index: 3;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: end;
+  gap: 3cqi;
+  border-top: 0.12cqi solid currentColor;
+  padding-top: 1.7cqi;
+  font-size: 1.25cqi;
+}
+
+.coverBottom p {
+  max-width: none;
+  font-family: var(--book-code), monospace;
+  font-size: inherit;
+  text-transform: uppercase;
+}
+
+.coverMarks {
+  display: inline-grid;
+  place-items: center;
+}
+
+.coverMarks img {
+  grid-area: 1 / 1;
+  width: 4.2cqi;
+  max-height: 4.2cqi;
+}
+
+.sectionCoverMotif,
+.sectionIntroductionMotif {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sectionCoverMeta,
+.sectionCoverTitle,
+.sectionCover > img,
+.sectionNumeral,
+.sectionIntroduction > p,
+.sectionIntroductionFooter {
+  position: relative;
+  z-index: 2;
+}
+
+.sectionCoverCommand,
+.sectionCoverDevice {
+  position: relative;
+  z-index: 2;
+  display: none;
+}
+
+/* Starter / focus window */
+
+.root[data-flavor='focus-window'] .coverBackdrop {
+  top: 12%;
+  right: 4%;
+  bottom: 9%;
+  left: 46%;
+  border: 0.2cqi solid color-mix(in srgb, var(--book-accent) 72%, white);
+  opacity: 0.82;
+  transform: rotate(2deg);
+}
+
+.root[data-flavor='focus-window'] .coverBackdrop::after {
+  background: linear-gradient(135deg, transparent 0 58%, var(--book-deep) 92%);
+}
+
+.root[data-flavor='focus-window'] .coverMotif i {
+  border: 0.35cqi solid var(--book-accent);
+}
+
+.root[data-flavor='focus-window'] .coverMotif i:nth-child(1) { top: 18%; right: 8%; width: 42%; height: 37%; transform: rotate(-7deg); }
+.root[data-flavor='focus-window'] .coverMotif i:nth-child(2) { right: 21%; bottom: 13%; width: 24%; height: 20%; transform: rotate(9deg); }
+.root[data-flavor='focus-window'] .coverMotif i:nth-child(3) { top: 43%; right: -8%; width: 31%; height: 19%; }
+
+.root[data-flavor='focus-window'] .coverSignature {
+  align-self: start;
+}
+
+.root[data-flavor='focus-window'] .coverNarrative h1 {
+  max-width: 54cqi;
+  font-size: 9.4cqi;
+}
+
+.root[data-flavor='focus-window'] .sectionCoverMotif i {
+  border: 0.3cqi solid var(--book-accent);
+}
+
+.root[data-flavor='focus-window'] .sectionCoverMotif i:nth-child(1) { top: 14%; right: 8%; width: 36%; height: 29%; transform: rotate(-5deg); }
+.root[data-flavor='focus-window'] .sectionCoverMotif i:nth-child(2) { right: 20%; bottom: 11%; width: 22%; height: 21%; transform: rotate(8deg); }
+
+.root[data-flavor='focus-window'] .sectionCoverTitle {
+  grid-template-columns: 1fr;
+  gap: 1cqi;
+  width: 68%;
+}
+
+.root[data-flavor='focus-window'] .sectionCoverTitle strong {
+  color: var(--book-accent);
+  font-family: var(--book-code), monospace;
+  font-size: 2.2cqi;
+}
+
+.root[data-flavor='focus-window'] .sectionIntroductionMotif i {
+  right: -5%;
+  width: 42%;
+  height: 18%;
+  border: 0.22cqi solid currentColor;
+  opacity: 0.22;
+  transform: rotate(-8deg);
+}
+
+.root[data-flavor='focus-window'] .sectionIntroductionMotif i:nth-child(1) { top: 11%; }
+.root[data-flavor='focus-window'] .sectionIntroductionMotif i:nth-child(2) { top: 42%; right: 7%; }
+.root[data-flavor='focus-window'] .sectionIntroductionMotif i:nth-child(3) { bottom: 6%; }
+
+/* GT / monochrome language field */
+
+.root[data-flavor='translation-frame'] .page {
+  border-radius: 0;
+}
+
+.root[data-flavor='translation-frame'] .page::after {
+  mix-blend-mode: screen;
+  opacity: 0.13;
+}
+
+.root[data-flavor='translation-frame'] .coverBackdrop {
+  inset: 0;
+  opacity: 0.96;
+  filter: grayscale(1) contrast(1.08);
+}
+
+.root[data-flavor='translation-frame'] .coverBackdrop::after {
+  background: linear-gradient(90deg, #090909 0 30%, transparent 68%, #090909 100%);
+}
+
+.root[data-flavor='translation-frame'] .coverSignature {
+  grid-column: 1 / -1;
+  justify-content: center;
+  align-self: center;
+}
+
+.root[data-flavor='translation-frame'] .coverSignature img {
+  width: 7cqi;
+  max-height: 7cqi;
+}
+
+.root[data-flavor='translation-frame'] .coverNarrative {
+  grid-column: 1 / -1;
+  align-items: center;
+  align-self: center;
+  text-align: center;
+}
+
+.root[data-flavor='translation-frame'] .coverNarrative h1 {
+  max-width: 76cqi;
+  font-size: 7.7cqi;
+  font-weight: 500;
+}
+
+.root[data-flavor='translation-frame'] .coverNarrative p {
+  max-width: 42cqi;
+}
+
+.root[data-flavor='translation-frame'] .coverSignals {
+  position: absolute;
+  inset: 15% 4.6cqi auto;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--book-body), sans-serif;
+  font-size: 1.35cqi;
+  opacity: 0.62;
+}
+
+.root[data-flavor='translation-frame'] .coverSignals span:nth-child(even) {
+  margin-top: 32cqi;
+}
+
+.root[data-flavor='translation-frame'] .sectionCover {
+  place-items: center;
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverMeta {
+  position: absolute;
+  top: 4cqi;
+  right: 4cqi;
+  left: 4cqi;
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverTitle {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  border: 0;
+  text-align: center;
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverTitle strong {
+  font-family: var(--book-code), monospace;
+  font-size: 1.5cqi;
+  letter-spacing: 0.15em;
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverTitle h2 {
+  font-family: var(--book-display), sans-serif;
+  font-size: 9.5cqi;
+  font-weight: 500;
+}
+
+.root[data-flavor='translation-frame'] .sectionCover > img {
+  position: absolute;
+  right: 4cqi;
+  bottom: 4cqi;
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverMotif i {
+  top: 50%;
+  left: 50%;
+  border: 0.12cqi solid currentColor;
+  border-radius: 50%;
+  opacity: 0.13;
+  transform: translate(-50%, -50%);
+}
+
+.root[data-flavor='translation-frame'] .sectionCoverMotif i:nth-child(1) { width: 24cqi; height: 24cqi; }
+.root[data-flavor='translation-frame'] .sectionCoverMotif i:nth-child(2) { width: 40cqi; height: 40cqi; }
+.root[data-flavor='translation-frame'] .sectionCoverMotif i:nth-child(3) { width: 60cqi; height: 60cqi; }
+.root[data-flavor='translation-frame'] .sectionIntroduction { grid-template-columns: 1fr 1.2fr; }
+.root[data-flavor='translation-frame'] .sectionIntroduction > p { font-family: var(--book-body), sans-serif; font-size: 3.2cqi; line-height: 1.2; }
+
+/* Ramp / economic ledger */
+
+.root[data-flavor='economic-ledger'] .page {
+  border-radius: 0;
+}
+
+.root[data-flavor='economic-ledger'] .bookCover {
+  grid-template-columns: 0.82fr 1.18fr;
+  color: var(--book-ink);
+  background: var(--book-paper);
+}
+
+.root[data-flavor='economic-ledger'] .coverBackdrop {
+  display: none;
+}
+
+.root[data-flavor='economic-ledger'] .coverMotif {
+  top: 12cqi;
+  right: 4.6cqi;
+  bottom: 10cqi;
+  left: 43%;
+  border-top: 0.15cqi solid var(--book-ink);
+  border-left: 0.15cqi solid var(--book-ink);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 5.8cqi, color-mix(in srgb, var(--book-ink) 18%, transparent) 5.8cqi 5.95cqi);
+}
+
+.root[data-flavor='economic-ledger'] .coverMotif i {
+  left: 0;
+  width: 100%;
+  border-top: 0.15cqi solid currentColor;
+}
+
+.root[data-flavor='economic-ledger'] .coverMotif i:nth-child(1) { top: 28%; }
+.root[data-flavor='economic-ledger'] .coverMotif i:nth-child(2) { top: 56%; }
+.root[data-flavor='economic-ledger'] .coverMotif i:nth-child(3) { top: 84%; }
+
+.root[data-flavor='economic-ledger'] .coverSignature {
+  grid-column: 1;
+}
+
+.root[data-flavor='economic-ledger'] .coverSignature img {
+  width: 13cqi;
+  max-height: 5cqi;
+}
+
+.root[data-flavor='economic-ledger'] .coverNarrative {
+  grid-column: 1;
+}
+
+.root[data-flavor='economic-ledger'] .coverNarrative h1 {
+  font-size: 8.8cqi;
+  font-weight: 350;
+}
+
+.root[data-flavor='economic-ledger'] .coverLedger {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  display: grid;
+  align-content: center;
+  padding: 4cqi 0 0 5cqi;
+}
+
+.root[data-flavor='economic-ledger'] .coverLedger > span {
+  margin-bottom: 2cqi;
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+  text-transform: uppercase;
+}
+
+.root[data-flavor='economic-ledger'] .coverLedger > div {
+  display: grid;
+  grid-template-columns: 5cqi 1fr;
+  align-items: baseline;
+  border-top: 0.12cqi solid currentColor;
+  padding: 1.5cqi 0;
+}
+
+.root[data-flavor='economic-ledger'] .coverLedger small {
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+}
+
+.root[data-flavor='economic-ledger'] .coverLedger strong {
+  font-size: 2.2cqi;
+  font-weight: 400;
+}
+
+.root[data-flavor='economic-ledger'] .sectionCover {
+  color: var(--book-ink);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 7cqi, color-mix(in srgb, currentColor 13%, transparent) 7cqi 7.12cqi);
+}
+
+.root[data-flavor='economic-ledger'] .sectionCoverTitle {
+  grid-template-columns: 0.65fr 1.35fr;
+  align-self: center;
+  border-top: 0.16cqi solid currentColor;
+  border-bottom: 0.16cqi solid currentColor;
+  padding: 3cqi 0;
+}
+
+.root[data-flavor='economic-ledger'] .sectionCoverTitle strong {
+  font-family: var(--book-code), monospace;
+  font-size: 2cqi;
+}
+
+.root[data-flavor='economic-ledger'] .sectionCoverTitle h2 {
+  font-family: var(--book-display), sans-serif;
+  font-size: 8cqi;
+  font-weight: 350;
+}
+
+.root[data-flavor='economic-ledger'] .sectionCoverDevice {
+  position: absolute;
+  right: 5cqi;
+  bottom: 4cqi;
+  display: block;
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+}
+
+.root[data-flavor='economic-ledger'] .sectionIntroduction {
+  grid-template-columns: 0.32fr 1fr;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 6cqi, color-mix(in srgb, currentColor 18%, transparent) 6cqi 6.12cqi);
+}
+
+.root[data-flavor='economic-ledger'] .contentsList > div,
+.root[data-flavor='economic-ledger'] .strategyFlow article,
+.root[data-flavor='economic-ledger'] .typeScaleRows > div {
+  border-color: var(--book-ink);
+}
+
+/* Mintlify / knowledge beam */
+
+.root[data-flavor='knowledge-beam'] .page[data-tone='dark'],
+.root[data-flavor='knowledge-beam'] .bookCover {
+  background: #071611;
+}
+
+.root[data-flavor='knowledge-beam'] .bookCover {
+  grid-template-columns: 0.78fr 1.22fr;
+}
+
+.root[data-flavor='knowledge-beam'] .coverBackdrop {
+  top: 14%;
+  right: 3%;
+  bottom: 8%;
+  left: 42%;
+  border: 0.12cqi solid color-mix(in srgb, var(--book-secondary) 34%, transparent);
+  border-radius: 1.2cqi;
+  opacity: 0.68;
+  box-shadow: 0 0 28cqi color-mix(in srgb, var(--book-secondary) 20%, transparent);
+}
+
+.root[data-flavor='knowledge-beam'] .coverBackdrop::after {
+  background: linear-gradient(100deg, #071611 0 6%, transparent 58%, #071611 100%);
+}
+
+.root[data-flavor='knowledge-beam'] .coverMotif::before {
+  position: absolute;
+  top: -8%;
+  right: 22%;
+  width: 16%;
+  height: 120%;
+  content: '';
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--book-secondary) 42%, transparent), transparent);
+  filter: blur(2.5cqi);
+  opacity: 0.7;
+  transform: rotate(10deg);
+}
+
+.root[data-flavor='knowledge-beam'] .coverNarrative h1 {
+  font-family: var(--book-serif), var(--book-display), sans-serif;
+  font-size: 7cqi;
+  font-weight: 400;
+}
+
+.root[data-flavor='knowledge-beam'] .coverIndex {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  align-self: center;
+  display: grid;
+  margin-left: 7cqi;
+  border: 0.12cqi solid color-mix(in srgb, var(--book-paper) 20%, transparent);
+  border-radius: 1cqi;
+  padding: 2cqi;
+  background: color-mix(in srgb, #071611 82%, transparent);
+  backdrop-filter: blur(1cqi);
+}
+
+.root[data-flavor='knowledge-beam'] .coverIndex span {
+  border-bottom: 0.1cqi solid color-mix(in srgb, var(--book-paper) 14%, transparent);
+  padding: 1.1cqi;
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+}
+
+.root[data-flavor='knowledge-beam'] .coverIndex span:nth-child(3) {
+  color: var(--book-secondary);
+  background: color-mix(in srgb, var(--book-secondary) 10%, transparent);
+}
+
+.root[data-flavor='knowledge-beam'] .sectionCoverMotif::before,
+.root[data-flavor='knowledge-beam'] .sectionIntroductionMotif::before {
+  position: absolute;
+  top: -15%;
+  left: calc(8% + var(--section-offset, 0%));
+  width: 18%;
+  height: 135%;
+  content: '';
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--book-secondary) 42%, transparent), transparent);
+  filter: blur(2.8cqi);
+  transform: rotate(12deg);
+}
+
+.root[data-flavor='knowledge-beam'] .sectionCoverTitle {
+  width: 62%;
+  grid-template-columns: 1fr;
+  border-color: var(--book-secondary);
+}
+
+.root[data-flavor='knowledge-beam'] .sectionCoverTitle strong {
+  color: var(--book-secondary);
+  font-family: var(--book-code), monospace;
+  font-size: 1.7cqi;
+}
+
+.root[data-flavor='knowledge-beam'] .sectionCoverTitle h2 {
+  font-family: var(--book-serif), var(--book-display), sans-serif;
+  font-size: 8.2cqi;
+  font-weight: 400;
+}
+
+.root[data-flavor='knowledge-beam'] .sectionIntroduction {
+  grid-template-columns: 0.7fr 1fr;
+}
+
+.root[data-flavor='knowledge-beam'] .sectionIntroduction > p,
+.root[data-flavor='knowledge-beam'] .contentsPage h1 {
+  font-family: var(--book-serif), var(--book-display), sans-serif;
+  font-weight: 400;
+}
+
+/* Tailwind / utility current */
+
+.root[data-flavor='utility-wave'] .page[data-tone='dark'],
+.root[data-flavor='utility-wave'] .bookCover {
+  background: #0f172a;
+}
+
+.root[data-flavor='utility-wave'] .bookCover {
+  grid-template-columns: 1fr 1fr;
+}
+
+.root[data-flavor='utility-wave'] .coverBackdrop {
+  display: none;
+}
+
+.root[data-flavor='utility-wave'] .coverMotif i {
+  right: -12%;
+  border: 0.75cqi solid var(--book-accent);
+  border-radius: 50%;
+  opacity: 0.68;
+}
+
+.root[data-flavor='utility-wave'] .coverMotif i:nth-child(1) { top: -12%; width: 66%; height: 54%; }
+.root[data-flavor='utility-wave'] .coverMotif i:nth-child(2) { top: 18%; right: -3%; width: 54%; height: 45%; }
+.root[data-flavor='utility-wave'] .coverMotif i:nth-child(3) { right: -15%; bottom: -8%; width: 72%; height: 52%; }
+
+.root[data-flavor='utility-wave'] .coverSignals {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 1cqi;
+  padding-left: 8cqi;
+}
+
+.root[data-flavor='utility-wave'] .coverSignals span {
+  border: 0.12cqi solid color-mix(in srgb, var(--book-accent) 55%, transparent);
+  border-radius: 10cqi;
+  padding: 0.8cqi 1.3cqi;
+  color: var(--book-accent);
+  background: color-mix(in srgb, var(--book-accent) 8%, transparent);
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+}
+
+.root[data-flavor='utility-wave'] .coverNarrative h1 {
+  font-size: 8.8cqi;
+  font-weight: 600;
+}
+
+.root[data-flavor='utility-wave'] .sectionCoverMotif i {
+  right: -8%;
+  width: 54%;
+  height: 43%;
+  border: 0.55cqi solid var(--book-accent);
+  border-radius: 50%;
+  opacity: 0.55;
+}
+
+.root[data-flavor='utility-wave'] .sectionCoverMotif i:nth-child(1) { top: -8%; }
+.root[data-flavor='utility-wave'] .sectionCoverMotif i:nth-child(2) { top: 30%; right: 2%; }
+.root[data-flavor='utility-wave'] .sectionCoverMotif i:nth-child(3) { bottom: -12%; }
+
+.root[data-flavor='utility-wave'] .sectionCoverTitle {
+  grid-template-columns: 1fr;
+  width: 58%;
+  border: 0;
+}
+
+.root[data-flavor='utility-wave'] .sectionCoverTitle strong {
+  color: var(--book-accent);
+  font-family: var(--book-code), monospace;
+  font-size: 1.6cqi;
+}
+
+.root[data-flavor='utility-wave'] .sectionCoverTitle h2 {
+  font-family: var(--book-display), sans-serif;
+  font-size: 8.5cqi;
+  font-weight: 600;
+}
+
+.root[data-flavor='utility-wave'] .microLabel,
+.root[data-flavor='utility-wave'] .pageHeader,
+.root[data-flavor='utility-wave'] .pageFooter {
+  font-family: var(--book-code), monospace;
+}
+
+/* Vite+ / unified terminal */
+
+.root[data-flavor='unified-terminal'] .page[data-tone='dark'],
+.root[data-flavor='unified-terminal'] .bookCover {
+  background: #17131d;
+}
+
+.root[data-flavor='unified-terminal'] .bookCover {
+  grid-template-columns: 0.75fr 1.25fr;
+}
+
+.root[data-flavor='unified-terminal'] .coverBackdrop {
+  display: none;
+}
+
+.root[data-flavor='unified-terminal'] .coverMotif::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 72%;
+  height: 1.2cqi;
+  content: '';
+  background: linear-gradient(90deg, var(--book-accent), var(--book-secondary), var(--book-highlight));
+  box-shadow: 0 0 10cqi color-mix(in srgb, var(--book-accent) 50%, transparent);
+}
+
+.root[data-flavor='unified-terminal'] .coverNarrative h1 {
+  font-size: 7.2cqi;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.root[data-flavor='unified-terminal'] .coverTerminal {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  align-self: center;
+  display: grid;
+  gap: 1.4cqi;
+  min-height: 31cqi;
+  border: 0.12cqi solid color-mix(in srgb, var(--book-paper) 18%, transparent);
+  border-radius: 0.8cqi;
+  padding: 2cqi;
+  background: #0c0910;
+  box-shadow: 0 2cqi 8cqi #0008;
+  font-family: var(--book-code), monospace;
+}
+
+.root[data-flavor='unified-terminal'] .coverTerminal > div {
+  display: flex;
+  gap: 0.7cqi;
+  border-bottom: 0.1cqi solid color-mix(in srgb, var(--book-paper) 13%, transparent);
+  padding-bottom: 1.4cqi;
+  color: var(--book-highlight);
+}
+
+.root[data-flavor='unified-terminal'] .coverTerminal code {
+  color: color-mix(in srgb, var(--book-paper) 70%, transparent);
+  font-size: 1.45cqi;
+}
+
+.root[data-flavor='unified-terminal'] .coverTerminal code:nth-of-type(2) { color: var(--book-secondary); }
+.root[data-flavor='unified-terminal'] .coverTerminal code:nth-of-type(3) { color: var(--book-accent); }
+.root[data-flavor='unified-terminal'] .coverTerminal strong { align-self: end; color: var(--book-highlight); font-size: 4cqi; }
+
+.root[data-flavor='unified-terminal'] .sectionCoverCommand {
+  display: block;
+  align-self: center;
+  border: 0.12cqi solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.5cqi;
+  padding: 2cqi;
+  background: #0c0910;
+  font-family: var(--book-code), monospace;
+  font-size: 1.5cqi;
+}
+
+.root[data-flavor='unified-terminal'] .sectionCoverCommand span { color: var(--book-secondary); }
+.root[data-flavor='unified-terminal'] .sectionCoverTitle { grid-template-columns: 8cqi 1fr; border-color: var(--book-accent); }
+.root[data-flavor='unified-terminal'] .sectionCoverTitle strong,
+.root[data-flavor='unified-terminal'] .sectionCoverTitle h2 { font-family: var(--book-code), monospace; }
+.root[data-flavor='unified-terminal'] .sectionCoverTitle strong { color: var(--book-secondary); font-size: 2cqi; }
+.root[data-flavor='unified-terminal'] .sectionCoverTitle h2 { font-size: 7cqi; font-weight: 700; text-transform: uppercase; }
+.root[data-flavor='unified-terminal'] .sectionIntroduction { background-image: linear-gradient(90deg, color-mix(in srgb, var(--book-accent) 10%, transparent), transparent); }
+
+/* Cloudflare / network horizon */
+
+.root[data-flavor='network-horizon'] .page {
+  border-radius: 0;
+}
+
+.root[data-flavor='network-horizon'] .bookCover {
+  color: var(--book-ink);
+  background: var(--book-paper);
+}
+
+.root[data-flavor='network-horizon'] .coverBackdrop {
+  display: none;
+}
+
+.root[data-flavor='network-horizon'] .coverMotif {
+  inset: 0 0 0 42%;
+  background: linear-gradient(180deg, var(--book-highlight), var(--book-accent));
+}
+
+.root[data-flavor='network-horizon'] .coverMotif::before {
+  position: absolute;
+  top: 22%;
+  right: 12%;
+  width: 44cqi;
+  height: 44cqi;
+  border: 0.22cqi solid var(--book-paper);
+  border-radius: 50%;
+  content: '';
+  box-shadow: 0 0 0 5cqi color-mix(in srgb, var(--book-paper) 12%, transparent), 0 0 0 11cqi color-mix(in srgb, var(--book-paper) 10%, transparent);
+}
+
+.root[data-flavor='network-horizon'] .coverMotif i {
+  width: 1.2cqi;
+  height: 1.2cqi;
+  border: 0.2cqi solid var(--book-paper);
+  border-radius: 50%;
+  background: var(--book-accent);
+}
+
+.root[data-flavor='network-horizon'] .coverMotif i:nth-child(1) { top: 16%; left: 17%; }
+.root[data-flavor='network-horizon'] .coverMotif i:nth-child(2) { top: 30%; right: 18%; }
+.root[data-flavor='network-horizon'] .coverMotif i:nth-child(3) { right: 36%; bottom: 18%; }
+.root[data-flavor='network-horizon'] .coverMotif i:nth-child(4) { bottom: 27%; left: 9%; }
+
+.root[data-flavor='network-horizon'] .coverSignature,
+.root[data-flavor='network-horizon'] .coverNarrative {
+  grid-column: 1;
+  width: 56cqi;
+}
+
+.root[data-flavor='network-horizon'] .coverSignature img { width: 20cqi; }
+.root[data-flavor='network-horizon'] .coverNarrative h1 { font-size: 8.1cqi; font-weight: 500; }
+.root[data-flavor='network-horizon'] .coverNarrative p { max-width: 34cqi; }
+
+.root[data-flavor='network-horizon'] .sectionCover {
+  color: var(--book-ink);
+  background: var(--book-paper);
+}
+
+.root[data-flavor='network-horizon'] .sectionCoverMotif::before {
+  position: absolute;
+  top: -22%;
+  right: -5%;
+  width: 58cqi;
+  height: 58cqi;
+  border: 0.25cqi solid var(--book-accent);
+  border-radius: 50%;
+  content: '';
+  box-shadow: 0 0 0 7cqi color-mix(in srgb, var(--book-accent) 12%, transparent), 0 0 0 14cqi color-mix(in srgb, var(--book-accent) 8%, transparent);
+}
+
+.root[data-flavor='network-horizon'] .sectionCoverTitle {
+  grid-template-columns: 1fr;
+  width: 58%;
+  border-color: var(--book-accent);
+}
+
+.root[data-flavor='network-horizon'] .sectionCoverTitle strong { color: var(--book-accent); font-family: var(--book-code), monospace; font-size: 1.8cqi; }
+.root[data-flavor='network-horizon'] .sectionCoverTitle h2 { font-family: var(--book-display), sans-serif; font-size: 8.8cqi; font-weight: 500; }
+.root[data-flavor='network-horizon'] .sectionIntroductionMotif::before { position: absolute; top: -25%; right: -10%; width: 60cqi; height: 60cqi; border: 0.2cqi solid var(--book-accent); border-radius: 50%; content: ''; opacity: 0.28; }
+
+/* Stripe / programmable dimensional field */
+
+.root[data-flavor='programmable-field'] .page[data-book-page='cover'],
+.root[data-flavor='programmable-field'] .bookCover {
+  color: white;
+  background: #0a2540;
+}
+
+.root[data-flavor='programmable-field'] .coverBackdrop {
+  inset: 0;
+  opacity: 0.28;
+  filter: saturate(1.3) contrast(1.05);
+}
+
+.root[data-flavor='programmable-field'] .coverBackdrop::after {
+  background: linear-gradient(110deg, #0a2540 0 18%, transparent 63%, #0a2540 105%);
+}
+
+.root[data-flavor='programmable-field'] .coverMotif {
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--book-secondary) 75%, transparent), transparent 32%),
+    radial-gradient(circle at 60% 76%, color-mix(in srgb, var(--book-highlight) 72%, transparent), transparent 34%),
+    linear-gradient(125deg, transparent 25%, color-mix(in srgb, var(--book-accent) 70%, transparent) 52%, transparent 78%);
+  opacity: 0.92;
+}
+
+.root[data-flavor='programmable-field'] .coverMotif::before {
+  position: absolute;
+  top: -20%;
+  right: 5%;
+  width: 25%;
+  height: 145%;
+  content: '';
+  background: linear-gradient(180deg, var(--book-secondary), var(--book-accent), var(--book-highlight));
+  filter: blur(5cqi);
+  opacity: 0.65;
+  transform: rotate(24deg);
+}
+
+.root[data-flavor='programmable-field'] .coverNarrative h1 {
+  max-width: 61cqi;
+  font-size: 8.5cqi;
+  font-weight: 350;
+}
+
+.root[data-flavor='programmable-field'] .coverSignals {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1cqi;
+  padding-left: 8cqi;
+}
+
+.root[data-flavor='programmable-field'] .coverSignals span {
+  min-height: 8cqi;
+  display: flex;
+  align-items: flex-end;
+  border: 0.1cqi solid #ffffff38;
+  border-radius: 0.8cqi;
+  padding: 1.2cqi;
+  background: #ffffff0f;
+  box-shadow: inset 0 0 3cqi #ffffff0a;
+  backdrop-filter: blur(1cqi);
+  font-family: var(--book-code), monospace;
+  font-size: 1.2cqi;
+}
+
+.root[data-flavor='programmable-field'] .sectionCover {
+  background:
+    radial-gradient(circle at 78% 20%, color-mix(in srgb, var(--book-secondary) 45%, transparent), transparent 32%),
+    radial-gradient(circle at 60% 85%, color-mix(in srgb, var(--book-highlight) 42%, transparent), transparent 35%),
+    #0a2540;
+}
+
+.root[data-flavor='programmable-field'] .sectionCoverMotif::before {
+  position: absolute;
+  top: -25%;
+  right: 6%;
+  width: 18%;
+  height: 150%;
+  content: '';
+  background: linear-gradient(var(--book-secondary), var(--book-accent), var(--book-highlight));
+  filter: blur(3.5cqi);
+  opacity: 0.65;
+  transform: rotate(22deg);
+}
+
+.root[data-flavor='programmable-field'] .sectionCoverTitle { width: 67%; border: 0; }
+.root[data-flavor='programmable-field'] .sectionCoverTitle strong { font-family: var(--book-code), monospace; font-size: 1.7cqi; }
+.root[data-flavor='programmable-field'] .sectionCoverTitle h2 { font-family: var(--book-display), sans-serif; font-size: 8.4cqi; font-weight: 350; }
+.root[data-flavor='programmable-field'] .sectionIntroduction { background: linear-gradient(120deg, var(--book-accent), var(--book-secondary), var(--book-highlight)); }
+.root[data-flavor='programmable-field'] .contentsPage h1 { color: var(--book-accent); font-family: var(--book-display), sans-serif; font-weight: 350; }
+
+/* Basement / editorial interruption */
+
+.root[data-flavor='editorial-interruption'] .page {
+  border-radius: 0;
+}
+
+.root[data-flavor='editorial-interruption'] .bookCover {
+  grid-template-columns: 1fr;
+  color: var(--book-ink);
+  background: var(--book-paper);
+}
+
+.root[data-flavor='editorial-interruption'] .coverBackdrop {
+  display: none;
+}
+
+.root[data-flavor='editorial-interruption'] .coverMotif i:nth-child(1) {
+  top: 0;
+  right: 9%;
+  width: 15%;
+  height: 100%;
+  background: var(--book-accent);
+}
+
+.root[data-flavor='editorial-interruption'] .coverMotif i:nth-child(2) {
+  top: 33%;
+  right: 0;
+  width: 44%;
+  height: 13%;
+  background: var(--book-ink);
+  transform: rotate(-4deg);
+}
+
+.root[data-flavor='editorial-interruption'] .coverSignature {
+  grid-column: 1;
+  padding: 0;
+}
+
+.root[data-flavor='editorial-interruption'] .coverSignature img {
+  width: 18cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative {
+  grid-column: 1;
+  width: 78%;
+  padding: 0;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative > span {
+  display: none;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative h1 {
+  max-width: 78cqi;
+  font-family: var(--book-display), sans-serif;
+  font-size: 13.6cqi;
+  font-weight: 550;
+  letter-spacing: -0.075em;
+  line-height: 0.78;
+  text-transform: uppercase;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative p {
+  width: 42cqi;
+  margin-left: 28cqi;
+  font-family: var(--book-serif), var(--book-body), sans-serif;
+  font-size: 2.2cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCover {
+  padding: 3cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCoverMotif i:nth-child(1) {
+  top: 0;
+  right: 12%;
+  width: 13%;
+  height: 100%;
+  background: var(--book-accent);
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCoverMotif i:nth-child(2) {
+  right: -4%;
+  bottom: 22%;
+  width: 39%;
+  height: 11%;
+  background: currentColor;
+  transform: rotate(-7deg);
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCoverTitle {
+  grid-template-columns: 1fr;
+  width: 83%;
+  border: 0;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCoverTitle strong {
+  font-family: var(--book-code), monospace;
+  font-size: 1.5cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionCoverTitle h2 {
+  font-family: var(--book-display), sans-serif;
+  font-size: 12cqi;
+  font-weight: 550;
+  letter-spacing: -0.075em;
+  line-height: 0.78;
+  text-transform: uppercase;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionIntroduction {
+  grid-template-columns: 1fr 1fr;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionIntroduction > p {
+  font-family: var(--book-serif), var(--book-body), sans-serif;
+  font-size: 3.4cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .sectionIntroductionMotif i:nth-child(1) {
+  top: 0;
+  right: 12%;
+  width: 11%;
+  height: 100%;
+  background: var(--book-accent);
+  opacity: 0.85;
+}
+
+.root[data-flavor='editorial-interruption'] .contentsPage h1,
+.root[data-flavor='editorial-interruption'] .typefacePage h1 {
+  font-family: var(--book-display), sans-serif;
+  font-weight: 550;
+  text-transform: uppercase;
+}
+
+/* Minimal editorial calibration ------------------------------------------ */
+
+.page::after {
+  opacity: 0.035;
+}
+
+.pageHeader,
+.pageFooter {
+  min-height: 6.5cqi;
+  padding-right: 5.4cqi;
+  padding-left: 5.4cqi;
+  font-size: 1.08cqi;
+  letter-spacing: 0.06em;
+  opacity: 0.52;
+}
+
+.pageHeader {
+  padding-top: 0.8cqi;
+}
+
+.pageFooter {
+  padding-bottom: 0.7cqi;
+}
+
+.pageFooter img {
+  width: 2.8cqi;
+  max-height: 2.8cqi;
+}
+
+.microLabel {
+  gap: 0.8cqi;
+  font-size: 1.08cqi;
+  letter-spacing: 0.09em;
+}
+
+.microLabel::before {
+  width: 0.8cqi;
+  height: 0.8cqi;
+}
+
+.bookCover {
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 2.4cqi 7cqi;
+  padding: 6.2cqi;
+}
+
+.coverTopline {
+  font-size: 1.02cqi;
+  letter-spacing: 0.12em;
+  opacity: 0.68;
+}
+
+.coverSignature {
+  padding-top: 1cqi;
+}
+
+.root[data-flavor] .coverSignature img {
+  max-height: 5.4cqi;
+}
+
+.coverNarrative {
+  gap: 1.1cqi;
+  padding-bottom: 3cqi;
+}
+
+.coverNarrative > span {
+  font-size: 1.02cqi;
+  letter-spacing: 0.11em;
+  opacity: 0.68;
+}
+
+.root[data-flavor] .coverNarrative h1 {
+  max-width: 47cqi;
+  font-size: 5.6cqi;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.root[data-flavor] .coverNarrative p {
+  max-width: 35cqi;
+  font-size: 1.25cqi;
+  line-height: 1.42;
+  opacity: 0.8;
+}
+
+.coverSignals,
+.coverLedger,
+.coverTerminal,
+.coverIndex,
+.sectionCoverCommand,
+.sectionCoverDevice {
+  display: none;
+}
+
+.coverBottom {
+  grid-template-columns: 1fr auto;
+  gap: 2cqi;
+  border-top-width: 0.08cqi;
+  padding-top: 1.25cqi;
+  font-size: 0.95cqi;
+  letter-spacing: 0.08em;
+  opacity: 0.74;
+}
+
+.coverBottom p {
+  display: none;
+}
+
+.coverMarks img {
+  width: 3.1cqi;
+  max-height: 3.1cqi;
+}
+
+.sectionCover {
+  padding: 6.2cqi;
+}
+
+.sectionCoverMeta {
+  font-size: 1.02cqi;
+  letter-spacing: 0.12em;
+  opacity: 0.56;
+}
+
+.sectionCoverTitle {
+  gap: 2cqi;
+  max-width: 58cqi;
+  border-bottom-width: 0.1cqi;
+  padding-bottom: 1.7cqi;
+}
+
+.root[data-flavor] .sectionCoverTitle strong {
+  font-size: 1.18cqi;
+  letter-spacing: 0.08em;
+}
+
+.root[data-flavor] .sectionCoverTitle h2 {
+  font-size: 5.8cqi;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+
+.sectionCover > img {
+  width: 3.2cqi;
+  max-height: 3.2cqi;
+  margin-top: 1.7cqi;
+}
+
+.sectionIntroduction {
+  grid-template-columns: 0.36fr 1fr;
+  gap: 4cqi 8cqi;
+  padding: 7cqi;
+}
+
+.sectionNumeral {
+  font-size: 4cqi;
+  letter-spacing: -0.04em;
+}
+
+.root[data-flavor] .sectionIntroduction > p {
+  max-width: 54cqi;
+  font-size: 2.25cqi;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.sectionIntroductionFooter {
+  gap: 3cqi;
+  border-top-width: 0.08cqi;
+  padding-top: 1.3cqi;
+  font-size: 1.02cqi;
+  letter-spacing: 0.04em;
+}
+
+.sectionIntroductionFooter img {
+  width: 3cqi;
+  max-height: 3cqi;
+}
+
+.foreword {
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 5cqi 10cqi;
+  padding: 6.5cqi;
+}
+
+.foreword blockquote {
+  max-width: 58cqi;
+  font-size: 3.55cqi;
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+}
+
+.foreword > p {
+  font-size: 1.35cqi;
+  line-height: 1.55;
+}
+
+.forewordMeta {
+  border-top-width: 0.08cqi;
+  padding-top: 1.3cqi;
+  font-size: 1.02cqi;
+}
+
+.contentsPage {
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 11cqi;
+  padding: 6cqi;
+}
+
+.contentsPage h1 {
+  font-size: 5.7cqi;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.contentsList > div {
+  grid-template-columns: 5cqi 1fr auto;
+  gap: 1.4cqi;
+  border-top-width: 0.08cqi;
+  padding: 0.82cqi 0;
+  font-size: 1.18cqi;
+}
+
+.statementPage,
+.strategyPage,
+.matrixPage,
+.logoFamilyPage,
+.colorwayPage,
+.typeRolesPage,
+.palettePage,
+.contrastPage,
+.imageLibraryPage,
+.motionPage,
+.iconSystemPage,
+.compositionPage,
+.visualSystemPage,
+.applicationLogicPage,
+.contactSheetPage,
+.typeScalePage,
+.spectrumPage,
+.layoutGridPage {
+  gap: 3.4cqi;
+  padding: 3.5cqi 5.4cqi 4.5cqi;
+}
+
+.statementPage {
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 4cqi 10cqi;
+}
+
+.statementPage h1 {
+  max-width: 57cqi;
+  font-size: 4.75cqi;
+  letter-spacing: -0.04em;
+  line-height: 1.03;
+}
+
+.statementAside {
+  gap: 3cqi;
+  border-left-width: 0.08cqi;
+  padding-left: 2.5cqi;
+}
+
+.statementAside p {
+  font-size: 1.35cqi;
+  line-height: 1.55;
+}
+
+.statementAside span {
+  font-size: 1.08cqi;
+}
+
+.splitStatementPage,
+.voicePage,
+.logoHeroPage,
+.disciplinePage,
+.typefacePage,
+.bodyTypefacePage,
+.imageDirectionPage {
+  padding: 3.5cqi 5.4cqi 4.5cqi;
+}
+
+.splitStatementPage h2 {
+  font-size: 4.1cqi;
+  line-height: 1.06;
+}
+
+.splitStatementPage p {
+  font-size: 1.8cqi;
+  line-height: 1.35;
+}
+
+.voicePage blockquote {
+  max-width: 50cqi;
+  font-size: 4.15cqi;
+  line-height: 1.06;
+}
+
+.logoHeroPage > img,
+.logoHeroPage > strong {
+  width: 25cqi;
+  max-height: 23cqi;
+  font-size: 9cqi;
+}
+
+.typefacePage h1 {
+  font-size: 8cqi;
+  line-height: 0.9;
+}
+
+.bodyTypefacePage h1 {
+  font-size: 5.8cqi;
+  line-height: 0.98;
+}
+
+.typeRolesGrid strong {
+  font-size: 5cqi;
+}
+
+.typeScaleRows > div:nth-child(1) strong {
+  font-size: 4.3cqi;
+}
+
+.typeScaleRows > div:nth-child(2) strong {
+  font-size: 2.9cqi;
+}
+
+.typeSpecimenPage {
+  padding-right: 5.4cqi;
+  padding-left: 5.4cqi;
+  font-size: 6.2cqi;
+  line-height: 0.96;
+}
+
+.contrastGrid strong {
+  font-size: 5.2cqi;
+}
+
+.devicePage > div:last-child {
+  left: 6cqi;
+  width: 43cqi;
+}
+
+.devicePage h1 {
+  font-size: 5cqi;
+  line-height: 1.02;
+}
+
+.patternField span,
+.patternStudy span {
+  font-size: 6.4cqi;
+}
+
+.layoutGrid strong {
+  width: 42cqi;
+  font-size: 4.5cqi;
+  line-height: 1.05;
+}
+
+.showcaseCopy {
+  padding: 6cqi;
+}
+
+.showcaseCopy h1 {
+  font-size: 4.35cqi;
+  line-height: 1.04;
+}
+
+.closingPage {
+  padding: 6.2cqi;
+}
+
+.closingPage h1 {
+  max-width: 62cqi;
+  font-size: 5.6cqi;
+  line-height: 1;
+}
+
+.root[data-flavor='translation-frame'] .coverNarrative h1 {
+  max-width: 62cqi;
+}
+
+.root[data-flavor='translation-frame'] .coverNarrative p {
+  max-width: 36cqi;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative {
+  width: 64%;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative h1,
+.root[data-flavor='editorial-interruption'] .sectionCoverTitle h2 {
+  max-width: 58cqi;
+  font-size: 6.5cqi;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+}
+
+.root[data-flavor='editorial-interruption'] .coverNarrative p {
+  width: 33cqi;
+  margin-left: 14cqi;
+  font-size: 1.3cqi;
+}
+
+.root[data-flavor='programmable-field'] .coverMotif i {
+  width: 9cqi;
+  height: 9cqi;
+  border: 0.08cqi solid #ffffff3d;
+  border-radius: 0.5cqi;
+  background: #ffffff08;
+  backdrop-filter: blur(0.8cqi);
+}
+
+.root[data-flavor='programmable-field'] .coverMotif i:nth-child(1) { top: 31%; right: 20%; }
+.root[data-flavor='programmable-field'] .coverMotif i:nth-child(2) { top: 31%; right: 9%; }
+.root[data-flavor='programmable-field'] .coverMotif i:nth-child(3) { top: calc(31% + 11cqi); right: 20%; }
+.root[data-flavor='programmable-field'] .coverMotif i:nth-child(4) { top: calc(31% + 11cqi); right: 9%; }
+.root[data-flavor='programmable-field'] .coverMotif i:nth-child(n + 5) { display: none; }
+
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(1) {
+  top: 26%;
+  right: 8%;
+  width: 36%;
+  height: 42%;
+  border: 0.08cqi solid color-mix(in srgb, var(--book-paper) 22%, transparent);
+}
+
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(2),
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(3) {
+  right: 12%;
+  height: 0.08cqi;
+  background: var(--book-secondary);
+}
+
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(2) { top: 37%; width: 23%; }
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(3) { top: 44%; width: 16%; background: var(--book-accent); }
+
+.root[data-flavor='unified-terminal'] .coverMotif i:nth-child(4) {
+  right: 12%;
+  bottom: 38%;
+  width: 5.5cqi;
+  height: 5.5cqi;
+  border: 0.08cqi solid var(--book-highlight);
+}
+
+.root[data-flavor='unified-terminal'] .bookCover {
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+.root[data-flavor='unified-terminal'] .coverNarrative h1 {
+  max-width: 46cqi;
+  font-size: 4.75cqi;
+  line-height: 0.98;
+}
+
+/* Content-first refinement ------------------------------------------------ */
+
+.pageHeader {
+  justify-content: flex-start;
+  font-family: var(--book-body), sans-serif;
+  font-weight: 520;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.42;
+}
+
+.pageFooter {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  opacity: 0.42;
+}
+
+.bookCover {
+  grid-template-rows: auto 1fr auto;
+}
+
+.coverSignature {
+  grid-row: 1;
+}
+
+.coverNarrative {
+  grid-row: 2;
+}
+
+.coverBottom {
+  grid-row: 3;
+}
+
+.root[data-flavor] .sectionCover {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(22cqi, 0.75fr);
+  grid-template-rows: 1fr;
+  place-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+
+.root[data-flavor] .sectionCover::before {
+  display: none;
+}
+
+.root[data-flavor] .sectionCoverTitle {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.2cqi;
+  max-width: none;
+  border: 0;
+  padding: 6.2cqi;
+  text-align: left;
+}
+
+.root[data-flavor] .sectionCoverTitle strong {
+  font-size: 1.15cqi;
+  letter-spacing: 0.1em;
+}
+
+.root[data-flavor] .sectionCoverTitle h2 {
+  max-width: 52cqi;
+  font-size: 7.2cqi;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+}
+
+.root[data-flavor] .sectionCoverDescription {
+  grid-row: 1;
+  grid-column: 2;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: none;
+  margin: 0;
+  border-left: 1px solid currentColor;
+  padding: 6.2cqi;
+  font-family: var(--book-body), sans-serif;
+  font-size: 1.35cqi;
+  line-height: 1.5;
+  opacity: 0.68;
+}
+
+.foreword {
+  grid-template-rows: 1fr auto;
+}
+
+.statementPage,
+.clearspacePage,
+.logoHeroPage,
+.bodyTypefacePage,
+.patternPage,
+.iconConstructionPage {
+  grid-template-rows: 1fr;
+}
+
+.strategyPage,
+.matrixPage,
+.logoFamilyPage,
+.colorwayPage,
+.typeRolesPage,
+.palettePage,
+.contrastPage,
+.imageLibraryPage,
+.motionPage,
+.iconSystemPage,
+.compositionPage,
+.visualSystemPage,
+.applicationLogicPage,
+.contactSheetPage,
+.typeScalePage,
+.layoutGridPage {
+  grid-template-rows: 1fr;
+  gap: 0;
+}
+
+.typefacePage {
+  grid-template-rows: 1fr auto;
+}
+
+.spectrumPage {
+  grid-template-rows: 1fr auto;
+}
+
+.strategyFlow {
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+  gap: 4cqi;
+  box-sizing: border-box;
+  padding: 7cqi 0;
+}
+
+.strategyFlow article {
+  min-height: 0;
+  justify-content: flex-end;
+}
+
+.splitStatementPage h3,
+.voiceColumns h3 {
+  margin: 0;
+  font-family: var(--book-body), sans-serif;
+  font-size: 1.4cqi;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.clearspaceDiagram {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+  background: transparent;
+}
+
+.clearspaceDiagram::before {
+  border-style: solid;
+  border-width: 0.1cqi;
+  opacity: 0.66;
+}
+
+.iconConstructionGrid {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+  background: transparent;
+}
+
+.iconGrid {
+  grid-template-rows: 1fr;
+}
+
 .reader {
   width: 100%;
   min-height: 100%;
@@ -1553,7 +3275,7 @@
 
 .readerPage .page {
   border-radius: calc(var(--book-radius) * 0.4);
-  box-shadow: 0 28px 70px #2726222b, 0 3px 12px #27262221;
+  box-shadow: var(--studio-shadow-xl);
 }
 
 .readerArrow {
@@ -1575,6 +3297,315 @@
 @keyframes page-enter {
   from { opacity: 0; transform: translateY(7px) scale(0.995); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Flat editorial rules --------------------------------------------------- */
+
+.root,
+.root *,
+.page,
+.page *,
+.page *::before,
+.page *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.page,
+.page *,
+.page *::before,
+.page *::after {
+  background-image: none !important;
+}
+
+.page::after,
+.coverBackdrop,
+.coverBackdrop::after,
+.coverMotif,
+.coverSignal,
+.devicePage::after,
+.sectionCoverMotif,
+.sectionIntroductionMotif,
+.showcasePage[data-layout='2']::after {
+  display: none;
+}
+
+.pageButton .page,
+.readerPage .page,
+.pageButton:hover .page {
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.page,
+.typeScaleRows > div,
+.iconGrid,
+.iconGrid > div,
+.applicationLogicGrid,
+.applicationLogicGrid article,
+.imageDirectionPage > div:last-child {
+  border-width: 1px;
+}
+
+.contentsList > div,
+.matrixGrid,
+.matrixGrid article,
+.disciplinePage > div,
+.typeRolesGrid article,
+.iconConstructionGrid,
+.iconMetrics span,
+.compositionRules article,
+.clearspaceDiagram::before {
+  border: 0;
+}
+
+.sectionCover::before {
+  right: 0;
+  left: 0;
+  height: 1px;
+}
+
+.coverBottom {
+  position: relative;
+  border-top: 0;
+}
+
+.coverBottom::before {
+  position: absolute;
+  top: 0;
+  right: -6.2cqi;
+  left: -6.2cqi;
+  height: 1px;
+  background: currentColor;
+  content: '';
+  opacity: 0.72;
+}
+
+.forewordMeta,
+.closingPage > div {
+  position: relative;
+  border-top: 0;
+}
+
+.forewordMeta::before,
+.closingPage > div::before {
+  position: absolute;
+  top: 0;
+  right: -6.5cqi;
+  left: -6.5cqi;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.strategyFlow {
+  position: relative;
+}
+
+.strategyFlow::before {
+  position: absolute;
+  top: 0;
+  right: -5.4cqi;
+  left: -5.4cqi;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.strategyFlow article,
+.splitStatementPage > div,
+.voiceColumns > div,
+.logoHeroPage > p,
+.motionCards article {
+  border-top: 0;
+}
+
+.statementAside {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.splitStatementPage {
+  position: relative;
+}
+
+.splitStatementPage::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.typeScalePage {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.typeScaleRows > div {
+  padding-right: 5.4cqi;
+  padding-left: 5.4cqi;
+}
+
+.clearspacePage {
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 0;
+  padding: 0;
+}
+
+.clearspaceDiagram {
+  border: 0;
+}
+
+.clearspaceDiagram::before {
+  display: none;
+}
+
+.clearspacePage > p {
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  box-sizing: border-box;
+  margin: 0;
+  border-left: 1px solid currentColor;
+  padding: 6cqi;
+}
+
+.devicePage > div:last-child {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 44cqi;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  border-right: 1px solid currentColor;
+  padding: 5cqi;
+  color: var(--book-paper);
+  background: var(--book-deep);
+  transform: none;
+}
+
+.devicePage h1 {
+  margin-top: 0;
+}
+
+.imageDirectionPage {
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 0;
+  padding: 0;
+}
+
+.imageDirectionPage > div:last-child {
+  border: 0;
+  border-left: 1px solid currentColor;
+  padding: 6cqi;
+}
+
+.imageDirectionPage > div:first-child {
+  background: var(--book-deep);
+}
+
+.imageLibraryPage,
+.visualSystemPage,
+.contactSheetPage,
+.layoutGridPage,
+.patternPage {
+  gap: 0;
+  padding: 0;
+}
+
+.imageLibraryGrid,
+.visualSystemGrid,
+.contactSheetGrid {
+  gap: 1px;
+  background: var(--book-paper);
+}
+
+.iconSystemPage,
+.iconRulesPage,
+.applicationLogicPage {
+  padding: 6cqi;
+}
+
+.iconGrid,
+.applicationLogicGrid {
+  gap: 5cqi;
+  border: 0;
+  background: transparent;
+}
+
+.iconGrid > div,
+.applicationLogicGrid article {
+  border: 0;
+  color: var(--book-ink);
+  background: transparent;
+}
+
+.applicationLogicGrid article {
+  padding: 0;
+}
+
+.iconRulesPage {
+  gap: 5cqi;
+}
+
+.iconRulesPage article {
+  border: 0;
+  padding: 0;
+}
+
+.iconRulesPage article + article {
+  border-left: 0;
+}
+
+.compositionRules {
+  gap: 4cqi;
+}
+
+.compositionRules article {
+  border: 0;
+  padding: 0;
+}
+
+.patternPage {
+  grid-template-columns: 1.35fr 0.65fr;
+  grid-template-rows: 1fr;
+}
+
+.patternPage > p {
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  box-sizing: border-box;
+  margin: 0;
+  border-left: 1px solid currentColor;
+  padding: 6cqi;
+}
+
+.patternStudy {
+  min-width: 0;
+  min-height: 0;
+}
+
+.layoutGrid {
+  border: 0;
+  padding: 5cqi;
+}
+
+.showcasePage[data-layout='2'] .showcaseImage {
+  opacity: 1;
+}
+
+.showcasePage[data-layout='2'] .showcaseCopy {
+  width: 42%;
+  border-right: 1px solid var(--book-paper);
+  color: var(--book-paper);
+  background: var(--book-deep);
 }
 
 @container brand-book (max-width: 860px) {

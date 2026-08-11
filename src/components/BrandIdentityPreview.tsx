@@ -105,6 +105,7 @@ export default function BrandIdentityPreview({
   const detail = libraryAsset(identity, 'library-detail');
   const atmosphere = libraryAsset(identity, 'library-atmosphere');
   const interfaceEvidence = libraryAsset(identity, 'library-interface');
+  const languageConstellation = libraryAsset(identity, 'library-constellation');
 
   if (recipe === 'translation-frame') {
     const savedGreetings = identity.greetings.includes('환영합니다')
@@ -123,17 +124,21 @@ export default function BrandIdentityPreview({
     return (
       <PreviewShell identity={identity}>
         <div aria-hidden='true' className='brand-art-gt-material'>
-          <div className='brand-art-gt-metal-stage'>
-            {greetings.map((greeting) => (
-              <span
-                className='brand-art-gt-metal-language'
-                dir={/[\u0600-\u06ff]/.test(greeting) ? 'rtl' : undefined}
-                key={greeting}
-              >
-                {greeting}
-              </span>
-            ))}
-          </div>
+          {languageConstellation ? (
+            <EvidenceImage asset={languageConstellation} className='brand-art-gt-constellation' />
+          ) : (
+            <div className='brand-art-gt-metal-stage'>
+              {greetings.map((greeting) => (
+                <span
+                  className='brand-art-gt-metal-language'
+                  dir={/[\u0600-\u06ff]/.test(greeting) ? 'rtl' : undefined}
+                  key={greeting}
+                >
+                  {greeting}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <header className='brand-art-gt-header'>
           <Mark name={identity.name} path={lightMark} />

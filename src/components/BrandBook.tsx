@@ -40,10 +40,13 @@ import {
 import { mixHexColors } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 
+import ThemeAwareBrandMark from './ThemeAwareBrandMark';
+
 import styles from './BrandBook.module.css';
 
 type BookTone = 'accent' | 'dark' | 'muted' | 'paper';
 type BookMode = 'overview' | 'reader';
+type BookFlavor = BrandIdentity['artDirection']['preview'];
 
 type BookSection = {
   description: string;
@@ -72,6 +75,62 @@ const BOOK_SECTIONS: readonly BookSection[] = [
 ];
 
 const INTRO_SECTION = -1;
+
+const ABSTRACT_ASSET_ORDER = [
+  'library-atmosphere',
+  'library-detail',
+  'library-campaign',
+  'library-signal',
+  'library-editorial',
+  'library-motion',
+  'identity-field',
+  'library-advance',
+  'library-constellation',
+  'library-overview',
+  'library-workflow',
+  'library-hero',
+  'library-material',
+  'library-system',
+  'library-interface',
+] as const;
+
+const APPLICATION_ASSET_ORDER = [
+  'library-advance',
+  'library-constellation',
+  'library-overview',
+  'library-campaign',
+  'library-hero',
+  'library-editorial',
+  'library-workflow',
+  'library-detail',
+  'library-motion',
+  'library-interface',
+  'library-system',
+  'library-signal',
+  'library-material',
+  'library-atmosphere',
+  'identity-field',
+] as const;
+
+function orderUniqueAssets(
+  assets: readonly BrandAsset[],
+  priority: readonly string[]
+): BrandAsset[] {
+  const byId = new Map(assets.map((asset) => [asset.id, asset]));
+  const ordered = priority.flatMap((id) => {
+    const asset = byId.get(id);
+    return asset ? [asset] : [];
+  });
+  const usedPaths = new Set(ordered.map((asset) => asset.path));
+
+  for (const asset of assets) {
+    if (usedPaths.has(asset.path)) continue;
+    ordered.push(asset);
+    usedPaths.add(asset.path);
+  }
+
+  return ordered;
+}
 
 function colorById(identity: BrandIdentity, id: string, fallbackIndex: number): string {
   return identity.colors.find((color) => color.id === id)?.hex
@@ -104,9 +163,28 @@ function contrastText(background: string, dark = '#121212', light = '#FFFFFF'): 
   return contrastRatio(background, light) >= contrastRatio(background, dark) ? light : dark;
 }
 
-function sectionLabel(sectionId: number): string {
-  const section = BOOK_SECTIONS.find(({ id }) => id === sectionId);
-  return section ? `${section.id}.0 ${section.name}` : 'Brand book';
+function coverTone(flavor: BookFlavor): BookTone {
+  if (flavor === 'economic-ledger' || flavor === 'editorial-interruption' || flavor === 'network-horizon') {
+    return 'paper';
+  }
+  return 'dark';
+}
+
+function sectionCoverTone(flavor: BookFlavor, sectionId: number): BookTone {
+  if (flavor === 'economic-ledger') return sectionId % 3 === 0 ? 'accent' : 'paper';
+  if (flavor === 'editorial-interruption') return sectionId % 2 === 0 ? 'paper' : 'dark';
+  if (flavor === 'network-horizon') return sectionId % 2 === 0 ? 'paper' : 'accent';
+  if (flavor === 'focus-window') return sectionId % 3 === 1 ? 'accent' : 'dark';
+  if (flavor === 'translation-frame') return sectionId % 2 === 0 ? 'dark' : 'paper';
+  return 'dark';
+}
+
+function flatVisualCopy(value: string): string {
+  return value
+    .replace(/\bGradients\b/g, 'Color planes')
+    .replace(/\bgradients\b/g, 'color planes')
+    .replace(/\bGradient\b/g, 'Color')
+    .replace(/\bgradient\b/g, 'color');
 }
 
 function BookImage({ asset, identity, position = 'center' }: {
@@ -126,6 +204,7 @@ function BookImage({ asset, identity, position = 'center' }: {
     <img
       alt={asset.alt ?? asset.label}
       className={styles.bookImage}
+      data-asset-id={asset.id}
       data-treatment={identity.style.imageTreatment}
       src={asset.path}
       style={{ objectPosition: position }}
@@ -142,65 +221,75 @@ function PageFrame({
   pageNumber: number;
   spec: BookPageSpec;
 }) {
-  const lightMark = brandAssetPath(identity, 'mark-light') ?? brandAssetPath(identity, 'mark-dark');
-  const darkMark = brandAssetPath(identity, 'mark-dark') ?? lightMark;
-  const logo = spec.tone === 'dark' ? lightMark : darkMark;
-
   return (
     <article
       aria-label={`${pageNumber}. ${spec.title}`}
       className={styles.page}
+      data-brand={identity.id}
       data-book-page={spec.id}
       data-chrome={spec.showChrome === false ? 'false' : 'true'}
+      data-flavor={identity.artDirection.preview}
+      data-section={spec.section}
       data-tone={spec.tone ?? 'paper'}
     >
       {spec.showChrome === false ? null : (
         <header className={styles.pageHeader}>
-          <span>{identity.name} / Brand book</span>
-          <span>{sectionLabel(spec.section)}</span>
+          <span>{spec.title}</span>
         </header>
       )}
       <div className={styles.pageContent}>{spec.content}</div>
       {spec.showChrome === false ? null : (
         <footer className={styles.pageFooter}>
           <span>{String(pageNumber).padStart(2, '0')}</span>
-          {logo ? <img alt='' aria-hidden='true' src={logo} /> : <span>{identity.shortName}</span>}
         </footer>
       )}
     </article>
   );
 }
 
-function SectionCover({ identity, section }: { identity: BrandIdentity; section: BookSection }) {
-  const mark = brandAssetPath(identity, 'mark-light') ?? brandAssetPath(identity, 'mark-dark');
+function SectionCover({ section }: { section: BookSection }) {
   return (
     <div className={styles.sectionCover}>
-      <div className={styles.sectionCoverMeta}>
-        <span>{identity.name}</span>
-        <span>Identity standards / {String(section.id + 1).padStart(2, '0')}</span>
-      </div>
       <div className={styles.sectionCoverTitle}>
         <strong>{section.id}.0</strong>
         <h2>{section.name}</h2>
       </div>
-      {mark ? <img alt='' aria-hidden='true' src={mark} /> : null}
+      <p className={styles.sectionCoverDescription}>{section.description}</p>
     </div>
   );
 }
 
-function SectionIntroduction({ identity, section, text }: {
+function BrandBookCover({
+  asset,
+  identity,
+}: {
+  asset?: BrandAsset;
   identity: BrandIdentity;
-  section: BookSection;
-  text: string;
 }) {
-  const mark = brandAssetPath(identity, 'mark-dark');
+  const darkMark = brandAssetPath(identity, 'mark-dark');
+  const lightMark = brandAssetPath(identity, 'mark-light') ?? darkMark;
+  const darkWordmark = brandAssetPath(identity, 'wordmark') ?? darkMark;
+  const lightWordmark = brandAssetPath(identity, 'wordmark-light') ?? lightMark;
+
   return (
-    <div className={styles.sectionIntroduction}>
-      <span className={styles.sectionNumeral}>{section.id}.0</span>
-      <p>{text}</p>
-      <div className={styles.sectionIntroductionFooter}>
-        <span>{section.description}</span>
-        {mark ? <img alt='' aria-hidden='true' src={mark} /> : null}
+    <div className={styles.bookCover}>
+      <div className={styles.coverBackdrop}>
+        <BookImage asset={asset} identity={identity} />
+      </div>
+      <div className={styles.coverSignature}>
+        {darkWordmark ? <img alt={`${identity.name} wordmark`} className={styles.coverLogoDark} src={darkWordmark} /> : <strong>{identity.name}</strong>}
+        {lightWordmark ? <img alt='' aria-hidden='true' className={styles.coverLogoLight} src={lightWordmark} /> : null}
+      </div>
+      <div className={styles.coverNarrative}>
+        <h1>{identity.tagline}</h1>
+        <p>{identity.strategy.concept}</p>
+      </div>
+      <div className={styles.coverBottom}>
+        <span>{identity.website}</span>
+        <span className={styles.coverMarks}>
+          {darkMark ? <img alt='' aria-hidden='true' className={styles.coverLogoDark} src={darkMark} /> : null}
+          {lightMark ? <img alt='' aria-hidden='true' className={styles.coverLogoLight} src={lightMark} /> : null}
+        </span>
       </div>
     </div>
   );
@@ -208,6 +297,8 @@ function SectionIntroduction({ identity, section, text }: {
 
 function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   const pages: BookPageSpec[] = [];
+  const sectionPageNumbers = [4, 10, 16, 22, 27, 33, 37, 42] as const;
+  const flavor = identity.artDirection.preview;
   const paper = colorById(identity, 'paper', 1);
   const ink = colorById(identity, 'ink', 0);
   const accent = colorById(identity, 'emphasis', 3);
@@ -222,26 +313,31 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   const allVisualAssets = visualAssets.length > 0
     ? visualAssets
     : identity.assets.filter((asset) => asset.type !== 'logo');
-  const image = (index: number) => allVisualAssets[index % Math.max(1, allVisualAssets.length)];
+  const abstractAssets = orderUniqueAssets(
+    allVisualAssets,
+    ABSTRACT_ASSET_ORDER
+  );
+  const applicationAssets = orderUniqueAssets(
+    allVisualAssets.filter((asset) => ['image', 'motion', 'product'].includes(asset.type)),
+    APPLICATION_ASSET_ORDER
+  );
+  const abstractImage = (index: number) => abstractAssets[index % Math.max(1, abstractAssets.length)];
+  const applicationImage = (index: number) => {
+    const assets = applicationAssets.length > 0 ? applicationAssets : abstractAssets;
+    return assets[index % Math.max(1, assets.length)];
+  };
+  const identityField = identity.assets.find((asset) => asset.id === 'identity-field') ?? abstractImage(0);
   const section = (id: number) => BOOK_SECTIONS.find((candidate) => candidate.id === id)!;
   const add = (spec: BookPageSpec) => pages.push(spec);
-  const addSectionStart = (id: number, introduction: string) => {
+  const addSectionStart = (id: number) => {
     const activeSection = section(id);
     add({
       id: `${id}-cover`,
       section: id,
       showChrome: false,
       title: activeSection.name,
-      tone: 'dark',
-      content: <SectionCover identity={identity} section={activeSection} />,
-    });
-    add({
-      id: `${id}-introduction`,
-      section: id,
-      showChrome: false,
-      title: `${activeSection.name} introduction`,
-      tone: 'accent',
-      content: <SectionIntroduction identity={identity} section={activeSection} text={introduction} />,
+      tone: sectionCoverTone(flavor, id),
+      content: <SectionCover section={activeSection} />,
     });
   };
 
@@ -250,28 +346,8 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     section: INTRO_SECTION,
     showChrome: false,
     title: 'Brand book',
-    tone: 'dark',
-    content: (
-      <div className={styles.bookCover}>
-        <div className={styles.coverSignal} aria-hidden='true'>
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className={styles.coverTopline}>
-          <span>{identity.name}</span>
-          <span>Edition {new Date().getFullYear()}</span>
-        </div>
-        <div className={styles.coverTitle}>
-          <span>Brand</span>
-          <span>Book</span>
-        </div>
-        <div className={styles.coverBottom}>
-          <p>{identity.tagline}</p>
-          {lightMark ? <img alt={`${identity.name} mark`} src={lightMark} /> : null}
-        </div>
-      </div>
-    ),
+    tone: coverTone(flavor),
+    content: <BrandBookCover asset={identityField} identity={identity} />,
   });
   add({
     id: 'foreword',
@@ -281,12 +357,10 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     tone: 'accent',
     content: (
       <div className={styles.foreword}>
-        <span className={styles.microLabel}>Introduction / {identity.shortName}</span>
         <blockquote>{identity.description}</blockquote>
         <p>This document defines the ideas and repeatable choices that make {identity.name} recognizable. Use it as a shared standard—not a collection of decoration.</p>
         <div className={styles.forewordMeta}>
           <span>Built for {identity.audiences.slice(0, 2).join(' and ').toLocaleLowerCase()}.</span>
-          <span>Revision {identity.revision}</span>
         </div>
       </div>
     ),
@@ -299,11 +373,11 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
       <div className={styles.contentsPage}>
         <h1>Table of Contents</h1>
         <div className={styles.contentsList}>
-          {BOOK_SECTIONS.map((item) => (
+          {BOOK_SECTIONS.map((item, index) => (
             <div key={item.id}>
               <span>{item.id}.0</span>
               <strong>{item.name}</strong>
-              <span>{String(item.id * 6 + 4).padStart(2, '0')}</span>
+              <span>{String(sectionPageNumbers[index]).padStart(2, '0')}</span>
             </div>
           ))}
         </div>
@@ -311,14 +385,13 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(0, identity.dossier.premise);
+  addSectionStart(0);
   add({
     id: '0-premise',
     section: 0,
     title: 'Brand premise',
     content: (
       <div className={styles.statementPage}>
-        <span className={styles.microLabel}>Premise</span>
         <h1>{identity.strategy.concept}</h1>
         <div className={styles.statementAside}>
           <p>{identity.positioning}</p>
@@ -333,12 +406,9 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Strategy',
     content: (
       <div className={styles.strategyPage}>
-        <span className={styles.microLabel}>Strategy / from challenge to outcome</span>
         <div className={styles.strategyFlow}>
           <article><span>01</span><h2>Challenge</h2><p>{identity.strategy.challenge}</p></article>
-          <i aria-hidden='true' />
           <article><span>02</span><h2>Promise</h2><p>{identity.strategy.promise}</p></article>
-          <i aria-hidden='true' />
           <article><span>03</span><h2>Outcome</h2><p>{identity.strategy.outcome}</p></article>
         </div>
       </div>
@@ -351,8 +421,8 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     tone: 'muted',
     content: (
       <div className={styles.splitStatementPage}>
-        <div><span className={styles.microLabel}>Mission</span><h2>{identity.mission}</h2></div>
-        <div><span className={styles.microLabel}>Position</span><p>{identity.positioning}</p></div>
+        <div><h3>Mission</h3><h2>{identity.mission}</h2></div>
+        <div><h3>Position</h3><p>{identity.positioning}</p></div>
       </div>
     ),
   });
@@ -362,7 +432,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Audience and personality',
     content: (
       <div className={styles.matrixPage}>
-        <span className={styles.microLabel}>Audience × personality</span>
         <div className={styles.matrixGrid}>
           {identity.audiences.slice(0, 4).map((audience, index) => (
             <article key={audience}>
@@ -383,21 +452,20 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
       <div className={styles.voicePage}>
         <blockquote>“{identity.voice.phrases[0] ?? identity.tagline}”</blockquote>
         <div className={styles.voiceColumns}>
-          <div><span className={styles.microLabel}>Sound like</span>{identity.voice.principles.map((item) => <p key={item}><Check />{item}</p>)}</div>
-          <div><span className={styles.microLabel}>Never sound like</span>{identity.voice.avoid.map((item) => <p key={item}><X />{item}</p>)}</div>
+          <div><h3>Sound like</h3>{identity.voice.principles.map((item) => <p key={item}><Check />{item}</p>)}</div>
+          <div><h3>Never sound like</h3>{identity.voice.avoid.map((item) => <p key={item}><X />{item}</p>)}</div>
         </div>
       </div>
     ),
   });
 
-  addSectionStart(1, identity.dossier.logo);
+  addSectionStart(1);
   add({
     id: '1-primary',
     section: 1,
     title: 'Primary mark',
     content: (
       <div className={styles.logoHeroPage}>
-        <span className={styles.microLabel}>Primary mark</span>
         {darkMark ? <img alt={`${identity.name} primary mark`} src={darkMark} /> : <strong>{identity.shortName}</strong>}
         <p>The mark is a signature, not a decoration. Give it enough quiet space to remain exact and immediately recognizable.</p>
       </div>
@@ -409,7 +477,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Logo family',
     content: (
       <div className={styles.logoFamilyPage}>
-        <span className={styles.microLabel}>Responsive logo family</span>
         <div className={styles.logoFamilyGrid}>
           <div>{darkMark ? <img alt='Primary mark on light' src={darkMark} /> : null}<span>Mark / light</span></div>
           <div>{wordmark ? <img alt='Primary wordmark on light' src={wordmark} /> : null}<span>Wordmark / light</span></div>
@@ -422,11 +489,11 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   add({
     id: '1-clearspace',
     section: 1,
+    showChrome: false,
     title: 'Clear space',
     tone: 'muted',
     content: (
       <div className={styles.clearspacePage}>
-        <span className={styles.microLabel}>Clear space / minimum field</span>
         <div className={styles.clearspaceDiagram}>
           <span className={styles.measureTop}>1×</span><span className={styles.measureSide}>1×</span>
           {darkMark ? <img alt={`${identity.name} mark clear-space diagram`} src={darkMark} /> : null}
@@ -441,7 +508,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Logo colorways',
     content: (
       <div className={styles.colorwayPage}>
-        <span className={styles.microLabel}>Approved surface behavior</span>
         <div className={styles.colorwayGrid}>
           {[paper, muted, accent, ink].map((color, index) => {
             const isDark = contrastText(color) === '#FFFFFF';
@@ -464,7 +530,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(2, identity.dossier.typography);
+  addSectionStart(2);
   const displayType = identity.typography.find((font) => font.role === 'Display') ?? identity.typography[0];
   const bodyType = identity.typography.find((font) => font.role === 'Body') ?? identity.typography[1] ?? displayType;
   add({
@@ -473,7 +539,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Display typeface',
     content: (
       <div className={styles.typefacePage}>
-        <span className={styles.microLabel}>Primary / display</span>
         <h1>{displayType?.family ?? 'Display'}</h1>
         <div className={styles.typefaceAlphabet}>Aa Bb Cc Dd<br />0123456789</div>
         <p>{displayType?.usage}</p>
@@ -486,7 +551,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Body typeface',
     content: (
       <div className={styles.bodyTypefacePage}>
-        <span className={styles.microLabel}>Secondary / body</span>
         <h1 style={{ fontFamily: bodyType?.family }}>{bodyType?.family ?? 'Body'}</h1>
         <div>
           <p style={{ fontFamily: bodyType?.family }}>{identity.description}</p>
@@ -501,7 +565,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Typographic roles',
     content: (
       <div className={styles.typeRolesPage}>
-        <span className={styles.microLabel}>System roles</span>
         <div className={styles.typeRolesGrid}>
           {identity.typography.map((type) => (
             <article key={type.role} style={{ fontFamily: type.family }}>
@@ -519,7 +582,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     tone: 'muted',
     content: (
       <div className={styles.typeScalePage}>
-        <span className={styles.microLabel}>Recommended hierarchy</span>
         <div className={styles.typeScaleRows}>
           <div><span>Display / 96</span><strong>{identity.tagline}</strong></div>
           <div><span>Heading / 48</span><strong>{identity.strategy.promise}</strong></div>
@@ -543,14 +605,13 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(3, identity.dossier.color);
+  addSectionStart(3);
   add({
     id: '3-palette',
     section: 3,
     title: 'Core palette',
     content: (
       <div className={styles.palettePage}>
-        <span className={styles.microLabel}>Core palette / semantic roles</span>
         <div className={styles.paletteGrid}>
           {identity.colors.map((color) => (
             <article key={color.id} style={{ background: color.hex, color: contrastText(color.hex) }}>
@@ -581,7 +642,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Tonal spectrum',
     content: (
       <div className={styles.spectrumPage}>
-        <span className={styles.microLabel}>Tonal range / {identity.colors[3]?.name}</span>
         <div className={styles.spectrumBars}>
           {Array.from({ length: 11 }, (_, index) => {
             const color = mixHexColors(index < 5 ? ink : accent, index < 5 ? accent : paper, index < 5 ? index / 5 : (index - 5) / 5);
@@ -598,7 +658,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Contrast pairings',
     content: (
       <div className={styles.contrastPage}>
-        <span className={styles.microLabel}>Contrast / WCAG reference</span>
         <div className={styles.contrastGrid}>
           {[[ink, paper], [ink, muted], [accent, paper], [accent, ink]].map(([foreground, background], index) => {
             const ratio = contrastRatio(foreground, background);
@@ -609,51 +668,53 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(4, identity.dossier.imagery);
+  addSectionStart(4);
   add({
     id: '4-device',
     section: 4,
+    showChrome: false,
     title: 'Graphic device',
     tone: 'dark',
     content: (
       <div className={styles.devicePage}>
-        <BookImage asset={image(0)} identity={identity} />
-        <div><span className={styles.microLabel}>Graphic device</span><h1>{identity.graphicSystem.device}</h1><p>{identity.graphicSystem.description}</p></div>
+        <BookImage asset={abstractImage(0)} identity={identity} />
+        <div><h1>{identity.graphicSystem.device}</h1><p>{flatVisualCopy(identity.graphicSystem.description)}</p></div>
       </div>
     ),
   });
   add({
     id: '4-library',
     section: 4,
+    showChrome: false,
     title: 'Image library',
     content: (
       <div className={styles.imageLibraryPage}>
-        <span className={styles.microLabel}>Image direction / selected field</span>
-        <div className={styles.imageLibraryGrid}>{[1, 2, 3, 4].map((index) => <div key={index}><BookImage asset={image(index)} identity={identity} /></div>)}</div>
+        <div className={styles.imageLibraryGrid}>{[1, 2, 3, 4].map((index) => <div key={index}><BookImage asset={abstractImage(index)} identity={identity} /></div>)}</div>
       </div>
     ),
   });
   add({
     id: '4-direction',
     section: 4,
+    showChrome: false,
     title: 'Image direction',
     content: (
       <div className={styles.imageDirectionPage}>
-        <div><BookImage asset={image(5)} identity={identity} /></div>
-        <div><span className={styles.microLabel}>Direction</span><h2>{identity.graphicSystem.imageDirection}</h2><p>{identity.dossier.renderingRecipe.join(' · ')}</p></div>
+        <div><BookImage asset={abstractImage(5)} identity={identity} /></div>
+        <div><h2>{flatVisualCopy(identity.graphicSystem.imageDirection)}</h2><p>{flatVisualCopy(identity.dossier.renderingRecipe.join(' · '))}</p></div>
       </div>
     ),
   });
   add({
     id: '4-pattern',
     section: 4,
+    showChrome: false,
     title: 'Pattern construction',
     tone: 'muted',
     content: (
       <div className={styles.patternPage}>
-        <span className={styles.microLabel}>Pattern / {identity.graphicSystem.pattern}</span>
-        <div className={styles.patternStudy} data-pattern={identity.graphicSystem.pattern}><span>{identity.shortName}</span></div>
-        <p>{identity.graphicSystem.composition}</p>
+        <div className={styles.patternStudy}><BookImage asset={abstractImage(6)} identity={identity} /></div>
+        <p>{flatVisualCopy(identity.graphicSystem.composition)}</p>
       </div>
     ),
   });
@@ -663,8 +724,6 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Motion behavior',
     content: (
       <div className={styles.motionPage}>
-        <span className={styles.microLabel}>Motion principles</span>
-        <div className={styles.motionTrack} aria-hidden='true'><span /><span /><span /><span /></div>
         <div className={styles.motionCards}>
           {(identity.motion.length > 0 ? identity.motion.slice(0, 3) : [{ id: 'default', name: 'Brand cadence', durationMs: 900, curve: 'cubic-bezier(.22, 1, .36, 1)', description: identity.dossier.motion, previewPath: '' }]).map((motion) => <article key={motion.id}><strong>{motion.name}</strong><span>{motion.durationMs} ms</span><code>{motion.curve}</code><p>{motion.description}</p></article>)}
         </div>
@@ -672,15 +731,15 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(5, `Icons extend ${identity.name} into moments where the full signature would be too loud. They inherit the identity’s geometry, weight, and sense of motion.`);
+  addSectionStart(5);
   const iconSet = [Asterisk, ArrowUpRight, Circle, Grid2X2, Layers3, Maximize2, MoveUpRight, Sparkles, Square, Target, Triangle, Rows3];
   add({
     id: '5-system',
     section: 5,
+    showChrome: false,
     title: 'Icon system',
     content: (
       <div className={styles.iconSystemPage}>
-        <span className={styles.microLabel}>Core set / optical 24</span>
         <div className={styles.iconGrid}>{iconSet.map((Icon, index) => <div key={index}><Icon strokeWidth={identity.style.density === 'compact' ? 2.2 : 1.65} /></div>)}</div>
       </div>
     ),
@@ -692,8 +751,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     tone: 'muted',
     content: (
       <div className={styles.iconConstructionPage}>
-        <span className={styles.microLabel}>Construction / 24 × 24</span>
-        <div className={styles.iconConstructionGrid}><MoveUpRight /><i /><i /><i /><i /></div>
+        <div className={styles.iconConstructionGrid}><MoveUpRight /></div>
         <div className={styles.iconMetrics}><span><strong>24</strong>Unit field</span><span><strong>1.5</strong>Base stroke</span><span><strong>{identity.style.borderRadius}</strong>Corner character</span></div>
       </div>
     ),
@@ -701,6 +759,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   add({
     id: '5-rules',
     section: 5,
+    showChrome: false,
     title: 'Icon rules',
     content: (
       <div className={styles.iconRulesPage}>
@@ -712,14 +771,13 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     ),
   });
 
-  addSectionStart(6, identity.dossier.layout);
+  addSectionStart(6);
   add({
     id: '6-principles',
     section: 6,
     title: 'Composition principles',
     content: (
       <div className={styles.compositionPage}>
-        <span className={styles.microLabel}>Composition / repeatable rules</span>
         <div className={styles.compositionRules}>{identity.graphicSystem.rules.slice(0, 6).map((rule, index) => <article key={rule}><span>0{index + 1}</span><p>{rule}</p></article>)}</div>
       </div>
     ),
@@ -727,52 +785,52 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   add({
     id: '6-system',
     section: 6,
+    showChrome: false,
     title: 'Visual system',
     content: (
       <div className={styles.visualSystemPage}>
-        <span className={styles.microLabel}>One system / multiple densities</span>
-        <div className={styles.visualSystemGrid}><div><BookImage asset={image(6)} identity={identity} /></div><div><BookImage asset={image(7)} identity={identity} /></div><div><BookImage asset={image(8)} identity={identity} /></div></div>
+        <div className={styles.visualSystemGrid}>{[7, 8, 9].map((index) => <div key={index}><BookImage asset={abstractImage(index)} identity={identity} /></div>)}</div>
       </div>
     ),
   });
   add({
     id: '6-grid',
     section: 6,
+    showChrome: false,
     title: 'Layout grid',
     tone: 'muted',
     content: (
       <div className={styles.layoutGridPage}>
-        <span className={styles.microLabel}>Grid / 12 columns</span>
-        <div className={styles.layoutGrid}><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><strong>{identity.tagline}</strong><p>{identity.graphicSystem.composition}</p></div>
+        <div className={styles.layoutGrid}><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><strong>{identity.tagline}</strong><p>{flatVisualCopy(identity.graphicSystem.composition)}</p></div>
       </div>
     ),
   });
   add({
     id: '6-applications',
     section: 6,
+    showChrome: false,
     title: 'Application logic',
     content: (
       <div className={styles.applicationLogicPage}>
-        <span className={styles.microLabel}>System adapts / identity remains</span>
         <div className={styles.applicationLogicGrid}>{identity.applications.slice(0, 6).map((application) => <article key={application.id}><span>{application.category}</span><strong>{application.name}</strong><p>{application.format}</p></article>)}</div>
       </div>
     ),
   });
 
-  addSectionStart(7, `The ${identity.name} system is complete only when it remains recognizable in use—across product, story, motion, and physical space.`);
+  addSectionStart(7);
   identity.applications.slice(0, 7).forEach((application, index) => {
     add({
       id: `7-${application.id}`,
       section: 7,
+      showChrome: false,
       title: application.name,
       tone: index % 3 === 2 ? 'dark' : 'paper',
       content: (
         <div className={styles.showcasePage} data-layout={index % 3}>
-          <div className={styles.showcaseImage}><BookImage asset={image(index + 2)} identity={identity} position={index % 2 ? 'center 35%' : 'center'} /></div>
+          <div className={styles.showcaseImage}><BookImage asset={applicationImage(index)} identity={identity} position={index % 2 ? 'center 35%' : 'center'} /></div>
           <div className={styles.showcaseCopy}>
-            <span className={styles.microLabel}>{application.category} / {application.format}</span>
             <h1>{application.name}</h1>
-            <p>{application.description}</p>
+            <p>{flatVisualCopy(application.description)}</p>
           </div>
         </div>
       ),
@@ -781,12 +839,12 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   add({
     id: '7-contact-sheet',
     section: 7,
+    showChrome: false,
     title: 'Identity in use',
     tone: 'dark',
     content: (
       <div className={styles.contactSheetPage}>
-        <span className={styles.microLabel}>Identity in use / contact sheet</span>
-        <div className={styles.contactSheetGrid}>{[0, 1, 2, 3, 4, 5].map((index) => <div key={index}><BookImage asset={image(index)} identity={identity} /></div>)}</div>
+        <div className={styles.contactSheetGrid}>{[7, 8, 9, 10, 11, 12].map((index) => <div key={index}><BookImage asset={applicationImage(index)} identity={identity} /></div>)}</div>
       </div>
     ),
   });
@@ -823,6 +881,9 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
   const muted = colorById(identity, 'muted', 2);
   const accent = colorById(identity, 'emphasis', 3);
   const deep = colorById(identity, 'error', 0);
+  const secondary = colorById(identity, 'success', 4);
+  const highlight = colorById(identity, 'warning', 5);
+  const progress = colorById(identity, 'progress', 6);
   const pageGroups = useMemo(() => [INTRO_SECTION, ...BOOK_SECTIONS.map(({ id }) => id)].map((sectionId) => ({
     pages: pages.map((page, index) => ({ page, index })).filter(({ page }) => page.section === sectionId),
     sectionId,
@@ -839,7 +900,10 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
     '--book-muted': muted,
     '--book-paper': paper,
     '--book-paper-ink': contrastText(paper, ink, '#FFFFFF'),
+    '--book-progress': progress,
+    '--book-secondary': secondary,
     '--book-serif': accentFont,
+    '--book-highlight': highlight,
     '--book-thumb-width': `${thumbnailWidth}px`,
     '--book-radius': `${Math.min(identity.style.borderRadius, 12)}px`,
   } as CSSProperties;
@@ -879,7 +943,7 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
   }
 
   return (
-    <div className={styles.root} data-mode={mode} style={rootStyle}>
+    <div className={styles.root} data-brand={identity.id} data-flavor={identity.artDirection.preview} data-mode={mode} style={rootStyle}>
       <header className={styles.toolbar}>
         <div className={styles.toolbarTitle}>
           <BookOpen aria-hidden='true' />
@@ -906,7 +970,7 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
       <div className={styles.body}>
         <aside className={styles.navigator}>
           <div className={styles.navigatorIdentity}>
-            <div>{brandAssetPath(identity, 'mark-dark') ? <img alt='' aria-hidden='true' src={brandAssetPath(identity, 'mark-dark')} /> : identity.shortName}</div>
+            <div><ThemeAwareBrandMark className={styles.navigatorMark} identity={identity} /></div>
             <span><strong>{identity.name}</strong><small>Brand book / rev. {identity.revision}</small></span>
           </div>
           <button className={styles.navIntroduction} onClick={() => jumpToSection(INTRO_SECTION)} type='button'><span>—</span><strong>Introduction</strong><small>03</small></button>

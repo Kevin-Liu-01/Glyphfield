@@ -12,7 +12,6 @@ import {
   Palette,
   SlidersHorizontal,
   Save,
-  ScanSearch,
   Trash2,
   Type,
   Upload,
@@ -22,7 +21,6 @@ import { Button } from '@/components/ui/Button';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
-import BrandVisualAudit from '@/components/BrandVisualAudit';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -51,7 +49,7 @@ const INPUT_CLASS =
 const TEXTAREA_CLASS =
   'min-h-24 w-full resize-y border border-input bg-background p-3 text-sm leading-6 text-foreground outline-none focus:border-foreground';
 
-type IdentitySection = 'overview' | 'audit' | 'direction' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
+type IdentitySection = 'overview' | 'direction' | 'assets' | 'typography' | 'colors' | 'voice' | 'system';
 
 const SECTIONS: readonly {
   icon: typeof Layers3;
@@ -59,7 +57,6 @@ const SECTIONS: readonly {
   label: string;
 }[] = [
   { icon: Layers3, id: 'overview', label: 'Overview' },
-  { icon: ScanSearch, id: 'audit', label: 'Visual audit' },
   { icon: BookOpenText, id: 'direction', label: 'Direction & references' },
   { icon: Files, id: 'assets', label: 'Asset library' },
   { icon: Type, id: 'typography', label: 'Typography' },
@@ -224,6 +221,9 @@ export default function BrandSettingsStudio({
   const darkMark = brandAssetPath(identity, 'mark-dark');
   const lightMark = brandAssetPath(identity, 'mark-light');
   const displayTypography = brandTypographyRole(identity, 'Display');
+  const overviewAssets = allAssets
+    .filter((asset) => asset.type !== 'logo' && asset.type !== 'proof')
+    .slice(0, 6);
   const colorPreviews = identity.colors.map((color) => {
     try {
       return { ...color, dark: hexToOklch(color.hex).lightness < 0.58, oklch: formatOklch(color.hex) };
@@ -405,25 +405,104 @@ export default function BrandSettingsStudio({
           {feedback ? <div className='brand-identity-feedback' role='status'>{feedback}<button aria-label={gt('Dismiss message')} onClick={() => setFeedback(null)} type='button'>×</button></div> : null}
 
           {activeSection === 'overview' ? (
-            <div className='brand-identity-section-grid'>
-              <Panel description={<T>The durable facts used by every generated design.</T>} title={<T>Identity</T>}>
+            <div className='brand-identity-overview'>
+              <section className='brand-overview-lead'>
+                <div className='brand-overview-preview'>
+                  <BrandIdentityPreview darkMark={darkMark} identity={identity} lightMark={lightMark} />
+                </div>
+                <div className='brand-overview-manifesto'>
+                  <span><T>Brand promise</T></span>
+                  <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: displayTypography.weight }}>{identity.strategy.promise}</h2>
+                  <p>{identity.mission}</p>
+                  <dl>
+                    <div><dt><T>Central idea</T></dt><dd>{identity.strategy.concept}</dd></div>
+                    <div><dt><T>Audience</T></dt><dd>{identity.audiences.slice(0, 3).join(' · ')}</dd></div>
+                    <div><dt><T>Values</T></dt><dd>{identity.values.slice(0, 4).join(' · ')}</dd></div>
+                  </dl>
+                </div>
+              </section>
+
+              <section className='brand-overview-system-grid'>
+                <article className='brand-overview-card brand-overview-logo'>
+                  <header><div><span>01</span><h2><T>Logo system</T></h2></div><button onClick={() => setActiveSection('assets')} type='button'><T>Edit assets</T></button></header>
+                  <div className='brand-overview-logo-surfaces'>
+                    <div data-surface='light'><ThemeAwareBrandMark identity={identity} surface='light' /></div>
+                    <div data-surface='dark'><ThemeAwareBrandMark identity={identity} surface='dark' /></div>
+                  </div>
+                  <p>{identity.dossier.logo}</p>
+                </article>
+
+                <article className='brand-overview-card brand-overview-typography'>
+                  <header><div><span>02</span><h2><T>Typography</T></h2></div><button onClick={() => setActiveSection('typography')} type='button'><T>Edit type</T></button></header>
+                  <div className='brand-overview-type-list'>
+                    {TYPOGRAPHY_ROLES.map((role) => {
+                      const typography = brandTypographyRole(identity, role);
+                      return (
+                        <div key={role}>
+                          <span>{role}</span>
+                          <strong style={{ fontFamily: brandTypographyFamily(identity, role), fontWeight: capVisibleFontWeight(typography.weight ?? 400), letterSpacing: `${typography.letterSpacing}px`, lineHeight: typography.lineHeight }}>{role === 'Code' ? `${identity.id} --build` : role === 'Accent' ? identity.greetings.slice(0, 2).join(' · ') : 'Aa'}</strong>
+                          <small>{typography.family}</small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </article>
+
+                <article className='brand-overview-card brand-overview-palette'>
+                  <header><div><span>03</span><h2><T>Color system</T></h2></div><button onClick={() => setActiveSection('colors')} type='button'><T>Edit colors</T></button></header>
+                  <div className='brand-overview-color-strip'>
+                    {colorPreviews.map((color) => <div key={color.id} style={{ background: color.hex, color: color.dark ? '#FFFFFF' : '#181818' }}><strong>{color.name}</strong><code>{color.hex}</code></div>)}
+                  </div>
+                </article>
+
+                <article className='brand-overview-card brand-overview-strategy'>
+                  <header><div><span>04</span><h2><T>Strategy</T></h2></div><button onClick={() => setActiveSection('voice')} type='button'><T>Edit strategy</T></button></header>
+                  <blockquote>{identity.positioning}</blockquote>
+                  <ol>{identity.strategy.pillars.slice(0, 4).map((pillar, index) => <li key={pillar}><span>{String(index + 1).padStart(2, '0')}</span>{pillar}</li>)}</ol>
+                </article>
+
+                <article className='brand-overview-card brand-overview-system'>
+                  <header><div><span>05</span><h2><T>Graphic system</T></h2></div><button onClick={() => setActiveSection('system')} type='button'><T>Edit system</T></button></header>
+                  <h3>{identity.graphicSystem.device}</h3>
+                  <p>{identity.graphicSystem.description}</p>
+                  <div>{identity.graphicSystem.rules.slice(0, 3).map((rule) => <span key={rule}>{rule}</span>)}</div>
+                </article>
+
+                <article className='brand-overview-card brand-overview-imagery'>
+                  <header><div><span>06</span><h2><T>Imagery & assets</T></h2></div><button onClick={() => setActiveSection('direction')} type='button'><T>Edit direction</T></button></header>
+                  <div className='brand-overview-asset-sheet'>
+                    {overviewAssets.map((asset) => <figure key={asset.id}><img alt={asset.alt ?? asset.label} src={asset.path} /><figcaption>{asset.label}</figcaption></figure>)}
+                  </div>
+                </article>
+
+                <article className='brand-overview-card brand-overview-voice'>
+                  <header><div><span>07</span><h2><T>Voice</T></h2></div><button onClick={() => setActiveSection('voice')} type='button'><T>Edit voice</T></button></header>
+                  <blockquote>“{identity.voice.phrases[0] ?? identity.tagline}”</blockquote>
+                  <div>{identity.voice.principles.slice(0, 4).map((principle) => <span key={principle}>{principle}</span>)}</div>
+                  <small><T>Avoid</T> · {identity.voice.avoid.slice(0, 2).join(' · ')}</small>
+                </article>
+
+                <article className='brand-overview-card brand-overview-applications'>
+                  <header><div><span>08</span><h2><T>Applications</T></h2></div><button onClick={() => setActiveSection('direction')} type='button'><T>Open direction</T></button></header>
+                  <div>{identity.applications.slice(0, 8).map((application) => <span key={application.id}><small>{application.category}</small><strong>{application.name}</strong><code>{application.format}</code></span>)}</div>
+                </article>
+              </section>
+
+              <Panel description={<T>The durable facts used by every generated design.</T>} title={<T>Identity essentials</T>}>
                 <div className='grid gap-4 sm:grid-cols-2'>
                   <Field label={<T>Brand name</T>}><input className={INPUT_CLASS} onChange={(event) => update({ name: event.target.value })} value={identity.name} /></Field>
                   <Field label={<T>Short name</T>}><input className={INPUT_CLASS} maxLength={4} onChange={(event) => update({ shortName: event.target.value.toLocaleUpperCase() })} value={identity.shortName} /></Field>
                   <Field label={<T>Website</T>}><input className={INPUT_CLASS} onChange={(event) => update({ website: event.target.value })} value={identity.website} /></Field>
                   <Field label={<T>Contact email</T>}><input className={INPUT_CLASS} onChange={(event) => update({ contactEmail: event.target.value })} type='email' value={identity.contactEmail} /></Field>
                 </div>
-                <Field label={<T>Tagline</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ tagline: event.target.value })} value={identity.tagline} /></Field>
-                <Field label={<T>Positioning</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ positioning: event.target.value })} value={identity.positioning} /></Field>
-                <Field label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></Field>
-              </Panel>
-              <Panel description={<T>A live summary of the source every canvas reads.</T>} title={<T>Identity preview</T>}>
-                <BrandIdentityPreview darkMark={darkMark} identity={identity} lightMark={lightMark} />
+                <div className='brand-overview-essential-copy'>
+                  <Field label={<T>Tagline</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ tagline: event.target.value })} value={identity.tagline} /></Field>
+                  <Field label={<T>Positioning</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ positioning: event.target.value })} value={identity.positioning} /></Field>
+                  <Field label={<T>Mission</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => update({ mission: event.target.value })} value={identity.mission} /></Field>
+                </div>
               </Panel>
             </div>
           ) : null}
-
-          {activeSection === 'audit' ? <BrandVisualAudit identity={identity} /> : null}
 
           {activeSection === 'direction' ? (
             <div className='brand-identity-section-stack'>
@@ -567,7 +646,7 @@ export default function BrandSettingsStudio({
                       >
                         Aa
                       </span>
-                      <span><strong>{font.label}</strong><small>{font.fileName} · {font.format.toLocaleUpperCase()}</small></span>
+                      <span><strong>{font.label}</strong><small>{font.family} · {font.format.toLocaleUpperCase()}</small></span>
                       <code>{font.weightMin ?? font.weight}{font.weightMax ? `–${font.weightMax}` : ''}</code>
                       <Button aria-label={gt('Remove {name}', { name: font.label })} disabled={fonts.length <= 1} onClick={() => removeFont(font.id)} size='icon-xs' type='button' variant='ghost'><Trash2 aria-hidden='true' /></Button>
                     </div>
@@ -584,8 +663,8 @@ export default function BrandSettingsStudio({
                         <header><span>{role}</span><code>{capVisibleFontWeight(typography.weight ?? 400)}</code></header>
                         <p style={{ fontFamily: selectedFont?.family ?? typography.family, fontWeight: capVisibleFontWeight(typography.weight ?? 400), letterSpacing: `${typography.letterSpacing}px`, lineHeight: typography.lineHeight }}>{role === 'Code' ? `$ ${identity.id} build --brand` : role === 'Accent' ? identity.greetings.join(' · ') : identity.tagline}</p>
                         <div className='brand-type-role-controls'>
-                          <Field label={<T>Font file</T>}>
-                            <StudioSelect ariaLabel={gt('{role} font file', { role })} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateTypography(role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: `${font.label} · ${font.fileName}`, value: font.id }))} value={typography.fontId ?? selectedFont?.id ?? ''} />
+                          <Field label={<T>Font family</T>}>
+                            <StudioSelect ariaLabel={gt('{role} font family', { role })} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateTypography(role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: font.label, value: font.id }))} value={typography.fontId ?? selectedFont?.id ?? ''} />
                           </Field>
                           <Field label={<T>Usage</T>}><input className={INPUT_CLASS} onChange={(event) => updateTypography(role, { usage: event.target.value })} value={typography.usage} /></Field>
                           <RangeField label={<T>Weight</T>} max={Math.min(selectedFont?.weightMax ?? MAX_VISIBLE_FONT_WEIGHT, MAX_VISIBLE_FONT_WEIGHT)} min={selectedFont?.weightMin ?? 100} onChange={(weight) => updateTypography(role, { weight })} step={50} value={typography.weight ?? 400} />

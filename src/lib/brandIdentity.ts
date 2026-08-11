@@ -541,6 +541,8 @@ function mergeBrandIdentity(
   identity: BrandIdentity,
   fallback: BrandIdentity
 ): BrandIdentity {
+  const storedAssetIds = new Set(identity.assets.map(({ id }) => id));
+
   return cloneBrandIdentity({
     ...fallback,
     ...identity,
@@ -549,6 +551,10 @@ function mergeBrandIdentity(
       ...fallback.artDirection,
       ...identity.artDirection,
     },
+    assets: [
+      ...identity.assets,
+      ...fallback.assets.filter(({ id }) => !storedAssetIds.has(id)),
+    ],
     contactEmail: identity.contactEmail ?? fallback.contactEmail,
     dossier: {
       ...fallback.dossier,
