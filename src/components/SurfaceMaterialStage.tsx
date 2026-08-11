@@ -15,6 +15,7 @@ import {
 } from 'three';
 
 import type { BackgroundSettings, SurfaceMaterial } from '@/lib/backgroundSvg';
+import HoloClothSurface from '@/components/HoloClothSurface';
 import { openSurfaceMapPath, type OpenSurfaceAsset, type OpenSurfaceMap } from '@/lib/openSurfaceLibrary';
 import {
   surfaceTextureCacheKey,
@@ -26,9 +27,16 @@ import { browserSupportsWebGL2 } from '@/lib/webglContext';
 const TEXTURE_SIZE = 256;
 
 type SurfaceMaterialStageProps = {
+  artworkOpacity?: number;
+  artworkScale?: number;
+  artworkUrl?: string;
+  artworkX?: number;
+  artworkY?: number;
   asset?: OpenSurfaceAsset;
   className?: string;
+  showAttribution?: boolean;
   settings: BackgroundSettings;
+  transparent?: boolean;
 };
 
 type LoadedSurfaceMaps = Partial<Record<OpenSurfaceMap, Texture>>;
@@ -78,6 +86,10 @@ function reliefAt(material: SurfaceMaterial, x: number, y: number, openArea: num
       return clamp01(0.34 + noise * 0.42 + (hash(Math.floor(x * 35), Math.floor(y * 35)) > 0.82 ? 0.22 : 0));
     case 'frosted-glass':
       return clamp01(0.5 + (noise - 0.5) * 0.34 + Math.sin(x * 51 + y * 37) * 0.05);
+    case 'iridescent-film': {
+      const film = Math.sin((x * 1.7 + y * 0.8) * Math.PI * 8 + noise * irregularity * 2.4);
+      return clamp01(0.5 + film * 0.035 + (noise - 0.5) * 0.05);
+    }
     case 'linen-weave': {
       const warp = line(x * 18 + Math.sin(y * 8) * irregularity * 0.24, 0.2);
       const weft = line(y * 18 + Math.sin(x * 7) * irregularity * 0.2, 0.2);
@@ -99,6 +111,11 @@ function reliefAt(material: SurfaceMaterial, x: number, y: number, openArea: num
     }
     case 'sandblasted-plaster':
       return clamp01(0.46 + irregularNoise * 0.58 + Math.sin(x * 41 + y * 53) * 0.07);
+    case 'graphite': {
+      const flakes = hash(Math.floor(x * 54), Math.floor(y * 54));
+      const layers = Math.sin((x * 0.24 + y) * Math.PI * 76) * 0.07;
+      return clamp01(0.38 + layers + (flakes - 0.5) * (0.18 + irregularity * 0.2));
+    }
     case 'carbon-twill': {
       const twill = (Math.floor(x * 18) + Math.floor(y * 18) * 2) % 4;
       const diagonal = line((x - y) * 18, 0.26);
@@ -227,7 +244,7 @@ function useOpenSurfaceMaps(asset: OpenSurfaceAsset | undefined, settings: Backg
   return maps;
 }
 
-function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
+function StaticSurfacePanel({ asset, settings, transparent = false }: SurfaceMaterialStageProps) {
   const textureCacheKey = surfaceTextureCacheKey(settings);
   const { bumpTexture, colorTexture } = useMemo(
     () => buildSurfaceTextures(surfaceTextureSettings(settings)),
@@ -235,6 +252,9 @@ function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
   );
   const openMaps = useOpenSurfaceMaps(asset, settings);
   const isGlass = settings.surfaceMaterial === 'frosted-glass';
+  const isFilm = settings.surfaceMaterial === 'iridescent-film';
+  const isTextile = ['felted-wool', 'linen-weave'].includes(settings.surfaceMaterial);
+  const isDirectional = ['brushed-metal', 'carbon-twill', 'iridescent-film'].includes(settings.surfaceMaterial);
   const metallic = isGlass ? 0.05 : settings.surfaceMetallic / 100;
   const roughness = Math.max(0.08, settings.surfaceRoughness / 100);
   const bumpScale = 0.006 + settings.surfaceDepth / 100 * 0.22 * (settings.surfaceTextureAmount / 100);
@@ -247,7 +267,7 @@ function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
 
   return (
     <>
-      <color attach='background' args={['#101115']} />
+      {!transparent ? <color attach='background' args={['#101115']} /> : null}
       <ambientLight intensity={0.7} />
       <hemisphereLight args={['#f4f6ff', '#13141a', 1.2]} />
       <directionalLight color='#ffffff' intensity={3.4} position={[-3.5, 4.5, 5]} />
@@ -258,11 +278,18 @@ function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
           <meshPhysicalMaterial
             bumpMap={openMaps?.displacement ?? bumpTexture}
             bumpScale={bumpScale}
-            clearcoat={isGlass || metallic > 0.45 ? 0.78 : 0.2}
-            clearcoatRoughness={Math.max(0.04, roughness * 0.42)}
+            anisotropy={isDirectional ? Math.max(0.2, settings.surfaceTextureAmount / 100) : 0}
+            anisotropyRotation={(settings.surfaceAngle * Math.PI) / 180}
+            clearcoat={isFilm ? 1 : isGlass || metallic > 0.45 ? 0.78 : 0.2}
+            clearcoatRoughness={isFilm ? Math.max(0.03, roughness * 0.28) : Math.max(0.04, roughness * 0.42)}
             color='#ffffff'
             envMapIntensity={1.25}
             ior={1.46}
+            iridescence={isFilm ? settings.surfaceTextureAmount / 100 : 0}
+            iridescenceIOR={isFilm ? 1.3 + settings.surfaceMetallic / 500 : 1.3}
+            iridescenceThicknessRange={isFilm
+              ? [120 + settings.surfaceAngle * 1.2, 420 + settings.surfaceOpenArea * 5]
+              : [100, 400]}
             map={openMaps?.color ?? colorTexture}
             metalnessMap={openMaps?.metalness}
             metalness={metallic}
@@ -270,6 +297,9 @@ function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
             normalScale={normalScale}
             roughnessMap={openMaps?.roughness}
             roughness={roughness}
+            sheen={isTextile ? 0.72 : 0}
+            sheenColor={settings.colorC}
+            sheenRoughness={Math.min(1, roughness + 0.12)}
             thickness={isGlass ? 0.65 : 0}
             transmission={isGlass ? 0.62 : 0}
           />
@@ -279,7 +309,35 @@ function SurfacePanel({ asset, settings }: SurfaceMaterialStageProps) {
   );
 }
 
-export default function SurfaceMaterialStage({ asset, className = '', settings }: SurfaceMaterialStageProps) {
+function SurfacePanel(props: SurfaceMaterialStageProps) {
+  if (props.settings.surfaceMaterial === 'holo-cloth') {
+    return (
+      <HoloClothSurface
+        artworkOpacity={props.artworkOpacity}
+        artworkScale={props.artworkScale}
+        artworkUrl={props.artworkUrl}
+        artworkX={props.artworkX}
+        artworkY={props.artworkY}
+        settings={props.settings}
+        transparent={props.transparent}
+      />
+    );
+  }
+  return <StaticSurfacePanel {...props} />;
+}
+
+export default function SurfaceMaterialStage({
+  artworkOpacity,
+  artworkScale,
+  artworkUrl,
+  artworkX,
+  artworkY,
+  asset,
+  className = '',
+  showAttribution = true,
+  settings,
+  transparent = false,
+}: SurfaceMaterialStageProps) {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [contextVersion, setContextVersion] = useState(0);
   const recoveryTimerRef = useRef(0);
@@ -313,21 +371,45 @@ export default function SurfaceMaterialStage({ asset, className = '', settings }
 
   if (available !== true) return null;
 
+  const holoCloth = settings.surfaceMaterial === 'holo-cloth';
   return (
-    <div className={className} data-surface-relief-preview='true'>
+    <div
+      className={`surface-material-stage ${className}`}
+      data-canvas-interactive={holoCloth ? 'true' : undefined}
+      data-holo-cloth={holoCloth ? 'true' : undefined}
+      data-surface-relief-preview='true'
+    >
       <Canvas
         camera={{ fov: 34, position: [0, 0, 4.65] }}
         dpr={[1, 1.5]}
-        frameloop='demand'
-        gl={{ alpha: false, antialias: true, powerPreference: 'low-power' }}
+        frameloop={holoCloth ? 'always' : 'demand'}
+        gl={{ alpha: transparent, antialias: true, powerPreference: 'low-power' }}
         key={contextVersion}
+        onCreated={({ gl }) => {
+          if (transparent) gl.setClearColor(0x000000, 0);
+        }}
       >
         <ContextGuard onLost={recoverContext} />
-        <SurfacePanel asset={asset} settings={settings} />
+        <SurfacePanel
+          artworkOpacity={artworkOpacity}
+          artworkScale={artworkScale}
+          artworkUrl={artworkUrl}
+          artworkX={artworkX}
+          artworkY={artworkY}
+          asset={asset}
+          settings={settings}
+        />
       </Canvas>
-      <div className='pointer-events-none absolute right-3 top-3 z-[1] border border-white/20 bg-black/55 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-white/70 backdrop-blur-sm'>
-        {asset ? `${asset.provider} · ${asset.license}` : 'Procedural fallback'}
-      </div>
+      {showAttribution ? (
+        <div className='pointer-events-none absolute right-3 top-3 z-[1] border border-white/20 bg-black/55 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-white/70 backdrop-blur-sm'>
+          {holoCloth ? 'HoloCloth · MIT adaptation' : asset ? `${asset.provider} · ${asset.license}` : 'Procedural fallback'}
+        </div>
+      ) : null}
+      {holoCloth && showAttribution ? (
+        <div className='pointer-events-none absolute bottom-3 left-3 z-[1] border border-white/15 bg-black/45 px-2 py-1 font-mono text-[8px] uppercase tracking-wider text-white/55 backdrop-blur-sm'>
+          Drag cloth · double-click to perturb
+        </div>
+      ) : null}
     </div>
   );
 }

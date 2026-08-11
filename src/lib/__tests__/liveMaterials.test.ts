@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
+  DEFAULT_LIVE_MATERIAL_ID,
   brandMaterialPalette,
   LIVE_MATERIAL_LOOK_PRESETS,
   LIVE_MATERIAL_PALETTES,
@@ -9,9 +10,12 @@ import {
   PAPER_LIVE_MATERIAL_IDS,
   PAPER_SHADER_FAMILIES,
   PAPER_SHADERS_SOURCE_URL,
+  HOLOCLOTH_SOURCE_URL,
   STATIC_SURFACE_MATERIAL_IDS,
   DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   liveMaterialLookPreset,
+  liveMaterialSourceName,
+  liveMaterialCenterOffset,
   normalizeLiveMaterialId,
   SHADER_GRADIENT_SOURCE_URL,
   WEBGL_FLUID_SOURCE_URL,
@@ -22,6 +26,8 @@ describe('live materials', () => {
     expect(DEFAULT_LIVE_MATERIAL_SETTINGS).toMatchObject({
       amplitude: 3.2,
       brightness: 0.8,
+      centerX: 0.5,
+      centerY: 0.5,
       colorA: '#73BFC4',
       colorB: '#FF810A',
       colorC: '#8DA0CE',
@@ -34,6 +40,12 @@ describe('live materials', () => {
     expect(SHADER_GRADIENT_SOURCE_URL).toContain('type=sphere');
     expect(SHADER_GRADIENT_SOURCE_URL).toContain('envPreset=city');
     expect(SHADER_GRADIENT_SOURCE_URL).toContain('grain=on');
+  });
+
+  it('centers Paper materials by default and converts editable focal points to shader offsets', () => {
+    expect(liveMaterialCenterOffset(DEFAULT_LIVE_MATERIAL_SETTINGS)).toEqual({ x: 0, y: 0 });
+    expect(liveMaterialCenterOffset({ centerX: 0.75, centerY: 0.25 })).toEqual({ x: 0.5, y: -0.5 });
+    expect(liveMaterialCenterOffset({})).toEqual({ x: 0, y: 0 });
   });
 
   it('offers the curated Shaders.com study scene families without Dedalus Bloom', () => {
@@ -69,11 +81,29 @@ describe('live materials', () => {
     expect(WEBGL_FLUID_SOURCE_URL).toBe('https://github.com/PavelDoGreat/WebGL-Fluid-Simulation');
   });
 
+  it('keeps Holo Cloth as the attributable first-class holographic material', () => {
+    expect(LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Holo material')).toEqual([
+      expect.objectContaining({ id: 'holo-cloth-silk', sourceLabel: 'HoloCloth · MIT', sourceUrl: HOLOCLOTH_SOURCE_URL }),
+    ]);
+  });
+
+  it('uses one compact source tag for every shader family without special-casing Holo', () => {
+    const sourceTags = Object.fromEntries(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map((material) => [
+      material.id,
+      liveMaterialSourceName(material),
+    ]));
+    expect(sourceTags['holo-cloth-silk']).toBe('HoloCloth');
+    expect(sourceTags['paper-liquid-metal']).toBe('Paper');
+    expect(sourceTags['pavel-fluid-energy']).toBe('WebGL');
+    expect(sourceTags['shaders-spectral-bloom']).toBe('Shaders.com');
+    expect(sourceTags['study-radiant-void']).toBe('Grainient');
+  });
+
   it('offers the shared Apache-licensed Paper shader collection', () => {
     const paperMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Paper Shaders');
     expect(PAPER_SHADER_FAMILIES).toHaveLength(29);
     expect(paperMaterials).toHaveLength(120);
-    expect(LIVE_MATERIAL_OPTIONS).toHaveLength(141);
+    expect(LIVE_MATERIAL_OPTIONS).toHaveLength(142);
     expect(paperMaterials.map(({ id }) => id)).toEqual(expect.arrayContaining(PAPER_LIVE_MATERIAL_IDS));
     expect(new Set(PAPER_LIVE_MATERIAL_IDS).size).toBe(PAPER_LIVE_MATERIAL_IDS.length);
     expect(new Set(paperMaterials.map(({ sourceUrl }) => sourceUrl))).toEqual(new Set([PAPER_SHADERS_SOURCE_URL]));
@@ -115,10 +145,12 @@ describe('live materials', () => {
       'surface-solar-orbit',
     ]));
     expect(normalizeLiveMaterialId('legacy-fluid-chrome')).toBe('shaders-fluid-chrome');
+    expect(normalizeLiveMaterialId(undefined)).toBe(DEFAULT_LIVE_MATERIAL_ID);
+    expect(normalizeLiveMaterialId(null)).toBe(DEFAULT_LIVE_MATERIAL_ID);
   });
 
   it('shares a broad set of editable look presets across material surfaces', () => {
-    expect(LIVE_MATERIAL_LOOK_PRESETS).toHaveLength(8);
+    expect(LIVE_MATERIAL_LOOK_PRESETS).toHaveLength(9);
     expect(new Set(LIVE_MATERIAL_LOOK_PRESETS.map(({ materialId }) => materialId)).size).toBeGreaterThan(5);
     expect(liveMaterialLookPreset('polished-chrome')).toMatchObject({
       materialId: 'shaders-fluid-chrome',

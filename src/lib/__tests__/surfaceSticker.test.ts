@@ -20,18 +20,23 @@ describe('surface stickers', () => {
       'embossed-foil',
       'precision-metal-inset',
     ]));
-    expect(stickerShaderSource('holo-vinyl')).toMatchObject({ license: 'MIT', name: 'GMHoloSticker' });
-    expect(stickerShaderSource('prismatic')).toMatchObject({ license: 'Unlicense', name: 'FoilStickerShader' });
+    expect(stickerShaderSource('holo-vinyl')).toMatchObject({ license: 'MIT', name: 'HoloSticker' });
+    expect(stickerShaderSource('prismatic')).toMatchObject({ license: 'MIT', name: 'HoloSticker' });
   });
 
   it('clamps editable finish values', () => {
-    expect(normalizeStickerFinish({ bevelWidth: 90, borderColor: 'invalid', depth: 200, edgeWidth: -3, insetDepth: 140, intensity: -10, seamWidth: -4, texture: 140 })).toMatchObject({
+    expect(normalizeStickerFinish({ bands: 80, bevelWidth: 90, borderColor: 'invalid', curl: -4, cutTolerance: 40, depth: 200, edgeWidth: -3, ink: 500, insetDepth: 140, intensity: -10, peelAmount: 140, seamWidth: -4, texture: 140 })).toMatchObject({
+      bands: 20,
       bevelWidth: 32,
       borderColor: '#F7F7F2',
+      curl: 2,
+      cutTolerance: 12,
       depth: 100,
       edgeWidth: 2,
+      ink: 200,
       insetDepth: 100,
       intensity: 0,
+      peelAmount: 100,
       seamWidth: 0,
       texture: 100,
     });
@@ -49,7 +54,7 @@ describe('surface stickers', () => {
     );
 
     expect(svg).toContain('data-sticker-finish="holo-vinyl"');
-    expect(svg).toContain('data-sticker-shader-source="GMHoloSticker"');
+    expect(svg).toContain('data-sticker-shader-source="HoloSticker"');
     expect(svg).toContain('data-sticker-shader-license="MIT"');
     expect(svg).toContain('id="sticker-cut"');
     expect(svg).toContain('id="sticker-art"');

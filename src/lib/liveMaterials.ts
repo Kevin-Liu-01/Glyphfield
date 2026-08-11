@@ -62,6 +62,7 @@ export const PAPER_LIVE_MATERIAL_DEFINITIONS: readonly PaperLiveMaterialDefiniti
 export const PAPER_LIVE_MATERIAL_IDS = PAPER_LIVE_MATERIAL_DEFINITIONS.map(({ id }) => id);
 
 export type LiveMaterialId =
+  | 'holo-cloth-silk'
   | 'shadergradient-prismatic-sphere'
   | 'glyphfield-glyph-field'
   | 'glyphfield-mesh-gradient'
@@ -88,6 +89,8 @@ export type LiveMaterialId =
 export type LiveMaterialSettings = {
   amplitude: number;
   brightness: number;
+  centerX: number;
+  centerY: number;
   colorA: string;
   colorB: string;
   colorC: string;
@@ -104,7 +107,7 @@ export type LiveMaterialSettings = {
 
 export type LiveMaterialOption = {
   description: string;
-  engine: 'ShaderGradient' | 'Shaders.com study' | 'Glyphfield' | 'WebGL Fluid' | 'Paper Shaders' | 'Design study';
+  engine: 'Holo material' | 'ShaderGradient' | 'Shaders.com study' | 'Glyphfield' | 'WebGL Fluid' | 'Paper Shaders' | 'Design study';
   id: LiveMaterialId;
   name: string;
   qualityScore: number;
@@ -136,6 +139,8 @@ export const WEBGL_FLUID_SOURCE_URL =
   'https://github.com/PavelDoGreat/WebGL-Fluid-Simulation';
 
 export const PAPER_SHADERS_SOURCE_URL = 'https://github.com/paper-design/shaders';
+
+export const HOLOCLOTH_SOURCE_URL = 'https://github.com/dmitrykurash/holocloth';
 
 export const EVIL_RABBIT_SHADERS_SOURCE_URL = 'https://shaders.evilrabbit.com/';
 
@@ -206,6 +211,8 @@ export const DEFAULT_LIVE_MATERIAL_ID: LiveMaterialId = 'shadergradient-prismati
 export const DEFAULT_LIVE_MATERIAL_SETTINGS: LiveMaterialSettings = {
   amplitude: 3.2,
   brightness: 0.8,
+  centerX: 0.5,
+  centerY: 0.5,
   colorA: '#73BFC4',
   colorB: '#FF810A',
   colorC: '#8DA0CE',
@@ -219,6 +226,17 @@ export const DEFAULT_LIVE_MATERIAL_SETTINGS: LiveMaterialSettings = {
   speed: 0.3,
   strength: 0.3,
 };
+
+export function liveMaterialCenterOffset(
+  settings: Partial<Pick<LiveMaterialSettings, 'centerX' | 'centerY'>>
+): { x: number; y: number } {
+  const centerX = Math.min(1, Math.max(0, settings.centerX ?? 0.5));
+  const centerY = Math.min(1, Math.max(0, settings.centerY ?? 0.5));
+  return {
+    x: centerX * 2 - 1,
+    y: centerY * 2 - 1,
+  };
+}
 
 export const LIVE_MATERIAL_PALETTES: readonly LiveMaterialPalette[] = [
   { colors: ['#050505', '#F4F4F0', '#737373'], description: 'Neutral chrome with a clean paper highlight.', id: 'monochrome-chrome', name: 'Monochrome chrome' },
@@ -239,6 +257,13 @@ export const LIVE_MATERIAL_PALETTES: readonly LiveMaterialPalette[] = [
 ];
 
 export const LIVE_MATERIAL_LOOK_PRESETS: readonly LiveMaterialLookPreset[] = [
+  {
+    description: 'A woven holographic surface with moving folds, anisotropic thread highlights, and fine foil sparkle.',
+    id: 'holo-cloth',
+    materialId: 'holo-cloth-silk',
+    name: 'Holo cloth',
+    settings: { amplitude: 5.2, brightness: 0.94, density: 1.05, detail: 6.2, frequency: 7.2, grain: 24, rotationZ: 12, speed: 0.22, strength: 0.76 },
+  },
   {
     description: 'A restrained mesh with broad color movement and a fine surface grain.',
     id: 'quiet-mesh',
@@ -326,6 +351,15 @@ export function brandMaterialPalette(
 }
 
 const ALL_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
+  {
+    description: 'A woven holographic textile with procedural folds, thread highlights, and iridescent foil response.',
+    engine: 'Holo material',
+    id: 'holo-cloth-silk',
+    name: 'Holo Cloth',
+    qualityScore: 100.5,
+    sourceLabel: 'HoloCloth · MIT',
+    sourceUrl: HOLOCLOTH_SOURCE_URL,
+  },
   {
     description: 'The supplied animated sphere preset with environment light and film grain.',
     engine: 'ShaderGradient',
@@ -507,7 +541,8 @@ export function isSurfaceLabStaticMaterial(id: LiveMaterialId): boolean {
 export const DISCOVERABLE_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] =
   LIVE_MATERIAL_OPTIONS.filter(({ id }) => !isSurfaceLabStaticMaterial(id));
 
-export function normalizeLiveMaterialId(value: string): LiveMaterialId {
+export function normalizeLiveMaterialId(value?: string | null): LiveMaterialId {
+  if (!value) return DEFAULT_LIVE_MATERIAL_ID;
   const exact = LIVE_MATERIAL_OPTIONS.find(({ id }) => id === value);
   if (exact) return exact.id;
   const legacySuffix = value.split('-').slice(1).join('-');
@@ -519,6 +554,19 @@ export function getLiveMaterial(id: LiveMaterialId): LiveMaterialOption {
   return LIVE_MATERIAL_OPTIONS.find((material) => material.id === normalizedId)
     ?? LIVE_MATERIAL_OPTIONS.find((material) => material.id === DEFAULT_LIVE_MATERIAL_ID)
     ?? LIVE_MATERIAL_OPTIONS[0]!;
+}
+
+export function liveMaterialSourceName({
+  engine,
+  sourceLabel,
+}: Pick<LiveMaterialOption, 'engine' | 'sourceLabel'>): string {
+  if (engine === 'Shaders.com study') return 'Shaders.com';
+  if (engine === 'WebGL Fluid') return 'WebGL';
+  if (engine === 'Paper Shaders') return 'Paper';
+  if (engine === 'Design study' && sourceLabel) return sourceLabel.split('·')[0]!.trim().replaceAll(' ', '');
+  if (engine === 'Holo material') return 'HoloCloth';
+  if (engine === 'Design study') return 'Study';
+  return engine;
 }
 
 export function isPaperLiveMaterialId(id: LiveMaterialId): id is PaperLiveMaterialId {

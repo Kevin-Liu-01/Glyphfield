@@ -16,25 +16,51 @@ export type StickerFinishId =
   | 'precision-metal-inset';
 
 export type StickerFinishSettings = {
+  bands: number;
   bevelWidth: number;
   borderColor: string;
+  curl: number;
+  cutTolerance: number;
   depth: number;
   edgeWidth: number;
   glintAngle: number;
+  hueShift: number;
+  ink: number;
   insetDepth: number;
   intensity: number;
+  overlay: 'none' | 'triangles' | 'squares' | 'stripes';
+  pattern: 'linear' | 'radial' | 'patches';
+  peelAmount: number;
+  peelDirection: 'top-left' | 'top' | 'top-right' | 'right' | 'bottom-right' | 'bottom' | 'bottom-left' | 'left';
   presetId: StickerFinishId | 'custom';
+  relief: number;
   seamWidth: number;
+  shadow: number;
   texture: number;
 };
 
 export type StickerShaderSource = {
-  license: 'MIT' | 'Unlicense';
-  name: 'FoilStickerShader' | 'GMHoloSticker';
+  license: 'MIT';
+  name: 'HoloSticker';
   url: string;
 };
 
+const HOLO_STICKER_CONTROLS = {
+  bands: 9,
+  curl: 9,
+  cutTolerance: 3,
+  hueShift: 0,
+  ink: 100,
+  overlay: 'none',
+  pattern: 'linear',
+  peelAmount: 24,
+  peelDirection: 'top-right',
+  relief: 22,
+  shadow: 42,
+} as const;
+
 const DEFAULT_EDGE_ARCHITECTURE = {
+  ...HOLO_STICKER_CONTROLS,
   bevelWidth: 8,
   borderColor: '#F7F7F2',
   insetDepth: 24,
@@ -54,7 +80,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'holo-vinyl',
     label: 'Holo vinyl',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 46, edgeWidth: 15, glintAngle: 28, intensity: 76, presetId: 'holo-vinyl', texture: 22 },
-    source: { license: 'MIT', name: 'GMHoloSticker', url: 'https://github.com/HannulaTero/GMHoloSticker' },
+    source: { license: 'MIT', name: 'HoloSticker', url: 'https://github.com/jal-co/holosticker' },
     swatch: 'linear-gradient(130deg,#ffb7d5 0%,#fff3a4 22%,#9fffd9 44%,#89c8ff 66%,#d9a7ff 84%,#fff 100%)',
   },
   {
@@ -62,7 +88,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'prismatic',
     label: 'Prismatic',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 38, edgeWidth: 14, glintAngle: 52, intensity: 82, presetId: 'prismatic', texture: 34 },
-    source: { license: 'Unlicense', name: 'FoilStickerShader', url: 'https://github.com/TastiestLemon/FoilStickerShader' },
+    source: { license: 'MIT', name: 'HoloSticker', url: 'https://github.com/jal-co/holosticker' },
     swatch: 'conic-gradient(from 35deg,#ff6b9d,#ffe66d,#70ffcc,#59a9ff,#bd75ff,#ff6b9d)',
   },
   {
@@ -91,7 +117,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     id: 'glitter-flake',
     label: 'Glitter flake',
     settings: { ...DEFAULT_EDGE_ARCHITECTURE, depth: 42, edgeWidth: 15, glintAngle: 64, intensity: 78, presetId: 'glitter-flake', texture: 88 },
-    source: { license: 'Unlicense', name: 'FoilStickerShader', url: 'https://github.com/TastiestLemon/FoilStickerShader' },
+    source: { license: 'MIT', name: 'HoloSticker', url: 'https://github.com/jal-co/holosticker' },
     swatch: 'radial-gradient(circle at 25% 32%,#fff 0 3%,transparent 4%),radial-gradient(circle at 70% 62%,#fff 0 2%,transparent 3%),linear-gradient(135deg,#724cff,#ff81bd,#55e6d2)',
   },
   {
@@ -140,7 +166,7 @@ export const STICKER_FINISH_PRESETS: readonly {
     description: 'A polished structural metal perimeter, microscopic seam, and recessed satin insert inspired by precision-manufactured emblems.',
     id: 'precision-metal-inset',
     label: 'Precision metal inset',
-    settings: { bevelWidth: 18, borderColor: '#F4F2EC', depth: 78, edgeWidth: 10, glintAngle: 18, insetDepth: 72, intensity: 88, presetId: 'precision-metal-inset', seamWidth: 3, texture: 46 },
+    settings: { ...DEFAULT_EDGE_ARCHITECTURE, bevelWidth: 18, borderColor: '#F4F2EC', depth: 78, edgeWidth: 10, glintAngle: 18, insetDepth: 72, intensity: 88, presetId: 'precision-metal-inset', seamWidth: 3, texture: 46 },
     swatch: 'linear-gradient(145deg,#111317 0 7%,#f8fafb 15%,#696e75 25%,#e9ecef 34%,#22262b 42% 70%,#aeb3b9 78%,#fff 88%,#4e535a 100%)',
   },
 ] as const;
@@ -171,17 +197,34 @@ export function normalizeStickerFinish(value?: Partial<StickerFinishSettings>): 
       : fallback;
 
   return {
+    bands: clamp(source.bands, DEFAULT_STICKER_FINISH.bands, 1, 20),
     bevelWidth: clamp(source.bevelWidth, DEFAULT_STICKER_FINISH.bevelWidth, 2, 32),
     borderColor: typeof source.borderColor === 'string' && /^#[0-9a-f]{6}$/i.test(source.borderColor)
       ? source.borderColor.toUpperCase()
       : DEFAULT_STICKER_FINISH.borderColor,
+    curl: clamp(source.curl, DEFAULT_STICKER_FINISH.curl, 2, 25),
+    cutTolerance: clamp(source.cutTolerance, DEFAULT_STICKER_FINISH.cutTolerance, 0, 12),
     depth: clamp(source.depth, DEFAULT_STICKER_FINISH.depth, 0, 100),
     edgeWidth: clamp(source.edgeWidth, DEFAULT_STICKER_FINISH.edgeWidth, 2, 32),
     glintAngle: clamp(source.glintAngle, DEFAULT_STICKER_FINISH.glintAngle, 0, 180),
+    hueShift: clamp(source.hueShift, DEFAULT_STICKER_FINISH.hueShift, 0, 100),
+    ink: clamp(source.ink, DEFAULT_STICKER_FINISH.ink, 0, 200),
     insetDepth: clamp(source.insetDepth, DEFAULT_STICKER_FINISH.insetDepth, 0, 100),
     intensity: clamp(source.intensity, DEFAULT_STICKER_FINISH.intensity, 0, 100),
+    overlay: ['none', 'triangles', 'squares', 'stripes'].includes(source.overlay ?? '')
+      ? source.overlay as StickerFinishSettings['overlay']
+      : DEFAULT_STICKER_FINISH.overlay,
+    pattern: ['linear', 'radial', 'patches'].includes(source.pattern ?? '')
+      ? source.pattern as StickerFinishSettings['pattern']
+      : DEFAULT_STICKER_FINISH.pattern,
+    peelAmount: clamp(source.peelAmount, DEFAULT_STICKER_FINISH.peelAmount, 0, 100),
+    peelDirection: ['top-left', 'top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left'].includes(source.peelDirection ?? '')
+      ? source.peelDirection as StickerFinishSettings['peelDirection']
+      : DEFAULT_STICKER_FINISH.peelDirection,
     presetId,
+    relief: clamp(source.relief, DEFAULT_STICKER_FINISH.relief, 0, 100),
     seamWidth: clamp(source.seamWidth, DEFAULT_STICKER_FINISH.seamWidth, 0, 12),
+    shadow: clamp(source.shadow, DEFAULT_STICKER_FINISH.shadow, 0, 100),
     texture: clamp(source.texture, DEFAULT_STICKER_FINISH.texture, 0, 100),
   };
 }

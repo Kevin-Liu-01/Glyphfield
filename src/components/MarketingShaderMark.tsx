@@ -2,15 +2,15 @@
 
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 
-import type { LiveMaterialSettings } from '@/lib/liveMaterials';
+import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 
-export default function MarketingShaderMark({ settings }: { settings: LiveMaterialSettings }) {
+export default function MarketingShaderMark({ materialId, settings }: { materialId: LiveMaterialId; settings: LiveMaterialSettings }) {
   return (
     <span aria-hidden='true' className='marketing-v5-hero-mark' data-motion-item>
       <LiveMaterialCanvas
         activeWhileMounted
         frameRate={30}
-        materialId='paper-dithering-swirl'
+        materialId={materialId}
         renderScale={1}
         settings={settings}
       />

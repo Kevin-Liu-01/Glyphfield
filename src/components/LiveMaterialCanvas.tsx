@@ -80,6 +80,7 @@ import { useMountEffect } from '@/hooks/useMountEffect';
 import {
   getPaperLiveMaterialDefinition,
   isPaperLiveMaterialId,
+  liveMaterialCenterOffset,
   normalizeLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialSettings,
@@ -91,6 +92,8 @@ import {
   cancelWebGLContextRelease,
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
+import { shaderMaterialPreviewStyle } from '@/lib/shaderLab';
+import { SEAMLESS_POLAR_GLSL } from '@/lib/liveMaterialPolar';
 
 export type LiveMaterialCanvasProps = {
   activeWhileMounted?: boolean;
@@ -99,7 +102,10 @@ export type LiveMaterialCanvasProps = {
   enabled?: boolean;
   frameRate?: number;
   materialId: LiveMaterialId;
+  maxPixelCount?: number;
+  patternScale?: number;
   paused?: boolean;
+  preservePresetAppearance?: boolean;
   renderScale?: number;
   settings: LiveMaterialSettings;
   sourceImage?: string;
@@ -283,6 +289,7 @@ void main() {
 const FRAGMENT_SHARED = `
 precision highp float;
 uniform vec2 u_resolution;
+uniform vec2 u_pointer;
 uniform float u_time;
 uniform vec3 u_color_a;
 uniform vec3 u_color_b;
@@ -295,6 +302,9 @@ uniform float u_amplitude;
 uniform float u_density;
 uniform float u_brightness;
 uniform float u_rotation;
+uniform float u_scale;
+
+${SEAMLESS_POLAR_GLSL}
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -322,6 +332,7 @@ vec2 studioUv() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   vec2 p = uv * 2.0 - 1.0;
   p.x *= u_resolution.x / u_resolution.y;
+  p /= max(0.1, u_scale);
   float angle = radians(u_rotation);
   return mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * p;
 }
@@ -337,6 +348,44 @@ vec3 finishColor(vec3 color) {
 `;
 
 const SHADERS_FRAGMENT_BODIES: Record<Exclude<LiveMaterialId, 'shadergradient-prismatic-sphere' | 'glyphfield-glyph-field' | 'pavel-fluid-energy' | PaperLiveMaterialId>, string> = {
+  'holo-cloth-silk': `
+vec3 clothSpectrum(float phase) {
+  return 0.58 + 0.42 * cos(6.2831853 * (phase + vec3(0.0, 0.34, 0.67)));
+}
+
+float clothHeight(vec2 p) {
+  float time = u_time * 0.24;
+  float broad = sin(p.x * (1.2 + u_frequency * 0.12) + time) * (0.12 + u_amplitude * 0.025);
+  broad += cos((p.x * 0.54 + p.y) * (1.8 + u_detail * 0.09) - time * 0.68) * 0.1;
+  broad += fbm(p * (0.72 + u_detail * 0.08) + vec2(-time * 0.3, time * 0.18)) * 0.22;
+  return broad;
+}
+
+void main() {
+  vec2 p = studioUv();
+  vec2 pointer = u_pointer * 2.0 - 1.0;
+  pointer.x *= u_resolution.x / u_resolution.y;
+  float epsilon = 0.012;
+  float height = clothHeight(p);
+  float heightX = clothHeight(p + vec2(epsilon, 0.0));
+  float heightY = clothHeight(p + vec2(0.0, epsilon));
+  vec3 normal = normalize(vec3((height - heightX) / epsilon, (height - heightY) / epsilon, 1.0));
+  vec3 lightDirection = normalize(vec3(pointer - p, 1.1));
+  float diffuse = max(0.0, dot(normal, lightDirection));
+  float threadX = pow(abs(sin(gl_FragCoord.x * (0.48 + u_density * 0.12))), 14.0);
+  float threadY = pow(abs(sin(gl_FragCoord.y * (0.54 + u_density * 0.1))), 18.0);
+  float weave = max(threadX, threadY) * 0.34 + min(threadX, threadY) * 0.16;
+  float tangentGlint = pow(max(0.0, dot(normalize(vec3(1.0, 0.06, 0.08)), lightDirection)), 18.0);
+  float phase = height * (2.4 + u_strength) + normal.x * 0.62 - normal.y * 0.38 + u_time * 0.06;
+  vec3 foil = clothSpectrum(fract(phase));
+  vec3 base = mix(u_color_a, u_color_b, 0.22 + diffuse * 0.58);
+  base = mix(base, u_color_c, smoothstep(0.46, 0.92, diffuse) * 0.28);
+  vec3 color = mix(base, foil, 0.2 + u_strength * 0.22 + diffuse * 0.14);
+  color += weave * mix(vec3(0.12), foil, 0.62);
+  color += tangentGlint * foil * (0.28 + u_grain * 0.004);
+  color *= 0.72 + diffuse * 0.44;
+  gl_FragColor = vec4(finishColor(color), 1.0);
+}`,
   'glyphfield-mesh-gradient': `
 void main() {
   vec2 p = studioUv();
@@ -631,7 +680,7 @@ void main() {
   float radius = length(p) + (distortion - 0.5) * (0.16 + u_strength * 0.08);
   float aperture = smoothstep(0.19, 0.56, radius);
   float ring = exp(-pow((radius - 0.62) / (0.1 + u_amplitude * 0.008), 2.0));
-  float rays = pow(0.5 + 0.5 * sin(angle * max(3.0, u_frequency) + time), 8.0);
+  float rays = pow(0.5 + 0.5 * seamlessAngularWave(angle, u_frequency, time, 3.0), 8.0);
   vec3 color = mix(u_color_a * 0.12, u_color_b, aperture * 0.48);
   color = mix(color, u_color_c, ring * (0.68 + rays * 0.24));
   color += mix(u_color_b, u_color_c, 0.5) * ring * rays * u_strength * 0.2;
@@ -645,7 +694,8 @@ void main() {
   float radius = length(p);
   float angle = atan(p.y, p.x);
   float warp = fbm(p * max(0.75, u_detail * 0.48) + vec2(time * 0.3, -time * 0.22));
-  float ringCoordinate = radius * (3.6 + u_frequency * 0.42) + angle * 0.34;
+  float angularWarp = seamlessAngularWarp(angle, time * 0.08);
+  float ringCoordinate = radius * (3.6 + u_frequency * 0.42) + angularWarp;
   ringCoordinate += (warp - 0.5) * (1.2 + u_strength * 0.8) - time;
   float rings = 0.5 + 0.5 * sin(ringCoordinate * 3.14159);
   float crest = pow(rings, 5.0);
@@ -692,6 +742,7 @@ function GlyphFieldCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  patternScale,
   paused,
   renderScale,
   settings,
@@ -699,16 +750,19 @@ function GlyphFieldCanvas({
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
+  patternScale: number;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
   const activeRef = useRef(active);
   const captureTimeRef = useRef(captureTimeMs);
+  const patternScaleRef = useRef(patternScale);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
   activeRef.current = active;
   captureTimeRef.current = captureTimeMs;
+  patternScaleRef.current = patternScale;
   pausedRef.current = paused;
   settingsRef.current = settings;
 
@@ -767,7 +821,7 @@ function GlyphFieldCanvas({
       const accent = hexToRgb(current.colorC);
       const columns = Math.round(34 + Math.min(7, current.detail) * 3.2);
       const rows = Math.round(22 + Math.min(7, current.detail) * 2.2);
-      const fieldScale = Math.min(width, height) * (0.72 + current.amplitude * 0.025);
+      const fieldScale = Math.min(width, height) * (0.72 + current.amplitude * 0.025) * patternScaleRef.current;
       const rotation = Math.sin(renderedTime * 0.46) * (0.18 + current.strength * 0.09);
       const cosRotation = Math.cos(rotation);
       const sinRotation = Math.sin(rotation);
@@ -874,12 +928,14 @@ function compileShader(
 function ShaderGradientSurface({
   captureTimeMs,
   className,
+  patternScale,
   paused,
   renderScale,
   settings,
 }: {
   captureTimeMs: number | null;
   className: string;
+  patternScale: number;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
@@ -899,7 +955,7 @@ function ShaderGradientSurface({
         cAzimuthAngle={270}
         cDistance={0.5}
         cPolarAngle={180}
-        cameraZoom={15.1}
+        cameraZoom={15.1 * patternScale}
         color1={settings.colorA}
         color2={settings.colorB}
         color3={settings.colorC}
@@ -1037,6 +1093,7 @@ function OriginalMaterialCanvas({
   frameRate,
   fragmentSource,
   onContextLost,
+  patternScale,
   paused,
   renderScale,
   settings,
@@ -1047,6 +1104,7 @@ function OriginalMaterialCanvas({
   frameRate: number;
   fragmentSource: string;
   onContextLost: () => void;
+  patternScale: number;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
@@ -1054,11 +1112,13 @@ function OriginalMaterialCanvas({
   const activeRef = useRef(active);
   const captureTimeRef = useRef(captureTimeMs);
   const frameRateRef = useRef(frameRate);
+  const patternScaleRef = useRef(patternScale);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
   activeRef.current = active;
   captureTimeRef.current = captureTimeMs;
   frameRateRef.current = frameRate;
+  patternScaleRef.current = patternScale;
   pausedRef.current = paused;
   settingsRef.current = settings;
 
@@ -1128,6 +1188,7 @@ function OriginalMaterialCanvas({
     context.vertexAttribPointer(position, 2, context.FLOAT, false, 0, 0);
 
     const resolutionLocation = context.getUniformLocation(program, 'u_resolution');
+    const pointerLocation = context.getUniformLocation(program, 'u_pointer');
     const timeLocation = context.getUniformLocation(program, 'u_time');
     const colorALocation = context.getUniformLocation(program, 'u_color_a');
     const colorBLocation = context.getUniformLocation(program, 'u_color_b');
@@ -1140,6 +1201,7 @@ function OriginalMaterialCanvas({
     const densityLocation = context.getUniformLocation(program, 'u_density');
     const brightnessLocation = context.getUniformLocation(program, 'u_brightness');
     const rotationLocation = context.getUniformLocation(program, 'u_rotation');
+    const scaleLocation = context.getUniformLocation(program, 'u_scale');
 
     let frame = 0;
     let timeout = 0;
@@ -1147,6 +1209,19 @@ function OriginalMaterialCanvas({
     let lastDrawn = 0;
     let previous = performance.now();
     let disposed = false;
+    const pointer = { x: 0.5, y: 0.5 };
+
+    function handlePointerMove(event: PointerEvent) {
+      const bounds = drawingCanvas.getBoundingClientRect();
+      if (bounds.width < 1 || bounds.height < 1) return;
+      pointer.x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      pointer.y = 1 - Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    }
+
+    function handlePointerLeave() {
+      pointer.x = 0.5;
+      pointer.y = 0.5;
+    }
 
     function handleContextLost(event: Event) {
       event.preventDefault();
@@ -1156,6 +1231,8 @@ function OriginalMaterialCanvas({
     }
 
     drawingCanvas.addEventListener('webglcontextlost', handleContextLost);
+    drawingCanvas.addEventListener('pointermove', handlePointerMove);
+    drawingCanvas.addEventListener('pointerleave', handlePointerLeave);
 
     function scheduleNextFrame() {
       if (!activeRef.current || (pausedRef.current && captureTimeRef.current === null)) {
@@ -1200,6 +1277,7 @@ function OriginalMaterialCanvas({
       }
       drawingContext.viewport(0, 0, width, height);
       drawingContext.uniform2f(resolutionLocation, width, height);
+      drawingContext.uniform2f(pointerLocation, pointer.x, pointer.y);
       drawingContext.uniform1f(timeLocation, renderedTime / 1000);
       drawingContext.uniform3fv(colorALocation, hexToRgb(current.colorA));
       drawingContext.uniform3fv(colorBLocation, hexToRgb(current.colorB));
@@ -1212,6 +1290,7 @@ function OriginalMaterialCanvas({
       drawingContext.uniform1f(densityLocation, current.density);
       drawingContext.uniform1f(brightnessLocation, current.brightness);
       drawingContext.uniform1f(rotationLocation, current.rotationZ);
+      drawingContext.uniform1f(scaleLocation, patternScaleRef.current);
       drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
       scheduleNextFrame();
     }
@@ -1222,6 +1301,8 @@ function OriginalMaterialCanvas({
       cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
       drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
+      drawingCanvas.removeEventListener('pointermove', handlePointerMove);
+      drawingCanvas.removeEventListener('pointerleave', handlePointerLeave);
       drawingContext.deleteBuffer(buffer);
       drawingContext.deleteProgram(program);
       drawingContext.deleteShader(fragmentShader);
@@ -1246,6 +1327,7 @@ function FluidSimulationCanvas({
   captureTimeMs,
   frameRate,
   onContextLost,
+  patternScale,
   paused,
   renderScale,
   settings,
@@ -1255,6 +1337,7 @@ function FluidSimulationCanvas({
   captureTimeMs: number | null;
   frameRate: number;
   onContextLost: () => void;
+  patternScale: number;
   paused: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
@@ -1262,11 +1345,13 @@ function FluidSimulationCanvas({
   const activeRef = useRef(active);
   const captureTimeRef = useRef(captureTimeMs);
   const frameRateRef = useRef(frameRate);
+  const patternScaleRef = useRef(patternScale);
   const pausedRef = useRef(paused);
   const settingsRef = useRef(settings);
   activeRef.current = active;
   captureTimeRef.current = captureTimeMs;
   frameRateRef.current = frameRate;
+  patternScaleRef.current = patternScale;
   pausedRef.current = paused;
   settingsRef.current = settings;
 
@@ -1505,7 +1590,7 @@ function FluidSimulationCanvas({
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_dt'), dt);
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_time'), renderedTime);
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_strength'), current.strength);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_frequency'), current.frequency);
+        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         [velocityRead, velocityWrite] = [velocityWrite, velocityRead];
 
@@ -1523,7 +1608,7 @@ function FluidSimulationCanvas({
         gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_amplitude'), current.amplitude);
         gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_density'), current.density);
         gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_strength'), current.strength);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_frequency'), current.frequency);
+        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         [dyeRead, dyeWrite] = [dyeWrite, dyeRead];
 
@@ -1625,7 +1710,12 @@ const PAPER_PROCEDURAL_BACKDROP_FAMILIES = new Set<PaperShaderFamilyId>([
   'liquid-metal',
 ]);
 
-function paperControlOverrides(params: Record<string, unknown>, settings: LiveMaterialSettings): Record<string, unknown> {
+export function paperControlOverrides(
+  params: Record<string, unknown>,
+  settings: LiveMaterialSettings,
+  preservePresetAppearance: boolean
+): Record<string, unknown> {
+  if (preservePresetAppearance) return {};
   const overrides: Record<string, unknown> = {};
   const setIfPresent = (key: string, value: unknown) => {
     if (Object.prototype.hasOwnProperty.call(params, key)) overrides[key] = value;
@@ -1709,8 +1799,9 @@ function paperControlOverrides(params: Record<string, unknown>, settings: LiveMa
   setIfPresent('rotation', presetRotation + settings.rotationZ);
   const presetOffsetX = typeof params.offsetX === 'number' ? params.offsetX : 0;
   const presetOffsetY = typeof params.offsetY === 'number' ? params.offsetY : 0;
-  setIfPresent('offsetX', presetOffsetX + Math.sin(settings.rotationY * Math.PI / 180) * 0.34);
-  setIfPresent('offsetY', presetOffsetY - Math.sin(settings.rotationX * Math.PI / 180) * 0.34);
+  const centerOffset = liveMaterialCenterOffset(settings);
+  setIfPresent('offsetX', presetOffsetX + centerOffset.x);
+  setIfPresent('offsetY', presetOffsetY + centerOffset.y);
 
   const grainAmount = Math.min(1, Math.max(0, settings.grain / 100));
   setIfPresent('grainMixer', grainAmount);
@@ -1726,14 +1817,20 @@ function paperControlOverrides(params: Record<string, unknown>, settings: LiveMa
 function PaperShaderSurface({
   captureTimeMs,
   materialId,
+  maxPixelCount,
+  patternScale,
   paused,
+  preservePresetAppearance,
   renderScale,
   settings,
   sourceImage,
 }: {
   captureTimeMs: number | null;
   materialId: PaperLiveMaterialId;
+  maxPixelCount?: number;
+  patternScale: number;
   paused: boolean;
+  preservePresetAppearance: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
   sourceImage?: string;
@@ -1744,11 +1841,15 @@ function PaperShaderSurface({
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
   const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
-  const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * settings.speed;
+  const motionMultiplier = preservePresetAppearance ? 1 : settings.speed;
+  const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
   const controlledParams = {
     ...preset.params,
-    ...paperControlOverrides(preset.params, settings),
+    ...paperControlOverrides(preset.params, settings, preservePresetAppearance),
   };
+  if (!preservePresetAppearance && typeof controlledParams.scale === 'number') {
+    controlledParams.scale *= patternScale;
+  }
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
     && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
   const rendersBackdrop = usesImage || PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
@@ -1779,7 +1880,8 @@ function PaperShaderSurface({
   const surfaceProps: ShaderComponentProps = {
     className: 'absolute inset-0 block size-full max-h-none max-w-none overflow-hidden',
     height: '100%',
-    maxPixelCount: Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
+    maxPixelCount: maxPixelCount
+      ?? Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
     minPixelRatio: 0.5,
     style: {
       display: 'block',
@@ -1809,7 +1911,7 @@ function PaperShaderSurface({
     ...proceduralBackdropParams,
     frame: captureTimeMs === null
       ? presetFrame
-      : presetFrame + captureTimeMs / 1000 * motionSpeed * settings.speed,
+      : presetFrame + captureTimeMs / 1000 * motionSpeed * motionMultiplier,
     speed: effectiveSpeed,
   });
 
@@ -1821,16 +1923,18 @@ function PaperShaderSurface({
       data-paper-speed={effectiveSpeed}
       style={{
         contain: 'strict',
-        filter: [
-          `brightness(${settings.brightness})`,
-          `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
-          `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
-        ].join(' '),
+        filter: preservePresetAppearance
+          ? undefined
+          : [
+              `brightness(${settings.brightness})`,
+              `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
+              `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
+            ].join(' '),
         isolation: 'isolate',
       }}
     >
       {surface}
-      {settings.grain > 0 ? (
+      {!preservePresetAppearance && settings.grain > 0 ? (
         <span
           aria-hidden='true'
           className='paper-material-grain pointer-events-none absolute inset-0'
@@ -1844,12 +1948,14 @@ function PaperShaderSurface({
 function StaticMaterialFallback({
   className,
   containerRef,
+  materialId,
   settings,
   sourceImage,
   sourceImageOpacity,
 }: {
   className: string;
   containerRef: RefObject<HTMLDivElement | null>;
+  materialId: LiveMaterialId;
   settings: LiveMaterialSettings;
   sourceImage?: string;
   sourceImageOpacity: number;
@@ -1859,7 +1965,7 @@ function StaticMaterialFallback({
       aria-label='Static shader fallback'
       className={`absolute inset-0 size-full ${className}`}
       ref={containerRef}
-      style={{ background: settings.colorA }}
+      style={shaderMaterialPreviewStyle(materialId, settings)}
     >
       <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
     </div>
@@ -1873,7 +1979,10 @@ function LiveMaterialCanvas({
   enabled = true,
   frameRate = 60,
   materialId,
+  maxPixelCount,
+  patternScale = 1,
   paused = false,
+  preservePresetAppearance = false,
   renderScale = 1,
   settings,
   sourceImage,
@@ -1881,6 +1990,7 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const resolvedPatternScale = Math.max(0.1, patternScale);
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);
@@ -1953,7 +2063,7 @@ function LiveMaterialCanvas({
     return () => window.clearTimeout(retryTimer);
   }, [activeRecovery.failed, enabled, resolvedMaterialId]);
 
-  useMountEffect(() => {
+  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let intersecting = true;
@@ -1971,13 +2081,14 @@ function LiveMaterialCanvas({
       observer.disconnect();
       document.removeEventListener('visibilitychange', updateVisibility);
     };
-  });
+  }, [activeRecovery.version, enabled, resolvedMaterialId, webGL2Available]);
 
   if (!enabled) {
     return (
       <StaticMaterialFallback
         className={className}
         containerRef={containerRef}
+        materialId={resolvedMaterialId}
         settings={settings}
         sourceImage={sourceImage}
         sourceImageOpacity={sourceImageOpacity}
@@ -1990,6 +2101,7 @@ function LiveMaterialCanvas({
       <StaticMaterialFallback
         className={className}
         containerRef={containerRef}
+        materialId={resolvedMaterialId}
         settings={settings}
         sourceImage={sourceImage}
         sourceImageOpacity={sourceImageOpacity}
@@ -2003,6 +2115,7 @@ function LiveMaterialCanvas({
         <StaticMaterialFallback
           className={className}
           containerRef={containerRef}
+          materialId={resolvedMaterialId}
           settings={settings}
           sourceImage={sourceImage}
           sourceImageOpacity={sourceImageOpacity}
@@ -2031,6 +2144,7 @@ function LiveMaterialCanvas({
             <ShaderGradientSurface
               captureTimeMs={captureTimeMs}
               className=''
+              patternScale={resolvedPatternScale}
               paused={paused || !renderActive}
               renderScale={renderScale}
               settings={settings}
@@ -2049,6 +2163,7 @@ function LiveMaterialCanvas({
           active={renderActive}
           canvasRef={canvasRef}
           captureTimeMs={captureTimeMs}
+          patternScale={resolvedPatternScale}
           paused={paused || !renderActive}
           renderScale={renderScale}
           settings={settings}
@@ -2068,6 +2183,7 @@ function LiveMaterialCanvas({
           frameRate={frameRate}
           key={`pavel-fluid-${activeRecovery.version}`}
           onContextLost={recoverContext}
+          patternScale={resolvedPatternScale}
           paused={paused || !renderActive}
           renderScale={renderScale}
           settings={settings}
@@ -2083,6 +2199,7 @@ function LiveMaterialCanvas({
         <StaticMaterialFallback
           className={className}
           containerRef={containerRef}
+          materialId={resolvedMaterialId}
           settings={settings}
           sourceImage={sourceImage}
           sourceImageOpacity={sourceImageOpacity}
@@ -2099,7 +2216,10 @@ function LiveMaterialCanvas({
           <PaperShaderSurface
             captureTimeMs={captureTimeMs}
             materialId={resolvedMaterialId}
+            maxPixelCount={maxPixelCount}
+            patternScale={resolvedPatternScale}
             paused={paused || !renderActive}
+            preservePresetAppearance={preservePresetAppearance}
             renderScale={renderScale}
             settings={settings}
             sourceImage={sourceImage}
@@ -2111,7 +2231,11 @@ function LiveMaterialCanvas({
   }
 
   return (
-    <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+    <div
+      className={`absolute inset-0 size-full ${className}`}
+      ref={containerRef}
+      style={shaderMaterialPreviewStyle(resolvedMaterialId, settings)}
+    >
       <OriginalMaterialCanvas
         active={renderActive}
         canvasRef={canvasRef}
@@ -2120,6 +2244,7 @@ function LiveMaterialCanvas({
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
         key={`${resolvedMaterialId}-${activeRecovery.version}`}
         onContextLost={recoverContext}
+        patternScale={resolvedPatternScale}
         paused={paused || !renderActive}
         renderScale={renderScale}
         settings={settings}

@@ -11,13 +11,14 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
-  DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   SHADERS_SOURCE_URL,
   liveMaterialLookPreset,
   getLiveMaterial,
+  isPaperLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { shaderLabMaterials, shaderLabSettingsFor } from '@/lib/shaderLab';
 
 const MATERIAL_CONTROLS = [
   { key: 'strength', label: 'Strength', max: 2, min: 0, step: 0.01 },
@@ -127,7 +128,7 @@ export default function LiveMaterialControls({
               <p className='truncate text-sm font-semibold'>{activeMaterial.name}</p>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>{activeMaterial.description}</p>
             </div>
-            <LiveMaterialSourceBadge className='shrink-0' engine={activeMaterial.engine} />
+            <LiveMaterialSourceBadge className='shrink-0' engine={activeMaterial.engine} sourceLabel={activeMaterial.sourceLabel} />
           </div>
           {sourceUrl ? (
             <a
@@ -169,8 +170,12 @@ export default function LiveMaterialControls({
         <T>Material</T>
         <StudioSelect
           ariaLabel={gt('Live material')}
-          onValueChange={(value) => onMaterialIdChange(value as LiveMaterialId)}
-          options={DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map((material) => ({
+          onValueChange={(value) => {
+            const nextMaterialId = value as LiveMaterialId;
+            onMaterialIdChange(nextMaterialId);
+            onSettingsChange(shaderLabSettingsFor(nextMaterialId, resolvedSettings));
+          }}
+          options={shaderLabMaterials('', 'all').map((material) => ({
             label: <LiveMaterialOptionLabel material={material} />,
             value: material.id,
           }))}
@@ -230,6 +235,17 @@ export default function LiveMaterialControls({
           <MaterialRange key={key} label={gt(label)} max={360} min={0} onChange={(value) => update({ [key]: value })} step={1} unit='°' value={resolvedSettings[key]} />
         ))}
       </div>
+
+      {isPaperLiveMaterialId(materialId) ? (
+        <div className='flex flex-col gap-3 border-t border-border pt-4'>
+          <div>
+            <p className='text-sm font-medium'><T>Center</T></p>
+            <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Place the material’s focal point on the canvas.</T></p>
+          </div>
+          <MaterialRange label={gt('Center X')} max={100} min={0} onChange={(value) => update({ centerX: value / 100 })} step={1} unit='%' value={resolvedSettings.centerX * 100} />
+          <MaterialRange label={gt('Center Y')} max={100} min={0} onChange={(value) => update({ centerY: value / 100 })} step={1} unit='%' value={resolvedSettings.centerY * 100} />
+        </div>
+      ) : null}
 
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <p className='text-sm font-medium'><T>Motion</T></p>

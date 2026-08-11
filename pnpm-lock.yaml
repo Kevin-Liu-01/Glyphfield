@@ -68,6 +68,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      shadow-plugin:
+        specifier: ^2.1.0
+        version: 2.1.0
       three:
         specifier: ^0.180.0
         version: 0.180.0
@@ -2583,6 +2586,9 @@ packages:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
     hasBin: true
+
+  shadow-plugin@2.1.0:
+    resolution: {integrity: sha512-LPzD22Hsa5+DPIc4iOZAswuTDzgs8Ypy6GS2kf+nh7FvADa4Yq5WtRBkdAuIomVljRxluhgdMuOWcckuoBALKQ==}
 
   sharp@0.34.5:
     resolution: {integrity: sha512-Ou9I5Ft9WNcCbXrU9cMgPBcCK8LiwLqcbywW3t4oDV37n1pzpuNLsYiAV8eODnjbtQlSDwZ2cUEeQz4E54Hltg==}
@@ -5439,6 +5445,8 @@ snapshots:
 
   semver@7.8.5:
     optional: true
+
+  shadow-plugin@2.1.0: {}
 
   sharp@0.34.5:
     dependencies:

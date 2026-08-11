@@ -2,89 +2,34 @@
 
 import { T, useGT } from 'gt-next';
 import { LibraryBig, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
-import { LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
+import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
+import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/Button';
-import { useMountEffect } from '@/hooks/useMountEffect';
 import {
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
   DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
-  LIVE_MATERIAL_LOOK_PRESETS,
   type LiveMaterialId,
   type LiveMaterialOption,
-  type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
-import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
+import {
+  SHADER_LAB_CATEGORIES,
+  shaderLabMaterials,
+  type ShaderLabCategory,
+} from '@/lib/shaderLab';
 
-type ShaderSourceFilter = 'all' | LiveMaterialOption['engine'];
-
-const SOURCE_OPTIONS: readonly { label: string; value: ShaderSourceFilter }[] = [
-  { label: 'All sources', value: 'all' },
-  { label: 'Design studies', value: 'Design study' },
-  { label: 'Paper', value: 'Paper Shaders' },
-  { label: 'Glyphfield', value: 'Glyphfield' },
-  { label: 'Shaders.com', value: 'Shaders.com study' },
-  { label: 'WebGL Fluid', value: 'WebGL Fluid' },
-  { label: 'ShaderGradient', value: 'ShaderGradient' },
-];
-
-function previewSettings(materialId: LiveMaterialId, colors: LiveMaterialSettings): LiveMaterialSettings {
-  const look = LIVE_MATERIAL_LOOK_PRESETS.find((preset) => preset.materialId === materialId);
-  return {
-    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-    ...look?.settings,
-    colorA: colors.colorA,
-    colorB: colors.colorB,
-    colorC: colors.colorC,
-    speed: Math.max(0.18, Math.min(0.7, look?.settings.speed ?? colors.speed)),
-  };
-}
+const EMPTY_EXCLUDED_MATERIAL_IDS: readonly LiveMaterialId[] = [];
 
 function ShaderLibraryPreview({
   material,
-  settings,
 }: {
   material: LiveMaterialOption;
-  settings: LiveMaterialSettings;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [hasRenderSlot, setHasRenderSlot] = useState(false);
-
-  useMountEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      setVisible(entry?.isIntersecting ?? false);
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  });
-
-  useEffect(() => {
-    if (!visible) {
-      setHasRenderSlot(false);
-      return;
-    }
-    return requestShaderPreviewSlot(() => setHasRenderSlot(true));
-  }, [visible]);
-
   return (
-    <div
-      className='shader-library-preview relative overflow-hidden bg-black'
-      ref={containerRef}
-    >
-      {visible && hasRenderSlot ? (
-        <LiveMaterialCanvas
-          frameRate={16}
-          materialId={material.id}
-          renderScale={0.45}
-          settings={previewSettings(material.id, settings)}
-        />
-      ) : <span aria-hidden='true' className='absolute inset-0 animate-pulse bg-muted' />}
+    <div className='shader-library-preview relative overflow-hidden bg-black'>
+      <AuthenticShaderPreview materialId={material.id} />
+      <LiveMaterialSourceTag className='shader-library-source-tag' material={material} />
     </div>
   );
 }
@@ -114,40 +59,52 @@ function ShaderLibraryButton({
 function ShaderLibraryBrowser({
   activeMaterialId,
   compact = false,
+  excludeMaterialIds = EMPTY_EXCLUDED_MATERIAL_IDS,
+  limit,
   onClose,
   onSelect,
-  settings,
 }: {
   activeMaterialId: LiveMaterialId;
   compact?: boolean;
+  excludeMaterialIds?: readonly LiveMaterialId[];
+  limit?: number;
   onClose?: () => void;
   onSelect: (materialId: LiveMaterialId) => void;
-  settings: LiveMaterialSettings;
 }) {
   const gt = useGT();
   const [query, setQuery] = useState('');
-  const [source, setSource] = useState<ShaderSourceFilter>('all');
+  const [category, setCategory] = useState<ShaderLabCategory>('all');
   const filteredMaterials = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => {
-      if (source !== 'all' && material.engine !== source) return false;
-      if (!normalizedQuery) return true;
-      return `${material.name} ${material.description} ${material.engine}`
-        .toLocaleLowerCase()
-        .includes(normalizedQuery);
-    });
-  }, [query, source]);
+    const excludedIds = new Set(excludeMaterialIds);
+    const materials = shaderLabMaterials(query, category).filter(({ id }) => !excludedIds.has(id));
+    if (!limit || materials.length <= limit) return materials;
+    const topMaterials = materials.slice(0, limit);
+    const activeMaterial = materials.find(({ id }) => id === activeMaterialId);
+    if (!activeMaterial || topMaterials.some(({ id }) => id === activeMaterialId)) {
+      return topMaterials;
+    }
+    return [activeMaterial, ...topMaterials.slice(0, limit - 1)];
+  }, [activeMaterialId, category, excludeMaterialIds, limit, query]);
 
   return (
     <div className={compact ? 'shader-library-browser-compact' : 'shader-library-browser'}>
       <div className={compact
         ? 'shader-library-header bg-background pb-3'
         : 'shader-library-header sticky top-0 z-20 border-b border-border bg-background/95 p-4 backdrop-blur'}>
-        {compact ? null : (
+        {compact ? (
+          <div className='mb-2 flex items-center justify-between gap-2'>
+            <p className='font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>
+              <T>Top shaders</T>
+            </p>
+            <span className='font-mono text-[9px] tabular-nums text-muted-foreground'>
+              {filteredMaterials.length}{limit ? ` / ${limit}` : ''}
+            </span>
+          </div>
+        ) : (
           <div className='flex items-start justify-between gap-4'>
           <div>
             <p className='text-sm font-semibold'><T>Shader library</T></p>
-            <p className='mt-1 text-xs text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} licensed materials · live previews</p>
+            <p className='mt-1 text-xs text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} materials · shared with Shaders</p>
           </div>
           {onClose ? (
             <Button aria-label={gt('Close shader library')} onClick={onClose} size='icon-xs' type='button' variant='ghost'>
@@ -167,13 +124,13 @@ function ShaderLibraryBrowser({
             value={query}
           />
         </label>
-        <div aria-label={gt('Shader source filter')} className='mt-2 flex flex-wrap gap-1' role='group'>
-          {SOURCE_OPTIONS.map((option) => (
+        <div aria-label={gt('Shader category filter')} className='mt-2 flex flex-wrap gap-1' role='group'>
+          {SHADER_LAB_CATEGORIES.map((option) => (
             <button
-              aria-pressed={source === option.value}
-              className='shrink-0 border border-border px-2 py-1 text-[10px] font-medium hover:border-foreground aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background'
-              key={option.value}
-              onClick={() => setSource(option.value)}
+              aria-pressed={category === option.id}
+            className={`shrink-0 border border-border font-medium hover:border-foreground aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background ${compact ? 'px-1.5 py-1 text-[9px]' : 'px-2 py-1 text-[10px]'}`}
+              key={option.id}
+              onClick={() => setCategory(option.id)}
               type='button'
             >
               {option.label}
@@ -182,7 +139,7 @@ function ShaderLibraryBrowser({
         </div>
       </div>
 
-      <div className={`grid grid-cols-2 gap-2 ${compact ? '' : 'p-3'}`}>
+      <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2 p-3'}`}>
         {filteredMaterials.map((material) => (
           <button
             aria-label={gt('Use {name} shader', { name: material.name })}
@@ -193,13 +150,12 @@ function ShaderLibraryBrowser({
             title={material.description}
             type='button'
           >
-            <ShaderLibraryPreview material={material} settings={settings} />
-            <span className='block p-2'>
+            <ShaderLibraryPreview material={material} />
+            <span className={`block ${compact ? 'p-1.5' : 'p-2'}`}>
               <span className='flex min-w-0 items-center gap-2'>
-                <span className='min-w-0 flex-1 truncate text-[11px] font-semibold'>{material.name}</span>
+                <span className={`min-w-0 flex-1 truncate font-semibold ${compact ? 'text-[9px]' : 'text-[11px]'}`}>{material.name}</span>
                 {activeMaterialId === material.id ? <span className='size-1.5 shrink-0 bg-foreground' aria-hidden='true' /> : null}
               </span>
-              <LiveMaterialSourceBadge className='mt-1 ml-0 justify-start' engine={material.engine} />
             </span>
           </button>
         ))}
@@ -216,14 +172,12 @@ function ShaderLibrarySidebar({
   activeMaterialId,
   onClose,
   onSelect,
-  settings,
   side = 'left',
   storageKey,
 }: {
   activeMaterialId: LiveMaterialId;
   onClose: () => void;
   onSelect: (materialId: LiveMaterialId) => void;
-  settings: LiveMaterialSettings;
   side?: 'left' | 'right';
   storageKey: string;
 }) {
@@ -242,7 +196,6 @@ function ShaderLibrarySidebar({
         activeMaterialId={activeMaterialId}
         onClose={onClose}
         onSelect={onSelect}
-        settings={settings}
       />
     </ResizableSidebar>
   );

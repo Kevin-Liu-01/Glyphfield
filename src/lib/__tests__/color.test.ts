@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  colorContrastRatio,
   formatOklch,
   hexToHsv,
   hsvToHex,
   normalizeHex,
   oklchToHex,
   parseOklch,
+  resolveReadableColor,
 } from '../color';
 
 describe('normalizeHex', () => {
@@ -37,5 +39,22 @@ describe('HSV color editing', () => {
     expect(hsvToHex(120, 1, 1)).toBe('#00FF00');
     expect(hsvToHex(240, 1, 1)).toBe('#0000FF');
     expect(hsvToHex(25, 0, 0.5)).toBe('#808080');
+  });
+});
+
+describe('automatic contrast', () => {
+  it('keeps a preferred color when it remains readable', () => {
+    expect(resolveReadableColor('#061B31', '#FFFFFF')).toEqual({
+      color: '#FFFFFF',
+      fallbackApplied: false,
+      ratio: colorContrastRatio('#061B31', '#FFFFFF'),
+    });
+  });
+
+  it('swaps a lost white foreground to black on a light surface', () => {
+    const resolution = resolveReadableColor('#F6F9FC', '#FFFFFF');
+    expect(resolution.color).toBe('#000000');
+    expect(resolution.fallbackApplied).toBe(true);
+    expect(resolution.ratio).toBeGreaterThan(4.5);
   });
 });

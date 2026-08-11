@@ -102,6 +102,36 @@ export function mixHexColors(start: string, end: string, amount: number): string
   return `#${channel(from.red, to.red)}${channel(from.green, to.green)}${channel(from.blue, to.blue)}`;
 }
 
+export function colorContrastRatio(first: string, second: string): number {
+  const luminance = (hex: string) => {
+    const normalized = normalizeHex(hex).slice(1);
+    const channels = [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16) / 255);
+    const [red, green, blue] = channels.map((channel) => linearize(channel));
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+  };
+  const lighter = Math.max(luminance(first), luminance(second));
+  const darker = Math.min(luminance(first), luminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function resolveReadableColor(
+  background: string,
+  preferred: string,
+  minimumRatio = 4.5
+): { color: string; fallbackApplied: boolean; ratio: number } {
+  const normalizedPreferred = normalizeHex(preferred);
+  const preferredRatio = colorContrastRatio(background, normalizedPreferred);
+  if (preferredRatio >= minimumRatio) {
+    return { color: normalizedPreferred, fallbackApplied: false, ratio: preferredRatio };
+  }
+
+  const candidates = ['#FFFFFF', '#000000'] as const;
+  const fallback = candidates
+    .map((color) => ({ color, ratio: colorContrastRatio(background, color) }))
+    .sort((first, second) => second.ratio - first.ratio)[0]!;
+  return { ...fallback, fallbackApplied: true };
+}
+
 export function hsvToHex(hue: number, saturation: number, value: number): string {
   const normalizedHue = ((hue % 360) + 360) % 360;
   const normalizedSaturation = clampChannel(saturation);
