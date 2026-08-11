@@ -15,6 +15,7 @@ import {
 import AnimationPackageGallery from '@/components/AnimationPackageGallery';
 import BezierEditor from '@/components/BezierEditor';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
+import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import { ShaderLibraryBrowser } from '@/components/ShaderLibrarySidebar';
@@ -24,9 +25,11 @@ import StudioSelect from '@/components/ui/StudioSelect';
 import {
   brandMaterialPalette,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialId,
 } from '@/lib/liveMaterials';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import type { StudioSource } from '@/lib/renderFrame';
+import { shaderLabSettingsFor } from '@/lib/shaderLab';
 import {
   EASING_PRESETS,
   type ImportedImage,
@@ -75,6 +78,10 @@ type StudioControlsProps = {
   textFrames: string;
 };
 
+const COMPACT_SHADER_EXCLUSIONS = [
+  'shadergradient-prismatic-sphere',
+] as const satisfies readonly LiveMaterialId[];
+
 function InspectorSection({
   children,
   index,
@@ -85,17 +92,14 @@ function InspectorSection({
   title: ReactNode;
 }) {
   return (
-    <section className='flex flex-col gap-4 border-b border-border p-5'>
-      <div className='flex items-center justify-between gap-4'>
-        <h2 className='text-sm font-semibold'>{title}</h2>
-        <span className='font-mono text-xs text-muted-foreground'>{index}</span>
-      </div>
+    <LabInspectorSection index={index} title={title}>
       {children}
-    </section>
+    </LabInspectorSection>
   );
 }
 
 function RangeControl({
+  ariaLabel,
   label,
   max,
   min,
@@ -104,6 +108,7 @@ function RangeControl({
   unit,
   value,
 }: {
+  ariaLabel?: string;
   label: ReactNode;
   max: number;
   min: number;
@@ -114,7 +119,7 @@ function RangeControl({
 }) {
   const resolvedValue = Math.min(value, max);
   return (
-    <label className='flex flex-col gap-2'>
+    <label className='studio-range-control flex flex-col gap-2'>
       <span className='flex items-center justify-between gap-3 text-sm'>
         <span>{label}</span>
         <output className='font-mono text-xs tabular-nums text-muted-foreground'>
@@ -123,6 +128,7 @@ function RangeControl({
         </output>
       </span>
       <input
+        aria-label={ariaLabel}
         className='studio-range'
         max={max}
         min={min}
@@ -136,6 +142,7 @@ function RangeControl({
 }
 
 function BackgroundScopeControl({
+  compact = false,
   hasOverride,
   onChange,
   onClearOverrides,
@@ -145,6 +152,7 @@ function BackgroundScopeControl({
   selected,
   sourceCount,
 }: {
+  compact?: boolean;
   hasOverride: boolean;
   onChange: (scope: 'sequence' | 'frame') => void;
   onClearOverrides: () => void;
@@ -159,23 +167,23 @@ function BackgroundScopeControl({
     <div className='flex flex-col gap-2'>
       <div className='grid grid-cols-2'>
         <Button
-          className='rounded-r-none'
+          className={`min-w-0 rounded-r-none ${compact ? 'h-7 px-1 text-[9px]' : ''}`}
           onClick={() => onChange('sequence')}
           size='sm'
           type='button'
           variant={effectiveScope === 'sequence' ? 'default' : 'outline'}
         >
-          <T>Entire sequence</T>
+          <T>{compact ? 'Sequence' : 'Entire sequence'}</T>
         </Button>
         <Button
-          className='rounded-l-none border-l-0'
+          className={`min-w-0 rounded-l-none border-l-0 ${compact ? 'h-7 px-1 text-[9px]' : ''}`}
           disabled={!selected}
           onClick={() => onChange('frame')}
           size='sm'
           type='button'
           variant={effectiveScope === 'frame' ? 'default' : 'outline'}
         >
-          <T>This frame only</T>
+          <T>{compact ? 'Frame' : 'This frame only'}</T>
         </Button>
       </div>
       <div className='flex items-start justify-between gap-3 text-[10px] leading-4 text-muted-foreground'>
@@ -277,13 +285,21 @@ export default function StudioControls({
 
   return (
     <ResizableSidebar
-      className={`studio-inspector bg-background ${panel === 'source' ? 'border-r border-border' : 'studio-inspector-right border-r border-border'}`}
+      className={`studio-inspector lab-sidebar ${panel === 'source' ? 'lab-sidebar-left border-r border-border' : 'studio-inspector-right lab-sidebar-right border-l border-border'}`}
       defaultWidth={panel === 'source' ? (compact ? 280 : 416) : compact ? 240 : 360}
       label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
       maxWidth={compact ? (panel === 'source' ? 360 : 320) : 520}
       minWidth={panel === 'source' ? (compact ? 220 : 350) : compact ? 200 : 280}
+      resizeEdge={panel === 'properties' ? 'left' : 'right'}
       storageKey={`animation-${compact ? 'compact-' : ''}${panel}-v2-${identity?.id ?? 'default'}`}
     >
+      <LabPanelHeading
+        description={panel === 'source'
+          ? <T>Build the sequence from text, images, and brand assets.</T>
+          : <T>Tune the selected frame, timing, material, and composition.</T>}
+        eyebrow={panel === 'source' ? <T>Sequence library</T> : <T>Live inspector</T>}
+        title={panel === 'source' ? <T>Animation sources</T> : selectedSource?.kind === 'text' ? selectedSource.text : selectedSource?.name ?? <T>Sequence properties</T>}
+      />
       {panel === 'source' ? (
         <>
         <InspectorSection index='01' title={<T>Source</T>}>
@@ -294,7 +310,7 @@ export default function StudioControls({
             ['images', gt('Images')],
           ] as const).map(([value, label]) => (
             <Button
-              className='rounded-none border-r-0 last:border-r'
+              className={`min-w-0 rounded-none border-r-0 last:border-r ${compact ? 'h-7 px-1 text-[9px]' : ''}`}
               key={value}
               onClick={() => onModeChange(value)}
               type='button'
@@ -321,7 +337,7 @@ export default function StudioControls({
                 const label = source.kind === 'text' ? source.text : source.name;
                 return (
                   <div
-                    className={`grid grid-cols-[1fr_28px_28px] items-center overflow-hidden rounded-md border ${
+                    className={`grid items-center overflow-hidden rounded-md border ${compact ? 'grid-cols-[minmax(0,1fr)_24px_24px]' : 'grid-cols-[1fr_28px_28px]'} ${
                       selectedSource?.id === source.id
                         ? 'border-foreground bg-muted'
                         : 'border-border'
@@ -329,7 +345,7 @@ export default function StudioControls({
                     key={source.id}
                   >
                     <button
-                      className='flex min-w-0 items-center gap-2 px-3 py-2 text-left'
+                      className={`flex min-w-0 items-center text-left ${compact ? 'gap-1 px-2 py-1.5' : 'gap-2 px-3 py-2'}`}
                       onClick={() => onSelectSource(source.id)}
                       type='button'
                     >
@@ -338,15 +354,18 @@ export default function StudioControls({
                       ) : (
                         <ImageIcon aria-hidden='true' className='size-3.5 shrink-0' />
                       )}
-                      <span className='min-w-0 flex-1 truncate text-sm'>{label}</span>
-                      <span className='font-mono text-[9px] text-muted-foreground'>
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
+                      <span className={`min-w-0 flex-1 truncate ${compact ? 'text-[10px]' : 'text-sm'}`}>{label}</span>
+                      {compact ? null : (
+                        <span className='font-mono text-[9px] text-muted-foreground'>
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      )}
                     </button>
                     <Button
                       aria-label={gt('Move {name} up', { name: label })}
                       disabled={index === 0}
                       onClick={() => onMoveSource(source.id, -1)}
+                      className={compact ? 'size-6' : ''}
                       size='icon-xs'
                       type='button'
                       variant='ghost'
@@ -357,6 +376,7 @@ export default function StudioControls({
                       aria-label={gt('Move {name} down', { name: label })}
                       disabled={index === sources.length - 1}
                       onClick={() => onMoveSource(source.id, 1)}
+                      className={compact ? 'size-6' : ''}
                       size='icon-xs'
                       type='button'
                       variant='ghost'
@@ -434,6 +454,8 @@ export default function StudioControls({
             <T>Choose by motion. Previews pause automatically when they leave the panel.</T>
           </p>
           <AnimationPackageGallery
+            animatePreviews={!compact}
+            compact={compact}
             hasImageSources={hasImageSources}
             onSelect={(packageId) => onSettingsChange({ packageId })}
             selectedId={settings.packageId}
@@ -442,6 +464,7 @@ export default function StudioControls({
         </InspectorSection>
         <InspectorSection index='03' title={<T>Background shaders</T>}>
           <BackgroundScopeControl
+            compact={compact}
             hasOverride={hasSelectedBackgroundOverride}
             onChange={onBackgroundScopeChange}
             onClearOverrides={onClearBackgroundOverrides}
@@ -451,18 +474,164 @@ export default function StudioControls({
             selected={Boolean(selectedSource)}
             sourceCount={sources.length}
           />
+          {editableBackground.style === 'shader' ? (
+            <details className='animation-shader-controls sticky top-0 z-20 bg-background/95 p-3 smooth-shadow-ring-md backdrop-blur' open>
+              <summary className='cursor-pointer select-none text-xs font-semibold'>
+                <T>Shader controls</T>
+              </summary>
+              <div className='mt-3 flex flex-col gap-3'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div>
+                  <p className='mt-1 text-[10px] leading-4 text-muted-foreground'>
+                    <T>Frame the background here. Motion and texture are below.</T>
+                  </p>
+                  </div>
+                  <Button
+                    className='h-7 shrink-0 px-2 text-[10px]'
+                    onClick={() => onBackgroundChange({
+                      materialSettings: {
+                        ...frameMaterialSettings,
+                        centerX: 0.5,
+                        centerY: 0.5,
+                      },
+                      patternScale: 1,
+                    })}
+                    size='sm'
+                    type='button'
+                    variant='ghost'
+                  >
+                    <T>Reset</T>
+                  </Button>
+                </div>
+              <RangeControl
+                ariaLabel={gt('Shader size')}
+                label={<T>Shader size</T>}
+                max={3}
+                min={0.25}
+                onChange={(patternScale) => onBackgroundChange({ patternScale })}
+                step={0.05}
+                unit='×'
+                value={editableBackground.patternScale ?? 1}
+              />
+              <RangeControl
+                ariaLabel={gt('Horizontal shader position')}
+                label={<T>Horizontal position</T>}
+                max={100}
+                min={0}
+                onChange={(centerX) => onBackgroundChange({
+                  materialSettings: { ...frameMaterialSettings, centerX: centerX / 100 },
+                })}
+                step={1}
+                unit='%'
+                value={frameMaterialSettings.centerX * 100}
+              />
+              <RangeControl
+                ariaLabel={gt('Vertical shader position')}
+                label={<T>Vertical position</T>}
+                max={100}
+                min={0}
+                onChange={(centerY) => onBackgroundChange({
+                  materialSettings: { ...frameMaterialSettings, centerY: centerY / 100 },
+                })}
+                step={1}
+                unit='%'
+                value={frameMaterialSettings.centerY * 100}
+              />
+                <details className='border-t border-border pt-2'>
+                  <summary className='cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wide text-muted-foreground'>
+                    <T>Motion and texture</T>
+                  </summary>
+                  <div className='mt-3 flex flex-col gap-3'>
+                  <RangeControl
+                    ariaLabel={gt('Shader speed')}
+                    label={<T>Speed</T>}
+                    max={2}
+                    min={0}
+                    onChange={(speed) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, speed },
+                    })}
+                    step={0.05}
+                    unit='×'
+                    value={frameMaterialSettings.speed}
+                  />
+                  <RangeControl
+                    ariaLabel={gt('Shader frequency')}
+                    label={<T>Frequency</T>}
+                    max={12}
+                    min={0.2}
+                    onChange={(frequency) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, frequency },
+                    })}
+                    step={0.1}
+                    value={frameMaterialSettings.frequency}
+                  />
+                  <RangeControl
+                    ariaLabel={gt('Shader detail')}
+                    label={<T>Detail</T>}
+                    max={8}
+                    min={0.5}
+                    onChange={(detail) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, detail },
+                    })}
+                    step={0.1}
+                    value={frameMaterialSettings.detail}
+                  />
+                  <RangeControl
+                    ariaLabel={gt('Shader intensity')}
+                    label={<T>Intensity</T>}
+                    max={1}
+                    min={0}
+                    onChange={(strength) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, strength },
+                    })}
+                    step={0.05}
+                    value={frameMaterialSettings.strength}
+                  />
+                  <RangeControl
+                    ariaLabel={gt('Shader grain')}
+                    label={<T>Grain</T>}
+                    max={100}
+                    min={0}
+                    onChange={(grain) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, grain },
+                    })}
+                    step={1}
+                    unit='%'
+                    value={frameMaterialSettings.grain}
+                  />
+                  <RangeControl
+                    ariaLabel={gt('Shader rotation')}
+                    label={<T>Rotation</T>}
+                    max={180}
+                    min={-180}
+                    onChange={(rotationZ) => onBackgroundChange({
+                      materialSettings: { ...frameMaterialSettings, rotationZ },
+                    })}
+                    step={1}
+                    unit='°'
+                    value={frameMaterialSettings.rotationZ}
+                  />
+                  </div>
+                </details>
+              </div>
+            </details>
+          ) : null}
           <ShaderLibraryBrowser
             activeMaterialId={editableBackground.materialId}
             compact
-            onSelect={(materialId) => onLibraryBackgroundChange({
-              colorA: shaderGallerySettings.colorA,
-              colorB: shaderGallerySettings.colorB,
-              colorC: shaderGallerySettings.colorC,
-              materialId,
-              materialSettings: shaderGallerySettings,
-              style: 'shader',
-            })}
-            settings={shaderGallerySettings}
+            excludeMaterialIds={compact ? COMPACT_SHADER_EXCLUSIONS : undefined}
+            limit={compact ? 30 : undefined}
+            onSelect={(materialId) => {
+              const materialSettings = shaderLabSettingsFor(materialId, shaderGallerySettings);
+              onLibraryBackgroundChange({
+                colorA: materialSettings.colorA,
+                colorB: materialSettings.colorB,
+                colorC: materialSettings.colorC,
+                materialId,
+                materialSettings,
+                style: 'shader',
+              });
+            }}
           />
         </InspectorSection>
         </>
@@ -546,6 +715,7 @@ export default function StudioControls({
             ) : (
               <>
                 <BackgroundScopeControl
+                  compact={compact}
                   hasOverride={hasSelectedBackgroundOverride}
                   onChange={onBackgroundScopeChange}
                   onClearOverrides={onClearBackgroundOverrides}
@@ -659,10 +829,10 @@ export default function StudioControls({
           unit='ms'
           value={settings.transitionMs}
         />
-        <div className='grid grid-cols-5 gap-1'>
+        <div className={compact ? 'grid grid-cols-3 gap-1.5' : 'grid grid-cols-5 gap-1'}>
           {[750, 1000, 1250, 1500, 1750].map((holdMs) => (
             <Button
-              className={`px-1 font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}
+              className={`font-mono ${compact ? 'h-7 min-w-0 px-1 text-[9px]' : 'px-1 text-xs'}`}
               key={holdMs}
               onClick={() => onSettingsChange({ holdMs })}
               size='sm'

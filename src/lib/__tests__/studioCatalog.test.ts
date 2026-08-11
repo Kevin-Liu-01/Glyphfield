@@ -4,6 +4,7 @@ import {
   filterStudioTools,
   getProjectTabDensity,
   getProjectTabScrollCues,
+  reorderProjectTabs,
   STUDIO_TOOLS,
 } from '../studioCatalog';
 
@@ -43,8 +44,11 @@ describe('filterStudioTools', () => {
     expect(new Set(STUDIO_TOOLS.map(({ id }) => id)).size).toBe(STUDIO_TOOLS.length);
   });
 
-  it('keeps surface unified while exposing material as focused motion', () => {
+  it('exposes the unified compositor as Design Lab while keeping shader authoring focused', () => {
     expect(STUDIO_TOOLS.filter(({ id }) => id === 'surface')).toHaveLength(1);
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'surface')).toMatchObject({
+      name: 'Design Lab',
+    });
     expect(STUDIO_TOOLS.find(({ id }) => id === 'material')?.category).toBe('Motion');
     expect(STUDIO_TOOLS.map(({ id }) => id)).not.toEqual(
       expect.arrayContaining(['logo', 'logo-shader', 'backgrounds'])
@@ -105,4 +109,35 @@ describe('getProjectTabScrollCues', () => {
       });
     }
   );
+});
+
+describe('reorderProjectTabs', () => {
+  it('moves a tab before another tab', () => {
+    expect(reorderProjectTabs(['a', 'b', 'c', 'd'], 'd', 'b', 'before')).toEqual([
+      'a',
+      'd',
+      'b',
+      'c',
+    ]);
+  });
+
+  it('moves a tab after another tab', () => {
+    expect(reorderProjectTabs(['a', 'b', 'c', 'd'], 'a', 'c', 'after')).toEqual([
+      'b',
+      'c',
+      'a',
+      'd',
+    ]);
+  });
+
+  it('preserves tabs outside the visible reorder pair', () => {
+    expect(
+      reorderProjectTabs(['hidden-a', 'a', 'hidden-b', 'b'], 'b', 'a', 'before')
+    ).toEqual(['hidden-a', 'b', 'a', 'hidden-b']);
+  });
+
+  it('returns the existing order when either tab is unavailable', () => {
+    expect(reorderProjectTabs(['a', 'b'], 'missing', 'b', 'before')).toEqual(['a', 'b']);
+    expect(reorderProjectTabs(['a', 'b'], 'a', 'missing', 'after')).toEqual(['a', 'b']);
+  });
 });

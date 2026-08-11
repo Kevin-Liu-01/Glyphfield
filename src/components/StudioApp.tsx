@@ -2,7 +2,13 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+} from 'react';
 import { T, useGT } from 'gt-next';
 import { useTheme } from 'next-themes';
 import {
@@ -22,6 +28,7 @@ import {
   FileJson2,
   Frame,
   Grid3X3,
+  GripVertical,
   Github,
   Image as ImageIcon,
   LayoutGrid,
@@ -71,8 +78,10 @@ import {
   filterStudioTools,
   getProjectTabDensity,
   getProjectTabScrollCues,
+  reorderProjectTabs,
   STUDIO_CATEGORIES,
   STUDIO_TOOLS,
+  type ProjectTabPlacement,
   type StudioToolId,
 } from '@/lib/studioCatalog';
 
@@ -630,6 +639,16 @@ export default function StudioApp() {
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
+  const [projectTabDrag, setProjectTabDrag] = useState<{
+    placement: ProjectTabPlacement;
+    sourceId: string;
+    targetId: string;
+  } | null>(null);
+  const projectTabDragRef = useRef<typeof projectTabDrag>(null);
+  const [reorderControlsIdentityId, setReorderControlsIdentityId] = useState<string | null>(
+    null
+  );
+  const [tabOrderAnnouncement, setTabOrderAnnouncement] = useState('');
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
   const workspaceDirectionRef = useRef<'backward' | 'forward'>('forward');
   const [tabScrollState, setTabScrollState] = useState({
@@ -674,14 +693,19 @@ export default function StudioApp() {
   const activeIdentityHasPendingChanges = Boolean(
     activeIdentity && pendingIdentities[activeIdentity.id]
   );
+  const identityById = useMemo(
+    () => new Map(resolvedIdentities.map((identity) => [identity.id, identity])),
+    [resolvedIdentities]
+  );
   const visibleIdentities = useMemo(
     () =>
-      resolvedIdentities.filter(
-        (identity) =>
-          openIdentityIds.includes(identity.id) &&
-          identityBelongsToFolder(identity, activeFolderId)
-      ),
-    [activeFolderId, openIdentityIds, resolvedIdentities]
+      openIdentityIds
+        .map((identityId) => identityById.get(identityId))
+        .filter(
+          (identity): identity is BrandIdentity =>
+            identity !== undefined && identityBelongsToFolder(identity, activeFolderId)
+        ),
+    [activeFolderId, identityById, openIdentityIds]
   );
   const projectTabDensity = getProjectTabDensity(
     visibleIdentities.length,
@@ -907,9 +931,10 @@ export default function StudioApp() {
 
   function selectIdentity(identityId: string) {
     if (identityId !== activeIdentity?.id) {
-      const currentIndex = identities.findIndex(({ id }) => id === activeIdentity?.id);
-      const nextIndex = identities.findIndex(({ id }) => id === identityId);
-      workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
+      const currentIndex = openIdentityIds.indexOf(activeIdentity?.id ?? '');
+      const nextIndex = openIdentityIds.indexOf(identityId);
+      workspaceDirectionRef.current =
+        nextIndex >= 0 && nextIndex < currentIndex ? 'backward' : 'forward';
     }
     setOpenIdentityIds((current) =>
       current.includes(identityId) ? current : [...current, identityId]
@@ -942,16 +967,20 @@ export default function StudioApp() {
     const closingIndex = visibleIdentities.findIndex(({ id }) => id === identityId);
     const nextOpenIdentityIds = openIdentityIds.filter((id) => id !== identityId);
     setOpenIdentityIds(nextOpenIdentityIds);
+    if (reorderControlsIdentityId === identityId) setReorderControlsIdentityId(null);
 
     if (identityId !== activeIdentity?.id) return;
-    const folderCandidates = identities.filter(
-      (identity) =>
-        nextOpenIdentityIds.includes(identity.id) &&
-        identityBelongsToFolder(identity, activeFolderId)
-    );
+    const folderCandidates = nextOpenIdentityIds
+      .map((id) => identityById.get(id))
+      .filter(
+        (identity): identity is BrandIdentity =>
+          identity !== undefined && identityBelongsToFolder(identity, activeFolderId)
+      );
     const nextIdentity =
       folderCandidates[Math.min(Math.max(0, closingIndex), folderCandidates.length - 1)] ??
-      identities.find(({ id }) => nextOpenIdentityIds.includes(id));
+      nextOpenIdentityIds
+        .map((id) => identityById.get(id))
+        .find((identity): identity is BrandIdentity => identity !== undefined);
     if (nextIdentity) selectIdentity(nextIdentity.id);
   }
 
@@ -1074,8 +1103,119 @@ export default function StudioApp() {
     );
   }
 
+  function announceProjectTabMove(identityId: string, position: number, total: number) {
+    const identity = identityById.get(identityId);
+    if (!identity) return;
+    setTabOrderAnnouncement(
+      gt('Moved {name} to position {position} of {total}.', {
+        name: identity.name,
+        position,
+        total,
+      })
+    );
+  }
+
+  function commitProjectTabReorder(
+    sourceId: string,
+    targetId: string,
+    placement: ProjectTabPlacement
+  ) {
+    if (sourceId === targetId) return;
+    const visibleIdentityIds = visibleIdentities.map(({ id }) => id);
+    const reorderedVisibleIds = reorderProjectTabs(
+      visibleIdentityIds,
+      sourceId,
+      targetId,
+      placement
+    );
+    const nextPosition = reorderedVisibleIds.indexOf(sourceId);
+    if (nextPosition < 0) return;
+
+    setOpenIdentityIds((current) =>
+      reorderProjectTabs(current, sourceId, targetId, placement)
+    );
+    announceProjectTabMove(sourceId, nextPosition + 1, reorderedVisibleIds.length);
+  }
+
+  function moveProjectTab(identityId: string, direction: -1 | 1) {
+    const currentIndex = visibleIdentities.findIndex(({ id }) => id === identityId);
+    const targetIdentity = visibleIdentities[currentIndex + direction];
+    if (currentIndex < 0 || !targetIdentity) return;
+    commitProjectTabReorder(
+      identityId,
+      targetIdentity.id,
+      direction < 0 ? 'before' : 'after'
+    );
+  }
+
+  function handleProjectTabDragStart(
+    event: ReactDragEvent<HTMLElement>,
+    identityId: string
+  ) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', identityId);
+    const nextDrag = { placement: 'before' as const, sourceId: identityId, targetId: identityId };
+    projectTabDragRef.current = nextDrag;
+    setProjectTabDrag(nextDrag);
+    setReorderControlsIdentityId(null);
+  }
+
+  function clearProjectTabDrag() {
+    projectTabDragRef.current = null;
+    setProjectTabDrag(null);
+  }
+
+  function handleProjectTabDragOver(
+    event: ReactDragEvent<HTMLDivElement>,
+    targetId: string
+  ) {
+    const sourceId =
+      projectTabDragRef.current?.sourceId || event.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const placement: ProjectTabPlacement =
+      event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
+    const currentDrag = projectTabDragRef.current;
+    if (
+      currentDrag?.sourceId === sourceId &&
+      currentDrag.targetId === targetId &&
+      currentDrag.placement === placement
+    ) {
+      return;
+    }
+    const nextDrag = { placement, sourceId, targetId };
+    projectTabDragRef.current = nextDrag;
+    setProjectTabDrag(nextDrag);
+  }
+
+  function handleProjectTabDrop(
+    event: ReactDragEvent<HTMLDivElement>,
+    targetId: string
+  ) {
+    event.preventDefault();
+    const currentDrag = projectTabDragRef.current;
+    const sourceId = currentDrag?.sourceId || event.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId) {
+      clearProjectTabDrag();
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const placement =
+      currentDrag?.targetId === targetId
+        ? currentDrag.placement
+        : event.clientX < bounds.left + bounds.width / 2
+          ? 'before'
+          : 'after';
+    commitProjectTabReorder(sourceId, targetId, placement);
+    clearProjectTabDrag();
+  }
+
   function renderProjectTab(identity: BrandIdentity) {
     const selected = identity.id === activeIdentity?.id;
+    const visibleIndex = visibleIdentities.findIndex(({ id }) => id === identity.id);
+    const reorderControlsOpen = reorderControlsIdentityId === identity.id;
     return (
       <div
         aria-selected={selected}
@@ -1084,8 +1224,16 @@ export default function StudioApp() {
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
+        data-dragging={projectTabDrag?.sourceId === identity.id ? 'true' : undefined}
+        data-drop-placement={
+          projectTabDrag?.sourceId !== identity.id && projectTabDrag?.targetId === identity.id
+            ? projectTabDrag.placement
+            : undefined
+        }
         data-project-id={identity.id}
         key={identity.id}
+        onDragOver={(event) => handleProjectTabDragOver(event, identity.id)}
+        onDrop={(event) => handleProjectTabDrop(event, identity.id)}
         role='tab'
         title={identity.name}
       >
@@ -1114,6 +1262,64 @@ export default function StudioApp() {
             </span>
           </button>
         )}
+        <button
+          aria-controls={`project-tab-reorder-${identity.id}`}
+          aria-expanded={reorderControlsOpen}
+          aria-label={gt('Reorder {name} tab', { name: identity.name })}
+          className='project-tab-reorder-trigger'
+          draggable
+          id={`project-tab-reorder-trigger-${identity.id}`}
+          onClick={() =>
+            setReorderControlsIdentityId((current) =>
+              current === identity.id ? null : identity.id
+            )
+          }
+          onDragEnd={clearProjectTabDrag}
+          onDragStart={(event) => handleProjectTabDragStart(event, identity.id)}
+          title={gt('Drag to reorder or click for move controls')}
+          type='button'
+        >
+          <span className='project-tab-reorder-drag-handle'>
+            <GripVertical aria-hidden='true' />
+          </span>
+        </button>
+        {reorderControlsOpen ? (
+          <div
+            aria-label={gt('Move {name} tab', { name: identity.name })}
+            className='project-tab-reorder-controls'
+            id={`project-tab-reorder-${identity.id}`}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setReorderControlsIdentityId(null);
+                window.requestAnimationFrame(() => {
+                  document
+                    .getElementById(`project-tab-reorder-trigger-${identity.id}`)
+                    ?.focus();
+                });
+              }
+            }}
+            role='group'
+          >
+            <button
+              aria-label={gt('Move {name} tab left', { name: identity.name })}
+              disabled={visibleIndex <= 0}
+              onClick={() => moveProjectTab(identity.id, -1)}
+              title={gt('Move tab left')}
+              type='button'
+            >
+              <ChevronLeft aria-hidden='true' />
+            </button>
+            <button
+              aria-label={gt('Move {name} tab right', { name: identity.name })}
+              disabled={visibleIndex < 0 || visibleIndex >= visibleIdentities.length - 1}
+              onClick={() => moveProjectTab(identity.id, 1)}
+              title={gt('Move tab right')}
+              type='button'
+            >
+              <ChevronRight aria-hidden='true' />
+            </button>
+          </div>
+        ) : null}
         <button
           aria-label={gt('Close {name} tab', { name: identity.name })}
           className='project-tab-close'
@@ -1277,6 +1483,9 @@ export default function StudioApp() {
                 ) : null}
                 {visibleIdentities.map(renderProjectTab)}
               </div>
+              <span aria-live='polite' className='sr-only'>
+                {tabOrderAnnouncement}
+              </span>
               {visibleIdentities.length === 0 ? (
                 <span className='mb-2 shrink-0 px-2 text-xs text-muted-foreground'>
                   <T>No brands in this folder</T>

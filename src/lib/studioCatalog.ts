@@ -141,9 +141,10 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Author tactile textures with fixed-view 3D relief and deterministic SVG or PNG output.',
+    description: 'Compose live shaders, interactive cloth, artwork, and finished stickers on one canvas.',
     id: 'surface',
     keywords: [
+      'design lab',
       'surface lab',
       'background',
       '3d surface',
@@ -183,7 +184,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'logomark',
       'transparent',
     ],
-    name: 'Surface Lab',
+    name: 'Design Lab',
     shortcut: 'U',
   },
   {
@@ -322,4 +323,31 @@ export function getProjectTabScrollCues(
     canScrollLeft: hiddenLeft > PROJECT_TAB_SCROLL_CUE_THRESHOLD,
     canScrollRight: hiddenRight > PROJECT_TAB_SCROLL_CUE_THRESHOLD,
   };
+}
+
+export type ProjectTabPlacement = 'before' | 'after';
+
+export function reorderProjectTabs(
+  tabIds: readonly string[],
+  movedId: string,
+  targetId: string,
+  placement: ProjectTabPlacement
+): string[] {
+  if (
+    movedId === targetId ||
+    !tabIds.includes(movedId) ||
+    !tabIds.includes(targetId)
+  ) {
+    return [...tabIds];
+  }
+
+  const remainingTabIds = tabIds.filter((tabId) => tabId !== movedId);
+  const targetIndex = remainingTabIds.indexOf(targetId);
+  const insertionIndex = targetIndex + (placement === 'after' ? 1 : 0);
+
+  return [
+    ...remainingTabIds.slice(0, insertionIndex),
+    movedId,
+    ...remainingTabIds.slice(insertionIndex),
+  ];
 }

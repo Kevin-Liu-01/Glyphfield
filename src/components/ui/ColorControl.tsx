@@ -109,19 +109,19 @@ export default function ColorControl({
   }
 
   return (
-    <div className='flex flex-col gap-2.5 rounded-md border border-border p-3'>
+    <div className='studio-color-control flex flex-col gap-2.5 rounded-md border border-border p-3'>
       <div className='flex items-center justify-between gap-3'>
         <span className='text-xs font-semibold text-foreground'>{label}</span>
         {opacity === undefined ? null : (
           <output className='font-mono text-[10px] text-muted-foreground'>{opacity}%</output>
         )}
       </div>
-      <div className='grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
+      <div className='studio-color-control-row grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
         <button
           aria-controls={pickerId}
           aria-haspopup='dialog'
           aria-label={ariaLabel}
-          className='relative grid size-[38px] shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-background p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          className='studio-color-control-swatch relative grid size-[38px] shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-background p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring'
           onClick={positionPicker}
           popoverTarget={pickerId}
           popoverTargetAction='toggle'
@@ -133,7 +133,7 @@ export default function ColorControl({
             style={{ backgroundColor: hex }}
           />
         </button>
-        <label className='grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+        <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
           <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
           <input
             aria-label={`${ariaLabel} HEX`}
@@ -148,7 +148,7 @@ export default function ColorControl({
         </label>
       </div>
       <div
-        className='color-picker-popover flex w-[260px] flex-col gap-3 rounded-md border border-border bg-background p-3 text-foreground shadow-xl'
+        className='color-picker-popover flex w-[260px] flex-col gap-3 rounded-md bg-background p-3 text-foreground smooth-shadow-ring-xl'
         id={pickerId}
         popover='auto'
         role='dialog'
@@ -202,7 +202,7 @@ export default function ColorControl({
           <span className='rounded-sm border border-border py-1.5'><strong className='font-medium text-foreground'>{Math.round(hsv.value * 100)}</strong> V</span>
         </div>
       </div>
-      <label className='grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+      <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
         <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>OKLCH</span>
         <input
           aria-label={`${ariaLabel} OKLCH`}

@@ -3,18 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_MANIFEST, OPENAPI_DOCUMENT } from '../agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
-import { LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
+import { DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
 import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_PRESETS } from '../openSurfaceLibrary';
 import { STICKER_FINISH_PRESETS } from '../surfaceSticker';
 import { STUDIO_TOOLS } from '../studioCatalog';
+import { shaderLabMaterials } from '../shaderLab';
 
 describe('agent discovery catalogs', () => {
   it('derives every agent-visible shader from the shared Studio material library', () => {
-    expect(AGENT_SHADER_LIBRARY.count).toBe(LIVE_MATERIAL_OPTIONS.length);
+    expect(AGENT_SHADER_LIBRARY.count).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
     expect(AGENT_SHADER_LIBRARY.materials.map(({ id }) => id)).toEqual(
-      LIVE_MATERIAL_OPTIONS.map(({ id }) => id)
+      shaderLabMaterials('', 'all').map(({ id }) => id)
     );
-    expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material']);
+    expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material', 'surface']);
   });
 
   it('derives every lab plugin from the navigable Studio catalog', () => {
@@ -26,7 +27,7 @@ describe('agent discovery catalogs', () => {
       AGENT_LAB_CATALOG.plugins
         .filter(({ capabilities }) => capabilities.sharedShaderLibrary)
         .map(({ id }) => id)
-    ).toEqual(['animation', 'material']);
+    ).toEqual(['animation', 'material', 'surface']);
   });
 
   it('publishes every deterministic Surface Lab recipe and its physical controls', () => {
@@ -47,10 +48,11 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SURFACE_LIBRARY.browserPreview).toMatchObject({ camera: 'fixed', userOrbit: false });
     expect(AGENT_SURFACE_LIBRARY.stickerFinishCount).toBe(STICKER_FINISH_PRESETS.length);
     expect(AGENT_SURFACE_LIBRARY.stickerFinishes.map(({ id }) => id)).toContain('precision-metal-inset');
-    expect(AGENT_SURFACE_LIBRARY.stickerFinishes.find(({ id }) => id === 'holo-vinyl')?.source).toMatchObject({ license: 'MIT', name: 'GMHoloSticker' });
+    expect(AGENT_SURFACE_LIBRARY.stickerFinishes.find(({ id }) => id === 'holo-vinyl')?.source).toMatchObject({ license: 'MIT', name: 'HoloSticker' });
     expect(AGENT_SURFACE_LIBRARY.stickerControls.borderColor.type).toBe('hex-color');
     expect(AGENT_SURFACE_LIBRARY.stickerControls.seamWidth.maximum).toBe(12);
     expect(AGENT_SURFACE_LIBRARY.staticShaderIds).toHaveLength(8);
+    expect(AGENT_SURFACE_LIBRARY.liveShaderCount).toBe(shaderLabMaterials('', 'all').length);
   });
 
   it('publishes the lab and material endpoints from the manifest and OpenAPI document', () => {

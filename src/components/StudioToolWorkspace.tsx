@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Check,
   Copy,
   Download,
   FileImage,
+  RotateCcw,
   Upload,
+  X,
 } from 'lucide-react';
 
 import DesignBoard from '@/components/DesignBoard';
@@ -32,6 +34,7 @@ import ComponentLibraryPreview, {
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
 import LogoShaderStudio from '@/components/LogoShaderStudio';
+import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
@@ -49,7 +52,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
-import { formatOklch, hexToOklch, normalizeHex } from '@/lib/color';
+import { colorContrastRatio, formatOklch, hexToOklch, mixHexColors, normalizeHex, oklchToHex, resolveReadableColor } from '@/lib/color';
 import {
   CODE_THEME,
   highlightCode,
@@ -75,7 +78,7 @@ import {
   type TemplateKind,
 } from '@/lib/templateAssets';
 import { buildTemplateSvg, type SlideLayout, type TemplateLayerId, type TemplateTexture } from '@/lib/templateSvg';
-import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT, measureTypingSample } from '@/lib/typography';
 import {
   parseSourceObject,
   sourceBoolean,
@@ -170,12 +173,14 @@ function ToolShell({
   actions,
   children,
   inspector,
+  library,
   sourceCode,
   tool,
 }: {
   actions?: ReactNode;
   children: ReactNode;
   inspector: ReactNode;
+  library?: ReactNode;
   sourceCode?: {
     format: string;
     onApply: (source: string) => void;
@@ -201,15 +206,35 @@ function ToolShell({
           </div>
         ) : null}
       </header>
-      <div className='tool-body'>
-        <ResizableSidebar
-          className='tool-inspector min-h-0 border-r border-border bg-background'
-          label={gt(`${tool.name} controls`)}
-          storageKey={`tool-${tool.id}`}
-        >
-          {inspector}
-        </ResizableSidebar>
+      <div className={`tool-body${library ? ' tool-lab-body lab-workspace' : ''}`}>
+        {library ? (
+          <ResizableSidebar
+            className='tool-library lab-sidebar lab-sidebar-left min-h-0 border-r border-border'
+            label={gt(`${tool.name} library`)}
+            storageKey={`tool-${tool.id}-library`}
+          >
+            {library}
+          </ResizableSidebar>
+        ) : (
+          <ResizableSidebar
+            className='tool-inspector min-h-0 border-r border-border bg-background'
+            label={gt(`${tool.name} controls`)}
+            storageKey={`tool-${tool.id}`}
+          >
+            {inspector}
+          </ResizableSidebar>
+        )}
         <div className='tool-canvas min-h-0 overflow-auto'>{children}</div>
+        {library ? (
+          <ResizableSidebar
+            className='tool-inspector lab-sidebar lab-sidebar-right min-h-0 border-l border-border'
+            label={gt(`${tool.name} controls`)}
+            resizeEdge='left'
+            storageKey={`tool-${tool.id}-inspector`}
+          >
+            {inspector}
+          </ResizableSidebar>
+        ) : null}
         {sourceCode && sourceOpen ? (
           <SourceCodeDrawer
             format={sourceCode.format}
@@ -753,7 +778,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
         {logoOptions.length > 0 ? <Field label={<T>Brand logo asset</T>}><StudioSelect ariaLabel='Brand logo asset' onValueChange={setLibraryLogoId} options={logoOptions.map((asset) => ({ label: asset.label, value: asset.id }))} value={libraryLogoId} /></Field> : null}
         <UploadField
           accept='.otf,.ttf,.woff,.woff2,font/*'
-          fileName={customFont.font?.name}
+          fileName={customFont.font ? gt('Custom font loaded') : undefined}
           label='Add font file'
           onFile={customFont.select}
         />
@@ -792,7 +817,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     >
       <CanvasViewport fontFamily={selectedFontFamily} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
         <div
-          className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md border border-border shadow-sm'
+          className='artifact-preview relative aspect-[1200/630] w-full max-w-5xl overflow-hidden rounded-md smooth-shadow-ring-sm'
           onPointerDown={() => setLogoSelected(false)}
           style={{ containerType: 'inline-size' }}
         >
@@ -1136,6 +1161,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             canvasWidth={1200}
             label={gt('Logo')}
             onChange={(next) => { setLogoX(next.x); setLogoY(next.y); setLogoScale(Math.round(next.scale * 100)); }}
+            onDeselect={() => setLogoSelected(false)}
             onSelect={() => setLogoSelected(true)}
             selected={logoSelected}
             transform={{ scale: logoScale / 100, x: logoX, y: logoY }}
@@ -1179,7 +1205,84 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     () => identity.colors.map(({ hex, name, role }) => ({ hex, name, opacity: 100, role }))
   );
   const [copied, setCopied] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [contrastIndex, setContrastIndex] = useState(Math.min(1, identity.colors.length - 1));
+  const [previewSurface, setPreviewSurface] = useState<'paper' | 'ink' | 'grid'>('paper');
+  const [colorPopover, setColorPopover] = useState<{ left: number; top: number } | null>(null);
+  const colorCanvasRef = useRef<HTMLDivElement>(null);
   const sourceCode = stringifySource({ colors });
+  const resolvedSelectedIndex = Math.min(selectedIndex, Math.max(0, colors.length - 1));
+  const selectedColor = colors[resolvedSelectedIndex] ?? { hex: '#000000', name: 'Color', opacity: 100, role: '' };
+  const selectedOklch = hexToOklch(selectedColor.hex);
+  const draftColorByIdentityId = (id: string, fallback: string) => {
+    const identityIndex = identity.colors.findIndex((color) => color.id === id);
+    return colors[identityIndex]?.hex ?? identity.colors[identityIndex]?.hex ?? fallback;
+  };
+  const surfaceBackground = previewSurface === 'ink'
+    ? draftColorByIdentityId('ink', '#181818')
+    : previewSurface === 'grid'
+      ? draftColorByIdentityId('muted', '#F2F2F2')
+      : draftColorByIdentityId('paper', '#FFFFFF');
+  const selectedBackground = mixHexColors(surfaceBackground, selectedColor.hex, selectedColor.opacity / 100);
+  const requestedContrastColor = colors[Math.min(contrastIndex, Math.max(0, colors.length - 1))]?.hex ?? '#FFFFFF';
+  const contrastResolution = resolveReadableColor(selectedBackground, requestedContrastColor);
+  const contrastColor = contrastResolution.color;
+  const contrastRatio = contrastResolution.ratio;
+  const actionTextColor = resolveReadableColor(contrastColor, selectedColor.hex).color;
+  const darkWordmarkPath = brandAssetPath(identity, 'wordmark');
+  const lightWordmarkPath = brandAssetPath(identity, 'wordmark-light');
+  const darkMarkPath = brandAssetPath(identity, 'mark-dark');
+  const lightMarkPath = brandAssetPath(identity, 'mark-light');
+  const useLightLogo = colorContrastRatio(selectedBackground, '#FFFFFF') >= colorContrastRatio(selectedBackground, '#000000');
+  const proofLogo = (useLightLogo
+    ? [
+        { kind: 'wordmark' as const, path: lightWordmarkPath },
+        { kind: 'mark' as const, path: lightMarkPath },
+        { kind: 'wordmark' as const, path: darkWordmarkPath },
+        { kind: 'mark' as const, path: darkMarkPath },
+      ]
+    : [
+        { kind: 'wordmark' as const, path: darkWordmarkPath },
+        { kind: 'mark' as const, path: darkMarkPath },
+        { kind: 'wordmark' as const, path: lightWordmarkPath },
+        { kind: 'mark' as const, path: lightMarkPath },
+      ]).find(({ path }) => Boolean(path));
+
+  useEffect(() => {
+    if (!colorPopover) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setColorPopover(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [colorPopover]);
+
+  function updateSelectedColor(patch: Partial<EditableColor>) {
+    setColors((current) => current.map((color, index) => index === resolvedSelectedIndex ? { ...color, ...patch } : color));
+  }
+
+  function openColorPopover(target: HTMLElement, index: number, clientX?: number, clientY?: number) {
+    const canvas = colorCanvasRef.current;
+    if (!canvas) return;
+    const canvasBounds = canvas.getBoundingClientRect();
+    const targetBounds = target.getBoundingClientRect();
+    const popoverWidth = Math.min(300, Math.max(240, canvasBounds.width - 24));
+    const popoverHeight = 430;
+    const pointerX = clientX ?? targetBounds.left + targetBounds.width / 2;
+    const pointerY = clientY ?? targetBounds.top + targetBounds.height / 2;
+    const maximumLeft = Math.max(12, canvasBounds.width - popoverWidth - 12);
+    const maximumTop = Math.max(12, canvasBounds.height - popoverHeight - 12);
+    setSelectedIndex(index);
+    setColorPopover({
+      left: Math.min(maximumLeft, Math.max(12, pointerX - canvasBounds.left + 14)),
+      top: Math.min(maximumTop, Math.max(12, pointerY - canvasBounds.top + 14)),
+    });
+  }
+
+  function openColorPopoverFromClick(event: MouseEvent<HTMLElement>, index: number) {
+    event.stopPropagation();
+    openColorPopover(event.currentTarget, index, event.clientX, event.clientY);
+  }
 
   function applySourceCode(source: string) {
     const value = parseSourceObject(source);
@@ -1205,33 +1308,68 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     window.setTimeout(() => setCopied(false), 1200);
   }
 
-  const inspector = (
-    <ControlSection title={<T>Semantic palette</T>}>
-      <p className='text-sm leading-5 text-muted-foreground'>
-        <T>Edit any swatch. HEX and perceptual OKLCH values stay paired.</T>
-      </p>
-      <div className='flex flex-col gap-3'>
+  const library = (
+    <>
+      <LabPanelHeading
+        description={<T>Select a semantic token to edit and test in context.</T>}
+        eyebrow={<T>Token library</T>}
+        title={<T>Brand colors</T>}
+      />
+      <div className='color-lab-library'>
         {colors.map((color, index) => (
-          <ColorControl
-            ariaLabel={gt('Change {name}', { name: color.name })}
-            key={color.name}
-            label={gt(color.name)}
-            onChange={(hex) =>
-              setColors((current) =>
-                current.map((item, itemIndex) => itemIndex === index ? { ...item, hex } : item)
-              )
-            }
-            onOpacityChange={(opacity) =>
-              setColors((current) =>
-                current.map((item, itemIndex) => itemIndex === index ? { ...item, opacity } : item)
-              )
-            }
-            opacity={color.opacity ?? 100}
-            value={color.hex}
-          />
+          <button
+            aria-pressed={selectedIndex === index}
+            className='color-lab-token'
+            key={`${color.name}-${index}`}
+            onClick={() => {
+              setSelectedIndex(index);
+              setColorPopover(null);
+            }}
+            type='button'
+          >
+            <span style={{ backgroundColor: color.hex }} />
+            <span><strong>{color.name}</strong><small>{color.role || formatOklch(color.hex)}</small></span>
+            <code>{normalizeHex(color.hex)}</code>
+          </button>
         ))}
       </div>
-    </ControlSection>
+    </>
+  );
+
+  const inspector = (
+    <>
+      <LabPanelHeading
+        description={<T>Adjust perceptual channels while keeping production values visible.</T>}
+        eyebrow={<T>Live inspector</T>}
+        title={selectedColor.name}
+      />
+      <LabInspectorSection index='01' meta='OKLCH' title={<T>Color</T>}>
+        <ColorControl
+          ariaLabel={gt('Change {name}', { name: selectedColor.name })}
+          label={<T>Exact color</T>}
+          onChange={(hex) => updateSelectedColor({ hex })}
+          onOpacityChange={(opacity) => updateSelectedColor({ opacity })}
+          opacity={selectedColor.opacity}
+          value={selectedColor.hex}
+        />
+        <RangeField label={<T>Lightness</T>} max={100} min={0} onChange={(lightness) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, lightness: lightness / 100 }) })} suffix='%' value={Math.round(selectedOklch.lightness * 100)} />
+        <RangeField label={<T>Chroma</T>} max={0.4} min={0} onChange={(chroma) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, chroma }) })} step={0.005} value={Number(selectedOklch.chroma.toFixed(3))} />
+        <RangeField label={<T>Hue</T>} max={360} min={0} onChange={(hue) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, hue }) })} suffix='°' value={Math.round(selectedOklch.hue)} />
+      </LabInspectorSection>
+      <LabInspectorSection index='02' meta='Semantic' title={<T>Token</T>}>
+        <Field label={<T>Name</T>}><input className={INPUT_CLASS} onChange={(event) => updateSelectedColor({ name: event.target.value })} value={selectedColor.name} /></Field>
+        <Field label={<T>Role</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => updateSelectedColor({ role: event.target.value })} value={selectedColor.role} /></Field>
+      </LabInspectorSection>
+      <LabInspectorSection index='03' meta={`${contrastRatio.toFixed(2)}:1`} title={<T>Contrast check</T>}>
+        <StudioSelect
+          ariaLabel={gt('Contrast color')}
+          onValueChange={(value) => setContrastIndex(Number(value))}
+          options={colors.map((color, index) => ({ label: color.name, value: String(index) }))}
+          value={String(contrastIndex)}
+        />
+        <p className='lab-section-description'>{contrastRatio >= 4.5 ? <T>Passes WCAG AA for normal text.</T> : contrastRatio >= 3 ? <T>Passes for large text only.</T> : <T>Use this pairing for decoration, not text.</T>}</p>
+      </LabInspectorSection>
+    </>
   );
 
   return (
@@ -1243,36 +1381,101 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
         </Button>
       }
       inspector={inspector}
+      library={library}
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Color system source') }}
       tool={tool}
     >
-      <div className='grid min-h-full content-center gap-px bg-border lg:grid-cols-2'>
-        {colors.map((color) => {
-          const oklch = formatOklch(color.hex);
-          const lightness = Number(oklch.match(/\d+(\.\d+)?/)?.[0] ?? 0);
-          const isDark = lightness < 55;
-          return (
-            <article
-              className='flex min-h-56 flex-col justify-between gap-8 p-6'
-              key={color.name}
-              style={{
-                backgroundColor: `${normalizeHex(color.hex)}${Math.round(((color.opacity ?? 100) / 100) * 255).toString(16).padStart(2, '0')}`,
-                color: isDark ? '#FFFFFF' : '#111111',
-              }}
+      <div className='color-lab-stage' data-surface={previewSurface}>
+        <div className='color-lab-toolbar'>
+          <div>
+            <span><T>Live token proof</T></span>
+            <strong>{selectedColor.name}</strong>
+          </div>
+          <div className='color-lab-segmented'>
+            {(['paper', 'ink', 'grid'] as const).map((surface) => <button aria-pressed={previewSurface === surface} key={surface} onClick={() => setPreviewSurface(surface)} type='button'>{surface}</button>)}
+          </div>
+        </div>
+        <div className='color-lab-canvas' onClick={() => setColorPopover(null)} ref={colorCanvasRef}>
+          <article
+            aria-label={gt('Inspect and edit {name}', { name: selectedColor.name })}
+            className='color-lab-proof'
+            onClick={(event) => openColorPopoverFromClick(event, resolvedSelectedIndex)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              openColorPopover(event.currentTarget, resolvedSelectedIndex);
+            }}
+            role='button'
+            data-auto-contrast={contrastResolution.fallbackApplied ? 'true' : 'false'}
+            style={{ backgroundColor: selectedBackground, color: contrastColor }}
+            tabIndex={0}
+          >
+            <div><span>{selectedColor.role || 'Semantic brand color'}{contrastResolution.fallbackApplied ? ' · Auto contrast' : ''}</span><code>{normalizeHex(selectedColor.hex)}</code></div>
+            {proofLogo?.path ? (
+              <img
+                alt={`${identity.name} ${proofLogo.kind}`}
+                className='color-lab-proof-logo'
+                data-logo-kind={proofLogo.kind}
+                src={proofLogo.path}
+              />
+            ) : <h2>{identity.shortName}</h2>}
+            <p>{identity.tagline}</p>
+            <span className='color-lab-proof-action' style={{ backgroundColor: contrastColor, color: actionTextColor }}><T>Primary action</T></span>
+          </article>
+          <div className='color-lab-values'>
+            <div><span>HEX</span><strong>{normalizeHex(selectedColor.hex)}</strong></div>
+            <div><span>OKLCH</span><strong>{formatOklch(selectedColor.hex)}</strong></div>
+            <div><span>CONTRAST</span><strong>{contrastRatio.toFixed(2)}:1</strong></div>
+          </div>
+          <div className='color-lab-ramp' aria-label={gt('Tonal ramp')}>
+            {[0.9, 0.72, 0.5, 0.28, 0.12].map((amount) => <span key={`light-${amount}`} style={{ backgroundColor: mixHexColors('#FFFFFF', selectedColor.hex, amount) }} />)}
+            {[0.15, 0.32, 0.52, 0.72, 0.88].map((amount) => <span key={`dark-${amount}`} style={{ backgroundColor: mixHexColors(selectedColor.hex, '#000000', amount) }} />)}
+          </div>
+          <div aria-label={gt('Color token canvas')} className='color-lab-token-map'>
+            {colors.map((color, index) => (
+              <button
+                aria-label={gt('Inspect and edit {name}', { name: color.name })}
+                aria-pressed={resolvedSelectedIndex === index}
+                key={`${color.name}-canvas-${index}`}
+                onClick={(event) => openColorPopoverFromClick(event, index)}
+                style={{ backgroundColor: color.hex }}
+                type='button'
+              >
+                <span>{color.name}</span>
+                <code>{normalizeHex(color.hex)}</code>
+              </button>
+            ))}
+          </div>
+          {colorPopover ? (
+            <aside
+              aria-label={gt('Edit {name}', { name: selectedColor.name })}
+              className='color-lab-canvas-popover'
+              onClick={(event) => event.stopPropagation()}
+              role='dialog'
+              style={{ left: colorPopover.left, top: colorPopover.top }}
             >
-              <div className='flex items-start justify-between gap-4'>
-                <h2 className='text-xl font-semibold'>{gt(color.name)}</h2>
-                <span className='rounded-md border border-current/20 px-2 py-1 font-mono text-xs'>
-                  {normalizeHex(color.hex)}
-                </span>
+              <header>
+                <div>
+                  <span><T>Canvas color</T></span>
+                  <strong>{selectedColor.name}</strong>
+                </div>
+                <button aria-label={gt('Close color editor')} onClick={() => setColorPopover(null)} type='button'><X aria-hidden='true' /></button>
+              </header>
+              <ColorControl
+                ariaLabel={gt('Change {name}', { name: selectedColor.name })}
+                label={<T>Edit sampled token</T>}
+                onChange={(hex) => updateSelectedColor({ hex })}
+                onOpacityChange={(opacity) => updateSelectedColor({ opacity })}
+                opacity={selectedColor.opacity}
+                value={selectedColor.hex}
+              />
+              <div className='color-lab-canvas-popover-meta'>
+                <span>{formatOklch(selectedColor.hex)}</span>
+                <span>{contrastRatio.toFixed(2)}:1</span>
               </div>
-              <div className='flex flex-col gap-2'>
-                <p className='font-mono text-sm'>{oklch}</p>
-                <p className='text-sm opacity-70'>{gt(color.role)}</p>
-              </div>
-            </article>
-          );
-        })}
+            </aside>
+          ) : null}
+        </div>
       </div>
     </ToolShell>
   );
@@ -1281,7 +1484,27 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
 function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandIdentity; onIdentityChange: (identity: BrandIdentity) => void; tool: StudioTool }) {
   const gt = useGT();
   const fonts = brandFontAssets(identity);
+  const [selectedRole, setSelectedRole] = useState<BrandTypography['role']>('Display');
+  const [sampleText, setSampleText] = useStudioDraft(identity.id, tool.id, 'sample-text', identity.tagline);
+  const [previewSizes, setPreviewSizes] = useStudioDraft<Record<BrandTypography['role'], number>>(
+    identity.id,
+    tool.id,
+    'preview-sizes',
+    { Accent: 44, Body: 26, Code: 18, Display: 112 }
+  );
+  const [previewAlign, setPreviewAlign] = useState<'left' | 'center'>('left');
+  const [previewMode, setPreviewMode] = useState<'system' | 'type'>('type');
+  const [typingCharactersEntered, setTypingCharactersEntered] = useState(0);
+  const [typingStartedAt, setTypingStartedAt] = useState<number | null>(null);
+  const [typingNow, setTypingNow] = useState<number | null>(null);
+  const liveSpecimenRef = useRef<HTMLTextAreaElement>(null);
   const sourceCode = stringifySource({ typography: identity.typography });
+
+  useEffect(() => {
+    if (typingStartedAt === null) return;
+    const timer = window.setInterval(() => setTypingNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [typingStartedAt]);
 
   function applySourceCode(source: string) {
     const value = parseSourceObject(source);
@@ -1308,6 +1531,21 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     });
   }
 
+  function editSampleText(value: string) {
+    const now = Date.now();
+    if (typingStartedAt === null) setTypingStartedAt(now);
+    setTypingCharactersEntered((current) => current + Math.max(0, Array.from(value).length - Array.from(sampleText).length));
+    setTypingNow(now);
+    setSampleText(value);
+  }
+
+  function resetTypingSession() {
+    setSampleText('');
+    setTypingCharactersEntered(0);
+    setTypingStartedAt(null);
+    setTypingNow(null);
+  }
+
   async function loadFont(file: File) {
     const extension = file.name.split('.').pop()?.toLocaleLowerCase();
     const format: BrandFontAsset['format'] = extension === 'ttf'
@@ -1331,19 +1569,88 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     onIdentityChange({ ...identity, fonts: [...fonts, nextFont] });
   }
 
+  const selectedTypography = brandTypographyRole(identity, selectedRole);
+  const selectedFamily = brandTypographyFamily(identity, selectedRole);
+  const selectedSize = previewSizes[selectedRole] ?? ({ Accent: 44, Body: 26, Code: 18, Display: 112 } as const)[selectedRole];
+  const selectedFont = fonts.find(({ id }) => id === selectedTypography.fontId)
+    ?? fonts.find(({ family }) => family === selectedFamily);
+  const familyAssets = fonts.filter(({ family }) => family === selectedFamily);
+  const minimumSpecimenWeight = Math.max(100, selectedFont?.weightMin ?? Math.min(...familyAssets.map(({ weight }) => weight), 100));
+  const maximumSpecimenWeight = Math.min(
+    MAX_VISIBLE_FONT_WEIGHT,
+    selectedFont?.weightMax ?? Math.max(...familyAssets.map(({ weight }) => weight), MAX_VISIBLE_FONT_WEIGHT)
+  );
+  const weightStep = Math.max(25, Math.round((maximumSpecimenWeight - minimumSpecimenWeight) / 3 / 25) * 25);
+  const specimenWeights = Array.from(new Set([
+    minimumSpecimenWeight,
+    minimumSpecimenWeight + weightStep,
+    minimumSpecimenWeight + weightStep * 2,
+    maximumSpecimenWeight,
+    capVisibleFontWeight(selectedTypography.weight ?? 400),
+    ...familyAssets.map(({ weight }) => capVisibleFontWeight(weight)),
+  ]))
+    .filter((weight) => weight >= minimumSpecimenWeight && weight <= maximumSpecimenWeight)
+    .sort((first, second) => first - second)
+    .slice(0, 6);
+  const typingElapsedMs = typingStartedAt === null || typingNow === null ? 0 : typingNow - typingStartedAt;
+  const sampleMeasurement = measureTypingSample(sampleText, 0);
+  const typingPace = measureTypingSample('x'.repeat(typingCharactersEntered), typingElapsedMs);
+  const typingMeasurement = {
+    ...sampleMeasurement,
+    seconds: typingPace.seconds,
+    wordsPerMinute: typingPace.wordsPerMinute,
+  };
+
+  useEffect(() => {
+    const specimen = liveSpecimenRef.current;
+    if (!specimen || previewMode !== 'type') return;
+    specimen.style.height = '0px';
+    specimen.style.height = `${specimen.scrollHeight}px`;
+  }, [previewMode, sampleText, selectedRole, selectedSize, selectedTypography.letterSpacing, selectedTypography.lineHeight, selectedTypography.weight]);
+
+  const library = (
+    <>
+      <LabPanelHeading
+        description={<T>Select a role to inspect it at production scale.</T>}
+        eyebrow={<T>Type library</T>}
+        title={<T>Typography roles</T>}
+      />
+      <div className='typography-lab-library'>
+        {identity.typography.map((typography) => (
+          <button aria-pressed={selectedRole === typography.role} key={typography.role} onClick={() => setSelectedRole(typography.role)} type='button'>
+            <span>{typography.role}</span>
+            <strong style={{ fontFamily: brandTypographyFamily(identity, typography.role), fontWeight: capVisibleFontWeight(typography.weight ?? 400) }}>Aa</strong>
+            <small>{brandTypographyFamily(identity, typography.role)}</small>
+          </button>
+        ))}
+      </div>
+      <div className='p-4'><UploadField accept='.otf,.ttf,.woff,.woff2,font/*' label='Add font file to identity' onFile={loadFont} /></div>
+    </>
+  );
+
   const inspector = (
     <>
-      <ControlSection title={<T>Typography roles</T>}>
-        {identity.typography.map((typography) => (
-          <div className='flex flex-col gap-3 border-b border-border pb-4 last:border-b-0 last:pb-0' key={typography.role}>
-            <Field label={typography.role.toLocaleUpperCase()}>
-              <StudioSelect ariaLabel={`${typography.role} font`} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateRole(typography.role, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: `${font.label} · ${font.fileName}`, value: font.id }))} value={brandTypographyRole(identity, typography.role).fontId ?? fonts[0]?.id ?? ''} />
-            </Field>
-            <RangeField label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(weight) => updateRole(typography.role, { weight })} step={50} value={brandTypographyRole(identity, typography.role).weight ?? 400} />
-          </div>
-        ))}
-        <UploadField accept='.otf,.ttf,.woff,.woff2,font/*' label='Add font file to identity' onFile={loadFont} />
-      </ControlSection>
+      <LabPanelHeading
+        description={<T>Make live changes to the selected role and specimen.</T>}
+        eyebrow={<T>Live inspector</T>}
+        title={`${selectedRole} · ${selectedFamily}`}
+      />
+      <LabInspectorSection index='01' meta={selectedRole} title={<T>Typeface</T>}>
+        <Field label={<T>Font family</T>}>
+          <StudioSelect ariaLabel={`${selectedRole} font`} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateRole(selectedRole, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: font.label, value: font.id }))} value={selectedTypography.fontId ?? fonts[0]?.id ?? ''} />
+        </Field>
+        <RangeField label={<T>Preview size</T>} max={selectedRole === 'Display' ? 180 : 96} min={10} onChange={(fontSize) => setPreviewSizes((current) => ({ ...current, [selectedRole]: fontSize }))} suffix='px' value={selectedSize} />
+        <RangeField label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(weight) => updateRole(selectedRole, { weight })} step={25} value={selectedTypography.weight ?? 400} />
+        <RangeField label={<T>Line height</T>} max={2} min={0.7} onChange={(lineHeight) => updateRole(selectedRole, { lineHeight })} step={0.02} value={selectedTypography.lineHeight ?? 1.2} />
+        <RangeField label={<T>Tracking</T>} max={12} min={-8} onChange={(letterSpacing) => updateRole(selectedRole, { letterSpacing })} step={0.1} suffix='px' value={selectedTypography.letterSpacing ?? 0} />
+      </LabInspectorSection>
+      <LabInspectorSection index='02' meta='Live copy' title={<T>Specimen</T>}>
+        <Field label={<T>Sample text</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => editSampleText(event.target.value)} value={sampleText} /></Field>
+        <SegmentedChoice onChange={setPreviewAlign} options={[{ label: 'Left', value: 'left' }, { label: 'Center', value: 'center' }]} value={previewAlign} />
+      </LabInspectorSection>
+      <LabInspectorSection index='03' meta={selectedTypography.usage} title={<T>Role guidance</T>}>
+        <p className='lab-section-description'>{selectedTypography.usage}</p>
+      </LabInspectorSection>
     </>
   );
 
@@ -1372,9 +1679,80 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     : `$ npx ${identity.id} build --brand`;
 
   return (
-    <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Typography source') }} tool={tool}>
+    <ToolShell inspector={inspector} library={library} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Typography source') }} tool={tool}>
+      <div className='typography-lab-stage'>
+        <div className='typography-lab-toolbar'>
+          <div><span><T>Live specimen</T></span><strong>{selectedRole} / {selectedFamily}</strong></div>
+          <div className='color-lab-segmented'>
+            {(['type', 'system'] as const).map((mode) => <button aria-pressed={previewMode === mode} key={mode} onClick={() => setPreviewMode(mode)} type='button'>{mode}</button>)}
+          </div>
+        </div>
+        {previewMode === 'type' ? (
+          <div className='typography-lab-focus'>
+            <article data-align={previewAlign}>
+              <div><span>{selectedRole}</span><code>{selectedFamily} · {selectedTypography.weight ?? 400} / {selectedTypography.lineHeight ?? 1.2}</code></div>
+              <textarea
+                aria-label={gt('{role} live type specimen', { role: selectedRole })}
+                className='typography-lab-live-input'
+                onChange={(event) => editSampleText(event.target.value)}
+                placeholder={gt('Type here to test the family…')}
+                ref={liveSpecimenRef}
+                style={{
+                  fontFamily: selectedFamily,
+                  fontSize: `${selectedSize}px`,
+                  fontWeight: capVisibleFontWeight(selectedTypography.weight ?? 400),
+                  letterSpacing: `${selectedTypography.letterSpacing ?? 0}px`,
+                  lineHeight: selectedTypography.lineHeight ?? 1.2,
+                }}
+                value={sampleText}
+              />
+              <section className='typography-lab-role-lines' aria-label={gt('Typography role specimens')}>
+                {identity.typography.map((typography) => (
+                  <label data-active={selectedRole === typography.role} key={typography.role}>
+                    <span><strong>{typography.role}</strong><code>{brandTypographyFamily(identity, typography.role)}</code></span>
+                    <input
+                      aria-label={gt('{role} editable specimen', { role: typography.role })}
+                      onChange={(event) => editSampleText(event.target.value)}
+                      onFocus={() => setSelectedRole(typography.role)}
+                      style={{
+                        fontFamily: brandTypographyFamily(identity, typography.role),
+                        fontStyle: fonts.find(({ id }) => id === typography.fontId)?.style ?? 'normal',
+                        fontWeight: capVisibleFontWeight(typography.weight ?? 400),
+                      }}
+                      value={sampleText}
+                    />
+                  </label>
+                ))}
+              </section>
+              <section className='typography-lab-weight-lines' aria-label={gt('Font weight specimens')}>
+                {specimenWeights.map((weight) => (
+                  <label data-active={capVisibleFontWeight(selectedTypography.weight ?? 400) === weight} key={weight}>
+                    <button onClick={() => updateRole(selectedRole, { weight })} type='button'>
+                      <span>{weight}</span>
+                      <small>{weight < 350 ? 'Light' : weight < 475 ? 'Regular' : 'Medium'}</small>
+                    </button>
+                    <input
+                      aria-label={gt('{weight} weight editable specimen', { weight })}
+                      onChange={(event) => editSampleText(event.target.value)}
+                      onFocus={() => updateRole(selectedRole, { weight })}
+                      style={{ fontFamily: selectedFamily, fontWeight: weight }}
+                      value={sampleText}
+                    />
+                  </label>
+                ))}
+              </section>
+              <footer className='typography-lab-typing-meter'>
+                <span><strong>{typingMeasurement.wordsPerMinute}</strong> wpm</span>
+                <span><strong>{typingMeasurement.words}</strong> words</span>
+                <span><strong>{typingMeasurement.characters}</strong> chars</span>
+                <span><strong>{typingMeasurement.seconds}</strong> sec</span>
+                <button aria-label={gt('Clear specimen and restart typing meter')} onClick={resetTypingSession} title={gt('Clear and restart')} type='button'><RotateCcw aria-hidden='true' /></button>
+              </footer>
+            </article>
+          </div>
+        ) : (
       <div className='flex min-h-full items-center p-4 sm:p-7 xl:p-10'>
-        <article className='mx-auto w-full max-w-[1480px] overflow-hidden border border-border/80 bg-background/90 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-sm'>
+        <article className='mx-auto w-full max-w-[1480px] overflow-hidden bg-background/90 smooth-shadow-ring-xl backdrop-blur-sm'>
           <section
             className='px-5 pb-10 pt-8 sm:px-8 sm:pb-12 sm:pt-10 lg:px-12 lg:pb-14 lg:pt-12'
             style={{ backgroundColor: primaryColor, color: primaryForeground }}
@@ -1481,6 +1859,8 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
             </div>
           </div>
         </article>
+      </div>
+        )}
       </div>
     </ToolShell>
   );
@@ -1642,7 +2022,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
       tool={tool}
     >
       <div className='grid min-h-full place-items-center p-8 lg:p-14'>
-        <div className='relative w-full max-w-4xl overflow-hidden rounded-lg border border-white/10 bg-[#0D1117] text-[#E6EDF3] shadow-[0_18px_60px_rgba(0,0,0,0.18)]'>
+        <div className='relative w-full max-w-4xl overflow-hidden rounded-lg bg-[#0D1117] text-[#E6EDF3] smooth-shadow-ring-lg smooth-ring-white/10'>
           {terminalAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={terminalAsset.path} style={{ opacity: terminalAssetOpacity / 100 }} /> : null}
           <div className='relative flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4'>
             <div className='flex flex-col gap-1'>
@@ -2121,7 +2501,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             <img alt='' className='absolute inset-0 size-full object-cover' src={backgroundAsset.asset?.url ?? selectedBackground?.path} style={{ filter: identity.style.imageTreatment === 'monochrome' ? 'grayscale(1) contrast(1.08)' : identity.style.imageTreatment === 'duotone' ? 'grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.6)' : undefined, opacity: backgroundOpacity / 100, transform: `translate(${backgroundX}%, ${backgroundY}%) scale(${backgroundScale / 100})`, transformOrigin: 'center' }} />
           ) : null}
           {texture === 'grid' || texture === 'noise' ? <div className={`template-texture-layer template-surface-${texture} absolute inset-0`} style={{ opacity: textureOpacity / 100 }} /> : null}
-          <EditableCanvasLayer {...layerGeometries.brand} canvasHeight={height} canvasWidth={width} label={gt('Brand lockup')} onChange={(transform) => updateLayer('brand', transform)} onSelect={() => setSelectedLayer('brand')} selected={selectedLayer === 'brand'} transform={brandLayer} zIndex={layerOrder.indexOf('brand') + 5}>
+          <EditableCanvasLayer {...layerGeometries.brand} canvasHeight={height} canvasWidth={width} label={gt('Brand lockup')} onChange={(transform) => updateLayer('brand', transform)} onDeselect={() => setSelectedLayer(null)} onSelect={() => setSelectedLayer('brand')} selected={selectedLayer === 'brand'} transform={brandLayer} zIndex={layerOrder.indexOf('brand') + 5}>
             {kind === 'partnership' ? (
               <div className='template-partnership-lockup h-full' aria-label={gt(`${identity.name} and ${selectedPartner.label}`)}>
                 <img alt={identity.name} className='template-partnership-brand object-contain' src={brandLogoSource} style={{ transform: `translate(${brandLogoX}px, ${brandLogoY}px) scale(${brandLogoScale / 100})` }} />
@@ -2134,12 +2514,12 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
               </div>
             )}
           </EditableCanvasLayer>
-          <EditableCanvasLayer {...layerGeometries.content} canvasHeight={height} canvasWidth={width} label={gt('Content')} onChange={(transform) => updateLayer('content', transform)} onSelect={() => setSelectedLayer('content')} selected={selectedLayer === 'content'} transform={contentLayer} zIndex={layerOrder.indexOf('content') + 5}>
+          <EditableCanvasLayer {...layerGeometries.content} canvasHeight={height} canvasWidth={width} label={gt('Content')} onChange={(transform) => updateLayer('content', transform)} onDeselect={() => setSelectedLayer(null)} onSelect={() => setSelectedLayer('content')} selected={selectedLayer === 'content'} transform={contentLayer} zIndex={layerOrder.indexOf('content') + 5}>
             <div className='flex size-full flex-col justify-center'>
               {isSlide ? <SlideTemplatePreview body={body} foreground={foreground} layout={slideLayout} title={title} /> : <div className='template-copy flex flex-col'><h2 className='template-title break-words font-semibold leading-[0.98] tracking-[-0.055em] text-balance'>{title}</h2></div>}
             </div>
           </EditableCanvasLayer>
-          <EditableCanvasLayer {...layerGeometries.footer} canvasHeight={height} canvasWidth={width} label={gt('Footer')} onChange={(transform) => updateLayer('footer', transform)} onSelect={() => setSelectedLayer('footer')} selected={selectedLayer === 'footer'} transform={footerLayer} zIndex={layerOrder.indexOf('footer') + 5}>
+          <EditableCanvasLayer {...layerGeometries.footer} canvasHeight={height} canvasWidth={width} label={gt('Footer')} onChange={(transform) => updateLayer('footer', transform)} onDeselect={() => setSelectedLayer(null)} onSelect={() => setSelectedLayer('footer')} selected={selectedLayer === 'footer'} transform={footerLayer} zIndex={layerOrder.indexOf('footer') + 5}>
             <div className='template-footer flex size-full items-center justify-between gap-4 opacity-60'>
               <span>{identity.website}</span>
               {isSlide ? <span>01 / 12</span> : null}
@@ -2406,7 +2786,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Component source') }} tool={tool}>
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
-          className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden border border-border shadow-sm`}
+          className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden smooth-shadow-ring-sm`}
           data-surface={surface}
           style={{ ...componentPreviewStyle(resolvedRadius, identity), fontFamily: brandTypographyFamily(identity, fontRole), fontWeight: capVisibleFontWeight(fontWeight) }}
         >

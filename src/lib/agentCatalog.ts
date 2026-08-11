@@ -1,16 +1,22 @@
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
-  LIVE_MATERIAL_OPTIONS,
   LIVE_MATERIAL_PALETTES,
   STATIC_SURFACE_MATERIAL_IDS,
 } from './liveMaterials';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS, SURFACE_MATERIAL_IDS } from './backgroundSvg';
 import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_LIBRARY_IDS, OPEN_SURFACE_PRESETS } from './openSurfaceLibrary';
 import { DEFAULT_STICKER_FINISH, STICKER_FINISH_PRESETS } from './surfaceSticker';
+import {
+  SHADER_LAB_CATEGORIES,
+  SHADER_LIBRARY_DEFAULT_IDS,
+  shaderLabMaterials,
+} from './shaderLab';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
+import { SURFACE_LAB_SHADER_PRESETS } from './surfaceLab';
 
-const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
+const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material', 'surface']);
+const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
 
 export const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
   ...tool,
@@ -23,14 +29,17 @@ export const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
 }));
 
 const materialEngines = new Map<string, number>();
-LIVE_MATERIAL_OPTIONS.forEach(({ engine }) => {
+SHARED_SHADER_MATERIALS.forEach(({ engine }) => {
   materialEngines.set(engine, (materialEngines.get(engine) ?? 0) + 1);
 });
 
 export const AGENT_SHADER_LIBRARY = {
+  categories: SHADER_LAB_CATEGORIES,
   controls: {
     amplitude: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.amplitude, maximum: 8, minimum: 0, step: 0.1, type: 'number' },
     brightness: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.brightness, maximum: 2, minimum: 0.1, step: 0.05, type: 'number' },
+    centerX: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.centerX, maximum: 1, minimum: 0, step: 0.01, type: 'number' },
+    centerY: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.centerY, maximum: 1, minimum: 0, step: 0.01, type: 'number' },
     colorA: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.colorA, type: 'hex-color' },
     colorB: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.colorB, type: 'hex-color' },
     colorC: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.colorC, type: 'hex-color' },
@@ -44,13 +53,14 @@ export const AGENT_SHADER_LIBRARY = {
     speed: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.speed, maximum: 2, minimum: 0, step: 0.05, type: 'number' },
     strength: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.strength, maximum: 2, minimum: 0, step: 0.01, type: 'number' },
   },
-  count: LIVE_MATERIAL_OPTIONS.length,
+  count: SHARED_SHADER_MATERIALS.length,
+  defaults: SHADER_LIBRARY_DEFAULT_IDS,
   engines: [...materialEngines.entries()].map(([name, count]) => ({ count, name })),
   lookPresets: LIVE_MATERIAL_LOOK_PRESETS,
-  materials: LIVE_MATERIAL_OPTIONS,
+  materials: SHARED_SHADER_MATERIALS,
   palettes: LIVE_MATERIAL_PALETTES,
   schemaVersion: 1,
-  sharedBy: ['animation', 'material'] as const,
+  sharedBy: ['animation', 'material', 'surface'] as const,
 } as const;
 
 export const AGENT_SURFACE_LIBRARY = {
@@ -82,6 +92,8 @@ export const AGENT_SURFACE_LIBRARY = {
   },
   count: BACKGROUND_PRESETS.length + OPEN_SURFACE_PRESETS.length,
   generationKind: 'background',
+  liveShaderCount: SURFACE_LAB_SHADER_PRESETS.length,
+  liveShaders: SURFACE_LAB_SHADER_PRESETS,
   openPbrAssets: OPEN_SURFACE_LIBRARY,
   presets: [...OPEN_SURFACE_PRESETS, ...BACKGROUND_PRESETS],
   schemaVersion: 1,
