@@ -12,8 +12,8 @@ export async function GET() {
     <BrandOpenGraphImage
       accent='#6f5cff'
       description={PRODUCT_BRAND.description}
-      highlightedTitle='One brand studio'
-      title='One brand studio for every surface.'
+      highlightedTitle='The whole brand'
+      title='One studio for the whole brand.'
     />,
     { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }
   );

@@ -1,7 +1,7 @@
 export const PRODUCT_BRAND = {
   company: 'Kevin Liu',
   description:
-    'A local-first brand studio for building identity systems, motion, and repeatable graphics.',
+    'An open-source, local-first studio for building brand identity systems, motion, graphics, and production-ready assets.',
   displayName: 'GLYPH/FIELD',
   markPath: '/brand/glyphfield-mark.svg',
   markWhitePath: '/brand/glyphfield-mark-white.svg',

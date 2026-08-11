@@ -1,19 +1,22 @@
-# Glyphfield Agent Interface
+# Glyphfield
 
-> Glyphfield is an MIT-licensed brand studio with public, structured discovery and deterministic artifact generation for software agents.
+> Glyphfield is a free, MIT-licensed, local-first brand design and motion studio with public structured discovery and deterministic artifact generation for software agents.
 
-Canonical workspace: /studio
-Agent manifest: /api/agent
-OpenAPI 3.1 document: /openapi.json
-Generation contract and examples: /api/generate
-Studio tool catalog: /api/catalog
-Studio lab plugins: /api/labs
-Shared shader library: /api/materials
-Built-in identity records: /api/identities
-Brand element taxonomy: /api/elements
-Human landing page: /
-Human documentation: /docs
-Agent connection guide: /docs/agents/connect
+Glyphfield lets designers, developers, brand teams, and AI agents define one identity and apply it across product, marketing, developer, motion, editorial, event, and physical design. The browser Studio exports PNG, SVG, GIF, and JSON. The public API exposes machine-readable catalogs and deterministic SVG generation without an API key.
+
+## Canonical resources
+
+- [Studio](/studio): Browser-local visual workspace.
+- [Documentation](/docs): Human-readable product, artifact, and integration guides.
+- [Agent manifest](/api/agent): Versioned policies, resources, and generation contract.
+- [OpenAPI 3.1](/openapi.json): Machine-readable API document.
+- [Generation API](/api/generate): Current request contract and examples.
+- [Tool catalog](/api/catalog): Studio tools and capability keywords.
+- [Lab catalog](/api/labs): Studio plugins and shared-library capabilities.
+- [Shader library](/api/materials): Materials, attribution, presets, and editable controls.
+- [Identity catalog](/api/identities): Built-in template and reference identity records.
+- [Brand element catalog](/api/elements): Product, marketing, developer, social, editorial, event, and physical applications.
+- [Agent connection guide](/docs/agents/connect): End-to-end integration walkthrough.
 
 ## Preferred agent workflow
 

@@ -1,18 +1,30 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import robots, { ANSWER_ENGINE_CRAWLERS } from '@/app/robots';
 
 describe('social preview crawler access', () => {
   it('keeps Twitterbot access to the public OpenGraph endpoints', () => {
-    const robots = readFileSync(resolve(process.cwd(), 'public/robots.txt'), 'utf8');
-    const twitterRules = robots.split(/\n\s*\n/).find((group) =>
-      group.toLowerCase().includes('user-agent: twitterbot')
+    const rules = robots().rules;
+    const twitterRules = (Array.isArray(rules) ? rules : [rules]).find((rule) =>
+      rule.userAgent === 'Twitterbot'
+    );
+    const allowedPaths = Array.isArray(twitterRules?.allow)
+      ? twitterRules.allow
+      : [twitterRules?.allow];
+
+    expect(allowedPaths).toContain('/api/og');
+    expect(allowedPaths).toContain('/api/og-home');
+    expect(allowedPaths).toContain('/opengraph-image');
+    expect(allowedPaths).toContain('/twitter-image');
+  });
+
+  it('allows the current answer-engine crawler group', () => {
+    const rules = robots().rules;
+    const answerEngineRules = (Array.isArray(rules) ? rules : [rules]).find((rule) =>
+      Array.isArray(rule.userAgent) && rule.userAgent.includes('OAI-SearchBot')
     );
 
-    expect(twitterRules).toContain('Allow: /api/og');
-    expect(twitterRules).toContain('Allow: /api/og-home');
-    expect(twitterRules).toContain('Allow: /opengraph-image');
-    expect(twitterRules).toContain('Allow: /twitter-image');
+    expect(answerEngineRules?.allow).toBe('/');
+    expect(answerEngineRules?.userAgent).toEqual([...ANSWER_ENGINE_CRAWLERS]);
   });
 });

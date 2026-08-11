@@ -1,29 +1,28 @@
 import type { MetadataRoute } from 'next';
 
 import { docsSource } from '@/lib/docsSource';
+import { SITE_URL, absoluteUrl } from '@/lib/seo';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_STUDIO_URL ?? 'https://studio.generaltranslation.com';
-
   const documentation = docsSource.getPages().map((page) => ({
     changeFrequency: 'weekly' as const,
-    lastModified: new Date(),
+    images: [absoluteUrl(`/og/docs/${[...page.slugs, 'image.png'].join('/')}`)],
     priority: page.url === '/docs' ? 0.9 : 0.7,
-    url: `${baseUrl}${page.url}`,
+    url: absoluteUrl(page.url),
   }));
 
   return [
     {
       changeFrequency: 'monthly',
-      lastModified: new Date(),
+      images: [absoluteUrl('/opengraph-image')],
       priority: 1,
-      url: baseUrl,
+      url: SITE_URL,
     },
     {
       changeFrequency: 'weekly',
-      lastModified: new Date(),
+      images: [absoluteUrl('/studio/opengraph-image')],
       priority: 0.9,
-      url: `${baseUrl}/studio`,
+      url: absoluteUrl('/studio'),
     },
     ...documentation,
   ];

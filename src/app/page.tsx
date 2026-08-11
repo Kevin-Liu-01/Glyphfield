@@ -26,6 +26,8 @@ import MarketingShaderText from '@/components/MarketingShaderText';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { HOME_FAQS, homeJsonLd, serializeJsonLd } from '@/lib/seo';
+import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 import { STUDIO_TOOLS } from '@/lib/studioCatalog';
 
 const BRAND_LOGOS = [
@@ -46,39 +48,6 @@ const GLYPH_FIELD_ROWS = [
   'GLYPH           FIELD',
   'GLYPHFIELD GLYPHFIELD',
 ] as const;
-
-const HERO_DITHERING_SWIRL_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 1.3,
-  brightness: 0.98,
-  colorA: '#26145F',
-  colorB: '#C8C0FF',
-  colorC: '#7BFFD9',
-  frequency: 2.2,
-  grain: 0,
-  rotationX: 0,
-  rotationY: 0,
-  rotationZ: -6,
-  speed: 0.32,
-};
-
-const HERO_MARK_DITHERING_SWIRL_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 3.4,
-  brightness: 1.04,
-  colorA: '#5632D6',
-  colorB: '#9A84FF',
-  colorC: '#6FFFD5',
-  density: 1.1,
-  detail: 4.4,
-  frequency: 6.8,
-  grain: 0,
-  rotationX: 0,
-  rotationY: 0,
-  rotationZ: -8,
-  speed: 0.46,
-  strength: 0.48,
-};
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
@@ -195,6 +164,10 @@ export default async function HomePage() {
 
   return (
     <MarketingThemeShell>
+      <script
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(homeJsonLd()) }}
+        type='application/ld+json'
+      />
       <MarketingMotion />
       <a className='marketing-skip-link' href='#main'>
         <T>Skip to content</T>
@@ -242,10 +215,13 @@ export default async function HomePage() {
         <section className='marketing-v5-hero marketing-v7-corner-frame' aria-labelledby='hero-title'>
           <FrameTriangles />
           <div className='marketing-v5-hero-copy' data-motion-reveal>
-            <MarketingShaderMark settings={HERO_MARK_DITHERING_SWIRL_SETTINGS} />
-            <h1 id='hero-title' data-motion-item>
+            <MarketingShaderMark
+              materialId={SHADER_LIBRARY_SCENES.heroMark.materialId}
+              settings={SHADER_LIBRARY_SCENES.heroMark.settings}
+            />
+            <h1 id='hero-title'>
               <T>One studio for</T>{' '}
-              <MarketingShaderText settings={HERO_MARK_DITHERING_SWIRL_SETTINGS} text={gt('the whole brand.')} />
+              <MarketingShaderText text={gt('the whole brand.')} />
             </h1>
             <p data-motion-item>
               <T>
@@ -273,9 +249,11 @@ export default async function HomePage() {
 
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField
-              className='marketing-v5-hero-dithering'
-              materialId='paper-dithering-swirl'
-              settings={HERO_DITHERING_SWIRL_SETTINGS}
+              className='marketing-v5-hero-grain-gradient'
+              materialId={SHADER_LIBRARY_SCENES.heroField.materialId}
+              maxPixelCount={2_000_000}
+              renderScale={1}
+              settings={SHADER_LIBRARY_SCENES.heroField.settings}
             />
             <div className='marketing-v5-product-window marketing-v5-animation-demo marketing-v5-hero-studio' data-motion-item>
               <MarketingAnimationDemo eager />
@@ -422,6 +400,32 @@ export default async function HomePage() {
             </nav>
             <AgentPanel />
           </div>
+        </section>
+
+        <section
+          aria-labelledby='frequently-asked-questions'
+          className='marketing-v10-faq marketing-v7-corner-frame'
+          data-motion-reveal
+        >
+          <FrameTriangles dark />
+          <header data-motion-item>
+            <span><T>Glyphfield, answered</T></span>
+            <h2 id='frequently-asked-questions'><T>Frequently asked questions</T></h2>
+            <p>
+              <T>
+                The short version of what Glyphfield is, what it makes, and how people and agents
+                work from the same brand system.
+              </T>
+            </p>
+          </header>
+          <dl>
+            {HOME_FAQS.map(({ answer, question }, index) => (
+              <div data-motion-item key={question}>
+                <dt><span>{String(index + 1).padStart(2, '0')}</span>{gt(question)}</dt>
+                <dd>{gt(answer)}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <SectionSpacer dark />
