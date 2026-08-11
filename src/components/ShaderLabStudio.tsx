@@ -24,12 +24,23 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 
 import CanvasViewport from '@/components/CanvasViewport';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
-import EditableCanvasLayer, { type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
+import EditableCanvasLayer, {
+  canvasLayerDimensions,
+  type CanvasLayerTransform,
+} from '@/components/EditableCanvasLayer';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
+import {
+  canvasTextCharacters,
+  canvasTextLineX,
+  layoutCanvasText,
+  trackedTextWidth,
+  type CanvasTextAlign,
+  type CanvasTextWrap,
+} from '@/lib/canvasText';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
@@ -82,6 +93,11 @@ const CANVAS_DIMENSIONS: Record<ShaderRatio, { height: number; width: number }> 
 };
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
+const DEFAULT_TEXT_LAYER_TRANSFORM: CanvasLayerTransform = {
+  ...DEFAULT_LAYER_TRANSFORM,
+  heightScale: 1,
+  widthScale: 1,
+};
 
 function layerGeometry(layerId: CompositionLayerId, ratio: ShaderRatio, contentMode: ContentMode = 'logo'): LayerGeometry {
   const canvas = CANVAS_DIMENSIONS[ratio];
@@ -295,6 +311,9 @@ export default function ShaderLabStudio({
   const [textValue, setTextValue] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text', identity.shortName);
   const [textWeight, setTextWeight] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-weight', 700);
   const [textTracking, setTextTracking] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-tracking', -0.06);
+  const [textLineHeight, setTextLineHeight] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-line-height', 0.95);
+  const [textAlign, setTextAlign] = useStudioDraft<CanvasTextAlign>(identity.id, tool.id, 'shader-lab-v2-text-align', 'center');
+  const [textWrap, setTextWrap] = useStudioDraft<CanvasTextWrap>(identity.id, tool.id, 'shader-lab-v2-text-wrap', 'wrap');
   const [logoTransform, setLogoTransform] = useStudioDraft<CanvasLayerTransform>(
     identity.id,
     tool.id,
@@ -305,7 +324,7 @@ export default function ShaderLabStudio({
     identity.id,
     tool.id,
     'shader-lab-v2-text-transform',
-    DEFAULT_LAYER_TRANSFORM
+    DEFAULT_TEXT_LAYER_TRANSFORM
   );
   const [paused, setPaused] = useState(false);
   const [query, setQuery] = useState('');
@@ -322,6 +341,12 @@ export default function ShaderLabStudio({
   const material = getLiveMaterial(materialId);
   const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
   const canvasDimensions = CANVAS_DIMENSIONS[ratio];
+  const resolvedTextTransform: CanvasLayerTransform = {
+    ...textTransform,
+    heightScale: textTransform.heightScale ?? 1,
+    widthScale: textTransform.widthScale ?? 1,
+  };
+  const textFontSizeCqw = canvasDimensions.height / canvasDimensions.width * 17 * resolvedTextTransform.scale;
   const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
   const builtInLogo = brandAssetPath(identity, 'mark-light')
     ?? brandAssetPath(identity, 'logo-light')
@@ -548,8 +573,9 @@ export default function ShaderLabStudio({
     const geometry = layerGeometry(layerId, ratio, contentMode);
     const centerX = geometry.baseX + transform.x + geometry.baseWidth / 2;
     const centerY = geometry.baseY + transform.y + geometry.baseHeight / 2;
-    const width = geometry.baseWidth * transform.scale / canvasDimensions.width * outputWidth;
-    const height = geometry.baseHeight * transform.scale / canvasDimensions.height * outputHeight;
+    const dimensions = canvasLayerDimensions(transform, geometry);
+    const width = dimensions.width / canvasDimensions.width * outputWidth;
+    const height = dimensions.height / canvasDimensions.height * outputHeight;
     return {
       height,
       width,
@@ -610,33 +636,32 @@ export default function ShaderLabStudio({
       }
 
       if (layerId === 'text') {
-        const box = outputLayerBox('text', textTransform, width, height);
+        const box = outputLayerBox('text', resolvedTextTransform, width, height);
         const value = textValue || identity.shortName;
         context.save();
         context.textAlign = 'left';
-        context.textBaseline = 'middle';
-        let fontSize = Math.max(18, box.height * 0.68);
-        const characters = Array.from(value);
-        const measureText = () => {
-          context.font = `${textWeight} ${fontSize}px Arial, sans-serif`;
-          const glyphWidths = characters.map((character) => context.measureText(character).width);
-          const spacing = textTracking * fontSize;
-          const textWidth = Math.max(1, glyphWidths.reduce((sum, glyphWidth) => sum + glyphWidth, 0) + spacing * Math.max(0, characters.length - 1));
-          return { glyphWidths, spacing, textWidth };
-        };
-        let measurement = measureText();
-        if (measurement.textWidth > box.width) {
-          fontSize = Math.max(18, fontSize * box.width / measurement.textWidth);
-          measurement = measureText();
-        }
+        context.textBaseline = 'alphabetic';
+        const fontSize = Math.max(18, height * 0.17 * resolvedTextTransform.scale);
+        const lineHeight = fontSize * textLineHeight;
+        const spacing = textTracking * fontSize;
+        context.font = `${textWeight} ${fontSize}px Arial, sans-serif`;
+        const measureText = (text: string) => context.measureText(text).width;
+        const lines = layoutCanvasText(value, box.width, measureText, spacing, textWrap);
+        const totalHeight = Math.max(lineHeight, lines.length * lineHeight);
+        const renderedBoxHeight = Math.max(box.height, totalHeight);
+        const firstBaseline = box.y + (renderedBoxHeight - totalHeight) / 2 + fontSize;
         const preview = images.get('shader-preview');
         const pattern = preview && (target === 'logo' || target === 'both') ? context.createPattern(preview, 'repeat') : null;
         context.fillStyle = pattern ?? (target === 'background' ? '#ffffff' : settings.colorC);
         if (target === 'background') context.globalCompositeOperation = 'difference';
-        let cursor = box.x + (box.width - measurement.textWidth) / 2;
-        characters.forEach((character, index) => {
-          context.fillText(character, cursor, box.y + box.height / 2);
-          cursor += measurement.glyphWidths[index]! + measurement.spacing;
+        lines.forEach((line, lineIndex) => {
+          const characters = canvasTextCharacters(line);
+          const lineWidth = trackedTextWidth(line, measureText, spacing);
+          let cursor = canvasTextLineX(textAlign, box.x, box.width, lineWidth);
+          characters.forEach((character) => {
+            context.fillText(character, cursor, firstBaseline + lineIndex * lineHeight);
+            cursor += measureText(character) + spacing;
+          });
         });
         context.restore();
         return;
@@ -875,20 +900,27 @@ export default function ShaderLabStudio({
                         canvasHeight={canvasDimensions.height}
                         canvasWidth={canvasDimensions.width}
                         className='shader-lab-v2-composition-layer'
+                        fitContentHeight
                         key={layerId}
                         label='Text'
                         onChange={setTextTransform}
                         onDeselect={() => setSelectedLayerId(null)}
                         onSelect={() => setSelectedLayerId('text')}
+                        resizeMode='box'
                         selected={selectedLayerId === 'text'}
-                        transform={textTransform}
+                        transform={resolvedTextTransform}
                         zIndex={zIndex}
                       >
                         <span
                           className={`shader-lab-v2-layer-text ${target === 'logo' || target === 'both' ? 'shader-lab-v2-layer-text-material' : ''}`}
                           style={{
+                            fontSize: `${textFontSizeCqw}cqw`,
                             fontWeight: textWeight,
                             letterSpacing: `${textTracking}em`,
+                            lineHeight: textLineHeight,
+                            overflowWrap: textWrap === 'wrap' ? 'anywhere' : 'normal',
+                            textAlign,
+                            whiteSpace: textWrap === 'wrap' ? 'pre-wrap' : 'pre',
                             ...(target === 'logo' || target === 'both' ? { backgroundImage: `url("${shaderPreviewAssetPath(materialId)}")` } : {}),
                           }}
                         >
@@ -1036,9 +1068,29 @@ export default function ShaderLabStudio({
               <>
                 <label className='shader-lab-v2-text-input'>
                   <Type aria-hidden='true' />
-                  <input aria-label='Canvas text' maxLength={48} onChange={(event) => setTextValue(event.target.value)} placeholder='Type something' value={textValue} />
+                  <textarea aria-label='Canvas text' maxLength={280} onChange={(event) => setTextValue(event.target.value)} placeholder='Type something' rows={2} value={textValue} />
                 </label>
                 <div aria-label='Typography' className='shader-lab-v2-text-controls'>
+                  <div className='shader-lab-v2-text-options'>
+                    <span>Wrap</span>
+                    <div>
+                      {(['wrap', 'nowrap'] as const).map((value) => (
+                        <button aria-pressed={textWrap === value} key={value} onClick={() => setTextWrap(value)} type='button'>
+                          {value === 'wrap' ? 'On' : 'Off'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className='shader-lab-v2-text-options'>
+                    <span>Align</span>
+                    <div>
+                      {(['left', 'center', 'right'] as const).map((value) => (
+                        <button aria-pressed={textAlign === value} key={value} onClick={() => setTextAlign(value)} type='button'>
+                          {value[0]!.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <RangeControl
                     formatValue={(value) => `${Math.round(value * 100)}%`}
                     label='Text size'
@@ -1047,6 +1099,15 @@ export default function ShaderLabStudio({
                     onChange={(scale) => setTextTransform((current) => ({ ...current, scale }))}
                     step={0.05}
                     value={textTransform.scale}
+                  />
+                  <RangeControl
+                    formatValue={(value) => value.toFixed(2)}
+                    label='Line height'
+                    max={1.8}
+                    min={0.7}
+                    onChange={setTextLineHeight}
+                    step={0.05}
+                    value={textLineHeight}
                   />
                   <RangeControl
                     label='Weight'
@@ -1106,7 +1167,7 @@ export default function ShaderLabStudio({
               })}
             </div>
             {selectedLayerId === 'logo' ? <Button className='mt-2 w-full' onClick={() => setLogoTransform(DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset mark position</Button> : null}
-            {selectedLayerId === 'text' ? <Button className='mt-2 w-full' onClick={() => setTextTransform(DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset text position</Button> : null}
+            {selectedLayerId === 'text' ? <Button className='mt-2 w-full' onClick={() => setTextTransform(DEFAULT_TEXT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset text box</Button> : null}
           </section>
 
           <details className='shader-lab-v2-advanced'>

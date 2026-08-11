@@ -421,6 +421,7 @@
   border-radius: 10px;
   background: #111216;
   box-shadow: var(--studio-shadow-xl);
+  container-type: inline-size;
   isolation: isolate;
 }
 
@@ -452,8 +453,7 @@
 }
 
 .shader-lab-v2-layer-logo-mask,
-.shader-lab-v2-layer-image,
-.shader-lab-v2-layer-text {
+.shader-lab-v2-layer-image {
   width: 100%;
   height: 100%;
 }
@@ -465,6 +465,10 @@
 
 .shader-lab-v2-layer-image {
   display: block;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 4px 18px rgb(0 0 0 / .2));
 }
@@ -475,19 +479,24 @@
 
 .shader-lab-v2-layer-text {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   color: white;
   font-family: var(--font-sans), Arial, sans-serif;
-  font-size: clamp(28px, 7.4vw, 116px);
   font-weight: 700;
   letter-spacing: -.055em;
-  line-height: .9;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
   mix-blend-mode: difference;
+}
+
+.editable-canvas-layer[data-fit-content-height='true'] .shader-lab-v2-layer-text {
+  min-height: 0;
 }
 
 .shader-lab-v2-layer-text-material {
@@ -762,7 +771,7 @@
 
 .shader-lab-v2-text-input {
   display: flex;
-  height: 34px;
+  min-height: 54px;
   align-items: center;
   gap: 7px;
   margin-bottom: 10px;
@@ -777,14 +786,19 @@
   color: hsl(var(--muted-foreground));
 }
 
-.shader-lab-v2-text-input input {
+.shader-lab-v2-text-input textarea {
   width: 100%;
   min-width: 0;
+  min-height: 38px;
+  padding: 7px 0;
+  resize: vertical;
   border: 0;
   outline: 0;
   background: transparent;
   color: hsl(var(--foreground));
+  font-family: inherit;
   font-size: 11px;
+  line-height: 1.35;
 }
 
 .shader-lab-v2-text-controls {
@@ -796,6 +810,42 @@
   border: 1px solid hsl(var(--border));
   border-radius: 5px;
   background: hsl(var(--muted) / 0.22);
+}
+
+.shader-lab-v2-text-options {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.shader-lab-v2-text-options > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 9px;
+  font-weight: 560;
+}
+
+.shader-lab-v2-text-options > div {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  background: hsl(var(--background) / .46);
+}
+
+.shader-lab-v2-text-options button {
+  min-height: 23px;
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 9px;
+}
+
+.shader-lab-v2-text-options button[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
 }
 
 .shader-lab-v2-layer-list {
