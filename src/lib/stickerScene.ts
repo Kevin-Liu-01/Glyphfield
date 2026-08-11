@@ -77,10 +77,26 @@ export function nextStickerPlacement(assetId: string, serial: number, z: number)
 export function clampStickerPosition(x: number, y: number): { x: number; y: number } {
   return {
     x: Math.max(7, Math.min(93, x)),
-    y: Math.max(8, Math.min(78, y)),
+    y: Math.max(8, Math.min(92, y)),
   };
 }
 
 export function stickerSceneOutlineRadius(edgeWidth: number): number {
   return Math.max(1, Math.min(8, edgeWidth * 0.25));
+}
+
+export function stickerSceneContrastColor(borderColor: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(borderColor);
+  if (!match) return '#14171A';
+  const value = Number.parseInt(match[1], 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  const luminance = (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255;
+  return luminance > 0.52 ? '#14171A' : '#F7F7F2';
+}
+
+export function stickerSceneContrastRadius(seamWidth: number, edgeWidth: number): number {
+  const outerRadius = stickerSceneOutlineRadius(edgeWidth);
+  return Math.max(0.55, Math.min(Math.max(0.55, outerRadius - 0.45), seamWidth * 0.42));
 }

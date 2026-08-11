@@ -26,6 +26,12 @@ function triggerDownload(url: string, filename: string): void {
   anchor.click();
 }
 
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, filename);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

@@ -10,10 +10,14 @@ import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 export default function MarketingArcField({
   className = '',
   materialId,
+  maxPixelCount,
+  renderScale = 0.5,
   settings,
 }: {
   className?: string;
   materialId: LiveMaterialId;
+  maxPixelCount?: number;
+  renderScale?: number;
   settings: LiveMaterialSettings;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +70,8 @@ export default function MarketingArcField({
           activeWhileMounted
           frameRate={24}
           materialId={materialId}
-          renderScale={0.5}
+          maxPixelCount={maxPixelCount}
+          renderScale={renderScale}
           settings={settings}
         />
       ) : null}

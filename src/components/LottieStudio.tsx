@@ -16,6 +16,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import CanvasViewport from '@/components/CanvasViewport';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
+import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
@@ -98,13 +99,9 @@ function InspectorSection({
   title: React.ReactNode;
 }) {
   return (
-    <section className='flex flex-col gap-4 border-b border-border p-5'>
-      <div className='flex items-center justify-between gap-4'>
-        <h2 className='text-sm font-semibold'>{title}</h2>
-        <span className='text-xs tabular-nums text-muted-foreground'>{index}</span>
-      </div>
+    <LabInspectorSection index={index} title={title}>
       {children}
-    </section>
+    </LabInspectorSection>
   );
 }
 
@@ -703,12 +700,17 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
         </div>
       </header>
 
-      <div className='lottie-editor-body min-h-0 flex-1'>
+      <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
         <ResizableSidebar
-          className='lottie-source-sidebar min-h-0 border-r border-border bg-background'
+          className='lottie-source-sidebar lab-sidebar lab-sidebar-left min-h-0 border-r border-border'
           label={gt('Lottie sources')}
           storageKey={`lottie-source-${identity.id}`}
         >
+          <LabPanelHeading
+            description={<T>Import a file or start from a production-ready motion study.</T>}
+            eyebrow={<T>Motion library</T>}
+            title={<T>Lottie sources</T>}
+          />
           <InspectorSection index='01' title={<T>Source</T>}>
             <label className='flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-4 py-5 text-sm font-medium hover:bg-muted'>
               <Upload aria-hidden='true' className='size-4' />
@@ -751,10 +753,16 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
         </ResizableSidebar>
 
         <ResizableSidebar
-          className='lottie-properties-sidebar min-h-0 border-r border-border bg-background'
+          className='lottie-properties-sidebar lab-sidebar lab-sidebar-right min-h-0 border-l border-border'
           label={gt('Lottie properties')}
+          resizeEdge='left'
           storageKey={`lottie-properties-${identity.id}`}
         >
+          <LabPanelHeading
+            description={<T>Shape playback, art direction, and delivery for this animation.</T>}
+            eyebrow={<T>Live inspector</T>}
+            title={source.name}
+          />
           <InspectorSection index='02' title={<T>Playback</T>}>
             <div className='grid grid-cols-2 gap-2'>
               <Button onClick={togglePlayback} type='button' variant='outline'>
@@ -817,7 +825,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
           {transparent || backgroundStyle !== 'shader' ? null : (
             <InspectorSection index='04' title={<T>Live material</T>}>
-              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same materials, palettes, look presets, and motion parameters available in Surface Lab and Animation.</T></p>
+              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab and Animation.</T></p>
               <LiveMaterialControls
                 identity={identity}
                 materialId={materialId}
@@ -840,7 +848,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
             toolId='lottie'
           >
-            <div className='relative w-full max-w-6xl overflow-hidden rounded-sm border border-border shadow-[0_12px_36px_rgba(0,0,0,0.1)]' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
+            <div className='relative w-full max-w-6xl overflow-hidden rounded-sm smooth-shadow-ring-lg' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
               {transparent || backgroundStyle !== 'shader' ? null : (
                 <div className='absolute inset-0' ref={shaderLayerRef}>
                   <LiveMaterialCanvas materialId={materialId} paused={!isPlaying} settings={materialSettings} />

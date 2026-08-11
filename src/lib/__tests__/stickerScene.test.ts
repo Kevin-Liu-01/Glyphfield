@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BrandIdentity } from '@/lib/brandIdentity';
-import { clampStickerPosition, nextStickerPlacement, seedStickerScene, stickerSceneAssets, stickerSceneOutlineRadius } from '@/lib/stickerScene';
+import {
+  clampStickerPosition,
+  nextStickerPlacement,
+  seedStickerScene,
+  stickerSceneAssets,
+  stickerSceneContrastColor,
+  stickerSceneContrastRadius,
+  stickerSceneOutlineRadius,
+} from '@/lib/stickerScene';
 
 function identityWithAssets(): BrandIdentity {
   return {
@@ -31,8 +39,8 @@ describe('sticker scene', () => {
     expect(nextStickerPlacement('icon', 3, 8)).toEqual(nextStickerPlacement('icon', 3, 8));
   });
 
-  it('keeps dragged stickers inside the usable laptop lid', () => {
-    expect(clampStickerPosition(-20, 110)).toEqual({ x: 7, y: 78 });
+  it('keeps dragged stickers inside the usable metal surface', () => {
+    expect(clampStickerPosition(-20, 110)).toEqual({ x: 7, y: 92 });
     expect(clampStickerPosition(48, 52)).toEqual({ x: 48, y: 52 });
   });
 
@@ -40,5 +48,12 @@ describe('sticker scene', () => {
     expect(stickerSceneOutlineRadius(2)).toBe(1);
     expect(stickerSceneOutlineRadius(14)).toBe(3.5);
     expect(stickerSceneOutlineRadius(32)).toBe(8);
+  });
+
+  it('adds an opposing ink keyline so pale artwork remains visible against a pale cut border', () => {
+    expect(stickerSceneContrastColor('#F7F7F2')).toBe('#14171A');
+    expect(stickerSceneContrastColor('#111111')).toBe('#F7F7F2');
+    expect(stickerSceneContrastRadius(2, 15)).toBeGreaterThan(0.5);
+    expect(stickerSceneContrastRadius(12, 2)).toBeLessThan(stickerSceneOutlineRadius(2));
   });
 });

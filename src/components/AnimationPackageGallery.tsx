@@ -1,7 +1,7 @@
 'use client';
 
 import { T } from 'gt-next';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { resolveTimeline } from '@/lib/animation';
@@ -70,10 +70,12 @@ function subscribeToPreviewFrames(subscriber: PreviewSubscriber) {
   };
 }
 
-function AnimationPackagePreview({
+const AnimationPackagePreview = memo(function AnimationPackagePreview({
+  animate,
   packageId,
   settings,
 }: {
+  animate: boolean;
   packageId: AnimationPackageId;
   settings: StudioSettings;
 }) {
@@ -81,7 +83,7 @@ function AnimationPackagePreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [visible, setVisible] = useState(false);
 
-  const sources: readonly StudioSource[] = [
+  const sources = useMemo<readonly StudioSource[]>(() => [
     {
       foreground: settings.foreground,
       fontSize: 42,
@@ -98,8 +100,8 @@ function AnimationPackagePreview({
       kind: 'text',
       text: 'FLOW',
     },
-  ];
-  const config: RenderConfig = {
+  ], [settings.foreground]);
+  const config = useMemo<RenderConfig>(() => ({
     alignX: 0,
     alignY: 0,
     background: settings.background,
@@ -117,7 +119,7 @@ function AnimationPackagePreview({
     packageId,
     scale: 1,
     width: PREVIEW_WIDTH,
-  };
+  }), [packageId, settings]);
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -152,12 +154,16 @@ function AnimationPackagePreview({
     };
 
     draw(performance.now());
-    if (reducedMotion) return;
+    if (reducedMotion || !animate) return;
     return subscribeToPreviewFrames(draw);
-  }, [config, sources, visible]);
+  }, [animate, config, sources, visible]);
 
   return (
-    <div className='animation-package-preview relative overflow-hidden bg-black' ref={containerRef}>
+    <div
+      className='animation-package-preview relative overflow-hidden bg-black'
+      data-preview-motion={animate ? 'running' : 'static'}
+      ref={containerRef}
+    >
       <canvas
         aria-hidden='true'
         className='block size-full'
@@ -168,21 +174,36 @@ function AnimationPackagePreview({
       {!visible ? <span aria-hidden='true' className='absolute inset-0 animate-pulse bg-muted' /> : null}
     </div>
   );
-}
+}, (previous, next) => (
+  previous.animate === next.animate
+  && previous.packageId === next.packageId
+  && previous.settings.background === next.settings.background
+  && previous.settings.backgroundAngle === next.settings.backgroundAngle
+  && previous.settings.backgroundSecondary === next.settings.backgroundSecondary
+  && previous.settings.backgroundStyle === next.settings.backgroundStyle
+  && previous.settings.backgroundTransition === next.settings.backgroundTransition
+  && previous.settings.bezier.every((value, index) => value === next.settings.bezier[index])
+  && previous.settings.blur === next.settings.blur
+  && previous.settings.foreground === next.settings.foreground
+));
 
 export default function AnimationPackageGallery({
+  animatePreviews = true,
+  compact = false,
   hasImageSources,
   onSelect,
   selectedId,
   settings,
 }: {
+  animatePreviews?: boolean;
+  compact?: boolean;
   hasImageSources: boolean;
   onSelect: (id: AnimationPackageId) => void;
   selectedId: AnimationPackageId;
   settings: StudioSettings;
 }) {
   return (
-    <div className='grid grid-cols-2 gap-2'>
+    <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2'}`}>
       {ANIMATION_PACKAGES.map((option) => {
         const disabled = Boolean(option.textOnly && hasImageSources);
         const selected = selectedId === option.id;
@@ -197,13 +218,19 @@ export default function AnimationPackageGallery({
             title={disabled ? 'Text-only animation' : option.description}
             type='button'
           >
-            <AnimationPackagePreview packageId={option.id} settings={settings} />
-            <span className='block p-2.5'>
+            <AnimationPackagePreview
+              animate={animatePreviews}
+              packageId={option.id}
+              settings={settings}
+            />
+            <span className={`block ${compact ? 'p-1.5' : 'p-2.5'}`}>
               <span className='flex min-w-0 items-center gap-2'>
-                <span className='min-w-0 flex-1 truncate text-[11px] font-semibold'><T>{option.label}</T></span>
+                <span className={`min-w-0 flex-1 truncate font-semibold ${compact ? 'text-[9px]' : 'text-[11px]'}`}><T>{option.label}</T></span>
                 {selected ? <span aria-hidden='true' className='size-1.5 shrink-0 bg-foreground' /> : null}
               </span>
-              <span className='mt-1 block text-[10px] leading-4 text-muted-foreground'><T>{option.description}</T></span>
+              {compact ? null : (
+                <span className='mt-1 block text-[10px] leading-4 text-muted-foreground'><T>{option.description}</T></span>
+              )}
             </span>
           </button>
         );

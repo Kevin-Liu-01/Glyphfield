@@ -46,6 +46,7 @@ export type StudioBackground = {
   image?: CanvasImageSource;
   materialId: LiveMaterialId;
   materialSettings: LiveMaterialSettings;
+  patternScale?: number;
   style: BackgroundStyle;
 };
 

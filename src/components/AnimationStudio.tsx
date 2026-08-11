@@ -94,11 +94,11 @@ export default function AnimationStudio({
   initialSequenceBackground?: Partial<StudioBackgroundSettings>;
 }) {
   const gt = useGT();
-  const identitySettings = {
+  const identitySettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
     background: identity?.colors.find(({ id }) => id === 'ink')?.hex ?? DEFAULT_SETTINGS.background,
     foreground: identity?.colors.find(({ id }) => id === 'paper')?.hex ?? DEFAULT_SETTINGS.foreground,
-  };
+  }), [identity]);
   const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
   const identityId = identity?.id ?? 'default';
   const [storedSettings, setStoredSettings] = useStudioDraft<StudioSettings>(
@@ -113,14 +113,19 @@ export default function AnimationStudio({
     'quality-defaults-v2',
     false
   );
-  const settings: StudioSettings = {
-    ...identitySettings,
-    ...storedSettings,
-    shaderSettings: {
-      ...identitySettings.shaderSettings,
-      ...storedSettings.shaderSettings,
-    },
-  };
+  const settings = useMemo<StudioSettings>(() => {
+    const mergedSettings = {
+      ...identitySettings,
+      ...storedSettings,
+      shaderSettings: {
+        ...identitySettings.shaderSettings,
+        ...storedSettings.shaderSettings,
+      },
+    };
+    return compactControls
+      ? { ...mergedSettings, fontSize: Math.min(88, mergedSettings.fontSize) }
+      : mergedSettings;
+  }, [compactControls, identitySettings, storedSettings]);
   const [mode, setMode] = useState<SourceMode>('sequence');
   const [textFrames, setTextFrames] = useStudioDraft(
     identityId,
@@ -148,22 +153,22 @@ export default function AnimationStudio({
     'frame-settings',
     {}
   );
-  const defaultSequenceBackground = mergeStudioBackground(
+  const defaultSequenceBackground = useMemo(() => mergeStudioBackground(
     createDefaultFrameSettings(settings).background,
     initialSequenceBackground ?? {},
     settings.shaderSettings
-  );
+  ), [initialSequenceBackground, settings]);
   const [storedSequenceBackground, setStoredSequenceBackground] = useStudioDraft<StudioBackgroundSettings>(
     identityId,
     'animation',
     'sequence-background-v1',
     defaultSequenceBackground
   );
-  const sequenceBackground = mergeStudioBackground(
+  const sequenceBackground = useMemo(() => mergeStudioBackground(
     defaultSequenceBackground,
     storedSequenceBackground,
     settings.shaderSettings
-  );
+  ), [defaultSequenceBackground, settings.shaderSettings, storedSequenceBackground]);
   const [backgroundOverrides, setBackgroundOverrides] = useStudioDraft<Record<string, boolean>>(
     identityId,
     'animation',
@@ -195,6 +200,7 @@ export default function AnimationStudio({
   const [sourceOpen, setSourceOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
+  const sequenceShaderLayerRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
   useCanvasSelectionDismiss(canvasSelectionRef, () => {
     setSelectedSourceId(null);
@@ -272,6 +278,32 @@ export default function AnimationStudio({
     sources[visibleTimeline.index]?.id,
     sources[visibleTimeline.nextIndex]?.id,
   ]);
+  const hasSequenceShaderSources = sequenceBackground.style === 'shader'
+    && sources.some((source) => !backgroundOverrides[source.id]);
+  const sequenceShaderIsActive = hasSequenceShaderSources
+    && sources.some((source) => (
+      activeShaderSourceIds.has(source.id) && !backgroundOverrides[source.id]
+    ));
+  const sequenceShaderSettings = useMemo(() => ({
+    ...settings.shaderSettings,
+    ...sequenceBackground.materialSettings,
+    colorA: sequenceBackground.colorA,
+    colorB: sequenceBackground.colorB,
+    colorC: sequenceBackground.colorC,
+  }), [sequenceBackground, settings.shaderSettings]);
+  const overrideShaderSettings = useMemo(() => new Map(
+    sources
+      .filter((source) => (
+        backgroundOverrides[source.id] && source.background?.style === 'shader'
+      ))
+      .map((source) => [source.id, {
+        ...settings.shaderSettings,
+        ...source.background?.materialSettings,
+        colorA: source.background?.colorA ?? settings.shaderSettings.colorA,
+        colorB: source.background?.colorB ?? settings.shaderSettings.colorB,
+        colorC: source.background?.colorC ?? settings.shaderSettings.colorC,
+      }])
+  ), [backgroundOverrides, settings.shaderSettings, sources]);
   const canvasWidth = Math.max(120, settings.width);
   const canvasHeight = Math.max(120, settings.height);
   const selectedBounds = selectedSource?.kind === 'text'
@@ -296,12 +328,14 @@ export default function AnimationStudio({
   const playbackRateRef = useRef(playbackRate);
   const playheadRef = useRef(playheadMs);
   const lastExportRef = useRef(lastExport);
+  const backgroundOverridesRef = useRef(backgroundOverrides);
   settingsRef.current = settings;
   sourcesRef.current = sources;
   imagesRef.current = images;
   isPlayingRef.current = isPlaying;
   playbackRateRef.current = playbackRate;
   lastExportRef.current = lastExport;
+  backgroundOverridesRef.current = backgroundOverrides;
 
   useMountEffect(() => {
     if (qualityDefaultsMigrated) return;
@@ -363,7 +397,9 @@ export default function AnimationStudio({
   function attachShaderLayers(currentSources: readonly StudioSource[]): StudioSource[] {
     return currentSources.map((source) => {
       if (source.background?.style !== 'shader') return source;
-      const wrapper = shaderLayerRefs.current.get(source.id);
+      const wrapper = backgroundOverridesRef.current[source.id]
+        ? shaderLayerRefs.current.get(source.id)
+        : sequenceShaderLayerRef.current;
       const image = wrapper?.querySelector('canvas');
       if (!image) return source;
       return {
@@ -409,8 +445,11 @@ export default function AnimationStudio({
       }
 
       const canvas = canvasRef.current;
+      const previewFrameInterval = isPlayingRef.current
+        ? 1000 / Math.max(1, Math.min(30, currentSettings.fps))
+        : 120;
       const shouldRender = document.visibilityState !== 'hidden'
-        && (isPlayingRef.current || timestamp - previousRenderTimestamp >= 120);
+        && timestamp - previousRenderTimestamp >= previewFrameInterval;
       if (canvas && shouldRender) {
         previousRenderTimestamp = timestamp;
         const width = Math.max(120, currentSettings.width);
@@ -433,7 +472,8 @@ export default function AnimationStudio({
         }
       }
 
-      if (timestamp - previousUiTimestamp >= 40) {
+      const uiFrameInterval = 1000 / Math.max(1, Math.min(20, currentSettings.fps));
+      if (timestamp - previousUiTimestamp >= uiFrameInterval) {
         previousUiTimestamp = timestamp;
         setPlayheadMs(playheadRef.current);
       }
@@ -850,7 +890,7 @@ export default function AnimationStudio({
         </div>
       </header>
 
-      <div className={embedded ? 'animation-body' : 'studio-body animation-body'}>
+      <div className={embedded ? 'animation-body lab-workspace' : 'studio-body animation-body lab-workspace'}>
         <StudioControls {...studioControlProps} panel='source' />
 
         <section className='animation-canvas-section flex min-w-0 flex-col bg-background'>
@@ -878,7 +918,7 @@ export default function AnimationStudio({
               toolId='animation'
             >
               <div
-                className='relative w-full max-w-5xl border border-foreground/20 bg-black shadow-[0_24px_80px_rgba(0,0,0,0.12)]'
+                className='relative w-full max-w-5xl bg-black smooth-shadow-ring-xl smooth-ring-foreground/20'
                 onPointerDown={() => {
                   setSelectedSourceId(null);
                   setBackgroundEditScope('sequence');
@@ -886,11 +926,30 @@ export default function AnimationStudio({
                 ref={canvasSelectionRef}
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
+                {hasSequenceShaderSources ? (
+                  <div
+                    aria-hidden='true'
+                    className='pointer-events-none absolute inset-0 opacity-0'
+                    data-animation-shader-active={sequenceShaderIsActive ? 'true' : 'false'}
+                    data-animation-shader-layer='sequence'
+                    ref={sequenceShaderLayerRef}
+                  >
+                    <LiveMaterialCanvas
+                      enabled
+                      frameRate={Math.max(1, Math.min(30, settings.fps))}
+                      materialId={sequenceBackground.materialId}
+                      patternScale={sequenceBackground.patternScale ?? 1}
+                      paused={exportProgress === null && (!isPlaying || !sequenceShaderIsActive)}
+                      settings={sequenceShaderSettings}
+                    />
+                  </div>
+                ) : null}
                 {sources.map((source) =>
-                  source.background?.style === 'shader' ? (
+                  backgroundOverrides[source.id] && source.background?.style === 'shader' ? (
                     <div
                       aria-hidden='true'
                       className='pointer-events-none absolute inset-0 opacity-0'
+                      data-animation-shader-layer='override'
                       key={`${source.id}-${source.background.materialId}`}
                       ref={(element) => {
                         if (element) shaderLayerRefs.current.set(source.id, element);
@@ -899,15 +958,11 @@ export default function AnimationStudio({
                     >
                       <LiveMaterialCanvas
                         enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
+                        frameRate={Math.max(1, Math.min(30, settings.fps))}
                         materialId={source.background.materialId}
+                        patternScale={source.background.patternScale ?? 1}
                         paused={!isPlaying && exportProgress === null}
-                        settings={{
-                          ...settings.shaderSettings,
-                          ...source.background.materialSettings,
-                          colorA: source.background.colorA,
-                          colorB: source.background.colorB,
-                          colorC: source.background.colorC,
-                        }}
+                        settings={overrideShaderSettings.get(source.id) ?? settings.shaderSettings}
                       />
                     </div>
                   ) : null
@@ -933,6 +988,7 @@ export default function AnimationStudio({
                       alignY: Math.min(1, Math.max(-1, (transform.y / canvasHeight) * 2)),
                       scale: transform.scale,
                     })}
+                    onDeselect={() => setSelectedSourceId(null)}
                     onSelect={() => setSelectedSourceId(selectedSource.id)}
                     selected
                     transform={{

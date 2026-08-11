@@ -7,7 +7,6 @@ import ColorControl from '@/components/ui/ColorControl';
 import {
   normalizeStickerFinish,
   stickerFinishPreset,
-  stickerShaderSource,
   STICKER_FINISH_PRESETS,
   type StickerFinishId,
   type StickerFinishSettings,
@@ -59,6 +58,37 @@ function ControlSection({
   );
 }
 
+function ChoiceControl<T extends string>({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: T) => void;
+  options: readonly { label: string; value: T }[];
+  value: T;
+}) {
+  return (
+    <div className='grid gap-2'>
+      <p className='text-sm text-muted-foreground'>{label}</p>
+      <div className='grid grid-cols-2 border border-border'>
+        {options.map((option, index) => (
+          <button
+            aria-pressed={option.value === value}
+            className={`min-h-9 px-2 text-[11px] ${index % 2 ? 'border-l border-border' : ''} ${index > 1 ? 'border-t border-border' : ''} ${option.value === value ? 'bg-foreground text-background' : 'bg-background hover:bg-muted'}`}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            type='button'
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function StickerFinishControls({
   onChange,
   settings,
@@ -100,20 +130,18 @@ export default function StickerFinishControls({
         })}
       </div>
 
-      {stickerShaderSource(finish.presetId) ? (
-        <a
-          className='border border-border bg-muted/20 p-3 text-[11px] leading-4 text-muted-foreground hover:text-foreground'
-          href={stickerShaderSource(finish.presetId)?.url}
-          rel='noreferrer'
-          target='_blank'
-        >
-          Live optical layer adapted from {stickerShaderSource(finish.presetId)?.name} · {stickerShaderSource(finish.presetId)?.license}
-        </a>
-      ) : null}
+      <a
+        className='border border-border bg-muted/20 p-3 text-[11px] leading-4 text-muted-foreground hover:text-foreground'
+        href='https://github.com/jal-co/holosticker'
+        rel='noreferrer'
+        target='_blank'
+      >
+        Die-cut, laminate, relief, and peel architecture adapted from HoloSticker · MIT
+      </a>
 
       <ControlSection
-        description='Set the printable outline and the clearance around the die-cut artwork.'
-        title='Cut channel'
+        description='Generate a real distance-field cut path from the artwork alpha. Tolerance closes tiny counters before the border is added.'
+        title='Artwork & die-cut'
       >
         <ColorControl
           ariaLabel='Sticker border color'
@@ -121,23 +149,67 @@ export default function StickerFinishControls({
           onChange={(borderColor) => update({ borderColor })}
           value={finish.borderColor}
         />
-        <RangeControl label='Cut border' max={32} min={2} onChange={(edgeWidth) => update({ edgeWidth })} unit='px' value={finish.edgeWidth} />
+        <RangeControl label='Border width' max={32} min={2} onChange={(edgeWidth) => update({ edgeWidth })} unit='px' value={finish.edgeWidth} />
+        <RangeControl label='Cut tolerance' max={12} min={0} onChange={(cutTolerance) => update({ cutTolerance })} unit='%' value={finish.cutTolerance} />
+        <RangeControl label='Ink coverage' max={200} min={0} onChange={(ink) => update({ ink })} unit='%' value={finish.ink} />
+        <RangeControl label='Print relief' max={100} min={0} onChange={(relief) => update({ relief })} unit='%' value={finish.relief} />
       </ControlSection>
 
       <ControlSection
-        description='Tune the laminate, foil, or optical layer without changing the cut geometry.'
-        title='Finish channel'
+        description='Tune the view-dependent diffraction film, broad color pooling, micro-flakes, and embossed refractor facets.'
+        title='Foil laminate'
       >
-        <RangeControl label='Finish intensity' max={100} min={0} onChange={(intensity) => update({ intensity })} unit='%' value={finish.intensity} />
-        <RangeControl label='Glint angle' max={180} min={0} onChange={(glintAngle) => update({ glintAngle })} unit='°' value={finish.glintAngle} />
-        <RangeControl label='Material texture' max={100} min={0} onChange={(texture) => update({ texture })} unit='%' value={finish.texture} />
+        <RangeControl label='Holo intensity' max={100} min={0} onChange={(intensity) => update({ intensity })} unit='%' value={finish.intensity} />
+        <RangeControl label='Diffraction bands' max={20} min={1} onChange={(bands) => update({ bands })} value={finish.bands} />
+        <RangeControl label='Spectrum direction' max={180} min={0} onChange={(glintAngle) => update({ glintAngle })} unit='°' value={finish.glintAngle} />
+        <RangeControl label='Hue shift' max={100} min={0} onChange={(hueShift) => update({ hueShift })} unit='%' value={finish.hueShift} />
+        <RangeControl label='Metallic grain' max={100} min={0} onChange={(texture) => update({ texture })} unit='%' value={finish.texture} />
+        <ChoiceControl
+          label='Diffraction flow'
+          onChange={(pattern) => update({ pattern })}
+          options={[
+            { label: 'Linear sweep', value: 'linear' },
+            { label: 'Radial lens', value: 'radial' },
+            { label: 'Foil pooling', value: 'patches' },
+          ]}
+          value={finish.pattern}
+        />
+        <ChoiceControl
+          label='Refractor overlay'
+          onChange={(overlay) => update({ overlay })}
+          options={[
+            { label: 'None', value: 'none' },
+            { label: 'Triangles', value: 'triangles' },
+            { label: 'Squares', value: 'squares' },
+            { label: 'Stripes', value: 'stripes' },
+          ]}
+          value={finish.overlay}
+        />
       </ControlSection>
 
       <ControlSection
-        description='Control the perceived stock thickness, bevel, and inset construction.'
-        title='Structure channel'
+        description='Bend the subdivided sticker sheet into a directional peel. The reverse side, lifted edge, and contact shadow remain physically coherent.'
+        title='Peel & form'
       >
-        <RangeControl label='Physical depth' max={100} min={0} onChange={(depth) => update({ depth })} unit='%' value={finish.depth} />
+        <RangeControl label='Peel amount' max={100} min={0} onChange={(peelAmount) => update({ peelAmount })} unit='%' value={finish.peelAmount} />
+        <RangeControl label='Curl radius' max={25} min={2} onChange={(curl) => update({ curl })} unit='%' value={finish.curl} />
+        <RangeControl label='Contact shadow' max={100} min={0} onChange={(shadow) => update({ shadow })} unit='%' value={finish.shadow} />
+        <RangeControl label='Stock depth' max={100} min={0} onChange={(depth) => update({ depth })} unit='%' value={finish.depth} />
+        <ChoiceControl
+          label='Peel direction'
+          onChange={(peelDirection) => update({ peelDirection })}
+          options={[
+            { label: 'Top left', value: 'top-left' },
+            { label: 'Top', value: 'top' },
+            { label: 'Top right', value: 'top-right' },
+            { label: 'Right', value: 'right' },
+            { label: 'Bottom right', value: 'bottom-right' },
+            { label: 'Bottom', value: 'bottom' },
+            { label: 'Bottom left', value: 'bottom-left' },
+            { label: 'Left', value: 'left' },
+          ]}
+          value={finish.peelDirection}
+        />
         {finish.presetId === 'precision-metal-inset' ? (
           <div className='grid gap-4 border-t border-border pt-4'>
             <div>

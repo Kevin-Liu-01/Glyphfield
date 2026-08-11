@@ -1,10 +1,10 @@
 import type { CubicBezier } from './animation';
 import type { GifExportConfig } from './exportGif';
 import {
-  DEFAULT_LIVE_MATERIAL_ID,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   type LiveMaterialSettings,
 } from './liveMaterials';
+import { SHADER_LIBRARY_DEFAULT_IDS } from './shaderLab';
 import {
   DEFAULT_MATERIAL_FINISH,
   normalizeMaterialFinish,
@@ -106,8 +106,9 @@ export function createDefaultFrameSettings(
       colorB: settings.backgroundSecondary,
       colorC: settings.shaderSettings.colorC,
       finish: { ...DEFAULT_MATERIAL_FINISH },
-      materialId: DEFAULT_LIVE_MATERIAL_ID,
+      materialId: SHADER_LIBRARY_DEFAULT_IDS.animation,
       materialSettings: { ...settings.shaderSettings },
+      patternScale: 1,
       style: settings.backgroundStyle,
     },
     fit: settings.fit,

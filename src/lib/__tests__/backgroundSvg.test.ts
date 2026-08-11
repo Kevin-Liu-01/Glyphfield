@@ -242,6 +242,18 @@ describe('buildBackgroundSvg', () => {
     expect(svg).toContain('<feSpecularLighting');
   });
 
+  it('keeps holographic cloth exportable when WebGL is unavailable', () => {
+    const svg = buildBackgroundSvg({
+      ...DEFAULT_BACKGROUND_SETTINGS,
+      surfaceMaterial: 'holo-cloth',
+      surfaceTextureAmount: 96,
+    });
+
+    expect(svg).toContain('data-surface-material="holo-cloth"');
+    expect(svg).toContain('id="holo-cloth-spectrum"');
+    expect(svg).toContain('id="physical-surface-pattern"');
+  });
+
   it('omits physical surface filters for the smooth material', () => {
     const svg = buildBackgroundSvg(DEFAULT_BACKGROUND_SETTINGS);
 

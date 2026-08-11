@@ -23,11 +23,14 @@ export const SURFACE_TEXTURE_OPTIONS = [
   { id: 'corrugated-polymer', label: 'Polymer · Molded ribs', substrate: 'Polymer' },
   { id: 'cork-composite', label: 'Natural · Cork cells', substrate: 'Natural' },
   { id: 'frosted-glass', label: 'Glass · Etched micro-pits', substrate: 'Glass' },
+  { id: 'iridescent-film', label: 'Film · Thin-film iridescence', substrate: 'Film' },
+  { id: 'holo-cloth', label: 'Textile · Holographic cloth', substrate: 'Textile' },
   { id: 'linen-weave', label: 'Textile · Linen weave', substrate: 'Textile' },
   { id: 'felted-wool', label: 'Textile · Felted wool', substrate: 'Textile' },
   { id: 'pebbled-leather', label: 'Leather · Pebbled grain', substrate: 'Leather' },
   { id: 'crackle-glaze', label: 'Ceramic · Crackle glaze', substrate: 'Ceramic' },
   { id: 'sandblasted-plaster', label: 'Mineral · Sandblasted plaster', substrate: 'Mineral' },
+  { id: 'graphite', label: 'Mineral · Pressed graphite', substrate: 'Mineral' },
   { id: 'carbon-twill', label: 'Composite · Carbon twill', substrate: 'Composite' },
 ] as const;
 
@@ -361,6 +364,13 @@ export const BACKGROUND_PRESETS = [
   },
   {
     category: 'Textile',
+    description: 'Interactive iridescent foil cloth with suspended wrinkles, woven microstructure, diffraction bands, and metallic sparkle.',
+    id: 'holographic-drape',
+    name: 'Holographic drape',
+    settings: { colorA: '#FF6CC4', colorB: '#7AF7E1', colorC: '#8D8BFF', gradient: 'bloom', grain: 10, style: 'grain-gradient', surfaceAngle: 34, surfaceDepth: 68, surfaceIrregularity: 74, surfaceMaterial: 'holo-cloth', surfaceMetallic: 94, surfaceOpenArea: 68, surfaceRoughness: 14, surfaceScale: 72, surfaceTextureAmount: 96 },
+  },
+  {
+    category: 'Textile',
     description: 'Alternating warp and weft threads with subtle slub variation and a dry woven highlight.',
     id: 'natural-linen-weave',
     name: 'Natural linen',
@@ -687,6 +697,9 @@ function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions:
     pattern = `<pattern id="physical-surface-pattern" width="${scale}" height="${scale}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect x="${scale * 0.14}" width="${ridge}" height="100%" rx="${ridge / 2}" fill="${settings.colorC}" fill-opacity=".72"/><rect x="${scale * 0.14 + ridge * 0.34}" width="${Math.max(1, ridge * 0.16)}" height="100%" fill="#FFFFFF" fill-opacity=".42"/><rect x="${scale * 0.14 + ridge}" width="${scale * 0.18}" height="100%" fill="${settings.colorA}" fill-opacity=".48"/></pattern>`;
   } else if (settings.surfaceMaterial === 'cork-composite') {
     pattern = `<pattern id="physical-surface-pattern" width="${scale * 1.8}" height="${scale * 1.4}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><ellipse cx="${scale * 0.28}" cy="${scale * 0.3}" rx="${scale * 0.22}" ry="${scale * 0.14}" fill="${settings.colorA}" fill-opacity=".7"/><ellipse cx="${scale * 0.92}" cy="${scale * 0.62}" rx="${scale * 0.3}" ry="${scale * 0.18}" fill="${settings.colorC}" fill-opacity=".46"/><ellipse cx="${scale * 1.52}" cy="${scale * 0.28}" rx="${scale * 0.19}" ry="${scale * 0.26}" fill="${settings.colorA}" fill-opacity=".56"/><ellipse cx="${scale * 1.42}" cy="${scale * 1.14}" rx="${scale * 0.28}" ry="${scale * 0.16}" fill="${settings.colorB}" fill-opacity=".68"/><circle cx="${scale * 0.4}" cy="${scale * 1.08}" r="${scale * 0.13}" fill="${settings.colorC}" fill-opacity=".38"/></pattern>`;
+  } else if (settings.surfaceMaterial === 'holo-cloth') {
+    const weave = Math.max(2.4, scale * 0.12);
+    pattern = `<linearGradient id="holo-cloth-spectrum" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ff6ebc"/><stop offset=".18" stop-color="#ffc86b"/><stop offset=".38" stop-color="#a8ff8b"/><stop offset=".58" stop-color="#63f3e6"/><stop offset=".78" stop-color="#6e9cff"/><stop offset="1" stop-color="#d981ff"/></linearGradient><pattern id="physical-surface-pattern" width="${scale * 2}" height="${scale * 2}" patternUnits="userSpaceOnUse" patternTransform="${patternTransform}"><rect width="100%" height="100%" fill="url(#holo-cloth-spectrum)"/><path d="M0 ${scale * 0.3}C${scale * 0.5} ${scale * 0.08},${scale * 1.3} ${scale * 0.74},${scale * 2} ${scale * 0.28}M0 ${scale * 1.2}C${scale * 0.62} ${scale * 0.82},${scale * 1.42} ${scale * 1.62},${scale * 2} ${scale * 1.08}" fill="none" stroke="#fff" stroke-opacity=".46" stroke-width="${weave}"/><path d="M${scale * 0.34} 0V${scale * 2}M${scale * 1.12} 0V${scale * 2}M0 ${scale * 0.72}H${scale * 2}M0 ${scale * 1.58}H${scale * 2}" stroke="#fff" stroke-opacity=".16" stroke-width="${Math.max(0.6, weave * 0.16)}"/></pattern>`;
   } else if (settings.surfaceMaterial === 'linen-weave') {
     const thread = Math.max(1, scale * (0.045 + (100 - openArea) / 1800));
     const slub = (0.8 + irregularity / 100 * 1.8).toFixed(2);

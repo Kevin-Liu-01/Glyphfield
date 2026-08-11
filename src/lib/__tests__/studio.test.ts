@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { StudioSource } from '../renderFrame';
+import { SHADER_LIBRARY_DEFAULT_IDS } from '../shaderLab';
 import {
   applyFrameSettings,
   createDefaultFrameSettings,
@@ -63,7 +64,9 @@ describe('createDefaultFrameSettings', () => {
         colorA: '#112233',
         colorB: '#445566',
         finish: { presetId: 'none' },
+        materialId: SHADER_LIBRARY_DEFAULT_IDS.animation,
         materialSettings: expect.objectContaining({ colorA: '#73BFC4' }),
+        patternScale: 1,
         style: 'gradient',
       },
       finish: { presetId: 'none' },
