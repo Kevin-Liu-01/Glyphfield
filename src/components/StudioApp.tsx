@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
   useEffect,
   useMemo,
@@ -53,12 +54,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import AnimationStudio from '@/components/AnimationStudio';
 import { useThemeOverride } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
-import LottieStudio from '@/components/LottieStudio';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
-import StudioToolWorkspace from '@/components/StudioToolWorkspace';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -85,6 +83,29 @@ import {
   type StudioToolId,
 } from '@/lib/studioCatalog';
 
+const AnimationStudio = dynamic(() => import('@/components/AnimationStudio'), {
+  loading: StudioWorkspaceLoading,
+  ssr: false,
+});
+const BrandSettingsStudio = dynamic(() => import('@/components/BrandSettingsStudio'), {
+  loading: StudioWorkspaceLoading,
+});
+const LottieStudio = dynamic(() => import('@/components/LottieStudio'), {
+  loading: StudioWorkspaceLoading,
+  ssr: false,
+});
+const StudioToolWorkspace = dynamic(() => import('@/components/StudioToolWorkspace'), {
+  loading: StudioWorkspaceLoading,
+});
+
+function StudioWorkspaceLoading() {
+  return (
+    <div aria-busy='true' aria-label='Loading Studio tool' className='studio-workspace-loading'>
+      <span />
+    </div>
+  );
+}
+
 const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
   animation: Blend,
   backgrounds: ScanLine,
@@ -98,11 +119,11 @@ const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
   logo: Aperture,
   'logo-shader': Waves,
   lottie: FileJson2,
-  material: Waves,
+  material: Frame,
   opengraph: ImageIcon,
   partnership: Shapes,
   slides: MonitorPlay,
-  surface: Frame,
+  surface: Shapes,
   terminal: Braces,
   typography: Type,
 };
@@ -1468,7 +1489,7 @@ export default function StudioApp() {
               <ChevronLeft aria-hidden='true' />
             </button>
             <div
-              className='project-tabs-scroll flex min-w-0 items-end gap-2 overflow-x-auto self-stretch'
+              className='project-tabs-scroll studio-scroll-area flex min-w-0 items-end gap-2 overflow-x-auto self-stretch'
               ref={projectTabsScrollRef}
             >
               <div className='project-tabs-tablist flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
@@ -1543,7 +1564,7 @@ export default function StudioApp() {
               <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
             </Button>
           </nav>
-          <div className='studio-sidebar-scroll min-h-0 flex-1 overflow-y-auto px-2 py-3'>
+          <div className='studio-sidebar-scroll studio-scroll-area min-h-0 flex-1 overflow-y-auto px-2 py-3'>
             {STUDIO_CATEGORIES.map((category) => {
               const tools = filteredTools.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;
@@ -1604,6 +1625,13 @@ export default function StudioApp() {
                   <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
                 </div>
               </div>
+            ) : activeToolId === 'identity' ? (
+              <BrandSettingsStudio
+                hasPendingChanges={activeIdentityHasPendingChanges}
+                identity={activeIdentity}
+                onChange={updateIdentity}
+                tool={activeTool}
+              />
             ) : activeToolId === 'animation' ? (
               <AnimationStudio embedded identity={activeIdentity} />
             ) : activeToolId === 'lottie' ? (

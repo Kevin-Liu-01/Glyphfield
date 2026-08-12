@@ -41,7 +41,7 @@ export type CanvasSnapTargets = {
 
 type PointerSession = {
   moved: boolean;
-  mode: 'move' | 'resize';
+  mode: 'move' | 'resize' | 'resize-bottom' | 'resize-left' | 'resize-right' | 'resize-top';
   pointerId: number;
   startSelected: boolean;
   startClientX: number;
@@ -168,6 +168,7 @@ export default function EditableCanvasLayer({
   canvasWidth,
   children,
   className = '',
+  allowContentInteraction = false,
   fitContentHeight = false,
   label,
   onChange,
@@ -186,6 +187,7 @@ export default function EditableCanvasLayer({
   canvasWidth: number;
   children: ReactNode;
   className?: string;
+  allowContentInteraction?: boolean;
   fitContentHeight?: boolean;
   label: string;
   onChange: (transform: CanvasLayerTransform) => void;
@@ -219,6 +221,15 @@ export default function EditableCanvasLayer({
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
     event.stopPropagation();
+    if (
+      mode === 'move'
+      && allowContentInteraction
+      && event.target instanceof HTMLElement
+      && event.target.closest('[data-canvas-editable="true"]')
+    ) {
+      onSelect();
+      return;
+    }
     onSelect();
     setSmartGuides({ x: null, y: null });
     sessionRef.current = {
@@ -249,23 +260,33 @@ export default function EditableCanvasLayer({
     const deltaX = ((event.clientX - session.startClientX) / bounds.width) * canvasWidth;
     const deltaY = ((event.clientY - session.startClientY) / bounds.height) * canvasHeight;
 
-    if (session.mode === 'resize') {
-      if (resizeMode === 'box') {
-        const widthScale = clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3);
-        const heightScale = clamp(session.startHeightScale + deltaY / baseHeight, 0.2, 3);
-        const widthDelta = baseWidth * (widthScale - session.startWidthScale);
-        const heightDelta = baseHeight * (heightScale - session.startHeightScale);
-        onChange({
-          ...transform,
-          heightScale,
-          widthScale,
-          x: session.startX + widthDelta / 2,
-          y: session.startY + heightDelta / 2,
-        });
+    if (session.mode !== 'move') {
+      if (session.mode === 'resize' && resizeMode === 'scale') {
+        const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
+        onChange({ ...transform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
         return;
       }
-      const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
-      onChange({ ...transform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
+      let heightScale = session.startHeightScale;
+      let widthScale = session.startWidthScale;
+      let x = session.startX;
+      let y = session.startY;
+      if (session.mode === 'resize' || session.mode === 'resize-right') {
+        widthScale = clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3);
+        x += baseWidth * (widthScale - session.startWidthScale) / 2;
+      }
+      if (session.mode === 'resize-left') {
+        widthScale = clamp(session.startWidthScale - deltaX / baseWidth, 0.2, 3);
+        x -= baseWidth * (widthScale - session.startWidthScale) / 2;
+      }
+      if (session.mode === 'resize' || session.mode === 'resize-bottom') {
+        heightScale = clamp(session.startHeightScale + deltaY / baseHeight, 0.2, 3);
+        y += baseHeight * (heightScale - session.startHeightScale) / 2;
+      }
+      if (session.mode === 'resize-top') {
+        heightScale = clamp(session.startHeightScale - deltaY / baseHeight, 0.2, 3);
+        y -= baseHeight * (heightScale - session.startHeightScale) / 2;
+      }
+      onChange({ ...transform, heightScale, widthScale, x, y });
       return;
     }
 
@@ -314,6 +335,11 @@ export default function EditableCanvasLayer({
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (
+      allowContentInteraction
+      && event.target instanceof HTMLElement
+      && event.target.closest('[data-canvas-editable="true"]')
+    ) return;
     const step = event.shiftKey ? 10 : 1;
     if (event.key === 'ArrowLeft') onChange({ ...transform, x: transform.x - step });
     else if (event.key === 'ArrowRight') onChange({ ...transform, x: transform.x + step });
@@ -342,6 +368,7 @@ export default function EditableCanvasLayer({
         aria-label={label}
         aria-selected={selected}
         className={`editable-canvas-layer ${className}`}
+        data-content-interactive={allowContentInteraction ? 'true' : undefined}
         data-fit-content-height={fitContentHeight ? 'true' : undefined}
         onKeyDown={handleKeyDown}
         onPointerCancel={endPointer}
@@ -349,14 +376,31 @@ export default function EditableCanvasLayer({
         onPointerMove={updatePointer}
         onPointerUp={endPointer}
         ref={layerRef}
-        role='button'
+        role={allowContentInteraction ? 'group' : 'button'}
         style={style}
-        tabIndex={selected ? 0 : -1}
+        tabIndex={allowContentInteraction ? -1 : selected ? 0 : -1}
       >
         <div className='editable-canvas-layer-content'>{children}</div>
         {selected ? (
           <>
             <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
+            <span
+              aria-label={`Move ${label}`}
+              className='editable-canvas-layer-move'
+              onPointerDown={(event) => beginPointer(event, 'move')}
+              role='button'
+              title={`Move ${label}`}
+            />
+            {resizeMode === 'box' ? (['top', 'right', 'bottom', 'left'] as const).map((side) => (
+              <span
+                aria-label={`Resize ${label} from ${side}`}
+                className={`editable-canvas-layer-edge editable-canvas-layer-edge--${side}`}
+                key={side}
+                onPointerDown={(event) => beginPointer(event, `resize-${side}`)}
+                role='button'
+                title={`Resize from ${side}`}
+              />
+            )) : null}
             <span
               aria-label={`Resize ${label}`}
               className='editable-canvas-layer-resize'

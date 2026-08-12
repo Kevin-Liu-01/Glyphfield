@@ -48,12 +48,11 @@ export function downloadSvg(svg: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function downloadSvgAsPng(
+export async function svgToPngBlob(
   svg: string,
   width: number,
-  height: number,
-  filename: string
-): Promise<void> {
+  height: number
+): Promise<Blob> {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
   const source = URL.createObjectURL(blob);
   const image = new Image();
@@ -73,11 +72,19 @@ export async function downloadSvgAsPng(
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
     context.drawImage(image, 0, 0, width, height);
-    const png = await canvasToBlob(canvas);
-    const url = URL.createObjectURL(png);
-    triggerDownload(url, filename);
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return await canvasToBlob(canvas);
   } finally {
     URL.revokeObjectURL(source);
   }
+}
+
+export async function downloadSvgAsPng(
+  svg: string,
+  width: number,
+  height: number,
+  filename: string
+): Promise<Blob> {
+  const png = await svgToPngBlob(svg, width, height);
+  downloadBlob(png, filename);
+  return png;
 }

@@ -8,6 +8,7 @@ import { Download, RotateCcw } from 'lucide-react';
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StudioControls from '@/components/StudioControls';
@@ -195,7 +196,7 @@ export default function AnimationStudio({
   );
   const [playheadMs, setPlayheadMs] = useState(0);
   const [exportProgress, setExportProgress] = useState<number | null>(null);
-  const [lastExport, setLastExport] = useState<{ size: number; url: string } | null>(null);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -327,14 +328,12 @@ export default function AnimationStudio({
   const isPlayingRef = useRef(isPlaying);
   const playbackRateRef = useRef(playbackRate);
   const playheadRef = useRef(playheadMs);
-  const lastExportRef = useRef(lastExport);
   const backgroundOverridesRef = useRef(backgroundOverrides);
   settingsRef.current = settings;
   sourcesRef.current = sources;
   imagesRef.current = images;
   isPlayingRef.current = isPlaying;
   playbackRateRef.current = playbackRate;
-  lastExportRef.current = lastExport;
   backgroundOverridesRef.current = backgroundOverrides;
 
   useMountEffect(() => {
@@ -484,7 +483,6 @@ export default function AnimationStudio({
     return () => {
       cancelAnimationFrame(animationFrame);
       for (const image of imagesRef.current) URL.revokeObjectURL(image.url);
-      if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
     };
   });
 
@@ -685,15 +683,14 @@ export default function AnimationStudio({
         onProgress: setExportProgress,
         sources: attachShaderLayers(sources),
       });
-      const url = URL.createObjectURL(blob);
-      if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
-      const completedExport = { size: blob.size, url };
-      lastExportRef.current = completedExport;
-      setLastExport(completedExport);
-      const anchor = document.createElement('a');
-      anchor.download = `studio-${settings.packageId}.gif`;
-      anchor.href = url;
-      anchor.click();
+      const fileName = `studio-${settings.packageId}.gif`;
+      setLastExport({
+        blob,
+        fileName,
+        format: 'GIF',
+        height: settings.height,
+        width: settings.width,
+      });
     } catch {
       setError(gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.'));
     } finally {
@@ -715,8 +712,6 @@ export default function AnimationStudio({
     setSelectedEffectTarget('content');
     setError(null);
     setPlaybackRate(1);
-    if (lastExportRef.current) URL.revokeObjectURL(lastExportRef.current.url);
-    lastExportRef.current = null;
     setLastExport(null);
     changePlaying(true);
     seek(0);
@@ -857,13 +852,7 @@ export default function AnimationStudio({
 
         <div className='flex items-center justify-end gap-2 px-4'>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          {lastExport ? (
-            <Button asChild className='hidden font-mono text-xs xl:inline-flex' variant='outline'>
-              <a download={`studio-${settings.packageId}.gif`} href={lastExport.url}>
-                <T>GIF ready</T> · {Math.max(1, Math.round(lastExport.size / 1024))} KB
-              </a>
-            </Button>
-          ) : null}
+          <ExportPreview asset={lastExport} className='hidden xl:inline-flex' />
           <Button
             aria-label={gt('Reset studio')}
             className='studio-reset'

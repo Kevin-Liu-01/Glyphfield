@@ -44,12 +44,16 @@ describe('filterStudioTools', () => {
     expect(new Set(STUDIO_TOOLS.map(({ id }) => id)).size).toBe(STUDIO_TOOLS.length);
   });
 
-  it('exposes the unified compositor as Design Lab while keeping shader authoring focused', () => {
+  it('separates the precision Design Lab from the experimental Playground', () => {
     expect(STUDIO_TOOLS.filter(({ id }) => id === 'surface')).toHaveLength(1);
     expect(STUDIO_TOOLS.find(({ id }) => id === 'surface')).toMatchObject({
+      category: 'Foundations',
+      name: 'Playground',
+    });
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'material')).toMatchObject({
+      category: 'Foundations',
       name: 'Design Lab',
     });
-    expect(STUDIO_TOOLS.find(({ id }) => id === 'material')?.category).toBe('Motion');
     expect(STUDIO_TOOLS.map(({ id }) => id)).not.toEqual(
       expect.arrayContaining(['logo', 'logo-shader', 'backgrounds'])
     );

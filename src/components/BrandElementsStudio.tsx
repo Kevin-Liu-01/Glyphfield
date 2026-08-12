@@ -437,7 +437,7 @@ function ElementFrame({ accentFontFamily, accentFontWeight, aspectRatio, bodyFon
         fontWeight: capVisibleFontWeight(bodyFontWeight),
       } as CSSProperties}
     >
-      <div className='min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
+      <div className='studio-scroll-area min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
         <div
           className='brand-element-artboard mx-auto'
           data-ratio-locked={aspectRatio ? 'true' : undefined}
@@ -720,7 +720,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
       <div className='relative mx-auto grid min-h-[440px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
         <ElementPattern settings={settings} />
         <div className='relative z-10 text-center'>
-          <pre className='overflow-x-auto font-mono text-xs leading-5 sm:text-base'>{ascii}</pre>
+          <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-base'>{ascii}</pre>
           <p className='mt-8 max-w-lg text-sm leading-6 opacity-55'>{settings.body}</p>
         </div>
       </div>
@@ -773,7 +773,7 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
         <span className='size-2' style={{ backgroundColor: settings.accentColor }} />
       </div>
       <div className='relative z-10 p-6 sm:p-10'>
-        <pre className='overflow-x-auto font-mono text-xs leading-5 sm:text-sm'>{ascii}</pre>
+        <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-sm'>{ascii}</pre>
         <p className='mt-8 font-mono text-sm opacity-45'>$ {settings.cta || `npx ${identity.id} init`}</p>
         <p className='mt-3 font-mono text-sm'>✓ {identity.name} installed</p>
         <p className='mt-2 font-mono text-sm' style={{ color: settings.accentColor }}>✓ Brand context loaded</p>
@@ -1319,7 +1319,7 @@ export default function BrandElementsStudio({
           </div>
         </ResizableSidebar>
 
-        <div className='brand-elements-canvas tool-canvas min-h-0 overflow-auto'>
+        <div className='brand-elements-canvas tool-canvas studio-scroll-area min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-3'>
               <StudioSelect

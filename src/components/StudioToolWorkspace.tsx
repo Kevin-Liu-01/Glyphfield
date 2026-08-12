@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
@@ -12,11 +13,6 @@ import {
   X,
 } from 'lucide-react';
 
-import DesignBoard from '@/components/DesignBoard';
-import BrandBook from '@/components/BrandBook';
-import BrandElementsStudio from '@/components/BrandElementsStudio';
-import BackgroundStudio from '@/components/BackgroundStudio';
-import BrandSettingsStudio from '@/components/BrandSettingsStudio';
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasLayerPanel from '@/components/CanvasLayerPanel';
 import EditableCanvasLayer, {
@@ -33,7 +29,6 @@ import ComponentLibraryPreview, {
   type ComponentFamily,
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
-import LogoShaderStudio from '@/components/LogoShaderStudio';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
@@ -89,6 +84,35 @@ import {
   sourceStringArray,
   stringifySource,
 } from '@/lib/sourceCode';
+
+const BackgroundStudio = dynamic(() => import('@/components/BackgroundStudio'), {
+  loading: ToolModuleLoading,
+  ssr: false,
+});
+const BrandBook = dynamic(() => import('@/components/BrandBook'), {
+  loading: ToolModuleLoading,
+});
+const BrandElementsStudio = dynamic(() => import('@/components/BrandElementsStudio'), {
+  loading: ToolModuleLoading,
+});
+const BrandSettingsStudio = dynamic(() => import('@/components/BrandSettingsStudio'), {
+  loading: ToolModuleLoading,
+});
+const DesignBoard = dynamic(() => import('@/components/DesignBoard'), {
+  loading: ToolModuleLoading,
+});
+const LogoShaderStudio = dynamic(() => import('@/components/LogoShaderStudio'), {
+  loading: ToolModuleLoading,
+  ssr: false,
+});
+
+function ToolModuleLoading() {
+  return (
+    <div aria-busy='true' aria-label='Loading tool' className='studio-workspace-loading'>
+      <span />
+    </div>
+  );
+}
 
 const INPUT_CLASS =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -224,7 +248,7 @@ function ToolShell({
             {inspector}
           </ResizableSidebar>
         )}
-        <div className='tool-canvas min-h-0 overflow-auto'>{children}</div>
+        <div className='tool-canvas studio-scroll-area min-h-0 overflow-auto'>{children}</div>
         {library ? (
           <ResizableSidebar
             className='tool-inspector lab-sidebar lab-sidebar-right min-h-0 border-l border-border'
@@ -1833,7 +1857,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
                   }}
                 >
                   <p className='text-[11px] uppercase tracking-[0.14em] opacity-55'>{codeLabel}</p>
-                  <p className='mt-5 overflow-x-auto whitespace-nowrap text-[clamp(0.8rem,1.2vw,1rem)]'>
+                  <p className='studio-scroll-area mt-5 overflow-x-auto whitespace-nowrap text-[clamp(0.8rem,1.2vw,1rem)]'>
                     {identity.id === 'ramp' ? codeSample : <><span className='mr-3 opacity-45'>$</span>{codeSample.slice(2)}</>}
                   </p>
                 </div>
@@ -2037,7 +2061,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
               <span className='size-1.5 rounded-full bg-white/20' />
             </div>
           </div>
-          <pre className='relative min-h-72 overflow-auto bg-[#0D1117]/90 p-6 text-sm leading-7' style={{ fontFamily: brandTypographyFamily(identity, codeFontRole), fontWeight: capVisibleFontWeight(codeFontWeight) }}>
+          <pre className='studio-scroll-area relative min-h-72 overflow-auto bg-[#0D1117]/90 p-6 text-sm leading-7' style={{ fontFamily: brandTypographyFamily(identity, codeFontRole), fontWeight: capVisibleFontWeight(codeFontWeight) }}>
             {highlightedLines.map((line, index) => (
               <span className='grid grid-cols-[28px_1fr] gap-4' key={`${index}-${line.tokens.map(({ content }) => content).join('')}`}>
                 <span className='select-none text-right text-[#6E7681]'>{index + 1}</span>

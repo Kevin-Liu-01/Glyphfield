@@ -40,10 +40,23 @@ export const DEFAULT_LOGO_APPEARANCE: LogoAppearanceSettings = {
   shadowOpacity: 28,
 };
 
+export function hasLogoAppearanceEffects(settings: LogoAppearanceSettings): boolean {
+  return settings.invert
+    || (settings.ditherEnabled && settings.ditherAmount > 0)
+    || (settings.borderEnabled && settings.borderWidth > 0 && settings.borderOpacity > 0)
+    || (settings.shadowEnabled && settings.shadowOpacity > 0);
+}
+
 function alphaHex(opacity: number): string {
   return Math.round((Math.min(100, Math.max(0, opacity)) * 255) / 100)
     .toString(16)
     .padStart(2, '0');
+}
+
+function ditherAlphaTable(amount: number): string {
+  const strength = Math.max(0, Math.min(1, amount / 100));
+  const threshold = strength * 0.7;
+  return Array.from({ length: 16 }, (_, index) => (index / 15) < threshold ? '0' : '1').join(' ');
 }
 
 export function logoAppearanceCssFilter(settings: LogoAppearanceSettings): string {
@@ -74,7 +87,8 @@ export function logoAppearanceCssFilter(settings: LogoAppearanceSettings): strin
 export function buildLogoSvgFilter(
   settings: LogoAppearanceSettings,
   color: string,
-  id = 'logo-appearance'
+  id = 'logo-appearance',
+  showSource = true
 ): string {
   const coloredResult = settings.invert ? 'inverted' : 'colored';
   const invert = settings.invert
@@ -84,11 +98,44 @@ export function buildLogoSvgFilter(
   const ditherRadians = ((settings.ditherAngle || 0) * Math.PI) / 180;
   const ditherFrequencyX = ditherFrequency * (0.72 + Math.abs(Math.cos(ditherRadians)) * 0.52);
   const ditherFrequencyY = ditherFrequency * (0.72 + Math.abs(Math.sin(ditherRadians)) * 0.52);
-  const ditheredResult = settings.ditherEnabled ? 'dithered' : coloredResult;
-  const ditherCutoff = Math.max(1, Math.min(4, Math.round((settings.ditherAmount / 100) * 4)));
-  const ditherTable = Array.from({ length: 6 }, (_, index) => index <= ditherCutoff ? '0' : '1').join(' ');
-  const dither = settings.ditherEnabled
+  const ditherEnabled = settings.ditherEnabled && settings.ditherAmount > 0;
+  const ditheredResult = ditherEnabled ? 'dithered' : coloredResult;
+  const ditherTable = ditherAlphaTable(settings.ditherAmount);
+  const dither = ditherEnabled
     ? `<feTurbulence type="fractalNoise" baseFrequency="${ditherFrequencyX.toFixed(4)} ${ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${ditherTable}"/></feComponentTransfer><feComposite in="${coloredResult}" in2="dither-threshold" operator="in" result="dithered"/>`
+    : '';
+  const border = settings.borderEnabled && settings.borderWidth > 0
+    ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
+    : '';
+  const shadow = settings.shadowEnabled
+    ? `<feDropShadow in="${showSource ? ditheredResult : 'SourceAlpha'}" dx="${settings.shadowOffsetX}" dy="${settings.shadowOffsetY}" stdDeviation="${settings.shadowBlur / 2}" flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${settings.shadowOpacity / 100}" result="shadow"/>`
+    : '';
+  const merge = [
+    settings.shadowEnabled ? '<feMergeNode in="shadow"/>' : '',
+    settings.borderEnabled && settings.borderWidth > 0 ? '<feMergeNode in="outline"/>' : '',
+    showSource ? `<feMergeNode in="${ditheredResult}"/>` : '',
+  ].join('');
+
+  return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feFlood flood-color="${escapeXml(color)}" result="logo-color"/><feComposite in="logo-color" in2="SourceAlpha" operator="in" result="colored"/>${invert}${dither}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;
+}
+
+export function buildImageSvgFilter(
+  settings: LogoAppearanceSettings,
+  id = 'image-appearance'
+): string {
+  const sourceResult = settings.invert ? 'inverted' : 'SourceGraphic';
+  const invert = settings.invert
+    ? '<feComponentTransfer in="SourceGraphic" result="inverted"><feFuncR type="table" tableValues="1 0"/><feFuncG type="table" tableValues="1 0"/><feFuncB type="table" tableValues="1 0"/></feComponentTransfer>'
+    : '';
+  const ditherFrequency = 1 / Math.max(2, settings.ditherScale || DEFAULT_LOGO_APPEARANCE.ditherScale);
+  const ditherRadians = ((settings.ditherAngle || 0) * Math.PI) / 180;
+  const ditherFrequencyX = ditherFrequency * (0.72 + Math.abs(Math.cos(ditherRadians)) * 0.52);
+  const ditherFrequencyY = ditherFrequency * (0.72 + Math.abs(Math.sin(ditherRadians)) * 0.52);
+  const ditherEnabled = settings.ditherEnabled && settings.ditherAmount > 0;
+  const ditheredResult = ditherEnabled ? 'dithered' : sourceResult;
+  const ditherTable = ditherAlphaTable(settings.ditherAmount);
+  const dither = ditherEnabled
+    ? `<feTurbulence type="fractalNoise" baseFrequency="${ditherFrequencyX.toFixed(4)} ${ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${ditherTable}"/></feComponentTransfer><feComposite in="${sourceResult}" in2="dither-threshold" operator="in" result="dithered"/>`
     : '';
   const border = settings.borderEnabled && settings.borderWidth > 0
     ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
@@ -102,7 +149,7 @@ export function buildLogoSvgFilter(
     `<feMergeNode in="${ditheredResult}"/>`,
   ].join('');
 
-  return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feFlood flood-color="${escapeXml(color)}" result="logo-color"/><feComposite in="logo-color" in2="SourceAlpha" operator="in" result="colored"/>${invert}${dither}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;
+  return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">${invert}${dither}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;
 }
 
 const BAYER_4 = [

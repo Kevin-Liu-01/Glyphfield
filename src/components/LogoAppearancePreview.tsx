@@ -1,27 +1,82 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import {
+  buildImageSvgFilter,
   buildLogoSvgFilter,
+  hasLogoAppearanceEffects,
   logoAppearanceCssFilter,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
 
+export function AppearanceFilteredContent({
+  ariaLabel,
+  children,
+  className = '',
+  opacity = 1,
+  settings,
+  style,
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  className?: string;
+  opacity?: number;
+  settings: LogoAppearanceSettings;
+  style?: CSSProperties;
+}) {
+  const filterId = `content-appearance-${useId().replaceAll(':', '')}`;
+
+  if (!hasLogoAppearanceEffects(settings)) {
+    return (
+      <div
+        aria-label={ariaLabel}
+        className={`block size-full overflow-visible ${className}`}
+        role='img'
+        style={{ ...style, opacity }}
+      >
+        <div className='relative size-full'>{children}</div>
+      </div>
+    );
+  }
+
+  return (
+    <svg
+      aria-label={ariaLabel}
+      className={`block size-full overflow-visible ${className}`}
+      preserveAspectRatio='none'
+      role='img'
+      style={{ ...style, opacity }}
+      viewBox='0 0 100 100'
+    >
+      <defs dangerouslySetInnerHTML={{ __html: buildImageSvgFilter(settings, filterId) }} />
+      <foreignObject filter={`url(#${filterId})`} height='100' width='100' x='0' y='0'>
+        <div className='relative size-full'>{children}</div>
+      </foreignObject>
+    </svg>
+  );
+}
+
 export default function LogoAppearancePreview({
   ariaLabel,
+  className = '',
   color,
   fallback,
   logoPath,
   opacity = 1,
+  preserveColors = false,
   settings,
+  showSource = true,
 }: {
   ariaLabel: string;
+  className?: string;
   color: string;
   fallback?: ReactNode;
   logoPath?: string;
   opacity?: number;
+  preserveColors?: boolean;
   settings: LogoAppearanceSettings;
+  showSource?: boolean;
 }) {
   const filterId = `logo-appearance-${useId().replaceAll(':', '')}`;
 
@@ -40,12 +95,14 @@ export default function LogoAppearancePreview({
   return (
     <svg
       aria-label={ariaLabel}
-      className='block size-full overflow-visible'
+      className={`block size-full overflow-visible ${className}`}
       preserveAspectRatio='xMidYMid meet'
       role='img'
       viewBox='0 0 100 100'
     >
-      <defs dangerouslySetInnerHTML={{ __html: buildLogoSvgFilter(settings, color, filterId) }} />
+      <defs dangerouslySetInnerHTML={{ __html: preserveColors
+        ? buildImageSvgFilter(settings, filterId)
+        : buildLogoSvgFilter(settings, color, filterId, showSource) }} />
       <image
         filter={`url(#${filterId})`}
         height='100'

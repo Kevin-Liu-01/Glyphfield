@@ -22,22 +22,22 @@ export const SHADER_LAB_CATEGORIES: readonly { id: ShaderLabCategory; label: str
 ];
 
 export const SHADER_LAB_FEATURED_IDS: readonly LiveMaterialId[] = [
-  'holo-cloth-silk',
-  'shaders-spectral-bloom',
-  'study-line-field',
-  'pavel-fluid-energy',
-  'shaders-fluid-chrome',
-  'study-radiant-void',
-  'paper-liquid-metal',
-  'study-galactic-rings',
-  'glyphfield-glyph-field',
   'paper-gem-smoke',
+  'shaders-fluid-chrome',
+  'study-line-field',
+  'paper-liquid-metal',
   'study-chrome-glares',
-  'shadergradient-prismatic-sphere',
   'paper-god-rays',
-  'glyphfield-mesh-gradient',
   'paper-warp',
+  'shadergradient-prismatic-sphere',
+  'glyphfield-glyph-field',
   'glyphfield-dither-gradient',
+  'glyphfield-mesh-gradient',
+  'shaders-spectral-bloom',
+  'study-radiant-void',
+  'study-galactic-rings',
+  'pavel-fluid-energy',
+  'holo-cloth-silk',
 ];
 
 export const SHADER_LIBRARY_DEFAULT_IDS = {

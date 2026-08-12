@@ -14,6 +14,7 @@ import {
 import { useRef, useState, type ReactNode } from 'react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
@@ -245,6 +246,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const [isSourceTransitioning, setIsSourceTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shaderLayerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<DotLottie | null>(null);
@@ -627,10 +629,20 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   function downloadPng() {
     const lottieCanvas = canvasRef.current;
     if (!lottieCanvas) return;
+    const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
+    const completeExport = (blob: Blob) => {
+      setLastExport({
+        blob,
+        fileName,
+        format: 'PNG',
+        height: canvas.height,
+        width: canvas.width,
+      });
+    };
     const shaderCanvas = shaderLayerRef.current?.querySelector('canvas');
     if (backgroundStyle !== 'shader' || transparent || !shaderCanvas) {
       lottieCanvas.toBlob((blob) => {
-        if (blob) downloadBlob(blob, `${source.id}-frame-${Math.round(currentFrame)}.png`);
+        if (blob) completeExport(blob);
       }, 'image/png');
       return;
     }
@@ -642,7 +654,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     context.drawImage(shaderCanvas, 0, 0, canvas.width, canvas.height);
     context.drawImage(lottieCanvas, 0, 0, canvas.width, canvas.height);
     exportCanvas.toBlob((blob) => {
-      if (blob) downloadBlob(blob, `${source.id}-frame-${Math.round(currentFrame)}.png`);
+      if (blob) completeExport(blob);
     }, 'image/png');
   }
 
@@ -686,6 +698,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
         </div>
         <div className='flex items-center gap-2'>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <ExportPreview asset={lastExport} />
           <Button aria-label={gt('Reset Lottie editor')} onClick={resetEditor} size='icon' type='button' variant='outline'>
             <RotateCcw aria-hidden='true' />
           </Button>
@@ -825,7 +838,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
           {transparent || backgroundStyle !== 'shader' ? null : (
             <InspectorSection index='04' title={<T>Live material</T>}>
-              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab and Animation.</T></p>
+              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab, Playground, and Animation.</T></p>
               <LiveMaterialControls
                 identity={identity}
                 materialId={materialId}

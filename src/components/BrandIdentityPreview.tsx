@@ -52,6 +52,8 @@ function EvidenceImage({
       alt={asset.alt ?? asset.label}
       className={className}
       data-fit={centeredProduct ? 'contain' : 'cover'}
+      decoding='async'
+      loading='lazy'
       src={asset.path}
       style={{ objectPosition }}
     />

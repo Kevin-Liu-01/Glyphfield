@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildImageSvgFilter,
   buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
+  hasLogoAppearanceEffects,
   logoAppearanceCssFilter,
 } from '../logoAppearance';
 
 describe('logo appearance', () => {
+  it('keeps the default shader mask on the direct compositing path', () => {
+    expect(hasLogoAppearanceEffects(DEFAULT_LOGO_APPEARANCE)).toBe(false);
+    expect(hasLogoAppearanceEffects({
+      ...DEFAULT_LOGO_APPEARANCE,
+      ditherEnabled: true,
+    })).toBe(true);
+    expect(hasLogoAppearanceEffects({
+      ...DEFAULT_LOGO_APPEARANCE,
+      shadowEnabled: true,
+      shadowOpacity: 0,
+    })).toBe(false);
+  });
+
   it('builds an alpha-aware CSS treatment for inversion, outline, and shadow', () => {
     const filter = logoAppearanceCssFilter({
       ...DEFAULT_LOGO_APPEARANCE,
@@ -50,5 +65,31 @@ describe('logo appearance', () => {
     expect(filter).toContain('result="dither-noise"');
     expect(filter).toContain('result="dithered"');
     expect(filter).toContain('<feDropShadow in="dithered"');
+    expect(filter).toContain('tableValues="0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1"');
+  });
+
+  it('filters live shader and image content without replacing its colors', () => {
+    const filter = buildImageSvgFilter({
+      ...DEFAULT_LOGO_APPEARANCE,
+      borderEnabled: true,
+      ditherEnabled: true,
+    }, 'live-content');
+
+    expect(filter).toContain('id="live-content"');
+    expect(filter).toContain('<feComposite in="SourceGraphic" in2="dither-threshold"');
+    expect(filter).toContain('<feMorphology in="SourceAlpha"');
+  });
+
+  it('can render only silhouette effects for a shader-filled mark', () => {
+    const filter = buildLogoSvgFilter({
+      ...DEFAULT_LOGO_APPEARANCE,
+      borderEnabled: true,
+      shadowEnabled: true,
+    }, '#FFFFFF', 'silhouette-effects', false);
+
+    expect(filter).toContain('<feMorphology in="SourceAlpha"');
+    expect(filter).toContain('<feDropShadow in="SourceAlpha"');
+    expect(filter).toContain('<feMergeNode in="outline"/>');
+    expect(filter).not.toContain('<feMergeNode in="colored"/>');
   });
 });

@@ -62,7 +62,7 @@ export default function SurfaceGallery({
 
   return (
     <div className='flex flex-col gap-3'>
-      <div className='flex gap-1 overflow-x-auto pb-1'>
+      <div className='studio-scroll-area flex gap-1 overflow-x-auto pb-1'>
         {categories.map((item) => (
           <button
             className={`shrink-0 border px-2 py-1 text-[10px] ${category === item ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}

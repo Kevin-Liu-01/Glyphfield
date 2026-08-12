@@ -24,15 +24,25 @@ describe('shader lab', () => {
     expect(SHADER_LAB_FEATURED_MATERIALS).toHaveLength(16);
     expect(shaderLabMaterials('', 'all')).toHaveLength(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
     expect(shaderLabMaterials('', 'all').slice(0, 8).map(({ id }) => id)).toEqual([
-      'holo-cloth-silk',
-      'shaders-spectral-bloom',
-      'study-line-field',
-      'pavel-fluid-energy',
+      'paper-gem-smoke',
       'shaders-fluid-chrome',
-      'study-radiant-void',
+      'study-line-field',
       'paper-liquid-metal',
-      'study-galactic-rings',
+      'study-chrome-glares',
+      'paper-god-rays',
+      'paper-warp',
+      'shadergradient-prismatic-sphere',
     ]);
+    const orderedIds = shaderLabMaterials('', 'all').map(({ id }) => id);
+    expect(orderedIds.indexOf('glyphfield-glyph-field')).toBe(orderedIds.indexOf('shadergradient-prismatic-sphere') + 1);
+    const demotedIds = [
+      'shaders-spectral-bloom',
+      'study-radiant-void',
+      'study-galactic-rings',
+      'pavel-fluid-energy',
+      'holo-cloth-silk',
+    ] as const;
+    demotedIds.forEach((id) => expect(orderedIds.indexOf(id)).toBeGreaterThanOrEqual(11));
     expect(shaderLabMaterials('', 'light').map(({ id }) => id)).toContain('holo-cloth-silk');
     expect(shaderLabMaterials('liquid', 'all').length).toBeGreaterThan(2);
   });

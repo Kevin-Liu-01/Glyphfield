@@ -5,6 +5,7 @@ import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -17,7 +18,7 @@ import {
   brandTypographyRole,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
-import { downloadSvgAsPng, imageUrlToDataUrl } from '@/lib/download';
+import { imageUrlToDataUrl, svgToPngBlob } from '@/lib/download';
 import {
   moodboardFilename,
   moodboardAssets,
@@ -76,6 +77,7 @@ export default function DesignBoard({
   tool: StudioTool;
 }) {
   const [exporting, setExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [exportPresetId, setExportPresetId] = useStudioDraft<MoodboardExportPresetId>(
     identity.id,
@@ -158,12 +160,19 @@ export default function DesignBoard({
         composition
       );
 
-      await downloadSvgAsPng(
+      const fileName = moodboardFilename(identity.name, exportDimensions.width, exportDimensions.height);
+      const blob = await svgToPngBlob(
         svg,
         exportDimensions.width,
-        exportDimensions.height,
-        moodboardFilename(identity.name, exportDimensions.width, exportDimensions.height)
+        exportDimensions.height
       );
+      setLastExport({
+        blob,
+        fileName,
+        format: 'PNG',
+        height: exportDimensions.height,
+        width: exportDimensions.width,
+      });
     } finally {
       setExporting(false);
     }
@@ -197,6 +206,7 @@ export default function DesignBoard({
             <FileJson aria-hidden='true' />
             <T>Identity JSON</T>
           </Button>
+          <ExportPreview asset={lastExport} />
           <Button loading={exporting} onClick={exportBoard} type='button'>
             <Download aria-hidden='true' />
             <T>Download PNG</T>

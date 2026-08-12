@@ -110,10 +110,15 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
     shortcut: 'L',
   },
   {
-    category: 'Motion',
-    description: 'Apply live shaders, material finishes, glass, reflection, and depth to backgrounds and marks.',
+    category: 'Foundations',
+    description: 'Compose type, converted marks, images, and live shaders with precise layer styling and export.',
     id: 'material',
     keywords: [
+      'design lab',
+      'composition',
+      'typography',
+      'svg conversion',
+      'layer editor',
       'material',
       'shader',
       'webgl',
@@ -128,7 +133,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'shadow',
       'gif',
     ],
-    name: 'Shaders',
+    name: 'Design Lab',
     shortcut: 'M',
   },
   {
@@ -141,10 +146,10 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Compose live shaders, interactive cloth, artwork, and finished stickers on one canvas.',
+    description: 'Play with shaders, tactile surfaces, artwork, and finished stickers on one experimental canvas.',
     id: 'surface',
     keywords: [
-      'design lab',
+      'playground',
       'surface lab',
       'background',
       '3d surface',
@@ -184,7 +189,7 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'logomark',
       'transparent',
     ],
-    name: 'Design Lab',
+    name: 'Playground',
     shortcut: 'U',
   },
   {

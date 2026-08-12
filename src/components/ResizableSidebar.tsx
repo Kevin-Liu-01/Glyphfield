@@ -161,7 +161,7 @@ export default function ResizableSidebar({
       data-resizing={resizing ? 'true' : 'false'}
       style={style}
     >
-      <div className='resizable-sidebar-scroll'>{children}</div>
+      <div className='resizable-sidebar-scroll studio-scroll-area'>{children}</div>
       <button
         aria-label={`${collapsed ? 'Show' : 'Hide'} ${label}`}
         className='resizable-sidebar-toggle'

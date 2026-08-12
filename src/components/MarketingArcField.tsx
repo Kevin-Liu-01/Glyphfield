@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
@@ -23,6 +24,7 @@ export default function MarketingArcField({
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const isPaperShader = materialId.startsWith('paper-');
+  const runtimeReady = useDeferredRuntime(visible, 500);
 
   useMountEffect(() => {
     const container = containerRef.current;
@@ -65,7 +67,7 @@ export default function MarketingArcField({
         className='marketing-v5-field-fallback'
         style={isPaperShader ? { background: settings.colorA } : undefined}
       />
-      {visible ? (
+      {visible && runtimeReady ? (
         <LazyLiveMaterialCanvas
           activeWhileMounted
           frameRate={24}

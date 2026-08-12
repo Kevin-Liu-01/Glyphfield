@@ -15,7 +15,7 @@ import {
 } from 'three';
 
 import type { BackgroundSettings, SurfaceMaterial } from '@/lib/backgroundSvg';
-import HoloClothSurface from '@/components/HoloClothSurface';
+import HoloClothSurface, { type HoloClothArtworkLayer } from '@/components/HoloClothSurface';
 import { openSurfaceMapPath, type OpenSurfaceAsset, type OpenSurfaceMap } from '@/lib/openSurfaceLibrary';
 import {
   surfaceTextureCacheKey,
@@ -27,6 +27,8 @@ import { browserSupportsWebGL2 } from '@/lib/webglContext';
 const TEXTURE_SIZE = 256;
 
 type SurfaceMaterialStageProps = {
+  artworkAspectRatio?: number;
+  artworkLayers?: readonly HoloClothArtworkLayer[];
   artworkOpacity?: number;
   artworkScale?: number;
   artworkUrl?: string;
@@ -34,6 +36,8 @@ type SurfaceMaterialStageProps = {
   artworkY?: number;
   asset?: OpenSurfaceAsset;
   className?: string;
+  opacity?: number;
+  presentation?: 'flat' | 'interactive' | 'showcase';
   showAttribution?: boolean;
   settings: BackgroundSettings;
   transparent?: boolean;
@@ -244,7 +248,9 @@ function useOpenSurfaceMaps(asset: OpenSurfaceAsset | undefined, settings: Backg
   return maps;
 }
 
-function StaticSurfacePanel({ asset, settings, transparent = false }: SurfaceMaterialStageProps) {
+function StaticSurfacePanel({ asset, opacity = 1, presentation = 'showcase', settings, transparent = false }: SurfaceMaterialStageProps) {
+  const { viewport } = useThree();
+  const flat = presentation === 'flat';
   const textureCacheKey = surfaceTextureCacheKey(settings);
   const { bumpTexture, colorTexture } = useMemo(
     () => buildSurfaceTextures(surfaceTextureSettings(settings)),
@@ -272,9 +278,13 @@ function StaticSurfacePanel({ asset, settings, transparent = false }: SurfaceMat
       <hemisphereLight args={['#f4f6ff', '#13141a', 1.2]} />
       <directionalLight color='#ffffff' intensity={3.4} position={[-3.5, 4.5, 5]} />
       <directionalLight color={settings.colorC} intensity={1.65} position={[4, -1.5, 3]} />
-      <group rotation={[-0.08, 0.12, -0.018]}>
+      <group rotation={flat ? [0, 0, 0] : [-0.08, 0.12, -0.018]}>
         <mesh>
-          <boxGeometry args={[4.5, 2.55, 0.2, 96, 56, 4]} />
+          {flat ? (
+            <planeGeometry args={[viewport.width, viewport.height, 1, 1]} />
+          ) : (
+            <boxGeometry args={[4.5, 2.55, 0.2, 96, 56, 4]} />
+          )}
           <meshPhysicalMaterial
             bumpMap={openMaps?.displacement ?? bumpTexture}
             bumpScale={bumpScale}
@@ -295,6 +305,7 @@ function StaticSurfacePanel({ asset, settings, transparent = false }: SurfaceMat
             metalness={metallic}
             normalMap={openMaps?.normal}
             normalScale={normalScale}
+            opacity={opacity}
             roughnessMap={openMaps?.roughness}
             roughness={roughness}
             sheen={isTextile ? 0.72 : 0}
@@ -302,6 +313,8 @@ function StaticSurfacePanel({ asset, settings, transparent = false }: SurfaceMat
             sheenRoughness={Math.min(1, roughness + 0.12)}
             thickness={isGlass ? 0.65 : 0}
             transmission={isGlass ? 0.62 : 0}
+            transparent={opacity < 1}
+            depthWrite={opacity >= 1}
           />
         </mesh>
       </group>
@@ -313,11 +326,15 @@ function SurfacePanel(props: SurfaceMaterialStageProps) {
   if (props.settings.surfaceMaterial === 'holo-cloth') {
     return (
       <HoloClothSurface
+        artworkAspectRatio={props.artworkAspectRatio}
+        artworkLayers={props.artworkLayers}
         artworkOpacity={props.artworkOpacity}
         artworkScale={props.artworkScale}
         artworkUrl={props.artworkUrl}
         artworkX={props.artworkX}
         artworkY={props.artworkY}
+        opacity={props.opacity}
+        presentation={props.presentation}
         settings={props.settings}
         transparent={props.transparent}
       />
@@ -327,6 +344,8 @@ function SurfacePanel(props: SurfaceMaterialStageProps) {
 }
 
 export default function SurfaceMaterialStage({
+  artworkAspectRatio,
+  artworkLayers,
   artworkOpacity,
   artworkScale,
   artworkUrl,
@@ -334,6 +353,8 @@ export default function SurfaceMaterialStage({
   artworkY,
   asset,
   className = '',
+  opacity = 1,
+  presentation = 'showcase',
   showAttribution = true,
   settings,
   transparent = false,
@@ -372,10 +393,11 @@ export default function SurfaceMaterialStage({
   if (available !== true) return null;
 
   const holoCloth = settings.surfaceMaterial === 'holo-cloth';
+  const interactive = holoCloth && presentation !== 'flat';
   return (
     <div
       className={`surface-material-stage ${className}`}
-      data-canvas-interactive={holoCloth ? 'true' : undefined}
+      data-canvas-interactive={interactive ? 'true' : undefined}
       data-holo-cloth={holoCloth ? 'true' : undefined}
       data-surface-relief-preview='true'
     >
@@ -391,13 +413,18 @@ export default function SurfaceMaterialStage({
       >
         <ContextGuard onLost={recoverContext} />
         <SurfacePanel
+          artworkAspectRatio={artworkAspectRatio}
+          artworkLayers={artworkLayers}
           artworkOpacity={artworkOpacity}
           artworkScale={artworkScale}
           artworkUrl={artworkUrl}
           artworkX={artworkX}
           artworkY={artworkY}
           asset={asset}
+          opacity={opacity}
+          presentation={presentation}
           settings={settings}
+          transparent={transparent}
         />
       </Canvas>
       {showAttribution ? (

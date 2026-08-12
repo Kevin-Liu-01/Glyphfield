@@ -1,6 +1,5 @@
 import './globals.css';
 
-import { RootProvider } from 'fumadocs-ui/provider/next';
 import { GTProvider } from 'gt-next';
 
 import AppThemeProvider from '@/components/AppThemeProvider';
@@ -31,6 +30,7 @@ const geistMono = Geist_Mono({
 
 const beVietnamPro = Be_Vietnam_Pro({
   display: 'swap',
+  preload: false,
   subsets: ['latin'],
   variable: '--font-be-vietnam-pro',
   weight: ['400', '500'],
@@ -38,6 +38,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 const rethinkSans = Rethink_Sans({
   display: 'swap',
+  preload: false,
   subsets: ['latin'],
   variable: '--font-rethink-sans',
   weight: 'variable',
@@ -45,6 +46,7 @@ const rethinkSans = Rethink_Sans({
 
 const schibstedGrotesk = Schibsted_Grotesk({
   display: 'swap',
+  preload: false,
   subsets: ['latin'],
   variable: '--font-schibsted-grotesk',
   weight: 'variable',
@@ -126,9 +128,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className='flex min-h-screen flex-col'>
         <AppThemeProvider>
-          <RootProvider theme={{ enabled: false }}>
-            <GTProvider>{children}</GTProvider>
-          </RootProvider>
+          <GTProvider>{children}</GTProvider>
         </AppThemeProvider>
       </body>
     </html>

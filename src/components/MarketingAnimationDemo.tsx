@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 
 const MarketingAnimationStudioLive = dynamic(() => import('@/components/MarketingAnimationStudioLive'), {
   loading: () => <AnimationStudioPlaceholder />,
@@ -21,24 +22,25 @@ function AnimationStudioPlaceholder() {
 
 export default function MarketingAnimationDemo({ eager = false }: { eager?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(eager);
+  const [inRange, setInRange] = useState(eager);
+  const runtimeReady = useDeferredRuntime(inRange, eager ? 900 : 300);
 
   useMountEffect(() => {
     if (eager) {
-      setReady(true);
+      setInRange(true);
       return;
     }
 
     const container = containerRef.current;
     if (!container || !('IntersectionObserver' in window)) {
-      setReady(true);
+      setInRange(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;
-        setReady(true);
+        setInRange(true);
         observer.disconnect();
       },
       { rootMargin: '420px' }
@@ -50,7 +52,7 @@ export default function MarketingAnimationDemo({ eager = false }: { eager?: bool
 
   return (
     <div className='marketing-animation-lazy-shell' ref={containerRef}>
-      {ready ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
+      {inRange && runtimeReady ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
     </div>
   );
 }

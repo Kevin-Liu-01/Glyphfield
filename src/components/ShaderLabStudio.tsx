@@ -6,11 +6,13 @@ import {
   Check,
   ChevronDown,
   Code2,
+  Copy,
   Download,
   Eye,
   EyeOff,
   ExternalLink,
   ImagePlus,
+  Layers3,
   Pause,
   Play,
   RotateCcw,
@@ -20,19 +22,32 @@ import {
   Type,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
+import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import EditableCanvasLayer, {
   canvasLayerDimensions,
   type CanvasLayerTransform,
 } from '@/components/EditableCanvasLayer';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
+import LogoAppearanceControls from '@/components/LogoAppearanceControls';
+import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
+import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { Button } from '@/components/ui/Button';
+import ColorControl from '@/components/ui/ColorControl';
+import StudioSelect from '@/components/ui/StudioSelect';
+import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useStudioDraft } from '@/hooks/usePersistentState';
-import { brandAssetPath, type BrandIdentity } from '@/lib/brandIdentity';
+import {
+  brandAssetPath,
+  brandTypographyFamily,
+  type BrandIdentity,
+  type BrandTypography,
+} from '@/lib/brandIdentity';
 import {
   canvasTextCharacters,
   canvasTextLineX,
@@ -41,6 +56,15 @@ import {
   type CanvasTextAlign,
   type CanvasTextWrap,
 } from '@/lib/canvasText';
+import {
+  canvasToImageBlob,
+  encodeCanvasGif,
+  encodeCanvasMp4,
+  seamlessLoopBlendAmount,
+  type MotionFrame,
+  type StillImageFormat,
+} from '@/lib/canvasExport';
+import type { ConvertedAsset } from '@/lib/convertedAssets';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
@@ -52,6 +76,11 @@ import {
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
+  DEFAULT_LOGO_APPEARANCE,
+  drawLogoAppearanceLayer,
+  type LogoAppearanceSettings,
+} from '@/lib/logoAppearance';
+import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
   shaderLabMaterials,
@@ -61,16 +90,74 @@ import {
 } from '@/lib/shaderLab';
 import type { StudioTool } from '@/lib/studioCatalog';
 
-type ShaderTarget = 'background' | 'logo' | 'both';
 type ShaderRatio = 'wide' | 'square' | 'opengraph';
-type ContentMode = 'logo' | 'text' | 'both' | 'none';
-type CompositionLayerId = 'logo' | 'text' | `asset-${string}`;
+type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
+type ShaderLayerId = `shader-${string}`;
+type LogoLayerId = `logo-${string}`;
+type TextLayerId = `text-${string}`;
+type AssetLayerId = `asset-${string}`;
+type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
+type CompositionLayerId = ShaderLayerId | ContentLayerId;
 
-type CompositionAsset = {
-  id: CompositionLayerId;
+type ShaderApplication = {
+  blendMode: ShaderBlendMode;
+  materialId: LiveMaterialId;
+  opacity: number;
+  settings: LiveMaterialSettings;
+  shaderSize: number;
+};
+
+type CompositionShaderLayer = ShaderApplication & {
+  id: ShaderLayerId;
   name: string;
+  visible: boolean;
+};
+
+type CompositionLogoLayer = {
+  appearance?: LogoAppearanceSettings;
+  color?: string;
+  convertedAssetId?: string;
+  id: LogoLayerId;
+  name: string;
+  opacity?: number;
   transform: CanvasLayerTransform;
   url: string;
+  visible: boolean;
+};
+
+type CompositionAsset = {
+  appearance?: LogoAppearanceSettings;
+  id: AssetLayerId;
+  name: string;
+  opacity?: number;
+  transform: CanvasLayerTransform;
+  url: string;
+  visible: boolean;
+};
+
+type CompositionTextLayer = {
+  align: CanvasTextAlign;
+  color?: string;
+  fontRole?: BrandTypography['role'];
+  id: TextLayerId;
+  lineHeight: number;
+  name: string;
+  opacity?: number;
+  outlineColor?: string;
+  outlineEnabled?: boolean;
+  outlineWidth?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowEnabled?: boolean;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowOpacity?: number;
+  tracking: number;
+  transform: CanvasLayerTransform;
+  value: string;
+  visible: boolean;
+  weight: number;
+  wrap: CanvasTextWrap;
 };
 
 type LayerGeometry = {
@@ -78,6 +165,21 @@ type LayerGeometry = {
   baseWidth: number;
   baseX: number;
   baseY: number;
+};
+
+type TextAppearanceSettings = {
+  color: string;
+  fontRole: BrandTypography['role'];
+  opacity: number;
+  outlineColor: string;
+  outlineEnabled: boolean;
+  outlineWidth: number;
+  shadowBlur: number;
+  shadowColor: string;
+  shadowEnabled: boolean;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowOpacity: number;
 };
 
 const RATIO_OPTIONS: readonly { height: number; label: string; value: ShaderRatio; width: number }[] = [
@@ -93,34 +195,157 @@ const CANVAS_DIMENSIONS: Record<ShaderRatio, { height: number; width: number }> 
 };
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
+const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
+const DEFAULT_CANVAS_BACKGROUND = '#111216';
+const DEFAULT_LOGO_LAYER_ID = 'logo-brand' as const satisfies LogoLayerId;
 const DEFAULT_TEXT_LAYER_TRANSFORM: CanvasLayerTransform = {
   ...DEFAULT_LAYER_TRANSFORM,
   heightScale: 1,
   widthScale: 1,
 };
+const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
+  color: '#FFFFFF',
+  fontRole: 'Display',
+  opacity: 1,
+  outlineColor: '#000000',
+  outlineEnabled: false,
+  outlineWidth: 1,
+  shadowBlur: 18,
+  shadowColor: '#000000',
+  shadowEnabled: false,
+  shadowOffsetX: 0,
+  shadowOffsetY: 8,
+  shadowOpacity: 35,
+};
 
-function layerGeometry(layerId: CompositionLayerId, ratio: ShaderRatio, contentMode: ContentMode = 'logo'): LayerGeometry {
+function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
+  return layerId?.startsWith('text-') ?? false;
+}
+
+function isShaderLayerId(layerId: CompositionLayerId | null): layerId is ShaderLayerId {
+  return layerId?.startsWith('shader-') ?? false;
+}
+
+function isLogoLayerId(layerId: CompositionLayerId | null): layerId is LogoLayerId {
+  return layerId?.startsWith('logo-') ?? false;
+}
+
+function isAssetLayerId(layerId: CompositionLayerId | null): layerId is AssetLayerId {
+  return layerId?.startsWith('asset-') ?? false;
+}
+
+function resolvedTextTransform(transform: CanvasLayerTransform): CanvasLayerTransform {
+  return {
+    ...transform,
+    heightScale: transform.heightScale ?? 1,
+    widthScale: transform.widthScale ?? 1,
+  };
+}
+
+function resolvedTextAppearance(layer: CompositionTextLayer): TextAppearanceSettings {
+  return {
+    color: layer.color ?? DEFAULT_TEXT_APPEARANCE.color,
+    fontRole: layer.fontRole ?? DEFAULT_TEXT_APPEARANCE.fontRole,
+    opacity: layer.opacity ?? DEFAULT_TEXT_APPEARANCE.opacity,
+    outlineColor: layer.outlineColor ?? DEFAULT_TEXT_APPEARANCE.outlineColor,
+    outlineEnabled: layer.outlineEnabled ?? DEFAULT_TEXT_APPEARANCE.outlineEnabled,
+    outlineWidth: layer.outlineWidth ?? DEFAULT_TEXT_APPEARANCE.outlineWidth,
+    shadowBlur: layer.shadowBlur ?? DEFAULT_TEXT_APPEARANCE.shadowBlur,
+    shadowColor: layer.shadowColor ?? DEFAULT_TEXT_APPEARANCE.shadowColor,
+    shadowEnabled: layer.shadowEnabled ?? DEFAULT_TEXT_APPEARANCE.shadowEnabled,
+    shadowOffsetX: layer.shadowOffsetX ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetX,
+    shadowOffsetY: layer.shadowOffsetY ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetY,
+    shadowOpacity: layer.shadowOpacity ?? DEFAULT_TEXT_APPEARANCE.shadowOpacity,
+  };
+}
+
+function resolvedLogoAppearance(settings?: LogoAppearanceSettings): LogoAppearanceSettings {
+  return { ...DEFAULT_LOGO_APPEARANCE, ...settings };
+}
+
+function colorWithOpacity(color: string, opacity: number): string {
+  const hex = color.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+  const value = Number.parseInt(hex, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
+}
+
+function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
+  if (!settings.shadowEnabled) return undefined;
+  return `${settings.shadowOffsetX}px ${settings.shadowOffsetY}px ${settings.shadowBlur}px ${colorWithOpacity(settings.shadowColor, settings.shadowOpacity / 100)}`;
+}
+
+function CanvasEditableText({
+  className,
+  label,
+  onChange,
+  onFocus,
+  style,
+  value,
+}: {
+  className: string;
+  label: string;
+  onChange: (value: string) => void;
+  onFocus: () => void;
+  style: CSSProperties;
+  value: string;
+}) {
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const text = textRef.current;
+    if (!text || document.activeElement === text || text.innerText === value) return;
+    text.innerText = value;
+  }, [value]);
+
+  return (
+    <span
+      aria-label={label}
+      aria-multiline='true'
+      className={className}
+      contentEditable='plaintext-only'
+      data-canvas-editable='true'
+      onBlur={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
+      onFocus={onFocus}
+      onInput={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Escape') event.currentTarget.blur();
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      ref={textRef}
+      role='textbox'
+      spellCheck
+      style={style}
+      suppressContentEditableWarning
+      tabIndex={0}
+    />
+  );
+}
+
+function layerGeometry(layerId: ContentLayerId, ratio: ShaderRatio): LayerGeometry {
   const canvas = CANVAS_DIMENSIONS[ratio];
-  if (layerId === 'text') {
-    const paired = contentMode === 'both';
-    const baseWidth = canvas.width * (paired ? 0.68 : 0.72);
-    const baseHeight = canvas.height * (paired ? 0.18 : 0.25);
+  if (isTextLayerId(layerId)) {
+    const baseWidth = canvas.width * 0.72;
+    const baseHeight = canvas.height * 0.25;
     return {
       baseHeight,
       baseWidth,
       baseX: (canvas.width - baseWidth) / 2,
-      baseY: paired ? canvas.height * 0.23 : (canvas.height - baseHeight) / 2,
+      baseY: (canvas.height - baseHeight) / 2,
     };
   }
-  if (layerId === 'logo') {
-    const paired = contentMode === 'both';
-    const baseWidth = canvas.width * (paired ? 0.34 : 0.42);
-    const baseHeight = canvas.height * (paired ? 0.24 : 0.32);
+  if (isLogoLayerId(layerId)) {
+    const baseWidth = canvas.width * 0.42;
+    const baseHeight = canvas.height * 0.32;
     return {
       baseHeight,
       baseWidth,
       baseX: (canvas.width - baseWidth) / 2,
-      baseY: paired ? canvas.height * 0.55 : (canvas.height - baseHeight) / 2,
+      baseY: (canvas.height - baseHeight) / 2,
     };
   }
   const baseWidth = canvas.width * 0.34;
@@ -185,17 +410,6 @@ function loadImage(source: string): Promise<HTMLImageElement> {
   });
 }
 
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.download = fileName;
-  link.href = url;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-}
-
 function drawCover(
   context: CanvasRenderingContext2D,
   source: CanvasImageSource,
@@ -222,6 +436,29 @@ function paintFallback(
   gradient.addColorStop(1, settings.colorC);
   context.fillStyle = gradient;
   context.fillRect(0, 0, width, height);
+}
+
+function shaderApplicationFor(
+  materialId: LiveMaterialId,
+  colors: readonly [string, string, string] | readonly string[],
+  overrides: Partial<Pick<ShaderApplication, 'blendMode' | 'opacity' | 'shaderSize'>> = {}
+): ShaderApplication {
+  return {
+    blendMode: overrides.blendMode ?? 'normal',
+    materialId,
+    opacity: overrides.opacity ?? 1,
+    settings: shaderLabSettingsFor(materialId, {
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      colorA: colors[0] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
+      colorB: colors[1] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorB,
+      colorC: colors[2] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorC,
+    }),
+    shaderSize: overrides.shaderSize ?? 1,
+  };
+}
+
+function shaderBlendStyle(blendMode: ShaderBlendMode): CSSProperties['mixBlendMode'] {
+  return blendMode === 'normal' ? 'normal' : blendMode;
 }
 
 function RangeControl({
@@ -276,146 +513,353 @@ export default function ShaderLabStudio({
     colorB: brandPalette.colors[1],
     colorC: brandPalette.colors[2],
   });
-  const stageRef = useRef<HTMLDivElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const assetInputRef = useRef<HTMLInputElement>(null);
-  const customLogoUrlRef = useRef<string | null>(null);
-  const compositionAssetUrlsRef = useRef<string[]>([]);
-  const [storedMaterialId, setMaterialId] = useStudioDraft<LiveMaterialId>(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-material',
-    'holo-cloth-silk'
-  );
-  const [settings, setSettings] = useStudioDraft<LiveMaterialSettings>(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-settings',
-    initialSettings
-  );
-  const [shaderSize, setShaderSize] = useStudioDraft(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-shader-size',
-    1
-  );
-  const [brandPaletteApplied, setBrandPaletteApplied] = useStudioDraft(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-brand-palette-v1',
-    false
-  );
-  const [target, setTarget] = useStudioDraft<ShaderTarget>(identity.id, tool.id, 'shader-lab-v2-target', 'background');
-  const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'shader-lab-v2-ratio', 'wide');
-  const [contentMode, setContentMode] = useStudioDraft<ContentMode>(identity.id, tool.id, 'shader-lab-v2-content-mode', 'logo');
-  const [textValue, setTextValue] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text', identity.shortName);
-  const [textWeight, setTextWeight] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-weight', 700);
-  const [textTracking, setTextTracking] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-tracking', -0.06);
-  const [textLineHeight, setTextLineHeight] = useStudioDraft(identity.id, tool.id, 'shader-lab-v2-text-line-height', 0.95);
-  const [textAlign, setTextAlign] = useStudioDraft<CanvasTextAlign>(identity.id, tool.id, 'shader-lab-v2-text-align', 'center');
-  const [textWrap, setTextWrap] = useStudioDraft<CanvasTextWrap>(identity.id, tool.id, 'shader-lab-v2-text-wrap', 'wrap');
-  const [logoTransform, setLogoTransform] = useStudioDraft<CanvasLayerTransform>(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-logo-transform',
-    DEFAULT_LAYER_TRANSFORM
-  );
-  const [textTransform, setTextTransform] = useStudioDraft<CanvasLayerTransform>(
-    identity.id,
-    tool.id,
-    'shader-lab-v2-text-transform',
-    DEFAULT_TEXT_LAYER_TRANSFORM
-  );
-  const [paused, setPaused] = useState(false);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<ShaderLabCategory>('all');
-  const [customLogo, setCustomLogo] = useState<{ name: string; url: string } | null>(null);
-  const [compositionAssets, setCompositionAssets] = useState<CompositionAsset[]>([]);
-  const [layerOrder, setLayerOrder] = useState<CompositionLayerId[]>(['logo', 'text']);
-  const [selectedLayerId, setSelectedLayerId] = useState<CompositionLayerId | null>('logo');
-  const [copied, setCopied] = useState(false);
-  const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
-  const [exporting, setExporting] = useState<'gif' | 'png' | null>(null);
-  const [exportProgress, setExportProgress] = useState(0);
-  const materialId = normalizeLiveMaterialId(storedMaterialId);
-  const material = getLiveMaterial(materialId);
-  const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
-  const canvasDimensions = CANVAS_DIMENSIONS[ratio];
-  const resolvedTextTransform: CanvasLayerTransform = {
-    ...textTransform,
-    heightScale: textTransform.heightScale ?? 1,
-    widthScale: textTransform.widthScale ?? 1,
-  };
-  const textFontSizeCqw = canvasDimensions.height / canvasDimensions.width * 17 * resolvedTextTransform.scale;
-  const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
   const builtInLogo = brandAssetPath(identity, 'mark-light')
     ?? brandAssetPath(identity, 'logo-light')
     ?? brandAssetPath(identity, 'mark-dark')
     ?? monogramDataUrl(identity);
-  const logoSource = customLogo?.url ?? builtInLogo;
-  const logoMaskStyle = {
-    WebkitMaskImage: `url("${logoSource}")`,
-    WebkitMaskPosition: 'center',
-    WebkitMaskRepeat: 'no-repeat',
-    WebkitMaskSize: 'contain',
-    maskImage: `url("${logoSource}")`,
-    maskPosition: 'center',
-    maskRepeat: 'no-repeat',
-    maskSize: 'contain',
-  } as CSSProperties;
+  const initialShaderLayer: CompositionShaderLayer = {
+    ...shaderApplicationFor('holo-cloth-silk', brandPalette.colors),
+    id: DEFAULT_CANVAS_SHADER_ID,
+    name: 'Canvas shader 1',
+    visible: true,
+  };
+  const stageRef = useRef<HTMLDivElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const assetInputRef = useRef<HTMLInputElement>(null);
+  const convertedAssetLibrary = useConvertedAssets();
+  const compositionAssetUrlsRef = useRef<string[]>([]);
+  const [shaderLayers, setShaderLayers] = useStudioDraft<CompositionShaderLayer[]>(
+    identity.id,
+    tool.id,
+    'shader-lab-v3-canvas-shaders',
+    [initialShaderLayer]
+  );
+  const [layerShaders, setLayerShaders] = useStudioDraft<Partial<Record<ContentLayerId, ShaderApplication>>>(
+    identity.id,
+    tool.id,
+    'shader-lab-v3-layer-shaders',
+    {}
+  );
+  const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'shader-lab-v2-ratio', 'wide');
+  const [canvasBackground, setCanvasBackground] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'shader-lab-v3-canvas-background',
+    DEFAULT_CANVAS_BACKGROUND
+  );
+  const [textLayers, setTextLayers] = useStudioDraft<CompositionTextLayer[]>(
+    identity.id,
+    tool.id,
+    'shader-lab-v2-text-layers-v1',
+    []
+  );
+  const [paused, setPaused] = useState(false);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<ShaderLabCategory>('all');
+  const [logoLayers, setLogoLayers] = useState<CompositionLogoLayer[]>([{
+    appearance: { ...DEFAULT_LOGO_APPEARANCE },
+    color: '#FFFFFF',
+    id: DEFAULT_LOGO_LAYER_ID,
+    name: 'Brand mark',
+    opacity: 1,
+    transform: DEFAULT_LAYER_TRANSFORM,
+    url: builtInLogo,
+    visible: true,
+  }]);
+  const [compositionAssets, setCompositionAssets] = useState<CompositionAsset[]>([]);
+  const [layerOrder, setLayerOrder] = useState<CompositionLayerId[]>([DEFAULT_CANVAS_SHADER_ID, DEFAULT_LOGO_LAYER_ID]);
+  const [selectedLayerId, setSelectedLayerId] = useState<CompositionLayerId | null>(DEFAULT_CANVAS_SHADER_ID);
+  const [copied, setCopied] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
+  const [exporting, setExporting] = useState<'gif' | 'jpg' | 'mp4' | 'png' | null>(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+  const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
+  const canvasDimensions = CANVAS_DIMENSIONS[ratio];
+  const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
+  const selectedShaderLayer = isShaderLayerId(selectedLayerId)
+    ? shaderLayers.find(({ id }) => id === selectedLayerId) ?? null
+    : null;
+  const selectedContentLayerId = selectedLayerId && !isShaderLayerId(selectedLayerId)
+    ? selectedLayerId
+    : null;
+  const selectedLayerShader = selectedContentLayerId ? layerShaders[selectedContentLayerId] ?? null : null;
+  const editingShader = selectedShaderLayer ?? selectedLayerShader;
+  const activeMaterialId = normalizeLiveMaterialId(
+    editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? 'holo-cloth-silk'
+  );
+  const material = getLiveMaterial(activeMaterialId);
+  const settings = editingShader?.settings ?? initialSettings;
+  const shaderSize = editingShader?.shaderSize ?? 1;
+  const selectedTextLayer = isTextLayerId(selectedLayerId)
+    ? textLayers.find(({ id }) => id === selectedLayerId) ?? null
+    : null;
+  const selectedTextTransform = selectedTextLayer
+    ? resolvedTextTransform(selectedTextLayer.transform)
+    : null;
+  const selectedTextAppearance = selectedTextLayer
+    ? resolvedTextAppearance(selectedTextLayer)
+    : null;
+  const selectedLogoLayer = isLogoLayerId(selectedLayerId)
+    ? logoLayers.find(({ id }) => id === selectedLayerId) ?? null
+    : null;
+  const selectedAsset = isAssetLayerId(selectedLayerId)
+    ? compositionAssets.find(({ id }) => id === selectedLayerId) ?? null
+    : null;
+  const selectedLogoAppearance = selectedLogoLayer
+    ? resolvedLogoAppearance(selectedLogoLayer.appearance)
+    : null;
+  const selectedAssetAppearance = selectedAsset
+    ? resolvedLogoAppearance(selectedAsset.appearance)
+    : null;
 
   useEffect(() => () => {
-    if (customLogoUrlRef.current) URL.revokeObjectURL(customLogoUrlRef.current);
     compositionAssetUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
   useEffect(() => {
-    if (brandPaletteApplied) return;
-    setSettings((current) => ({
+    setLayerOrder((current) => {
+      const textIds = new Set(textLayers.map(({ id }) => id));
+      const shaderIds = new Set(shaderLayers.map(({ id }) => id));
+      const retained = current.filter((id) => (
+        (!isTextLayerId(id) || textIds.has(id))
+        && (!isShaderLayerId(id) || shaderIds.has(id))
+      ));
+      const missingShaders = shaderLayers.map(({ id }) => id).filter((id) => !retained.includes(id));
+      const firstContentIndex = retained.findIndex((id) => !isShaderLayerId(id));
+      const shaderInsertionIndex = firstContentIndex < 0 ? retained.length : firstContentIndex;
+      const next = [
+        ...retained.slice(0, shaderInsertionIndex),
+        ...missingShaders,
+        ...retained.slice(shaderInsertionIndex),
+        ...textLayers.map(({ id }) => id).filter((id) => !retained.includes(id)),
+      ];
+      return next.length === current.length && next.every((id, index) => id === current[index])
+        ? current
+        : next;
+    });
+    setSelectedLayerId((current) =>
+      (isTextLayerId(current) && !textLayers.some(({ id }) => id === current))
+      || (isShaderLayerId(current) && !shaderLayers.some(({ id }) => id === current))
+        ? null
+        : current
+    );
+  }, [shaderLayers, textLayers]);
+
+  function updateSelectedShader(update: Partial<ShaderApplication>) {
+    if (selectedShaderLayer) {
+      setShaderLayers((current) => current.map((layer) => (
+        layer.id === selectedShaderLayer.id ? { ...layer, ...update } : layer
+      )));
+      return;
+    }
+    if (!selectedContentLayerId) return;
+    setLayerShaders((current) => ({
       ...current,
-      colorA: brandPalette.colors[0],
-      colorB: brandPalette.colors[1],
-      colorC: brandPalette.colors[2],
+      [selectedContentLayerId]: {
+        ...(current[selectedContentLayerId] ?? shaderApplicationFor(activeMaterialId, brandPalette.colors)),
+        ...update,
+      },
     }));
-    setBrandPaletteApplied(true);
-  }, [brandPaletteApplied, brandPalette.colors, setBrandPaletteApplied, setSettings]);
+  }
 
   function updateSetting<Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) {
-    setSettings((current) => ({ ...current, [key]: value }));
+    updateSelectedShader({ settings: { ...settings, [key]: value } });
   }
 
   function selectMaterial(nextId: LiveMaterialId) {
-    setMaterialId(nextId);
-    setSettings(shaderLabSettingsFor(nextId, {
-      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-      colorA: brandPalette.colors[0],
-      colorB: brandPalette.colors[1],
-      colorC: brandPalette.colors[2],
-    }));
+    const nextApplication = shaderApplicationFor(nextId, brandPalette.colors, {
+      blendMode: editingShader?.blendMode,
+      opacity: editingShader?.opacity,
+      shaderSize: editingShader?.shaderSize,
+    });
+    if (selectedShaderLayer) {
+      setShaderLayers((current) => current.map((layer) => (
+        layer.id === selectedShaderLayer.id ? { ...layer, ...nextApplication } : layer
+      )));
+      return;
+    }
+    if (selectedContentLayerId) {
+      setLayerShaders((current) => ({ ...current, [selectedContentLayerId]: nextApplication }));
+      return;
+    }
+    addCanvasShader(nextId);
   }
 
   function selectRandomMaterial() {
-    const visibleChoices = materials.filter(({ id }) => id !== materialId);
+    const visibleChoices = materials.filter(({ id }) => id !== activeMaterialId);
     const choices = visibleChoices.length > 0
       ? visibleChoices
-      : shaderLabMaterials('', 'all').filter(({ id }) => id !== materialId);
+      : shaderLabMaterials('', 'all').filter(({ id }) => id !== activeMaterialId);
     const next = choices[Math.floor(Math.random() * choices.length)];
     if (next) selectMaterial(next.id);
   }
 
-  function selectLogo(file: File | undefined) {
-    if (!file || !file.type.startsWith('image/')) return;
-    if (customLogoUrlRef.current) URL.revokeObjectURL(customLogoUrlRef.current);
-    const url = URL.createObjectURL(file);
-    customLogoUrlRef.current = url;
-    setCustomLogo({ name: file.name, url });
+  function addCanvasShader(materialId: LiveMaterialId = activeMaterialId) {
+    const id = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
+    const number = shaderLayers.length + 1;
+    const layer: CompositionShaderLayer = {
+      ...shaderApplicationFor(materialId, brandPalette.colors, {
+        blendMode: shaderLayers.length === 0 ? 'normal' : 'screen',
+        opacity: shaderLayers.length === 0 ? 1 : 0.72,
+      }),
+      id,
+      name: `Canvas shader ${number}`,
+      visible: true,
+    };
+    setShaderLayers((current) => [...current, layer]);
+    setLayerOrder((current) => {
+      const firstContent = current.findIndex((layerId) => !isShaderLayerId(layerId));
+      const index = firstContent < 0 ? current.length : firstContent;
+      return [...current.slice(0, index), id, ...current.slice(index)];
+    });
+    setSelectedLayerId(id);
   }
 
-  function clearLogo() {
-    if (customLogoUrlRef.current) URL.revokeObjectURL(customLogoUrlRef.current);
-    customLogoUrlRef.current = null;
-    setCustomLogo(null);
-    if (logoInputRef.current) logoInputRef.current.value = '';
+  function addBrandMarkLayer() {
+    const id = `logo-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as LogoLayerId;
+    const number = logoLayers.length + 1;
+    const offset = (logoLayers.length % 8) * 28;
+    const layer: CompositionLogoLayer = {
+      appearance: { ...DEFAULT_LOGO_APPEARANCE },
+      color: '#FFFFFF',
+      id,
+      name: number === 1 ? 'Brand mark' : `Brand mark ${number}`,
+      opacity: 1,
+      transform: { ...DEFAULT_LAYER_TRANSFORM, x: offset, y: offset },
+      url: builtInLogo,
+      visible: true,
+    };
+    setLogoLayers((current) => [...current, layer]);
+    setLayerOrder((current) => [...current, id]);
+    setSelectedLayerId(id);
+  }
+
+  async function addLogoFiles(files: FileList | null) {
+    const images = Array.from(files ?? []);
+    if (images.length === 0) return;
+    try {
+      const converted = await convertedAssetLibrary.importFiles(images, 2048);
+      const nextLayers = converted.map((asset, index): CompositionLogoLayer => {
+      return {
+        appearance: { ...DEFAULT_LOGO_APPEARANCE },
+        color: '#FFFFFF',
+        convertedAssetId: asset.id,
+        id: `logo-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${index}`}`,
+        name: asset.originalName,
+        opacity: 1,
+        transform: { ...DEFAULT_LAYER_TRANSFORM, x: index * 28, y: index * 24 },
+        url: asset.convertedDataUrl,
+        visible: true,
+      };
+      });
+      setLogoLayers((current) => [...current, ...nextLayers]);
+      setLayerOrder((current) => [...current, ...nextLayers.map(({ id }) => id)]);
+      setSelectedLayerId(nextLayers.at(-1)?.id ?? null);
+    } catch {
+      // The converted asset library owns the user-facing error state.
+    } finally {
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  }
+
+  function addTextLayer() {
+    const id = `text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as TextLayerId;
+    const placement = [
+      { x: 0, y: -220 },
+      { x: 0, y: 220 },
+      { x: -300, y: 0 },
+      { x: 300, y: 0 },
+      { x: -260, y: 260 },
+      { x: 260, y: -260 },
+    ][textLayers.length % 6] ?? { x: 0, y: 0 };
+    const nextNumber = textLayers.reduce((largest, layer) => {
+      const match = /^Text (\d+)$/.exec(layer.name);
+      return Math.max(largest, Number(match?.[1] ?? 0));
+    }, 0) + 1;
+    const layer: CompositionTextLayer = {
+      align: 'center',
+      ...DEFAULT_TEXT_APPEARANCE,
+      id,
+      lineHeight: 0.95,
+      name: `Text ${nextNumber}`,
+      tracking: -0.06,
+      transform: { ...DEFAULT_TEXT_LAYER_TRANSFORM, ...placement },
+      value: nextNumber === 1 ? identity.name : `Text ${nextNumber}`,
+      visible: true,
+      weight: 700,
+      wrap: 'wrap',
+    };
+    setTextLayers((current) => [...current, layer]);
+    setLayerOrder((current) => [...current, id]);
+    setSelectedLayerId(id);
+  }
+
+  function updateTextLayer(
+    id: TextLayerId,
+    update: Partial<Omit<CompositionTextLayer, 'id'>>
+  ) {
+    setTextLayers((current) => current.map((layer) =>
+      layer.id === id ? { ...layer, ...update } : layer
+    ));
+  }
+
+  function removeTextLayer(id: TextLayerId) {
+    setTextLayers((current) => current.filter((layer) => layer.id !== id));
+    setLayerShaders((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setLayerOrder((current) => current.filter((layerId) => layerId !== id));
+    setSelectedLayerId((current) => current === id ? null : current);
+  }
+
+  function toggleTextLayerVisibility(layer: CompositionTextLayer) {
+    updateTextLayer(layer.id, { visible: !layer.visible });
+    if (selectedLayerId === layer.id && layer.visible) setSelectedLayerId(null);
+  }
+
+  function updateLogoTransform(id: LogoLayerId, transform: CanvasLayerTransform) {
+    setLogoLayers((current) => current.map((layer) => layer.id === id ? { ...layer, transform } : layer));
+  }
+
+  function updateLogoLayer(id: LogoLayerId, update: Partial<Omit<CompositionLogoLayer, 'id'>>) {
+    setLogoLayers((current) => current.map((layer) => layer.id === id ? { ...layer, ...update } : layer));
+  }
+
+  function selectConvertedLogo(asset: ConvertedAsset | null) {
+    if (!selectedLogoLayer) return;
+    updateLogoLayer(selectedLogoLayer.id, asset ? {
+      convertedAssetId: asset.id,
+      name: asset.originalName,
+      url: asset.convertedDataUrl,
+    } : {
+      convertedAssetId: undefined,
+      name: 'Brand mark',
+      url: builtInLogo,
+    });
+  }
+
+  function removeLogoLayer(id: LogoLayerId) {
+    setLogoLayers((current) => {
+      const removed = current.find((layer) => layer.id === id);
+      const remaining = current.filter((layer) => layer.id !== id);
+      if (removed && removed.id !== DEFAULT_LOGO_LAYER_ID && !remaining.some((layer) => layer.url === removed.url)) {
+        URL.revokeObjectURL(removed.url);
+        compositionAssetUrlsRef.current = compositionAssetUrlsRef.current.filter((url) => url !== removed.url);
+      }
+      return remaining;
+    });
+    setLayerShaders((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setLayerOrder((current) => current.filter((layerId) => layerId !== id));
+    setSelectedLayerId((current) => current === id ? null : current);
   }
 
   function addAssets(files: FileList | null) {
@@ -425,10 +869,13 @@ export default function ShaderLabStudio({
       const url = URL.createObjectURL(file);
       compositionAssetUrlsRef.current.push(url);
       return {
+        appearance: { ...DEFAULT_LOGO_APPEARANCE },
         id: `asset-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${index}`}`,
         name: file.name,
+        opacity: 1,
         transform: { ...DEFAULT_LAYER_TRANSFORM, x: index * 28, y: index * 24 },
         url,
+        visible: true,
       };
     });
     setCompositionAssets((current) => [...current, ...nextAssets]);
@@ -437,14 +884,20 @@ export default function ShaderLabStudio({
     if (assetInputRef.current) assetInputRef.current.value = '';
   }
 
-  function removeAsset(id: CompositionLayerId) {
+  function removeAsset(id: AssetLayerId) {
     setCompositionAssets((current) => {
       const removed = current.find((asset) => asset.id === id);
-      if (removed) {
+      const remaining = current.filter((asset) => asset.id !== id);
+      if (removed && !remaining.some((asset) => asset.url === removed.url)) {
         URL.revokeObjectURL(removed.url);
         compositionAssetUrlsRef.current = compositionAssetUrlsRef.current.filter((url) => url !== removed.url);
       }
-      return current.filter((asset) => asset.id !== id);
+      return remaining;
+    });
+    setLayerShaders((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
     });
     setLayerOrder((current) => current.filter((layerId) => layerId !== id));
     setSelectedLayerId((current) => current === id ? null : current);
@@ -461,64 +914,231 @@ export default function ShaderLabStudio({
     });
   }
 
-  function updateAssetTransform(id: CompositionLayerId, transform: CanvasLayerTransform) {
+  function updateAssetTransform(id: AssetLayerId, transform: CanvasLayerTransform) {
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, transform } : asset));
   }
 
-  const visibleLayerIds = layerOrder.filter((id) => {
-    if (id === 'logo') return contentMode === 'logo' || contentMode === 'both';
-    if (id === 'text') return contentMode === 'text' || contentMode === 'both';
-    return compositionAssets.some((asset) => asset.id === id);
-  });
-  const listedLayerIds = layerOrder.filter((id) =>
-    id === 'logo' || id === 'text' || compositionAssets.some((asset) => asset.id === id)
-  );
-
-  function primaryLayerIsVisible(id: 'logo' | 'text') {
-    return id === 'logo'
-      ? contentMode === 'logo' || contentMode === 'both'
-      : contentMode === 'text' || contentMode === 'both';
+  function updateAssetLayer(id: AssetLayerId, update: Partial<Omit<CompositionAsset, 'id'>>) {
+    setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, ...update } : asset));
   }
 
-  function togglePrimaryLayer(id: 'logo' | 'text') {
-    const logoVisible = id === 'logo' ? !primaryLayerIsVisible('logo') : primaryLayerIsVisible('logo');
-    const textVisible = id === 'text' ? !primaryLayerIsVisible('text') : primaryLayerIsVisible('text');
-    const nextMode: ContentMode = logoVisible && textVisible
-      ? 'both'
-      : logoVisible
-        ? 'logo'
-        : textVisible
-          ? 'text'
-          : 'none';
-    setContentMode(nextMode);
-    if (selectedLayerId === id && !primaryLayerIsVisible(id)) return;
-    if (selectedLayerId === id) setSelectedLayerId(null);
+  function placeLayerAfter(sourceId: CompositionLayerId, nextId: CompositionLayerId) {
+    setLayerOrder((current) => {
+      const sourceIndex = current.indexOf(sourceId);
+      if (sourceIndex < 0) return [...current, nextId];
+      return [...current.slice(0, sourceIndex + 1), nextId, ...current.slice(sourceIndex + 1)];
+    });
+    setSelectedLayerId(nextId);
+  }
+
+  function duplicateLayer(id: CompositionLayerId) {
+    if (isShaderLayerId(id)) {
+      const source = shaderLayers.find((layer) => layer.id === id);
+      if (!source) return;
+      const nextId = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
+      setShaderLayers((current) => [...current, {
+        ...source,
+        id: nextId,
+        name: `${source.name} copy`,
+        settings: { ...source.settings },
+      }]);
+      placeLayerAfter(id, nextId);
+      return;
+    }
+    if (isTextLayerId(id)) {
+      const source = textLayers.find((layer) => layer.id === id);
+      if (!source) return;
+      const nextId = `text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as TextLayerId;
+      const transform = resolvedTextTransform(source.transform);
+      setTextLayers((current) => [...current, {
+        ...source,
+        id: nextId,
+        name: `${source.name} copy`,
+        transform: { ...transform, x: transform.x + 32, y: transform.y + 32 },
+      }]);
+      if (layerShaders[id]) {
+        setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
+      }
+      placeLayerAfter(id, nextId);
+      return;
+    }
+    if (isLogoLayerId(id)) {
+      const source = logoLayers.find((layer) => layer.id === id);
+      if (!source) return;
+      const nextId = `logo-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as LogoLayerId;
+      setLogoLayers((current) => [...current, {
+        ...source,
+        appearance: source.appearance ? { ...source.appearance } : undefined,
+        id: nextId,
+        name: `${source.name} copy`,
+        transform: { ...source.transform, x: source.transform.x + 32, y: source.transform.y + 32 },
+      }]);
+      if (layerShaders[id]) {
+        setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
+      }
+      placeLayerAfter(id, nextId);
+      return;
+    }
+    const source = compositionAssets.find((asset) => asset.id === id);
+    if (!source) return;
+    const nextId = `asset-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as AssetLayerId;
+    setCompositionAssets((current) => [...current, {
+      ...source,
+      appearance: source.appearance ? { ...source.appearance } : undefined,
+      id: nextId,
+      name: `${source.name} copy`,
+      transform: { ...source.transform, x: source.transform.x + 32, y: source.transform.y + 32 },
+    }]);
+    if (layerShaders[id]) {
+      setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
+    }
+    placeLayerAfter(id, nextId);
+  }
+
+  function removeLayer(id: CompositionLayerId) {
+    if (isShaderLayerId(id)) removeShaderLayer(id);
+    else if (isLogoLayerId(id)) removeLogoLayer(id);
+    else if (isTextLayerId(id)) removeTextLayer(id);
+    else removeAsset(id);
+  }
+
+  function layerVisible(id: CompositionLayerId) {
+    if (isShaderLayerId(id)) return shaderLayers.find((layer) => layer.id === id)?.visible ?? false;
+    if (isLogoLayerId(id)) return logoLayers.find((layer) => layer.id === id)?.visible ?? false;
+    if (isTextLayerId(id)) return textLayers.find((layer) => layer.id === id)?.visible ?? false;
+    return compositionAssets.find((asset) => asset.id === id)?.visible ?? false;
+  }
+
+  function layerKind(id: CompositionLayerId) {
+    if (isShaderLayerId(id)) return 'Shader';
+    if (isLogoLayerId(id)) return 'Brand mark';
+    if (isTextLayerId(id)) return 'Editable text';
+    return 'Image';
+  }
+
+  const visibleLayerIds = layerOrder.filter((id) => {
+    return layerVisible(id);
+  });
+  const listedLayerIds = layerOrder.filter((id) =>
+    (isShaderLayerId(id) && shaderLayers.some((layer) => layer.id === id))
+    || (isLogoLayerId(id) && logoLayers.some((layer) => layer.id === id))
+    || (isTextLayerId(id) && textLayers.some((layer) => layer.id === id))
+    || compositionAssets.some((asset) => asset.id === id)
+  );
+
+  function toggleLayerVisibility(id: CompositionLayerId) {
+    if (isShaderLayerId(id)) {
+      setShaderLayers((current) => current.map((layer) => layer.id === id ? { ...layer, visible: !layer.visible } : layer));
+      return;
+    }
+    if (isLogoLayerId(id)) {
+      setLogoLayers((current) => current.map((layer) => layer.id === id ? { ...layer, visible: !layer.visible } : layer));
+      return;
+    }
+    if (isTextLayerId(id)) {
+      const layer = textLayers.find((candidate) => candidate.id === id);
+      if (layer) toggleTextLayerVisibility(layer);
+      return;
+    }
+    setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, visible: !asset.visible } : asset));
+  }
+
+  function removeShaderLayer(id: ShaderLayerId) {
+    setShaderLayers((current) => current.filter((layer) => layer.id !== id));
+    setLayerOrder((current) => current.filter((layerId) => layerId !== id));
+    setSelectedLayerId((current) => current === id ? null : current);
+  }
+
+  function removeShaderFromSelectedContent() {
+    if (!selectedContentLayerId) return;
+    setLayerShaders((current) => {
+      const next = { ...current };
+      delete next[selectedContentLayerId];
+      return next;
+    });
   }
 
   function layerLabel(id: CompositionLayerId) {
-    if (id === 'logo') return 'Brand mark';
-    if (id === 'text') return 'Text';
+    if (isShaderLayerId(id)) return shaderLayers.find((layer) => layer.id === id)?.name ?? 'Canvas shader';
+    if (isLogoLayerId(id)) return logoLayers.find((layer) => layer.id === id)?.name ?? 'Mark';
+    if (isTextLayerId(id)) return textLayers.find((layer) => layer.id === id)?.name ?? 'Text';
     return compositionAssets.find((asset) => asset.id === id)?.name ?? 'Image';
   }
 
-  async function copySetup() {
-    const setup = JSON.stringify({
+  function compositionSetupSource() {
+    return JSON.stringify({
       composition: {
-        assets: compositionAssets.map(({ id, name, transform }) => ({ id, name, transform })),
-        contentMode,
+        assets: compositionAssets.map(({ appearance, id, name, opacity, transform }) => ({ appearance, id, name, opacity, transform })),
+        backgroundColor: canvasBackground,
         layerOrder,
-        logoTransform,
-        text: textValue,
-        textTracking,
-        textTransform,
-        textWeight,
+        layerShaders,
+        logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform }) => ({ appearance, color, convertedAssetId, id, name, opacity, transform })),
+        shaderLayers,
+        textLayers,
       },
-      materialId,
       ratio,
-      settings,
-      shaderSize,
-      target,
     }, null, 2);
+  }
+
+  function applyCompositionSource(source: string) {
+    const parsed = JSON.parse(source) as {
+      composition?: {
+        assets?: Array<Omit<CompositionAsset, 'url'>>;
+        backgroundColor?: string;
+        layerOrder?: CompositionLayerId[];
+        layerShaders?: Partial<Record<ContentLayerId, ShaderApplication>>;
+        logos?: Array<Omit<CompositionLogoLayer, 'url'>>;
+        shaderLayers?: CompositionShaderLayer[];
+        textLayers?: CompositionTextLayer[];
+      };
+      ratio?: ShaderRatio;
+    };
+    if (!parsed || typeof parsed !== 'object' || !parsed.composition) throw new TypeError('A composition object is required.');
+    if (parsed.ratio && !RATIO_OPTIONS.some(({ value }) => value === parsed.ratio)) throw new TypeError('Unknown canvas ratio.');
+    if (parsed.composition.backgroundColor && !/^#[\dA-F]{6}$/i.test(parsed.composition.backgroundColor)) throw new TypeError('Canvas background must be a six-digit HEX color.');
+    if (parsed.composition.shaderLayers && (!Array.isArray(parsed.composition.shaderLayers) || parsed.composition.shaderLayers.some((layer) => !layer.id?.startsWith('shader-')))) throw new TypeError('Shader layers are invalid.');
+    if (parsed.composition.textLayers && (!Array.isArray(parsed.composition.textLayers) || parsed.composition.textLayers.some((layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string'))) throw new TypeError('Text layers are invalid.');
+    if (parsed.composition.layerOrder && (!Array.isArray(parsed.composition.layerOrder) || parsed.composition.layerOrder.some((id) => typeof id !== 'string'))) throw new TypeError('Layer order is invalid.');
+
+    const nextShaderLayers = parsed.composition.shaderLayers ?? shaderLayers;
+    const nextTextLayers = parsed.composition.textLayers ?? textLayers;
+    const allowedIds = new Set<CompositionLayerId>([
+      ...nextShaderLayers.map(({ id }) => id),
+      ...nextTextLayers.map(({ id }) => id),
+      ...logoLayers.map(({ id }) => id),
+      ...compositionAssets.map(({ id }) => id),
+    ]);
+    const requestedOrder = parsed.composition.layerOrder ?? layerOrder;
+    const nextOrder = requestedOrder.filter((id) => allowedIds.has(id));
+    allowedIds.forEach((id) => {
+      if (!nextOrder.includes(id)) nextOrder.push(id);
+    });
+
+    if (parsed.ratio) setRatio(parsed.ratio);
+    if (parsed.composition.backgroundColor) setCanvasBackground(parsed.composition.backgroundColor.toUpperCase());
+    if (parsed.composition.shaderLayers) setShaderLayers(parsed.composition.shaderLayers);
+    if (parsed.composition.textLayers) setTextLayers(parsed.composition.textLayers);
+    if (parsed.composition.layerShaders) setLayerShaders(parsed.composition.layerShaders);
+    if (parsed.composition.logos) {
+      const updates = new Map(parsed.composition.logos.map((layer) => [layer.id, layer]));
+      setLogoLayers((current) => current.map((layer) => {
+        const update = updates.get(layer.id);
+        return update ? { ...layer, ...update, id: layer.id, url: layer.url } : layer;
+      }));
+    }
+    if (parsed.composition.assets) {
+      const updates = new Map(parsed.composition.assets.map((layer) => [layer.id, layer]));
+      setCompositionAssets((current) => current.map((layer) => {
+        const update = updates.get(layer.id);
+        return update ? { ...layer, ...update, id: layer.id, url: layer.url } : layer;
+      }));
+    }
+    setLayerOrder(nextOrder);
+    setSelectedLayerId(null);
+  }
+
+  async function copySetup() {
+    const setup = compositionSetupSource();
     try {
       await navigator.clipboard.writeText(setup);
       setCopied(true);
@@ -528,24 +1148,24 @@ export default function ShaderLabStudio({
     }
   }
 
-  function paintCurrentMaterial(
+  function paintShaderApplication(
     context: CanvasRenderingContext2D,
     width: number,
     height: number,
-    layer: 'background' | 'logo' = 'background'
+    instanceKey: string,
+    application: ShaderApplication
   ) {
-    const liveCanvas = stageRef.current?.querySelector<HTMLElement>(`[data-material-layer="${layer}"]`)?.querySelector('canvas')
-      ?? stageRef.current?.querySelector('canvas');
+    const liveCanvas = stageRef.current?.querySelector<HTMLElement>(`[data-shader-instance="${instanceKey}"]`)?.querySelector('canvas');
     if (liveCanvas?.width && liveCanvas.height) {
       try {
         drawCover(context, liveCanvas, liveCanvas.width, liveCanvas.height, width, height);
         return;
       } catch {
-        paintFallback(context, width, height, settings);
+        paintFallback(context, width, height, application.settings);
         return;
       }
     }
-    paintFallback(context, width, height, settings);
+    paintFallback(context, width, height, application.settings);
   }
 
   function drawContained(
@@ -564,13 +1184,42 @@ export default function ShaderLabStudio({
     context.drawImage(source, x + (width - drawnWidth) / 2, y + (height - drawnHeight) / 2, drawnWidth, drawnHeight);
   }
 
+  function createContainedLayer(
+    image: HTMLImageElement,
+    width: number,
+    height: number,
+    color?: string
+  ) {
+    const layer = document.createElement('canvas');
+    layer.width = Math.max(1, Math.round(width));
+    layer.height = Math.max(1, Math.round(height));
+    const layerContext = layer.getContext('2d');
+    if (!layerContext) return layer;
+    drawContained(
+      layerContext,
+      image,
+      image.naturalWidth || 1,
+      image.naturalHeight || 1,
+      0,
+      0,
+      layer.width,
+      layer.height
+    );
+    if (color) {
+      layerContext.globalCompositeOperation = 'source-in';
+      layerContext.fillStyle = color;
+      layerContext.fillRect(0, 0, layer.width, layer.height);
+    }
+    return layer;
+  }
+
   function outputLayerBox(
-    layerId: CompositionLayerId,
+    layerId: ContentLayerId,
     transform: CanvasLayerTransform,
     outputWidth: number,
     outputHeight: number
   ) {
-    const geometry = layerGeometry(layerId, ratio, contentMode);
+    const geometry = layerGeometry(layerId, ratio);
     const centerX = geometry.baseX + transform.x + geometry.baseWidth / 2;
     const centerY = geometry.baseY + transform.y + geometry.baseHeight / 2;
     const dimensions = canvasLayerDimensions(transform, geometry);
@@ -591,74 +1240,130 @@ export default function ShaderLabStudio({
     images: Map<string, HTMLImageElement>
   ) {
     context.clearRect(0, 0, width, height);
-    context.globalAlpha = 1;
-    context.globalCompositeOperation = 'source-over';
-
-    if (target === 'background' || target === 'both') {
-      paintCurrentMaterial(context, width, height);
-    } else {
-      context.fillStyle = '#111216';
-      context.fillRect(0, 0, width, height);
-    }
+    context.fillStyle = canvasBackground;
+    context.fillRect(0, 0, width, height);
 
     visibleLayerIds.forEach((layerId) => {
-      if (layerId === 'logo') {
-        const logo = images.get('logo');
-        if (!logo) return;
-        const box = outputLayerBox('logo', logoTransform, width, height);
-        if (target === 'logo' || target === 'both') {
-          const materialLayer = document.createElement('canvas');
-          materialLayer.width = Math.max(1, Math.round(box.width));
-          materialLayer.height = Math.max(1, Math.round(box.height));
-          const materialContext = materialLayer.getContext('2d');
-          if (!materialContext) return;
-          paintCurrentMaterial(materialContext, materialLayer.width, materialLayer.height, 'logo');
-          materialContext.globalCompositeOperation = 'destination-in';
-          drawContained(
-            materialContext,
-            logo,
-            logo.naturalWidth || 1,
-            logo.naturalHeight || 1,
-            0,
-            0,
-            materialLayer.width,
-            materialLayer.height
-          );
-          context.drawImage(materialLayer, box.x, box.y, box.width, box.height);
-        } else {
-          context.save();
-          context.globalAlpha = 0.96;
-          context.globalCompositeOperation = 'difference';
-          drawContained(context, logo, logo.naturalWidth || 1, logo.naturalHeight || 1, box.x, box.y, box.width, box.height);
-          context.restore();
-        }
+      if (isShaderLayerId(layerId)) {
+        const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
+        if (!shaderLayer) return;
+        context.save();
+        context.globalAlpha = shaderLayer.opacity;
+        context.globalCompositeOperation = shaderLayer.blendMode === 'normal'
+          ? 'source-over'
+          : shaderLayer.blendMode;
+        paintShaderApplication(context, width, height, `canvas-${layerId}`, shaderLayer);
+        context.restore();
         return;
       }
 
-      if (layerId === 'text') {
-        const box = outputLayerBox('text', resolvedTextTransform, width, height);
-        const value = textValue || identity.shortName;
+      if (isLogoLayerId(layerId) || isAssetLayerId(layerId)) {
+        const layer = isLogoLayerId(layerId)
+          ? logoLayers.find((candidate) => candidate.id === layerId)
+          : compositionAssets.find((candidate) => candidate.id === layerId);
+        const image = layer ? images.get(layer.id) : null;
+        if (!layer || !image) return;
+        const box = outputLayerBox(layer.id, layer.transform, width, height);
+        const application = layerShaders[layer.id];
+        const appearance = resolvedLogoAppearance(layer.appearance);
+        const layerOpacity = layer.opacity ?? 1;
+        if (!application) {
+          const contained = createContainedLayer(
+            image,
+            box.width,
+            box.height,
+            isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : undefined
+          );
+          drawLogoAppearanceLayer(context, contained, box.x, box.y, box.width, box.height, appearance, layerOpacity);
+          return;
+        }
+
+        const materialLayer = document.createElement('canvas');
+        materialLayer.width = Math.max(1, Math.round(box.width));
+        materialLayer.height = Math.max(1, Math.round(box.height));
+        const materialContext = materialLayer.getContext('2d');
+        if (!materialContext) return;
+        paintShaderApplication(
+          materialContext,
+          materialLayer.width,
+          materialLayer.height,
+          `content-${layerId}`,
+          application
+        );
+        materialContext.globalCompositeOperation = 'destination-in';
+        drawContained(
+          materialContext,
+          image,
+          image.naturalWidth || 1,
+          image.naturalHeight || 1,
+          0,
+          0,
+          materialLayer.width,
+          materialLayer.height
+        );
+        context.save();
+        context.globalAlpha = application.opacity;
+        context.globalCompositeOperation = application.blendMode === 'normal'
+          ? 'source-over'
+          : application.blendMode;
+        drawLogoAppearanceLayer(
+          context,
+          materialLayer,
+          box.x,
+          box.y,
+          box.width,
+          box.height,
+          appearance,
+          layerOpacity
+        );
+        context.restore();
+        return;
+      }
+
+      if (isTextLayerId(layerId)) {
+        const textLayer = textLayers.find((layer) => layer.id === layerId);
+        if (!textLayer || !textLayer.value) return;
+        const transform = resolvedTextTransform(textLayer.transform);
+        const box = outputLayerBox(layerId, transform, width, height);
+        const value = textLayer.value;
+        const textAppearance = resolvedTextAppearance(textLayer);
         context.save();
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
-        const fontSize = Math.max(18, height * 0.17 * resolvedTextTransform.scale);
-        const lineHeight = fontSize * textLineHeight;
-        const spacing = textTracking * fontSize;
-        context.font = `${textWeight} ${fontSize}px Arial, sans-serif`;
+        const fontSize = Math.max(18, height * 0.17 * transform.scale);
+        const lineHeight = fontSize * textLayer.lineHeight;
+        const spacing = textLayer.tracking * fontSize;
+        context.font = `${textLayer.weight} ${fontSize}px ${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`;
         const measureText = (text: string) => context.measureText(text).width;
-        const lines = layoutCanvasText(value, box.width, measureText, spacing, textWrap);
+        const lines = layoutCanvasText(value, box.width, measureText, spacing, textLayer.wrap);
         const totalHeight = Math.max(lineHeight, lines.length * lineHeight);
         const renderedBoxHeight = Math.max(box.height, totalHeight);
         const firstBaseline = box.y + (renderedBoxHeight - totalHeight) / 2 + fontSize;
-        const preview = images.get('shader-preview');
-        const pattern = preview && (target === 'logo' || target === 'both') ? context.createPattern(preview, 'repeat') : null;
-        context.fillStyle = pattern ?? (target === 'background' ? '#ffffff' : settings.colorC);
-        if (target === 'background') context.globalCompositeOperation = 'difference';
+        const application = layerShaders[layerId];
+        const preview = application ? images.get(`shader-preview-${application.materialId}`) : null;
+        const pattern = preview ? context.createPattern(preview, 'repeat') : null;
+        context.fillStyle = pattern ?? textAppearance.color;
+        context.globalAlpha = textAppearance.opacity * (application?.opacity ?? 1);
+        context.globalCompositeOperation = application?.blendMode && application.blendMode !== 'normal'
+          ? application.blendMode
+          : 'source-over';
+        if (textAppearance.shadowEnabled) {
+          context.shadowBlur = textAppearance.shadowBlur;
+          context.shadowColor = colorWithOpacity(textAppearance.shadowColor, textAppearance.shadowOpacity / 100);
+          context.shadowOffsetX = textAppearance.shadowOffsetX;
+          context.shadowOffsetY = textAppearance.shadowOffsetY;
+        }
+        context.lineJoin = 'round';
+        context.lineWidth = Math.max(0.5, textAppearance.outlineWidth * 2);
+        context.strokeStyle = textAppearance.outlineColor;
         lines.forEach((line, lineIndex) => {
           const characters = canvasTextCharacters(line);
           const lineWidth = trackedTextWidth(line, measureText, spacing);
-          let cursor = canvasTextLineX(textAlign, box.x, box.width, lineWidth);
+          let cursor = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
           characters.forEach((character) => {
+            if (textAppearance.outlineEnabled) {
+              context.strokeText(character, cursor, firstBaseline + lineIndex * lineHeight);
+            }
             context.fillText(character, cursor, firstBaseline + lineIndex * lineHeight);
             cursor += measureText(character) + spacing;
           });
@@ -666,73 +1371,108 @@ export default function ShaderLabStudio({
         context.restore();
         return;
       }
-
-      const asset = compositionAssets.find(({ id }) => id === layerId);
-      const image = asset ? images.get(asset.id) : null;
-      if (!asset || !image) return;
-      const box = outputLayerBox(asset.id, asset.transform, width, height);
-      drawContained(context, image, image.naturalWidth || 1, image.naturalHeight || 1, box.x, box.y, box.width, box.height);
     });
   }
 
   async function loadCompositionImages() {
+    const previewMaterialIds = new Set(
+      Object.values(layerShaders).flatMap((application) => application ? [application.materialId] : [])
+    );
     const entries: [string, string][] = [
-      ['logo', logoSource],
-      ['shader-preview', shaderPreviewAssetPath(materialId)],
+      ...logoLayers.map((layer): [string, string] => [layer.id, layer.url]),
       ...compositionAssets.map((asset): [string, string] => [asset.id, asset.url]),
+      ...Array.from(previewMaterialIds).map((id): [string, string] => [`shader-preview-${id}`, shaderPreviewAssetPath(id)]),
     ];
     return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadImage(source)] as const)));
   }
 
-  async function exportPng() {
+  function createExportCanvas(motion = false) {
+    const output = document.createElement('canvas');
+    output.width = ratio === 'square' ? (motion ? 800 : 1400) : ratio === 'opengraph' ? (motion ? 960 : 1200) : (motion ? 960 : 1600);
+    output.height = ratio === 'square' ? (motion ? 800 : 1400) : ratio === 'opengraph' ? (motion ? 504 : 630) : (motion ? 540 : 900);
+    return output;
+  }
+
+  async function exportStill(format: StillImageFormat) {
     if (exporting) return;
-    setExporting('png');
+    setExporting(format);
+    setExportError(null);
     try {
-      const output = document.createElement('canvas');
-      output.width = ratio === 'square' ? 1400 : ratio === 'opengraph' ? 1200 : 1600;
-      output.height = ratio === 'square' ? 1400 : ratio === 'opengraph' ? 630 : 900;
+      const output = createExportCanvas();
       const context = output.getContext('2d');
-      if (!context) return;
+      if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
       composeFrame(context, output.width, output.height, images);
-      const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, 'image/png'));
-      if (blob) downloadBlob(blob, `${identity.id}-${materialId}-${target}.png`);
+      const blob = await canvasToImageBlob(output, format);
+      const label = format === 'jpg' ? 'JPG' : 'PNG';
+      const fileName = `${identity.id}-design-lab.${format}`;
+      setLastExport({ blob, fileName, format: label, height: output.height, width: output.width });
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The still image could not be exported.');
     } finally {
       setExporting(null);
     }
   }
 
-  async function exportGif() {
-    if (exporting) return;
-    setExporting('gif');
-    setExportProgress(0);
-    try {
-      const output = document.createElement('canvas');
-      output.width = ratio === 'square' ? 800 : 960;
-      output.height = ratio === 'square' ? 800 : ratio === 'opengraph' ? 504 : 540;
-      const context = output.getContext('2d', { willReadFrequently: true });
-      if (!context) return;
-      const images = await loadCompositionImages();
-      const { GIFEncoder, applyPalette, quantize } = await import('gifenc');
-      const gif = GIFEncoder();
-      let palette: ReturnType<typeof quantize> | undefined;
-      const frameCount = 24;
-      const frameDelay = 80;
+  async function waitForCapturedFrame(frame: MotionFrame) {
+    setCaptureTimeMs(frame.timeMs);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  }
 
-      for (let index = 0; index < frameCount; index += 1) {
-        setCaptureTimeMs(index * frameDelay);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        composeFrame(context, output.width, output.height, images);
-        const pixels = context.getImageData(0, 0, output.width, output.height).data;
-        palette ??= quantize(pixels, 256, { format: 'rgb565' });
-        gif.writeFrame(applyPalette(pixels, palette, 'rgb565'), output.width, output.height, {
-          delay: frameDelay,
-          ...(index === 0 ? { palette, repeat: 0 } : {}),
-        });
-        setExportProgress((index + 1) / frameCount);
-      }
-      gif.finish();
-      downloadBlob(new Blob([Uint8Array.from(gif.bytes())], { type: 'image/gif' }), `${identity.id}-${materialId}-${target}.gif`);
+  async function exportMotion(format: 'gif' | 'mp4') {
+    if (exporting) return;
+    setExporting(format);
+    setExportProgress(0);
+    setExportError(null);
+    try {
+      const durationMs = 2_400;
+      const output = createExportCanvas(true);
+      const context = output.getContext('2d', { willReadFrequently: format === 'gif' });
+      if (!context) throw new Error('Canvas rendering is unavailable.');
+      const images = await loadCompositionImages();
+      const currentFrame = createExportCanvas(true);
+      const wrappedFrame = createExportCanvas(true);
+      const currentContext = currentFrame.getContext('2d');
+      const wrappedContext = wrappedFrame.getContext('2d');
+      if (!currentContext || !wrappedContext) throw new Error('Loop compositing is unavailable.');
+      const renderFrame = async (frame: MotionFrame) => {
+        if (format === 'mp4') {
+          await waitForCapturedFrame(frame);
+          composeFrame(context, output.width, output.height, images);
+          return;
+        }
+
+        await waitForCapturedFrame(frame);
+        composeFrame(currentContext, currentFrame.width, currentFrame.height, images);
+        const blend = seamlessLoopBlendAmount(frame.timeMs, durationMs);
+        if (blend > 0) {
+          await waitForCapturedFrame({ ...frame, timeMs: frame.timeMs - durationMs });
+          composeFrame(wrappedContext, wrappedFrame.width, wrappedFrame.height, images);
+        }
+        context.clearRect(0, 0, output.width, output.height);
+        context.globalAlpha = 1;
+        context.globalCompositeOperation = 'source-over';
+        context.drawImage(currentFrame, 0, 0);
+        if (blend > 0) {
+          context.globalAlpha = blend;
+          context.drawImage(wrappedFrame, 0, 0);
+          context.globalAlpha = 1;
+        }
+      };
+      const sharedOptions = {
+        canvas: output,
+        durationMs,
+        onProgress: setExportProgress,
+        renderFrame,
+      };
+      const blob = format === 'gif'
+        ? await encodeCanvasGif({ ...sharedOptions, fps: 15 })
+        : await encodeCanvasMp4({ ...sharedOptions, fps: 30 });
+      const label = format === 'gif' ? 'GIF' : 'MP4';
+      const fileName = `${identity.id}-design-lab.${format}`;
+      setLastExport({ blob, fileName, format: label, height: output.height, width: output.width });
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
     } finally {
       setCaptureTimeMs(null);
       setExportProgress(0);
@@ -740,18 +1480,18 @@ export default function ShaderLabStudio({
     }
   }
 
-  function renderLiveMaterial(layer: 'background' | 'logo') {
+  function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
     return (
       <LiveMaterialCanvas
         activeWhileMounted
         captureTimeMs={captureTimeMs}
         className='absolute inset-0 size-full'
-        key={`${layer}-${materialId}`}
-        materialId={materialId}
-        patternScale={shaderSize}
+        key={`${instanceKey}-${application.materialId}`}
+        materialId={application.materialId}
+        patternScale={application.shaderSize}
         paused={paused || captureTimeMs !== null}
         renderScale={1}
-        settings={settings}
+        settings={application.settings}
       />
     );
   }
@@ -763,26 +1503,37 @@ export default function ShaderLabStudio({
           <div className='flex items-center gap-2'>
             <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
           </div>
-          <p className='truncate text-sm text-muted-foreground'>Choose a shader, tune its scale and color, then apply it to the canvas, logo, or both.</p>
+          <p className='truncate text-sm text-muted-foreground'>Compose type, converted marks, images, and live materials with precise layer controls.</p>
         </div>
         <div className='flex shrink-0 items-center gap-2'>
           {navigation}
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <ExportPreview asset={lastExport} />
+          {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
           <Button aria-label={paused ? 'Play shader' : 'Pause shader'} onClick={() => setPaused((current) => !current)} size='icon' type='button' variant='outline'>
             {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
           </Button>
-          <Button disabled={Boolean(exporting)} onClick={() => void exportPng()} loading={exporting === 'png'} type='button' variant='outline'>
+          <Button aria-label='Download PNG' disabled={Boolean(exporting)} onClick={() => void exportStill('png')} loading={exporting === 'png'} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <span className='responsive-toolbar-label'>PNG</span>
           </Button>
-          <Button disabled={Boolean(exporting)} onClick={() => void exportGif()} loading={exporting === 'gif'} type='button'>
+          <Button aria-label='Download JPG' disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} loading={exporting === 'jpg'} type='button' variant='outline'>
+            <Download aria-hidden='true' />
+            <span className='responsive-toolbar-label'>JPG</span>
+          </Button>
+          <Button aria-label='Download animated GIF' disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} loading={exporting === 'gif'} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <span className='responsive-toolbar-label'>{exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : 'GIF'}</span>
+          </Button>
+          <Button aria-label='Download MP4 video' disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} loading={exporting === 'mp4'} type='button'>
+            <Download aria-hidden='true' />
+            <span className='responsive-toolbar-label'>{exporting === 'mp4' ? `${Math.round(exportProgress * 100)}%` : 'MP4'}</span>
           </Button>
         </div>
       </header>
 
-      <div className='shader-lab-v2-layout'>
-        <aside className='shader-lab-v2-library' aria-label='Shader library'>
+      <div className='shader-lab-v2-layout studio-scroll-area'>
+        <aside className='shader-lab-v2-library studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve>
           <div className='shader-lab-v2-panel-heading'>
             <div>
               <p>Shader library</p>
@@ -808,10 +1559,10 @@ export default function ShaderLabStudio({
               </button>
             ))}
           </div>
-          <div className='shader-lab-v2-material-grid'>
+          <div className='shader-lab-v2-material-grid studio-scroll-area'>
             {materials.map((option) => (
               <button
-                aria-pressed={materialId === option.id}
+                aria-pressed={editingShader?.materialId === option.id}
                 className='shader-lab-v2-material-card'
                 key={option.id}
                 onClick={() => selectMaterial(option.id)}
@@ -830,12 +1581,10 @@ export default function ShaderLabStudio({
         </aside>
 
         <main className='shader-lab-v2-workspace'>
-          <div className='shader-lab-v2-stage-toolbar'>
-            <div className='shader-lab-v2-segmented' aria-label='Apply shader to'>
-              <button aria-pressed={target === 'background'} onClick={() => setTarget('background')} type='button'>Canvas</button>
-              <button aria-pressed={target === 'logo'} onClick={() => setTarget('logo')} type='button'>Logo</button>
-              <button aria-pressed={target === 'both'} onClick={() => setTarget('both')} type='button'>Both</button>
-            </div>
+          <div className='shader-lab-v2-stage-toolbar' data-canvas-selection-preserve>
+            <Button onClick={() => addCanvasShader()} size='sm' type='button' variant='outline'>
+              <Sparkles aria-hidden='true' />Add shader layer
+            </Button>
             <div className='shader-lab-v2-segmented shader-lab-v2-ratios' aria-label='Canvas ratio'>
               {RATIO_OPTIONS.map((option) => (
                 <button aria-pressed={ratio === option.value} key={option.value} onClick={() => setRatio(option.value)} type='button'>{option.label}</button>
@@ -852,22 +1601,54 @@ export default function ShaderLabStudio({
           >
             <div className='shader-lab-v2-stage-wrap'>
               <div
-                className={`shader-lab-v2-stage shader-lab-v2-stage-${target} shader-lab-v2-stage-${ratio}`}
-                data-material-id={materialId}
+                className={`shader-lab-v2-stage shader-lab-v2-stage-${ratio}`}
+                data-material-id={editingShader?.materialId}
                 data-testid='shader-lab-live-stage'
                 onPointerDown={() => setSelectedLayerId(null)}
                 ref={stageRef}
-                style={{ aspectRatio: `${ratioOption.width} / ${ratioOption.height}` }}
+                style={{
+                  aspectRatio: `${ratioOption.width} / ${ratioOption.height}`,
+                  backgroundColor: canvasBackground,
+                }}
               >
-                {target === 'background' || target === 'both' ? (
-                  <div className='shader-lab-v2-canvas-material' data-material-layer='background'>
-                    {renderLiveMaterial('background')}
-                  </div>
-                ) : null}
                 {visibleLayerIds.map((layerId, index) => {
-                  const geometry = layerGeometry(layerId, ratio, contentMode);
-                  const zIndex = 5 + index;
-                  if (layerId === 'logo') {
+                  const zIndex = 4 + index;
+                  if (isShaderLayerId(layerId)) {
+                    const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
+                    if (!shaderLayer) return null;
+                    return (
+                      <div
+                        className='shader-lab-v2-canvas-material'
+                        data-shader-instance={`canvas-${layerId}`}
+                        key={layerId}
+                        style={{
+                          mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
+                          opacity: shaderLayer.opacity,
+                          zIndex,
+                        }}
+                      >
+                        {renderLiveMaterial(shaderLayer, `canvas-${layerId}`)}
+                      </div>
+                    );
+                  }
+
+                  const geometry = layerGeometry(layerId, ratio);
+                  if (isLogoLayerId(layerId)) {
+                    const logoLayer = logoLayers.find((layer) => layer.id === layerId);
+                    if (!logoLayer) return null;
+                    const application = layerShaders[layerId];
+                    const appearance = resolvedLogoAppearance(logoLayer.appearance);
+                    const maskStyle: CSSProperties = {
+                      WebkitMaskImage: `url("${logoLayer.url}")`,
+                      WebkitMaskPosition: 'center',
+                      WebkitMaskRepeat: 'no-repeat',
+                      WebkitMaskSize: 'contain',
+                      maskImage: `url("${logoLayer.url}")`,
+                      maskMode: 'alpha',
+                      maskPosition: 'center',
+                      maskRepeat: 'no-repeat',
+                      maskSize: 'contain',
+                    };
                     return (
                       <EditableCanvasLayer
                         {...geometry}
@@ -875,62 +1656,138 @@ export default function ShaderLabStudio({
                         canvasWidth={canvasDimensions.width}
                         className='shader-lab-v2-composition-layer'
                         key={layerId}
-                        label='Brand mark'
-                        onChange={setLogoTransform}
+                        label={logoLayer.name}
+                        onChange={(transform) => updateLogoTransform(layerId, transform)}
                         onDeselect={() => setSelectedLayerId(null)}
-                        onSelect={() => setSelectedLayerId('logo')}
-                        selected={selectedLayerId === 'logo'}
-                        transform={logoTransform}
+                        onSelect={() => setSelectedLayerId(layerId)}
+                        selected={selectedLayerId === layerId}
+                        transform={logoLayer.transform}
                         zIndex={zIndex}
                       >
-                        {target === 'logo' || target === 'both' ? (
-                          <div className='shader-lab-v2-layer-logo-mask' data-material-layer='logo' style={logoMaskStyle}>
-                            {renderLiveMaterial('logo')}
+                        {application ? (
+                          <div
+                            className='shader-lab-v2-appearance-preview shader-lab-v2-appearance-stack'
+                            style={{
+                              mixBlendMode: shaderBlendStyle(application.blendMode),
+                              opacity: (logoLayer.opacity ?? 1) * application.opacity,
+                            }}
+                          >
+                            <AppearanceFilteredContent
+                              ariaLabel={`${logoLayer.name} material`}
+                              className='shader-lab-v2-appearance-stack-layer'
+                              settings={{
+                                ...appearance,
+                                borderEnabled: false,
+                                shadowEnabled: false,
+                              }}
+                            >
+                              <div
+                                className='shader-lab-v2-layer-logo-mask'
+                                data-shader-instance={`content-${layerId}`}
+                                style={maskStyle}
+                              >
+                                {renderLiveMaterial(application, `content-${layerId}`)}
+                              </div>
+                            </AppearanceFilteredContent>
+                            {appearance.borderEnabled || appearance.shadowEnabled ? (
+                              <LogoAppearancePreview
+                                ariaLabel={`${logoLayer.name} silhouette effects`}
+                                className='shader-lab-v2-appearance-stack-layer'
+                                color={appearance.borderColor}
+                                logoPath={logoLayer.url}
+                                settings={{
+                                  ...appearance,
+                                  ditherEnabled: false,
+                                  invert: false,
+                                }}
+                                showSource={false}
+                              />
+                            ) : null}
                           </div>
                         ) : (
-                          <img alt={`${identity.name} logo`} className='shader-lab-v2-layer-image shader-lab-v2-layer-logo' loading='eager' src={logoSource} />
+                          <LogoAppearancePreview
+                            ariaLabel={`${identity.name} logo`}
+                            className='shader-lab-v2-appearance-preview'
+                            color={logoLayer.color ?? '#FFFFFF'}
+                            logoPath={logoLayer.url}
+                            opacity={logoLayer.opacity ?? 1}
+                            settings={appearance}
+                          />
                         )}
                       </EditableCanvasLayer>
                     );
                   }
-                  if (layerId === 'text') {
+                  if (isTextLayerId(layerId)) {
+                    const textLayer = textLayers.find((layer) => layer.id === layerId);
+                    if (!textLayer) return null;
+                    const application = layerShaders[layerId];
+                    const transform = resolvedTextTransform(textLayer.transform);
+                    const textAppearance = resolvedTextAppearance(textLayer);
+                    const textFontSizeCqw = canvasDimensions.height / canvasDimensions.width * 17 * transform.scale;
                     return (
                       <EditableCanvasLayer
                         {...geometry}
+                        allowContentInteraction
                         canvasHeight={canvasDimensions.height}
                         canvasWidth={canvasDimensions.width}
                         className='shader-lab-v2-composition-layer'
                         fitContentHeight
                         key={layerId}
-                        label='Text'
-                        onChange={setTextTransform}
+                        label={textLayer.name}
+                        onChange={(nextTransform) => updateTextLayer(layerId, { transform: nextTransform })}
                         onDeselect={() => setSelectedLayerId(null)}
-                        onSelect={() => setSelectedLayerId('text')}
+                        onSelect={() => setSelectedLayerId(layerId)}
                         resizeMode='box'
-                        selected={selectedLayerId === 'text'}
-                        transform={resolvedTextTransform}
+                        selected={selectedLayerId === layerId}
+                        transform={transform}
                         zIndex={zIndex}
                       >
-                        <span
-                          className={`shader-lab-v2-layer-text ${target === 'logo' || target === 'both' ? 'shader-lab-v2-layer-text-material' : ''}`}
+                        <CanvasEditableText
+                          className={`shader-lab-v2-layer-text ${application ? 'shader-lab-v2-layer-text-material' : ''}`}
+                          label={`Edit ${textLayer.name}`}
+                          onChange={(value) => updateTextLayer(layerId, { value })}
+                          onFocus={() => setSelectedLayerId(layerId)}
                           style={{
+                            caretColor: textAppearance.color,
+                            color: textAppearance.color,
+                            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`,
                             fontSize: `${textFontSizeCqw}cqw`,
-                            fontWeight: textWeight,
-                            letterSpacing: `${textTracking}em`,
-                            lineHeight: textLineHeight,
-                            overflowWrap: textWrap === 'wrap' ? 'anywhere' : 'normal',
-                            textAlign,
-                            whiteSpace: textWrap === 'wrap' ? 'pre-wrap' : 'pre',
-                            ...(target === 'logo' || target === 'both' ? { backgroundImage: `url("${shaderPreviewAssetPath(materialId)}")` } : {}),
+                            fontWeight: textLayer.weight,
+                            letterSpacing: `${textLayer.tracking}em`,
+                            lineHeight: textLayer.lineHeight,
+                            overflowWrap: textLayer.wrap === 'wrap' ? 'anywhere' : 'normal',
+                            opacity: textAppearance.opacity * (application?.opacity ?? 1),
+                            textAlign: textLayer.align,
+                            textShadow: textShadowStyle(textAppearance),
+                            WebkitTextStroke: textAppearance.outlineEnabled
+                              ? `${textAppearance.outlineWidth}px ${textAppearance.outlineColor}`
+                              : undefined,
+                            whiteSpace: textLayer.wrap === 'wrap' ? 'pre-wrap' : 'pre',
+                            ...(application ? {
+                              backgroundImage: `url("${shaderPreviewAssetPath(application.materialId)}")`,
+                              mixBlendMode: shaderBlendStyle(application.blendMode),
+                            } : {}),
                           }}
-                        >
-                          {textValue || identity.shortName}
-                        </span>
+                          value={textLayer.value}
+                        />
                       </EditableCanvasLayer>
                     );
                   }
                   const asset = compositionAssets.find(({ id }) => id === layerId);
                   if (!asset) return null;
+                  const application = layerShaders[layerId];
+                  const appearance = resolvedLogoAppearance(asset.appearance);
+                  const maskStyle: CSSProperties = {
+                    WebkitMaskImage: `url("${asset.url}")`,
+                    WebkitMaskPosition: 'center',
+                    WebkitMaskRepeat: 'no-repeat',
+                    WebkitMaskSize: 'contain',
+                    maskImage: `url("${asset.url}")`,
+                    maskMode: 'alpha',
+                    maskPosition: 'center',
+                    maskRepeat: 'no-repeat',
+                    maskSize: 'contain',
+                  };
                   return (
                     <EditableCanvasLayer
                       {...geometry}
@@ -946,7 +1803,57 @@ export default function ShaderLabStudio({
                       transform={asset.transform}
                       zIndex={zIndex}
                     >
-                      <img alt='' className='shader-lab-v2-layer-image' src={asset.url} />
+                      {application ? (
+                        <div
+                          className='shader-lab-v2-appearance-preview shader-lab-v2-appearance-stack'
+                          style={{
+                            mixBlendMode: shaderBlendStyle(application.blendMode),
+                            opacity: (asset.opacity ?? 1) * application.opacity,
+                          }}
+                        >
+                          <AppearanceFilteredContent
+                            ariaLabel={`${asset.name} material`}
+                            className='shader-lab-v2-appearance-stack-layer'
+                            settings={{
+                              ...appearance,
+                              borderEnabled: false,
+                              shadowEnabled: false,
+                            }}
+                          >
+                            <div
+                              className='shader-lab-v2-layer-logo-mask'
+                              data-shader-instance={`content-${layerId}`}
+                              style={maskStyle}
+                            >
+                              {renderLiveMaterial(application, `content-${layerId}`)}
+                            </div>
+                          </AppearanceFilteredContent>
+                          {appearance.borderEnabled || appearance.shadowEnabled ? (
+                            <LogoAppearancePreview
+                              ariaLabel={`${asset.name} silhouette effects`}
+                              className='shader-lab-v2-appearance-stack-layer'
+                              color={appearance.borderColor}
+                              logoPath={asset.url}
+                              settings={{
+                                ...appearance,
+                                ditherEnabled: false,
+                                invert: false,
+                              }}
+                              showSource={false}
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <LogoAppearancePreview
+                          ariaLabel={asset.name}
+                          className='shader-lab-v2-appearance-preview'
+                          color='#FFFFFF'
+                          logoPath={asset.url}
+                          opacity={asset.opacity ?? 1}
+                          preserveColors
+                          settings={appearance}
+                        />
+                      )}
                     </EditableCanvasLayer>
                   );
                 })}
@@ -954,35 +1861,181 @@ export default function ShaderLabStudio({
               </div>
             </div>
           </CanvasViewport>
-          <div className='shader-lab-v2-stage-meta'>
-            <span>{material.name}</span>
-            <span>{ratioOption.label}</span>
+          <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
+            <input accept='image/*,.svg,.avif,.bmp' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
+            <input accept='image/*' className='sr-only' multiple onChange={(event) => addAssets(event.target.files)} ref={assetInputRef} type='file' />
+            <div className='shader-lab-v2-dock-create'>
+              <div className='shader-lab-v2-dock-heading'>
+                <span><Layers3 aria-hidden='true' />Layers</span>
+                <small>{listedLayerIds.length} total · front to back</small>
+              </div>
+              <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer'>
+                <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span>Text</span></button>
+                <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
+                <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
+                <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
+              </div>
+            </div>
+
+            <div className='shader-lab-v2-dock-stack studio-scroll-area' aria-label='Canvas layer stack'>
+              {[...listedLayerIds].reverse().map((layerId, index) => {
+                const layerIsVisible = layerVisible(layerId);
+                const orderIndex = layerOrder.indexOf(layerId);
+                const shaderLayer = isShaderLayerId(layerId)
+                  ? shaderLayers.find(({ id }) => id === layerId)
+                  : null;
+                const textLayer = isTextLayerId(layerId)
+                  ? textLayers.find(({ id }) => id === layerId)
+                  : null;
+                const logoLayer = isLogoLayerId(layerId)
+                  ? logoLayers.find(({ id }) => id === layerId)
+                  : null;
+                const assetLayer = isAssetLayerId(layerId)
+                  ? compositionAssets.find(({ id }) => id === layerId)
+                  : null;
+                const appliedShader = shaderLayer ?? (!isShaderLayerId(layerId) ? layerShaders[layerId] : null);
+                const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
+                const previewUrl = logoLayer?.url ?? assetLayer?.url;
+                return (
+                  <div
+                    aria-selected={selectedLayerId === layerId}
+                    className='shader-lab-v2-dock-layer'
+                    data-kind={layerKind(layerId).toLocaleLowerCase().replaceAll(' ', '-')}
+                    data-material={appliedShader ? 'true' : 'false'}
+                    data-visible={layerIsVisible}
+                    key={layerId}
+                  >
+                    <button
+                      className='shader-lab-v2-dock-layer-select'
+                      onClick={() => setSelectedLayerId(layerId)}
+                      title={`Select ${layerLabel(layerId)}`}
+                      type='button'
+                    >
+                      <span className='shader-lab-v2-dock-layer-icon'>{isShaderLayerId(layerId)
+                        ? <Sparkles aria-hidden='true' />
+                        : isTextLayerId(layerId)
+                          ? <Type aria-hidden='true' />
+                          : isLogoLayerId(layerId)
+                            ? <Layers3 aria-hidden='true' />
+                            : <ImagePlus aria-hidden='true' />}</span>
+                      <span className='shader-lab-v2-dock-layer-copy'>
+                        <strong>{layerLabel(layerId)}</strong>
+                        <small>{String(index + 1).padStart(2, '0')} · {layerKind(layerId)}</small>
+                      </span>
+                    </button>
+                    <div
+                      className='shader-lab-v2-dock-layer-preview'
+                      style={appliedShader ? { backgroundImage: `url("${shaderPreviewAssetPath(appliedShader.materialId)}")` } : undefined}
+                    >
+                      {textLayer && textAppearance ? (
+                        <input
+                          aria-label={`Edit ${textLayer.name}`}
+                          onChange={(event) => updateTextLayer(textLayer.id, { value: event.target.value })}
+                          onFocus={() => setSelectedLayerId(textLayer.id)}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          style={{
+                            color: textAppearance.color,
+                            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
+                            fontWeight: textLayer.weight,
+                            letterSpacing: `${textLayer.tracking}em`,
+                            opacity: textAppearance.opacity,
+                          }}
+                          type='text'
+                          value={textLayer.value}
+                        />
+                      ) : (
+                        <button aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
+                          {previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}
+                        </button>
+                      )}
+                    </div>
+                    <div className='shader-lab-v2-dock-layer-actions'>
+                      <button aria-label={`Duplicate ${layerLabel(layerId)}`} onClick={() => duplicateLayer(layerId)} title='Duplicate' type='button'><Copy aria-hidden='true' /></button>
+                      <button aria-label={`Move ${layerLabel(layerId)} forward`} disabled={orderIndex === layerOrder.length - 1} onClick={() => moveLayer(layerId, 1)} title='Move forward' type='button'><ArrowUp aria-hidden='true' /></button>
+                      <button aria-label={`Move ${layerLabel(layerId)} backward`} disabled={orderIndex === 0} onClick={() => moveLayer(layerId, -1)} title='Move backward' type='button'><ArrowDown aria-hidden='true' /></button>
+                      <button aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`} aria-pressed={layerIsVisible} onClick={() => toggleLayerVisibility(layerId)} title={layerIsVisible ? 'Hide layer' : 'Show layer'} type='button'>{layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}</button>
+                      <button aria-label={`Delete ${layerLabel(layerId)}`} onClick={() => removeLayer(layerId)} title='Delete' type='button'><Trash2 aria-hidden='true' /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </main>
 
-        <aside className='shader-lab-v2-inspector' aria-label='Shader controls'>
+        <aside className='shader-lab-v2-inspector studio-scroll-area' aria-label='Design Lab controls' data-canvas-selection-preserve>
           <section className='shader-lab-v2-inspector-intro'>
             <div>
-              <span>{material.engine}</span>
-              <h2>{material.name}</h2>
+              <span>{selectedShaderLayer
+                ? 'Canvas shader'
+                : selectedTextLayer
+                  ? 'Text layer'
+                  : selectedLogoLayer
+                    ? 'Mark layer'
+                    : selectedAsset
+                      ? 'Image layer'
+                      : 'Composition'}</span>
+              <h2>{selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}</h2>
             </div>
-            <button
-              aria-label='Reset shader settings'
-              onClick={() => {
-                setSettings(shaderLabSettingsFor(materialId, initialSettings));
-                setShaderSize(1);
-              }}
-              title='Reset shader'
-              type='button'
-            ><RotateCcw aria-hidden='true' /></button>
-            <p>{material.description}</p>
-            {material.sourceUrl ? (
-              <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
-            ) : null}
+            <p>{selectedShaderLayer
+              ? 'Tune this full-canvas material, then place it anywhere in the layer stack.'
+              : selectedContentLayerId
+                ? `Style, position, and export this layer${selectedLayerShader ? ` with ${material.name} applied` : ''}.`
+                : 'Select a layer to edit its content and appearance, or add a new one below.'}</p>
           </section>
 
+          {!selectedLayerId ? <>
+            <section className='shader-lab-v2-control-section shader-lab-v2-composition-setup'>
+              <div className='shader-lab-v2-section-title'><h3>Composition setup</h3><span>{canvasDimensions.width} × {canvasDimensions.height}</span></div>
+              <div className='shader-lab-v2-composition-ratios' aria-label='Composition aspect ratio'>
+                {RATIO_OPTIONS.map((option) => (
+                  <button aria-pressed={ratio === option.value} key={option.value} onClick={() => setRatio(option.value)} type='button'>
+                    <i aria-hidden='true' style={{ aspectRatio: `${option.width} / ${option.height}` }} />
+                    <span><strong>{option.label}</strong><small>{option.value === 'wide' ? 'Wide' : option.value === 'square' ? 'Square' : 'Social'}</small></span>
+                  </button>
+                ))}
+              </div>
+              <dl className='shader-lab-v2-composition-metrics'>
+                <div><dt>Layers</dt><dd>{visibleLayerIds.length} / {listedLayerIds.length}</dd></div>
+                <div><dt>Shaders</dt><dd>{shaderLayers.filter(({ visible }) => visible).length}</dd></div>
+                <div><dt>Motion</dt><dd>{paused ? 'Paused' : 'Live'}</dd></div>
+              </dl>
+            </section>
+
+            <section className='shader-lab-v2-control-section'>
+              <div className='shader-lab-v2-section-title'><h3>Add a layer</h3><span>Front of stack</span></div>
+              <div className='shader-lab-v2-composition-add' aria-label='Add composition layer'>
+                <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.length} layers</small></span></button>
+                <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
+                <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
+                <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} layers</small></span></button>
+              </div>
+            </section>
+
+            <section className='shader-lab-v2-control-section'>
+              <div className='shader-lab-v2-section-title'><h3>Quick output</h3><span>{ratioOption.label}</span></div>
+              <div className='shader-lab-v2-composition-output'>
+                <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
+                <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
+                <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>GIF</span></button>
+                <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>MP4</span></button>
+              </div>
+            </section>
+          </> : null}
+
           <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Color</h3><span>3 stops</span></div>
+            <div className='shader-lab-v2-section-title'><h3>Canvas</h3><span>Background</span></div>
+            <ColorControl
+              ariaLabel='Canvas background color'
+              label='Background color'
+              onChange={setCanvasBackground}
+              value={canvasBackground}
+            />
+          </section>
+
+          {editingShader ? <>
+          <section className='shader-lab-v2-control-section'>
+            <div className='shader-lab-v2-section-title'><h3>Shader color</h3><span>{material.name}</span></div>
             <div className='shader-lab-v2-colors'>
               {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
                 <label key={key}>
@@ -996,7 +2049,14 @@ export default function ShaderLabStudio({
                 <button
                   aria-label={`Apply ${palette.name} palette`}
                   key={palette.id}
-                  onClick={() => setSettings((current) => ({ ...current, colorA: palette.colors[0], colorB: palette.colors[1], colorC: palette.colors[2] }))}
+                  onClick={() => updateSelectedShader({
+                    settings: {
+                      ...settings,
+                      colorA: palette.colors[0],
+                      colorB: palette.colors[1],
+                      colorC: palette.colors[2],
+                    },
+                  })}
                   title={palette.name}
                   type='button'
                 >
@@ -1004,20 +2064,56 @@ export default function ShaderLabStudio({
                 </button>
               ))}
             </div>
+            <div className='shader-lab-v2-shader-meta'>
+              <button
+                onClick={() => updateSelectedShader({
+                  settings: shaderLabSettingsFor(editingShader.materialId, initialSettings),
+                  shaderSize: 1,
+                })}
+                type='button'
+              ><RotateCcw aria-hidden='true' />Reset shader</button>
+              {material.sourceUrl ? (
+                <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
+              ) : null}
+            </div>
           </section>
 
           <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Tune</h3><span>Essentials</span></div>
+            <div className='shader-lab-v2-section-title'><h3>Shader settings</h3><span>Essentials</span></div>
             <div className='shader-lab-v2-ranges'>
               <RangeControl
                 label='Shader size'
                 max={3}
                 min={0.25}
-                onChange={setShaderSize}
+                onChange={(value) => updateSelectedShader({ shaderSize: value })}
                 step={0.05}
                 value={shaderSize}
               />
-              {isPaperLiveMaterialId(materialId) ? (
+              <RangeControl
+                formatValue={(value) => `${Math.round(value * 100)}%`}
+                label='Opacity'
+                max={1}
+                min={0}
+                onChange={(value) => updateSelectedShader({ opacity: value })}
+                step={0.01}
+                value={editingShader.opacity}
+              />
+              <div className='shader-lab-v2-text-options'>
+                <span>Blend</span>
+                <div>
+                  {(['normal', 'screen', 'overlay', 'multiply'] as const).map((value) => (
+                    <button
+                      aria-pressed={editingShader.blendMode === value}
+                      key={value}
+                      onClick={() => updateSelectedShader({ blendMode: value })}
+                      type='button'
+                    >
+                      {value.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {isPaperLiveMaterialId(editingShader.materialId) ? (
                 <>
                   <RangeControl
                     formatValue={(value) => `${Math.round(value * 100)}%`}
@@ -1049,33 +2145,51 @@ export default function ShaderLabStudio({
               ))}
             </div>
           </section>
+          </> : null}
 
-          <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Composition</h3><span>{visibleLayerIds.length} layers</span></div>
-            <input accept='image/*' className='sr-only' onChange={(event) => selectLogo(event.target.files?.[0])} ref={logoInputRef} type='file' />
-            <input accept='image/*' className='sr-only' multiple onChange={(event) => addAssets(event.target.files)} ref={assetInputRef} type='file' />
-            <div className='shader-lab-v2-content-modes' aria-label='Primary content'>
-              {([
-                ['logo', 'Mark'],
-                ['text', 'Text'],
-                ['both', 'Both'],
-                ['none', 'None'],
-              ] as const).map(([value, label]) => (
-                <button aria-pressed={contentMode === value} key={value} onClick={() => setContentMode(value)} type='button'>{label}</button>
-              ))}
-            </div>
-            {contentMode === 'text' || contentMode === 'both' ? (
+          {selectedContentLayerId ? <section className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve>
+            <div className='shader-lab-v2-section-title'><h3>Selected layer</h3><span>{selectedContentLayerId ? layerKind(selectedContentLayerId) : 'Canvas'}</span></div>
+            {selectedTextLayer && selectedTextTransform && selectedTextAppearance ? (
               <>
                 <label className='shader-lab-v2-text-input'>
                   <Type aria-hidden='true' />
-                  <textarea aria-label='Canvas text' maxLength={280} onChange={(event) => setTextValue(event.target.value)} placeholder='Type something' rows={2} value={textValue} />
+                  <textarea
+                    aria-label={`${selectedTextLayer.name} content`}
+                    onChange={(event) => updateTextLayer(selectedTextLayer.id, { value: event.target.value })}
+                    placeholder='Type something'
+                    rows={2}
+                    value={selectedTextLayer.value}
+                  />
                 </label>
                 <div aria-label='Typography' className='shader-lab-v2-text-controls'>
+                  <label className='shader-lab-v2-field'>
+                    <span>Brand font</span>
+                    <StudioSelect
+                      ariaLabel='Text font role'
+                      onValueChange={(fontRole) => updateTextLayer(selectedTextLayer.id, { fontRole: fontRole as BrandTypography['role'] })}
+                      options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({
+                        label: `${role} · ${brandTypographyFamily(identity, role)}`,
+                        value: role,
+                      }))}
+                      value={selectedTextAppearance.fontRole}
+                    />
+                  </label>
+                  <ColorControl
+                    ariaLabel='Text color'
+                    label='Text color'
+                    onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
+                    value={selectedTextAppearance.color}
+                  />
                   <div className='shader-lab-v2-text-options'>
                     <span>Wrap</span>
                     <div>
                       {(['wrap', 'nowrap'] as const).map((value) => (
-                        <button aria-pressed={textWrap === value} key={value} onClick={() => setTextWrap(value)} type='button'>
+                        <button
+                          aria-pressed={selectedTextLayer.wrap === value}
+                          key={value}
+                          onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: value })}
+                          type='button'
+                        >
                           {value === 'wrap' ? 'On' : 'Off'}
                         </button>
                       ))}
@@ -1085,7 +2199,12 @@ export default function ShaderLabStudio({
                     <span>Align</span>
                     <div>
                       {(['left', 'center', 'right'] as const).map((value) => (
-                        <button aria-pressed={textAlign === value} key={value} onClick={() => setTextAlign(value)} type='button'>
+                        <button
+                          aria-pressed={selectedTextLayer.align === value}
+                          key={value}
+                          onClick={() => updateTextLayer(selectedTextLayer.id, { align: value })}
+                          type='button'
+                        >
                           {value[0]!.toUpperCase()}
                         </button>
                       ))}
@@ -1096,96 +2215,198 @@ export default function ShaderLabStudio({
                     label='Text size'
                     max={3}
                     min={0.2}
-                    onChange={(scale) => setTextTransform((current) => ({ ...current, scale }))}
+                    onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
+                      transform: { ...selectedTextTransform, scale },
+                    })}
                     step={0.05}
-                    value={textTransform.scale}
+                    value={selectedTextTransform.scale}
+                  />
+                  <RangeControl
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                    label='Text box width'
+                    max={3}
+                    min={0.25}
+                    onChange={(widthScale) => updateTextLayer(selectedTextLayer.id, {
+                      transform: { ...selectedTextTransform, widthScale },
+                    })}
+                    step={0.05}
+                    value={selectedTextTransform.widthScale ?? 1}
+                  />
+                  <RangeControl
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                    label='Text opacity'
+                    max={1}
+                    min={0}
+                    onChange={(opacity) => updateTextLayer(selectedTextLayer.id, { opacity })}
+                    step={0.01}
+                    value={selectedTextAppearance.opacity}
                   />
                   <RangeControl
                     formatValue={(value) => value.toFixed(2)}
                     label='Line height'
                     max={1.8}
                     min={0.7}
-                    onChange={setTextLineHeight}
+                    onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
                     step={0.05}
-                    value={textLineHeight}
+                    value={selectedTextLayer.lineHeight}
                   />
                   <RangeControl
                     label='Weight'
                     max={900}
                     min={300}
-                    onChange={setTextWeight}
+                    onChange={(weight) => updateTextLayer(selectedTextLayer.id, { weight })}
                     step={50}
-                    value={textWeight}
+                    value={selectedTextLayer.weight}
                   />
                   <RangeControl
                     formatValue={(value) => `${value.toFixed(2)}em`}
                     label='Tracking'
                     max={0.2}
                     min={-0.12}
-                    onChange={setTextTracking}
+                    onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
                     step={0.01}
-                    value={textTracking}
+                    value={selectedTextLayer.tracking}
                   />
+                  <div className='shader-lab-v2-effect-group'>
+                    <label>
+                      <span>Text outline</span>
+                      <input checked={selectedTextAppearance.outlineEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} type='checkbox' />
+                    </label>
+                    {selectedTextAppearance.outlineEnabled ? <>
+                      <label className='shader-lab-v2-color-field'>
+                        <span>Outline color</span>
+                        <span>
+                          <input aria-label='Text outline color' onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineColor: event.target.value })} type='color' value={selectedTextAppearance.outlineColor} />
+                          <code>{selectedTextAppearance.outlineColor}</code>
+                        </span>
+                      </label>
+                      <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
+                    </> : null}
+                  </div>
+                  <div className='shader-lab-v2-effect-group'>
+                    <label>
+                      <span>Text shadow</span>
+                      <input checked={selectedTextAppearance.shadowEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} type='checkbox' />
+                    </label>
+                    {selectedTextAppearance.shadowEnabled ? <>
+                      <label className='shader-lab-v2-color-field'>
+                        <span>Shadow color</span>
+                        <span>
+                          <input aria-label='Text shadow color' onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowColor: event.target.value })} type='color' value={selectedTextAppearance.shadowColor} />
+                          <code>{selectedTextAppearance.shadowColor}</code>
+                        </span>
+                      </label>
+                      <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
+                      <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
+                      <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
+                      <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity })} step={1} value={selectedTextAppearance.shadowOpacity} />
+                    </> : null}
+                  </div>
                 </div>
               </>
             ) : null}
-            <div className='shader-lab-v2-logo-row'>
-              <Button className='flex-1' onClick={() => logoInputRef.current?.click()} size='sm' type='button' variant='outline'><ImagePlus aria-hidden='true' />{customLogo ? 'Replace mark' : 'Upload mark'}</Button>
-              {customLogo ? <Button aria-label='Use brand logo' onClick={clearLogo} size='icon-sm' type='button' variant='ghost'><X aria-hidden='true' /></Button> : null}
-            </div>
-            {customLogo ? <p className='truncate text-xs text-muted-foreground'>{customLogo.name}</p> : null}
-            <Button className='w-full' onClick={() => assetInputRef.current?.click()} size='sm' type='button' variant='outline'><ImagePlus aria-hidden='true' />Add image assets</Button>
+            {selectedLogoLayer && selectedLogoAppearance ? (
+              <div aria-label='Mark appearance' className='shader-lab-v2-layer-settings'>
+                <div className='shader-lab-v2-layer-settings-heading'>
+                  <strong>Mark appearance</strong>
+                  <span>SVG-safe</span>
+                </div>
+                <label className='shader-lab-v2-color-field'>
+                  <span>Mark color</span>
+                  <span>
+                    <input aria-label='Mark color' onChange={(event) => updateLogoLayer(selectedLogoLayer.id, { color: event.target.value })} type='color' value={selectedLogoLayer.color ?? '#FFFFFF'} />
+                    <code>{selectedLogoLayer.color ?? '#FFFFFF'}</code>
+                  </span>
+                </label>
+                <RangeControl
+                  formatValue={(value) => `${Math.round(value * 100)}%`}
+                  label='Mark opacity'
+                  max={1}
+                  min={0}
+                  onChange={(opacity) => updateLogoLayer(selectedLogoLayer.id, { opacity })}
+                  step={0.01}
+                  value={selectedLogoLayer.opacity ?? 1}
+                />
+                <LogoAppearanceControls
+                  onChange={(patch) => updateLogoLayer(selectedLogoLayer.id, { appearance: { ...selectedLogoAppearance, ...patch } })}
+                  settings={selectedLogoAppearance}
+                />
+                <details className='shader-lab-v2-asset-conversion'>
+                  <summary><span>SVG conversion & mark library</span><ChevronDown aria-hidden='true' /></summary>
+                  <AssetConversionLibrary
+                    compact
+                    library={convertedAssetLibrary}
+                    onSelect={selectConvertedLogo}
+                    selectedAssetId={selectedLogoLayer.convertedAssetId ?? null}
+                  />
+                </details>
+              </div>
+            ) : null}
+            {selectedAsset && selectedAssetAppearance ? (
+              <div aria-label='Image appearance' className='shader-lab-v2-layer-settings'>
+                <div className='shader-lab-v2-layer-settings-heading'>
+                  <strong>Image appearance</strong>
+                  <span>Non-destructive</span>
+                </div>
+                <RangeControl
+                  formatValue={(value) => `${Math.round(value * 100)}%`}
+                  label='Image opacity'
+                  max={1}
+                  min={0}
+                  onChange={(opacity) => updateAssetLayer(selectedAsset.id, { opacity })}
+                  step={0.01}
+                  value={selectedAsset.opacity ?? 1}
+                />
+                <LogoAppearanceControls
+                  kind='image'
+                  onChange={(patch) => updateAssetLayer(selectedAsset.id, { appearance: { ...selectedAssetAppearance, ...patch } })}
+                  settings={selectedAssetAppearance}
+                />
+              </div>
+            ) : null}
+            {selectedLayerShader ? (
+              <Button className='mt-2 w-full' onClick={removeShaderFromSelectedContent} size='sm' type='button' variant='ghost'>
+                <X aria-hidden='true' />Remove shader from layer
+              </Button>
+            ) : null}
+            {selectedLogoLayer ? <Button className='mt-2 w-full' onClick={() => updateLogoTransform(selectedLogoLayer.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset mark position</Button> : null}
+            {selectedAsset ? <Button className='mt-2 w-full' onClick={() => updateAssetTransform(selectedAsset.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset image position</Button> : null}
+            {selectedTextLayer ? (
+              <Button
+                className='mt-2 w-full'
+                onClick={() => updateTextLayer(selectedTextLayer.id, { transform: DEFAULT_TEXT_LAYER_TRANSFORM })}
+                size='sm'
+                type='button'
+                variant='ghost'
+              ><RotateCcw aria-hidden='true' />Reset text box</Button>
+            ) : null}
+          </section> : null}
 
-            <div className='shader-lab-v2-layer-list' aria-label='Canvas layers'>
-              {[...listedLayerIds].reverse().map((layerId) => {
-                const orderIndex = layerOrder.indexOf(layerId);
-                const layerVisible = layerId === 'logo' || layerId === 'text'
-                  ? primaryLayerIsVisible(layerId)
-                  : true;
-                return (
-                  <div aria-selected={selectedLayerId === layerId} data-visible={layerVisible} key={layerId}>
-                    <button className='shader-lab-v2-layer-select' onClick={() => setSelectedLayerId(layerId)} title={layerLabel(layerId)} type='button'>
-                      <span>{layerId === 'text' ? <Type aria-hidden='true' /> : <ImagePlus aria-hidden='true' />}</span>
-                      <strong>{layerLabel(layerId)}</strong>
-                    </button>
-                    {layerId === 'logo' || layerId === 'text' ? (
-                      <button
-                        aria-label={`${layerVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`}
-                        aria-pressed={layerVisible}
-                        onClick={() => togglePrimaryLayer(layerId)}
-                        title={`${layerVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`}
-                        type='button'
-                      >
-                        {layerVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-                      </button>
-                    ) : null}
-                    <button aria-label={`Move ${layerLabel(layerId)} forward`} disabled={orderIndex === layerOrder.length - 1} onClick={() => moveLayer(layerId, 1)} type='button'><ArrowUp aria-hidden='true' /></button>
-                    <button aria-label={`Move ${layerLabel(layerId)} backward`} disabled={orderIndex === 0} onClick={() => moveLayer(layerId, -1)} type='button'><ArrowDown aria-hidden='true' /></button>
-                    {layerId.startsWith('asset-') ? <button aria-label={`Delete ${layerLabel(layerId)}`} onClick={() => removeAsset(layerId)} type='button'><Trash2 aria-hidden='true' /></button> : null}
-                  </div>
-                );
-              })}
-            </div>
-            {selectedLayerId === 'logo' ? <Button className='mt-2 w-full' onClick={() => setLogoTransform(DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset mark position</Button> : null}
-            {selectedLayerId === 'text' ? <Button className='mt-2 w-full' onClick={() => setTextTransform(DEFAULT_TEXT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset text box</Button> : null}
-          </section>
-
-          <details className='shader-lab-v2-advanced'>
+          {editingShader ? <details className='shader-lab-v2-advanced'>
             <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
             <div className='shader-lab-v2-ranges'>
               {ADVANCED_CONTROLS.map((control) => (
                 <RangeControl {...control} key={control.key} onChange={(value) => updateSetting(control.key, value)} value={settings[control.key]} />
               ))}
             </div>
-          </details>
+          </details> : null}
 
           <section className='shader-lab-v2-handoff'>
             <Code2 aria-hidden='true' />
-            <div><strong>Developer handoff</strong><span>Material ID + exact uniforms</span></div>
+            <div><strong>Developer handoff</strong><span>Layer order + exact shader settings</span></div>
             <button onClick={() => void copySetup()} type='button'>{copied ? <Check aria-hidden='true' /> : 'Copy'}</button>
           </section>
         </aside>
       </div>
+      {sourceOpen ? (
+        <SourceCodeDrawer
+          format='JSON · Design Lab composition'
+          onApply={applyCompositionSource}
+          onClose={() => setSourceOpen(false)}
+          source={compositionSetupSource()}
+          title='Composition code'
+        />
+      ) : null}
     </div>
   );
 }
