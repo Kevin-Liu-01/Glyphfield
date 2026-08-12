@@ -40,13 +40,15 @@ describe('Playground optional layers', () => {
     expect(studioStyles).toContain('grid-template-rows: minmax(0, 1fr) 120px;');
   });
 
-  it('uses the shared minimal scrollbar on every lab overflow rail and reusable sidebar', () => {
+  it('uses the shared one-pixel custom scrollbar on every lab overflow rail and reusable sidebar', () => {
     expect(playground.match(/studio-scroll-area/g)?.length).toBeGreaterThanOrEqual(2);
     expect(designLab.match(/studio-scroll-area/g)?.length).toBeGreaterThanOrEqual(4);
     expect(resizableSidebar).toContain("className='resizable-sidebar-scroll studio-scroll-area'");
     expect(studioStyles).toContain(':where(.studio-scroll-area)::-webkit-scrollbar');
-    expect(studioStyles).toMatch(/:where\(\.studio-scroll-area\)::-webkit-scrollbar \{\s+width: 3px;\s+height: 3px;/);
-    expect(studioStyles).toContain('min-height: 24px;');
+    expect(studioStyles).toMatch(/:where\(\.studio-scroll-area\)::-webkit-scrollbar \{\s+display: block !important;\s+width: 1px !important;\s+height: 1px !important;/);
+    expect(studioStyles).toContain('scrollbar-width: auto !important;');
+    expect(studioStyles).toContain('scrollbar-color: auto !important;');
+    expect(studioStyles).toContain('background: var(--studio-scrollbar-thumb);');
     expect(studioStyles).not.toContain('scrollbar-gutter: stable;');
   });
 

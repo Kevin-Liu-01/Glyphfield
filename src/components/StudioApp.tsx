@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import {
+  startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -142,6 +144,9 @@ const LEGACY_SURFACE_TOOL_MODES = {
   backgrounds: 'background',
   logo: 'logo',
 } as const;
+const RETAINED_WORKSPACE_TOOL_IDS = new Set<StudioToolId>(['animation', 'material']);
+const MATERIAL_TOOL = STUDIO_TOOLS.find(({ id }) => id === 'material');
+const EMPTY_TOOL_IDS: StudioToolId[] = [];
 
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
 
@@ -651,6 +656,10 @@ export default function StudioApp() {
     systemTheme,
   } = useTheme();
   const [activeToolId, setActiveToolId] = useState<StudioToolId>('identity');
+  const [retainedWorkspaces, setRetainedWorkspaces] = useState<{
+    identityId: string;
+    toolIds: StudioToolId[];
+  }>({ identityId: STARTER_BRAND_IDENTITY.id, toolIds: [] });
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
   );
@@ -711,6 +720,9 @@ export default function StudioApp() {
   );
   const activeIdentity =
     resolvedIdentities.find(({ id }) => id === activeIdentityId) ?? resolvedIdentities[0];
+  const retainedWorkspaceToolIds = retainedWorkspaces.identityId === activeIdentity?.id
+    ? retainedWorkspaces.toolIds
+    : EMPTY_TOOL_IDS;
   const activeIdentityHasPendingChanges = Boolean(
     activeIdentity && pendingIdentities[activeIdentity.id]
   );
@@ -747,6 +759,34 @@ export default function StudioApp() {
       ) as Record<ProjectFolderId, number>,
     [resolvedIdentities]
   );
+
+  useEffect(() => {
+    if (!identitiesReady || !activeIdentity) return;
+    const identityId = activeIdentity.id;
+    const warmWorkspaces = () => {
+      startTransition(() => {
+        setRetainedWorkspaces((current) => {
+          if (
+            current.identityId === identityId
+            && RETAINED_WORKSPACE_TOOL_IDS.size === current.toolIds.length
+            && current.toolIds.every((toolId) => RETAINED_WORKSPACE_TOOL_IDS.has(toolId))
+          ) {
+            return current;
+          }
+          return {
+            identityId,
+            toolIds: Array.from(RETAINED_WORKSPACE_TOOL_IDS),
+          };
+        });
+      });
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleCallback = window.requestIdleCallback(warmWorkspaces, { timeout: 1_500 });
+      return () => window.cancelIdleCallback(idleCallback);
+    }
+    const warmTimer = window.setTimeout(warmWorkspaces, 700);
+    return () => window.clearTimeout(warmTimer);
+  }, [activeIdentity?.id, identitiesReady]);
 
   useMountEffect(() => {
     try {
@@ -930,12 +970,25 @@ export default function StudioApp() {
   });
 
   function selectTool(toolId: StudioToolId) {
+    const retainActiveWorkspace = toolId !== activeToolId
+      && RETAINED_WORKSPACE_TOOL_IDS.has(activeToolId);
     if (toolId !== activeToolId) {
       const currentIndex = STUDIO_TOOLS.findIndex(({ id }) => id === activeToolId);
       const nextIndex = STUDIO_TOOLS.findIndex(({ id }) => id === toolId);
       workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
     }
-    setActiveToolId(toolId);
+    startTransition(() => {
+      if (retainActiveWorkspace) {
+        setRetainedWorkspaces((current) => {
+          const identityId = activeIdentity?.id ?? STARTER_BRAND_IDENTITY.id;
+          const toolIds = current.identityId === identityId ? current.toolIds : [];
+          return toolIds.includes(activeToolId)
+            ? current
+            : { identityId, toolIds: [...toolIds, activeToolId] };
+        });
+      }
+      setActiveToolId(toolId);
+    });
     setQuery('');
     window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, toolId);
   }
@@ -1073,12 +1126,12 @@ export default function StudioApp() {
     });
   }
 
-  function updateIdentity(nextIdentity: BrandIdentity) {
+  const updateIdentity = useCallback((nextIdentity: BrandIdentity) => {
     setPendingIdentities((current) => ({
       ...current,
       [nextIdentity.id]: nextIdentity,
     }));
-  }
+  }, []);
 
   function saveIdentityChanges(identityId: string) {
     const pendingIdentity = pendingIdentities[identityId];
@@ -1615,7 +1668,7 @@ export default function StudioApp() {
           <div
             className='studio-workspace-view'
             data-motion-direction={workspaceDirectionRef.current}
-            key={`${activeIdentity.id}-${activeTool.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
+            key={`${activeIdentity.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
           >
             {!activeIdentityIsOpen ? (
               <div className='studio-closed-projects-empty'>
@@ -1625,24 +1678,63 @@ export default function StudioApp() {
                   <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
                 </div>
               </div>
-            ) : activeToolId === 'identity' ? (
-              <BrandSettingsStudio
-                hasPendingChanges={activeIdentityHasPendingChanges}
-                identity={activeIdentity}
-                onChange={updateIdentity}
-                tool={activeTool}
-              />
-            ) : activeToolId === 'animation' ? (
-              <AnimationStudio embedded identity={activeIdentity} />
-            ) : activeToolId === 'lottie' ? (
-              <LottieStudio identity={activeIdentity} />
             ) : (
-              <StudioToolWorkspace
-                hasPendingIdentityChanges={activeIdentityHasPendingChanges}
-                identity={activeIdentity}
-                onIdentityChange={updateIdentity}
-                tool={activeTool}
-              />
+              <>
+                {activeToolId === 'animation' || retainedWorkspaceToolIds.includes('animation') ? (
+                  <div
+                    aria-hidden={activeToolId !== 'animation'}
+                    className='studio-workspace-panel'
+                    hidden={activeToolId !== 'animation'}
+                    inert={activeToolId !== 'animation'}
+                  >
+                    <AnimationStudio
+                      embedded
+                      identity={activeIdentity}
+                    />
+                  </div>
+                ) : null}
+                {MATERIAL_TOOL && (
+                  activeToolId === 'material' || retainedWorkspaceToolIds.includes('material')
+                ) ? (
+                  <div
+                    aria-hidden={activeToolId !== 'material'}
+                    className='studio-workspace-panel'
+                    hidden={activeToolId !== 'material'}
+                    inert={activeToolId !== 'material'}
+                  >
+                    <StudioToolWorkspace
+                      hasPendingIdentityChanges={activeIdentityHasPendingChanges}
+                      identity={activeIdentity}
+                      onIdentityChange={updateIdentity}
+                      tool={MATERIAL_TOOL}
+                    />
+                  </div>
+                ) : null}
+                {activeToolId === 'animation' || activeToolId === 'material' ? null : (
+                  <div
+                    className='studio-workspace-panel'
+                    key={`${activeIdentity.id}-${activeTool.id}`}
+                  >
+                    {activeToolId === 'identity' ? (
+                      <BrandSettingsStudio
+                        hasPendingChanges={activeIdentityHasPendingChanges}
+                        identity={activeIdentity}
+                        onChange={updateIdentity}
+                        tool={activeTool}
+                      />
+                    ) : activeToolId === 'lottie' ? (
+                      <LottieStudio identity={activeIdentity} />
+                    ) : (
+                      <StudioToolWorkspace
+                        hasPendingIdentityChanges={activeIdentityHasPendingChanges}
+                        identity={activeIdentity}
+                        onIdentityChange={updateIdentity}
+                        tool={activeTool}
+                      />
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

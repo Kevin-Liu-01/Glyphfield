@@ -2177,26 +2177,27 @@ body {
 * {
   box-sizing: border-box;
   border-color: hsl(var(--border));
-  scrollbar-color: hsl(var(--foreground) / 0.38) transparent;
+  scrollbar-color: hsl(var(--foreground) / 0.42) transparent;
   scrollbar-width: thin;
 }
 
 @supports selector(::-webkit-scrollbar) {
   * {
-    scrollbar-color: auto;
-    scrollbar-width: auto;
+    scrollbar-color: auto !important;
+    scrollbar-width: auto !important;
   }
 
   :root::-webkit-scrollbar,
   :root :where(*)::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
+    display: block !important;
+    width: 1px !important;
+    height: 1px !important;
   }
 
   :root::-webkit-scrollbar-track,
   :root :where(*)::-webkit-scrollbar-track {
     border: 0;
-    background: transparent;
+    background: transparent !important;
     box-shadow: none;
   }
 
@@ -2204,23 +2205,21 @@ body {
   :root :where(*)::-webkit-scrollbar-thumb {
     min-width: 24px;
     min-height: 24px;
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 0;
-    background: hsl(var(--foreground) / 0.42);
-    background-clip: content-box;
+    background: var(--studio-scrollbar-thumb, hsl(var(--foreground) / 0.42));
   }
 
   :root::-webkit-scrollbar-thumb:hover,
   :root :where(*)::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--foreground) / 0.72);
-    background-clip: content-box;
+    background: var(--studio-scrollbar-thumb-hover, hsl(var(--foreground) / 0.76));
   }
 
   :root::-webkit-scrollbar-button,
   :root :where(*)::-webkit-scrollbar-button {
-    display: none;
-    width: 0;
-    height: 0;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   :root::-webkit-scrollbar-corner,
@@ -2229,10 +2228,10 @@ body {
   }
 }
 
-/* Minimal scroll affordances shared by Studio rails, trays, and inspectors. */
+/* One-pixel custom scrollbars shared by Studio rails, trays, and inspectors. */
 .studio-scroll-area {
-  --studio-scrollbar-thumb: hsl(var(--foreground) / 0.34);
-  --studio-scrollbar-thumb-hover: hsl(var(--foreground) / 0.68);
+  --studio-scrollbar-thumb: hsl(var(--foreground) / 0.42);
+  --studio-scrollbar-thumb-hover: hsl(var(--foreground) / 0.76);
   overscroll-behavior: contain;
   scrollbar-color: var(--studio-scrollbar-thumb) transparent;
   scrollbar-width: thin;
@@ -2240,26 +2239,25 @@ body {
 
 @supports selector(::-webkit-scrollbar) {
   :where(.studio-scroll-area)::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
+    display: block !important;
+    width: 1px !important;
+    height: 1px !important;
   }
 
   :where(.studio-scroll-area)::-webkit-scrollbar-track {
-    background: transparent;
+    background: transparent !important;
   }
 
   :where(.studio-scroll-area)::-webkit-scrollbar-thumb {
     min-width: 24px;
     min-height: 24px;
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 0;
     background: var(--studio-scrollbar-thumb);
-    background-clip: content-box;
   }
 
   :where(.studio-scroll-area)::-webkit-scrollbar-thumb:hover {
     background: var(--studio-scrollbar-thumb-hover);
-    background-clip: content-box;
   }
 }
 
@@ -7881,6 +7879,13 @@ body {
   overflow: clip;
   transform-origin: 50% 30%;
   animation: studio-workspace-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.studio-workspace-panel {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: clip;
 }
 
 .studio-workspace-view[data-motion-direction='backward'] {

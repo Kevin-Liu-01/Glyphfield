@@ -72,6 +72,7 @@ import {
   type StillImageFormat,
 } from '@/lib/canvasExport';
 import type { ConvertedAsset } from '@/lib/convertedAssets';
+import { downloadBlob } from '@/lib/download';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
@@ -1619,6 +1620,7 @@ export default function ShaderLabStudio({
       const blob = await canvasToImageBlob(output, format, quality);
       const label = format === 'jpg' ? 'JPG' : 'PNG';
       const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
+      downloadBlob(blob, fileName);
       setLastExport({
         blob,
         elapsedMs: performance.now() - startedAt,
@@ -1690,6 +1692,7 @@ export default function ShaderLabStudio({
         : await encodeCanvasMp4({ ...sharedOptions, fps, quality });
       const label = format === 'gif' ? 'GIF' : 'MP4';
       const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
+      downloadBlob(blob, fileName);
       setLastExport({
         blob,
         elapsedMs: performance.now() - startedAt,
@@ -1710,7 +1713,6 @@ export default function ShaderLabStudio({
   function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
     return (
       <LiveMaterialCanvas
-        activeWhileMounted
         captureTimeMs={captureTimeMs}
         className='absolute inset-0 size-full'
         key={instanceKey}

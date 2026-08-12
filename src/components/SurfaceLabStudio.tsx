@@ -283,6 +283,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const [selectedSticker, setSelectedSticker] = useState<StickerSelection | null>(null);
   const [stickerRenderLayers, setStickerRenderLayers] = useState<StickerRenderLayer[]>([]);
   const [customArtwork, setCustomArtwork] = useState<{ name: string; url: string } | null>(null);
+  const [mountPhase, setMountPhase] = useState(0);
   const [dock, setDock] = useStudioDraft<DesignDock>(identity.id, tool.id, 'design-lab-dock-v2', 'shader');
   const [textLayers, setTextLayers] = useStudioDraft<PlaygroundTextLayer[]>(identity.id, tool.id, 'playground-text-layers-v1', []);
   const [selectedTextId, setSelectedTextId] = useState<PlaygroundTextLayer['id'] | null>(null);
@@ -387,6 +388,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   ];
 
   customArtworkRef.current = customArtwork;
+  useMountEffect(() => {
+    let animationFrame = 0;
+    let nextPhase = 1;
+    const advance = () => {
+      setMountPhase(nextPhase);
+      nextPhase += 1;
+      if (nextPhase <= 5) animationFrame = window.requestAnimationFrame(advance);
+    };
+    animationFrame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(animationFrame);
+  });
+
   useMountEffect(() => () => {
     if (customArtworkRef.current) URL.revokeObjectURL(customArtworkRef.current.url);
   });
@@ -687,47 +700,53 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             toolId={tool.id}
           >
             <div className='design-lab-composition' style={{ aspectRatio }}>
-              {backgroundEnabled ? (
-                <div className='design-lab-shader-layer' ref={shaderStageRef}>
-                  <LazyLiveMaterialCanvas
-                    activeWhileMounted
-                    className='absolute inset-0 size-full'
-                    frameRate={30}
-                    materialId={liveMaterialId}
-                    maxPixelCount={2_000_000}
-                    settings={liveSettings}
-                  />
-                </div>
+              {mountPhase >= 1 ? (
+                <>
+                {backgroundEnabled ? (
+                  <div className='design-lab-shader-layer' ref={shaderStageRef}>
+                    <LazyLiveMaterialCanvas
+                      activeWhileMounted
+                      className='absolute inset-0 size-full'
+                      frameRate={30}
+                      materialId={liveMaterialId}
+                      maxPixelCount={2_000_000}
+                      settings={liveSettings}
+                    />
+                  </div>
+                ) : null}
+                </>
               ) : null}
-              {surfaceEnabled ? (
-                <div className='design-lab-surface-layer' data-interactive={surfaceIsCloth ? 'true' : 'false'} ref={surfaceStageRef}>
-                  <SurfaceMaterialStage
-                    artworkAspectRatio={aspectRatio}
-                    artworkLayers={stickersFollowSurface ? stickerRenderLayers : undefined}
-                    asset={selectedOpenSurfaceAsset}
-                    className='absolute inset-0 size-full'
-                    opacity={surfaceLayerOpacity}
-                    presentation={surfaceIsCloth ? 'interactive' : 'flat'}
-                    settings={settings}
-                    showAttribution={false}
-                    transparent
-                  />
-                </div>
+              {mountPhase >= 2 ? (surfaceEnabled ? (
+                  <div className='design-lab-surface-layer' data-interactive={surfaceIsCloth ? 'true' : 'false'} ref={surfaceStageRef}>
+                    <SurfaceMaterialStage
+                      artworkAspectRatio={aspectRatio}
+                      artworkLayers={stickersFollowSurface ? stickerRenderLayers : undefined}
+                      asset={selectedOpenSurfaceAsset}
+                      className='absolute inset-0 size-full'
+                      opacity={surfaceLayerOpacity}
+                      presentation={surfaceIsCloth ? 'interactive' : 'flat'}
+                      settings={settings}
+                      showAttribution={false}
+                      transparent
+                    />
+                  </div>
+                ) : null) : null}
+              {mountPhase >= 3 ? (
+                <StickerDeviceScene
+                  aspectRatio={aspectRatio}
+                  className='design-lab-sticker-layer'
+                  enabled={stickersEnabled}
+                  finish={stickerFinish}
+                  identity={identity}
+                  logoPath={artworkUrl}
+                  onPlacementsChange={setStickerRenderLayers}
+                  onSelectionChange={setSelectedSticker}
+                  ref={stickerStageRef}
+                  renderMode={stickersFollowSurface ? 'controls' : 'normal'}
+                  surface='transparent'
+                />
               ) : null}
-              <StickerDeviceScene
-                aspectRatio={aspectRatio}
-                className='design-lab-sticker-layer'
-                enabled={stickersEnabled}
-                finish={stickerFinish}
-                identity={identity}
-                logoPath={artworkUrl}
-                onPlacementsChange={setStickerRenderLayers}
-                onSelectionChange={setSelectedSticker}
-                ref={stickerStageRef}
-                renderMode={stickersFollowSurface ? 'controls' : 'normal'}
-                surface='transparent'
-              />
-              {textLayers.filter(({ visible }) => visible).map((layer, index) => {
+              {mountPhase >= 3 ? textLayers.filter(({ visible }) => visible).map((layer, index) => {
                 const transform = resolvedTextTransform(layer.transform);
                 const baseWidth = settings.width * 0.72;
                 const baseHeight = settings.height * 0.25;
@@ -770,11 +789,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                     />
                   </EditableCanvasLayer>
                 );
-              })}
+              }) : null}
             </div>
           </CanvasViewport>
 
           <div className='design-lab-dock'>
+            {mountPhase >= 4 ? (
+              <>
             <div className='design-lab-dock-tabs' role='tablist' aria-label={gt('Design libraries')}>
               <span className='design-lab-dock-label'>Layer library</span>
               {dockOptions.map((option) => (
@@ -923,10 +944,14 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 </button>
               )}
             </div>
+              </>
+            ) : null}
           </div>
         </main>
 
         <aside className='design-lab-inspector studio-scroll-area' aria-label={gt('Playground controls')}>
+          {mountPhase >= 5 ? (
+            <>
           <div className='design-lab-inspector-head'>
             <span>Composition stack</span>
             <strong>{backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'no background'} · {surfaceEnabled ? surfacePreset.name : 'no surface'} · {textLayers.length} text · {stickersEnabled ? 'stickers' : 'no stickers'}</strong>
@@ -1089,6 +1114,8 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               value={outputSize?.id ?? 'custom'}
             />
           </section>
+            </>
+          ) : null}
         </aside>
       </div>
 

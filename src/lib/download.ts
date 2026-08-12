@@ -23,7 +23,10 @@ function triggerDownload(url: string, filename: string): void {
   const anchor = document.createElement('a');
   anchor.download = filename;
   anchor.href = url;
+  anchor.style.display = 'none';
+  document.body.append(anchor);
   anchor.click();
+  anchor.remove();
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -45,7 +48,7 @@ export function downloadSvg(svg: string, filename: string): void {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   triggerDownload(url, filename);
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export async function svgToPngBlob(

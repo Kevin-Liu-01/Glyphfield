@@ -44,13 +44,11 @@ export function AppearanceFilteredContent({
     <svg
       aria-label={ariaLabel}
       className={`block size-full overflow-visible ${className}`}
-      preserveAspectRatio='none'
       role='img'
       style={{ ...style, opacity }}
-      viewBox='0 0 100 100'
     >
       <defs dangerouslySetInnerHTML={{ __html: buildImageSvgFilter(settings, filterId) }} />
-      <foreignObject filter={`url(#${filterId})`} height='100' width='100' x='0' y='0'>
+      <foreignObject filter={`url(#${filterId})`} height='100%' width='100%' x='0' y='0'>
         <div className='relative size-full'>{children}</div>
       </foreignObject>
     </svg>

@@ -4,6 +4,7 @@ import { Download, Eye, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
+import { downloadBlob } from '@/lib/download';
 
 export type ExportPreviewAsset = {
   blob: Blob;
@@ -156,11 +157,9 @@ export default function ExportPreview({
                   <Button className='flex-1' onClick={() => setOpen(false)} type='button' variant='outline'>
                     Cancel
                   </Button>
-                  <Button asChild className='flex-1'>
-                    <a download={asset.fileName} href={url}>
-                      <Download aria-hidden='true' />
-                      Download {asset.format}
-                    </a>
+                  <Button className='flex-1' onClick={() => downloadBlob(asset.blob, asset.fileName)} type='button'>
+                    <Download aria-hidden='true' />
+                    Download {asset.format}
                   </Button>
                 </div>
               </aside>

@@ -124,11 +124,27 @@ const AnimationPackagePreview = memo(function AnimationPackagePreview({
   useMountEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const workspace = container.closest<HTMLElement>('.studio-workspace-panel');
+    let intersecting = false;
+    const syncVisibility = () => {
+      const nextVisible = intersecting && !workspace?.hidden;
+      setVisible((current) => current === nextVisible ? current : nextVisible);
+    };
     const observer = new IntersectionObserver(([entry]) => {
-      setVisible(entry?.isIntersecting ?? false);
+      intersecting = entry?.isIntersecting ?? false;
+      syncVisibility();
     }, { rootMargin: '120px' });
     observer.observe(container);
-    return () => observer.disconnect();
+    const workspaceObserver = workspace
+      ? new MutationObserver(syncVisibility)
+      : null;
+    if (workspace && workspaceObserver) {
+      workspaceObserver.observe(workspace, { attributeFilter: ['hidden'], attributes: true });
+    }
+    return () => {
+      observer.disconnect();
+      workspaceObserver?.disconnect();
+    };
   });
 
   useEffect(() => {
@@ -139,7 +155,12 @@ const AnimationPackagePreview = memo(function AnimationPackagePreview({
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const draw = (timestamp: number) => {
-      if (document.visibilityState === 'hidden') return;
+      const container = containerRef.current;
+      if (
+        document.visibilityState === 'hidden'
+        || !container
+        || container.closest<HTMLElement>('.studio-workspace-panel')?.hidden
+      ) return;
       context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
       renderFrame(
         context,

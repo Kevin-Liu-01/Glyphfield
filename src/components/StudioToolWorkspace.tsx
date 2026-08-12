@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Check,
@@ -2885,7 +2885,7 @@ function ToolPlaceholder({ tool }: { tool: StudioTool }) {
   );
 }
 
-export default function StudioToolWorkspace({
+function StudioToolWorkspace({
   hasPendingIdentityChanges,
   identity,
   onIdentityChange,
@@ -2915,3 +2915,5 @@ export default function StudioToolWorkspace({
 
   return renderers[tool.id] ?? <ToolPlaceholder tool={tool} />;
 }
+
+export default memo(StudioToolWorkspace);

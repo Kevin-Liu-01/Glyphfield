@@ -1,7 +1,7 @@
 'use client';
 
 import NextImage from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
@@ -89,7 +89,7 @@ async function loadImageSource(path: string, name: string): Promise<StudioSource
   };
 }
 
-export default function AnimationStudio({
+function AnimationStudio({
   compactControls = false,
   embedded = false,
   identity,
@@ -206,6 +206,8 @@ export default function AnimationStudio({
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const workspaceVisibleRef = useRef(true);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const sequenceShaderLayerRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
@@ -358,6 +360,16 @@ export default function AnimationStudio({
   }, [settings, sources]);
 
   useMountEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      workspaceVisibleRef.current = entry?.isIntersecting ?? true;
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  });
+
+  useMountEffect(() => {
     if (qualityDefaultsMigrated) return;
     setStoredSettings((current) => ({
       ...current,
@@ -441,6 +453,11 @@ export default function AnimationStudio({
     let previousRenderedSourceId = '';
 
     function tick(timestamp: number) {
+      if (!workspaceVisibleRef.current) {
+        previousTimestamp = timestamp;
+        animationFrame = requestAnimationFrame(tick);
+        return;
+      }
       const elapsed = Math.min(100, timestamp - previousTimestamp);
       previousTimestamp = timestamp;
       const currentSettings = settingsRef.current;
@@ -871,6 +888,7 @@ export default function AnimationStudio({
           ? `animation-studio h-full min-h-0 bg-background text-foreground${compactControls ? ' animation-studio-compact-controls' : ''}`
           : 'studio-grid min-h-dvh bg-background text-foreground'
       }
+      ref={workspaceRef}
     >
       <header
         className={`app-navbar ${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
@@ -1120,3 +1138,5 @@ export default function AnimationStudio({
     </div>
   );
 }
+
+export default memo(AnimationStudio);
