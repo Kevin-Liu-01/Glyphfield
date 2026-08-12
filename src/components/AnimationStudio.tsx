@@ -292,6 +292,13 @@ export default function AnimationStudio({
     && sources.some((source) => (
       activeShaderSourceIds.has(source.id) && !backgroundOverrides[source.id]
     ));
+  const timelineRequiresShaderSync = sources.some((source) => backgroundOverrides[source.id])
+    && (
+      sequenceBackground.style === 'shader'
+      || sources.some((source) => (
+        backgroundOverrides[source.id] && source.background?.style === 'shader'
+      ))
+    );
   const sequenceShaderSettings = useMemo(() => ({
     ...settings.shaderSettings,
     ...sequenceBackground.materialSettings,
@@ -336,6 +343,7 @@ export default function AnimationStudio({
   const playbackRateRef = useRef(playbackRate);
   const activeTimelineRef = useRef(activeTimeline);
   const backgroundOverridesRef = useRef(backgroundOverrides);
+  const timelineRequiresShaderSyncRef = useRef(timelineRequiresShaderSync);
   settingsRef.current = settings;
   sourcesRef.current = sources;
   imagesRef.current = images;
@@ -343,6 +351,7 @@ export default function AnimationStudio({
   playbackRateRef.current = playbackRate;
   activeTimelineRef.current = activeTimeline;
   backgroundOverridesRef.current = backgroundOverrides;
+  timelineRequiresShaderSyncRef.current = timelineRequiresShaderSync;
 
   useEffect(() => {
     previewDirtyRef.current = true;
@@ -462,8 +471,11 @@ export default function AnimationStudio({
       });
       const previousActiveTimeline = activeTimelineRef.current;
       if (
-        position.index !== previousActiveTimeline.index
-        || position.nextIndex !== previousActiveTimeline.nextIndex
+        timelineRequiresShaderSyncRef.current
+        && (
+          position.index !== previousActiveTimeline.index
+          || position.nextIndex !== previousActiveTimeline.nextIndex
+        )
       ) {
         const nextActiveTimeline = { index: position.index, nextIndex: position.nextIndex };
         activeTimelineRef.current = nextActiveTimeline;
@@ -698,8 +710,11 @@ export default function AnimationStudio({
     const nextActiveTimeline = { index: nextTimeline.index, nextIndex: nextTimeline.nextIndex };
     const previousActiveTimeline = activeTimelineRef.current;
     if (
-      nextActiveTimeline.index !== previousActiveTimeline.index
-      || nextActiveTimeline.nextIndex !== previousActiveTimeline.nextIndex
+      timelineRequiresShaderSyncRef.current
+      && (
+        nextActiveTimeline.index !== previousActiveTimeline.index
+        || nextActiveTimeline.nextIndex !== previousActiveTimeline.nextIndex
+      )
     ) {
       activeTimelineRef.current = nextActiveTimeline;
       setActiveTimeline(nextActiveTimeline);

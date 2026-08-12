@@ -22,7 +22,7 @@ import {
   Type,
   X,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport from '@/components/CanvasViewport';
@@ -80,6 +80,7 @@ import {
   isPaperLiveMaterialId,
   normalizeLiveMaterialId,
   type LiveMaterialId,
+  type LiveMaterialOption,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
@@ -527,6 +528,33 @@ function RangeControl({
   );
 }
 
+const ShaderMaterialCard = memo(function ShaderMaterialCard({
+  material,
+  onSelect,
+  selected,
+}: {
+  material: LiveMaterialOption;
+  onSelect: (materialId: LiveMaterialId) => void;
+  selected: boolean;
+}) {
+  return (
+    <button
+      aria-pressed={selected}
+      className='shader-lab-v2-material-card'
+      onClick={() => onSelect(material.id)}
+      type='button'
+    >
+      <span className='shader-lab-v2-material-preview'>
+        <AuthenticShaderPreview materialId={material.id} />
+        <LiveMaterialSourceTag material={material} />
+      </span>
+      <span className='shader-lab-v2-material-copy'>
+        <strong>{material.name}</strong>
+      </span>
+    </button>
+  );
+});
+
 export default function ShaderLabStudio({
   identity,
   navigation,
@@ -556,6 +584,10 @@ export default function ShaderLabStudio({
   const stageRef = useRef<HTMLDivElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
+  const selectMaterialRef = useRef<(materialId: LiveMaterialId) => void>(() => undefined);
+  const handleMaterialSelect = useCallback((materialId: LiveMaterialId) => {
+    selectMaterialRef.current(materialId);
+  }, []);
   const convertedAssetLibrary = useConvertedAssets();
   const compositionAssetUrlsRef = useRef<string[]>([]);
   const [shaderLayers, setShaderLayers] = useStudioDraft<CompositionShaderLayer[]>(
@@ -776,6 +808,8 @@ export default function ShaderLabStudio({
     const next = choices[Math.floor(Math.random() * choices.length)];
     if (next) selectMaterial(next.id);
   }
+
+  selectMaterialRef.current = selectMaterial;
 
   function addCanvasShader(materialId: LiveMaterialId = activeMaterialId) {
     const id = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
@@ -1679,7 +1713,7 @@ export default function ShaderLabStudio({
         activeWhileMounted
         captureTimeMs={captureTimeMs}
         className='absolute inset-0 size-full'
-        key={`${instanceKey}-${application.materialId}`}
+        key={instanceKey}
         materialId={application.materialId}
         patternScale={application.shaderSize}
         paused={paused || captureTimeMs !== null}
@@ -1754,21 +1788,12 @@ export default function ShaderLabStudio({
           </div>
           <div className='shader-lab-v2-material-grid studio-scroll-area'>
             {materials.map((option) => (
-              <button
-                aria-pressed={editingShader?.materialId === option.id}
-                className='shader-lab-v2-material-card'
+              <ShaderMaterialCard
                 key={option.id}
-                onClick={() => selectMaterial(option.id)}
-                type='button'
-              >
-                <span className='shader-lab-v2-material-preview'>
-                  <AuthenticShaderPreview materialId={option.id} />
-                  <LiveMaterialSourceTag material={option} />
-                </span>
-                <span className='shader-lab-v2-material-copy'>
-                  <strong>{option.name}</strong>
-                </span>
-              </button>
+                material={option}
+                onSelect={handleMaterialSelect}
+                selected={editingShader?.materialId === option.id}
+              />
             ))}
           </div>
         </aside>

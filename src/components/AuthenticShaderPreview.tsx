@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import {
@@ -17,7 +17,7 @@ import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
 
 const capturedPreviews = new Map<LiveMaterialId, string>();
 
-export default function AuthenticShaderPreview({
+function AuthenticShaderPreview({
   className = '',
   materialId,
 }: {
@@ -122,3 +122,5 @@ export default function AuthenticShaderPreview({
     </span>
   );
 }
+
+export default memo(AuthenticShaderPreview);
