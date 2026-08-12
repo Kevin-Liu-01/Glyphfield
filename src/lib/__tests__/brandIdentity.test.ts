@@ -9,11 +9,13 @@ import {
   brandFontAssets,
   brandTypographyFamily,
   brandTypographyRole,
+  brandTypographyWeightRange,
   BUILT_IN_BRAND_IDENTITIES,
   createBrandIdentity,
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
+  resolveBrandTypographyWeight,
   STARTER_BRAND_IDENTITY,
 } from '../brandIdentity';
 
@@ -97,6 +99,14 @@ describe('GT_BRAND_IDENTITY', () => {
     expect(brandFontFaceCss(GT_BRAND_IDENTITY)).toContain(
       '@font-face{font-family:"Rasmus Inter";src:url("/fonts/inter-variable.ttf") format("truetype");font-style:normal;font-weight:100 900;font-display:swap;}'
     );
+  });
+
+  it('resolves requested weights to the font files the browser can actually render', () => {
+    expect(brandTypographyWeightRange(STARTER_BRAND_IDENTITY, 'Display')).toEqual({ max: 500, min: 400 });
+    expect(resolveBrandTypographyWeight(STARTER_BRAND_IDENTITY, 'Display', 900)).toBe(500);
+    expect(resolveBrandTypographyWeight(STARTER_BRAND_IDENTITY, 'Display', 450)).toBe(500);
+    expect(brandTypographyWeightRange(GT_BRAND_IDENTITY, 'Body')).toEqual({ max: 900, min: 100 });
+    expect(resolveBrandTypographyWeight(GT_BRAND_IDENTITY, 'Body', 800)).toBe(800);
   });
 });
 
@@ -286,6 +296,15 @@ describe('hydrateBrandIdentities', () => {
     const identities = hydrateBrandIdentities([custom]);
 
     expect(identities.find(({ id }) => id === 'brand-one')?.assets.map(({ id }) => id)).toEqual(['mark-dark', 'mark-light']);
+  });
+
+  it('repairs invalid persisted HEX colors while hydrating a project', () => {
+    const custom = createBrandIdentity('Acme', 'acme');
+    custom.colors[0] = { ...custom.colors[0]!, hex: '#NANNANNAN' };
+
+    const hydrated = hydrateBrandIdentities([custom]).find(({ id }) => id === 'acme')!;
+
+    expect(hydrated.colors[0]?.hex).toBe('#000000');
   });
 
   it('refreshes stale built-in identities to the current audited revision', () => {

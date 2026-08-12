@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 
 export type ExportPreviewAsset = {
   blob: Blob;
+  elapsedMs?: number;
   fileName: string;
   format: 'GIF' | 'JPG' | 'MP4' | 'PNG';
   height?: number;
@@ -16,6 +17,11 @@ export type ExportPreviewAsset = {
 function formatFileSize(size: number): string {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRenderTime(elapsedMs: number): string {
+  if (elapsedMs < 1_000) return `${Math.max(1, Math.round(elapsedMs))} ms`;
+  return `${(elapsedMs / 1_000).toFixed(1)} s`;
 }
 
 export default function ExportPreview({
@@ -133,7 +139,11 @@ export default function ExportPreview({
                   </p>
                   <p className='mt-2 break-all text-sm font-medium'>{asset.fileName}</p>
                   <p className='mt-1 font-mono text-[11px] text-muted-foreground'>
-                    {[dimensions, formatFileSize(asset.blob.size)].filter(Boolean).join(' · ')}
+                    {[
+                      dimensions,
+                      formatFileSize(asset.blob.size),
+                      asset.elapsedMs === undefined ? null : `rendered in ${formatRenderTime(asset.elapsedMs)}`,
+                    ].filter(Boolean).join(' · ')}
                   </p>
                 </div>
 

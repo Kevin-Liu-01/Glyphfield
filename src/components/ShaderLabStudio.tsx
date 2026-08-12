@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
@@ -44,7 +45,11 @@ import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   brandAssetPath,
+  brandFontAssets,
   brandTypographyFamily,
+  brandTypographyRole,
+  brandTypographyWeightRange,
+  resolveBrandTypographyWeight,
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
@@ -60,7 +65,9 @@ import {
   canvasToImageBlob,
   encodeCanvasGif,
   encodeCanvasMp4,
+  resolveExportDimensions,
   seamlessLoopBlendAmount,
+  type MotionExportQuality,
   type MotionFrame,
   type StillImageFormat,
 } from '@/lib/canvasExport';
@@ -182,6 +189,13 @@ type TextAppearanceSettings = {
   shadowOpacity: number;
 };
 
+type DesignExportSettings = {
+  durationMs: number;
+  fps: number;
+  quality: MotionExportQuality;
+  width: number;
+};
+
 const RATIO_OPTIONS: readonly { height: number; label: string; value: ShaderRatio; width: number }[] = [
   { height: 9, label: '16:9', value: 'wide', width: 16 },
   { height: 1, label: '1:1', value: 'square', width: 1 },
@@ -193,6 +207,19 @@ const CANVAS_DIMENSIONS: Record<ShaderRatio, { height: number; width: number }> 
   square: { height: 1200, width: 1200 },
   wide: { height: 900, width: 1600 },
 };
+
+const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
+  durationMs: 1_600,
+  fps: 15,
+  quality: 'balanced',
+  width: 960,
+};
+const EXPORT_WIDTH_PRESETS = [640, 960, 1_280, 1_920] as const;
+const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; value: MotionExportQuality }[] = [
+  { description: 'Smallest and quickest', label: 'Fast', value: 'fast' },
+  { description: 'Clean everyday output', label: 'Balanced', value: 'balanced' },
+  { description: 'Maximum color detail', label: 'Best', value: 'best' },
+];
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
@@ -280,6 +307,7 @@ function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
 
 function CanvasEditableText({
   className,
+  exportLayerId,
   label,
   onChange,
   onFocus,
@@ -287,6 +315,7 @@ function CanvasEditableText({
   value,
 }: {
   className: string;
+  exportLayerId: TextLayerId;
   label: string;
   onChange: (value: string) => void;
   onFocus: () => void;
@@ -308,6 +337,7 @@ function CanvasEditableText({
       className={className}
       contentEditable='plaintext-only'
       data-canvas-editable='true'
+      data-export-text-layer={exportLayerId}
       onBlur={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
       onFocus={onFocus}
       onInput={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
@@ -541,6 +571,12 @@ export default function ShaderLabStudio({
     {}
   );
   const [ratio, setRatio] = useStudioDraft<ShaderRatio>(identity.id, tool.id, 'shader-lab-v2-ratio', 'wide');
+  const [exportSettings, setExportSettings] = useStudioDraft<DesignExportSettings>(
+    identity.id,
+    tool.id,
+    'shader-lab-v3-export-settings',
+    DEFAULT_EXPORT_SETTINGS
+  );
   const [canvasBackground, setCanvasBackground] = useStudioDraft(
     identity.id,
     tool.id,
@@ -578,6 +614,29 @@ export default function ShaderLabStudio({
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
   const canvasDimensions = CANVAS_DIMENSIONS[ratio];
+  const normalizedExportSettings: DesignExportSettings = {
+    durationMs: [1_200, 1_600, 2_400, 4_000].includes(exportSettings.durationMs)
+      ? exportSettings.durationMs
+      : DEFAULT_EXPORT_SETTINGS.durationMs,
+    fps: [12, 15, 24, 30].includes(exportSettings.fps)
+      ? exportSettings.fps
+      : DEFAULT_EXPORT_SETTINGS.fps,
+    quality: EXPORT_QUALITY_OPTIONS.some(({ value }) => value === exportSettings.quality)
+      ? exportSettings.quality
+      : DEFAULT_EXPORT_SETTINGS.quality,
+    width: Number.isFinite(exportSettings.width)
+      ? exportSettings.width
+      : DEFAULT_EXPORT_SETTINGS.width,
+  };
+  const exportDimensions = resolveExportDimensions({
+    aspectHeight: ratioOption.height,
+    aspectWidth: ratioOption.width,
+    width: normalizedExportSettings.width,
+  });
+  const exportFrameCount = Math.max(
+    2,
+    Math.round(normalizedExportSettings.durationMs / (1_000 / normalizedExportSettings.fps))
+  );
   const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
   const selectedShaderLayer = isShaderLayerId(selectedLayerId)
     ? shaderLayers.find(({ id }) => id === selectedLayerId) ?? null
@@ -602,6 +661,12 @@ export default function ShaderLabStudio({
   const selectedTextAppearance = selectedTextLayer
     ? resolvedTextAppearance(selectedTextLayer)
     : null;
+  const selectedTextWeightRange = selectedTextAppearance
+    ? brandTypographyWeightRange(identity, selectedTextAppearance.fontRole)
+    : { max: 900, min: 100 };
+  const selectedTextRenderedWeight = selectedTextLayer && selectedTextAppearance
+    ? resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, selectedTextLayer.weight)
+    : 400;
   const selectedLogoLayer = isLogoLayerId(selectedLayerId)
     ? logoLayers.find(({ id }) => id === selectedLayerId) ?? null
     : null;
@@ -647,6 +712,21 @@ export default function ShaderLabStudio({
         : current
     );
   }, [shaderLayers, textLayers]);
+
+  useEffect(() => {
+    const needsWeightNormalization = textLayers.some((layer) => {
+      const fontRole = resolvedTextAppearance(layer).fontRole;
+      return layer.weight !== resolveBrandTypographyWeight(identity, fontRole, layer.weight);
+    });
+    if (!needsWeightNormalization) return;
+    setTextLayers((current) => current.map((layer) => {
+      const fontRole = resolvedTextAppearance(layer).fontRole;
+      return {
+        ...layer,
+        weight: resolveBrandTypographyWeight(identity, fontRole, layer.weight),
+      };
+    }));
+  }, [identity, setTextLayers, textLayers]);
 
   function updateSelectedShader(update: Partial<ShaderApplication>) {
     if (selectedShaderLayer) {
@@ -789,7 +869,11 @@ export default function ShaderLabStudio({
       transform: { ...DEFAULT_TEXT_LAYER_TRANSFORM, ...placement },
       value: nextNumber === 1 ? identity.name : `Text ${nextNumber}`,
       visible: true,
-      weight: 700,
+      weight: resolveBrandTypographyWeight(
+        identity,
+        DEFAULT_TEXT_APPEARANCE.fontRole,
+        brandTypographyRole(identity, DEFAULT_TEXT_APPEARANCE.fontRole).weight ?? 500
+      ),
       wrap: 'wrap',
     };
     setTextLayers((current) => [...current, layer]);
@@ -1324,21 +1408,74 @@ export default function ShaderLabStudio({
         const textLayer = textLayers.find((layer) => layer.id === layerId);
         if (!textLayer || !textLayer.value) return;
         const transform = resolvedTextTransform(textLayer.transform);
-        const box = outputLayerBox(layerId, transform, width, height);
+        const geometryBox = outputLayerBox(layerId, transform, width, height);
         const value = textLayer.value;
         const textAppearance = resolvedTextAppearance(textLayer);
+        const previewElement = Array.from(
+          stageRef.current?.querySelectorAll<HTMLElement>('[data-export-text-layer]') ?? []
+        ).find((element) => element.dataset.exportTextLayer === layerId);
+        const previewStyle = previewElement ? getComputedStyle(previewElement) : null;
+        const stageElement = stageRef.current;
+        const stageRect = stageElement?.getBoundingClientRect();
+        const previewRect = previewElement?.getBoundingClientRect();
+        const stageVisualScale = stageElement && stageRect && stageElement.offsetWidth > 0
+          ? stageRect.width / stageElement.offsetWidth
+          : 1;
+        const stageContentWidth = stageElement
+          ? stageElement.clientWidth * stageVisualScale
+          : 0;
+        const stageContentHeight = stageElement
+          ? stageElement.clientHeight * stageVisualScale
+          : 0;
+        const previewBox = stageElement && stageRect && previewRect && stageContentWidth > 0 && stageContentHeight > 0
+          ? {
+              height: previewRect.height / stageContentHeight * height,
+              width: previewRect.width / stageContentWidth * width,
+              x: (previewRect.left - stageRect.left - stageElement.clientLeft * stageVisualScale) / stageContentWidth * width,
+              y: (previewRect.top - stageRect.top - stageElement.clientTop * stageVisualScale) / stageContentHeight * height,
+            }
+          : null;
+        const box = previewBox ?? geometryBox;
         context.save();
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
-        const fontSize = Math.max(18, height * 0.17 * transform.scale);
-        const lineHeight = fontSize * textLayer.lineHeight;
-        const spacing = textLayer.tracking * fontSize;
-        context.font = `${textLayer.weight} ${fontSize}px ${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`;
+        const liveToOutputScale = stageElement?.clientWidth
+          ? width / stageElement.clientWidth
+          : null;
+        const computedFontSize = Number.parseFloat(previewStyle?.fontSize ?? '');
+        const computedLineHeight = Number.parseFloat(previewStyle?.lineHeight ?? '');
+        const computedLetterSpacing = Number.parseFloat(previewStyle?.letterSpacing ?? '');
+        const fontSize = liveToOutputScale && Number.isFinite(computedFontSize)
+          ? computedFontSize * liveToOutputScale
+          : Math.max(18, height * 0.17 * transform.scale);
+        const lineHeight = liveToOutputScale && Number.isFinite(computedLineHeight)
+          ? computedLineHeight * liveToOutputScale
+          : fontSize * textLayer.lineHeight;
+        const spacing = liveToOutputScale && Number.isFinite(computedLetterSpacing)
+          ? computedLetterSpacing * liveToOutputScale
+          : textLayer.tracking * fontSize;
+        const fontWeight = resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight);
+        const fontFamily = previewStyle?.fontFamily
+          ?? `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`;
+        context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        context.fontKerning = 'normal';
+        const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
+        if (supportsNativeLetterSpacing) context.letterSpacing = `${spacing}px`;
         const measureText = (text: string) => context.measureText(text).width;
-        const lines = layoutCanvasText(value, box.width, measureText, spacing, textLayer.wrap);
+        const lines = layoutCanvasText(
+          value,
+          box.width,
+          measureText,
+          spacing,
+          textLayer.wrap,
+          supportsNativeLetterSpacing ? measureText : undefined
+        );
+        const metrics = context.measureText('Mg');
+        const ascent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || fontSize * 0.8;
+        const descent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || fontSize * 0.2;
+        const lineBoxBaseline = (lineHeight - ascent - descent) / 2 + ascent;
         const totalHeight = Math.max(lineHeight, lines.length * lineHeight);
-        const renderedBoxHeight = Math.max(box.height, totalHeight);
-        const firstBaseline = box.y + (renderedBoxHeight - totalHeight) / 2 + fontSize;
+        const firstBaseline = box.y + Math.max(0, (box.height - totalHeight) / 2) + lineBoxBaseline;
         const application = layerShaders[layerId];
         const preview = application ? images.get(`shader-preview-${application.materialId}`) : null;
         const pattern = preview ? context.createPattern(preview, 'repeat') : null;
@@ -1357,14 +1494,22 @@ export default function ShaderLabStudio({
         context.lineWidth = Math.max(0.5, textAppearance.outlineWidth * 2);
         context.strokeStyle = textAppearance.outlineColor;
         lines.forEach((line, lineIndex) => {
+          const baseline = firstBaseline + lineIndex * lineHeight;
+          if (supportsNativeLetterSpacing) {
+            const lineWidth = measureText(line);
+            const lineX = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
+            if (textAppearance.outlineEnabled) context.strokeText(line, lineX, baseline);
+            context.fillText(line, lineX, baseline);
+            return;
+          }
           const characters = canvasTextCharacters(line);
           const lineWidth = trackedTextWidth(line, measureText, spacing);
           let cursor = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
           characters.forEach((character) => {
             if (textAppearance.outlineEnabled) {
-              context.strokeText(character, cursor, firstBaseline + lineIndex * lineHeight);
+              context.strokeText(character, cursor, baseline);
             }
-            context.fillText(character, cursor, firstBaseline + lineIndex * lineHeight);
+            context.fillText(character, cursor, baseline);
             cursor += measureText(character) + spacing;
           });
         });
@@ -1372,6 +1517,33 @@ export default function ShaderLabStudio({
         return;
       }
     });
+  }
+
+  async function waitForCompositionFonts() {
+    if (!document.fonts) return;
+    const visibleTextLayers = textLayers.filter((layer) => (
+      layer.visible && visibleLayerIds.includes(layer.id) && layer.value.length > 0
+    ));
+    if (visibleTextLayers.length === 0) return;
+
+    await document.fonts.ready;
+    await Promise.all(visibleTextLayers.map(async (layer) => {
+      const appearance = resolvedTextAppearance(layer);
+      const family = brandTypographyFamily(identity, appearance.fontRole);
+      const weight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
+      const faces = await document.fonts.load(
+        `${weight} 64px ${JSON.stringify(family)}`,
+        layer.value || 'Ag'
+      );
+      const isBundledBrandFont = brandFontAssets(identity).some((font) => (
+        font.family === family && font.style === 'normal'
+      ));
+      if (isBundledBrandFont && faces.length === 0) {
+        throw new Error(`${family} ${weight} could not be loaded for export.`);
+      }
+    }));
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 
   async function loadCompositionImages() {
@@ -1386,10 +1558,10 @@ export default function ShaderLabStudio({
     return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadImage(source)] as const)));
   }
 
-  function createExportCanvas(motion = false) {
+  function createExportCanvas() {
     const output = document.createElement('canvas');
-    output.width = ratio === 'square' ? (motion ? 800 : 1400) : ratio === 'opengraph' ? (motion ? 960 : 1200) : (motion ? 960 : 1600);
-    output.height = ratio === 'square' ? (motion ? 800 : 1400) : ratio === 'opengraph' ? (motion ? 504 : 630) : (motion ? 540 : 900);
+    output.width = exportDimensions.width;
+    output.height = exportDimensions.height;
     return output;
   }
 
@@ -1398,15 +1570,29 @@ export default function ShaderLabStudio({
     setExporting(format);
     setExportError(null);
     try {
+      const startedAt = performance.now();
+      await waitForCompositionFonts();
       const output = createExportCanvas();
       const context = output.getContext('2d');
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
       composeFrame(context, output.width, output.height, images);
-      const blob = await canvasToImageBlob(output, format);
+      const quality = normalizedExportSettings.quality === 'fast'
+        ? 0.82
+        : normalizedExportSettings.quality === 'best'
+          ? 0.96
+          : 0.9;
+      const blob = await canvasToImageBlob(output, format, quality);
       const label = format === 'jpg' ? 'JPG' : 'PNG';
-      const fileName = `${identity.id}-design-lab.${format}`;
-      setLastExport({ blob, fileName, format: label, height: output.height, width: output.width });
+      const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
+      setLastExport({
+        blob,
+        elapsedMs: performance.now() - startedAt,
+        fileName,
+        format: label,
+        height: output.height,
+        width: output.width,
+      });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'The still image could not be exported.');
     } finally {
@@ -1415,8 +1601,8 @@ export default function ShaderLabStudio({
   }
 
   async function waitForCapturedFrame(frame: MotionFrame) {
-    setCaptureTimeMs(frame.timeMs);
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    flushSync(() => setCaptureTimeMs(frame.timeMs));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 
   async function exportMotion(format: 'gif' | 'mp4') {
@@ -1425,38 +1611,32 @@ export default function ShaderLabStudio({
     setExportProgress(0);
     setExportError(null);
     try {
-      const durationMs = 2_400;
-      const output = createExportCanvas(true);
+      const startedAt = performance.now();
+      await waitForCompositionFonts();
+      const { durationMs, fps, quality } = normalizedExportSettings;
+      const output = createExportCanvas();
       const context = output.getContext('2d', { willReadFrequently: format === 'gif' });
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
-      const currentFrame = createExportCanvas(true);
-      const wrappedFrame = createExportCanvas(true);
-      const currentContext = currentFrame.getContext('2d');
-      const wrappedContext = wrappedFrame.getContext('2d');
-      if (!currentContext || !wrappedContext) throw new Error('Loop compositing is unavailable.');
+      const loopFrame = quality === 'best' && format === 'gif' ? createExportCanvas() : null;
+      const loopContext = loopFrame?.getContext('2d') ?? null;
       const renderFrame = async (frame: MotionFrame) => {
-        if (format === 'mp4') {
-          await waitForCapturedFrame(frame);
-          composeFrame(context, output.width, output.height, images);
-          return;
-        }
-
         await waitForCapturedFrame(frame);
-        composeFrame(currentContext, currentFrame.width, currentFrame.height, images);
-        const blend = seamlessLoopBlendAmount(frame.timeMs, durationMs);
-        if (blend > 0) {
-          await waitForCapturedFrame({ ...frame, timeMs: frame.timeMs - durationMs });
-          composeFrame(wrappedContext, wrappedFrame.width, wrappedFrame.height, images);
-        }
-        context.clearRect(0, 0, output.width, output.height);
-        context.globalAlpha = 1;
-        context.globalCompositeOperation = 'source-over';
-        context.drawImage(currentFrame, 0, 0);
-        if (blend > 0) {
+        composeFrame(context, output.width, output.height, images);
+        if (loopContext && loopFrame) {
+          if (frame.index === 0) {
+            loopContext.clearRect(0, 0, loopFrame.width, loopFrame.height);
+            loopContext.drawImage(output, 0, 0);
+          }
+          const blendWindowMs = durationMs * 0.18;
+          const blend = seamlessLoopBlendAmount(
+            Math.max(0, frame.timeMs - (durationMs - blendWindowMs)),
+            blendWindowMs
+          );
+          context.save();
           context.globalAlpha = blend;
-          context.drawImage(wrappedFrame, 0, 0);
-          context.globalAlpha = 1;
+          context.drawImage(loopFrame, 0, 0);
+          context.restore();
         }
       };
       const sharedOptions = {
@@ -1466,11 +1646,24 @@ export default function ShaderLabStudio({
         renderFrame,
       };
       const blob = format === 'gif'
-        ? await encodeCanvasGif({ ...sharedOptions, fps: 15 })
-        : await encodeCanvasMp4({ ...sharedOptions, fps: 30 });
+        ? await encodeCanvasGif({
+            ...sharedOptions,
+            colors: quality === 'fast' ? 64 : quality === 'best' ? 256 : 128,
+            fps,
+            paletteFormat: quality === 'fast' ? 'rgb444' : 'rgb565',
+            paletteStrategy: quality === 'best' ? 'per-frame' : 'global',
+          })
+        : await encodeCanvasMp4({ ...sharedOptions, fps, quality });
       const label = format === 'gif' ? 'GIF' : 'MP4';
-      const fileName = `${identity.id}-design-lab.${format}`;
-      setLastExport({ blob, fileName, format: label, height: output.height, width: output.width });
+      const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
+      setLastExport({
+        blob,
+        elapsedMs: performance.now() - startedAt,
+        fileName,
+        format: label,
+        height: output.height,
+        width: output.width,
+      });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
     } finally {
@@ -1744,6 +1937,7 @@ export default function ShaderLabStudio({
                       >
                         <CanvasEditableText
                           className={`shader-lab-v2-layer-text ${application ? 'shader-lab-v2-layer-text-material' : ''}`}
+                          exportLayerId={textLayer.id}
                           label={`Edit ${textLayer.name}`}
                           onChange={(value) => updateTextLayer(layerId, { value })}
                           onFocus={() => setSelectedLayerId(layerId)}
@@ -1752,7 +1946,11 @@ export default function ShaderLabStudio({
                             color: textAppearance.color,
                             fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`,
                             fontSize: `${textFontSizeCqw}cqw`,
-                            fontWeight: textLayer.weight,
+                            fontWeight: resolveBrandTypographyWeight(
+                              identity,
+                              textAppearance.fontRole,
+                              textLayer.weight
+                            ),
                             letterSpacing: `${textLayer.tracking}em`,
                             lineHeight: textLayer.lineHeight,
                             overflowWrap: textLayer.wrap === 'wrap' ? 'anywhere' : 'normal',
@@ -1923,10 +2121,12 @@ export default function ShaderLabStudio({
                         <small>{String(index + 1).padStart(2, '0')} · {layerKind(layerId)}</small>
                       </span>
                     </button>
-                    <div
-                      className='shader-lab-v2-dock-layer-preview'
-                      style={appliedShader ? { backgroundImage: `url("${shaderPreviewAssetPath(appliedShader.materialId)}")` } : undefined}
-                    >
+                    <div className='shader-lab-v2-dock-layer-preview'>
+                      {appliedShader ? (
+                        <span className='shader-lab-v2-dock-material-frame'>
+                          <AuthenticShaderPreview materialId={appliedShader.materialId} />
+                        </span>
+                      ) : null}
                       {textLayer && textAppearance ? (
                         <input
                           aria-label={`Edit ${textLayer.name}`}
@@ -1936,7 +2136,11 @@ export default function ShaderLabStudio({
                           style={{
                             color: textAppearance.color,
                             fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
-                            fontWeight: textLayer.weight,
+                            fontWeight: resolveBrandTypographyWeight(
+                              identity,
+                              textAppearance.fontRole,
+                              textLayer.weight
+                            ),
                             letterSpacing: `${textLayer.tracking}em`,
                             opacity: textAppearance.opacity,
                           }}
@@ -1944,7 +2148,7 @@ export default function ShaderLabStudio({
                           value={textLayer.value}
                         />
                       ) : (
-                        <button aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
+                        <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
                           {previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}
                         </button>
                       )}
@@ -2012,16 +2216,111 @@ export default function ShaderLabStudio({
               </div>
             </section>
 
-            <section className='shader-lab-v2-control-section'>
-              <div className='shader-lab-v2-section-title'><h3>Quick output</h3><span>{ratioOption.label}</span></div>
-              <div className='shader-lab-v2-composition-output'>
-                <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
-                <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
-                <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>GIF</span></button>
-                <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>MP4</span></button>
-              </div>
-            </section>
           </> : null}
+
+          <section className='shader-lab-v2-control-section shader-lab-v2-export-settings'>
+            <div className='shader-lab-v2-section-title'>
+              <h3>Export</h3>
+              <span>{exportDimensions.width} × {exportDimensions.height}</span>
+            </div>
+            <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
+              {EXPORT_WIDTH_PRESETS.map((width) => {
+                const dimensions = resolveExportDimensions({
+                  aspectHeight: ratioOption.height,
+                  aspectWidth: ratioOption.width,
+                  width,
+                });
+                return (
+                  <button
+                    aria-pressed={exportDimensions.width === dimensions.width}
+                    key={width}
+                    onClick={() => setExportSettings((current) => ({ ...current, width }))}
+                    type='button'
+                  >
+                    <strong>{width}</strong>
+                    <small>{dimensions.width}×{dimensions.height}</small>
+                  </button>
+                );
+              })}
+            </div>
+            <label className='shader-lab-v2-export-width'>
+              <span>Exact width</span>
+              <span>
+                <input
+                  aria-label='Export width in pixels'
+                  max={3_840}
+                  min={320}
+                  onBlur={() => setExportSettings((current) => ({ ...current, width: exportDimensions.width }))}
+                  onChange={(event) => {
+                    const width = Number(event.target.value);
+                    if (Number.isFinite(width)) setExportSettings((current) => ({ ...current, width }));
+                  }}
+                  step={2}
+                  type='number'
+                  value={normalizedExportSettings.width}
+                />
+                <i>px</i>
+              </span>
+            </label>
+            <div className='shader-lab-v2-export-quality'>
+              <span>Quality</span>
+              <div>
+                {EXPORT_QUALITY_OPTIONS.map((option) => (
+                  <button
+                    aria-pressed={normalizedExportSettings.quality === option.value}
+                    key={option.value}
+                    onClick={() => setExportSettings((current) => ({ ...current, quality: option.value }))}
+                    title={option.description}
+                    type='button'
+                  >{option.label}</button>
+                ))}
+              </div>
+            </div>
+            <div className='shader-lab-v2-export-motion'>
+              <label>
+                <span>Duration</span>
+                <StudioSelect
+                  ariaLabel='Export duration'
+                  onValueChange={(value) => setExportSettings((current) => ({ ...current, durationMs: Number(value) }))}
+                  options={[
+                    { label: '1.2 seconds', value: '1200' },
+                    { label: '1.6 seconds', value: '1600' },
+                    { label: '2.4 seconds', value: '2400' },
+                    { label: '4 seconds', value: '4000' },
+                  ]}
+                  value={String(normalizedExportSettings.durationMs)}
+                />
+              </label>
+              <label>
+                <span>Frame rate</span>
+                <StudioSelect
+                  ariaLabel='Export frame rate'
+                  onValueChange={(value) => setExportSettings((current) => ({ ...current, fps: Number(value) }))}
+                  options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
+                  value={String(normalizedExportSettings.fps)}
+                />
+              </label>
+            </div>
+            <p className='shader-lab-v2-export-summary'>
+              {exportFrameCount} motion frames · {EXPORT_QUALITY_OPTIONS.find(({ value }) => value === normalizedExportSettings.quality)?.description}
+            </p>
+            <div className='shader-lab-v2-composition-output'>
+              <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
+              <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
+              <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>{exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : 'GIF'}</span></button>
+              <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>{exporting === 'mp4' ? `${Math.round(exportProgress * 100)}%` : 'MP4'}</span></button>
+            </div>
+            {exporting === 'gif' || exporting === 'mp4' ? (
+              <div
+                aria-label={`${exporting.toUpperCase()} export progress`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={Math.round(exportProgress * 100)}
+                className='shader-lab-v2-export-progress'
+                role='progressbar'
+              ><i style={{ width: `${exportProgress * 100}%` }} /></div>
+            ) : null}
+          </section>
 
           <section className='shader-lab-v2-control-section'>
             <div className='shader-lab-v2-section-title'><h3>Canvas</h3><span>Background</span></div>
@@ -2166,7 +2465,17 @@ export default function ShaderLabStudio({
                     <span>Brand font</span>
                     <StudioSelect
                       ariaLabel='Text font role'
-                      onValueChange={(fontRole) => updateTextLayer(selectedTextLayer.id, { fontRole: fontRole as BrandTypography['role'] })}
+                      onValueChange={(fontRole) => {
+                        const nextRole = fontRole as BrandTypography['role'];
+                        updateTextLayer(selectedTextLayer.id, {
+                          fontRole: nextRole,
+                          weight: resolveBrandTypographyWeight(
+                            identity,
+                            nextRole,
+                            brandTypographyRole(identity, nextRole).weight ?? selectedTextLayer.weight
+                          ),
+                        });
+                      }}
                       options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({
                         label: `${role} · ${brandTypographyFamily(identity, role)}`,
                         value: role,
@@ -2251,12 +2560,19 @@ export default function ShaderLabStudio({
                     value={selectedTextLayer.lineHeight}
                   />
                   <RangeControl
-                    label='Weight'
-                    max={900}
-                    min={300}
-                    onChange={(weight) => updateTextLayer(selectedTextLayer.id, { weight })}
-                    step={50}
-                    value={selectedTextLayer.weight}
+                    formatValue={(value) => String(Math.round(value))}
+                    label='Font weight'
+                    max={selectedTextWeightRange.max}
+                    min={selectedTextWeightRange.min}
+                    onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
+                      weight: resolveBrandTypographyWeight(
+                        identity,
+                        selectedTextAppearance.fontRole,
+                        weight
+                      ),
+                    })}
+                    step={selectedTextWeightRange.max - selectedTextWeightRange.min <= 100 ? 100 : 50}
+                    value={selectedTextRenderedWeight}
                   />
                   <RangeControl
                     formatValue={(value) => `${value.toFixed(2)}em`}

@@ -797,12 +797,9 @@
   transition: opacity 120ms ease;
 }
 
-.shader-lab-v2-dock-layer[data-material='true'] .shader-lab-v2-dock-layer-preview {
-  background-position: center;
-  background-size: cover;
-}
-
 .shader-lab-v2-dock-layer-preview > :is(button, input) {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -815,7 +812,7 @@
 .shader-lab-v2-dock-layer-preview > button {
   display: grid;
   place-items: center;
-  padding: 7px;
+  padding: 10px;
 }
 
 .shader-lab-v2-dock-layer-preview > button:hover {
@@ -824,16 +821,38 @@
 
 .shader-lab-v2-dock-layer-preview img {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 62%;
+  height: 62%;
+  max-width: 88px;
+  max-height: 48px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgb(0 0 0 / .2));
+}
+
+.shader-lab-v2-dock-material-frame {
+  position: absolute;
+  z-index: 1;
+  inset: 7px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--foreground) / .14);
+  border-radius: 4px;
+  background: #111216;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .035);
+}
+
+.shader-lab-v2-dock-layer[data-kind='brand-mark'] .shader-lab-v2-dock-material-frame,
+.shader-lab-v2-dock-layer[data-kind='image'] .shader-lab-v2-dock-material-frame {
+  inset: 8px 12px;
+}
+
+.shader-lab-v2-dock-preview-select:has(img) {
+  background: radial-gradient(circle at center, hsl(var(--background) / .26), transparent 68%);
 }
 
 .shader-lab-v2-dock-layer-preview input {
   padding: 0 10px;
   overflow: hidden;
-  font-size: 19px;
+  font-size: 15px;
   text-align: center;
   text-overflow: ellipsis;
   text-shadow: 0 1px 5px rgb(0 0 0 / .35);
@@ -847,8 +866,8 @@
 
 .shader-lab-v2-dock-layer[data-kind='shader'] .shader-lab-v2-dock-layer-preview > button::after {
   position: absolute;
-  right: 7px;
-  bottom: 6px;
+  right: 10px;
+  bottom: 9px;
   padding: 2px 4px;
   border: 1px solid rgb(255 255 255 / .24);
   border-radius: 3px;
@@ -1262,6 +1281,161 @@
 .shader-lab-v2-composition-output svg {
   width: 11px;
   height: 11px;
+}
+
+.shader-lab-v2-export-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shader-lab-v2-export-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.shader-lab-v2-export-presets button {
+  display: flex;
+  min-width: 0;
+  min-height: 39px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+}
+
+.shader-lab-v2-export-presets button:hover,
+.shader-lab-v2-export-presets button[aria-pressed='true'] {
+  border-color: hsl(var(--foreground) / .58);
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-export-presets strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.shader-lab-v2-export-presets small {
+  overflow: hidden;
+  max-width: 100%;
+  font-family: var(--font-mono), monospace;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shader-lab-v2-export-width,
+.shader-lab-v2-export-quality,
+.shader-lab-v2-export-motion label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shader-lab-v2-export-width > span:first-child,
+.shader-lab-v2-export-quality > span,
+.shader-lab-v2-export-motion label > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.shader-lab-v2-export-width > span:last-child {
+  display: grid;
+  height: 31px;
+  grid-template-columns: minmax(0, 1fr) 27px;
+  align-items: center;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.shader-lab-v2-export-width input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 9px;
+  border: 0;
+  outline: 0;
+  color: hsl(var(--foreground));
+  background: transparent;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+}
+
+.shader-lab-v2-export-width i {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  border-left: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 7px;
+  font-style: normal;
+}
+
+.shader-lab-v2-export-quality > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--muted) / .34);
+}
+
+.shader-lab-v2-export-quality button {
+  height: 26px;
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+}
+
+.shader-lab-v2-export-quality button:hover,
+.shader-lab-v2-export-quality button[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  box-shadow: var(--studio-shadow-ring-xs);
+}
+
+.shader-lab-v2-export-motion {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.shader-lab-v2-export-motion button {
+  height: 31px;
+  padding-inline: 9px;
+  font-size: 9px;
+}
+
+.shader-lab-v2-export-summary {
+  margin-top: -2px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.shader-lab-v2-export-progress {
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-export-progress i {
+  display: block;
+  height: 100%;
+  background: hsl(var(--foreground));
+  transition: width 100ms linear;
 }
 
 .shader-lab-v2-colors {
@@ -17583,9 +17757,10 @@ body {
 }
 
 .marketing-v5-logo-rail img {
-  width: 116px;
-  height: 34px;
+  width: auto;
+  height: auto;
   max-width: 100%;
+  max-height: 34px;
   object-fit: contain;
   filter: grayscale(1);
   opacity: 0.62;
@@ -17601,8 +17776,9 @@ body {
 }
 
 .marketing-v5-logo-rail img.marketing-v5-logo-rail-gt {
-  width: 58px;
-  height: 58px;
+  width: auto;
+  height: auto;
+  max-height: 58px;
 }
 
 .marketing-v5-logo-rail li:hover img {

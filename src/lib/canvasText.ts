@@ -27,8 +27,7 @@ export function trackedTextWidth(
 function wrapParagraph(
   value: string,
   maxWidth: number,
-  measureText: MeasureText,
-  letterSpacing: number
+  measureLine: MeasureText
 ): string[] {
   const characters = canvasTextCharacters(value);
   if (characters.length === 0) return [''];
@@ -39,7 +38,7 @@ function wrapParagraph(
 
   characters.forEach((character) => {
     const candidate = [...line, character];
-    if (line.length === 0 || trackedTextWidth(candidate.join(''), measureText, letterSpacing) <= maxWidth) {
+    if (line.length === 0 || measureLine(candidate.join('')) <= maxWidth) {
       line = candidate;
       if (/\s/u.test(character)) lastSoftBreak = line.length;
       return;
@@ -76,12 +75,15 @@ export function layoutCanvasText(
   maxWidth: number,
   measureText: MeasureText,
   letterSpacing: number,
-  wrap: CanvasTextWrap
+  wrap: CanvasTextWrap,
+  measureLine?: MeasureText
 ): string[] {
   const paragraphs = value.replace(/\r\n?/g, '\n').split('\n');
   if (wrap === 'nowrap') return paragraphs;
+  const resolvedMeasureLine = measureLine
+    ?? ((line: string) => trackedTextWidth(line, measureText, letterSpacing));
   return paragraphs.flatMap((paragraph) =>
-    wrapParagraph(paragraph, Math.max(1, maxWidth), measureText, letterSpacing)
+    wrapParagraph(paragraph, Math.max(1, maxWidth), resolvedMeasureLine)
   );
 }
 

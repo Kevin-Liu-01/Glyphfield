@@ -1,7 +1,7 @@
 'use client';
 
 import NextImage from 'next/image';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
@@ -23,7 +23,11 @@ import {
 } from '@/lib/animation';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
-import { renderFrame, type StudioSource } from '@/lib/renderFrame';
+import {
+  canCompositeShaderDirectly,
+  renderFrame,
+  type StudioSource,
+} from '@/lib/renderFrame';
 import {
   parseSourceObject,
   sourceBoolean,
@@ -48,6 +52,8 @@ import {
   type StudioSettings,
 } from '@/lib/studio';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+
+const INTERACTIVE_PREVIEW_FPS = 60;
 
 async function loadImportedImage(file: File): Promise<ImportedImage> {
   const url = URL.createObjectURL(file);
@@ -194,7 +200,7 @@ export default function AnimationStudio({
     'playback-rate',
     1
   );
-  const [playheadMs, setPlayheadMs] = useState(0);
+  const [activeTimeline, setActiveTimeline] = useState({ index: 0, nextIndex: 0 });
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +209,8 @@ export default function AnimationStudio({
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const sequenceShaderLayerRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
+  const playheadRef = useRef(0);
+  const previewDirtyRef = useRef(true);
   useCanvasSelectionDismiss(canvasSelectionRef, () => {
     setSelectedSourceId(null);
     setBackgroundEditScope('sequence');
@@ -269,16 +277,15 @@ export default function AnimationStudio({
     itemCount: sources.length,
     transitionMs: settings.transitionMs,
   });
-  const visiblePlayhead = totalMs === 0 ? 0 : Math.min(playheadMs, totalMs);
-  const visibleTimeline = resolveTimeline(visiblePlayhead, {
-    holdMs: settings.holdMs,
-    itemCount: Math.max(1, sources.length),
-    transitionMs: settings.transitionMs,
-  });
   const activeShaderSourceIds = new Set([
-    sources[visibleTimeline.index]?.id,
-    sources[visibleTimeline.nextIndex]?.id,
+    sources[activeTimeline.index]?.id,
+    sources[activeTimeline.nextIndex]?.id,
   ]);
+  const directShaderComposite = canCompositeShaderDirectly(
+    sources[activeTimeline.index],
+    sources[activeTimeline.nextIndex],
+    backgroundOverrides
+  );
   const hasSequenceShaderSources = sequenceBackground.style === 'shader'
     && sources.some((source) => !backgroundOverrides[source.id]);
   const sequenceShaderIsActive = hasSequenceShaderSources
@@ -327,14 +334,19 @@ export default function AnimationStudio({
   const imagesRef = useRef(images);
   const isPlayingRef = useRef(isPlaying);
   const playbackRateRef = useRef(playbackRate);
-  const playheadRef = useRef(playheadMs);
+  const activeTimelineRef = useRef(activeTimeline);
   const backgroundOverridesRef = useRef(backgroundOverrides);
   settingsRef.current = settings;
   sourcesRef.current = sources;
   imagesRef.current = images;
   isPlayingRef.current = isPlaying;
   playbackRateRef.current = playbackRate;
+  activeTimelineRef.current = activeTimeline;
   backgroundOverridesRef.current = backgroundOverrides;
+
+  useEffect(() => {
+    previewDirtyRef.current = true;
+  }, [settings, sources]);
 
   useMountEffect(() => {
     if (qualityDefaultsMigrated) return;
@@ -417,7 +429,7 @@ export default function AnimationStudio({
     let animationFrame = 0;
     let previousTimestamp = performance.now();
     let previousRenderTimestamp = 0;
-    let previousUiTimestamp = 0;
+    let previousRenderedSourceId = '';
 
     function tick(timestamp: number) {
       const elapsed = Math.min(100, timestamp - previousTimestamp);
@@ -443,38 +455,61 @@ export default function AnimationStudio({
         }
       }
 
+      const position = resolveTimeline(playheadRef.current, {
+        holdMs: currentSettings.holdMs,
+        itemCount: Math.max(1, currentSources.length),
+        transitionMs: currentSettings.transitionMs,
+      });
+      const previousActiveTimeline = activeTimelineRef.current;
+      if (
+        position.index !== previousActiveTimeline.index
+        || position.nextIndex !== previousActiveTimeline.nextIndex
+      ) {
+        const nextActiveTimeline = { index: position.index, nextIndex: position.nextIndex };
+        activeTimelineRef.current = nextActiveTimeline;
+        setActiveTimeline(nextActiveTimeline);
+      }
+
       const canvas = canvasRef.current;
+      const currentSource = currentSources[position.index];
+      const nextSource = currentSources[position.nextIndex];
+      const directComposite = canCompositeShaderDirectly(
+        currentSource,
+        nextSource,
+        backgroundOverridesRef.current
+      );
       const previewFrameInterval = isPlayingRef.current
-        ? 1000 / Math.max(1, Math.min(30, currentSettings.fps))
+        ? 1000 / INTERACTIVE_PREVIEW_FPS
         : 120;
+      const frameIsDue = timestamp - previousRenderTimestamp >= previewFrameInterval;
+      const contentIsAnimated = position.phase === 'transition' && currentSources.length > 1;
       const shouldRender = document.visibilityState !== 'hidden'
-        && timestamp - previousRenderTimestamp >= previewFrameInterval;
+        && frameIsDue
+        && (
+          !directComposite
+          || contentIsAnimated
+          || previewDirtyRef.current
+          || previousRenderedSourceId !== currentSource?.id
+        );
       if (canvas && shouldRender) {
         previousRenderTimestamp = timestamp;
+        previousRenderedSourceId = currentSource?.id ?? '';
+        previewDirtyRef.current = false;
         const width = Math.max(120, currentSettings.width);
         const height = Math.max(120, currentSettings.height);
         if (canvas.width !== width) canvas.width = width;
         if (canvas.height !== height) canvas.height = height;
         const context = canvas.getContext('2d');
         if (context) {
-          const position = resolveTimeline(playheadRef.current, {
-            holdMs: currentSettings.holdMs,
-            itemCount: Math.max(1, currentSources.length),
-            transitionMs: currentSettings.transitionMs,
-          });
+          context.clearRect(0, 0, width, height);
           renderFrame(
             context,
             attachShaderLayers(currentSources),
             { ...currentSettings, width, height },
-            position
+            position,
+            { omitBackground: directComposite }
           );
         }
-      }
-
-      const uiFrameInterval = 1000 / Math.max(1, Math.min(20, currentSettings.fps));
-      if (timestamp - previousUiTimestamp >= uiFrameInterval) {
-        previousUiTimestamp = timestamp;
-        setPlayheadMs(playheadRef.current);
       }
       animationFrame = requestAnimationFrame(tick);
     }
@@ -655,7 +690,20 @@ export default function AnimationStudio({
     });
     const next = Math.min(Math.max(0, timeMs), duration);
     playheadRef.current = next;
-    setPlayheadMs(next);
+    const nextTimeline = resolveTimeline(next, {
+      holdMs: settingsRef.current.holdMs,
+      itemCount: Math.max(1, sourcesRef.current.length),
+      transitionMs: settingsRef.current.transitionMs,
+    });
+    const nextActiveTimeline = { index: nextTimeline.index, nextIndex: nextTimeline.nextIndex };
+    const previousActiveTimeline = activeTimelineRef.current;
+    if (
+      nextActiveTimeline.index !== previousActiveTimeline.index
+      || nextActiveTimeline.nextIndex !== previousActiveTimeline.nextIndex
+    ) {
+      activeTimelineRef.current = nextActiveTimeline;
+      setActiveTimeline(nextActiveTimeline);
+    }
   }
 
   function changePlaying(playing: boolean) {
@@ -918,14 +966,14 @@ export default function AnimationStudio({
                 {hasSequenceShaderSources ? (
                   <div
                     aria-hidden='true'
-                    className='pointer-events-none absolute inset-0 opacity-0'
+                    className={`pointer-events-none absolute inset-0 ${directShaderComposite ? 'opacity-100' : 'opacity-0'}`}
                     data-animation-shader-active={sequenceShaderIsActive ? 'true' : 'false'}
                     data-animation-shader-layer='sequence'
                     ref={sequenceShaderLayerRef}
                   >
                     <LiveMaterialCanvas
                       enabled
-                      frameRate={Math.max(1, Math.min(30, settings.fps))}
+                      frameRate={INTERACTIVE_PREVIEW_FPS}
                       materialId={sequenceBackground.materialId}
                       patternScale={sequenceBackground.patternScale ?? 1}
                       paused={exportProgress === null && (!isPlaying || !sequenceShaderIsActive)}
@@ -947,7 +995,7 @@ export default function AnimationStudio({
                     >
                       <LiveMaterialCanvas
                         enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
-                        frameRate={Math.max(1, Math.min(30, settings.fps))}
+                        frameRate={INTERACTIVE_PREVIEW_FPS}
                         materialId={source.background.materialId}
                         patternScale={source.background.patternScale ?? 1}
                         paused={!isPlaying && exportProgress === null}
@@ -1017,7 +1065,7 @@ export default function AnimationStudio({
           </div>
 
           <TimelinePanel
-            currentMs={visiblePlayhead}
+            currentMsRef={playheadRef}
             fps={settings.fps}
             holdMs={settings.holdMs}
             isPlaying={isPlaying}

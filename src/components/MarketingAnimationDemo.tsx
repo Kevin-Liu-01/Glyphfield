@@ -26,28 +26,34 @@ export default function MarketingAnimationDemo({ eager = false }: { eager?: bool
   const runtimeReady = useDeferredRuntime(inRange, eager ? 900 : 300);
 
   useMountEffect(() => {
-    if (eager) {
-      setInRange(true);
-      return;
+    const container = containerRef.current;
+    let intersecting = eager;
+
+    function syncVisibility() {
+      setInRange(intersecting && document.visibilityState === 'visible');
     }
 
-    const container = containerRef.current;
     if (!container || !('IntersectionObserver' in window)) {
-      setInRange(true);
-      return;
+      intersecting = true;
+      syncVisibility();
+      document.addEventListener('visibilitychange', syncVisibility);
+      return () => document.removeEventListener('visibilitychange', syncVisibility);
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        setInRange(true);
-        observer.disconnect();
+        intersecting = entry?.isIntersecting ?? false;
+        syncVisibility();
       },
       { rootMargin: '420px' }
     );
 
     observer.observe(container);
-    return () => observer.disconnect();
+    document.addEventListener('visibilitychange', syncVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', syncVisibility);
+    };
   });
 
   return (

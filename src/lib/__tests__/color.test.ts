@@ -5,6 +5,7 @@ import {
   formatOklch,
   hexToHsv,
   hsvToHex,
+  normalizeHexOrFallback,
   normalizeHex,
   oklchToHex,
   parseOklch,
@@ -15,6 +16,11 @@ describe('normalizeHex', () => {
   it('normalizes supported shorthand and full HEX values', () => {
     expect(normalizeHex('#fff')).toBe('#FFFFFF');
     expect(normalizeHex('111111')).toBe('#111111');
+  });
+
+  it('repairs invalid persisted colors with a known-good fallback', () => {
+    expect(normalizeHexOrFallback('#NANNANNAN', '#533AFD')).toBe('#533AFD');
+    expect(normalizeHexOrFallback(undefined, '#fff')).toBe('#FFFFFF');
   });
 });
 
@@ -39,6 +45,11 @@ describe('HSV color editing', () => {
     expect(hsvToHex(120, 1, 1)).toBe('#00FF00');
     expect(hsvToHex(240, 1, 1)).toBe('#0000FF');
     expect(hsvToHex(25, 0, 0.5)).toBe('#808080');
+  });
+
+  it('never serializes non-finite channels into an invalid HEX value', () => {
+    expect(hsvToHex(Number.NaN, Number.NaN, Number.NaN)).toBe('#000000');
+    expect(oklchToHex({ chroma: Number.NaN, hue: Number.NaN, lightness: Number.NaN })).toBe('#000000');
   });
 });
 

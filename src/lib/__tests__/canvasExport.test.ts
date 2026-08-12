@@ -4,6 +4,7 @@ import {
   buildMotionFrames,
   canvasToImageBlob,
   encodeCanvasGif,
+  resolveExportDimensions,
   seamlessLoopBlendAmount,
 } from '../canvasExport';
 
@@ -19,6 +20,17 @@ describe('canvas export', () => {
   it('rejects invalid motion schedules', () => {
     expect(() => buildMotionFrames(0, 15)).toThrow(RangeError);
     expect(() => buildMotionFrames(2_400, 0)).toThrow(RangeError);
+  });
+
+  it('resolves ratio-aware export dimensions with encoder-safe even pixels', () => {
+    expect(resolveExportDimensions({ aspectHeight: 9, aspectWidth: 16, width: 1_281 }))
+      .toEqual({ height: 722, width: 1_282 });
+    expect(resolveExportDimensions({ aspectHeight: 630, aspectWidth: 1_200, width: 1_920 }))
+      .toEqual({ height: 1_008, width: 1_920 });
+    expect(resolveExportDimensions({ aspectHeight: 1, aspectWidth: 1, width: 99 }))
+      .toEqual({ height: 320, width: 320 });
+    expect(() => resolveExportDimensions({ aspectHeight: 0, aspectWidth: 16, width: 960 }))
+      .toThrow(RangeError);
   });
 
   it('uses a smooth loop envelope with identical cycle boundaries', () => {
@@ -87,6 +99,43 @@ describe('canvas export', () => {
     expect(blob.type).toBe('image/gif');
     expect(blob.size).toBeGreaterThan(20);
     expect(progress).toEqual([1 / 3, 2 / 3, 1]);
+  });
+
+  it('encodes multiple GIF frames against one global palette', async () => {
+    let activeFrame = 0;
+    const context = {
+      getImageData() {
+        return {
+          data: new Uint8ClampedArray([
+            activeFrame * 80, 20, 220, 255,
+            240, activeFrame * 60, 30, 255,
+            20, 220, activeFrame * 70, 255,
+            255, 255, 255, 255,
+          ]),
+        };
+      },
+    } as unknown as CanvasRenderingContext2D;
+    const canvas = {
+      getContext: () => context,
+      height: 2,
+      width: 2,
+    } as unknown as HTMLCanvasElement;
+
+    const blob = await encodeCanvasGif({
+      canvas,
+      colors: 64,
+      durationMs: 300,
+      fps: 10,
+      paletteFormat: 'rgb444',
+      paletteStrategy: 'global',
+      renderFrame: ({ index }) => { activeFrame = index; },
+    });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const frameDescriptors = Array.from(bytes).filter((value) => value === 0x2c).length;
+
+    expect(new TextDecoder().decode(bytes.slice(0, 6))).toMatch(/^GIF8[79]a$/);
+    expect(frameDescriptors).toBeGreaterThanOrEqual(3);
+    expect(blob.size).toBeGreaterThan(20);
   });
 
   it('loads an MP4 container with AVC support', async () => {

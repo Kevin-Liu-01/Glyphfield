@@ -33,6 +33,24 @@ export function normalizeHex(value: string): string {
   return `#${expanded.toLocaleUpperCase()}`;
 }
 
+export function normalizeHexOrFallback(
+  value: unknown,
+  fallback = '#000000'
+): string {
+  let normalizedFallback = '#000000';
+  try {
+    normalizedFallback = normalizeHex(fallback);
+  } catch {
+    // Keep the guaranteed valid default when a caller also supplies a bad fallback.
+  }
+  if (typeof value !== 'string') return normalizedFallback;
+  try {
+    return normalizeHex(value);
+  } catch {
+    return normalizedFallback;
+  }
+}
+
 function hexToRgb(value: string): Rgb {
   const hex = normalizeHex(value).slice(1);
   return {
@@ -79,6 +97,7 @@ function delinearize(channel: number): number {
 }
 
 function clampChannel(channel: number): number {
+  if (!Number.isFinite(channel)) return 0;
   return Math.max(0, Math.min(1, channel));
 }
 
@@ -133,7 +152,8 @@ export function resolveReadableColor(
 }
 
 export function hsvToHex(hue: number, saturation: number, value: number): string {
-  const normalizedHue = ((hue % 360) + 360) % 360;
+  const finiteHue = Number.isFinite(hue) ? hue : 0;
+  const normalizedHue = ((finiteHue % 360) + 360) % 360;
   const normalizedSaturation = clampChannel(saturation);
   const normalizedValue = clampChannel(value);
   const chroma = normalizedValue * normalizedSaturation;
@@ -176,12 +196,15 @@ export function hexToOklch(value: string): Oklch {
 }
 
 export function oklchToHex({ chroma, hue, lightness }: Oklch): string {
-  const radians = (hue * Math.PI) / 180;
-  const a = chroma * Math.cos(radians);
-  const b = chroma * Math.sin(radians);
-  const lRoot = lightness + 0.3963377774 * a + 0.2158037573 * b;
-  const mRoot = lightness - 0.1055613458 * a - 0.0638541728 * b;
-  const sRoot = lightness - 0.0894841775 * a - 1.291485548 * b;
+  const finiteChroma = Number.isFinite(chroma) ? Math.max(0, chroma) : 0;
+  const finiteHue = Number.isFinite(hue) ? hue : 0;
+  const finiteLightness = Number.isFinite(lightness) ? clampChannel(lightness) : 0;
+  const radians = (finiteHue * Math.PI) / 180;
+  const a = finiteChroma * Math.cos(radians);
+  const b = finiteChroma * Math.sin(radians);
+  const lRoot = finiteLightness + 0.3963377774 * a + 0.2158037573 * b;
+  const mRoot = finiteLightness - 0.1055613458 * a - 0.0638541728 * b;
+  const sRoot = finiteLightness - 0.0894841775 * a - 1.291485548 * b;
   const l = lRoot ** 3;
   const m = mRoot ** 3;
   const s = sRoot ** 3;

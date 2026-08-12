@@ -31,13 +31,13 @@ import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 import { STUDIO_TOOLS } from '@/lib/studioCatalog';
 
 const BRAND_LOGOS = [
-  { id: 'gt', name: 'General Translation', src: '/brands/gt/logos/mark-black.svg' },
-  { id: 'ramp', name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg' },
-  { id: 'mintlify', name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg' },
-  { id: 'tailwind', name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg' },
-  { id: 'viteplus', name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg' },
-  { id: 'stripe', name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg' },
-  { id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg' },
+  { height: 58, id: 'gt', name: 'General Translation', src: '/brands/gt/logos/mark-black.svg', width: 58 },
+  { height: 34, id: 'ramp', name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg', width: 106 },
+  { height: 26, id: 'mintlify', name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg', width: 116 },
+  { height: 15, id: 'tailwind', name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg', width: 116 },
+  { height: 17, id: 'viteplus', name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg', width: 116 },
+  { height: 34, id: 'stripe', name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg', width: 81 },
+  { height: 81, id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg', width: 218 },
 ] as const;
 
 const GLYPH_FIELD_ROWS = [
@@ -523,7 +523,7 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
         <ArrowRight aria-hidden='true' />
       </Link>
       <ul>
-        {BRAND_LOGOS.map(({ id, name, src }) => (
+        {BRAND_LOGOS.map(({ height, id, name, src, width }) => (
           <li key={id}>
             <Link
               aria-label={gt(`Open ${name} in the Studio`)}
@@ -536,9 +536,9 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
                 alt=''
                 aria-hidden='true'
                 className={id === 'gt' ? 'marketing-v5-logo-rail-gt' : undefined}
-                height={id === 'gt' ? 64 : 34}
+                height={height}
                 src={src}
-                width={id === 'gt' ? 64 : 116}
+                width={width}
               />
             </Link>
           </li>

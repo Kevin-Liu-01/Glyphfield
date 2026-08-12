@@ -38,7 +38,7 @@ import {
   type BrandReference,
   type BrandTypography,
 } from '@/lib/brandIdentity';
-import { formatOklch, hexToOklch } from '@/lib/color';
+import { formatOklch, hexToOklch, normalizeHex } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
@@ -247,7 +247,16 @@ export default function BrandSettingsStudio({
     ) {
       throw new TypeError('Identity source must include id, name, assets, colors, and typography.');
     }
-    onChange(next as unknown as BrandIdentity);
+    const nextIdentity = next as unknown as BrandIdentity;
+    onChange({
+      ...nextIdentity,
+      colors: nextIdentity.colors.map((color, index) => {
+        if (!color || typeof color !== 'object' || typeof color.hex !== 'string') {
+          throw new TypeError(`Color ${index + 1} must include a HEX value.`);
+        }
+        return { ...color, hex: normalizeHex(color.hex) };
+      }),
+    });
   }
 
   function updateTypography(role: BrandTypography['role'], patch: Partial<BrandTypography>) {

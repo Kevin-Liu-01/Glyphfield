@@ -47,7 +47,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
-import { colorContrastRatio, formatOklch, hexToOklch, mixHexColors, normalizeHex, oklchToHex, resolveReadableColor } from '@/lib/color';
+import { colorContrastRatio, formatOklch, hexToOklch, mixHexColors, normalizeHex, normalizeHexOrFallback, oklchToHex, resolveReadableColor } from '@/lib/color';
 import {
   CODE_THEME,
   highlightCode,
@@ -1220,14 +1220,43 @@ type EditableColor = {
   role: string;
 };
 
+function sanitizeEditableColors(
+  value: unknown,
+  fallbacks: BrandIdentity['colors']
+): EditableColor[] {
+  const candidates = Array.isArray(value) && value.length > 0 ? value : fallbacks;
+  return candidates.map((candidate, index) => {
+    const source = candidate && typeof candidate === 'object'
+      ? candidate as Partial<EditableColor>
+      : {};
+    const fallback = fallbacks[index];
+    const opacity = typeof source.opacity === 'number' && Number.isFinite(source.opacity)
+      ? Math.min(100, Math.max(0, source.opacity))
+      : 100;
+    return {
+      hex: normalizeHexOrFallback(source.hex, fallback?.hex ?? '#000000'),
+      name: typeof source.name === 'string' ? source.name : fallback?.name ?? `Color ${index + 1}`,
+      opacity,
+      role: typeof source.role === 'string' ? source.role : fallback?.role ?? '',
+    };
+  });
+}
+
 function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
-  const [colors, setColors] = useStudioDraft<EditableColor[]>(
+  const [storedColors, setColors] = useStudioDraft<EditableColor[]>(
     identity.id,
     tool.id,
     'colors',
     () => identity.colors.map(({ hex, name, role }) => ({ hex, name, opacity: 100, role }))
   );
+  const colors = useMemo(
+    () => sanitizeEditableColors(storedColors, identity.colors),
+    [identity.colors, storedColors]
+  );
+  useEffect(() => {
+    if (JSON.stringify(storedColors) !== JSON.stringify(colors)) setColors(colors);
+  }, [colors, setColors, storedColors]);
   const [copied, setCopied] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [contrastIndex, setContrastIndex] = useState(Math.min(1, identity.colors.length - 1));
@@ -1282,7 +1311,9 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
   }, [colorPopover]);
 
   function updateSelectedColor(patch: Partial<EditableColor>) {
-    setColors((current) => current.map((color, index) => index === resolvedSelectedIndex ? { ...color, ...patch } : color));
+    setColors((current) => sanitizeEditableColors(current, identity.colors).map((color, index) => (
+      index === resolvedSelectedIndex ? { ...color, ...patch } : color
+    )));
   }
 
   function openColorPopover(target: HTMLElement, index: number, clientX?: number, clientY?: number) {
@@ -1313,7 +1344,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     const nextColors = sourceObjectArray(value, 'colors');
     if (!nextColors) throw new TypeError('colors must be an array of color objects.');
     setColors(nextColors.map((color, index) => ({
-      hex: sourceString(color, 'hex', colors[index]?.hex ?? '#000000'),
+      hex: normalizeHex(sourceString(color, 'hex', colors[index]?.hex ?? '#000000')),
       name: sourceString(color, 'name', colors[index]?.name ?? `Color ${index + 1}`),
       opacity: sourceNumber(color, 'opacity', colors[index]?.opacity ?? 100),
       role: sourceString(color, 'role', colors[index]?.role ?? ''),

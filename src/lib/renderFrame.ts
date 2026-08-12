@@ -75,6 +75,25 @@ export type StudioSource =
       width: number;
     });
 
+export function canCompositeShaderDirectly(
+  current: StudioSource | undefined,
+  next: StudioSource | undefined,
+  backgroundOverrides: Readonly<Record<string, boolean>>
+): boolean {
+  if (!current || !next) return false;
+  const currentBackground = current.background;
+  const nextBackground = next.background;
+  return !backgroundOverrides[current.id]
+    && !backgroundOverrides[next.id]
+    && currentBackground?.style === 'shader'
+    && nextBackground?.style === 'shader'
+    && currentBackground.materialId === nextBackground.materialId
+    && !hasMaterialFinish(currentBackground.finish)
+    && !hasMaterialFinish(nextBackground.finish)
+    && !current.finish?.glassEnabled
+    && !next.finish?.glassEnabled;
+}
+
 export type RenderConfig = {
   alignX: number;
   alignY: number;
@@ -93,6 +112,10 @@ export type RenderConfig = {
   packageId: AnimationPackageId;
   scale: number;
   width: number;
+};
+
+export type RenderFrameOptions = {
+  omitBackground?: boolean;
 };
 
 type DrawOptions = {
@@ -493,7 +516,8 @@ export function renderFrame(
   context: CanvasRenderingContext2D,
   sources: readonly StudioSource[],
   config: RenderConfig,
-  position: TimelinePosition
+  position: TimelinePosition,
+  options: RenderFrameOptions = {}
 ): void {
   if (sources.length === 0) {
     drawBackgroundLayer(context, fallbackBackground(config), config);
@@ -514,16 +538,18 @@ export function renderFrame(
   const currentBackground = current.background ?? fallbackBackground(config);
   const nextBackground = next.background ?? currentBackground;
   const backgroundProgress = cubicBezierAt(position.progress, config.bezier);
-  if (position.phase === 'transition' && sources.length > 1) {
-    drawBackgroundTransition(
-      context,
-      currentBackground,
-      nextBackground,
-      config,
-      backgroundProgress
-    );
-  } else {
-    drawBackgroundLayer(context, currentBackground, config);
+  if (!options.omitBackground) {
+    if (position.phase === 'transition' && sources.length > 1) {
+      drawBackgroundTransition(
+        context,
+        currentBackground,
+        nextBackground,
+        config,
+        backgroundProgress
+      );
+    } else {
+      drawBackgroundLayer(context, currentBackground, config);
+    }
   }
   const needsBackdrop = current.finish?.glassEnabled || next.finish?.glassEnabled;
   const backdrop = needsBackdrop ? captureBackdrop(context) : undefined;

@@ -42,6 +42,15 @@ describe('layoutCanvasText', () => {
       'second',
     ]);
   });
+
+  it('uses native whole-line metrics when the canvas provides them', () => {
+    const measureLine = (value: string) => value === 'AV' ? 18 : measureText(value);
+
+    expect(layoutCanvasText('AVX', 28, measureText, 0, 'wrap', measureLine)).toEqual([
+      'AV',
+      'X',
+    ]);
+  });
 });
 
 describe('trackedTextWidth', () => {

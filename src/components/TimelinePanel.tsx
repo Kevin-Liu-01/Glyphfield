@@ -2,11 +2,12 @@
 
 import { T, useGT } from 'gt-next';
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 type TimelinePanelProps = {
-  currentMs: number;
+  currentMsRef: { current: number };
   fps: number;
   holdMs: number;
   isPlaying: boolean;
@@ -25,7 +26,7 @@ function formatTime(timeMs: number): string {
 }
 
 export default function TimelinePanel({
-  currentMs,
+  currentMsRef,
   fps,
   holdMs,
   isPlaying,
@@ -38,10 +39,43 @@ export default function TimelinePanel({
   transitionMs,
 }: TimelinePanelProps) {
   const gt = useGT();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLOutputElement>(null);
+  const playheadElementRef = useRef<HTMLDivElement>(null);
   const frameDuration = 1000 / fps;
-  const progress = totalMs === 0 ? 0 : (currentMs / totalMs) * 100;
   const effectiveTransitionMs = labels.length > 1 ? transitionMs : 0;
   const holdFraction = holdMs / Math.max(1, holdMs + effectiveTransitionMs);
+  const syncPlayheadUi = useCallback(() => {
+    const currentMs = Math.min(currentMsRef.current, totalMs);
+    const progress = totalMs === 0 ? 0 : (currentMs / totalMs) * 100;
+    if (playheadElementRef.current) {
+      playheadElementRef.current.style.left = `${progress}%`;
+    }
+    if (outputRef.current) {
+      outputRef.current.value = `${formatTime(currentMs)} / ${formatTime(totalMs)}`;
+    }
+    if (inputRef.current) {
+      inputRef.current.value = String(currentMs);
+    }
+  }, [currentMsRef, totalMs]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    function tick() {
+      syncPlayheadUi();
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    syncPlayheadUi();
+    if (isPlaying) animationFrame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isPlaying, syncPlayheadUi]);
+
+  function seekAndSync(timeMs: number) {
+    onSeek(timeMs);
+    syncPlayheadUi();
+  }
 
   return (
     <section className='border-t border-border bg-background'>
@@ -60,7 +94,7 @@ export default function TimelinePanel({
           <Button
             aria-label={gt('Restart preview')}
             className='rounded-none'
-            onClick={() => onSeek(0)}
+            onClick={() => seekAndSync(0)}
             size='icon-sm'
             type='button'
             variant='outline'
@@ -70,7 +104,7 @@ export default function TimelinePanel({
           <Button
             aria-label={gt('Previous frame')}
             className='rounded-none'
-            onClick={() => onSeek(Math.max(0, currentMs - frameDuration))}
+            onClick={() => seekAndSync(Math.max(0, currentMsRef.current - frameDuration))}
             size='icon-sm'
             type='button'
             variant='outline'
@@ -80,7 +114,7 @@ export default function TimelinePanel({
           <Button
             aria-label={gt('Next frame')}
             className='rounded-none'
-            onClick={() => onSeek(Math.min(totalMs, currentMs + frameDuration))}
+            onClick={() => seekAndSync(Math.min(totalMs, currentMsRef.current + frameDuration))}
             size='icon-sm'
             type='button'
             variant='outline'
@@ -100,8 +134,8 @@ export default function TimelinePanel({
               value={String(playbackRate)}
             />
           </div>
-          <output className='min-w-28 text-right font-mono text-xs tabular-nums'>
-            {formatTime(currentMs)} / {formatTime(totalMs)}
+          <output className='min-w-28 text-right font-mono text-xs tabular-nums' ref={outputRef}>
+            {formatTime(currentMsRef.current)} / {formatTime(totalMs)}
           </output>
         </div>
       </div>
@@ -130,7 +164,8 @@ export default function TimelinePanel({
           </div>
           <div
             className='pointer-events-none absolute inset-y-0 z-10 w-px bg-foreground'
-            style={{ left: `${progress}%` }}
+            ref={playheadElementRef}
+            style={{ left: 0 }}
           >
             <div className='absolute -top-1 -left-[3px] size-[7px] rotate-45 bg-foreground' />
           </div>
@@ -139,10 +174,11 @@ export default function TimelinePanel({
             className='absolute inset-0 z-20 size-full cursor-ew-resize opacity-0'
             max={Math.max(1, totalMs)}
             min='0'
-            onChange={(event) => onSeek(Number(event.target.value))}
+            onChange={(event) => seekAndSync(Number(event.target.value))}
+            ref={inputRef}
             step={Math.max(1, frameDuration)}
             type='range'
-            value={Math.min(currentMs, Math.max(1, totalMs))}
+            defaultValue={Math.min(currentMsRef.current, Math.max(1, totalMs))}
           />
         </div>
         <div className='mt-2 flex items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>

@@ -74,6 +74,16 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('context.fillStyle = canvasBackground');
   });
 
+  it('renders exports with the same loaded font face and live text metrics', () => {
+    expect(designLab).toContain('data-export-text-layer={exportLayerId}');
+    expect(designLab).toContain('resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight)');
+    expect(designLab).toContain('const previewStyle = previewElement ? getComputedStyle(previewElement) : null;');
+    expect(designLab).toContain("context.fontKerning = 'normal';");
+    expect(designLab).toContain('context.letterSpacing = `${spacing}px`');
+    expect(designLab.match(/await waitForCompositionFonts\(\);/g)).toHaveLength(2);
+    expect(designLab).toContain('await document.fonts.load(');
+  });
+
   it('can restore and duplicate the built-in brand mark', () => {
     expect(designLab).toContain('function addBrandMarkLayer()');
     expect(designLab).toContain("name: number === 1 ? 'Brand mark' : `Brand mark ${number}`");

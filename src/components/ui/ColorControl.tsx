@@ -14,6 +14,7 @@ import {
   hexToHsv,
   hsvToHex,
   normalizeHex,
+  normalizeHexOrFallback,
   oklchToHex,
   parseOklch,
 } from '@/lib/color';
@@ -27,14 +28,6 @@ type ColorControlProps = {
   value: string;
 };
 
-function safeHex(value: string): string {
-  try {
-    return normalizeHex(value);
-  } catch {
-    return '#000000';
-  }
-}
-
 export default function ColorControl({
   ariaLabel,
   label,
@@ -45,7 +38,7 @@ export default function ColorControl({
 }: ColorControlProps) {
   const pickerId = useId();
   const [pickerPosition, setPickerPosition] = useState({ left: 0, top: 0 });
-  const hex = safeHex(value);
+  const hex = normalizeHexOrFallback(value);
   const oklch = formatOklch(hex);
   const hsv = hexToHsv(hex);
 
@@ -64,6 +57,14 @@ export default function ColorControl({
 
   function updateSaturationAndValue(clientX: number, clientY: number, target: HTMLElement) {
     const bounds = target.getBoundingClientRect();
+    if (
+      !Number.isFinite(clientX)
+      || !Number.isFinite(clientY)
+      || !Number.isFinite(bounds.width)
+      || !Number.isFinite(bounds.height)
+      || bounds.width <= 0
+      || bounds.height <= 0
+    ) return;
     const saturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
     const nextValue = Math.max(0, Math.min(1, 1 - (clientY - bounds.top) / bounds.height));
     onChange(hsvToHex(hsv.hue, saturation, nextValue));

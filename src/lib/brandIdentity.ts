@@ -4,6 +4,7 @@ import {
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
 } from './identityPresets';
+import { normalizeHexOrFallback } from './color';
 import { capVisibleFontWeight } from './typography';
 
 export {
@@ -319,6 +320,49 @@ export function brandTypographyFamily(
     ?? typography.family;
 }
 
+export function brandTypographyWeightRange(
+  identity: BrandIdentity,
+  role: BrandTypography['role']
+): { max: number; min: number } {
+  const family = brandTypographyFamily(identity, role);
+  const assets = brandFontAssets(identity).filter((font) => (
+    font.family === family && font.style === 'normal'
+  ));
+  if (assets.length === 0) return { max: 900, min: 100 };
+  return {
+    max: Math.max(...assets.map((font) => font.weightMax ?? font.weight)),
+    min: Math.min(...assets.map((font) => font.weightMin ?? font.weight)),
+  };
+}
+
+export function resolveBrandTypographyWeight(
+  identity: BrandIdentity,
+  role: BrandTypography['role'],
+  requestedWeight: number
+): number {
+  const family = brandTypographyFamily(identity, role);
+  const assets = brandFontAssets(identity).filter((font) => (
+    font.family === family && font.style === 'normal'
+  ));
+  if (assets.length === 0) return Math.min(900, Math.max(100, Math.round(requestedWeight)));
+
+  const variableAsset = assets.find((font) => (
+    font.weightMin !== undefined && font.weightMax !== undefined
+  ));
+  if (variableAsset?.weightMin !== undefined && variableAsset.weightMax !== undefined) {
+    return Math.min(variableAsset.weightMax, Math.max(variableAsset.weightMin, Math.round(requestedWeight)));
+  }
+
+  const availableWeights = [...new Set(assets.map(({ weight }) => weight))].sort((left, right) => left - right);
+  return availableWeights.reduce((nearest, candidate) => {
+    const candidateDistance = Math.abs(candidate - requestedWeight);
+    const nearestDistance = Math.abs(nearest - requestedWeight);
+    return candidateDistance < nearestDistance || (candidateDistance === nearestDistance && candidate > nearest)
+      ? candidate
+      : nearest;
+  }, availableWeights[0] ?? Math.round(requestedWeight));
+}
+
 export function brandFontFaceCss(identity: BrandIdentity): string {
   return brandFontAssets(identity)
     .map((font) => {
@@ -479,7 +523,10 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
       tags: asset.tags ? [...asset.tags] : undefined,
     })),
     audiences: [...(identity.audiences ?? [])],
-    colors: (identity.colors ?? []).map((color) => ({ ...color })),
+    colors: (identity.colors ?? []).map((color) => ({
+      ...color,
+      hex: normalizeHexOrFallback(color.hex),
+    })),
     contactEmail: identity.contactEmail ?? '',
     fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
