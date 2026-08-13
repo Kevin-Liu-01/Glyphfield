@@ -1,5 +1,13 @@
 import { buildFrameSchedule, type FrameSchedule } from './animation';
 import {
+  collectGifPaletteSample,
+  gifPaletteFramePixelBudget,
+  gifProtectedColors,
+  gifSampleFrameIndices,
+  quantizeGifPalette,
+  sampleGifPixels,
+} from './gifPalette';
+import {
   renderFrame,
   type RenderConfig,
   type StudioSource,
@@ -44,18 +52,41 @@ export async function exportGif({
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('Canvas rendering is unavailable.');
 
+  const protectedColors = gifProtectedColors([
+    config.foreground,
+    ...sources.flatMap((source) => source.foreground ? [source.foreground] : []),
+  ]);
   const gif = GIFEncoder();
+  const sampleIndices = gifSampleFrameIndices(schedule.length);
+  const samplePixelBudget = gifPaletteFramePixelBudget(sampleIndices.length);
+  const samples: Uint8ClampedArray[] = [];
+  for (const index of sampleIndices) {
+    const frame = schedule[index];
+    if (!frame) continue;
+    await beforeFrame?.(frame);
+    renderFrame(context, sources, config, frame.position);
+    samples.push(sampleGifPixels(
+      context.getImageData(0, 0, config.width, config.height).data,
+      samplePixelBudget
+    ));
+  }
+  const palette = quantizeGifPalette({
+    format: 'rgb565',
+    maxColors: config.colors,
+    pixels: collectGifPaletteSample(samples),
+    protectedColors,
+    quantize,
+  });
   for (let index = 0; index < schedule.length; index += 1) {
     const frame = schedule[index];
     if (!frame) continue;
     await beforeFrame?.(frame);
     renderFrame(context, sources, config, frame.position);
     const rgba = context.getImageData(0, 0, config.width, config.height).data;
-    const palette = quantize(rgba, config.colors, { format: 'rgb565' });
     const indexed = applyPalette(rgba, palette, 'rgb565');
     gif.writeFrame(indexed, config.width, config.height, {
       delay: frame.delayMs,
-      palette,
+      ...(index === 0 ? { palette } : {}),
       ...(index === 0 ? { repeat: config.loop ? 0 : -1 } : {}),
     });
 

@@ -1,7 +1,7 @@
 'use client';
 
-import NextImage from 'next/image';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { T, useGT } from 'gt-next';
 import { Download, RotateCcw } from 'lucide-react';
 
@@ -11,7 +11,9 @@ import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioControls from '@/components/StudioControls';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
@@ -25,6 +27,7 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import { exportGif } from '@/lib/exportGif';
 import {
   canCompositeShaderDirectly,
+  hasAnimatedShaderBackgrounds,
   renderFrame,
   type StudioSource,
 } from '@/lib/renderFrame';
@@ -51,7 +54,6 @@ import {
   type StudioFrameSettings,
   type StudioSettings,
 } from '@/lib/studio';
-import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 const INTERACTIVE_PREVIEW_FPS = 60;
 
@@ -108,6 +110,7 @@ function AnimationStudio({
   }), [identity]);
   const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
   const identityId = identity?.id ?? 'default';
+  const studioExport = useStudioExportProgress(`${identityId}:animation`);
   const [storedSettings, setStoredSettings] = useStudioDraft<StudioSettings>(
     identityId,
     'animation',
@@ -201,6 +204,7 @@ function AnimationStudio({
     1
   );
   const [activeTimeline, setActiveTimeline] = useState({ index: 0, nextIndex: 0 });
+  const [shaderCaptureTimeMs, setShaderCaptureTimeMs] = useState<number | null>(null);
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -680,7 +684,6 @@ function AnimationStudio({
     if (sources.length === 0) return;
     updateSelectedBackground(patch);
     if (selectedSource) setSelectedEffectTarget('background');
-    changePlaying(false);
     const index = selectedSource
       ? sources.findIndex((source) => source.id === selectedSource.id)
       : 0;
@@ -748,6 +751,19 @@ function AnimationStudio({
     setIsPlaying(playing);
   }
 
+  async function waitForShaderCapture(timeMs: number, initial = false) {
+    flushSync(() => setShaderCaptureTimeMs(timeMs));
+    await new Promise<void>((resolve) => {
+      let remainingFrames = initial ? 10 : 3;
+      const settleFrame = () => {
+        remainingFrames -= 1;
+        if (remainingFrames === 0) resolve();
+        else requestAnimationFrame(settleFrame);
+      };
+      requestAnimationFrame(settleFrame);
+    });
+  }
+
   async function handleExport() {
     if (sources.length === 0) {
       setError(gt('Add at least one frame before exporting.'));
@@ -755,13 +771,28 @@ function AnimationStudio({
     }
 
     setError(null);
-    setExportProgress(0);
+    studioExport.start('Rendering GIF preview', 0);
+    const resumeAfterExport = isPlayingRef.current;
     changePlaying(false);
+    const shaderBackgroundsAreActive = hasAnimatedShaderBackgrounds(sources);
     try {
+      flushSync(() => {
+        setExportProgress(0);
+        if (shaderBackgroundsAreActive) setShaderCaptureTimeMs(0);
+      });
+      if (shaderBackgroundsAreActive) await waitForShaderCapture(0, true);
+      const exportSources = attachShaderLayers(sources);
       const blob = await exportGif({
+        beforeFrame: shaderBackgroundsAreActive
+          ? (frame) => waitForShaderCapture(frame.atMs)
+          : undefined,
         config: settings,
-        onProgress: setExportProgress,
-        sources: attachShaderLayers(sources),
+        onProgress: (progress) => {
+          setExportProgress(progress);
+          studioExport.update(progress);
+        },
+        sampleHoldFrames: shaderBackgroundsAreActive,
+        sources: exportSources,
       });
       const fileName = `studio-${settings.packageId}.gif`;
       setLastExport({
@@ -774,7 +805,10 @@ function AnimationStudio({
     } catch {
       setError(gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.'));
     } finally {
+      setShaderCaptureTimeMs(null);
       setExportProgress(null);
+      if (resumeAfterExport) changePlaying(true);
+      studioExport.finish();
     }
   }
 
@@ -890,48 +924,9 @@ function AnimationStudio({
       }
       ref={workspaceRef}
     >
-      <header
-        className={`app-navbar ${embedded ? 'animation-toolbar' : 'studio-header'} border-b border-border bg-background/95`}
-      >
-        <div className={`flex min-w-0 items-center border-r border-border ${compactControls ? 'gap-2 px-3 py-2' : 'gap-4 px-5 py-3'}`}>
-          {embedded ? null : (
-            <div className='grid size-9 shrink-0 place-items-center bg-foreground font-mono text-xs font-bold text-background'>
-              ST
-            </div>
-          )}
-          {embedded && compactControls ? (
-            <NextImage
-              alt=''
-              aria-hidden='true'
-              className='size-5 shrink-0 object-contain'
-              height={20}
-              src={PRODUCT_BRAND.markWhitePath}
-              width={20}
-            />
-          ) : null}
-          <div className='min-w-0'>
-            <h1 className={`truncate font-semibold tracking-tight ${compactControls ? 'text-sm' : 'text-lg'}`}>
-              <T>Animation</T>
-            </h1>
-            {embedded ? null : (
-              <p className='truncate font-mono text-xs uppercase tracking-widest text-muted-foreground'>
-                <T>Studio / Motion</T>
-              </p>
-            )}
-          </div>
-        </div>
-
-        {embedded ? null : (
-          <div className='hidden min-w-0 items-center border-r border-border px-5 lg:flex'>
-            <p className='max-w-xl text-sm leading-5 text-muted-foreground'>
-              <T>
-                Import frames, tune one deterministic playhead, and export a production-ready GIF without uploading anything.
-              </T>
-            </p>
-          </div>
-        )}
-
-        <div className='flex items-center justify-end gap-2 px-4'>
+      <StudioToolHeader
+        actions={(
+          <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} className='hidden xl:inline-flex' />
           <Button
@@ -946,19 +941,19 @@ function AnimationStudio({
           </Button>
           <Button
             className='px-4'
-            loading={exportProgress !== null}
+            disabled={exportProgress !== null}
             onClick={handleExport}
             type='button'
           >
             <Download aria-hidden='true' />
-            {exportProgress === null ? (
-              <T>Export GIF</T>
-            ) : (
-              `${Math.round(exportProgress * 100)}%`
-            )}
+            <T>Export GIF</T>
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+        metadata={embedded ? undefined : <T>Studio / Motion</T>}
+        title={<T>Animation</T>}
+        toolId='animation'
+      />
 
       <div className={embedded ? 'animation-body lab-workspace' : 'studio-body animation-body lab-workspace'}>
         <StudioControls {...studioControlProps} panel='source' />
@@ -1005,6 +1000,7 @@ function AnimationStudio({
                     ref={sequenceShaderLayerRef}
                   >
                     <LiveMaterialCanvas
+                      captureTimeMs={shaderCaptureTimeMs}
                       enabled
                       frameRate={INTERACTIVE_PREVIEW_FPS}
                       materialId={sequenceBackground.materialId}
@@ -1027,6 +1023,7 @@ function AnimationStudio({
                       }}
                     >
                       <LiveMaterialCanvas
+                        captureTimeMs={shaderCaptureTimeMs}
                         enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
                         frameRate={INTERACTIVE_PREVIEW_FPS}
                         materialId={source.background.materialId}

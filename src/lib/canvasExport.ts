@@ -1,6 +1,27 @@
+import {
+  collectGifPaletteSample,
+  gifPaletteFramePixelBudget,
+  gifProtectedColors,
+  gifSampleFrameIndices,
+  quantizeGifPalette,
+  sampleGifPixels,
+  type GifPaletteFormat,
+} from './gifPalette';
+
 export type StillImageFormat = 'jpg' | 'png';
 
 export type MotionExportQuality = 'balanced' | 'best' | 'fast';
+
+export type MotionLoopMode = 'raw' | 'seamless';
+
+export type MotionLoopReport = {
+  closureMismatchPixels: number;
+  mode: 'seamless';
+  outputFrames: number;
+  overlapFrames: number;
+  sourceFrames: number;
+  verified: boolean;
+};
 
 export type ExportDimensions = {
   height: number;
@@ -21,12 +42,13 @@ export type MotionExportOptions = {
   renderFrame: (frame: MotionFrame) => Promise<void> | void;
 };
 
-type GifPaletteFormat = 'rgb444' | 'rgb565';
-
 export type GifExportOptions = MotionExportOptions & {
   colors?: number;
+  loopMode?: MotionLoopMode;
+  onLoopReport?: (report: MotionLoopReport) => void;
   paletteFormat?: GifPaletteFormat;
   paletteStrategy?: 'global' | 'per-frame';
+  protectedColors?: readonly string[];
 };
 
 export type Mp4ExportOptions = MotionExportOptions & {
@@ -78,6 +100,55 @@ export function seamlessLoopBlendAmount(timeMs: number, durationMs: number): num
   return (1 - Math.cos(Math.PI * progress)) / 2;
 }
 
+const MAX_LOOP_OVERLAP_BYTES = 96 * 1024 * 1024;
+const MAX_LOOP_OVERLAP_FRAMES = 18;
+
+export function resolveSeamlessLoopOverlapFrames({
+  durationMs,
+  fps,
+  height,
+  width,
+}: {
+  durationMs: number;
+  fps: number;
+  height: number;
+  width: number;
+}): number {
+  const outputFrames = buildMotionFrames(durationMs, fps).length;
+  const bytesPerFrame = Math.max(1, Math.round(width) * Math.round(height) * 4);
+  const memoryBound = Math.max(2, Math.floor(MAX_LOOP_OVERLAP_BYTES / bytesPerFrame));
+  const desiredDurationMs = Math.min(700, durationMs * 0.28);
+  const desiredFrames = Math.max(2, Math.round(desiredDurationMs / (1_000 / fps)));
+  return Math.max(1, Math.min(outputFrames - 1, desiredFrames, memoryBound, MAX_LOOP_OVERLAP_FRAMES));
+}
+
+function blendPixelFrames(
+  tail: Uint8ClampedArray,
+  head: Uint8ClampedArray,
+  amount: number
+): Uint8ClampedArray {
+  const progress = Math.max(0, Math.min(1, amount));
+  const blended = new Uint8ClampedArray(tail.length);
+  for (let index = 0; index < tail.length; index += 1) {
+    blended[index] = Math.round(tail[index]! + (head[index]! - tail[index]!) * progress);
+  }
+  return blended;
+}
+
+function countMismatchedPixels(left: Uint8ClampedArray, right: Uint8ClampedArray): number {
+  if (left.length !== right.length) return Math.ceil(Math.max(left.length, right.length) / 4);
+  let mismatches = 0;
+  for (let index = 0; index < left.length; index += 4) {
+    if (
+      left[index] !== right[index]
+      || left[index + 1] !== right[index + 1]
+      || left[index + 2] !== right[index + 2]
+      || left[index + 3] !== right[index + 3]
+    ) mismatches += 1;
+  }
+  return mismatches;
+}
+
 export function canvasToImageBlob(
   canvas: HTMLCanvasElement,
   format: StillImageFormat,
@@ -97,31 +168,119 @@ export async function encodeCanvasGif({
   colors = 128,
   durationMs,
   fps,
+  loopMode = 'raw',
+  onLoopReport,
   onProgress,
   paletteFormat = 'rgb444',
   paletteStrategy = 'per-frame',
+  protectedColors: protectedColorValues = [],
   renderFrame,
 }: GifExportOptions): Promise<Blob> {
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('Canvas rendering is unavailable.');
-  const frames = buildMotionFrames(durationMs, fps);
+  const outputFrames = buildMotionFrames(durationMs, fps);
+  const frameDurationMs = outputFrames[0]!.durationMs;
+  const overlapFrames = loopMode === 'seamless'
+    ? resolveSeamlessLoopOverlapFrames({ durationMs, fps, height: canvas.height, width: canvas.width })
+    : 0;
+  const sourceFrameCount = outputFrames.length + overlapFrames;
   const { GIFEncoder, applyPalette, quantize } = await import('gifenc');
   const gif = GIFEncoder();
   const paletteSize = Math.min(256, Math.max(2, Math.round(colors)));
+  const protectedColors = gifProtectedColors(protectedColorValues);
   let globalPalette: number[][] | null = null;
+  const headFrames: Uint8ClampedArray[] = [];
+  let finalOutputPixels: Uint8ClampedArray | null = null;
+  let writtenFrames = 0;
 
-  for (const frame of frames) {
-    await renderFrame(frame);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    const palette = paletteStrategy === 'global'
-      ? (globalPalette ??= quantize(pixels, paletteSize, { format: paletteFormat }))
-      : quantize(pixels, paletteSize, { format: paletteFormat });
-    gif.writeFrame(applyPalette(pixels, palette, paletteFormat), canvas.width, canvas.height, {
-      delay: frame.durationMs,
-      ...(paletteStrategy === 'per-frame' || frame.index === 0 ? { palette } : {}),
-      ...(frame.index === 0 ? { repeat: 0 } : {}),
+  if (paletteStrategy === 'global') {
+    const samples: Uint8ClampedArray[] = [];
+    const sampleIndices = gifSampleFrameIndices(sourceFrameCount);
+    const samplePixelBudget = gifPaletteFramePixelBudget(sampleIndices.length);
+    for (const index of sampleIndices) {
+      const frame: MotionFrame = {
+        durationMs: frameDurationMs,
+        index,
+        timeMs: index * frameDurationMs,
+      };
+      await renderFrame(frame);
+      samples.push(sampleGifPixels(
+        context.getImageData(0, 0, canvas.width, canvas.height).data,
+        samplePixelBudget
+      ));
+    }
+    const sample = collectGifPaletteSample(samples);
+    globalPalette = quantizeGifPalette({
+      format: paletteFormat,
+      maxColors: paletteSize,
+      pixels: sample,
+      protectedColors,
+      quantize,
     });
-    onProgress?.((frame.index + 1) / frames.length);
+  }
+
+  const writePixels = (pixels: Uint8ClampedArray) => {
+    finalOutputPixels = pixels.slice();
+    const palette = paletteStrategy === 'global'
+      ? globalPalette!
+      : quantizeGifPalette({
+          format: paletteFormat,
+          maxColors: paletteSize,
+          pixels,
+          protectedColors,
+          quantize,
+        });
+    gif.writeFrame(applyPalette(pixels, palette, paletteFormat), canvas.width, canvas.height, {
+      delay: frameDurationMs,
+      ...(paletteStrategy === 'per-frame' || writtenFrames === 0 ? { palette } : {}),
+      ...(writtenFrames === 0 ? { repeat: 0 } : {}),
+    });
+    writtenFrames += 1;
+  };
+
+  for (let index = 0; index < sourceFrameCount; index += 1) {
+    const frame: MotionFrame = {
+      durationMs: frameDurationMs,
+      index,
+      timeMs: index * frameDurationMs,
+    };
+    await renderFrame(frame);
+    let pixels: Uint8ClampedArray = new Uint8ClampedArray(
+      context.getImageData(0, 0, canvas.width, canvas.height).data
+    );
+
+    if (loopMode === 'seamless' && index < overlapFrames) {
+      headFrames.push(pixels);
+    } else {
+      if (loopMode === 'seamless' && index >= outputFrames.length) {
+        const overlapIndex = index - outputFrames.length;
+        const blendAmount = seamlessLoopBlendAmount(
+          (overlapIndex + 1) * frameDurationMs,
+          overlapFrames * frameDurationMs
+        );
+        pixels = blendPixelFrames(pixels, headFrames[overlapIndex]!, blendAmount);
+      }
+      writePixels(pixels);
+    }
+    onProgress?.((index + 1) / sourceFrameCount);
+  }
+
+  if (loopMode === 'seamless') {
+    // The final blended frame must land exactly on the captured frame immediately
+    // before the first output frame. That makes the GIF wrap reproduce a real,
+    // consecutive source transition instead of duplicating the first frame.
+    const capturedSeamAnchor = headFrames.at(-1) ?? null;
+    const closureMismatchPixels = finalOutputPixels && capturedSeamAnchor
+      ? countMismatchedPixels(finalOutputPixels, capturedSeamAnchor)
+      : canvas.width * canvas.height;
+    onLoopReport?.({
+      closureMismatchPixels,
+      mode: 'seamless',
+      outputFrames: writtenFrames,
+      overlapFrames,
+      sourceFrames: sourceFrameCount,
+      verified: closureMismatchPixels === 0,
+    });
   }
 
   gif.finish();

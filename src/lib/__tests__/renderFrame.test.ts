@@ -4,6 +4,7 @@ import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '../liveMaterials';
 import { DEFAULT_MATERIAL_FINISH } from '../materialFinish';
 import {
   canCompositeShaderDirectly,
+  hasAnimatedShaderBackgrounds,
   renderFrame,
   resolveDrawableImageSize,
   type RenderConfig,
@@ -39,6 +40,11 @@ function textSource(id: string): StudioSource {
 }
 
 describe('direct shader compositing', () => {
+  it('detects shader backgrounds that need continuously sampled hold frames', () => {
+    expect(hasAnimatedShaderBackgrounds([textSource('a')])).toBe(true);
+    expect(hasAnimatedShaderBackgrounds([{ id: 'plain', kind: 'text', text: 'Plain' }])).toBe(false);
+  });
+
   it('uses the live GPU layer when adjacent frames share an unfinished sequence shader', () => {
     expect(canCompositeShaderDirectly(textSource('a'), textSource('b'), {})).toBe(true);
   });

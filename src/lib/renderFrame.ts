@@ -75,6 +75,10 @@ export type StudioSource =
       width: number;
     });
 
+export function hasAnimatedShaderBackgrounds(sources: readonly StudioSource[]): boolean {
+  return sources.some((source) => source.background?.style === 'shader');
+}
+
 export function canCompositeShaderDirectly(
   current: StudioSource | undefined,
   next: StudioSource | undefined,

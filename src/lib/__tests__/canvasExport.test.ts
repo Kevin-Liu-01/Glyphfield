@@ -5,6 +5,7 @@ import {
   canvasToImageBlob,
   encodeCanvasGif,
   resolveExportDimensions,
+  resolveSeamlessLoopOverlapFrames,
   seamlessLoopBlendAmount,
 } from '../canvasExport';
 
@@ -38,6 +39,11 @@ describe('canvas export', () => {
     expect(seamlessLoopBlendAmount(1_200, 2_400)).toBeCloseTo(0.5, 8);
     expect(seamlessLoopBlendAmount(2_400, 2_400)).toBe(1);
     expect(seamlessLoopBlendAmount(2_333.333, 2_400)).toBeGreaterThan(0.998);
+  });
+
+  it('bounds the temporal overlap by duration, output size, and memory', () => {
+    expect(resolveSeamlessLoopOverlapFrames({ durationMs: 1_600, fps: 15, height: 540, width: 960 })).toBe(7);
+    expect(resolveSeamlessLoopOverlapFrames({ durationMs: 4_000, fps: 30, height: 2_160, width: 3_840 })).toBe(3);
   });
 
   it('requests the correct MIME type and quality for JPG output', async () => {
@@ -103,14 +109,15 @@ describe('canvas export', () => {
 
   it('encodes multiple GIF frames against one global palette', async () => {
     let activeFrame = 0;
+    const renderedFrames: number[] = [];
     const context = {
       getImageData() {
         return {
           data: new Uint8ClampedArray([
             activeFrame * 80, 20, 220, 255,
-            240, activeFrame * 60, 30, 255,
-            20, 220, activeFrame * 70, 255,
-            255, 255, 255, 255,
+          240, activeFrame * 60, 30, 255,
+          20, 220, activeFrame * 70, 255,
+          247, 31, 90, 255,
           ]),
         };
       },
@@ -128,14 +135,73 @@ describe('canvas export', () => {
       fps: 10,
       paletteFormat: 'rgb444',
       paletteStrategy: 'global',
-      renderFrame: ({ index }) => { activeFrame = index; },
+      protectedColors: ['#F71F5A'],
+      renderFrame: ({ index }) => { activeFrame = index; renderedFrames.push(index); },
     });
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const frameDescriptors = Array.from(bytes).filter((value) => value === 0x2c).length;
+    const globalColorTableSize = 2 ** ((bytes[10]! & 0b111) + 1);
+    const globalColorTable = bytes.slice(13, 13 + globalColorTableSize * 3);
+    const colors = Array.from({ length: globalColorTableSize }, (_, index) => (
+      Array.from(globalColorTable.slice(index * 3, index * 3 + 3))
+    ));
 
     expect(new TextDecoder().decode(bytes.slice(0, 6))).toMatch(/^GIF8[79]a$/);
     expect(frameDescriptors).toBeGreaterThanOrEqual(3);
+    expect(colors).toContainEqual([247, 31, 90]);
+    expect(renderedFrames).toEqual([0, 1, 2, 0, 1, 2]);
     expect(blob.size).toBeGreaterThan(20);
+  });
+
+  it('builds and verifies a seamless GIF from one continuous source timeline', async () => {
+    let activeFrame = 0;
+    const capturedTimes: number[] = [];
+    let report: Parameters<NonNullable<Parameters<typeof encodeCanvasGif>[0]['onLoopReport']>>[0] | undefined;
+    const context = {
+      getImageData() {
+        return {
+          data: new Uint8ClampedArray([
+            activeFrame * 17, 20, 220, 255,
+            240, activeFrame * 13, 30, 255,
+            20, 220, activeFrame * 11, 255,
+            255, 255, 255, 255,
+          ]),
+        };
+      },
+    } as unknown as CanvasRenderingContext2D;
+    const canvas = {
+      getContext: () => context,
+      height: 2,
+      width: 2,
+    } as unknown as HTMLCanvasElement;
+
+    const blob = await encodeCanvasGif({
+      canvas,
+      durationMs: 600,
+      fps: 10,
+      loopMode: 'seamless',
+      onLoopReport: (nextReport) => { report = nextReport; },
+      renderFrame: (frame) => {
+        activeFrame = frame.index;
+        capturedTimes.push(frame.timeMs);
+      },
+    });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let graphicControlBlocks = 0;
+    for (let index = 0; index < bytes.length - 2; index += 1) {
+      if (bytes[index] === 0x21 && bytes[index + 1] === 0xf9 && bytes[index + 2] === 0x04) graphicControlBlocks += 1;
+    }
+
+    expect(capturedTimes).toEqual([0, 100, 200, 300, 400, 500, 600, 700]);
+    expect(graphicControlBlocks).toBe(6);
+    expect(report).toEqual({
+      closureMismatchPixels: 0,
+      mode: 'seamless',
+      outputFrames: 6,
+      overlapFrames: 2,
+      sourceFrames: 8,
+      verified: true,
+    });
   });
 
   it('loads an MP4 container with AVC support', async () => {

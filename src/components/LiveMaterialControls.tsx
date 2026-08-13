@@ -5,6 +5,7 @@ import { ExternalLink } from 'lucide-react';
 
 import { LiveMaterialOptionLabel, LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import type { BrandIdentity } from '@/lib/brandIdentity';
@@ -75,10 +76,10 @@ function MaterialRange({
   const precision = step < 0.1 ? 2 : step < 1 ? 1 : 0;
   return (
     <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-      <span className='flex items-center justify-between gap-3'>
-        <span>{label}</span>
-        <output className='text-xs tabular-nums'>{value.toFixed(precision)}{unit}</output>
-      </span>
+      <StudioRangeLabel
+        label={label}
+        value={<output className='text-xs tabular-nums'>{value.toFixed(precision)}{unit}</output>}
+      />
       <input
         className='studio-range'
         max={max}
@@ -249,7 +250,7 @@ export default function LiveMaterialControls({
 
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <p className='text-sm font-medium'><T>Motion</T></p>
-        <MaterialRange label={gt('Speed')} max={2} min={0} onChange={(speed) => update({ speed })} step={0.05} unit='×' value={resolvedSettings.speed} />
+        <MaterialRange label={gt('Shader speed')} max={1.5} min={0} onChange={(speed) => update({ speed })} step={0.01} unit='×' value={resolvedSettings.speed} />
       </div>
     </div>
   );

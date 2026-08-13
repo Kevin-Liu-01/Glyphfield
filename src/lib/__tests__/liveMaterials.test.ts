@@ -14,6 +14,8 @@ import {
   STATIC_SURFACE_MATERIAL_IDS,
   DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   liveMaterialLookPreset,
+  liveMaterialMotionRate,
+  liveMaterialMotionTimeMs,
   liveMaterialSourceName,
   liveMaterialCenterOffset,
   normalizeLiveMaterialId,
@@ -22,6 +24,16 @@ import {
 } from '../liveMaterials';
 
 describe('live materials', () => {
+  it('maps low authoring speeds to visible motion without breaking pause', () => {
+    expect(liveMaterialMotionRate(0)).toBe(0);
+    expect(liveMaterialMotionRate(0.22)).toBeCloseTo(1, 1);
+    expect(liveMaterialMotionRate(0.62)).toBeGreaterThan(liveMaterialMotionRate(0.22));
+    expect(liveMaterialMotionRate(1.5)).toBeLessThanOrEqual(2.6);
+    expect(liveMaterialMotionRate(Number.NaN)).toBe(0);
+    expect(liveMaterialMotionTimeMs(1_000, 0.22)).toBeCloseTo(liveMaterialMotionRate(0.22) * 1_000);
+    expect(liveMaterialMotionTimeMs(0, 0.22)).toBe(0);
+  });
+
   it('preserves the supplied ShaderGradient preset as editable defaults', () => {
     expect(DEFAULT_LIVE_MATERIAL_SETTINGS).toMatchObject({
       amplitude: 3.2,

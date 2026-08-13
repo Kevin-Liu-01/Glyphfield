@@ -81,6 +81,8 @@ import {
   getPaperLiveMaterialDefinition,
   isPaperLiveMaterialId,
   liveMaterialCenterOffset,
+  liveMaterialMotionRate,
+  liveMaterialMotionTimeMs,
   normalizeLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialSettings,
@@ -114,6 +116,7 @@ export type LiveMaterialCanvasProps = {
 
 const CONTEXT_RECOVERY_DELAY_MS = 350;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 2_500;
+const PAPER_CONTROLLED_FRAME_EPOCH_MS = 1;
 const WEBGL_SUPPORT_RETRY_MS = 2_500;
 
 const VERTEX_SOURCE = `
@@ -798,10 +801,13 @@ function GlyphFieldCanvas({
       }
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
+      const motionRate = liveMaterialMotionRate(current.speed);
       const delta = Math.min(64, time - previous);
       previous = time;
-      if (controlledTime === null && !pausedRef.current) elapsed += delta * current.speed;
-      const renderedTime = (controlledTime === null ? elapsed : controlledTime * current.speed) / 1000;
+      if (controlledTime === null && !pausedRef.current) elapsed += delta * motionRate;
+      const renderedTime = (controlledTime === null
+        ? elapsed
+        : liveMaterialMotionTimeMs(controlledTime, current.speed)) / 1000;
       const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, drawingCanvas.clientWidth);
       const height = Math.max(1, drawingCanvas.clientHeight);
@@ -940,6 +946,7 @@ function ShaderGradientSurface({
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
+  const motionRate = liveMaterialMotionRate(settings.speed);
   return (
     <ShaderGradientCanvas
       className={`absolute inset-0 size-full ${className}`}
@@ -977,9 +984,9 @@ function ShaderGradientSurface({
         uAmplitude={settings.amplitude}
         uDensity={settings.density}
         uFrequency={settings.frequency}
-        uSpeed={paused || captureTimeMs !== null ? 0 : settings.speed}
+        uSpeed={paused || captureTimeMs !== null ? 0 : motionRate}
         uStrength={settings.strength}
-        uTime={captureTimeMs === null ? 0 : captureTimeMs / 1000 * settings.speed}
+        uTime={captureTimeMs === null ? 0 : liveMaterialMotionTimeMs(captureTimeMs, settings.speed) / 1000}
         wireframe={false}
         zoomOut
       />
@@ -1264,10 +1271,13 @@ function OriginalMaterialCanvas({
       lastDrawn = time;
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
+      const motionRate = liveMaterialMotionRate(current.speed);
       const delta = Math.min(64, time - previous);
       previous = time;
-      if (controlledTime === null && !pausedRef.current) elapsed += delta * current.speed;
-      const renderedTime = controlledTime === null ? elapsed : controlledTime * current.speed;
+      if (controlledTime === null && !pausedRef.current) elapsed += delta * motionRate;
+      const renderedTime = controlledTime === null
+        ? elapsed
+        : liveMaterialMotionTimeMs(controlledTime, current.speed);
       const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
       const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
@@ -1479,6 +1489,7 @@ function FluidSimulationCanvas({
     let previous = performance.now();
     let elapsed = 0;
     let lastDrawn = 0;
+    let previousControlledTime: number | null = null;
     const pointer = { activeUntil: 0, lastX: 0.5, lastY: 0.5, velocityX: 0, velocityY: 0, x: 0.5, y: 0.5 };
 
     function initializeTargets(width: number, height: number, current: LiveMaterialSettings) {
@@ -1552,10 +1563,20 @@ function FluidSimulationCanvas({
       }
       lastDrawn = time;
       const current = settingsRef.current;
+      const controlledTime = captureTimeRef.current;
+      const motionRate = liveMaterialMotionRate(current.speed);
       const deltaMs = Math.min(42, Math.max(1, time - previous));
       previous = time;
-      if (captureTimeRef.current === null && !pausedRef.current) elapsed += deltaMs * current.speed;
-      const renderedTime = captureTimeRef.current === null ? elapsed / 1000 : captureTimeRef.current / 1000 * current.speed;
+      if (controlledTime === null && !pausedRef.current) elapsed += deltaMs * motionRate;
+      const renderedTime = controlledTime === null
+        ? elapsed / 1000
+        : liveMaterialMotionTimeMs(controlledTime, current.speed) / 1000;
+      const simulationDeltaMs = controlledTime === null
+        ? deltaMs
+        : previousControlledTime === null
+          ? 0
+          : Math.max(0, Math.min(100, controlledTime - previousControlledTime));
+      previousControlledTime = controlledTime;
       const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
       const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
@@ -1578,7 +1599,7 @@ function FluidSimulationCanvas({
         if (!velocityRead || !velocityWrite || !dyeRead || !dyeWrite) return;
         const texelX = 1 / simulationWidth;
         const texelY = 1 / simulationHeight;
-        const dt = Math.min(0.032, deltaMs / 1000 * (0.72 + current.speed * 0.6));
+        const dt = Math.min(0.05, simulationDeltaMs / 1000 * (0.72 + motionRate * 0.6));
         const pointerActive = time < pointer.activeUntil ? 1 : 0;
 
         prepareProgram(velocityProgram, velocityWrite, simulationWidth, simulationHeight);
@@ -1841,7 +1862,12 @@ function PaperShaderSurface({
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
   const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
-  const motionMultiplier = preservePresetAppearance ? 1 : settings.speed;
+  const motionMultiplier = preservePresetAppearance ? 1 : liveMaterialMotionRate(settings.speed);
+  const controlledMotionTimeMs = captureTimeMs === null
+    ? null
+    : preservePresetAppearance
+      ? captureTimeMs
+      : liveMaterialMotionTimeMs(captureTimeMs, settings.speed);
   const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
   const controlledParams = {
     ...preset.params,
@@ -1909,9 +1935,9 @@ function PaperShaderSurface({
     ...backdropParams,
     ...(usesImage ? { image: sourceImage ?? '/shader-source-art.svg' } : {}),
     ...proceduralBackdropParams,
-    frame: captureTimeMs === null
+    frame: controlledMotionTimeMs === null
       ? presetFrame
-      : presetFrame + captureTimeMs / 1000 * motionSpeed * motionMultiplier,
+      : presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + controlledMotionTimeMs * motionSpeed,
     speed: effectiveSpeed,
   });
 

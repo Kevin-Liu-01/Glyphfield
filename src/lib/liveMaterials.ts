@@ -227,6 +227,16 @@ export const DEFAULT_LIVE_MATERIAL_SETTINGS: LiveMaterialSettings = {
   strength: 0.3,
 };
 
+export function liveMaterialMotionRate(speed: number): number {
+  if (!Number.isFinite(speed) || speed <= 0) return 0;
+  return Math.min(3, Math.sqrt(Math.min(1.5, speed)) * 2.1);
+}
+
+export function liveMaterialMotionTimeMs(timeMs: number, speed: number): number {
+  if (!Number.isFinite(timeMs) || timeMs <= 0) return 0;
+  return timeMs * liveMaterialMotionRate(speed);
+}
+
 export function liveMaterialCenterOffset(
   settings: Partial<Pick<LiveMaterialSettings, 'centerX' | 'centerY'>>
 ): { x: number; y: number } {
