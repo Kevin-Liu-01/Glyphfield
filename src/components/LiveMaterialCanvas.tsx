@@ -84,6 +84,7 @@ import {
   liveMaterialMotionRate,
   liveMaterialMotionTimeMs,
   normalizeLiveMaterialId,
+  resolveShaderGradientMotionClock,
   type LiveMaterialId,
   type LiveMaterialSettings,
   type PaperLiveMaterialId,
@@ -946,7 +947,7 @@ function ShaderGradientSurface({
   renderScale: number;
   settings: LiveMaterialSettings;
 }) {
-  const motionRate = liveMaterialMotionRate(settings.speed);
+  const motionClock = resolveShaderGradientMotionClock(captureTimeMs, settings.speed, paused);
   return (
     <ShaderGradientCanvas
       className={`absolute inset-0 size-full ${className}`}
@@ -957,7 +958,7 @@ function ShaderGradientSurface({
       style={{ height: '100%', inset: 0, position: 'absolute', width: '100%' }}
     >
       <ShaderGradient
-        animate={paused || captureTimeMs !== null ? 'off' : 'on'}
+        animate={motionClock.animate}
         brightness={settings.brightness}
         cAzimuthAngle={270}
         cDistance={0.5}
@@ -984,9 +985,9 @@ function ShaderGradientSurface({
         uAmplitude={settings.amplitude}
         uDensity={settings.density}
         uFrequency={settings.frequency}
-        uSpeed={paused || captureTimeMs !== null ? 0 : motionRate}
+        uSpeed={motionClock.uSpeed}
         uStrength={settings.strength}
-        uTime={captureTimeMs === null ? 0 : liveMaterialMotionTimeMs(captureTimeMs, settings.speed) / 1000}
+        uTime={motionClock.uTime}
         wireframe={false}
         zoomOut
       />

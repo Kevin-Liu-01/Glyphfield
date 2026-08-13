@@ -237,6 +237,32 @@ export function liveMaterialMotionTimeMs(timeMs: number, speed: number): number 
   return timeMs * liveMaterialMotionRate(speed);
 }
 
+export type ShaderGradientMotionClock = {
+  animate: 'off' | 'on';
+  uSpeed: number;
+  uTime: number;
+};
+
+export function resolveShaderGradientMotionClock(
+  captureTimeMs: number | null,
+  speed: number,
+  paused: boolean
+): ShaderGradientMotionClock {
+  if (captureTimeMs !== null) {
+    return {
+      animate: 'off',
+      uSpeed: 1,
+      uTime: liveMaterialMotionTimeMs(captureTimeMs, speed) / 1_000,
+    };
+  }
+
+  return {
+    animate: paused ? 'off' : 'on',
+    uSpeed: paused ? 0 : liveMaterialMotionRate(speed),
+    uTime: 0,
+  };
+}
+
 export function liveMaterialCenterOffset(
   settings: Partial<Pick<LiveMaterialSettings, 'centerX' | 'centerY'>>
 ): { x: number; y: number } {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildMotionFrames } from '../canvasExport';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   DEFAULT_LIVE_MATERIAL_ID,
@@ -19,6 +20,7 @@ import {
   liveMaterialSourceName,
   liveMaterialCenterOffset,
   normalizeLiveMaterialId,
+  resolveShaderGradientMotionClock,
   SHADER_GRADIENT_SOURCE_URL,
   WEBGL_FLUID_SOURCE_URL,
 } from '../liveMaterials';
@@ -32,6 +34,30 @@ describe('live materials', () => {
     expect(liveMaterialMotionRate(Number.NaN)).toBe(0);
     expect(liveMaterialMotionTimeMs(1_000, 0.22)).toBeCloseTo(liveMaterialMotionRate(0.22) * 1_000);
     expect(liveMaterialMotionTimeMs(0, 0.22)).toBe(0);
+  });
+
+  it('advances Prismatic Sphere through every controlled GIF frame', () => {
+    const frames = buildMotionFrames(2_400, 15);
+    const clocks = frames.map(({ timeMs }) => resolveShaderGradientMotionClock(timeMs, 0.3, false));
+    const phases = clocks.map(({ uSpeed, uTime }) => uSpeed * uTime);
+
+    expect(clocks.every(({ animate }) => animate === 'off')).toBe(true);
+    expect(clocks.every(({ uSpeed }) => uSpeed === 1)).toBe(true);
+    expect(new Set(phases.map((phase) => phase.toFixed(8))).size).toBe(frames.length);
+    expect(phases.at(-1)).toBeGreaterThan(phases[0] ?? 0);
+  });
+
+  it('keeps the ShaderGradient clock paused outside controlled capture', () => {
+    expect(resolveShaderGradientMotionClock(null, 0.3, true)).toEqual({
+      animate: 'off',
+      uSpeed: 0,
+      uTime: 0,
+    });
+    expect(resolveShaderGradientMotionClock(null, 0.3, false)).toEqual({
+      animate: 'on',
+      uSpeed: liveMaterialMotionRate(0.3),
+      uTime: 0,
+    });
   });
 
   it('preserves the supplied ShaderGradient preset as editable defaults', () => {
