@@ -1,6 +1,21 @@
 import type { BrandAsset, BrandIdentity } from '@/lib/brandIdentity';
 
-export type StickerSceneAsset = Pick<BrandAsset, 'id' | 'label' | 'path' | 'surface' | 'type'>;
+export type StickerSceneAsset = Pick<BrandAsset, 'id' | 'label' | 'path' | 'surface' | 'type'> & {
+  aspectRatio?: number;
+  kind?: 'image' | 'text';
+};
+
+export type StickerTextAssetInput = {
+  align: 'center' | 'left' | 'right';
+  color: string;
+  fontFamily: string;
+  id: string;
+  label: string;
+  lineHeight: number;
+  text: string;
+  tracking: number;
+  weight: number;
+};
 
 export type StickerScenePlacement = {
   assetId: string;
@@ -33,6 +48,59 @@ function canRenderAsSticker(asset: BrandAsset): boolean {
   return asset.path.startsWith('data:image/')
     || asset.path.startsWith('blob:')
     || /\.(?:avif|gif|jpe?g|png|svg|webp)(?:[?#].*)?$/i.test(asset.path);
+}
+
+function escapeStickerSvg(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function estimatedTextWidth(value: string, fontSize: number, tracking: number): number {
+  const glyphWidth = [...value].reduce((width, character) => {
+    if (/\s/.test(character)) return width + fontSize * 0.34;
+    if (/[MW@#%&]/.test(character)) return width + fontSize * 0.84;
+    if (/[A-Z0-9]/.test(character)) return width + fontSize * 0.66;
+    return width + fontSize * 0.56;
+  }, 0);
+  return glyphWidth + Math.max(0, value.length - 1) * fontSize * tracking;
+}
+
+export function stickerTextSceneAsset(input: StickerTextAssetInput): StickerSceneAsset {
+  const fontSize = 180;
+  const paddingX = 82;
+  const paddingY = 68;
+  const text = input.text.replace(/\r\n?/g, '\n').trim() || 'Text';
+  const lines = text.split('\n').slice(0, 6);
+  const tracking = Math.max(-0.12, Math.min(0.24, input.tracking));
+  const lineHeight = Math.max(0.75, Math.min(1.6, input.lineHeight));
+  const contentWidth = Math.max(...lines.map((line) => estimatedTextWidth(line || ' ', fontSize, tracking)));
+  const width = Math.round(Math.max(420, Math.min(2200, contentWidth + paddingX * 2)));
+  const lineHeightPixels = fontSize * lineHeight;
+  const contentHeight = fontSize + Math.max(0, lines.length - 1) * lineHeightPixels;
+  const height = Math.round(Math.max(320, contentHeight + paddingY * 2));
+  const anchor = input.align === 'left' ? 'start' : input.align === 'right' ? 'end' : 'middle';
+  const x = input.align === 'left' ? paddingX : input.align === 'right' ? width - paddingX : width / 2;
+  const firstY = height / 2 - (lines.length - 1) * lineHeightPixels / 2;
+  const family = escapeStickerSvg(input.fontFamily || 'Arial');
+  const fill = escapeStickerSvg(input.color || '#FFFFFF');
+  const textNodes = lines.map((line, index) => (
+    `<text x="${x}" y="${firstY + index * lineHeightPixels}" text-anchor="${anchor}" dominant-baseline="middle" fill="${fill}" font-family="${family},Arial,sans-serif" font-size="${fontSize}" font-weight="${Math.max(100, Math.min(900, input.weight))}" letter-spacing="${tracking}em">${escapeStickerSvg(line || ' ')}</text>`
+  )).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">${textNodes}</svg>`;
+
+  return {
+    aspectRatio: width / height,
+    id: input.id,
+    kind: 'text',
+    label: input.label,
+    path: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    surface: 'dark',
+    type: 'logo',
+  };
 }
 
 export function stickerSceneAssets(identity: BrandIdentity, primaryLogoPath?: string): StickerSceneAsset[] {

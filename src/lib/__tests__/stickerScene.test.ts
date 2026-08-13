@@ -9,6 +9,7 @@ import {
   stickerSceneContrastColor,
   stickerSceneContrastRadius,
   stickerSceneOutlineRadius,
+  stickerTextSceneAsset,
 } from '@/lib/stickerScene';
 
 function identityWithAssets(): BrandIdentity {
@@ -55,5 +56,42 @@ describe('sticker scene', () => {
     expect(stickerSceneContrastColor('#111111')).toBe('#F7F7F2');
     expect(stickerSceneContrastRadius(2, 15)).toBeGreaterThan(0.5);
     expect(stickerSceneContrastRadius(12, 2)).toBeLessThan(stickerSceneOutlineRadius(2));
+  });
+
+  it('builds independently addressable multiline text sticker assets with authentic typography settings', () => {
+    const first = stickerTextSceneAsset({
+      align: 'left',
+      color: '#F7F7F2',
+      fontFamily: 'GT America & Friends',
+      id: 'sticker-text-first',
+      label: 'First label',
+      lineHeight: 1.1,
+      text: 'One & only\n<proof>',
+      tracking: 0.05,
+      weight: 800,
+    });
+    const second = stickerTextSceneAsset({
+      align: 'center',
+      color: '#111111',
+      fontFamily: 'Switzer',
+      id: 'sticker-text-second',
+      label: 'Second label',
+      lineHeight: 1,
+      text: 'Two',
+      tracking: -0.04,
+      weight: 500,
+    });
+    const decoded = decodeURIComponent(first.path.split(',')[1] ?? '');
+
+    expect(first.id).toBe('sticker-text-first');
+    expect(second.id).toBe('sticker-text-second');
+    expect(first.kind).toBe('text');
+    expect(first.aspectRatio).toBeGreaterThan(1);
+    expect(decoded).toContain('font-family="GT America &amp; Friends,Arial,sans-serif"');
+    expect(decoded).toContain('font-weight="800"');
+    expect(decoded).toContain('letter-spacing="0.05em"');
+    expect(decoded).toContain('One &amp; only');
+    expect(decoded).toContain('&lt;proof&gt;');
+    expect(decoded.match(/<text /g)).toHaveLength(2);
   });
 });

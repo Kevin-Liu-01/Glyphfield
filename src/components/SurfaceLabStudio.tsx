@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   ArrowDown,
@@ -12,7 +12,7 @@ import {
   ImagePlus,
   Layers3,
   RotateCcw,
-  Sparkles,
+  Search,
   Trash2,
   Type,
 } from 'lucide-react';
@@ -21,7 +21,11 @@ import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer, { type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import StickerDeviceScene, {
   type StickerRenderLayer,
   type StickerSelection,
@@ -46,10 +50,12 @@ import {
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
+  SHADER_LAB_CATEGORIES,
   SHADER_LIBRARY_DEFAULT_IDS,
   shaderLabMaterials,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
+  type ShaderLabCategory,
 } from '@/lib/shaderLab';
 import { getOpenSurfaceAsset } from '@/lib/openSurfaceLibrary';
 import type { StudioTool } from '@/lib/studioCatalog';
@@ -65,7 +71,7 @@ import {
   normalizeStickerFinish,
   type StickerFinishSettings,
 } from '@/lib/surfaceSticker';
-import { stickerSceneAssets } from '@/lib/stickerScene';
+import { stickerSceneAssets, stickerTextSceneAsset, type StickerSceneAsset } from '@/lib/stickerScene';
 
 const OUTPUT_SIZES = [
   { height: 630, id: 'wide', label: 'Wide · 1200 × 630', width: 1200 },
@@ -73,7 +79,7 @@ const OUTPUT_SIZES = [
   { height: 1350, id: 'portrait', label: 'Portrait · 1080 × 1350', width: 1080 },
 ] as const;
 
-type ArtworkKind = 'logo' | 'text' | 'asset';
+type ArtworkKind = 'logo' | 'asset';
 type DesignDock = 'shader' | 'surface' | 'text' | 'sticker';
 
 type PlaygroundTextLayer = {
@@ -89,6 +95,23 @@ type PlaygroundTextLayer = {
   value: string;
   visible: boolean;
   weight: number;
+};
+
+type PlaygroundStickerText = {
+  align: 'center' | 'left' | 'right';
+  color: string;
+  fontRole: BrandTypography['role'];
+  id: `sticker-text-${string}`;
+  lineHeight: number;
+  name: string;
+  tracking: number;
+  value: string;
+  weight: number;
+};
+
+type PendingStickerAction = {
+  assetId: PlaygroundStickerText['id'];
+  mode: 'add' | 'duplicate';
 };
 
 const DEFAULT_TEXT_TRANSFORM: CanvasLayerTransform = {
@@ -144,21 +167,6 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
       else reject(new Error('The browser could not encode this composition.'));
     }, 'image/png');
   });
-}
-
-function escapeXml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
-}
-
-function textArtworkUrl(text: string, color: string) {
-  const safeText = escapeXml(text.trim() || 'Glyphfield');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500"><text x="600" y="285" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-family="Arial,Helvetica,sans-serif" font-size="190" font-weight="700" letter-spacing="-8">${safeText}</text></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 function resolvedTextTransform(transform: CanvasLayerTransform): CanvasLayerTransform {
@@ -254,8 +262,8 @@ function RangeControl({
 }) {
   return (
     <label className='design-lab-range' data-disabled={disabled ? 'true' : 'false'}>
-      <span><span>{label}</span><output>{Math.round(value * 100) / 100}{suffix}</output></span>
-      <input disabled={disabled} className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
+      <StudioRangeLabel label={label} value={<output>{Math.round(value * 100) / 100}{suffix}</output>} />
+      <input aria-label={label} disabled={disabled} className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
     </label>
   );
 }
@@ -272,10 +280,12 @@ function ColorControl({ label, onChange, value }: { label: string; onChange: (va
 
 export default function SurfaceLabStudio({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:playground`);
   const palette = useMemo(() => brandMaterialPalette(identity), [identity]);
   const shaderStageRef = useRef<HTMLDivElement>(null);
   const surfaceStageRef = useRef<HTMLDivElement>(null);
   const stickerStageRef = useRef<StickerStudioStageHandle>(null);
+  const pendingStickerActionRef = useRef<PendingStickerAction | null>(null);
   const customArtworkRef = useRef<{ name: string; url: string } | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -285,14 +295,16 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const [customArtwork, setCustomArtwork] = useState<{ name: string; url: string } | null>(null);
   const [mountPhase, setMountPhase] = useState(0);
   const [dock, setDock] = useStudioDraft<DesignDock>(identity.id, tool.id, 'design-lab-dock-v2', 'shader');
+  const [shaderCategory, setShaderCategory] = useState<ShaderLabCategory>('all');
+  const [shaderQuery, setShaderQuery] = useState('');
   const [textLayers, setTextLayers] = useStudioDraft<PlaygroundTextLayer[]>(identity.id, tool.id, 'playground-text-layers-v1', []);
   const [selectedTextId, setSelectedTextId] = useState<PlaygroundTextLayer['id'] | null>(null);
   const [backgroundEnabled, setBackgroundEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-background-enabled-v1', true);
   const [surfaceEnabled, setSurfaceEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-surface-enabled-v1', true);
   const [stickersEnabled, setStickersEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-stickers-enabled-v1', true);
   const [surfacePresetId, setSurfacePresetId] = useStudioDraft(identity.id, tool.id, 'design-lab-surface-preset-v1', SURFACE_LAB_CLOTH_PRESETS[0].id);
-  const [artworkKind, setArtworkKind] = useStudioDraft<ArtworkKind>(identity.id, tool.id, 'design-lab-artwork-kind-v1', 'logo');
-  const [artworkText, setArtworkText] = useStudioDraft(identity.id, tool.id, 'design-lab-artwork-text-v1', identity.shortName);
+  const [artworkKind, setArtworkKind] = useStudioDraft<ArtworkKind>(identity.id, tool.id, 'design-lab-artwork-kind-v2', 'logo');
+  const [stickerTexts, setStickerTexts] = useStudioDraft<PlaygroundStickerText[]>(identity.id, tool.id, 'playground-sticker-texts-v1', []);
   const [brandAssetId, setBrandAssetId] = useStudioDraft(identity.id, tool.id, 'design-lab-brand-asset-v1', 'none');
   const [stickerDraft, setStickerDraft] = useStudioDraft<Partial<StickerFinishSettings>>(identity.id, tool.id, 'design-lab-sticker-v1', DEFAULT_STICKER_FINISH);
   const [liveMaterialId, setLiveMaterialId] = useStudioDraft<LiveMaterialId>(
@@ -324,6 +336,16 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
   const settings: BackgroundSettings = { ...DEFAULT_BACKGROUND_SETTINGS, ...storedSettings };
   const liveSettings: LiveMaterialSettings = { ...DEFAULT_LIVE_MATERIAL_SETTINGS, ...storedLiveSettings };
+  const shaderMaterialsById = useMemo(() => new Map(
+    shaderLabMaterials('', 'all').map((material) => [material.id, material])
+  ), []);
+  const visibleShaderPresets = useMemo(() => {
+    const query = shaderQuery.trim().toLocaleLowerCase();
+    return SURFACE_LAB_SHADER_PRESETS.filter((preset) => (
+      (shaderCategory === 'all' || preset.category.toLocaleLowerCase() === shaderCategory)
+      && (!query || `${preset.name} ${preset.category} ${preset.description}`.toLocaleLowerCase().includes(query))
+    ));
+  }, [shaderCategory, shaderQuery]);
   const stickerFinish = useMemo(() => normalizeStickerFinish(stickerDraft), [stickerDraft]);
   const shaderPreset = SURFACE_LAB_SHADER_PRESETS.find(({ liveMaterialId: id }) => id === liveMaterialId);
   const surfacePreset = DESIGN_SURFACE_PRESETS.find(({ id }) => id === surfacePresetId) ?? DESIGN_SURFACE_PRESETS[0];
@@ -343,19 +365,33 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const selectedBrandAsset = availableAssets.find((asset) => asset.id === brandAssetId);
   const identityLogo = brandAssetPath(identity, 'mark-light') ?? brandAssetPath(identity, 'mark-dark');
   const artworkUrl = useMemo(() => {
-    if (artworkKind === 'text') return textArtworkUrl(artworkText, settings.logoColor);
     if (artworkKind === 'asset') return selectedBrandAsset?.path;
     return customArtwork?.url ?? identityLogo;
-  }, [artworkKind, artworkText, customArtwork?.url, identityLogo, selectedBrandAsset?.path, settings.logoColor]);
+  }, [artworkKind, customArtwork?.url, identityLogo, selectedBrandAsset?.path]);
+  const stickerTextAssets = useMemo(() => stickerTexts.map((text) => stickerTextSceneAsset({
+    align: text.align,
+    color: text.color,
+    fontFamily: brandTypographyFamily(identity, text.fontRole),
+    id: text.id,
+    label: text.name,
+    lineHeight: text.lineHeight,
+    text: text.value,
+    tracking: text.tracking,
+    weight: text.weight,
+  })), [identity, stickerTexts]);
   const stickerAssets = useMemo(() => {
     const libraryAssets = stickerSceneAssets(identity, artworkUrl);
-    const currentArtwork = artworkUrl
+    const currentArtwork: StickerSceneAsset[] = artworkUrl
       ? [{ id: 'current-artwork', label: `${identity.name} current artwork`, path: artworkUrl, surface: 'dark' as const, type: 'logo' as const }]
       : [];
-    return [...currentArtwork, ...libraryAssets].filter((asset, index, collection) => (
-      collection.findIndex(({ path }) => path === asset.path) === index
+    return [...currentArtwork, ...stickerTextAssets, ...libraryAssets].filter((asset, index, collection) => (
+      collection.findIndex((candidate) => candidate.id === asset.id) === index
+      && (asset.kind === 'text' || collection.findIndex((candidate) => candidate.kind !== 'text' && candidate.path === asset.path) === index)
     ));
-  }, [artworkUrl, identity]);
+  }, [artworkUrl, identity, stickerTextAssets]);
+  const selectedStickerText = selectedSticker
+    ? stickerTexts.find(({ id }) => id === selectedSticker.assetId) ?? null
+    : null;
   const dockOptions = [
     {
       detail: backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'None',
@@ -379,7 +415,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       value: 'text' as const,
     },
     {
-      detail: stickersEnabled ? selectedSticker?.label ?? `${stickerAssets.length} assets` : 'None',
+      detail: stickersEnabled ? selectedSticker?.label ?? `${stickerRenderLayers.length} placed` : 'None',
       enabled: stickersEnabled,
       index: '04',
       label: 'Stickers',
@@ -388,6 +424,14 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   ];
 
   customArtworkRef.current = customArtwork;
+  useEffect(() => {
+    const pending = pendingStickerActionRef.current;
+    if (!pending || !stickerAssets.some(({ id }) => id === pending.assetId)) return;
+    if (pending.mode === 'duplicate') stickerStageRef.current?.duplicateSelected(pending.assetId);
+    else stickerStageRef.current?.addSticker(pending.assetId);
+    pendingStickerActionRef.current = null;
+  }, [stickerAssets]);
+
   useMountEffect(() => {
     let animationFrame = 0;
     let nextPhase = 1;
@@ -414,6 +458,43 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
   function updateSticker(patch: Partial<StickerFinishSettings>) {
     setStickerDraft(normalizeStickerFinish({ ...stickerFinish, ...patch, presetId: 'custom' }));
+  }
+
+  function addStickerText(source?: PlaygroundStickerText, mode: PendingStickerAction['mode'] = 'add') {
+    const id = `sticker-text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as PlaygroundStickerText['id'];
+    const nextNumber = stickerTexts.reduce((largest, text) => {
+      const match = /^Text sticker (\d+)$/.exec(text.name);
+      return Math.max(largest, Number(match?.[1] ?? 0));
+    }, 0) + 1;
+    const text: PlaygroundStickerText = source
+      ? { ...source, id, name: `${source.name} copy` }
+      : {
+          align: 'center',
+          color: settings.logoColor || '#FFFFFF',
+          fontRole: 'Display',
+          id,
+          lineHeight: 1,
+          name: `Text sticker ${nextNumber}`,
+          tracking: -0.04,
+          value: nextNumber === 1 ? identity.shortName : `Sticker ${nextNumber}`,
+          weight: 700,
+        };
+    pendingStickerActionRef.current = { assetId: id, mode };
+    setStickerTexts((current) => [...current, text]);
+    setStickersEnabled(true);
+    setDock('sticker');
+  }
+
+  function updateStickerText(id: PlaygroundStickerText['id'], patch: Partial<Omit<PlaygroundStickerText, 'id'>>) {
+    setStickerTexts((current) => current.map((text) => text.id === id ? { ...text, ...patch } : text));
+  }
+
+  function duplicateSelectedSticker() {
+    if (selectedStickerText) {
+      addStickerText(selectedStickerText, 'duplicate');
+      return;
+    }
+    stickerStageRef.current?.duplicateSelected();
   }
 
   function addTextLayer() {
@@ -575,6 +656,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
   async function exportPng() {
     setExporting(true);
+    studioExport.start('Rendering Playground PNG preview');
     try {
       const width = Math.max(1200, settings.width);
       const height = Math.round(width / aspectRatio);
@@ -624,12 +706,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       setLastExport({ blob, fileName, format: 'PNG', height, width });
     } finally {
       setExporting(false);
+      studioExport.finish();
     }
   }
 
   function applySource(source: string) {
     const parsed = JSON.parse(source) as {
-      artworkKind?: ArtworkKind;
+      artworkKind?: ArtworkKind | 'text';
       artworkText?: string;
       backgroundEnabled?: boolean;
       surfaceEnabled?: boolean;
@@ -639,13 +722,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       liveSettings?: Partial<LiveMaterialSettings>;
       settings?: Partial<BackgroundSettings>;
       stickerFinish?: Partial<StickerFinishSettings>;
+      stickerTexts?: PlaygroundStickerText[];
       textLayers?: PlaygroundTextLayer[];
     };
     if (parsed.artworkKind && !['logo', 'text', 'asset'].includes(parsed.artworkKind)) throw new TypeError('Artwork kind must be logo, text, or asset.');
     if (parsed.liveMaterialId && !shaderLabMaterials('', 'all').some(({ id }) => id === parsed.liveMaterialId)) throw new TypeError('Unknown Playground shader.');
     if (parsed.surfacePresetId && !DESIGN_SURFACE_PRESETS.some(({ id }) => id === parsed.surfacePresetId)) throw new TypeError('Unknown Playground surface preset.');
-    if (parsed.artworkKind) setArtworkKind(parsed.artworkKind);
-    if (typeof parsed.artworkText === 'string') setArtworkText(parsed.artworkText);
+    if (parsed.artworkKind && parsed.artworkKind !== 'text') setArtworkKind(parsed.artworkKind);
     if (typeof parsed.backgroundEnabled === 'boolean') setBackgroundEnabled(parsed.backgroundEnabled);
     if (typeof parsed.surfaceEnabled === 'boolean') setSurfaceEnabled(parsed.surfaceEnabled);
     if (typeof parsed.stickersEnabled === 'boolean') setStickersEnabled(parsed.stickersEnabled);
@@ -654,6 +737,28 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     if (parsed.liveSettings) setStoredLiveSettings((current) => ({ ...current, ...parsed.liveSettings }));
     if (parsed.settings) setStoredSettings((current) => ({ ...current, ...parsed.settings }));
     if (parsed.stickerFinish) setStickerDraft(normalizeStickerFinish(parsed.stickerFinish));
+    if (parsed.stickerTexts) {
+      if (!Array.isArray(parsed.stickerTexts) || parsed.stickerTexts.some((text) => (
+        !text.id?.startsWith('sticker-text-')
+        || typeof text.value !== 'string'
+        || typeof text.color !== 'string'
+        || !['left', 'center', 'right'].includes(text.align)
+      ))) throw new TypeError('Sticker texts must be valid Playground sticker text sources.');
+      setStickerTexts(parsed.stickerTexts);
+    } else if (parsed.artworkKind === 'text' && typeof parsed.artworkText === 'string') {
+      const id = `sticker-text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as PlaygroundStickerText['id'];
+      setStickerTexts((current) => [...current, {
+        align: 'center',
+        color: settings.logoColor || '#FFFFFF',
+        fontRole: 'Display',
+        id,
+        lineHeight: 1,
+        name: 'Imported text sticker',
+        tracking: -0.04,
+        value: parsed.artworkText ?? identity.shortName,
+        weight: 700,
+      }]);
+    }
     if (parsed.textLayers) {
       if (!Array.isArray(parsed.textLayers) || parsed.textLayers.some((layer) => (
         !layer.id?.startsWith('text-')
@@ -667,25 +772,26 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
   return (
     <div className='tool-shell design-lab h-full min-h-0'>
-      <header className='app-navbar tool-header design-lab-header'>
-        <div className='design-lab-title'>
-          <span><Sparkles aria-hidden='true' /> Playground <small>01</small></span>
-          <p>Build one composition with shaders, surfaces, editable type, and stickers.</p>
-        </div>
-        <div className='design-lab-layer-readout' aria-label={gt('Active design layers')}>
+      <StudioToolHeader
+        actions={(
+          <>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <ExportPreview asset={lastExport} />
+          <Button disabled={exporting} onClick={exportPng} type='button'>
+            <Download aria-hidden='true' /><T>Export PNG</T>
+          </Button>
+          </>
+        )}
+        context={<div className='design-lab-layer-readout' aria-label={gt('Active design layers')}>
           <button aria-pressed={backgroundEnabled} data-active={backgroundEnabled ? 'true' : 'false'} onClick={() => setBackgroundEnabled((value) => !value)} type='button'>Background</button>
           <button aria-pressed={surfaceEnabled} data-active={surfaceEnabled ? 'true' : 'false'} onClick={() => setSurfaceEnabled((value) => !value)} type='button'>Surface</button>
           <button aria-pressed={textLayers.some(({ visible }) => visible)} data-active={textLayers.some(({ visible }) => visible) ? 'true' : 'false'} onClick={() => setDock('text')} type='button'>Text {textLayers.length}</button>
           <button aria-pressed={stickersEnabled} data-active={stickersEnabled ? 'true' : 'false'} onClick={() => setStickersEnabled((value) => !value)} type='button'>Stickers</button>
-        </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <ExportPreview asset={lastExport} />
-          <Button loading={exporting} onClick={exportPng} type='button'>
-            <Download aria-hidden='true' /><T>Download PNG</T>
-          </Button>
-        </div>
-      </header>
+        </div>}
+        metadata='Shaders · surfaces · type · stickers'
+        title='Playground'
+        toolId={tool.id}
+      />
 
       <div className='design-lab-body'>
         <main className='design-lab-workspace'>
@@ -734,16 +840,16 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               {mountPhase >= 3 ? (
                 <StickerDeviceScene
                   aspectRatio={aspectRatio}
+                  assets={stickerAssets}
                   className='design-lab-sticker-layer'
                   enabled={stickersEnabled}
                   finish={stickerFinish}
-                  identity={identity}
-                  logoPath={artworkUrl}
                   onPlacementsChange={setStickerRenderLayers}
                   onSelectionChange={setSelectedSticker}
                   ref={stickerStageRef}
                   renderMode={stickersFollowSurface ? 'controls' : 'normal'}
                   surface='transparent'
+                  surfaceLabel={`${identity.name} Playground sticker surface`}
                 />
               ) : null}
               {mountPhase >= 3 ? textLayers.filter(({ visible }) => visible).map((layer, index) => {
@@ -816,22 +922,40 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             >
               {dock === 'shader' ? (
                 <>
+                  <div className='design-lab-library-filter'>
+                    <label>
+                      <Search aria-hidden='true' />
+                      <input aria-label='Search Playground shaders' onChange={(event) => setShaderQuery(event.target.value)} placeholder='Search shaders' type='search' value={shaderQuery} />
+                    </label>
+                    <div aria-label='Playground shader categories' role='list'>
+                      {SHADER_LAB_CATEGORIES.map((option) => (
+                        <button aria-pressed={shaderCategory === option.id} key={option.id} onClick={() => setShaderCategory(option.id)} type='button'>{option.label}</button>
+                      ))}
+                    </div>
+                    <small>{visibleShaderPresets.length} shaders</small>
+                  </div>
                   <button aria-pressed={!backgroundEnabled} className='design-lab-none-preset' onClick={() => setBackgroundEnabled(false)} type='button'><span aria-hidden='true'>∅</span><strong>None</strong></button>
-                  {SURFACE_LAB_SHADER_PRESETS.map((preset) => (
-                    <button
-                      aria-pressed={backgroundEnabled && preset.liveMaterialId === liveMaterialId}
-                      className='design-lab-shader-preset'
-                      key={preset.id}
-                      onClick={() => applyShaderPreset(preset)}
-                      title={preset.name}
-                      type='button'
-                    >
-                      {preset.liveMaterialId ? (
-                        <span aria-hidden='true' className='design-lab-shader-thumb' style={{ backgroundImage: `url("${shaderPreviewAssetPath(preset.liveMaterialId)}")` }} />
-                      ) : null}
-                      <span className='design-lab-shader-name'>{preset.name}</span>
-                    </button>
-                  ))}
+                  {visibleShaderPresets.map((preset) => {
+                    const material = preset.liveMaterialId
+                      ? shaderMaterialsById.get(preset.liveMaterialId)
+                      : null;
+                    return (
+                      <button
+                        aria-pressed={backgroundEnabled && preset.liveMaterialId === liveMaterialId}
+                        className='design-lab-shader-preset'
+                        key={preset.id}
+                        onClick={() => applyShaderPreset(preset)}
+                        title={preset.name}
+                        type='button'
+                      >
+                        {preset.liveMaterialId ? (
+                          <span aria-hidden='true' className='design-lab-shader-thumb' style={{ backgroundImage: `url("${shaderPreviewAssetPath(preset.liveMaterialId)}")` }} />
+                        ) : null}
+                        {material ? <LiveMaterialSourceTag className='design-lab-shader-source' material={material} /> : null}
+                        <span className='design-lab-shader-name'>{preset.name}</span>
+                      </button>
+                    );
+                  })}
                 </>
               ) : null}
               {dock === 'surface' ? (
@@ -880,16 +1004,21 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               {dock === 'sticker' ? (
                 <>
                   <button aria-pressed={!stickersEnabled} className='design-lab-none-preset' onClick={() => setStickersEnabled(false)} type='button'><span aria-hidden='true'>∅</span><strong>None</strong></button>
+                  <button className='design-lab-sticker-text-add' onClick={() => addStickerText()} type='button'>
+                    <Type aria-hidden='true' />
+                    <span><strong>Add text sticker</strong><small>New independent text</small></span>
+                  </button>
                   {stickerAssets.map((asset) => (
                     <button
                       aria-label={`Place ${asset.label}`}
-                      className={`design-lab-sticker-asset ${asset.surface === 'light' ? 'is-light' : ''}`}
+                      className={`design-lab-sticker-asset ${asset.surface === 'light' ? 'is-light' : ''} ${asset.kind === 'text' ? 'is-text' : ''}`}
                       key={asset.id}
                       onClick={() => { setStickersEnabled(true); stickerStageRef.current?.addSticker(asset.id); }}
                       title={asset.label}
                       type='button'
                     >
                       <img alt='' draggable={false} src={asset.path} />
+                      {asset.kind === 'text' ? <span><strong>{asset.label}</strong><small>Text sticker</small></span> : null}
                     </button>
                   ))}
                   <span className='design-lab-dock-divider' aria-hidden='true' />
@@ -953,12 +1082,26 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           {mountPhase >= 5 ? (
             <>
           <div className='design-lab-inspector-head'>
-            <span>Composition stack</span>
-            <strong>{backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'no background'} · {surfaceEnabled ? surfacePreset.name : 'no surface'} · {textLayers.length} text · {stickersEnabled ? 'stickers' : 'no stickers'}</strong>
-            <small>Layer settings update the canvas immediately.</small>
+            <span>{dock === 'shader' ? 'Background shader' : dock === 'surface' ? 'Surface overlay' : dock === 'text' ? 'Text layer' : 'Sticker system'}</span>
+            <strong>{dock === 'shader'
+              ? backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'No background'
+              : dock === 'surface'
+                ? surfaceEnabled ? surfacePreset.name : 'No surface'
+                : dock === 'text'
+                  ? selectedTextLayer?.name ?? 'No text selected'
+                  : selectedSticker?.label ?? 'Composition stickers'}</strong>
+            <small>Controls follow the active library on the left.</small>
+            <button
+              aria-label={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : 'Reset stickers')}
+              onClick={resetActiveLibrary}
+              title={gt('Reset active layer')}
+              type='button'
+            >
+              <RotateCcw aria-hidden='true' />
+            </button>
           </div>
 
-          <section className='design-lab-inspector-section' data-disabled={!backgroundEnabled ? 'true' : 'false'}>
+          <section className='design-lab-inspector-section' data-disabled={!backgroundEnabled ? 'true' : 'false'} hidden={dock !== 'shader'}>
             <div className='design-lab-section-title'>
               <div><span>01</span><h2>Background shader</h2></div>
               <button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} className='design-lab-visibility' onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
@@ -966,7 +1109,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               </button>
             </div>
             <div className='design-lab-control-stack'>
-              <RangeControl disabled={!backgroundEnabled} label='Motion' max={1.5} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.01} suffix='×' value={liveSettings.speed} />
+              <RangeControl disabled={!backgroundEnabled} label='Shader speed' max={1.5} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.01} suffix='×' value={liveSettings.speed} />
               <RangeControl disabled={!backgroundEnabled} label='Warp' max={1.5} min={0} onChange={(strength) => updateLiveSettings({ strength })} step={0.01} suffix='×' value={liveSettings.strength} />
               <RangeControl disabled={!backgroundEnabled} label='Detail' max={9} min={0.5} onChange={(detail) => updateLiveSettings({ detail })} step={0.1} suffix='' value={liveSettings.detail} />
               <RangeControl disabled={!backgroundEnabled} label='Texture' max={100} min={0} onChange={(grain) => updateLiveSettings({ grain })} value={liveSettings.grain} />
@@ -979,7 +1122,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             </div>
           </section>
 
-          <section className='design-lab-inspector-section' data-disabled={!surfaceEnabled ? 'true' : 'false'}>
+          <section className='design-lab-inspector-section' data-disabled={!surfaceEnabled ? 'true' : 'false'} hidden={dock !== 'surface'}>
             <div className='design-lab-section-title'>
               <div><span>02</span><h2>Surface overlay</h2></div>
               <button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} className='design-lab-visibility' onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
@@ -995,7 +1138,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             </div>
           </section>
 
-          <section className='design-lab-inspector-section' data-disabled={!selectedTextLayer ? 'true' : 'false'}>
+          <section className='design-lab-inspector-section' data-disabled={!selectedTextLayer ? 'true' : 'false'} hidden={dock !== 'text'}>
             <div className='design-lab-section-title'>
               <div><span>03</span><h2>Text layer</h2></div>
               <button aria-label='Add text layer' className='design-lab-visibility' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>
@@ -1037,7 +1180,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             })() : <button className='design-lab-empty-action' onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span>Add your first text layer</span></button>}
           </section>
 
-          <section className='design-lab-inspector-section' data-disabled={!stickersEnabled ? 'true' : 'false'}>
+          <section className='design-lab-inspector-section' data-disabled={!stickersEnabled ? 'true' : 'false'} hidden={dock !== 'sticker'}>
             <div className='design-lab-section-title'>
               <div><span>04</span><h2>Sticker</h2></div>
               <button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} className='design-lab-visibility' onClick={() => setStickersEnabled((value) => !value)} type='button'>
@@ -1053,26 +1196,48 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <RangeControl disabled={!stickersEnabled} label='Relief' max={100} min={0} onChange={(relief) => updateSticker({ relief })} value={stickerFinish.relief} />
             </div>
             <div className='design-lab-selection-actions'>
-              <button disabled={!stickersEnabled || !selectedSticker} onClick={() => stickerStageRef.current?.duplicateSelected()} type='button'><Copy aria-hidden='true' /><span>Duplicate</span></button>
+              <button disabled={!stickersEnabled || !selectedSticker} onClick={duplicateSelectedSticker} type='button'><Copy aria-hidden='true' /><span>Duplicate</span></button>
               <button disabled={!stickersEnabled || !selectedSticker} onClick={() => stickerStageRef.current?.bringSelectedForward()} type='button'><ArrowUp aria-hidden='true' /><span>Forward</span></button>
               <button disabled={!stickersEnabled || !selectedSticker} onClick={() => stickerStageRef.current?.removeSelected()} type='button'><Trash2 aria-hidden='true' /><span>Delete</span></button>
             </div>
+            {selectedStickerText ? (
+              <div className='design-lab-sticker-text-controls'>
+                <div className='design-lab-subsection-label'><span>Selected text sticker</span><small>Independent artwork</small></div>
+                <label className='design-lab-field'><span>Content</span><textarea onChange={(event) => updateStickerText(selectedStickerText.id, { value: event.target.value })} rows={3} value={selectedStickerText.value} /></label>
+                <label className='design-lab-field'>
+                  <span>Brand font</span>
+                  <StudioSelect
+                    ariaLabel='Sticker text font role'
+                    onValueChange={(fontRole) => updateStickerText(selectedStickerText.id, { fontRole: fontRole as BrandTypography['role'] })}
+                    options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({ label: `${role} · ${brandTypographyFamily(identity, role)}`, value: role }))}
+                    value={selectedStickerText.fontRole}
+                  />
+                </label>
+                <ColorControl label='Text ink' onChange={(color) => updateStickerText(selectedStickerText.id, { color })} value={selectedStickerText.color} />
+                <div className='design-lab-artwork-kinds' role='group' aria-label='Sticker text alignment'>
+                  {(['left', 'center', 'right'] as const).map((align) => <button aria-pressed={selectedStickerText.align === align} key={align} onClick={() => updateStickerText(selectedStickerText.id, { align })} type='button'>{align}</button>)}
+                </div>
+                <div className='design-lab-control-stack'>
+                  <RangeControl label='Type weight' max={900} min={100} onChange={(weight) => updateStickerText(selectedStickerText.id, { weight })} step={50} suffix='' value={selectedStickerText.weight} />
+                  <RangeControl label='Tracking' max={0.24} min={-0.12} onChange={(tracking) => updateStickerText(selectedStickerText.id, { tracking })} step={0.01} suffix='em' value={selectedStickerText.tracking} />
+                  <RangeControl label='Line height' max={1.6} min={0.75} onChange={(lineHeight) => updateStickerText(selectedStickerText.id, { lineHeight })} step={0.05} suffix='' value={selectedStickerText.lineHeight} />
+                </div>
+              </div>
+            ) : null}
           </section>
 
-          <section className='design-lab-inspector-section'>
-            <div className='design-lab-section-title'><div><span>05</span><h2>Sticker artwork</h2></div><small>Add from dock</small></div>
+          <section className='design-lab-inspector-section' hidden={dock !== 'sticker'}>
+            <div className='design-lab-section-title'><div><span>05</span><h2>Add sticker artwork</h2></div><small>Text or image</small></div>
+            <button className='design-lab-empty-action' onClick={() => addStickerText()} type='button'><Type aria-hidden='true' /><span>Add another text sticker</span></button>
             <div className='design-lab-artwork-kinds' role='group' aria-label={gt('Artwork type')}>
               {([
                 ['logo', ImagePlus, 'Logo'],
-                ['text', Type, 'Text'],
                 ['asset', Layers3, 'Asset'],
               ] as const).map(([value, Icon, label]) => (
                 <button aria-pressed={artworkKind === value} key={value} onClick={() => { setArtworkKind(value); setStickersEnabled(true); setDock('sticker'); }} type='button'><Icon aria-hidden='true' />{label}</button>
               ))}
             </div>
-            {artworkKind === 'text' ? (
-              <label className='design-lab-field'><span>Text</span><input onChange={(event) => setArtworkText(event.target.value)} value={artworkText} /></label>
-            ) : artworkKind === 'asset' ? (
+            {artworkKind === 'asset' ? (
               <StudioSelect
                 ariaLabel={gt('Brand asset')}
                 onValueChange={setBrandAssetId}
@@ -1088,14 +1253,20 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             )}
           </section>
 
-          <details className='design-lab-advanced'>
+          <details className='design-lab-advanced' hidden={dock === 'text'}>
             <summary>Advanced layer controls <span>+</span></summary>
             <div>
-              <RangeControl disabled={!backgroundEnabled} label='Shader frequency' max={12} min={0.5} onChange={(frequency) => updateLiveSettings({ frequency })} step={0.1} suffix='' value={liveSettings.frequency} />
-              <RangeControl disabled={!backgroundEnabled} label='Shader amplitude' max={10} min={0} onChange={(amplitude) => updateLiveSettings({ amplitude })} step={0.1} suffix='' value={liveSettings.amplitude} />
-              <RangeControl disabled={!surfaceEnabled} label='Surface direction' max={180} min={0} onChange={(surfaceAngle) => updateSettings({ surfaceAngle })} suffix='°' value={settings.surfaceAngle} />
-              <RangeControl disabled={!stickersEnabled} label='Foil bands' max={20} min={1} onChange={(bands) => updateSticker({ bands })} suffix='' value={stickerFinish.bands} />
-              <RangeControl disabled={!stickersEnabled} label='Glint angle' max={180} min={0} onChange={(glintAngle) => updateSticker({ glintAngle })} suffix='°' value={stickerFinish.glintAngle} />
+              {dock === 'shader' ? <>
+                <RangeControl disabled={!backgroundEnabled} label='Shader frequency' max={12} min={0.5} onChange={(frequency) => updateLiveSettings({ frequency })} step={0.1} suffix='' value={liveSettings.frequency} />
+                <RangeControl disabled={!backgroundEnabled} label='Shader amplitude' max={10} min={0} onChange={(amplitude) => updateLiveSettings({ amplitude })} step={0.1} suffix='' value={liveSettings.amplitude} />
+              </> : null}
+              {dock === 'surface' ? (
+                <RangeControl disabled={!surfaceEnabled} label='Surface direction' max={180} min={0} onChange={(surfaceAngle) => updateSettings({ surfaceAngle })} suffix='°' value={settings.surfaceAngle} />
+              ) : null}
+              {dock === 'sticker' ? <>
+                <RangeControl disabled={!stickersEnabled} label='Foil bands' max={20} min={1} onChange={(bands) => updateSticker({ bands })} suffix='' value={stickerFinish.bands} />
+                <RangeControl disabled={!stickersEnabled} label='Glint angle' max={180} min={0} onChange={(glintAngle) => updateSticker({ glintAngle })} suffix='°' value={stickerFinish.glintAngle} />
+              </> : null}
             </div>
           </details>
 
@@ -1124,7 +1295,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           format='JSON · design composition'
           onApply={applySource}
           onClose={() => setSourceOpen(false)}
-          source={JSON.stringify({ artworkKind, artworkText, backgroundEnabled, liveMaterialId, liveSettings, settings, stickerFinish, stickersEnabled, surfaceEnabled, surfacePresetId, textLayers }, null, 2)}
+          source={JSON.stringify({ artworkKind, backgroundEnabled, liveMaterialId, liveSettings, settings, stickerFinish, stickerTexts, stickersEnabled, surfaceEnabled, surfacePresetId, textLayers }, null, 2)}
           title='Playground recipe'
         />
       ) : null}

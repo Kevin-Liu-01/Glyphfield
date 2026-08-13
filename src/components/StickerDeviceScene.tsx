@@ -13,10 +13,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
   clampStickerPosition,
-  stickerSceneAssets,
   stickerSceneContrastColor,
   stickerSceneContrastRadius,
   stickerSceneOutlineRadius,
@@ -44,7 +42,7 @@ export type StickerRenderLayer = StickerSelection & {
 export type StickerStudioStageHandle = {
   addSticker: (assetId: string) => void;
   bringSelectedForward: () => void;
-  duplicateSelected: () => void;
+  duplicateSelected: (assetId?: string) => void;
   exportPng: (size?: number, background?: CanvasImageSource) => Promise<Blob | null>;
   removeSelected: () => void;
   reset: () => void;
@@ -146,25 +144,19 @@ function buildExportStickerLayers(image: HTMLImageElement, finish: StickerFinish
 
 const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
   aspectRatio?: number;
+  assets: readonly StickerSceneAsset[];
   className?: string;
   enabled?: boolean;
   finish: StickerFinishSettings;
-  identity: BrandIdentity;
-  logoPath?: string;
   onPlacementsChange?: (placements: StickerRenderLayer[]) => void;
   onSelectionChange?: (selection: StickerSelection | null) => void;
   renderMode?: 'controls' | 'normal';
+  surfaceLabel?: string;
   surface?: 'metal' | 'transparent';
-}>(function StickerDeviceScene({ aspectRatio = 872 / 504, className = '', enabled = true, finish, identity, logoPath, onPlacementsChange, onSelectionChange, renderMode = 'normal', surface = 'metal' }, ref) {
-  const assets = useMemo(() => {
-    const libraryAssets = stickerSceneAssets(identity, logoPath);
-    const primary = logoPath
-      ? [{ id: 'current-artwork', label: `${identity.name} current artwork`, path: logoPath, surface: 'dark' as const, type: 'logo' as const }]
-      : [];
-    return [...primary, ...libraryAssets].filter((asset, index, collection) => (
-      collection.findIndex(({ path }) => path === asset.path) === index
-    ));
-  }, [identity, logoPath]);
+}>(function StickerDeviceScene({ aspectRatio = 872 / 504, assets: suppliedAssets, className = '', enabled = true, finish, onPlacementsChange, onSelectionChange, renderMode = 'normal', surface = 'metal', surfaceLabel = 'Sticker placement surface' }, ref) {
+  const assets = useMemo(() => suppliedAssets.filter((asset, index, collection) => (
+    collection.findIndex(({ id }) => id === asset.id) === index
+  )), [suppliedAssets]);
   const assetKey = assets.map(({ id, path }) => `${id}:${path}`).join('|');
   const assetMap = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const [placements, setPlacements] = useState<StickerScenePlacement[]>(() => starterPlacement(assets[0]));
@@ -260,16 +252,19 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
     });
   }
 
-  function duplicateSelected() {
+  function duplicateSelected(assetId?: string) {
     const selected = placements.find(({ id }) => id === selectedId);
     if (!selected) return;
+    const duplicateAssetId = assetId ?? selected.assetId;
+    if (!assetMap.has(duplicateAssetId)) return;
     const serial = serialRef.current;
     serialRef.current += 1;
-    const id = `duplicate-${serial}-${selected.assetId}`;
+    const id = `duplicate-${serial}-${duplicateAssetId}`;
     const nextZ = placements.reduce((largest, placement) => Math.max(largest, placement.z), 0) + 1;
     const position = clampStickerPosition(selected.x + 4, selected.y + 4);
     setPlacements((current) => [...current, {
       ...selected,
+      assetId: duplicateAssetId,
       id,
       ...position,
       z: nextZ,
@@ -424,7 +419,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
 
   return (
     <section
-      aria-label={`${identity.name} sticker placement surface`}
+      aria-label={surfaceLabel}
       aria-hidden={!enabled}
       className={`sticker-maker-surface ${className}`}
       data-enabled={enabled ? 'true' : 'false'}
@@ -479,6 +474,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
             onPointerMove={handlePointerMove}
             onPointerUp={finishPointerDrag}
             style={{
+              aspectRatio: asset.aspectRatio ?? 1.24,
               left: `${placement.x}%`,
               top: `${placement.y}%`,
               transform: `translate(-50%, -50%) rotate(${placement.rotation}deg)`,

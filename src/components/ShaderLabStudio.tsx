@@ -38,6 +38,9 @@ import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -66,13 +69,14 @@ import {
   encodeCanvasGif,
   encodeCanvasMp4,
   resolveExportDimensions,
-  seamlessLoopBlendAmount,
+  resolveSeamlessLoopOverlapFrames,
+  type MotionLoopMode,
+  type MotionLoopReport,
   type MotionExportQuality,
   type MotionFrame,
   type StillImageFormat,
 } from '@/lib/canvasExport';
 import type { ConvertedAsset } from '@/lib/convertedAssets';
-import { downloadBlob } from '@/lib/download';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
@@ -194,8 +198,16 @@ type TextAppearanceSettings = {
 type DesignExportSettings = {
   durationMs: number;
   fps: number;
+  gifLoop: MotionLoopMode;
   quality: MotionExportQuality;
   width: number;
+};
+
+type DesignExportFormat = 'gif' | 'jpg' | 'mp4' | 'png';
+
+type DesignExportRequest = {
+  format: DesignExportFormat;
+  settingsSignature: string;
 };
 
 const RATIO_OPTIONS: readonly { height: number; label: string; value: ShaderRatio; width: number }[] = [
@@ -213,6 +225,7 @@ const CANVAS_DIMENSIONS: Record<ShaderRatio, { height: number; width: number }> 
 const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
   durationMs: 1_600,
   fps: 15,
+  gifLoop: 'seamless',
   quality: 'balanced',
   width: 960,
 };
@@ -222,6 +235,139 @@ const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; val
   { description: 'Clean everyday output', label: 'Balanced', value: 'balanced' },
   { description: 'Maximum color detail', label: 'Best', value: 'best' },
 ];
+
+function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExportSettings): string {
+  return [ratio, settings.width, settings.quality, settings.durationMs, settings.fps, settings.gifLoop].join(':');
+}
+
+function DesignExportControls({
+  onChange,
+  ratioOption,
+  settings,
+}: {
+  onChange: (patch: Partial<DesignExportSettings>) => void;
+  ratioOption: (typeof RATIO_OPTIONS)[number];
+  settings: DesignExportSettings;
+}) {
+  const dimensions = resolveExportDimensions({
+    aspectHeight: ratioOption.height,
+    aspectWidth: ratioOption.width,
+    width: settings.width,
+  });
+  const frameCount = Math.max(2, Math.round(settings.durationMs / (1_000 / settings.fps)));
+  const loopOverlapFrames = resolveSeamlessLoopOverlapFrames({
+    durationMs: settings.durationMs,
+    fps: settings.fps,
+    height: dimensions.height,
+    width: dimensions.width,
+  });
+
+  return (
+    <div className='shader-lab-v2-output-controls'>
+      <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
+        {EXPORT_WIDTH_PRESETS.map((width) => {
+          const presetDimensions = resolveExportDimensions({
+            aspectHeight: ratioOption.height,
+            aspectWidth: ratioOption.width,
+            width,
+          });
+          return (
+            <button
+              aria-pressed={dimensions.width === presetDimensions.width}
+              key={width}
+              onClick={() => onChange({ width })}
+              type='button'
+            >
+              <strong>{width}</strong>
+              <small>{presetDimensions.width}×{presetDimensions.height}</small>
+            </button>
+          );
+        })}
+      </div>
+      <label className='shader-lab-v2-export-width'>
+        <span>Exact width</span>
+        <span>
+          <input
+            aria-label='Export width in pixels'
+            max={3_840}
+            min={320}
+            onBlur={() => onChange({ width: dimensions.width })}
+            onChange={(event) => {
+              const width = Number(event.target.value);
+              if (Number.isFinite(width)) onChange({ width });
+            }}
+            step={2}
+            type='number'
+            value={settings.width}
+          />
+          <i>px</i>
+        </span>
+      </label>
+      <div className='shader-lab-v2-export-quality'>
+        <span>Quality</span>
+        <div>
+          {EXPORT_QUALITY_OPTIONS.map((option) => (
+            <button
+              aria-pressed={settings.quality === option.value}
+              key={option.value}
+              onClick={() => onChange({ quality: option.value })}
+              title={option.description}
+              type='button'
+            >{option.label}</button>
+          ))}
+        </div>
+      </div>
+      <div className='shader-lab-v2-export-motion'>
+        <label>
+          <span>Duration</span>
+          <StudioSelect
+            ariaLabel='Export duration'
+            onValueChange={(value) => onChange({ durationMs: Number(value) })}
+            options={[
+              { label: '1.2 seconds', value: '1200' },
+              { label: '1.6 seconds', value: '1600' },
+              { label: '2.4 seconds', value: '2400' },
+              { label: '4 seconds', value: '4000' },
+            ]}
+            value={String(settings.durationMs)}
+          />
+        </label>
+        <label>
+          <span>Frame rate</span>
+          <StudioSelect
+            ariaLabel='Export frame rate'
+            onValueChange={(value) => onChange({ fps: Number(value) })}
+            options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
+            value={String(settings.fps)}
+          />
+        </label>
+      </div>
+      <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
+        <span>GIF loop</span>
+        <div>
+          <button
+            aria-pressed={settings.gifLoop === 'seamless'}
+            onClick={() => onChange({ gifLoop: 'seamless' })}
+            title='Blend a continuous tail into the matching head and verify the closing boundary.'
+            type='button'
+          >Seamless</button>
+          <button
+            aria-pressed={settings.gifLoop === 'raw'}
+            onClick={() => onChange({ gifLoop: 'raw' })}
+            title='Repeat the captured shader frames without correcting the seam.'
+            type='button'
+          >Raw motion</button>
+        </div>
+        <small>{settings.gifLoop === 'seamless'
+          ? `${loopOverlapFrames}-frame temporal overlap · pixel boundary checked after render`
+          : 'No seam correction · useful when the source shader is already periodic'}</small>
+      </div>
+      <p className='shader-lab-v2-export-summary'>
+        {dimensions.width} × {dimensions.height} · {frameCount} motion frames · {EXPORT_QUALITY_OPTIONS.find(({ value }) => value === settings.quality)?.description}
+      </p>
+    </div>
+  );
+}
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
@@ -309,7 +455,6 @@ function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
 
 function CanvasEditableText({
   className,
-  exportLayerId,
   label,
   onChange,
   onFocus,
@@ -317,7 +462,6 @@ function CanvasEditableText({
   value,
 }: {
   className: string;
-  exportLayerId: TextLayerId;
   label: string;
   onChange: (value: string) => void;
   onFocus: () => void;
@@ -339,7 +483,6 @@ function CanvasEditableText({
       className={className}
       contentEditable='plaintext-only'
       data-canvas-editable='true'
-      data-export-text-layer={exportLayerId}
       onBlur={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
       onFocus={onFocus}
       onInput={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
@@ -397,7 +540,7 @@ const PRIMARY_CONTROLS: readonly {
   min: number;
   step: number;
 }[] = [
-  { key: 'speed', label: 'Motion', max: 1.5, min: 0, step: 0.01 },
+  { key: 'speed', label: 'Shader speed', max: 1.5, min: 0, step: 0.01 },
   { key: 'frequency', label: 'Frequency', max: 12, min: 0.5, step: 0.1 },
   { key: 'strength', label: 'Warp', max: 1.5, min: 0, step: 0.01 },
   { key: 'detail', label: 'Detail', max: 9, min: 0.5, step: 0.1 },
@@ -512,11 +655,12 @@ function RangeControl({
 }) {
   return (
     <label className='shader-lab-v2-range'>
-      <span>
-        <span>{label}</span>
-        <output>{formatValue?.(value) ?? (Number.isInteger(step) ? Math.round(value) : value.toFixed(2))}</output>
-      </span>
+      <StudioRangeLabel
+        label={label}
+        value={<output>{formatValue?.(value) ?? (Number.isInteger(step) ? Math.round(value) : value.toFixed(2))}</output>}
+      />
       <input
+        aria-label={label}
         className='studio-range'
         max={max}
         min={min}
@@ -565,6 +709,7 @@ export default function ShaderLabStudio({
   navigation?: ReactNode;
   tool: StudioTool;
 }) {
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
   const brandPalette = brandMaterialPalette(identity);
   const initialSettings = shaderLabSettingsFor('holo-cloth-silk', {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
@@ -642,9 +787,9 @@ export default function ShaderLabStudio({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [exporting, setExporting] = useState<'gif' | 'jpg' | 'mp4' | 'png' | null>(null);
-  const [exportProgress, setExportProgress] = useState(0);
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+  const [lastExportRequest, setLastExportRequest] = useState<DesignExportRequest | null>(null);
   const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
   const canvasDimensions = CANVAS_DIMENSIONS[ratio];
   const normalizedExportSettings: DesignExportSettings = {
@@ -654,6 +799,7 @@ export default function ShaderLabStudio({
     fps: [12, 15, 24, 30].includes(exportSettings.fps)
       ? exportSettings.fps
       : DEFAULT_EXPORT_SETTINGS.fps,
+    gifLoop: exportSettings.gifLoop === 'raw' ? 'raw' : 'seamless',
     quality: EXPORT_QUALITY_OPTIONS.some(({ value }) => value === exportSettings.quality)
       ? exportSettings.quality
       : DEFAULT_EXPORT_SETTINGS.quality,
@@ -666,9 +812,20 @@ export default function ShaderLabStudio({
     aspectWidth: ratioOption.width,
     width: normalizedExportSettings.width,
   });
-  const exportFrameCount = Math.max(
-    2,
-    Math.round(normalizedExportSettings.durationMs / (1_000 / normalizedExportSettings.fps))
+  const compositionSignature = useMemo(() => JSON.stringify({
+    background: canvasBackground,
+    layerOrder,
+    layerShaders,
+    layers: {
+      assets: compositionAssets,
+      logos: logoLayers,
+      shaders: shaderLayers,
+      text: textLayers,
+    },
+  }), [canvasBackground, compositionAssets, layerOrder, layerShaders, logoLayers, shaderLayers, textLayers]);
+  const currentExportSettingsSignature = `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${compositionSignature}`;
+  const previewNeedsRefresh = Boolean(
+    lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
   const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
   const selectedShaderLayer = isShaderLayerId(selectedLayerId)
@@ -1443,55 +1600,17 @@ export default function ShaderLabStudio({
         const textLayer = textLayers.find((layer) => layer.id === layerId);
         if (!textLayer || !textLayer.value) return;
         const transform = resolvedTextTransform(textLayer.transform);
-        const geometryBox = outputLayerBox(layerId, transform, width, height);
+        const box = outputLayerBox(layerId, transform, width, height);
         const value = textLayer.value;
         const textAppearance = resolvedTextAppearance(textLayer);
-        const previewElement = Array.from(
-          stageRef.current?.querySelectorAll<HTMLElement>('[data-export-text-layer]') ?? []
-        ).find((element) => element.dataset.exportTextLayer === layerId);
-        const previewStyle = previewElement ? getComputedStyle(previewElement) : null;
-        const stageElement = stageRef.current;
-        const stageRect = stageElement?.getBoundingClientRect();
-        const previewRect = previewElement?.getBoundingClientRect();
-        const stageVisualScale = stageElement && stageRect && stageElement.offsetWidth > 0
-          ? stageRect.width / stageElement.offsetWidth
-          : 1;
-        const stageContentWidth = stageElement
-          ? stageElement.clientWidth * stageVisualScale
-          : 0;
-        const stageContentHeight = stageElement
-          ? stageElement.clientHeight * stageVisualScale
-          : 0;
-        const previewBox = stageElement && stageRect && previewRect && stageContentWidth > 0 && stageContentHeight > 0
-          ? {
-              height: previewRect.height / stageContentHeight * height,
-              width: previewRect.width / stageContentWidth * width,
-              x: (previewRect.left - stageRect.left - stageElement.clientLeft * stageVisualScale) / stageContentWidth * width,
-              y: (previewRect.top - stageRect.top - stageElement.clientTop * stageVisualScale) / stageContentHeight * height,
-            }
-          : null;
-        const box = previewBox ?? geometryBox;
         context.save();
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
-        const liveToOutputScale = stageElement?.clientWidth
-          ? width / stageElement.clientWidth
-          : null;
-        const computedFontSize = Number.parseFloat(previewStyle?.fontSize ?? '');
-        const computedLineHeight = Number.parseFloat(previewStyle?.lineHeight ?? '');
-        const computedLetterSpacing = Number.parseFloat(previewStyle?.letterSpacing ?? '');
-        const fontSize = liveToOutputScale && Number.isFinite(computedFontSize)
-          ? computedFontSize * liveToOutputScale
-          : Math.max(18, height * 0.17 * transform.scale);
-        const lineHeight = liveToOutputScale && Number.isFinite(computedLineHeight)
-          ? computedLineHeight * liveToOutputScale
-          : fontSize * textLayer.lineHeight;
-        const spacing = liveToOutputScale && Number.isFinite(computedLetterSpacing)
-          ? computedLetterSpacing * liveToOutputScale
-          : textLayer.tracking * fontSize;
+        const fontSize = Math.max(18, height * 0.17 * transform.scale);
+        const lineHeight = fontSize * textLayer.lineHeight;
+        const spacing = textLayer.tracking * fontSize;
         const fontWeight = resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight);
-        const fontFamily = previewStyle?.fontFamily
-          ?? `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`;
+        const fontFamily = `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, Arial, sans-serif`;
         context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
         context.fontKerning = 'normal';
         const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
@@ -1512,8 +1631,24 @@ export default function ShaderLabStudio({
         const totalHeight = Math.max(lineHeight, lines.length * lineHeight);
         const firstBaseline = box.y + Math.max(0, (box.height - totalHeight) / 2) + lineBoxBaseline;
         const application = layerShaders[layerId];
-        const preview = application ? images.get(`shader-preview-${application.materialId}`) : null;
-        const pattern = preview ? context.createPattern(preview, 'repeat') : null;
+        let pattern: CanvasPattern | null = null;
+        if (application) {
+          const materialLayer = document.createElement('canvas');
+          materialLayer.width = Math.max(1, Math.round(box.width));
+          materialLayer.height = Math.max(1, Math.round(box.height));
+          const materialContext = materialLayer.getContext('2d');
+          if (materialContext) {
+            paintShaderApplication(
+              materialContext,
+              materialLayer.width,
+              materialLayer.height,
+              `content-${layerId}`,
+              application
+            );
+            pattern = context.createPattern(materialLayer, 'repeat');
+            pattern?.setTransform(new DOMMatrix().translate(box.x, box.y));
+          }
+        }
         context.fillStyle = pattern ?? textAppearance.color;
         context.globalAlpha = textAppearance.opacity * (application?.opacity ?? 1);
         context.globalCompositeOperation = application?.blendMode && application.blendMode !== 'normal'
@@ -1582,13 +1717,9 @@ export default function ShaderLabStudio({
   }
 
   async function loadCompositionImages() {
-    const previewMaterialIds = new Set(
-      Object.values(layerShaders).flatMap((application) => application ? [application.materialId] : [])
-    );
     const entries: [string, string][] = [
       ...logoLayers.map((layer): [string, string] => [layer.id, layer.url]),
       ...compositionAssets.map((asset): [string, string] => [asset.id, asset.url]),
-      ...Array.from(previewMaterialIds).map((id): [string, string] => [`shader-preview-${id}`, shaderPreviewAssetPath(id)]),
     ];
     return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadImage(source)] as const)));
   }
@@ -1600,12 +1731,40 @@ export default function ShaderLabStudio({
     return output;
   }
 
+  function gifProtectedCompositionColors(): string[] {
+    const colors: string[] = [];
+    visibleLayerIds.forEach((layerId) => {
+      if (isTextLayerId(layerId) && !layerShaders[layerId]) {
+        const layer = textLayers.find((candidate) => candidate.id === layerId);
+        if (!layer) return;
+        const appearance = resolvedTextAppearance(layer);
+        colors.push(appearance.color);
+        if (appearance.outlineEnabled) colors.push(appearance.outlineColor);
+        if (appearance.shadowEnabled) colors.push(appearance.shadowColor);
+        return;
+      }
+      if (isLogoLayerId(layerId) && !layerShaders[layerId]) {
+        const layer = logoLayers.find((candidate) => candidate.id === layerId);
+        if (layer?.color) colors.push(layer.color);
+      }
+    });
+    colors.push(canvasBackground);
+    return colors;
+  }
+
   async function exportStill(format: StillImageFormat) {
     if (exporting) return;
-    setExporting(format);
+    const settingsSignature = currentExportSettingsSignature;
+    const resumeAfterExport = !paused;
+    flushSync(() => {
+      setExporting(format);
+      setPaused(true);
+    });
     setExportError(null);
+    studioExport.start(`Rendering ${format.toUpperCase()} preview`);
     try {
       const startedAt = performance.now();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       await waitForCompositionFonts();
       const output = createExportCanvas();
       const context = output.getContext('2d');
@@ -1620,7 +1779,6 @@ export default function ShaderLabStudio({
       const blob = await canvasToImageBlob(output, format, quality);
       const label = format === 'jpg' ? 'JPG' : 'PNG';
       const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
-      downloadBlob(blob, fileName);
       setLastExport({
         blob,
         elapsedMs: performance.now() - startedAt,
@@ -1629,23 +1787,36 @@ export default function ShaderLabStudio({
         height: output.height,
         width: output.width,
       });
+      setLastExportRequest({ format, settingsSignature });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'The still image could not be exported.');
     } finally {
       setExporting(null);
+      if (resumeAfterExport) setPaused(false);
+      studioExport.finish();
     }
   }
 
   async function waitForCapturedFrame(frame: MotionFrame) {
     flushSync(() => setCaptureTimeMs(frame.timeMs));
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => {
+      // Provider renderers stop their live loop before accepting the controlled clock.
+      let remainingFrames = frame.index === 0 ? 10 : 3;
+      const settleFrame = () => {
+        remainingFrames -= 1;
+        if (remainingFrames === 0) resolve();
+        else requestAnimationFrame(settleFrame);
+      };
+      requestAnimationFrame(settleFrame);
+    });
   }
 
   async function exportMotion(format: 'gif' | 'mp4') {
     if (exporting) return;
+    const settingsSignature = currentExportSettingsSignature;
     setExporting(format);
-    setExportProgress(0);
     setExportError(null);
+    studioExport.start(`Rendering ${format.toUpperCase()} preview`, 0);
     try {
       const startedAt = performance.now();
       await waitForCompositionFonts();
@@ -1654,60 +1825,61 @@ export default function ShaderLabStudio({
       const context = output.getContext('2d', { willReadFrequently: format === 'gif' });
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
-      const loopFrame = quality === 'best' && format === 'gif' ? createExportCanvas() : null;
-      const loopContext = loopFrame?.getContext('2d') ?? null;
       const renderFrame = async (frame: MotionFrame) => {
         await waitForCapturedFrame(frame);
         composeFrame(context, output.width, output.height, images);
-        if (loopContext && loopFrame) {
-          if (frame.index === 0) {
-            loopContext.clearRect(0, 0, loopFrame.width, loopFrame.height);
-            loopContext.drawImage(output, 0, 0);
-          }
-          const blendWindowMs = durationMs * 0.18;
-          const blend = seamlessLoopBlendAmount(
-            Math.max(0, frame.timeMs - (durationMs - blendWindowMs)),
-            blendWindowMs
-          );
-          context.save();
-          context.globalAlpha = blend;
-          context.drawImage(loopFrame, 0, 0);
-          context.restore();
-        }
       };
       const sharedOptions = {
         canvas: output,
         durationMs,
-        onProgress: setExportProgress,
+        onProgress: studioExport.update,
         renderFrame,
       };
+      let loopReport: MotionLoopReport | undefined;
       const blob = format === 'gif'
         ? await encodeCanvasGif({
             ...sharedOptions,
             colors: quality === 'fast' ? 64 : quality === 'best' ? 256 : 128,
             fps,
+            loopMode: normalizedExportSettings.gifLoop,
+            onLoopReport: (report) => { loopReport = report; },
             paletteFormat: quality === 'fast' ? 'rgb444' : 'rgb565',
             paletteStrategy: quality === 'best' ? 'per-frame' : 'global',
+            protectedColors: gifProtectedCompositionColors(),
           })
         : await encodeCanvasMp4({ ...sharedOptions, fps, quality });
       const label = format === 'gif' ? 'GIF' : 'MP4';
       const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
-      downloadBlob(blob, fileName);
       setLastExport({
         blob,
         elapsedMs: performance.now() - startedAt,
         fileName,
         format: label,
         height: output.height,
+        loopReport,
         width: output.width,
       });
+      setLastExportRequest({ format, settingsSignature });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
     } finally {
       setCaptureTimeMs(null);
-      setExportProgress(0);
       setExporting(null);
+      studioExport.finish();
     }
+  }
+
+  function updateExportSettings(patch: Partial<DesignExportSettings>) {
+    setExportSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function refreshExportPreview() {
+    if (!lastExportRequest || exporting) return;
+    if (lastExportRequest.format === 'gif' || lastExportRequest.format === 'mp4') {
+      void exportMotion(lastExportRequest.format);
+      return;
+    }
+    void exportStill(lastExportRequest.format);
   }
 
   function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
@@ -1727,39 +1899,45 @@ export default function ShaderLabStudio({
 
   return (
     <div className='shader-lab-v2 tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
-        <div className='min-w-0'>
-          <div className='flex items-center gap-2'>
-            <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
-          </div>
-          <p className='truncate text-sm text-muted-foreground'>Compose type, converted marks, images, and live materials with precise layer controls.</p>
-        </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          {navigation}
+      <StudioToolHeader
+        actions={(
+          <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <ExportPreview asset={lastExport} />
+          <ExportPreview
+            asset={lastExport}
+            needsRefresh={previewNeedsRefresh}
+            onRefresh={refreshExportPreview}
+            refreshKey={currentExportSettingsSignature}
+            refreshing={Boolean(exporting)}
+          />
           {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
           <Button aria-label={paused ? 'Play shader' : 'Pause shader'} onClick={() => setPaused((current) => !current)} size='icon' type='button' variant='outline'>
             {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
           </Button>
-          <Button aria-label='Download PNG' disabled={Boolean(exporting)} onClick={() => void exportStill('png')} loading={exporting === 'png'} type='button' variant='outline'>
+          <Button aria-label='Preview PNG export' disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <span className='responsive-toolbar-label'>PNG</span>
           </Button>
-          <Button aria-label='Download JPG' disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} loading={exporting === 'jpg'} type='button' variant='outline'>
+          <Button aria-label='Preview JPG export' disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <span className='responsive-toolbar-label'>JPG</span>
           </Button>
-          <Button aria-label='Download animated GIF' disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} loading={exporting === 'gif'} type='button' variant='outline'>
+          <Button aria-label='Preview animated GIF export' disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button' variant='outline'>
             <Download aria-hidden='true' />
-            <span className='responsive-toolbar-label'>{exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : 'GIF'}</span>
+            <span className='responsive-toolbar-label'>GIF</span>
           </Button>
-          <Button aria-label='Download MP4 video' disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} loading={exporting === 'mp4'} type='button'>
+          <Button aria-label='Preview MP4 video export' disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'>
             <Download aria-hidden='true' />
-            <span className='responsive-toolbar-label'>{exporting === 'mp4' ? `${Math.round(exportProgress * 100)}%` : 'MP4'}</span>
+            <span className='responsive-toolbar-label'>MP4</span>
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+        metadata='Type · marks · images · live materials'
+        navigation={navigation}
+        navigationLabel='Design Lab view'
+        title={tool.name}
+        toolId={tool.id}
+      />
 
       <div className='shader-lab-v2-layout studio-scroll-area'>
         <aside className='shader-lab-v2-library studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve>
@@ -1801,16 +1979,6 @@ export default function ShaderLabStudio({
         </aside>
 
         <main className='shader-lab-v2-workspace'>
-          <div className='shader-lab-v2-stage-toolbar' data-canvas-selection-preserve>
-            <Button onClick={() => addCanvasShader()} size='sm' type='button' variant='outline'>
-              <Sparkles aria-hidden='true' />Add shader layer
-            </Button>
-            <div className='shader-lab-v2-segmented shader-lab-v2-ratios' aria-label='Canvas ratio'>
-              {RATIO_OPTIONS.map((option) => (
-                <button aria-pressed={ratio === option.value} key={option.value} onClick={() => setRatio(option.value)} type='button'>{option.label}</button>
-              ))}
-            </div>
-          </div>
           <CanvasViewport
             className='shader-lab-v2-composer-viewport'
             draftKey='shader-lab-v2-canvas-zoom'
@@ -1951,7 +2119,6 @@ export default function ShaderLabStudio({
                         canvasHeight={canvasDimensions.height}
                         canvasWidth={canvasDimensions.width}
                         className='shader-lab-v2-composition-layer'
-                        fitContentHeight
                         key={layerId}
                         label={textLayer.name}
                         onChange={(nextTransform) => updateTextLayer(layerId, { transform: nextTransform })}
@@ -1962,9 +2129,19 @@ export default function ShaderLabStudio({
                         transform={transform}
                         zIndex={zIndex}
                       >
+                        {application ? (
+                          <div
+                            aria-hidden='true'
+                            className='pointer-events-none absolute inset-0 opacity-0'
+                            data-shader-instance={`content-${layerId}`}
+                            key='material-source'
+                          >
+                            {renderLiveMaterial(application, `content-${layerId}`)}
+                          </div>
+                        ) : null}
                         <CanvasEditableText
                           className={`shader-lab-v2-layer-text ${application ? 'shader-lab-v2-layer-text-material' : ''}`}
-                          exportLayerId={textLayer.id}
+                          key='editable-text'
                           label={`Edit ${textLayer.name}`}
                           onChange={(value) => updateTextLayer(layerId, { value })}
                           onFocus={() => setSelectedLayerId(layerId)}
@@ -1980,6 +2157,11 @@ export default function ShaderLabStudio({
                             ),
                             letterSpacing: `${textLayer.tracking}em`,
                             lineHeight: textLayer.lineHeight,
+                            justifyContent: textLayer.align === 'left'
+                              ? 'flex-start'
+                              : textLayer.align === 'right'
+                                ? 'flex-end'
+                                : 'center',
                             overflowWrap: textLayer.wrap === 'wrap' ? 'anywhere' : 'normal',
                             opacity: textAppearance.opacity * (application?.opacity ?? 1),
                             textAlign: textLayer.align,
@@ -2231,123 +2413,33 @@ export default function ShaderLabStudio({
                 <div><dt>Shaders</dt><dd>{shaderLayers.filter(({ visible }) => visible).length}</dd></div>
                 <div><dt>Motion</dt><dd>{paused ? 'Paused' : 'Live'}</dd></div>
               </dl>
-            </section>
 
-            <section className='shader-lab-v2-control-section'>
-              <div className='shader-lab-v2-section-title'><h3>Add a layer</h3><span>Front of stack</span></div>
-              <div className='shader-lab-v2-composition-add' aria-label='Add composition layer'>
-                <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.length} layers</small></span></button>
-                <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
-                <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
-                <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} layers</small></span></button>
+              <div className='shader-lab-v2-composition-group'>
+                <div className='shader-lab-v2-composition-subhead'><h4>Layers</h4><span>Add to front</span></div>
+                <div className='shader-lab-v2-composition-add' aria-label='Add composition layer'>
+                  <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.length} layers</small></span></button>
+                  <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
+                  <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
+                  <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} layers</small></span></button>
+                </div>
+              </div>
+
+              <div className='shader-lab-v2-composition-group'>
+                <div className='shader-lab-v2-composition-subhead'><h4>Output</h4><span>{exportDimensions.width} × {exportDimensions.height}</span></div>
+                <DesignExportControls
+                  onChange={updateExportSettings}
+                  ratioOption={ratioOption}
+                  settings={normalizedExportSettings}
+                />
+                <div className='shader-lab-v2-composition-output'>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>GIF</span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>MP4</span></button>
+                </div>
               </div>
             </section>
-
           </> : null}
-
-          <section className='shader-lab-v2-control-section shader-lab-v2-export-settings'>
-            <div className='shader-lab-v2-section-title'>
-              <h3>Export</h3>
-              <span>{exportDimensions.width} × {exportDimensions.height}</span>
-            </div>
-            <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
-              {EXPORT_WIDTH_PRESETS.map((width) => {
-                const dimensions = resolveExportDimensions({
-                  aspectHeight: ratioOption.height,
-                  aspectWidth: ratioOption.width,
-                  width,
-                });
-                return (
-                  <button
-                    aria-pressed={exportDimensions.width === dimensions.width}
-                    key={width}
-                    onClick={() => setExportSettings((current) => ({ ...current, width }))}
-                    type='button'
-                  >
-                    <strong>{width}</strong>
-                    <small>{dimensions.width}×{dimensions.height}</small>
-                  </button>
-                );
-              })}
-            </div>
-            <label className='shader-lab-v2-export-width'>
-              <span>Exact width</span>
-              <span>
-                <input
-                  aria-label='Export width in pixels'
-                  max={3_840}
-                  min={320}
-                  onBlur={() => setExportSettings((current) => ({ ...current, width: exportDimensions.width }))}
-                  onChange={(event) => {
-                    const width = Number(event.target.value);
-                    if (Number.isFinite(width)) setExportSettings((current) => ({ ...current, width }));
-                  }}
-                  step={2}
-                  type='number'
-                  value={normalizedExportSettings.width}
-                />
-                <i>px</i>
-              </span>
-            </label>
-            <div className='shader-lab-v2-export-quality'>
-              <span>Quality</span>
-              <div>
-                {EXPORT_QUALITY_OPTIONS.map((option) => (
-                  <button
-                    aria-pressed={normalizedExportSettings.quality === option.value}
-                    key={option.value}
-                    onClick={() => setExportSettings((current) => ({ ...current, quality: option.value }))}
-                    title={option.description}
-                    type='button'
-                  >{option.label}</button>
-                ))}
-              </div>
-            </div>
-            <div className='shader-lab-v2-export-motion'>
-              <label>
-                <span>Duration</span>
-                <StudioSelect
-                  ariaLabel='Export duration'
-                  onValueChange={(value) => setExportSettings((current) => ({ ...current, durationMs: Number(value) }))}
-                  options={[
-                    { label: '1.2 seconds', value: '1200' },
-                    { label: '1.6 seconds', value: '1600' },
-                    { label: '2.4 seconds', value: '2400' },
-                    { label: '4 seconds', value: '4000' },
-                  ]}
-                  value={String(normalizedExportSettings.durationMs)}
-                />
-              </label>
-              <label>
-                <span>Frame rate</span>
-                <StudioSelect
-                  ariaLabel='Export frame rate'
-                  onValueChange={(value) => setExportSettings((current) => ({ ...current, fps: Number(value) }))}
-                  options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
-                  value={String(normalizedExportSettings.fps)}
-                />
-              </label>
-            </div>
-            <p className='shader-lab-v2-export-summary'>
-              {exportFrameCount} motion frames · {EXPORT_QUALITY_OPTIONS.find(({ value }) => value === normalizedExportSettings.quality)?.description}
-            </p>
-            <div className='shader-lab-v2-composition-output'>
-              <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
-              <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
-              <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>{exporting === 'gif' ? `${Math.round(exportProgress * 100)}%` : 'GIF'}</span></button>
-              <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>{exporting === 'mp4' ? `${Math.round(exportProgress * 100)}%` : 'MP4'}</span></button>
-            </div>
-            {exporting === 'gif' || exporting === 'mp4' ? (
-              <div
-                aria-label={`${exporting.toUpperCase()} export progress`}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={Math.round(exportProgress * 100)}
-                className='shader-lab-v2-export-progress'
-                role='progressbar'
-              ><i style={{ width: `${exportProgress * 100}%` }} /></div>
-            ) : null}
-          </section>
 
           <section className='shader-lab-v2-control-section'>
             <div className='shader-lab-v2-section-title'><h3>Canvas</h3><span>Background</span></div>
@@ -2464,6 +2556,7 @@ export default function ShaderLabStudio({
               {PRIMARY_CONTROLS.map((control) => (
                 <RangeControl
                   {...control}
+                  formatValue={control.key === 'speed' ? (value) => `${value.toFixed(2)}×` : undefined}
                   key={control.key}
                   onChange={(value) => updateSetting(control.key, value)}
                   value={settings[control.key]}
