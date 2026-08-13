@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 
+import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
 import {
   normalizeStickerFinish,
@@ -29,10 +30,11 @@ function RangeControl({
 }) {
   return (
     <label className='flex flex-col gap-2'>
-      <span className='flex items-center justify-between gap-3 text-sm text-muted-foreground'>
-        <span>{label}</span>
-        <output className='font-mono text-xs tabular-nums'>{value}{unit}</output>
-      </span>
+      <StudioRangeLabel
+        className='text-sm text-muted-foreground'
+        label={label}
+        value={<output className='font-mono text-xs tabular-nums'>{value}{unit}</output>}
+      />
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
     </label>
   );

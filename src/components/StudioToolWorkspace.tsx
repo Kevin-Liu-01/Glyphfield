@@ -29,10 +29,14 @@ import ComponentLibraryPreview, {
   type ComponentFamily,
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -54,9 +58,9 @@ import {
   type CodeLanguage,
 } from '@/lib/codeHighlight';
 import {
-  downloadSvgAsPng,
   escapeXml,
   imageUrlToDataUrl,
+  svgToPngBlob,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
@@ -218,18 +222,17 @@ function ToolShell({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
-        <div className='min-w-0'>
-          <p className='text-lg font-semibold tracking-tight'>{gt(tool.name)}</p>
-          <p className='truncate text-sm text-muted-foreground'>{gt(tool.description)}</p>
-        </div>
-        {actions || sourceCode ? (
-          <div className='flex shrink-0 items-center gap-2'>
+      <StudioToolHeader
+        actions={actions || sourceCode ? (
+          <>
             {sourceCode ? <SourceCodeButton onClick={() => setSourceOpen(true)} /> : null}
             {actions}
-          </div>
-        ) : null}
-      </header>
+          </>
+        ) : undefined}
+        metadata={gt(tool.description)}
+        title={gt(tool.name)}
+        toolId={tool.id}
+      />
       <div className={`tool-body${library ? ' tool-lab-body lab-workspace' : ''}`}>
         {library ? (
           <ResizableSidebar
@@ -312,10 +315,10 @@ function RangeField({
   const resolvedValue = Math.min(value, max);
   return (
     <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-      <span className='flex items-center justify-between gap-3'>
-        <span>{label}</span>
-        <output className='font-mono text-xs tabular-nums'>{resolvedValue}{suffix}</output>
-      </span>
+      <StudioRangeLabel
+        label={label}
+        value={<output className='font-mono text-xs tabular-nums'>{resolvedValue}{suffix}</output>}
+      />
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
     </label>
   );
@@ -499,6 +502,7 @@ function openGraphPanelIsDark(identity: BrandIdentity): boolean {
 
 function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:opengraph`);
   const backgroundAsset = useLocalAsset();
   const customFont = useCustomFont();
   const logoAsset = useLocalAsset();
@@ -548,6 +552,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   const [logoAppearance, setLogoAppearance] = useStudioDraft<LogoAppearanceSettings>(identity.id, tool.id, 'logo-appearance', DEFAULT_LOGO_APPEARANCE);
   const [logoSelected, setLogoSelected] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const ink = identity.colors.find(({ id }) => id === 'ink')?.hex ?? '#18181B';
   const paper = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const foreground = surface === 'dark' ? paper : ink;
@@ -664,6 +669,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
 
   async function exportOpenGraph() {
     setExporting(true);
+    studioExport.start('Rendering OpenGraph PNG preview');
     try {
       const mark = logoAsset.asset
         ? await imageUrlToDataUrl(logoAsset.asset.url)
@@ -747,13 +753,16 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           ? `<text x="72" y="452" fill="${foreground}" opacity="0.68" font-family="${fontFamily}" font-size="17">One workspace for product knowledge,</text><text x="72" y="477" fill="${foreground}" opacity="0.68" font-family="${fontFamily}" font-size="17">from first read to final answer.</text>`
           : `<text x="72" y="458" fill="${foreground}" opacity="0.7" font-family="${fontFamily}" font-size="17">Compose the interface you mean</text><text x="72" y="483" fill="${foreground}" opacity="0.7" font-family="${fontFamily}" font-size="17">without leaving your markup.</text>`;
         const customSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}${customGradientDefinitions}${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${customScene}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/>${customTitle}${customDescription}</svg>`;
-        await downloadSvgAsPng(customSvg, 1200, 630, 'studio-opengraph.png');
+        const blob = await svgToPngBlob(customSvg, 1200, 630);
+        setLastExport({ blob, fileName: 'studio-opengraph.png', format: 'PNG', height: 630, width: 1200 });
         return;
       }
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs>${fontDefinition}<clipPath id="opengraph-media"><rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}"/></clipPath><linearGradient id="opengraph-media-top-scrim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000000" stop-opacity="0.58"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></linearGradient><linearGradient id="opengraph-media-bottom-scrim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.58"/></linearGradient><pattern id="opengraph-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="${panelForeground}" opacity="0.08"/></pattern>${buildLogoSvgFilter({ ...DEFAULT_LOGO_APPEARANCE, ...logoAppearance }, foreground, 'opengraph-logo')}</defs><rect width="1200" height="630" fill="${background}"/>${mediaLayer}${mediaMetadataLayer}<image href="${mark}" x="${resolvedLogoX}" y="${resolvedLogoY}" width="${resolvedLogoSize}" height="${resolvedLogoSize}" filter="url(#opengraph-logo)"/>${exportedTitleLines}${exportedPromiseLines}${proofChip}</svg>`;
-      await downloadSvgAsPng(svg, 1200, 630, 'studio-opengraph.png');
+      const blob = await svgToPngBlob(svg, 1200, 630);
+      setLastExport({ blob, fileName: 'studio-opengraph.png', format: 'PNG', height: 630, width: 1200 });
     } finally {
       setExporting(false);
+      studioExport.finish();
     }
   }
 
@@ -830,10 +839,13 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   return (
     <ToolShell
       actions={
-        <Button loading={exporting} onClick={exportOpenGraph} type='button'>
-          <Download aria-hidden='true' />
-          <T>Download PNG</T>
-        </Button>
+        <>
+          <ExportPreview asset={lastExport} />
+          <Button disabled={exporting} onClick={exportOpenGraph} type='button'>
+            <Download aria-hidden='true' />
+            <T>Export PNG</T>
+          </Button>
+        </>
       }
       inspector={inspector}
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('OpenGraph source') }}
@@ -1929,6 +1941,7 @@ const CODE_SAMPLES = {
 
 function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:terminal`);
   const [language, setLanguage] = useStudioDraft<CodeLanguage>(identity.id, tool.id, 'language', 'typescript');
   const [code, setCode] = useStudioDraft<string>(
     identity.id,
@@ -1960,6 +1973,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   const titleFont = brandFontAssets(identity).find(({ id }) => id === titleTypography.fontId);
   const codeFont = brandFontAssets(identity).find(({ id }) => id === codeTypography.fontId);
   const [exporting, setExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const highlightedLines = useMemo(() => highlightCode(code, language), [code, language]);
   const sourceCode = stringifySource({
     background: { assetId: terminalAssetId, opacity: terminalAssetOpacity },
@@ -2001,6 +2015,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
 
   async function exportTerminal() {
     setExporting(true);
+    studioExport.start('Rendering terminal PNG preview');
     try {
       const [titleFontData, codeFontData, assetData] = await Promise.all([
         titleFont ? imageUrlToDataUrl(titleFont.path) : undefined,
@@ -2028,9 +2043,11 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
         )
         .join('');
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs>${fontDefinitions}</defs><rect width="1200" height="630" fill="${CODE_THEME.background}"/>${assetLayer}<text x="72" y="90" fill="${CODE_THEME.foreground}" font-family="${titleFontData ? 'StudioTerminalTitle' : escapeXml(brandTypographyFamily(identity, titleFontRole))}" font-size="42" font-weight="${capVisibleFontWeight(titleFontWeight)}">${escapeXml(title)}</text><text x="72" y="136" fill="${CODE_THEME.gutter}" font-family="${codeFontData ? 'StudioTerminalCode' : escapeXml(brandTypographyFamily(identity, codeFontRole))}" font-size="17" font-weight="${capVisibleFontWeight(codeFontWeight)}">${language.toLocaleUpperCase()}</text><rect x="72" y="174" width="1056" height="388" rx="8" fill="${CODE_THEME.background}" stroke="${CODE_THEME.border}"/>${codeSvg}</svg>`;
-      await downloadSvgAsPng(svg, 1200, 630, 'studio-terminal.png');
+      const blob = await svgToPngBlob(svg, 1200, 630);
+      setLastExport({ blob, fileName: 'studio-terminal.png', format: 'PNG', height: 630, width: 1200 });
     } finally {
       setExporting(false);
+      studioExport.finish();
     }
   }
 
@@ -2067,10 +2084,13 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
   return (
     <ToolShell
       actions={
-        <Button loading={exporting} onClick={exportTerminal} type='button'>
-          <Download aria-hidden='true' />
-          <T>Download PNG</T>
-        </Button>
+        <>
+          <ExportPreview asset={lastExport} />
+          <Button disabled={exporting} onClick={exportTerminal} type='button'>
+            <Download aria-hidden='true' />
+            <T>Export PNG</T>
+          </Button>
+        </>
       }
       inspector={inspector}
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Terminal source') }}
@@ -2168,6 +2188,7 @@ function SlideTemplatePreview({
 
 function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind: TemplateKind; tool: StudioTool }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:${kind}`);
   const partnerAsset = useLocalAsset();
   const backgroundAsset = useLocalAsset();
   const backgroundOptions = useMemo(() => templateBackgroundOptions(identity), [identity]);
@@ -2230,6 +2251,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const [layerOrder, setLayerOrder] = useStudioDraft<TemplateLayerId[]>(identity.id, tool.id, 'layer-order', ['brand', 'content', 'footer']);
   const [selectedLayer, setSelectedLayer] = useState<TemplateLayerId | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const isDark = texture === 'dark';
   const foreground = isDark
     ? identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF'
@@ -2373,6 +2395,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
 
   async function exportTemplate() {
     setExporting(true);
+    studioExport.start(`Rendering ${kind} PNG preview`);
     try {
       const resolvedBrandLogo = brandLogo
         ? await imageUrlToDataUrl(brandLogo.path)
@@ -2428,9 +2451,11 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         website: identity.website,
         width,
       });
-      await downloadSvgAsPng(svg, width, height, `studio-${kind}.png`);
+      const blob = await svgToPngBlob(svg, width, height);
+      setLastExport({ blob, fileName: `studio-${kind}.png`, format: 'PNG', height, width });
     } finally {
       setExporting(false);
+      studioExport.finish();
     }
   }
 
@@ -2537,10 +2562,13 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   return (
     <ToolShell
       actions={
-        <Button loading={exporting} onClick={exportTemplate} type='button'>
-          <Download aria-hidden='true' />
-          <T>Download PNG</T>
-        </Button>
+        <>
+          <ExportPreview asset={lastExport} />
+          <Button disabled={exporting} onClick={exportTemplate} type='button'>
+            <Download aria-hidden='true' />
+            <T>Export PNG</T>
+          </Button>
+        </>
       }
       inspector={inspector}
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt(`${tool.name} source`) }}

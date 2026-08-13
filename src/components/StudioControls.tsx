@@ -19,6 +19,7 @@ import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace'
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import { ShaderLibraryBrowser } from '@/components/ShaderLibrarySidebar';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -120,13 +121,14 @@ function RangeControl({
   const resolvedValue = Math.min(value, max);
   return (
     <label className='studio-range-control flex flex-col gap-2'>
-      <span className='flex items-center justify-between gap-3 text-sm'>
-        <span>{label}</span>
-        <output className='font-mono text-xs tabular-nums text-muted-foreground'>
+      <StudioRangeLabel
+        className='text-sm'
+        label={label}
+        value={<output className='font-mono text-xs tabular-nums text-muted-foreground'>
           {resolvedValue}
           {unit}
-        </output>
-      </span>
+        </output>}
+      />
       <input
         aria-label={ariaLabel}
         className='studio-range'
@@ -544,13 +546,13 @@ export default function StudioControls({
                   <div className='mt-3 flex flex-col gap-3'>
                   <RangeControl
                     ariaLabel={gt('Shader speed')}
-                    label={<T>Speed</T>}
-                    max={2}
+                    label={<T>Shader speed</T>}
+                    max={1.5}
                     min={0}
                     onChange={(speed) => onBackgroundChange({
                       materialSettings: { ...frameMaterialSettings, speed },
                     })}
-                    step={0.05}
+                    step={0.01}
                     unit='×'
                     value={frameMaterialSettings.speed}
                   />

@@ -3,7 +3,6 @@
 import {
   Asterisk,
   ArrowUpRight,
-  BookOpen,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +40,7 @@ import { mixHexColors } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
 
 import ThemeAwareBrandMark from './ThemeAwareBrandMark';
+import StudioToolHeader from './StudioToolHeader';
 
 import styles from './BrandBook.module.css';
 
@@ -944,13 +944,9 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
 
   return (
     <div className={styles.root} data-brand={identity.id} data-flavor={identity.artDirection.preview} data-mode={mode} style={rootStyle}>
-      <header className={styles.toolbar}>
-        <div className={styles.toolbarTitle}>
-          <BookOpen aria-hidden='true' />
-          <div><strong>{gt(tool.name)}</strong><span>{identity.name} · {pages.length} pages</span></div>
-        </div>
-        <div className={styles.toolbarActions}>
-          {mode === 'overview' ? (
+      <StudioToolHeader
+        actions={<button className={styles.exportButton} onClick={printBook} type='button'><Download aria-hidden='true' /><span><T>Export PDF</T></span></button>}
+        context={mode === 'overview' ? (
             <label className={styles.zoomControl}>
               <Minus aria-hidden='true' />
               <input aria-label={gt('Page thumbnail size')} max='360' min='210' onChange={(event) => setThumbnailWidth(Number(event.target.value))} type='range' value={thumbnailWidth} />
@@ -959,13 +955,15 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
           ) : (
             <span className={styles.pageCounter}>{currentPage + 1} / {pages.length}</span>
           )}
-          <div className={styles.modeSwitch}>
+        metadata={`${identity.name} · ${pages.length} pages`}
+        navigation={<div className={styles.modeSwitch}>
             <button aria-pressed={mode === 'overview'} onClick={() => setMode('overview')} type='button'><Grid2X2 aria-hidden='true' /><span><T>Overview</T></span></button>
             <button aria-pressed={mode === 'reader'} onClick={() => setMode('reader')} type='button'><Maximize2 aria-hidden='true' /><span><T>Read</T></span></button>
-          </div>
-          <button className={styles.exportButton} onClick={printBook} type='button'><Download aria-hidden='true' /><span><T>Export PDF</T></span></button>
-        </div>
-      </header>
+          </div>}
+        navigationLabel={gt('Brand book view')}
+        title={gt(tool.name)}
+        toolId={tool.id}
+      />
 
       <div className={styles.body}>
         <aside className={styles.navigator}>

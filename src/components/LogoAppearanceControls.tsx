@@ -2,6 +2,7 @@
 
 import { T, useGT } from 'gt-next';
 
+import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
 import type { LogoAppearanceSettings } from '@/lib/logoAppearance';
 
@@ -22,10 +23,10 @@ function AppearanceRange({
 }) {
   return (
     <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-      <span className='flex items-center justify-between gap-3'>
-        <span>{label}</span>
-        <output className='font-mono text-[10px]'>{value}{suffix}</output>
-      </span>
+      <StudioRangeLabel
+        label={label}
+        value={<output className='font-mono text-[10px]'>{value}{suffix}</output>}
+      />
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
     </label>
   );

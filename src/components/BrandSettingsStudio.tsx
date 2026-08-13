@@ -21,8 +21,11 @@ import { Button } from '@/components/ui/Button';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -140,7 +143,7 @@ function RangeField({
   const resolvedValue = Math.min(value, max);
   return (
     <label className='brand-identity-range'>
-      <span><span>{label}</span><output>{resolvedValue}{suffix}</output></span>
+      <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
     </label>
   );
@@ -184,16 +187,14 @@ function familyFromFileName(fileName: string): string {
     .trim() || 'Uploaded font';
 }
 
-function downloadIdentity(identity: BrandIdentity) {
-  const blob = new Blob([JSON.stringify(identity, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.download = `${identity.id}-brand-identity.json`;
-  link.href = url;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+function identityExport(identity: BrandIdentity): ExportPreviewAsset {
+  const previewText = JSON.stringify(identity, null, 2);
+  return {
+    blob: new Blob([previewText], { type: 'application/json' }),
+    fileName: `${identity.id}-brand-identity.json`,
+    format: 'JSON',
+    previewText,
+  };
 }
 
 export default function BrandSettingsStudio({
@@ -212,6 +213,7 @@ export default function BrandSettingsStudio({
   const [activeSection, setActiveSection] = useState<IdentitySection>('overview');
   const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const fonts = brandFontAssets(identity);
   const allAssets = [...identity.assets, ...identity.proofAssets];
@@ -356,22 +358,22 @@ export default function BrandSettingsStudio({
 
   return (
     <div className='tool-shell brand-identity-shell h-full min-h-0'>
-      <header className='app-navbar tool-header brand-identity-header'>
-        <div className='brand-identity-header-title'>
-          <SlidersHorizontal aria-hidden='true' />
-          <p>{gt(tool.name)}</p>
-          <span>/</span>
-          <small>{identity.name}</small>
-        </div>
-        <div className='brand-identity-header-actions'>
-          <span data-pending={hasPendingChanges ? 'true' : 'false'}>
+      <StudioToolHeader
+        actions={(
+          <>
+          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <ExportPreview asset={lastExport} />
+          <Button onClick={() => setLastExport(identityExport(identity))} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
+          </>
+        )}
+        metadata={identity.name}
+        status={<span className='brand-identity-save-status' data-pending={hasPendingChanges ? 'true' : 'false'}>
             {hasPendingChanges ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
             {hasPendingChanges ? <T>Changes pending</T> : <T>Saved locally</T>}
-          </span>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <Button onClick={() => downloadIdentity(identity)} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
-        </div>
-      </header>
+          </span>}
+        title={gt(tool.name)}
+        toolId={tool.id}
+      />
 
       <div className='brand-identity-body'>
         <ResizableSidebar

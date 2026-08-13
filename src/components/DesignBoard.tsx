@@ -8,6 +8,8 @@ import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -59,14 +61,14 @@ async function loadOptionalAsset(source: string | undefined): Promise<string | u
   return source ? imageUrlToDataUrl(source) : undefined;
 }
 
-function downloadIdentity(identity: BrandIdentity) {
-  const blob = new Blob([JSON.stringify(identity, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.download = `${identity.id}-brand-identity.json`;
-  link.href = url;
-  link.click();
-  URL.revokeObjectURL(url);
+function identityExport(identity: BrandIdentity): ExportPreviewAsset {
+  const previewText = JSON.stringify(identity, null, 2);
+  return {
+    blob: new Blob([previewText], { type: 'application/json' }),
+    fileName: `${identity.id}-brand-identity.json`,
+    format: 'JSON',
+    previewText,
+  };
 }
 
 export default function DesignBoard({
@@ -76,6 +78,7 @@ export default function DesignBoard({
   identity: BrandIdentity;
   tool: StudioTool;
 }) {
+  const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:moodboard`);
   const [exporting, setExporting] = useState(false);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -134,6 +137,7 @@ export default function DesignBoard({
 
   async function exportBoard() {
     setExporting(true);
+    studioExport.start('Rendering moodboard PNG preview');
     try {
       const [fontAssets, logoMarks, markDark, markLight, embeddedBoardAssets] =
         await Promise.all([
@@ -175,6 +179,7 @@ export default function DesignBoard({
       });
     } finally {
       setExporting(false);
+      studioExport.finish();
     }
   }
 
@@ -195,24 +200,25 @@ export default function DesignBoard({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
-        <div className='min-w-0'>
-          <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
-          <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
-        </div>
-        <div className='flex shrink-0 items-center gap-2'>
+      <StudioToolHeader
+        actions={(
+          <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <Button onClick={() => downloadIdentity(identity)} type='button' variant='outline'>
+          <Button onClick={() => setLastExport(identityExport(identity))} type='button' variant='outline'>
             <FileJson aria-hidden='true' />
             <T>Identity JSON</T>
           </Button>
           <ExportPreview asset={lastExport} />
-          <Button loading={exporting} onClick={exportBoard} type='button'>
+          <Button disabled={exporting} onClick={exportBoard} type='button'>
             <Download aria-hidden='true' />
-            <T>Download PNG</T>
+            <T>Export PNG</T>
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+        metadata={tool.description}
+        title={tool.name}
+        toolId={tool.id}
+      />
 
       <div className='design-board-body tool-body'>
         <ResizableSidebar

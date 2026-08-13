@@ -50,7 +50,7 @@ export default function StudioSelect({
       </Select.Trigger>
       <Select.Portal>
         <Select.Content
-          className='z-[120] max-h-[min(360px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden bg-background text-foreground smooth-shadow-ring-lg'
+          className='z-[260] max-h-[min(360px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden bg-background text-foreground smooth-shadow-ring-lg'
           position='popper'
           sideOffset={5}
         >

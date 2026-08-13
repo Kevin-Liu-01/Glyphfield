@@ -4,6 +4,8 @@ import { T, useGT } from 'gt-next';
 import { Check, Download, FileDown, ImagePlus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 import type { ConvertedAssetLibraryController } from '@/hooks/useConvertedAssets';
@@ -12,15 +14,6 @@ import {
   formatAssetBytes,
   type ConvertedAsset,
 } from '@/lib/convertedAssets';
-
-function downloadAsset(dataUrl: string, name: string) {
-  const link = document.createElement('a');
-  link.download = name;
-  link.href = dataUrl;
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
 
 export default function AssetConversionLibrary({
   compact = false,
@@ -34,8 +27,40 @@ export default function AssetConversionLibrary({
   selectedAssetId?: string | null;
 }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress('asset-conversion-library');
   const [maxDimension, setMaxDimension] = useState(2048);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+
+  async function previewAsset(dataUrl: string, name: string, format: 'FILE' | 'PNG') {
+    studioExport.start(`Preparing ${name} preview`);
+    try {
+      const blob = await fetch(dataUrl).then((response) => response.blob());
+      const detectedFormat: ExportPreviewAsset['format'] = blob.type.includes('svg')
+        ? 'SVG'
+        : blob.type.includes('jpeg')
+          ? 'JPG'
+          : blob.type.includes('gif')
+            ? 'GIF'
+            : blob.type.includes('webp')
+              ? 'WEBP'
+              : blob.type.includes('avif')
+                ? 'AVIF'
+                : blob.type.includes('bmp')
+                  ? 'BMP'
+                  : blob.type.includes('png')
+                    ? 'PNG'
+                    : format;
+      setLastExport({
+        blob,
+        fileName: name,
+        format: detectedFormat,
+        previewKind: blob.type.startsWith('image/') ? 'image' : 'file',
+      });
+    } finally {
+      studioExport.finish();
+    }
+  }
 
   async function importSelection(files: FileList | null) {
     if (!files?.length) return;
@@ -51,6 +76,7 @@ export default function AssetConversionLibrary({
 
   return (
     <div className={`asset-conversion-library ${compact ? 'asset-conversion-library-compact' : ''}`}>
+      <ExportPreview asset={lastExport} showTrigger={false} />
       <div className='grid grid-cols-[minmax(0,1fr)_112px] gap-2'>
         <label className='flex min-h-14 cursor-pointer items-center gap-3 border border-dashed border-input px-3 py-2 hover:bg-muted'>
           <ImagePlus aria-hidden='true' className='size-4 shrink-0 text-muted-foreground' />
@@ -115,8 +141,8 @@ export default function AssetConversionLibrary({
               <div className='flex items-center justify-between border-t border-border px-2 py-1.5'>
                 <span className='truncate font-mono text-[9px] text-muted-foreground'>{formatAssetBytes(asset.convertedBytes)}</span>
                 <span className='flex gap-1'>
-                  <Button aria-label={gt('Download original {name}', { name: asset.originalName })} onClick={() => downloadAsset(asset.originalDataUrl, asset.originalName)} size='icon-xs' type='button' variant='ghost'><FileDown aria-hidden='true' /></Button>
-                  <Button aria-label={gt('Download converted {name}', { name: asset.name })} onClick={() => downloadAsset(asset.convertedDataUrl, asset.name)} size='icon-xs' type='button' variant='ghost'><Download aria-hidden='true' /></Button>
+                  <Button aria-label={gt('Preview original {name}', { name: asset.originalName })} onClick={() => void previewAsset(asset.originalDataUrl, asset.originalName, 'FILE')} size='icon-xs' type='button' variant='ghost'><FileDown aria-hidden='true' /></Button>
+                  <Button aria-label={gt('Preview converted {name}', { name: asset.name })} onClick={() => void previewAsset(asset.convertedDataUrl, asset.name, 'PNG')} size='icon-xs' type='button' variant='ghost'><Download aria-hidden='true' /></Button>
                   <Button
                     aria-label={gt('Delete {name}', { name: asset.name })}
                     onClick={() => {

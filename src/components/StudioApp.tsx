@@ -15,50 +15,35 @@ import {
 import { T, useGT } from 'gt-next';
 import { useTheme } from 'next-themes';
 import {
-  Aperture,
-  Blend,
   BookOpen,
-  BookMarked,
   Box,
-  Braces,
   Check,
-  Component,
   Copy,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Folder,
-  FileJson2,
-  Frame,
   Grid3X3,
   GripVertical,
   Github,
-  Image as ImageIcon,
-  LayoutGrid,
   Monitor,
   Moon,
-  MonitorPlay,
-  Palette,
   PanelTopClose,
-  PanelsTopLeft,
   Plus,
   Rocket,
   Save,
   Search,
-  ScanLine,
   Settings2,
-  Shapes,
   Sun,
   Trash2,
-  Type,
-  Waves,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 
 import { useThemeOverride } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
+import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
+import { STUDIO_TOOL_ICONS } from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -107,28 +92,6 @@ function StudioWorkspaceLoading() {
     </div>
   );
 }
-
-const TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
-  animation: Blend,
-  backgrounds: ScanLine,
-  blog: BookOpen,
-  'brand-book': BookMarked,
-  'brand-elements': LayoutGrid,
-  buttons: Component,
-  colors: Palette,
-  'design-board': PanelsTopLeft,
-  identity: Settings2,
-  logo: Aperture,
-  'logo-shader': Waves,
-  lottie: FileJson2,
-  material: Frame,
-  opengraph: ImageIcon,
-  partnership: Shapes,
-  slides: MonitorPlay,
-  surface: Shapes,
-  terminal: Braces,
-  typography: Type,
-};
 
 const PROJECTS_STORAGE_KEY = 'glyphfield-projects-v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'glyphfield-active-project-v1';
@@ -603,7 +566,7 @@ function StudioCommandPalette({
 
         <div className='studio-command-results' id='studio-command-results' role='listbox'>
           {tools.map((tool, index) => {
-            const Icon = TOOL_ICONS[tool.id];
+            const Icon = STUDIO_TOOL_ICONS[tool.id];
             const selected = index === activeIndex;
             return (
               <button
@@ -1412,6 +1375,7 @@ export default function StudioApp() {
   }
 
   return (
+    <StudioExportProgressProvider>
     <main
       className='studio-app h-dvh overflow-hidden bg-background text-foreground'
       data-studio-accent={resolvedAppearance.accent}
@@ -1629,7 +1593,7 @@ export default function StudioApp() {
                   </h2>
                   <div className='flex flex-col gap-0.5'>
                     {tools.map((tool) => {
-                      const Icon = TOOL_ICONS[tool.id];
+                      const Icon = STUDIO_TOOL_ICONS[tool.id];
                       const selected = activeToolId === tool.id;
                       return (
                         <Button
@@ -1774,5 +1738,6 @@ export default function StudioApp() {
         </div>
       ) : null}
     </main>
+    </StudioExportProgressProvider>
   );
 }

@@ -10,63 +10,18 @@
   container: brand-book / inline-size;
 }
 
-.toolbar {
-  position: relative;
-  z-index: 20;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  border-bottom: 1px solid hsl(var(--border));
-  padding: 0 18px;
-  background: hsl(var(--background) / 0.96);
-  backdrop-filter: blur(16px);
-}
-
-.toolbarTitle,
-.toolbarActions,
 .modeSwitch,
 .zoomControl {
   display: flex;
   align-items: center;
 }
 
-.toolbarTitle {
-  min-width: 0;
-  gap: 10px;
-}
-
-.toolbarTitle > svg {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 auto;
-}
-
-.toolbarTitle > div {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-}
-
-.toolbarTitle strong {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.toolbarTitle span,
 .pageCounter {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.toolbarActions {
-  flex: 0 0 auto;
-  gap: 8px;
 }
 
 .zoomControl {
@@ -3619,10 +3574,9 @@
 }
 
 @container brand-book (max-width: 620px) {
-  .toolbarTitle > div span, .modeSwitch button span, .exportButton span { display: none; }
+  .modeSwitch button span, .exportButton span { display: none; }
   .body { grid-template-columns: minmax(0, 1fr); }
   .navigator { display: none; }
-  .toolbar { padding: 0 10px; }
   .overviewBoard { padding: 16px; }
   .reader { grid-template-columns: 28px minmax(230px, 1fr) 28px; padding: 10px 4px; }
   .readerArrow { width: 28px; height: 28px; }
@@ -3638,7 +3592,7 @@
   :global(.studio-app-header),
   :global(.project-tabs-shell),
   :global(.studio-nav),
-  .toolbar,
+  :global([data-studio-tool-header]),
   .navigator,
   .thumbnailCaption {
     display: none !important;

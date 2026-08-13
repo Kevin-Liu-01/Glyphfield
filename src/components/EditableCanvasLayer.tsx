@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from 'lucide-react';
 
@@ -51,6 +51,13 @@ type PointerSession = {
   startWidthScale: number;
   startX: number;
   startY: number;
+};
+
+type SelectionBounds = {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -201,6 +208,7 @@ export default function EditableCanvasLayer({
   const layerRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<PointerSession | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
   const { height, width } = canvasLayerDimensions(transform, { baseHeight, baseWidth });
 
@@ -217,6 +225,52 @@ export default function EditableCanvasLayer({
     observer.observe(content);
     return () => observer.disconnect();
   }, [fitContentHeight, width]);
+
+  useLayoutEffect(() => {
+    if (!selected) {
+      setSelectionBounds(null);
+      return;
+    }
+
+    let frame = 0;
+    const measure = () => {
+      const bounds = layerRef.current?.getBoundingClientRect();
+      if (bounds && bounds.width > 0 && bounds.height > 0) {
+        const next = {
+          height: bounds.height,
+          left: bounds.left,
+          top: bounds.top,
+          width: bounds.width,
+        };
+        setSelectionBounds((current) => current
+          && Math.abs(current.height - next.height) < 0.25
+          && Math.abs(current.left - next.left) < 0.25
+          && Math.abs(current.top - next.top) < 0.25
+          && Math.abs(current.width - next.width) < 0.25
+          ? current
+          : next);
+      }
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    return () => cancelAnimationFrame(frame);
+  }, [selected]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => updatePointer(event.clientX, event.clientY, event.pointerId);
+    const handlePointerEnd = (event: PointerEvent) => {
+      updatePointer(event.clientX, event.clientY, event.pointerId);
+      endPointer(event.type, event.pointerId);
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+    };
+  }, [baseHeight, baseWidth, baseX, baseY, canvasHeight, canvasWidth, onChange, onDeselect, transform]);
 
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
@@ -248,17 +302,17 @@ export default function EditableCanvasLayer({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function updatePointer(event: ReactPointerEvent<HTMLDivElement>) {
+  function updatePointer(clientX: number, clientY: number, pointerId: number) {
     const session = sessionRef.current;
     const layer = layerRef.current;
     const parent = layer?.parentElement;
-    if (!session || !parent || session.pointerId !== event.pointerId) return;
+    if (!session || !parent || session.pointerId !== pointerId) return;
     const bounds = parent.getBoundingClientRect();
-    if (Math.hypot(event.clientX - session.startClientX, event.clientY - session.startClientY) > 3) {
+    if (Math.hypot(clientX - session.startClientX, clientY - session.startClientY) > 3) {
       session.moved = true;
     }
-    const deltaX = ((event.clientX - session.startClientX) / bounds.width) * canvasWidth;
-    const deltaY = ((event.clientY - session.startClientY) / bounds.height) * canvasHeight;
+    const deltaX = ((clientX - session.startClientX) / bounds.width) * canvasWidth;
+    const deltaY = ((clientY - session.startClientY) / bounds.height) * canvasHeight;
 
     if (session.mode !== 'move') {
       if (session.mode === 'resize' && resizeMode === 'scale') {
@@ -321,15 +375,12 @@ export default function EditableCanvasLayer({
     onChange(snapped.transform);
   }
 
-  function endPointer(event: ReactPointerEvent<HTMLDivElement>) {
+  function endPointer(eventType: string, pointerId: number) {
     const session = sessionRef.current;
-    if (!session || session.pointerId !== event.pointerId) return;
+    if (!session || session.pointerId !== pointerId) return;
     sessionRef.current = null;
     setSmartGuides({ x: null, y: null });
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    if (shouldDeselectCanvasLayer(event.type, session.mode, session.startSelected, session.moved)) {
+    if (shouldDeselectCanvasLayer(eventType, session.mode, session.startSelected, session.moved)) {
       onDeselect();
     }
   }
@@ -371,47 +422,59 @@ export default function EditableCanvasLayer({
         data-content-interactive={allowContentInteraction ? 'true' : undefined}
         data-fit-content-height={fitContentHeight ? 'true' : undefined}
         onKeyDown={handleKeyDown}
-        onPointerCancel={endPointer}
         onPointerDown={(event) => beginPointer(event, 'move')}
-        onPointerMove={updatePointer}
-        onPointerUp={endPointer}
         ref={layerRef}
         role={allowContentInteraction ? 'group' : 'button'}
         style={style}
         tabIndex={allowContentInteraction ? -1 : selected ? 0 : -1}
       >
         <div className='editable-canvas-layer-content'>{children}</div>
-        {selected ? (
-          <>
-            <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
+      </div>
+      {selected && selectionBounds ? createPortal(
+        <div
+          className='editable-canvas-layer-selection'
+          data-canvas-selection-preserve
+          style={selectionBounds}
+        >
+          <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
+          {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
             <span
-              aria-label={`Move ${label}`}
-              className='editable-canvas-layer-move'
+              aria-label={`Move ${label} from ${side} edge`}
+              className={`editable-canvas-layer-move-edge editable-canvas-layer-move-edge--${side}`}
+              key={`move-${side}`}
               onPointerDown={(event) => beginPointer(event, 'move')}
               role='button'
               title={`Move ${label}`}
             />
-            {resizeMode === 'box' ? (['top', 'right', 'bottom', 'left'] as const).map((side) => (
-              <span
-                aria-label={`Resize ${label} from ${side}`}
-                className={`editable-canvas-layer-edge editable-canvas-layer-edge--${side}`}
-                key={side}
-                onPointerDown={(event) => beginPointer(event, `resize-${side}`)}
-                role='button'
-                title={`Resize from ${side}`}
-              />
-            )) : null}
+          ))}
+          <span
+            aria-label={`Move ${label}`}
+            className='editable-canvas-layer-move'
+            onPointerDown={(event) => beginPointer(event, 'move')}
+            role='button'
+            title={`Move ${label}`}
+          />
+          {resizeMode === 'box' ? (['top', 'right', 'bottom', 'left'] as const).map((side) => (
             <span
-              aria-label={`Resize ${label}`}
-              className='editable-canvas-layer-resize'
-              onPointerDown={(event) => beginPointer(event, 'resize')}
+              aria-label={`Resize ${label} from ${side}`}
+              className={`editable-canvas-layer-edge editable-canvas-layer-edge--${side}`}
+              key={side}
+              onPointerDown={(event) => beginPointer(event, `resize-${side}`)}
               role='button'
-            >
-              <MoveDiagonal2 aria-hidden='true' />
-            </span>
-          </>
-        ) : null}
-      </div>
+              title={`Resize from ${side}`}
+            />
+          )) : null}
+          <span
+            aria-label={`Resize ${label}`}
+            className='editable-canvas-layer-resize'
+            onPointerDown={(event) => beginPointer(event, 'resize')}
+            role='button'
+          >
+            <MoveDiagonal2 aria-hidden='true' />
+          </span>
+        </div>,
+        document.body
+      ) : null}
       {guideHost && (smartGuides.x !== null || smartGuides.y !== null) ? createPortal(
         <>
           {smartGuides.x !== null ? (

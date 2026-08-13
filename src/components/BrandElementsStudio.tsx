@@ -17,9 +17,12 @@ import {
 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -61,43 +64,36 @@ const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
   Social: Share2,
 };
 
-function downloadElementBrief(
+function elementBriefExport(
   identity: BrandIdentity,
   element: BrandElement,
   settings: BrandElementSettings
-) {
-  const blob = new Blob(
-    [
-      JSON.stringify(
-        {
-          element,
-          settings,
-          identity: {
-            colors: identity.colors,
-            id: identity.id,
-            name: identity.name,
-            shortName: identity.shortName,
-            tagline: identity.tagline,
-            typography: identity.typography,
-            voice: identity.voice,
-            website: identity.website,
-          },
-          schemaVersion: 2,
-        },
-        null,
-        2
-      ),
-    ],
-    { type: 'application/json' }
+): ExportPreviewAsset {
+  const previewText = JSON.stringify(
+    {
+      element,
+      settings,
+      identity: {
+        colors: identity.colors,
+        id: identity.id,
+        name: identity.name,
+        shortName: identity.shortName,
+        tagline: identity.tagline,
+        typography: identity.typography,
+        voice: identity.voice,
+        website: identity.website,
+      },
+      schemaVersion: 2,
+    },
+    null,
+    2
   );
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.download = `${identity.id}-${element.id}-brief.json`;
-  link.href = url;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return {
+    blob: new Blob([previewText], { type: 'application/json' }),
+    fileName: `${identity.id}-${element.id}-brief.json`,
+    format: 'JSON',
+    previewText,
+  };
 }
 
 function isDarkSurface(color: string): boolean {
@@ -202,7 +198,7 @@ function ElementRangeControl({
   const resolvedValue = Math.min(value, max);
   return (
     <label className='element-editor-range'>
-      <span><span>{label}</span><output>{resolvedValue}{suffix}</output></span>
+      <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={resolvedValue} />
     </label>
   );
@@ -1154,6 +1150,7 @@ export default function BrandElementsStudio({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(
@@ -1226,19 +1223,21 @@ export default function BrandElementsStudio({
 
   return (
     <div className='tool-shell h-full min-h-0'>
-      <header className='app-navbar brand-elements-header tool-header flex items-center justify-between gap-4 border-b border-border px-5'>
-        <div className='min-w-0'>
-          <p className='text-lg font-semibold tracking-tight'>{tool.name}</p>
-          <p className='truncate text-sm text-muted-foreground'>{tool.description}</p>
-        </div>
-        <div className='flex items-center gap-2'>
+      <StudioToolHeader
+        actions={(
+          <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <Button onClick={() => downloadElementBrief(identity, selectedElement, selectedSettings)} type='button' variant='outline'>
+          <ExportPreview asset={lastExport} />
+          <Button onClick={() => setLastExport(elementBriefExport(identity, selectedElement, selectedSettings))} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <T>Element brief</T>
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+        metadata={tool.description}
+        title={tool.name}
+        toolId={tool.id}
+      />
 
       <div className='brand-elements-body tool-body'>
         <ResizableSidebar

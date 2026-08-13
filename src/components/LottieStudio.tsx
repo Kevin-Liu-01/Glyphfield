@@ -20,6 +20,9 @@ import LiveMaterialControls from '@/components/LiveMaterialControls';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { useStudioExportProgress } from '@/components/StudioExportProgress';
+import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -125,10 +128,11 @@ function RangeControl({
 }) {
   return (
     <label className='flex flex-col gap-2'>
-      <span className='flex items-center justify-between gap-3 text-sm'>
-        <span>{label}</span>
-        <output className='text-xs tabular-nums text-muted-foreground'>{value}{suffix}</output>
-      </span>
+      <StudioRangeLabel
+        className='text-sm'
+        label={label}
+        value={<output className='text-xs tabular-nums text-muted-foreground'>{value}{suffix}</output>}
+      />
       <input
         className='studio-range'
         max={max}
@@ -140,15 +144,6 @@ function RangeControl({
       />
     </label>
   );
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.download = fileName;
-  anchor.href = url;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function resolveSourceData(
@@ -204,6 +199,7 @@ function rasterizeImageDataUrl(
 
 export default function LottieStudio({ identity }: { identity: BrandIdentity }) {
   const gt = useGT();
+  const studioExport = useStudioExportProgress(`${identity.id}:lottie`);
   const brandFontFamily = brandTypographyFamily(identity, 'Display');
   const brandLogoAsset = templateBrandLogo(identity, 'blog', true);
   const defaultSurface = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
@@ -612,7 +608,12 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
   function downloadSource() {
     if (source.format === 'dotlottie') {
-      downloadBlob(new Blob([source.data as ArrayBuffer], { type: 'application/zip+dotlottie' }), source.fileName);
+      setLastExport({
+        blob: new Blob([source.data as ArrayBuffer], { type: 'application/zip+dotlottie' }),
+        fileName: source.fileName,
+        format: 'LOTTIE',
+        previewKind: 'file',
+      });
       return;
     }
     const data = resolveSourceData(
@@ -623,26 +624,36 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       brandFontFamily,
       brandLogoRef.current,
     ) as LottieDocument;
-    downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), source.fileName);
+    const previewText = JSON.stringify(data, null, 2);
+    setLastExport({
+      blob: new Blob([previewText], { type: 'application/json' }),
+      fileName: source.fileName,
+      format: 'JSON',
+      previewText,
+    });
   }
 
   function downloadPng() {
     const lottieCanvas = canvasRef.current;
     if (!lottieCanvas) return;
+    studioExport.start('Rendering Lottie frame preview');
     const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
-    const completeExport = (blob: Blob) => {
-      setLastExport({
-        blob,
-        fileName,
-        format: 'PNG',
-        height: canvas.height,
-        width: canvas.width,
-      });
+    const completeExport = (blob: Blob | null) => {
+      if (blob) {
+        setLastExport({
+          blob,
+          fileName,
+          format: 'PNG',
+          height: canvas.height,
+          width: canvas.width,
+        });
+      }
+      studioExport.finish();
     };
     const shaderCanvas = shaderLayerRef.current?.querySelector('canvas');
     if (backgroundStyle !== 'shader' || transparent || !shaderCanvas) {
       lottieCanvas.toBlob((blob) => {
-        if (blob) completeExport(blob);
+        completeExport(blob);
       }, 'image/png');
       return;
     }
@@ -650,11 +661,14 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     exportCanvas.width = canvas.width;
     exportCanvas.height = canvas.height;
     const context = exportCanvas.getContext('2d');
-    if (!context) return;
+    if (!context) {
+      studioExport.finish();
+      return;
+    }
     context.drawImage(shaderCanvas, 0, 0, canvas.width, canvas.height);
     context.drawImage(lottieCanvas, 0, 0, canvas.width, canvas.height);
     exportCanvas.toBlob((blob) => {
-      if (blob) completeExport(blob);
+      completeExport(blob);
     }, 'image/png');
   }
 
@@ -692,11 +706,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
   return (
     <div className='source-code-host flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground'>
-      <header className='app-navbar studio-tool-titlebar flex items-center justify-between gap-4 border-b border-border bg-background px-5'>
-        <div className='min-w-0'>
-          <h1 className='truncate text-lg font-semibold tracking-tight'><T>Lottie</T></h1>
-        </div>
-        <div className='flex items-center gap-2'>
+      <StudioToolHeader
+        actions={(
+          <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
           <Button aria-label={gt('Reset Lottie editor')} onClick={resetEditor} size='icon' type='button' variant='outline'>
@@ -704,14 +716,18 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           </Button>
           <Button onClick={downloadPng} type='button' variant='outline'>
             <ImageDown aria-hidden='true' />
-            <T>Frame PNG</T>
+            <T>Export frame</T>
           </Button>
           <Button onClick={downloadSource} type='button'>
             <Download aria-hidden='true' />
-            {source.format === 'dotlottie' ? <T>Download .lottie</T> : <T>Download JSON</T>}
+            {source.format === 'dotlottie' ? <T>Export .lottie</T> : <T>Export JSON</T>}
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+        metadata={source.name}
+        title={<T>Lottie</T>}
+        toolId='lottie'
+      />
 
       <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
         <ResizableSidebar
