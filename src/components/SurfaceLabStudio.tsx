@@ -1191,7 +1191,6 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             >
               <RotateCcw aria-hidden='true' />
             </button>}
-            className='design-lab-inspector-head'
             description='Controls follow the active library on the left.'
             eyebrow={dock === 'shader' ? 'Background shader' : dock === 'surface' ? 'Surface overlay' : dock === 'text' ? 'Text layer' : 'Sticker system'}
             title={dock === 'shader'
@@ -1204,7 +1203,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           />
 
           <LabInspectorSection
-            action={<button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} className='design-lab-visibility' onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
+            action={<button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
                 {backgroundEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>}
             className='design-lab-inspector-section'
@@ -1228,7 +1227,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </LabInspectorSection>
 
           <LabInspectorSection
-            action={<button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} className='design-lab-visibility' onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
+            action={<button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
                 {surfaceEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>}
             className='design-lab-inspector-section'
@@ -1247,7 +1246,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </LabInspectorSection>
 
           <LabInspectorSection
-            action={<button aria-label='Add text layer' className='design-lab-visibility' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>}
+            action={<button aria-label='Add text layer' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>}
             className='design-lab-inspector-section'
             data-disabled={!selectedTextLayer ? 'true' : 'false'}
             hidden={dock !== 'text'}
@@ -1329,7 +1328,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </LabInspectorSection>
 
           <LabInspectorSection
-            action={<button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} className='design-lab-visibility' onClick={() => setStickersEnabled((value) => !value)} type='button'>
+            action={<button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} onClick={() => setStickersEnabled((value) => !value)} type='button'>
                 {stickersEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>}
             className='design-lab-inspector-section'
