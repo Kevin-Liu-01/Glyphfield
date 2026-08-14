@@ -943,8 +943,6 @@
   height: 11px;
 }
 
-.shader-lab-v2-inspector-intro,
-.shader-lab-v2-control-section,
 .shader-lab-v2-advanced {
   padding: 16px;
   border-bottom: 1px solid hsl(var(--border));
@@ -957,26 +955,6 @@
 
 .shader-lab-v2-layer-inspector {
   order: -2;
-}
-
-.shader-lab-v2-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.shader-lab-v2-section-title h3 {
-  color: hsl(var(--foreground));
-  font-size: 12px;
-  font-weight: 620;
-}
-
-.shader-lab-v2-section-title span {
-  color: hsl(var(--muted-foreground));
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
 }
 
 .shader-lab-v2-composition-ratios {
@@ -5975,95 +5953,8 @@ body {
   scrollbar-width: thin;
 }
 
-.design-lab-inspector-head,
-.design-lab-inspector-section {
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.design-lab-inspector-head {
-  gap: 0.25rem;
-  padding: 1rem;
-}
-
-.design-lab-inspector-head > span,
-.design-lab-inspector-head > small,
-.design-lab-section-title span,
-.design-lab-section-title small {
-  color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 0.46rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.design-lab-inspector-head strong {
-  overflow: hidden;
-  font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.design-lab-inspector-head > small {
-  font-family: inherit;
-  font-size: 0.55rem;
-  letter-spacing: 0;
-  line-height: 1.4;
-  text-transform: none;
-}
-
-.design-lab-inspector-section {
-  gap: 0.78rem;
-  padding: 0.9rem 1rem;
-}
-
 .design-lab-inspector-section[data-disabled='true'] .design-lab-control-stack {
   opacity: 0.46;
-}
-
-.design-lab-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-}
-
-.design-lab-section-title > div {
-  display: flex;
-  align-items: center;
-  gap: 0.48rem;
-}
-
-.design-lab-section-title h2 {
-  font-size: var(--studio-section-title-size);
-  font-weight: 650;
-}
-
-.design-lab-section-title > small {
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.design-lab-visibility {
-  display: grid;
-  width: 27px;
-  height: 27px;
-  place-items: center;
-  border: 1px solid hsl(var(--border));
-  color: hsl(var(--muted-foreground));
-  background: transparent;
-}
-
-.design-lab-visibility:hover {
-  color: hsl(var(--foreground));
-}
-
-.design-lab-visibility svg {
-  width: 13px;
-  height: 13px;
 }
 
 .design-lab-control-stack {
@@ -7233,30 +7124,6 @@ body {
   box-shadow: none;
 }
 
-.design-lab .design-lab-inspector-head {
-  padding: var(--studio-panel-padding);
-}
-
-.design-lab-reset-action {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid hsl(var(--border));
-  border-radius: 5px;
-  color: hsl(var(--muted-foreground));
-}
-
-.design-lab-reset-action:hover {
-  color: hsl(var(--foreground));
-  background: hsl(var(--muted));
-}
-
-.design-lab-reset-action svg {
-  width: 12px;
-  height: 12px;
-}
-
 .design-lab .design-lab-inspector-section {
   gap: var(--studio-panel-gap);
   padding: var(--studio-panel-padding);
@@ -7282,19 +7149,6 @@ body {
 
 .design-lab .design-lab-dock-tabs button[aria-selected='true'] > span svg {
   color: currentColor;
-}
-
-.design-lab .design-lab-section-icon {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  color: hsl(var(--muted-foreground));
-}
-
-.design-lab .design-lab-section-icon svg {
-  width: 12px;
-  height: 12px;
 }
 
 .design-lab .design-lab-field-label,
@@ -10225,6 +10079,26 @@ body {
 
 .lab-panel-action {
   align-self: start;
+}
+
+.lab-panel-action button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--studio-corner-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.lab-panel-action button:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.lab-panel-action button svg {
+  width: 13px;
+  height: 13px;
 }
 
 .lab-inspector-section,
