@@ -731,13 +731,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
         <StudioSidebar
           className='lottie-source-sidebar min-h-0'
+          density='compact'
           kind='library'
           label={gt('Lottie sources')}
-          storageKey={`lottie-source-${identity.id}`}
+          storageKey={`lottie-source-v2-${identity.id}`}
         >
           <LabPanelHeading
             description={<T>Import a file or start from a production-ready motion study.</T>}
-            eyebrow={<T>Motion library</T>}
             title={<T>Lottie sources</T>}
           />
           <InspectorSection index='01' title={<T>Source</T>}>
@@ -783,13 +783,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
         <StudioSidebar
           className='lottie-properties-sidebar min-h-0'
+          density='compact'
           label={gt('Lottie properties')}
           side='right'
-          storageKey={`lottie-properties-${identity.id}`}
+          storageKey={`lottie-properties-v2-${identity.id}`}
         >
           <LabPanelHeading
             description={<T>Shape playback, art direction, and delivery for this animation.</T>}
-            eyebrow={<T>Live inspector</T>}
             title={source.name}
           />
           <InspectorSection index='02' title={<T>Playback</T>}>

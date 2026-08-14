@@ -13,7 +13,6 @@ describe('LabWorkspace', () => {
       <StudioPanelHeader
         action={<button type='button'>Reset</button>}
         description='Focused controls'
-        eyebrow='Inspector'
         title='Typography'
       />
     );
@@ -22,6 +21,7 @@ describe('LabWorkspace', () => {
     expect(markup).toContain('<h2>Typography</h2>');
     expect(markup).toContain('Focused controls');
     expect(markup).toContain('lab-panel-action');
+    expect(markup).not.toContain('lab-panel-eyebrow');
   });
 
   it('renders icon and metadata in the shared inspector section', () => {
@@ -48,5 +48,16 @@ describe('LabWorkspace', () => {
     expect(markup).toContain('lab-sidebar-right');
     expect(markup).toContain('data-resize-edge="left"');
     expect(markup).toContain('--resizable-sidebar-expanded-width:292px');
+  });
+
+  it('keeps double-rail workspaces compact', () => {
+    const markup = renderToStaticMarkup(
+      <StudioSidebar density='compact' label='timeline' storageKey='test-timeline'>
+        Timeline
+      </StudioSidebar>
+    );
+
+    expect(markup).toContain('studio-sidebar-compact');
+    expect(markup).toContain('--resizable-sidebar-expanded-width:244px');
   });
 });

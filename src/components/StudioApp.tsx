@@ -10,7 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent as ReactDragEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { T, useGT } from 'gt-next';
 import { useTheme } from 'next-themes';
@@ -24,7 +24,6 @@ import {
   ChevronRight,
   Folder,
   Grid3X3,
-  GripVertical,
   Github,
   Monitor,
   Moon,
@@ -112,6 +111,15 @@ const MATERIAL_TOOL = STUDIO_TOOLS.find(({ id }) => id === 'material');
 const EMPTY_TOOL_IDS: StudioToolId[] = [];
 
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
+
+type ProjectTabDragState = {
+  originOrder: string[];
+  placement: ProjectTabPlacement;
+  pointerOffsetX: number;
+  previewOrder: string[];
+  sourceId: string;
+  targetId: string;
+};
 
 type StudioAppearance = {
   accent: 'neutral' | 'violet' | 'teal' | 'lime';
@@ -632,12 +640,19 @@ export default function StudioApp() {
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
-  const [projectTabDrag, setProjectTabDrag] = useState<{
-    placement: ProjectTabPlacement;
-    sourceId: string;
-    targetId: string;
-  } | null>(null);
+  const [projectTabDrag, setProjectTabDrag] = useState<ProjectTabDragState | null>(null);
   const projectTabDragRef = useRef<typeof projectTabDrag>(null);
+  const projectTabPointerDragRef = useRef<{
+    centers: number[];
+    moved: boolean;
+    originOrder: string[];
+    pointerId: number;
+    sourceIndex: number;
+    sourceId: string;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const suppressProjectTabClickRef = useRef<string | null>(null);
   const [reorderControlsIdentityId, setReorderControlsIdentityId] = useState<string | null>(
     null
   );
@@ -1185,74 +1200,157 @@ export default function StudioApp() {
     );
   }
 
-  function handleProjectTabDragStart(
-    event: ReactDragEvent<HTMLElement>,
+  function handleProjectTabPointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
     identityId: string
   ) {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', identityId);
-    const nextDrag = { placement: 'before' as const, sourceId: identityId, targetId: identityId };
-    projectTabDragRef.current = nextDrag;
-    setProjectTabDrag(nextDrag);
-    setReorderControlsIdentityId(null);
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      target.closest('.project-tab-close, .project-tab-reorder-controls')
+    ) {
+      return;
+    }
+    projectTabPointerDragRef.current = {
+      centers: [],
+      moved: false,
+      originOrder: [],
+      pointerId: event.pointerId,
+      sourceIndex: -1,
+      sourceId: identityId,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
   }
 
   function clearProjectTabDrag() {
     projectTabDragRef.current = null;
+    projectTabPointerDragRef.current = null;
     setProjectTabDrag(null);
   }
 
-  function handleProjectTabDragOver(
-    event: ReactDragEvent<HTMLDivElement>,
-    targetId: string
-  ) {
-    const sourceId =
-      projectTabDragRef.current?.sourceId || event.dataTransfer.getData('text/plain');
-    if (!sourceId || sourceId === targetId) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const placement: ProjectTabPlacement =
-      event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
-    const currentDrag = projectTabDragRef.current;
-    if (
-      currentDrag?.sourceId === sourceId &&
-      currentDrag.targetId === targetId &&
-      currentDrag.placement === placement
-    ) {
-      return;
+  function handleProjectTabPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pointerDrag = projectTabPointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    if (!pointerDrag.moved) {
+      const distance = Math.hypot(
+        event.clientX - pointerDrag.startX,
+        event.clientY - pointerDrag.startY
+      );
+      if (distance <= 5) return;
+      pointerDrag.moved = true;
+      const tabs = Array.from(event.currentTarget.parentElement?.children ?? []).filter(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement && Boolean(element.dataset.projectId)
+      );
+      const sourceIndex = tabs.findIndex(
+        ({ dataset }) => dataset.projectId === pointerDrag.sourceId
+      );
+      const sourceBounds = tabs[sourceIndex]?.getBoundingClientRect();
+      if (sourceIndex < 0 || !sourceBounds) {
+        clearProjectTabDrag();
+        return;
+      }
+      pointerDrag.originOrder = tabs.map(({ dataset }) => dataset.projectId ?? '');
+      pointerDrag.centers = tabs.map((tab) => {
+        const bounds = tab.getBoundingClientRect();
+        return bounds.left + bounds.width / 2;
+      });
+      pointerDrag.sourceIndex = sourceIndex;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setReorderControlsIdentityId(null);
     }
-    const nextDrag = { placement, sourceId, targetId };
+    event.preventDefault();
+
+    const firstCenter = pointerDrag.centers[0] ?? event.clientX;
+    const lastCenter = pointerDrag.centers.at(-1) ?? event.clientX;
+    const minimumOffset = firstCenter - pointerDrag.centers[pointerDrag.sourceIndex];
+    const maximumOffset = lastCenter - pointerDrag.centers[pointerDrag.sourceIndex];
+    const pointerOffsetX = Math.min(
+      maximumOffset,
+      Math.max(minimumOffset, event.clientX - pointerDrag.startX)
+    );
+    const draggedCenter =
+      pointerDrag.centers[pointerDrag.sourceIndex] + pointerOffsetX;
+    const remainingTabs = pointerDrag.originOrder
+      .map((id, index) => ({ center: pointerDrag.centers[index], id }))
+      .filter(({ id }) => id !== pointerDrag.sourceId);
+    const previewIndex = remainingTabs.filter(({ center }) => center < draggedCenter).length;
+    const previewOrder = remainingTabs.map(({ id }) => id);
+    previewOrder.splice(previewIndex, 0, pointerDrag.sourceId);
+
+    const orderChanged = previewIndex !== pointerDrag.sourceIndex;
+    const targetId = orderChanged
+      ? previewIndex < pointerDrag.sourceIndex
+        ? remainingTabs[previewIndex]?.id ?? pointerDrag.sourceId
+        : remainingTabs[previewIndex - 1]?.id ?? pointerDrag.sourceId
+      : pointerDrag.sourceId;
+    const placement: ProjectTabPlacement =
+      previewIndex < pointerDrag.sourceIndex ? 'before' : 'after';
+    const nextDrag: ProjectTabDragState = {
+      originOrder: pointerDrag.originOrder,
+      placement,
+      pointerOffsetX,
+      previewOrder,
+      sourceId: pointerDrag.sourceId,
+      targetId,
+    };
     projectTabDragRef.current = nextDrag;
     setProjectTabDrag(nextDrag);
   }
 
-  function handleProjectTabDrop(
-    event: ReactDragEvent<HTMLDivElement>,
-    targetId: string
-  ) {
-    event.preventDefault();
-    const currentDrag = projectTabDragRef.current;
-    const sourceId = currentDrag?.sourceId || event.dataTransfer.getData('text/plain');
-    if (!sourceId || sourceId === targetId) {
-      clearProjectTabDrag();
-      return;
+  function handleProjectTabPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    const pointerDrag = projectTabPointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const placement =
-      currentDrag?.targetId === targetId
-        ? currentDrag.placement
-        : event.clientX < bounds.left + bounds.width / 2
-          ? 'before'
-          : 'after';
-    commitProjectTabReorder(sourceId, targetId, placement);
+    const currentDrag = projectTabDragRef.current;
+    if (pointerDrag.moved) {
+      suppressProjectTabClickRef.current = pointerDrag.sourceId;
+      window.setTimeout(() => {
+        if (suppressProjectTabClickRef.current === pointerDrag.sourceId) {
+          suppressProjectTabClickRef.current = null;
+        }
+      }, 80);
+    }
+    if (
+      pointerDrag.moved &&
+      currentDrag &&
+      currentDrag.sourceId !== currentDrag.targetId
+    ) {
+      commitProjectTabReorder(
+        currentDrag.sourceId,
+        currentDrag.targetId,
+        currentDrag.placement
+      );
+    }
     clearProjectTabDrag();
+  }
+
+  function openProjectTabMoveControls(identityId: string) {
+    setReorderControlsIdentityId(identityId);
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLButtonElement>(
+          `#project-tab-reorder-${CSS.escape(identityId)} button:not(:disabled)`
+        )
+        ?.focus();
+    });
   }
 
   function renderProjectTab(identity: BrandIdentity) {
     const selected = identity.id === activeIdentity?.id;
     const visibleIndex = visibleIdentities.findIndex(({ id }) => id === identity.id);
     const reorderControlsOpen = reorderControlsIdentityId === identity.id;
+    const originIndex = projectTabDrag?.originOrder.indexOf(identity.id) ?? -1;
+    const previewIndex = projectTabDrag?.previewOrder.indexOf(identity.id) ?? -1;
+    const dragOffset = projectTabDrag
+      ? projectTabDrag.sourceId === identity.id
+        ? `${projectTabDrag.pointerOffsetX}px`
+        : `calc(${previewIndex - originIndex} * (var(--project-tab-width) + var(--project-tab-gap)))`
+      : null;
     return (
       <div
         aria-selected={selected}
@@ -1262,16 +1360,37 @@ export default function StudioApp() {
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         data-dragging={projectTabDrag?.sourceId === identity.id ? 'true' : undefined}
-        data-drop-placement={
-          projectTabDrag?.sourceId !== identity.id && projectTabDrag?.targetId === identity.id
-            ? projectTabDrag.placement
-            : undefined
-        }
+        data-shifting={projectTabDrag && projectTabDrag.sourceId !== identity.id && originIndex !== previewIndex ? 'true' : undefined}
         data-project-id={identity.id}
         key={identity.id}
-        onDragOver={(event) => handleProjectTabDragOver(event, identity.id)}
-        onDrop={(event) => handleProjectTabDrop(event, identity.id)}
+        onClickCapture={(event) => {
+          if (suppressProjectTabClickRef.current !== identity.id) return;
+          event.preventDefault();
+          event.stopPropagation();
+          suppressProjectTabClickRef.current = null;
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openProjectTabMoveControls(identity.id);
+        }}
+        onKeyDown={(event) => {
+          if (event.altKey && event.key === 'ArrowLeft') {
+            event.preventDefault();
+            moveProjectTab(identity.id, -1);
+          } else if (event.altKey && event.key === 'ArrowRight') {
+            event.preventDefault();
+            moveProjectTab(identity.id, 1);
+          } else if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+            event.preventDefault();
+            openProjectTabMoveControls(identity.id);
+          }
+        }}
+        onPointerCancel={handleProjectTabPointerEnd}
+        onPointerDown={(event) => handleProjectTabPointerDown(event, identity.id)}
+        onPointerMove={handleProjectTabPointerMove}
+        onPointerUp={handleProjectTabPointerEnd}
         role='tab'
+        style={{ transform: dragOffset ? `translate3d(${dragOffset}, 0, 0)` : undefined }}
         title={identity.name}
       >
         {selected && identity.kind === 'custom' ? (
@@ -1281,6 +1400,7 @@ export default function StudioApp() {
             <input
               aria-label={gt('Project name')}
               className='project-tab-name min-w-0 flex-1 bg-transparent font-medium outline-none'
+              id={`project-tab-trigger-${identity.id}`}
               onChange={(event) => renameIdentity(identity.id, event.target.value)}
               value={identity.name}
             />
@@ -1288,8 +1408,13 @@ export default function StudioApp() {
         ) : (
           <button
             aria-label={gt('Open {name} project', { name: identity.name })}
+            aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10'
             className='flex min-w-0 flex-1 items-center gap-2 text-left'
-            onClick={() => selectIdentity(identity.id)}
+            id={`project-tab-trigger-${identity.id}`}
+            onClick={() => {
+              setReorderControlsIdentityId(null);
+              selectIdentity(identity.id);
+            }}
             type='button'
           >
             {renderProjectMark(identity, selected)}
@@ -1299,27 +1424,6 @@ export default function StudioApp() {
             </span>
           </button>
         )}
-        <button
-          aria-controls={`project-tab-reorder-${identity.id}`}
-          aria-expanded={reorderControlsOpen}
-          aria-label={gt('Reorder {name} tab', { name: identity.name })}
-          className='project-tab-reorder-trigger'
-          draggable
-          id={`project-tab-reorder-trigger-${identity.id}`}
-          onClick={() =>
-            setReorderControlsIdentityId((current) =>
-              current === identity.id ? null : identity.id
-            )
-          }
-          onDragEnd={clearProjectTabDrag}
-          onDragStart={(event) => handleProjectTabDragStart(event, identity.id)}
-          title={gt('Drag to reorder or click for move controls')}
-          type='button'
-        >
-          <span className='project-tab-reorder-drag-handle'>
-            <GripVertical aria-hidden='true' />
-          </span>
-        </button>
         {reorderControlsOpen ? (
           <div
             aria-label={gt('Move {name} tab', { name: identity.name })}
@@ -1330,17 +1434,21 @@ export default function StudioApp() {
                 setReorderControlsIdentityId(null);
                 window.requestAnimationFrame(() => {
                   document
-                    .getElementById(`project-tab-reorder-trigger-${identity.id}`)
+                    .getElementById(`project-tab-trigger-${identity.id}`)
                     ?.focus();
                 });
               }
             }}
-            role='group'
+            role='menu'
           >
             <button
               aria-label={gt('Move {name} tab left', { name: identity.name })}
               disabled={visibleIndex <= 0}
-              onClick={() => moveProjectTab(identity.id, -1)}
+              onClick={() => {
+                moveProjectTab(identity.id, -1);
+                setReorderControlsIdentityId(null);
+              }}
+              role='menuitem'
               title={gt('Move tab left')}
               type='button'
             >
@@ -1349,7 +1457,11 @@ export default function StudioApp() {
             <button
               aria-label={gt('Move {name} tab right', { name: identity.name })}
               disabled={visibleIndex < 0 || visibleIndex >= visibleIdentities.length - 1}
-              onClick={() => moveProjectTab(identity.id, 1)}
+              onClick={() => {
+                moveProjectTab(identity.id, 1);
+                setReorderControlsIdentityId(null);
+              }}
+              role='menuitem'
               title={gt('Move tab right')}
               type='button'
             >
@@ -1515,7 +1627,9 @@ export default function StudioApp() {
                     aria-hidden='true'
                     className='project-tab-selection'
                     style={{
-                      transform: `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`,
+                      transform: projectTabDrag?.sourceId === activeIdentity.id
+                        ? `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap)) + ${projectTabDrag.pointerOffsetX}px), 0, 0)`
+                        : `translate3d(calc(${projectTabDrag?.previewOrder.indexOf(activeIdentity.id) ?? activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`,
                     }}
                   />
                 ) : null}

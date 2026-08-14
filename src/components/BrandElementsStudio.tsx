@@ -18,7 +18,7 @@ import {
 
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import { StudioSidebar } from '@/components/LabWorkspace';
+import { LabInspectorSection, StudioSidebar } from '@/components/LabWorkspace';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
@@ -262,13 +262,12 @@ function ElementEditor({
       label={gt('Element editor')}
       storageKey={`brand-elements-editor-${identity.id}`}
     >
-      {!contentless || hasPerson || hasPartner ? <section className='element-editor-section'>
-        <div className='element-editor-heading'>
-          <h2><T>Content</T></h2>
-          <Button aria-label={gt('Reset element')} onClick={onReset} size='icon-xs' title={gt('Reset element')} type='button' variant='ghost'>
+      {!contentless || hasPerson || hasPartner ? <LabInspectorSection
+        action={<Button aria-label={gt('Reset element')} onClick={onReset} size='icon-xs' title={gt('Reset element')} type='button' variant='ghost'>
             <RotateCcw aria-hidden='true' />
-          </Button>
-        </div>
+          </Button>}
+        title={<T>Content</T>}
+      >
         {!headlineHidden ? <ElementTextControl label={<T>Headline</T>} multiline onChange={(headline) => onChange({ headline })} value={settings.headline} /> : null}
         {!bodyHidden ? <ElementTextControl label={<T>Supporting copy</T>} multiline onChange={(body) => onChange({ body })} value={settings.body} /> : null}
         {actionSupported ? <ElementTextControl label={<T>Action</T>} onChange={(cta) => onChange({ cta })} value={settings.cta} /> : null}
@@ -281,10 +280,9 @@ function ElementEditor({
         {hasPartner ? (
           <ElementTextControl label={<T>Partner name</T>} onChange={(partnerName) => onChange({ partnerName })} value={settings.partnerName} />
         ) : null}
-      </section> : null}
+      </LabInspectorSection> : null}
 
-      {layoutSupported || scaleSupported || patternSupported ? <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Composition</T></h2></div>
+      {layoutSupported || scaleSupported || patternSupported ? <LabInspectorSection title={<T>Composition</T>}>
         {layoutSupported ? <div className='element-editor-field'>
           <span><T>Layout</T></span>
           <StudioSelect ariaLabel={gt('Layout')} onValueChange={(layout) => onChange({ layout: layout as BrandElementSettings['layout'] })} options={[
@@ -311,19 +309,17 @@ function ElementEditor({
           ]} value={settings.pattern} />
         </div> : null}
         {patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
-      </section> : null}
+      </LabInspectorSection> : null}
 
-      <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Typography</T></h2></div>
+      <LabInspectorSection title={<T>Typography</T>}>
         <div className='element-editor-field'>
           <span><T>Font role</T></span>
           <StudioSelect ariaLabel={gt('Font role')} onValueChange={(fontRole) => onChange({ fontRole: fontRole as BrandElementSettings['fontRole'], fontWeight: brandTypographyRole(identity, fontRole as BrandElementSettings['fontRole']).weight })} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={settings.fontRole} />
         </div>
         <ElementRangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onChange({ fontWeight })} suffix='' value={settings.fontWeight} />
-      </section>
+      </LabInspectorSection>
 
-      <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Shared asset</T></h2></div>
+      <LabInspectorSection title={<T>Shared asset</T>}>
         <div className='element-editor-field'>
           <span><T>Library asset</T></span>
           <StudioSelect ariaLabel={gt('Library asset')} onValueChange={(assetId) => onChange({ assetId })} options={[
@@ -343,24 +339,21 @@ function ElementEditor({
           </div>
           <ElementRangeControl label={<T>Asset opacity</T>} max={100} min={0} onChange={(assetOpacity) => onChange({ assetOpacity })} suffix='%' value={settings.assetOpacity} />
         </> : null}
-      </section>
+      </LabInspectorSection>
 
-      {artworkSupported ? <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Artwork</T></h2></div>
+      {artworkSupported ? <LabInspectorSection title={<T>Artwork</T>}>
         <ElementRangeControl label={<T>Horizontal</T>} max={120} min={-120} onChange={(artworkX) => onChange({ artworkX })} suffix='px' value={settings.artworkX} />
         <ElementRangeControl label={<T>Vertical</T>} max={120} min={-120} onChange={(artworkY) => onChange({ artworkY })} suffix='px' value={settings.artworkY} />
         <ElementRangeControl label={<T>Scale</T>} max={200} min={40} onChange={(artworkScale) => onChange({ artworkScale })} suffix='%' value={settings.artworkScale} />
-      </section> : null}
+      </LabInspectorSection> : null}
 
-      <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Color</T></h2></div>
+      <LabInspectorSection title={<T>Color</T>}>
         <ElementColorControl label={<T>Background</T>} onChange={(backgroundColor) => onChange({ backgroundColor })} value={settings.backgroundColor} />
         <ElementColorControl label={<T>Text</T>} onChange={(foregroundColor) => onChange({ foregroundColor })} value={settings.foregroundColor} />
         <ElementColorControl label={<T>Accent</T>} onChange={(accentColor) => onChange({ accentColor })} value={settings.accentColor} />
-      </section>
+      </LabInspectorSection>
 
-      <section className='element-editor-section'>
-        <div className='element-editor-heading'><h2><T>Brand details</T></h2></div>
+      <LabInspectorSection title={<T>Brand details</T>}>
         {logoSupported ? <label className='element-editor-toggle'>
           <span><T>Show logo</T></span>
           <input checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} type='checkbox' />
@@ -377,7 +370,7 @@ function ElementEditor({
           <span><T>Show website</T></span>
           <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
         </label> : null}
-      </section>
+      </LabInspectorSection>
     </StudioSidebar>
   );
 }

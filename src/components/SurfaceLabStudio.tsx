@@ -1184,7 +1184,6 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           <LabPanelHeading
             action={<button
               aria-label={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : 'Reset stickers')}
-              className='design-lab-reset-action'
               onClick={resetActiveLibrary}
               title={gt('Reset active layer')}
               type='button'
@@ -1192,7 +1191,6 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <RotateCcw aria-hidden='true' />
             </button>}
             description='Controls follow the active library on the left.'
-            eyebrow={dock === 'shader' ? 'Background shader' : dock === 'surface' ? 'Surface overlay' : dock === 'text' ? 'Text layer' : 'Sticker system'}
             title={dock === 'shader'
               ? backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'No background'
               : dock === 'surface'

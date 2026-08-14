@@ -287,19 +287,19 @@ export default function StudioControls({
   return (
     <StudioSidebar
       className={`studio-inspector ${panel === 'properties' ? 'studio-inspector-right' : ''}`}
-      defaultWidth={panel === 'source' ? (compact ? 280 : 416) : compact ? 240 : 360}
+      defaultWidth={compact ? (panel === 'source' ? 280 : 240) : undefined}
+      density={compact ? 'standard' : 'compact'}
       kind={panel === 'source' ? 'library' : 'inspector'}
       label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
-      maxWidth={compact ? (panel === 'source' ? 360 : 320) : 520}
-      minWidth={panel === 'source' ? (compact ? 220 : 350) : compact ? 200 : 280}
+      maxWidth={compact ? (panel === 'source' ? 360 : 320) : undefined}
+      minWidth={compact ? (panel === 'source' ? 220 : 200) : undefined}
       side={panel === 'properties' ? 'right' : 'left'}
-      storageKey={`animation-${compact ? 'compact-' : ''}${panel}-v2-${identity?.id ?? 'default'}`}
+      storageKey={`animation-${compact ? 'compact-' : ''}${panel}-v3-${identity?.id ?? 'default'}`}
     >
       <LabPanelHeading
         description={panel === 'source'
           ? <T>Build the sequence from text, images, and brand assets.</T>
           : <T>Tune the selected frame, timing, material, and composition.</T>}
-        eyebrow={panel === 'source' ? <T>Sequence library</T> : <T>Live inspector</T>}
         title={panel === 'source' ? <T>Animation sources</T> : selectedSource?.kind === 'text' ? selectedSource.text : selectedSource?.name ?? <T>Sequence properties</T>}
       />
       {panel === 'source' ? (

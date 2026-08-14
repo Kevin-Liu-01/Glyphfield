@@ -2412,15 +2412,6 @@ export default function ShaderLabStudio({
               : selectedContentLayerId
                 ? `Style, position, and export this layer${selectedLayerShader ? ` with ${material.name} applied` : ''}.`
                 : 'Select a layer to edit its content and appearance, or add a new one below.'}
-            eyebrow={selectedShaderLayer
-                ? 'Canvas shader'
-                : selectedTextLayer
-                  ? 'Text layer'
-                  : selectedLogoLayer
-                    ? 'Mark layer'
-                    : selectedAsset
-                      ? 'Image layer'
-                      : 'Composition'}
             title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
           />
 
@@ -2479,11 +2470,18 @@ export default function ShaderLabStudio({
           {editingShader ? <>
           <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
             <div className='shader-lab-v2-colors'>
-              {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
-                <label key={key}>
-                  <input aria-label={`Color ${index + 1}`} onChange={(event) => updateSetting(key, event.target.value)} type='color' value={settings[key]} />
-                  <span>{settings[key]}</span>
-                </label>
+              {([
+                { key: 'colorA', label: 'Base color' },
+                { key: 'colorB', label: 'Mid color' },
+                { key: 'colorC', label: 'Light color' },
+              ] as const).map(({ key, label }) => (
+                <ColorControl
+                  ariaLabel={`Shader ${label.toLowerCase()}`}
+                  key={key}
+                  label={label}
+                  onChange={(color) => updateSetting(key, color)}
+                  value={settings[key]}
+                />
               ))}
             </div>
             <div className='shader-lab-v2-palettes'>
@@ -2731,13 +2729,12 @@ export default function ShaderLabStudio({
                       <input checked={selectedTextAppearance.outlineEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} type='checkbox' />
                     </label>
                     {selectedTextAppearance.outlineEnabled ? <>
-                      <label className='shader-lab-v2-color-field'>
-                        <span>Outline color</span>
-                        <span>
-                          <input aria-label='Text outline color' onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineColor: event.target.value })} type='color' value={selectedTextAppearance.outlineColor} />
-                          <code>{selectedTextAppearance.outlineColor}</code>
-                        </span>
-                      </label>
+                      <ColorControl
+                        ariaLabel='Text outline color'
+                        label='Outline color'
+                        onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })}
+                        value={selectedTextAppearance.outlineColor}
+                      />
                       <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
                     </> : null}
                   </div>
@@ -2747,13 +2744,12 @@ export default function ShaderLabStudio({
                       <input checked={selectedTextAppearance.shadowEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} type='checkbox' />
                     </label>
                     {selectedTextAppearance.shadowEnabled ? <>
-                      <label className='shader-lab-v2-color-field'>
-                        <span>Shadow color</span>
-                        <span>
-                          <input aria-label='Text shadow color' onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowColor: event.target.value })} type='color' value={selectedTextAppearance.shadowColor} />
-                          <code>{selectedTextAppearance.shadowColor}</code>
-                        </span>
-                      </label>
+                      <ColorControl
+                        ariaLabel='Text shadow color'
+                        label='Shadow color'
+                        onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })}
+                        value={selectedTextAppearance.shadowColor}
+                      />
                       <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
                       <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
                       <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
@@ -2769,13 +2765,12 @@ export default function ShaderLabStudio({
                   <strong>Mark appearance</strong>
                   <span>SVG-safe</span>
                 </div>
-                <label className='shader-lab-v2-color-field'>
-                  <span>Mark color</span>
-                  <span>
-                    <input aria-label='Mark color' onChange={(event) => updateLogoLayer(selectedLogoLayer.id, { color: event.target.value })} type='color' value={selectedLogoLayer.color ?? '#FFFFFF'} />
-                    <code>{selectedLogoLayer.color ?? '#FFFFFF'}</code>
-                  </span>
-                </label>
+                <ColorControl
+                  ariaLabel='Mark color'
+                  label='Mark color'
+                  onChange={(color) => updateLogoLayer(selectedLogoLayer.id, { color })}
+                  value={selectedLogoLayer.color ?? '#FFFFFF'}
+                />
                 <RangeControl
                   formatValue={(value) => `${Math.round(value * 100)}%`}
                   label='Mark opacity'

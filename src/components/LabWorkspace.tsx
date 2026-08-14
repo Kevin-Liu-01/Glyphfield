@@ -10,6 +10,7 @@ type StudioSidebarProps = Omit<
   'defaultWidth' | 'maxWidth' | 'minWidth' | 'resizeEdge'
 > & {
   defaultWidth?: number;
+  density?: 'compact' | 'standard';
   kind?: StudioSidebarKind;
   maxWidth?: number;
   minWidth?: number;
@@ -22,6 +23,7 @@ const STUDIO_NAVIGATION_WIDTH = 216;
 export function StudioSidebar({
   className = '',
   defaultWidth,
+  density = 'standard',
   kind = 'inspector',
   maxWidth,
   minWidth,
@@ -29,13 +31,14 @@ export function StudioSidebar({
   ...props
 }: StudioSidebarProps) {
   const navigation = kind === 'navigation';
+  const compact = density === 'compact' && !navigation;
 
   return (
     <ResizableSidebar
       {...props}
-      className={`studio-sidebar lab-sidebar lab-sidebar-${side} studio-sidebar-${kind} ${className}`.trim()}
-      defaultWidth={defaultWidth ?? (navigation ? STUDIO_NAVIGATION_WIDTH : STUDIO_SIDEBAR_WIDTH)}
-      maxWidth={maxWidth ?? (navigation ? 320 : 520)}
+      className={`studio-sidebar lab-sidebar lab-sidebar-${side} studio-sidebar-${kind} studio-sidebar-${density} ${className}`.trim()}
+      defaultWidth={defaultWidth ?? (navigation ? STUDIO_NAVIGATION_WIDTH : compact ? 244 : STUDIO_SIDEBAR_WIDTH)}
+      maxWidth={maxWidth ?? (navigation ? 320 : compact ? 420 : 520)}
       minWidth={minWidth ?? (navigation ? 190 : 220)}
       resizeEdge={side === 'right' ? 'left' : 'right'}
     />
@@ -47,20 +50,17 @@ export function StudioPanelHeader({
   className = '',
   density = 'default',
   description,
-  eyebrow,
   title,
 }: {
   action?: ReactNode;
   className?: string;
   density?: 'compact' | 'default';
   description?: ReactNode;
-  eyebrow?: ReactNode;
   title: ReactNode;
 }) {
   return (
     <header className={`lab-panel-heading ${className}`.trim()} data-density={density} data-studio-panel-header>
       <div className='min-w-0'>
-        {eyebrow ? <p className='lab-panel-eyebrow'>{eyebrow}</p> : null}
         <h2>{title}</h2>
         {description ? <p>{description}</p> : null}
       </div>

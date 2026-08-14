@@ -1433,36 +1433,14 @@
 }
 
 .shader-lab-v2-colors {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.shader-lab-v2-colors label {
   display: flex;
-  min-width: 0;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
-.shader-lab-v2-colors input {
-  width: 100%;
-  height: 32px;
-  padding: 2px;
-  overflow: hidden;
-  border: 1px solid hsl(var(--border));
-  border-radius: 5px;
-  background: transparent;
-  cursor: pointer;
-}
-
-.shader-lab-v2-colors span {
-  overflow: hidden;
-  color: hsl(var(--muted-foreground));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
+.shader-lab-v2-colors .studio-color-control {
+  gap: 8px;
+  padding: 10px;
 }
 
 .shader-lab-v2-palettes {
@@ -1683,44 +1661,10 @@
   gap: 6px;
 }
 
-.shader-lab-v2-field > span,
-.shader-lab-v2-color-field > span:first-child {
+.shader-lab-v2-field > span {
   color: hsl(var(--muted-foreground));
   font-size: 9px;
   font-weight: 560;
-}
-
-.shader-lab-v2-color-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.shader-lab-v2-color-field > span:last-child {
-  display: flex;
-  min-width: 112px;
-  height: 30px;
-  align-items: center;
-  gap: 7px;
-  padding: 3px 7px 3px 3px;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
-}
-
-.shader-lab-v2-color-field input[type='color'] {
-  width: 28px;
-  height: 22px;
-  flex: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.shader-lab-v2-color-field code {
-  color: hsl(var(--muted-foreground));
-  font-size: 9px;
-  text-transform: uppercase;
 }
 
 .shader-lab-v2-effect-group {
@@ -2159,13 +2103,12 @@ body:has([data-testid='shader-preview-capture']) nextjs-portal {
   --studio-toolbar-icon-size: 18px;
   --studio-toolbar-title-size: 0.9rem;
   --studio-toolbar-meta-size: 0.72rem;
-  --studio-panel-heading-min-height: 88px;
+  --studio-panel-heading-min-height: 72px;
   --studio-panel-padding: 16px;
   --studio-panel-gap: 14px;
   --studio-panel-title-size: 0.875rem;
   --studio-section-title-size: 0.75rem;
   --studio-panel-copy-size: 0.6875rem;
-  --studio-panel-eyebrow-size: 0.5rem;
   --studio-control-icon-size: 20px;
   --studio-control-glyph-size: 11px;
 }
@@ -3694,37 +3637,32 @@ body {
   height: 38px;
   overflow: hidden;
   border-radius: var(--studio-corner-md) var(--studio-corner-md) 0 0 !important;
+  cursor: default;
+  touch-action: none;
+  user-select: none;
   transition:
     width 280ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 180ms ease,
     background-color 180ms ease,
     color 180ms ease,
     opacity 180ms ease;
+  will-change: transform;
+}
+
+.app-navbar .project-tab[data-shifting='true'] {
+  transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .app-navbar .project-tab[data-dragging='true'] {
-  opacity: 0.42;
+  z-index: 7;
+  cursor: grabbing;
+  opacity: 0.98;
+  box-shadow: var(--studio-shadow-ring-lg);
+  transition: none;
 }
 
-.app-navbar .project-tab[data-drop-placement]::after {
-  position: absolute;
-  z-index: 5;
-  top: 4px;
-  bottom: 3px;
-  width: 3px;
-  border-radius: 999px;
-  background: hsl(var(--ring));
-  box-shadow: 0 0 0 1px hsl(var(--background) / 0.82);
-  content: '';
+.app-navbar .project-tab[data-dragging='true'] > * {
   pointer-events: none;
-}
-
-.app-navbar .project-tab[data-drop-placement='before']::after {
-  left: 1px;
-}
-
-.app-navbar .project-tab[data-drop-placement='after']::after {
-  right: 1px;
 }
 
 .project-tab > * {
@@ -3790,61 +3728,9 @@ body {
   height: 13px;
 }
 
-.project-tab-reorder-trigger {
-  display: grid;
-  width: 22px;
-  height: 24px;
-  flex: none;
-  margin-right: -0.35rem;
-  margin-left: -0.4rem;
-  place-items: center;
-  border: 0;
-  border-radius: var(--studio-corner-sm);
-  background: transparent;
-  color: hsl(var(--foreground));
-  cursor: pointer;
-  opacity: 0.28;
-  transition:
-    opacity 120ms ease,
-    background-color 120ms ease;
-}
-
-.project-tab[aria-selected='true'] .project-tab-reorder-trigger {
-  color: hsl(var(--background));
-}
-
-.project-tab:hover .project-tab-reorder-trigger,
-.project-tab-reorder-trigger[aria-expanded='true'],
-.project-tab-reorder-trigger:focus-visible {
-  opacity: 0.82;
-}
-
-.project-tab-reorder-trigger:hover {
-  background: hsl(var(--foreground) / 0.08);
-  opacity: 1;
-}
-
-.project-tab-reorder-trigger:focus-visible,
 .project-tab-reorder-controls button:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: -1px;
-}
-
-.project-tab-reorder-drag-handle {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  cursor: grab;
-}
-
-.project-tab-reorder-drag-handle:active {
-  cursor: grabbing;
-}
-
-.project-tab-reorder-drag-handle svg {
-  width: 13px;
-  height: 13px;
 }
 
 .project-tab-reorder-controls {
@@ -4018,10 +3904,10 @@ body {
 
 .project-tabs[data-tab-density='marks']
   .project-tab
-  > button:not(.project-tab-close):not(.project-tab-reorder-trigger),
+  > button:not(.project-tab-close),
 .project-tabs[data-tab-density='scroll']
   .project-tab
-  > button:not(.project-tab-close):not(.project-tab-reorder-trigger) {
+  > button:not(.project-tab-close) {
   width: 100%;
   height: 100%;
   flex: 1 1 auto;
@@ -4050,28 +3936,6 @@ body {
 .project-tabs[data-tab-density='scroll'] .project-tab:hover .project-tab-close,
 .project-tabs[data-tab-density='marks'] .project-tab-close:focus-visible,
 .project-tabs[data-tab-density='scroll'] .project-tab-close:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.project-tabs[data-tab-density='marks'] .project-tab-reorder-trigger,
-.project-tabs[data-tab-density='scroll'] .project-tab-reorder-trigger {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  opacity: 0.32;
-  pointer-events: auto;
-}
-
-.project-tabs[data-tab-density='marks'] .project-tab:hover .project-tab-reorder-trigger,
-.project-tabs[data-tab-density='scroll'] .project-tab:hover .project-tab-reorder-trigger,
-.project-tabs[data-tab-density='marks'] .project-tab-reorder-trigger[aria-expanded='true'],
-.project-tabs[data-tab-density='scroll'] .project-tab-reorder-trigger[aria-expanded='true'],
-.project-tabs[data-tab-density='marks'] .project-tab-reorder-trigger:focus-visible,
-.project-tabs[data-tab-density='scroll'] .project-tab-reorder-trigger:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
@@ -9257,27 +9121,6 @@ body {
   border-left: 0 !important;
 }
 
-.element-editor-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  padding: 1rem;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.element-editor-heading {
-  min-height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.element-editor-heading h2 {
-  font-size: 0.8125rem;
-  font-weight: 550;
-}
-
 .element-editor-field,
 .element-editor-color {
   display: flex;
@@ -10036,6 +9879,7 @@ body {
 
 .lab-panel-heading {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--studio-panel-gap);
   min-height: var(--studio-panel-heading-min-height);
@@ -10062,19 +9906,11 @@ body {
   white-space: nowrap;
 }
 
-.lab-panel-heading > div > p:last-child:not(.lab-panel-eyebrow) {
+.lab-panel-heading > div > p {
   margin-top: 0.35rem;
   color: hsl(var(--muted-foreground));
   font-size: var(--studio-panel-copy-size);
   line-height: 1.45;
-}
-
-.lab-panel-eyebrow {
-  color: hsl(var(--emphasis));
-  font-family: var(--font-mono), monospace;
-  font-size: var(--studio-panel-eyebrow-size);
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .lab-panel-action {
@@ -10104,6 +9940,7 @@ body {
 .lab-inspector-section,
 .lab-sidebar-right .surface-lab-v3-inspector-section {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--studio-panel-gap);
   padding: var(--studio-panel-padding);
@@ -22318,14 +22155,10 @@ body {
   font-size: 0.72rem;
 }
 
-.marketing-v5-hero-studio .animation-studio-compact-controls .lab-panel-heading > div > p:last-child:not(.lab-panel-eyebrow) {
+.marketing-v5-hero-studio .animation-studio-compact-controls .lab-panel-heading > div > p {
   margin-top: 0.25rem;
   font-size: 0.56rem;
   line-height: 1.35;
-}
-
-.marketing-v5-hero-studio .animation-studio-compact-controls .lab-panel-eyebrow {
-  font-size: 0.44rem;
 }
 
 .marketing-v5-hero-studio .animation-studio-compact-controls .lab-inspector-section {

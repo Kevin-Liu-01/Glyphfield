@@ -1378,7 +1378,6 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     <>
       <LabPanelHeading
         description={<T>Select a semantic token to edit and test in context.</T>}
-        eyebrow={<T>Token library</T>}
         title={<T>Brand colors</T>}
       />
       <div className='color-lab-library'>
@@ -1406,7 +1405,6 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     <>
       <LabPanelHeading
         description={<T>Adjust perceptual channels while keeping production values visible.</T>}
-        eyebrow={<T>Live inspector</T>}
         title={selectedColor.name}
       />
       <LabInspectorSection index='01' meta='OKLCH' title={<T>Color</T>}>
@@ -1678,7 +1676,6 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     <>
       <LabPanelHeading
         description={<T>Select a role to inspect it at production scale.</T>}
-        eyebrow={<T>Type library</T>}
         title={<T>Typography roles</T>}
       />
       <div className='typography-lab-library'>
@@ -1698,7 +1695,6 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     <>
       <LabPanelHeading
         description={<T>Make live changes to the selected role and specimen.</T>}
-        eyebrow={<T>Live inspector</T>}
         title={`${selectedRole} · ${selectedFamily}`}
       />
       <LabInspectorSection index='01' meta={selectedRole} title={<T>Typeface</T>}>
