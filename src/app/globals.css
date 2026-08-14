@@ -2493,7 +2493,8 @@ body {
   --color-fd-accent: #e8e8e8;
   --color-fd-accent-foreground: var(--docs-fg);
   --fd-header-height: 52px !important;
-  --fd-layout-width: 100%;
+  /* Viewport units avoid a cyclic percentage track in Fumadocs' outer grid. */
+  --fd-layout-width: min(100vw, 100rem);
   --fd-sidebar-width: 256px !important;
   position: relative;
   color: var(--docs-fg);
@@ -2511,20 +2512,6 @@ body {
   --docs-soft: #1d1d1d;
   --docs-line: #383838;
   --color-fd-accent: #242424;
-}
-
-.glyphfield-docs::before {
-  position: fixed;
-  z-index: 19;
-  top: 0;
-  right: 0;
-  left: 256px;
-  height: 52px;
-  border-bottom: 1px solid var(--docs-line);
-  background: color-mix(in srgb, var(--docs-bg) 94%, transparent);
-  backdrop-filter: blur(14px);
-  content: '';
-  pointer-events: none;
 }
 
 .glyphfield-docs :is(button, input, kbd, pre, table, blockquote, [role='dialog']) {
@@ -2583,9 +2570,11 @@ body {
 }
 
 .glyphfield-docs-header-search {
-  width: min(440px, 38vw);
+  width: 100%;
+  max-width: 440px;
   padding: 0 0.7rem;
   display: flex;
+  flex: 1 1 18rem;
   align-items: center;
 }
 
@@ -2852,7 +2841,7 @@ body {
   height: 52px;
   padding: 8px 16px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 34px;
   gap: 6px;
   border-bottom: 1px solid var(--docs-line);
@@ -2919,8 +2908,28 @@ body {
   font-size: 0.68rem;
 }
 
+.glyphfield-docs [data-toc-popover] {
+  min-width: 0;
+  border-bottom: 1px solid var(--docs-line);
+  color: var(--docs-muted);
+  background: color-mix(in srgb, var(--docs-bg) 96%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.glyphfield-docs [data-toc-popover-trigger] {
+  min-height: 40px;
+}
+
+.glyphfield-docs [data-toc-popover-content] {
+  border-top: 1px solid var(--docs-line);
+  background: color-mix(in srgb, var(--docs-bg) 98%, transparent);
+}
+
 .glyphfield-doc-page {
+  width: 100%;
+  min-width: 0;
   max-width: 980px;
+  margin-inline: auto;
   padding: 2rem clamp(1.25rem, 3.5vw, 3.25rem);
   gap: 0;
 }
@@ -2958,6 +2967,7 @@ body {
 }
 
 .glyphfield-doc-page-kicker {
+  min-width: 0;
   margin-bottom: clamp(2.5rem, 7vw, 5rem);
   display: flex;
   align-items: center;
@@ -2970,6 +2980,13 @@ body {
   text-transform: uppercase;
 }
 
+.glyphfield-doc-page-kicker span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .glyphfield-doc-title {
   max-width: 13ch;
   margin: 0;
@@ -2977,6 +2994,7 @@ body {
   font-weight: 520;
   line-height: 1.02;
   letter-spacing: -0.042em;
+  overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
@@ -2990,6 +3008,8 @@ body {
 }
 
 .glyphfield-docs-body {
+  width: 100%;
+  min-width: 0;
   max-width: none;
   padding: clamp(1.5rem, 3.5vw, 3rem);
   border-right: 1px solid var(--docs-line);
@@ -3030,6 +3050,7 @@ body {
 .glyphfield-docs-body li {
   max-width: 72ch;
   color: color-mix(in srgb, var(--docs-fg) 82%, var(--docs-bg));
+  overflow-wrap: anywhere;
 }
 
 .glyphfield-docs-body li + li {
@@ -3052,6 +3073,9 @@ body {
 }
 
 .glyphfield-docs-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border: 0;
   border-radius: 0 !important;
   background: #181818 !important;
@@ -3059,6 +3083,12 @@ body {
 }
 
 .glyphfield-docs-body table {
+  width: max-content;
+  min-width: 100%;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border-collapse: collapse;
   border: 1px solid var(--docs-line);
   font-size: 0.8rem;
@@ -3086,6 +3116,8 @@ body {
 }
 
 .glyphfield-docs-body img {
+  max-width: 100%;
+  height: auto;
   border: 1px solid var(--docs-line);
   border-radius: var(--docs-radius-md);
 }
@@ -3101,6 +3133,7 @@ body {
 }
 
 .docs-path-card {
+  min-width: 0;
   min-height: 172px;
   padding: 1.15rem;
   display: grid;
@@ -3157,6 +3190,7 @@ body {
 }
 
 .docs-system-item {
+  min-width: 0;
   min-height: 150px;
   padding: 1.1rem;
   display: flex;
@@ -3201,17 +3235,15 @@ body {
   }
 
   .glyphfield-docs-header-search {
-    width: min(360px, 42vw);
+    width: 100%;
+    max-width: none;
+    flex-basis: 12rem;
   }
 }
 
 @media (max-width: 767px) {
   .glyphfield-docs {
     --fd-sidebar-width: 0px !important;
-  }
-
-  .glyphfield-docs::before {
-    left: 0;
   }
 
   .glyphfield-docs-header {
@@ -3261,13 +3293,45 @@ body {
   }
 }
 
+@media (max-width: 639px) {
+  .glyphfield-docs-header {
+    padding-left: 0.5rem;
+  }
+
+  .glyphfield-doc-page {
+    padding: 0.5rem 0.5rem 1.25rem;
+  }
+
+  .glyphfield-doc-page-header,
+  .glyphfield-docs-body {
+    padding: 1.1rem;
+  }
+
+  .glyphfield-doc-page-kicker {
+    margin-bottom: 2.25rem;
+  }
+
+  .glyphfield-docs-body h2 {
+    margin-top: 2.5rem;
+  }
+
+  .docs-path-card,
+  .docs-system-item {
+    min-height: 0;
+  }
+}
+
 @media (max-width: 480px) {
   .glyphfield-doc-page-kicker span:last-child {
     display: none;
   }
 
   .glyphfield-doc-title {
-    font-size: 2.35rem;
+    font-size: clamp(2rem, 12vw, 2.35rem);
+  }
+
+  .glyphfield-docs .docs-brand-title > span:last-child {
+    display: none;
   }
 }
 
