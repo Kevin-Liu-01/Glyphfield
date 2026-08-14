@@ -5,22 +5,32 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
+  CircleGauge,
+  Clapperboard,
+  Clock3,
   Code2,
   Copy,
   Download,
   Eye,
   EyeOff,
   ExternalLink,
+  FileImage,
+  Film,
+  ImageDown,
   ImagePlus,
   Layers3,
+  MonitorUp,
   Pause,
   Play,
+  Repeat2,
   RotateCcw,
+  Ruler,
   Search,
   Sparkles,
   Trash2,
   Type,
   X,
+  Zap,
 } from 'lucide-react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -229,11 +239,16 @@ const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
   quality: 'balanced',
   width: 960,
 };
-const EXPORT_WIDTH_PRESETS = [640, 960, 1_280, 1_920] as const;
+const EXPORT_WIDTH_PRESETS = [
+  { label: 'Compact', width: 640 },
+  { label: 'Standard', width: 960 },
+  { label: 'Large', width: 1_280 },
+  { label: 'Full', width: 1_920 },
+] as const;
 const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; value: MotionExportQuality }[] = [
-  { description: 'Smallest and quickest', label: 'Fast', value: 'fast' },
-  { description: 'Clean everyday output', label: 'Balanced', value: 'balanced' },
-  { description: 'Maximum color detail', label: 'Best', value: 'best' },
+  { description: 'Quick preview', label: 'Fast', value: 'fast' },
+  { description: 'Everyday export', label: 'Balanced', value: 'balanced' },
+  { description: 'Most detail', label: 'Best', value: 'best' },
 ];
 
 function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExportSettings): string {
@@ -264,28 +279,38 @@ function DesignExportControls({
 
   return (
     <div className='shader-lab-v2-output-controls'>
+      <div className='shader-lab-v2-export-overview' aria-label='Current output settings'>
+        <div>
+          <MonitorUp aria-hidden='true' />
+          <span><small>Output size</small><strong>{dimensions.width} × {dimensions.height}</strong></span>
+        </div>
+        <div>
+          <Film aria-hidden='true' />
+          <span><small>Animation · {frameCount} frames</small><strong>{settings.durationMs / 1_000}s · {settings.fps} FPS</strong></span>
+        </div>
+      </div>
       <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
-        {EXPORT_WIDTH_PRESETS.map((width) => {
+        {EXPORT_WIDTH_PRESETS.map((preset) => {
           const presetDimensions = resolveExportDimensions({
             aspectHeight: ratioOption.height,
             aspectWidth: ratioOption.width,
-            width,
+            width: preset.width,
           });
           return (
             <button
               aria-pressed={dimensions.width === presetDimensions.width}
-              key={width}
-              onClick={() => onChange({ width })}
+              key={preset.width}
+              onClick={() => onChange({ width: preset.width })}
               type='button'
             >
-              <strong>{width}</strong>
+              <strong>{preset.label}</strong>
               <small>{presetDimensions.width}×{presetDimensions.height}</small>
             </button>
           );
         })}
       </div>
       <label className='shader-lab-v2-export-width'>
-        <span>Exact width</span>
+        <span><Ruler aria-hidden='true' />Custom width</span>
         <span>
           <input
             aria-label='Export width in pixels'
@@ -304,22 +329,28 @@ function DesignExportControls({
         </span>
       </label>
       <div className='shader-lab-v2-export-quality'>
-        <span>Quality</span>
+        <span><CircleGauge aria-hidden='true' />Quality</span>
         <div>
-          {EXPORT_QUALITY_OPTIONS.map((option) => (
-            <button
-              aria-pressed={settings.quality === option.value}
-              key={option.value}
-              onClick={() => onChange({ quality: option.value })}
-              title={option.description}
-              type='button'
-            >{option.label}</button>
-          ))}
+          {EXPORT_QUALITY_OPTIONS.map((option) => {
+            const QualityIcon = option.value === 'fast' ? Zap : option.value === 'balanced' ? CircleGauge : Sparkles;
+            return (
+              <button
+                aria-pressed={settings.quality === option.value}
+                key={option.value}
+                onClick={() => onChange({ quality: option.value })}
+                title={option.description}
+                type='button'
+              >
+                <QualityIcon aria-hidden='true' />
+                <span><strong>{option.label}</strong><small>{option.description}</small></span>
+              </button>
+            );
+          })}
         </div>
       </div>
       <div className='shader-lab-v2-export-motion'>
         <label>
-          <span>Duration</span>
+          <span><Clock3 aria-hidden='true' />Duration</span>
           <StudioSelect
             ariaLabel='Export duration'
             onValueChange={(value) => onChange({ durationMs: Number(value) })}
@@ -333,7 +364,7 @@ function DesignExportControls({
           />
         </label>
         <label>
-          <span>Frame rate</span>
+          <span><Film aria-hidden='true' />Frame rate</span>
           <StudioSelect
             ariaLabel='Export frame rate'
             onValueChange={(value) => onChange({ fps: Number(value) })}
@@ -343,28 +374,25 @@ function DesignExportControls({
         </label>
       </div>
       <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
-        <span>GIF loop</span>
+        <span><Repeat2 aria-hidden='true' />GIF loop</span>
         <div>
           <button
             aria-pressed={settings.gifLoop === 'seamless'}
             onClick={() => onChange({ gifLoop: 'seamless' })}
-            title='Blend a continuous tail into the matching head and verify the closing boundary.'
+            title='Blend and verify the closing frame for a smooth loop.'
             type='button'
           >Seamless</button>
           <button
             aria-pressed={settings.gifLoop === 'raw'}
             onClick={() => onChange({ gifLoop: 'raw' })}
-            title='Repeat the captured shader frames without correcting the seam.'
+            title='Repeat captured frames without correcting the seam.'
             type='button'
           >Raw motion</button>
         </div>
         <small>{settings.gifLoop === 'seamless'
-          ? `${loopOverlapFrames}-frame temporal overlap · pixel boundary checked after render`
-          : 'No seam correction · useful when the source shader is already periodic'}</small>
+          ? `Smooth close · ${loopOverlapFrames}-frame overlap verified after render`
+          : 'Direct repeat · best for shaders that already loop naturally'}</small>
       </div>
-      <p className='shader-lab-v2-export-summary'>
-        {dimensions.width} × {dimensions.height} · {frameCount} motion frames · {EXPORT_QUALITY_OPTIONS.find(({ value }) => value === settings.quality)?.description}
-      </p>
     </div>
   );
 }
@@ -2432,10 +2460,10 @@ export default function ShaderLabStudio({
                   settings={normalizedExportSettings}
                 />
                 <div className='shader-lab-v2-composition-output'>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><Download aria-hidden='true' /><span>PNG</span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><Download aria-hidden='true' /><span>JPG</span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Play aria-hidden='true' /><span>GIF</span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Play aria-hidden='true' /><span>MP4</span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><ImageDown aria-hidden='true' /><span><strong>PNG</strong><small>Image</small></span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><FileImage aria-hidden='true' /><span><strong>JPG</strong><small>Image</small></span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Film aria-hidden='true' /><span><strong>GIF</strong><small>Loop</small></span></button>
+                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Clapperboard aria-hidden='true' /><span><strong>MP4</strong><small>Video</small></span></button>
                 </div>
               </div>
             </section>

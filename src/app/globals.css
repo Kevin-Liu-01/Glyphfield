@@ -1253,7 +1253,7 @@
 .shader-lab-v2-composition-output button {
   display: flex;
   min-width: 0;
-  min-height: 42px;
+  min-height: 46px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
@@ -1277,14 +1277,98 @@
 }
 
 .shader-lab-v2-composition-output svg {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
+}
+
+.shader-lab-v2-composition-output button > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.shader-lab-v2-composition-output strong {
+  font-size: 8px;
+  font-weight: 620;
+}
+
+.shader-lab-v2-composition-output small {
+  color: hsl(var(--muted-foreground));
+  font-size: 6px;
 }
 
 .shader-lab-v2-output-controls {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.shader-lab-v2-export-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: 4px;
+  background: hsl(var(--muted) / .38);
+}
+
+.shader-lab-v2-export-overview > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 9px 7px;
+}
+
+.shader-lab-v2-export-overview > div + div {
+  border-left: 1px solid hsl(var(--border));
+}
+
+.shader-lab-v2-export-overview svg {
+  width: 13px;
+  height: 13px;
+  color: hsl(var(--muted-foreground));
+}
+
+.shader-lab-v2-export-overview span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shader-lab-v2-export-overview small {
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+}
+
+.shader-lab-v2-export-overview strong {
+  overflow: hidden;
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shader-lab-v2-export-width > span:first-child,
+.shader-lab-v2-export-quality > span,
+.shader-lab-v2-export-motion label > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.shader-lab-v2-export-width > span:first-child svg,
+.shader-lab-v2-export-quality > span svg,
+.shader-lab-v2-export-motion label > span svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
 }
 
 .shader-lab-v2-export-presets {
@@ -1296,7 +1380,7 @@
 .shader-lab-v2-export-presets button {
   display: flex;
   min-width: 0;
-  min-height: 39px;
+  min-height: 44px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -1315,8 +1399,7 @@
 }
 
 .shader-lab-v2-export-presets strong {
-  font-family: var(--font-mono), monospace;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 650;
 }
 
@@ -1336,14 +1419,6 @@
   min-width: 0;
   flex-direction: column;
   gap: 5px;
-}
-
-.shader-lab-v2-export-width > span:first-child,
-.shader-lab-v2-export-quality > span,
-.shader-lab-v2-export-motion label > span {
-  color: hsl(var(--muted-foreground));
-  font-size: 8px;
-  font-weight: 560;
 }
 
 .shader-lab-v2-export-width > span:last-child {
@@ -1389,21 +1464,59 @@
 }
 
 .shader-lab-v2-export-quality button {
-  height: 26px;
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 4px;
   border-radius: 3px;
   color: hsl(var(--muted-foreground));
   font-size: 8px;
+}
+
+.shader-lab-v2-export-quality button > svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+
+.shader-lab-v2-export-quality button > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+}
+
+.shader-lab-v2-export-quality button strong {
+  font-size: 8px;
+  font-weight: 620;
+}
+
+.shader-lab-v2-export-quality button small {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 6px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shader-lab-v2-export-quality button:hover,
 .shader-lab-v2-export-quality button[aria-pressed='true'] {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-  box-shadow: var(--studio-shadow-ring-xs);
 }
 
 .shader-lab-v2-export-loop > div {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shader-lab-v2-export-loop button {
+  height: 28px;
 }
 
 .shader-lab-v2-export-loop > small {
@@ -1423,14 +1536,6 @@
   height: 31px;
   padding-inline: 9px;
   font-size: 9px;
-}
-
-.shader-lab-v2-export-summary {
-  margin-top: -2px;
-  color: hsl(var(--muted-foreground));
-  font-family: var(--font-mono), monospace;
-  font-size: 7px;
-  line-height: 1.45;
 }
 
 .shader-lab-v2-colors {
@@ -7151,6 +7256,315 @@ body {
 
 .design-lab .design-lab-inspector > .design-lab-inspector-section:last-of-type {
   margin-top: auto;
+}
+
+.design-lab .design-lab-dock-tabs button > span svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+}
+
+.design-lab .design-lab-dock-tabs button[aria-selected='true'] > span svg {
+  color: currentColor;
+}
+
+.design-lab .design-lab-section-icon {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.design-lab .design-lab-section-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.design-lab .design-lab-field-label,
+.design-lab .design-lab-segmented-field > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.design-lab .design-lab-field-label svg,
+.design-lab .design-lab-segmented-field > span svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+
+.design-lab :is(.design-lab-text-inspector-grid, .design-lab-sticker-text-controls) .studio-color-control {
+  gap: 7px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.design-lab :is(.design-lab-text-inspector-grid, .design-lab-sticker-text-controls) .studio-color-control > div:first-child > span {
+  font-size: 9px;
+}
+
+.design-lab :is(.design-lab-text-inspector-grid, .design-lab-sticker-text-controls) .studio-color-control-row {
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.design-lab :is(.design-lab-text-inspector-grid, .design-lab-sticker-text-controls) .studio-color-control-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+}
+
+.design-lab :is(.design-lab-text-inspector-grid, .design-lab-sticker-text-controls) .studio-color-control-field input {
+  height: 29px;
+}
+
+.design-lab .design-lab-segmented-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.design-lab .design-lab-segmented-field > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--muted) / .34);
+}
+
+.design-lab .design-lab-segmented-field > div:has(> button:nth-child(2):last-child) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.design-lab .design-lab-segmented-field button {
+  display: flex;
+  min-width: 0;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+}
+
+.design-lab .design-lab-segmented-field button:hover,
+.design-lab .design-lab-segmented-field button[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+
+.design-lab .design-lab-segmented-field button svg {
+  width: 10px;
+  height: 10px;
+}
+
+.design-lab .design-lab-text-effects {
+  border-radius: 4px;
+  background: hsl(var(--muted) / .3);
+}
+
+.design-lab .design-lab-text-effects > summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.design-lab .design-lab-text-effects > summary::-webkit-details-marker {
+  display: none;
+}
+
+.design-lab .design-lab-text-effects > summary > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.design-lab .design-lab-text-effects > summary svg {
+  width: 11px;
+  height: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.design-lab .design-lab-text-effects > summary > svg {
+  transition: transform 140ms ease;
+}
+
+.design-lab .design-lab-text-effects[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.design-lab .design-lab-text-effects > div {
+  display: grid;
+  gap: 12px;
+  padding: 0 10px 10px;
+}
+
+.design-lab .design-lab-text-effect-group {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.design-lab .design-lab-effect-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.design-lab .design-lab-effect-toggle > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.design-lab .design-lab-effect-toggle strong {
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.design-lab .design-lab-effect-toggle small {
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+}
+
+.design-lab .design-lab-effect-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: hsl(var(--foreground));
+}
+
+.design-lab .design-lab-empty-action > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.design-lab .design-lab-empty-action strong {
+  color: hsl(var(--foreground));
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.design-lab .design-lab-empty-action small {
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+}
+
+.design-lab .design-lab-output-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: 4px;
+  background: hsl(var(--muted) / .38);
+}
+
+.design-lab .design-lab-output-overview > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+}
+
+.design-lab .design-lab-output-overview > div + div {
+  border-left: 1px solid hsl(var(--border));
+}
+
+.design-lab .design-lab-output-overview svg {
+  width: 11px;
+  height: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.design-lab .design-lab-output-overview span,
+.design-lab .design-lab-output-sizes button > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.design-lab .design-lab-output-overview small,
+.design-lab .design-lab-output-sizes small {
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-lab .design-lab-output-overview strong {
+  overflow: hidden;
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-lab .design-lab-output-sizes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.design-lab .design-lab-output-sizes button {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  text-align: left;
+}
+
+.design-lab .design-lab-output-sizes button:hover,
+.design-lab .design-lab-output-sizes button[aria-pressed='true'] {
+  border-color: hsl(var(--foreground) / .58);
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.design-lab .design-lab-output-sizes button > svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.design-lab .design-lab-output-sizes strong {
+  font-size: 8px;
+  font-weight: 620;
+}
+
+.design-lab .design-lab-custom-output {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 7px;
 }
 
 @container tool-shell (max-width: 1180px) {

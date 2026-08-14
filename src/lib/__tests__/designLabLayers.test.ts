@@ -50,6 +50,21 @@ describe('Playground optional layers', () => {
     expect(stickerScene).toContain('duplicateSelected: (assetId?: string) => void;');
   });
 
+  it('keeps Playground text controls and export behavior aligned with Design Lab', () => {
+    expect(playground).toContain("import StudioColorControl from '@/components/ui/ColorControl'");
+    expect(playground).toContain('function TextAlignmentControl(');
+    expect(playground).toContain("wrap?: 'nowrap' | 'wrap';");
+    expect(playground).toContain("<span><WrapText aria-hidden='true' />Wrapping</span>");
+    expect(playground).toContain("className='design-lab-text-effects'");
+    expect(playground).toContain('context.strokeText(');
+    expect(playground).toContain('context.shadowBlur =');
+    expect(playground).toContain("aria-label={gt('Playground controls')} data-canvas-selection-preserve");
+    expect(playground).toContain("className='design-lab-output-overview'");
+    expect(playground).toContain("<FileImage aria-hidden='true' />");
+    expect(studioStyles).toContain('.design-lab .design-lab-segmented-field {');
+    expect(studioStyles).toContain('.design-lab .design-lab-output-sizes {');
+  });
+
   it('keeps the layer dock legible and resets each library to its leading item', () => {
     expect(playground).toContain("className='design-lab-dock-label'>Layer library");
     expect(playground).toContain('key={dock}');
@@ -99,9 +114,21 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("gifLoop: 'seamless'");
     expect(designLab).toContain("loopMode: normalizedExportSettings.gifLoop");
     expect(designLab).toContain('onLoopReport: (report) => { loopReport = report; }');
-    expect(designLab).toContain('pixel boundary checked after render');
+    expect(designLab).toContain('frame overlap verified after render');
     expect(exportPreview).toContain('Pixel-perfect loop verified');
     expect(studioStyles).toContain('.shader-export-loop-proof {');
+  });
+
+  it('explains output settings with semantic labels and format-specific icons', () => {
+    expect(designLab).toContain("className='shader-lab-v2-export-overview'");
+    expect(designLab).toContain("<span><small>Output size</small>");
+    expect(designLab).toContain("{ label: 'Standard', width: 960 }");
+    expect(designLab).toContain("<span><Ruler aria-hidden='true' />Custom width</span>");
+    expect(designLab).toContain("<span><CircleGauge aria-hidden='true' />Quality</span>");
+    expect(designLab).toContain("<span><Clock3 aria-hidden='true' />Duration</span>");
+    expect(designLab).toContain("<ImageDown aria-hidden='true' />");
+    expect(designLab).toContain("<Clapperboard aria-hidden='true' />");
+    expect(studioStyles).toContain('.shader-lab-v2-export-overview {');
   });
 
   it('uses the shared one-pixel custom scrollbar on every lab overflow rail and reusable sidebar', () => {

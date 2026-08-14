@@ -3,18 +3,31 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { T, useGT } from 'gt-next';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   Copy,
   Download,
   Eye,
   EyeOff,
+  FileImage,
+  ImageDown,
   ImagePlus,
   Layers3,
+  RectangleHorizontal,
+  RectangleVertical,
   RotateCcw,
   Search,
+  Sparkles,
+  Square,
+  Sticker,
   Trash2,
   Type,
+  WandSparkles,
+  WrapText,
 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
@@ -33,6 +46,7 @@ import StickerDeviceScene, {
 } from '@/components/StickerDeviceScene';
 import SurfaceMaterialStage from '@/components/SurfaceMaterialStage';
 import { Button } from '@/components/ui/Button';
+import StudioColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -90,11 +104,21 @@ type PlaygroundTextLayer = {
   lineHeight: number;
   name: string;
   opacity: number;
+  outlineColor?: string;
+  outlineEnabled?: boolean;
+  outlineWidth?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowEnabled?: boolean;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowOpacity?: number;
   tracking: number;
   transform: CanvasLayerTransform;
   value: string;
   visible: boolean;
   weight: number;
+  wrap?: 'nowrap' | 'wrap';
 };
 
 type PlaygroundStickerText = {
@@ -268,7 +292,7 @@ function RangeControl({
   );
 }
 
-function ColorControl({ label, onChange, value }: { label: string; onChange: (value: string) => void; value: string }) {
+function CompactColorControl({ label, onChange, value }: { label: string; onChange: (value: string) => void; value: string }) {
   return (
     <label className='design-lab-color'>
       <input aria-label={label} onChange={(event) => onChange(event.target.value.toUpperCase())} type='color' value={value} />
@@ -276,6 +300,46 @@ function ColorControl({ label, onChange, value }: { label: string; onChange: (va
       <code>{value}</code>
     </label>
   );
+}
+
+function TextAlignmentControl({
+  ariaLabel,
+  onChange,
+  value,
+}: {
+  ariaLabel: string;
+  onChange: (value: PlaygroundTextLayer['align']) => void;
+  value: PlaygroundTextLayer['align'];
+}) {
+  const options = [
+    { Icon: AlignLeft, label: 'Left', value: 'left' as const },
+    { Icon: AlignCenter, label: 'Center', value: 'center' as const },
+    { Icon: AlignRight, label: 'Right', value: 'right' as const },
+  ];
+  return (
+    <div className='design-lab-segmented-field'>
+      <span><AlignLeft aria-hidden='true' />Alignment</span>
+      <div aria-label={ariaLabel} role='group'>
+        {options.map(({ Icon, label, value: optionValue }) => (
+          <button
+            aria-label={label}
+            aria-pressed={value === optionValue}
+            key={optionValue}
+            onClick={() => onChange(optionValue)}
+            title={label}
+            type='button'
+          ><Icon aria-hidden='true' /><span>{label}</span></button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function colorWithOpacity(color: string, opacity: number): string {
+  const hex = color.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+  const value = Number.parseInt(hex, 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
 export default function SurfaceLabStudio({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
@@ -396,28 +460,28 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     {
       detail: backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'None',
       enabled: backgroundEnabled,
-      index: '01',
+      Icon: Sparkles,
       label: 'Background',
       value: 'shader' as const,
     },
     {
       detail: surfaceEnabled ? surfacePreset.name : 'None',
       enabled: surfaceEnabled,
-      index: '02',
+      Icon: Layers3,
       label: 'Surface',
       value: 'surface' as const,
     },
     {
       detail: textLayers.length === 0 ? 'None' : `${textLayers.filter(({ visible }) => visible).length} visible`,
       enabled: textLayers.some(({ visible }) => visible),
-      index: '03',
+      Icon: Type,
       label: 'Text',
       value: 'text' as const,
     },
     {
       detail: stickersEnabled ? selectedSticker?.label ?? `${stickerRenderLayers.length} placed` : 'None',
       enabled: stickersEnabled,
-      index: '04',
+      Icon: Sticker,
       label: 'Stickers',
       value: 'sticker' as const,
     },
@@ -518,11 +582,21 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       lineHeight: 0.95,
       name: `Text ${nextNumber}`,
       opacity: 1,
+      outlineColor: '#000000',
+      outlineEnabled: false,
+      outlineWidth: 2,
+      shadowBlur: 18,
+      shadowColor: '#000000',
+      shadowEnabled: false,
+      shadowOffsetX: 0,
+      shadowOffsetY: 8,
+      shadowOpacity: 0.35,
       tracking: -0.055,
       transform: { ...DEFAULT_TEXT_TRANSFORM, ...placement },
       value: nextNumber === 1 ? identity.name : `Text ${nextNumber}`,
       visible: true,
       weight: 700,
+      wrap: 'wrap',
     };
     setTextLayers((current) => [...current, layer]);
     setSelectedTextId(id);
@@ -584,10 +658,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       context.fillStyle = layer.color;
       context.font = `${layer.weight} ${fontSize}px "${fontFamily}", sans-serif`;
       context.globalAlpha = layer.opacity;
+      if (layer.shadowEnabled) {
+        context.shadowBlur = (layer.shadowBlur ?? 18) * scaleY;
+        context.shadowColor = colorWithOpacity(layer.shadowColor ?? '#000000', layer.shadowOpacity ?? 0.35);
+        context.shadowOffsetX = (layer.shadowOffsetX ?? 0) * scaleX;
+        context.shadowOffsetY = (layer.shadowOffsetY ?? 8) * scaleY;
+      }
       context.textAlign = layer.align;
       context.textBaseline = 'middle';
       if ('letterSpacing' in context) context.letterSpacing = `${fontSize * layer.tracking}px`;
-      const lines = layer.value.split('\n').flatMap((line) => wrapCanvasLine(context, line, boxWidth));
+      const lines = (layer.wrap ?? 'wrap') === 'wrap'
+        ? layer.value.split('\n').flatMap((line) => wrapCanvasLine(context, line, boxWidth))
+        : layer.value.split('\n');
       const lineHeight = fontSize * layer.lineHeight;
       const firstY = centerY - (Math.max(1, lines.length) - 1) * lineHeight / 2;
       const x = layer.align === 'left'
@@ -595,7 +677,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
         : layer.align === 'right'
           ? centerX + boxWidth / 2
           : centerX;
-      lines.forEach((line, index) => context.fillText(line, x, firstY + index * lineHeight, boxWidth));
+      lines.forEach((line, index) => {
+        const y = firstY + index * lineHeight;
+        if (layer.outlineEnabled) {
+          context.lineJoin = 'round';
+          context.lineWidth = Math.max(1, (layer.outlineWidth ?? 2) * scaleY * 2);
+          context.strokeStyle = layer.outlineColor ?? '#000000';
+          if ((layer.wrap ?? 'wrap') === 'wrap') context.strokeText(line, x, y, boxWidth);
+          else context.strokeText(line, x, y);
+        }
+        if ((layer.wrap ?? 'wrap') === 'wrap') context.fillText(line, x, y, boxWidth);
+        else context.fillText(line, x, y);
+      });
       context.restore();
     });
   }
@@ -889,7 +982,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                         letterSpacing: `${layer.tracking}em`,
                         lineHeight: layer.lineHeight,
                         opacity: layer.opacity,
+                        overflowWrap: (layer.wrap ?? 'wrap') === 'wrap' ? 'anywhere' : 'normal',
                         textAlign: layer.align,
+                        textShadow: layer.shadowEnabled
+                          ? `${layer.shadowOffsetX ?? 0}px ${layer.shadowOffsetY ?? 8}px ${layer.shadowBlur ?? 18}px ${colorWithOpacity(layer.shadowColor ?? '#000000', layer.shadowOpacity ?? 0.35)}`
+                          : undefined,
+                        WebkitTextStroke: layer.outlineEnabled ? `${layer.outlineWidth ?? 2}px ${layer.outlineColor ?? '#000000'}` : undefined,
+                        whiteSpace: (layer.wrap ?? 'wrap') === 'wrap' ? 'pre-wrap' : 'pre',
                       }}
                       value={layer.value}
                     />
@@ -907,7 +1006,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               {dockOptions.map((option) => (
                 <button aria-selected={dock === option.value} key={option.value} onClick={() => setDock(option.value)} role='tab' type='button'>
                   <i aria-hidden='true' data-enabled={option.enabled ? 'true' : 'false'} />
-                  <span><b>{option.index}</b>{option.label}</span>
+                  <span><option.Icon aria-hidden='true' />{option.label}</span>
                   <small>{option.detail}</small>
                 </button>
               ))}
@@ -1078,7 +1177,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </div>
         </main>
 
-        <aside className='design-lab-inspector studio-scroll-area' aria-label={gt('Playground controls')}>
+        <aside className='design-lab-inspector studio-scroll-area' aria-label={gt('Playground controls')} data-canvas-selection-preserve>
           {mountPhase >= 5 ? (
             <>
           <div className='design-lab-inspector-head'>
@@ -1103,7 +1202,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
           <section className='design-lab-inspector-section' data-disabled={!backgroundEnabled ? 'true' : 'false'} hidden={dock !== 'shader'}>
             <div className='design-lab-section-title'>
-              <div><span>01</span><h2>Background shader</h2></div>
+              <div><span className='design-lab-section-icon'><Sparkles aria-hidden='true' /></span><h2>Background shader</h2></div>
               <button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} className='design-lab-visibility' onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
                 {backgroundEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>
@@ -1116,15 +1215,15 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <RangeControl disabled={!backgroundEnabled} label='Light' max={1.6} min={0.35} onChange={(brightness) => updateLiveSettings({ brightness })} step={0.01} suffix='×' value={liveSettings.brightness} />
             </div>
             <div className='design-lab-colors'>
-              <ColorControl label='Base' onChange={(colorA) => updateLiveSettings({ colorA })} value={liveSettings.colorA} />
-              <ColorControl label='Mid' onChange={(colorB) => updateLiveSettings({ colorB })} value={liveSettings.colorB} />
-              <ColorControl label='Light' onChange={(colorC) => updateLiveSettings({ colorC })} value={liveSettings.colorC} />
+              <CompactColorControl label='Base' onChange={(colorA) => updateLiveSettings({ colorA })} value={liveSettings.colorA} />
+              <CompactColorControl label='Mid' onChange={(colorB) => updateLiveSettings({ colorB })} value={liveSettings.colorB} />
+              <CompactColorControl label='Light' onChange={(colorC) => updateLiveSettings({ colorC })} value={liveSettings.colorC} />
             </div>
           </section>
 
           <section className='design-lab-inspector-section' data-disabled={!surfaceEnabled ? 'true' : 'false'} hidden={dock !== 'surface'}>
             <div className='design-lab-section-title'>
-              <div><span>02</span><h2>Surface overlay</h2></div>
+              <div><span className='design-lab-section-icon'><Layers3 aria-hidden='true' /></span><h2>Surface overlay</h2></div>
               <button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} className='design-lab-visibility' onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
                 {surfaceEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>
@@ -1140,17 +1239,17 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
 
           <section className='design-lab-inspector-section' data-disabled={!selectedTextLayer ? 'true' : 'false'} hidden={dock !== 'text'}>
             <div className='design-lab-section-title'>
-              <div><span>03</span><h2>Text layer</h2></div>
+              <div><span className='design-lab-section-icon'><Type aria-hidden='true' /></span><h2>Text layer</h2></div>
               <button aria-label='Add text layer' className='design-lab-visibility' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>
             </div>
             {selectedTextLayer ? (() => {
               const transform = resolvedTextTransform(selectedTextLayer.transform);
               const orderIndex = textLayers.findIndex(({ id }) => id === selectedTextLayer.id);
               return <>
-                <label className='design-lab-field'><span>Content</span><textarea onChange={(event) => updateTextLayer(selectedTextLayer.id, { value: event.target.value })} rows={2} value={selectedTextLayer.value} /></label>
+                <label className='design-lab-field'><span className='design-lab-field-label'><Type aria-hidden='true' />Content</span><textarea onChange={(event) => updateTextLayer(selectedTextLayer.id, { value: event.target.value })} rows={2} value={selectedTextLayer.value} /></label>
                 <div className='design-lab-text-inspector-grid'>
                   <label className='design-lab-field'>
-                    <span>Brand font</span>
+                    <span className='design-lab-field-label'><Type aria-hidden='true' />Brand font</span>
                     <StudioSelect
                       ariaLabel='Playground text font role'
                       onValueChange={(fontRole) => updateTextLayer(selectedTextLayer.id, { fontRole: fontRole as BrandTypography['role'] })}
@@ -1158,10 +1257,19 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                       value={selectedTextLayer.fontRole}
                     />
                   </label>
-                  <ColorControl label='Text' onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })} value={selectedTextLayer.color} />
+                  <StudioColorControl ariaLabel='Playground text color' label='Text color' onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })} value={selectedTextLayer.color} />
                 </div>
-                <div className='design-lab-artwork-kinds' role='group' aria-label='Text alignment'>
-                  {(['left', 'center', 'right'] as const).map((align) => <button aria-pressed={selectedTextLayer.align === align} key={align} onClick={() => updateTextLayer(selectedTextLayer.id, { align })} type='button'>{align}</button>)}
+                <TextAlignmentControl
+                  ariaLabel='Text alignment'
+                  onChange={(align) => updateTextLayer(selectedTextLayer.id, { align })}
+                  value={selectedTextLayer.align}
+                />
+                <div className='design-lab-segmented-field'>
+                  <span><WrapText aria-hidden='true' />Wrapping</span>
+                  <div aria-label='Text wrapping' role='group'>
+                    <button aria-pressed={(selectedTextLayer.wrap ?? 'wrap') === 'wrap'} onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: 'wrap' })} type='button'>Wrap</button>
+                    <button aria-pressed={(selectedTextLayer.wrap ?? 'wrap') === 'nowrap'} onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: 'nowrap' })} type='button'>Single line</button>
+                  </div>
                 </div>
                 <div className='design-lab-control-stack'>
                   <RangeControl label='Text size' max={3} min={0.2} onChange={(scale) => updateTextLayer(selectedTextLayer.id, { transform: { ...transform, scale } })} step={0.05} value={transform.scale} />
@@ -1171,18 +1279,46 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                   <RangeControl label='Line height' max={1.8} min={0.7} onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })} step={0.05} suffix='' value={selectedTextLayer.lineHeight} />
                   <RangeControl label='Tracking' max={0.2} min={-0.12} onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })} step={0.01} suffix='em' value={selectedTextLayer.tracking} />
                 </div>
+                <details className='design-lab-text-effects'>
+                  <summary><span><WandSparkles aria-hidden='true' />Text effects</span><ChevronDown aria-hidden='true' /></summary>
+                  <div>
+                    <div className='design-lab-text-effect-group'>
+                      <label className='design-lab-effect-toggle'>
+                        <span><strong>Outline</strong><small>Add a crisp edge around the type.</small></span>
+                        <input checked={selectedTextLayer.outlineEnabled ?? false} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} type='checkbox' />
+                      </label>
+                      {selectedTextLayer.outlineEnabled ? <>
+                        <CompactColorControl label='Outline' onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })} value={selectedTextLayer.outlineColor ?? '#000000'} />
+                        <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} step={0.5} suffix='px' value={selectedTextLayer.outlineWidth ?? 2} />
+                      </> : null}
+                    </div>
+                    <div className='design-lab-text-effect-group'>
+                      <label className='design-lab-effect-toggle'>
+                        <span><strong>Shadow</strong><small>Add depth without changing the text box.</small></span>
+                        <input checked={selectedTextLayer.shadowEnabled ?? false} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} type='checkbox' />
+                      </label>
+                      {selectedTextLayer.shadowEnabled ? <>
+                        <CompactColorControl label='Shadow' onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })} value={selectedTextLayer.shadowColor ?? '#000000'} />
+                        <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} suffix='px' value={selectedTextLayer.shadowBlur ?? 18} />
+                        <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} suffix='px' value={selectedTextLayer.shadowOffsetX ?? 0} />
+                        <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} suffix='px' value={selectedTextLayer.shadowOffsetY ?? 8} />
+                        <RangeControl label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity: shadowOpacity / 100 })} value={(selectedTextLayer.shadowOpacity ?? 0.35) * 100} />
+                      </> : null}
+                    </div>
+                  </div>
+                </details>
                 <div className='design-lab-selection-actions'>
                   <button onClick={() => duplicateTextLayer(selectedTextLayer.id)} type='button'><Copy aria-hidden='true' /><span>Duplicate</span></button>
                   <button disabled={orderIndex === textLayers.length - 1} onClick={() => moveTextLayer(selectedTextLayer.id, 1)} type='button'><ArrowUp aria-hidden='true' /><span>Forward</span></button>
                   <button onClick={() => removeTextLayer(selectedTextLayer.id)} type='button'><Trash2 aria-hidden='true' /><span>Delete</span></button>
                 </div>
               </>;
-            })() : <button className='design-lab-empty-action' onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span>Add your first text layer</span></button>}
+            })() : <button className='design-lab-empty-action' onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Add text layer</strong><small>Type directly on the canvas</small></span></button>}
           </section>
 
           <section className='design-lab-inspector-section' data-disabled={!stickersEnabled ? 'true' : 'false'} hidden={dock !== 'sticker'}>
             <div className='design-lab-section-title'>
-              <div><span>04</span><h2>Sticker</h2></div>
+              <div><span className='design-lab-section-icon'><Sticker aria-hidden='true' /></span><h2>Sticker</h2></div>
               <button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} className='design-lab-visibility' onClick={() => setStickersEnabled((value) => !value)} type='button'>
                 {stickersEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
               </button>
@@ -1213,10 +1349,8 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                     value={selectedStickerText.fontRole}
                   />
                 </label>
-                <ColorControl label='Text ink' onChange={(color) => updateStickerText(selectedStickerText.id, { color })} value={selectedStickerText.color} />
-                <div className='design-lab-artwork-kinds' role='group' aria-label='Sticker text alignment'>
-                  {(['left', 'center', 'right'] as const).map((align) => <button aria-pressed={selectedStickerText.align === align} key={align} onClick={() => updateStickerText(selectedStickerText.id, { align })} type='button'>{align}</button>)}
-                </div>
+                <StudioColorControl ariaLabel='Sticker text color' label='Text color' onChange={(color) => updateStickerText(selectedStickerText.id, { color })} value={selectedStickerText.color} />
+                <TextAlignmentControl ariaLabel='Sticker text alignment' onChange={(align) => updateStickerText(selectedStickerText.id, { align })} value={selectedStickerText.align} />
                 <div className='design-lab-control-stack'>
                   <RangeControl label='Type weight' max={900} min={100} onChange={(weight) => updateStickerText(selectedStickerText.id, { weight })} step={50} suffix='' value={selectedStickerText.weight} />
                   <RangeControl label='Tracking' max={0.24} min={-0.12} onChange={(tracking) => updateStickerText(selectedStickerText.id, { tracking })} step={0.01} suffix='em' value={selectedStickerText.tracking} />
@@ -1227,7 +1361,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </section>
 
           <section className='design-lab-inspector-section' hidden={dock !== 'sticker'}>
-            <div className='design-lab-section-title'><div><span>05</span><h2>Add sticker artwork</h2></div><small>Text or image</small></div>
+            <div className='design-lab-section-title'><div><span className='design-lab-section-icon'><ImagePlus aria-hidden='true' /></span><h2>Add sticker artwork</h2></div><small>Text or image</small></div>
             <button className='design-lab-empty-action' onClick={() => addStickerText()} type='button'><Type aria-hidden='true' /><span>Add another text sticker</span></button>
             <div className='design-lab-artwork-kinds' role='group' aria-label={gt('Artwork type')}>
               {([
@@ -1271,19 +1405,28 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </details>
 
           <section className='design-lab-inspector-section'>
-            <div className='design-lab-section-title'><div><span>06</span><h2>Output</h2></div><small>PNG</small></div>
-            <StudioSelect
-              ariaLabel={gt('Output size')}
-              onValueChange={(id) => {
-                const size = OUTPUT_SIZES.find((candidate) => candidate.id === id);
-                if (size) updateSettings({ height: size.height, width: size.width });
-              }}
-              options={[
-                ...(outputSize ? [] : [{ label: `Custom · ${settings.width} × ${settings.height}`, value: 'custom' }]),
-                ...OUTPUT_SIZES.map((size) => ({ label: size.label, value: size.id })),
-              ]}
-              value={outputSize?.id ?? 'custom'}
-            />
+            <div className='design-lab-section-title'><div><span className='design-lab-section-icon'><ImageDown aria-hidden='true' /></span><h2>Output</h2></div><small>PNG image</small></div>
+            <div className='design-lab-output-overview' aria-label='Current Playground output'>
+              <div><ImageDown aria-hidden='true' /><span><small>Output size</small><strong>{settings.width} × {settings.height}</strong></span></div>
+              <div><FileImage aria-hidden='true' /><span><small>File type</small><strong>PNG image</strong></span></div>
+            </div>
+            <div className='design-lab-output-sizes' aria-label={gt('Output size')}>
+              {OUTPUT_SIZES.map((size) => {
+                const Icon = size.id === 'wide' ? RectangleHorizontal : size.id === 'square' ? Square : RectangleVertical;
+                return (
+                  <button
+                    aria-pressed={outputSize?.id === size.id}
+                    key={size.id}
+                    onClick={() => updateSettings({ height: size.height, width: size.width })}
+                    type='button'
+                  >
+                    <Icon aria-hidden='true' />
+                    <span><strong>{size.label.split(' · ')[0]}</strong><small>{size.width}×{size.height}</small></span>
+                  </button>
+                );
+              })}
+            </div>
+            {!outputSize ? <small className='design-lab-custom-output'>Custom size · {settings.width} × {settings.height}</small> : null}
           </section>
             </>
           ) : null}
