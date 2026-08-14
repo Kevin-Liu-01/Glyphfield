@@ -1,4 +1,3 @@
-@reference '../globals.css';
+@import 'fumadocs-ui/style.css';
 
-@import 'fumadocs-ui/css/neutral.css';
-@import 'fumadocs-ui/css/preset.css';
+@reference '../globals.css';

@@ -49,7 +49,9 @@ describe('logo appearance', () => {
     expect(filter).toContain('id="test-logo"');
     expect(filter).toContain('<feMorphology in="SourceAlpha"');
     expect(filter).toContain('<feComponentTransfer in="colored"');
-    expect(filter).toContain('<feDropShadow in="inverted"');
+    expect(filter).toContain('<feGaussianBlur in="inverted"');
+    expect(filter).toContain('<feComposite in="shadow-color" in2="shadow-offset" operator="in" result="shadow"/>');
+    expect(filter).not.toContain('<feDropShadow');
   });
 
   it('adds a configurable dither pass before outline and shadow composition', () => {
@@ -64,7 +66,7 @@ describe('logo appearance', () => {
 
     expect(filter).toContain('result="dither-noise"');
     expect(filter).toContain('result="dithered"');
-    expect(filter).toContain('<feDropShadow in="dithered"');
+    expect(filter).toContain('<feGaussianBlur in="dithered"');
     expect(filter).toContain('tableValues="0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1"');
   });
 
@@ -88,7 +90,8 @@ describe('logo appearance', () => {
     }, '#FFFFFF', 'silhouette-effects', false);
 
     expect(filter).toContain('<feMorphology in="SourceAlpha"');
-    expect(filter).toContain('<feDropShadow in="SourceAlpha"');
+    expect(filter).toContain('<feGaussianBlur in="SourceAlpha"');
+    expect(filter).toContain('<feMergeNode in="shadow"/>');
     expect(filter).toContain('<feMergeNode in="outline"/>');
     expect(filter).not.toContain('<feMergeNode in="colored"/>');
   });

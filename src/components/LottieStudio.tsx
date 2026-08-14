@@ -17,8 +17,7 @@ import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
-import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
-import ResizableSidebar from '@/components/ResizableSidebar';
+import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
@@ -730,8 +729,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       />
 
       <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
-        <ResizableSidebar
-          className='lottie-source-sidebar lab-sidebar lab-sidebar-left min-h-0 border-r border-border'
+        <StudioSidebar
+          className='lottie-source-sidebar min-h-0'
+          kind='library'
           label={gt('Lottie sources')}
           storageKey={`lottie-source-${identity.id}`}
         >
@@ -779,12 +779,12 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             </a>
             <p className='text-xs leading-5 text-muted-foreground'><T>Imported files stay local. Verify the license before redistributing third-party animation work.</T></p>
           </InspectorSection>
-        </ResizableSidebar>
+        </StudioSidebar>
 
-        <ResizableSidebar
-          className='lottie-properties-sidebar lab-sidebar lab-sidebar-right min-h-0 border-l border-border'
+        <StudioSidebar
+          className='lottie-properties-sidebar min-h-0'
           label={gt('Lottie properties')}
-          resizeEdge='left'
+          side='right'
           storageKey={`lottie-properties-${identity.id}`}
         >
           <LabPanelHeading
@@ -864,7 +864,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
               />
             </InspectorSection>
           )}
-        </ResizableSidebar>
+        </StudioSidebar>
 
         <section className='lottie-canvas flex min-h-0 min-w-0 flex-col bg-muted/20'>
           <div className='flex h-10 items-center justify-between border-b border-border bg-background px-4 text-xs text-muted-foreground'>

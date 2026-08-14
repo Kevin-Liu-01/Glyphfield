@@ -222,4 +222,11 @@ describe('Playground optional layers', () => {
     expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(2);
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-stack-layer \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
   });
+
+  it('applies shadows with the shaded mark instead of an overlay silhouette', () => {
+    expect(designLab.match(/borderEnabled: false,/g)).toHaveLength(2);
+    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(2);
+    expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(2);
+    expect(designLab).not.toContain('appearance.borderEnabled || appearance.shadowEnabled');
+  });
 });

@@ -5,8 +5,8 @@ import { LibraryBig, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
+import { LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import ResizableSidebar from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/Button';
 import {
   DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
@@ -101,17 +101,16 @@ function ShaderLibraryBrowser({
             </span>
           </div>
         ) : (
-          <div className='flex items-start justify-between gap-4'>
-          <div>
-            <p className='text-sm font-semibold'><T>Shader library</T></p>
-            <p className='mt-1 text-xs text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} materials · shared with Shaders</p>
-          </div>
-          {onClose ? (
+          <LabPanelHeading
+            action={onClose ? (
             <Button aria-label={gt('Close shader library')} onClick={onClose} size='icon-xs' type='button' variant='ghost'>
               <X aria-hidden='true' />
             </Button>
-          ) : null}
-          </div>
+            ) : null}
+            density='compact'
+            description={`${DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length} materials · shared with Shaders`}
+            title={<T>Shader library</T>}
+          />
         )}
         <label className={`${compact ? '' : 'mt-4'} flex h-9 items-center gap-2 border border-input bg-background px-2.5 focus-within:border-foreground`}>
           <Search aria-hidden='true' className='size-3.5 text-muted-foreground' />
@@ -183,13 +182,11 @@ function ShaderLibrarySidebar({
 }) {
   const gt = useGT();
   return (
-    <ResizableSidebar
-      className={`shader-library-sidebar shader-library-sidebar-${side} min-h-0 border-border bg-background ${side === 'left' ? 'border-r' : 'border-l'}`}
-      defaultWidth={368}
+    <StudioSidebar
+      className={`shader-library-sidebar shader-library-sidebar-${side} min-h-0`}
+      kind='library'
       label={gt('shader library')}
-      maxWidth={520}
-      minWidth={300}
-      resizeEdge={side === 'left' ? 'right' : 'left'}
+      side={side}
       storageKey={storageKey}
     >
       <ShaderLibraryBrowser
@@ -197,7 +194,7 @@ function ShaderLibrarySidebar({
         onClose={onClose}
         onSelect={onSelect}
       />
-    </ResizableSidebar>
+    </StudioSidebar>
   );
 }
 

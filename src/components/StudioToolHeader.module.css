@@ -33,8 +33,8 @@
 }
 
 .icon {
-  width: 18px;
-  height: 18px;
+  width: var(--studio-toolbar-icon-size);
+  height: var(--studio-toolbar-icon-size);
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -50,7 +50,7 @@
   min-width: 0;
   overflow: hidden;
   color: hsl(var(--foreground));
-  font-size: 0.9rem;
+  font-size: var(--studio-toolbar-title-size);
   font-weight: 600;
   letter-spacing: -0.012em;
   line-height: 1;
@@ -62,7 +62,7 @@
   min-width: 0;
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 0.72rem;
+  font-size: var(--studio-toolbar-meta-size);
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -83,6 +83,18 @@
 .status,
 .actions {
   gap: 8px;
+}
+
+.actions :global(button),
+.actions :global(a) {
+  min-height: var(--studio-toolbar-control-height);
+  max-height: var(--studio-toolbar-control-height);
+  font-size: 0.75rem;
+}
+
+.actions :global(svg) {
+  width: 14px;
+  height: 14px;
 }
 
 @media (max-width: 900px) {

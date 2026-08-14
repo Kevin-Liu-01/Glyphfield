@@ -3,14 +3,22 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const docsStyles = readFileSync('src/app/globals.css', 'utf8');
+const docsRouteStyles = readFileSync('src/app/docs/docs.css', 'utf8');
 const docsHeader = readFileSync('src/components/DocsHeader.tsx', 'utf8');
 const docsTocActions = readFileSync('src/components/DocsTocActions.tsx', 'utf8');
 
 describe('documentation responsive shell', () => {
+  it('loads the precompiled Fumadocs layout contract', () => {
+    expect(docsRouteStyles).toContain("@import 'fumadocs-ui/style.css';");
+    expect(docsRouteStyles).not.toContain("@import 'fumadocs-ui/css/preset.css';");
+  });
+
   it('uses a viewport-bounded grid instead of a cyclic percentage track', () => {
     expect(docsStyles).toContain('--fd-layout-width: min(100vw, 100rem);');
     expect(docsStyles).not.toContain('--fd-layout-width: 100%;');
-    expect(docsStyles).toMatch(/\.glyphfield-doc-page \{[\s\S]*?min-width: 0;[\s\S]*?max-width: 980px;[\s\S]*?margin-inline: auto;/);
+    expect(docsStyles).toMatch(/\.glyphfield-doc-page \{[\s\S]*?min-width: 0;[\s\S]*?max-width: none;[\s\S]*?margin-inline: auto;/);
+    expect(docsStyles).toMatch(/\.glyphfield-docs #nd-page \{[\s\S]*?grid-area: main;/);
+    expect(docsStyles).toMatch(/\.glyphfield-docs #nd-toc \{[\s\S]*?grid-area: toc;/);
   });
 
   it('switches from desktop rails to mobile navigation without losing search', () => {

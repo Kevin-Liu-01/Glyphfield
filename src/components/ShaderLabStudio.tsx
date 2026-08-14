@@ -43,6 +43,7 @@ import EditableCanvasLayer, {
   type CanvasLayerTransform,
 } from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
@@ -1968,16 +1969,15 @@ export default function ShaderLabStudio({
       />
 
       <div className='shader-lab-v2-layout studio-scroll-area'>
-        <aside className='shader-lab-v2-library studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve>
-          <div className='shader-lab-v2-panel-heading'>
-            <div>
-              <p>Shader library</p>
-              <span>{materials.length} of {shaderLabCategoryCount('all')} materials</span>
-            </div>
-            <button aria-label='Choose a random shader' onClick={selectRandomMaterial} title='Random shader' type='button'>
+        <aside className='shader-lab-v2-library studio-sidebar lab-sidebar lab-sidebar-left studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve>
+          <LabPanelHeading
+            action={<button aria-label='Choose a random shader' onClick={selectRandomMaterial} title='Random shader' type='button'>
               <Sparkles aria-hidden='true' />
-            </button>
-          </div>
+            </button>}
+            className='shader-lab-v2-panel-heading'
+            description={`${materials.length} of ${shaderLabCategoryCount('all')} materials`}
+            title='Shader library'
+          />
           <label className='shader-lab-v2-search'>
             <Search aria-hidden='true' />
             <input aria-label='Search shaders' onChange={(event) => setQuery(event.target.value)} placeholder={`Search all ${shaderLabCategoryCount('all')} shaders`} type='search' value={query} />
@@ -2088,13 +2088,27 @@ export default function ShaderLabStudio({
                               opacity: (logoLayer.opacity ?? 1) * application.opacity,
                             }}
                           >
+                            {appearance.borderEnabled ? (
+                              <LogoAppearancePreview
+                                ariaLabel={`${logoLayer.name} silhouette effects`}
+                                className='shader-lab-v2-appearance-stack-layer'
+                                color={appearance.borderColor}
+                                logoPath={logoLayer.url}
+                                settings={{
+                                  ...appearance,
+                                  ditherEnabled: false,
+                                  invert: false,
+                                  shadowEnabled: false,
+                                }}
+                                showSource={false}
+                              />
+                            ) : null}
                             <AppearanceFilteredContent
                               ariaLabel={`${logoLayer.name} material`}
                               className='shader-lab-v2-appearance-stack-layer'
                               settings={{
                                 ...appearance,
                                 borderEnabled: false,
-                                shadowEnabled: false,
                               }}
                             >
                               <div
@@ -2105,20 +2119,6 @@ export default function ShaderLabStudio({
                                 {renderLiveMaterial(application, `content-${layerId}`)}
                               </div>
                             </AppearanceFilteredContent>
-                            {appearance.borderEnabled || appearance.shadowEnabled ? (
-                              <LogoAppearancePreview
-                                ariaLabel={`${logoLayer.name} silhouette effects`}
-                                className='shader-lab-v2-appearance-stack-layer'
-                                color={appearance.borderColor}
-                                logoPath={logoLayer.url}
-                                settings={{
-                                  ...appearance,
-                                  ditherEnabled: false,
-                                  invert: false,
-                                }}
-                                showSource={false}
-                              />
-                            ) : null}
                           </div>
                         ) : (
                           <LogoAppearancePreview
@@ -2246,13 +2246,27 @@ export default function ShaderLabStudio({
                             opacity: (asset.opacity ?? 1) * application.opacity,
                           }}
                         >
+                          {appearance.borderEnabled ? (
+                            <LogoAppearancePreview
+                              ariaLabel={`${asset.name} silhouette effects`}
+                              className='shader-lab-v2-appearance-stack-layer'
+                              color={appearance.borderColor}
+                              logoPath={asset.url}
+                              settings={{
+                                ...appearance,
+                                ditherEnabled: false,
+                                invert: false,
+                                shadowEnabled: false,
+                              }}
+                              showSource={false}
+                            />
+                          ) : null}
                           <AppearanceFilteredContent
                             ariaLabel={`${asset.name} material`}
                             className='shader-lab-v2-appearance-stack-layer'
                             settings={{
                               ...appearance,
                               borderEnabled: false,
-                              shadowEnabled: false,
                             }}
                           >
                             <div
@@ -2263,20 +2277,6 @@ export default function ShaderLabStudio({
                               {renderLiveMaterial(application, `content-${layerId}`)}
                             </div>
                           </AppearanceFilteredContent>
-                          {appearance.borderEnabled || appearance.shadowEnabled ? (
-                            <LogoAppearancePreview
-                              ariaLabel={`${asset.name} silhouette effects`}
-                              className='shader-lab-v2-appearance-stack-layer'
-                              color={appearance.borderColor}
-                              logoPath={asset.url}
-                              settings={{
-                                ...appearance,
-                                ditherEnabled: false,
-                                invert: false,
-                              }}
-                              showSource={false}
-                            />
-                          ) : null}
                         </div>
                       ) : (
                         <LogoAppearancePreview
@@ -2404,10 +2404,15 @@ export default function ShaderLabStudio({
           </div>
         </main>
 
-        <aside className='shader-lab-v2-inspector studio-scroll-area' aria-label='Design Lab controls' data-canvas-selection-preserve>
-          <section className='shader-lab-v2-inspector-intro'>
-            <div>
-              <span>{selectedShaderLayer
+        <aside className='shader-lab-v2-inspector studio-sidebar lab-sidebar lab-sidebar-right studio-scroll-area' aria-label='Design Lab controls' data-canvas-selection-preserve>
+          <LabPanelHeading
+            className='shader-lab-v2-inspector-intro'
+            description={selectedShaderLayer
+              ? 'Tune this full-canvas material, then place it anywhere in the layer stack.'
+              : selectedContentLayerId
+                ? `Style, position, and export this layer${selectedLayerShader ? ` with ${material.name} applied` : ''}.`
+                : 'Select a layer to edit its content and appearance, or add a new one below.'}
+            eyebrow={selectedShaderLayer
                 ? 'Canvas shader'
                 : selectedTextLayer
                   ? 'Text layer'
@@ -2415,19 +2420,12 @@ export default function ShaderLabStudio({
                     ? 'Mark layer'
                     : selectedAsset
                       ? 'Image layer'
-                      : 'Composition'}</span>
-              <h2>{selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}</h2>
-            </div>
-            <p>{selectedShaderLayer
-              ? 'Tune this full-canvas material, then place it anywhere in the layer stack.'
-              : selectedContentLayerId
-                ? `Style, position, and export this layer${selectedLayerShader ? ` with ${material.name} applied` : ''}.`
-                : 'Select a layer to edit its content and appearance, or add a new one below.'}</p>
-          </section>
+                      : 'Composition'}
+            title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
+          />
 
           {!selectedLayerId ? <>
-            <section className='shader-lab-v2-control-section shader-lab-v2-composition-setup'>
-              <div className='shader-lab-v2-section-title'><h3>Composition setup</h3><span>{canvasDimensions.width} × {canvasDimensions.height}</span></div>
+            <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-composition-setup' meta={`${canvasDimensions.width} × ${canvasDimensions.height}`} title='Composition setup'>
               <div className='shader-lab-v2-composition-ratios' aria-label='Composition aspect ratio'>
                 {RATIO_OPTIONS.map((option) => (
                   <button aria-pressed={ratio === option.value} key={option.value} onClick={() => setRatio(option.value)} type='button'>
@@ -2466,22 +2464,20 @@ export default function ShaderLabStudio({
                   <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Clapperboard aria-hidden='true' /><span><strong>MP4</strong><small>Video</small></span></button>
                 </div>
               </div>
-            </section>
+            </LabInspectorSection>
           </> : null}
 
-          <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Canvas</h3><span>Background</span></div>
+          <LabInspectorSection className='shader-lab-v2-control-section' meta='Background' title='Canvas'>
             <ColorControl
               ariaLabel='Canvas background color'
               label='Background color'
               onChange={setCanvasBackground}
               value={canvasBackground}
             />
-          </section>
+          </LabInspectorSection>
 
           {editingShader ? <>
-          <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Shader color</h3><span>{material.name}</span></div>
+          <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
             <div className='shader-lab-v2-colors'>
               {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
                 <label key={key}>
@@ -2522,10 +2518,9 @@ export default function ShaderLabStudio({
                 <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
               ) : null}
             </div>
-          </section>
+          </LabInspectorSection>
 
-          <section className='shader-lab-v2-control-section'>
-            <div className='shader-lab-v2-section-title'><h3>Shader settings</h3><span>Essentials</span></div>
+          <LabInspectorSection className='shader-lab-v2-control-section' meta='Essentials' title='Shader settings'>
             <div className='shader-lab-v2-ranges'>
               <RangeControl
                 label='Shader size'
@@ -2591,11 +2586,10 @@ export default function ShaderLabStudio({
                 />
               ))}
             </div>
-          </section>
+          </LabInspectorSection>
           </> : null}
 
-          {selectedContentLayerId ? <section className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve>
-            <div className='shader-lab-v2-section-title'><h3>Selected layer</h3><span>{selectedContentLayerId ? layerKind(selectedContentLayerId) : 'Canvas'}</span></div>
+          {selectedContentLayerId ? <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={layerKind(selectedContentLayerId)} title='Selected layer'>
             {selectedTextLayer && selectedTextTransform && selectedTextAppearance ? (
               <>
                 <label className='shader-lab-v2-text-input'>
@@ -2844,7 +2838,7 @@ export default function ShaderLabStudio({
                 variant='ghost'
               ><RotateCcw aria-hidden='true' />Reset text box</Button>
             ) : null}
-          </section> : null}
+          </LabInspectorSection> : null}
 
           {editingShader ? <details className='shader-lab-v2-advanced'>
             <summary>Advanced <ChevronDown aria-hidden='true' /></summary>

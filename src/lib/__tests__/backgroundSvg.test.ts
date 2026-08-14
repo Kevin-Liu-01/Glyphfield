@@ -212,7 +212,8 @@ describe('buildBackgroundSvg', () => {
     });
 
     expect(svg).toContain('<feMorphology in="SourceAlpha" operator="dilate" radius="4"');
-    expect(svg).toContain('<feDropShadow in="colored" dx="3" dy="9" stdDeviation="12"');
+    expect(svg).toContain('<feGaussianBlur in="colored" stdDeviation="12" result="shadow-blur"');
+    expect(svg).toContain('<feOffset in="shadow-blur" dx="3" dy="9" result="shadow-offset"');
     expect(svg).toContain('<g filter="url(#background-logo)">');
   });
 

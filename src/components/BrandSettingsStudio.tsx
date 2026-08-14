@@ -22,7 +22,7 @@ import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import ResizableSidebar from '@/components/ResizableSidebar';
+import { StudioSidebar } from '@/components/LabWorkspace';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
@@ -376,11 +376,10 @@ export default function BrandSettingsStudio({
       />
 
       <div className='brand-identity-body'>
-        <ResizableSidebar
-          className='brand-identity-sidebar border-r border-border bg-background'
-          defaultWidth={216}
+        <StudioSidebar
+          className='brand-identity-sidebar'
+          kind='navigation'
           label={gt('Brand identity sections')}
-          minWidth={190}
           storageKey={`brand-identity-${identity.id}`}
         >
           <nav aria-label={gt('Brand identity sections')} className='app-navbar brand-identity-nav'>
@@ -395,7 +394,7 @@ export default function BrandSettingsStudio({
               );
             })}
           </nav>
-        </ResizableSidebar>
+        </StudioSidebar>
 
         <div className='brand-identity-content' data-identity={identity.id} role='main'>
           <section className='brand-identity-masthead'>

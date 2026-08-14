@@ -59,6 +59,13 @@ function ditherAlphaTable(amount: number): string {
   return Array.from({ length: 16 }, (_, index) => (index / 15) < threshold ? '0' : '1').join(' ');
 }
 
+function buildSvgShadow(
+  input: string,
+  settings: LogoAppearanceSettings
+): string {
+  return `<feGaussianBlur in="${input}" stdDeviation="${settings.shadowBlur / 2}" result="shadow-blur"/><feOffset in="shadow-blur" dx="${settings.shadowOffsetX}" dy="${settings.shadowOffsetY}" result="shadow-offset"/><feFlood flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${settings.shadowOpacity / 100}" result="shadow-color"/><feComposite in="shadow-color" in2="shadow-offset" operator="in" result="shadow"/>`;
+}
+
 export function logoAppearanceCssFilter(settings: LogoAppearanceSettings): string {
   const filters: string[] = [];
   if (settings.invert) filters.push('invert(1)');
@@ -108,7 +115,7 @@ export function buildLogoSvgFilter(
     ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
-    ? `<feDropShadow in="${showSource ? ditheredResult : 'SourceAlpha'}" dx="${settings.shadowOffsetX}" dy="${settings.shadowOffsetY}" stdDeviation="${settings.shadowBlur / 2}" flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${settings.shadowOpacity / 100}" result="shadow"/>`
+    ? buildSvgShadow(showSource ? ditheredResult : 'SourceAlpha', settings)
     : '';
   const merge = [
     settings.shadowEnabled ? '<feMergeNode in="shadow"/>' : '',
@@ -141,7 +148,7 @@ export function buildImageSvgFilter(
     ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
-    ? `<feDropShadow in="${ditheredResult}" dx="${settings.shadowOffsetX}" dy="${settings.shadowOffsetY}" stdDeviation="${settings.shadowBlur / 2}" flood-color="${escapeXml(settings.shadowColor)}" flood-opacity="${settings.shadowOpacity / 100}" result="shadow"/>`
+    ? buildSvgShadow(ditheredResult, settings)
     : '';
   const merge = [
     settings.shadowEnabled ? '<feMergeNode in="shadow"/>' : '',

@@ -18,8 +18,8 @@ import {
 
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import { StudioSidebar } from '@/components/LabWorkspace';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
-import ResizableSidebar from '@/components/ResizableSidebar';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
@@ -257,8 +257,8 @@ function ElementEditor({
     !contentless && !['ascii-mark', 'terminal-theme', 'cli-banner', 'modal-dialog', 'toast-notification'].includes(element.id);
 
   return (
-    <ResizableSidebar
-      className='brand-elements-editor min-h-0 border-r border-border bg-background'
+    <StudioSidebar
+      className='brand-elements-editor min-h-0'
       label={gt('Element editor')}
       storageKey={`brand-elements-editor-${identity.id}`}
     >
@@ -378,7 +378,7 @@ function ElementEditor({
           <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
         </label> : null}
       </section>
-    </ResizableSidebar>
+    </StudioSidebar>
   );
 }
 
@@ -1240,8 +1240,9 @@ export default function BrandElementsStudio({
       />
 
       <div className='brand-elements-body tool-body'>
-        <ResizableSidebar
-          className='brand-elements-catalog tool-inspector min-h-0 border-r border-border bg-background'
+        <StudioSidebar
+          className='brand-elements-catalog tool-inspector min-h-0'
+          kind='library'
           label={gt('Brand element catalog')}
           storageKey={`brand-elements-catalog-${identity.id}`}
         >
@@ -1316,7 +1317,7 @@ export default function BrandElementsStudio({
               </div>
             ) : null}
           </div>
-        </ResizableSidebar>
+        </StudioSidebar>
 
         <div className='brand-elements-canvas tool-canvas studio-scroll-area min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>

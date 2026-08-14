@@ -6,7 +6,7 @@ import { Download, FileJson, Layers3 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import ResizableSidebar from '@/components/ResizableSidebar';
+import { StudioSidebar } from '@/components/LabWorkspace';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioToolHeader from '@/components/StudioToolHeader';
@@ -221,8 +221,8 @@ export default function DesignBoard({
       />
 
       <div className='design-board-body tool-body'>
-        <ResizableSidebar
-          className='tool-inspector min-h-0 border-r border-border bg-background'
+        <StudioSidebar
+          className='tool-inspector min-h-0'
           label={`${tool.name} controls`}
           storageKey={`tool-${tool.id}`}
         >
@@ -379,7 +379,7 @@ export default function DesignBoard({
               </p>
             ))}
           </section>
-        </ResizableSidebar>
+        </StudioSidebar>
 
         <div className='tool-canvas min-h-0 overflow-hidden'>
           <CanvasViewport className='moodboard-canvas' identityId={identity.id} stageClassName='moodboard-canvas-stage p-5 sm:p-8' toolId={tool.id}>

@@ -33,6 +33,7 @@ import {
 import CanvasViewport from '@/components/CanvasViewport';
 import EditableCanvasLayer, { type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
@@ -998,7 +999,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             </div>
           </CanvasViewport>
 
-          <div className='design-lab-dock'>
+          <div className='design-lab-dock studio-sidebar lab-sidebar lab-sidebar-left'>
             {mountPhase >= 4 ? (
               <>
             <div className='design-lab-dock-tabs' role='tablist' aria-label={gt('Design libraries')}>
@@ -1177,36 +1178,41 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </div>
         </main>
 
-        <aside className='design-lab-inspector studio-scroll-area' aria-label={gt('Playground controls')} data-canvas-selection-preserve>
+        <aside className='design-lab-inspector studio-sidebar lab-sidebar lab-sidebar-right studio-scroll-area' aria-label={gt('Playground controls')} data-canvas-selection-preserve>
           {mountPhase >= 5 ? (
             <>
-          <div className='design-lab-inspector-head'>
-            <span>{dock === 'shader' ? 'Background shader' : dock === 'surface' ? 'Surface overlay' : dock === 'text' ? 'Text layer' : 'Sticker system'}</span>
-            <strong>{dock === 'shader'
-              ? backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'No background'
-              : dock === 'surface'
-                ? surfaceEnabled ? surfacePreset.name : 'No surface'
-                : dock === 'text'
-                  ? selectedTextLayer?.name ?? 'No text selected'
-                  : selectedSticker?.label ?? 'Composition stickers'}</strong>
-            <small>Controls follow the active library on the left.</small>
-            <button
+          <LabPanelHeading
+            action={<button
               aria-label={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : 'Reset stickers')}
+              className='design-lab-reset-action'
               onClick={resetActiveLibrary}
               title={gt('Reset active layer')}
               type='button'
             >
               <RotateCcw aria-hidden='true' />
-            </button>
-          </div>
+            </button>}
+            className='design-lab-inspector-head'
+            description='Controls follow the active library on the left.'
+            eyebrow={dock === 'shader' ? 'Background shader' : dock === 'surface' ? 'Surface overlay' : dock === 'text' ? 'Text layer' : 'Sticker system'}
+            title={dock === 'shader'
+              ? backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'No background'
+              : dock === 'surface'
+                ? surfaceEnabled ? surfacePreset.name : 'No surface'
+                : dock === 'text'
+                  ? selectedTextLayer?.name ?? 'No text selected'
+                  : selectedSticker?.label ?? 'Composition stickers'}
+          />
 
-          <section className='design-lab-inspector-section' data-disabled={!backgroundEnabled ? 'true' : 'false'} hidden={dock !== 'shader'}>
-            <div className='design-lab-section-title'>
-              <div><span className='design-lab-section-icon'><Sparkles aria-hidden='true' /></span><h2>Background shader</h2></div>
-              <button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} className='design-lab-visibility' onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
+          <LabInspectorSection
+            action={<button aria-label={backgroundEnabled ? gt('Hide background') : gt('Show background')} className='design-lab-visibility' onClick={() => setBackgroundEnabled((value) => !value)} type='button'>
                 {backgroundEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-              </button>
-            </div>
+              </button>}
+            className='design-lab-inspector-section'
+            data-disabled={!backgroundEnabled ? 'true' : 'false'}
+            hidden={dock !== 'shader'}
+            icon={<Sparkles aria-hidden='true' />}
+            title='Background shader'
+          >
             <div className='design-lab-control-stack'>
               <RangeControl disabled={!backgroundEnabled} label='Shader speed' max={1.5} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.01} suffix='×' value={liveSettings.speed} />
               <RangeControl disabled={!backgroundEnabled} label='Warp' max={1.5} min={0} onChange={(strength) => updateLiveSettings({ strength })} step={0.01} suffix='×' value={liveSettings.strength} />
@@ -1219,15 +1225,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <CompactColorControl label='Mid' onChange={(colorB) => updateLiveSettings({ colorB })} value={liveSettings.colorB} />
               <CompactColorControl label='Light' onChange={(colorC) => updateLiveSettings({ colorC })} value={liveSettings.colorC} />
             </div>
-          </section>
+          </LabInspectorSection>
 
-          <section className='design-lab-inspector-section' data-disabled={!surfaceEnabled ? 'true' : 'false'} hidden={dock !== 'surface'}>
-            <div className='design-lab-section-title'>
-              <div><span className='design-lab-section-icon'><Layers3 aria-hidden='true' /></span><h2>Surface overlay</h2></div>
-              <button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} className='design-lab-visibility' onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
+          <LabInspectorSection
+            action={<button aria-label={surfaceEnabled ? gt('Hide surface') : gt('Show surface')} className='design-lab-visibility' onClick={() => setSurfaceEnabled((value) => !value)} type='button'>
                 {surfaceEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-              </button>
-            </div>
+              </button>}
+            className='design-lab-inspector-section'
+            data-disabled={!surfaceEnabled ? 'true' : 'false'}
+            hidden={dock !== 'surface'}
+            icon={<Layers3 aria-hidden='true' />}
+            title='Surface overlay'
+          >
             <div className='design-lab-control-stack'>
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Foil' : 'Texture'} max={100} min={0} onChange={(surfaceTextureAmount) => updateSettings({ surfaceTextureAmount })} value={settings.surfaceTextureAmount} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Drape' : 'Relief'} max={100} min={0} onChange={(surfaceDepth) => updateSettings({ surfaceDepth })} value={settings.surfaceDepth} />
@@ -1235,13 +1244,16 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Roughness' : 'Pattern scale'} max={surfaceIsCloth ? 100 : 140} min={surfaceIsCloth ? 0 : 12} onChange={(value) => updateSettings(surfaceIsCloth ? { surfaceRoughness: value } : { surfaceScale: value })} suffix={surfaceIsCloth ? '%' : 'px'} value={surfaceIsCloth ? settings.surfaceRoughness : settings.surfaceScale} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Weave' : 'Metallic'} max={100} min={0} onChange={(value) => updateSettings(surfaceIsCloth ? { surfaceOpenArea: value } : { surfaceMetallic: value })} value={surfaceIsCloth ? settings.surfaceOpenArea : settings.surfaceMetallic} />
             </div>
-          </section>
+          </LabInspectorSection>
 
-          <section className='design-lab-inspector-section' data-disabled={!selectedTextLayer ? 'true' : 'false'} hidden={dock !== 'text'}>
-            <div className='design-lab-section-title'>
-              <div><span className='design-lab-section-icon'><Type aria-hidden='true' /></span><h2>Text layer</h2></div>
-              <button aria-label='Add text layer' className='design-lab-visibility' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>
-            </div>
+          <LabInspectorSection
+            action={<button aria-label='Add text layer' className='design-lab-visibility' onClick={addTextLayer} title='Add text layer' type='button'><Type aria-hidden='true' /></button>}
+            className='design-lab-inspector-section'
+            data-disabled={!selectedTextLayer ? 'true' : 'false'}
+            hidden={dock !== 'text'}
+            icon={<Type aria-hidden='true' />}
+            title='Text layer'
+          >
             {selectedTextLayer ? (() => {
               const transform = resolvedTextTransform(selectedTextLayer.transform);
               const orderIndex = textLayers.findIndex(({ id }) => id === selectedTextLayer.id);
@@ -1314,15 +1326,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 </div>
               </>;
             })() : <button className='design-lab-empty-action' onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Add text layer</strong><small>Type directly on the canvas</small></span></button>}
-          </section>
+          </LabInspectorSection>
 
-          <section className='design-lab-inspector-section' data-disabled={!stickersEnabled ? 'true' : 'false'} hidden={dock !== 'sticker'}>
-            <div className='design-lab-section-title'>
-              <div><span className='design-lab-section-icon'><Sticker aria-hidden='true' /></span><h2>Sticker</h2></div>
-              <button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} className='design-lab-visibility' onClick={() => setStickersEnabled((value) => !value)} type='button'>
+          <LabInspectorSection
+            action={<button aria-label={stickersEnabled ? gt('Hide stickers') : gt('Show stickers')} className='design-lab-visibility' onClick={() => setStickersEnabled((value) => !value)} type='button'>
                 {stickersEnabled ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-              </button>
-            </div>
+              </button>}
+            className='design-lab-inspector-section'
+            data-disabled={!stickersEnabled ? 'true' : 'false'}
+            hidden={dock !== 'sticker'}
+            icon={<Sticker aria-hidden='true' />}
+            title='Sticker'
+          >
             <div className='design-lab-control-stack' aria-disabled={!selectedSticker}>
               <RangeControl disabled={!stickersEnabled || !selectedSticker} label='Size' max={54} min={8} onChange={(scale) => stickerStageRef.current?.updateSelected({ scale })} value={selectedSticker?.scale ?? 24} />
               <RangeControl disabled={!stickersEnabled || !selectedSticker} label='Rotation' max={180} min={-180} onChange={(rotation) => stickerStageRef.current?.updateSelected({ rotation })} suffix='°' value={selectedSticker?.rotation ?? 0} />
@@ -1358,10 +1373,9 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 </div>
               </div>
             ) : null}
-          </section>
+          </LabInspectorSection>
 
-          <section className='design-lab-inspector-section' hidden={dock !== 'sticker'}>
-            <div className='design-lab-section-title'><div><span className='design-lab-section-icon'><ImagePlus aria-hidden='true' /></span><h2>Add sticker artwork</h2></div><small>Text or image</small></div>
+          <LabInspectorSection className='design-lab-inspector-section' hidden={dock !== 'sticker'} icon={<ImagePlus aria-hidden='true' />} meta='Text or image' title='Add sticker artwork'>
             <button className='design-lab-empty-action' onClick={() => addStickerText()} type='button'><Type aria-hidden='true' /><span>Add another text sticker</span></button>
             <div className='design-lab-artwork-kinds' role='group' aria-label={gt('Artwork type')}>
               {([
@@ -1385,7 +1399,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 <input accept='image/png,image/svg+xml' className='sr-only' onChange={(event) => { const file = event.target.files?.[0]; if (file) selectCustomArtwork(file); event.target.value = ''; }} type='file' />
               </label>
             )}
-          </section>
+          </LabInspectorSection>
 
           <details className='design-lab-advanced' hidden={dock === 'text'}>
             <summary>Advanced layer controls <span>+</span></summary>
@@ -1404,8 +1418,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             </div>
           </details>
 
-          <section className='design-lab-inspector-section'>
-            <div className='design-lab-section-title'><div><span className='design-lab-section-icon'><ImageDown aria-hidden='true' /></span><h2>Output</h2></div><small>PNG image</small></div>
+          <LabInspectorSection className='design-lab-inspector-section' icon={<ImageDown aria-hidden='true' />} meta='PNG image' title='Output'>
             <div className='design-lab-output-overview' aria-label='Current Playground output'>
               <div><ImageDown aria-hidden='true' /><span><small>Output size</small><strong>{settings.width} × {settings.height}</strong></span></div>
               <div><FileImage aria-hidden='true' /><span><small>File type</small><strong>PNG image</strong></span></div>
@@ -1427,7 +1440,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               })}
             </div>
             {!outputSize ? <small className='design-lab-custom-output'>Custom size · {settings.width} × {settings.height}</small> : null}
-          </section>
+          </LabInspectorSection>
             </>
           ) : null}
         </aside>

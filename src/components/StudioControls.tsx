@@ -15,9 +15,8 @@ import {
 import AnimationPackageGallery from '@/components/AnimationPackageGallery';
 import BezierEditor from '@/components/BezierEditor';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
-import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
+import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
-import ResizableSidebar from '@/components/ResizableSidebar';
 import { ShaderLibraryBrowser } from '@/components/ShaderLibrarySidebar';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import { Button } from '@/components/ui/Button';
@@ -286,13 +285,14 @@ export default function StudioControls({
     : frameMaterialSettings;
 
   return (
-    <ResizableSidebar
-      className={`studio-inspector lab-sidebar ${panel === 'source' ? 'lab-sidebar-left border-r border-border' : 'studio-inspector-right lab-sidebar-right border-l border-border'}`}
+    <StudioSidebar
+      className={`studio-inspector ${panel === 'properties' ? 'studio-inspector-right' : ''}`}
       defaultWidth={panel === 'source' ? (compact ? 280 : 416) : compact ? 240 : 360}
+      kind={panel === 'source' ? 'library' : 'inspector'}
       label={panel === 'source' ? gt('Animation sources') : gt('Animation properties')}
       maxWidth={compact ? (panel === 'source' ? 360 : 320) : 520}
       minWidth={panel === 'source' ? (compact ? 220 : 350) : compact ? 200 : 280}
-      resizeEdge={panel === 'properties' ? 'left' : 'right'}
+      side={panel === 'properties' ? 'right' : 'left'}
       storageKey={`animation-${compact ? 'compact-' : ''}${panel}-v2-${identity?.id ?? 'default'}`}
     >
       <LabPanelHeading
@@ -982,6 +982,6 @@ export default function StudioControls({
       </InspectorSection>
         </>
       )}
-    </ResizableSidebar>
+    </StudioSidebar>
   );
 }

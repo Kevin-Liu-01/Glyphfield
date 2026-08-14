@@ -30,8 +30,7 @@ import ComponentLibraryPreview, {
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
-import ResizableSidebar from '@/components/ResizableSidebar';
+import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
@@ -235,32 +234,33 @@ function ToolShell({
       />
       <div className={`tool-body${library ? ' tool-lab-body lab-workspace' : ''}`}>
         {library ? (
-          <ResizableSidebar
-            className='tool-library lab-sidebar lab-sidebar-left min-h-0 border-r border-border'
+          <StudioSidebar
+            className='tool-library min-h-0'
+            kind='library'
             label={gt(`${tool.name} library`)}
             storageKey={`tool-${tool.id}-library`}
           >
             {library}
-          </ResizableSidebar>
+          </StudioSidebar>
         ) : (
-          <ResizableSidebar
-            className='tool-inspector min-h-0 border-r border-border bg-background'
+          <StudioSidebar
+            className='tool-inspector min-h-0'
             label={gt(`${tool.name} controls`)}
             storageKey={`tool-${tool.id}`}
           >
             {inspector}
-          </ResizableSidebar>
+          </StudioSidebar>
         )}
         <div className='tool-canvas studio-scroll-area min-h-0 overflow-auto'>{children}</div>
         {library ? (
-          <ResizableSidebar
-            className='tool-inspector lab-sidebar lab-sidebar-right min-h-0 border-l border-border'
+          <StudioSidebar
+            className='tool-inspector min-h-0'
             label={gt(`${tool.name} controls`)}
-            resizeEdge='left'
+            side='right'
             storageKey={`tool-${tool.id}-inspector`}
           >
             {inspector}
-          </ResizableSidebar>
+          </StudioSidebar>
         ) : null}
         {sourceCode && sourceOpen ? (
           <SourceCodeDrawer
@@ -279,10 +279,9 @@ function ToolShell({
 
 function ControlSection({ children, title }: { children: ReactNode; title: ReactNode }) {
   return (
-    <section className='flex flex-col gap-4 border-b border-border p-5 last:border-b-0'>
-      <h2 className='text-sm font-semibold'>{title}</h2>
+    <LabInspectorSection className='tool-control-section' title={title}>
       {children}
-    </section>
+    </LabInspectorSection>
   );
 }
 
@@ -591,6 +590,17 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     identity.id === 'gt'
       ? identity.website
       : identity.proof[0] ?? identity.products[0] ?? '';
+  const proofChipIsDark = [
+    'focus-window',
+    'knowledge-beam',
+    'network-horizon',
+    'programmable-field',
+    'translation-frame',
+    'unified-terminal',
+    'utility-wave',
+  ].includes(recipe);
+  const proofChipBackground = proofChipIsDark && emphasis === ink ? paper : emphasis;
+  const proofChipForeground = resolveReadableColor(proofChipBackground, ink).color;
   const mediaObjectPosition = backgroundAsset.asset
     ? '50% 50%'
     : selectedBackground?.focalPoint
@@ -711,19 +721,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             `<text x="72" y="${promiseStartY + index * 20}" fill="${foreground}" opacity="0.72" font-family="${fontFamily}" font-size="16" font-weight="400">${escapeXml(line)}</text>`
         )
         .join('');
-      const proofChipIsDark = [
-        'focus-window',
-        'knowledge-beam',
-        'network-horizon',
-        'programmable-field',
-        'translation-frame',
-        'unified-terminal',
-        'utility-wave',
-      ].includes(recipe);
-      const proofChipBackground = proofChipIsDark && emphasis === ink ? paper : emphasis;
-      const chipTextColor = proofChipIsDark ? (proofChipBackground === paper ? ink : paper) : ink;
+      const proofChipY = Math.min(530, promiseStartY + promiseLines.length * 20 + 18);
+      const proofChipHeight = 38;
       const proofChip = proof
-        ? `<rect x="72" y="${Math.min(536, promiseStartY + promiseLines.length * 20 + 18)}" width="${Math.min(330, Math.max(114, proof.length * 8.5 + 28))}" height="32" fill="${proofChipBackground}"/><text x="86" y="${Math.min(558, promiseStartY + promiseLines.length * 20 + 40)}" fill="${chipTextColor}" font-family="${fontFamily}" font-size="13" font-weight="500">${escapeXml(proof)}</text>`
+        ? `<rect x="72" y="${proofChipY}" width="${Math.min(340, Math.max(124, proof.length * 8.5 + 36))}" height="${proofChipHeight}" fill="${proofChipBackground}"/><text x="90" y="${proofChipY + 24}" fill="${proofChipForeground}" font-family="${fontFamily}" font-size="13" font-weight="500" letter-spacing="-0.1">${escapeXml(proof)}</text>`
         : '';
       const mediaLayer = backgroundImage
         ? `<rect x="${mediaX}" y="${mediaY}" width="${mediaWidth}" height="${mediaHeight}" fill="${panelColor}"/><g clip-path="url(#opengraph-media)"><image href="${backgroundImage}" x="${resolvedMediaX}" y="${resolvedMediaY}" width="${resolvedMediaWidth}" height="${resolvedMediaHeight}" preserveAspectRatio="xMidYMid slice" opacity="${backgroundOpacity / 100}"/></g>`
@@ -960,12 +961,10 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
                 </p>
                 {proof ? (
                   <span
-                    className='mt-[5%] max-w-full truncate px-[3%] py-[1.5%] text-[clamp(7px,1.1vw,13px)] font-medium'
+                    className='mt-[5%] inline-flex min-h-[clamp(28px,3.2vw,38px)] max-w-full items-center truncate px-[4%] py-[2%] text-[clamp(7px,1.1vw,13px)] font-medium tracking-[-0.01em]'
                     style={{
-                      backgroundColor: openGraphPanelIsDark(identity) && emphasis === ink ? paper : emphasis,
-                      color: openGraphPanelIsDark(identity)
-                        ? (emphasis === ink ? ink : paper)
-                        : ink,
+                      backgroundColor: proofChipBackground,
+                      color: proofChipForeground,
                     }}
                   >
                     {proof}
