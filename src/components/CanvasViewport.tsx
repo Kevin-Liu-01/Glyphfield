@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import { Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 
@@ -41,18 +41,41 @@ export default function CanvasViewport({
   const stageRef = useRef<HTMLDivElement>(null);
   const wheelDeltaRef = useRef(0);
   const panRef = useRef<{
+    currentX: number;
+    currentY: number;
     pointerId: number;
     startPanX: number;
     startPanY: number;
     startX: number;
     startY: number;
   } | null>(null);
+  const panFrameRef = useRef<number | null>(null);
   const [zoom, setZoom] = useStudioDraft(identityId, toolId, draftKey, 100);
   const constrainedZoom = Math.min(zoom, maxZoom);
   const zoomRef = useRef(zoom);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   useCanvasSelectionDismiss(viewportRef, onDeselect);
   zoomRef.current = constrainedZoom;
+
+  function applyStageTransform(x: number, y: number) {
+    if (!stageRef.current) return;
+    stageRef.current.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${zoomRef.current / 100})`;
+  }
+
+  function cancelPanFrame() {
+    if (panFrameRef.current === null) return;
+    window.cancelAnimationFrame(panFrameRef.current);
+    panFrameRef.current = null;
+  }
+
+  function schedulePanTransform() {
+    if (panFrameRef.current !== null) return;
+    panFrameRef.current = window.requestAnimationFrame(() => {
+      panFrameRef.current = null;
+      const pan = panRef.current;
+      if (pan) applyStageTransform(pan.currentX, pan.currentY);
+    });
+  }
 
   function changeZoom(value: number, point?: { x: number; y: number }) {
     const nextZoom = Math.min(Math.max(40, maxZoom), clampCanvasZoom(value));
@@ -110,6 +133,8 @@ export default function CanvasViewport({
     };
   });
 
+  useEffect(() => () => cancelPanFrame(), []);
+
   function resetView() {
     wheelDeltaRef.current = 0;
     zoomRef.current = 100;
@@ -157,7 +182,9 @@ export default function CanvasViewport({
         className='canvas-viewport-scroll'
         onPointerCancel={(event) => {
           if (panRef.current?.pointerId !== event.pointerId) return;
+          cancelPanFrame();
           panRef.current = null;
+          applyStageTransform(panOffset.x, panOffset.y);
           event.currentTarget.removeAttribute('data-panning');
         }}
         onPointerDown={(event) => {
@@ -168,6 +195,8 @@ export default function CanvasViewport({
             && target.closest('button, input, textarea, select, a, [contenteditable="true"], .editable-canvas-layer, [data-canvas-interactive]')
           ) return;
           panRef.current = {
+            currentX: panOffset.x,
+            currentY: panOffset.y,
             pointerId: event.pointerId,
             startPanX: panOffset.x,
             startPanY: panOffset.y,
@@ -182,14 +211,17 @@ export default function CanvasViewport({
           const pan = panRef.current;
           if (!pan || pan.pointerId !== event.pointerId) return;
           event.preventDefault();
-          setPanOffset({
-            x: pan.startPanX + event.clientX - pan.startX,
-            y: pan.startPanY + event.clientY - pan.startY,
-          });
+          pan.currentX = pan.startPanX + event.clientX - pan.startX;
+          pan.currentY = pan.startPanY + event.clientY - pan.startY;
+          schedulePanTransform();
         }}
         onPointerUp={(event) => {
-          if (panRef.current?.pointerId !== event.pointerId) return;
+          const pan = panRef.current;
+          if (pan?.pointerId !== event.pointerId) return;
+          cancelPanFrame();
+          applyStageTransform(pan.currentX, pan.currentY);
           panRef.current = null;
+          setPanOffset({ x: pan.currentX, y: pan.currentY });
           event.currentTarget.removeAttribute('data-panning');
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);

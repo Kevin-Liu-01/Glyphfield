@@ -21,7 +21,10 @@ describe('project tab interaction', () => {
     expect(studioApp).toContain('setPointerCapture(event.pointerId)');
     expect(studioApp).toContain('previewOrder.splice(previewIndex, 0, pointerDrag.sourceId)');
     expect(studioApp).toContain('pointerOffsetX');
-    expect(studioApp).toContain('style={{ transform: dragOffset');
+    expect(studioApp).toContain('projectTabFrameRef.current = window.requestAnimationFrame');
+    expect(studioApp).toContain("tab.style.transform = `translate3d(${pointerOffsetX}px, 0, 0)`");
+    expect(studioApp).toContain('ref={projectTabSelectionRef}');
+    expect(studioApp).not.toContain('setProjectTabDrag');
     expect(studioStyles).toContain(".app-navbar .project-tab[data-dragging='true']");
     expect(studioStyles).toContain(".app-navbar .project-tab[data-shifting='true']");
     expect(studioStyles).toContain('transition: transform 150ms cubic-bezier');

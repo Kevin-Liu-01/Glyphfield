@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from 'lucide-react';
 
@@ -42,12 +42,15 @@ export type CanvasSnapTargets = {
 type PointerSession = {
   moved: boolean;
   mode: 'move' | 'resize' | 'resize-bottom' | 'resize-left' | 'resize-right' | 'resize-top';
+  parentBounds: { height: number; left: number; top: number; width: number };
   pointerId: number;
+  snapTargets: CanvasSnapTargets;
   startSelected: boolean;
   startClientX: number;
   startClientY: number;
   startHeightScale: number;
   startScale: number;
+  startTransform: CanvasLayerTransform;
   startWidthScale: number;
   startX: number;
   startY: number;
@@ -207,6 +210,8 @@ export default function EditableCanvasLayer({
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<PointerSession | null>(null);
+  const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
@@ -226,51 +231,129 @@ export default function EditableCanvasLayer({
     return () => observer.disconnect();
   }, [fitContentHeight, width]);
 
+  const measureSelectionBounds = useCallback(() => {
+    const bounds = layerRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+    const next = {
+      height: bounds.height,
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+    };
+    setSelectionBounds((current) => current
+      && Math.abs(current.height - next.height) < 0.25
+      && Math.abs(current.left - next.left) < 0.25
+      && Math.abs(current.top - next.top) < 0.25
+      && Math.abs(current.width - next.width) < 0.25
+      ? current
+      : next);
+  }, []);
+
   useLayoutEffect(() => {
     if (!selected) {
       setSelectionBounds(null);
       return;
     }
-
-    let frame = 0;
-    const measure = () => {
-      const bounds = layerRef.current?.getBoundingClientRect();
-      if (bounds && bounds.width > 0 && bounds.height > 0) {
-        const next = {
-          height: bounds.height,
-          left: bounds.left,
-          top: bounds.top,
-          width: bounds.width,
-        };
-        setSelectionBounds((current) => current
-          && Math.abs(current.height - next.height) < 0.25
-          && Math.abs(current.left - next.left) < 0.25
-          && Math.abs(current.top - next.top) < 0.25
-          && Math.abs(current.width - next.width) < 0.25
-          ? current
-          : next);
-      }
-      frame = requestAnimationFrame(measure);
-    };
-    measure();
-    return () => cancelAnimationFrame(frame);
-  }, [selected]);
+    measureSelectionBounds();
+  }, [contentHeight, height, measureSelectionBounds, selected, transform.x, transform.y, width]);
 
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => updatePointer(event.clientX, event.clientY, event.pointerId);
-    const handlePointerEnd = (event: PointerEvent) => {
-      updatePointer(event.clientX, event.clientY, event.pointerId);
-      endPointer(event.type, event.pointerId);
+    if (!selected) return;
+    const layer = layerRef.current;
+    if (!layer) return;
+    let frame = 0;
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measureSelectionBounds);
     };
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerEnd);
-    window.addEventListener('pointercancel', handlePointerEnd);
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    resizeObserver.observe(layer);
+    if (layer.parentElement) resizeObserver.observe(layer.parentElement);
+    const stage = layer.closest('.canvas-viewport-stage');
+    const stageObserver = stage ? new MutationObserver(scheduleMeasure) : null;
+    if (stage) stageObserver?.observe(stage, { attributeFilter: ['style'], attributes: true });
+    window.addEventListener('resize', scheduleMeasure, { passive: true });
+    document.addEventListener('scroll', scheduleMeasure, { capture: true, passive: true });
     return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerEnd);
-      window.removeEventListener('pointercancel', handlePointerEnd);
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      stageObserver?.disconnect();
+      window.removeEventListener('resize', scheduleMeasure);
+      document.removeEventListener('scroll', scheduleMeasure, true);
     };
-  }, [baseHeight, baseWidth, baseX, baseY, canvasHeight, canvasWidth, onChange, onDeselect, transform]);
+  }, [measureSelectionBounds, selected]);
+
+  const updatePointerRef = useRef(updatePointer);
+  const endPointerRef = useRef(endPointer);
+  const detachWindowPointerListenersRef = useRef<() => void>(() => undefined);
+  updatePointerRef.current = updatePointer;
+  endPointerRef.current = endPointer;
+
+  const flushPendingPointer = useCallback(() => {
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = null;
+    }
+    const pending = pendingPointerRef.current;
+    pendingPointerRef.current = null;
+    if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId);
+  }, []);
+
+  const handleWindowPointerMove = useCallback((event: PointerEvent) => {
+    if (sessionRef.current?.pointerId !== event.pointerId) return;
+    pendingPointerRef.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pointerId: event.pointerId,
+    };
+    if (pointerFrameRef.current === null) {
+      pointerFrameRef.current = window.requestAnimationFrame(() => {
+        pointerFrameRef.current = null;
+        const pending = pendingPointerRef.current;
+        pendingPointerRef.current = null;
+        if (pending) updatePointerRef.current(pending.clientX, pending.clientY, pending.pointerId);
+      });
+    }
+  }, []);
+
+  const handleWindowPointerEnd = useCallback((event: PointerEvent) => {
+    if (sessionRef.current?.pointerId !== event.pointerId) return;
+    if (event.type === 'pointerup') {
+      pendingPointerRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        pointerId: event.pointerId,
+      };
+      flushPendingPointer();
+    } else {
+      pendingPointerRef.current = null;
+      if (pointerFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerFrameRef.current);
+        pointerFrameRef.current = null;
+      }
+    }
+    endPointerRef.current(event.type, event.pointerId);
+    detachWindowPointerListenersRef.current();
+  }, [flushPendingPointer]);
+
+  const detachWindowPointerListeners = useCallback(() => {
+    window.removeEventListener('pointermove', handleWindowPointerMove);
+    window.removeEventListener('pointerup', handleWindowPointerEnd);
+    window.removeEventListener('pointercancel', handleWindowPointerEnd);
+  }, [handleWindowPointerEnd, handleWindowPointerMove]);
+  detachWindowPointerListenersRef.current = detachWindowPointerListeners;
+
+  const attachWindowPointerListeners = useCallback(() => {
+    detachWindowPointerListeners();
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerEnd);
+    window.addEventListener('pointercancel', handleWindowPointerEnd);
+  }, [detachWindowPointerListeners, handleWindowPointerEnd, handleWindowPointerMove]);
+
+  useEffect(() => () => {
+    detachWindowPointerListeners();
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+  }, [detachWindowPointerListeners]);
 
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
@@ -286,28 +369,47 @@ export default function EditableCanvasLayer({
     }
     onSelect();
     setSmartGuides({ x: null, y: null });
+    const layer = layerRef.current;
+    const parent = layer?.parentElement;
+    if (!layer || !parent) return;
+    const parentBounds = parent.getBoundingClientRect();
+    if (parentBounds.width <= 0 || parentBounds.height <= 0) return;
+    const targetX = [0, canvasWidth / 2, canvasWidth];
+    const targetY = [0, canvasHeight / 2, canvasHeight];
+    Array.from(parent.children).forEach((sibling) => {
+      if (!(sibling instanceof HTMLElement) || sibling === layer || !sibling.classList.contains('editable-canvas-layer')) return;
+      const siblingBounds = sibling.getBoundingClientRect();
+      const left = (siblingBounds.left - parentBounds.left) / parentBounds.width * canvasWidth;
+      const right = (siblingBounds.right - parentBounds.left) / parentBounds.width * canvasWidth;
+      const top = (siblingBounds.top - parentBounds.top) / parentBounds.height * canvasHeight;
+      const bottom = (siblingBounds.bottom - parentBounds.top) / parentBounds.height * canvasHeight;
+      targetX.push(left, (left + right) / 2, right);
+      targetY.push(top, (top + bottom) / 2, bottom);
+    });
     sessionRef.current = {
       moved: false,
       mode,
+      parentBounds,
       pointerId: event.pointerId,
+      snapTargets: { x: targetX, y: targetY },
       startSelected: selected,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startHeightScale: transform.heightScale ?? transform.scale,
       startScale: transform.scale,
+      startTransform: transform,
       startWidthScale: transform.widthScale ?? transform.scale,
       startX: transform.x,
       startY: transform.y,
     };
+    attachWindowPointerListeners();
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function updatePointer(clientX: number, clientY: number, pointerId: number) {
     const session = sessionRef.current;
-    const layer = layerRef.current;
-    const parent = layer?.parentElement;
-    if (!session || !parent || session.pointerId !== pointerId) return;
-    const bounds = parent.getBoundingClientRect();
+    if (!session || session.pointerId !== pointerId) return;
+    const bounds = session.parentBounds;
     if (Math.hypot(clientX - session.startClientX, clientY - session.startClientY) > 3) {
       session.moved = true;
     }
@@ -317,7 +419,7 @@ export default function EditableCanvasLayer({
     if (session.mode !== 'move') {
       if (session.mode === 'resize' && resizeMode === 'scale') {
         const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
-        onChange({ ...transform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
+        onChange({ ...session.startTransform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
         return;
       }
       let heightScale = session.startHeightScale;
@@ -340,38 +442,26 @@ export default function EditableCanvasLayer({
         heightScale = clamp(session.startHeightScale - deltaY / baseHeight, 0.2, 3);
         y -= baseHeight * (heightScale - session.startHeightScale) / 2;
       }
-      onChange({ ...transform, heightScale, widthScale, x, y });
+      onChange({ ...session.startTransform, heightScale, widthScale, x, y });
       return;
     }
 
     const proposedTransform = {
-      ...transform,
+      ...session.startTransform,
       scale: session.startScale,
       x: clamp(session.startX + deltaX, -canvasWidth, canvasWidth),
       y: clamp(session.startY + deltaY, -canvasHeight, canvasHeight),
     };
-    const targetX = [0, canvasWidth / 2, canvasWidth];
-    const targetY = [0, canvasHeight / 2, canvasHeight];
-
-    Array.from(parent.children).forEach((sibling) => {
-      if (!(sibling instanceof HTMLElement) || sibling === layer || !sibling.classList.contains('editable-canvas-layer')) return;
-      const siblingBounds = sibling.getBoundingClientRect();
-      const left = (siblingBounds.left - bounds.left) / bounds.width * canvasWidth;
-      const right = (siblingBounds.right - bounds.left) / bounds.width * canvasWidth;
-      const top = (siblingBounds.top - bounds.top) / bounds.height * canvasHeight;
-      const bottom = (siblingBounds.bottom - bounds.top) / bounds.height * canvasHeight;
-      targetX.push(left, (left + right) / 2, right);
-      targetY.push(top, (top + bottom) / 2, bottom);
-    });
-
     const snapped = snapCanvasLayer(
       proposedTransform,
       { baseHeight, baseWidth, baseX, baseY },
-      { x: targetX, y: targetY },
+      session.snapTargets,
       6 / bounds.width * canvasWidth,
       6 / bounds.height * canvasHeight
     );
-    setSmartGuides(snapped.guides);
+    setSmartGuides((current) => current.x === snapped.guides.x && current.y === snapped.guides.y
+      ? current
+      : snapped.guides);
     onChange(snapped.transform);
   }
 
@@ -380,6 +470,10 @@ export default function EditableCanvasLayer({
     if (!session || session.pointerId !== pointerId) return;
     sessionRef.current = null;
     setSmartGuides({ x: null, y: null });
+    if (eventType === 'pointercancel') {
+      onChange(session.startTransform);
+      return;
+    }
     if (shouldDeselectCanvasLayer(eventType, session.mode, session.startSelected, session.moved)) {
       onDeselect();
     }

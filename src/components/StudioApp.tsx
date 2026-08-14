@@ -640,17 +640,20 @@ export default function StudioApp() {
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
-  const [projectTabDrag, setProjectTabDrag] = useState<ProjectTabDragState | null>(null);
-  const projectTabDragRef = useRef<typeof projectTabDrag>(null);
+  const projectTabDragRef = useRef<ProjectTabDragState | null>(null);
+  const projectTabFrameRef = useRef<number | null>(null);
+  const projectTabSelectionRef = useRef<HTMLSpanElement>(null);
   const projectTabPointerDragRef = useRef<{
     centers: number[];
     moved: boolean;
     originOrder: string[];
+    pendingClientX: number;
     pointerId: number;
     sourceIndex: number;
     sourceId: string;
     startX: number;
     startY: number;
+    tabs: HTMLElement[];
   } | null>(null);
   const suppressProjectTabClickRef = useRef<string | null>(null);
   const [reorderControlsIdentityId, setReorderControlsIdentityId] = useState<string | null>(
@@ -1216,60 +1219,48 @@ export default function StudioApp() {
       centers: [],
       moved: false,
       originOrder: [],
+      pendingClientX: event.clientX,
       pointerId: event.pointerId,
       sourceIndex: -1,
       sourceId: identityId,
       startX: event.clientX,
       startY: event.clientY,
+      tabs: [],
     };
   }
 
   function clearProjectTabDrag() {
+    if (projectTabFrameRef.current !== null) {
+      window.cancelAnimationFrame(projectTabFrameRef.current);
+      projectTabFrameRef.current = null;
+    }
+    const pointerDrag = projectTabPointerDragRef.current;
+    pointerDrag?.tabs.forEach((tab) => {
+      delete tab.dataset.dragging;
+      delete tab.dataset.shifting;
+      tab.style.removeProperty('transform');
+    });
+    const selection = projectTabSelectionRef.current;
+    if (selection) {
+      selection.style.transform = `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`;
+    }
     projectTabDragRef.current = null;
     projectTabPointerDragRef.current = null;
-    setProjectTabDrag(null);
   }
 
-  function handleProjectTabPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const pointerDrag = projectTabPointerDragRef.current;
-    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-    if (!pointerDrag.moved) {
-      const distance = Math.hypot(
-        event.clientX - pointerDrag.startX,
-        event.clientY - pointerDrag.startY
-      );
-      if (distance <= 5) return;
-      pointerDrag.moved = true;
-      const tabs = Array.from(event.currentTarget.parentElement?.children ?? []).filter(
-        (element): element is HTMLElement =>
-          element instanceof HTMLElement && Boolean(element.dataset.projectId)
-      );
-      const sourceIndex = tabs.findIndex(
-        ({ dataset }) => dataset.projectId === pointerDrag.sourceId
-      );
-      const sourceBounds = tabs[sourceIndex]?.getBoundingClientRect();
-      if (sourceIndex < 0 || !sourceBounds) {
-        clearProjectTabDrag();
-        return;
-      }
-      pointerDrag.originOrder = tabs.map(({ dataset }) => dataset.projectId ?? '');
-      pointerDrag.centers = tabs.map((tab) => {
-        const bounds = tab.getBoundingClientRect();
-        return bounds.left + bounds.width / 2;
-      });
-      pointerDrag.sourceIndex = sourceIndex;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setReorderControlsIdentityId(null);
-    }
-    event.preventDefault();
-
-    const firstCenter = pointerDrag.centers[0] ?? event.clientX;
-    const lastCenter = pointerDrag.centers.at(-1) ?? event.clientX;
+  function applyProjectTabDragFrame(
+    pointerDrag: NonNullable<typeof projectTabPointerDragRef.current>
+  ) {
+    projectTabFrameRef.current = null;
+    if (projectTabPointerDragRef.current !== pointerDrag || !pointerDrag.moved) return;
+    const clientX = pointerDrag.pendingClientX;
+    const firstCenter = pointerDrag.centers[0] ?? clientX;
+    const lastCenter = pointerDrag.centers.at(-1) ?? clientX;
     const minimumOffset = firstCenter - pointerDrag.centers[pointerDrag.sourceIndex];
     const maximumOffset = lastCenter - pointerDrag.centers[pointerDrag.sourceIndex];
     const pointerOffsetX = Math.min(
       maximumOffset,
-      Math.max(minimumOffset, event.clientX - pointerDrag.startX)
+      Math.max(minimumOffset, clientX - pointerDrag.startX)
     );
     const draggedCenter =
       pointerDrag.centers[pointerDrag.sourceIndex] + pointerOffsetX;
@@ -1297,14 +1288,86 @@ export default function StudioApp() {
       targetId,
     };
     projectTabDragRef.current = nextDrag;
-    setProjectTabDrag(nextDrag);
+
+    pointerDrag.tabs.forEach((tab, originIndex) => {
+      const identityId = pointerDrag.originOrder[originIndex];
+      if (identityId === pointerDrag.sourceId) {
+        tab.dataset.dragging = 'true';
+        delete tab.dataset.shifting;
+        tab.style.transform = `translate3d(${pointerOffsetX}px, 0, 0)`;
+        return;
+      }
+      const destinationIndex = previewOrder.indexOf(identityId);
+      const slotOffset = destinationIndex - originIndex;
+      if (slotOffset === 0) {
+        delete tab.dataset.shifting;
+        tab.style.removeProperty('transform');
+        return;
+      }
+      tab.dataset.shifting = 'true';
+      tab.style.transform = `translate3d(calc(${slotOffset} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`;
+    });
+
+    const selection = projectTabSelectionRef.current;
+    if (selection) {
+      const selectedIdentityId = activeIdentity?.id ?? '';
+      const activeIndex = pointerDrag.originOrder.indexOf(selectedIdentityId);
+      const selectionIndex = selectedIdentityId === pointerDrag.sourceId
+        ? activeIndex
+        : previewOrder.indexOf(selectedIdentityId);
+      const selectionOffset = selectedIdentityId === pointerDrag.sourceId
+        ? ` + ${pointerOffsetX}px`
+        : '';
+      selection.style.transform = `translate3d(calc(${selectionIndex} * (var(--project-tab-width) + var(--project-tab-gap))${selectionOffset}), 0, 0)`;
+    }
+  }
+
+  function handleProjectTabPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pointerDrag = projectTabPointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    if (!pointerDrag.moved) {
+      const distance = Math.hypot(
+        event.clientX - pointerDrag.startX,
+        event.clientY - pointerDrag.startY
+      );
+      if (distance <= 5) return;
+      const tabs = Array.from(event.currentTarget.parentElement?.children ?? []).filter(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement && Boolean(element.dataset.projectId)
+      );
+      const sourceIndex = tabs.findIndex(
+        ({ dataset }) => dataset.projectId === pointerDrag.sourceId
+      );
+      const bounds = tabs.map((tab) => tab.getBoundingClientRect());
+      if (sourceIndex < 0 || !bounds[sourceIndex]) {
+        clearProjectTabDrag();
+        return;
+      }
+      pointerDrag.centers = bounds.map(({ left, width }) => left + width / 2);
+      pointerDrag.moved = true;
+      pointerDrag.originOrder = tabs.map(({ dataset }) => dataset.projectId ?? '');
+      pointerDrag.sourceIndex = sourceIndex;
+      pointerDrag.tabs = tabs;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setReorderControlsIdentityId(null);
+    }
+    event.preventDefault();
+    pointerDrag.pendingClientX = event.clientX;
+    if (projectTabFrameRef.current === null) {
+      projectTabFrameRef.current = window.requestAnimationFrame(() => {
+        applyProjectTabDragFrame(pointerDrag);
+      });
+    }
   }
 
   function handleProjectTabPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
     const pointerDrag = projectTabPointerDragRef.current;
     if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (projectTabFrameRef.current !== null) {
+      window.cancelAnimationFrame(projectTabFrameRef.current);
+      projectTabFrameRef.current = null;
+      pointerDrag.pendingClientX = event.clientX;
+      applyProjectTabDragFrame(pointerDrag);
     }
     const currentDrag = projectTabDragRef.current;
     if (pointerDrag.moved) {
@@ -1315,6 +1378,7 @@ export default function StudioApp() {
         }
       }, 80);
     }
+    clearProjectTabDrag();
     if (
       pointerDrag.moved &&
       currentDrag &&
@@ -1326,6 +1390,14 @@ export default function StudioApp() {
         currentDrag.placement
       );
     }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleProjectTabPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    const pointerDrag = projectTabPointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
     clearProjectTabDrag();
   }
 
@@ -1344,13 +1416,6 @@ export default function StudioApp() {
     const selected = identity.id === activeIdentity?.id;
     const visibleIndex = visibleIdentities.findIndex(({ id }) => id === identity.id);
     const reorderControlsOpen = reorderControlsIdentityId === identity.id;
-    const originIndex = projectTabDrag?.originOrder.indexOf(identity.id) ?? -1;
-    const previewIndex = projectTabDrag?.previewOrder.indexOf(identity.id) ?? -1;
-    const dragOffset = projectTabDrag
-      ? projectTabDrag.sourceId === identity.id
-        ? `${projectTabDrag.pointerOffsetX}px`
-        : `calc(${previewIndex - originIndex} * (var(--project-tab-width) + var(--project-tab-gap)))`
-      : null;
     return (
       <div
         aria-selected={selected}
@@ -1359,8 +1424,6 @@ export default function StudioApp() {
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
-        data-dragging={projectTabDrag?.sourceId === identity.id ? 'true' : undefined}
-        data-shifting={projectTabDrag && projectTabDrag.sourceId !== identity.id && originIndex !== previewIndex ? 'true' : undefined}
         data-project-id={identity.id}
         key={identity.id}
         onClickCapture={(event) => {
@@ -1385,12 +1448,16 @@ export default function StudioApp() {
             openProjectTabMoveControls(identity.id);
           }
         }}
-        onPointerCancel={handleProjectTabPointerEnd}
+        onLostPointerCapture={(event) => {
+          if (projectTabPointerDragRef.current?.pointerId === event.pointerId) {
+            clearProjectTabDrag();
+          }
+        }}
+        onPointerCancel={handleProjectTabPointerCancel}
         onPointerDown={(event) => handleProjectTabPointerDown(event, identity.id)}
         onPointerMove={handleProjectTabPointerMove}
         onPointerUp={handleProjectTabPointerEnd}
         role='tab'
-        style={{ transform: dragOffset ? `translate3d(${dragOffset}, 0, 0)` : undefined }}
         title={identity.name}
       >
         {selected && identity.kind === 'custom' ? (
@@ -1626,10 +1693,9 @@ export default function StudioApp() {
                   <span
                     aria-hidden='true'
                     className='project-tab-selection'
+                    ref={projectTabSelectionRef}
                     style={{
-                      transform: projectTabDrag?.sourceId === activeIdentity.id
-                        ? `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap)) + ${projectTabDrag.pointerOffsetX}px), 0, 0)`
-                        : `translate3d(calc(${projectTabDrag?.previewOrder.indexOf(activeIdentity.id) ?? activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`,
+                      transform: `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`,
                     }}
                   />
                 ) : null}

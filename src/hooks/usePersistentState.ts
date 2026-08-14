@@ -4,6 +4,39 @@ import { useCallback, useRef, useState, type Dispatch, type SetStateAction } fro
 
 import { useMountEffect } from '@/hooks/useMountEffect';
 
+const PERSISTENCE_DELAY_MS = 120;
+const pendingPersistentWrites = new Map<string, unknown>();
+let persistentWriteTimer: number | null = null;
+let persistenceFlushListenerAttached = false;
+
+export function flushPendingPersistentWrites(): void {
+  if (typeof window === 'undefined') return;
+  if (persistentWriteTimer !== null) {
+    window.clearTimeout(persistentWriteTimer);
+    persistentWriteTimer = null;
+  }
+  const writes = Array.from(pendingPersistentWrites.entries());
+  pendingPersistentWrites.clear();
+  writes.forEach(([storageKey, value]) => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(value));
+    } catch {
+      // Storage can be disabled or full; the in-memory state remains authoritative.
+    }
+  });
+}
+
+export function schedulePersistentWrite(storageKey: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  pendingPersistentWrites.set(storageKey, value);
+  if (persistentWriteTimer !== null) window.clearTimeout(persistentWriteTimer);
+  persistentWriteTimer = window.setTimeout(flushPendingPersistentWrites, PERSISTENCE_DELAY_MS);
+  if (!persistenceFlushListenerAttached) {
+    window.addEventListener('pagehide', flushPendingPersistentWrites);
+    persistenceFlushListenerAttached = true;
+  }
+}
+
 export function usePersistentState<T>(
   storageKey: string,
   initialValue: T | (() => T)
@@ -15,11 +48,17 @@ export function usePersistentState<T>(
       ? (currentInitialValue as () => T)()
       : currentInitialValue;
   });
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   useMountEffect(() => {
     try {
       const storedValue = window.localStorage.getItem(storageKey);
-      if (storedValue !== null) setValue(JSON.parse(storedValue) as T);
+      if (storedValue !== null) {
+        const parsedValue = JSON.parse(storedValue) as T;
+        valueRef.current = parsedValue;
+        setValue(parsedValue);
+      }
     } catch {
       try {
         window.localStorage.removeItem(storageKey);
@@ -31,18 +70,13 @@ export function usePersistentState<T>(
 
   const setPersistentValue = useCallback<Dispatch<SetStateAction<T>>>(
     (nextValue) => {
-      setValue((currentValue) => {
-        const resolvedValue =
-          typeof nextValue === 'function'
-            ? (nextValue as (current: T) => T)(currentValue)
-            : nextValue;
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(resolvedValue));
-        } catch {
-          return resolvedValue;
-        }
-        return resolvedValue;
-      });
+      const resolvedValue =
+        typeof nextValue === 'function'
+          ? (nextValue as (current: T) => T)(valueRef.current)
+          : nextValue;
+      valueRef.current = resolvedValue;
+      setValue(resolvedValue);
+      schedulePersistentWrite(storageKey, resolvedValue);
     },
     [storageKey]
   );
