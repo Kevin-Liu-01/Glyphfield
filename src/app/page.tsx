@@ -120,42 +120,66 @@ const AGENT_GENERATE_DITHERING_RIPPLE_SETTINGS = {
   speed: 0.32,
 };
 
+const FOOTER_DITHERING_SWIRL_SETTINGS = {
+  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+  amplitude: 5.2,
+  brightness: 1.02,
+  colorA: '#201046',
+  colorB: '#C8C0FF',
+  colorC: '#7BFFD9',
+  density: 1.1,
+  detail: 4.4,
+  frequency: 6.8,
+  grain: 0,
+  rotationX: 0,
+  rotationY: 0,
+  rotationZ: -8,
+  speed: 0.32,
+  strength: 0.48,
+};
+
 const FEATURES = [
   {
     description: 'Logo families, source assets, fonts, color roles, voice, and layout rules stay connected.',
-    image: '/screenshots/studio-gt-identity-2026.png',
+    darkImage: '/screenshots/studio-gt-identity-dark-2026.png',
     icon: Palette,
     label: 'Identity source',
+    lightImage: '/screenshots/studio-gt-identity-light-2026.png',
   },
   {
     description: 'Compose moodboards, email, decks, product UI, editorial graphics, and physical pieces.',
-    image: '/screenshots/studio-gt-elements-2026.png',
+    darkImage: '/screenshots/studio-gt-brand-book-dark-2026.png',
     icon: Layers3,
     label: 'Brand applications',
+    lightImage: '/screenshots/studio-gt-brand-book-light-2026.png',
   },
   {
     description: 'Morph text, logos, images, and live backgrounds with editable curves and deterministic timing.',
-    image: '/screenshots/studio-gt-animation-2026.png',
+    darkImage: '/screenshots/studio-gt-animation-dark-2026.png',
     icon: Film,
     label: 'Motion system',
+    lightImage: '/screenshots/studio-gt-animation-light-2026.png',
   },
   {
     description: 'Use shader materials, grain, dither, gradients, grids, and image treatments behind any mark.',
-    image: '/screenshots/studio-gt-material-lab-2026.png',
+    darkImage: '/screenshots/studio-gt-design-lab-dark-2026.png',
     icon: Sparkles,
     label: 'Material lab',
+    lightImage: '/screenshots/studio-gt-design-lab-light-2026.png',
   },
   {
     description: 'Select, drag, resize, layer, zoom, and export from a direct-manipulation canvas.',
-    image: '/screenshots/studio-gt-background-lab-2026.png',
+    darkImage: '/screenshots/studio-gt-playground-dark-2026.png',
     icon: ScanLine,
     label: 'Editable canvas',
+    lightImage: '/screenshots/studio-gt-playground-light-2026.png',
   },
   {
     description: 'Agents discover the same identities and tools, then generate stable SVG and browser artifacts.',
-    image: '/screenshots/studio-gt-components-2026.png',
+    darkImage: '/screenshots/studio-gt-components-dark-2026.png',
     icon: Bot,
     label: 'Agent interface',
+    lightImage: '/screenshots/studio-gt-components-light-2026.png',
   },
 ] as const;
 
@@ -273,7 +297,7 @@ export default async function HomePage() {
             </T>
           </SectionHeading>
           <div className='marketing-v5-capability-grid'>
-            {FEATURES.map(({ description, icon: Icon, image, label }) => (
+            {FEATURES.map(({ darkImage, description, icon: Icon, label, lightImage }) => (
               <article data-motion-item key={label}>
                 <Icon aria-hidden='true' />
                 <div className='marketing-v5-capability-copy'>
@@ -281,7 +305,8 @@ export default async function HomePage() {
                   <p>{gt(description)}</p>
                 </div>
                 <div className='marketing-v5-capability-preview' aria-hidden='true'>
-                  <Image alt='' fill sizes='(max-width: 760px) 54vw, (max-width: 1100px) 38vw, 18vw' src={image} />
+                  <Image alt='' className='marketing-v5-theme-shot marketing-v5-theme-shot--light' fill sizes='(max-width: 760px) 54vw, (max-width: 1100px) 38vw, 18vw' src={lightImage} />
+                  <Image alt='' className='marketing-v5-theme-shot marketing-v5-theme-shot--dark' fill sizes='(max-width: 760px) 54vw, (max-width: 1100px) 38vw, 18vw' src={darkImage} />
                 </div>
               </article>
             ))}
@@ -299,10 +324,20 @@ export default async function HomePage() {
             </p>
             <div className='marketing-v5-product-card-image marketing-v5-product-card-image--artifacts'>
               <Image
-                alt={gt('General Translation brand elements open in the complete Glyphfield Studio workspace')}
+                alt={gt('The General Translation brand book open in the complete Glyphfield Studio workspace')}
+                className='marketing-v5-theme-shot marketing-v5-theme-shot--light'
                 fill
                 sizes='(max-width: 800px) 96vw, 64vw'
-                src='/screenshots/studio-gt-elements-2026.png'
+                src='/screenshots/studio-gt-brand-book-light-2026.png'
+                unoptimized
+              />
+              <Image
+                alt=''
+                aria-hidden='true'
+                className='marketing-v5-theme-shot marketing-v5-theme-shot--dark'
+                fill
+                sizes='(max-width: 800px) 96vw, 64vw'
+                src='/screenshots/studio-gt-brand-book-dark-2026.png'
                 unoptimized
               />
             </div>
@@ -315,20 +350,30 @@ export default async function HomePage() {
             <p><T>Apply live type, material, depth, and timing to a mark, then reuse the result across every export.</T></p>
             <div className='marketing-v5-product-card-image marketing-v5-product-card-image--animation'>
               <Image
-                alt={gt('The complete Glyphfield Animation Studio applying a shader to the General Translation mark')}
+                alt={gt('The complete Glyphfield Animation Studio composing the General Translation mark over a live dither shader')}
+                className='marketing-v5-theme-shot marketing-v5-theme-shot--light'
                 fill
                 sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-gt-animation-2026.png'
+                src='/screenshots/studio-gt-animation-light-2026.png'
+                unoptimized
+              />
+              <Image
+                alt=''
+                aria-hidden='true'
+                className='marketing-v5-theme-shot marketing-v5-theme-shot--dark'
+                fill
+                sizes='(max-width: 800px) 96vw, 36vw'
+                src='/screenshots/studio-gt-animation-dark-2026.png'
                 unoptimized
               />
             </div>
           </article>
         </section>
 
-        <SectionSpacer dark />
+        <SectionSpacer />
 
         <section className='marketing-v5-agents marketing-v7-corner-frame' data-motion-reveal id='agents'>
-          <FrameTriangles dark />
+          <FrameTriangles />
           <div className='marketing-v5-agents-copy' data-motion-item>
             <h2 className='marketing-v5-agent-title'>
               <span><T>Plug the system</T></span>{' '}
@@ -407,7 +452,7 @@ export default async function HomePage() {
           className='marketing-v10-faq marketing-v7-corner-frame'
           data-motion-reveal
         >
-          <FrameTriangles dark />
+          <FrameTriangles />
           <header data-motion-item>
             <span><T>Glyphfield, answered</T></span>
             <h2 id='frequently-asked-questions'><T>Frequently asked questions</T></h2>
@@ -428,7 +473,7 @@ export default async function HomePage() {
           </dl>
         </section>
 
-        <SectionSpacer dark />
+        <SectionSpacer />
 
         <section className='marketing-v7-open-source marketing-v7-corner-frame' data-motion-reveal id='open-source'>
           <FrameTriangles dark />
@@ -477,11 +522,15 @@ export default async function HomePage() {
 
         <SectionSpacer dark />
 
-        <footer className='marketing-v5-footer marketing-v7-corner-frame' data-motion-footer>
+        <footer className='marketing-v5-footer marketing-v7-corner-frame marketing-v12-footer' data-motion-footer>
           <FrameTriangles dark />
-          <div className='marketing-v5-footer-field' aria-hidden='true'>
-            <i /><i /><i />
-          </div>
+          <MarketingArcField
+            className='marketing-v12-footer-shader'
+            materialId='paper-dithering-swirl'
+            maxPixelCount={720_000}
+            renderScale={0.9}
+            settings={FOOTER_DITHERING_SWIRL_SETTINGS}
+          />
           <div className='marketing-v5-footer-top' data-motion-reveal>
             <div data-motion-item>
               <h2><T>Make the field yours.</T></h2>
@@ -621,18 +670,18 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
       <div className='marketing-v5-theme-gallery-grid'>
         <div data-motion-item>
           <ProductFrame
-            alt={gt('General Translation identity settings in Glyphfield Studio')}
-            darkSrc='/screenshots/studio-gt-identity-2026.png'
+            alt={gt('The General Translation identity system in Glyphfield Studio')}
+            darkSrc='/screenshots/studio-gt-identity-dark-2026.png'
             label='Brand identity / General Translation'
             src='/screenshots/studio-gt-identity-light-2026.png'
           />
         </div>
         <div data-motion-item>
           <ProductFrame
-            alt={gt('Stripe moodboard in Glyphfield Studio')}
-            darkSrc='/screenshots/studio-stripe-moodboard-dark-2026.png'
-            label='Moodboard / Stripe'
-            src='/screenshots/studio-stripe-moodboard-light-2026.png'
+            alt={gt('The General Translation moodboard in Glyphfield Studio')}
+            darkSrc='/screenshots/studio-gt-moodboard-dark-2026.png'
+            label='Moodboard / General Translation'
+            src='/screenshots/studio-gt-moodboard-light-2026.png'
           />
         </div>
       </div>

@@ -150,10 +150,11 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
   finish: StickerFinishSettings;
   onPlacementsChange?: (placements: StickerRenderLayer[]) => void;
   onSelectionChange?: (selection: StickerSelection | null) => void;
+  opacity?: number;
   renderMode?: 'controls' | 'normal';
   surfaceLabel?: string;
   surface?: 'metal' | 'transparent';
-}>(function StickerDeviceScene({ aspectRatio = 872 / 504, assets: suppliedAssets, className = '', enabled = true, finish, onPlacementsChange, onSelectionChange, renderMode = 'normal', surface = 'metal', surfaceLabel = 'Sticker placement surface' }, ref) {
+}>(function StickerDeviceScene({ aspectRatio = 872 / 504, assets: suppliedAssets, className = '', enabled = true, finish, onPlacementsChange, onSelectionChange, opacity = 1, renderMode = 'normal', surface = 'metal', surfaceLabel = 'Sticker placement surface' }, ref) {
   const assets = useMemo(() => suppliedAssets.filter((asset, index, collection) => (
     collection.findIndex(({ id }) => id === asset.id) === index
   )), [suppliedAssets]);
@@ -362,6 +363,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
         const edge = Math.max(2, finish.edgeWidth * size / 1800);
         const keyline = Math.max(1, finish.seamWidth * size / 2400);
         context.save();
+        context.globalAlpha = Math.max(0, Math.min(1, opacity));
         context.translate(canvas.width * placement.x / 100, canvas.height * placement.y / 100);
         context.rotate(placement.rotation * Math.PI / 180);
         context.shadowColor = `rgba(0,0,0,${Math.min(0.42, finish.shadow / 180)})`;
@@ -415,6 +417,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
     '--sticker-finish-opacity': Math.max(0.08, finish.intensity / 125),
     '--sticker-shine-x': '50%',
     '--sticker-shine-y': '30%',
+    opacity: Math.max(0, Math.min(1, opacity)),
   } as CSSProperties;
 
   return (

@@ -3,15 +3,15 @@
 </p>
 
 <p align="center">
-  A local-first studio for turning one brand identity into motion, graphics, templates, and agent-ready artifacts.
+  One studio for turning a complete brand identity into motion, graphics, materials, templates, and agent-ready artifacts.
 </p>
 
 <p align="center">
-  <a href="https://studio.generaltranslation.com/studio"><strong>Open Studio</strong></a>
+  <a href="https://www.glyphfield.com/studio"><strong>Open Studio</strong></a>
   ·
-  <a href="https://studio.generaltranslation.com/docs">Documentation</a>
+  <a href="https://www.glyphfield.com/docs">Documentation</a>
   ·
-  <a href="https://studio.generaltranslation.com/docs/agents/connect">Agent connection</a>
+  <a href="https://www.glyphfield.com/docs/agents/connect">Agent connection</a>
   ·
   <a href="./LICENSE">MIT License</a>
 </p>
@@ -31,10 +31,10 @@ complete production catalog without rebuilding the context for every artifact.
 
 | Foundation | Expression | Application | Delivery |
 | --- | --- | --- | --- |
-| Logo family | Motion packages | OpenGraph + social | PNG |
-| Color tokens | Shared shader library | Slides + blog covers | SVG |
-| Typography | Dither + grain + gradients | Email + product UI | GIF |
-| Voice + positioning | Terminal themes | CLI + documentation | JSON |
+| Logo family | Animation + Lottie | OpenGraph + social | PNG |
+| Color tokens | Shader Library | Design Lab compositions | SVG |
+| Typography | Dither + grain + materials | Templates + editorial | GIF |
+| Voice + positioning | Playground surfaces | Product + documentation | JSON |
 
 The Studio ships with a Starter creation system plus complete reference
 identities for General Translation, Ramp, Mintlify, Tailwind CSS,
@@ -105,11 +105,24 @@ speed, direction, recoloring, playback, source download, and frame export.
 - Design boards switch between a 16:9 showcase collage—campaign, product,
   social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
   review, with export up to 4800 px wide.
-- Surface Lab handles static backgrounds; Shaders keeps animated GPU materials under Motion.
-  Its background and alpha-masked logo are independent layers: use either alone, copy one shader to both, or assign each a different material and settings. Logo-only outline, glass, reflection, shadow, and depth controls travel with that layer. The shared, quality-sorted Shader Library provides more than 140 searchable live previews from original Glyphfield materials, ShaderGradient, Paper, Fluid Energy, Shaders.com studies, and attributed design studies.
+- Design Lab composes multiple text layers, converted marks, imported images, and
+  live shaders in one direct-manipulation canvas. Its layer rail carries previews,
+  visibility, ordering, duplication, and per-layer controls, while the inspector
+  handles exact content, appearance, aspect ratio, and developer handoff.
+- Playground combines shaders, tactile surfaces, artwork, and finished stickers
+  on one interactive canvas. Surface movement carries the applied sticker with
+  it, while material, texture, foil, relief, border, and composition controls
+  remain independently editable.
+- The shared, quality-sorted Shader Library provides 141 searchable materials
+  from Paper, WebGL, ShaderGradient, Fluid Energy, Shaders.com studies, and
+  original Glyphfield renderers. Brand colors seed every material and the same
+  controls drive library previews, canvases, and exports.
 - Animation places real two-column motion previews and the Shader Library beneath its source sequence. Shader backgrounds remain editable per frame, while direct canvas-edge and corner handles change output dimensions without leaving the preview.
 - Studio appearance persists light or dark mode, accent, canvas density, and a
   choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
+- Typography is an editable specimen lab with live copy, type scales, font
+  families, weights, and code styles; Color tokens exposes click-to-edit HEX and
+  OKLCH values with automatic contrast-aware brand marks.
 - Templates include fourteen slide layouts plus blog, partnership, OpenGraph,
   terminal, email, and brand-element systems. Slide foreground groups use a
   direct-manipulation canvas with selection, drag, scale, keyboard nudge, and
@@ -119,7 +132,10 @@ speed, direction, recoloring, playback, source download, and frame export.
   foundation, and component configurations can all be edited directly.
 - Fumadocs powers the feature, artifact, integration, and API guides.
 - Landing, Studio, and every documentation page receive generated 1200 × 630
-  OpenGraph and Twitter artwork from one shared brand renderer.
+  OpenGraph and Twitter artwork from one shared renderer. The current system
+  uses a strict 60/40 composition, route-aware URL buttons, and a deterministic
+  Paper Dithering Swirl frame in the new Glyphfield violet, lavender, and mint
+  palette.
 
 ## Run locally
 

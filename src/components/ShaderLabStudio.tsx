@@ -30,15 +30,18 @@ import {
   Sparkles,
   Trash2,
   Type,
+  WandSparkles,
   X,
   Zap,
 } from 'lucide-react';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
+import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
+import DesignVersionControls from '@/components/DesignVersionControls';
 import EditableCanvasLayer, {
   canvasLayerDimensions,
   type CanvasLayerTransform,
@@ -53,6 +56,7 @@ import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawe
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
+import TextEffectThumbnail from '@/components/TextEffectThumbnail';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -92,7 +96,9 @@ import type { ConvertedAsset } from '@/lib/convertedAssets';
 import {
   applyCompositionEffect,
   COMPOSITION_EFFECT_PRESETS,
+  createCompositionEffectScratch,
   defaultCompositionEffectSettings,
+  type CompositionEffectScratch,
   type CompositionEffectKind,
   type CompositionEffectSettings,
 } from '@/lib/compositionEffects';
@@ -121,6 +127,15 @@ import {
   type ShaderLabCategory,
 } from '@/lib/shaderLab';
 import type { StudioTool } from '@/lib/studioCatalog';
+import {
+  applyTextEffectMask,
+  createTextEffectGradient,
+  DEFAULT_TEXT_EFFECT,
+  resolveTextEffectSettings,
+  textEffectCssStyle,
+  TEXT_EFFECT_PRESETS,
+  type TextEffectSettings,
+} from '@/lib/textEffects';
 
 type ShaderRatio = 'wide' | 'square' | 'opengraph';
 type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
@@ -153,6 +168,7 @@ type CompositionEffectLayer = {
   settings: CompositionEffectSettings;
   visible: boolean;
 };
+
 
 type CompositionLogoLayer = {
   appearance?: LogoAppearanceSettings;
@@ -193,6 +209,7 @@ type CompositionTextLayer = {
   shadowOffsetX?: number;
   shadowOffsetY?: number;
   shadowOpacity?: number;
+  textEffect?: TextEffectSettings;
   tracking: number;
   transform: CanvasLayerTransform;
   value: string;
@@ -221,6 +238,13 @@ type TextAppearanceSettings = {
   shadowOffsetX: number;
   shadowOffsetY: number;
   shadowOpacity: number;
+  textEffect: TextEffectSettings;
+};
+
+type TextEffectRenderScratch = {
+  fill: HTMLCanvasElement;
+  mask: HTMLCanvasElement;
+  shadow: HTMLCanvasElement;
 };
 
 type DesignExportSettings = {
@@ -437,6 +461,7 @@ const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
   shadowOffsetX: 0,
   shadowOffsetY: 8,
   shadowOpacity: 35,
+  textEffect: { ...DEFAULT_TEXT_EFFECT },
 };
 
 function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
@@ -485,6 +510,7 @@ function resolvedTextAppearance(layer: CompositionTextLayer): TextAppearanceSett
     shadowOffsetX: layer.shadowOffsetX ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetX,
     shadowOffsetY: layer.shadowOffsetY ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetY,
     shadowOpacity: layer.shadowOpacity ?? DEFAULT_TEXT_APPEARANCE.shadowOpacity,
+    textEffect: resolveTextEffectSettings(layer.textEffect),
   };
 }
 
@@ -500,6 +526,22 @@ function colorWithOpacity(color: string, opacity: number): string {
   const green = (value >> 8) & 255;
   const blue = value & 255;
   return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
+}
+
+function scrollLayerDockWithWheel(event: ReactWheelEvent<HTMLDivElement>) {
+  if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+  const dock = event.currentTarget;
+  const maximumScroll = Math.max(0, dock.scrollWidth - dock.clientWidth);
+  if (maximumScroll === 0) return;
+  const unit = event.deltaMode === 1
+    ? 16
+    : event.deltaMode === 2
+      ? dock.clientWidth
+      : 1;
+  const nextScroll = Math.max(0, Math.min(maximumScroll, dock.scrollLeft + event.deltaY * unit));
+  if (nextScroll === dock.scrollLeft) return;
+  event.preventDefault();
+  dock.scrollLeft = nextScroll;
 }
 
 function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
@@ -783,6 +825,9 @@ export default function ShaderLabStudio({
   };
   const stageRef = useRef<HTMLDivElement>(null);
   const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
+  const effectScratchRefs = useRef<Map<EffectLayerId, CompositionEffectScratch>>(new Map());
+  const effectPreviewBufferRef = useRef<HTMLCanvasElement | null>(null);
+  const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
   const selectMaterialRef = useRef<(materialId: LiveMaterialId) => void>(() => undefined);
@@ -1186,6 +1231,7 @@ export default function ShaderLabStudio({
   }
 
   function removeTextLayer(id: TextLayerId) {
+    textEffectScratchRefs.current.delete(id);
     setTextLayers((current) => current.filter((layer) => layer.id !== id));
     setLayerShaders((current) => {
       const next = { ...current };
@@ -1346,6 +1392,7 @@ export default function ShaderLabStudio({
         ...source,
         id: nextId,
         name: `${source.name} copy`,
+        textEffect: source.textEffect ? { ...source.textEffect } : undefined,
         transform: { ...transform, x: transform.x + 32, y: transform.y + 32 },
       }]);
       if (layerShaders[id]) {
@@ -1640,12 +1687,42 @@ export default function ShaderLabStudio({
     };
   }
 
+  function textEffectScratchFor(layerId: TextLayerId) {
+    const current = textEffectScratchRefs.current.get(layerId);
+    if (current) return current;
+    const scratch = {
+      fill: document.createElement('canvas'),
+      mask: document.createElement('canvas'),
+      shadow: document.createElement('canvas'),
+    };
+    textEffectScratchRefs.current.set(layerId, scratch);
+    return scratch;
+  }
+
+  function resetTextEffectContext(canvas: HTMLCanvasElement, width: number, height: number) {
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const scratchContext = canvas.getContext('2d');
+    if (!scratchContext) return null;
+    scratchContext.setTransform(1, 0, 0, 1, 0, 0);
+    scratchContext.clearRect(0, 0, width, height);
+    scratchContext.filter = 'none';
+    scratchContext.globalAlpha = 1;
+    scratchContext.globalCompositeOperation = 'source-over';
+    scratchContext.shadowBlur = 0;
+    scratchContext.shadowColor = 'transparent';
+    scratchContext.shadowOffsetX = 0;
+    scratchContext.shadowOffsetY = 0;
+    return scratchContext;
+  }
+
   function composeFrame(
     context: CanvasRenderingContext2D,
     width: number,
     height: number,
     images: Map<string, HTMLImageElement>,
-    frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds
+    frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds,
+    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
   ) {
     context.clearRect(0, 0, width, height);
     context.fillStyle = canvasBackground;
@@ -1668,10 +1745,16 @@ export default function ShaderLabStudio({
       if (isEffectLayerId(layerId)) {
         const effectLayer = effectLayers.find((layer) => layer.id === layerId);
         if (!effectLayer) return;
+        let scratch = effectScratchRefs.current.get(layerId);
+        if (!scratch) {
+          scratch = createCompositionEffectScratch() ?? undefined;
+          if (scratch) effectScratchRefs.current.set(layerId, scratch);
+        }
         applyCompositionEffect(context, width, height, {
           ...effectLayer.settings,
           cellSize: effectLayer.settings.cellSize * width / 960,
-        }, effectLayer.opacity);
+        }, effectLayer.opacity, scratch);
+        onEffectPainted?.(layerId, context.canvas);
         return;
       }
 
@@ -1773,9 +1856,10 @@ export default function ShaderLabStudio({
         const totalHeight = Math.max(lineHeight, lines.length * lineHeight);
         const firstBaseline = box.y + Math.max(0, (box.height - totalHeight) / 2) + lineBoxBaseline;
         const application = layerShaders[layerId];
+        let materialLayer: HTMLCanvasElement | null = null;
         let pattern: CanvasPattern | null = null;
         if (application) {
-          const materialLayer = document.createElement('canvas');
+          materialLayer = document.createElement('canvas');
           materialLayer.width = Math.max(1, Math.round(box.width));
           materialLayer.height = Math.max(1, Math.round(box.height));
           const materialContext = materialLayer.getContext('2d');
@@ -1791,40 +1875,114 @@ export default function ShaderLabStudio({
             pattern?.setTransform(new DOMMatrix().translate(box.x, box.y));
           }
         }
-        context.fillStyle = pattern ?? textAppearance.color;
         context.globalAlpha = textAppearance.opacity * (application?.opacity ?? 1);
         context.globalCompositeOperation = application?.blendMode && application.blendMode !== 'normal'
           ? application.blendMode
           : 'source-over';
-        if (textAppearance.shadowEnabled) {
-          context.shadowBlur = textAppearance.shadowBlur;
-          context.shadowColor = colorWithOpacity(textAppearance.shadowColor, textAppearance.shadowOpacity / 100);
-          context.shadowOffsetX = textAppearance.shadowOffsetX;
-          context.shadowOffsetY = textAppearance.shadowOffsetY;
-        }
         context.lineJoin = 'round';
         context.lineWidth = Math.max(0.5, textAppearance.outlineWidth * 2);
         context.strokeStyle = textAppearance.outlineColor;
-        lines.forEach((line, lineIndex) => {
-          const baseline = firstBaseline + lineIndex * lineHeight;
-          if (supportsNativeLetterSpacing) {
-            const lineWidth = measureText(line);
-            const lineX = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
-            if (textAppearance.outlineEnabled) context.strokeText(line, lineX, baseline);
-            context.fillText(line, lineX, baseline);
-            return;
-          }
-          const characters = canvasTextCharacters(line);
-          const lineWidth = trackedTextWidth(line, measureText, spacing);
-          let cursor = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
-          characters.forEach((character) => {
-            if (textAppearance.outlineEnabled) {
-              context.strokeText(character, cursor, baseline);
+        const configureTextContext = (target: CanvasRenderingContext2D) => {
+          target.textAlign = 'left';
+          target.textBaseline = 'alphabetic';
+          target.font = context.font;
+          target.fontKerning = 'normal';
+          if (supportsNativeLetterSpacing) target.letterSpacing = `${spacing}px`;
+          target.lineJoin = 'round';
+          target.lineWidth = context.lineWidth;
+          target.strokeStyle = textAppearance.outlineColor;
+        };
+        const paintTextLines = (target: CanvasRenderingContext2D, mode: 'fill' | 'stroke') => {
+          configureTextContext(target);
+          lines.forEach((line, lineIndex) => {
+            const baseline = firstBaseline + lineIndex * lineHeight;
+            if (supportsNativeLetterSpacing) {
+              const lineWidth = measureText(line);
+              const lineX = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
+              if (mode === 'stroke') target.strokeText(line, lineX, baseline);
+              else target.fillText(line, lineX, baseline);
+              return;
             }
-            context.fillText(character, cursor, baseline);
-            cursor += measureText(character) + spacing;
+            const characters = canvasTextCharacters(line);
+            const lineWidth = trackedTextWidth(line, measureText, spacing);
+            let cursor = canvasTextLineX(textLayer.align, box.x, box.width, lineWidth);
+            characters.forEach((character) => {
+              if (mode === 'stroke') target.strokeText(character, cursor, baseline);
+              else target.fillText(character, cursor, baseline);
+              cursor += measureText(character) + spacing;
+            });
           });
-        });
+        };
+
+        if (textAppearance.textEffect.kind === 'solid') {
+          context.fillStyle = pattern ?? textAppearance.color;
+          if (textAppearance.shadowEnabled) {
+            context.shadowBlur = textAppearance.shadowBlur;
+            context.shadowColor = colorWithOpacity(textAppearance.shadowColor, textAppearance.shadowOpacity / 100);
+            context.shadowOffsetX = textAppearance.shadowOffsetX;
+            context.shadowOffsetY = textAppearance.shadowOffsetY;
+          }
+          if (textAppearance.outlineEnabled) paintTextLines(context, 'stroke');
+          paintTextLines(context, 'fill');
+        } else {
+          const textEffectScratch = textEffectScratchFor(layerId);
+          if (textAppearance.shadowEnabled) {
+            const shadowLayer = textEffectScratch.shadow;
+            const shadowContext = resetTextEffectContext(shadowLayer, width, height);
+            if (shadowContext) {
+              const shadowColor = colorWithOpacity(textAppearance.shadowColor, textAppearance.shadowOpacity / 100);
+              shadowContext.fillStyle = shadowColor;
+              shadowContext.shadowBlur = textAppearance.shadowBlur;
+              shadowContext.shadowColor = shadowColor;
+              shadowContext.shadowOffsetX = textAppearance.shadowOffsetX;
+              shadowContext.shadowOffsetY = textAppearance.shadowOffsetY;
+              paintTextLines(shadowContext, 'fill');
+              shadowContext.globalCompositeOperation = 'destination-out';
+              shadowContext.shadowColor = 'transparent';
+              shadowContext.shadowBlur = 0;
+              shadowContext.shadowOffsetX = 0;
+              shadowContext.shadowOffsetY = 0;
+              paintTextLines(shadowContext, 'fill');
+              context.drawImage(shadowLayer, 0, 0);
+            }
+          }
+          if (textAppearance.outlineEnabled) paintTextLines(context, 'stroke');
+
+          const textMask = textEffectScratch.mask;
+          const textMaskContext = resetTextEffectContext(textMask, width, height);
+          const fillLayer = textEffectScratch.fill;
+          const fillContext = resetTextEffectContext(fillLayer, width, height);
+          if (textMaskContext && fillContext) {
+            if (textAppearance.textEffect.kind !== 'gradient') {
+              context.fillStyle = textAppearance.textEffect.backgroundColor;
+              paintTextLines(context, 'fill');
+            }
+            textMaskContext.fillStyle = '#FFFFFF';
+            paintTextLines(textMaskContext, 'fill');
+            applyTextEffectMask(
+              textMaskContext,
+              box,
+              textAppearance.textEffect,
+              width / canvasDimensions.width
+            );
+            if (materialLayer) {
+              fillContext.drawImage(materialLayer, box.x, box.y, box.width, box.height);
+              fillContext.globalCompositeOperation = 'color';
+              fillContext.fillStyle = textAppearance.textEffect.kind === 'gradient'
+                ? createTextEffectGradient(fillContext, box, textAppearance.textEffect, textAppearance.color)
+                : textAppearance.color;
+              fillContext.fillRect(box.x, box.y, box.width, box.height);
+            } else {
+              fillContext.fillStyle = textAppearance.textEffect.kind === 'gradient'
+                ? createTextEffectGradient(fillContext, box, textAppearance.textEffect, textAppearance.color)
+                : textAppearance.color;
+              fillContext.fillRect(box.x, box.y, box.width, box.height);
+            }
+            fillContext.globalCompositeOperation = 'destination-in';
+            fillContext.drawImage(textMask, 0, 0);
+            context.drawImage(fillLayer, 0, 0);
+          }
+        }
         context.restore();
         return;
       }
@@ -1866,6 +2024,18 @@ export default function ShaderLabStudio({
     return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadImage(source)] as const)));
   }
 
+  const composeFrameRef = useRef(composeFrame);
+  composeFrameRef.current = composeFrame;
+  const lastPreviewEffectIndex = visibleLayerIds.findLastIndex(isEffectLayerId);
+  const effectPreviewOrderSignature = lastPreviewEffectIndex < 0
+    ? ''
+    : visibleLayerIds.slice(0, lastPreviewEffectIndex + 1).join('|');
+  const compositionImageSignature = [
+    ...logoLayers.map(({ id, url }) => `${id}:${url}`),
+    ...compositionAssets.map(({ id, url }) => `${id}:${url}`),
+  ].join('|');
+  const pausedEffectPreviewSignature = paused ? compositionSignature : '';
+
   useEffect(() => {
     const activeEffectIds = visibleLayerIds.filter(isEffectLayerId);
     if (activeEffectIds.length === 0) return;
@@ -1875,6 +2045,10 @@ export default function ShaderLabStudio({
     let inViewport = true;
     let lastRenderedAt = -Infinity;
     let rendering = false;
+    let previewWidth = Math.min(640, canvasDimensions.width);
+    let targetFrameRate = 60;
+    let renderDurationTotal = 0;
+    let renderSamples = 0;
     const observer = typeof IntersectionObserver === 'undefined' || !stageRef.current
       ? null
       : new IntersectionObserver(([entry]) => {
@@ -1882,26 +2056,54 @@ export default function ShaderLabStudio({
         }, { rootMargin: '120px' });
     if (observer && stageRef.current) observer.observe(stageRef.current);
 
-    const previewWidth = Math.min(720, canvasDimensions.width);
-    const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
-
     void loadCompositionImages().then((images) => {
       if (cancelled) return;
       const tick = (now: number) => {
         if (cancelled) return;
-        const shouldRender = inViewport && !document.hidden && !rendering && (paused || now - lastRenderedAt >= 1000 / 12);
+        const shouldRender = inViewport && !document.hidden && !rendering && (paused || now - lastRenderedAt >= 1000 / targetFrameRate);
         if (shouldRender) {
           rendering = true;
-          activeEffectIds.forEach((effectId) => {
-            const canvas = effectCanvasRefs.current.get(effectId);
-            if (!canvas) return;
-            if (canvas.width !== previewWidth) canvas.width = previewWidth;
-            if (canvas.height !== previewHeight) canvas.height = previewHeight;
-            const context = canvas.getContext('2d', { willReadFrequently: true });
-            if (!context) return;
-            const effectIndex = visibleLayerIds.indexOf(effectId);
-            composeFrame(context, previewWidth, previewHeight, images, visibleLayerIds.slice(0, effectIndex + 1));
-          });
+          const renderStartedAt = performance.now();
+          const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
+          const buffer = effectPreviewBufferRef.current ?? document.createElement('canvas');
+          effectPreviewBufferRef.current = buffer;
+          if (buffer.width !== previewWidth) buffer.width = previewWidth;
+          if (buffer.height !== previewHeight) buffer.height = previewHeight;
+          const context = buffer.getContext('2d', { willReadFrequently: true });
+          const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
+          if (context) {
+            composeFrameRef.current(
+              context,
+              previewWidth,
+              previewHeight,
+              images,
+              visibleLayerIds.slice(0, lastEffectIndex + 1),
+              (effectId, source) => {
+                const canvas = effectCanvasRefs.current.get(effectId);
+                if (!canvas) return;
+                if (canvas.width !== previewWidth) canvas.width = previewWidth;
+                if (canvas.height !== previewHeight) canvas.height = previewHeight;
+                const visibleContext = canvas.getContext('2d');
+                if (!visibleContext) return;
+                visibleContext.clearRect(0, 0, previewWidth, previewHeight);
+                visibleContext.drawImage(source, 0, 0);
+              }
+            );
+          }
+          renderDurationTotal += performance.now() - renderStartedAt;
+          renderSamples += 1;
+          if (renderSamples >= 8) {
+            const averageDuration = renderDurationTotal / renderSamples;
+            if (averageDuration > 14) {
+              if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
+              else targetFrameRate = 30;
+            } else if (averageDuration < 9) {
+              targetFrameRate = 60;
+              previewWidth = Math.min(640, canvasDimensions.width, Math.round(previewWidth * 1.12));
+            }
+            renderDurationTotal = 0;
+            renderSamples = 0;
+          }
           lastRenderedAt = now;
           rendering = false;
         }
@@ -1917,7 +2119,7 @@ export default function ShaderLabStudio({
       observer?.disconnect();
       cancelAnimationFrame(animationFrame);
     };
-  }, [compositionSignature, paused, ratio]);
+  }, [compositionImageSignature, effectPreviewOrderSignature, paused, pausedEffectPreviewSignature, ratio]);
 
   function createExportCanvas() {
     const output = document.createElement('canvas');
@@ -1934,6 +2136,7 @@ export default function ShaderLabStudio({
         if (!layer) return;
         const appearance = resolvedTextAppearance(layer);
         colors.push(appearance.color);
+        if (appearance.textEffect.kind !== 'solid') colors.push(appearance.textEffect.backgroundColor);
         if (appearance.outlineEnabled) colors.push(appearance.outlineColor);
         if (appearance.shadowEnabled) colors.push(appearance.shadowColor);
         return;
@@ -2130,6 +2333,15 @@ export default function ShaderLabStudio({
         metadata='Type · marks · images · live materials'
         navigation={navigation}
         navigationLabel='Design Lab view'
+        status={(
+          <DesignVersionControls
+            identityId={identity.id}
+            onOpen={applyCompositionSource}
+            source={compositionSetupSource()}
+            toolId={tool.id}
+            workspaceLabel='Design Lab'
+          />
+        )}
         title={tool.name}
         toolId={tool.id}
       />
@@ -2382,8 +2594,12 @@ export default function ShaderLabStudio({
                               ? `${textAppearance.outlineWidth}px ${textAppearance.outlineColor}`
                               : undefined,
                             whiteSpace: textLayer.wrap === 'wrap' ? 'pre-wrap' : 'pre',
+                            ...textEffectCssStyle(
+                              textAppearance.textEffect,
+                              textAppearance.color,
+                              application ? `url("${shaderPreviewAssetPath(application.materialId)}")` : undefined
+                            ),
                             ...(application ? {
-                              backgroundImage: `url("${shaderPreviewAssetPath(application.materialId)}")`,
                               mixBlendMode: shaderBlendStyle(application.blendMode),
                             } : {}),
                           }}
@@ -2497,7 +2713,12 @@ export default function ShaderLabStudio({
               </div>
             </div>
 
-            <div className='shader-lab-v2-dock-stack studio-scroll-area' aria-label='Canvas layer stack'>
+            <div
+              aria-label='Canvas layer stack'
+              className='shader-lab-v2-dock-stack studio-scroll-area'
+              onWheel={scrollLayerDockWithWheel}
+              tabIndex={0}
+            >
               {[...listedLayerIds].reverse().map((layerId, index) => {
                 const layerIsVisible = layerVisible(layerId);
                 const orderIndex = layerOrder.indexOf(layerId);
@@ -2577,7 +2798,7 @@ export default function ShaderLabStudio({
                       ) : (
                         <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
                           {effectLayer ? (
-                            <span aria-hidden='true' className='shader-lab-v2-effect-swatch' data-effect-kind={effectLayer.settings.kind} />
+                            <CompositionEffectThumbnail kind={effectLayer.settings.kind} />
                           ) : previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}
                         </button>
                       )}
@@ -2672,7 +2893,7 @@ export default function ShaderLabStudio({
                     onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
                     type='button'
                   >
-                    <span aria-hidden='true' className='shader-lab-v2-effect-swatch' data-effect-kind={preset.kind} />
+                    <CompositionEffectThumbnail kind={preset.kind} />
                     <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
                   </button>
                 ))}
@@ -3023,6 +3244,85 @@ export default function ShaderLabStudio({
                     step={0.01}
                     value={selectedTextLayer.tracking}
                   />
+                  <div className='shader-lab-v2-text-effects-panel'>
+                    <div className='shader-lab-v2-text-effects-heading'>
+                      <span><WandSparkles aria-hidden='true' />Text effects</span>
+                      <small>Glyph fill</small>
+                    </div>
+                    <div aria-label='Text effect presets' className='shader-lab-v2-text-effect-presets'>
+                      {TEXT_EFFECT_PRESETS.map((preset) => (
+                        <button
+                          aria-pressed={selectedTextAppearance.textEffect.kind === preset.settings.kind}
+                          key={preset.settings.kind}
+                          onClick={() => updateTextLayer(selectedTextLayer.id, { textEffect: { ...preset.settings } })}
+                          title={preset.description}
+                          type='button'
+                        >
+                          <TextEffectThumbnail settings={preset.settings} />
+                          <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedTextAppearance.textEffect.kind !== 'solid' ? (
+                      <div className='shader-lab-v2-text-effect-tuning'>
+                        <div className='shader-lab-v2-effect-colors'>
+                          <ColorControl
+                            ariaLabel='Text effect foreground color'
+                            label='Foreground'
+                            onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
+                            value={selectedTextAppearance.color}
+                          />
+                          <ColorControl
+                            ariaLabel='Text effect background color'
+                            label='Background'
+                            onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
+                              textEffect: { ...selectedTextAppearance.textEffect, backgroundColor },
+                            })}
+                            value={selectedTextAppearance.textEffect.backgroundColor}
+                          />
+                        </div>
+                        {selectedTextAppearance.textEffect.kind !== 'gradient' ? (
+                          <RangeControl
+                            formatValue={(value) => `${Math.round(value)}%`}
+                            label='Effect strength'
+                            max={100}
+                            min={0}
+                            onChange={(amount) => updateTextLayer(selectedTextLayer.id, {
+                              textEffect: { ...selectedTextAppearance.textEffect, amount },
+                            })}
+                            step={1}
+                            value={selectedTextAppearance.textEffect.amount}
+                          />
+                        ) : null}
+                        {selectedTextAppearance.textEffect.kind !== 'gradient' ? (
+                          <RangeControl
+                            formatValue={(value) => `${Math.round(value)}px`}
+                            label='Pattern scale'
+                            max={36}
+                            min={4}
+                            onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
+                              textEffect: { ...selectedTextAppearance.textEffect, scale },
+                            })}
+                            step={1}
+                            value={selectedTextAppearance.textEffect.scale}
+                          />
+                        ) : null}
+                        {selectedTextAppearance.textEffect.kind !== 'halftone' ? (
+                          <RangeControl
+                            formatValue={(value) => `${Math.round(value)}°`}
+                            label='Effect angle'
+                            max={180}
+                            min={-180}
+                            onChange={(angle) => updateTextLayer(selectedTextLayer.id, {
+                              textEffect: { ...selectedTextAppearance.textEffect, angle },
+                            })}
+                            step={1}
+                            value={selectedTextAppearance.textEffect.angle}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className='shader-lab-v2-effect-group'>
                     <label>
                       <span>Text outline</span>

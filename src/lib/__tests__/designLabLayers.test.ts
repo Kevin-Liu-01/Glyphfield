@@ -33,8 +33,7 @@ describe('Playground optional layers', () => {
     expect(playground).toContain('backgroundEnabled?: boolean;');
     expect(playground).toContain('surfaceEnabled?: boolean;');
     expect(playground).toContain('stickersEnabled?: boolean;');
-    expect(playground).toContain('backgroundEnabled, liveMaterialId');
-    expect(playground).toContain('stickerFinish, stickerTexts, stickersEnabled, surfaceEnabled');
+    expect(playground).toMatch(/function playgroundSource\(\) \{[\s\S]*?backgroundEnabled,[\s\S]*?backgroundOpacity,[\s\S]*?brandAssetId,[\s\S]*?effectLayers,[\s\S]*?liveMaterialId,[\s\S]*?stickerTexts,[\s\S]*?stickersEnabled,[\s\S]*?surfaceEnabled,[\s\S]*?surfaceOpacity/);
   });
 
   it('supports multiple independently editable text stickers in the shared sticker scene and export path', () => {
@@ -45,7 +44,7 @@ describe('Playground optional layers', () => {
     expect(playground).toContain("className='design-lab-sticker-text-add'");
     expect(playground).toContain("ariaLabel='Sticker text font role'");
     expect(playground).toContain("label='Tracking'");
-    expect(playground).toContain('stickerTexts, stickersEnabled');
+    expect(playground).toContain('stickerTexts?: PlaygroundStickerText[];');
     expect(stickerScene).toContain('assets: readonly StickerSceneAsset[];');
     expect(stickerScene).toContain('duplicateSelected: (assetId?: string) => void;');
   });
@@ -150,6 +149,15 @@ describe('Playground optional layers', () => {
     expect(animationStudio).not.toContain('items-center border-r border-border');
   });
 
+  it('shares browser-persisted save, fork, and clone controls across both creative tools', () => {
+    expect(designLab).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
+    expect(designLab).toContain("workspaceLabel='Design Lab'");
+    expect(designLab).toContain('onOpen={applyCompositionSource}');
+    expect(playground).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
+    expect(playground).toContain("workspaceLabel='Playground'");
+    expect(playground).toContain('onOpen={applySource}');
+  });
+
   it('keeps content controls contextual in Design Lab', () => {
     expect(designLab).toContain("label='Text box width'");
     expect(designLab).toContain("ariaLabel='Text font role'");
@@ -165,6 +173,20 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('<ColorControl');
     expect(designLab).toContain("ariaLabel='Text color'");
     expect(designLab).toContain("onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}");
+  });
+
+  it('treats dither, halftone, scan lines, and gradient as export-safe text effects', () => {
+    expect(designLab).toContain("import TextEffectThumbnail from '@/components/TextEffectThumbnail'");
+    expect(designLab).toContain("className='shader-lab-v2-text-effect-presets'");
+    expect(designLab).toContain('TEXT_EFFECT_PRESETS.map((preset) => (');
+    expect(designLab).toContain('applyTextEffectMask(');
+    expect(designLab).toContain('createTextEffectGradient(');
+    expect(designLab).toContain('textEffectCssStyle(');
+    expect(designLab).toContain("ariaLabel='Text effect foreground color'");
+    expect(designLab).toContain("ariaLabel='Text effect background color'");
+    expect(designLab).toContain('textAppearance.textEffect.backgroundColor');
+    expect(studioStyles).toContain('.text-effect-thumbnail {');
+    expect(studioStyles).toMatch(/\.text-effect-thumbnail > span \{[\s\S]*?height: 100%;[\s\S]*?padding: 1px 0 3px;[\s\S]*?line-height: 1\.2;/);
   });
 
   it('uses one persisted canvas background across preview, handoff, and export', () => {
@@ -183,6 +205,27 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("data-effect-kind={effectLayer.settings.kind}");
     expect(designLab.match(/label='Layer opacity'/g)).toHaveLength(5);
     expect(designLab).toContain('effectLayers,');
+    expect(playground).toContain("'playground-effect-layers-v1'");
+    expect(playground).toContain('function addEffectLayer(');
+    expect(playground).toContain("hidden={dock !== 'effect'}");
+    expect(playground).toContain("className='design-lab-composition-effect'");
+    expect(playground).toContain('effectLayers.filter(({ visible }) => visible).forEach((layer) => {');
+  });
+
+  it('renders the production converter thumbnail inside each effect layer card', () => {
+    expect(designLab).toContain('<CompositionEffectThumbnail kind={effectLayer.settings.kind} />');
+    expect(designLab).not.toContain("className='shader-lab-v2-effect-swatch'");
+    expect(studioStyles).toContain(".shader-lab-v2-dock-layer[data-kind='converter'] .composition-effect-thumbnail {");
+  });
+
+  it('keeps live converter motion buffered and adaptive instead of throttling it to 12 FPS', () => {
+    expect(designLab).toContain('const buffer = effectPreviewBufferRef.current');
+    expect(designLab).toContain('let targetFrameRate = 60;');
+    expect(designLab).toContain('targetFrameRate = 30;');
+    expect(designLab).not.toContain('1000 / 12');
+    expect(playground).toContain('const buffer = effectBufferRef.current');
+    expect(playground).toContain('let targetFrameRate = 60;');
+    expect(playground).toContain('frameRate={60}');
   });
 
   it('renders previews and exports from the same logical text geometry', () => {
@@ -216,6 +259,15 @@ describe('Playground optional layers', () => {
     expect(studioStyles).not.toContain('.shader-lab-v2-stage-toolbar');
     expect(designLab).toContain("className='shader-lab-v2-dock-add'");
     expect(designLab).toContain("className='shader-lab-v2-composition-ratios'");
+  });
+
+  it('maps ordinary vertical wheel gestures onto the horizontal layer dock', () => {
+    expect(designLab).toContain('function scrollLayerDockWithWheel(');
+    expect(designLab).toContain('Math.abs(event.deltaY) <= Math.abs(event.deltaX)');
+    expect(designLab).toContain('dock.scrollLeft = nextScroll;');
+    expect(designLab).toContain('onWheel={scrollLayerDockWithWheel}');
+    expect(designLab).toContain('tabIndex={0}');
+    expect(studioStyles).toContain('.shader-lab-v2-dock-stack:focus-visible {');
   });
 
   it('can restore and duplicate the built-in brand mark', () => {

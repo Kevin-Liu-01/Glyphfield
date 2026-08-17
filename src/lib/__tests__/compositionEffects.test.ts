@@ -61,4 +61,16 @@ describe('composition effects', () => {
     expect([...source.data]).toEqual(before);
     expect(normal.data[0]).toBeGreaterThan(inverted.data[0]!);
   });
+
+  it('reuses a correctly sized output buffer for smooth live rendering', () => {
+    const source = solidBuffer(16, 12, 180);
+    const reusable = new Uint8ClampedArray(source.data.length);
+    const result = renderCompositionEffect(
+      source,
+      defaultCompositionEffectSettings('bayer'),
+      reusable
+    );
+    expect(result.data).toBe(reusable);
+    expect(result.data.some((channel) => channel !== 0)).toBe(true);
+  });
 });

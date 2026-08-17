@@ -280,12 +280,18 @@ function originalLibraryAssets(
         '/brands/gt/library/signal.svg',
       ]
     : [
-        ...['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion'].map(
-          (name) => `${basePath}/library/${name}.png`
-        ),
-        ...['hero', 'workflow', 'system', 'material', 'signal'].map(
-          (name) => `${basePath}/library/${name}.svg`
-        ),
+        `${basePath}/library/overview.png`,
+        `${basePath}/library/editorial.png`,
+        `${basePath}/library/detail.png`,
+        `${basePath}/library/atmosphere.png`,
+        `${basePath}/library/campaign.png`,
+        `${basePath}/library/interface.png`,
+        `${basePath}/library/motion.png`,
+        `${basePath}/library/hero.svg`,
+        `${basePath}/library/workflow.svg`,
+        `${basePath}/library/system.svg`,
+        `${basePath}/library/material.svg`,
+        `${basePath}/library/signal.svg`,
       ];
   const labels = brandId === 'gt'
     ? ['Monochrome identity field', 'Parallel scripts', 'Matte edge detail', 'Black field', 'Soft light study', 'Locale register', 'Language motion study', 'Gradient light field', 'Source alignment', 'Matte surface study', 'Grayscale range', 'Dithered light field']
@@ -293,7 +299,7 @@ function originalLibraryAssets(
   const types: BrandAsset['type'][] = ['image', 'image', 'texture', 'background', 'image', 'product', 'motion', 'image', 'image', 'image', 'texture', 'background'];
   const slots = ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion', 'hero', 'workflow', 'system', 'material', 'signal'];
 
-  return paths.map((path, index) => {
+  const assets: BrandAsset[] = paths.map((path, index) => {
     const isOriginalGtAsset = brandId === 'gt';
     const isNativeGtAsset = brandId === 'gt' && !isOriginalGtAsset;
 
@@ -328,6 +334,38 @@ function originalLibraryAssets(
         : 'Original evidence for Starter previews, moodboards, and identity applications.',
     };
   });
+
+  return assets;
+}
+
+function gtStudioCaptureAssets(): BrandAsset[] {
+  const captures = [
+    ['identity', 'Brand identity'],
+    ['moodboard', 'Moodboard'],
+    ['brand-book', 'Brand book'],
+    ['brand-elements', 'Brand elements'],
+    ['animation', 'Animation Studio'],
+    ['design-lab', 'Design Lab'],
+    ['playground', 'Playground'],
+    ['components', 'Component library'],
+    ['opengraph', 'OpenGraph'],
+  ] as const;
+
+  return captures.flatMap(([id, label]) => (['light', 'dark'] as const).map((surface) => ({
+    alt: `General Translation ${label} in Glyphfield Studio ${surface} mode`,
+    attribution: 'Current first-party Glyphfield Studio capture.',
+    id: `studio-${id}-${surface}`,
+    label: `${label} · ${surface === 'light' ? 'Light' : 'Dark'}`,
+    license: 'Glyphfield original',
+    path: `/screenshots/studio-gt-${id}-${surface}-2026.png`,
+    redistribution: 'original' as const,
+    sourceOwner: 'Glyphfield',
+    sourceUrl: 'https://glyphfield.app/studio',
+    surface,
+    tags: ['image', 'studio-capture', 'current-ui', 'people-free'],
+    type: 'image' as const,
+    usage: 'Current product evidence for General Translation previews, application showcases, documentation, and marketing.',
+  })));
 }
 
 function researchLibraryAssets(
@@ -750,6 +788,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
       sourceOwner: 'Glyphfield',
       tags: ['image', 'brand-diagram', 'original-system', 'people-free'],
     },
+    ...gtStudioCaptureAssets(),
     ...researchLibraryAssets('gt', 'General Translation', 'https://generaltranslation.com'),
   ],
   audiences: ['Product engineers', 'Localization teams', 'Developer-first companies', 'AI-native product teams'],
@@ -920,7 +959,7 @@ export const STARTER_BRAND_IDENTITY: BrandIdentity = {
     asset('wordmark', 'Starter wordmark', '/templates/logos/starter-wordmark.svg', 'light'),
     asset('wordmark-light', 'Starter white wordmark', '/templates/logos/starter-wordmark-white.svg', 'dark'),
     asset('identity-field', 'Starter signal field', '/templates/assets/starter-field.svg', 'any', 'background'),
-    asset('reference-homepage', 'Starter system reference', '/screenshots/studio-moodboard-light-2026.png', 'any', 'reference', 'Original Glyphfield moodboard reference for the Starter focus-window system.'),
+    asset('reference-homepage', 'Starter system reference', '/templates/library/overview.png', 'any', 'reference', 'Original Glyphfield Starter reference for the focus-window system.'),
     ...researchLibraryAssets('starter', 'Glyphfield Starter', 'https://glyphfield.app', '/templates', 'original'),
   ],
   audiences: ['Small product teams', 'Independent makers', 'Design-led founders', 'Internal innovation groups'],

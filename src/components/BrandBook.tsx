@@ -95,6 +95,22 @@ const ABSTRACT_ASSET_ORDER = [
 ] as const;
 
 const APPLICATION_ASSET_ORDER = [
+  'studio-identity-light',
+  'studio-identity-dark',
+  'studio-moodboard-light',
+  'studio-moodboard-dark',
+  'studio-brand-elements-light',
+  'studio-brand-elements-dark',
+  'studio-animation-light',
+  'studio-animation-dark',
+  'studio-design-lab-light',
+  'studio-design-lab-dark',
+  'studio-playground-light',
+  'studio-playground-dark',
+  'studio-components-light',
+  'studio-components-dark',
+  'studio-opengraph-light',
+  'studio-opengraph-dark',
   'library-advance',
   'library-constellation',
   'library-overview',

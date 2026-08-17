@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   FileImage,
+  Grid3X3,
   ImageDown,
   ImagePlus,
   Layers3,
@@ -31,6 +32,8 @@ import {
 } from 'lucide-react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
+import DesignVersionControls from '@/components/DesignVersionControls';
 import EditableCanvasLayer, { type CanvasLayerTransform } from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
@@ -58,6 +61,15 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
+import {
+  applyCompositionEffect,
+  COMPOSITION_EFFECT_PRESETS,
+  createCompositionEffectScratch,
+  defaultCompositionEffectSettings,
+  type CompositionEffectKind,
+  type CompositionEffectScratch,
+  type CompositionEffectSettings,
+} from '@/lib/compositionEffects';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   brandMaterialPalette,
@@ -95,7 +107,15 @@ const OUTPUT_SIZES = [
 ] as const;
 
 type ArtworkKind = 'logo' | 'asset';
-type DesignDock = 'shader' | 'surface' | 'text' | 'sticker';
+type DesignDock = 'shader' | 'surface' | 'text' | 'sticker' | 'effect';
+
+type PlaygroundEffectLayer = {
+  id: `effect-${string}`;
+  name: string;
+  opacity: number;
+  settings: CompositionEffectSettings;
+  visible: boolean;
+};
 
 type PlaygroundTextLayer = {
   align: 'center' | 'left' | 'right';
@@ -349,6 +369,11 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const palette = useMemo(() => brandMaterialPalette(identity), [identity]);
   const shaderStageRef = useRef<HTMLDivElement>(null);
   const surfaceStageRef = useRef<HTMLDivElement>(null);
+  const effectCanvasRef = useRef<HTMLCanvasElement>(null);
+  const effectBufferRef = useRef<HTMLCanvasElement | null>(null);
+  const effectScratchRefs = useRef<Map<PlaygroundEffectLayer['id'], CompositionEffectScratch>>(new Map());
+  const renderEffectFrameRef = useRef<(context: CanvasRenderingContext2D, width: number, height: number) => void>(() => undefined);
+  const stickerPreviewRef = useRef<HTMLImageElement | null>(null);
   const stickerStageRef = useRef<StickerStudioStageHandle>(null);
   const pendingStickerActionRef = useRef<PendingStickerAction | null>(null);
   const customArtworkRef = useRef<{ name: string; url: string } | null>(null);
@@ -364,9 +389,14 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const [shaderQuery, setShaderQuery] = useState('');
   const [textLayers, setTextLayers] = useStudioDraft<PlaygroundTextLayer[]>(identity.id, tool.id, 'playground-text-layers-v1', []);
   const [selectedTextId, setSelectedTextId] = useState<PlaygroundTextLayer['id'] | null>(null);
+  const [effectLayers, setEffectLayers] = useStudioDraft<PlaygroundEffectLayer[]>(identity.id, tool.id, 'playground-effect-layers-v1', []);
+  const [selectedEffectId, setSelectedEffectId] = useState<PlaygroundEffectLayer['id'] | null>(null);
   const [backgroundEnabled, setBackgroundEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-background-enabled-v1', true);
   const [surfaceEnabled, setSurfaceEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-surface-enabled-v1', true);
   const [stickersEnabled, setStickersEnabled] = useStudioDraft(identity.id, tool.id, 'design-lab-stickers-enabled-v1', true);
+  const [backgroundOpacity, setBackgroundOpacity] = useStudioDraft(identity.id, tool.id, 'design-lab-background-opacity-v1', 1);
+  const [surfaceOpacity, setSurfaceOpacity] = useStudioDraft(identity.id, tool.id, 'design-lab-surface-opacity-v1', 1);
+  const [stickerOpacity, setStickerOpacity] = useStudioDraft(identity.id, tool.id, 'design-lab-sticker-opacity-v1', 1);
   const [surfacePresetId, setSurfacePresetId] = useStudioDraft(identity.id, tool.id, 'design-lab-surface-preset-v1', SURFACE_LAB_CLOTH_PRESETS[0].id);
   const [artworkKind, setArtworkKind] = useStudioDraft<ArtworkKind>(identity.id, tool.id, 'design-lab-artwork-kind-v2', 'logo');
   const [stickerTexts, setStickerTexts] = useStudioDraft<PlaygroundStickerText[]>(identity.id, tool.id, 'playground-sticker-texts-v1', []);
@@ -422,6 +452,9 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const surfaceLayerOpacity = Math.min(0.54, 0.12 + settings.surfaceTextureAmount / 100 * 0.44);
   const selectedTextLayer = selectedTextId
     ? textLayers.find(({ id }) => id === selectedTextId) ?? null
+    : null;
+  const selectedEffectLayer = selectedEffectId
+    ? effectLayers.find(({ id }) => id === selectedEffectId) ?? null
     : null;
   const availableAssets = useMemo(() => [...identity.assets, ...identity.proofAssets].filter((asset) => (
     !asset.path.toLocaleLowerCase().endsWith('.pdf')
@@ -485,6 +518,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       Icon: Sticker,
       label: 'Stickers',
       value: 'sticker' as const,
+    },
+    {
+      detail: effectLayers.length === 0 ? 'None' : `${effectLayers.filter(({ visible }) => visible).length} live`,
+      enabled: effectLayers.some(({ visible }) => visible),
+      Icon: Grid3X3,
+      label: 'Effects',
+      value: 'effect' as const,
     },
   ];
 
@@ -644,6 +684,46 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     });
   }
 
+  function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
+    const id = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as PlaygroundEffectLayer['id'];
+    const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
+    const number = effectLayers.filter((layer) => layer.settings.kind === kind).length + 1;
+    setEffectLayers((current) => [...current, {
+      id,
+      name: `${preset.label} ${number}`,
+      opacity: 1,
+      settings: defaultCompositionEffectSettings(kind),
+      visible: true,
+    }]);
+    setSelectedEffectId(id);
+    setDock('effect');
+  }
+
+  function updateEffectLayer(id: PlaygroundEffectLayer['id'], patch: Partial<Omit<PlaygroundEffectLayer, 'id'>>) {
+    setEffectLayers((current) => current.map((layer) => layer.id === id ? { ...layer, ...patch } : layer));
+  }
+
+  function selectEffectPreset(layer: PlaygroundEffectLayer, kind: CompositionEffectKind) {
+    const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
+    updateEffectLayer(layer.id, { name: preset.label, settings: defaultCompositionEffectSettings(kind) });
+  }
+
+  function removeEffectLayer(id: PlaygroundEffectLayer['id']) {
+    setEffectLayers((current) => current.filter((layer) => layer.id !== id));
+    setSelectedEffectId((current) => current === id ? null : current);
+  }
+
+  function moveEffectLayer(id: PlaygroundEffectLayer['id'], direction: -1 | 1) {
+    setEffectLayers((current) => {
+      const index = current.findIndex((layer) => layer.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex]!, next[index]!];
+      return next;
+    });
+  }
+
   function drawTextLayers(context: CanvasRenderingContext2D, width: number, height: number) {
     const scaleX = width / settings.width;
     const scaleY = height / settings.height;
@@ -694,6 +774,136 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     });
   }
 
+  const hasVisibleEffects = effectLayers.some(({ visible }) => visible);
+  const stickerPreviewSignature = JSON.stringify({
+    finish: stickerFinish,
+    opacity: stickerOpacity,
+    placements: stickerRenderLayers,
+    surfaceIsCloth,
+  });
+
+  renderEffectFrameRef.current = (context, width, height) => {
+    context.clearRect(0, 0, width, height);
+    const shaderCanvas = backgroundEnabled ? shaderStageRef.current?.querySelector('canvas') : null;
+    if (shaderCanvas?.width && shaderCanvas.height) {
+      context.save();
+      context.globalAlpha = backgroundOpacity;
+      drawCover(context, shaderCanvas, shaderCanvas.width, shaderCanvas.height, width, height);
+      context.restore();
+    }
+    const surfaceCanvas = surfaceEnabled ? surfaceStageRef.current?.querySelector('canvas') : null;
+    if (surfaceCanvas?.width && surfaceCanvas.height) {
+      context.drawImage(surfaceCanvas, 0, 0, width, height);
+    }
+    if (stickersEnabled && !surfaceIsCloth && stickerPreviewRef.current) {
+      context.drawImage(stickerPreviewRef.current, 0, 0, width, height);
+    }
+    drawTextLayers(context, width, height);
+    effectLayers.filter(({ visible }) => visible).forEach((layer) => {
+      let scratch = effectScratchRefs.current.get(layer.id);
+      if (!scratch) {
+        scratch = createCompositionEffectScratch() ?? undefined;
+        if (scratch) effectScratchRefs.current.set(layer.id, scratch);
+      }
+      applyCompositionEffect(context, width, height, {
+        ...layer.settings,
+        cellSize: layer.settings.cellSize * width / 960,
+      }, layer.opacity, scratch);
+    });
+  };
+
+  useEffect(() => {
+    if (!stickersEnabled || !hasVisibleEffects || surfaceIsCloth) {
+      stickerPreviewRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      void stickerStageRef.current?.exportPng(640).then(async (blob) => {
+        if (!blob || cancelled) return;
+        const url = URL.createObjectURL(blob);
+        try {
+          const image = await loadImage(url);
+          if (!cancelled) stickerPreviewRef.current = image;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      });
+    }, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [hasVisibleEffects, stickerPreviewSignature, stickersEnabled]);
+
+  useEffect(() => {
+    const visibleCanvas = effectCanvasRef.current;
+    if (!visibleCanvas) return;
+    if (!hasVisibleEffects) {
+      const context = visibleCanvas.getContext('2d');
+      if (context) context.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
+      return;
+    }
+
+    let animationFrame = 0;
+    let cancelled = false;
+    let inViewport = true;
+    let lastRenderedAt = -Infinity;
+    let previewWidth = Math.min(640, settings.width);
+    let targetFrameRate = 60;
+    let renderDurationTotal = 0;
+    let renderSamples = 0;
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(([entry]) => { inViewport = entry?.isIntersecting ?? true; }, { rootMargin: '120px' });
+    observer?.observe(visibleCanvas);
+
+    const tick = (now: number) => {
+      if (cancelled) return;
+      if (inViewport && !document.hidden && now - lastRenderedAt >= 1000 / targetFrameRate) {
+        const startedAt = performance.now();
+        const previewHeight = Math.max(1, Math.round(previewWidth / aspectRatio));
+        const buffer = effectBufferRef.current ?? document.createElement('canvas');
+        effectBufferRef.current = buffer;
+        if (buffer.width !== previewWidth) buffer.width = previewWidth;
+        if (buffer.height !== previewHeight) buffer.height = previewHeight;
+        const context = buffer.getContext('2d', { willReadFrequently: true });
+        if (context) {
+          renderEffectFrameRef.current(context, previewWidth, previewHeight);
+          if (visibleCanvas.width !== previewWidth) visibleCanvas.width = previewWidth;
+          if (visibleCanvas.height !== previewHeight) visibleCanvas.height = previewHeight;
+          const output = visibleCanvas.getContext('2d');
+          if (output) {
+            output.clearRect(0, 0, previewWidth, previewHeight);
+            output.drawImage(buffer, 0, 0);
+          }
+        }
+        renderDurationTotal += performance.now() - startedAt;
+        renderSamples += 1;
+        if (renderSamples >= 8) {
+          const averageDuration = renderDurationTotal / renderSamples;
+          if (averageDuration > 14) {
+            if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
+            else targetFrameRate = 30;
+          } else if (averageDuration < 9) {
+            targetFrameRate = 60;
+            previewWidth = Math.min(640, settings.width, Math.round(previewWidth * 1.12));
+          }
+          renderDurationTotal = 0;
+          renderSamples = 0;
+        }
+        lastRenderedAt = now;
+      }
+      animationFrame = requestAnimationFrame(tick);
+    };
+    animationFrame = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [aspectRatio, hasVisibleEffects, settings.width]);
+
   function applyShaderPreset(preset: SurfaceLabPreset) {
     if (!preset.liveMaterialId) return;
     setBackgroundEnabled(true);
@@ -735,6 +945,15 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       else addTextLayer();
       return;
     }
+    if (dock === 'effect') {
+      if (selectedEffectLayer) {
+        updateEffectLayer(selectedEffectLayer.id, {
+          opacity: 1,
+          settings: defaultCompositionEffectSettings(selectedEffectLayer.settings.kind),
+        });
+      } else addEffectLayer();
+      return;
+    }
     stickerStageRef.current?.reset();
   }
 
@@ -760,6 +979,8 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       const context = composition.getContext('2d');
       if (!context) throw new Error('Canvas export is unavailable.');
       if (backgroundEnabled) {
+        context.save();
+        context.globalAlpha = backgroundOpacity;
         const liveShader = shaderStageRef.current?.querySelector('canvas');
         if (liveShader?.width && liveShader.height) {
           drawCover(context, liveShader, liveShader.width, liveShader.height, width, height);
@@ -776,6 +997,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             context.fillRect(0, 0, width, height);
           }
         }
+        context.restore();
       }
       const liveSurface = surfaceEnabled ? surfaceStageRef.current?.querySelector('canvas') : null;
       if (liveSurface?.width && liveSurface.height) {
@@ -795,6 +1017,17 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
         }
       }
       drawTextLayers(context, width, height);
+      effectLayers.filter(({ visible }) => visible).forEach((layer) => {
+        let scratch = effectScratchRefs.current.get(layer.id);
+        if (!scratch) {
+          scratch = createCompositionEffectScratch() ?? undefined;
+          if (scratch) effectScratchRefs.current.set(layer.id, scratch);
+        }
+        applyCompositionEffect(context, width, height, {
+          ...layer.settings,
+          cellSize: layer.settings.cellSize * width / 960,
+        }, layer.opacity, scratch);
+      });
       const blob = await canvasToBlob(composition);
       const fileName = `${identity.id}-design-lab-${settings.width}x${settings.height}.png`;
       setLastExport({ blob, fileName, format: 'PNG', height, width });
@@ -804,12 +1037,38 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     }
   }
 
+  function playgroundSource() {
+    return JSON.stringify({
+      artworkKind,
+      backgroundEnabled,
+      backgroundOpacity,
+      brandAssetId,
+      effectLayers,
+      liveMaterialId,
+      liveSettings,
+      settings,
+      stickerFinish,
+      stickerOpacity,
+      stickerTexts,
+      stickersEnabled,
+      surfaceEnabled,
+      surfaceOpacity,
+      surfacePresetId,
+      textLayers,
+    }, null, 2);
+  }
+
   function applySource(source: string) {
     const parsed = JSON.parse(source) as {
       artworkKind?: ArtworkKind | 'text';
       artworkText?: string;
       backgroundEnabled?: boolean;
+      backgroundOpacity?: number;
+      brandAssetId?: string;
+      effectLayers?: PlaygroundEffectLayer[];
+      stickerOpacity?: number;
       surfaceEnabled?: boolean;
+      surfaceOpacity?: number;
       stickersEnabled?: boolean;
       surfacePresetId?: string;
       liveMaterialId?: LiveMaterialId;
@@ -820,11 +1079,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       textLayers?: PlaygroundTextLayer[];
     };
     if (parsed.artworkKind && !['logo', 'text', 'asset'].includes(parsed.artworkKind)) throw new TypeError('Artwork kind must be logo, text, or asset.');
+    if (parsed.brandAssetId && parsed.brandAssetId !== 'none' && !availableAssets.some(({ id }) => id === parsed.brandAssetId)) throw new TypeError('Unknown brand asset.');
     if (parsed.liveMaterialId && !shaderLabMaterials('', 'all').some(({ id }) => id === parsed.liveMaterialId)) throw new TypeError('Unknown Playground shader.');
     if (parsed.surfacePresetId && !DESIGN_SURFACE_PRESETS.some(({ id }) => id === parsed.surfacePresetId)) throw new TypeError('Unknown Playground surface preset.');
+    if (parsed.effectLayers && (!Array.isArray(parsed.effectLayers) || parsed.effectLayers.some((layer) => !layer.id?.startsWith('effect-')))) throw new TypeError('Converter layers are invalid.');
     if (parsed.artworkKind && parsed.artworkKind !== 'text') setArtworkKind(parsed.artworkKind);
     if (typeof parsed.backgroundEnabled === 'boolean') setBackgroundEnabled(parsed.backgroundEnabled);
+    if (typeof parsed.backgroundOpacity === 'number') setBackgroundOpacity(Math.max(0, Math.min(1, parsed.backgroundOpacity)));
+    if (parsed.brandAssetId) setBrandAssetId(parsed.brandAssetId);
+    if (parsed.effectLayers) setEffectLayers(parsed.effectLayers);
+    if (typeof parsed.stickerOpacity === 'number') setStickerOpacity(Math.max(0, Math.min(1, parsed.stickerOpacity)));
     if (typeof parsed.surfaceEnabled === 'boolean') setSurfaceEnabled(parsed.surfaceEnabled);
+    if (typeof parsed.surfaceOpacity === 'number') setSurfaceOpacity(Math.max(0, Math.min(1, parsed.surfaceOpacity)));
     if (typeof parsed.stickersEnabled === 'boolean') setStickersEnabled(parsed.stickersEnabled);
     if (parsed.surfacePresetId) setSurfacePresetId(parsed.surfacePresetId);
     if (parsed.liveMaterialId) setLiveMaterialId(parsed.liveMaterialId);
@@ -881,8 +1147,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           <button aria-pressed={surfaceEnabled} data-active={surfaceEnabled ? 'true' : 'false'} onClick={() => setSurfaceEnabled((value) => !value)} type='button'>Surface</button>
           <button aria-pressed={textLayers.some(({ visible }) => visible)} data-active={textLayers.some(({ visible }) => visible) ? 'true' : 'false'} onClick={() => setDock('text')} type='button'>Text {textLayers.length}</button>
           <button aria-pressed={stickersEnabled} data-active={stickersEnabled ? 'true' : 'false'} onClick={() => setStickersEnabled((value) => !value)} type='button'>Stickers</button>
+          <button aria-pressed={effectLayers.some(({ visible }) => visible)} data-active={effectLayers.some(({ visible }) => visible) ? 'true' : 'false'} onClick={() => setDock('effect')} type='button'>Effects {effectLayers.length}</button>
         </div>}
-        metadata='Shaders · surfaces · type · stickers'
+        metadata='Shaders · surfaces · type · stickers · converters'
+        status={(
+          <DesignVersionControls
+            identityId={identity.id}
+            onOpen={applySource}
+            source={playgroundSource()}
+            toolId={tool.id}
+            workspaceLabel='Playground'
+          />
+        )}
         title='Playground'
         toolId={tool.id}
       />
@@ -903,11 +1179,11 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               {mountPhase >= 1 ? (
                 <>
                 {backgroundEnabled ? (
-                  <div className='design-lab-shader-layer' ref={shaderStageRef}>
+                  <div className='design-lab-shader-layer' ref={shaderStageRef} style={{ opacity: backgroundOpacity }}>
                     <LazyLiveMaterialCanvas
                       activeWhileMounted
                       className='absolute inset-0 size-full'
-                      frameRate={30}
+                      frameRate={60}
                       materialId={liveMaterialId}
                       maxPixelCount={2_000_000}
                       settings={liveSettings}
@@ -921,9 +1197,10 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                     <SurfaceMaterialStage
                       artworkAspectRatio={aspectRatio}
                       artworkLayers={stickersFollowSurface ? stickerRenderLayers : undefined}
+                      artworkOpacity={stickerOpacity}
                       asset={selectedOpenSurfaceAsset}
                       className='absolute inset-0 size-full'
-                      opacity={surfaceLayerOpacity}
+                      opacity={surfaceLayerOpacity * surfaceOpacity}
                       presentation={surfaceIsCloth ? 'interactive' : 'flat'}
                       settings={settings}
                       showAttribution={false}
@@ -940,6 +1217,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                   finish={stickerFinish}
                   onPlacementsChange={setStickerRenderLayers}
                   onSelectionChange={setSelectedSticker}
+                  opacity={stickerOpacity}
                   ref={stickerStageRef}
                   renderMode={stickersFollowSurface ? 'controls' : 'normal'}
                   surface='transparent'
@@ -996,6 +1274,12 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                   </EditableCanvasLayer>
                 );
               }) : null}
+              <canvas
+                aria-hidden='true'
+                className='design-lab-composition-effect'
+                data-active={effectLayers.some(({ visible }) => visible) ? 'true' : 'false'}
+                ref={effectCanvasRef}
+              />
             </div>
           </CanvasViewport>
 
@@ -1013,7 +1297,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               ))}
             </div>
             <div
-              aria-label={gt(dock === 'shader' ? 'Background library' : dock === 'surface' ? 'Surface library' : dock === 'text' ? 'Text layer stack' : 'Sticker library')}
+              aria-label={gt(dock === 'shader' ? 'Background library' : dock === 'surface' ? 'Surface library' : dock === 'text' ? 'Text layer stack' : dock === 'sticker' ? 'Sticker library' : 'Effect layer stack')}
               className='design-lab-dock-scroll studio-scroll-area'
               data-dock={dock}
               key={dock}
@@ -1136,22 +1420,54 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                   ))}
                 </>
               ) : null}
+              {dock === 'effect' ? (
+                <>
+                  <button className='design-lab-text-add' onClick={() => addEffectLayer()} type='button'>
+                    <Grid3X3 aria-hidden='true' />
+                    <span><strong>Add converter</strong><small>Bayer, ASCII, print and tone</small></span>
+                  </button>
+                  {effectLayers.length === 0 ? (
+                    <button className='design-lab-empty-action' onClick={() => addEffectLayer()} type='button'>
+                      <Grid3X3 aria-hidden='true' />
+                      <span><strong>Convert the composition</strong><small>Non-destructive, live and export-safe</small></span>
+                    </button>
+                  ) : null}
+                  {[...effectLayers].reverse().map((layer) => {
+                    const orderIndex = effectLayers.findIndex(({ id }) => id === layer.id);
+                    return (
+                      <div aria-selected={selectedEffectId === layer.id} className='design-lab-text-card' data-visible={layer.visible ? 'true' : 'false'} key={layer.id}>
+                        <button className='design-lab-text-card-select' onClick={() => setSelectedEffectId(layer.id)} title={`Select ${layer.name}`} type='button'>
+                          <Grid3X3 aria-hidden='true' />
+                          <span><strong>{layer.name}</strong><small>{Math.round(layer.opacity * 100)}% · {layer.settings.kind}</small></span>
+                        </button>
+                        <div>
+                          <button aria-label={`${layer.visible ? 'Hide' : 'Show'} ${layer.name}`} onClick={() => updateEffectLayer(layer.id, { visible: !layer.visible })} type='button'>{layer.visible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}</button>
+                          <button aria-label={`Move ${layer.name} forward`} disabled={orderIndex === effectLayers.length - 1} onClick={() => moveEffectLayer(layer.id, 1)} type='button'><ArrowUp aria-hidden='true' /></button>
+                          <button aria-label={`Move ${layer.name} backward`} disabled={orderIndex === 0} onClick={() => moveEffectLayer(layer.id, -1)} type='button'><ArrowDown aria-hidden='true' /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : null}
             </div>
             <div className='design-lab-dock-context' data-dock={dock}>
               <div>
-                <span>{dock === 'shader' ? 'Background' : dock === 'surface' ? 'Surface' : dock === 'text' ? 'Text layer' : 'Sticker finish'}</span>
+                <span>{dock === 'shader' ? 'Background' : dock === 'surface' ? 'Surface' : dock === 'text' ? 'Text layer' : dock === 'sticker' ? 'Sticker finish' : 'Converter'}</span>
                 <strong>{dock === 'shader'
                   ? shaderPreset?.name ?? 'Custom shader'
                   : dock === 'surface'
                     ? surfacePreset.name
                     : dock === 'text'
                       ? selectedTextLayer?.name ?? 'No text selected'
-                      : selectedSticker?.label ?? 'Composition stickers'}</strong>
+                      : dock === 'sticker'
+                        ? selectedSticker?.label ?? 'Composition stickers'
+                        : selectedEffectLayer?.name ?? 'No effect selected'}</strong>
               </div>
               {dock === 'text' && selectedTextLayer ? (
                 <input aria-label='Quick text content' onChange={(event) => updateTextLayer(selectedTextLayer.id, { value: event.target.value })} placeholder='Type on canvas' value={selectedTextLayer.value} />
               ) : (
-                <small>{dock === 'text' ? 'Add or select a text layer' : 'Choose a preset from the library'}</small>
+                <small>{dock === 'text' ? 'Add or select a text layer' : dock === 'effect' ? 'Add or select a converter layer' : 'Choose a preset from the library'}</small>
               )}
               {dock === 'text' && selectedTextLayer ? (
                 <div className='design-lab-dock-context-actions'>
@@ -1165,7 +1481,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 <button
                   className='design-lab-dock-reset'
                   onClick={resetActiveLibrary}
-                  title={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : 'Reset stickers')}
+                  title={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : dock === 'sticker' ? 'Reset stickers' : 'Reset effect')}
                   type='button'
                 >
                   <RotateCcw aria-hidden='true' />
@@ -1183,7 +1499,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             <>
           <LabPanelHeading
             action={<button
-              aria-label={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : 'Reset stickers')}
+              aria-label={gt(dock === 'shader' ? 'Reset background' : dock === 'surface' ? 'Reset surface' : dock === 'text' ? 'Reset text position' : dock === 'sticker' ? 'Reset stickers' : 'Reset effect')}
               onClick={resetActiveLibrary}
               title={gt('Reset active layer')}
               type='button'
@@ -1197,7 +1513,9 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 ? surfaceEnabled ? surfacePreset.name : 'No surface'
                 : dock === 'text'
                   ? selectedTextLayer?.name ?? 'No text selected'
-                  : selectedSticker?.label ?? 'Composition stickers'}
+                  : dock === 'sticker'
+                    ? selectedSticker?.label ?? 'Composition stickers'
+                    : selectedEffectLayer?.name ?? 'No converter selected'}
           />
 
           <LabInspectorSection
@@ -1211,6 +1529,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             title='Background shader'
           >
             <div className='design-lab-control-stack'>
+              <RangeControl disabled={!backgroundEnabled} label='Opacity' max={100} min={0} onChange={(opacity) => setBackgroundOpacity(opacity / 100)} value={backgroundOpacity * 100} />
               <RangeControl disabled={!backgroundEnabled} label='Shader speed' max={1.5} min={0} onChange={(speed) => updateLiveSettings({ speed })} step={0.01} suffix='×' value={liveSettings.speed} />
               <RangeControl disabled={!backgroundEnabled} label='Warp' max={1.5} min={0} onChange={(strength) => updateLiveSettings({ strength })} step={0.01} suffix='×' value={liveSettings.strength} />
               <RangeControl disabled={!backgroundEnabled} label='Detail' max={9} min={0.5} onChange={(detail) => updateLiveSettings({ detail })} step={0.1} suffix='' value={liveSettings.detail} />
@@ -1235,12 +1554,61 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             title='Surface overlay'
           >
             <div className='design-lab-control-stack'>
+              <RangeControl disabled={!surfaceEnabled} label='Opacity' max={100} min={0} onChange={(opacity) => setSurfaceOpacity(opacity / 100)} value={surfaceOpacity * 100} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Foil' : 'Texture'} max={100} min={0} onChange={(surfaceTextureAmount) => updateSettings({ surfaceTextureAmount })} value={settings.surfaceTextureAmount} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Drape' : 'Relief'} max={100} min={0} onChange={(surfaceDepth) => updateSettings({ surfaceDepth })} value={settings.surfaceDepth} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Sparkle' : 'Irregularity'} max={100} min={0} onChange={(surfaceIrregularity) => updateSettings({ surfaceIrregularity })} value={settings.surfaceIrregularity} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Roughness' : 'Pattern scale'} max={surfaceIsCloth ? 100 : 140} min={surfaceIsCloth ? 0 : 12} onChange={(value) => updateSettings(surfaceIsCloth ? { surfaceRoughness: value } : { surfaceScale: value })} suffix={surfaceIsCloth ? '%' : 'px'} value={surfaceIsCloth ? settings.surfaceRoughness : settings.surfaceScale} />
               <RangeControl disabled={!surfaceEnabled} label={surfaceIsCloth ? 'Weave' : 'Metallic'} max={100} min={0} onChange={(value) => updateSettings(surfaceIsCloth ? { surfaceOpenArea: value } : { surfaceMetallic: value })} value={surfaceIsCloth ? settings.surfaceOpenArea : settings.surfaceMetallic} />
             </div>
+          </LabInspectorSection>
+
+          <LabInspectorSection
+            action={<button aria-label='Add converter layer' onClick={() => addEffectLayer()} title='Add converter layer' type='button'><Grid3X3 aria-hidden='true' /></button>}
+            className='design-lab-inspector-section'
+            data-disabled={!selectedEffectLayer ? 'true' : 'false'}
+            hidden={dock !== 'effect'}
+            icon={<Grid3X3 aria-hidden='true' />}
+            title='Composition converter'
+          >
+            {selectedEffectLayer ? (() => {
+              const orderIndex = effectLayers.findIndex(({ id }) => id === selectedEffectLayer.id);
+              return <>
+                <div className='design-lab-effect-presets' aria-label='Converter type' role='group'>
+                  {COMPOSITION_EFFECT_PRESETS.map((preset) => (
+                    <button
+                      aria-pressed={selectedEffectLayer.settings.kind === preset.kind}
+                      key={preset.kind}
+                      onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
+                      title={preset.description}
+                      type='button'
+                    ><CompositionEffectThumbnail kind={preset.kind} /><span>{preset.label}</span></button>
+                  ))}
+                </div>
+                <div className='design-lab-control-stack'>
+                  <RangeControl label='Opacity' max={100} min={0} onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity: opacity / 100 })} value={selectedEffectLayer.opacity * 100} />
+                  <RangeControl label='Cell size' max={32} min={2} onChange={(cellSize) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, cellSize } })} suffix='px' value={selectedEffectLayer.settings.cellSize} />
+                  <RangeControl label='Contrast' max={2} min={0.5} onChange={(contrast) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, contrast } })} step={0.01} suffix='×' value={selectedEffectLayer.settings.contrast} />
+                  <RangeControl label='Threshold' max={90} min={10} onChange={(threshold) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, threshold: threshold / 100 } })} value={selectedEffectLayer.settings.threshold * 100} />
+                  {selectedEffectLayer.settings.kind === 'posterize' ? (
+                    <RangeControl label='Tone levels' max={8} min={2} onChange={(levels) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, levels } })} step={1} suffix='' value={selectedEffectLayer.settings.levels} />
+                  ) : null}
+                </div>
+                <div className='design-lab-colors'>
+                  <CompactColorControl label='Ink' onChange={(foreground) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, foreground } })} value={selectedEffectLayer.settings.foreground} />
+                  <CompactColorControl label='Paper' onChange={(background) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, background } })} value={selectedEffectLayer.settings.background} />
+                </div>
+                <label className='design-lab-effect-toggle'>
+                  <span><strong>Invert tones</strong><small>Swap light and dark sampling.</small></span>
+                  <input checked={selectedEffectLayer.settings.invert} onChange={(event) => updateEffectLayer(selectedEffectLayer.id, { settings: { ...selectedEffectLayer.settings, invert: event.target.checked } })} type='checkbox' />
+                </label>
+                <div className='design-lab-selection-actions'>
+                  <button disabled={orderIndex === effectLayers.length - 1} onClick={() => moveEffectLayer(selectedEffectLayer.id, 1)} type='button'><ArrowUp aria-hidden='true' /><span>Forward</span></button>
+                  <button disabled={orderIndex === 0} onClick={() => moveEffectLayer(selectedEffectLayer.id, -1)} type='button'><ArrowDown aria-hidden='true' /><span>Backward</span></button>
+                  <button onClick={() => removeEffectLayer(selectedEffectLayer.id)} type='button'><Trash2 aria-hidden='true' /><span>Delete</span></button>
+                </div>
+              </>;
+            })() : <button className='design-lab-empty-action' onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Add converter</strong><small>Start with a Bayer dither</small></span></button>}
           </LabInspectorSection>
 
           <LabInspectorSection
@@ -1336,6 +1704,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             title='Sticker'
           >
             <div className='design-lab-control-stack' aria-disabled={!selectedSticker}>
+              <RangeControl disabled={!stickersEnabled} label='Layer opacity' max={100} min={0} onChange={(opacity) => setStickerOpacity(opacity / 100)} value={stickerOpacity * 100} />
               <RangeControl disabled={!stickersEnabled || !selectedSticker} label='Size' max={54} min={8} onChange={(scale) => stickerStageRef.current?.updateSelected({ scale })} value={selectedSticker?.scale ?? 24} />
               <RangeControl disabled={!stickersEnabled || !selectedSticker} label='Rotation' max={180} min={-180} onChange={(rotation) => stickerStageRef.current?.updateSelected({ rotation })} suffix='°' value={selectedSticker?.rotation ?? 0} />
               <RangeControl disabled={!stickersEnabled} label='Foil' max={100} min={0} onChange={(intensity) => updateSticker({ intensity })} value={stickerFinish.intensity} />
@@ -1398,7 +1767,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
             )}
           </LabInspectorSection>
 
-          <details className='design-lab-advanced' hidden={dock === 'text'}>
+          <details className='design-lab-advanced' hidden={dock === 'text' || dock === 'effect'}>
             <summary>Advanced layer controls <span>+</span></summary>
             <div>
               {dock === 'shader' ? <>
@@ -1448,7 +1817,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           format='JSON · design composition'
           onApply={applySource}
           onClose={() => setSourceOpen(false)}
-          source={JSON.stringify({ artworkKind, backgroundEnabled, liveMaterialId, liveSettings, settings, stickerFinish, stickerTexts, stickersEnabled, surfaceEnabled, surfacePresetId, textLayers }, null, 2)}
+          source={playgroundSource()}
           title='Playground recipe'
         />
       ) : null}

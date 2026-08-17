@@ -23,6 +23,13 @@ type PixelBuffer = {
   width: number;
 };
 
+export type CompositionEffectScratch = {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  imageData: ImageData | null;
+  output: Uint8ClampedArray | null;
+};
+
 export const BAYER_8X8 = [
   [0, 32, 8, 40, 2, 34, 10, 42],
   [48, 16, 56, 24, 50, 18, 58, 26],
@@ -147,8 +154,10 @@ function sampleCellLuminance(
   let count = 0;
   const strideX = Math.max(1, Math.floor(cellWidth / 3));
   const strideY = Math.max(1, Math.floor(cellHeight / 3));
-  for (let y = startY; y < Math.min(source.height, startY + cellHeight); y += strideY) {
-    for (let x = startX; x < Math.min(source.width, startX + cellWidth); x += strideX) {
+  const firstX = Math.max(0, startX);
+  const firstY = Math.max(0, startY);
+  for (let y = firstY; y < Math.min(source.height, startY + cellHeight); y += strideY) {
+    for (let x = firstX; x < Math.min(source.width, startX + cellWidth); x += strideX) {
       sum += luminance(source.data, (y * source.width + x) * 4, settings);
       count += 1;
     }
@@ -187,6 +196,10 @@ function renderAscii(source: PixelBuffer, output: Uint8ClampedArray, settings: C
   const background = parseHexColor(settings.background);
   const cellWidth = Math.max(5, Math.round(settings.cellSize));
   const cellHeight = Math.max(7, Math.round(cellWidth * 1.25));
+  const glyphWidth = Math.max(5, Math.round(cellWidth * 0.76));
+  const glyphHeight = Math.max(7, Math.round(cellHeight * 0.82));
+  const insetX = Math.floor((cellWidth - glyphWidth) / 2);
+  const insetY = Math.floor((cellHeight - glyphHeight) / 2);
   fill(output, background);
   for (let cellY = 0; cellY < source.height; cellY += cellHeight) {
     for (let cellX = 0; cellX < source.width; cellX += cellWidth) {
@@ -195,10 +208,10 @@ function renderAscii(source: PixelBuffer, output: Uint8ClampedArray, settings: C
       for (let glyphY = 0; glyphY < 7; glyphY += 1) {
         for (let glyphX = 0; glyphX < 5; glyphX += 1) {
           if (glyph[glyphY]![glyphX] !== '1') continue;
-          const startX = cellX + Math.floor(glyphX * cellWidth / 5);
-          const endX = cellX + Math.max(1, Math.floor((glyphX + 1) * cellWidth / 5));
-          const startY = cellY + Math.floor(glyphY * cellHeight / 7);
-          const endY = cellY + Math.max(1, Math.floor((glyphY + 1) * cellHeight / 7));
+          const startX = cellX + insetX + Math.floor(glyphX * glyphWidth / 5);
+          const endX = cellX + insetX + Math.max(1, Math.floor((glyphX + 1) * glyphWidth / 5));
+          const startY = cellY + insetY + Math.floor(glyphY * glyphHeight / 7);
+          const endY = cellY + insetY + Math.max(1, Math.floor((glyphY + 1) * glyphHeight / 7));
           for (let y = startY; y < Math.min(source.height, endY); y += 1) {
             for (let x = startX; x < Math.min(source.width, endX); x += 1) {
               paintPixel(output, (y * source.width + x) * 4, foreground);
@@ -215,20 +228,24 @@ function renderHalftone(source: PixelBuffer, output: Uint8ClampedArray, settings
   const background = parseHexColor(settings.background);
   const cellSize = Math.max(3, Math.round(settings.cellSize));
   fill(output, background);
-  for (let cellY = 0; cellY < source.height; cellY += cellSize) {
-    for (let cellX = 0; cellX < source.width; cellX += cellSize) {
+  for (let cellY = 0, row = 0; cellY < source.height; cellY += cellSize, row += 1) {
+    const rowOffset = row % 2 === 0 ? 0 : Math.floor(cellSize / 2);
+    for (let cellX = -rowOffset; cellX < source.width; cellX += cellSize) {
       const tone = sampleCellLuminance(source, cellX, cellY, cellSize, cellSize, settings);
-      const radius = Math.sqrt(tone) * cellSize * 0.52;
+      const radius = Math.sqrt(tone) * cellSize * 0.5;
       const centerX = cellX + cellSize / 2;
       const centerY = cellY + cellSize / 2;
-      const radiusSquared = radius * radius;
       for (let y = cellY; y < Math.min(source.height, cellY + cellSize); y += 1) {
-        for (let x = cellX; x < Math.min(source.width, cellX + cellSize); x += 1) {
+        for (let x = Math.max(0, cellX); x < Math.min(source.width, cellX + cellSize); x += 1) {
           const deltaX = x + 0.5 - centerX;
           const deltaY = y + 0.5 - centerY;
-          if (deltaX * deltaX + deltaY * deltaY <= radiusSquared) {
-            paintPixel(output, (y * source.width + x) * 4, foreground);
-          }
+          const coverage = clamp(radius + 0.6 - Math.hypot(deltaX, deltaY));
+          if (coverage <= 0) continue;
+          paintPixel(output, (y * source.width + x) * 4, [
+            Math.round(background[0] + (foreground[0] - background[0]) * coverage),
+            Math.round(background[1] + (foreground[1] - background[1]) * coverage),
+            Math.round(background[2] + (foreground[2] - background[2]) * coverage),
+          ]);
         }
       }
     }
@@ -237,9 +254,12 @@ function renderHalftone(source: PixelBuffer, output: Uint8ClampedArray, settings
 
 export function renderCompositionEffect(
   source: PixelBuffer,
-  settings: CompositionEffectSettings
+  settings: CompositionEffectSettings,
+  reusableOutput?: Uint8ClampedArray
 ): PixelBuffer {
-  const output = new Uint8ClampedArray(source.data.length);
+  const output = reusableOutput?.length === source.data.length
+    ? reusableOutput
+    : new Uint8ClampedArray(source.data.length);
   if (settings.kind === 'bayer') renderBayer(source, output, settings);
   else if (settings.kind === 'ascii') renderAscii(source, output, settings);
   else if (settings.kind === 'halftone') renderHalftone(source, output, settings);
@@ -247,24 +267,34 @@ export function renderCompositionEffect(
   return { data: output, height: source.height, width: source.width };
 }
 
+export function createCompositionEffectScratch(): CompositionEffectScratch | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  return context ? { canvas, context, imageData: null, output: null } : null;
+}
+
 export function applyCompositionEffect(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
   settings: CompositionEffectSettings,
-  opacity: number
+  opacity: number,
+  scratch?: CompositionEffectScratch | null
 ) {
   const requestedCellSize = Math.max(1, Math.round(settings.cellSize));
   const resolutionScale = settings.kind === 'bayer' || settings.kind === 'posterize'
     ? 1 / requestedCellSize
-    : Math.min(1, 8 / requestedCellSize);
+    : Math.min(1, 10 / requestedCellSize);
   const effectWidth = Math.max(1, Math.ceil(width * resolutionScale));
   const effectHeight = Math.max(1, Math.ceil(height * resolutionScale));
-  const sourceCanvas = document.createElement('canvas');
-  sourceCanvas.width = effectWidth;
-  sourceCanvas.height = effectHeight;
-  const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
-  if (!sourceContext) return;
+  const workspace = scratch ?? createCompositionEffectScratch();
+  if (!workspace) return;
+  const sourceCanvas = workspace.canvas;
+  const sourceContext = workspace.context;
+  if (sourceCanvas.width !== effectWidth) sourceCanvas.width = effectWidth;
+  if (sourceCanvas.height !== effectHeight) sourceCanvas.height = effectHeight;
+  sourceContext.clearRect(0, 0, effectWidth, effectHeight);
   sourceContext.drawImage(context.canvas, 0, 0, width, height, 0, 0, effectWidth, effectHeight);
   const sourceImage = sourceContext.getImageData(0, 0, effectWidth, effectHeight);
   const scaledSettings = {
@@ -273,8 +303,12 @@ export function applyCompositionEffect(
       ? 1
       : Math.max(5, Math.round(requestedCellSize * resolutionScale)),
   };
-  const effect = renderCompositionEffect(sourceImage, scaledSettings);
-  const effectImage = sourceContext.createImageData(effect.width, effect.height);
+  const effect = renderCompositionEffect(sourceImage, scaledSettings, workspace.output ?? undefined);
+  workspace.output = effect.data;
+  const effectImage = workspace.imageData?.width === effect.width && workspace.imageData.height === effect.height
+    ? workspace.imageData
+    : sourceContext.createImageData(effect.width, effect.height);
+  workspace.imageData = effectImage;
   effectImage.data.set(effect.data);
   sourceContext.putImageData(effectImage, 0, 0);
 

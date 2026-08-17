@@ -60,6 +60,24 @@ function EvidenceImage({
   );
 }
 
+function AdaptiveEvidenceImage({
+  darkAsset,
+  lightAsset,
+}: {
+  darkAsset?: BrandAsset;
+  lightAsset?: BrandAsset;
+}) {
+  if (!lightAsset && !darkAsset) return null;
+  if (!lightAsset || !darkAsset) return <EvidenceImage asset={lightAsset ?? darkAsset} />;
+
+  return (
+    <>
+      <EvidenceImage asset={lightAsset} className='brand-art-evidence-theme brand-art-evidence-theme--light' />
+      <EvidenceImage asset={darkAsset} className='brand-art-evidence-theme brand-art-evidence-theme--dark' />
+    </>
+  );
+}
+
 function PreviewTitle({ children }: { children: ReactNode }) {
   return <h2 data-preview-title='true'>{children}</h2>;
 }
@@ -108,6 +126,8 @@ export default function BrandIdentityPreview({
   const atmosphere = libraryAsset(identity, 'library-atmosphere');
   const interfaceEvidence = libraryAsset(identity, 'library-interface');
   const languageConstellation = libraryAsset(identity, 'library-constellation');
+  const studioOverviewDark = libraryAsset(identity, 'studio-brand-elements-dark');
+  const studioOverviewLight = libraryAsset(identity, 'studio-brand-elements-light');
 
   if (recipe === 'translation-frame') {
     const savedGreetings = identity.greetings.includes('환영합니다')
@@ -161,7 +181,12 @@ export default function BrandIdentityPreview({
       <PreviewShell identity={identity}>
         <header><Mark name={identity.name} path={darkMark} /><span>RESEARCH / DIRECTION / SYSTEM</span></header>
         <div className='brand-art-focus-grid'>
-          <div className='brand-art-focus-image'><EvidenceImage asset={overview} /><span>01 / selected evidence</span></div>
+          <div className='brand-art-focus-image'>
+            {studioOverviewLight || studioOverviewDark
+              ? <AdaptiveEvidenceImage darkAsset={studioOverviewDark} lightAsset={studioOverviewLight} />
+              : <EvidenceImage asset={overview} />}
+            <span>01 / selected evidence</span>
+          </div>
           <div className='brand-art-focus-window'><small>Current signal</small><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
           <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar, index) => <p key={pillar}><b>{String(index + 1).padStart(2, '0')}</b>{pillar}</p>)}</div>
         </div>
