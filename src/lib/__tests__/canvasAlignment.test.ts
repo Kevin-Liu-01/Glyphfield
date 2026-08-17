@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   alignCanvasLayer,
+  alignCanvasSelection,
   canvasLayerDimensions,
+  canvasSelectionBounds,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerGeometry,
@@ -63,6 +65,58 @@ describe('alignCanvasLayer', () => {
       ...transform,
       x: 600,
     });
+  });
+});
+
+describe('canvas assembly geometry', () => {
+  const assembly = [
+    {
+      geometry: { baseHeight: 100, baseWidth: 200, baseX: 100, baseY: 200 },
+      transform: { scale: 1, x: 0, y: 0 },
+    },
+    {
+      geometry: { baseHeight: 160, baseWidth: 120, baseX: 600, baseY: 420 },
+      transform: { scale: 0.5, x: 20, y: -20 },
+    },
+  ];
+
+  it('uses the union of every selected layer as the group bounds', () => {
+    expect(canvasSelectionBounds(assembly)).toEqual({
+      bottom: 520,
+      centerX: 405,
+      centerY: 360,
+      height: 320,
+      left: 100,
+      right: 710,
+      top: 200,
+      width: 610,
+    });
+  });
+
+  it('centers the group as one assembly while preserving child spacing', () => {
+    const next = alignCanvasSelection(assembly, 1_200, 800, 'horizontal-center');
+
+    expect(next).toEqual([
+      { scale: 1, x: 195, y: 0 },
+      { scale: 0.5, x: 215, y: -20 },
+    ]);
+    expect(next[1]!.x - next[0]!.x).toBe(20);
+    expect(canvasSelectionBounds(assembly.map((item, index) => ({
+      ...item,
+      transform: next[index]!,
+    })))?.centerX).toBe(600);
+  });
+
+  it('aligns the full assembly to the canvas edge', () => {
+    const next = alignCanvasSelection(assembly, 1_200, 800, 'bottom');
+    const nextBounds = canvasSelectionBounds(assembly.map((item, index) => ({
+      ...item,
+      transform: next[index]!,
+    })));
+
+    expect(nextBounds?.bottom).toBe(800);
+    expect(next[0]!.y).toBe(280);
+    expect(next[1]!.y).toBe(260);
   });
 });
 

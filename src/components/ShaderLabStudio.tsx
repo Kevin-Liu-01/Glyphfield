@@ -34,16 +34,22 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
 import DesignVersionControls from '@/components/DesignVersionControls';
 import EditableCanvasLayer, {
+  alignCanvasSelection,
   canvasLayerDimensions,
+  canvasSelectionBounds,
+  type CanvasLayerAlignment,
+  type CanvasLayerBounds,
+  type CanvasSelectionItem,
   type CanvasLayerTransform,
 } from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -146,6 +152,13 @@ type TextLayerId = `text-${string}`;
 type AssetLayerId = `asset-${string}`;
 type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
 type CompositionLayerId = ShaderLayerId | EffectLayerId | ContentLayerId;
+type CompositionLayerGroupId = `group-${string}`;
+
+type CompositionLayerGroup = {
+  id: CompositionLayerGroupId;
+  layerIds: ContentLayerId[];
+  name: string;
+};
 
 type ShaderApplication = {
   blendMode: ShaderBlendMode;
@@ -873,6 +886,12 @@ export default function ShaderLabStudio({
     'shader-lab-v2-text-layers-v1',
     []
   );
+  const [layerGroups, setLayerGroups] = useStudioDraft<CompositionLayerGroup[]>(
+    identity.id,
+    tool.id,
+    'shader-lab-v1-layer-groups',
+    []
+  );
   const [paused, setPaused] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
@@ -889,6 +908,9 @@ export default function ShaderLabStudio({
   const [compositionAssets, setCompositionAssets] = useState<CompositionAsset[]>([]);
   const [layerOrder, setLayerOrder] = useState<CompositionLayerId[]>([DEFAULT_CANVAS_SHADER_ID, DEFAULT_LOGO_LAYER_ID]);
   const [selectedLayerId, setSelectedLayerId] = useState<CompositionLayerId | null>(DEFAULT_CANVAS_SHADER_ID);
+  const [selectedCanvasLayerIds, setSelectedCanvasLayerIds] = useState<ContentLayerId[]>([]);
+  const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
+  const [draftHydrated, setDraftHydrated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
@@ -921,6 +943,7 @@ export default function ShaderLabStudio({
   const compositionSignature = useMemo(() => JSON.stringify({
     background: canvasBackground,
     layerOrder,
+    layerGroups,
     layerShaders,
     layers: {
       assets: compositionAssets,
@@ -929,7 +952,7 @@ export default function ShaderLabStudio({
       shaders: shaderLayers,
       text: textLayers,
     },
-  }), [canvasBackground, compositionAssets, effectLayers, layerOrder, layerShaders, logoLayers, shaderLayers, textLayers]);
+  }), [canvasBackground, compositionAssets, effectLayers, layerGroups, layerOrder, layerShaders, logoLayers, shaderLayers, textLayers]);
   const currentExportSettingsSignature = `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${compositionSignature}`;
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
@@ -979,10 +1002,57 @@ export default function ShaderLabStudio({
   const selectedAssetAppearance = selectedAsset
     ? resolvedLogoAppearance(selectedAsset.appearance)
     : null;
+  const selectedCanvasItems = selectedCanvasLayerIds.flatMap((layerId): CanvasSelectionItem[] => {
+    const transform = contentLayerTransform(layerId);
+    return transform ? [{ geometry: layerGeometry(layerId, ratio), transform }] : [];
+  });
+  const selectedCanvasBounds = canvasSelectionBounds(selectedCanvasItems);
+  const selectedCanvasGroup = layerGroups.find((group) => (
+    group.layerIds.length === selectedCanvasLayerIds.length
+    && group.layerIds.every((layerId) => selectedCanvasLayerIds.includes(layerId))
+  )) ?? null;
+  const selectedGroupedAssemblies = layerGroups.filter((group) => (
+    group.layerIds.some((layerId) => selectedCanvasLayerIds.includes(layerId))
+  ));
+  const contentLayerIdSignature = [
+    ...logoLayers.map(({ id }) => id),
+    ...textLayers.map(({ id }) => id),
+    ...compositionAssets.map(({ id }) => id),
+  ].join('|');
 
   useEffect(() => () => {
     compositionAssetUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
+
+  useEffect(() => {
+    setDraftHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    const existingIds = new Set<ContentLayerId>([
+      ...logoLayers.map(({ id }) => id),
+      ...textLayers.map(({ id }) => id),
+      ...compositionAssets.map(({ id }) => id),
+    ]);
+    setLayerGroups((current) => {
+      let changed = false;
+      const next = current.flatMap((group): CompositionLayerGroup[] => {
+        const layerIds = group.layerIds.filter((layerId) => existingIds.has(layerId));
+        if (layerIds.length < 2) {
+          changed = true;
+          return [];
+        }
+        if (layerIds.length !== group.layerIds.length) changed = true;
+        return [{ ...group, layerIds }];
+      });
+      return changed ? next : current;
+    });
+    setSelectedCanvasLayerIds((current) => {
+      const next = current.filter((layerId) => existingIds.has(layerId));
+      return next.length === current.length ? current : next;
+    });
+  }, [contentLayerIdSignature, draftHydrated, setLayerGroups]);
 
   useEffect(() => {
     setLayerOrder((current) => {
@@ -1102,6 +1172,7 @@ export default function ShaderLabStudio({
       return [...current.slice(0, index), id, ...current.slice(index)];
     });
     setSelectedLayerId(id);
+    setSelectedCanvasLayerIds([]);
   }
 
   function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
@@ -1118,6 +1189,7 @@ export default function ShaderLabStudio({
     setEffectLayers((current) => [...current, layer]);
     setLayerOrder((current) => [...current, id]);
     setSelectedLayerId(id);
+    setSelectedCanvasLayerIds([]);
   }
 
   function updateEffectLayer(id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) {
@@ -1155,6 +1227,7 @@ export default function ShaderLabStudio({
     setLogoLayers((current) => [...current, layer]);
     setLayerOrder((current) => [...current, id]);
     setSelectedLayerId(id);
+    setSelectedCanvasLayerIds([id]);
   }
 
   async function addLogoFiles(files: FileList | null) {
@@ -1178,6 +1251,7 @@ export default function ShaderLabStudio({
       setLogoLayers((current) => [...current, ...nextLayers]);
       setLayerOrder((current) => [...current, ...nextLayers.map(({ id }) => id)]);
       setSelectedLayerId(nextLayers.at(-1)?.id ?? null);
+      setSelectedCanvasLayerIds(nextLayers.map(({ id }) => id));
     } catch {
       // The converted asset library owns the user-facing error state.
     } finally {
@@ -1219,6 +1293,7 @@ export default function ShaderLabStudio({
     setTextLayers((current) => [...current, layer]);
     setLayerOrder((current) => [...current, id]);
     setSelectedLayerId(id);
+    setSelectedCanvasLayerIds([id]);
   }
 
   function updateTextLayer(
@@ -1306,6 +1381,7 @@ export default function ShaderLabStudio({
     setCompositionAssets((current) => [...current, ...nextAssets]);
     setLayerOrder((current) => [...current, ...nextAssets.map(({ id }) => id)]);
     setSelectedLayerId(nextAssets.at(-1)?.id ?? null);
+    setSelectedCanvasLayerIds(nextAssets.map(({ id }) => id));
     if (assetInputRef.current) assetInputRef.current.value = '';
   }
 
@@ -1347,6 +1423,228 @@ export default function ShaderLabStudio({
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, ...update } : asset));
   }
 
+  function contentLayerTransform(id: ContentLayerId): CanvasLayerTransform | null {
+    if (isTextLayerId(id)) {
+      const layer = textLayers.find((candidate) => candidate.id === id);
+      return layer ? resolvedTextTransform(layer.transform) : null;
+    }
+    if (isLogoLayerId(id)) {
+      return logoLayers.find((candidate) => candidate.id === id)?.transform ?? null;
+    }
+    return compositionAssets.find((candidate) => candidate.id === id)?.transform ?? null;
+  }
+
+  function updateContentLayerTransforms(updates: ReadonlyMap<ContentLayerId, CanvasLayerTransform>) {
+    setTextLayers((current) => current.map((layer) => {
+      const transform = updates.get(layer.id);
+      return transform ? { ...layer, transform } : layer;
+    }));
+    setLogoLayers((current) => current.map((layer) => {
+      const transform = updates.get(layer.id);
+      return transform ? { ...layer, transform } : layer;
+    }));
+    setCompositionAssets((current) => current.map((layer) => {
+      const transform = updates.get(layer.id);
+      return transform ? { ...layer, transform } : layer;
+    }));
+  }
+
+  function groupForLayer(id: ContentLayerId) {
+    return layerGroups.find((group) => group.layerIds.includes(id)) ?? null;
+  }
+
+  function selectableAssemblyFor(id: ContentLayerId): ContentLayerId[] {
+    const group = groupForLayer(id);
+    const ids = group?.layerIds ?? [id];
+    return ids.filter((layerId) => layerVisible(layerId));
+  }
+
+  function selectCanvasAssembly(id: ContentLayerId, additive = false) {
+    const targetIds = selectableAssemblyFor(id);
+    setSelectedCanvasLayerIds((current) => {
+      if (!additive) return targetIds;
+      const allSelected = targetIds.every((layerId) => current.includes(layerId));
+      if (allSelected) return current.filter((layerId) => !targetIds.includes(layerId));
+      return [...current, ...targetIds.filter((layerId) => !current.includes(layerId))];
+    });
+    if (additive && targetIds.every((layerId) => selectedCanvasLayerIds.includes(layerId))) {
+      const remaining = selectedCanvasLayerIds.filter((layerId) => !targetIds.includes(layerId));
+      setSelectedLayerId(remaining.at(-1) ?? null);
+    } else {
+      setSelectedLayerId(id);
+    }
+    setSelectionMenuPosition(null);
+  }
+
+  function deselectCanvasLayers() {
+    setSelectedCanvasLayerIds([]);
+    setSelectedLayerId(null);
+    setSelectionMenuPosition(null);
+  }
+
+  function selectLayerFromStack(id: CompositionLayerId) {
+    setSelectedLayerId(id);
+    setSelectedCanvasLayerIds(isContentLayerId(id) ? selectableAssemblyFor(id) : []);
+    setSelectionMenuPosition(null);
+  }
+
+  function updateCanvasLayerTransform(id: ContentLayerId, nextTransform: CanvasLayerTransform) {
+    const currentTransform = contentLayerTransform(id);
+    if (!currentTransform) return;
+    const selectedIds = selectedCanvasLayerIds.includes(id)
+      ? selectedCanvasLayerIds
+      : selectableAssemblyFor(id);
+    if (selectedIds.length <= 1) {
+      updateContentLayerTransforms(new Map([[id, nextTransform]]));
+      return;
+    }
+    const deltaX = nextTransform.x - currentTransform.x;
+    const deltaY = nextTransform.y - currentTransform.y;
+    const updates = new Map<ContentLayerId, CanvasLayerTransform>();
+    selectedIds.forEach((layerId) => {
+      const transform = contentLayerTransform(layerId);
+      if (!transform) return;
+      updates.set(layerId, {
+        ...transform,
+        x: transform.x + deltaX,
+        y: transform.y + deltaY,
+      });
+    });
+    updateContentLayerTransforms(updates);
+  }
+
+  function movementBoundsFor(id: ContentLayerId): CanvasLayerBounds | null {
+    const layerIds = selectedCanvasLayerIds.includes(id) && selectedCanvasLayerIds.length > 1
+      ? selectedCanvasLayerIds
+      : groupForLayer(id)?.layerIds ?? [];
+    if (layerIds.length < 2) return null;
+    return canvasSelectionBounds(layerIds.flatMap((layerId): CanvasSelectionItem[] => {
+      const transform = contentLayerTransform(layerId);
+      return transform ? [{ geometry: layerGeometry(layerId, ratio), transform }] : [];
+    }));
+  }
+
+  function openCanvasSelectionMenu(id: ContentLayerId, event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedCanvasLayerIds.includes(id)) selectCanvasAssembly(id);
+    setSelectionMenuPosition({ x: event.clientX, y: event.clientY });
+  }
+
+  function groupCanvasSelection() {
+    if (selectedCanvasLayerIds.length < 2) return;
+    const layerIds = [...selectedCanvasLayerIds];
+    const id = `group-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as CompositionLayerGroupId;
+    setLayerGroups((current) => {
+      const nextNumber = current.reduce((largest, group) => {
+        const match = /^Group (\d+)$/.exec(group.name);
+        return Math.max(largest, Number(match?.[1] ?? 0));
+      }, 0) + 1;
+      return [
+        ...current.filter((group) => !group.layerIds.some((layerId) => layerIds.includes(layerId))),
+        { id, layerIds, name: `Group ${nextNumber}` },
+      ];
+    });
+  }
+
+  function ungroupCanvasSelection() {
+    if (selectedCanvasLayerIds.length === 0) return;
+    setLayerGroups((current) => current.filter((group) => (
+      !group.layerIds.some((layerId) => selectedCanvasLayerIds.includes(layerId))
+    )));
+  }
+
+  function alignCanvasAssembly(alignment: CanvasLayerAlignment) {
+    if (selectedCanvasItems.length === 0) return;
+    const transforms = alignCanvasSelection(
+      selectedCanvasItems,
+      canvasDimensions.width,
+      canvasDimensions.height,
+      alignment
+    );
+    const updates = new Map<ContentLayerId, CanvasLayerTransform>();
+    selectedCanvasLayerIds.forEach((layerId, index) => {
+      const transform = transforms[index];
+      if (transform) updates.set(layerId, transform);
+    });
+    updateContentLayerTransforms(updates);
+  }
+
+  function moveCanvasSelection(direction: -1 | 1) {
+    const selected = new Set<CompositionLayerId>(selectedCanvasLayerIds);
+    setLayerOrder((current) => {
+      const next = [...current];
+      if (direction > 0) {
+        for (let index = next.length - 2; index >= 0; index -= 1) {
+          if (selected.has(next[index]!) && !selected.has(next[index + 1]!)) {
+            [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
+          }
+        }
+      } else {
+        for (let index = 1; index < next.length; index += 1) {
+          if (selected.has(next[index]!) && !selected.has(next[index - 1]!)) {
+            [next[index], next[index - 1]] = [next[index - 1]!, next[index]!];
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  function removeCanvasSelection() {
+    const ids = [...selectedCanvasLayerIds];
+    if (ids.length === 0) return;
+    ids.forEach(removeLayer);
+    setLayerGroups((current) => current.filter((group) => (
+      !group.layerIds.some((layerId) => ids.includes(layerId))
+    )));
+    deselectCanvasLayers();
+  }
+
+  function duplicateCanvasSelection() {
+    const sourceIds = layerOrder.filter((layerId): layerId is ContentLayerId => (
+      isContentLayerId(layerId) && selectedCanvasLayerIds.includes(layerId)
+    ));
+    const nextIds = sourceIds.flatMap((layerId): ContentLayerId[] => {
+      const nextId = duplicateLayer(layerId);
+      return nextId && isContentLayerId(nextId) ? [nextId] : [];
+    });
+    if (nextIds.length === 0) return;
+    if (selectedCanvasGroup && nextIds.length > 1) {
+      const id = `group-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as CompositionLayerGroupId;
+      setLayerGroups((current) => [...current, {
+        id,
+        layerIds: nextIds,
+        name: `${selectedCanvasGroup.name} copy`,
+      }]);
+    }
+    setSelectedCanvasLayerIds(nextIds);
+    setSelectedLayerId(nextIds.at(-1) ?? null);
+  }
+
+  function handleCanvasAssemblyKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (
+      event.target instanceof HTMLElement
+      && (event.target.isContentEditable || event.target.closest('input, textarea, select'))
+    ) return;
+    const command = event.metaKey || event.ctrlKey;
+    if (command && event.key.toLowerCase() === 'g') {
+      event.preventDefault();
+      if (event.shiftKey) ungroupCanvasSelection();
+      else groupCanvasSelection();
+      return;
+    }
+    if (command && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      duplicateCanvasSelection();
+      return;
+    }
+    if ((event.key === 'Backspace' || event.key === 'Delete') && selectedCanvasLayerIds.length > 0) {
+      event.preventDefault();
+      removeCanvasSelection();
+    }
+  }
+
   function placeLayerAfter(sourceId: CompositionLayerId, nextId: CompositionLayerId) {
     setLayerOrder((current) => {
       const sourceIndex = current.indexOf(sourceId);
@@ -1356,10 +1654,10 @@ export default function ShaderLabStudio({
     setSelectedLayerId(nextId);
   }
 
-  function duplicateLayer(id: CompositionLayerId) {
+  function duplicateLayer(id: CompositionLayerId): CompositionLayerId | null {
     if (isShaderLayerId(id)) {
       const source = shaderLayers.find((layer) => layer.id === id);
-      if (!source) return;
+      if (!source) return null;
       const nextId = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
       setShaderLayers((current) => [...current, {
         ...source,
@@ -1368,11 +1666,11 @@ export default function ShaderLabStudio({
         settings: { ...source.settings },
       }]);
       placeLayerAfter(id, nextId);
-      return;
+      return nextId;
     }
     if (isEffectLayerId(id)) {
       const source = effectLayers.find((layer) => layer.id === id);
-      if (!source) return;
+      if (!source) return null;
       const nextId = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
       setEffectLayers((current) => [...current, {
         ...source,
@@ -1381,11 +1679,11 @@ export default function ShaderLabStudio({
         settings: { ...source.settings },
       }]);
       placeLayerAfter(id, nextId);
-      return;
+      return nextId;
     }
     if (isTextLayerId(id)) {
       const source = textLayers.find((layer) => layer.id === id);
-      if (!source) return;
+      if (!source) return null;
       const nextId = `text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as TextLayerId;
       const transform = resolvedTextTransform(source.transform);
       setTextLayers((current) => [...current, {
@@ -1399,11 +1697,11 @@ export default function ShaderLabStudio({
         setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
       }
       placeLayerAfter(id, nextId);
-      return;
+      return nextId;
     }
     if (isLogoLayerId(id)) {
       const source = logoLayers.find((layer) => layer.id === id);
-      if (!source) return;
+      if (!source) return null;
       const nextId = `logo-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as LogoLayerId;
       setLogoLayers((current) => [...current, {
         ...source,
@@ -1416,10 +1714,10 @@ export default function ShaderLabStudio({
         setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
       }
       placeLayerAfter(id, nextId);
-      return;
+      return nextId;
     }
     const source = compositionAssets.find((asset) => asset.id === id);
-    if (!source) return;
+    if (!source) return null;
     const nextId = `asset-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as AssetLayerId;
     setCompositionAssets((current) => [...current, {
       ...source,
@@ -1432,6 +1730,7 @@ export default function ShaderLabStudio({
       setLayerShaders((current) => ({ ...current, [nextId]: { ...layerShaders[id]!, settings: { ...layerShaders[id]!.settings } } }));
     }
     placeLayerAfter(id, nextId);
+    return nextId;
   }
 
   function removeLayer(id: CompositionLayerId) {
@@ -1519,6 +1818,7 @@ export default function ShaderLabStudio({
         assets: compositionAssets.map(({ appearance, id, name, opacity, transform }) => ({ appearance, id, name, opacity, transform })),
         backgroundColor: canvasBackground,
         effectLayers,
+        groups: layerGroups,
         layerOrder,
         layerShaders,
         logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform }) => ({ appearance, color, convertedAssetId, id, name, opacity, transform })),
@@ -1535,6 +1835,7 @@ export default function ShaderLabStudio({
         assets?: Array<Omit<CompositionAsset, 'url'>>;
         backgroundColor?: string;
         effectLayers?: CompositionEffectLayer[];
+        groups?: CompositionLayerGroup[];
         layerOrder?: CompositionLayerId[];
         layerShaders?: Partial<Record<ContentLayerId, ShaderApplication>>;
         logos?: Array<Omit<CompositionLogoLayer, 'url'>>;
@@ -1549,6 +1850,7 @@ export default function ShaderLabStudio({
     if (parsed.composition.shaderLayers && (!Array.isArray(parsed.composition.shaderLayers) || parsed.composition.shaderLayers.some((layer) => !layer.id?.startsWith('shader-')))) throw new TypeError('Shader layers are invalid.');
     if (parsed.composition.effectLayers && (!Array.isArray(parsed.composition.effectLayers) || parsed.composition.effectLayers.some((layer) => !layer.id?.startsWith('effect-')))) throw new TypeError('Converter layers are invalid.');
     if (parsed.composition.textLayers && (!Array.isArray(parsed.composition.textLayers) || parsed.composition.textLayers.some((layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string'))) throw new TypeError('Text layers are invalid.');
+    if (parsed.composition.groups && (!Array.isArray(parsed.composition.groups) || parsed.composition.groups.some((group) => !group.id?.startsWith('group-') || !Array.isArray(group.layerIds)))) throw new TypeError('Layer groups are invalid.');
     if (parsed.composition.layerOrder && (!Array.isArray(parsed.composition.layerOrder) || parsed.composition.layerOrder.some((id) => typeof id !== 'string'))) throw new TypeError('Layer order is invalid.');
 
     const nextShaderLayers = parsed.composition.shaderLayers ?? shaderLayers;
@@ -1572,6 +1874,12 @@ export default function ShaderLabStudio({
     if (parsed.composition.shaderLayers) setShaderLayers(parsed.composition.shaderLayers);
     if (parsed.composition.effectLayers) setEffectLayers(parsed.composition.effectLayers);
     if (parsed.composition.textLayers) setTextLayers(parsed.composition.textLayers);
+    if (parsed.composition.groups) {
+      setLayerGroups(parsed.composition.groups.map((group) => ({
+        ...group,
+        layerIds: group.layerIds.filter((id) => allowedIds.has(id) && isContentLayerId(id)),
+      })).filter((group) => group.layerIds.length >= 2));
+    }
     if (parsed.composition.layerShaders) setLayerShaders(parsed.composition.layerShaders);
     if (parsed.composition.logos) {
       const updates = new Map(parsed.composition.logos.map((layer) => [layer.id, layer]));
@@ -1589,6 +1897,7 @@ export default function ShaderLabStudio({
     }
     setLayerOrder(nextOrder);
     setSelectedLayerId(null);
+    setSelectedCanvasLayerIds([]);
   }
 
   async function copySetup() {
@@ -2390,7 +2699,7 @@ export default function ShaderLabStudio({
             draftKey='shader-lab-v2-canvas-zoom'
             identityId={identity.id}
             maxZoom={220}
-            onDeselect={() => setSelectedLayerId(null)}
+            onDeselect={deselectCanvasLayers}
             toolId={tool.id}
           >
             <div className='shader-lab-v2-stage-wrap'>
@@ -2398,7 +2707,8 @@ export default function ShaderLabStudio({
                 className={`shader-lab-v2-stage shader-lab-v2-stage-${ratio}`}
                 data-material-id={editingShader?.materialId}
                 data-testid='shader-lab-live-stage'
-                onPointerDown={() => setSelectedLayerId(null)}
+                onKeyDown={handleCanvasAssemblyKeyDown}
+                onPointerDown={deselectCanvasLayers}
                 ref={stageRef}
                 style={{
                   aspectRatio: `${ratioOption.width} / ${ratioOption.height}`,
@@ -2469,10 +2779,14 @@ export default function ShaderLabStudio({
                         className='shader-lab-v2-composition-layer'
                         key={layerId}
                         label={logoLayer.name}
-                        onChange={(transform) => updateLogoTransform(layerId, transform)}
-                        onDeselect={() => setSelectedLayerId(null)}
-                        onSelect={() => setSelectedLayerId(layerId)}
-                        selected={selectedLayerId === layerId}
+                        movementBounds={movementBoundsFor(layerId)}
+                        onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
+                        onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
+                        onDeselect={deselectCanvasLayers}
+                        onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
+                        selected={selectedCanvasLayerIds.includes(layerId)}
+                        selectionMember={selectedCanvasLayerIds.includes(layerId)}
+                        showSelectionControls={selectedCanvasLayerIds.length <= 1}
                         transform={logoLayer.transform}
                         zIndex={zIndex}
                       >
@@ -2545,11 +2859,15 @@ export default function ShaderLabStudio({
                         className='shader-lab-v2-composition-layer'
                         key={layerId}
                         label={textLayer.name}
-                        onChange={(nextTransform) => updateTextLayer(layerId, { transform: nextTransform })}
-                        onDeselect={() => setSelectedLayerId(null)}
-                        onSelect={() => setSelectedLayerId(layerId)}
+                        movementBounds={movementBoundsFor(layerId)}
+                        onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
+                        onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
+                        onDeselect={deselectCanvasLayers}
+                        onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
                         resizeMode='box'
-                        selected={selectedLayerId === layerId}
+                        selected={selectedCanvasLayerIds.includes(layerId)}
+                        selectionMember={selectedCanvasLayerIds.includes(layerId)}
+                        showSelectionControls={selectedCanvasLayerIds.length <= 1}
                         transform={transform}
                         zIndex={zIndex}
                       >
@@ -2568,7 +2886,7 @@ export default function ShaderLabStudio({
                           key='editable-text'
                           label={`Edit ${textLayer.name}`}
                           onChange={(value) => updateTextLayer(layerId, { value })}
-                          onFocus={() => setSelectedLayerId(layerId)}
+                          onFocus={() => selectCanvasAssembly(layerId)}
                           style={{
                             caretColor: textAppearance.color,
                             color: textAppearance.color,
@@ -2631,10 +2949,14 @@ export default function ShaderLabStudio({
                       className='shader-lab-v2-composition-layer'
                       key={layerId}
                       label={asset.name}
-                      onChange={(transform) => updateAssetTransform(layerId, transform)}
-                      onDeselect={() => setSelectedLayerId(null)}
-                      onSelect={() => setSelectedLayerId(layerId)}
-                      selected={selectedLayerId === layerId}
+                      movementBounds={movementBoundsFor(layerId)}
+                      onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
+                      onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
+                      onDeselect={deselectCanvasLayers}
+                      onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
+                      selected={selectedCanvasLayerIds.includes(layerId)}
+                      selectionMember={selectedCanvasLayerIds.includes(layerId)}
+                      showSelectionControls={selectedCanvasLayerIds.length <= 1}
                       transform={asset.transform}
                       zIndex={zIndex}
                     >
@@ -2692,10 +3014,46 @@ export default function ShaderLabStudio({
                     </EditableCanvasLayer>
                   );
                 })}
+                {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
+                  <div
+                    aria-hidden='true'
+                    className='canvas-selection-assembly'
+                    style={{
+                      height: `${selectedCanvasBounds.height / canvasDimensions.height * 100}%`,
+                      left: `${selectedCanvasBounds.left / canvasDimensions.width * 100}%`,
+                      top: `${selectedCanvasBounds.top / canvasDimensions.height * 100}%`,
+                      width: `${selectedCanvasBounds.width / canvasDimensions.width * 100}%`,
+                    }}
+                  >
+                    <span className='canvas-selection-assembly__label'>
+                      {selectedCanvasGroup?.name ?? `${selectedCanvasLayerIds.length} layers`}
+                    </span>
+                  </div>
+                ) : null}
+                <span aria-live='polite' className='sr-only'>
+                  {selectedCanvasLayerIds.length > 0
+                    ? `${selectedCanvasLayerIds.length} canvas layer${selectedCanvasLayerIds.length === 1 ? '' : 's'} selected${selectedCanvasGroup ? ` in ${selectedCanvasGroup.name}` : ''}.`
+                    : 'Canvas selection cleared.'}
+                </span>
                 <div className='shader-lab-v2-stage-shade' aria-hidden='true' />
               </div>
             </div>
           </CanvasViewport>
+          <CanvasSelectionMenu
+            canGroup={selectedCanvasLayerIds.length > 1 && !selectedCanvasGroup}
+            canUngroup={selectedGroupedAssemblies.length > 0}
+            count={selectedCanvasLayerIds.length}
+            groupName={selectedCanvasGroup?.name}
+            onAlign={alignCanvasAssembly}
+            onBringForward={() => moveCanvasSelection(1)}
+            onClose={() => setSelectionMenuPosition(null)}
+            onDelete={removeCanvasSelection}
+            onDuplicate={duplicateCanvasSelection}
+            onGroup={groupCanvasSelection}
+            onSendBackward={() => moveCanvasSelection(-1)}
+            onUngroup={ungroupCanvasSelection}
+            position={selectionMenuPosition}
+          />
           <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
             <input accept='image/*,.svg,.avif,.bmp' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
             <input accept='image/*' className='sr-only' multiple onChange={(event) => addAssets(event.target.files)} ref={assetInputRef} type='file' />
@@ -2738,11 +3096,12 @@ export default function ShaderLabStudio({
                   ? compositionAssets.find(({ id }) => id === layerId)
                   : null;
                 const appliedShader = shaderLayer ?? (isContentLayerId(layerId) ? layerShaders[layerId] : null);
+                const layerGroup = isContentLayerId(layerId) ? groupForLayer(layerId) : null;
                 const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
                 const previewUrl = logoLayer?.url ?? assetLayer?.url;
                 return (
                   <div
-                    aria-selected={selectedLayerId === layerId}
+                    aria-selected={selectedLayerId === layerId || (isContentLayerId(layerId) && selectedCanvasLayerIds.includes(layerId))}
                     className='shader-lab-v2-dock-layer'
                     data-kind={layerKind(layerId).toLocaleLowerCase().replaceAll(' ', '-')}
                     data-material={appliedShader ? 'true' : 'false'}
@@ -2751,7 +3110,7 @@ export default function ShaderLabStudio({
                   >
                     <button
                       className='shader-lab-v2-dock-layer-select'
-                      onClick={() => setSelectedLayerId(layerId)}
+                      onClick={() => selectLayerFromStack(layerId)}
                       title={`Select ${layerLabel(layerId)}`}
                       type='button'
                     >
@@ -2766,7 +3125,7 @@ export default function ShaderLabStudio({
                               : <ImagePlus aria-hidden='true' />}</span>
                       <span className='shader-lab-v2-dock-layer-copy'>
                         <strong>{layerLabel(layerId)}</strong>
-                        <small>{String(index + 1).padStart(2, '0')} · {layerKind(layerId)}</small>
+                        <small>{String(index + 1).padStart(2, '0')} · {layerKind(layerId)}{layerGroup ? ` · ${layerGroup.name}` : ''}</small>
                       </span>
                     </button>
                     <div className='shader-lab-v2-dock-layer-preview'>
@@ -2779,7 +3138,7 @@ export default function ShaderLabStudio({
                         <input
                           aria-label={`Edit ${textLayer.name}`}
                           onChange={(event) => updateTextLayer(textLayer.id, { value: event.target.value })}
-                          onFocus={() => setSelectedLayerId(textLayer.id)}
+                          onFocus={() => selectLayerFromStack(textLayer.id)}
                           onKeyDown={(event) => event.stopPropagation()}
                           style={{
                             color: textAppearance.color,
@@ -2796,7 +3155,7 @@ export default function ShaderLabStudio({
                           value={textLayer.value}
                         />
                       ) : (
-                        <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
+                        <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => selectLayerFromStack(layerId)} type='button'>
                           {effectLayer ? (
                             <CompositionEffectThumbnail kind={effectLayer.settings.kind} />
                           ) : previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}

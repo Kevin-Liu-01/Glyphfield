@@ -9764,6 +9764,17 @@ body {
   pointer-events: auto;
 }
 
+.editable-canvas-layer[data-content-interactive='true']:is([data-multi-selection='true'], [data-assembly-move='true']) {
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.editable-canvas-layer[data-content-interactive='true']:is([data-multi-selection='true'], [data-assembly-move='true']) [data-canvas-editable='true'] {
+  cursor: grab;
+  pointer-events: none;
+  user-select: none;
+}
+
 .canvas-smart-guide {
   position: absolute;
   z-index: 1000;
@@ -9785,6 +9796,158 @@ body {
   left: 0;
   height: 1px;
   transform: translateY(-0.5px);
+}
+
+.canvas-selection-assembly {
+  position: absolute;
+  z-index: 170;
+  border: 2px solid #5b7cff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.72);
+  pointer-events: none;
+}
+
+.canvas-selection-assembly::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  border-radius: 999px;
+  background: #5b7cff;
+  box-shadow: 0 0 0 1px #5b7cff;
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.canvas-selection-assembly__label {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: -2px;
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px 3px 0 0;
+  background: #5b7cff;
+  color: #fff;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.canvas-selection-menu {
+  position: fixed;
+  z-index: 300;
+  width: min(250px, calc(100vw - 16px));
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.28), 0 2px 8px rgb(0 0 0 / 0.18);
+  color: hsl(var(--foreground));
+}
+
+.canvas-selection-menu__heading {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.canvas-selection-menu kbd {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.canvas-selection-menu__actions {
+  display: grid;
+  padding: 5px;
+}
+
+.canvas-selection-menu__actions button,
+.canvas-selection-menu__delete {
+  display: grid;
+  min-height: 34px;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  text-align: left;
+}
+
+.canvas-selection-menu button:hover:not(:disabled),
+.canvas-selection-menu button:focus-visible {
+  background: hsl(var(--muted));
+  outline: 0;
+}
+
+.canvas-selection-menu button:focus-visible {
+  box-shadow: inset 0 0 0 2px #5b7cff;
+}
+
+.canvas-selection-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.canvas-selection-menu button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.canvas-selection-menu__align {
+  display: grid;
+  gap: 7px;
+  padding: 9px 10px 10px;
+  border-block: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.canvas-selection-menu__align > div {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.canvas-selection-menu__align button {
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+}
+
+.canvas-selection-menu__delete {
+  width: calc(100% - 10px);
+  margin: 5px;
+  color: hsl(var(--destructive));
 }
 
 .color-hue-range {

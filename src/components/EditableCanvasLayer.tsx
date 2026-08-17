@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from 'lucide-react';
 
@@ -37,6 +37,22 @@ export type CanvasSmartGuides = {
 export type CanvasSnapTargets = {
   x: readonly number[];
   y: readonly number[];
+};
+
+export type CanvasLayerBounds = {
+  bottom: number;
+  centerX: number;
+  centerY: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  width: number;
+};
+
+export type CanvasSelectionItem = {
+  geometry: CanvasLayerGeometry;
+  transform: CanvasLayerTransform;
 };
 
 type PointerSession = {
@@ -104,6 +120,67 @@ export function canvasLayerDimensions(
     height: geometry.baseHeight * (transform.heightScale ?? transform.scale),
     width: geometry.baseWidth * (transform.widthScale ?? transform.scale),
   };
+}
+
+export function canvasLayerBounds(
+  transform: CanvasLayerTransform,
+  geometry: CanvasLayerGeometry
+): CanvasLayerBounds {
+  const { height, width } = canvasLayerDimensions(transform, geometry);
+  const centerX = geometry.baseX + geometry.baseWidth / 2 + transform.x;
+  const centerY = geometry.baseY + geometry.baseHeight / 2 + transform.y;
+  return {
+    bottom: centerY + height / 2,
+    centerX,
+    centerY,
+    height,
+    left: centerX - width / 2,
+    right: centerX + width / 2,
+    top: centerY - height / 2,
+    width,
+  };
+}
+
+export function canvasSelectionBounds(items: readonly CanvasSelectionItem[]): CanvasLayerBounds | null {
+  if (items.length === 0) return null;
+  const bounds = items.map(({ geometry, transform }) => canvasLayerBounds(transform, geometry));
+  const left = Math.min(...bounds.map((item) => item.left));
+  const right = Math.max(...bounds.map((item) => item.right));
+  const top = Math.min(...bounds.map((item) => item.top));
+  const bottom = Math.max(...bounds.map((item) => item.bottom));
+  return {
+    bottom,
+    centerX: (left + right) / 2,
+    centerY: (top + bottom) / 2,
+    height: bottom - top,
+    left,
+    right,
+    top,
+    width: right - left,
+  };
+}
+
+export function alignCanvasSelection(
+  items: readonly CanvasSelectionItem[],
+  canvasWidth: number,
+  canvasHeight: number,
+  alignment: CanvasLayerAlignment
+): CanvasLayerTransform[] {
+  const bounds = canvasSelectionBounds(items);
+  if (!bounds) return [];
+  let deltaX = 0;
+  let deltaY = 0;
+  if (alignment === 'left') deltaX = -bounds.left;
+  else if (alignment === 'horizontal-center') deltaX = canvasWidth / 2 - bounds.centerX;
+  else if (alignment === 'right') deltaX = canvasWidth - bounds.right;
+  else if (alignment === 'top') deltaY = -bounds.top;
+  else if (alignment === 'vertical-center') deltaY = canvasHeight / 2 - bounds.centerY;
+  else deltaY = canvasHeight - bounds.bottom;
+  return items.map(({ transform }) => ({
+    ...transform,
+    x: transform.x + deltaX,
+    y: transform.y + deltaY,
+  }));
 }
 
 export function snapCanvasLayer(
@@ -181,11 +258,15 @@ export default function EditableCanvasLayer({
   allowContentInteraction = false,
   fitContentHeight = false,
   label,
+  movementBounds = null,
   onChange,
+  onContextMenu,
   onDeselect,
   onSelect,
   resizeMode = 'scale',
   selected,
+  selectionMember = false,
+  showSelectionControls = true,
   transform,
   zIndex,
 }: {
@@ -200,11 +281,15 @@ export default function EditableCanvasLayer({
   allowContentInteraction?: boolean;
   fitContentHeight?: boolean;
   label: string;
+  movementBounds?: CanvasLayerBounds | null;
   onChange: (transform: CanvasLayerTransform) => void;
+  onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDeselect: () => void;
-  onSelect: () => void;
+  onSelect: (additive?: boolean) => void;
   resizeMode?: CanvasLayerResizeMode;
   selected: boolean;
+  selectionMember?: boolean;
+  showSelectionControls?: boolean;
   transform: CanvasLayerTransform;
   zIndex: number;
 }) {
@@ -358,16 +443,18 @@ export default function EditableCanvasLayer({
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
     event.stopPropagation();
+    const additive = event.metaKey || event.ctrlKey;
     if (
       mode === 'move'
       && allowContentInteraction
       && event.target instanceof HTMLElement
       && event.target.closest('[data-canvas-editable="true"]')
     ) {
-      onSelect();
+      onSelect(additive);
       return;
     }
-    onSelect();
+    onSelect(additive);
+    if (mode === 'move' && additive && selected) return;
     setSmartGuides({ x: null, y: null });
     const layer = layerRef.current;
     const parent = layer?.parentElement;
@@ -377,7 +464,12 @@ export default function EditableCanvasLayer({
     const targetX = [0, canvasWidth / 2, canvasWidth];
     const targetY = [0, canvasHeight / 2, canvasHeight];
     Array.from(parent.children).forEach((sibling) => {
-      if (!(sibling instanceof HTMLElement) || sibling === layer || !sibling.classList.contains('editable-canvas-layer')) return;
+      if (
+        !(sibling instanceof HTMLElement)
+        || sibling === layer
+        || !sibling.classList.contains('editable-canvas-layer')
+        || sibling.dataset.canvasSelectionMember === 'true'
+      ) return;
       const siblingBounds = sibling.getBoundingClientRect();
       const left = (siblingBounds.left - parentBounds.left) / parentBounds.width * canvasWidth;
       const right = (siblingBounds.right - parentBounds.left) / parentBounds.width * canvasWidth;
@@ -392,7 +484,7 @@ export default function EditableCanvasLayer({
       parentBounds,
       pointerId: event.pointerId,
       snapTargets: { x: targetX, y: targetY },
-      startSelected: selected,
+      startSelected: selected && !additive,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startHeightScale: transform.heightScale ?? transform.scale,
@@ -452,9 +544,20 @@ export default function EditableCanvasLayer({
       x: clamp(session.startX + deltaX, -canvasWidth, canvasWidth),
       y: clamp(session.startY + deltaY, -canvasHeight, canvasHeight),
     };
+    const movementGeometry = movementBounds ? {
+      baseHeight: movementBounds.height,
+      baseWidth: movementBounds.width,
+      baseX: movementBounds.left,
+      baseY: movementBounds.top,
+    } : { baseHeight, baseWidth, baseX, baseY };
+    const movementTransform = movementBounds ? {
+      scale: 1,
+      x: proposedTransform.x - session.startX,
+      y: proposedTransform.y - session.startY,
+    } : proposedTransform;
     const snapped = snapCanvasLayer(
-      proposedTransform,
-      { baseHeight, baseWidth, baseX, baseY },
+      movementTransform,
+      movementGeometry,
       session.snapTargets,
       6 / bounds.width * canvasWidth,
       6 / bounds.height * canvasHeight
@@ -462,7 +565,11 @@ export default function EditableCanvasLayer({
     setSmartGuides((current) => current.x === snapped.guides.x && current.y === snapped.guides.y
       ? current
       : snapped.guides);
-    onChange(snapped.transform);
+    onChange(movementBounds ? {
+      ...proposedTransform,
+      x: session.startX + snapped.transform.x,
+      y: session.startY + snapped.transform.y,
+    } : snapped.transform);
   }
 
   function endPointer(eventType: string, pointerId: number) {
@@ -513,9 +620,13 @@ export default function EditableCanvasLayer({
         aria-label={label}
         aria-selected={selected}
         className={`editable-canvas-layer ${className}`}
+        data-assembly-move={allowContentInteraction && movementBounds ? 'true' : undefined}
+        data-canvas-selection-member={selectionMember ? 'true' : undefined}
         data-content-interactive={allowContentInteraction ? 'true' : undefined}
         data-fit-content-height={fitContentHeight ? 'true' : undefined}
+        data-multi-selection={selectionMember && !showSelectionControls ? 'true' : undefined}
         onKeyDown={handleKeyDown}
+        onContextMenu={onContextMenu}
         onPointerDown={(event) => beginPointer(event, 'move')}
         ref={layerRef}
         role={allowContentInteraction ? 'group' : 'button'}
@@ -524,7 +635,7 @@ export default function EditableCanvasLayer({
       >
         <div className='editable-canvas-layer-content'>{children}</div>
       </div>
-      {selected && selectionBounds ? createPortal(
+      {selected && showSelectionControls && selectionBounds ? createPortal(
         <div
           className='editable-canvas-layer-selection'
           data-canvas-selection-preserve
