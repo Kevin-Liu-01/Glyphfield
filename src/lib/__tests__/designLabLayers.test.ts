@@ -174,6 +174,17 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('context.fillStyle = canvasBackground');
   });
 
+  it('supports reorderable full-composition converter layers with universal opacity', () => {
+    expect(designLab).toContain("type EffectLayerId = `effect-${string}`;");
+    expect(designLab).toContain("'shader-lab-v4-composition-effects'");
+    expect(designLab).toContain('function addEffectLayer(');
+    expect(designLab).toContain('applyCompositionEffect(context, width, height, {');
+    expect(designLab).toContain("className='shader-lab-v2-composition-effect'");
+    expect(designLab).toContain("data-effect-kind={effectLayer.settings.kind}");
+    expect(designLab.match(/label='Layer opacity'/g)).toHaveLength(5);
+    expect(designLab).toContain('effectLayers,');
+  });
+
   it('renders previews and exports from the same logical text geometry', () => {
     expect(designLab).toContain('resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight)');
     expect(designLab).toContain('const box = outputLayerBox(layerId, transform, width, height);');

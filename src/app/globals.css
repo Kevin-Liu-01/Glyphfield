@@ -413,6 +413,15 @@
   pointer-events: none;
 }
 
+.shader-lab-v2-composition-effect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
 .shader-lab-v2-composition-layer .editable-canvas-layer-content {
   position: relative;
   display: grid;
@@ -548,7 +557,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: 158px minmax(220px, 1fr);
+  grid-template-columns: 220px minmax(220px, 1fr);
   border-top: 1px solid hsl(var(--border));
   color: hsl(var(--foreground));
   background: hsl(var(--background));
@@ -595,7 +604,7 @@
 
 .shader-lab-v2-dock-add {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -1682,6 +1691,105 @@
   gap: 10px;
   color: hsl(var(--foreground));
   font-size: 10px;
+}
+
+.shader-lab-v2-effect-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.shader-lab-v2-effect-presets > button {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  text-align: left;
+}
+
+.shader-lab-v2-effect-presets > button:hover,
+.shader-lab-v2-effect-presets > button[aria-pressed='true'] {
+  border-color: hsl(var(--foreground) / .54);
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / .54);
+}
+
+.shader-lab-v2-effect-presets > button > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shader-lab-v2-effect-presets strong {
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.shader-lab-v2-effect-presets small {
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shader-lab-v2-effect-swatch {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 32px;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: #111216;
+}
+
+.shader-lab-v2-effect-swatch[data-effect-kind='bayer'] {
+  background-image: conic-gradient(from 90deg, #f5f5f2 25%, #111216 0 50%, #f5f5f2 0 75%, #111216 0);
+  background-size: 6px 6px;
+}
+
+.shader-lab-v2-effect-swatch[data-effect-kind='ascii'] {
+  background-image: linear-gradient(135deg, #111216 18%, #4c4d51 18% 42%, #f5f5f2 42% 62%, #111216 62%);
+}
+
+.shader-lab-v2-effect-swatch[data-effect-kind='ascii']::after {
+  content: 'A#%';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -.1em;
+}
+
+.shader-lab-v2-effect-swatch[data-effect-kind='halftone'] {
+  background-image: radial-gradient(circle, #f5f5f2 0 34%, transparent 36%);
+  background-size: 8px 8px;
+}
+
+.shader-lab-v2-effect-swatch[data-effect-kind='posterize'] {
+  background-image: linear-gradient(135deg, #111216 0 25%, #55565a 25% 50%, #aaa 50% 75%, #f5f5f2 75%);
+}
+
+.shader-lab-v2-effect-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 14px;
 }
 
 .shader-lab-v2-layer-settings {

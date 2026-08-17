@@ -16,6 +16,7 @@ import {
   ExternalLink,
   FileImage,
   Film,
+  Grid3X3,
   ImageDown,
   ImagePlus,
   Layers3,
@@ -89,6 +90,13 @@ import {
 } from '@/lib/canvasExport';
 import type { ConvertedAsset } from '@/lib/convertedAssets';
 import {
+  applyCompositionEffect,
+  COMPOSITION_EFFECT_PRESETS,
+  defaultCompositionEffectSettings,
+  type CompositionEffectKind,
+  type CompositionEffectSettings,
+} from '@/lib/compositionEffects';
+import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
@@ -117,11 +125,12 @@ import type { StudioTool } from '@/lib/studioCatalog';
 type ShaderRatio = 'wide' | 'square' | 'opengraph';
 type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
 type ShaderLayerId = `shader-${string}`;
+type EffectLayerId = `effect-${string}`;
 type LogoLayerId = `logo-${string}`;
 type TextLayerId = `text-${string}`;
 type AssetLayerId = `asset-${string}`;
 type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
-type CompositionLayerId = ShaderLayerId | ContentLayerId;
+type CompositionLayerId = ShaderLayerId | EffectLayerId | ContentLayerId;
 
 type ShaderApplication = {
   blendMode: ShaderBlendMode;
@@ -134,6 +143,14 @@ type ShaderApplication = {
 type CompositionShaderLayer = ShaderApplication & {
   id: ShaderLayerId;
   name: string;
+  visible: boolean;
+};
+
+type CompositionEffectLayer = {
+  id: EffectLayerId;
+  name: string;
+  opacity: number;
+  settings: CompositionEffectSettings;
   visible: boolean;
 };
 
@@ -430,12 +447,20 @@ function isShaderLayerId(layerId: CompositionLayerId | null): layerId is ShaderL
   return layerId?.startsWith('shader-') ?? false;
 }
 
+function isEffectLayerId(layerId: CompositionLayerId | null): layerId is EffectLayerId {
+  return layerId?.startsWith('effect-') ?? false;
+}
+
 function isLogoLayerId(layerId: CompositionLayerId | null): layerId is LogoLayerId {
   return layerId?.startsWith('logo-') ?? false;
 }
 
 function isAssetLayerId(layerId: CompositionLayerId | null): layerId is AssetLayerId {
   return layerId?.startsWith('asset-') ?? false;
+}
+
+function isContentLayerId(layerId: CompositionLayerId | null): layerId is ContentLayerId {
+  return isLogoLayerId(layerId) || isTextLayerId(layerId) || isAssetLayerId(layerId);
 }
 
 function resolvedTextTransform(transform: CanvasLayerTransform): CanvasLayerTransform {
@@ -757,6 +782,7 @@ export default function ShaderLabStudio({
     visible: true,
   };
   const stageRef = useRef<HTMLDivElement>(null);
+  const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
   const selectMaterialRef = useRef<(materialId: LiveMaterialId) => void>(() => undefined);
@@ -770,6 +796,12 @@ export default function ShaderLabStudio({
     tool.id,
     'shader-lab-v3-canvas-shaders',
     [initialShaderLayer]
+  );
+  const [effectLayers, setEffectLayers] = useStudioDraft<CompositionEffectLayer[]>(
+    identity.id,
+    tool.id,
+    'shader-lab-v4-composition-effects',
+    []
   );
   const [layerShaders, setLayerShaders] = useStudioDraft<Partial<Record<ContentLayerId, ShaderApplication>>>(
     identity.id,
@@ -847,11 +879,12 @@ export default function ShaderLabStudio({
     layerShaders,
     layers: {
       assets: compositionAssets,
+      effects: effectLayers,
       logos: logoLayers,
       shaders: shaderLayers,
       text: textLayers,
     },
-  }), [canvasBackground, compositionAssets, layerOrder, layerShaders, logoLayers, shaderLayers, textLayers]);
+  }), [canvasBackground, compositionAssets, effectLayers, layerOrder, layerShaders, logoLayers, shaderLayers, textLayers]);
   const currentExportSettingsSignature = `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${compositionSignature}`;
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
@@ -860,7 +893,10 @@ export default function ShaderLabStudio({
   const selectedShaderLayer = isShaderLayerId(selectedLayerId)
     ? shaderLayers.find(({ id }) => id === selectedLayerId) ?? null
     : null;
-  const selectedContentLayerId = selectedLayerId && !isShaderLayerId(selectedLayerId)
+  const selectedEffectLayer = isEffectLayerId(selectedLayerId)
+    ? effectLayers.find(({ id }) => id === selectedLayerId) ?? null
+    : null;
+  const selectedContentLayerId = isContentLayerId(selectedLayerId)
     ? selectedLayerId
     : null;
   const selectedLayerShader = selectedContentLayerId ? layerShaders[selectedContentLayerId] ?? null : null;
@@ -907,9 +943,11 @@ export default function ShaderLabStudio({
     setLayerOrder((current) => {
       const textIds = new Set(textLayers.map(({ id }) => id));
       const shaderIds = new Set(shaderLayers.map(({ id }) => id));
+      const effectIds = new Set(effectLayers.map(({ id }) => id));
       const retained = current.filter((id) => (
         (!isTextLayerId(id) || textIds.has(id))
         && (!isShaderLayerId(id) || shaderIds.has(id))
+        && (!isEffectLayerId(id) || effectIds.has(id))
       ));
       const missingShaders = shaderLayers.map(({ id }) => id).filter((id) => !retained.includes(id));
       const firstContentIndex = retained.findIndex((id) => !isShaderLayerId(id));
@@ -919,6 +957,7 @@ export default function ShaderLabStudio({
         ...missingShaders,
         ...retained.slice(shaderInsertionIndex),
         ...textLayers.map(({ id }) => id).filter((id) => !retained.includes(id)),
+        ...effectLayers.map(({ id }) => id).filter((id) => !retained.includes(id)),
       ];
       return next.length === current.length && next.every((id, index) => id === current[index])
         ? current
@@ -927,10 +966,11 @@ export default function ShaderLabStudio({
     setSelectedLayerId((current) =>
       (isTextLayerId(current) && !textLayers.some(({ id }) => id === current))
       || (isShaderLayerId(current) && !shaderLayers.some(({ id }) => id === current))
+      || (isEffectLayerId(current) && !effectLayers.some(({ id }) => id === current))
         ? null
         : current
     );
-  }, [shaderLayers, textLayers]);
+  }, [effectLayers, shaderLayers, textLayers]);
 
   useEffect(() => {
     const needsWeightNormalization = textLayers.some((layer) => {
@@ -1017,6 +1057,40 @@ export default function ShaderLabStudio({
       return [...current.slice(0, index), id, ...current.slice(index)];
     });
     setSelectedLayerId(id);
+  }
+
+  function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
+    const id = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
+    const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
+    const number = effectLayers.filter((layer) => layer.settings.kind === kind).length + 1;
+    const layer: CompositionEffectLayer = {
+      id,
+      name: `${preset.label} ${number}`,
+      opacity: 1,
+      settings: defaultCompositionEffectSettings(kind),
+      visible: true,
+    };
+    setEffectLayers((current) => [...current, layer]);
+    setLayerOrder((current) => [...current, id]);
+    setSelectedLayerId(id);
+  }
+
+  function updateEffectLayer(id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) {
+    setEffectLayers((current) => current.map((layer) => layer.id === id ? { ...layer, ...update } : layer));
+  }
+
+  function selectEffectPreset(layer: CompositionEffectLayer, kind: CompositionEffectKind) {
+    const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
+    updateEffectLayer(layer.id, {
+      name: preset.label,
+      settings: defaultCompositionEffectSettings(kind),
+    });
+  }
+
+  function removeEffectLayer(id: EffectLayerId) {
+    setEffectLayers((current) => current.filter((layer) => layer.id !== id));
+    setLayerOrder((current) => current.filter((layerId) => layerId !== id));
+    setSelectedLayerId((current) => current === id ? null : current);
   }
 
   function addBrandMarkLayer() {
@@ -1250,6 +1324,19 @@ export default function ShaderLabStudio({
       placeLayerAfter(id, nextId);
       return;
     }
+    if (isEffectLayerId(id)) {
+      const source = effectLayers.find((layer) => layer.id === id);
+      if (!source) return;
+      const nextId = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
+      setEffectLayers((current) => [...current, {
+        ...source,
+        id: nextId,
+        name: `${source.name} copy`,
+        settings: { ...source.settings },
+      }]);
+      placeLayerAfter(id, nextId);
+      return;
+    }
     if (isTextLayerId(id)) {
       const source = textLayers.find((layer) => layer.id === id);
       if (!source) return;
@@ -1302,6 +1389,7 @@ export default function ShaderLabStudio({
 
   function removeLayer(id: CompositionLayerId) {
     if (isShaderLayerId(id)) removeShaderLayer(id);
+    else if (isEffectLayerId(id)) removeEffectLayer(id);
     else if (isLogoLayerId(id)) removeLogoLayer(id);
     else if (isTextLayerId(id)) removeTextLayer(id);
     else removeAsset(id);
@@ -1309,6 +1397,7 @@ export default function ShaderLabStudio({
 
   function layerVisible(id: CompositionLayerId) {
     if (isShaderLayerId(id)) return shaderLayers.find((layer) => layer.id === id)?.visible ?? false;
+    if (isEffectLayerId(id)) return effectLayers.find((layer) => layer.id === id)?.visible ?? false;
     if (isLogoLayerId(id)) return logoLayers.find((layer) => layer.id === id)?.visible ?? false;
     if (isTextLayerId(id)) return textLayers.find((layer) => layer.id === id)?.visible ?? false;
     return compositionAssets.find((asset) => asset.id === id)?.visible ?? false;
@@ -1316,6 +1405,7 @@ export default function ShaderLabStudio({
 
   function layerKind(id: CompositionLayerId) {
     if (isShaderLayerId(id)) return 'Shader';
+    if (isEffectLayerId(id)) return 'Converter';
     if (isLogoLayerId(id)) return 'Brand mark';
     if (isTextLayerId(id)) return 'Editable text';
     return 'Image';
@@ -1326,6 +1416,7 @@ export default function ShaderLabStudio({
   });
   const listedLayerIds = layerOrder.filter((id) =>
     (isShaderLayerId(id) && shaderLayers.some((layer) => layer.id === id))
+    || (isEffectLayerId(id) && effectLayers.some((layer) => layer.id === id))
     || (isLogoLayerId(id) && logoLayers.some((layer) => layer.id === id))
     || (isTextLayerId(id) && textLayers.some((layer) => layer.id === id))
     || compositionAssets.some((asset) => asset.id === id)
@@ -1334,6 +1425,10 @@ export default function ShaderLabStudio({
   function toggleLayerVisibility(id: CompositionLayerId) {
     if (isShaderLayerId(id)) {
       setShaderLayers((current) => current.map((layer) => layer.id === id ? { ...layer, visible: !layer.visible } : layer));
+      return;
+    }
+    if (isEffectLayerId(id)) {
+      setEffectLayers((current) => current.map((layer) => layer.id === id ? { ...layer, visible: !layer.visible } : layer));
       return;
     }
     if (isLogoLayerId(id)) {
@@ -1365,6 +1460,7 @@ export default function ShaderLabStudio({
 
   function layerLabel(id: CompositionLayerId) {
     if (isShaderLayerId(id)) return shaderLayers.find((layer) => layer.id === id)?.name ?? 'Canvas shader';
+    if (isEffectLayerId(id)) return effectLayers.find((layer) => layer.id === id)?.name ?? 'Converter';
     if (isLogoLayerId(id)) return logoLayers.find((layer) => layer.id === id)?.name ?? 'Mark';
     if (isTextLayerId(id)) return textLayers.find((layer) => layer.id === id)?.name ?? 'Text';
     return compositionAssets.find((asset) => asset.id === id)?.name ?? 'Image';
@@ -1375,6 +1471,7 @@ export default function ShaderLabStudio({
       composition: {
         assets: compositionAssets.map(({ appearance, id, name, opacity, transform }) => ({ appearance, id, name, opacity, transform })),
         backgroundColor: canvasBackground,
+        effectLayers,
         layerOrder,
         layerShaders,
         logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform }) => ({ appearance, color, convertedAssetId, id, name, opacity, transform })),
@@ -1390,6 +1487,7 @@ export default function ShaderLabStudio({
       composition?: {
         assets?: Array<Omit<CompositionAsset, 'url'>>;
         backgroundColor?: string;
+        effectLayers?: CompositionEffectLayer[];
         layerOrder?: CompositionLayerId[];
         layerShaders?: Partial<Record<ContentLayerId, ShaderApplication>>;
         logos?: Array<Omit<CompositionLogoLayer, 'url'>>;
@@ -1402,13 +1500,16 @@ export default function ShaderLabStudio({
     if (parsed.ratio && !RATIO_OPTIONS.some(({ value }) => value === parsed.ratio)) throw new TypeError('Unknown canvas ratio.');
     if (parsed.composition.backgroundColor && !/^#[\dA-F]{6}$/i.test(parsed.composition.backgroundColor)) throw new TypeError('Canvas background must be a six-digit HEX color.');
     if (parsed.composition.shaderLayers && (!Array.isArray(parsed.composition.shaderLayers) || parsed.composition.shaderLayers.some((layer) => !layer.id?.startsWith('shader-')))) throw new TypeError('Shader layers are invalid.');
+    if (parsed.composition.effectLayers && (!Array.isArray(parsed.composition.effectLayers) || parsed.composition.effectLayers.some((layer) => !layer.id?.startsWith('effect-')))) throw new TypeError('Converter layers are invalid.');
     if (parsed.composition.textLayers && (!Array.isArray(parsed.composition.textLayers) || parsed.composition.textLayers.some((layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string'))) throw new TypeError('Text layers are invalid.');
     if (parsed.composition.layerOrder && (!Array.isArray(parsed.composition.layerOrder) || parsed.composition.layerOrder.some((id) => typeof id !== 'string'))) throw new TypeError('Layer order is invalid.');
 
     const nextShaderLayers = parsed.composition.shaderLayers ?? shaderLayers;
+    const nextEffectLayers = parsed.composition.effectLayers ?? effectLayers;
     const nextTextLayers = parsed.composition.textLayers ?? textLayers;
     const allowedIds = new Set<CompositionLayerId>([
       ...nextShaderLayers.map(({ id }) => id),
+      ...nextEffectLayers.map(({ id }) => id),
       ...nextTextLayers.map(({ id }) => id),
       ...logoLayers.map(({ id }) => id),
       ...compositionAssets.map(({ id }) => id),
@@ -1422,6 +1523,7 @@ export default function ShaderLabStudio({
     if (parsed.ratio) setRatio(parsed.ratio);
     if (parsed.composition.backgroundColor) setCanvasBackground(parsed.composition.backgroundColor.toUpperCase());
     if (parsed.composition.shaderLayers) setShaderLayers(parsed.composition.shaderLayers);
+    if (parsed.composition.effectLayers) setEffectLayers(parsed.composition.effectLayers);
     if (parsed.composition.textLayers) setTextLayers(parsed.composition.textLayers);
     if (parsed.composition.layerShaders) setLayerShaders(parsed.composition.layerShaders);
     if (parsed.composition.logos) {
@@ -1542,13 +1644,14 @@ export default function ShaderLabStudio({
     context: CanvasRenderingContext2D,
     width: number,
     height: number,
-    images: Map<string, HTMLImageElement>
+    images: Map<string, HTMLImageElement>,
+    frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds
   ) {
     context.clearRect(0, 0, width, height);
     context.fillStyle = canvasBackground;
     context.fillRect(0, 0, width, height);
 
-    visibleLayerIds.forEach((layerId) => {
+    frameLayerIds.forEach((layerId) => {
       if (isShaderLayerId(layerId)) {
         const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
         if (!shaderLayer) return;
@@ -1559,6 +1662,16 @@ export default function ShaderLabStudio({
           : shaderLayer.blendMode;
         paintShaderApplication(context, width, height, `canvas-${layerId}`, shaderLayer);
         context.restore();
+        return;
+      }
+
+      if (isEffectLayerId(layerId)) {
+        const effectLayer = effectLayers.find((layer) => layer.id === layerId);
+        if (!effectLayer) return;
+        applyCompositionEffect(context, width, height, {
+          ...effectLayer.settings,
+          cellSize: effectLayer.settings.cellSize * width / 960,
+        }, effectLayer.opacity);
         return;
       }
 
@@ -1752,6 +1865,59 @@ export default function ShaderLabStudio({
     ];
     return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadImage(source)] as const)));
   }
+
+  useEffect(() => {
+    const activeEffectIds = visibleLayerIds.filter(isEffectLayerId);
+    if (activeEffectIds.length === 0) return;
+
+    let animationFrame = 0;
+    let cancelled = false;
+    let inViewport = true;
+    let lastRenderedAt = -Infinity;
+    let rendering = false;
+    const observer = typeof IntersectionObserver === 'undefined' || !stageRef.current
+      ? null
+      : new IntersectionObserver(([entry]) => {
+          inViewport = entry?.isIntersecting ?? true;
+        }, { rootMargin: '120px' });
+    if (observer && stageRef.current) observer.observe(stageRef.current);
+
+    const previewWidth = Math.min(720, canvasDimensions.width);
+    const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
+
+    void loadCompositionImages().then((images) => {
+      if (cancelled) return;
+      const tick = (now: number) => {
+        if (cancelled) return;
+        const shouldRender = inViewport && !document.hidden && !rendering && (paused || now - lastRenderedAt >= 1000 / 12);
+        if (shouldRender) {
+          rendering = true;
+          activeEffectIds.forEach((effectId) => {
+            const canvas = effectCanvasRefs.current.get(effectId);
+            if (!canvas) return;
+            if (canvas.width !== previewWidth) canvas.width = previewWidth;
+            if (canvas.height !== previewHeight) canvas.height = previewHeight;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (!context) return;
+            const effectIndex = visibleLayerIds.indexOf(effectId);
+            composeFrame(context, previewWidth, previewHeight, images, visibleLayerIds.slice(0, effectIndex + 1));
+          });
+          lastRenderedAt = now;
+          rendering = false;
+        }
+        if (!paused) animationFrame = requestAnimationFrame(tick);
+      };
+      animationFrame = requestAnimationFrame(tick);
+    }).catch(() => {
+      // Imported image errors should not take down the editable composition.
+    });
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [compositionSignature, paused, ratio]);
 
   function createExportCanvas() {
     const output = document.createElement('canvas');
@@ -2048,6 +2214,24 @@ export default function ShaderLabStudio({
                     );
                   }
 
+                  if (isEffectLayerId(layerId)) {
+                    const effectLayer = effectLayers.find((layer) => layer.id === layerId);
+                    if (!effectLayer) return null;
+                    return (
+                      <canvas
+                        aria-hidden='true'
+                        className='shader-lab-v2-composition-effect'
+                        data-effect-kind={effectLayer.settings.kind}
+                        key={layerId}
+                        ref={(canvas) => {
+                          if (canvas) effectCanvasRefs.current.set(layerId, canvas);
+                          else effectCanvasRefs.current.delete(layerId);
+                        }}
+                        style={{ zIndex }}
+                      />
+                    );
+                  }
+
                   const geometry = layerGeometry(layerId, ratio);
                   if (isLogoLayerId(layerId)) {
                     const logoLayer = logoLayers.find((layer) => layer.id === layerId);
@@ -2307,6 +2491,7 @@ export default function ShaderLabStudio({
               <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer'>
                 <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span>Text</span></button>
                 <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
+                <button onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
                 <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
                 <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
               </div>
@@ -2319,6 +2504,9 @@ export default function ShaderLabStudio({
                 const shaderLayer = isShaderLayerId(layerId)
                   ? shaderLayers.find(({ id }) => id === layerId)
                   : null;
+                const effectLayer = isEffectLayerId(layerId)
+                  ? effectLayers.find(({ id }) => id === layerId)
+                  : null;
                 const textLayer = isTextLayerId(layerId)
                   ? textLayers.find(({ id }) => id === layerId)
                   : null;
@@ -2328,7 +2516,7 @@ export default function ShaderLabStudio({
                 const assetLayer = isAssetLayerId(layerId)
                   ? compositionAssets.find(({ id }) => id === layerId)
                   : null;
-                const appliedShader = shaderLayer ?? (!isShaderLayerId(layerId) ? layerShaders[layerId] : null);
+                const appliedShader = shaderLayer ?? (isContentLayerId(layerId) ? layerShaders[layerId] : null);
                 const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
                 const previewUrl = logoLayer?.url ?? assetLayer?.url;
                 return (
@@ -2348,11 +2536,13 @@ export default function ShaderLabStudio({
                     >
                       <span className='shader-lab-v2-dock-layer-icon'>{isShaderLayerId(layerId)
                         ? <Sparkles aria-hidden='true' />
-                        : isTextLayerId(layerId)
-                          ? <Type aria-hidden='true' />
-                          : isLogoLayerId(layerId)
-                            ? <Layers3 aria-hidden='true' />
-                            : <ImagePlus aria-hidden='true' />}</span>
+                        : isEffectLayerId(layerId)
+                          ? <Grid3X3 aria-hidden='true' />
+                          : isTextLayerId(layerId)
+                            ? <Type aria-hidden='true' />
+                            : isLogoLayerId(layerId)
+                              ? <Layers3 aria-hidden='true' />
+                              : <ImagePlus aria-hidden='true' />}</span>
                       <span className='shader-lab-v2-dock-layer-copy'>
                         <strong>{layerLabel(layerId)}</strong>
                         <small>{String(index + 1).padStart(2, '0')} · {layerKind(layerId)}</small>
@@ -2386,7 +2576,9 @@ export default function ShaderLabStudio({
                         />
                       ) : (
                         <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${layerLabel(layerId)} preview`} onClick={() => setSelectedLayerId(layerId)} type='button'>
-                          {previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}
+                          {effectLayer ? (
+                            <span aria-hidden='true' className='shader-lab-v2-effect-swatch' data-effect-kind={effectLayer.settings.kind} />
+                          ) : previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : <span aria-hidden='true' />}
                         </button>
                       )}
                     </div>
@@ -2409,6 +2601,8 @@ export default function ShaderLabStudio({
             className='shader-lab-v2-inspector-intro'
             description={selectedShaderLayer
               ? 'Tune this full-canvas material, then place it anywhere in the layer stack.'
+              : selectedEffectLayer
+                ? 'Convert every layer beneath this point without flattening the composition.'
               : selectedContentLayerId
                 ? `Style, position, and export this layer${selectedLayerShader ? ` with ${material.name} applied` : ''}.`
                 : 'Select a layer to edit its content and appearance, or add a new one below.'}
@@ -2436,6 +2630,7 @@ export default function ShaderLabStudio({
                 <div className='shader-lab-v2-composition-add' aria-label='Add composition layer'>
                   <button onClick={addTextLayer} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.length} layers</small></span></button>
                   <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
+                  <button onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
                   <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
                   <button onClick={() => assetInputRef.current?.click()} type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} layers</small></span></button>
                 </div>
@@ -2466,6 +2661,111 @@ export default function ShaderLabStudio({
               value={canvasBackground}
             />
           </LabInspectorSection>
+
+          {selectedEffectLayer ? (
+            <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-effect-inspector' meta='Post-process' title='Converter'>
+              <div className='shader-lab-v2-effect-presets' aria-label='Converter type'>
+                {COMPOSITION_EFFECT_PRESETS.map((preset) => (
+                  <button
+                    aria-pressed={selectedEffectLayer.settings.kind === preset.kind}
+                    key={preset.kind}
+                    onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
+                    type='button'
+                  >
+                    <span aria-hidden='true' className='shader-lab-v2-effect-swatch' data-effect-kind={preset.kind} />
+                    <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
+                  </button>
+                ))}
+              </div>
+              <div className='shader-lab-v2-ranges'>
+                <RangeControl
+                  formatValue={(value) => `${Math.round(value * 100)}%`}
+                  label='Layer opacity'
+                  max={1}
+                  min={0}
+                  onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
+                  step={0.01}
+                  value={selectedEffectLayer.opacity}
+                />
+                <RangeControl
+                  formatValue={(value) => `${Math.round(value)}px`}
+                  label='Cell size'
+                  max={28}
+                  min={selectedEffectLayer.settings.kind === 'ascii' ? 7 : selectedEffectLayer.settings.kind === 'halftone' ? 4 : 1}
+                  onChange={(cellSize) => updateEffectLayer(selectedEffectLayer.id, {
+                    settings: { ...selectedEffectLayer.settings, cellSize },
+                  })}
+                  step={1}
+                  value={selectedEffectLayer.settings.cellSize}
+                />
+                <RangeControl
+                  formatValue={(value) => `${value.toFixed(2)}×`}
+                  label='Contrast'
+                  max={2.4}
+                  min={0.4}
+                  onChange={(contrast) => updateEffectLayer(selectedEffectLayer.id, {
+                    settings: { ...selectedEffectLayer.settings, contrast },
+                  })}
+                  step={0.02}
+                  value={selectedEffectLayer.settings.contrast}
+                />
+                <RangeControl
+                  formatValue={(value) => `${value >= 0.5 ? '+' : ''}${Math.round((value - 0.5) * 200)}%`}
+                  label='Brightness'
+                  max={1}
+                  min={0}
+                  onChange={(threshold) => updateEffectLayer(selectedEffectLayer.id, {
+                    settings: { ...selectedEffectLayer.settings, threshold },
+                  })}
+                  step={0.01}
+                  value={selectedEffectLayer.settings.threshold}
+                />
+                {selectedEffectLayer.settings.kind === 'posterize' ? (
+                  <RangeControl
+                    formatValue={(value) => `${Math.round(value)} tones`}
+                    label='Tone count'
+                    max={8}
+                    min={2}
+                    onChange={(levels) => updateEffectLayer(selectedEffectLayer.id, {
+                      settings: { ...selectedEffectLayer.settings, levels },
+                    })}
+                    step={1}
+                    value={selectedEffectLayer.settings.levels}
+                  />
+                ) : null}
+              </div>
+              <div className='shader-lab-v2-effect-colors'>
+                <ColorControl
+                  ariaLabel='Converter foreground color'
+                  label='Foreground'
+                  onChange={(foreground) => updateEffectLayer(selectedEffectLayer.id, {
+                    settings: { ...selectedEffectLayer.settings, foreground },
+                  })}
+                  value={selectedEffectLayer.settings.foreground}
+                />
+                <ColorControl
+                  ariaLabel='Converter background color'
+                  label='Background'
+                  onChange={(background) => updateEffectLayer(selectedEffectLayer.id, {
+                    settings: { ...selectedEffectLayer.settings, background },
+                  })}
+                  value={selectedEffectLayer.settings.background}
+                />
+              </div>
+              <div className='shader-lab-v2-effect-group'>
+                <label>
+                  <span>Invert luminance</span>
+                  <input
+                    checked={selectedEffectLayer.settings.invert}
+                    onChange={(event) => updateEffectLayer(selectedEffectLayer.id, {
+                      settings: { ...selectedEffectLayer.settings, invert: event.target.checked },
+                    })}
+                    type='checkbox'
+                  />
+                </label>
+              </div>
+            </LabInspectorSection>
+          ) : null}
 
           {editingShader ? <>
           <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
@@ -2530,7 +2830,7 @@ export default function ShaderLabStudio({
               />
               <RangeControl
                 formatValue={(value) => `${Math.round(value * 100)}%`}
-                label='Opacity'
+                label='Layer opacity'
                 max={1}
                 min={0}
                 onChange={(value) => updateSelectedShader({ opacity: value })}
@@ -2683,7 +2983,7 @@ export default function ShaderLabStudio({
                   />
                   <RangeControl
                     formatValue={(value) => `${Math.round(value * 100)}%`}
-                    label='Text opacity'
+                    label='Layer opacity'
                     max={1}
                     min={0}
                     onChange={(opacity) => updateTextLayer(selectedTextLayer.id, { opacity })}
@@ -2773,7 +3073,7 @@ export default function ShaderLabStudio({
                 />
                 <RangeControl
                   formatValue={(value) => `${Math.round(value * 100)}%`}
-                  label='Mark opacity'
+                  label='Layer opacity'
                   max={1}
                   min={0}
                   onChange={(opacity) => updateLogoLayer(selectedLogoLayer.id, { opacity })}
@@ -2803,7 +3103,7 @@ export default function ShaderLabStudio({
                 </div>
                 <RangeControl
                   formatValue={(value) => `${Math.round(value * 100)}%`}
-                  label='Image opacity'
+                  label='Layer opacity'
                   max={1}
                   min={0}
                   onChange={(opacity) => updateAssetLayer(selectedAsset.id, { opacity })}
