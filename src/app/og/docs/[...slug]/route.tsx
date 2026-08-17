@@ -19,9 +19,10 @@ export async function GET(_request: Request, { params }: DocumentationImageRoute
 
   return new ImageResponse(
     <BrandOpenGraphImage
-      accent='#a7f35a'
+      accent='#C8C0FF'
       description={page.data.description ?? 'Learn how to build and operate a connected brand system with Glyphfield.'}
       title={page.data.title}
+      url={`glyphfield.com/docs/${slug.slice(0, -1).join('/')}`}
     />,
     { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }
   );

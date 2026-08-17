@@ -11,9 +11,10 @@ export const size = OPEN_GRAPH_SIZE;
 export default async function OpenGraphImage() {
   return new ImageResponse(
     <BrandOpenGraphImage
-      accent='#20d8c7'
+      accent='#7BFFD9'
       description='Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.'
       title='Build the identity. Make everything else.'
+      url='glyphfield.com/studio'
     />,
     { ...size, fonts: await getOpenGraphFonts() }
   );

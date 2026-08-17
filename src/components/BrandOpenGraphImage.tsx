@@ -1,7 +1,5 @@
 import type { CSSProperties } from 'react';
 
-import BrandFieldBars from '@/components/BrandFieldBars';
-
 export const OPEN_GRAPH_SIZE = {
   height: 630,
   width: 1200,
@@ -12,7 +10,59 @@ type BrandOpenGraphImageProps = {
   description: string;
   highlightedTitle?: string;
   title: string;
+  url?: string;
 };
+
+const DITHERED_SWIRL_SIZE = 6;
+const DITHERED_SWIRL_WIDTH = 480;
+const DITHERED_SWIRL_HEIGHT = 630;
+const BAYER_8X8 = [
+  0, 32, 8, 40, 2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44, 4, 36, 14, 46, 6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+  3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25,
+  15, 47, 7, 39, 13, 45, 5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21,
+] as const;
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const normalized = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+  return normalized * normalized * (3 - 2 * normalized);
+}
+
+function buildDitheredSwirlPath(): string {
+  const cells: string[] = [];
+  const columns = Math.ceil(DITHERED_SWIRL_WIDTH / DITHERED_SWIRL_SIZE);
+  const rows = Math.ceil(DITHERED_SWIRL_HEIGHT / DITHERED_SWIRL_SIZE);
+  const time = 0.8;
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const pixelX = column * DITHERED_SWIRL_SIZE + DITHERED_SWIRL_SIZE / 2;
+      const pixelY = row * DITHERED_SWIRL_SIZE + DITHERED_SWIRL_SIZE / 2;
+      const x = (pixelX - DITHERED_SWIRL_WIDTH / 2) / DITHERED_SWIRL_HEIGHT;
+      const y = (pixelY - DITHERED_SWIRL_HEIGHT / 2) / DITHERED_SWIRL_HEIGHT;
+      const length = Math.max(0.000001, Math.hypot(x, y));
+      const twist = 1.2;
+      const angle = 6 * Math.atan2(y, x) + 4 * time;
+      const offset = 1 / Math.pow(length, twist) + angle / (Math.PI * 2);
+      const middle = smoothstep(0, 1, Math.pow(length, twist));
+      const shape = (offset - Math.floor(offset)) * middle;
+      const threshold = BAYER_8X8[(row % 8) * 8 + (column % 8)]! / 64;
+
+      if (shape + threshold < 1) continue;
+      const cellX = column * DITHERED_SWIRL_SIZE;
+      const cellY = row * DITHERED_SWIRL_SIZE;
+      cells.push(`M${cellX} ${cellY}h${DITHERED_SWIRL_SIZE}v${DITHERED_SWIRL_SIZE}h-${DITHERED_SWIRL_SIZE}Z`);
+    }
+  }
+
+  return cells.join('');
+}
+
+const DITHERED_SWIRL_PATH = buildDitheredSwirlPath();
 
 function GlyphfieldMark({ color = '#ffffff', size = 52 }: { color?: string; size?: number }) {
   return (
@@ -24,40 +74,12 @@ function GlyphfieldMark({ color = '#ffffff', size = 52 }: { color?: string; size
   );
 }
 
-function CornerTriangle({ position }: { position: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' }) {
-  const vertical = position.startsWith('top') ? { top: 0 } : { bottom: 0 };
-  const horizontal = position.endsWith('left') ? { left: 0 } : { right: 0 };
-  const rotation = {
-    'bottom-left': 'rotate(270deg)',
-    'bottom-right': 'rotate(180deg)',
-    'top-left': 'rotate(0deg)',
-    'top-right': 'rotate(90deg)',
-  }[position];
-
-  return (
-    <div
-      style={{
-        ...vertical,
-        ...horizontal,
-        borderBottom: '9px solid transparent',
-        borderLeft: '9px solid rgba(255,255,255,0.55)',
-        borderTop: '9px solid transparent',
-        display: 'flex',
-        height: 0,
-        position: 'absolute',
-        transform: rotation,
-        width: 0,
-      }}
-    />
-  );
-}
-
 function GlyphField({ accent }: { accent: string }) {
   return (
     <div
       style={{
         alignItems: 'flex-end',
-        background: '#07080b',
+        background: '#201046',
         display: 'flex',
         height: '100%',
         justifyContent: 'center',
@@ -66,24 +88,23 @@ function GlyphField({ accent }: { accent: string }) {
         width: '100%',
       }}
     >
+      <svg
+        aria-hidden='true'
+        data-og-shader='paper-dithering-swirl'
+        height={DITHERED_SWIRL_HEIGHT}
+        preserveAspectRatio='xMidYMid slice'
+        viewBox={`0 0 ${DITHERED_SWIRL_WIDTH} ${DITHERED_SWIRL_HEIGHT}`}
+        width={DITHERED_SWIRL_WIDTH}
+      >
+        <rect fill='#201046' height={DITHERED_SWIRL_HEIGHT} width={DITHERED_SWIRL_WIDTH} />
+        <path d={DITHERED_SWIRL_PATH} fill='#C8C0FF' />
+      </svg>
       <div
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.16) 1px, transparent 1px)',
-          backgroundSize: '16px 16px',
+          background: `linear-gradient(180deg, rgba(123,255,217,0.16) 0%, ${accent}00 38%, ${accent}52 100%)`,
           display: 'flex',
           inset: 0,
-          opacity: 0.28,
           position: 'absolute',
-        }}
-      />
-      <BrandFieldBars
-        accent={accent}
-        barWidth={44}
-        style={{
-          bottom: -1,
-          height: 516,
-          position: 'absolute',
-          width: 420,
         }}
       />
       <div
@@ -93,17 +114,13 @@ function GlyphField({ accent }: { accent: string }) {
           display: 'flex',
           height: 146,
           justifyContent: 'center',
-          left: 137,
+          left: 167,
           position: 'absolute',
-          top: 218,
+          top: 242,
           width: 146,
         }}
       >
         <GlyphfieldMark size={78} />
-        <CornerTriangle position='top-left' />
-        <CornerTriangle position='top-right' />
-        <CornerTriangle position='bottom-left' />
-        <CornerTriangle position='bottom-right' />
       </div>
     </div>
   );
@@ -114,8 +131,16 @@ export default function BrandOpenGraphImage({
   description,
   highlightedTitle,
   title,
+  url = 'glyphfield.com',
 }: BrandOpenGraphImageProps) {
   const titleSize = title.length > 58 ? 55 : title.length > 38 ? 63 : 72;
+  const highlightedTitleIndex = highlightedTitle ? title.indexOf(highlightedTitle) : -1;
+  const titleBeforeHighlight = highlightedTitleIndex > 0
+    ? title.slice(0, highlightedTitleIndex).trimEnd()
+    : '';
+  const titleFromHighlight = highlightedTitleIndex >= 0
+    ? title.slice(highlightedTitleIndex)
+    : '';
   const shellStyle: CSSProperties = {
     background: '#f4f3ef',
     color: '#111113',
@@ -137,8 +162,9 @@ export default function BrandOpenGraphImage({
           height: '100%',
           padding: '34px 44px 30px',
           position: 'relative',
-          width: 746,
+          width: 720,
         }}
+        data-og-panel='copy'
       >
         <div style={{ alignItems: 'center', display: 'flex', height: 48 }}>
           <GlyphfieldMark color='#111113' size={40} />
@@ -158,19 +184,19 @@ export default function BrandOpenGraphImage({
         <div
           style={{
             display: 'flex',
-            flexDirection: highlightedTitle ? 'column' : 'row',
+            flexDirection: highlightedTitleIndex >= 0 ? 'column' : 'row',
             fontSize: titleSize,
             fontWeight: 500,
             letterSpacing: -3.4,
             lineHeight: 0.98,
-            marginTop: 104,
+            marginTop: 90,
             maxWidth: 650,
           }}
         >
-          {highlightedTitle && title.startsWith(highlightedTitle) ? (
+          {highlightedTitleIndex >= 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ color: accent, display: 'flex' }}>{highlightedTitle}</div>
-              <div style={{ display: 'flex' }}>{title.slice(highlightedTitle.length).trimStart()}</div>
+              {titleBeforeHighlight ? <div style={{ display: 'flex' }}>{titleBeforeHighlight}</div> : null}
+              <div style={{ color: accent, display: 'flex' }}>{titleFromHighlight}</div>
             </div>
           ) : title}
         </div>
@@ -191,21 +217,25 @@ export default function BrandOpenGraphImage({
         <div
           style={{
             alignItems: 'center',
-            borderTop: '1px solid rgba(17,17,19,0.22)',
-            color: 'rgba(17,17,19,0.56)',
+            background: '#111113',
+            color: '#ffffff',
             display: 'flex',
-            fontSize: 12,
-            justifyContent: 'flex-start',
-            letterSpacing: 2,
+            fontSize: 21,
+            fontWeight: 550,
+            height: 68,
+            justifyContent: 'space-between',
+            letterSpacing: -0.25,
             marginTop: 'auto',
-            paddingTop: 20,
+            padding: '0 24px',
+            width: 330,
           }}
         >
-          <span style={{ display: 'flex' }}>LOCAL-FIRST / MIT</span>
+          <span style={{ display: 'flex' }}>{url}</span>
+          <span style={{ color: accent, display: 'flex', fontSize: 29, lineHeight: 1 }}>→</span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', height: '100%', width: 454 }}>
+      <div data-og-panel='image' style={{ display: 'flex', height: '100%', width: 480 }}>
         <GlyphField accent={accent} />
       </div>
     </div>

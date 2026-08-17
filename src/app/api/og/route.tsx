@@ -12,7 +12,7 @@ function valueFromSearchParams(searchParams: URLSearchParams, key: string, fallb
 
 function accentFromSearchParams(searchParams: URLSearchParams) {
   const accent = searchParams.get('accent')?.trim();
-  return accent && /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#20bfae';
+  return accent && /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#7058FF';
 }
 
 export async function GET(request: Request) {
@@ -28,6 +28,7 @@ export async function GET(request: Request) {
         180
       )}
       title={valueFromSearchParams(searchParams, 'title', 'Make the identity visible.', 84)}
+      url={valueFromSearchParams(searchParams, 'url', 'glyphfield.com', 80)}
     />,
     { ...OPEN_GRAPH_SIZE, fonts: await getOpenGraphFonts() }
   );
