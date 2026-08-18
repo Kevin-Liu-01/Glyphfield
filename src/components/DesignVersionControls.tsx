@@ -36,7 +36,7 @@ export default function DesignVersionControls({
 }: {
   identityId: string;
   onOpen: (source: string) => void;
-  source: string;
+  source: string | (() => string);
   toolId: string;
   workspaceLabel: string;
 }) {
@@ -52,8 +52,9 @@ export default function DesignVersionControls({
     activeSavedDesignStorageKey(identityId, toolId),
     null
   );
+  const currentSource = typeof source === 'function' ? source() : source;
   const activeDesign = designs.find(({ id }) => id === activeId) ?? null;
-  const dirty = activeDesign ? activeDesign.source !== source : true;
+  const dirty = activeDesign ? activeDesign.source !== currentSource : true;
   const sortedDesigns = useMemo(
     () => [...designs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [designs]
@@ -84,7 +85,7 @@ export default function DesignVersionControls({
   function createDesign(
     name: string,
     origin: SavedDesignOrigin,
-    designSource = source,
+    designSource = typeof source === 'function' ? source() : source,
     parentId?: string
   ) {
     const now = new Date().toISOString();
@@ -110,7 +111,8 @@ export default function DesignVersionControls({
       return;
     }
     const now = new Date().toISOString();
-    setDesigns(updateSavedDesign(designs, activeDesign.id, { source, updatedAt: now }));
+    const latestSource = typeof source === 'function' ? source() : source;
+    setDesigns(updateSavedDesign(designs, activeDesign.id, { source: latestSource, updatedAt: now }));
     setError('');
     announce('Changes saved');
   }
@@ -119,12 +121,15 @@ export default function DesignVersionControls({
     createDesign(
       `${activeDesign?.name ?? 'Untitled design'} · Fork`,
       'fork',
-      source,
+      typeof source === 'function' ? source() : source,
       activeDesign?.id
     );
   }
 
-  function cloneDesign(design = activeDesign, designSource = source) {
+  function cloneDesign(
+    design = activeDesign,
+    designSource = typeof source === 'function' ? source() : source
+  ) {
     createDesign(`${design?.name ?? 'Untitled design'} · Copy`, 'clone', designSource);
   }
 

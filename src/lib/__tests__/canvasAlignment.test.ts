@@ -5,6 +5,8 @@ import {
   alignCanvasSelection,
   canvasLayerDimensions,
   canvasSelectionBounds,
+  isAdditiveCanvasSelection,
+  nextCanvasLayerSelection,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerGeometry,
@@ -163,6 +165,28 @@ describe('snapCanvasLayer', () => {
 });
 
 describe('canvas layer selection', () => {
+  it('preserves every selected layer when a drag begins from one selected member', () => {
+    expect(nextCanvasLayerSelection(['text-1', 'text-2'], ['text-1'], 'text-1', false))
+      .toEqual(['text-1', 'text-2']);
+  });
+
+  it('starts a new selection when the pointer begins outside the active selection', () => {
+    expect(nextCanvasLayerSelection(['text-1', 'text-2'], ['logo-1'], 'logo-1', false))
+      .toEqual(['logo-1']);
+  });
+
+  it.each([
+    ['Command', { ctrlKey: false, metaKey: true, shiftKey: false }],
+    ['Control', { ctrlKey: true, metaKey: false, shiftKey: false }],
+    ['Shift', { ctrlKey: false, metaKey: false, shiftKey: true }],
+  ])('treats %s as an additive selection modifier', (_label, modifiers) => {
+    expect(isAdditiveCanvasSelection(modifiers)).toBe(true);
+  });
+
+  it('keeps an ordinary click as a single selection', () => {
+    expect(isAdditiveCanvasSelection({ ctrlKey: false, metaKey: false, shiftKey: false })).toBe(false);
+  });
+
   it('deselects only a stationary second click on a selected layer', () => {
     expect(shouldDeselectCanvasLayer('pointerup', 'move', true, false)).toBe(true);
     expect(shouldDeselectCanvasLayer('pointerup', 'move', true, true)).toBe(false);

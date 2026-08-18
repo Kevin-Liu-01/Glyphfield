@@ -319,12 +319,95 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) 152px;
+  grid-template-rows: minmax(0, 1fr) 44px 152px;
   overflow: hidden;
   background-color: hsl(var(--muted) / .32);
   background-image: radial-gradient(hsl(var(--foreground) / .075) .7px, transparent .7px);
   background-size: 14px 14px;
   container: design-lab-workspace / inline-size;
+}
+
+.shader-lab-v2-frame-history {
+  position: relative;
+  z-index: 21;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px 122px minmax(80px, 1fr) 58px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  background: hsl(var(--background) / .97);
+  backdrop-filter: blur(14px);
+}
+
+.shader-lab-v2-frame-history > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--raised-background));
+}
+
+.shader-lab-v2-frame-history > button:hover {
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-frame-history > button svg,
+.shader-lab-v2-frame-history-copy svg {
+  width: 12px;
+  height: 12px;
+}
+
+.shader-lab-v2-frame-history-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.shader-lab-v2-frame-history-copy > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 640;
+}
+
+.shader-lab-v2-frame-history-copy small {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.shader-lab-v2-frame-history input[type='range'] {
+  width: 100%;
+  min-width: 0;
+  height: 18px;
+  margin: 0;
+  accent-color: hsl(var(--foreground));
+  cursor: ew-resize;
+}
+
+.shader-lab-v2-frame-history output {
+  display: flex;
+  justify-content: flex-end;
+  gap: 3px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shader-lab-v2-frame-history output strong {
+  color: hsl(var(--foreground));
+  font-weight: 650;
 }
 
 .shader-lab-v2-stage-wrap {
@@ -1552,6 +1635,60 @@
 
 .shader-lab-v2-range .studio-range {
   height: 12px;
+}
+
+.shader-lab-v2-zoom-control {
+  gap: 5px;
+}
+
+.shader-lab-v2-zoom-input {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 7px;
+}
+
+.shader-lab-v2-zoom-input > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--raised-background));
+}
+
+.shader-lab-v2-zoom-input > button:hover:not(:disabled) {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-zoom-input > button:disabled {
+  opacity: .35;
+}
+
+.shader-lab-v2-zoom-input > button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.shader-lab-v2-zoom-scale {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding-inline: 35px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shader-lab-v2-zoom-scale span:nth-child(2) {
+  text-align: center;
+}
+
+.shader-lab-v2-zoom-scale span:last-child {
+  text-align: right;
 }
 
 .shader-lab-v2-composition-actions {

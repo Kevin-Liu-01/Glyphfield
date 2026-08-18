@@ -26,7 +26,7 @@ export const DEFAULT_LOGO_APPEARANCE: LogoAppearanceSettings = {
   borderColor: '#FFFFFF',
   borderEnabled: false,
   borderOpacity: 100,
-  borderWidth: 2,
+  borderWidth: 0.5,
   ditherAmount: 72,
   ditherAngle: 24,
   ditherEnabled: false,

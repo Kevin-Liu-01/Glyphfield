@@ -55,6 +55,12 @@ export type CanvasSelectionItem = {
   transform: CanvasLayerTransform;
 };
 
+export type CanvasSelectionModifiers = {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+};
+
 type PointerSession = {
   moved: boolean;
   mode: 'move' | 'resize' | 'resize-bottom' | 'resize-left' | 'resize-right' | 'resize-top';
@@ -81,6 +87,25 @@ type SelectionBounds = {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+export function isAdditiveCanvasSelection(modifiers: CanvasSelectionModifiers): boolean {
+  return modifiers.metaKey || modifiers.ctrlKey || modifiers.shiftKey;
+}
+
+export function nextCanvasLayerSelection<T extends string>(
+  current: readonly T[],
+  targetIds: readonly T[],
+  selectedId: T,
+  additive: boolean
+): T[] {
+  if (!additive) {
+    if (current.length > 1 && current.includes(selectedId)) return [...current];
+    return [...targetIds];
+  }
+  const allSelected = targetIds.every((id) => current.includes(id));
+  if (allSelected) return current.filter((id) => !targetIds.includes(id));
+  return [...current, ...targetIds.filter((id) => !current.includes(id))];
 }
 
 export function shouldDeselectCanvasLayer(
@@ -443,7 +468,7 @@ export default function EditableCanvasLayer({
   function beginPointer(event: ReactPointerEvent<HTMLElement>, mode: PointerSession['mode']) {
     if (event.button !== 0) return;
     event.stopPropagation();
-    const additive = event.metaKey || event.ctrlKey;
+    const additive = isAdditiveCanvasSelection(event);
     if (
       mode === 'move'
       && allowContentInteraction

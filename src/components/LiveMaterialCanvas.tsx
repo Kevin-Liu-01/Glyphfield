@@ -90,6 +90,7 @@ import {
   type PaperLiveMaterialId,
   type PaperShaderFamilyId,
 } from '@/lib/liveMaterials';
+import { clampShaderZoom } from '@/lib/shaderZoom';
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
@@ -2017,7 +2018,7 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const resolvedPatternScale = Math.max(0.1, patternScale);
+  const resolvedPatternScale = clampShaderZoom(patternScale);
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);

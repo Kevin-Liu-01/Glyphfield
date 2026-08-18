@@ -34,8 +34,8 @@ describe('logo appearance', () => {
 
     expect(filter).toContain('invert(1)');
     expect(filter).toContain('drop-shadow(0px 8px 18px #00000047)');
-    expect(filter).toContain('drop-shadow(2px 0 0 #FF000080)');
-    expect(filter).toContain('drop-shadow(-2px -2px 0 #FF000080)');
+    expect(filter).toContain('drop-shadow(0.5px 0 0 #FF000080)');
+    expect(filter).toContain('drop-shadow(-0.5px -0.5px 0 #FF000080)');
   });
 
   it('builds an SVG filter around the source alpha instead of its bounding box', () => {

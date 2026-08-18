@@ -31,6 +31,14 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import type { StudioSource } from '@/lib/renderFrame';
 import { shaderLabSettingsFor } from '@/lib/shaderLab';
 import {
+  formatShaderZoom,
+  shaderZoomFromSlider,
+  shaderZoomToSlider,
+  SHADER_ZOOM_SLIDER_MAX,
+  SHADER_ZOOM_SLIDER_MIN,
+  SHADER_ZOOM_SLIDER_STEP,
+} from '@/lib/shaderZoom';
+import {
   EASING_PRESETS,
   type ImportedImage,
   type SourceMode,
@@ -100,6 +108,7 @@ function InspectorSection({
 
 function RangeControl({
   ariaLabel,
+  formatValue,
   label,
   max,
   min,
@@ -109,6 +118,7 @@ function RangeControl({
   value,
 }: {
   ariaLabel?: string;
+  formatValue?: (value: number) => string;
   label: ReactNode;
   max: number;
   min: number;
@@ -117,15 +127,15 @@ function RangeControl({
   unit?: string;
   value: number;
 }) {
-  const resolvedValue = Math.min(value, max);
+  const resolvedValue = Math.min(max, Math.max(min, value));
   return (
     <label className='studio-range-control flex flex-col gap-2'>
       <StudioRangeLabel
         className='text-sm'
         label={label}
         value={<output className='font-mono text-xs tabular-nums text-muted-foreground'>
-          {resolvedValue}
-          {unit}
+          {formatValue?.(resolvedValue) ?? resolvedValue}
+          {formatValue ? null : unit}
         </output>}
       />
       <input
@@ -506,14 +516,14 @@ export default function StudioControls({
                   </Button>
                 </div>
               <RangeControl
-                ariaLabel={gt('Shader size')}
-                label={<T>Shader size</T>}
-                max={3}
-                min={0.25}
-                onChange={(patternScale) => onBackgroundChange({ patternScale })}
-                step={0.05}
-                unit='×'
-                value={editableBackground.patternScale ?? 1}
+                ariaLabel={gt('Shader zoom')}
+                formatValue={(sliderValue) => formatShaderZoom(shaderZoomFromSlider(sliderValue))}
+                label={<T>Shader zoom</T>}
+                max={SHADER_ZOOM_SLIDER_MAX}
+                min={SHADER_ZOOM_SLIDER_MIN}
+                onChange={(sliderValue) => onBackgroundChange({ patternScale: shaderZoomFromSlider(sliderValue) })}
+                step={SHADER_ZOOM_SLIDER_STEP}
+                value={shaderZoomToSlider(editableBackground.patternScale ?? 1)}
               />
               <RangeControl
                 ariaLabel={gt('Horizontal shader position')}

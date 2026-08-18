@@ -158,6 +158,20 @@ describe('Playground optional layers', () => {
     expect(playground).toContain('onOpen={applySource}');
   });
 
+  it('round-trips complete canvas layers, ordering, groups, and shader frame history', () => {
+    expect(designLab).toContain('version: 2,');
+    expect(designLab).toContain('assets: compositionAssets,');
+    expect(designLab).toContain('logos: logoLayers,');
+    expect(designLab).toContain('frame: boundedPreviewFrame,');
+    expect(designLab).toContain('setLogoLayers(nextLogoLayers);');
+    expect(designLab).toContain('setCompositionAssets(nextAssets);');
+    expect(designLab).toContain('setLayerGroups(nextGroups);');
+    expect(designLab).toContain('setLayerOrder(nextOrder);');
+    expect(designLab).toContain("aria-label='Shader frame history'");
+    expect(designLab).not.toContain('assets: compositionAssets.map(({ appearance, id, name, opacity, transform })');
+    expect(designLab).not.toContain('logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform })');
+  });
+
   it('keeps content controls contextual in Design Lab', () => {
     expect(designLab).toContain("label='Text box width'");
     expect(designLab).toContain("ariaLabel='Text font role'");

@@ -122,7 +122,7 @@ export default function CanvasSelectionMenu({
     >
       <div className='canvas-selection-menu__heading'>
         <span>{groupName ?? `${count} layer${count === 1 ? '' : 's'}`}</span>
-        <kbd>⌘ click</kbd>
+        <kbd>Cmd / Ctrl / Shift</kbd>
       </div>
       <div className='canvas-selection-menu__actions'>
         <button aria-keyshortcuts='Meta+G Control+G' disabled={!canGroup} onClick={() => run(onGroup)} role='menuitem' type='button'>

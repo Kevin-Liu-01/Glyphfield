@@ -11,6 +11,7 @@ function AppearanceRange({
   max,
   min,
   onChange,
+  step = 1,
   suffix = '',
   value,
 }: {
@@ -18,6 +19,7 @@ function AppearanceRange({
   max: number;
   min: number;
   onChange: (value: number) => void;
+  step?: number;
   suffix?: string;
   value: number;
 }) {
@@ -27,7 +29,7 @@ function AppearanceRange({
         label={label}
         value={<output className='font-mono text-[10px]'>{value}{suffix}</output>}
       />
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={value} />
+      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
     </label>
   );
 }
@@ -73,7 +75,7 @@ export default function LogoAppearanceControls({
       {settings.borderEnabled ? (
         <div className='flex flex-col gap-4 border-l border-border pl-3'>
           <ColorControl ariaLabel={gt(isImage ? 'Image outline color' : 'Logo outline color')} label={<T>Outline color</T>} onChange={(borderColor) => onChange({ borderColor })} onOpacityChange={(borderOpacity) => onChange({ borderOpacity })} opacity={settings.borderOpacity} value={settings.borderColor} />
-          <AppearanceRange label={gt('Outline width')} max={12} min={1} onChange={(borderWidth) => onChange({ borderWidth })} suffix='px' value={settings.borderWidth} />
+          <AppearanceRange label={gt('Outline width')} max={12} min={0.5} onChange={(borderWidth) => onChange({ borderWidth })} step={0.5} suffix='px' value={settings.borderWidth} />
         </div>
       ) : null}
       <label className='flex items-center justify-between gap-4 text-sm'>
