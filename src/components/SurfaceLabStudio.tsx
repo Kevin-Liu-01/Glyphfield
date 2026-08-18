@@ -167,6 +167,8 @@ const DEFAULT_TEXT_TRANSFORM: CanvasLayerTransform = {
   y: 0,
 };
 
+const LEGACY_PLAYGROUND_SHADER_ID = 'holo-cloth-silk' as const satisfies LiveMaterialId;
+
 const DESIGN_SURFACE_IDS = new Set([
   'thin-film-opal',
   'brushed-aluminum-v3',
@@ -367,6 +369,18 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:playground`);
   const palette = useMemo(() => brandMaterialPalette(identity), [identity]);
+  const defaultLiveSettings = useMemo(() => shaderLabSettingsFor(SHADER_LIBRARY_DEFAULT_IDS.surface, {
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    colorA: palette.colors[0],
+    colorB: palette.colors[1],
+    colorC: palette.colors[2],
+  }), [palette.colors]);
+  const legacyDefaultLiveSettings = useMemo(() => shaderLabSettingsFor(LEGACY_PLAYGROUND_SHADER_ID, {
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    colorA: palette.colors[0],
+    colorB: palette.colors[1],
+    colorC: palette.colors[2],
+  }), [palette.colors]);
   const shaderStageRef = useRef<HTMLDivElement>(null);
   const surfaceStageRef = useRef<HTMLDivElement>(null);
   const effectCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -412,12 +426,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     identity.id,
     tool.id,
     'design-lab-shader-settings-v1',
-    () => shaderLabSettingsFor(SHADER_LIBRARY_DEFAULT_IDS.surface, {
-      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-      colorA: palette.colors[0],
-      colorB: palette.colors[1],
-      colorC: palette.colors[2],
-    })
+    defaultLiveSettings
   );
   const [storedSettings, setStoredSettings] = useStudioDraft<BackgroundSettings>(identity.id, tool.id, 'design-lab-surface-settings-v1', () => ({
     ...DEFAULT_BACKGROUND_SETTINGS,
@@ -529,6 +538,25 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   ];
 
   customArtworkRef.current = customArtwork;
+  useMountEffect(() => {
+    const storagePrefix = `glyphfield-draft-v1:${identity.id}:${tool.id}`;
+    const migrationKey = `${storagePrefix}:playground-gem-smoke-default-v1`;
+    try {
+      if (window.localStorage.getItem(migrationKey)) return;
+      window.localStorage.setItem(migrationKey, '1');
+      const storedShader = window.localStorage.getItem(`${storagePrefix}:design-lab-shader-v1`);
+      const storedSettings = window.localStorage.getItem(`${storagePrefix}:design-lab-shader-settings-v1`);
+      const legacyShaderWasUntouched = storedShader !== null
+        && JSON.parse(storedShader) === LEGACY_PLAYGROUND_SHADER_ID
+        && (storedSettings === null || JSON.stringify(JSON.parse(storedSettings)) === JSON.stringify(legacyDefaultLiveSettings));
+      if (!legacyShaderWasUntouched) return;
+      setLiveMaterialId(SHADER_LIBRARY_DEFAULT_IDS.surface);
+      setStoredLiveSettings(defaultLiveSettings);
+    } catch {
+      // Persistence can be unavailable; the new in-memory default still applies.
+    }
+  });
+
   useEffect(() => {
     const pending = pendingStickerActionRef.current;
     if (!pending || !stickerAssets.some(({ id }) => id === pending.assetId)) return;

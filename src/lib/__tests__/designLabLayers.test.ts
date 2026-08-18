@@ -178,6 +178,10 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('const untouchedLegacyDefault =');
     expect(designLab).toContain('return untouchedLegacyDefault ? { ...initialShaderLayer } : layer;');
     expect(designLab).toContain('editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID');
+    expect(playground).toContain("const LEGACY_PLAYGROUND_SHADER_ID = 'holo-cloth-silk'");
+    expect(playground).toContain('playground-gem-smoke-default-v1');
+    expect(playground).toContain('const legacyShaderWasUntouched =');
+    expect(playground).toContain('setLiveMaterialId(SHADER_LIBRARY_DEFAULT_IDS.surface);');
   });
 
   it('keeps content controls contextual in Design Lab', () => {

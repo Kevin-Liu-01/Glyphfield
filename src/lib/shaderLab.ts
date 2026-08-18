@@ -45,7 +45,7 @@ export const SHADER_LIBRARY_DEFAULT_IDS = {
   heroAnimation: 'paper-dithering-swirl',
   heroField: 'paper-grain-gradient',
   heroMark: 'paper-dithering-swirl',
-  surface: 'holo-cloth-silk',
+  surface: 'paper-gem-smoke',
 } as const satisfies Record<string, LiveMaterialId>;
 
 type ShaderLibraryScene = {

@@ -76,6 +76,7 @@ describe('shader lab', () => {
 
   it('owns the shared defaults and homepage scenes consumed by every shader surface', () => {
     const materialIds = new Set(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map(({ id }) => id));
+    expect(SHADER_LIBRARY_DEFAULT_IDS.surface).toBe('paper-gem-smoke');
     Object.values(SHADER_LIBRARY_DEFAULT_IDS).forEach((id) => expect(materialIds.has(id)).toBe(true));
     Object.values(SHADER_LIBRARY_SCENES).forEach(({ materialId, settings }) => {
       expect(materialIds.has(materialId)).toBe(true);
