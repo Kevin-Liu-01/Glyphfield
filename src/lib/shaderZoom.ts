@@ -26,6 +26,18 @@ export function formatShaderZoom(value: number): string {
   return `${Number(zoom.toFixed(1))}×`;
 }
 
+export function interpolateShaderZoom(
+  current: number,
+  target: number,
+  elapsedMs: number,
+  responseMs: number
+): number {
+  const currentLog = Math.log10(clampShaderZoom(current));
+  const targetLog = Math.log10(clampShaderZoom(target));
+  const response = 1 - Math.exp(-Math.max(0, elapsedMs) / Math.max(1, responseMs));
+  return clampShaderZoom(10 ** (currentLog + (targetLog - currentLog) * response));
+}
+
 export function stepShaderZoom(value: number, direction: -1 | 1): number {
   const zoom = clampShaderZoom(value);
   if (direction < 0) {

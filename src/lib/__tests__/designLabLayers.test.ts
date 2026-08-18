@@ -172,6 +172,14 @@ describe('Playground optional layers', () => {
     expect(designLab).not.toContain('logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform })');
   });
 
+  it('starts untouched compositions on Gem Smoke and migrates only the legacy Holo default', () => {
+    expect(designLab).toContain("const DEFAULT_SHADER_MATERIAL_ID = 'paper-gem-smoke'");
+    expect(designLab).toContain("const LEGACY_DEFAULT_SHADER_MATERIAL_ID = 'holo-cloth-silk'");
+    expect(designLab).toContain('const untouchedLegacyDefault =');
+    expect(designLab).toContain('return untouchedLegacyDefault ? { ...initialShaderLayer } : layer;');
+    expect(designLab).toContain('editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID');
+  });
+
   it('keeps content controls contextual in Design Lab', () => {
     expect(designLab).toContain("label='Text box width'");
     expect(designLab).toContain("ariaLabel='Text font role'");

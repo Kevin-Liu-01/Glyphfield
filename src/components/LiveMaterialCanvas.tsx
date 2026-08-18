@@ -90,12 +90,66 @@ import {
   type PaperLiveMaterialId,
   type PaperShaderFamilyId,
 } from '@/lib/liveMaterials';
-import { clampShaderZoom } from '@/lib/shaderZoom';
+import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
+
+const SHADER_ZOOM_RESPONSE_MS = 45;
+
+function useSmoothedShaderZoom(target: number, immediate = false): number {
+  const boundedTarget = clampShaderZoom(target);
+  const currentZoomRef = useRef(boundedTarget);
+  const targetZoomRef = useRef(boundedTarget);
+  const animationFrameRef = useRef(0);
+  const [renderedZoom, setRenderedZoom] = useState(boundedTarget);
+
+  useEffect(() => {
+    targetZoomRef.current = boundedTarget;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (immediate || reduceMotion) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = 0;
+      currentZoomRef.current = boundedTarget;
+      setRenderedZoom(boundedTarget);
+      return;
+    }
+
+    let previousTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = Math.min(48, Math.max(0, now - previousTime));
+      previousTime = now;
+      const targetLog = Math.log10(targetZoomRef.current);
+      const interpolatedZoom = interpolateShaderZoom(
+        currentZoomRef.current,
+        targetZoomRef.current,
+        elapsed,
+        SHADER_ZOOM_RESPONSE_MS
+      );
+      const settled = Math.abs(targetLog - Math.log10(interpolatedZoom)) < 0.002;
+      const nextZoom = settled ? targetZoomRef.current : interpolatedZoom;
+      currentZoomRef.current = nextZoom;
+      setRenderedZoom(nextZoom);
+      if (settled) {
+        animationFrameRef.current = 0;
+        return;
+      }
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = 0;
+    };
+  }, [boundedTarget, immediate]);
+
+  useEffect(() => () => cancelAnimationFrame(animationFrameRef.current), []);
+  return renderedZoom;
+}
 import { shaderMaterialPreviewStyle } from '@/lib/shaderLab';
 import { SEAMLESS_POLAR_GLSL } from '@/lib/liveMaterialPolar';
 
@@ -2018,7 +2072,7 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const resolvedPatternScale = clampShaderZoom(patternScale);
+  const resolvedPatternScale = useSmoothedShaderZoom(patternScale, captureTimeMs !== null);
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);

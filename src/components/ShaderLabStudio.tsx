@@ -564,6 +564,8 @@ function ShaderFrameHistoryControl({
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
+const DEFAULT_SHADER_MATERIAL_ID = 'paper-gem-smoke' as const satisfies LiveMaterialId;
+const LEGACY_DEFAULT_SHADER_MATERIAL_ID = 'holo-cloth-silk' as const satisfies LiveMaterialId;
 const DEFAULT_CANVAS_BACKGROUND = '#111216';
 const DEFAULT_LOGO_LAYER_ID = 'logo-brand' as const satisfies LogoLayerId;
 const DEFAULT_TEXT_LAYER_TRANSFORM: CanvasLayerTransform = {
@@ -937,6 +939,41 @@ function ShaderZoomControl({
   value: number;
 }) {
   const zoom = clampShaderZoom(value);
+  const [sliderValue, setSliderValue] = useState(() => shaderZoomToSlider(zoom));
+  const pendingZoomRef = useRef<number | null>(null);
+  const zoomFrameRef = useRef(0);
+  const scrubbingRef = useRef(false);
+
+  useEffect(() => {
+    if (!scrubbingRef.current && pendingZoomRef.current === null && zoomFrameRef.current === 0) {
+      setSliderValue(shaderZoomToSlider(zoom));
+    }
+  }, [zoom]);
+
+  useEffect(() => () => cancelAnimationFrame(zoomFrameRef.current), []);
+
+  function flushZoom() {
+    cancelAnimationFrame(zoomFrameRef.current);
+    zoomFrameRef.current = 0;
+    if (pendingZoomRef.current === null) return;
+    const nextZoom = pendingZoomRef.current;
+    pendingZoomRef.current = null;
+    onChange(nextZoom);
+  }
+
+  function scheduleZoom(nextSliderValue: number) {
+    setSliderValue(nextSliderValue);
+    pendingZoomRef.current = shaderZoomFromSlider(nextSliderValue);
+    if (zoomFrameRef.current) return;
+    zoomFrameRef.current = requestAnimationFrame(() => {
+      zoomFrameRef.current = 0;
+      if (pendingZoomRef.current === null) return;
+      const nextZoom = pendingZoomRef.current;
+      pendingZoomRef.current = null;
+      onChange(nextZoom);
+    });
+  }
+
   return (
     <div className='shader-lab-v2-range shader-lab-v2-zoom-control'>
       <StudioRangeLabel
@@ -956,10 +993,23 @@ function ShaderZoomControl({
           className='studio-range'
           max={SHADER_ZOOM_SLIDER_MAX}
           min={SHADER_ZOOM_SLIDER_MIN}
-          onInput={(event) => onChange(shaderZoomFromSlider(Number(event.currentTarget.value)))}
+          onBlur={() => {
+            scrubbingRef.current = false;
+            flushZoom();
+          }}
+          onInput={(event) => scheduleZoom(Number(event.currentTarget.value))}
+          onPointerCancel={() => {
+            scrubbingRef.current = false;
+            flushZoom();
+          }}
+          onPointerDown={() => { scrubbingRef.current = true; }}
+          onPointerUp={() => {
+            scrubbingRef.current = false;
+            flushZoom();
+          }}
           step={SHADER_ZOOM_SLIDER_STEP}
           type='range'
-          value={shaderZoomToSlider(zoom)}
+          value={sliderValue}
         />
         <button
           aria-label='Zoom shader in'
@@ -1014,7 +1064,7 @@ export default function ShaderLabStudio({
 }) {
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
   const brandPalette = brandMaterialPalette(identity);
-  const initialSettings = shaderLabSettingsFor('holo-cloth-silk', {
+  const initialSettings = shaderLabSettingsFor(DEFAULT_SHADER_MATERIAL_ID, {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     colorA: brandPalette.colors[0],
     colorB: brandPalette.colors[1],
@@ -1025,12 +1075,19 @@ export default function ShaderLabStudio({
     ?? brandAssetPath(identity, 'mark-dark')
     ?? monogramDataUrl(identity);
   const initialShaderLayer: CompositionShaderLayer = {
-    ...shaderApplicationFor('holo-cloth-silk', brandPalette.colors),
+    ...shaderApplicationFor(DEFAULT_SHADER_MATERIAL_ID, brandPalette.colors),
+    id: DEFAULT_CANVAS_SHADER_ID,
+    name: 'Canvas shader 1',
+    visible: true,
+  };
+  const legacyDefaultShaderLayer: CompositionShaderLayer = {
+    ...shaderApplicationFor(LEGACY_DEFAULT_SHADER_MATERIAL_ID, brandPalette.colors),
     id: DEFAULT_CANVAS_SHADER_ID,
     name: 'Canvas shader 1',
     visible: true,
   };
   const stageRef = useRef<HTMLDivElement>(null);
+  const defaultShaderMigrationRef = useRef('');
   const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
   const effectScratchRefs = useRef<Map<EffectLayerId, CompositionEffectScratch>>(new Map());
   const effectPreviewBufferRef = useRef<HTMLCanvasElement | null>(null);
@@ -1159,7 +1216,7 @@ export default function ShaderLabStudio({
   const selectedLayerShader = selectedContentLayerId ? layerShaders[selectedContentLayerId] ?? null : null;
   const editingShader = selectedShaderLayer ?? selectedLayerShader;
   const activeMaterialId = normalizeLiveMaterialId(
-    editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? 'holo-cloth-silk'
+    editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID
   );
   const material = getLiveMaterial(activeMaterialId);
   const settings = editingShader?.settings ?? initialSettings;
@@ -1244,6 +1301,25 @@ export default function ShaderLabStudio({
   useEffect(() => {
     setDraftHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    const migrationKey = `${identity.id}:${tool.id}:${brandPalette.colors.join('|')}`;
+    if (defaultShaderMigrationRef.current === migrationKey) return;
+    defaultShaderMigrationRef.current = migrationKey;
+    const legacySettings = JSON.stringify(legacyDefaultShaderLayer.settings);
+    setShaderLayers((current) => current.map((layer) => {
+      const untouchedLegacyDefault = layer.id === legacyDefaultShaderLayer.id
+        && layer.name === legacyDefaultShaderLayer.name
+        && layer.visible === legacyDefaultShaderLayer.visible
+        && layer.materialId === legacyDefaultShaderLayer.materialId
+        && layer.blendMode === legacyDefaultShaderLayer.blendMode
+        && layer.opacity === legacyDefaultShaderLayer.opacity
+        && layer.shaderSize === legacyDefaultShaderLayer.shaderSize
+        && JSON.stringify(layer.settings) === legacySettings;
+      return untouchedLegacyDefault ? { ...initialShaderLayer } : layer;
+    }));
+  }, [brandPalette.colors, draftHydrated, identity.id, initialShaderLayer, legacyDefaultShaderLayer, setShaderLayers, tool.id]);
 
   useEffect(() => {
     if (!draftHydrated) return;
