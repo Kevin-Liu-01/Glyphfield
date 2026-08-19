@@ -325,7 +325,7 @@ describe('Playground optional layers', () => {
   });
 
   it('pins static and shader-filled artwork to the editable layer bounds', () => {
-    expect(designLab.match(/shader-lab-v2-appearance-preview/g)).toHaveLength(4);
+    expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(4);
     expect(studioStyles).toContain('.shader-lab-v2-appearance-preview {');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-preview \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
     expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(2);
@@ -334,7 +334,7 @@ describe('Playground optional layers', () => {
 
   it('applies shadows with the shaded mark instead of an overlay silhouette', () => {
     expect(designLab.match(/borderEnabled: false,/g)).toHaveLength(2);
-    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(2);
+    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(3);
     expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(2);
     expect(designLab).not.toContain('appearance.borderEnabled || appearance.shadowEnabled');
   });
@@ -365,11 +365,15 @@ describe('Design Lab image import and selection chrome', () => {
   });
 
   it('previews resize frames locally and commits composition state on release', () => {
-    expect(editableCanvasLayer).toContain('const [resizePreviewTransform, setResizePreviewTransform]');
-    expect(editableCanvasLayer).toContain('setResizePreviewTransform(nextTransform);');
-    expect(editableCanvasLayer).toContain("if (session.mode !== 'move' && resizePreview) onChange(resizePreview);");
-    expect(editableCanvasLayer).toContain("transform: useGpuResizePreview ? `scale3d(");
-    expect(editableCanvasLayer).toContain("data-resize-preview={useGpuResizePreview ? 'gpu' : undefined}");
+    expect(editableCanvasLayer).toContain('applyDirectInteractionPreview(nextTransform, session);');
+    expect(editableCanvasLayer).toContain('applyDirectBoxResizePreview(nextTransform, session);');
+    expect(editableCanvasLayer).toContain('applyDirectGroupMovePreview(nextTransform, session);');
+    expect(editableCanvasLayer).toContain("element.dataset.interactionPreview = 'gpu-group';");
+    expect(editableCanvasLayer).toContain('layer.style.transform = `translate3d(${translateX}%, ${translateY}%, 0) scale3d(');
+    expect(editableCanvasLayer).toContain("layer.dataset.interactionPreview = 'gpu';");
+    expect(editableCanvasLayer).toContain('onChange(resizePreview);');
     expect(editableCanvasLayer).not.toContain('clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3)');
+    expect(studioStyles).toContain('.editable-canvas-layer {\n  position: absolute;\n  min-width: 0;\n  min-height: 0;');
+    expect(studioStyles).not.toContain('.editable-canvas-layer {\n  position: absolute;\n  min-width: 24px;');
   });
 });

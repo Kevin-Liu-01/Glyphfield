@@ -62,6 +62,8 @@ export type CanvasSelectionModifiers = {
 };
 
 type PointerSession = {
+  groupElements: Array<{ element: HTMLElement; height: number; width: number }>;
+  groupOverlay: HTMLElement | null;
   moved: boolean;
   mode: 'move' | 'resize' | 'resize-bottom' | 'resize-left' | 'resize-right' | 'resize-top';
   parentBounds: { height: number; left: number; top: number; width: number };
@@ -338,19 +340,19 @@ export default function EditableCanvasLayer({
   zIndex: number;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const selectionOverlayRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<PointerSession | null>(null);
   const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
-  const [resizePreviewTransform, setResizePreviewTransform] = useState<CanvasLayerTransform | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
   const resizePreviewTransformRef = useRef<CanvasLayerTransform | null>(null);
-  const renderedTransform = resizePreviewTransform ?? transform;
-  const committedDimensions = canvasLayerDimensions(transform, { baseHeight, baseWidth });
-  const previewDimensions = canvasLayerDimensions(renderedTransform, { baseHeight, baseWidth });
-  const useGpuResizePreview = resizeMode === 'scale' && resizePreviewTransform !== null;
-  const { height, width } = useGpuResizePreview ? committedDimensions : previewDimensions;
+  const directPreviewActiveRef = useRef(false);
+  const directPreviewCommitPendingRef = useRef(false);
+  const directPreviewElementsRef = useRef<HTMLElement[]>([]);
+  const directPreviewOverlayRef = useRef<HTMLElement | null>(null);
+  const { height, width } = canvasLayerDimensions(transform, { baseHeight, baseWidth });
 
   useLayoutEffect(() => {
     if (!fitContentHeight) {
@@ -384,13 +386,126 @@ export default function EditableCanvasLayer({
       : next);
   }, []);
 
+  function clearDirectInteractionPreview() {
+    directPreviewElementsRef.current.forEach((element) => {
+      element.style.removeProperty('transform');
+      element.style.removeProperty('will-change');
+      delete element.dataset.interactionPreview;
+    });
+    directPreviewOverlayRef.current?.style.removeProperty('transform');
+    directPreviewElementsRef.current = [];
+    directPreviewOverlayRef.current = null;
+    directPreviewActiveRef.current = false;
+    directPreviewCommitPendingRef.current = false;
+  }
+
+  function applyDirectInteractionPreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const startDimensions = canvasLayerDimensions(session.startTransform, { baseHeight, baseWidth });
+    const nextDimensions = canvasLayerDimensions(nextTransform, { baseHeight, baseWidth });
+    const translateX = (nextTransform.x - session.startTransform.x) / Math.max(startDimensions.width, 0.001) * 100;
+    const translateY = (nextTransform.y - session.startTransform.y) / Math.max(startDimensions.height, 0.001) * 100;
+    const scaleX = nextDimensions.width / Math.max(startDimensions.width, 0.001);
+    const scaleY = nextDimensions.height / Math.max(startDimensions.height, 0.001);
+    layer.style.transform = `translate3d(${translateX}%, ${translateY}%, 0) scale3d(${scaleX}, ${scaleY}, 1)`;
+    layer.style.willChange = 'transform';
+    layer.dataset.interactionPreview = 'gpu';
+    directPreviewElementsRef.current = [layer];
+
+    const overlay = selectionOverlayRef.current;
+    if (overlay) {
+      const nextBounds = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
+      overlay.style.left = `${session.parentBounds.left + nextBounds.left / canvasWidth * session.parentBounds.width}px`;
+      overlay.style.top = `${session.parentBounds.top + nextBounds.top / canvasHeight * session.parentBounds.height}px`;
+      overlay.style.width = `${nextBounds.width / canvasWidth * session.parentBounds.width}px`;
+      overlay.style.height = `${nextBounds.height / canvasHeight * session.parentBounds.height}px`;
+    }
+
+    resizePreviewTransformRef.current = nextTransform;
+    directPreviewActiveRef.current = true;
+  }
+
+  function applyDirectBoxResizePreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const nextBounds = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
+    layer.style.left = `${nextBounds.left / canvasWidth * 100}%`;
+    layer.style.top = `${nextBounds.top / canvasHeight * 100}%`;
+    layer.style.width = `${nextBounds.width / canvasWidth * 100}%`;
+    layer.style.height = fitContentHeight && contentHeight !== null
+      ? `max(${nextBounds.height / canvasHeight * 100}%, ${contentHeight}px)`
+      : `${nextBounds.height / canvasHeight * 100}%`;
+    layer.style.willChange = 'left, top, width, height';
+    layer.dataset.interactionPreview = 'direct-box';
+
+    const overlay = selectionOverlayRef.current;
+    if (overlay) {
+      overlay.style.left = `${session.parentBounds.left + nextBounds.left / canvasWidth * session.parentBounds.width}px`;
+      overlay.style.top = `${session.parentBounds.top + nextBounds.top / canvasHeight * session.parentBounds.height}px`;
+      overlay.style.width = `${nextBounds.width / canvasWidth * session.parentBounds.width}px`;
+      overlay.style.height = `${nextBounds.height / canvasHeight * session.parentBounds.height}px`;
+    }
+
+    directPreviewElementsRef.current = [layer];
+    resizePreviewTransformRef.current = nextTransform;
+    directPreviewActiveRef.current = true;
+  }
+
+  function restoreCommittedLayerLayout() {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const bounds = canvasLayerBounds(transform, { baseHeight, baseWidth, baseX, baseY });
+    layer.style.left = `${bounds.left / canvasWidth * 100}%`;
+    layer.style.top = `${bounds.top / canvasHeight * 100}%`;
+    layer.style.width = `${bounds.width / canvasWidth * 100}%`;
+    layer.style.height = fitContentHeight && contentHeight !== null
+      ? `max(${bounds.height / canvasHeight * 100}%, ${contentHeight}px)`
+      : `${bounds.height / canvasHeight * 100}%`;
+  }
+
+  function applyDirectGroupMovePreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
+    const deltaX = (nextTransform.x - session.startTransform.x) / canvasWidth * session.parentBounds.width;
+    const deltaY = (nextTransform.y - session.startTransform.y) / canvasHeight * session.parentBounds.height;
+    session.groupElements.forEach(({ element, height: elementHeight, width: elementWidth }) => {
+      const translateX = deltaX / Math.max(elementWidth, 0.001) * 100;
+      const translateY = deltaY / Math.max(elementHeight, 0.001) * 100;
+      element.style.transform = `translate3d(${translateX}%, ${translateY}%, 0)`;
+      element.style.willChange = 'transform';
+      element.dataset.interactionPreview = 'gpu-group';
+    });
+    if (session.groupOverlay) {
+      session.groupOverlay.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
+    }
+    directPreviewElementsRef.current = session.groupElements.map(({ element }) => element);
+    directPreviewOverlayRef.current = session.groupOverlay;
+    resizePreviewTransformRef.current = nextTransform;
+    directPreviewActiveRef.current = true;
+  }
+
+  useLayoutEffect(() => {
+    if (!directPreviewActiveRef.current || !directPreviewCommitPendingRef.current) return;
+    const preview = resizePreviewTransformRef.current;
+    if (
+      !preview
+      || preview.x !== transform.x
+      || preview.y !== transform.y
+      || preview.scale !== transform.scale
+      || preview.widthScale !== transform.widthScale
+      || preview.heightScale !== transform.heightScale
+    ) return;
+    clearDirectInteractionPreview();
+    resizePreviewTransformRef.current = null;
+    measureSelectionBounds();
+  }, [measureSelectionBounds, transform.heightScale, transform.scale, transform.widthScale, transform.x, transform.y]);
+
   useLayoutEffect(() => {
     if (!selected) {
       setSelectionBounds(null);
       return;
     }
     measureSelectionBounds();
-  }, [contentHeight, height, measureSelectionBounds, previewDimensions.height, previewDimensions.width, renderedTransform.x, renderedTransform.y, selected, width]);
+  }, [contentHeight, height, measureSelectionBounds, selected, transform.x, transform.y, width]);
 
   useEffect(() => {
     if (!selected) return;
@@ -512,8 +627,8 @@ export default function EditableCanvasLayer({
     const parentBounds = parent.getBoundingClientRect();
     if (parentBounds.width <= 0 || parentBounds.height <= 0) return;
     const startingTransform = resizePreviewTransformRef.current ?? transform;
+    clearDirectInteractionPreview();
     resizePreviewTransformRef.current = null;
-    setResizePreviewTransform(null);
     const targetX = [0, canvasWidth / 2, canvasWidth];
     const targetY = [0, canvasHeight / 2, canvasHeight];
     Array.from(parent.children).forEach((sibling) => {
@@ -532,6 +647,16 @@ export default function EditableCanvasLayer({
       targetY.push(top, (top + bottom) / 2, bottom);
     });
     sessionRef.current = {
+      groupElements: movementBounds ? Array.from(parent.children).flatMap((sibling) => {
+        if (
+          !(sibling instanceof HTMLElement)
+          || !sibling.classList.contains('editable-canvas-layer')
+          || sibling.dataset.canvasSelectionMember !== 'true'
+        ) return [];
+        const siblingBounds = sibling.getBoundingClientRect();
+        return [{ element: sibling, height: siblingBounds.height, width: siblingBounds.width }];
+      }) : [],
+      groupOverlay: movementBounds ? document.querySelector<HTMLElement>('.canvas-selection-assembly') : null,
       moved: false,
       mode,
       parentBounds,
@@ -560,13 +685,13 @@ export default function EditableCanvasLayer({
     }
     const deltaX = ((clientX - session.startClientX) / bounds.width) * canvasWidth;
     const deltaY = ((clientY - session.startClientY) / bounds.height) * canvasHeight;
+    if (!session.moved) return;
 
     if (session.mode !== 'move') {
       if (session.mode === 'resize' && resizeMode === 'scale') {
         const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
         const nextTransform = resizeCanvasLayerScale(session.startTransform, scaleDelta);
-        resizePreviewTransformRef.current = nextTransform;
-        setResizePreviewTransform(nextTransform);
+        applyDirectInteractionPreview(nextTransform, session);
         return;
       }
       let heightScale = session.startHeightScale;
@@ -590,8 +715,7 @@ export default function EditableCanvasLayer({
         y -= baseHeight * (heightScale - session.startHeightScale) / 2;
       }
       const nextTransform = { ...session.startTransform, heightScale, widthScale, x, y };
-      resizePreviewTransformRef.current = nextTransform;
-      setResizePreviewTransform(nextTransform);
+      applyDirectBoxResizePreview(nextTransform, session);
       return;
     }
 
@@ -622,26 +746,41 @@ export default function EditableCanvasLayer({
     setSmartGuides((current) => current.x === snapped.guides.x && current.y === snapped.guides.y
       ? current
       : snapped.guides);
-    onChange(movementBounds ? {
+    const nextTransform = movementBounds ? {
       ...proposedTransform,
       x: session.startX + snapped.transform.x,
       y: session.startY + snapped.transform.y,
-    } : snapped.transform);
+    } : snapped.transform;
+    if (movementBounds) {
+      applyDirectGroupMovePreview(nextTransform, session);
+      return;
+    }
+    resizePreviewTransformRef.current = nextTransform;
+    applyDirectInteractionPreview(nextTransform, session);
   }
 
   function endPointer(eventType: string, pointerId: number) {
     const session = sessionRef.current;
     if (!session || session.pointerId !== pointerId) return;
     const resizePreview = resizePreviewTransformRef.current;
+    const usedDirectPreview = directPreviewActiveRef.current;
     sessionRef.current = null;
-    resizePreviewTransformRef.current = null;
-    setResizePreviewTransform(null);
     setSmartGuides({ x: null, y: null });
     if (eventType === 'pointercancel') {
-      if (session.mode === 'move') onChange(session.startTransform);
+      clearDirectInteractionPreview();
+      restoreCommittedLayerLayout();
+      resizePreviewTransformRef.current = null;
+      if (session.mode === 'move' && !resizePreview) onChange(session.startTransform);
       return;
     }
-    if (session.mode !== 'move' && resizePreview) onChange(resizePreview);
+    if (resizePreview) {
+      directPreviewCommitPendingRef.current = usedDirectPreview;
+      if (!usedDirectPreview) resizePreviewTransformRef.current = null;
+      onChange(resizePreview);
+    } else {
+      clearDirectInteractionPreview();
+      resizePreviewTransformRef.current = null;
+    }
     if (shouldDeselectCanvasLayer(eventType, session.mode, session.startSelected, session.moved)) {
       onDeselect();
     }
@@ -662,20 +801,16 @@ export default function EditableCanvasLayer({
     event.preventDefault();
   }
 
-  const centerX = baseX + baseWidth / 2 + renderedTransform.x;
-  const centerY = baseY + baseHeight / 2 + renderedTransform.y;
-  const previewScaleX = useGpuResizePreview ? previewDimensions.width / Math.max(committedDimensions.width, 0.001) : 1;
-  const previewScaleY = useGpuResizePreview ? previewDimensions.height / Math.max(committedDimensions.height, 0.001) : 1;
+  const centerX = baseX + baseWidth / 2 + transform.x;
+  const centerY = baseY + baseHeight / 2 + transform.y;
   const style: CSSProperties = {
     height: fitContentHeight && contentHeight !== null
       ? `max(${(height / canvasHeight) * 100}%, ${contentHeight}px)`
       : `${(height / canvasHeight) * 100}%`,
     left: `${((centerX - width / 2) / canvasWidth) * 100}%`,
     top: `${((centerY - height / 2) / canvasHeight) * 100}%`,
-    transform: useGpuResizePreview ? `scale3d(${previewScaleX}, ${previewScaleY}, 1)` : undefined,
     transformOrigin: 'center',
     width: `${(width / canvasWidth) * 100}%`,
-    willChange: useGpuResizePreview ? 'transform' : undefined,
     zIndex,
   };
   const guideHost = layerRef.current?.parentElement ?? null;
@@ -691,7 +826,6 @@ export default function EditableCanvasLayer({
         data-content-interactive={allowContentInteraction ? 'true' : undefined}
         data-fit-content-height={fitContentHeight ? 'true' : undefined}
         data-multi-selection={selectionMember && !showSelectionControls ? 'true' : undefined}
-        data-resize-preview={useGpuResizePreview ? 'gpu' : undefined}
         onKeyDown={handleKeyDown}
         onContextMenu={onContextMenu}
         onPointerDown={(event) => beginPointer(event, 'move')}
@@ -706,6 +840,7 @@ export default function EditableCanvasLayer({
         <div
           className='editable-canvas-layer-selection'
           data-canvas-selection-preserve
+          ref={selectionOverlayRef}
           style={selectionBounds}
         >
           <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>

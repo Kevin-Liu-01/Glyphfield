@@ -90,6 +90,14 @@ import {
   type PaperLiveMaterialId,
   type PaperShaderFamilyId,
 } from '@/lib/liveMaterials';
+import {
+  LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT,
+  LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT,
+  LIVE_MATERIAL_TIME_PREVIEW_EVENT,
+  type LiveMaterialPatternScalePreview,
+  type LiveMaterialSettingsPreview,
+  type LiveMaterialTimePreview,
+} from '@/lib/liveMaterialPreview';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
 import {
   browserSupportsWebGL2,
@@ -164,6 +172,8 @@ export type LiveMaterialCanvasProps = {
   patternScale?: number;
   paused?: boolean;
   preservePresetAppearance?: boolean;
+  previewChannel?: string;
+  previewGroup?: string;
   renderScale?: number;
   settings: LiveMaterialSettings;
   sourceImage?: string;
@@ -2065,6 +2075,8 @@ function LiveMaterialCanvas({
   patternScale = 1,
   paused = false,
   preservePresetAppearance = false,
+  previewChannel,
+  previewGroup,
   renderScale = 1,
   settings,
   sourceImage,
@@ -2072,7 +2084,13 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const resolvedPatternScale = useSmoothedShaderZoom(patternScale, captureTimeMs !== null);
+  const [previewTimeMs, setPreviewTimeMs] = useState<number | undefined>(undefined);
+  const resolvedCaptureTimeMs = previewTimeMs ?? captureTimeMs;
+  const smoothedPatternScale = useSmoothedShaderZoom(patternScale, resolvedCaptureTimeMs !== null);
+  const [previewPatternScale, setPreviewPatternScale] = useState<number | null>(null);
+  const [previewSettings, setPreviewSettings] = useState<Partial<LiveMaterialSettings> | null>(null);
+  const resolvedPatternScale = previewPatternScale ?? smoothedPatternScale;
+  const resolvedSettings = previewSettings ? { ...settings, ...previewSettings } : settings;
   const resolvedMaterialId = normalizeLiveMaterialId(materialId);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);
@@ -2110,6 +2128,58 @@ function LiveMaterialCanvas({
     }, CONTEXT_RECOVERY_DELAY_MS);
   };
   const failProviderContext = recoverContext;
+
+  useEffect(() => {
+    if (!previewChannel) return;
+    const previewPatternScale = (event: Event) => {
+      const detail = (event as CustomEvent<LiveMaterialPatternScalePreview>).detail;
+      if (detail?.channel !== previewChannel) return;
+      setPreviewPatternScale(clampShaderZoom(detail.value));
+    };
+    window.addEventListener(LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT, previewPatternScale);
+    return () => window.removeEventListener(LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT, previewPatternScale);
+  }, [previewChannel]);
+
+  useEffect(() => {
+    if (!previewGroup) return;
+    const previewMaterialTime = (event: Event) => {
+      const detail = (event as CustomEvent<LiveMaterialTimePreview>).detail;
+      if (detail?.group !== previewGroup || !Number.isFinite(detail.timeMs)) return;
+      setPreviewTimeMs(Math.max(0, detail.timeMs));
+    };
+    window.addEventListener(LIVE_MATERIAL_TIME_PREVIEW_EVENT, previewMaterialTime);
+    return () => window.removeEventListener(LIVE_MATERIAL_TIME_PREVIEW_EVENT, previewMaterialTime);
+  }, [previewGroup]);
+
+  useEffect(() => {
+    if (!previewChannel) return;
+    const previewMaterialSettings = (event: Event) => {
+      const detail = (event as CustomEvent<LiveMaterialSettingsPreview>).detail;
+      if (detail?.channel !== previewChannel) return;
+      setPreviewSettings((current) => ({ ...current, ...detail.settings }));
+    };
+    window.addEventListener(LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT, previewMaterialSettings);
+    return () => window.removeEventListener(LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT, previewMaterialSettings);
+  }, [previewChannel]);
+
+  useEffect(() => {
+    if (previewPatternScale === null) return;
+    if (Math.abs(clampShaderZoom(patternScale) - previewPatternScale) > 0.0001) return;
+    setPreviewPatternScale(null);
+  }, [patternScale, previewPatternScale]);
+
+  useEffect(() => {
+    if (!previewSettings) return;
+    const committed = Object.entries(previewSettings).every(([key, value]) => (
+      settings[key as keyof LiveMaterialSettings] === value
+    ));
+    if (committed) setPreviewSettings(null);
+  }, [previewSettings, settings]);
+
+  useEffect(() => {
+    if (previewTimeMs === undefined || captureTimeMs === null) return;
+    if (Math.abs(previewTimeMs - captureTimeMs) < 0.01) setPreviewTimeMs(undefined);
+  }, [captureTimeMs, previewTimeMs]);
 
   useEffect(() => {
     if (!requiresWebGL2) {
@@ -2171,7 +2241,7 @@ function LiveMaterialCanvas({
         className={className}
         containerRef={containerRef}
         materialId={resolvedMaterialId}
-        settings={settings}
+        settings={resolvedSettings}
         sourceImage={sourceImage}
         sourceImageOpacity={sourceImageOpacity}
       />
@@ -2184,7 +2254,7 @@ function LiveMaterialCanvas({
         className={className}
         containerRef={containerRef}
         materialId={resolvedMaterialId}
-        settings={settings}
+        settings={resolvedSettings}
         sourceImage={sourceImage}
         sourceImageOpacity={sourceImageOpacity}
       />
@@ -2198,7 +2268,7 @@ function LiveMaterialCanvas({
           className={className}
           containerRef={containerRef}
           materialId={resolvedMaterialId}
-          settings={settings}
+          settings={resolvedSettings}
           sourceImage={sourceImage}
           sourceImageOpacity={sourceImageOpacity}
         />
@@ -2209,7 +2279,7 @@ function LiveMaterialCanvas({
       <div
         aria-label='Static shader fallback'
         className='absolute inset-0 size-full'
-        style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
+        style={{ background: `linear-gradient(135deg, ${resolvedSettings.colorA}, ${resolvedSettings.colorB} 52%, ${resolvedSettings.colorC})` }}
       />
     );
     return (
@@ -2224,12 +2294,12 @@ function LiveMaterialCanvas({
             onContextLost={failProviderContext}
           >
             <ShaderGradientSurface
-              captureTimeMs={captureTimeMs}
+              captureTimeMs={resolvedCaptureTimeMs}
               className=''
               patternScale={resolvedPatternScale}
               paused={paused || !renderActive}
               renderScale={renderScale}
-              settings={settings}
+              settings={resolvedSettings}
             />
           </ProviderContextGuard>
         </WebGLProviderBoundary>
@@ -2244,11 +2314,11 @@ function LiveMaterialCanvas({
         <GlyphFieldCanvas
           active={renderActive}
           canvasRef={canvasRef}
-          captureTimeMs={captureTimeMs}
+          captureTimeMs={resolvedCaptureTimeMs}
           patternScale={resolvedPatternScale}
           paused={paused || !renderActive}
           renderScale={renderScale}
-          settings={settings}
+          settings={resolvedSettings}
         />
         <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
@@ -2261,14 +2331,14 @@ function LiveMaterialCanvas({
         <FluidSimulationCanvas
           active={renderActive}
           canvasRef={canvasRef}
-          captureTimeMs={captureTimeMs}
+          captureTimeMs={resolvedCaptureTimeMs}
           frameRate={frameRate}
           key={`pavel-fluid-${activeRecovery.version}`}
           onContextLost={recoverContext}
           patternScale={resolvedPatternScale}
           paused={paused || !renderActive}
           renderScale={renderScale}
-          settings={settings}
+          settings={resolvedSettings}
         />
         <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
       </div>
@@ -2282,7 +2352,7 @@ function LiveMaterialCanvas({
           className={className}
           containerRef={containerRef}
           materialId={resolvedMaterialId}
-          settings={settings}
+          settings={resolvedSettings}
           sourceImage={sourceImage}
           sourceImageOpacity={sourceImageOpacity}
         />
@@ -2296,14 +2366,14 @@ function LiveMaterialCanvas({
           onContextLost={failProviderContext}
         >
           <PaperShaderSurface
-            captureTimeMs={captureTimeMs}
+            captureTimeMs={resolvedCaptureTimeMs}
             materialId={resolvedMaterialId}
             maxPixelCount={maxPixelCount}
             patternScale={resolvedPatternScale}
             paused={paused || !renderActive}
             preservePresetAppearance={preservePresetAppearance}
             renderScale={renderScale}
-            settings={settings}
+            settings={resolvedSettings}
             sourceImage={sourceImage}
           />
         </ProviderContextGuard>
@@ -2316,12 +2386,12 @@ function LiveMaterialCanvas({
     <div
       className={`absolute inset-0 size-full ${className}`}
       ref={containerRef}
-      style={shaderMaterialPreviewStyle(resolvedMaterialId, settings)}
+      style={shaderMaterialPreviewStyle(resolvedMaterialId, resolvedSettings)}
     >
       <OriginalMaterialCanvas
         active={renderActive}
         canvasRef={canvasRef}
-        captureTimeMs={captureTimeMs}
+        captureTimeMs={resolvedCaptureTimeMs}
         frameRate={frameRate}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[resolvedMaterialId]}`}
         key={`${resolvedMaterialId}-${activeRecovery.version}`}
@@ -2329,7 +2399,7 @@ function LiveMaterialCanvas({
         patternScale={resolvedPatternScale}
         paused={paused || !renderActive}
         renderScale={renderScale}
-        settings={settings}
+        settings={resolvedSettings}
       />
       <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
     </div>

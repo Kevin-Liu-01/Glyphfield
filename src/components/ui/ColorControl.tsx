@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  useEffect,
   useId,
+  useRef,
   useState,
   type KeyboardEvent,
   type MouseEvent,
@@ -23,7 +25,9 @@ type ColorControlProps = {
   ariaLabel: string;
   label: ReactNode;
   onChange: (value: string) => void;
+  onPreview?: (value: string) => void;
   onOpacityChange?: (value: number) => void;
+  onOpacityPreview?: (value: number) => void;
   opacity?: number;
   value: string;
 };
@@ -32,15 +36,68 @@ export default function ColorControl({
   ariaLabel,
   label,
   onChange,
+  onPreview,
   onOpacityChange,
+  onOpacityPreview,
   opacity,
   value,
 }: ColorControlProps) {
   const pickerId = useId();
   const [pickerPosition, setPickerPosition] = useState({ left: 0, top: 0 });
-  const hex = normalizeHexOrFallback(value);
+  const committedHex = normalizeHexOrFallback(value);
+  const [previewHex, setPreviewHex] = useState<string | null>(null);
+  const pendingHexRef = useRef<string | null>(null);
+  const latestHexRef = useRef<string | null>(null);
+  const previewFrameRef = useRef(0);
+  const [previewOpacity, setPreviewOpacity] = useState<number | null>(null);
+  const pendingOpacityRef = useRef<number | null>(null);
+  const latestOpacityRef = useRef<number | null>(null);
+  const opacityFrameRef = useRef(0);
+  const hex = previewHex ?? committedHex;
+  const displayedOpacity = previewOpacity ?? opacity;
   const oklch = formatOklch(hex);
   const hsv = hexToHsv(hex);
+
+  useEffect(() => {
+    if (previewHex === committedHex) setPreviewHex(null);
+  }, [committedHex, previewHex]);
+
+  useEffect(() => () => cancelAnimationFrame(previewFrameRef.current), []);
+
+  useEffect(() => {
+    if (previewOpacity === opacity) setPreviewOpacity(null);
+  }, [opacity, previewOpacity]);
+
+  useEffect(() => () => cancelAnimationFrame(opacityFrameRef.current), []);
+
+  function flushPreview(commit: boolean) {
+    cancelAnimationFrame(previewFrameRef.current);
+    previewFrameRef.current = 0;
+    const nextHex = pendingHexRef.current ?? latestHexRef.current;
+    pendingHexRef.current = null;
+    if (!nextHex) return;
+    setPreviewHex(nextHex);
+    onPreview?.(nextHex);
+    if (commit) {
+      latestHexRef.current = null;
+      onChange(nextHex);
+    }
+  }
+
+  function schedulePreview(nextValue: string) {
+    const nextHex = normalizeHexOrFallback(nextValue, hex);
+    pendingHexRef.current = nextHex;
+    latestHexRef.current = nextHex;
+    if (previewFrameRef.current) return;
+    previewFrameRef.current = requestAnimationFrame(() => {
+      previewFrameRef.current = 0;
+      const frameHex = pendingHexRef.current;
+      pendingHexRef.current = null;
+      if (!frameHex) return;
+      setPreviewHex(frameHex);
+      (onPreview ?? onChange)(frameHex);
+    });
+  }
 
   function commitHex(nextValue: string) {
     try {
@@ -55,6 +112,31 @@ export default function ColorControl({
     if (parsed) onChange(oklchToHex(parsed));
   }
 
+  function scheduleOpacityPreview(nextOpacity: number) {
+    pendingOpacityRef.current = nextOpacity;
+    latestOpacityRef.current = nextOpacity;
+    setPreviewOpacity(nextOpacity);
+    if (opacityFrameRef.current) return;
+    opacityFrameRef.current = requestAnimationFrame(() => {
+      opacityFrameRef.current = 0;
+      const frameOpacity = pendingOpacityRef.current;
+      pendingOpacityRef.current = null;
+      if (frameOpacity === null) return;
+      (onOpacityPreview ?? onOpacityChange)?.(frameOpacity);
+    });
+  }
+
+  function commitOpacityPreview() {
+    cancelAnimationFrame(opacityFrameRef.current);
+    opacityFrameRef.current = 0;
+    const nextOpacity = pendingOpacityRef.current ?? latestOpacityRef.current;
+    pendingOpacityRef.current = null;
+    if (nextOpacity === null) return;
+    onOpacityPreview?.(nextOpacity);
+    latestOpacityRef.current = null;
+    onOpacityChange?.(nextOpacity);
+  }
+
   function updateSaturationAndValue(clientX: number, clientY: number, target: HTMLElement) {
     const bounds = target.getBoundingClientRect();
     if (
@@ -67,7 +149,7 @@ export default function ColorControl({
     ) return;
     const saturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
     const nextValue = Math.max(0, Math.min(1, 1 - (clientY - bounds.top) / bounds.height));
-    onChange(hsvToHex(hsv.hue, saturation, nextValue));
+    schedulePreview(hsvToHex(hsv.hue, saturation, nextValue));
   }
 
   function handlePickerPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -90,7 +172,10 @@ export default function ColorControl({
     else if (event.key === 'ArrowDown') nextValue -= step;
     else return;
     event.preventDefault();
-    onChange(hsvToHex(hsv.hue, saturation, nextValue));
+    const nextHex = hsvToHex(hsv.hue, saturation, nextValue);
+    setPreviewHex(nextHex);
+    onPreview?.(nextHex);
+    onChange(nextHex);
   }
 
   function positionPicker(event: MouseEvent<HTMLButtonElement>) {
@@ -114,7 +199,7 @@ export default function ColorControl({
       <div className='flex items-center justify-between gap-3'>
         <span className='text-xs font-semibold text-foreground'>{label}</span>
         {opacity === undefined ? null : (
-          <output className='font-mono text-[10px] text-muted-foreground'>{opacity}%</output>
+          <output className='font-mono text-[10px] text-muted-foreground'>{displayedOpacity}%</output>
         )}
       </div>
       <div className='studio-color-control-row grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
@@ -165,10 +250,12 @@ export default function ColorControl({
           onPointerDown={handlePickerPointerDown}
           onPointerMove={handlePickerPointerMove}
           onPointerUp={(event) => {
+            flushPreview(true);
             if (event.currentTarget.hasPointerCapture(event.pointerId)) {
               event.currentTarget.releasePointerCapture(event.pointerId);
             }
           }}
+          onPointerCancel={() => flushPreview(true)}
           role='slider'
           style={{
             backgroundColor: `hsl(${hsv.hue} 100% 50%)`,
@@ -192,7 +279,10 @@ export default function ColorControl({
             className='studio-range color-hue-range min-w-0 flex-1'
             max={360}
             min={0}
-            onChange={(event) => onChange(hsvToHex(Number(event.target.value), hsv.saturation, hsv.value))}
+            onBlur={() => flushPreview(true)}
+            onInput={(event) => schedulePreview(hsvToHex(Number(event.currentTarget.value), hsv.saturation, hsv.value))}
+            onPointerCancel={() => flushPreview(true)}
+            onPointerUp={() => flushPreview(true)}
             type='range'
             value={Math.round(hsv.hue)}
           />
@@ -222,9 +312,12 @@ export default function ColorControl({
           className='studio-range'
           max={100}
           min={0}
-          onChange={(event) => onOpacityChange(Number(event.target.value))}
+          onBlur={commitOpacityPreview}
+          onInput={(event) => scheduleOpacityPreview(Number(event.currentTarget.value))}
+          onPointerCancel={commitOpacityPreview}
+          onPointerUp={commitOpacityPreview}
           type='range'
-          value={opacity}
+          value={displayedOpacity}
         />
       )}
     </div>

@@ -124,6 +124,13 @@ import {
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
+  previewLiveMaterialPatternScale,
+  previewLiveMaterialSettings,
+  previewLiveMaterialTime,
+} from '@/lib/liveMaterialPreview';
+import {
+  buildImageSvgFilter,
+  buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
   drawLogoAppearanceLayer,
   type LogoAppearanceSettings,
@@ -617,6 +624,7 @@ function ShaderFrameHistoryControl({
   onPauseAtFrame,
   onPlay,
   onScrub,
+  onScrubPreview,
   playing,
 }: {
   durationMs: number;
@@ -626,11 +634,15 @@ function ShaderFrameHistoryControl({
   onPauseAtFrame: (frame: number) => void;
   onPlay: () => void;
   onScrub: (frame: number) => void;
+  onScrubPreview: (frame: number) => void;
   playing: boolean;
 }) {
   const frameCount = Math.max(2, Math.round(durationMs / (1_000 / fps)));
   const boundedFrame = Math.min(frameCount - 1, Math.max(0, Math.round(frame)));
   const [displayFrame, setDisplayFrame] = useState(boundedFrame);
+  const pendingScrubFrameRef = useRef<number | null>(null);
+  const latestScrubFrameRef = useRef<number | null>(null);
+  const scrubAnimationFrameRef = useRef(0);
 
   useEffect(() => {
     if (!playing) setDisplayFrame(boundedFrame);
@@ -655,6 +667,36 @@ function ShaderFrameHistoryControl({
     return () => cancelAnimationFrame(animationFrame);
   }, [boundedFrame, durationMs, fps, frameCount, onFramePreview, playing]);
 
+  useEffect(() => () => cancelAnimationFrame(scrubAnimationFrameRef.current), []);
+
+  function scheduleScrub(nextFrame: number) {
+    const boundedNextFrame = Math.min(frameCount - 1, Math.max(0, Math.round(nextFrame)));
+    setDisplayFrame(boundedNextFrame);
+    pendingScrubFrameRef.current = boundedNextFrame;
+    latestScrubFrameRef.current = boundedNextFrame;
+    if (scrubAnimationFrameRef.current) return;
+    scrubAnimationFrameRef.current = requestAnimationFrame(() => {
+      scrubAnimationFrameRef.current = 0;
+      const previewFrame = pendingScrubFrameRef.current;
+      pendingScrubFrameRef.current = null;
+      if (previewFrame === null) return;
+      onFramePreview(previewFrame);
+      onScrubPreview(previewFrame);
+    });
+  }
+
+  function flushScrub() {
+    cancelAnimationFrame(scrubAnimationFrameRef.current);
+    scrubAnimationFrameRef.current = 0;
+    const nextFrame = pendingScrubFrameRef.current ?? latestScrubFrameRef.current;
+    pendingScrubFrameRef.current = null;
+    latestScrubFrameRef.current = null;
+    if (nextFrame === null) return;
+    onFramePreview(nextFrame);
+    onScrubPreview(nextFrame);
+    onScrub(nextFrame);
+  }
+
   const seconds = displayFrame / fps;
   return (
     <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve>
@@ -674,7 +716,13 @@ function ShaderFrameHistoryControl({
         aria-label='Shader frame history'
         max={frameCount - 1}
         min={0}
-        onInput={(event) => onScrub(Number(event.currentTarget.value))}
+        onBlur={flushScrub}
+        onInput={(event) => scheduleScrub(Number(event.currentTarget.value))}
+        onPointerCancel={flushScrub}
+        onPointerDown={() => {
+          if (playing) onPauseAtFrame(displayFrame);
+        }}
+        onPointerUp={flushScrub}
         step={1}
         type='range'
         value={displayFrame}
@@ -921,12 +969,32 @@ function CanvasEditableText({
   value: string;
 }) {
   const textRef = useRef<HTMLSpanElement>(null);
+  const onChangeRef = useRef(onChange);
+  const pendingValueRef = useRef<string | null>(null);
+  const commitTimerRef = useRef(0);
+  onChangeRef.current = onChange;
+
+  function flushTextChange() {
+    window.clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = 0;
+    const nextValue = pendingValueRef.current;
+    pendingValueRef.current = null;
+    if (nextValue !== null) onChangeRef.current(nextValue);
+  }
+
+  function scheduleTextChange(nextValue: string) {
+    pendingValueRef.current = nextValue;
+    window.clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = window.setTimeout(flushTextChange, 140);
+  }
 
   useLayoutEffect(() => {
     const text = textRef.current;
     if (!text || document.activeElement === text || text.innerText === value) return;
     text.innerText = value;
   }, [value]);
+
+  useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
 
   return (
     <span
@@ -935,9 +1003,12 @@ function CanvasEditableText({
       className={className}
       contentEditable='plaintext-only'
       data-canvas-editable='true'
-      onBlur={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
+      onBlur={(event) => {
+        pendingValueRef.current = event.currentTarget.innerText.replace(/\r\n/g, '\n');
+        flushTextChange();
+      }}
       onFocus={onFocus}
-      onInput={(event) => onChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
+      onInput={(event) => scheduleTextChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
       onKeyDown={(event) => {
         event.stopPropagation();
         if (event.key === 'Escape') event.currentTarget.blur();
@@ -955,6 +1026,62 @@ function CanvasEditableText({
       style={style}
       suppressContentEditableWarning
       tabIndex={0}
+    />
+  );
+}
+
+function InspectorTextArea({
+  ariaLabel,
+  onChange,
+  onPreview,
+  value,
+}: {
+  ariaLabel: string;
+  onChange: (value: string) => void;
+  onPreview?: (value: string) => void;
+  value: string;
+}) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const onChangeRef = useRef(onChange);
+  const onPreviewRef = useRef(onPreview);
+  const pendingValueRef = useRef<string | null>(null);
+  const commitTimerRef = useRef(0);
+  onChangeRef.current = onChange;
+  onPreviewRef.current = onPreview;
+
+  function flushTextChange() {
+    window.clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = 0;
+    const nextValue = pendingValueRef.current;
+    pendingValueRef.current = null;
+    if (nextValue !== null) onChangeRef.current(nextValue);
+  }
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input || document.activeElement === input || input.value === value) return;
+    input.value = value;
+  }, [value]);
+
+  useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
+
+  return (
+    <textarea
+      aria-label={ariaLabel}
+      defaultValue={value}
+      onBlur={(event) => {
+        pendingValueRef.current = event.currentTarget.value;
+        flushTextChange();
+      }}
+      onInput={(event) => {
+        pendingValueRef.current = event.currentTarget.value;
+        onPreviewRef.current?.(event.currentTarget.value);
+        window.clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = window.setTimeout(flushTextChange, 140);
+      }}
+      placeholder='Type something'
+      ref={inputRef}
+      rows={2}
     />
   );
 }
@@ -1100,6 +1227,7 @@ function RangeControl({
   max,
   min,
   onChange,
+  onPreview,
   step,
   value,
 }: {
@@ -1108,24 +1236,77 @@ function RangeControl({
   max: number;
   min: number;
   onChange: (value: number) => void;
+  onPreview?: (value: number) => void;
   step: number;
   value: number;
 }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const pendingValueRef = useRef<number | null>(null);
+  const latestValueRef = useRef<number | null>(null);
+  const valueFrameRef = useRef(0);
+  const scrubbingRef = useRef(false);
+
+  useEffect(() => {
+    if (!scrubbingRef.current && pendingValueRef.current === null && valueFrameRef.current === 0) {
+      setDisplayValue(value);
+    }
+  }, [value]);
+
+  useEffect(() => () => cancelAnimationFrame(valueFrameRef.current), []);
+
+  function flushValue() {
+    cancelAnimationFrame(valueFrameRef.current);
+    valueFrameRef.current = 0;
+    const nextValue = pendingValueRef.current ?? latestValueRef.current;
+    pendingValueRef.current = null;
+    latestValueRef.current = null;
+    if (nextValue === null) return;
+    onPreview?.(nextValue);
+    onChange(nextValue);
+  }
+
+  function scheduleValue(nextValue: number) {
+    setDisplayValue(nextValue);
+    pendingValueRef.current = nextValue;
+    latestValueRef.current = nextValue;
+    if (valueFrameRef.current) return;
+    valueFrameRef.current = requestAnimationFrame(() => {
+      valueFrameRef.current = 0;
+      if (pendingValueRef.current === null) return;
+      const previewValue = pendingValueRef.current;
+      pendingValueRef.current = null;
+      (onPreview ?? onChange)(previewValue);
+    });
+  }
+
   return (
     <label className='shader-lab-v2-range'>
       <StudioRangeLabel
         label={label}
-        value={<output>{formatValue?.(value) ?? (Number.isInteger(step) ? Math.round(value) : value.toFixed(2))}</output>}
+        value={<output>{formatValue?.(displayValue) ?? (Number.isInteger(step) ? Math.round(displayValue) : displayValue.toFixed(2))}</output>}
       />
       <input
         aria-label={label}
         className='studio-range'
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onBlur={() => {
+          scrubbingRef.current = false;
+          flushValue();
+        }}
+        onInput={(event) => scheduleValue(Number(event.currentTarget.value))}
+        onPointerCancel={() => {
+          scrubbingRef.current = false;
+          flushValue();
+        }}
+        onPointerDown={() => { scrubbingRef.current = true; }}
+        onPointerUp={() => {
+          scrubbingRef.current = false;
+          flushValue();
+        }}
         step={step}
         type='range'
-        value={value}
+        value={displayValue}
       />
     </label>
   );
@@ -1133,14 +1314,17 @@ function RangeControl({
 
 function ShaderZoomControl({
   onChange,
+  onPreview,
   value,
 }: {
   onChange: (value: number) => void;
+  onPreview?: (value: number) => void;
   value: number;
 }) {
   const zoom = clampShaderZoom(value);
   const [sliderValue, setSliderValue] = useState(() => shaderZoomToSlider(zoom));
   const pendingZoomRef = useRef<number | null>(null);
+  const latestZoomRef = useRef<number | null>(null);
   const zoomFrameRef = useRef(0);
   const scrubbingRef = useRef(false);
 
@@ -1155,22 +1339,26 @@ function ShaderZoomControl({
   function flushZoom() {
     cancelAnimationFrame(zoomFrameRef.current);
     zoomFrameRef.current = 0;
-    if (pendingZoomRef.current === null) return;
-    const nextZoom = pendingZoomRef.current;
+    const nextZoom = pendingZoomRef.current ?? latestZoomRef.current;
     pendingZoomRef.current = null;
+    latestZoomRef.current = null;
+    if (nextZoom === null) return;
+    onPreview?.(nextZoom);
     onChange(nextZoom);
   }
 
   function scheduleZoom(nextSliderValue: number) {
     setSliderValue(nextSliderValue);
-    pendingZoomRef.current = shaderZoomFromSlider(nextSliderValue);
+    const nextZoom = shaderZoomFromSlider(nextSliderValue);
+    pendingZoomRef.current = nextZoom;
+    latestZoomRef.current = nextZoom;
     if (zoomFrameRef.current) return;
     zoomFrameRef.current = requestAnimationFrame(() => {
       zoomFrameRef.current = 0;
       if (pendingZoomRef.current === null) return;
       const nextZoom = pendingZoomRef.current;
       pendingZoomRef.current = null;
-      onChange(nextZoom);
+      (onPreview ?? onChange)(nextZoom);
     });
   }
 
@@ -1178,7 +1366,7 @@ function ShaderZoomControl({
     <div className='shader-lab-v2-range shader-lab-v2-zoom-control'>
       <StudioRangeLabel
         label='Shader zoom'
-        value={<output>{formatShaderZoom(zoom)}</output>}
+        value={<output>{formatShaderZoom(shaderZoomFromSlider(sliderValue))}</output>}
       />
       <div className='shader-lab-v2-zoom-input'>
         <button
@@ -1291,6 +1479,10 @@ export default function ShaderLabStudio({
   const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
   const effectScratchRefs = useRef<Map<EffectLayerId, CompositionEffectScratch>>(new Map());
   const effectPreviewBufferRef = useRef<HTMLCanvasElement | null>(null);
+  const effectPreviewOverridesRef = useRef<Map<EffectLayerId, {
+    opacity?: number;
+    settings?: Partial<CompositionEffectSettings>;
+  }>>(new Map());
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const assetInputRef = useRef<HTMLInputElement>(null);
@@ -1446,6 +1638,11 @@ export default function ShaderLabStudio({
     : null;
   const selectedLayerShader = selectedContentLayerId ? layerShaders[selectedContentLayerId] ?? null : null;
   const editingShader = selectedShaderLayer ?? selectedLayerShader;
+  const selectedShaderPreviewChannel = selectedShaderLayer
+    ? `canvas-${selectedShaderLayer.id}`
+    : selectedContentLayerId
+      ? `content-${selectedContentLayerId}`
+      : null;
   const activeMaterialId = normalizeLiveMaterialId(
     editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID
   );
@@ -1646,6 +1843,155 @@ export default function ShaderLabStudio({
     }));
   }
 
+  function previewSelectedShaderSetting(key: keyof LiveMaterialSettings, value: number) {
+    if (!selectedShaderPreviewChannel) return;
+    previewLiveMaterialSettings(selectedShaderPreviewChannel, { [key]: value });
+  }
+
+  function previewSelectedShaderOpacity(value: number) {
+    if (!selectedShaderPreviewChannel) return;
+    const host = document.querySelector<HTMLElement>(
+      `[data-shader-instance="${CSS.escape(selectedShaderPreviewChannel)}"]`
+    );
+    if (!host) return;
+    if (selectedShaderLayer) {
+      host.style.opacity = String(value);
+      return;
+    }
+    const canvasLayer = host.closest<HTMLElement>('.editable-canvas-layer');
+    if (selectedTextLayer && selectedTextAppearance) {
+      const text = canvasLayer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+      if (text) text.style.opacity = String(selectedTextAppearance.opacity * value);
+      return;
+    }
+    const appearance = canvasLayer?.querySelector<HTMLElement>('.shader-lab-v2-appearance-stack');
+    const contentOpacity = selectedLogoLayer?.opacity ?? selectedAsset?.opacity ?? 1;
+    if (appearance) appearance.style.opacity = String(contentOpacity * value);
+  }
+
+  function selectedCanvasLayerElement(): HTMLElement | null {
+    if (selectedCanvasLayerIds.length !== 1) return null;
+    return document.querySelector<HTMLElement>('.editable-canvas-layer[aria-selected="true"]');
+  }
+
+  function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
+    const overlay = document.querySelector<HTMLElement>('.editable-canvas-layer-selection');
+    if (!overlay) return;
+    const bounds = layer.getBoundingClientRect();
+    overlay.style.left = `${bounds.left}px`;
+    overlay.style.top = `${bounds.top}px`;
+    overlay.style.width = `${bounds.width}px`;
+    overlay.style.height = `${bounds.height}px`;
+  }
+
+  function previewSelectedTextStyle(property: keyof CSSStyleDeclaration, value: string) {
+    const layer = selectedCanvasLayerElement();
+    const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+    if (!text) return;
+    Reflect.set(text.style, property, value);
+  }
+
+  function previewSelectedTextAppearance(
+    patch: Partial<Omit<TextAppearanceSettings, 'textEffect'>> & {
+      textEffect?: Partial<TextEffectSettings>;
+    }
+  ) {
+    if (!selectedTextAppearance) return;
+    const layer = selectedCanvasLayerElement();
+    const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+    if (!text) return;
+    const nextAppearance: TextAppearanceSettings = {
+      ...selectedTextAppearance,
+      ...patch,
+      textEffect: patch.textEffect
+        ? { ...selectedTextAppearance.textEffect, ...patch.textEffect }
+        : selectedTextAppearance.textEffect,
+    };
+    const materialBackgroundImage = selectedLayerShader
+      ? `url("${shaderPreviewAssetPath(selectedLayerShader.materialId)}")`
+      : undefined;
+    const effectStyle = textEffectCssStyle(
+      nextAppearance.textEffect,
+      nextAppearance.color,
+      materialBackgroundImage
+    );
+    text.style.color = nextAppearance.color;
+    text.style.textShadow = textShadowStyle(nextAppearance) ?? '';
+    text.style.webkitTextStroke = nextAppearance.outlineEnabled
+      ? `${nextAppearance.outlineWidth}px ${nextAppearance.outlineColor}`
+      : '';
+    Object.entries(effectStyle).forEach(([property, value]) => {
+      Reflect.set(text.style, property, value ?? '');
+    });
+  }
+
+  function previewSelectedTextWidth(widthScale: number) {
+    if (!selectedTextLayer || !selectedTextTransform) return;
+    const layer = selectedCanvasLayerElement();
+    if (!layer) return;
+    const geometry = layerGeometry(selectedTextLayer.id, ratio);
+    const width = geometry.baseWidth * widthScale;
+    const centerX = geometry.baseX + geometry.baseWidth / 2 + selectedTextTransform.x;
+    layer.style.left = `${(centerX - width / 2) / canvasDimensions.width * 100}%`;
+    layer.style.width = `${width / canvasDimensions.width * 100}%`;
+    syncSelectedCanvasLayerOverlay(layer);
+  }
+
+  function previewSelectedContentOpacity(value: number) {
+    const layer = selectedCanvasLayerElement();
+    if (!layer) return;
+    const shaderOpacity = selectedLayerShader?.opacity ?? 1;
+    if (selectedTextLayer) {
+      const text = layer.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+      if (text) text.style.opacity = String(value * shaderOpacity);
+      return;
+    }
+    const appearance = layer.querySelector<HTMLElement>('.shader-lab-v2-appearance-preview');
+    if (appearance) appearance.style.opacity = String(value * shaderOpacity);
+  }
+
+  function previewSelectedLogoAppearance(
+    patch: Partial<LogoAppearanceSettings>,
+    logoColor = selectedLogoLayer?.color ?? '#FFFFFF'
+  ) {
+    if (!selectedLogoAppearance && !selectedAssetAppearance) return;
+    const layer = selectedCanvasLayerElement();
+    if (!layer) return;
+    const currentAppearance = selectedLogoAppearance ?? selectedAssetAppearance;
+    if (!currentAppearance) return;
+    const nextAppearance = { ...currentAppearance, ...patch };
+    layer.querySelectorAll<SVGSVGElement>('.shader-lab-v2-appearance-preview svg, svg.shader-lab-v2-appearance-preview')
+      .forEach((svg) => {
+        const filterTarget = svg.querySelector<SVGElement>('image[filter], foreignObject[filter]');
+        const filterReference = filterTarget?.getAttribute('filter');
+        const filterId = filterReference?.match(/^url\(#(.+)\)$/)?.[1];
+        const definitions = svg.querySelector<SVGDefsElement>('defs');
+        if (!filterId || !definitions) return;
+        const isSilhouette = svg.getAttribute('aria-label')?.includes('silhouette effects') ?? false;
+        if (isSilhouette) {
+          definitions.innerHTML = buildLogoSvgFilter({
+            ...nextAppearance,
+            ditherEnabled: false,
+            invert: false,
+            shadowEnabled: false,
+          }, nextAppearance.borderColor, filterId, false);
+          return;
+        }
+        if (filterTarget?.tagName.toLowerCase() === 'foreignobject' || selectedAsset) {
+          definitions.innerHTML = buildImageSvgFilter({
+            ...nextAppearance,
+            ...(filterTarget?.tagName.toLowerCase() === 'foreignobject' ? { borderEnabled: false } : {}),
+          }, filterId);
+          return;
+        }
+        definitions.innerHTML = buildLogoSvgFilter(
+          nextAppearance,
+          logoColor,
+          filterId
+        );
+      });
+  }
+
   function updateSetting<Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) {
     updateSelectedShader({ settings: { ...settings, [key]: value } });
   }
@@ -1782,7 +2128,20 @@ export default function ShaderLabStudio({
   }
 
   function updateEffectLayer(id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) {
+    effectPreviewOverridesRef.current.delete(id);
     setEffectLayers((current) => current.map((layer) => layer.id === id ? { ...layer, ...update } : layer));
+  }
+
+  function previewEffectLayer(
+    id: EffectLayerId,
+    update: { opacity?: number; settings?: Partial<CompositionEffectSettings> }
+  ) {
+    const current = effectPreviewOverridesRef.current.get(id);
+    effectPreviewOverridesRef.current.set(id, {
+      ...current,
+      ...update,
+      settings: update.settings ? { ...current?.settings, ...update.settings } : current?.settings,
+    });
   }
 
   function selectEffectPreset(layer: CompositionEffectLayer, kind: CompositionEffectKind) {
@@ -2795,15 +3154,19 @@ export default function ShaderLabStudio({
       if (isEffectLayerId(layerId)) {
         const effectLayer = effectLayers.find((layer) => layer.id === layerId);
         if (!effectLayer) return;
+        const preview = effectPreviewOverridesRef.current.get(layerId);
+        const previewSettings = preview?.settings
+          ? { ...effectLayer.settings, ...preview.settings }
+          : effectLayer.settings;
         let scratch = effectScratchRefs.current.get(layerId);
         if (!scratch) {
           scratch = createCompositionEffectScratch() ?? undefined;
           if (scratch) effectScratchRefs.current.set(layerId, scratch);
         }
         applyCompositionEffect(context, width, height, {
-          ...effectLayer.settings,
-          cellSize: effectLayer.settings.cellSize * width / 960,
-        }, effectLayer.opacity, scratch);
+          ...previewSettings,
+          cellSize: previewSettings.cellSize * width / 960,
+        }, preview?.opacity ?? effectLayer.opacity, scratch);
         onEffectPainted?.(layerId, context.canvas);
         return;
       }
@@ -3489,6 +3852,8 @@ export default function ShaderLabStudio({
         materialId={renderedApplication.materialId}
         patternScale={clampShaderZoom(renderedApplication.shaderSize)}
         paused={paused || controlledTimeMs !== null}
+        previewChannel={instanceKey}
+        previewGroup='design-lab'
         renderScale={1}
         settings={renderedApplication.settings}
       />
@@ -3972,6 +4337,9 @@ export default function ShaderLabStudio({
             onPauseAtFrame={pauseAtPreviewFrame}
             onPlay={playShaderHistory}
             onScrub={pauseAtPreviewFrame}
+            onScrubPreview={(frame) => {
+              previewLiveMaterialTime('design-lab', frame / normalizedExportSettings.fps * 1_000);
+            }}
             playing={!paused && captureTimeMs === null}
           />
           <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
@@ -4164,6 +4532,9 @@ export default function ShaderLabStudio({
               ariaLabel='Canvas background color'
               label='Background color'
               onChange={setCanvasBackground}
+              onPreview={(color) => {
+                if (stageRef.current) stageRef.current.style.backgroundColor = color;
+              }}
               value={canvasBackground}
             />
           </LabInspectorSection>
@@ -4208,6 +4579,7 @@ export default function ShaderLabStudio({
                   max={1}
                   min={0}
                   onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
+                  onPreview={(opacity) => previewEffectLayer(selectedEffectLayer.id, { opacity })}
                   step={0.01}
                   value={selectedEffectLayer.opacity}
                 />
@@ -4219,6 +4591,7 @@ export default function ShaderLabStudio({
                   onChange={(cellSize) => updateEffectLayer(selectedEffectLayer.id, {
                     settings: { ...selectedEffectLayer.settings, cellSize },
                   })}
+                  onPreview={(cellSize) => previewEffectLayer(selectedEffectLayer.id, { settings: { cellSize } })}
                   step={1}
                   value={selectedEffectLayer.settings.cellSize}
                 />
@@ -4230,6 +4603,7 @@ export default function ShaderLabStudio({
                   onChange={(contrast) => updateEffectLayer(selectedEffectLayer.id, {
                     settings: { ...selectedEffectLayer.settings, contrast },
                   })}
+                  onPreview={(contrast) => previewEffectLayer(selectedEffectLayer.id, { settings: { contrast } })}
                   step={0.02}
                   value={selectedEffectLayer.settings.contrast}
                 />
@@ -4241,6 +4615,7 @@ export default function ShaderLabStudio({
                   onChange={(threshold) => updateEffectLayer(selectedEffectLayer.id, {
                     settings: { ...selectedEffectLayer.settings, threshold },
                   })}
+                  onPreview={(threshold) => previewEffectLayer(selectedEffectLayer.id, { settings: { threshold } })}
                   step={0.01}
                   value={selectedEffectLayer.settings.threshold}
                 />
@@ -4253,6 +4628,7 @@ export default function ShaderLabStudio({
                     onChange={(levels) => updateEffectLayer(selectedEffectLayer.id, {
                       settings: { ...selectedEffectLayer.settings, levels },
                     })}
+                    onPreview={(levels) => previewEffectLayer(selectedEffectLayer.id, { settings: { levels } })}
                     step={1}
                     value={selectedEffectLayer.settings.levels}
                   />
@@ -4265,6 +4641,7 @@ export default function ShaderLabStudio({
                   onChange={(foreground) => updateEffectLayer(selectedEffectLayer.id, {
                     settings: { ...selectedEffectLayer.settings, foreground },
                   })}
+                  onPreview={(foreground) => previewEffectLayer(selectedEffectLayer.id, { settings: { foreground } })}
                   value={selectedEffectLayer.settings.foreground}
                 />
                 <ColorControl
@@ -4273,6 +4650,7 @@ export default function ShaderLabStudio({
                   onChange={(background) => updateEffectLayer(selectedEffectLayer.id, {
                     settings: { ...selectedEffectLayer.settings, background },
                   })}
+                  onPreview={(background) => previewEffectLayer(selectedEffectLayer.id, { settings: { background } })}
                   value={selectedEffectLayer.settings.background}
                 />
               </div>
@@ -4304,6 +4682,11 @@ export default function ShaderLabStudio({
                   key={key}
                   label={label}
                   onChange={(color) => updateSetting(key, color)}
+                  onPreview={(color) => {
+                    if (selectedShaderPreviewChannel) {
+                      previewLiveMaterialSettings(selectedShaderPreviewChannel, { [key]: color });
+                    }
+                  }}
                   value={settings[key]}
                 />
               ))}
@@ -4346,6 +4729,11 @@ export default function ShaderLabStudio({
             <div className='shader-lab-v2-ranges'>
               <ShaderZoomControl
                 onChange={(value) => updateSelectedShader({ shaderSize: value })}
+                onPreview={(value) => {
+                  if (selectedShaderPreviewChannel) {
+                    previewLiveMaterialPatternScale(selectedShaderPreviewChannel, value);
+                  }
+                }}
                 value={shaderSize}
               />
               <RangeControl
@@ -4354,6 +4742,7 @@ export default function ShaderLabStudio({
                 max={1}
                 min={0}
                 onChange={(value) => updateSelectedShader({ opacity: value })}
+                onPreview={previewSelectedShaderOpacity}
                 step={0.01}
                 value={editingShader.opacity}
               />
@@ -4380,6 +4769,7 @@ export default function ShaderLabStudio({
                     max={1}
                     min={0}
                     onChange={(value) => updateSetting('centerX', value)}
+                    onPreview={(value) => previewSelectedShaderSetting('centerX', value)}
                     step={0.01}
                     value={settings.centerX ?? 0.5}
                   />
@@ -4389,6 +4779,7 @@ export default function ShaderLabStudio({
                     max={1}
                     min={0}
                     onChange={(value) => updateSetting('centerY', value)}
+                    onPreview={(value) => previewSelectedShaderSetting('centerY', value)}
                     step={0.01}
                     value={settings.centerY ?? 0.5}
                   />
@@ -4400,6 +4791,7 @@ export default function ShaderLabStudio({
                   formatValue={control.key === 'speed' ? (value) => `${value.toFixed(2)}×` : undefined}
                   key={control.key}
                   onChange={(value) => updateSetting(control.key, value)}
+                  onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
                   value={settings[control.key]}
                 />
               ))}
@@ -4412,11 +4804,14 @@ export default function ShaderLabStudio({
               <>
                 <label className='shader-lab-v2-text-input'>
                   <Type aria-hidden='true' />
-                  <textarea
-                    aria-label={`${selectedTextLayer.name} content`}
-                    onChange={(event) => updateTextLayer(selectedTextLayer.id, { value: event.target.value })}
-                    placeholder='Type something'
-                    rows={2}
+                  <InspectorTextArea
+                    ariaLabel={`${selectedTextLayer.name} content`}
+                    onChange={(value) => updateTextLayer(selectedTextLayer.id, { value })}
+                    onPreview={(value) => {
+                      const text = selectedCanvasLayerElement()
+                        ?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+                      if (text) text.innerText = value;
+                    }}
                     value={selectedTextLayer.value}
                   />
                 </label>
@@ -4447,6 +4842,7 @@ export default function ShaderLabStudio({
                     ariaLabel='Text color'
                     label='Text color'
                     onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
+                    onPreview={(color) => previewSelectedTextAppearance({ color })}
                     value={selectedTextAppearance.color}
                   />
                   <div className='shader-lab-v2-text-options'>
@@ -4487,6 +4883,10 @@ export default function ShaderLabStudio({
                     onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
                       transform: { ...selectedTextTransform, scale },
                     })}
+                    onPreview={(scale) => previewSelectedTextStyle(
+                      'fontSize',
+                      `${canvasDimensions.height / canvasDimensions.width * 17 * scale}cqw`
+                    )}
                     step={0.05}
                     value={selectedTextTransform.scale}
                   />
@@ -4498,6 +4898,7 @@ export default function ShaderLabStudio({
                     onChange={(widthScale) => updateTextLayer(selectedTextLayer.id, {
                       transform: { ...selectedTextTransform, widthScale },
                     })}
+                    onPreview={previewSelectedTextWidth}
                     step={0.05}
                     value={selectedTextTransform.widthScale ?? 1}
                   />
@@ -4507,6 +4908,7 @@ export default function ShaderLabStudio({
                     max={1}
                     min={0}
                     onChange={(opacity) => updateTextLayer(selectedTextLayer.id, { opacity })}
+                    onPreview={previewSelectedContentOpacity}
                     step={0.01}
                     value={selectedTextAppearance.opacity}
                   />
@@ -4516,6 +4918,7 @@ export default function ShaderLabStudio({
                     max={1.8}
                     min={0.7}
                     onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
+                    onPreview={(lineHeight) => previewSelectedTextStyle('lineHeight', String(lineHeight))}
                     step={0.05}
                     value={selectedTextLayer.lineHeight}
                   />
@@ -4531,6 +4934,7 @@ export default function ShaderLabStudio({
                         weight
                       ),
                     })}
+                    onPreview={(weight) => previewSelectedTextStyle('fontWeight', String(weight))}
                     step={selectedTextWeightRange.max - selectedTextWeightRange.min <= 100 ? 100 : 50}
                     value={selectedTextRenderedWeight}
                   />
@@ -4540,6 +4944,7 @@ export default function ShaderLabStudio({
                     max={0.2}
                     min={-0.12}
                     onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
+                    onPreview={(tracking) => previewSelectedTextStyle('letterSpacing', `${tracking}em`)}
                     step={0.01}
                     value={selectedTextLayer.tracking}
                   />
@@ -4569,6 +4974,7 @@ export default function ShaderLabStudio({
                             ariaLabel='Text effect foreground color'
                             label='Foreground'
                             onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
+                            onPreview={(color) => previewSelectedTextAppearance({ color })}
                             value={selectedTextAppearance.color}
                           />
                           <ColorControl
@@ -4576,6 +4982,9 @@ export default function ShaderLabStudio({
                             label='Background'
                             onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
                               textEffect: { ...selectedTextAppearance.textEffect, backgroundColor },
+                            })}
+                            onPreview={(backgroundColor) => previewSelectedTextAppearance({
+                              textEffect: { backgroundColor },
                             })}
                             value={selectedTextAppearance.textEffect.backgroundColor}
                           />
@@ -4589,6 +4998,7 @@ export default function ShaderLabStudio({
                             onChange={(amount) => updateTextLayer(selectedTextLayer.id, {
                               textEffect: { ...selectedTextAppearance.textEffect, amount },
                             })}
+                            onPreview={(amount) => previewSelectedTextAppearance({ textEffect: { amount } })}
                             step={1}
                             value={selectedTextAppearance.textEffect.amount}
                           />
@@ -4602,6 +5012,7 @@ export default function ShaderLabStudio({
                             onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
                               textEffect: { ...selectedTextAppearance.textEffect, scale },
                             })}
+                            onPreview={(scale) => previewSelectedTextAppearance({ textEffect: { scale } })}
                             step={1}
                             value={selectedTextAppearance.textEffect.scale}
                           />
@@ -4615,6 +5026,7 @@ export default function ShaderLabStudio({
                             onChange={(angle) => updateTextLayer(selectedTextLayer.id, {
                               textEffect: { ...selectedTextAppearance.textEffect, angle },
                             })}
+                            onPreview={(angle) => previewSelectedTextAppearance({ textEffect: { angle } })}
                             step={1}
                             value={selectedTextAppearance.textEffect.angle}
                           />
@@ -4632,9 +5044,10 @@ export default function ShaderLabStudio({
                         ariaLabel='Text outline color'
                         label='Outline color'
                         onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })}
+                        onPreview={(outlineColor) => previewSelectedTextAppearance({ outlineColor })}
                         value={selectedTextAppearance.outlineColor}
                       />
-                      <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
+                      <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} onPreview={(outlineWidth) => previewSelectedTextAppearance({ outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
                     </> : null}
                   </div>
                   <div className='shader-lab-v2-effect-group'>
@@ -4647,12 +5060,13 @@ export default function ShaderLabStudio({
                         ariaLabel='Text shadow color'
                         label='Shadow color'
                         onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })}
+                        onPreview={(shadowColor) => previewSelectedTextAppearance({ shadowColor })}
                         value={selectedTextAppearance.shadowColor}
                       />
-                      <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
-                      <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
-                      <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
-                      <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity })} step={1} value={selectedTextAppearance.shadowOpacity} />
+                      <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} onPreview={(shadowBlur) => previewSelectedTextAppearance({ shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
+                      <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} onPreview={(shadowOffsetX) => previewSelectedTextAppearance({ shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
+                      <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} onPreview={(shadowOffsetY) => previewSelectedTextAppearance({ shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
+                      <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity })} onPreview={(shadowOpacity) => previewSelectedTextAppearance({ shadowOpacity })} step={1} value={selectedTextAppearance.shadowOpacity} />
                     </> : null}
                   </div>
                 </div>
@@ -4668,6 +5082,7 @@ export default function ShaderLabStudio({
                   ariaLabel='Mark color'
                   label='Mark color'
                   onChange={(color) => updateLogoLayer(selectedLogoLayer.id, { color })}
+                  onPreview={(color) => previewSelectedLogoAppearance({}, color)}
                   value={selectedLogoLayer.color ?? '#FFFFFF'}
                 />
                 <RangeControl
@@ -4676,11 +5091,13 @@ export default function ShaderLabStudio({
                   max={1}
                   min={0}
                   onChange={(opacity) => updateLogoLayer(selectedLogoLayer.id, { opacity })}
+                  onPreview={previewSelectedContentOpacity}
                   step={0.01}
                   value={selectedLogoLayer.opacity ?? 1}
                 />
                 <LogoAppearanceControls
                   onChange={(patch) => updateLogoLayer(selectedLogoLayer.id, { appearance: { ...selectedLogoAppearance, ...patch } })}
+                  onPreview={previewSelectedLogoAppearance}
                   settings={selectedLogoAppearance}
                 />
                 <details className='shader-lab-v2-asset-conversion'>
@@ -4706,12 +5123,14 @@ export default function ShaderLabStudio({
                   max={1}
                   min={0}
                   onChange={(opacity) => updateAssetLayer(selectedAsset.id, { opacity })}
+                  onPreview={previewSelectedContentOpacity}
                   step={0.01}
                   value={selectedAsset.opacity ?? 1}
                 />
                 <LogoAppearanceControls
                   kind='image'
                   onChange={(patch) => updateAssetLayer(selectedAsset.id, { appearance: { ...selectedAssetAppearance, ...patch } })}
+                  onPreview={previewSelectedLogoAppearance}
                   settings={selectedAssetAppearance}
                 />
               </div>
@@ -4738,7 +5157,13 @@ export default function ShaderLabStudio({
             <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
             <div className='shader-lab-v2-ranges'>
               {ADVANCED_CONTROLS.map((control) => (
-                <RangeControl {...control} key={control.key} onChange={(value) => updateSetting(control.key, value)} value={settings[control.key]} />
+                <RangeControl
+                  {...control}
+                  key={control.key}
+                  onChange={(value) => updateSetting(control.key, value)}
+                  onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
+                  value={settings[control.key]}
+                />
               ))}
             </div>
           </details> : null}
