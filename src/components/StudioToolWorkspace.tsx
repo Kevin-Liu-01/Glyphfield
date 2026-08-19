@@ -62,6 +62,7 @@ import {
   svgToPngBlob,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 import {
   buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
@@ -76,7 +77,14 @@ import {
   type TemplateKind,
 } from '@/lib/templateAssets';
 import { buildTemplateSvg, type SlideLayout, type TemplateLayerId, type TemplateTexture } from '@/lib/templateSvg';
-import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT, measureTypingSample } from '@/lib/typography';
+import {
+  capVisibleFontWeight,
+  clampTypographyPreviewSize,
+  MAX_VISIBLE_FONT_WEIGHT,
+  measureTypingSample,
+  TYPOGRAPHY_PREVIEW_DEFAULT_SIZES,
+  TYPOGRAPHY_PREVIEW_MAX_SIZES,
+} from '@/lib/typography';
 import {
   parseSourceObject,
   sourceBoolean,
@@ -218,6 +226,15 @@ function ToolShell({
 }) {
   const gt = useGT();
   const [sourceOpen, setSourceOpen] = useState(false);
+
+  useEffect(() => registerStudioAutomation({
+    actions: sourceCode
+      ? ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set']
+      : ['controls.list', 'control.activate', 'control.set'],
+    applySource: sourceCode?.onApply,
+    getSource: sourceCode ? () => sourceCode.source : undefined,
+    toolId: tool.id,
+  }), [sourceCode, tool.id]);
 
   return (
     <div className='tool-shell h-full min-h-0'>
@@ -1554,7 +1571,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     identity.id,
     tool.id,
     'preview-sizes',
-    { Accent: 44, Body: 26, Code: 18, Display: 112 }
+    TYPOGRAPHY_PREVIEW_DEFAULT_SIZES
   );
   const [previewAlign, setPreviewAlign] = useState<'left' | 'center'>('left');
   const [previewMode, setPreviewMode] = useState<'system' | 'type'>('type');
@@ -1635,7 +1652,10 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
 
   const selectedTypography = brandTypographyRole(identity, selectedRole);
   const selectedFamily = brandTypographyFamily(identity, selectedRole);
-  const selectedSize = previewSizes[selectedRole] ?? ({ Accent: 44, Body: 26, Code: 18, Display: 112 } as const)[selectedRole];
+  const selectedSize = clampTypographyPreviewSize(
+    selectedRole,
+    previewSizes[selectedRole] ?? TYPOGRAPHY_PREVIEW_DEFAULT_SIZES[selectedRole]
+  );
   const selectedFont = fonts.find(({ id }) => id === selectedTypography.fontId)
     ?? fonts.find(({ family }) => family === selectedFamily);
   const familyAssets = fonts.filter(({ family }) => family === selectedFamily);
@@ -1701,7 +1721,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
         <Field label={<T>Font family</T>}>
           <StudioSelect ariaLabel={`${selectedRole} font`} onValueChange={(fontId) => { const font = fonts.find((candidate) => candidate.id === fontId); if (font) updateRole(selectedRole, { family: font.family, fontId }); }} options={fonts.map((font) => ({ label: font.label, value: font.id }))} value={selectedTypography.fontId ?? fonts[0]?.id ?? ''} />
         </Field>
-        <RangeField label={<T>Preview size</T>} max={selectedRole === 'Display' ? 180 : 96} min={10} onChange={(fontSize) => setPreviewSizes((current) => ({ ...current, [selectedRole]: fontSize }))} suffix='px' value={selectedSize} />
+        <RangeField label={<T>Preview size</T>} max={TYPOGRAPHY_PREVIEW_MAX_SIZES[selectedRole]} min={10} onChange={(fontSize) => setPreviewSizes((current) => ({ ...current, [selectedRole]: fontSize }))} suffix='px' value={selectedSize} />
         <RangeField label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(weight) => updateRole(selectedRole, { weight })} step={25} value={selectedTypography.weight ?? 400} />
         <RangeField label={<T>Line height</T>} max={2} min={0.7} onChange={(lineHeight) => updateRole(selectedRole, { lineHeight })} step={0.02} value={selectedTypography.lineHeight ?? 1.2} />
         <RangeField label={<T>Tracking</T>} max={12} min={-8} onChange={(letterSpacing) => updateRole(selectedRole, { letterSpacing })} step={0.1} suffix='px' value={selectedTypography.letterSpacing ?? 0} />
@@ -1828,7 +1848,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
               </p>
             </div>
             <h2
-              className='mt-7 max-w-[13ch] text-balance text-[clamp(3.5rem,8.5vw,8.75rem)] text-current'
+              className='mt-7 max-w-[18ch] text-balance text-[clamp(2.2rem,4vw,2.75rem)] text-current'
               style={{
                 fontFamily: displayFamily,
                 fontWeight: displayWeight,
@@ -1902,7 +1922,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
               </section>
               <section className='grid grid-cols-[auto_1fr] items-center gap-5 border-t border-border/80 p-5 sm:gap-8 sm:p-8 lg:p-10'>
                 <p
-                  className='text-6xl text-foreground sm:text-7xl'
+                  className='text-[clamp(2.2rem,4vw,2.75rem)] text-foreground'
                   style={{
                     fontFamily: accentFamily,
                     fontWeight: accentWeight,

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -12,6 +13,7 @@ import { Check, Code2, RotateCcw, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 const DEFAULT_DRAWER_WIDTH = 512;
 const MIN_DRAWER_WIDTH = 320;
@@ -64,6 +66,19 @@ export default function SourceCodeDrawer({
     startWidth: DEFAULT_DRAWER_WIDTH,
     startX: 0,
   });
+
+  useEffect(() => {
+    const previousStudio = window.glyphfield?.studio;
+    const toolId = previousStudio?.activeTool();
+    if (!previousStudio || !toolId) return;
+    return registerStudioAutomation({
+      actions: previousStudio.describe().actions,
+      applySource: onApply,
+      getSource: () => source,
+      invoke: previousStudio.invoke,
+      toolId,
+    });
+  }, [onApply, source]);
 
   useMountEffect(() => {
     const storedValue = window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY);

@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Aperture,
   Blend,
@@ -19,9 +21,10 @@ import {
   Waves,
   type LucideIcon,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import type { StudioToolId } from '@/lib/studioCatalog';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 import styles from './StudioToolHeader.module.css';
 
@@ -77,6 +80,14 @@ export default function StudioToolHeader({
   const ToolIcon = toolId ? STUDIO_TOOL_ICONS[toolId] : null;
   const resolvedIcon = icon ?? (ToolIcon ? <ToolIcon aria-hidden='true' /> : null);
   const Heading = headingLevel === 2 ? 'h2' : 'h1';
+
+  useEffect(() => {
+    if (!toolId) return;
+    return registerStudioAutomation({
+      actions: ['controls.list', 'control.activate', 'control.set'],
+      toolId,
+    });
+  }, [toolId]);
 
   return (
     <header aria-label={ariaLabel} className={styles.root} data-studio-tool-header>

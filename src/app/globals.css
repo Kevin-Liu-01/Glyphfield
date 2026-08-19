@@ -327,6 +327,52 @@
   container: design-lab-workspace / inline-size;
 }
 
+.shader-lab-v2-image-drop-overlay {
+  position: absolute;
+  z-index: 2147482000;
+  inset: 12px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 24px;
+  border: 1px dashed hsl(var(--foreground) / .72);
+  border-radius: 10px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background) / .88);
+  box-shadow: inset 0 0 0 1px hsl(var(--background) / .85), 0 18px 50px hsl(var(--shadow-color) / .18);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+}
+
+.shader-lab-v2-image-drop-overlay > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--raised-background));
+}
+
+.shader-lab-v2-image-drop-overlay svg {
+  width: 17px;
+  height: 17px;
+}
+
+.shader-lab-v2-image-drop-overlay strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.shader-lab-v2-image-drop-overlay small {
+  max-width: 330px;
+  color: hsl(var(--muted-foreground));
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .shader-lab-v2-frame-history {
   position: relative;
   z-index: 21;
@@ -715,9 +761,61 @@
   transform: translateY(-1px);
 }
 
+.shader-lab-v2-dock-add button:active {
+  transform: scale(.97);
+}
+
+.shader-lab-v2-dock-add .shader-lab-v2-dock-add-image {
+  grid-column: span 2;
+  flex-direction: row;
+  gap: 7px;
+}
+
+.shader-lab-v2-dock-add-image > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+}
+
+.shader-lab-v2-dock-add-image strong {
+  color: hsl(var(--foreground));
+  font-size: 9px;
+  font-weight: 640;
+}
+
+.shader-lab-v2-dock-add-image small {
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .shader-lab-v2-dock-add svg {
   width: 13px;
   height: 13px;
+}
+
+.shader-lab-v2-image-import-status {
+  display: block;
+  min-height: 11px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+  line-height: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shader-lab-v2-image-import-status[data-state='success'] {
+  color: hsl(var(--status-success));
+}
+
+.shader-lab-v2-image-import-status[data-state='error'] {
+  color: hsl(var(--destructive));
 }
 
 .shader-lab-v2-dock-stack {
@@ -1542,6 +1640,188 @@
   height: 31px;
   padding-inline: 9px;
   font-size: 9px;
+}
+
+.shader-lab-v2-sequence-builder {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.shader-lab-v2-sequence-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shader-lab-v2-sequence-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+}
+
+.shader-lab-v2-sequence-summary svg {
+  width: 12px;
+  height: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.shader-lab-v2-sequence-summary strong {
+  font-weight: 640;
+}
+
+.shader-lab-v2-sequence-summary code {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+}
+
+.shader-lab-v2-sequence-builder > p {
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.shader-lab-v2-sequence-strip {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.shader-lab-v2-sequence-strip > span {
+  position: relative;
+  width: 44px;
+  height: 36px;
+  flex: 0 0 44px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 3px;
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-sequence-strip > span[data-final='true'] {
+  width: 58px;
+  flex-basis: 58px;
+  border-color: hsl(var(--foreground) / .7);
+}
+
+.shader-lab-v2-sequence-strip img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.shader-lab-v2-sequence-strip i {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  padding: 1px 3px;
+  color: #fff;
+  background: rgb(0 0 0 / .72);
+  font-family: var(--font-mono), monospace;
+  font-size: 6px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.shader-lab-v2-sequence-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shader-lab-v2-sequence-field > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.shader-lab-v2-sequence-field button,
+.shader-lab-v2-sequence-builder .shader-lab-v2-export-motion button {
+  height: 31px;
+  padding-inline: 9px;
+  font-size: 9px;
+}
+
+.shader-lab-v2-sequence-pace,
+.shader-lab-v2-sequence-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.shader-lab-v2-sequence-pace {
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--muted) / .34);
+}
+
+.shader-lab-v2-sequence-pace button {
+  min-height: 28px;
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 8px;
+  transition: color 140ms ease-out, background-color 140ms ease-out, transform 120ms ease-out;
+}
+
+.shader-lab-v2-sequence-pace button:hover,
+.shader-lab-v2-sequence-pace button[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+
+.shader-lab-v2-sequence-actions button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-size: 8px;
+  transition: border-color 140ms ease-out, background-color 140ms ease-out, transform 120ms ease-out;
+}
+
+.shader-lab-v2-sequence-actions button:last-child {
+  border-color: hsl(var(--foreground));
+  color: hsl(var(--background));
+  background: hsl(var(--foreground));
+}
+
+.shader-lab-v2-sequence-actions button:hover:not(:disabled) {
+  border-color: hsl(var(--foreground) / .65);
+  background: hsl(var(--muted));
+}
+
+.shader-lab-v2-sequence-actions button:last-child:hover:not(:disabled) {
+  color: hsl(var(--background));
+  background: hsl(var(--foreground) / .82);
+}
+
+.shader-lab-v2-sequence-pace button:active,
+.shader-lab-v2-sequence-actions button:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.shader-lab-v2-sequence-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.shader-lab-v2-sequence-actions svg {
+  width: 11px;
+  height: 11px;
 }
 
 .shader-lab-v2-colors {
@@ -9857,7 +10137,7 @@ body {
 
 .editable-canvas-layer-selection {
   position: fixed;
-  z-index: 180;
+  z-index: 2147483000;
   pointer-events: none;
   touch-action: none;
 }
@@ -9936,8 +10216,8 @@ body {
 }
 
 .canvas-selection-assembly {
-  position: absolute;
-  z-index: 170;
+  position: fixed;
+  z-index: 2147483000;
   border: 2px solid #5b7cff;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.72);
   pointer-events: none;
@@ -9979,7 +10259,7 @@ body {
 
 .canvas-selection-menu {
   position: fixed;
-  z-index: 300;
+  z-index: 2147483100;
   width: min(250px, calc(100vw - 16px));
   overflow: hidden;
   border: 1px solid hsl(var(--border));
@@ -10268,23 +10548,35 @@ body {
 
 .editable-canvas-layer-resize {
   position: absolute;
-  z-index: 24;
-  right: -8px;
-  bottom: -8px;
+  z-index: 30;
+  right: -20px;
+  bottom: -20px;
   display: grid;
-  width: 16px;
-  height: 16px;
+  width: 40px;
+  height: 40px;
   place-items: center;
-  border: 2px solid white;
   color: white;
-  background: #5b7cff;
+  background: transparent;
   cursor: nwse-resize;
   touch-action: none;
 }
 
+.editable-canvas-layer-resize::before {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  background: #5b7cff;
+  content: '';
+  pointer-events: none;
+}
+
 .editable-canvas-layer-resize svg {
+  position: relative;
+  z-index: 1;
   width: 9px;
   height: 9px;
+  pointer-events: none;
 }
 
 .canvas-dimension-handles {

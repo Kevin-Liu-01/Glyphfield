@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const playground = readFileSync(join(process.cwd(), 'src/components/SurfaceLabStudio.tsx'), 'utf8');
 const designLab = readFileSync(join(process.cwd(), 'src/components/ShaderLabStudio.tsx'), 'utf8');
+const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/EditableCanvasLayer.tsx'), 'utf8');
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
 const exportPreview = readFileSync(join(process.cwd(), 'src/components/ExportPreview.tsx'), 'utf8');
 const rangeLabel = readFileSync(join(process.cwd(), 'src/components/StudioRangeLabel.tsx'), 'utf8');
@@ -158,8 +159,8 @@ describe('Playground optional layers', () => {
     expect(playground).toContain('onOpen={applySource}');
   });
 
-  it('round-trips complete canvas layers, ordering, groups, and shader frame history', () => {
-    expect(designLab).toContain('version: 2,');
+  it('round-trips complete canvas layers, ordering, groups, shader frame history, and sequences', () => {
+    expect(designLab).toContain('version: 3,');
     expect(designLab).toContain('assets: compositionAssets,');
     expect(designLab).toContain('logos: logoLayers,');
     expect(designLab).toContain('frame: boundedPreviewFrame,');
@@ -167,9 +168,28 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('setCompositionAssets(nextAssets);');
     expect(designLab).toContain('setLayerGroups(nextGroups);');
     expect(designLab).toContain('setLayerOrder(nextOrder);');
+    expect(designLab).toContain('shaderSequence: normalizedShaderSequenceSettings,');
+    expect(designLab).toContain('setShaderSequenceSettings({');
     expect(designLab).toContain("aria-label='Shader frame history'");
     expect(designLab).not.toContain('assets: compositionAssets.map(({ appearance, id, name, opacity, transform })');
     expect(designLab).not.toContain('logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform })');
+  });
+
+  it('exports authentic accelerating shader cuts as a native MP4 sequence', () => {
+    expect(designLab).toContain("import {\n  buildShaderSequenceTimeline,");
+    expect(designLab).toContain("title='Shader sequence'");
+    expect(designLab).toContain("ariaLabel='Shader sequence background layer'");
+    expect(designLab).toContain("ariaLabel='Shader sequence cut count'");
+    expect(designLab).toContain("ariaLabel='Shader sequence final hold'");
+    expect(designLab).toContain("onExport={() => void exportMotion('mp4', 'sequence')}");
+    expect(designLab).toContain('shaderSequenceSegmentAt(shaderSequenceTimeline, frame.timeMs)');
+    expect(designLab).toContain("motionMode === 'sequence' ? shaderSequenceDuration : durationMs");
+    expect(designLab).toContain("motionMode === 'sequence' ? '-shader-sequence' : ''");
+    expect(designLab).toContain('registerStudioAutomation({');
+    expect(designLab).toContain("'design.export'");
+    expect(designLab).toContain("'design.export.shader-sequence.gif'");
+    expect(designLab).toContain("'design.export.shader-sequence.mp4'");
+    expect(designLab).toContain("if (request.download) downloadStudioArtifact(asset);");
   });
 
   it('starts untouched compositions on Gem Smoke and migrates only the legacy Holo default', () => {
@@ -317,5 +337,30 @@ describe('Playground optional layers', () => {
     expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(2);
     expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(2);
     expect(designLab).not.toContain('appearance.borderEnabled || appearance.shadowEnabled');
+  });
+});
+
+describe('Design Lab image import and selection chrome', () => {
+  it('supports browse, drop, and paste imports with intrinsic image placement', () => {
+    expect(designLab).toContain("className='shader-lab-v2-image-drop-overlay'");
+    expect(designLab).toContain("document.addEventListener('paste', handlePaste)");
+    expect(designLab).toContain('fitImageLayerToCanvas({');
+    expect(designLab).toContain("className='shader-lab-v2-dock-add-image'");
+    expect(designLab).toContain('Images keep their aspect ratio when added.');
+    expect(studioStyles).toContain('.shader-lab-v2-image-drop-overlay {');
+  });
+
+  it('portals single- and multi-selection chrome above the clipped canvas viewport', () => {
+    expect(editableCanvasLayer).toContain('createPortal(');
+    expect(editableCanvasLayer).toContain('document.body');
+    expect(designLab).toContain('<CanvasSelectionAssemblyOverlay');
+    expect(designLab).toContain('document.body');
+    expect(studioStyles).toMatch(/\.editable-canvas-layer-selection \{[\s\S]*?position: fixed;[\s\S]*?z-index: 2147483000;/);
+    expect(studioStyles).toMatch(/\.canvas-selection-assembly \{[\s\S]*?position: fixed;[\s\S]*?z-index: 2147483000;/);
+  });
+
+  it('gives the corner resize arrow a generous invisible hit target', () => {
+    expect(studioStyles).toMatch(/\.editable-canvas-layer-resize \{[\s\S]*?z-index: 30;[\s\S]*?width: 40px;[\s\S]*?height: 40px;/);
+    expect(studioStyles).toMatch(/\.editable-canvas-layer-resize::before \{[\s\S]*?width: 16px;[\s\S]*?height: 16px;/);
   });
 });
