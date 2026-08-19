@@ -7,6 +7,7 @@ import {
   canvasSelectionBounds,
   isAdditiveCanvasSelection,
   nextCanvasLayerSelection,
+  resizeCanvasLayerScale,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerGeometry,
@@ -67,6 +68,35 @@ describe('alignCanvasLayer', () => {
       ...transform,
       x: 600,
     });
+  });
+});
+
+describe('resizeCanvasLayerScale', () => {
+  it('resizes fitted images proportionally when they use explicit width and height scales', () => {
+    const transform = {
+      heightScale: 0.5,
+      scale: 1,
+      widthScale: 1.8,
+      x: 0,
+      y: 0,
+    };
+    const before = canvasLayerDimensions(transform, geometry);
+    const resized = resizeCanvasLayerScale(transform, 0.25);
+    const after = canvasLayerDimensions(resized, geometry);
+
+    expect(resized).toMatchObject({ heightScale: 0.625, scale: 1.25, widthScale: 2.25 });
+    expect(after.width / after.height).toBeCloseTo(before.width / before.height);
+    expect(after.width).toBeGreaterThan(before.width);
+    expect(after.height).toBeGreaterThan(before.height);
+  });
+
+  it('keeps ordinary scale-only layers on the existing resize path', () => {
+    expect(resizeCanvasLayerScale({ scale: 1, x: 0, y: 0 }, 0.4))
+      .toEqual({ scale: 1.4, x: 0, y: 0 });
+  });
+
+  it('does not impose an arbitrary maximum scale on canvas layers', () => {
+    expect(resizeCanvasLayerScale({ scale: 2.8, x: 0, y: 0 }, 4).scale).toBe(6.8);
   });
 });
 

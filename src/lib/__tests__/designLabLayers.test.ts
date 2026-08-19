@@ -363,4 +363,13 @@ describe('Design Lab image import and selection chrome', () => {
     expect(studioStyles).toMatch(/\.editable-canvas-layer-resize \{[\s\S]*?z-index: 30;[\s\S]*?width: 40px;[\s\S]*?height: 40px;/);
     expect(studioStyles).toMatch(/\.editable-canvas-layer-resize::before \{[\s\S]*?width: 16px;[\s\S]*?height: 16px;/);
   });
+
+  it('previews resize frames locally and commits composition state on release', () => {
+    expect(editableCanvasLayer).toContain('const [resizePreviewTransform, setResizePreviewTransform]');
+    expect(editableCanvasLayer).toContain('setResizePreviewTransform(nextTransform);');
+    expect(editableCanvasLayer).toContain("if (session.mode !== 'move' && resizePreview) onChange(resizePreview);");
+    expect(editableCanvasLayer).toContain("transform: useGpuResizePreview ? `scale3d(");
+    expect(editableCanvasLayer).toContain("data-resize-preview={useGpuResizePreview ? 'gpu' : undefined}");
+    expect(editableCanvasLayer).not.toContain('clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3)');
+  });
 });

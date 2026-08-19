@@ -85,6 +85,8 @@ type SelectionBounds = {
   width: number;
 };
 
+const MIN_CANVAS_LAYER_SCALE = 0.02;
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -144,6 +146,23 @@ export function canvasLayerDimensions(
   return {
     height: geometry.baseHeight * (transform.heightScale ?? transform.scale),
     width: geometry.baseWidth * (transform.widthScale ?? transform.scale),
+  };
+}
+
+export function resizeCanvasLayerScale(
+  transform: CanvasLayerTransform,
+  scaleDelta: number
+): CanvasLayerTransform {
+  const nextScale = Math.max(transform.scale + scaleDelta, MIN_CANVAS_LAYER_SCALE);
+  if (transform.heightScale === undefined && transform.widthScale === undefined) {
+    return { ...transform, scale: nextScale };
+  }
+  const scaleFactor = nextScale / Math.max(transform.scale, 0.001);
+  return {
+    ...transform,
+    heightScale: transform.heightScale === undefined ? undefined : transform.heightScale * scaleFactor,
+    scale: nextScale,
+    widthScale: transform.widthScale === undefined ? undefined : transform.widthScale * scaleFactor,
   };
 }
 
@@ -323,9 +342,15 @@ export default function EditableCanvasLayer({
   const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const [resizePreviewTransform, setResizePreviewTransform] = useState<CanvasLayerTransform | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
-  const { height, width } = canvasLayerDimensions(transform, { baseHeight, baseWidth });
+  const resizePreviewTransformRef = useRef<CanvasLayerTransform | null>(null);
+  const renderedTransform = resizePreviewTransform ?? transform;
+  const committedDimensions = canvasLayerDimensions(transform, { baseHeight, baseWidth });
+  const previewDimensions = canvasLayerDimensions(renderedTransform, { baseHeight, baseWidth });
+  const useGpuResizePreview = resizeMode === 'scale' && resizePreviewTransform !== null;
+  const { height, width } = useGpuResizePreview ? committedDimensions : previewDimensions;
 
   useLayoutEffect(() => {
     if (!fitContentHeight) {
@@ -365,7 +390,7 @@ export default function EditableCanvasLayer({
       return;
     }
     measureSelectionBounds();
-  }, [contentHeight, height, measureSelectionBounds, selected, transform.x, transform.y, width]);
+  }, [contentHeight, height, measureSelectionBounds, previewDimensions.height, previewDimensions.width, renderedTransform.x, renderedTransform.y, selected, width]);
 
   useEffect(() => {
     if (!selected) return;
@@ -486,6 +511,9 @@ export default function EditableCanvasLayer({
     if (!layer || !parent) return;
     const parentBounds = parent.getBoundingClientRect();
     if (parentBounds.width <= 0 || parentBounds.height <= 0) return;
+    const startingTransform = resizePreviewTransformRef.current ?? transform;
+    resizePreviewTransformRef.current = null;
+    setResizePreviewTransform(null);
     const targetX = [0, canvasWidth / 2, canvasWidth];
     const targetY = [0, canvasHeight / 2, canvasHeight];
     Array.from(parent.children).forEach((sibling) => {
@@ -512,12 +540,12 @@ export default function EditableCanvasLayer({
       startSelected: selected && !additive,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startHeightScale: transform.heightScale ?? transform.scale,
-      startScale: transform.scale,
-      startTransform: transform,
-      startWidthScale: transform.widthScale ?? transform.scale,
-      startX: transform.x,
-      startY: transform.y,
+      startHeightScale: startingTransform.heightScale ?? startingTransform.scale,
+      startScale: startingTransform.scale,
+      startTransform: startingTransform,
+      startWidthScale: startingTransform.widthScale ?? startingTransform.scale,
+      startX: startingTransform.x,
+      startY: startingTransform.y,
     };
     attachWindowPointerListeners();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -536,7 +564,9 @@ export default function EditableCanvasLayer({
     if (session.mode !== 'move') {
       if (session.mode === 'resize' && resizeMode === 'scale') {
         const scaleDelta = (deltaX + deltaY) / Math.max(baseWidth, baseHeight);
-        onChange({ ...session.startTransform, scale: clamp(session.startScale + scaleDelta, 0.2, 3) });
+        const nextTransform = resizeCanvasLayerScale(session.startTransform, scaleDelta);
+        resizePreviewTransformRef.current = nextTransform;
+        setResizePreviewTransform(nextTransform);
         return;
       }
       let heightScale = session.startHeightScale;
@@ -544,22 +574,24 @@ export default function EditableCanvasLayer({
       let x = session.startX;
       let y = session.startY;
       if (session.mode === 'resize' || session.mode === 'resize-right') {
-        widthScale = clamp(session.startWidthScale + deltaX / baseWidth, 0.2, 3);
+        widthScale = Math.max(session.startWidthScale + deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
         x += baseWidth * (widthScale - session.startWidthScale) / 2;
       }
       if (session.mode === 'resize-left') {
-        widthScale = clamp(session.startWidthScale - deltaX / baseWidth, 0.2, 3);
+        widthScale = Math.max(session.startWidthScale - deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
         x -= baseWidth * (widthScale - session.startWidthScale) / 2;
       }
       if (session.mode === 'resize' || session.mode === 'resize-bottom') {
-        heightScale = clamp(session.startHeightScale + deltaY / baseHeight, 0.2, 3);
+        heightScale = Math.max(session.startHeightScale + deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
         y += baseHeight * (heightScale - session.startHeightScale) / 2;
       }
       if (session.mode === 'resize-top') {
-        heightScale = clamp(session.startHeightScale - deltaY / baseHeight, 0.2, 3);
+        heightScale = Math.max(session.startHeightScale - deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
         y -= baseHeight * (heightScale - session.startHeightScale) / 2;
       }
-      onChange({ ...session.startTransform, heightScale, widthScale, x, y });
+      const nextTransform = { ...session.startTransform, heightScale, widthScale, x, y };
+      resizePreviewTransformRef.current = nextTransform;
+      setResizePreviewTransform(nextTransform);
       return;
     }
 
@@ -600,12 +632,16 @@ export default function EditableCanvasLayer({
   function endPointer(eventType: string, pointerId: number) {
     const session = sessionRef.current;
     if (!session || session.pointerId !== pointerId) return;
+    const resizePreview = resizePreviewTransformRef.current;
     sessionRef.current = null;
+    resizePreviewTransformRef.current = null;
+    setResizePreviewTransform(null);
     setSmartGuides({ x: null, y: null });
     if (eventType === 'pointercancel') {
-      onChange(session.startTransform);
+      if (session.mode === 'move') onChange(session.startTransform);
       return;
     }
+    if (session.mode !== 'move' && resizePreview) onChange(resizePreview);
     if (shouldDeselectCanvasLayer(eventType, session.mode, session.startSelected, session.moved)) {
       onDeselect();
     }
@@ -626,15 +662,20 @@ export default function EditableCanvasLayer({
     event.preventDefault();
   }
 
-  const centerX = baseX + baseWidth / 2 + transform.x;
-  const centerY = baseY + baseHeight / 2 + transform.y;
+  const centerX = baseX + baseWidth / 2 + renderedTransform.x;
+  const centerY = baseY + baseHeight / 2 + renderedTransform.y;
+  const previewScaleX = useGpuResizePreview ? previewDimensions.width / Math.max(committedDimensions.width, 0.001) : 1;
+  const previewScaleY = useGpuResizePreview ? previewDimensions.height / Math.max(committedDimensions.height, 0.001) : 1;
   const style: CSSProperties = {
     height: fitContentHeight && contentHeight !== null
       ? `max(${(height / canvasHeight) * 100}%, ${contentHeight}px)`
       : `${(height / canvasHeight) * 100}%`,
     left: `${((centerX - width / 2) / canvasWidth) * 100}%`,
     top: `${((centerY - height / 2) / canvasHeight) * 100}%`,
+    transform: useGpuResizePreview ? `scale3d(${previewScaleX}, ${previewScaleY}, 1)` : undefined,
+    transformOrigin: 'center',
     width: `${(width / canvasWidth) * 100}%`,
+    willChange: useGpuResizePreview ? 'transform' : undefined,
     zIndex,
   };
   const guideHost = layerRef.current?.parentElement ?? null;
@@ -650,6 +691,7 @@ export default function EditableCanvasLayer({
         data-content-interactive={allowContentInteraction ? 'true' : undefined}
         data-fit-content-height={fitContentHeight ? 'true' : undefined}
         data-multi-selection={selectionMember && !showSelectionControls ? 'true' : undefined}
+        data-resize-preview={useGpuResizePreview ? 'gpu' : undefined}
         onKeyDown={handleKeyDown}
         onContextMenu={onContextMenu}
         onPointerDown={(event) => beginPointer(event, 'move')}
