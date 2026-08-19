@@ -39,6 +39,34 @@ export const AGENT_GENERATION_EXAMPLES = {
     },
     kind: 'element-brief',
   },
+  designSequence: {
+    backgroundColor: '#111216',
+    effect: {
+      background: '#111216',
+      foreground: '#F5F5F2',
+      kind: 'bayer',
+      opacity: 0.76,
+    },
+    export: {
+      fps: 30,
+      quality: 'best',
+      width: 1920,
+    },
+    identity: { preset: 'gt' },
+    includeBrandMark: true,
+    kind: 'design-sequence',
+    ratio: 'wide',
+    sequence: {
+      cutCount: 10,
+      finalHoldMs: 5000,
+      pace: 'accelerating',
+    },
+    shader: {
+      materialId: 'paper-gem-smoke',
+      shaderSize: 1,
+    },
+    texts: [{ value: 'Open Source', weight: 500 }],
+  },
   slide: {
     body: 'Foundation\nExpression\nApplication\nDelivery',
     identity: { preset: 'gt' },
@@ -113,6 +141,23 @@ export const AGENT_GENERATION_CONTRACT = {
       },
       mimeTypes: ['application/json', 'image/svg+xml'],
     },
+    'design-sequence': {
+      description: 'Create an exact Design Lab source document for a fixed composition with authentic browser-native PNG, JPG, GIF, and MP4 export.',
+      fields: {
+        backgroundColor: 'Optional six-digit HEX; defaults to #111216',
+        effect: 'Optional bayer | ascii | halftone | posterize converter with opacity and converter settings',
+        export: 'width 320–3840; fps 12 | 15 | 24 | 30; quality fast | balanced | best; durationMs 1200–4000; gifLoop raw | seamless',
+        identity: 'Agent identity object',
+        includeBrandMark: 'Boolean; defaults to true',
+        kind: 'design-sequence',
+        ratio: 'wide | square | opengraph',
+        sequence: 'cutCount 8–12; finalHoldMs 3000–6000; pace accelerating | even',
+        shader: 'materialId from /api/materials; blendMode; opacity; shaderSize 0.1–10; shared settings',
+        texts: 'Optional array of up to 32 positioned text layers',
+      },
+      mimeTypes: ['application/json'],
+      programmaticExport: "Open /studio, apply response.document, then invoke design.export with format png | jpg | gif | mp4, optional mode shader-sequence, and optional download true.",
+    },
     'element-brief': {
       description: 'Resolve one /api/elements record against a preset or custom identity.',
       fields: {
@@ -144,11 +189,29 @@ export const AGENT_GENERATION_CONTRACT = {
   },
   method: 'POST',
   requestContentType: 'application/json',
-  schemaVersion: 1,
+  schemaVersion: 2,
+} as const;
+
+export const STUDIO_BROWSER_API_CONTRACT = {
+  event: 'glyphfield:studio-api-ready',
+  global: 'window.glyphfield.studio',
+  operations: {
+    activate: 'Activate any visible control by its accessible label',
+    activeTool: 'Return the active Studio tool ID',
+    applySource: 'Apply a JSON object or string through the active tool validator',
+    controls: 'List visible interactive controls and current values',
+    describe: 'List exact actions and source support for the active tool',
+    download: 'Save a generated Blob artifact with its deterministic file name',
+    invoke: 'Invoke source, control, export, or tool-specific actions',
+    readSource: 'Read the exact current source document',
+    set: 'Set a visible form control by accessible label',
+  },
+  standardActions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
+  version: 1,
 } as const;
 
 export const AGENT_MANIFEST = {
-  description: 'Discover Glyphfield labs, shaders, identities, and generation contracts from one agent-readable interface.',
+  description: 'Discover Glyphfield labs, shaders, identities, generation contracts, and the programmatic Studio browser API from one agent-readable interface.',
   generation: AGENT_GENERATION_CONTRACT,
   name: 'Glyphfield Agent API',
   policies: {
@@ -169,7 +232,8 @@ export const AGENT_MANIFEST = {
     openapi: '/openapi.json',
     workspace: '/studio',
   },
-  schemaVersion: 1,
+  schemaVersion: 2,
+  studioBrowserApi: STUDIO_BROWSER_API_CONTRACT,
   version: '0.2.0',
 } as const;
 
@@ -213,11 +277,13 @@ export const OPENAPI_DOCUMENT = {
               examples: {
                 background: { value: AGENT_GENERATION_EXAMPLES.background },
                 brief: { value: AGENT_GENERATION_EXAMPLES.brief },
+                designSequence: { value: AGENT_GENERATION_EXAMPLES.designSequence },
                 slide: { value: AGENT_GENERATION_EXAMPLES.slide },
               },
               schema: {
                 oneOf: [
                   { required: ['kind', 'settings'], type: 'object' },
+                  { required: ['kind', 'shader', 'sequence'], type: 'object' },
                   { required: ['kind', 'template'], type: 'object' },
                   { required: ['kind', 'elementId'], type: 'object' },
                 ],

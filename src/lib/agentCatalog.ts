@@ -20,9 +20,19 @@ const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
 
 export const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
   ...tool,
-  agentAccess: 'discoverable-source-document',
+  agentAccess: 'http-contract-and-browser-api',
   browserWorkspace: '/studio',
   capabilities: {
+    browserApi: true,
+    controlAutomation: true,
+    directHttpGeneration: tool.id === 'material'
+      ? ['design-sequence']
+      : tool.id === 'brand-elements'
+        ? ['element-brief']
+        : ['template', 'background'].filter((kind) => (
+            (kind === 'template' && ['blog', 'opengraph', 'partnership', 'slides'].includes(tool.id))
+            || (kind === 'background' && ['opengraph', 'surface'].includes(tool.id))
+          )),
     sharedShaderLibrary: SHARED_SHADER_LIBRARY_TOOLS.has(tool.id),
     sourceEditing: true,
   },

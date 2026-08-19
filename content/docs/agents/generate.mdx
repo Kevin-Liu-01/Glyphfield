@@ -1,16 +1,65 @@
 ---
 title: Generation API
-description: Generate templates, backgrounds, and resolved brand-element briefs with the versioned JSON contract.
+description: Generate templates, backgrounds, resolved brand-element briefs, and apply-ready Design Lab sequences with the versioned JSON contract.
 icon: WandSparkles
 ---
 
-`POST /api/generate` accepts `application/json`. The request `kind` selects one of three generators.
+`POST /api/generate` accepts `application/json`. The request `kind` selects one of four generators.
 
 ## Output selection
 
 - `output: "json"` is the default for SVG generators. The response contains metadata and `artifact.content`.
 - `output: "raw"` returns `image/svg+xml` directly.
 - `element-brief` always returns JSON.
+- `design-sequence` returns an apply-ready Design Lab document, its resolved shader timeline, and browser API commands.
+
+## Design sequence
+
+Design sequence creates the same versioned composition used by Design Lab. It supports an identity-aware brand mark, multiple text layers, a Bayer/ASCII/halftone/posterize converter, any material returned by `/api/materials`, 8–12 cuts, and a 3–6 second final hold.
+
+```json
+{
+  "kind": "design-sequence",
+  "identity": { "preset": "gt" },
+  "ratio": "wide",
+  "backgroundColor": "#111216",
+  "shader": {
+    "materialId": "paper-gem-smoke",
+    "shaderSize": 1
+  },
+  "sequence": {
+    "cutCount": 10,
+    "finalHoldMs": 5000,
+    "pace": "accelerating"
+  },
+  "effect": {
+    "kind": "bayer",
+    "opacity": 0.76,
+    "foreground": "#F5F5F2",
+    "background": "#111216"
+  },
+  "texts": [{ "value": "Open Source", "weight": 500 }],
+  "export": { "width": 1920, "fps": 30, "quality": "best" }
+}
+```
+
+The response is JSON with:
+
+- `document`: exact Design Lab source version 3.
+- `sequence.timeline`: resolved material IDs and cut boundaries.
+- `automation`: the stable browser global and exact apply/export commands.
+
+Apply and render inside `/studio`:
+
+```js
+await window.glyphfield.studio.applySource(response.document);
+const artifact = await window.glyphfield.studio.invoke(
+  'design.export',
+  { format: 'mp4', mode: 'shader-sequence', download: true }
+);
+```
+
+Choose `png`, `jpg`, `gif`, or `mp4`. Shader-sequence mode is available for GIF and MP4. The export action resolves to the real UI artifact object and uses the authentic shader canvases, composition effects, text, marks, layer order, and output settings; `download: true` also saves it.
 
 ## Template
 
@@ -113,4 +162,4 @@ Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
 
 The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, animation, Lottie, materials, Surface Lab, templates, foundations, and components. Those documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
 
-Use the HTTP contract on this page for deterministic remote generation. Use [Source code editing](/docs/studio/source-editing) when a browser-capable agent or person needs to edit the exact active artifact and keep working visually.
+Use the HTTP contract on this page for deterministic remote generation. `design-sequence` is deliberately a bridge: it emits an exact Studio source document for programmatic browser rendering. For every other tool, use the active `window.glyphfield.studio` API to read/apply source or operate visible controls.

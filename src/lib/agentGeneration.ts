@@ -8,6 +8,7 @@ import {
   type BackgroundSettings,
   type BackgroundStyle,
 } from '@/lib/backgroundSvg';
+import { AGENT_SHADER_LIBRARY } from '@/lib/agentCatalog';
 import { OPEN_SURFACE_LIBRARY_IDS } from '@/lib/openSurfaceLibrary';
 import { BRAND_ELEMENTS, type BrandElement } from '@/lib/brandElements';
 import {
@@ -16,6 +17,26 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { escapeXml } from '@/lib/download';
+import {
+  defaultCompositionEffectSettings,
+  type CompositionEffectKind,
+  type CompositionEffectSettings,
+} from '@/lib/compositionEffects';
+import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from '@/lib/liveMaterials';
+import { DEFAULT_LOGO_APPEARANCE } from '@/lib/logoAppearance';
+import { shaderLabMaterials, shaderLabSettingsFor } from '@/lib/shaderLab';
+import { clampShaderZoom } from '@/lib/shaderZoom';
+import {
+  buildShaderSequenceTimeline,
+  normalizeShaderSequenceSettings,
+  shaderSequenceMaterialIds,
+  type ShaderSequenceSettings,
+} from '@/lib/shaderSequence';
+import { DEFAULT_TEXT_EFFECT } from '@/lib/textEffects';
 import {
   defaultTemplatePartner,
   templateBrandLogo,
@@ -89,8 +110,54 @@ export type AgentElementBriefPlan = AgentGenerationBase & {
   kind: 'element-brief';
 };
 
+type AgentDesignText = {
+  align: 'center' | 'left' | 'right';
+  color: string;
+  fontRole: 'Accent' | 'Body' | 'Code' | 'Display';
+  lineHeight: number;
+  name: string;
+  opacity: number;
+  scale: number;
+  tracking: number;
+  value: string;
+  weight: number;
+  widthScale: number;
+  wrap: 'nowrap' | 'wrap';
+  x: number;
+  y: number;
+};
+
+export type AgentDesignSequencePlan = AgentGenerationBase & {
+  backgroundColor: string;
+  effect: {
+    opacity: number;
+    settings: CompositionEffectSettings;
+  } | null;
+  exportSettings: {
+    durationMs: number;
+    fps: number;
+    gifLoop: 'raw' | 'seamless';
+    quality: 'balanced' | 'best' | 'fast';
+    width: number;
+  };
+  includeBrandMark: boolean;
+  kind: 'design-sequence';
+  logoPath: string | null;
+  ratio: 'opengraph' | 'square' | 'wide';
+  sequence: ShaderSequenceSettings;
+  shader: {
+    blendMode: 'multiply' | 'normal' | 'overlay' | 'screen';
+    materialId: LiveMaterialId;
+    opacity: number;
+    settings: LiveMaterialSettings;
+    shaderSize: number;
+  };
+  texts: AgentDesignText[];
+};
+
 export type AgentGenerationPlan =
   | AgentBackgroundPlan
+  | AgentDesignSequencePlan
   | AgentElementBriefPlan
   | AgentTemplatePlan;
 
@@ -222,6 +289,58 @@ function imageDataUrl(value: unknown, field: string): string | null {
     );
   }
   return value;
+}
+
+function recordArray(value: unknown, field: string, maximumLength: number): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.length > maximumLength) {
+    throw new AgentGenerationError(`${field} must be an array with at most ${maximumLength} items.`, field);
+  }
+  return value.map((item, index) => asRecord(item, `${field}.${index}`));
+}
+
+function liveMaterialIdValue(value: unknown, fallback: LiveMaterialId, field: string): LiveMaterialId {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'string' || !shaderLabMaterials('', 'all').some(({ id }) => id === value)) {
+    throw new AgentGenerationError(`${field} must reference an ID returned by /api/materials.`, field);
+  }
+  return value as LiveMaterialId;
+}
+
+function liveMaterialSettingsValue(
+  value: unknown,
+  materialId: LiveMaterialId,
+  palette: readonly string[]
+): LiveMaterialSettings {
+  const input = asRecord(value, 'shader.settings');
+  const defaults = shaderLabSettingsFor(materialId, {
+    ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+    colorA: palette[0] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
+    colorB: palette[1] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorB,
+    colorC: palette[2] ?? DEFAULT_LIVE_MATERIAL_SETTINGS.colorC,
+  });
+  const output = { ...defaults } as unknown as Record<string, number | string>;
+  const controls = AGENT_SHADER_LIBRARY.controls as unknown as Record<string, {
+    maximum?: number;
+    minimum?: number;
+    type: string;
+  }>;
+  Object.entries(input).forEach(([key, value]) => {
+    const fallback = output[key];
+    const control = controls[key];
+    if (fallback === undefined || !control) {
+      throw new AgentGenerationError(`shader.settings.${key} is not a shared material control.`, `shader.settings.${key}`);
+    }
+    output[key] = typeof fallback === 'number'
+      ? numberValue(
+          value,
+          fallback,
+          `shader.settings.${key}`,
+          control.minimum ?? -10_000,
+          control.maximum ?? 10_000
+        )
+      : colorValue(value, fallback, `shader.settings.${key}`);
+  });
+  return output as unknown as LiveMaterialSettings;
 }
 
 function slug(value: string): string {
@@ -545,16 +664,110 @@ function elementBriefPlan(input: Record<string, unknown>): AgentElementBriefPlan
   };
 }
 
+function designSequencePlan(input: Record<string, unknown>): AgentDesignSequencePlan {
+  const identity = resolveAgentIdentity(input.identity);
+  const shaderInput = asRecord(input.shader, 'shader');
+  const materialId = liveMaterialIdValue(shaderInput.materialId, 'paper-gem-smoke', 'shader.materialId');
+  const sequenceInput = asRecord(input.sequence, 'sequence');
+  const sequence = normalizeShaderSequenceSettings({
+    cutCount: numberValue(sequenceInput.cutCount, 10, 'sequence.cutCount', 8, 12, true),
+    finalHoldMs: numberValue(sequenceInput.finalHoldMs, 5_000, 'sequence.finalHoldMs', 3_000, 6_000, true),
+    pace: oneOf(sequenceInput.pace, ['accelerating', 'even'] as const, 'accelerating', 'sequence.pace'),
+  });
+  const baseColors = identity.base?.colors.map(({ hex }) => hex) ?? [];
+  const palette = [identity.ink, baseColors[2] ?? '#737373', identity.paper];
+  const effectInput = input.effect === undefined || input.effect === null
+    ? null
+    : asRecord(input.effect, 'effect');
+  const effectKind = effectInput
+    ? oneOf(
+        effectInput.kind,
+        ['ascii', 'bayer', 'halftone', 'posterize'] as const satisfies readonly CompositionEffectKind[],
+        'bayer',
+        'effect.kind'
+      )
+    : null;
+  const effectDefaults = effectKind ? defaultCompositionEffectSettings(effectKind) : null;
+  const effectSettings = effectDefaults && effectInput
+    ? {
+        ...effectDefaults,
+        background: colorValue(effectInput.background, effectDefaults.background, 'effect.background'),
+        cellSize: numberValue(effectInput.cellSize, effectDefaults.cellSize, 'effect.cellSize', 1, 64),
+        contrast: numberValue(effectInput.contrast, effectDefaults.contrast, 'effect.contrast', 0.1, 4),
+        foreground: colorValue(effectInput.foreground, effectDefaults.foreground, 'effect.foreground'),
+        invert: booleanValue(effectInput.invert, effectDefaults.invert, 'effect.invert'),
+        levels: numberValue(effectInput.levels, effectDefaults.levels, 'effect.levels', 2, 8, true),
+        threshold: numberValue(effectInput.threshold, effectDefaults.threshold, 'effect.threshold', 0, 1),
+      }
+    : null;
+  const textInputs = input.texts === undefined
+    ? [{ value: 'Open Source' }]
+    : recordArray(input.texts, 'texts', 32);
+  const texts = textInputs.map((text, index): AgentDesignText => ({
+    align: oneOf(text.align, ['center', 'left', 'right'] as const, 'center', `texts.${index}.align`),
+    color: colorValue(text.color, identity.paper, `texts.${index}.color`),
+    fontRole: oneOf(text.fontRole, ['Accent', 'Body', 'Code', 'Display'] as const, 'Display', `texts.${index}.fontRole`),
+    lineHeight: numberValue(text.lineHeight, 1, `texts.${index}.lineHeight`, 0.7, 1.8),
+    name: textValue(text.name, `Text ${index + 1}`, `texts.${index}.name`, 80),
+    opacity: numberValue(text.opacity, 1, `texts.${index}.opacity`, 0, 1),
+    scale: numberValue(text.scale, 1, `texts.${index}.scale`, 0.2, 3),
+    tracking: numberValue(text.tracking, 0, `texts.${index}.tracking`, -0.12, 0.2),
+    value: textValue(text.value, 'Open Source', `texts.${index}.value`, 1_000),
+    weight: numberValue(text.weight, 500, `texts.${index}.weight`, 100, 900, true),
+    widthScale: numberValue(text.widthScale, 1, `texts.${index}.widthScale`, 0.25, 3),
+    wrap: oneOf(text.wrap, ['nowrap', 'wrap'] as const, 'wrap', `texts.${index}.wrap`),
+    x: numberValue(text.x, 0, `texts.${index}.x`, -5_000, 5_000),
+    y: numberValue(text.y, index * 120, `texts.${index}.y`, -5_000, 5_000),
+  }));
+  const exportInput = asRecord(input.export, 'export');
+  const logoPath = identity.base?.assets.find(({ id }) => id === 'mark-light')?.path
+    ?? identity.base?.assets.find(({ id }) => id === 'logo-light')?.path
+    ?? identity.base?.assets.find(({ id }) => id === 'mark-dark')?.path
+    ?? null;
+
+  return {
+    backgroundColor: colorValue(input.backgroundColor, '#111216', 'backgroundColor'),
+    effect: effectSettings && effectInput ? {
+      opacity: numberValue(effectInput.opacity, 1, 'effect.opacity', 0, 1),
+      settings: effectSettings,
+    } : null,
+    exportSettings: {
+      durationMs: numberValue(exportInput.durationMs, 1_600, 'export.durationMs', 1_200, 4_000, true),
+      fps: numericOneOf(exportInput.fps, [12, 15, 24, 30] as const, 30, 'export.fps'),
+      gifLoop: oneOf(exportInput.gifLoop, ['raw', 'seamless'] as const, 'seamless', 'export.gifLoop'),
+      quality: oneOf(exportInput.quality, ['balanced', 'best', 'fast'] as const, 'best', 'export.quality'),
+      width: numberValue(exportInput.width, 1_920, 'export.width', 320, 3_840, true),
+    },
+    filename: `${slug(identity.name)}-design-lab-shader-sequence.json`,
+    identity,
+    includeBrandMark: booleanValue(input.includeBrandMark, true, 'includeBrandMark'),
+    kind: 'design-sequence',
+    logoPath: identity.logoDataUrl ? null : logoPath,
+    output: 'json',
+    ratio: oneOf(input.ratio, ['opengraph', 'square', 'wide'] as const, 'wide', 'ratio'),
+    sequence,
+    shader: {
+      blendMode: oneOf(shaderInput.blendMode, ['multiply', 'normal', 'overlay', 'screen'] as const, 'normal', 'shader.blendMode'),
+      materialId,
+      opacity: numberValue(shaderInput.opacity, 1, 'shader.opacity', 0, 1),
+      settings: liveMaterialSettingsValue(shaderInput.settings, materialId, palette),
+      shaderSize: clampShaderZoom(numberValue(shaderInput.shaderSize, 1, 'shader.shaderSize', 0.1, 10)),
+    },
+    texts,
+  };
+}
+
 export function planAgentGeneration(value: unknown): AgentGenerationPlan {
   const input = asRecord(value, 'request');
   const kind = oneOf(
     input.kind,
-    ['background', 'element-brief', 'template'] as const,
+    ['background', 'design-sequence', 'element-brief', 'template'] as const,
     'template',
     'kind'
   );
 
   if (kind === 'background') return backgroundPlan(input);
+  if (kind === 'design-sequence') return designSequencePlan(input);
   if (kind === 'element-brief') return elementBriefPlan(input);
   return templatePlan(input);
 }
@@ -562,6 +775,8 @@ export function planAgentGeneration(value: unknown): AgentGenerationPlan {
 export function agentAssetPaths(plan: AgentGenerationPlan): string[] {
   const paths = plan.kind === 'background'
     ? [plan.logoPath]
+    : plan.kind === 'design-sequence'
+      ? [plan.logoPath]
     : plan.kind === 'template'
       ? [plan.brandLogoPath, plan.partnerLogoPath]
       : [];
@@ -608,6 +823,114 @@ export function renderAgentGeneration(
       mimeType: 'image/svg+xml',
       output: plan.output,
       width: plan.settings.width,
+    };
+  }
+
+  if (plan.kind === 'design-sequence') {
+    const shaderId = 'shader-canvas-1';
+    const effectId = 'effect-sequence-1';
+    const logoId = 'logo-brand';
+    const logo = plan.identity.logoDataUrl
+      ?? (plan.logoPath ? assets[plan.logoPath] : null)
+      ?? monogramDataUrl(plan.identity, plan.identity.paper);
+    const textLayers = plan.texts.map((text, index) => ({
+      align: text.align,
+      color: text.color,
+      fontRole: text.fontRole,
+      id: `text-agent-${index + 1}`,
+      lineHeight: text.lineHeight,
+      name: text.name,
+      opacity: text.opacity,
+      textEffect: { ...DEFAULT_TEXT_EFFECT },
+      tracking: text.tracking,
+      transform: {
+        heightScale: 1,
+        scale: text.scale,
+        widthScale: text.widthScale,
+        x: text.x,
+        y: text.y,
+      },
+      value: text.value,
+      visible: true,
+      weight: text.weight,
+      wrap: text.wrap,
+    }));
+    const layerOrder = [
+      shaderId,
+      ...(plan.effect ? [effectId] : []),
+      ...(plan.includeBrandMark ? [logoId] : []),
+      ...textLayers.map(({ id }) => id),
+    ];
+    const sequenceMaterialIds = shaderSequenceMaterialIds(plan.shader.materialId, plan.sequence.cutCount);
+    const sequenceTimeline = buildShaderSequenceTimeline(sequenceMaterialIds, plan.sequence);
+    const document = {
+      version: 3,
+      composition: {
+        assets: [],
+        backgroundColor: plan.backgroundColor,
+        effectLayers: plan.effect ? [{
+          id: effectId,
+          name: `${plan.effect.settings.kind[0]!.toUpperCase()}${plan.effect.settings.kind.slice(1)}`,
+          opacity: plan.effect.opacity,
+          settings: plan.effect.settings,
+          visible: true,
+        }] : [],
+        groups: [],
+        layerOrder,
+        layerShaders: {},
+        logos: plan.includeBrandMark ? [{
+          appearance: { ...DEFAULT_LOGO_APPEARANCE },
+          color: plan.identity.paper,
+          id: logoId,
+          name: 'Brand mark',
+          opacity: 1,
+          transform: { scale: 1, x: 0, y: 0 },
+          url: logo,
+          visible: true,
+        }] : [],
+        shaderLayers: [{
+          ...plan.shader,
+          id: shaderId,
+          name: 'Canvas shader 1',
+          visible: true,
+        }],
+        textLayers,
+      },
+      exportSettings: plan.exportSettings,
+      ratio: plan.ratio,
+      shaderSequence: {
+        ...plan.sequence,
+        targetLayerId: shaderId,
+      },
+      timeline: { frame: 0, paused: false },
+    };
+    return {
+      content: JSON.stringify({
+        automation: {
+          apply: "await window.glyphfield.studio.applySource(response.document)",
+          export: "await window.glyphfield.studio.invoke('design.export', { format: 'mp4', mode: 'shader-sequence', download: true })",
+          exports: {
+            gif: "await window.glyphfield.studio.invoke('design.export', { format: 'gif', download: true })",
+            jpg: "await window.glyphfield.studio.invoke('design.export', { format: 'jpg', download: true })",
+            mp4: "await window.glyphfield.studio.invoke('design.export', { format: 'mp4', download: true })",
+            png: "await window.glyphfield.studio.invoke('design.export', { format: 'png', download: true })",
+            shaderSequenceGif: "await window.glyphfield.studio.invoke('design.export', { format: 'gif', mode: 'shader-sequence', download: true })",
+            shaderSequenceMp4: "await window.glyphfield.studio.invoke('design.export', { format: 'mp4', mode: 'shader-sequence', download: true })",
+          },
+          global: 'window.glyphfield.studio',
+          open: '/studio',
+        },
+        document,
+        kind: plan.kind,
+        schemaVersion: 1,
+        sequence: {
+          durationMs: sequenceTimeline.at(-1)?.endMs ?? 0,
+          timeline: sequenceTimeline,
+        },
+      }, null, 2),
+      filename: plan.filename,
+      mimeType: 'application/json',
+      output: 'json',
     };
   }
 

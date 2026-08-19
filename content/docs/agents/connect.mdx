@@ -17,7 +17,7 @@ An agent should follow this sequence for every new deployment origin:
 7. Fetch `/api/elements` when choosing a brand application.
 8. Fetch `GET /api/generate` immediately before constructing a request.
 9. `POST application/json` to `/api/generate`.
-10. Save raw SVG or extract the artifact from its JSON envelope.
+10. Save the returned artifact, or apply a returned Design Lab document through `window.glyphfield.studio` for browser-native Canvas/WebGL export.
 
 Do not infer undocumented enum values. Do not scrape the client bundle when a structured endpoint provides the same information.
 
@@ -52,6 +52,7 @@ const [manifest, labs, materials, generation, identities, elements] = await Prom
 
 console.log(manifest.version, labs.count, materials.count, generation.schemaVersion);
 console.log(identities.identities.length, elements.elements.length);
+console.log(manifest.studioBrowserApi.global);
 ```
 
 Independent discovery requests can run concurrently. Fetch the generation contract again if substantial time passes before generation.
@@ -79,6 +80,38 @@ const svg = await response.text();
 
 The raw response is a complete SVG string.
 
+## Programmatic Design Lab sequence
+
+The HTTP API creates the exact source document; the browser API renders it through the same live shader canvases and compositor as the UI.
+
+```ts
+const response = await fetch(`${baseUrl}/api/generate`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    kind: 'design-sequence',
+    identity: { preset: 'gt' },
+    shader: { materialId: 'paper-gem-smoke' },
+    sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' },
+    effect: { kind: 'bayer', opacity: 0.76 },
+    texts: [{ value: 'Open Source', weight: 500 }],
+    export: { width: 1920, fps: 30, quality: 'best' },
+  }),
+});
+const generated = await response.json();
+
+// Run inside the open /studio page after selecting Design Lab.
+const studio = window.glyphfield.studio;
+await studio.applySource(generated.document);
+const artifact = await studio.invoke('design.export', {
+  format: 'mp4',
+  mode: 'shader-sequence',
+  download: true,
+});
+```
+
+Use `studio.describe()` before invoking tool-specific actions. `studio.controls()` and the accessible-label `activate`/`set` methods make every visible UI operation programmatically available, including tools without a headless renderer. Export with PNG, JPG, GIF, or MP4; omit `download` when the caller wants only the returned Blob, or call `studio.download(artifact)` later.
+
 ## Prompting an agent
 
 Point an LLM at the runbook rather than reproducing the full schema in a prompt:
@@ -94,6 +127,6 @@ This keeps the deployment’s current contract authoritative.
 
 ## Browser source workflow
 
-When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and select **Code**. Read the current source before editing it, apply the change, resolve any inline validation error, and visually verify the canvas before downloading.
+When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and use `window.glyphfield.studio`. Prefer `readSource`/`applySource` for exact documents and `controls`/`activate`/`set` for visible operations. The Code drawer remains the human-facing version of the same source workflow.
 
-Do not paste a Studio source document into `POST /api/generate`. The drawer is the browser-local document for an open tool; the generation route is a separate versioned HTTP contract. See [Browser workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).
+Do not paste an arbitrary Studio source document into `POST /api/generate`. The drawer is the browser-local document for an open tool; the generation route is a separate versioned HTTP contract. `design-sequence` explicitly returns an apply-ready `document`. See [Browser workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).

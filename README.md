@@ -75,8 +75,12 @@ flowchart LR
   edits that round-trip into the same visual controls and renderer.
 - Agents discover capabilities through `/llms.txt`, `/api/agent`, and
   `/openapi.json`.
-- `POST /api/generate` produces deterministic SVG templates, backgrounds, and
-  identity-aware element briefs.
+- `POST /api/generate` produces deterministic SVG templates, backgrounds,
+  identity-aware element briefs, and apply-ready Design Lab shader sequences.
+- Every active tool exposes `window.glyphfield.studio`: agents can enumerate and
+  operate visible controls by accessible label, read/apply exact source, and
+  generate or download authentic browser-rendered PNG, JPG, GIF, and MP4 files,
+  including shader-sequence GIF and MP4.
 - Browser projects and uploaded source files stay local; API generation is
   processed in memory and is not persisted.
 

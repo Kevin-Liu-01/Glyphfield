@@ -2,7 +2,7 @@
 
 > Glyphfield is a free, MIT-licensed, local-first brand design and motion studio with public structured discovery and deterministic artifact generation for software agents.
 
-Glyphfield lets designers, developers, brand teams, and AI agents define one identity and apply it across product, marketing, developer, motion, editorial, event, and physical design. The browser Studio exports PNG, SVG, GIF, and JSON. The public API exposes machine-readable catalogs and deterministic SVG generation without an API key.
+Glyphfield lets designers, developers, brand teams, and AI agents define one identity and apply it across product, marketing, developer, motion, editorial, event, and physical design. The browser Studio exports PNG, JPG, SVG, GIF, MP4, and JSON. The public API exposes machine-readable catalogs, deterministic generation, and an in-browser programmatic API without an API key.
 
 ## Canonical resources
 
@@ -29,7 +29,7 @@ Glyphfield lets designers, developers, brand teams, and AI agents define one ide
 7. POST application/json to /api/generate.
 8. Use output="json" when the caller needs metadata plus artifact content. Use output="raw" when the caller can accept image/svg+xml directly.
 9. Save SVG responses as UTF-8. Generated SVGs embed all bundled logos as data URLs and are portable outside Glyphfield.
-10. If a capability is marked browser-only below, open /studio and select the matching tool from /api/catalog.
+10. For Canvas, WebGL, font, upload, or motion work, open /studio and use window.glyphfield.studio. Every visible control is discoverable and operable through this browser API; source-enabled tools additionally expose exact read/apply operations.
 
 Do not infer undocumented enum values. Do not scrape application JavaScript when /api/agent, /openapi.json, or a catalog endpoint provides the same information.
 Use /docs for human-readable feature, artifact, and integration guides. Treat the versioned API responses as authoritative for machine validation.
@@ -64,7 +64,24 @@ Common constraints:
 Human-readable workflow: /docs/studio/source-editing
 Exact browser formats: /docs/reference/source-formats
 
-Never submit a Studio drawer document to /api/generate without translating it into the versioned HTTP contract returned by GET /api/generate.
+Never submit an arbitrary Studio drawer document to /api/generate. The design-sequence generator is the exception: it returns response.document in the exact Design Lab source format.
+
+## Browser Studio API
+
+The active Studio tool registers `window.glyphfield.studio` and dispatches `glyphfield:studio-api-ready`. This is the stable programmatic equivalent of operating visible controls.
+
+- `describe()` returns the active tool, exact actions, and source support.
+- `controls()` lists visible controls by accessible label and current value.
+- `activate(label)` activates a visible button, tab, or control.
+- `set(label, value)` changes a visible input by accessible label; file inputs accept a `File` or `File[]` created from an authorized local source.
+- `readSource()` returns the active tool's exact source document when supported.
+- `await applySource(json)` validates and applies a JSON string or object, then waits for the UI commit.
+- `download(artifact)` saves an artifact returned by an export action with its deterministic file name.
+- `await invoke(action, input)` runs standard or tool-specific actions.
+
+Standard invoke actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`. Design Lab also exposes `design.sequence.describe`, `design.sequence.configure`, `design.sequence.preview`, `design.sequence.stop`, unified `design.export`, named PNG/JPG/GIF/MP4 actions, and shader-sequence GIF/MP4 actions.
+
+Use `await invoke('design.export', { format: 'png' | 'jpg' | 'gif' | 'mp4', mode?: 'standard' | 'shader-sequence', download?: true })`. Shader-sequence mode supports GIF and MP4. The action resolves to the same artifact object used by the UI preview, including its `blob`, `fileName`, dimensions, and format; `download: true` also saves the real file. This preserves Canvas/WebGL authenticity without requiring a second server renderer.
 
 ## POST /api/generate
 
@@ -79,6 +96,8 @@ Optional response selection:
 - element-brief always returns application/json.
 
 The endpoint supports CORS with Access-Control-Allow-Origin: *.
+
+The endpoint supports `template`, `background`, `element-brief`, and `design-sequence`. `design-sequence` returns a validated Design Lab document plus its cut timeline and exact PNG/JPG/GIF/MP4 browser API commands. Apply `response.document` in `/studio`, then invoke `design.export` with the required format and `download: true` for the authentic WebGL/Canvas file.
 
 In the examples below, set BASE_URL to the Glyphfield deployment origin. For local development use:
 

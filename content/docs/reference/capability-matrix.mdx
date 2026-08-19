@@ -8,16 +8,16 @@ icon: TableProperties
 | --- | --- | --- | --- |
 | Brand settings | Persistent identity | Full identity JSON | Identity object in every request |
 | Brand elements | JSON brief | Selected element override JSON | `element-brief` JSON |
-| Moodboard | PNG, identity JSON | Composition, size, and export configuration | Browser only |
-| Animation | GIF from text, image, and logo sequences with live per-frame materials | Sequence and timing JSON | Browser only |
-| Lottie | Edited JSON or `.lottie`, high-resolution frame PNG composited over solid, transparent, or live-material backgrounds | Raw Lottie JSON; binary `.lottie` remains bundled | Browser only |
-| Shader Library | Live selection shared by Material and sequence-first Animation backgrounds with optional frame overrides | Material ID and common live settings are stored by the host tool | Browser only |
-| Material | PNG and animated GIF with live shadow, outline, reflection, and glass previews | Material configuration, finish object, and optional GLSL | Browser only |
+| Moodboard | PNG, identity JSON | Composition, size, and export configuration | Browser API: source read/apply plus labelled controls and export |
+| Animation | GIF from text, image, and logo sequences with live per-frame materials | Sequence and timing JSON | Browser API: source read/apply plus labelled controls and export |
+| Lottie | Edited JSON or `.lottie`, high-resolution frame PNG composited over solid, transparent, or live-material backgrounds | Raw Lottie JSON; binary `.lottie` remains bundled | Browser API: source read/apply plus labelled controls and export |
+| Shader Library | Live selection shared by Material and sequence-first Animation backgrounds with optional frame overrides | Material ID and common live settings are stored by the host tool | `GET /api/materials`; Browser API for live selection and rendering |
+| Material / Design Lab | PNG, JPG, GIF, MP4, and sequence GIF/MP4 with live shaders and converters | Complete version 3 composition and shader-sequence document | `design-sequence` HTTP generator; Browser API for source, controls, preview, Blob return, and file download |
 | Surface Lab | Fixed-camera proof using real CC0 color, normal, displacement, roughness, and metalness maps; PNG; static tactile background; or die-cut sticker SVG | Open PBR asset ID and source, texture family, amount, irregularity, scale, direction, relief, roughness, metallic response, density, cut border, laminate, and precision metal-inset architecture | Catalog and source metadata from `GET /api/catalog`; `background` SVG for deterministic output; browser preview falls back to SVG when WebGL is unavailable |
 | OpenGraph | PNG | Tool configuration JSON | Compose with template/background SVG |
 | Color tokens | Copied CSS tokens | Token configuration JSON | Identity HEX fields |
 | Typography | Browser preview, local font | Typography configuration JSON | Documented font stack only |
-| Terminal card | PNG | Tool configuration JSON | Browser only |
+| Terminal card | PNG | Tool configuration JSON | Browser API: source read/apply plus labelled controls and export |
 | Partnership | PNG | Tool configuration JSON | `template: partnership` SVG |
 | Blog cover | PNG | Tool configuration JSON | `template: blog` SVG |
 | Slide templates | PNG | Tool configuration and layer transforms | `template: slides` SVG |
@@ -37,9 +37,11 @@ icon: TableProperties
 | Uploaded assets | Logos, fonts, backgrounds, partner marks, Lottie JSON, and `.lottie` bundles | Sources remain local; supported exports embed resolved visual frames |
 | Source drawer | Exact source editing with apply, reset, close, and inline validation | Applies into the same persistent tool state and renderer as visual controls |
 
-## Browser-only reasons
+Every row above is programmatically operable through `window.glyphfield.studio`. `controls()` lists the exact visible control labels; `activate()` and `set()` operate them; source-enabled tools add `readSource()` and async `applySource()`; `invoke()` exposes stable tool-specific operations; `download()` saves returned Blob artifacts.
 
-Browser-only features depend on one or more of Canvas, WebGL, local font loading, object URLs, interactive visual placement, or multi-frame capture.
+## Browser-rendered reasons
+
+Some outputs still render in the browser because they depend on Canvas, WebGL, local font loading, object URLs, interactive visual placement, or multi-frame capture. They are not agent-only gaps: the Browser API exposes those same controls and exports programmatically while preserving the authentic renderer.
 
 ## API strengths
 

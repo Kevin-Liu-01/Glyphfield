@@ -28,6 +28,11 @@ describe('agent discovery catalogs', () => {
         .filter(({ capabilities }) => capabilities.sharedShaderLibrary)
         .map(({ id }) => id)
     ).toEqual(['animation', 'material', 'surface']);
+    expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.browserApi)).toBe(true);
+    expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.controlAutomation)).toBe(true);
+    expect(
+      AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'material')?.capabilities.directHttpGeneration
+    ).toContain('design-sequence');
   });
 
   it('publishes every deterministic Surface Lab recipe and its physical controls', () => {
@@ -62,5 +67,9 @@ describe('agent discovery catalogs', () => {
     });
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/labs');
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/materials');
+    expect(AGENT_MANIFEST.studioBrowserApi.global).toBe('window.glyphfield.studio');
+    expect(AGENT_MANIFEST.studioBrowserApi.operations.download).toContain('Blob');
+    expect(AGENT_MANIFEST.studioBrowserApi.standardActions).toContain('artifact.download');
+    expect(AGENT_MANIFEST.generation.kinds).toHaveProperty('design-sequence');
   });
 });

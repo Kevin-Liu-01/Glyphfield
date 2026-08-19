@@ -4,7 +4,7 @@ description: Operate the Studio when generation depends on WebGL, Canvas, local 
 icon: MonitorCog
 ---
 
-Some capabilities are intentionally browser-only because their output depends on browser graphics APIs or interactive composition.
+Some capabilities intentionally render in the browser because their output depends on browser graphics APIs or interactive composition. They remain programmatically available through the Studio Browser API.
 
 ## Use the browser for
 
@@ -24,11 +24,39 @@ Some capabilities are intentionally browser-only because their output depends on
 3. Open `/studio`.
 4. Choose a built-in identity or create a local project.
 5. Open the matching tool with navigation or Studio search.
-6. Configure fields in the inspector, or open **Code** for exact source editing.
-7. When using source, edit the drawer and activate **Apply**.
+6. Read `window.glyphfield.studio.describe()` and `controls()`.
+7. Configure by accessible label with `activate`/`set`, or use `readSource`/`applySource` for exact source editing.
 8. Resolve any inline validation error before continuing; an error means the visual document was not changed.
 9. Verify the canvas at 100% and use Reset/Fit when needed.
 10. Activate the visible download action.
+
+## Stable programmatic interface
+
+```js
+window.glyphfield.studio.describe();
+window.glyphfield.studio.controls();
+const nextToolReady = new Promise((resolve) => {
+  window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+});
+window.glyphfield.studio.activate('Design Lab');
+await nextToolReady;
+
+// Re-read the adapter after switching tools.
+const studio = window.glyphfield.studio;
+
+const current = JSON.parse(studio.readSource());
+current.composition.backgroundColor = '#111216';
+await studio.applySource(current);
+
+const artifact = await studio.invoke('design.export', {
+  format: 'png',
+  download: true,
+});
+```
+
+The page dispatches `glyphfield:studio-api-ready` whenever the active tool adapter is ready. Listen for that event when automation starts before Studio has finished loading.
+
+Generic actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`. `describe()` lists any additional actions exposed by the active tool. An export can return a Blob without saving it, save immediately with `download: true`, or be saved later with `studio.download(artifact)`.
 
 ## Reliable interaction
 
@@ -42,8 +70,8 @@ Some capabilities are intentionally browser-only because their output depends on
 
 ## Persistence boundary
 
-Browser projects persist in `localStorage`. HTTP requests do not read or mutate those projects. If an agent needs an API artifact from a browser identity, it must serialize the required foundation fields into the request.
+Browser projects persist in `localStorage`. The Browser API reads and mutates that same active project state. Stateless HTTP requests do not silently mutate projects; generated apply-ready documents must be passed explicitly to `applySource`.
 
 ## Choosing API versus browser
 
-If `/api/generate` can represent the artifact, prefer it. Browser automation is appropriate when visual judgment or browser-only rendering is part of the requested result.
+If `/api/generate` can represent the artifact, prefer it. Use the Studio Browser API when visual judgment or browser-native rendering is part of the requested result.

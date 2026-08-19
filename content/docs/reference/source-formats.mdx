@@ -13,7 +13,7 @@ The Studio source drawer exposes the working state of the active browser tool. E
 - Invalid fields remain unapplied and produce an inline error.
 - Successful application writes into the same project-scoped state as the visual inspector.
 - Reset returns the editor to the current visual snapshot.
-- Browser source documents are not the same schema as `POST /api/generate` requests.
+- Browser source documents are not the same schema as `POST /api/generate` requests. The `design-sequence` generator returns its apply-ready source in `response.document`.
 
 ## Tool formats
 
@@ -24,6 +24,7 @@ The Studio source drawer exposes the working state of the active browser tool. E
 | Moodboard | `composition`, `exportPresetId`, `customWidth` | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to 800–4800 px |
 | Animation | `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `playbackRate` | Mode is `sequence`, `text`, or `images`; playback rate must be greater than zero and no more than four |
 | Lottie | Numeric `fr`, `layers[]` | Raw Lottie JSON only; binary `.lottie` bundles are not text-editable |
+| Design Lab | `version: 3`, `composition`, `exportSettings`, `ratio`, `shaderSequence`, `timeline` | Supports exact layer order, multiple text/mark/image/shader/converter layers, per-layer opacity and transforms, and an agent-generated sequence target |
 | Shaders | `layers.background`, `layers.logo`, `target`, `ratio`, `exportQuality`, logo artwork and finish objects | Each layer stores independent material settings; custom background GLSL is stored in `customSource` |
 | Surface Lab | `settings`, `application`, `stickerFinish`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | `surfaceLibraryAssetId` selects a cataloged CC0 PBR source. Texture settings include `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`; sticker finishes add cut-border and optional frame, seam, and inset controls |
 | OpenGraph, Terminal, templates, components | Tool-specific JSON object | Open the corresponding drawer to obtain the current schema |
@@ -62,6 +63,8 @@ Glyphfield validates the document before replacing the active animation:
 ## Portability
 
 Source drawers are intended for precise browser editing and round trips between visual controls and code. To move a finished result elsewhere:
+
+- Use `window.glyphfield.studio.readSource()` and `await applySource(...)` for programmatic round trips without opening the drawer.
 
 - Download raw or edited Lottie JSON from Lottie.
 - Download identity or element JSON where the tool provides it.

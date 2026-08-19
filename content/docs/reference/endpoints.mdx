@@ -25,7 +25,15 @@ icon: Braces
 | POST | `/api/generate` | Request: `application/json`; response: JSON or `image/svg+xml` |
 | OPTIONS | `/api/generate` | CORS preflight |
 
-Generation supports `template`, `background`, and `element-brief` kinds.
+Generation supports `template`, `background`, `element-brief`, and `design-sequence` kinds.
+
+`design-sequence` returns an exact Design Lab document rather than a server-rendered approximation. Apply it with the programmatic browser API, then invoke `design.export` with `png`, `jpg`, `gif`, or `mp4`. GIF and MP4 also accept `mode: 'shader-sequence'`; this keeps the result on the authentic Canvas/WebGL renderer.
+
+## Browser API
+
+Every active Studio tool registers `window.glyphfield.studio` (version 1). The API discovers and operates visible controls by accessible label, including authorized uploads supplied as `File` objects. Source-enabled tools also expose exact `readSource` and async `applySource` methods. `download(artifact)` and `artifact.download` save returned Blob artifacts. Use `describe()` to discover current tool-specific actions.
+
+Design Lab actions include PNG/JPG stills, GIF, ordinary MP4, sequence GIF/MP4, sequence preview, stop, describe, and configure. `await invoke('design.export', { format, mode?, download? })` is the unified entry point. Export actions resolve to an object containing the generated `Blob`, file name, dimensions, and format; `download: true` also writes the file through the browser.
 
 ## Documentation search
 

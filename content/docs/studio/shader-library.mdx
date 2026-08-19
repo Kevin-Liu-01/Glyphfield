@@ -85,7 +85,7 @@ The animation canvas also supports direct size editing: drag the right edge to c
 
 ## Output and portability
 
-Material exports still PNG or animated GIF. Animation composites selected shader backgrounds into its GIF. Live WebGL output is browser-only; Surface Lab is dedicated to deterministic static SVG backgrounds and physical-material recipes.
+Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation composites selected shader backgrounds into its GIF. Live WebGL output uses the browser renderer and is programmatically available through `window.glyphfield.studio`; Surface Lab also provides deterministic static SVG backgrounds and physical-material recipes.
 
 The Material **Code** drawer preserves `liveMaterialId`, `liveSettings`, `sourceAssetId`, `sourceAssetOpacity`, and the complete finish object. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source already shown by the current drawer as the authoritative schema for round trips.
 

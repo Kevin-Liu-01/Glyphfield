@@ -76,6 +76,41 @@ describe('planAgentGeneration', () => {
       planAgentGeneration({ elementId: 'not-real', kind: 'element-brief' })
     ).toThrow('elementId');
   });
+
+  it('plans the exact Design Lab shader-sequence contract for browser execution', () => {
+    const plan = planAgentGeneration({
+      effect: { kind: 'bayer', opacity: 0.76 },
+      export: { fps: 30, quality: 'best', width: 1920 },
+      identity: { preset: 'gt' },
+      kind: 'design-sequence',
+      sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' },
+      shader: { materialId: 'paper-gem-smoke', shaderSize: 1.4 },
+      texts: [{ value: 'Open Source', y: 180 }],
+    });
+
+    expect(plan).toMatchObject({
+      exportSettings: { fps: 30, quality: 'best', width: 1920 },
+      kind: 'design-sequence',
+      sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' },
+      shader: { materialId: 'paper-gem-smoke', shaderSize: 1.4 },
+    });
+    expect(agentAssetPaths(plan)).toEqual(['/brands/gt/logos/mark-white.svg']);
+  });
+
+  it('rejects undocumented Design Lab materials and sequence bounds', () => {
+    expect(() => planAgentGeneration({
+      kind: 'design-sequence',
+      shader: { materialId: 'made-up-shader' },
+    })).toThrow('/api/materials');
+    expect(() => planAgentGeneration({
+      kind: 'design-sequence',
+      sequence: { cutCount: 20 },
+    })).toThrow('sequence.cutCount');
+    expect(() => planAgentGeneration({
+      kind: 'design-sequence',
+      shader: { settings: { frequency: 99 } },
+    })).toThrow('shader.settings.frequency');
+  });
 });
 
 describe('renderAgentGeneration', () => {
@@ -132,5 +167,65 @@ describe('renderAgentGeneration', () => {
     expect(artifact.mimeType).toBe('application/json');
     expect(brief.element.symbol).toBe('@');
     expect(brief.identity).toMatchObject({ name: 'Acme', website: 'acme.test' });
+  });
+
+  it('renders an API-generated composition that round-trips through the Design Lab browser API', () => {
+    const plan = planAgentGeneration({
+      effect: { kind: 'ascii' },
+      identity: { preset: 'gt' },
+      kind: 'design-sequence',
+      shader: { materialId: 'paper-gem-smoke' },
+      texts: [{ value: 'Open Source' }, { value: 'Built together', y: 160 }],
+    });
+    const [logoPath] = agentAssetPaths(plan);
+    const artifact = renderAgentGeneration(plan, {
+      [logoPath!]: 'data:image/svg+xml;base64,MARK',
+    });
+    const result = JSON.parse(artifact.content) as {
+      automation: {
+        export: string;
+        exports: Record<'gif' | 'jpg' | 'mp4' | 'png' | 'shaderSequenceGif' | 'shaderSequenceMp4', string>;
+        global: string;
+      };
+      document: {
+        composition: { effectLayers: unknown[]; layerOrder: string[]; logos: Array<{ url: string }>; textLayers: unknown[] };
+        exportSettings: { width: number };
+        shaderSequence: { cutCount: number; targetLayerId: string };
+        version: number;
+      };
+      sequence: { durationMs: number; timeline: Array<{ durationMs: number }> };
+    };
+
+    expect(artifact.mimeType).toBe('application/json');
+    expect(result.document.version).toBe(3);
+    expect(result.document.composition.textLayers).toHaveLength(2);
+    expect(result.document.composition.effectLayers).toHaveLength(1);
+    expect(result.document.composition.logos[0]?.url).toBe('data:image/svg+xml;base64,MARK');
+    expect(result.document.composition.layerOrder).toEqual([
+      'shader-canvas-1',
+      'effect-sequence-1',
+      'logo-brand',
+      'text-agent-1',
+      'text-agent-2',
+    ]);
+    expect(result.document.shaderSequence).toMatchObject({ cutCount: 10, targetLayerId: 'shader-canvas-1' });
+    expect(result.document.exportSettings.width).toBe(1920);
+    expect(result.sequence.timeline).toHaveLength(10);
+    expect(result.sequence.timeline.at(-1)?.durationMs).toBe(5000);
+    expect(result.automation.global).toBe('window.glyphfield.studio');
+    expect(result.automation.export).toContain("format: 'mp4'");
+    expect(result.automation.export).toContain("mode: 'shader-sequence'");
+    expect(result.automation.export).toContain('download: true');
+    expect(Object.keys(result.automation.exports)).toEqual([
+      'gif',
+      'jpg',
+      'mp4',
+      'png',
+      'shaderSequenceGif',
+      'shaderSequenceMp4',
+    ]);
+    expect(result.automation.exports.png).toContain("format: 'png'");
+    expect(result.automation.exports.gif).toContain("format: 'gif'");
+    expect(result.automation.exports.mp4).toContain("format: 'mp4'");
   });
 });

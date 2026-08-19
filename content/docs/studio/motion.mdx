@@ -79,6 +79,6 @@ Open **Code** to edit the complete shader composition. `layers.background` and `
 - Choose Standard, High, or Ultra output dimensions; High is the default and PNG remains lossless.
 - Transparent logo output preserves alpha when the selected target supports it.
 
-WebGL and GIF capture are browser-only capabilities. Agents should open `/studio` when they need these outputs.
+WebGL and motion capture use the browser renderer. Agents can operate them through `window.glyphfield.studio`; Design Lab exposes PNG/JPG, GIF, MP4, and shader-sequence GIF/MP4 export actions. Use unified `design.export` with `download: true` to render and save in one call.
 
 See [Source code editing](/docs/studio/source-editing) for the round-trip workflow and [Source format reference](/docs/reference/source-formats) for exact constraints.
