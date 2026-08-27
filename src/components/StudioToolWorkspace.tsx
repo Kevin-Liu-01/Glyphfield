@@ -50,6 +50,7 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { colorContrastRatio, formatOklch, hexToOklch, mixHexColors, normalizeHex, normalizeHexOrFallback, oklchToHex, resolveReadableColor } from '@/lib/color';
 import {
   CODE_THEME,
@@ -1286,6 +1287,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     if (JSON.stringify(storedColors) !== JSON.stringify(colors)) setColors(colors);
   }, [colors, setColors, storedColors]);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [contrastIndex, setContrastIndex] = useState(Math.min(1, identity.colors.length - 1));
   const [previewSurface, setPreviewSurface] = useState<'paper' | 'ink' | 'grid'>('paper');
@@ -1386,9 +1388,15 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
           `--color-${color.name.toLocaleLowerCase().replaceAll(' ', '-')}: ${formatOklch(color.hex).replace(')', ` / ${color.opacity ?? 100}%)`)}; /* ${normalizeHex(color.hex)} */`
       )
       .join('\n');
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    try {
+      await copyTextToClipboard(value);
+      setCopyError(false);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+      setCopyError(true);
+    }
   }
 
   const library = (
@@ -1456,9 +1464,9 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
   return (
     <ToolShell
       actions={
-        <Button onClick={copyTokens} type='button' variant='outline'>
-          {copied ? <Check aria-hidden='true' /> : <Copy aria-hidden='true' />}
-          {copied ? <T>Copied</T> : <T>Copy tokens</T>}
+        <Button onClick={() => void copyTokens()} title={copyError ? gt('Clipboard access was denied. Try again.') : undefined} type='button' variant='outline'>
+          {copied ? <Check aria-hidden='true' /> : copyError ? <X aria-hidden='true' /> : <Copy aria-hidden='true' />}
+          {copied ? <T>Copied</T> : copyError ? <T>Try copy again</T> : <T>Copy tokens</T>}
         </Button>
       }
       inspector={inspector}

@@ -21,9 +21,10 @@ describe('shader zoom', () => {
   it('clamps imported values and exposes useful multiplicative stops', () => {
     expect(clampShaderZoom(0)).toBe(0.1);
     expect(clampShaderZoom(20)).toBe(10);
-    expect(stepShaderZoom(1, -1)).toBe(0.5);
-    expect(stepShaderZoom(1, 1)).toBe(2);
+    expect(stepShaderZoom(1, -1)).toBe(0.75);
+    expect(stepShaderZoom(1, 1)).toBe(1.5);
     expect(formatShaderZoom(0.25)).toBe('0.25×');
+    expect(formatShaderZoom(1.25)).toBe('1.25×');
     expect(formatShaderZoom(10)).toBe('10×');
   });
 

@@ -1901,6 +1901,32 @@ export function paperControlOverrides(
   return overrides;
 }
 
+export function resolvePaperShaderScale(
+  presetScale: unknown,
+  patternScale: number,
+  {
+    gemSmoke = false,
+    rendersBackdrop = false,
+    rotation = 0,
+  }: {
+    gemSmoke?: boolean;
+    rendersBackdrop?: boolean;
+    rotation?: number;
+  } = {}
+): number {
+  const nativeScale = typeof presetScale === 'number' && Number.isFinite(presetScale) && presetScale > 0
+    ? presetScale
+    : 1;
+  const rotationCoverBoost = 1 + Math.abs(Math.sin(rotation * Math.PI / 180)) * 1.15;
+  const presentationScale = gemSmoke
+    ? Math.min(1.45, Math.max(1.12, nativeScale * 1.45))
+    : rendersBackdrop
+      ? Math.min(4, Math.max(1, nativeScale) * rotationCoverBoost)
+      : nativeScale;
+
+  return presentationScale * clampShaderZoom(patternScale);
+}
+
 function PaperShaderSurface({
   captureTimeMs,
   materialId,
@@ -1939,18 +1965,18 @@ function PaperShaderSurface({
     ...preset.params,
     ...paperControlOverrides(preset.params, settings, preservePresetAppearance),
   };
-  if (!preservePresetAppearance && typeof controlledParams.scale === 'number') {
-    controlledParams.scale *= patternScale;
-  }
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
     && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
   const rendersBackdrop = usesImage || PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
   const rotation = typeof controlledParams.rotation === 'number' ? controlledParams.rotation : 0;
-  const baseScale = typeof controlledParams.scale === 'number' ? controlledParams.scale : 1;
-  const rotationCoverBoost = 1 + Math.abs(Math.sin(rotation * Math.PI / 180)) * 1.15;
+  const resolvedScale = resolvePaperShaderScale(controlledParams.scale, patternScale, {
+    gemSmoke: definition.family === 'gem-smoke',
+    rendersBackdrop,
+    rotation,
+  });
+  controlledParams.scale = resolvedScale;
   const backdropParams = rendersBackdrop ? {
     fit: 'cover',
-    scale: Math.min(4, Math.max(1, baseScale) * rotationCoverBoost),
     worldHeight: 0,
     worldWidth: 0,
   } : {};
@@ -1960,7 +1986,6 @@ function PaperShaderSurface({
     ? {
         colorInner: '#00000000',
         image: undefined,
-        scale: Math.min(1.45, Math.max(1.12, baseScale * 1.45)),
         shape: 'metaballs',
       }
     : definition.family === 'liquid-metal'
@@ -2012,7 +2037,9 @@ function PaperShaderSurface({
       aria-label={`Paper Shaders ${definition.name} material`}
       className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
       data-paper-motion={effectiveSpeed === 0 ? 'paused' : 'running'}
+      data-paper-scale={resolvedScale}
       data-paper-speed={effectiveSpeed}
+      data-paper-zoom={clampShaderZoom(patternScale)}
       style={{
         contain: 'strict',
         filter: preservePresetAppearance

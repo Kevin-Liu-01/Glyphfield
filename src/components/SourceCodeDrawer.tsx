@@ -9,10 +9,11 @@ import {
   type PointerEvent,
 } from 'react';
 import { T, useGT } from 'gt-next';
-import { Check, Code2, RotateCcw, X } from 'lucide-react';
+import { Check, Code2, Copy, RotateCcw, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 const DEFAULT_DRAWER_WIDTH = 512;
@@ -58,6 +59,7 @@ export default function SourceCodeDrawer({
   const [draft, setDraft] = useState(source);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [width, setWidth] = useState(DEFAULT_DRAWER_WIDTH);
   const [resizing, setResizing] = useState(false);
   const dragRef = useRef({
@@ -154,6 +156,18 @@ export default function SourceCodeDrawer({
     setDraft(source);
     setError(null);
     setApplied(false);
+    setCopied(false);
+  }
+
+  async function copy() {
+    try {
+      await copyTextToClipboard(draft);
+      setError(null);
+      setCopied(true);
+    } catch (caught) {
+      setCopied(false);
+      setError(caught instanceof Error ? caught.message : gt('The source could not be copied.'));
+    }
   }
 
   return (
@@ -204,6 +218,8 @@ export default function SourceCodeDrawer({
           onChange={(event) => {
             setDraft(event.target.value);
             setApplied(false);
+            setCopied(false);
+            setError(null);
           }}
           spellCheck={false}
           value={draft}
@@ -215,10 +231,14 @@ export default function SourceCodeDrawer({
         ) : null}
       </div>
 
-      <footer className='grid grid-cols-2 gap-2 border-t border-border p-3'>
+      <footer className='grid grid-cols-3 gap-2 border-t border-border p-3'>
         <Button onClick={reset} type='button' variant='outline'>
           <RotateCcw aria-hidden='true' />
           <T>Reset</T>
+        </Button>
+        <Button onClick={() => void copy()} type='button' variant='outline'>
+          {copied ? <Check aria-hidden='true' /> : <Copy aria-hidden='true' />}
+          {copied ? <T>Copied</T> : <T>Copy code</T>}
         </Button>
         <Button onClick={apply} type='button'>
           {applied ? <Check aria-hidden='true' /> : <Code2 aria-hidden='true' />}

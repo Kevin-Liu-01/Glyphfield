@@ -4,7 +4,7 @@ export const SHADER_ZOOM_SLIDER_MIN = -1;
 export const SHADER_ZOOM_SLIDER_MAX = 1;
 export const SHADER_ZOOM_SLIDER_STEP = 0.01;
 
-const SHADER_ZOOM_STOPS = [0.1, 0.25, 0.5, 1, 2, 5, 10] as const;
+const SHADER_ZOOM_STOPS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7.5, 10] as const;
 
 export function clampShaderZoom(value: number): number {
   if (!Number.isFinite(value)) return 1;
@@ -22,8 +22,7 @@ export function shaderZoomFromSlider(value: number): number {
 
 export function formatShaderZoom(value: number): string {
   const zoom = clampShaderZoom(value);
-  if (zoom < 1) return `${Number(zoom.toFixed(2))}×`;
-  return `${Number(zoom.toFixed(1))}×`;
+  return `${Number(zoom.toFixed(2))}×`;
 }
 
 export function interpolateShaderZoom(

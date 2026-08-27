@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { paperControlOverrides } from '@/components/LiveMaterialCanvas';
+import { paperControlOverrides, resolvePaperShaderScale } from '@/components/LiveMaterialCanvas';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 
 describe('Paper shader preview controls', () => {
@@ -44,5 +44,13 @@ describe('Paper shader preview controls', () => {
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorC,
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
     ]);
+  });
+
+  it('applies the full 0.1×–10× zoom range after presentation sizing', () => {
+    expect(resolvePaperShaderScale(undefined, 0.25)).toBe(0.25);
+    expect(resolvePaperShaderScale(undefined, 10)).toBe(10);
+    expect(resolvePaperShaderScale(0.6, 1, { gemSmoke: true })).toBeCloseTo(1.12);
+    expect(resolvePaperShaderScale(0.6, 0.25, { gemSmoke: true })).toBeCloseTo(0.28);
+    expect(resolvePaperShaderScale(0.6, 10, { gemSmoke: true })).toBeCloseTo(11.2);
   });
 });

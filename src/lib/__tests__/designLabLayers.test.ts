@@ -103,7 +103,8 @@ describe('Playground optional layers', () => {
   });
 
   it('invalidates and refreshes an open preview when composition content changes', () => {
-    expect(designLab).toContain('const compositionSignature = useMemo(() => JSON.stringify({');
+    expect(designLab).toContain('const savedDesignRevision = useMemo(() =>');
+    expect(designLab).toContain('const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;');
     expect(designLab).toContain('refreshKey={currentExportSettingsSignature}');
     expect(exportPreview).toContain("const key = refreshKey ?? 'changed';");
     expect(exportPreview).toContain('onRefreshRef.current?.();');

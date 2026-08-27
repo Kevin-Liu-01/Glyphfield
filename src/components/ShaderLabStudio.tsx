@@ -135,6 +135,7 @@ import {
   drawLogoAppearanceLayer,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { fitImageLayerToCanvas, imageLayerName } from '@/lib/imagePlacement';
 import {
   SHADER_LAB_CATEGORIES,
@@ -149,6 +150,8 @@ import {
   formatShaderZoom,
   shaderZoomFromSlider,
   shaderZoomToSlider,
+  SHADER_ZOOM_MAX,
+  SHADER_ZOOM_MIN,
   SHADER_ZOOM_SLIDER_MAX,
   SHADER_ZOOM_SLIDER_MIN,
   SHADER_ZOOM_SLIDER_STEP,
@@ -1323,14 +1326,17 @@ function ShaderZoomControl({
 }) {
   const zoom = clampShaderZoom(value);
   const [sliderValue, setSliderValue] = useState(() => shaderZoomToSlider(zoom));
+  const [zoomEntry, setZoomEntry] = useState(() => formatShaderZoom(zoom).slice(0, -1));
   const pendingZoomRef = useRef<number | null>(null);
   const latestZoomRef = useRef<number | null>(null);
   const zoomFrameRef = useRef(0);
   const scrubbingRef = useRef(false);
+  const editingEntryRef = useRef(false);
 
   useEffect(() => {
     if (!scrubbingRef.current && pendingZoomRef.current === null && zoomFrameRef.current === 0) {
       setSliderValue(shaderZoomToSlider(zoom));
+      if (!editingEntryRef.current) setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
     }
   }, [zoom]);
 
@@ -1350,6 +1356,7 @@ function ShaderZoomControl({
   function scheduleZoom(nextSliderValue: number) {
     setSliderValue(nextSliderValue);
     const nextZoom = shaderZoomFromSlider(nextSliderValue);
+    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
     pendingZoomRef.current = nextZoom;
     latestZoomRef.current = nextZoom;
     if (zoomFrameRef.current) return;
@@ -1362,22 +1369,68 @@ function ShaderZoomControl({
     });
   }
 
+  function applyZoom(nextValue: number) {
+    cancelAnimationFrame(zoomFrameRef.current);
+    zoomFrameRef.current = 0;
+    pendingZoomRef.current = null;
+    latestZoomRef.current = null;
+    scrubbingRef.current = false;
+    const nextZoom = clampShaderZoom(nextValue);
+    setSliderValue(shaderZoomToSlider(nextZoom));
+    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
+    onPreview?.(nextZoom);
+    onChange(nextZoom);
+  }
+
+  function commitZoomEntry() {
+    editingEntryRef.current = false;
+    const nextZoom = Number(zoomEntry);
+    if (!Number.isFinite(nextZoom) || nextZoom <= 0) {
+      setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
+      return;
+    }
+    applyZoom(nextZoom);
+  }
+
   return (
     <div className='shader-lab-v2-range shader-lab-v2-zoom-control'>
       <StudioRangeLabel
         label='Shader zoom'
-        value={<output>{formatShaderZoom(shaderZoomFromSlider(sliderValue))}</output>}
+        value={(
+          <span className='shader-lab-v2-zoom-value'>
+            <input
+              aria-label='Shader zoom value'
+              inputMode='decimal'
+              max={SHADER_ZOOM_MAX}
+              min={SHADER_ZOOM_MIN}
+              onBlur={commitZoomEntry}
+              onChange={(event) => setZoomEntry(event.target.value)}
+              onFocus={() => { editingEntryRef.current = true; }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+                if (event.key === 'Escape') {
+                  setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
+                  event.currentTarget.blur();
+                }
+              }}
+              step={0.05}
+              type='number'
+              value={zoomEntry}
+            />
+            <span aria-hidden='true'>×</span>
+          </span>
+        )}
       />
       <div className='shader-lab-v2-zoom-input'>
         <button
           aria-label='Zoom shader out'
           disabled={zoom <= 0.1}
-          onClick={() => onChange(stepShaderZoom(zoom, -1))}
+          onClick={() => applyZoom(stepShaderZoom(zoom, -1))}
           title='Zoom shader out'
           type='button'
         ><ZoomOut aria-hidden='true' /></button>
         <input
-          aria-label='Shader zoom'
+          aria-label='Shader zoom slider'
           className='studio-range'
           max={SHADER_ZOOM_SLIDER_MAX}
           min={SHADER_ZOOM_SLIDER_MIN}
@@ -1402,7 +1455,7 @@ function ShaderZoomControl({
         <button
           aria-label='Zoom shader in'
           disabled={zoom >= 10}
-          onClick={() => onChange(stepShaderZoom(zoom, 1))}
+          onClick={() => applyZoom(stepShaderZoom(zoom, 1))}
           title='Zoom shader in'
           type='button'
         ><ZoomIn aria-hidden='true' /></button>
@@ -1566,6 +1619,7 @@ export default function ShaderLabStudio({
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [sequenceCapture, setSequenceCapture] = useState<ShaderSequenceCapture | null>(null);
@@ -1578,7 +1632,10 @@ export default function ShaderLabStudio({
   const [lastExportRequest, setLastExportRequest] = useState<DesignExportRequest | null>(null);
   const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? RATIO_OPTIONS[0]!;
   const canvasDimensions = CANVAS_DIMENSIONS[ratio];
-  const normalizedExportSettings = normalizeDesignExportSettings(exportSettings);
+  const normalizedExportSettings = useMemo(
+    () => normalizeDesignExportSettings(exportSettings),
+    [exportSettings]
+  );
   const previewFrameCount = Math.max(
     2,
     Math.round(normalizedExportSettings.durationMs / (1_000 / normalizedExportSettings.fps))
@@ -1590,14 +1647,17 @@ export default function ShaderLabStudio({
     aspectWidth: ratioOption.width,
     width: normalizedExportSettings.width,
   });
-  const normalizedShaderSequenceBase = normalizeShaderSequenceSettings(shaderSequenceSettings);
+  const normalizedShaderSequenceBase = useMemo(
+    () => normalizeShaderSequenceSettings(shaderSequenceSettings),
+    [shaderSequenceSettings]
+  );
   const sequenceTargetLayer = shaderLayers.find(({ id, visible }) => visible && id === shaderSequenceSettings.targetLayerId)
     ?? shaderLayers.find(({ visible }) => visible)
     ?? null;
-  const normalizedShaderSequenceSettings: DesignShaderSequenceSettings = {
+  const normalizedShaderSequenceSettings = useMemo<DesignShaderSequenceSettings>(() => ({
     ...normalizedShaderSequenceBase,
     targetLayerId: sequenceTargetLayer?.id ?? null,
-  };
+  }), [normalizedShaderSequenceBase, sequenceTargetLayer?.id]);
   const sequenceTargetOptions = shaderLayers.filter(({ visible }) => visible).map(({ id, name }) => ({ label: name, value: id }));
   const sequenceMaterialIds = sequenceTargetLayer
     ? shaderSequenceMaterialIds(sequenceTargetLayer.materialId, normalizedShaderSequenceSettings.cutCount)
@@ -1606,9 +1666,8 @@ export default function ShaderLabStudio({
     ? buildShaderSequenceTimeline(sequenceMaterialIds, normalizedShaderSequenceSettings)
     : [];
   const shaderSequenceDuration = shaderSequenceDurationMs(shaderSequenceTimeline);
-  const compositionSignature = useMemo(() => JSON.stringify({
+  const savedDesignRevision = useMemo(() => `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${JSON.stringify({
     background: canvasBackground,
-    frameHistory: { frame: boundedPreviewFrame, paused },
     layerOrder,
     layerGroups,
     layerShaders,
@@ -1620,8 +1679,9 @@ export default function ShaderLabStudio({
       text: textLayers,
     },
     shaderSequence: normalizedShaderSequenceSettings,
-  }), [boundedPreviewFrame, canvasBackground, compositionAssets, effectLayers, layerGroups, layerOrder, layerShaders, logoLayers, normalizedShaderSequenceSettings, paused, shaderLayers, textLayers]);
-  const currentExportSettingsSignature = `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${compositionSignature}`;
+  })}`, [canvasBackground, compositionAssets, effectLayers, layerGroups, layerOrder, layerShaders, logoLayers, normalizedExportSettings, normalizedShaderSequenceSettings, ratio, shaderLayers, textLayers]);
+  const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;
+  const currentExportSettingsSignature = compositionSignature;
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
@@ -2999,11 +3059,13 @@ export default function ShaderLabStudio({
   async function copySetup() {
     const setup = compositionSetupSource();
     try {
-      await navigator.clipboard.writeText(setup);
+      await copyTextToClipboard(setup);
+      setCopyError(null);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1_600);
-    } catch {
+    } catch (error) {
       setCopied(false);
+      setCopyError(error instanceof Error ? error.message : 'The composition code could not be copied.');
     }
   }
 
@@ -3902,6 +3964,7 @@ export default function ShaderLabStudio({
           <DesignVersionControls
             identityId={identity.id}
             onOpen={applyCompositionSource}
+            revision={savedDesignRevision}
             source={compositionSetupSource}
             toolId={tool.id}
             workspaceLabel='Design Lab'
@@ -5172,6 +5235,7 @@ export default function ShaderLabStudio({
             <Code2 aria-hidden='true' />
             <div><strong>Developer handoff</strong><span>Layer order + exact shader settings</span></div>
             <button onClick={() => void copySetup()} type='button'>{copied ? <Check aria-hidden='true' /> : 'Copy'}</button>
+            {copyError ? <p className='shader-lab-v2-handoff-error' role='alert'>{copyError}</p> : null}
           </section>
         </aside>
       </div>

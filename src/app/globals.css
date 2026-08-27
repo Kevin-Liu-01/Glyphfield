@@ -1921,6 +1921,44 @@
   gap: 5px;
 }
 
+.shader-lab-v2-zoom-value {
+  display: grid;
+  grid-template-columns: minmax(0, 36px) auto;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--raised-background));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shader-lab-v2-zoom-value:focus-within {
+  border-color: hsl(var(--foreground) / .65);
+}
+
+.shader-lab-v2-zoom-value input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: right;
+  appearance: textfield;
+}
+
+.shader-lab-v2-zoom-value input::-webkit-inner-spin-button,
+.shader-lab-v2-zoom-value input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
 .shader-lab-v2-zoom-input {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 28px;
@@ -2620,6 +2658,14 @@
 
 .shader-lab-v2-handoff button svg {
   width: 12px;
+}
+
+.shader-lab-v2-handoff-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: hsl(var(--status-error, 0 72% 50%));
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 @container tool-shell (max-width: 1040px) {
