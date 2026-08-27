@@ -189,6 +189,7 @@ export const AGENT_GENERATION_CONTRACT = {
   },
   method: 'POST',
   requestContentType: 'application/json',
+  unknownTopLevelFields: 'Rejected with HTTP 400 and error code unknown_field',
   schemaVersion: 2,
 } as const;
 
@@ -297,6 +298,7 @@ export const OPENAPI_DOCUMENT = {
           '400': { description: 'Structured validation error' },
           '413': { description: 'Request body exceeds 5 MB' },
           '415': { description: 'Content-Type must be application/json' },
+          '429': { description: 'Production request rate limit exceeded' },
         },
         summary: 'Generate a Glyphfield artifact',
       },

@@ -24,11 +24,14 @@ Validation failures use a structured response:
 | 400 | Malformed JSON or invalid field | Correct the named field |
 | 413 | Request body exceeds 5 MB | Reduce or recompress embedded assets |
 | 415 | Content-Type is not JSON | Send `Content-Type: application/json` |
+| 429 | Production request rate limit exceeded | Wait for the limit window before retrying |
 | 500 | Artifact generation failed | Log the response and retry only if appropriate |
 
 ## Retry policy
 
-Do not retry an unchanged 4xx request. Read `error.field`, correct the input, and submit a new request.
+Do not retry an unchanged validation request. Read `error.field`, correct the input, and submit a new request. Unknown top-level request fields fail with `unknown_field` rather than silently falling back to defaults.
+
+For `429`, stop concurrent work and wait for the rate-limit window. Do not fan out retries.
 
 For transient 5xx responses, use bounded exponential backoff and retain the original request for diagnosis. Generation is deterministic for the same contract and inputs.
 

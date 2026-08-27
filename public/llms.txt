@@ -97,6 +97,8 @@ Optional response selection:
 
 The endpoint supports CORS with Access-Control-Allow-Origin: *.
 
+Unknown top-level request fields return HTTP 400 with code `unknown_field`. Do not send alternate or guessed envelopes such as a top-level `dimensions` object; background dimensions are `settings.width` and `settings.height`.
+
 The endpoint supports `template`, `background`, `element-brief`, and `design-sequence`. `design-sequence` returns a validated Design Lab document plus its cut timeline and exact PNG/JPG/GIF/MP4 browser API commands. Apply `response.document` in `/studio`, then invoke `design.export` with the required format and `download: true` for the authentic WebGL/Canvas file.
 
 In the examples below, set BASE_URL to the Glyphfield deployment origin. For local development use:
@@ -341,9 +343,10 @@ Relevant HTTP statuses:
 - 400: malformed JSON or field validation failure
 - 413: request body exceeds 5 MB
 - 415: Content-Type is not application/json
+- 429: production request rate limit exceeded
 - 500: artifact generation failed
 
-Correct the named field. Do not retry an unchanged 4xx request.
+Correct the named field. Do not retry an unchanged validation request. For 429, stop concurrent work and wait for the rate-limit window instead of fanning out retries.
 
 ## Data and asset rules
 

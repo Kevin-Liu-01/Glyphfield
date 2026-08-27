@@ -161,6 +161,38 @@ export type AgentGenerationPlan =
   | AgentElementBriefPlan
   | AgentTemplatePlan;
 
+const AGENT_GENERATION_REQUEST_FIELDS = {
+  background: ['identity', 'kind', 'output', 'settings'],
+  'design-sequence': [
+    'backgroundColor',
+    'effect',
+    'export',
+    'identity',
+    'includeBrandMark',
+    'kind',
+    'ratio',
+    'sequence',
+    'shader',
+    'texts',
+  ],
+  'element-brief': ['elementId', 'identity', 'kind'],
+  template: [
+    'background',
+    'backgroundImageDataUrl',
+    'body',
+    'foreground',
+    'identity',
+    'kind',
+    'output',
+    'partnerId',
+    'partnerLogoDataUrl',
+    'slideLayout',
+    'template',
+    'texture',
+    'title',
+  ],
+} as const satisfies Record<AgentGenerationPlan['kind'], readonly string[]>;
+
 export type AgentArtifact = {
   content: string;
   filename: string;
@@ -190,6 +222,23 @@ function asRecord(value: unknown, field: string): Record<string, unknown> {
     throw new AgentGenerationError(`${field} must be an object.`, field);
   }
   return value as Record<string, unknown>;
+}
+
+function assertAllowedFields(
+  input: Record<string, unknown>,
+  allowedFields: readonly string[],
+  field: string
+): void {
+  const unknownField = Object.keys(input)
+    .filter((key) => !allowedFields.includes(key))
+    .sort()[0];
+  if (unknownField) {
+    throw new AgentGenerationError(
+      `${field}.${unknownField} is not part of the generation contract.`,
+      `${field}.${unknownField}`,
+      'unknown_field'
+    );
+  }
 }
 
 function oneOf<T extends string>(
@@ -231,17 +280,19 @@ function numberValue(
   field: string,
   minimum: number,
   maximum: number,
-  integer = false
+  integer = false,
+  code = 'invalid_request'
 ): number {
   if (value === undefined) return fallback;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new AgentGenerationError(`${field} must be a finite number.`, field);
+    throw new AgentGenerationError(`${field} must be a finite number.`, field, code);
   }
   if (value < minimum || value > maximum || (integer && !Number.isInteger(value))) {
     const qualifier = integer ? 'an integer' : 'a number';
     throw new AgentGenerationError(
       `${field} must be ${qualifier} between ${minimum} and ${maximum}.`,
-      field
+      field,
+      code
     );
   }
   return value;
@@ -440,7 +491,8 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     'settings.width',
     64,
     4096,
-    true
+    true,
+    'invalid_dimensions'
   );
   const height = numberValue(
     input.height,
@@ -448,7 +500,8 @@ function backgroundSettings(value: unknown): BackgroundSettings {
     'settings.height',
     64,
     4096,
-    true
+    true,
+    'invalid_dimensions'
   );
   if (width * height > 12_000_000) {
     throw new AgentGenerationError(
@@ -765,6 +818,7 @@ export function planAgentGeneration(value: unknown): AgentGenerationPlan {
     'template',
     'kind'
   );
+  assertAllowedFields(input, AGENT_GENERATION_REQUEST_FIELDS[kind], 'request');
 
   if (kind === 'background') return backgroundPlan(input);
   if (kind === 'design-sequence') return designSequencePlan(input);
