@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  autosavedDesignStorageKey,
+  createAutosavedDesign,
   createSavedDesign,
   savedDesignRecordKey,
   uniqueDesignName,
@@ -58,5 +60,22 @@ describe('saved designs', () => {
   it('names IndexedDB records by workspace and design without collisions', () => {
     expect(savedDesignRecordKey('glyphfield-saved-designs-v1:gt:shader-lab', 'design-1'))
       .toBe('glyphfield-saved-designs-v1:gt:shader-lab:design-1');
+  });
+
+  it('keeps the automatic working draft outside the named design workspace', () => {
+    const workspaceKey = 'glyphfield-saved-designs-v1:gt:shader-lab';
+
+    expect(autosavedDesignStorageKey(workspaceKey))
+      .toBe('glyphfield-saved-designs-v1:gt:shader-lab:autosave');
+    expect(createAutosavedDesign({
+      now: '2026-08-31T12:00:00.000Z',
+      revision: 'revision-3',
+      source: '{"composition":{"layerOrder":["logo-1"]}}',
+    })).toMatchObject({
+      id: 'autosaved-draft',
+      name: 'Autosaved draft',
+      revision: 'revision-3',
+      source: '{"composition":{"layerOrder":["logo-1"]}}',
+    });
   });
 });

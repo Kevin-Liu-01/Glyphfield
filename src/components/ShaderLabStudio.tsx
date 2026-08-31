@@ -136,7 +136,11 @@ import {
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
 import { copyTextToClipboard } from '@/lib/clipboard';
-import { fitImageLayerToCanvas, imageLayerName } from '@/lib/imagePlacement';
+import {
+  fitImageLayerToCanvas,
+  imageLayerName,
+  previewContainedImageBounds,
+} from '@/lib/imagePlacement';
 import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
@@ -145,6 +149,11 @@ import {
   shaderPreviewAssetPath,
   type ShaderLabCategory,
 } from '@/lib/shaderLab';
+import {
+  loadAutosavedDesign,
+  saveAutosavedDesign,
+  savedDesignStorageKey,
+} from '@/lib/savedDesigns';
 import {
   clampShaderZoom,
   formatShaderZoom,
@@ -314,6 +323,8 @@ type ImageImportState = {
   message: string;
   status: 'error' | 'idle' | 'importing' | 'success';
 };
+
+type CompositionAutosaveState = 'error' | 'loading' | 'saved' | 'saving';
 
 type DesignExportRequest = {
   format: DesignExportFormat;
@@ -1549,6 +1560,9 @@ export default function ShaderLabStudio({
   const sequenceCaptureRef = useRef<ShaderSequenceCapture | null>(null);
   const sequencePreviewAnimationRef = useRef(0);
   const sequencePreviewRestorePausedRef = useRef(false);
+  const compositionAutosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const compositionAutosaveRevisionRef = useRef('');
+  const compositionAutosaveSnapshotRef = useRef({ revision: '', source: '' });
   const [shaderLayers, setShaderLayers] = useStudioDraft<CompositionShaderLayer[]>(
     identity.id,
     tool.id,
@@ -1618,6 +1632,8 @@ export default function ShaderLabStudio({
   const [selectedCanvasLayerIds, setSelectedCanvasLayerIds] = useState<ContentLayerId[]>([]);
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [compositionAutosaveHydrated, setCompositionAutosaveHydrated] = useState(false);
+  const [compositionAutosaveState, setCompositionAutosaveState] = useState<CompositionAutosaveState>('loading');
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -1680,11 +1696,94 @@ export default function ShaderLabStudio({
     },
     shaderSequence: normalizedShaderSequenceSettings,
   })}`, [canvasBackground, compositionAssets, effectLayers, layerGroups, layerOrder, layerShaders, logoLayers, normalizedExportSettings, normalizedShaderSequenceSettings, ratio, shaderLayers, textLayers]);
+  const savedDesignWorkspaceKey = useMemo(
+    () => savedDesignStorageKey(identity.id, tool.id),
+    [identity.id, tool.id]
+  );
   const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;
   const currentExportSettingsSignature = compositionSignature;
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
+
+  function queueAutosavedComposition(
+    snapshot: { revision: string; source: string },
+    reportState = true
+  ) {
+    if (reportState) setCompositionAutosaveState('saving');
+    const pending = compositionAutosaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => saveAutosavedDesign(
+        savedDesignWorkspaceKey,
+        snapshot.source,
+        snapshot.revision
+      ));
+    compositionAutosaveQueueRef.current = pending;
+    void pending.then(() => {
+      compositionAutosaveRevisionRef.current = snapshot.revision;
+      if (
+        reportState
+        && compositionAutosaveSnapshotRef.current.revision === snapshot.revision
+      ) setCompositionAutosaveState('saved');
+    }).catch(() => {
+      if (reportState) setCompositionAutosaveState('error');
+    });
+  }
+
+  useLayoutEffect(() => {
+    compositionAutosaveSnapshotRef.current = {
+      revision: savedDesignRevision,
+      source: compositionSetupSource(),
+    };
+  }, [savedDesignRevision]);
+
+  useEffect(() => {
+    let active = true;
+    compositionAutosaveRevisionRef.current = '';
+    setCompositionAutosaveHydrated(false);
+    setCompositionAutosaveState('loading');
+    void loadAutosavedDesign(savedDesignWorkspaceKey).then((draft) => {
+      if (!active) return;
+      if (draft) {
+        applyCompositionSource(draft.source);
+        compositionAutosaveRevisionRef.current = draft.revision ?? '';
+      }
+      setCompositionAutosaveHydrated(true);
+      setCompositionAutosaveState(draft ? 'saved' : 'saving');
+    }).catch(() => {
+      if (!active) return;
+      compositionAutosaveRevisionRef.current = '';
+      setCompositionAutosaveHydrated(true);
+      setCompositionAutosaveState('error');
+    });
+    return () => {
+      active = false;
+    };
+  }, [savedDesignWorkspaceKey]);
+
+  useEffect(() => {
+    if (!compositionAutosaveHydrated) return;
+    const snapshot = compositionAutosaveSnapshotRef.current;
+    if (compositionAutosaveRevisionRef.current === snapshot.revision) {
+      setCompositionAutosaveState('saved');
+      return;
+    }
+    setCompositionAutosaveState('saving');
+    const timer = window.setTimeout(() => queueAutosavedComposition(snapshot), 180);
+    return () => window.clearTimeout(timer);
+  }, [compositionAutosaveHydrated, savedDesignRevision, savedDesignWorkspaceKey]);
+
+  useEffect(() => {
+    if (!compositionAutosaveHydrated) return;
+    function flushAutosavedComposition() {
+      const snapshot = compositionAutosaveSnapshotRef.current;
+      if (compositionAutosaveRevisionRef.current === snapshot.revision) return;
+      queueAutosavedComposition(snapshot, false);
+    }
+    window.addEventListener('pagehide', flushAutosavedComposition);
+    return () => window.removeEventListener('pagehide', flushAutosavedComposition);
+  }, [compositionAutosaveHydrated, savedDesignWorkspaceKey]);
+
   useEffect(() => () => cancelAnimationFrame(sequencePreviewAnimationRef.current), []);
   const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
   const selectedShaderLayer = isShaderLayerId(selectedLayerId)
@@ -3116,15 +3215,21 @@ export default function ShaderLabStudio({
     layer.height = Math.max(1, Math.round(height));
     const layerContext = layer.getContext('2d');
     if (!layerContext) return layer;
+    const bounds = previewContainedImageBounds({
+      boxHeight: layer.height,
+      boxWidth: layer.width,
+      imageHeight: image.naturalHeight || 1,
+      imageWidth: image.naturalWidth || 1,
+    });
     drawContained(
       layerContext,
       image,
       image.naturalWidth || 1,
       image.naturalHeight || 1,
-      0,
-      0,
-      layer.width,
-      layer.height
+      bounds.x,
+      bounds.y,
+      bounds.width,
+      bounds.height
     );
     if (color) {
       layerContext.globalCompositeOperation = 'source-in';
@@ -3962,6 +4067,7 @@ export default function ShaderLabStudio({
         navigationLabel='Design Lab view'
         status={(
           <DesignVersionControls
+            autosaveState={compositionAutosaveState}
             identityId={identity.id}
             onOpen={applyCompositionSource}
             revision={savedDesignRevision}

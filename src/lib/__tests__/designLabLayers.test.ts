@@ -342,6 +342,14 @@ describe('Playground optional layers', () => {
 });
 
 describe('Design Lab image import and selection chrome', () => {
+  it('autosaves and restores the complete composition document', () => {
+    expect(designLab).toContain('loadAutosavedDesign(');
+    expect(designLab).toContain('saveAutosavedDesign(');
+    expect(designLab).toContain('compositionSetupSource()');
+    expect(designLab).toContain('applyCompositionSource(draft.source)');
+    expect(designLab).toContain("window.addEventListener('pagehide', flushAutosavedComposition)");
+  });
+
   it('supports browse, drop, and paste imports with intrinsic image placement', () => {
     expect(designLab).toContain("className='shader-lab-v2-image-drop-overlay'");
     expect(designLab).toContain("document.addEventListener('paste', handlePaste)");

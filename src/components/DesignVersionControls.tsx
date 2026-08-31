@@ -31,6 +31,7 @@ function designDate(isoDate: string): string {
 }
 
 export default function DesignVersionControls({
+  autosaveState = 'saved',
   identityId,
   onOpen,
   revision,
@@ -38,6 +39,7 @@ export default function DesignVersionControls({
   toolId,
   workspaceLabel,
 }: {
+  autosaveState?: 'error' | 'loading' | 'saved' | 'saving';
   identityId: string;
   onOpen: (source: string) => void;
   revision?: string;
@@ -63,6 +65,15 @@ export default function DesignVersionControls({
   const dirty = activeDesign
     ? (activeDesign.revision ?? activeDesign.source) !== currentRevision
     : true;
+  const visibleState = activeDesign
+    ? dirty ? 'Unsaved changes' : 'Saved'
+    : autosaveState === 'error'
+      ? 'Autosave failed'
+      : autosaveState === 'loading'
+        ? 'Loading autosave'
+        : autosaveState === 'saving'
+          ? 'Autosaving'
+          : 'Autosaved';
   const sortedDesigns = useMemo(
     () => [...designs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [designs]
@@ -249,8 +260,12 @@ export default function DesignVersionControls({
         type='button'
       >
         <History aria-hidden='true' />
-        <span className={styles.currentName}>{activeDesign?.name ?? 'Unsaved design'}</span>
-        <span aria-label={dirty ? 'Unsaved changes' : 'Saved'} className={styles.stateDot} data-dirty={dirty ? 'true' : 'false'} />
+        <span className={styles.currentName}>{activeDesign?.name ?? 'Autosaved draft'}</span>
+        <span
+          aria-label={visibleState}
+          className={styles.stateDot}
+          data-dirty={activeDesign ? dirty ? 'true' : 'false' : autosaveState === 'error' ? 'true' : 'false'}
+        />
         <ChevronDown aria-hidden='true' />
       </button>
 
@@ -296,7 +311,7 @@ export default function DesignVersionControls({
           ) : (
             <div className={styles.unsavedCallout}>
               <Save aria-hidden='true' />
-              <span><strong>Current canvas is unsaved</strong><small>Save it before switching designs.</small></span>
+              <span><strong>Current canvas is autosaved</strong><small>Save it as a named design whenever you want a checkpoint.</small></span>
             </div>
           )}
 

@@ -15,6 +15,7 @@ const SAVED_DESIGN_DATABASE_NAME = 'glyphfield-saved-designs';
 const SAVED_DESIGN_DATABASE_VERSION = 1;
 const SAVED_DESIGN_STORE_NAME = 'designs';
 const SAVED_DESIGN_WORKSPACE_INDEX = 'workspaceKey';
+const AUTOSAVED_DESIGN_ID = 'autosaved-draft';
 
 type SavedDesignRecord = {
   design: SavedDesign;
@@ -76,6 +77,30 @@ export function savedDesignStorageKey(identityId: string, toolId: string): strin
 
 export function activeSavedDesignStorageKey(identityId: string, toolId: string): string {
   return `glyphfield-active-saved-design-v1:${identityId}:${toolId}`;
+}
+
+export function autosavedDesignStorageKey(workspaceKey: string): string {
+  return `${workspaceKey}:autosave`;
+}
+
+export function createAutosavedDesign({
+  now,
+  revision,
+  source,
+}: {
+  now: string;
+  revision: string;
+  source: string;
+}): SavedDesign {
+  return {
+    createdAt: now,
+    id: AUTOSAVED_DESIGN_ID,
+    name: 'Autosaved draft',
+    origin: 'saved',
+    revision,
+    source,
+    updatedAt: now,
+  };
 }
 
 export function savedDesignRecordKey(workspaceKey: string, designId: string): string {
@@ -189,6 +214,23 @@ export async function saveSavedDesign(workspaceKey: string, design: SavedDesign)
   } finally {
     database.close();
   }
+}
+
+export async function loadAutosavedDesign(workspaceKey: string): Promise<SavedDesign | null> {
+  const designs = await loadSavedDesigns(autosavedDesignStorageKey(workspaceKey));
+  return designs.find(({ id }) => id === AUTOSAVED_DESIGN_ID) ?? null;
+}
+
+export async function saveAutosavedDesign(
+  workspaceKey: string,
+  source: string,
+  revision: string,
+  now = new Date().toISOString()
+): Promise<void> {
+  await saveSavedDesign(
+    autosavedDesignStorageKey(workspaceKey),
+    createAutosavedDesign({ now, revision, source })
+  );
 }
 
 export async function deleteSavedDesign(workspaceKey: string, designId: string): Promise<void> {
