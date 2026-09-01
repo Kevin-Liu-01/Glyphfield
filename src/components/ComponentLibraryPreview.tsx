@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { brandTypographyFamily, type BrandIdentity } from '@/lib/brandIdentity';
+import { mixHexColors, normalizeHexOrFallback, resolveReadableColor } from '@/lib/color';
 
 export type ComponentFamily =
   | 'actions'
@@ -86,6 +87,30 @@ export const COMPONENT_PATTERNS = [
 
 export type ComponentPatternId = (typeof COMPONENT_PATTERNS)[number]['id'];
 
+export type ComponentElevation = 'none' | 'soft' | 'strong';
+
+export type ComponentPalette = {
+  accent: string;
+  accentForeground: string;
+  background: string;
+  border: string;
+  danger: string;
+  foreground: string;
+  muted: string;
+  mutedForeground: string;
+  success: string;
+  surface: string;
+};
+
+export type ComponentPreviewAppearance = {
+  borderWidth: number;
+  elevation: ComponentElevation;
+  letterSpacing: number;
+  palette: ComponentPalette;
+  surface: 'base' | 'soft' | 'inverse';
+  textScale: number;
+};
+
 export function getFirstComponentPattern(family: ComponentFamily): ComponentPatternId {
   return COMPONENT_PATTERNS.find((pattern) => pattern.family === family)?.id ?? 'buttons';
 }
@@ -103,7 +128,7 @@ function PreviewSurface({ children, disabled }: { children: ReactNode; disabled:
   return (
     <fieldset
       aria-disabled={disabled}
-      className={`min-h-[420px] min-w-0 border-0 bg-background p-0 ${disabled ? 'pointer-events-none opacity-45 grayscale' : ''}`}
+      className={`component-library-preview-surface min-h-[420px] min-w-0 border-0 p-0 ${disabled ? 'pointer-events-none opacity-45 grayscale' : ''}`}
       disabled={disabled}
     >
       {children}
@@ -122,6 +147,7 @@ export default function ComponentLibraryPreview({
   const gt = useGT();
   const [activeIndex, setActiveIndex] = useState(0);
   const [checked, setChecked] = useState(true);
+  const [toggleStates, setToggleStates] = useState([true, false, true]);
   const [dismissed, setDismissed] = useState(false);
   const [progress, setProgress] = useState(68);
   const buttonSize = size;
@@ -224,7 +250,7 @@ export default function ComponentLibraryPreview({
           {pattern === 'selects' ? <label className='flex flex-col gap-2 text-sm'><span className='text-muted-foreground'><T>Role</T></span><StudioSelect ariaLabel='Role' defaultValue='admin' options={[{ label: 'Administrator', value: 'admin' }, { label: 'Member', value: 'member' }, { label: 'Viewer', value: 'viewer' }]} /></label> : null}
           {pattern === 'checkboxes' ? ['Automatic updates', 'Product announcements', 'Weekly summary'].map((item, index) => <label className='flex items-center gap-3 border border-border p-4 text-sm' key={item}><input checked={index === 0 ? checked : undefined} defaultChecked={index === 1} onChange={index === 0 ? (event) => setChecked(event.target.checked) : undefined} type='checkbox' />{gt(item)}</label>) : null}
           {pattern === 'radios' ? ['Public', 'Team only', 'Private'].map((item, index) => <label className='flex items-center gap-3 border border-border p-4 text-sm' key={item}><input checked={activeIndex === index} name='visibility' onChange={() => setActiveIndex(index)} type='radio' />{gt(item)}</label>) : null}
-          {pattern === 'toggles' ? ['Sync brand assets', 'Notify collaborators', 'Auto-publish'].map((item, index) => <button className='flex items-center justify-between border border-border p-4 text-left text-sm' key={item} onClick={() => { setActiveIndex(index); setChecked(!checked); }} type='button'><span>{gt(item)}</span><span aria-checked={activeIndex === index ? checked : index === 0} className={`relative h-6 w-11 rounded-full transition-colors ${activeIndex === index ? (checked ? 'bg-foreground' : 'bg-muted') : index === 0 ? 'bg-foreground' : 'bg-muted'}`} role='switch'><span className={`absolute top-1 size-4 rounded-full bg-background transition-transform ${activeIndex === index ? (checked ? 'translate-x-6' : 'translate-x-1') : index === 0 ? 'translate-x-6' : 'translate-x-1'}`} /></span></button>) : null}
+          {pattern === 'toggles' ? ['Sync brand assets', 'Notify collaborators', 'Auto-publish'].map((item, index) => <button aria-pressed={toggleStates[index]} className='flex items-center justify-between border border-border p-4 text-left text-sm' key={item} onClick={() => { setActiveIndex(index); setToggleStates((current) => current.map((value, stateIndex) => stateIndex === index ? !value : value)); }} type='button'><span>{gt(item)}</span><span aria-checked={toggleStates[index]} className={`relative h-6 w-11 rounded-full transition-colors ${toggleStates[index] ? 'bg-primary' : 'bg-muted'}`} role='switch'><span className={`absolute top-1 size-4 rounded-full transition-transform ${toggleStates[index] ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-foreground/45'}`} /></span></button>) : null}
           {pattern === 'uploaders' ? <label className='grid min-h-56 cursor-pointer place-items-center rounded-md border border-dashed border-input p-8 text-center hover:bg-muted'><span><Upload className='mx-auto mb-4 size-6' /><strong className='block text-sm'><T>Drop a source asset</T></strong><small className='mt-2 block text-muted-foreground'><T>SVG, PNG, JPG, or GIF</T></small></span><input className='sr-only' type='file' /></label> : null}
         </div>
       </PreviewSurface>
@@ -327,9 +353,118 @@ export default function ComponentLibraryPreview({
   );
 }
 
-export function componentPreviewStyle(radius: number, identity: BrandIdentity): CSSProperties {
+function colorById(identity: BrandIdentity, id: string, index: number, fallback: string): string {
+  return normalizeHexOrFallback(
+    identity.colors.find((color) => color.id === id)?.hex ?? identity.colors[index]?.hex,
+    fallback
+  );
+}
+
+export function componentBrandPalette(identity: BrandIdentity): ComponentPalette {
+  const foreground = colorById(identity, 'ink', 0, '#171A21');
+  const background = colorById(identity, 'paper', 1, '#FFFFFF');
+  const muted = colorById(identity, 'muted', 2, mixHexColors(foreground, background, 0.92));
+  const accent = colorById(identity, 'emphasis', 3, foreground);
+  const success = colorById(identity, 'success', 4, '#16803C');
+  const mutedForeground = colorById(identity, 'progress', 6, mixHexColors(foreground, background, 0.42));
+  const danger = colorById(identity, 'error', 7, '#DC2626');
+
   return {
+    accent,
+    accentForeground: resolveReadableColor(accent, background, 4.5).color,
+    background,
+    border: mixHexColors(foreground, background, 0.8),
+    danger,
+    foreground,
+    muted,
+    mutedForeground,
+    success,
+    surface: background,
+  };
+}
+
+function hexToHslChannels(value: string): string {
+  const hex = normalizeHexOrFallback(value).slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  const delta = maximum - minimum;
+  const lightness = (maximum + minimum) / 2;
+  let hue = 0;
+
+  if (delta > 0) {
+    if (maximum === red) hue = ((green - blue) / delta) % 6;
+    else if (maximum === green) hue = (blue - red) / delta + 2;
+    else hue = (red - green) / delta + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
+  }
+
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  return `${Number(hue.toFixed(1))} ${Number((saturation * 100).toFixed(1))}% ${Number((lightness * 100).toFixed(1))}%`;
+}
+
+export function componentPreviewStyle(
+  radius: number,
+  identity: BrandIdentity,
+  appearance?: ComponentPreviewAppearance
+): CSSProperties {
+  const palette = appearance?.palette ?? componentBrandPalette(identity);
+  const surfaceMode = appearance?.surface ?? 'base';
+  const inverse = surfaceMode === 'inverse';
+  const foreground = inverse ? palette.surface : palette.foreground;
+  const surface = inverse ? palette.foreground : palette.surface;
+  const canvas = surfaceMode === 'soft' ? palette.muted : inverse ? palette.foreground : palette.background;
+  const muted = inverse
+    ? mixHexColors(palette.foreground, palette.surface, 0.18)
+    : palette.muted;
+  const mutedForeground = inverse
+    ? mixHexColors(palette.surface, palette.foreground, 0.35)
+    : palette.mutedForeground;
+  const border = inverse
+    ? mixHexColors(palette.foreground, palette.surface, 0.28)
+    : palette.border;
+  const elevation = appearance?.elevation ?? 'soft';
+  const shadowColor = normalizeHexOrFallback(palette.foreground, '#000000');
+  const shadow = elevation === 'none'
+    ? 'none'
+    : elevation === 'strong'
+      ? `0 22px 55px ${shadowColor}2E, 0 3px 10px ${shadowColor}1F`
+      : `0 10px 28px ${shadowColor}1F, 0 2px 6px ${shadowColor}14`;
+
+  return {
+    '--accent': hexToHslChannels(palette.accent),
+    '--accent-foreground': hexToHslChannels(palette.accentForeground),
+    '--background': hexToHslChannels(surface),
+    '--border': hexToHslChannels(border),
+    '--card': hexToHslChannels(surface),
+    '--card-foreground': hexToHslChannels(foreground),
+    '--component-border-width': `${appearance?.borderWidth ?? 1}px`,
+    '--component-canvas': hexToHslChannels(canvas),
+    '--component-elevation': shadow,
+    '--component-letter-spacing': `${(appearance?.letterSpacing ?? 0) / 100}em`,
     '--component-radius': `${radius}px`,
+    '--component-text-scale': (appearance?.textScale ?? 100) / 100,
+    '--emphasis': hexToHslChannels(palette.accent),
+    '--foreground': hexToHslChannels(foreground),
+    '--input': hexToHslChannels(border),
+    '--muted': hexToHslChannels(muted),
+    '--muted-foreground': hexToHslChannels(mutedForeground),
+    '--popover': hexToHslChannels(surface),
+    '--popover-foreground': hexToHslChannels(foreground),
+    '--primary': hexToHslChannels(palette.accent),
+    '--primary-foreground': hexToHslChannels(palette.accentForeground),
+    '--ring': hexToHslChannels(palette.accent),
+    '--secondary': hexToHslChannels(muted),
+    '--secondary-foreground': hexToHslChannels(foreground),
+    '--status-error': hexToHslChannels(palette.danger),
+    '--status-error-background': `${hexToHslChannels(palette.danger)} / 0.12`,
+    '--status-error-border': `${hexToHslChannels(palette.danger)} / 0.32`,
+    '--status-success': hexToHslChannels(palette.success),
+    '--status-success-background': `${hexToHslChannels(palette.success)} / 0.12`,
+    '--status-success-border': `${hexToHslChannels(palette.success)} / 0.32`,
     fontFamily: brandTypographyFamily(identity, 'Body'),
   } as CSSProperties;
 }

@@ -4,12 +4,15 @@ import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-typescript';
 import 'prismjs/components/prism-jsx';
 import 'prismjs/components/prism-tsx';
+import 'prismjs/components/prism-json';
 
 export type CodeLanguage = 'bash' | 'python' | 'typescript';
+export type HighlightLanguage = CodeLanguage | 'json';
 
 export type HighlightedToken = {
   color: string;
   content: string;
+  type?: string;
 };
 
 export type HighlightedLine = {
@@ -43,7 +46,7 @@ const TOKEN_COLORS: Readonly<Record<string, string>> = {
   variable: '#FFA657',
 };
 
-function tokenColor(token: Prism.Token, inheritedColor: string): string {
+function tokenStyle(token: Prism.Token, inheritedColor: string) {
   const aliases = Array.isArray(token.alias)
     ? token.alias
     : token.alias
@@ -52,22 +55,23 @@ function tokenColor(token: Prism.Token, inheritedColor: string): string {
 
   for (const type of [token.type, ...aliases]) {
     const color = TOKEN_COLORS[type];
-    if (color) return color;
+    if (color) return { color, type };
   }
 
-  return inheritedColor;
+  return { color: inheritedColor, type: token.type };
 }
 
 function appendContent(
   content: string,
   color: string,
-  lines: HighlightedLine[]
+  lines: HighlightedLine[],
+  type?: string
 ) {
   const chunks = content.split('\n');
 
   chunks.forEach((chunk, index) => {
     const line = lines.at(-1)!;
-    if (chunk) line.tokens.push({ color, content: chunk });
+    if (chunk) line.tokens.push({ color, content: chunk, type });
     if (index < chunks.length - 1) lines.push({ kind: 'code', tokens: [] });
   });
 }
@@ -75,19 +79,20 @@ function appendContent(
 function appendToken(
   value: Prism.Token | string,
   inheritedColor: string,
-  lines: HighlightedLine[]
+  lines: HighlightedLine[],
+  inheritedType?: string
 ) {
   if (typeof value === 'string') {
-    appendContent(value, inheritedColor, lines);
+    appendContent(value, inheritedColor, lines, inheritedType);
     return;
   }
 
-  const color = tokenColor(value, inheritedColor);
+  const { color, type } = tokenStyle(value, inheritedColor);
   const contents = Array.isArray(value.content) ? value.content : [value.content];
-  for (const content of contents) appendToken(content, color, lines);
+  for (const content of contents) appendToken(content, color, lines, type);
 }
 
-export function highlightCode(code: string, language: CodeLanguage): HighlightedLine[] {
+export function highlightCode(code: string, language: HighlightLanguage): HighlightedLine[] {
   const grammar = Prism.languages[language] ?? Prism.languages.plain;
   const lines: HighlightedLine[] = [{ kind: 'code', tokens: [] }];
 

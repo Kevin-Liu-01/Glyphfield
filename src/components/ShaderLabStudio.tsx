@@ -123,6 +123,7 @@ import {
   type LiveMaterialOption,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { parseSourceObject } from '@/lib/sourceCode';
 import {
   previewLiveMaterialPatternScale,
   previewLiveMaterialSettings,
@@ -3008,7 +3009,7 @@ export default function ShaderLabStudio({
   }
 
   function applyCompositionSource(source: string) {
-    const parsed = JSON.parse(source) as {
+    const parsed = parseSourceObject(source) as {
       composition?: {
         assets?: Array<Partial<CompositionAsset> & Pick<CompositionAsset, 'id'>>;
         backgroundColor?: string;

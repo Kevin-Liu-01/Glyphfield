@@ -24,9 +24,12 @@ import EditableCanvasLayer, {
 import ComponentLibraryPreview, {
   COMPONENT_FAMILY_OPTIONS,
   COMPONENT_PATTERNS,
+  componentBrandPalette,
   componentPreviewStyle,
   getFirstComponentPattern,
+  type ComponentElevation,
   type ComponentFamily,
+  type ComponentPalette,
   type ComponentPatternId,
 } from '@/components/ComponentLibraryPreview';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -317,6 +320,8 @@ function RangeField({
   max,
   min,
   onChange,
+  onChangeEnd,
+  onChangeStart,
   step = 1,
   suffix = '',
   value,
@@ -325,6 +330,8 @@ function RangeField({
   max: number;
   min: number;
   onChange: (value: number) => void;
+  onChangeEnd?: () => void;
+  onChangeStart?: () => void;
   step?: number;
   suffix?: string;
   value: number;
@@ -336,7 +343,25 @@ function RangeField({
         label={label}
         value={<output className='font-mono text-xs tabular-nums'>{resolvedValue}{suffix}</output>}
       />
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
+      <input
+        className='studio-range'
+        max={max}
+        min={min}
+        onBlur={onChangeEnd}
+        onChange={(event) => onChange(Number(event.target.value))}
+        onKeyDown={(event) => {
+          if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp'].includes(event.key)) onChangeStart?.();
+        }}
+        onKeyUp={(event) => {
+          if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp'].includes(event.key)) onChangeEnd?.();
+        }}
+        onPointerCancel={onChangeEnd}
+        onPointerDown={onChangeStart}
+        onPointerUp={onChangeEnd}
+        step={step}
+        type='range'
+        value={resolvedValue}
+      />
     </label>
   );
 }
@@ -1283,9 +1308,19 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     () => sanitizeEditableColors(storedColors, identity.colors),
     [identity.colors, storedColors]
   );
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
+  const editBaselineRef = useRef<EditableColor[] | null>(null);
+  const undoStackRef = useRef<EditableColor[][]>([]);
+  const [undoDepth, setUndoDepth] = useState(0);
   useEffect(() => {
     if (JSON.stringify(storedColors) !== JSON.stringify(colors)) setColors(colors);
   }, [colors, setColors, storedColors]);
+  useEffect(() => {
+    editBaselineRef.current = null;
+    undoStackRef.current = [];
+    setUndoDepth(0);
+  }, [identity.id, tool.id]);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -1340,10 +1375,75 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [colorPopover]);
 
-  function updateSelectedColor(patch: Partial<EditableColor>) {
-    setColors((current) => sanitizeEditableColors(current, identity.colors).map((color, index) => (
+  function clonePalette(palette: EditableColor[]) {
+    return palette.map((color) => ({ ...color }));
+  }
+
+  function palettesMatch(first: EditableColor[], second: EditableColor[]) {
+    return JSON.stringify(first) === JSON.stringify(second);
+  }
+
+  function writePalette(nextPalette: EditableColor[]) {
+    const sanitized = sanitizeEditableColors(nextPalette, identity.colors);
+    colorsRef.current = sanitized;
+    setColors(sanitized);
+  }
+
+  function pushUndoSnapshot(snapshot: EditableColor[]) {
+    const previous = undoStackRef.current.at(-1);
+    if (previous && palettesMatch(previous, snapshot)) return;
+    undoStackRef.current = [...undoStackRef.current, clonePalette(snapshot)].slice(-40);
+    setUndoDepth(undoStackRef.current.length);
+  }
+
+  function beginColorEdit() {
+    if (!editBaselineRef.current) editBaselineRef.current = clonePalette(colorsRef.current);
+  }
+
+  function patchedSelectedPalette(patch: Partial<EditableColor>) {
+    return colorsRef.current.map((color, index) => (
       index === resolvedSelectedIndex ? { ...color, ...patch } : color
-    )));
+    ));
+  }
+
+  function previewSelectedColor(patch: Partial<EditableColor>) {
+    beginColorEdit();
+    const nextPalette = patchedSelectedPalette(patch);
+    if (!palettesMatch(colorsRef.current, nextPalette)) writePalette(nextPalette);
+  }
+
+  function commitSelectedColor(patch: Partial<EditableColor>) {
+    const baseline = editBaselineRef.current ?? clonePalette(colorsRef.current);
+    const nextPalette = patchedSelectedPalette(patch);
+    editBaselineRef.current = null;
+    if (palettesMatch(baseline, nextPalette)) return;
+    pushUndoSnapshot(baseline);
+    writePalette(nextPalette);
+  }
+
+  function finishColorEdit() {
+    const baseline = editBaselineRef.current;
+    editBaselineRef.current = null;
+    if (!baseline || palettesMatch(baseline, colorsRef.current)) return;
+    pushUndoSnapshot(baseline);
+  }
+
+  function commitPalette(nextPalette: EditableColor[]) {
+    const current = clonePalette(colorsRef.current);
+    const sanitized = sanitizeEditableColors(nextPalette, identity.colors);
+    editBaselineRef.current = null;
+    if (palettesMatch(current, sanitized)) return;
+    pushUndoSnapshot(current);
+    writePalette(sanitized);
+  }
+
+  function undoLastColorChange() {
+    const previous = undoStackRef.current.at(-1);
+    if (!previous) return;
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setUndoDepth(undoStackRef.current.length);
+    editBaselineRef.current = null;
+    writePalette(previous);
   }
 
   function openColorPopover(target: HTMLElement, index: number, clientX?: number, clientY?: number) {
@@ -1373,7 +1473,7 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     const value = parseSourceObject(source);
     const nextColors = sourceObjectArray(value, 'colors');
     if (!nextColors) throw new TypeError('colors must be an array of color objects.');
-    setColors(nextColors.map((color, index) => ({
+    commitPalette(nextColors.map((color, index) => ({
       hex: normalizeHex(sourceString(color, 'hex', colors[index]?.hex ?? '#000000')),
       name: sourceString(color, 'name', colors[index]?.name ?? `Color ${index + 1}`),
       opacity: sourceNumber(color, 'opacity', colors[index]?.opacity ?? 100),
@@ -1436,18 +1536,20 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
         <ColorControl
           ariaLabel={gt('Change {name}', { name: selectedColor.name })}
           label={<T>Exact color</T>}
-          onChange={(hex) => updateSelectedColor({ hex })}
-          onOpacityChange={(opacity) => updateSelectedColor({ opacity })}
+          onChange={(hex) => commitSelectedColor({ hex })}
+          onOpacityChange={(opacity) => commitSelectedColor({ opacity })}
+          onOpacityPreview={(opacity) => previewSelectedColor({ opacity })}
+          onPreview={(hex) => previewSelectedColor({ hex })}
           opacity={selectedColor.opacity}
           value={selectedColor.hex}
         />
-        <RangeField label={<T>Lightness</T>} max={100} min={0} onChange={(lightness) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, lightness: lightness / 100 }) })} suffix='%' value={Math.round(selectedOklch.lightness * 100)} />
-        <RangeField label={<T>Chroma</T>} max={0.4} min={0} onChange={(chroma) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, chroma }) })} step={0.005} value={Number(selectedOklch.chroma.toFixed(3))} />
-        <RangeField label={<T>Hue</T>} max={360} min={0} onChange={(hue) => updateSelectedColor({ hex: oklchToHex({ ...selectedOklch, hue }) })} suffix='°' value={Math.round(selectedOklch.hue)} />
+        <RangeField label={<T>Lightness</T>} max={100} min={0} onChange={(lightness) => previewSelectedColor({ hex: oklchToHex({ ...hexToOklch(colorsRef.current[resolvedSelectedIndex]?.hex ?? selectedColor.hex), lightness: lightness / 100 }) })} onChangeEnd={finishColorEdit} onChangeStart={beginColorEdit} suffix='%' value={Math.round(selectedOklch.lightness * 100)} />
+        <RangeField label={<T>Chroma</T>} max={0.4} min={0} onChange={(chroma) => previewSelectedColor({ hex: oklchToHex({ ...hexToOklch(colorsRef.current[resolvedSelectedIndex]?.hex ?? selectedColor.hex), chroma }) })} onChangeEnd={finishColorEdit} onChangeStart={beginColorEdit} step={0.005} value={Number(selectedOklch.chroma.toFixed(3))} />
+        <RangeField label={<T>Hue</T>} max={360} min={0} onChange={(hue) => previewSelectedColor({ hex: oklchToHex({ ...hexToOklch(colorsRef.current[resolvedSelectedIndex]?.hex ?? selectedColor.hex), hue }) })} onChangeEnd={finishColorEdit} onChangeStart={beginColorEdit} suffix='°' value={Math.round(selectedOklch.hue)} />
       </LabInspectorSection>
       <LabInspectorSection index='02' meta='Semantic' title={<T>Token</T>}>
-        <Field label={<T>Name</T>}><input className={INPUT_CLASS} onChange={(event) => updateSelectedColor({ name: event.target.value })} value={selectedColor.name} /></Field>
-        <Field label={<T>Role</T>}><textarea className={TEXTAREA_CLASS} onChange={(event) => updateSelectedColor({ role: event.target.value })} value={selectedColor.role} /></Field>
+        <Field label={<T>Name</T>}><input className={INPUT_CLASS} onBlur={finishColorEdit} onChange={(event) => previewSelectedColor({ name: event.target.value })} onFocus={beginColorEdit} value={selectedColor.name} /></Field>
+        <Field label={<T>Role</T>}><textarea className={TEXTAREA_CLASS} onBlur={finishColorEdit} onChange={(event) => previewSelectedColor({ role: event.target.value })} onFocus={beginColorEdit} value={selectedColor.role} /></Field>
       </LabInspectorSection>
       <LabInspectorSection index='03' meta={`${contrastRatio.toFixed(2)}:1`} title={<T>Contrast check</T>}>
         <StudioSelect
@@ -1464,10 +1566,16 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
   return (
     <ToolShell
       actions={
-        <Button onClick={() => void copyTokens()} title={copyError ? gt('Clipboard access was denied. Try again.') : undefined} type='button' variant='outline'>
-          {copied ? <Check aria-hidden='true' /> : copyError ? <X aria-hidden='true' /> : <Copy aria-hidden='true' />}
-          {copied ? <T>Copied</T> : copyError ? <T>Try copy again</T> : <T>Copy tokens</T>}
-        </Button>
+        <>
+          <Button disabled={undoDepth === 0} onClick={undoLastColorChange} title={undoDepth === 0 ? gt('Change a color to enable undo.') : gt('Restore the previous color value.')} type='button' variant='outline'>
+            <RotateCcw aria-hidden='true' />
+            <T>Undo color</T>
+          </Button>
+          <Button onClick={() => void copyTokens()} title={copyError ? gt('Clipboard access was denied. Try again.') : undefined} type='button' variant='outline'>
+            {copied ? <Check aria-hidden='true' /> : copyError ? <X aria-hidden='true' /> : <Copy aria-hidden='true' />}
+            {copied ? <T>Copied</T> : copyError ? <T>Try copy again</T> : <T>Copy tokens</T>}
+          </Button>
+        </>
       }
       inspector={inspector}
       library={library}
@@ -1553,8 +1661,10 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
               <ColorControl
                 ariaLabel={gt('Change {name}', { name: selectedColor.name })}
                 label={<T>Edit sampled token</T>}
-                onChange={(hex) => updateSelectedColor({ hex })}
-                onOpacityChange={(opacity) => updateSelectedColor({ opacity })}
+                onChange={(hex) => commitSelectedColor({ hex })}
+                onOpacityChange={(opacity) => commitSelectedColor({ opacity })}
+                onOpacityPreview={(opacity) => previewSelectedColor({ opacity })}
+                onPreview={(hex) => previewSelectedColor({ hex })}
                 opacity={selectedColor.opacity}
                 value={selectedColor.hex}
               />
@@ -2639,6 +2749,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
 
 function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
+  const brandPalette = componentBrandPalette(identity);
   const [family, setFamily] = useStudioDraft<ComponentFamily>(identity.id, tool.id, 'family', 'actions');
   const [pattern, setPattern] = useStudioDraft<ComponentPatternId>(
     identity.id,
@@ -2686,12 +2797,41 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
   );
   const [fontRole, setFontRole] = useStudioDraft<BrandTypography['role']>(identity.id, tool.id, 'font-role', 'Body');
   const [fontWeight, setFontWeight] = useStudioDraft(identity.id, tool.id, 'font-weight', brandTypographyRole(identity, 'Body').weight ?? 400);
+  const [textScale, setTextScale] = useStudioDraft(identity.id, tool.id, 'text-scale', 100);
+  const [letterSpacing, setLetterSpacing] = useStudioDraft(identity.id, tool.id, 'letter-spacing', 0);
+  const [borderWidth, setBorderWidth] = useStudioDraft(identity.id, tool.id, 'border-width', 1);
+  const [elevation, setElevation] = useStudioDraft<ComponentElevation>(identity.id, tool.id, 'elevation', 'soft');
+  const [backgroundColor, setBackgroundColor] = useStudioDraft(identity.id, tool.id, 'color-background', brandPalette.background);
+  const [surfaceColor, setSurfaceColor] = useStudioDraft(identity.id, tool.id, 'color-surface', brandPalette.surface);
+  const [foregroundColor, setForegroundColor] = useStudioDraft(identity.id, tool.id, 'color-foreground', brandPalette.foreground);
+  const [mutedColor, setMutedColor] = useStudioDraft(identity.id, tool.id, 'color-muted', brandPalette.muted);
+  const [mutedForegroundColor, setMutedForegroundColor] = useStudioDraft(identity.id, tool.id, 'color-muted-foreground', brandPalette.mutedForeground);
+  const [accentColor, setAccentColor] = useStudioDraft(identity.id, tool.id, 'color-accent', brandPalette.accent);
+  const [accentForegroundColor, setAccentForegroundColor] = useStudioDraft(identity.id, tool.id, 'color-accent-foreground', brandPalette.accentForeground);
+  const [borderColor, setBorderColor] = useStudioDraft(identity.id, tool.id, 'color-border', brandPalette.border);
+  const [successColor, setSuccessColor] = useStudioDraft(identity.id, tool.id, 'color-success', brandPalette.success);
+  const [dangerColor, setDangerColor] = useStudioDraft(identity.id, tool.id, 'color-danger', brandPalette.danger);
   const componentAssets = [...identity.assets, ...identity.proofAssets].filter((asset) => !asset.path.toLocaleLowerCase().endsWith('.pdf'));
   const [componentAssetId, setComponentAssetId] = useStudioDraft(identity.id, tool.id, 'asset-id', 'none');
   const [componentAssetOpacity, setComponentAssetOpacity] = useStudioDraft(identity.id, tool.id, 'asset-opacity', 10);
   const componentAsset = componentAssets.find(({ id }) => id === componentAssetId);
   const resolvedDensity = useBrandDefaults ? identity.style.density : density;
   const resolvedRadius = useBrandDefaults ? identity.style.borderRadius : radius;
+  const resolvedFontRole = useBrandDefaults ? 'Body' : fontRole;
+  const resolvedFontWeight = useBrandDefaults ? brandTypographyRole(identity, 'Body').weight ?? 400 : fontWeight;
+  const customPalette: ComponentPalette = {
+    accent: accentColor,
+    accentForeground: accentForegroundColor,
+    background: backgroundColor,
+    border: borderColor,
+    danger: dangerColor,
+    foreground: foregroundColor,
+    muted: mutedColor,
+    mutedForeground: mutedForegroundColor,
+    success: successColor,
+    surface: surfaceColor,
+  };
+  const resolvedPalette = useBrandDefaults ? brandPalette : customPalette;
   const selectedPattern =
     COMPONENT_PATTERNS.some((item) => item.id === pattern && item.family === family)
       ? pattern
@@ -2712,17 +2852,27 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     setPattern(nextPattern);
   }
 
+  function updateManualColor(setter: (value: string) => void, value: string) {
+    setter(value);
+    setUseBrandDefaults(false);
+  }
+
   const sourceCode = stringifySource({
     asset: { id: componentAssetId, opacity: componentAssetOpacity },
+    borderWidth,
+    colors: customPalette,
     density,
     disabled,
+    elevation,
     family,
     label,
+    letterSpacing,
     pattern: selectedPattern,
     radius,
     size,
     supportingCopy,
     surface,
+    textScale,
     typography: { role: fontRole, weight: fontWeight },
     useBrandDefaults,
   });
@@ -2730,12 +2880,14 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
   function applySourceCode(source: string) {
     const next = parseSourceObject(source);
     const assetSource = sourceObject(next, 'asset') ?? {};
+    const colorsSource = sourceObject(next, 'colors') ?? {};
     const typographySource = sourceObject(next, 'typography') ?? {};
     const nextFamily = sourceString(next, 'family', family);
     const nextPattern = sourceString(next, 'pattern', selectedPattern);
     const nextDensity = sourceString(next, 'density', density);
     const nextSurface = sourceString(next, 'surface', surface);
     const nextSize = sourceString(next, 'size', size);
+    const nextElevation = sourceString(next, 'elevation', elevation);
     const nextRole = sourceString(typographySource, 'role', fontRole);
     const patternConfig = COMPONENT_PATTERNS.find(({ id }) => id === nextPattern);
     if (!COMPONENT_FAMILY_OPTIONS.some(({ value }) => value === nextFamily)) throw new Error(gt('Unknown component family.'));
@@ -2743,21 +2895,36 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     if (!['compact', 'comfortable', 'spacious'].includes(nextDensity)) throw new Error(gt('Unknown component density.'));
     if (!['base', 'soft', 'inverse'].includes(nextSurface)) throw new Error(gt('Unknown component surface.'));
     if (!['sm', 'default', 'lg'].includes(nextSize)) throw new Error(gt('Unknown component size.'));
+    if (!['none', 'soft', 'strong'].includes(nextElevation)) throw new Error(gt('Unknown component elevation.'));
     if (!identity.typography.some(({ role }) => role === nextRole)) throw new Error(gt('Unknown typography role.'));
     setFamily(nextFamily as ComponentFamily);
     setPattern(nextPattern as ComponentPatternId);
     setDensity(nextDensity as typeof density);
     setSurface(nextSurface as typeof surface);
     setSize(nextSize as typeof size);
+    setElevation(nextElevation as ComponentElevation);
     setFontRole(nextRole as BrandTypography['role']);
     setLabel(sourceString(next, 'label', label));
     setSupportingCopy(sourceString(next, 'supportingCopy', supportingCopy));
     setDisabled(sourceBoolean(next, 'disabled', disabled));
     setRadius(sourceNumber(next, 'radius', radius));
+    setBorderWidth(sourceNumber(next, 'borderWidth', borderWidth));
+    setTextScale(sourceNumber(next, 'textScale', textScale));
+    setLetterSpacing(sourceNumber(next, 'letterSpacing', letterSpacing));
     setUseBrandDefaults(sourceBoolean(next, 'useBrandDefaults', useBrandDefaults));
     setFontWeight(sourceNumber(typographySource, 'weight', fontWeight));
     setComponentAssetId(sourceString(assetSource, 'id', componentAssetId));
     setComponentAssetOpacity(sourceNumber(assetSource, 'opacity', componentAssetOpacity));
+    setBackgroundColor(normalizeHexOrFallback(sourceString(colorsSource, 'background', backgroundColor), backgroundColor));
+    setSurfaceColor(normalizeHexOrFallback(sourceString(colorsSource, 'surface', surfaceColor), surfaceColor));
+    setForegroundColor(normalizeHexOrFallback(sourceString(colorsSource, 'foreground', foregroundColor), foregroundColor));
+    setMutedColor(normalizeHexOrFallback(sourceString(colorsSource, 'muted', mutedColor), mutedColor));
+    setMutedForegroundColor(normalizeHexOrFallback(sourceString(colorsSource, 'mutedForeground', mutedForegroundColor), mutedForegroundColor));
+    setAccentColor(normalizeHexOrFallback(sourceString(colorsSource, 'accent', accentColor), accentColor));
+    setAccentForegroundColor(normalizeHexOrFallback(sourceString(colorsSource, 'accentForeground', accentForegroundColor), accentForegroundColor));
+    setBorderColor(normalizeHexOrFallback(sourceString(colorsSource, 'border', borderColor), borderColor));
+    setSuccessColor(normalizeHexOrFallback(sourceString(colorsSource, 'success', successColor), successColor));
+    setDangerColor(normalizeHexOrFallback(sourceString(colorsSource, 'danger', dangerColor), dangerColor));
   }
 
   const inspector = (
@@ -2793,7 +2960,17 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
             value={supportingCopy}
           />
         </Field>
-        <Field label={<T>Size</T>}>
+      </ControlSection>
+      <ControlSection title={<T>System</T>}>
+        <label className='flex items-center justify-between gap-4 text-sm'>
+          <span><T>Follow brand defaults</T></span>
+          <input
+            checked={useBrandDefaults}
+            onChange={(event) => setUseBrandDefaults(event.target.checked)}
+            type='checkbox'
+          />
+        </label>
+        <Field label={<T>Component size</T>}>
           <StudioSelect
             ariaLabel='Component size'
             onValueChange={(value) => setSize(value as typeof size)}
@@ -2805,14 +2982,6 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
             value={size}
           />
         </Field>
-        <label className='flex items-center justify-between gap-4 text-sm'>
-          <span><T>Follow brand defaults</T></span>
-          <input
-            checked={useBrandDefaults}
-            onChange={(event) => setUseBrandDefaults(event.target.checked)}
-            type='checkbox'
-          />
-        </label>
         <Field label={<T>Density</T>}>
           <StudioSelect
             ariaLabel='Component density'
@@ -2828,7 +2997,7 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
             value={resolvedDensity}
           />
         </Field>
-        <Field label={<T>Surface</T>}>
+        <Field label={<T>Surface mode</T>}>
           <StudioSelect
             ariaLabel='Component surface'
             onValueChange={(value) => setSurface(value as typeof surface)}
@@ -2851,6 +3020,19 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
           suffix='px'
           value={resolvedRadius}
         />
+        <RangeField label={<T>Border width</T>} max={4} min={0} onChange={setBorderWidth} suffix='px' value={borderWidth} />
+        <Field label={<T>Elevation</T>}>
+          <StudioSelect
+            ariaLabel='Component elevation'
+            onValueChange={(value) => setElevation(value as ComponentElevation)}
+            options={[
+              { label: 'None', value: 'none' },
+              { label: 'Soft', value: 'soft' },
+              { label: 'Strong', value: 'strong' },
+            ]}
+            value={elevation}
+          />
+        </Field>
         <label className='flex items-center justify-between gap-4 text-sm'>
           <T>Disabled state</T>
           <input
@@ -2860,9 +3042,25 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
           />
         </label>
       </ControlSection>
-      <ControlSection title={<T>Brand expression</T>}>
-        <Field label={<T>Font role</T>}><StudioSelect ariaLabel='Component font role' onValueChange={(value) => { const role = value as BrandTypography['role']; setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
-        <RangeField label={<T>Font weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
+      <ControlSection title={<T>Color system</T>}>
+        <ColorControl ariaLabel={gt('Component canvas color')} label={<T>Canvas</T>} onChange={(value) => updateManualColor(setBackgroundColor, value)} onPreview={(value) => updateManualColor(setBackgroundColor, value)} value={resolvedPalette.background} />
+        <ColorControl ariaLabel={gt('Component surface color')} label={<T>Surface</T>} onChange={(value) => updateManualColor(setSurfaceColor, value)} onPreview={(value) => updateManualColor(setSurfaceColor, value)} value={resolvedPalette.surface} />
+        <ColorControl ariaLabel={gt('Component text color')} label={<T>Text</T>} onChange={(value) => updateManualColor(setForegroundColor, value)} onPreview={(value) => updateManualColor(setForegroundColor, value)} value={resolvedPalette.foreground} />
+        <ColorControl ariaLabel={gt('Component accent color')} label={<T>Accent</T>} onChange={(value) => updateManualColor(setAccentColor, value)} onPreview={(value) => updateManualColor(setAccentColor, value)} value={resolvedPalette.accent} />
+        <ColorControl ariaLabel={gt('Component accent text color')} label={<T>Accent text</T>} onChange={(value) => updateManualColor(setAccentForegroundColor, value)} onPreview={(value) => updateManualColor(setAccentForegroundColor, value)} value={resolvedPalette.accentForeground} />
+        <ColorControl ariaLabel={gt('Component muted color')} label={<T>Muted surface</T>} onChange={(value) => updateManualColor(setMutedColor, value)} onPreview={(value) => updateManualColor(setMutedColor, value)} value={resolvedPalette.muted} />
+        <ColorControl ariaLabel={gt('Component muted text color')} label={<T>Muted text</T>} onChange={(value) => updateManualColor(setMutedForegroundColor, value)} onPreview={(value) => updateManualColor(setMutedForegroundColor, value)} value={resolvedPalette.mutedForeground} />
+        <ColorControl ariaLabel={gt('Component border color')} label={<T>Border</T>} onChange={(value) => updateManualColor(setBorderColor, value)} onPreview={(value) => updateManualColor(setBorderColor, value)} value={resolvedPalette.border} />
+        <ColorControl ariaLabel={gt('Component success color')} label={<T>Success</T>} onChange={(value) => updateManualColor(setSuccessColor, value)} onPreview={(value) => updateManualColor(setSuccessColor, value)} value={resolvedPalette.success} />
+        <ColorControl ariaLabel={gt('Component danger color')} label={<T>Danger</T>} onChange={(value) => updateManualColor(setDangerColor, value)} onPreview={(value) => updateManualColor(setDangerColor, value)} value={resolvedPalette.danger} />
+      </ControlSection>
+      <ControlSection title={<T>Typography</T>}>
+        <Field label={<T>Font role</T>}><StudioSelect ariaLabel='Component font role' onValueChange={(value) => { const role = value as BrandTypography['role']; setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); setUseBrandDefaults(false); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={resolvedFontRole} /></Field>
+        <RangeField label={<T>Font weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(value) => { setFontWeight(value); setUseBrandDefaults(false); }} step={50} value={resolvedFontWeight} />
+        <RangeField label={<T>Text scale</T>} max={140} min={70} onChange={setTextScale} suffix='%' value={textScale} />
+        <RangeField label={<T>Letter spacing</T>} max={12} min={-6} onChange={setLetterSpacing} suffix='%' value={letterSpacing} />
+      </ControlSection>
+      <ControlSection title={<T>Shared media</T>}>
         <Field label={<T>Shared asset</T>}><StudioSelect ariaLabel='Component shared asset' onValueChange={setComponentAssetId} options={[{ label: 'None', value: 'none' }, ...componentAssets.map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id }))]} value={componentAsset?.id ?? 'none'} /></Field>
         {componentAsset ? <RangeField label={<T>Asset opacity</T>} max={100} min={0} onChange={setComponentAssetOpacity} value={componentAssetOpacity} /> : null}
       </ControlSection>
@@ -2893,8 +3091,10 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
           className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden smooth-shadow-ring-sm`}
+          data-component-size={size}
+          data-elevation={elevation}
           data-surface={surface}
-          style={{ ...componentPreviewStyle(resolvedRadius, identity), fontFamily: brandTypographyFamily(identity, fontRole), fontWeight: capVisibleFontWeight(fontWeight) }}
+          style={{ ...componentPreviewStyle(resolvedRadius, identity, { borderWidth, elevation, letterSpacing, palette: resolvedPalette, surface, textScale }), fontFamily: brandTypographyFamily(identity, resolvedFontRole), fontWeight: capVisibleFontWeight(resolvedFontWeight) }}
         >
           {componentAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={componentAsset.path} style={{ opacity: componentAssetOpacity / 100 }} /> : null}
           <header className='component-library-header relative z-10 flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
