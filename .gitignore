@@ -1,6 +1,9 @@
 .next/
 .source/
 node_modules/
+.stryker-tmp/
+coverage/
+reports/
 *.tsbuildinfo
 .DS_Store
 .env*

@@ -1,30 +1,45 @@
 'use client';
 
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { T, useGT } from 'gt-next';
-import { Download, RotateCcw } from 'lucide-react';
+import { Download, RotateCcw } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
+import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
+import DesignVersionControls from '@/components/DesignVersionControls';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioControls from '@/components/StudioControls';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
+  advancePlaybackTime,
+  animationTimelineChanged,
   cycleDurationMs,
   resolveTimeline,
+  shouldRenderAnimationPreview,
 } from '@/lib/animation';
+import {
+  createAnimationCanvasDocument,
+  parseAnimationCanvasDocument,
+  type AnimationDocumentState,
+} from '@/lib/animationDocument';
 import type { BrandIdentity } from '@/lib/brandIdentity';
+import { canvasRevisionFromSignature, isCanvasDocumentEnvelope } from '@/lib/canvasDocument';
+import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
 import { exportGif } from '@/lib/exportGif';
+import type { LiveMaterialSettings } from '@/lib/liveMaterials';
 import {
   canCompositeShaderDirectly,
   hasAnimatedShaderBackgrounds,
@@ -38,8 +53,8 @@ import {
   sourceObject,
   sourceString,
   sourceStringArray,
-  stringifySource,
 } from '@/lib/sourceCode';
+import { savedDesignStorageKey } from '@/lib/savedDesigns';
 import {
   applyFrameSettings,
   createDefaultFrameSettings,
@@ -58,23 +73,44 @@ import {
 const INTERACTIVE_PREVIEW_FPS = 60;
 
 async function loadImportedImage(file: File): Promise<ImportedImage> {
-  const url = URL.createObjectURL(file);
+  const url = await blobToDataUrl(file);
   const image = new Image();
   image.src = url;
-  try {
-    await image.decode();
-    return {
-      height: image.naturalHeight,
-      id: crypto.randomUUID(),
-      image,
-      name: file.name,
-      url,
-      width: image.naturalWidth,
-    };
-  } catch (error) {
-    URL.revokeObjectURL(url);
-    throw error;
-  }
+  await image.decode();
+  return {
+    height: image.naturalHeight,
+    id: crypto.randomUUID(),
+    image,
+    name: file.name,
+    url,
+    width: image.naturalWidth,
+  };
+}
+
+async function loadStoredImage({
+  height,
+  id,
+  name,
+  source,
+  width,
+}: {
+  height: number;
+  id: string;
+  name: string;
+  source: string;
+  width: number;
+}): Promise<ImportedImage> {
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  return {
+    height: image.naturalHeight || height,
+    id,
+    image,
+    name,
+    url: source,
+    width: image.naturalWidth || width,
+  };
 }
 
 async function loadImageSource(path: string, name: string): Promise<StudioSource> {
@@ -87,19 +123,126 @@ async function loadImageSource(path: string, name: string): Promise<StudioSource
     image,
     kind: 'image',
     name,
+    url: path,
     width: image.naturalWidth,
   };
+}
+
+function animationSourceBounds(
+  source: StudioSource | null,
+  frameSettings: StudioFrameSettings | null,
+  settings: StudioSettings,
+  canvasWidth: number,
+  canvasHeight: number
+): { height: number; width: number } {
+  if (!source) return { height: 80, width: 160 };
+  if (source.kind === 'text') {
+    const fontSize = frameSettings?.fontSize ?? settings.fontSize;
+    return {
+      height: Math.min(canvasHeight * 0.72, fontSize * 1.45),
+      width: Math.min(canvasWidth * 0.88, Math.max(96, Array.from(source.text).length * fontSize * 0.62)),
+    };
+  }
+  const ratio = source.width / Math.max(1, source.height);
+  const maxWidth = canvasWidth * 0.68;
+  const maxHeight = canvasHeight * 0.68;
+  const width = Math.min(maxWidth, maxHeight * ratio);
+  return { height: width / ratio, width };
+}
+
+function AnimationShaderLayers({
+  activeShaderSourceIds,
+  backgroundOverrides,
+  directShaderComposite,
+  exportProgress,
+  isPlaying,
+  overrideShaderSettings,
+  sequenceBackground,
+  sequenceShaderIsActive,
+  sequenceShaderLayerRef,
+  sequenceShaderSettings,
+  shaderCaptureTimeMs,
+  shaderLayerRefs,
+  showSequenceShader,
+  sources,
+  studioShaderSettings,
+}: {
+  activeShaderSourceIds: Set<string>;
+  backgroundOverrides: Record<string, boolean>;
+  directShaderComposite: boolean;
+  exportProgress: number | null;
+  isPlaying: boolean;
+  overrideShaderSettings: Map<string, StudioSettings['shaderSettings']>;
+  sequenceBackground: StudioBackgroundSettings;
+  sequenceShaderIsActive: boolean;
+  sequenceShaderLayerRef: RefObject<HTMLDivElement | null>;
+  sequenceShaderSettings: StudioSettings['shaderSettings'];
+  shaderCaptureTimeMs: number | null;
+  shaderLayerRefs: RefObject<Map<string, HTMLDivElement>>;
+  showSequenceShader: boolean;
+  sources: readonly StudioSource[];
+  studioShaderSettings: StudioSettings['shaderSettings'];
+}) {
+  return (
+    <>
+      {showSequenceShader ? (
+        <div
+          aria-hidden='true'
+          className={`pointer-events-none absolute inset-0 ${directShaderComposite ? 'opacity-100' : 'opacity-0'}`}
+          data-animation-shader-active={sequenceShaderIsActive ? 'true' : 'false'}
+          data-animation-shader-layer='sequence'
+          ref={sequenceShaderLayerRef}
+        >
+          <LiveMaterialCanvas
+            captureTimeMs={shaderCaptureTimeMs}
+            enabled
+            frameRate={INTERACTIVE_PREVIEW_FPS}
+            materialId={sequenceBackground.materialId}
+            patternScale={sequenceBackground.patternScale ?? 1}
+            paused={exportProgress === null && (!isPlaying || !sequenceShaderIsActive)}
+            settings={sequenceShaderSettings}
+          />
+        </div>
+      ) : null}
+      {sources.map((source) => (
+        backgroundOverrides[source.id] && source.background?.style === 'shader' ? (
+          <div
+            aria-hidden='true'
+            className='pointer-events-none absolute inset-0 opacity-0'
+            data-animation-shader-layer='override'
+            key={`${source.id}-${source.background.materialId}`}
+            ref={(element) => {
+              if (element) shaderLayerRefs.current.set(source.id, element);
+              else shaderLayerRefs.current.delete(source.id);
+            }}
+          >
+            <LiveMaterialCanvas
+              captureTimeMs={shaderCaptureTimeMs}
+              enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
+              frameRate={INTERACTIVE_PREVIEW_FPS}
+              materialId={source.background.materialId}
+              patternScale={source.background.patternScale ?? 1}
+              paused={!isPlaying && exportProgress === null}
+              settings={overrideShaderSettings.get(source.id) ?? studioShaderSettings}
+            />
+          </div>
+        ) : null
+      ))}
+    </>
+  );
 }
 
 function AnimationStudio({
   compactControls = false,
   embedded = false,
   identity,
+  initialFontWeight,
   initialSequenceBackground,
 }: {
   compactControls?: boolean;
   embedded?: boolean;
   identity?: BrandIdentity;
+  initialFontWeight?: number;
   initialSequenceBackground?: Partial<StudioBackgroundSettings>;
 }) {
   const gt = useGT();
@@ -117,6 +260,12 @@ function AnimationStudio({
     'settings',
     identitySettings
   );
+  useEffect(() => {
+    if (initialFontWeight === undefined) return;
+    setStoredSettings((current) => current.fontWeight === initialFontWeight
+      ? current
+      : { ...current, fontWeight: initialFontWeight });
+  }, [initialFontWeight, setStoredSettings]);
   const [qualityDefaultsMigrated, setQualityDefaultsMigrated] = useStudioDraft(
     identityId,
     'animation',
@@ -209,6 +358,7 @@ function AnimationStudio({
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [documentCreatedAt] = useState(() => new Date().toISOString());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const workspaceVisibleRef = useRef(true);
@@ -239,6 +389,7 @@ function AnimationStudio({
         image: image.image,
         kind: 'image',
         name: image.name,
+        url: image.url,
         width: image.width,
       })),
     [images]
@@ -263,13 +414,69 @@ function AnimationStudio({
     ])),
     [backgroundOverrides, baseSources, frameSettings, sequenceBackground, settings]
   );
-  const sources = useMemo(
+  const resolvedSources = useMemo(
     () =>
       orderStudioSources(baseSources, sequenceOrder).map((source) =>
         applyFrameSettings(source, resolvedFrameSettings[source.id] ?? createDefaultFrameSettings(settings))
       ),
     [baseSources, resolvedFrameSettings, sequenceOrder, settings]
   );
+  const animationState = useMemo<AnimationDocumentState>(() => ({
+    backgroundOverrides,
+    frameSettings,
+    includeBrandLogo,
+    mode,
+    playbackRate,
+    sequenceBackground,
+    sequenceOrder,
+    settings,
+    textFrames,
+  }), [
+    backgroundOverrides,
+    frameSettings,
+    includeBrandLogo,
+    mode,
+    playbackRate,
+    sequenceBackground,
+    sequenceOrder,
+    settings,
+    textFrames,
+  ]);
+  const animationRevision = useMemo(() => JSON.stringify({
+    sources: resolvedSources.map((source) => source.kind === 'text'
+      ? { ...source }
+      : { ...source, image: undefined }),
+    state: animationState,
+  }), [animationState, resolvedSources]);
+  const animationDocument = useMemo(() => createAnimationCanvasDocument({
+    brandId: identityId,
+    createdAt: documentCreatedAt,
+    id: `${identityId}:animation:scene`,
+    revision: canvasRevisionFromSignature(animationRevision),
+    sources: resolvedSources,
+    state: animationState,
+    title: `${identity?.name ?? 'Glyphfield'} Animation`,
+    updatedAt: documentCreatedAt,
+  }), [animationRevision, animationState, documentCreatedAt, identity?.name, identityId, resolvedSources]);
+  const sources = useMemo(() => {
+    const sourceById = new Map(resolvedSources.map((source) => [source.id, source]));
+    return animationDocument.pageIds.flatMap((pageId) => {
+      const elementId = animationDocument.pages[pageId]?.elementIds[0];
+      const source = elementId ? sourceById.get(elementId) : undefined;
+      return source ? [source] : [];
+    });
+  }, [animationDocument, resolvedSources]);
+  const animationWorkspaceKey = useMemo(
+    () => savedDesignStorageKey(identityId, 'animation'),
+    [identityId]
+  );
+  const portableAnimation = usePortableCanvasWorkspace({
+    applySource: applyStudioSource,
+    document: animationDocument,
+    workspaceKey: animationWorkspaceKey,
+  });
+  const animationSource = portableAnimation.source;
+  const autosaveState = portableAnimation.autosaveState;
   const selectedSource =
     sources.find((source) => source.id === selectedSourceId) ?? null;
   const selectedFrameSettings = selectedSource
@@ -313,51 +520,36 @@ function AnimationStudio({
     colorC: sequenceBackground.colorC,
   }), [sequenceBackground, settings.shaderSettings]);
   const overrideShaderSettings = useMemo(() => new Map(
-    sources
-      .filter((source) => (
-        backgroundOverrides[source.id] && source.background?.style === 'shader'
-      ))
-      .map((source) => [source.id, {
+    sources.reduce<Array<[string, LiveMaterialSettings]>>((entries, source) => {
+      if (!backgroundOverrides[source.id] || source.background?.style !== 'shader') return entries;
+      entries.push([source.id, {
         ...settings.shaderSettings,
         ...source.background?.materialSettings,
         colorA: source.background?.colorA ?? settings.shaderSettings.colorA,
         colorB: source.background?.colorB ?? settings.shaderSettings.colorB,
         colorC: source.background?.colorC ?? settings.shaderSettings.colorC,
-      }])
+      }]);
+      return entries;
+    }, [])
   ), [backgroundOverrides, settings.shaderSettings, sources]);
   const canvasWidth = Math.max(120, settings.width);
   const canvasHeight = Math.max(120, settings.height);
-  const selectedBounds = selectedSource?.kind === 'text'
-    ? {
-        height: Math.min(canvasHeight * 0.72, (selectedFrameSettings?.fontSize ?? settings.fontSize) * 1.45),
-        width: Math.min(canvasWidth * 0.88, Math.max(96, Array.from(selectedSource.text).length * (selectedFrameSettings?.fontSize ?? settings.fontSize) * 0.62)),
-      }
-    : selectedSource
-      ? (() => {
-          const ratio = selectedSource.width / Math.max(1, selectedSource.height);
-          const maxWidth = canvasWidth * 0.68;
-          const maxHeight = canvasHeight * 0.68;
-          const width = Math.min(maxWidth, maxHeight * ratio);
-          return { height: width / ratio, width };
-        })()
-      : { height: 80, width: 160 };
+  const selectedBounds = animationSourceBounds(
+    selectedSource,
+    selectedFrameSettings,
+    settings,
+    canvasWidth,
+    canvasHeight
+  );
 
-  const settingsRef = useRef(settings);
-  const sourcesRef = useRef(sources);
-  const imagesRef = useRef(images);
-  const isPlayingRef = useRef(isPlaying);
-  const playbackRateRef = useRef(playbackRate);
-  const activeTimelineRef = useRef(activeTimeline);
-  const backgroundOverridesRef = useRef(backgroundOverrides);
-  const timelineRequiresShaderSyncRef = useRef(timelineRequiresShaderSync);
-  settingsRef.current = settings;
-  sourcesRef.current = sources;
-  imagesRef.current = images;
-  isPlayingRef.current = isPlaying;
-  playbackRateRef.current = playbackRate;
-  activeTimelineRef.current = activeTimeline;
-  backgroundOverridesRef.current = backgroundOverrides;
-  timelineRequiresShaderSyncRef.current = timelineRequiresShaderSync;
+  const settingsRef = useCommittedRef(settings);
+  const sourcesRef = useCommittedRef(sources);
+  const imagesRef = useCommittedRef(images);
+  const isPlayingRef = useCommittedRef(isPlaying);
+  const playbackRateRef = useCommittedRef(playbackRate);
+  const activeTimelineRef = useCommittedRef(activeTimeline);
+  const backgroundOverridesRef = useCommittedRef(backgroundOverrides);
+  const timelineRequiresShaderSyncRef = useCommittedRef(timelineRequiresShaderSync);
 
   useEffect(() => {
     previewDirtyRef.current = true;
@@ -398,9 +590,10 @@ function AnimationStudio({
       };
       const defaultFingerprint = JSON.stringify(createDefaultFrameSettings(legacySettings).background);
       const inferredOverrides = Object.fromEntries(
-        Object.entries(savedFrames)
-          .filter(([, frame]) => JSON.stringify(frame.background) !== defaultFingerprint)
-          .map(([id]) => [id, true])
+        Object.entries(savedFrames).reduce<Array<[string, true]>>((entries, [id, frame]) => {
+          if (JSON.stringify(frame.background) !== defaultFingerprint) entries.push([id, true]);
+          return entries;
+        }, [])
       );
       if (Object.keys(inferredOverrides).length > 0) {
         setBackgroundOverrides(inferredOverrides);
@@ -429,6 +622,24 @@ function AnimationStudio({
       cancelled = true;
     };
   });
+
+  const brandLogoSource = brandLogo?.kind === 'image' ? brandLogo.url : undefined;
+  useEffect(() => {
+    const source = brandLogoSource;
+    if (!source || /^data:[^;,]+;base64,/i.test(source)) return;
+    let active = true;
+    void imageUrlToDataUrl(source).then((embeddedSource) => {
+      if (!active) return;
+      setBrandLogo((current) => current?.kind === 'image' && current.url === source
+        ? { ...current, url: embeddedSource }
+        : current);
+    }).catch(() => {
+      if (active) setError(gt('The brand logo could not be embedded for sharing.'));
+    });
+    return () => {
+      active = false;
+    };
+  }, [brandLogoSource, gt]);
 
   function attachShaderLayers(currentSources: readonly StudioSource[]): StudioSource[] {
     return currentSources.map((source) => {
@@ -473,15 +684,17 @@ function AnimationStudio({
       });
 
       if (isPlayingRef.current && duration > 0) {
-        const next = playheadRef.current + elapsed * playbackRateRef.current;
-        if (currentSettings.loop) {
-          playheadRef.current = next % duration;
-        } else if (next >= duration) {
-          playheadRef.current = duration;
+        const advance = advancePlaybackTime({
+          currentTimeMs: playheadRef.current,
+          durationMs: duration,
+          elapsedMs: elapsed,
+          loop: currentSettings.loop,
+          playbackRate: playbackRateRef.current,
+        });
+        playheadRef.current = advance.timeMs;
+        if (advance.stopped) {
           isPlayingRef.current = false;
           setIsPlaying(false);
-        } else {
-          playheadRef.current = next;
         }
       }
 
@@ -493,10 +706,7 @@ function AnimationStudio({
       const previousActiveTimeline = activeTimelineRef.current;
       if (
         timelineRequiresShaderSyncRef.current
-        && (
-          position.index !== previousActiveTimeline.index
-          || position.nextIndex !== previousActiveTimeline.nextIndex
-        )
+        && animationTimelineChanged(position, previousActiveTimeline)
       ) {
         const nextActiveTimeline = { index: position.index, nextIndex: position.nextIndex };
         activeTimelineRef.current = nextActiveTimeline;
@@ -516,14 +726,15 @@ function AnimationStudio({
         : 120;
       const frameIsDue = timestamp - previousRenderTimestamp >= previewFrameInterval;
       const contentIsAnimated = position.phase === 'transition' && currentSources.length > 1;
-      const shouldRender = document.visibilityState !== 'hidden'
-        && frameIsDue
-        && (
-          !directComposite
-          || contentIsAnimated
-          || previewDirtyRef.current
-          || previousRenderedSourceId !== currentSource?.id
-        );
+      const shouldRender = shouldRenderAnimationPreview({
+        contentIsAnimated,
+        currentSourceId: currentSource?.id,
+        directComposite,
+        frameIsDue,
+        pageVisible: document.visibilityState !== 'hidden',
+        previewDirty: previewDirtyRef.current,
+        previousSourceId: previousRenderedSourceId,
+      });
       if (canvas && shouldRender) {
         previousRenderTimestamp = timestamp;
         previousRenderedSourceId = currentSource?.id ?? '';
@@ -565,11 +776,11 @@ function AnimationStudio({
 
   async function importFiles(files: FileList) {
     try {
-      const imported = await Promise.all(
-        Array.from(files)
-          .filter((file) => file.type.startsWith('image/'))
-          .map(loadImportedImage)
-      );
+      const imageFiles = Array.from(files).reduce<File[]>((accepted, file) => {
+        if (file.type.startsWith('image/')) accepted.push(file);
+        return accepted;
+      }, []);
+      const imported = await Promise.all(imageFiles.map(loadImportedImage));
       setImages((current) => [...current, ...imported]);
       if (imported[0]) {
         setSelectedSourceId(imported[0].id);
@@ -831,39 +1042,53 @@ function AnimationStudio({
     seek(0);
   }
 
-  function applyStudioSource(source: string) {
-    const parsed = parseSourceObject(source);
-    const nextMode = sourceString(parsed, 'mode', mode);
+  function applyAnimationState(next: AnimationDocumentState) {
+    const nextMode = next.mode;
     if (!['sequence', 'text', 'images'].includes(nextMode)) {
       throw new TypeError('Mode must be sequence, text, or images.');
     }
-    const nextSettings = sourceObject(parsed, 'settings');
-    const nextFrameSettings = sourceObject(parsed, 'frameSettings');
-    const nextSequenceBackground = sourceObject(parsed, 'sequenceBackground');
-    const nextBackgroundOverrides = sourceObject(parsed, 'backgroundOverrides');
-    const nextPlaybackRate = sourceNumber(parsed, 'playbackRate', playbackRate);
+    const nextPlaybackRate = next.playbackRate;
     if (nextPlaybackRate <= 0 || nextPlaybackRate > 4) {
       throw new RangeError('Playback rate must be greater than 0 and no more than 4.');
     }
 
     setMode(nextMode as SourceMode);
-    setTextFrames(sourceString(parsed, 'textFrames', textFrames));
-    setIncludeBrandLogo(sourceBoolean(parsed, 'includeBrandLogo', includeBrandLogo));
-    setSequenceOrder(sourceStringArray(parsed, 'sequenceOrder', sequenceOrder));
-    if (nextSettings) setStoredSettings(nextSettings as StudioSettings);
-    if (nextFrameSettings) {
-      setFrameSettings(nextFrameSettings as Record<string, StudioFrameSettings>);
-    }
-    if (nextSequenceBackground) {
-      setStoredSequenceBackground(nextSequenceBackground as StudioBackgroundSettings);
-    }
-    if (nextBackgroundOverrides) {
-      setBackgroundOverrides(nextBackgroundOverrides as Record<string, boolean>);
-    }
+    setTextFrames(next.textFrames);
+    setIncludeBrandLogo(next.includeBrandLogo);
+    setSequenceOrder([...next.sequenceOrder]);
+    setStoredSettings(next.settings as StudioSettings);
+    setFrameSettings(next.frameSettings as Record<string, StudioFrameSettings>);
+    setStoredSequenceBackground(next.sequenceBackground as StudioBackgroundSettings);
+    setBackgroundOverrides(next.backgroundOverrides as Record<string, boolean>);
     setPlaybackRate(nextPlaybackRate);
     setSelectedSourceId(null);
     setBackgroundEditScope('sequence');
     seek(0);
+  }
+
+  async function applyStudioSource(source: string) {
+    const parsed = parseSourceObject(source);
+    if (isCanvasDocumentEnvelope(parsed)) {
+      const restored = parseAnimationCanvasDocument(source);
+      applyAnimationState(restored.state);
+      const storedImages = await Promise.all(restored.assets.map(loadStoredImage));
+      const restoredLogo = storedImages.find(({ id }) => id === 'brand-logo');
+      if (restoredLogo) setBrandLogo({ ...restoredLogo, kind: 'image' });
+      setImages(storedImages.filter(({ id }) => id !== 'brand-logo'));
+      return;
+    }
+
+    applyAnimationState({
+      backgroundOverrides: sourceObject(parsed, 'backgroundOverrides') ?? backgroundOverrides,
+      frameSettings: sourceObject(parsed, 'frameSettings') ?? frameSettings,
+      includeBrandLogo: sourceBoolean(parsed, 'includeBrandLogo', includeBrandLogo),
+      mode: sourceString(parsed, 'mode', mode),
+      playbackRate: sourceNumber(parsed, 'playbackRate', playbackRate),
+      sequenceBackground: sourceObject(parsed, 'sequenceBackground') ?? sequenceBackground,
+      sequenceOrder: sourceStringArray(parsed, 'sequenceOrder', sequenceOrder),
+      settings: sourceObject(parsed, 'settings') ?? settings,
+      textFrames: sourceString(parsed, 'textFrames', textFrames),
+    });
   }
 
   const studioControlProps = {
@@ -915,8 +1140,9 @@ function AnimationStudio({
     textFrames,
   };
 
-  return (
-    <div
+  function renderWorkspace() {
+    return (
+      <div
       className={
         embedded
           ? `animation-studio h-full min-h-0 bg-background text-foreground${compactControls ? ' animation-studio-compact-controls' : ''}`
@@ -927,7 +1153,16 @@ function AnimationStudio({
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <DesignVersionControls
+            autosaveState={autosaveState}
+            identityId={identityId}
+            onOpen={(source) => void applyStudioSource(source)}
+            revision={String(animationDocument.revision)}
+            source={() => animationSource}
+            toolId='animation'
+            workspaceLabel='Animation Studio'
+          />
+          <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} className='hidden xl:inline-flex' />
           <Button
             aria-label={gt('Reset studio')}
@@ -991,49 +1226,23 @@ function AnimationStudio({
                 ref={canvasSelectionRef}
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
-                {hasSequenceShaderSources ? (
-                  <div
-                    aria-hidden='true'
-                    className={`pointer-events-none absolute inset-0 ${directShaderComposite ? 'opacity-100' : 'opacity-0'}`}
-                    data-animation-shader-active={sequenceShaderIsActive ? 'true' : 'false'}
-                    data-animation-shader-layer='sequence'
-                    ref={sequenceShaderLayerRef}
-                  >
-                    <LiveMaterialCanvas
-                      captureTimeMs={shaderCaptureTimeMs}
-                      enabled
-                      frameRate={INTERACTIVE_PREVIEW_FPS}
-                      materialId={sequenceBackground.materialId}
-                      patternScale={sequenceBackground.patternScale ?? 1}
-                      paused={exportProgress === null && (!isPlaying || !sequenceShaderIsActive)}
-                      settings={sequenceShaderSettings}
-                    />
-                  </div>
-                ) : null}
-                {sources.map((source) =>
-                  backgroundOverrides[source.id] && source.background?.style === 'shader' ? (
-                    <div
-                      aria-hidden='true'
-                      className='pointer-events-none absolute inset-0 opacity-0'
-                      data-animation-shader-layer='override'
-                      key={`${source.id}-${source.background.materialId}`}
-                      ref={(element) => {
-                        if (element) shaderLayerRefs.current.set(source.id, element);
-                        else shaderLayerRefs.current.delete(source.id);
-                      }}
-                    >
-                      <LiveMaterialCanvas
-                        captureTimeMs={shaderCaptureTimeMs}
-                        enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
-                        frameRate={INTERACTIVE_PREVIEW_FPS}
-                        materialId={source.background.materialId}
-                        patternScale={source.background.patternScale ?? 1}
-                        paused={!isPlaying && exportProgress === null}
-                        settings={overrideShaderSettings.get(source.id) ?? settings.shaderSettings}
-                      />
-                    </div>
-                  ) : null
-                )}
+                <AnimationShaderLayers
+                  activeShaderSourceIds={activeShaderSourceIds}
+                  backgroundOverrides={backgroundOverrides}
+                  directShaderComposite={directShaderComposite}
+                  exportProgress={exportProgress}
+                  isPlaying={isPlaying}
+                  overrideShaderSettings={overrideShaderSettings}
+                  sequenceBackground={sequenceBackground}
+                  sequenceShaderIsActive={sequenceShaderIsActive}
+                  sequenceShaderLayerRef={sequenceShaderLayerRef}
+                  sequenceShaderSettings={sequenceShaderSettings}
+                  shaderCaptureTimeMs={shaderCaptureTimeMs}
+                  shaderLayerRefs={shaderLayerRefs}
+                  showSequenceShader={hasSequenceShaderSources}
+                  sources={sources}
+                  studioShaderSettings={settings.shaderSettings}
+                />
                 <canvas
                   aria-label={gt('Animation preview canvas')}
                   className='absolute inset-0 z-10 size-full'
@@ -1087,11 +1296,7 @@ function AnimationStudio({
               </div>
             </CanvasViewport>
 
-            {error ? (
-              <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>
-                {error}
-              </div>
-            ) : null}
+            <AnimationError error={error} />
           </div>
 
           <TimelinePanel
@@ -1113,27 +1318,18 @@ function AnimationStudio({
         </section>
         <StudioControls {...studioControlProps} panel='properties' />
       </div>
-      {sourceOpen ? (
-        <SourceCodeDrawer
-          format='JSON · animation scene'
-          onApply={applyStudioSource}
-          onClose={() => setSourceOpen(false)}
-          source={stringifySource({
-            backgroundOverrides,
-            frameSettings,
-            includeBrandLogo,
-            mode,
-            playbackRate,
-            sequenceOrder,
-            sequenceBackground,
-            settings,
-            textFrames,
-          })}
-          title={gt('Animation source')}
-        />
-      ) : null}
-    </div>
-  );
+      <AnimationSourceDrawer
+        onApply={applyStudioSource}
+        onClose={() => setSourceOpen(false)}
+        open={sourceOpen}
+        source={animationSource}
+        title={gt('Animation source')}
+      />
+      </div>
+    );
+  }
+
+  return renderWorkspace();
 }
 
 export default memo(AnimationStudio);

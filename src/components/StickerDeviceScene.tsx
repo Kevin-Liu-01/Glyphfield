@@ -2,7 +2,6 @@
 
 import {
   forwardRef,
-  useEffect,
   useId,
   useImperativeHandle,
   useMemo,
@@ -11,10 +10,13 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
 } from 'react';
 
 import {
   clampStickerPosition,
+  reconcileStickerScenePlacements,
+  starterStickerPlacement,
   stickerSceneContrastColor,
   stickerSceneContrastRadius,
   stickerSceneOutlineRadius,
@@ -52,10 +54,6 @@ export type StickerStudioStageHandle = {
 function finishSwatch(finish: StickerFinishSettings): string {
   return STICKER_FINISH_PRESETS.find(({ id }) => id === finish.presetId)?.swatch
     ?? STICKER_FINISH_PRESETS[0].swatch;
-}
-
-function starterPlacement(asset: StickerSceneAsset | undefined): StickerScenePlacement[] {
-  return asset ? [{ assetId: asset.id, id: `starter-${asset.id}`, rotation: -4, scale: 31, x: 50, y: 50, z: 1 }] : [];
 }
 
 function loadSceneImage(path: string): Promise<HTMLImageElement> {
@@ -148,20 +146,24 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
   className?: string;
   enabled?: boolean;
   finish: StickerFinishSettings;
-  onPlacementsChange?: (placements: StickerRenderLayer[]) => void;
+  onPlacementStateChange?: (placements: StickerScenePlacement[]) => void;
   onSelectionChange?: (selection: StickerSelection | null) => void;
   opacity?: number;
+  placements?: readonly StickerScenePlacement[];
   renderMode?: 'controls' | 'normal';
   surfaceLabel?: string;
   surface?: 'metal' | 'transparent';
-}>(function StickerDeviceScene({ aspectRatio = 872 / 504, assets: suppliedAssets, className = '', enabled = true, finish, onPlacementsChange, onSelectionChange, opacity = 1, renderMode = 'normal', surface = 'metal', surfaceLabel = 'Sticker placement surface' }, ref) {
+}>(function StickerDeviceScene({ aspectRatio = 872 / 504, assets: suppliedAssets, className = '', enabled = true, finish, onPlacementStateChange, onSelectionChange, opacity = 1, placements: suppliedPlacements, renderMode = 'normal', surface = 'metal', surfaceLabel = 'Sticker placement surface' }, ref) {
   const assets = useMemo(() => suppliedAssets.filter((asset, index, collection) => (
     collection.findIndex(({ id }) => id === asset.id) === index
   )), [suppliedAssets]);
-  const assetKey = assets.map(({ id, path }) => `${id}:${path}`).join('|');
   const assetMap = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
-  const [placements, setPlacements] = useState<StickerScenePlacement[]>(() => starterPlacement(assets[0]));
-  const [selectedId, setSelectedId] = useState<string | null>(() => starterPlacement(assets[0])[0]?.id ?? null);
+  const [internalPlacements, setInternalPlacements] = useState<StickerScenePlacement[]>(() => starterStickerPlacement(assets[0]));
+  const placements = useMemo(
+    () => reconcileStickerScenePlacements(suppliedPlacements ?? internalPlacements, assets),
+    [assets, internalPlacements, suppliedPlacements]
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(() => starterStickerPlacement(assets[0])[0]?.id ?? null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const outlineFilterId = `sticker-outline-${useId().replaceAll(':', '')}`;
   const outlineRadius = stickerSceneOutlineRadius(finish.edgeWidth);
@@ -172,43 +174,37 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
   const dragRef = useRef<DragState | null>(null);
   const lastDraggedRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    setPlacements((current) => {
-      const retained = current.filter(({ assetId }) => assetMap.has(assetId));
-      return retained.length > 0 ? retained : starterPlacement(assets[0]);
-    });
-  }, [assetKey, assetMap, assets]);
-
-  useEffect(() => {
-    if (!enabled) {
-      onSelectionChange?.(null);
-      return;
-    }
-    const placement = placements.find(({ id }) => id === selectedId);
+  function resolveSelection(
+    nextPlacements: readonly StickerScenePlacement[],
+    nextSelectedId: string | null
+  ): StickerSelection | null {
+    if (!enabled) return null;
+    const placement = nextPlacements.find(({ id }) => id === nextSelectedId);
     const asset = placement ? assetMap.get(placement.assetId) : undefined;
-    onSelectionChange?.(placement && asset ? { ...placement, label: asset.label } : null);
-  }, [assetMap, enabled, onSelectionChange, placements, selectedId]);
+    return placement && asset ? { ...placement, label: asset.label } : null;
+  }
 
-  useEffect(() => {
-    if (!enabled) {
-      onPlacementsChange?.([]);
-      return;
-    }
-    onPlacementsChange?.(
-      placements
-        .map((placement) => {
-          const asset = assetMap.get(placement.assetId);
-          return asset ? { ...placement, label: asset.label, path: asset.path } : null;
-        })
-        .filter((placement): placement is StickerRenderLayer => placement !== null)
-        .sort((left, right) => left.z - right.z)
-    );
-  }, [assetMap, enabled, onPlacementsChange, placements]);
+  function selectPlacement(nextSelectedId: string | null) {
+    setSelectedId(nextSelectedId);
+    onSelectionChange?.(resolveSelection(placements, nextSelectedId));
+  }
+
+  function setPlacements(
+    update: SetStateAction<StickerScenePlacement[]>,
+    nextSelectedId = selectedId
+  ) {
+    const next = typeof update === 'function'
+      ? update([...placements])
+      : update;
+    if (suppliedPlacements) onPlacementStateChange?.(next);
+    else setInternalPlacements(next);
+    if (nextSelectedId !== selectedId) setSelectedId(nextSelectedId);
+    onSelectionChange?.(resolveSelection(next, nextSelectedId));
+  }
 
   function resetScene() {
-    const next = starterPlacement(assets[0]);
-    setPlacements(next);
-    setSelectedId(next[0]?.id ?? null);
+    const next = starterStickerPlacement(assets[0]);
+    setPlacements(next, next[0]?.id ?? null);
     serialRef.current = 1;
   }
 
@@ -223,13 +219,14 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
       const nextZ = current.reduce((largest, placement) => Math.max(largest, placement.z), 0) + 1;
       const offset = ((serial - 1) % 5) * 2.5;
       return [...current, { assetId, id, rotation: 0, scale: 24, x: 50 + offset, y: 50 + offset, z: nextZ }];
-    });
-    setSelectedId(id);
+    }, id);
   }
 
   function removeSticker(id: string) {
-    setPlacements((current) => current.filter((placement) => placement.id !== id));
-    setSelectedId((current) => current === id ? null : current);
+    setPlacements(
+      (current) => current.filter((placement) => placement.id !== id),
+      selectedId === id ? null : selectedId
+    );
   }
 
   function updatePlacement(id: string, patch: Partial<Pick<StickerScenePlacement, 'rotation' | 'scale' | 'x' | 'y'>>) {
@@ -269,8 +266,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
       id,
       ...position,
       z: nextZ,
-    }]);
-    setSelectedId(id);
+    }], id);
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>, placement: StickerScenePlacement) {
@@ -283,7 +279,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
       startX: event.clientX,
       startY: event.clientY,
     };
-    setSelectedId(placement.id);
+    selectPlacement(placement.id);
     setDraggingId(placement.id);
     bringForward(placement.id);
   }
@@ -311,7 +307,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
 
   function handlePlacedClick(id: string) {
     if (lastDraggedRef.current === id) lastDraggedRef.current = null;
-    setSelectedId(id);
+    selectPlacement(id);
   }
 
   function handlePlacedKeyDown(event: KeyboardEvent<HTMLButtonElement>, placement: StickerScenePlacement) {
@@ -349,11 +345,21 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
       context.fillStyle = metal;
       context.fillRect(0, 0, canvas.width, canvas.height);
     }
-    for (const placement of [...placements].sort((left, right) => left.z - right.z)) {
+    const sortedPlacements = [...placements].sort((left, right) => left.z - right.z);
+    const loadedPlacements = await Promise.all(sortedPlacements.map(async (placement) => {
       const asset = assetMap.get(placement.assetId);
-      if (!asset) continue;
+      if (!asset) return null;
       try {
         const image = await loadSceneImage(asset.path);
+        return { image, placement };
+      } catch {
+        return null;
+      }
+    }));
+    for (const loaded of loadedPlacements) {
+      if (!loaded) continue;
+      const { image, placement } = loaded;
+      try {
         const boxWidth = canvas.width * placement.scale / 100;
         const boxHeight = boxWidth / 1.24;
         const scale = Math.min(boxWidth / image.naturalWidth, boxHeight / image.naturalHeight);
@@ -431,7 +437,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
       data-surface={surface}
       inert={enabled ? undefined : true}
       onPointerDown={(event) => {
-        if (event.target === event.currentTarget) setSelectedId(null);
+        if (event.target === event.currentTarget) selectPlacement(null);
       }}
       onPointerLeave={() => {
         surfaceRef.current?.style.setProperty('--sticker-shine-x', '50%');

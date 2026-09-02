@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
+import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
 import { DEFAULT_LOGO_APPEARANCE } from '@/lib/logoAppearance';
 
 describe('AppearanceFilteredContent', () => {
@@ -19,5 +19,28 @@ describe('AppearanceFilteredContent', () => {
     expect(markup).toContain('width="100%"');
     expect(markup).toContain('height="100%"');
     expect(markup).not.toContain('viewBox="0 0 100 100"');
+  });
+
+  it('renders the filter graph as SVG elements without injecting markup', () => {
+    const markup = renderToStaticMarkup(
+      <LogoAppearancePreview
+        ariaLabel='Logo'
+        color='#FFFFFF'
+        logoPath='data:image/svg+xml,%3Csvg%2F%3E'
+        settings={{
+          ...DEFAULT_LOGO_APPEARANCE,
+          borderEnabled: true,
+          ditherEnabled: true,
+          invert: true,
+          shadowEnabled: true,
+        }}
+      />
+    );
+
+    expect(markup).toContain('<feTurbulence');
+    expect(markup).toContain('<feMorphology');
+    expect(markup).toContain('<feGaussianBlur');
+    expect(markup).toContain('<feMergeNode in="dithered"');
+    expect(markup).not.toContain('dangerouslySetInnerHTML');
   });
 });

@@ -15,7 +15,7 @@ import {
   Trash2,
   Type,
   Upload,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
@@ -42,6 +42,7 @@ import {
   type BrandTypography,
 } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch, normalizeHex } from '@/lib/color';
+import { blobToDataUrl } from '@/lib/download';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
@@ -147,18 +148,6 @@ function RangeField({
       <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
     </label>
   );
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      if (typeof reader.result === 'string') resolve(reader.result);
-      else reject(new DOMException('The selected file could not be read.'));
-    });
-    reader.addEventListener('error', () => reject(reader.error ?? new DOMException('The selected file could not be read.')));
-    reader.readAsDataURL(file);
-  });
 }
 
 function listValue(values: string[]): string {
@@ -293,7 +282,7 @@ export default function BrandSettingsStudio({
         id: `asset-${crypto.randomUUID()}`,
         label: file.name.replace(/\.[^.]+$/, ''),
         redistribution: 'original',
-        path: await readFileAsDataUrl(file),
+        path: await blobToDataUrl(file),
         surface: 'any',
         tags: [assetType],
         type: assetType,
@@ -325,7 +314,7 @@ export default function BrandSettingsStudio({
         format,
         id: `font-${crypto.randomUUID()}`,
         label: family,
-        path: await readFileAsDataUrl(file),
+        path: await blobToDataUrl(file),
         style: file.name.toLocaleLowerCase().includes('italic') ? 'italic' : 'normal',
         weight: file.name.toLocaleLowerCase().includes('bold') ? MAX_VISIBLE_FONT_WEIGHT : 400,
       };
@@ -396,7 +385,7 @@ export default function BrandSettingsStudio({
           </nav>
         </StudioSidebar>
 
-        <div className='brand-identity-content' data-identity={identity.id} role='main'>
+        <main className='brand-identity-content' data-identity={identity.id}>
           <section className='brand-identity-masthead'>
             <div className='brand-identity-masthead-mark'>
               <ThemeAwareBrandMark className='size-[46px]' identity={identity} />
@@ -749,7 +738,7 @@ export default function BrandSettingsStudio({
             <div>{darkMark ? <img alt='' src={darkMark} /> : <span>{identity.shortName}</span>}</div>
             <div>{lightMark ? <img alt='' src={lightMark} /> : <span>{identity.shortName}</span>}</div>
           </section>
-        </div>
+        </main>
       </div>
       {sourceOpen ? (
         <SourceCodeDrawer

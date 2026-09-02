@@ -1250,6 +1250,121 @@ function hexToLottieColor(hex: string): LottieColor {
   ];
 }
 
+type LottieRecord = Record<string, unknown>;
+
+function paletteSlot(name: unknown, pattern: RegExp, capture = 1): number {
+  const match = typeof name === 'string' ? pattern.exec(name) : null;
+  return Math.max(0, Number(match?.[capture] ?? 1) - 1);
+}
+
+function customizeLottiePaint(
+  record: LottieRecord,
+  next: LottieRecord,
+  colors: readonly string[]
+) {
+  if (record.ty !== 'fl' && record.ty !== 'st') return;
+  if (!record.c || typeof record.c !== 'object') return;
+  const colorProperty = record.c as LottieRecord;
+  if (colorProperty.a !== 0 || !Array.isArray(colorProperty.k)) return;
+  const slot = paletteSlot(record.nm, /Palette (\d+)/);
+  next.c = {
+    ...colorProperty,
+    k: hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818'),
+  };
+}
+
+function customizedTextKeyframe(
+  keyframe: unknown,
+  color: number[],
+  fontFamily: string | undefined
+) {
+  if (!keyframe || typeof keyframe !== 'object') return keyframe;
+  const keyframeRecord = keyframe as LottieRecord;
+  const style = keyframeRecord.s as LottieRecord | undefined;
+  if (!style) return keyframe;
+  const currentFont = typeof style.f === 'string' ? style.f : 'GlyphfieldSans-Regular';
+  const fontStyle = currentFont.endsWith('Semibold')
+    ? 'Semibold'
+    : currentFont.endsWith('Medium') ? 'Medium' : 'Regular';
+  return {
+    ...keyframeRecord,
+    s: {
+      ...style,
+      f: fontFamily ? `BrandFont-${fontStyle}` : currentFont,
+      fc: color,
+    },
+  };
+}
+
+function customizeLottieText(
+  record: LottieRecord,
+  next: LottieRecord,
+  appearance: LottieAppearance,
+  colors: readonly string[]
+) {
+  if (record.ty !== 5 || !record.t || typeof record.t !== 'object') return;
+  const text = next.t as LottieRecord;
+  const documentData = text.d as LottieRecord | undefined;
+  const keyframes = Array.isArray(documentData?.k) ? documentData.k : [];
+  const slot = paletteSlot(record.nm, /Palette (\d+) Text/);
+  const color = hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818').slice(0, 3);
+  text.d = {
+    ...documentData,
+    k: keyframes.map((keyframe) => (
+      customizedTextKeyframe(keyframe, color, appearance.fontFamily)
+    )),
+  };
+  next.t = text;
+}
+
+function customizeLottieGradient(
+  record: LottieRecord,
+  next: LottieRecord,
+  colors: readonly string[]
+) {
+  if (record.ty !== 'gf' || !record.g || typeof record.g !== 'object') return;
+  const gradient = record.g as LottieRecord;
+  const colorProperty = gradient.k as LottieRecord | undefined;
+  const match = typeof record.nm === 'string'
+    ? /Palette Gradient (\d+) (\d+)/.exec(record.nm)
+    : null;
+  if (colorProperty?.a !== 0 || !Array.isArray(colorProperty.k) || !match) return;
+  const fallback = colors[0] ?? '#181818';
+  next.g = {
+    ...gradient,
+    k: {
+      ...colorProperty,
+      k: lottieGradientStops(
+        hexToLottieColor(colors[paletteSlot(record.nm, /Palette Gradient (\d+) (\d+)/, 1)] ?? fallback),
+        hexToLottieColor(colors[paletteSlot(record.nm, /Palette Gradient (\d+) (\d+)/, 2)] ?? fallback),
+      ),
+    },
+  };
+}
+
+function customizeLottieGeometry(
+  record: LottieRecord,
+  next: LottieRecord,
+  appearance: LottieAppearance
+) {
+  if (record.ty === 'st' && record.w && typeof record.w === 'object') {
+    const widthProperty = record.w as LottieRecord;
+    if (widthProperty.a === 0) next.w = { ...widthProperty, k: appearance.strokeWidth };
+  }
+  if (record.ty !== 'rc' || !record.r || typeof record.r !== 'object') return;
+  const radiusProperty = record.r as LottieRecord;
+  const sizeProperty = record.s as LottieRecord | undefined;
+  const size = sizeProperty?.a === 0 && Array.isArray(sizeProperty.k)
+    ? sizeProperty.k.filter((entry): entry is number => typeof entry === 'number')
+    : [];
+  const maximumRadius = size.length >= 2
+    ? Math.max(0, Math.min(size[0] ?? 0, size[1] ?? 0) / 2)
+    : appearance.cornerRadius;
+  if (radiusProperty.a === 0) {
+    next.r = { ...radiusProperty, k: Math.min(appearance.cornerRadius, maximumRadius) };
+  }
+}
+
 export function customizeLottieDocument(
   document: LottieDocument,
   appearance: LottieAppearance,
@@ -1259,95 +1374,12 @@ export function customizeLottieDocument(
   function visit(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(visit);
     if (!value || typeof value !== 'object') return value;
-    const record = value as Record<string, unknown>;
+    const record = value as LottieRecord;
     const next = Object.fromEntries(Object.entries(record).map(([key, child]) => [key, visit(child)]));
-
-    if ((record.ty === 'fl' || record.ty === 'st') && record.c && typeof record.c === 'object') {
-      const colorProperty = record.c as Record<string, unknown>;
-      if (colorProperty.a === 0 && Array.isArray(colorProperty.k)) {
-        const match = typeof record.nm === 'string' ? /Palette (\d+)/.exec(record.nm) : null;
-        const slot = Math.max(0, Number(match?.[1] ?? 1) - 1);
-        next.c = { ...colorProperty, k: hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818') };
-      }
-    }
-
-    if (record.ty === 5 && record.t && typeof record.t === 'object') {
-      const text = next.t as Record<string, unknown>;
-      const documentData = text.d as Record<string, unknown> | undefined;
-      const keyframes = Array.isArray(documentData?.k) ? documentData.k : [];
-      const match = typeof record.nm === 'string' ? /Palette (\d+) Text/.exec(record.nm) : null;
-      const slot = Math.max(0, Number(match?.[1] ?? 1) - 1);
-      const color = hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818').slice(0, 3);
-
-      text.d = {
-        ...documentData,
-        k: keyframes.map((keyframe) => {
-          if (!keyframe || typeof keyframe !== 'object') return keyframe;
-          const keyframeRecord = keyframe as Record<string, unknown>;
-          const style = keyframeRecord.s as Record<string, unknown> | undefined;
-          if (!style) return keyframe;
-          const currentFont = typeof style.f === 'string' ? style.f : 'GlyphfieldSans-Regular';
-          const fontStyle = currentFont.endsWith('Semibold')
-            ? 'Semibold'
-            : currentFont.endsWith('Medium')
-              ? 'Medium'
-              : 'Regular';
-          return {
-            ...keyframeRecord,
-            s: {
-              ...style,
-              f: appearance.fontFamily ? `BrandFont-${fontStyle}` : currentFont,
-              fc: color,
-            },
-          };
-        }),
-      };
-      next.t = text;
-    }
-
-    if (record.ty === 'gf' && record.g && typeof record.g === 'object') {
-      const gradient = record.g as Record<string, unknown>;
-      const colorProperty = gradient.k as Record<string, unknown> | undefined;
-      const match = typeof record.nm === 'string'
-        ? /Palette Gradient (\d+) (\d+)/.exec(record.nm)
-        : null;
-
-      if (colorProperty?.a === 0 && Array.isArray(colorProperty.k) && match) {
-        const fromSlot = Math.max(0, Number(match[1]) - 1);
-        const toSlot = Math.max(0, Number(match[2]) - 1);
-        const fallback = colors[0] ?? '#181818';
-        next.g = {
-          ...gradient,
-          k: {
-            ...colorProperty,
-            k: lottieGradientStops(
-              hexToLottieColor(colors[fromSlot] ?? fallback),
-              hexToLottieColor(colors[toSlot] ?? fallback),
-            ),
-          },
-        };
-      }
-    }
-
-    if (record.ty === 'st' && record.w && typeof record.w === 'object') {
-      const widthProperty = record.w as Record<string, unknown>;
-      if (widthProperty.a === 0) next.w = { ...widthProperty, k: appearance.strokeWidth };
-    }
-
-    if (record.ty === 'rc' && record.r && typeof record.r === 'object') {
-      const radiusProperty = record.r as Record<string, unknown>;
-      const sizeProperty = record.s as Record<string, unknown> | undefined;
-      const size = sizeProperty?.a === 0 && Array.isArray(sizeProperty.k)
-        ? sizeProperty.k.filter((entry): entry is number => typeof entry === 'number')
-        : [];
-      const maximumRadius = size.length >= 2
-        ? Math.max(0, Math.min(size[0] ?? 0, size[1] ?? 0) / 2)
-        : appearance.cornerRadius;
-      if (radiusProperty.a === 0) {
-        next.r = { ...radiusProperty, k: Math.min(appearance.cornerRadius, maximumRadius) };
-      }
-    }
-
+    customizeLottiePaint(record, next, colors);
+    customizeLottieText(record, next, appearance, colors);
+    customizeLottieGradient(record, next, colors);
+    customizeLottieGeometry(record, next, appearance);
     return next;
   }
 
@@ -1414,12 +1446,4 @@ export function customizeLottieDocument(
       ...layers,
     ],
   };
-}
-
-export function recolorLottieDocument(document: LottieDocument, hex: string): LottieDocument {
-  return customizeLottieDocument(document, {
-    colors: [hex],
-    cornerRadius: 8,
-    strokeWidth: 2,
-  });
 }

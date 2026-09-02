@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
   Color,
   DataTexture,
@@ -18,8 +18,6 @@ import type { BackgroundSettings, SurfaceMaterial } from '@/lib/backgroundSvg';
 import HoloClothSurface, { type HoloClothArtworkLayer } from '@/components/HoloClothSurface';
 import { openSurfaceMapPath, type OpenSurfaceAsset, type OpenSurfaceMap } from '@/lib/openSurfaceLibrary';
 import {
-  surfaceTextureCacheKey,
-  surfaceTextureSettings,
   type SurfaceTextureSettings,
 } from '@/lib/surfaceRendering';
 import { browserSupportsWebGL2 } from '@/lib/webglContext';
@@ -59,75 +57,97 @@ function line(value: number, width: number) {
   return 1 - Math.min(1, distance / Math.max(0.001, width));
 }
 
+type ReliefSample = {
+  irregularity: number;
+  irregularNoise: number;
+  noise: number;
+  openArea: number;
+  x: number;
+  y: number;
+};
+
+type ReliefGenerator = (sample: ReliefSample) => number;
+
+const SURFACE_RELIEF_GENERATORS: Partial<Record<SurfaceMaterial, ReliefGenerator>> = {
+  'brushed-metal': ({ noise, y }) => (
+    clamp01(0.5 + (noise - 0.5) * 0.16 + Math.sin(y * 180) * 0.07 + Math.sin(y * 57) * 0.05)
+  ),
+  'carbon-twill': ({ x, y }) => {
+    const twill = (Math.floor(x * 18) + Math.floor(y * 18) * 2) % 4;
+    const diagonal = line((x - y) * 18, 0.26);
+    return clamp01(0.22 + diagonal * 0.48 + (twill === 0 || twill === 3 ? 0.2 : 0.04));
+  },
+  'carved-stone': ({ noise, x, y }) => (
+    clamp01(0.5 + Math.sin(x * 18 + Math.sin(y * 9) * 2.4) * 0.18 + Math.sin(y * 23) * 0.12 + (noise - 0.5) * 0.25)
+  ),
+  'cork-composite': ({ noise, x, y }) => (
+    clamp01(0.34 + noise * 0.42 + (hash(Math.floor(x * 35), Math.floor(y * 35)) > 0.82 ? 0.22 : 0))
+  ),
+  'corrugated-polymer': ({ noise, x }) => (
+    clamp01(0.5 + Math.cos(x * Math.PI * 18) * 0.42 + (noise - 0.5) * 0.04)
+  ),
+  'crackle-glaze': ({ irregularity, irregularNoise, x, y }) => {
+    const crackA = Math.abs(Math.sin(x * 19 + Math.sin(y * 11) * 1.8));
+    const crackB = Math.abs(Math.sin(y * 23 - Math.sin(x * 13) * 1.5));
+    const crack = Math.min(crackA, crackB) < 0.11 + irregularity * 0.05 ? 0.1 : 0.72;
+    return clamp01(crack + irregularNoise * 0.08);
+  },
+  'embossed-paper': ({ noise, x, y }) => (
+    clamp01(0.48 + Math.sin(x * 38) * Math.sin(y * 31) * 0.09 + (noise - 0.5) * 0.22)
+  ),
+  'felted-wool': ({ irregularNoise, x, y }) => (
+    clamp01(0.44 + irregularNoise * 0.42 + Math.sin(x * 83 + y * 31) * 0.06 + Math.sin(y * 97 - x * 17) * 0.05)
+  ),
+  'frosted-glass': ({ noise, x, y }) => (
+    clamp01(0.5 + (noise - 0.5) * 0.34 + Math.sin(x * 51 + y * 37) * 0.05)
+  ),
+  graphite: ({ irregularity, x, y }) => {
+    const flakes = hash(Math.floor(x * 54), Math.floor(y * 54));
+    const layers = Math.sin((x * 0.24 + y) * Math.PI * 76) * 0.07;
+    return clamp01(0.38 + layers + (flakes - 0.5) * (0.18 + irregularity * 0.2));
+  },
+  'hammered-foil': ({ noise, x, y }) => (
+    clamp01(0.48 + Math.sin(x * 31 + Math.sin(y * 17) * 2) * 0.16 + Math.sin(y * 29 + x * 7) * 0.15 + (noise - 0.5) * 0.18)
+  ),
+  'iridescent-film': ({ irregularity, noise, x, y }) => {
+    const film = Math.sin((x * 1.7 + y * 0.8) * Math.PI * 8 + noise * irregularity * 2.4);
+    return clamp01(0.5 + film * 0.035 + (noise - 0.5) * 0.05);
+  },
+  'kerf-wood': ({ irregularity, noise, x, y }) => (
+    clamp01(0.28 + line(x * 11 + Math.sin(y * 7) * (0.06 + irregularity * 0.16), 0.14) * 0.54 + noise * 0.12)
+  ),
+  'linen-weave': ({ irregularity, irregularNoise, x, y }) => {
+    const warp = line(x * 18 + Math.sin(y * 8) * irregularity * 0.24, 0.2);
+    const weft = line(y * 18 + Math.sin(x * 7) * irregularity * 0.2, 0.2);
+    return clamp01(0.18 + Math.max(warp, weft) * 0.62 + Math.min(warp, weft) * 0.18 + irregularNoise * 0.12);
+  },
+  'pebbled-leather': ({ irregularity, irregularNoise, x, y }) => {
+    const cellX = x * 9 - Math.floor(x * 9) - 0.5;
+    const cellY = y * 11 - Math.floor(y * 11) - 0.5;
+    const pebble = 1 - clamp01(Math.hypot(cellX, cellY) * (1.8 + irregularity * 0.5));
+    return clamp01(0.3 + pebble * 0.58 + irregularNoise * 0.18);
+  },
+  'perforated-metal': ({ noise, openArea, x, y }) => {
+    const gridX = x * 12 - Math.floor(x * 12) - 0.5;
+    const gridY = y * 8 - Math.floor(y * 8) - 0.5;
+    const radius = 0.12 + openArea * 0.3;
+    return Math.hypot(gridX, gridY) < radius ? 0.02 : 0.86 + noise * 0.08;
+  },
+  'sandblasted-plaster': ({ irregularNoise, x, y }) => (
+    clamp01(0.46 + irregularNoise * 0.58 + Math.sin(x * 41 + y * 53) * 0.07)
+  ),
+  'woven-wire': ({ x, y }) => {
+    const weaveA = line((x + y) * 10, 0.18);
+    const weaveB = line((x - y) * 10, 0.18);
+    return clamp01(Math.max(weaveA, weaveB) * 0.88 + Math.min(weaveA, weaveB) * 0.12);
+  },
+};
+
 function reliefAt(material: SurfaceMaterial, x: number, y: number, openArea: number, irregularity: number) {
   const noise = hash(Math.floor(x * 96), Math.floor(y * 96));
   const irregularNoise = (noise - 0.5) * irregularity;
-  switch (material) {
-    case 'kerf-wood':
-      return clamp01(0.28 + line(x * 11 + Math.sin(y * 7) * (0.06 + irregularity * 0.16), 0.14) * 0.54 + noise * 0.12);
-    case 'woven-wire': {
-      const weaveA = line((x + y) * 10, 0.18);
-      const weaveB = line((x - y) * 10, 0.18);
-      return clamp01(Math.max(weaveA, weaveB) * 0.88 + Math.min(weaveA, weaveB) * 0.12);
-    }
-    case 'perforated-metal': {
-      const gridX = x * 12 - Math.floor(x * 12) - 0.5;
-      const gridY = y * 8 - Math.floor(y * 8) - 0.5;
-      const radius = 0.12 + openArea * 0.3;
-      return Math.hypot(gridX, gridY) < radius ? 0.02 : 0.86 + noise * 0.08;
-    }
-    case 'carved-stone':
-      return clamp01(0.5 + Math.sin(x * 18 + Math.sin(y * 9) * 2.4) * 0.18 + Math.sin(y * 23) * 0.12 + (noise - 0.5) * 0.25);
-    case 'embossed-paper':
-      return clamp01(0.48 + Math.sin(x * 38) * Math.sin(y * 31) * 0.09 + (noise - 0.5) * 0.22);
-    case 'brushed-metal':
-      return clamp01(0.5 + (noise - 0.5) * 0.16 + Math.sin(y * 180) * 0.07 + Math.sin(y * 57) * 0.05);
-    case 'hammered-foil':
-      return clamp01(0.48 + Math.sin(x * 31 + Math.sin(y * 17) * 2) * 0.16 + Math.sin(y * 29 + x * 7) * 0.15 + (noise - 0.5) * 0.18);
-    case 'corrugated-polymer':
-      return clamp01(0.5 + Math.cos(x * Math.PI * 18) * 0.42 + (noise - 0.5) * 0.04);
-    case 'cork-composite':
-      return clamp01(0.34 + noise * 0.42 + (hash(Math.floor(x * 35), Math.floor(y * 35)) > 0.82 ? 0.22 : 0));
-    case 'frosted-glass':
-      return clamp01(0.5 + (noise - 0.5) * 0.34 + Math.sin(x * 51 + y * 37) * 0.05);
-    case 'iridescent-film': {
-      const film = Math.sin((x * 1.7 + y * 0.8) * Math.PI * 8 + noise * irregularity * 2.4);
-      return clamp01(0.5 + film * 0.035 + (noise - 0.5) * 0.05);
-    }
-    case 'linen-weave': {
-      const warp = line(x * 18 + Math.sin(y * 8) * irregularity * 0.24, 0.2);
-      const weft = line(y * 18 + Math.sin(x * 7) * irregularity * 0.2, 0.2);
-      return clamp01(0.18 + Math.max(warp, weft) * 0.62 + Math.min(warp, weft) * 0.18 + irregularNoise * 0.12);
-    }
-    case 'felted-wool':
-      return clamp01(0.44 + irregularNoise * 0.42 + Math.sin(x * 83 + y * 31) * 0.06 + Math.sin(y * 97 - x * 17) * 0.05);
-    case 'pebbled-leather': {
-      const cellX = x * 9 - Math.floor(x * 9) - 0.5;
-      const cellY = y * 11 - Math.floor(y * 11) - 0.5;
-      const pebble = 1 - clamp01(Math.hypot(cellX, cellY) * (1.8 + irregularity * 0.5));
-      return clamp01(0.3 + pebble * 0.58 + irregularNoise * 0.18);
-    }
-    case 'crackle-glaze': {
-      const crackA = Math.abs(Math.sin(x * 19 + Math.sin(y * 11) * 1.8));
-      const crackB = Math.abs(Math.sin(y * 23 - Math.sin(x * 13) * 1.5));
-      const crack = Math.min(crackA, crackB) < 0.11 + irregularity * 0.05 ? 0.1 : 0.72;
-      return clamp01(crack + irregularNoise * 0.08);
-    }
-    case 'sandblasted-plaster':
-      return clamp01(0.46 + irregularNoise * 0.58 + Math.sin(x * 41 + y * 53) * 0.07);
-    case 'graphite': {
-      const flakes = hash(Math.floor(x * 54), Math.floor(y * 54));
-      const layers = Math.sin((x * 0.24 + y) * Math.PI * 76) * 0.07;
-      return clamp01(0.38 + layers + (flakes - 0.5) * (0.18 + irregularity * 0.2));
-    }
-    case 'carbon-twill': {
-      const twill = (Math.floor(x * 18) + Math.floor(y * 18) * 2) % 4;
-      const diagonal = line((x - y) * 18, 0.26);
-      return clamp01(0.22 + diagonal * 0.48 + (twill === 0 || twill === 3 ? 0.2 : 0.04));
-    }
-    default:
-      return 0.5;
-  }
+  const generator = SURFACE_RELIEF_GENERATORS[material];
+  return generator?.({ irregularity, irregularNoise, noise, openArea, x, y }) ?? 0.5;
 }
 
 function buildSurfaceTextures(settings: SurfaceTextureSettings) {
@@ -182,16 +202,17 @@ function buildSurfaceTextures(settings: SurfaceTextureSettings) {
 
 function ContextGuard({ onLost }: { onLost: () => void }) {
   const { gl } = useThree();
+  const reportContextLoss = useEffectEvent(onLost);
 
   useEffect(() => {
     const canvas = gl.domElement;
     const handleLost = (event: Event) => {
       event.preventDefault();
-      onLost();
+      reportContextLoss();
     };
     canvas.addEventListener('webglcontextlost', handleLost);
     return () => canvas.removeEventListener('webglcontextlost', handleLost);
-  }, [gl, onLost]);
+  }, [gl]);
 
   return null;
 }
@@ -248,19 +269,111 @@ function useOpenSurfaceMaps(asset: OpenSurfaceAsset | undefined, settings: Backg
   return maps;
 }
 
+type SurfaceMaterialProfile = {
+  directional: boolean;
+  film: boolean;
+  glass: boolean;
+  textile: boolean;
+};
+
+function SurfacePhysicalMaterial({
+  bumpScale,
+  bumpTexture,
+  colorTexture,
+  metallic,
+  normalScale,
+  opacity,
+  openMaps,
+  profile,
+  roughness,
+  settings,
+}: {
+  bumpScale: number;
+  bumpTexture: Texture;
+  colorTexture: Texture;
+  metallic: number;
+  normalScale: Vector2;
+  opacity: number;
+  openMaps: LoadedSurfaceMaps | null;
+  profile: SurfaceMaterialProfile;
+  roughness: number;
+  settings: BackgroundSettings;
+}) {
+  const { directional, film, glass, textile } = profile;
+  return (
+    <meshPhysicalMaterial
+      bumpMap={openMaps?.displacement ?? bumpTexture}
+      bumpScale={bumpScale}
+      anisotropy={directional ? Math.max(0.2, settings.surfaceTextureAmount / 100) : 0}
+      anisotropyRotation={(settings.surfaceAngle * Math.PI) / 180}
+      clearcoat={film ? 1 : glass || metallic > 0.45 ? 0.78 : 0.2}
+      clearcoatRoughness={film ? Math.max(0.03, roughness * 0.28) : Math.max(0.04, roughness * 0.42)}
+      color='#ffffff'
+      envMapIntensity={1.25}
+      ior={1.46}
+      iridescence={film ? settings.surfaceTextureAmount / 100 : 0}
+      iridescenceIOR={film ? 1.3 + settings.surfaceMetallic / 500 : 1.3}
+      iridescenceThicknessRange={film
+        ? [120 + settings.surfaceAngle * 1.2, 420 + settings.surfaceOpenArea * 5]
+        : [100, 400]}
+      map={openMaps?.color ?? colorTexture}
+      metalnessMap={openMaps?.metalness}
+      metalness={metallic}
+      normalMap={openMaps?.normal}
+      normalScale={normalScale}
+      opacity={opacity}
+      roughnessMap={openMaps?.roughness}
+      roughness={roughness}
+      sheen={textile ? 0.72 : 0}
+      sheenColor={settings.colorC}
+      sheenRoughness={Math.min(1, roughness + 0.12)}
+      thickness={glass ? 0.65 : 0}
+      transmission={glass ? 0.62 : 0}
+      transparent={opacity < 1}
+      depthWrite={opacity >= 1}
+    />
+  );
+}
+
 function StaticSurfacePanel({ asset, opacity = 1, presentation = 'showcase', settings, transparent = false }: SurfaceMaterialStageProps) {
   const { viewport } = useThree();
   const flat = presentation === 'flat';
-  const textureCacheKey = surfaceTextureCacheKey(settings);
+  const textureSettings = useMemo<SurfaceTextureSettings>(() => ({
+    colorA: settings.colorA,
+    colorB: settings.colorB,
+    colorC: settings.colorC,
+    surfaceAngle: settings.surfaceAngle,
+    surfaceIrregularity: settings.surfaceIrregularity,
+    surfaceMaterial: settings.surfaceMaterial,
+    surfaceOpenArea: settings.surfaceOpenArea,
+    surfaceScale: settings.surfaceScale,
+    surfaceTextureAmount: settings.surfaceTextureAmount,
+  }), [
+    settings.colorA,
+    settings.colorB,
+    settings.colorC,
+    settings.surfaceAngle,
+    settings.surfaceIrregularity,
+    settings.surfaceMaterial,
+    settings.surfaceOpenArea,
+    settings.surfaceScale,
+    settings.surfaceTextureAmount,
+  ]);
   const { bumpTexture, colorTexture } = useMemo(
-    () => buildSurfaceTextures(surfaceTextureSettings(settings)),
-    [textureCacheKey]
+    () => buildSurfaceTextures(textureSettings),
+    [textureSettings]
   );
   const openMaps = useOpenSurfaceMaps(asset, settings);
   const isGlass = settings.surfaceMaterial === 'frosted-glass';
   const isFilm = settings.surfaceMaterial === 'iridescent-film';
   const isTextile = ['felted-wool', 'linen-weave'].includes(settings.surfaceMaterial);
   const isDirectional = ['brushed-metal', 'carbon-twill', 'iridescent-film'].includes(settings.surfaceMaterial);
+  const profile = useMemo<SurfaceMaterialProfile>(() => ({
+    directional: isDirectional,
+    film: isFilm,
+    glass: isGlass,
+    textile: isTextile,
+  }), [isDirectional, isFilm, isGlass, isTextile]);
   const metallic = isGlass ? 0.05 : settings.surfaceMetallic / 100;
   const roughness = Math.max(0.08, settings.surfaceRoughness / 100);
   const bumpScale = 0.006 + settings.surfaceDepth / 100 * 0.22 * (settings.surfaceTextureAmount / 100);
@@ -285,36 +398,17 @@ function StaticSurfacePanel({ asset, opacity = 1, presentation = 'showcase', set
           ) : (
             <boxGeometry args={[4.5, 2.55, 0.2, 96, 56, 4]} />
           )}
-          <meshPhysicalMaterial
-            bumpMap={openMaps?.displacement ?? bumpTexture}
+          <SurfacePhysicalMaterial
             bumpScale={bumpScale}
-            anisotropy={isDirectional ? Math.max(0.2, settings.surfaceTextureAmount / 100) : 0}
-            anisotropyRotation={(settings.surfaceAngle * Math.PI) / 180}
-            clearcoat={isFilm ? 1 : isGlass || metallic > 0.45 ? 0.78 : 0.2}
-            clearcoatRoughness={isFilm ? Math.max(0.03, roughness * 0.28) : Math.max(0.04, roughness * 0.42)}
-            color='#ffffff'
-            envMapIntensity={1.25}
-            ior={1.46}
-            iridescence={isFilm ? settings.surfaceTextureAmount / 100 : 0}
-            iridescenceIOR={isFilm ? 1.3 + settings.surfaceMetallic / 500 : 1.3}
-            iridescenceThicknessRange={isFilm
-              ? [120 + settings.surfaceAngle * 1.2, 420 + settings.surfaceOpenArea * 5]
-              : [100, 400]}
-            map={openMaps?.color ?? colorTexture}
-            metalnessMap={openMaps?.metalness}
-            metalness={metallic}
-            normalMap={openMaps?.normal}
+            bumpTexture={bumpTexture}
+            colorTexture={colorTexture}
+            metallic={metallic}
             normalScale={normalScale}
             opacity={opacity}
-            roughnessMap={openMaps?.roughness}
+            openMaps={openMaps}
+            profile={profile}
             roughness={roughness}
-            sheen={isTextile ? 0.72 : 0}
-            sheenColor={settings.colorC}
-            sheenRoughness={Math.min(1, roughness + 0.12)}
-            thickness={isGlass ? 0.65 : 0}
-            transmission={isGlass ? 0.62 : 0}
-            transparent={opacity < 1}
-            depthWrite={opacity >= 1}
+            settings={settings}
           />
         </mesh>
       </group>

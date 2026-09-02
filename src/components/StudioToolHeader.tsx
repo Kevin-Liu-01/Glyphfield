@@ -1,54 +1,12 @@
 'use client';
 
-import {
-  Aperture,
-  Blend,
-  BookMarked,
-  BookOpen,
-  Braces,
-  Component,
-  FileJson2,
-  Frame,
-  Image as ImageIcon,
-  LayoutGrid,
-  MonitorPlay,
-  Palette,
-  PanelsTopLeft,
-  ScanLine,
-  Settings2,
-  Shapes,
-  Type,
-  Waves,
-  type LucideIcon,
-} from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 
+import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import type { StudioToolId } from '@/lib/studioCatalog';
 import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 import styles from './StudioToolHeader.module.css';
-
-export const STUDIO_TOOL_ICONS: Record<StudioToolId, LucideIcon> = {
-  animation: Blend,
-  backgrounds: ScanLine,
-  blog: BookOpen,
-  'brand-book': BookMarked,
-  'brand-elements': LayoutGrid,
-  buttons: Component,
-  colors: Palette,
-  'design-board': PanelsTopLeft,
-  identity: Settings2,
-  logo: Aperture,
-  'logo-shader': Waves,
-  lottie: FileJson2,
-  material: Frame,
-  opengraph: ImageIcon,
-  partnership: Shapes,
-  slides: MonitorPlay,
-  surface: Shapes,
-  terminal: Braces,
-  typography: Type,
-};
 
 export type StudioToolHeaderProps = {
   actions?: ReactNode;

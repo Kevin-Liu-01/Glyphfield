@@ -2,15 +2,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import {
-  StudioInspectorSection,
-  StudioPanelHeader,
+  LabInspectorSection,
+  LabPanelHeading,
   StudioSidebar,
 } from '@/components/LabWorkspace';
 
 describe('LabWorkspace', () => {
   it('renders the shared panel heading contract', () => {
     const markup = renderToStaticMarkup(
-      <StudioPanelHeader
+      <LabPanelHeading
         action={<button type='button'>Reset</button>}
         description='Focused controls'
         title='Typography'
@@ -26,9 +26,9 @@ describe('LabWorkspace', () => {
 
   it('renders icon and metadata in the shared inspector section', () => {
     const markup = renderToStaticMarkup(
-      <StudioInspectorSection icon={<span>i</span>} meta='Live' title='Motion'>
+      <LabInspectorSection icon={<span>i</span>} meta='Live' title='Motion'>
         <input aria-label='Speed' type='range' />
-      </StudioInspectorSection>
+      </LabInspectorSection>
     );
 
     expect(markup).toContain('data-studio-inspector-section="true"');

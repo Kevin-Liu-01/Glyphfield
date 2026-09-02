@@ -35,18 +35,20 @@ import {
   Sun,
   Trash2,
   X,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 import { useThemeOverride } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
+import StudioCommandPalette from '@/components/StudioCommandPalette';
 import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
-import { STUDIO_TOOL_ICONS } from '@/components/StudioToolHeader';
+import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { useMountEffect } from '@/hooks/useMountEffect';
+import { useHydrated, useMountEffect } from '@/hooks/useMountEffect';
+import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import {
   createBrandIdentity,
@@ -66,6 +68,7 @@ import {
   STUDIO_CATEGORIES,
   STUDIO_TOOLS,
   type ProjectTabPlacement,
+  type StudioTool,
   type StudioToolId,
 } from '@/lib/studioCatalog';
 
@@ -106,10 +109,6 @@ const LEGACY_SURFACE_TOOL_MODES = {
   backgrounds: 'background',
   logo: 'logo',
 } as const;
-const RETAINED_WORKSPACE_TOOL_IDS = new Set<StudioToolId>(['animation', 'material']);
-const MATERIAL_TOOL = STUDIO_TOOLS.find(({ id }) => id === 'material');
-const EMPTY_TOOL_IDS: StudioToolId[] = [];
-
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
 
 type ProjectTabDragState = {
@@ -143,6 +142,15 @@ const DEFAULT_APPEARANCE: StudioAppearance = {
 
 type ResolvedTheme = 'light' | 'dark';
 
+function resolveStudioTheme(
+  requestedTheme: StudioAppearance['theme'],
+  systemTheme: string | undefined,
+  themeReady: boolean
+): ResolvedTheme {
+  if (requestedTheme !== 'system') return requestedTheme;
+  return themeReady && systemTheme === 'dark' ? 'dark' : 'light';
+}
+
 const PROJECT_FOLDERS: readonly { id: ProjectFolderId; label: string }[] = [
   { id: 'all', label: 'All projects' },
   { id: 'templates', label: 'Templates' },
@@ -159,6 +167,89 @@ function identityBelongsToFolder(identity: BrandIdentity, folderId: ProjectFolde
 
 function isProjectFolderId(value: string): value is ProjectFolderId {
   return PROJECT_FOLDERS.some(({ id }) => id === value);
+}
+
+function readStoredIdentities(): BrandIdentity[] {
+  const stored = window.localStorage.getItem(PROJECTS_STORAGE_KEY)
+    ?? LEGACY_PROJECTS_STORAGE_KEYS
+      .map((key) => window.localStorage.getItem(key))
+      .find((value) => value !== null);
+  return hydrateBrandIdentities(stored ? JSON.parse(stored) : null);
+}
+
+function resolveStoredStudioTool(storedTool: string | null, identityId: string): StudioToolId | null {
+  if (storedTool === 'logo-shader') return 'material';
+  if (storedTool && storedTool in LEGACY_SURFACE_TOOL_MODES) {
+    window.localStorage.setItem(
+      `glyphfield-draft-v1:${identityId}:surface:mode-v2`,
+      JSON.stringify(LEGACY_SURFACE_TOOL_MODES[storedTool as keyof typeof LEGACY_SURFACE_TOOL_MODES])
+    );
+    return 'surface';
+  }
+  if (
+    storedTool === 'surface'
+    && window.localStorage.getItem(`glyphfield-draft-v1:${identityId}:surface:mode`) === JSON.stringify('material')
+  ) return 'material';
+  return storedTool && STUDIO_TOOLS.some(({ id }) => id === storedTool)
+    ? storedTool as StudioToolId
+    : null;
+}
+
+function resolveLaunchFolder(
+  activeIdentity: BrandIdentity,
+  requestedFolderId: ProjectFolderId | null,
+  requestedProject: BrandIdentity | undefined,
+  storedFolder: string | null
+): { folderId: ProjectFolderId; persist: boolean } {
+  if (requestedFolderId && identityBelongsToFolder(activeIdentity, requestedFolderId)) {
+    return { folderId: requestedFolderId, persist: true };
+  }
+  if (requestedProject?.kind === 'example') return { folderId: 'examples', persist: true };
+  if (
+    storedFolder
+    && isProjectFolderId(storedFolder)
+    && identityBelongsToFolder(activeIdentity, storedFolder)
+  ) return { folderId: storedFolder, persist: false };
+  return { folderId: 'all', persist: false };
+}
+
+function loadStudioLaunchState() {
+  const identities = readStoredIdentities();
+  const parameters = new URLSearchParams(window.location.search);
+  const requestedTool = parameters.get('tool');
+  const requestedProjectId = parameters.get('project');
+  const requestedFolderValue = parameters.get('folder');
+  const requestedFolderId = requestedFolderValue && isProjectFolderId(requestedFolderValue)
+    ? requestedFolderValue
+    : null;
+  const requestedProject = identities.find(({ id }) => id === requestedProjectId);
+  const requestedFolderProject = requestedFolderId
+    ? identities.find((identity) => identityBelongsToFolder(identity, requestedFolderId))
+    : undefined;
+  const storedIdentityId = window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY)
+    ?? window.localStorage.getItem('gt-studio-active-identity-v2');
+  const activeIdentity = requestedProject
+    ?? requestedFolderProject
+    ?? identities.find(({ id }) => id === storedIdentityId)
+    ?? identities[0]
+    ?? STARTER_BRAND_IDENTITY;
+  return {
+    activeIdentity,
+    folder: resolveLaunchFolder(
+      activeIdentity,
+      requestedFolderId,
+      requestedProject,
+      window.localStorage.getItem(ACTIVE_FOLDER_STORAGE_KEY)
+    ),
+    hasStoredTabs: window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) !== null,
+    identities,
+    requestedSelection: Boolean(requestedProject || requestedFolderProject),
+    toolId: resolveStoredStudioTool(requestedTool, activeIdentity.id)
+      ?? resolveStoredStudioTool(
+        window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY),
+        activeIdentity.id
+      ),
+  };
 }
 
 function ProjectFolderMenu({
@@ -185,29 +276,9 @@ function ProjectFolderMenu({
   const folderProjects = identities.filter((identity) =>
     identityBelongsToFolder(identity, activeFolderId)
   );
+  const openIdentityIdSet = useMemo(() => new Set(openIdentityIds), [openIdentityIds]);
 
-  useMountEffect(() => {
-    function closeMenu(event: PointerEvent) {
-      if (
-        event.target instanceof Element &&
-        event.target.closest('[data-radix-popper-content-wrapper]')
-      ) {
-        return;
-      }
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-
-    document.addEventListener('pointerdown', closeMenu);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeMenu);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  });
+  useDismissibleMenu(menuRef, () => setOpen(false), '[data-radix-popper-content-wrapper]');
 
   return (
     <div className='project-folder-menu' ref={menuRef}>
@@ -257,7 +328,7 @@ function ProjectFolderMenu({
           </div>
           <div className='project-folder-projects'>
             {folderProjects.map((identity) => {
-              const isOpen = openIdentityIds.includes(identity.id);
+              const isOpen = openIdentityIdSet.has(identity.id);
               const isActive = identity.id === activeIdentityId;
 
               return (
@@ -303,34 +374,12 @@ function AppearanceMenu({
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useMountEffect(() => {
-    function closeMenu(event: PointerEvent) {
-      if (
-        event.target instanceof Element &&
-        event.target.closest('[data-radix-popper-content-wrapper]')
-      ) {
-        return;
-      }
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-
-    document.addEventListener('pointerdown', closeMenu);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeMenu);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  });
+  useDismissibleMenu(menuRef, () => setOpen(false), '[data-radix-popper-content-wrapper]');
 
   return (
     <div className='appearance-menu' ref={menuRef}>
       <Button
         aria-expanded={open}
-        aria-haspopup='dialog'
         aria-label={gt('Visual customization')}
         onClick={() => setOpen((current) => !current)}
         size='icon-sm'
@@ -341,7 +390,7 @@ function AppearanceMenu({
         <Settings2 aria-hidden='true' />
       </Button>
       {open ? (
-        <div aria-label={gt('Visual customization')} className='appearance-popover' role='dialog'>
+        <div aria-label={gt('Visual customization')} className='appearance-popover' role='region'>
           <div className='appearance-popover-header'>
             <span>
               <Settings2 aria-hidden='true' />
@@ -488,134 +537,176 @@ function AppearanceMenu({
   );
 }
 
-function StudioCommandPalette({
+function ProjectTabMark({ identity, selected }: { identity: BrandIdentity; selected: boolean }) {
+  return (
+    <ThemeAwareBrandMark
+      className='project-tab-mark'
+      identity={identity}
+      inverse={selected}
+    />
+  );
+}
+
+function StudioWorkspacePanels({
+  activeIdentity,
+  activeTool,
   activeToolId,
-  onClose,
-  onSelect,
-  query,
-  setQuery,
-  tools,
+  hasPendingIdentityChanges,
+  onIdentityChange,
 }: {
+  activeIdentity: BrandIdentity;
+  activeTool: StudioTool;
   activeToolId: StudioToolId;
-  onClose: () => void;
-  onSelect: (toolId: StudioToolId) => void;
-  query: string;
-  setQuery: (query: string) => void;
-  tools: ReturnType<typeof filterStudioTools>;
+  hasPendingIdentityChanges: boolean;
+  onIdentityChange: (identity: BrandIdentity) => void;
 }) {
-  const gt = useGT();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useMountEffect(() => {
-    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  });
-
-  function selectResult(toolId: StudioToolId) {
-    onSelect(toolId);
-    onClose();
-  }
-
   return (
     <div
-      className='studio-command-overlay'
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onClose();
-      }}
+      className='studio-workspace-panel'
+      key={`${activeIdentity.id}-${activeTool.id}`}
     >
-      <section
-        aria-label={gt('Search Studio tools')}
-        aria-modal='true'
-        className='studio-command-dialog'
-        role='dialog'
-      >
-        <header className='studio-command-search'>
-          <Search aria-hidden='true' />
-          <input
-            aria-activedescendant={tools[activeIndex] ? `studio-command-${tools[activeIndex].id}` : undefined}
-            aria-controls='studio-command-results'
-            aria-expanded='true'
-            aria-label={gt('Search Studio tools')}
-            autoComplete='off'
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setActiveIndex(0);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                if (tools.length > 0) {
-                  setActiveIndex((current) => Math.min(current + 1, tools.length - 1));
-                }
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                setActiveIndex((current) => Math.max(current - 1, 0));
-              } else if (event.key === 'Enter' && tools[activeIndex]) {
-                event.preventDefault();
-                selectResult(tools[activeIndex].id);
-              } else if (event.key === 'Escape') {
-                event.preventDefault();
-                onClose();
-              }
-            }}
-            placeholder={gt('Search email, logos, motion, slides…')}
-            ref={inputRef}
-            role='combobox'
-            value={query}
-          />
-          <kbd>ESC</kbd>
-        </header>
-
-        <div className='studio-command-heading'>
-          <span><T>Studio tools</T></span>
-          <span>{tools.length} {tools.length === 1 ? <T>result</T> : <T>results</T>}</span>
-        </div>
-
-        <div className='studio-command-results' id='studio-command-results' role='listbox'>
-          {tools.map((tool, index) => {
-            const Icon = STUDIO_TOOL_ICONS[tool.id];
-            const selected = index === activeIndex;
-            return (
-              <button
-                aria-selected={selected}
-                className='studio-command-result'
-                data-active-tool={tool.id === activeToolId ? 'true' : undefined}
-                id={`studio-command-${tool.id}`}
-                key={tool.id}
-                onClick={() => selectResult(tool.id)}
-                onMouseEnter={() => setActiveIndex(index)}
-                role='option'
-                type='button'
-              >
-                <span className='studio-command-result-icon'><Icon aria-hidden='true' /></span>
-                <span className='studio-command-result-copy'>
-                  <strong>{gt(tool.name)}</strong>
-                  <small>{gt(tool.description)}</small>
-                </span>
-                <span className='studio-command-result-meta'>
-                  <span>{gt(tool.category)}</span>
-                  <kbd>{tool.shortcut}</kbd>
-                </span>
-              </button>
-            );
-          })}
-          {tools.length === 0 ? (
-            <div className='studio-command-empty'>
-              <Search aria-hidden='true' />
-              <strong><T>No tool found</T></strong>
-              <span><T>Try “email,” “logo,” “shader,” or “slides.”</T></span>
-            </div>
-          ) : null}
-        </div>
-
-        <footer className='studio-command-footer'>
-          <span><kbd>↑</kbd><kbd>↓</kbd><T>Navigate</T></span>
-          <span><kbd>↵</kbd><T>Open tool</T></span>
-          <span className='ml-auto'><T>Search every Studio surface</T></span>
-        </footer>
-      </section>
+      {activeToolId === 'animation' ? (
+          <AnimationStudio embedded identity={activeIdentity} />
+      ) : activeToolId === 'identity' ? (
+        <BrandSettingsStudio
+          hasPendingChanges={hasPendingIdentityChanges}
+          identity={activeIdentity}
+          onChange={onIdentityChange}
+          tool={activeTool}
+        />
+      ) : activeToolId === 'lottie' ? (
+        <LottieStudio identity={activeIdentity} />
+      ) : (
+        <StudioToolWorkspace
+          hasPendingIdentityChanges={hasPendingIdentityChanges}
+          identity={activeIdentity}
+          onIdentityChange={onIdentityChange}
+          tool={activeTool}
+        />
+      )}
     </div>
+  );
+}
+
+function ClosedProjectNotice() {
+  return (
+    <div className='studio-closed-projects-empty'>
+      <Folder aria-hidden='true' />
+      <div>
+        <h2><T>No project tab open</T></h2>
+        <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
+      </div>
+    </div>
+  );
+}
+
+function StudioSaveToast({
+  identityId,
+  onIgnore,
+  onSave,
+  visible,
+}: {
+  identityId: string;
+  onIgnore: (identityId: string) => void;
+  onSave: (identityId: string) => void;
+  visible: boolean;
+}) {
+  if (!visible) return null;
+  return (
+    <div aria-live='polite' className='studio-save-toast' role='status'>
+      <div className='studio-save-toast-copy'>
+        <strong><T>Save these brand changes?</T></strong>
+        <span><T>Apply them across every design, or ignore this draft.</T></span>
+      </div>
+      <Button onClick={() => onIgnore(identityId)} size='sm' type='button' variant='ghost'>
+        <T>Ignore</T>
+      </Button>
+      <Button onClick={() => onSave(identityId)} size='sm' type='button'>
+        <Save aria-hidden='true' />
+        <T>Save changes</T>
+      </Button>
+    </div>
+  );
+}
+
+function StudioAppHeader({
+  activeToolId,
+  appearance,
+  onAppearanceChange,
+  onCommandOpen,
+  onThemeChange,
+  onToolSelect,
+  resolvedTheme,
+}: {
+  activeToolId: StudioToolId;
+  appearance: StudioAppearance;
+  onAppearanceChange: (patch: Partial<StudioAppearance>) => void;
+  onCommandOpen: () => void;
+  onThemeChange: (theme: ResolvedTheme) => void;
+  onToolSelect: (toolId: StudioToolId) => void;
+  resolvedTheme: ResolvedTheme;
+}) {
+  const gt = useGT();
+  const alternateTheme = resolvedTheme === 'light' ? 'dark' : 'light';
+  const alternateThemeLabel = resolvedTheme === 'light' ? gt('Dark mode') : gt('Light mode');
+
+  return (
+    <header className='app-navbar studio-app-header border-b border-border bg-background'>
+      <Link
+        className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'
+        href='/'
+      >
+        <Image
+          alt={gt('Glyphfield mark')}
+          className='size-7 object-contain'
+          height={28}
+          priority
+          src={PRODUCT_BRAND.markPath}
+          width={28}
+        />
+        <p className='truncate text-sm font-semibold tracking-tight'>{PRODUCT_BRAND.name}</p>
+      </Link>
+
+      <div className='studio-search-bar flex min-w-0 items-center gap-2 px-3'>
+        <StudioSelect
+          ariaLabel={gt('Active Studio tool')}
+          className='studio-mobile-tool min-w-0'
+          onValueChange={(value) => onToolSelect(value as StudioToolId)}
+          options={STUDIO_TOOLS.map((tool) => ({ label: gt(tool.name), value: tool.id }))}
+          value={activeToolId}
+        />
+        <button
+          aria-haspopup='dialog'
+          aria-keyshortcuts='Meta+K Control+K /'
+          className='studio-command-launcher flex h-9 min-w-0 flex-1 max-w-xl items-center gap-2 border border-input bg-background px-3 text-left hover:border-foreground'
+          onClick={onCommandOpen}
+          type='button'
+        >
+          <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
+          <span className='min-w-0 flex-1 truncate text-sm text-muted-foreground'><T>Search Studio tools…</T></span>
+          <kbd className='hidden border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
+        </button>
+        <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
+          <GitHubStarButton className='studio-github-star-button' />
+          <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
+            <Link aria-label={gt('Open documentation')} href='/docs'>
+              <BookOpen aria-hidden='true' />
+            </Link>
+          </Button>
+          <AppearanceMenu appearance={appearance} onChange={onAppearanceChange} />
+          <Button
+            aria-label={gt('Switch to {theme} mode', { theme: alternateTheme })}
+            onClick={() => onThemeChange(alternateTheme)}
+            size='icon-sm'
+            title={alternateThemeLabel}
+            type='button'
+            variant='outline'
+          >
+            {alternateTheme === 'dark' ? <Moon aria-hidden='true' /> : <Sun aria-hidden='true' />}
+          </Button>
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -627,10 +718,6 @@ export default function StudioApp() {
     systemTheme,
   } = useTheme();
   const [activeToolId, setActiveToolId] = useState<StudioToolId>('identity');
-  const [retainedWorkspaces, setRetainedWorkspaces] = useState<{
-    identityId: string;
-    toolIds: StudioToolId[];
-  }>({ identityId: STARTER_BRAND_IDENTITY.id, toolIds: [] });
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
   );
@@ -676,16 +763,13 @@ export default function StudioApp() {
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
   );
-  const [themeReady, setThemeReady] = useState(false);
+  const themeReady = useHydrated();
   const resolvedAppearance = { ...DEFAULT_APPEARANCE, ...appearance };
-  const resolvedTheme: ResolvedTheme =
-    resolvedAppearance.theme === 'system'
-      ? themeReady && systemTheme === 'dark'
-        ? 'dark'
-        : 'light'
-      : resolvedAppearance.theme;
-
-  useEffect(() => setThemeReady(true), []);
+  const resolvedTheme = resolveStudioTheme(
+    resolvedAppearance.theme,
+    systemTheme,
+    themeReady
+  );
 
   useEffect(() => {
     setProviderTheme(resolvedAppearance.theme);
@@ -701,9 +785,6 @@ export default function StudioApp() {
   );
   const activeIdentity =
     resolvedIdentities.find(({ id }) => id === activeIdentityId) ?? resolvedIdentities[0];
-  const retainedWorkspaceToolIds = retainedWorkspaces.identityId === activeIdentity?.id
-    ? retainedWorkspaces.toolIds
-    : EMPTY_TOOL_IDS;
   const activeIdentityHasPendingChanges = Boolean(
     activeIdentity && pendingIdentities[activeIdentity.id]
   );
@@ -729,7 +810,8 @@ export default function StudioApp() {
   const activeProjectTabIndex = visibleIdentities.findIndex(
     ({ id }) => id === activeIdentity?.id
   );
-  const activeIdentityIsOpen = openIdentityIds.includes(activeIdentity?.id ?? '');
+  const openIdentityIdSet = useMemo(() => new Set(openIdentityIds), [openIdentityIds]);
+  const activeIdentityIsOpen = openIdentityIdSet.has(activeIdentity?.id ?? '');
   const folderCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -741,129 +823,31 @@ export default function StudioApp() {
     [resolvedIdentities]
   );
 
-  useEffect(() => {
-    if (!identitiesReady || !activeIdentity) return;
-    const identityId = activeIdentity.id;
-    const warmWorkspaces = () => {
-      startTransition(() => {
-        setRetainedWorkspaces((current) => {
-          if (
-            current.identityId === identityId
-            && RETAINED_WORKSPACE_TOOL_IDS.size === current.toolIds.length
-            && current.toolIds.every((toolId) => RETAINED_WORKSPACE_TOOL_IDS.has(toolId))
-          ) {
-            return current;
-          }
-          return {
-            identityId,
-            toolIds: Array.from(RETAINED_WORKSPACE_TOOL_IDS),
-          };
-        });
-      });
-    };
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleCallback = window.requestIdleCallback(warmWorkspaces, { timeout: 1_500 });
-      return () => window.cancelIdleCallback(idleCallback);
-    }
-    const warmTimer = window.setTimeout(warmWorkspaces, 700);
-    return () => window.clearTimeout(warmTimer);
-  }, [activeIdentity?.id, identitiesReady]);
-
   useMountEffect(() => {
     try {
-      const storedIdentities =
-        window.localStorage.getItem(PROJECTS_STORAGE_KEY) ??
-        LEGACY_PROJECTS_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(
-          (value) => value !== null
-        );
-      const nextIdentities = hydrateBrandIdentities(
-        storedIdentities ? JSON.parse(storedIdentities) : null
-      );
-      const launchParameters = new URLSearchParams(window.location.search);
-      const requestedTool = launchParameters.get('tool');
-      const requestedProjectId = launchParameters.get('project');
-      const requestedFolderValue = launchParameters.get('folder');
-      const requestedFolderId =
-        requestedFolderValue && isProjectFolderId(requestedFolderValue)
-          ? requestedFolderValue
-          : null;
-      const storedActiveIdentity =
-        window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) ??
-        window.localStorage.getItem('gt-studio-active-identity-v2');
-      const storedActiveTool = requestedTool
-        ?? window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
-      const storedActiveFolder = window.localStorage.getItem(ACTIVE_FOLDER_STORAGE_KEY);
-      const requestedProject = nextIdentities.find(({ id }) => id === requestedProjectId);
-      const requestedFolderProject = requestedFolderId
-        ? nextIdentities.find((identity) => identityBelongsToFolder(identity, requestedFolderId))
-        : undefined;
-      const nextActiveIdentity =
-        requestedProject ??
-        requestedFolderProject ??
-        nextIdentities.find(({ id }) => id === storedActiveIdentity) ??
-        nextIdentities[0];
-      setIdentities(nextIdentities);
-      const hasStoredTabs = window.localStorage.getItem(OPEN_TABS_STORAGE_KEY) !== null;
-      if (!hasStoredTabs || requestedProject || requestedFolderProject) {
+      const launch = loadStudioLaunchState();
+      setIdentities(launch.identities);
+      if (!launch.hasStoredTabs || launch.requestedSelection) {
         setOpenIdentityIds((current) => {
-          const initialIds = hasStoredTabs
+          const initialIds = launch.hasStoredTabs
             ? current
             : [
                 STARTER_BRAND_IDENTITY.id,
                 GT_BRAND_IDENTITY.id,
               ];
-          return nextActiveIdentity && !initialIds.includes(nextActiveIdentity.id)
-            ? [...initialIds, nextActiveIdentity.id]
+          return !initialIds.includes(launch.activeIdentity.id)
+            ? [...initialIds, launch.activeIdentity.id]
             : initialIds;
         });
       }
-      if (nextActiveIdentity) {
-        setActiveIdentityId(nextActiveIdentity.id);
-        if (requestedProject || requestedFolderProject) {
-          window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, nextActiveIdentity.id);
-        }
+      setActiveIdentityId(launch.activeIdentity.id);
+      if (launch.requestedSelection) {
+        window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, launch.activeIdentity.id);
       }
-      if (storedActiveTool === 'logo-shader') {
-        setActiveToolId('material');
-      } else if (storedActiveTool && storedActiveTool in LEGACY_SURFACE_TOOL_MODES) {
-        window.localStorage.setItem(
-          `glyphfield-draft-v1:${nextActiveIdentity.id}:surface:mode-v2`,
-          JSON.stringify(
-            LEGACY_SURFACE_TOOL_MODES[
-              storedActiveTool as keyof typeof LEGACY_SURFACE_TOOL_MODES
-            ]
-          )
-        );
-        setActiveToolId('surface');
-      } else if (
-        storedActiveTool === 'surface' &&
-        window.localStorage.getItem(
-          `glyphfield-draft-v1:${nextActiveIdentity.id}:surface:mode`
-        ) === JSON.stringify('material')
-      ) {
-        setActiveToolId('material');
-      } else if (storedActiveTool && STUDIO_TOOLS.some(({ id }) => id === storedActiveTool)) {
-        setActiveToolId(storedActiveTool as StudioToolId);
-      }
-      if (
-        requestedFolderId &&
-        nextActiveIdentity &&
-        identityBelongsToFolder(nextActiveIdentity, requestedFolderId)
-      ) {
-        setActiveFolderId(requestedFolderId);
-        window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, requestedFolderId);
-      } else if (requestedProject?.kind === 'example') {
-        setActiveFolderId('examples');
-        window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'examples');
-      } else if (
-        storedActiveFolder &&
-        isProjectFolderId(storedActiveFolder) &&
-        nextActiveIdentity &&
-        identityBelongsToFolder(nextActiveIdentity, storedActiveFolder)
-      ) {
-        setActiveFolderId(storedActiveFolder);
-      } else {
-        setActiveFolderId('all');
+      if (launch.toolId) setActiveToolId(launch.toolId);
+      setActiveFolderId(launch.folder.folderId);
+      if (launch.folder.persist) {
+        window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, launch.folder.folderId);
       }
     } catch {
       setIdentities(hydrateBrandIdentities(null));
@@ -953,23 +937,12 @@ export default function StudioApp() {
   });
 
   function selectTool(toolId: StudioToolId) {
-    const retainActiveWorkspace = toolId !== activeToolId
-      && RETAINED_WORKSPACE_TOOL_IDS.has(activeToolId);
     if (toolId !== activeToolId) {
       const currentIndex = STUDIO_TOOLS.findIndex(({ id }) => id === activeToolId);
       const nextIndex = STUDIO_TOOLS.findIndex(({ id }) => id === toolId);
       workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
     }
     startTransition(() => {
-      if (retainActiveWorkspace) {
-        setRetainedWorkspaces((current) => {
-          const identityId = activeIdentity?.id ?? STARTER_BRAND_IDENTITY.id;
-          const toolIds = current.identityId === identityId ? current.toolIds : [];
-          return toolIds.includes(activeToolId)
-            ? current
-            : { identityId, toolIds: [...toolIds, activeToolId] };
-        });
-      }
       setActiveToolId(toolId);
     });
     setQuery('');
@@ -1041,9 +1014,7 @@ export default function StudioApp() {
     if (nextIdentity) selectIdentity(nextIdentity.id);
   }
 
-  function addIdentity() {
-    const customCount = identities.filter(({ kind }) => kind === 'custom').length;
-    const identity = createBrandIdentity(`Brand ${customCount + 1}`);
+  function activateCreatedIdentity(identity: BrandIdentity) {
     const exampleIndex = identities.findIndex(({ kind }) => kind === 'example');
     const nextIdentities =
       exampleIndex < 0
@@ -1055,18 +1026,14 @@ export default function StudioApp() {
     selectIdentity(identity.id);
   }
 
+  function addIdentity() {
+    const customCount = identities.filter(({ kind }) => kind === 'custom').length;
+    activateCreatedIdentity(createBrandIdentity(`Brand ${customCount + 1}`));
+  }
+
   function copyIdentity() {
     if (!activeIdentity) return;
-    const identity = duplicateBrandIdentity(activeIdentity);
-    const exampleIndex = identities.findIndex(({ kind }) => kind === 'example');
-    const nextIdentities =
-      exampleIndex < 0
-        ? [...identities, identity]
-        : [...identities.slice(0, exampleIndex), identity, ...identities.slice(exampleIndex)];
-    commitIdentities(nextIdentities);
-    setActiveFolderId('all');
-    window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
-    selectIdentity(identity.id);
+    activateCreatedIdentity(duplicateBrandIdentity(activeIdentity));
   }
 
   function closeOtherIdentities() {
@@ -1148,16 +1115,6 @@ export default function StudioApp() {
     setActiveFolderId('all');
     window.localStorage.setItem(ACTIVE_FOLDER_STORAGE_KEY, 'all');
     selectIdentity(STARTER_BRAND_IDENTITY.id);
-  }
-
-  function renderProjectMark(identity: BrandIdentity, selected: boolean) {
-    return (
-      <ThemeAwareBrandMark
-        className='project-tab-mark'
-        identity={identity}
-        inverse={selected}
-      />
-    );
   }
 
   function announceProjectTabMove(identityId: string, position: number, total: number) {
@@ -1266,9 +1223,13 @@ export default function StudioApp() {
     );
     const draggedCenter =
       pointerDrag.centers[pointerDrag.sourceIndex] + pointerOffsetX;
-    const remainingTabs = pointerDrag.originOrder
-      .map((id, index) => ({ center: pointerDrag.centers[index], id }))
-      .filter(({ id }) => id !== pointerDrag.sourceId);
+    const remainingTabs = pointerDrag.originOrder.reduce<Array<{ center: number; id: string }>>(
+      (tabs, id, index) => {
+        if (id !== pointerDrag.sourceId) tabs.push({ center: pointerDrag.centers[index] ?? 0, id });
+        return tabs;
+      },
+      []
+    );
     const previewIndex = remainingTabs.filter(({ center }) => center < draggedCenter).length;
     const previewOrder = remainingTabs.map(({ id }) => id);
     previewOrder.splice(previewIndex, 0, pointerDrag.sourceId);
@@ -1420,13 +1381,14 @@ export default function StudioApp() {
     const reorderControlsOpen = reorderControlsIdentityId === identity.id;
     return (
       <div
-        aria-selected={selected}
+        aria-label={identity.name}
         className={`project-tab relative flex items-center gap-2 border border-b-0 py-0 pr-1.5 pl-3 text-sm ${
           selected
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         data-project-id={identity.id}
+        data-selected={selected ? 'true' : 'false'}
         key={identity.id}
         onClickCapture={(event) => {
           if (suppressProjectTabClickRef.current !== identity.id) return;
@@ -1459,12 +1421,12 @@ export default function StudioApp() {
         onPointerDown={(event) => handleProjectTabPointerDown(event, identity.id)}
         onPointerMove={handleProjectTabPointerMove}
         onPointerUp={handleProjectTabPointerEnd}
-        role='tab'
+        role='group'
         title={identity.name}
       >
         {selected && identity.kind === 'custom' ? (
           <div className='project-tab-editor flex min-w-0 flex-1 items-center gap-2'>
-            {renderProjectMark(identity, selected)}
+            <ProjectTabMark identity={identity} selected={selected} />
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <input
               aria-label={gt('Project name')}
@@ -1476,6 +1438,7 @@ export default function StudioApp() {
           </div>
         ) : (
           <button
+            aria-current={selected ? 'page' : undefined}
             aria-label={gt('Open {name} project', { name: identity.name })}
             aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10'
             className='flex min-w-0 flex-1 items-center gap-2 text-left'
@@ -1486,7 +1449,7 @@ export default function StudioApp() {
             }}
             type='button'
           >
-            {renderProjectMark(identity, selected)}
+            <ProjectTabMark identity={identity} selected={selected} />
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <span className={`project-tab-name truncate ${selected ? 'font-medium text-foreground' : ''}`}>
               {identity.name}
@@ -1569,96 +1532,32 @@ export default function StudioApp() {
       data-resolved-theme={resolvedTheme}
     >
       <BrandFontFaces identity={activeIdentity} />
-      <header className='app-navbar studio-app-header border-b border-border bg-background'>
-        <Link
-          className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'
-          href='/'
-        >
-          <Image
-            alt={gt('Glyphfield mark')}
-            className='size-7 object-contain'
-            height={28}
-            priority
-            src={PRODUCT_BRAND.markPath}
-            width={28}
-          />
-          <p className='truncate text-sm font-semibold tracking-tight'>{PRODUCT_BRAND.name}</p>
-        </Link>
-
-        <div className='studio-search-bar flex min-w-0 items-center gap-2 px-3'>
-          <StudioSelect
-            ariaLabel={gt('Active Studio tool')}
-            className='studio-mobile-tool min-w-0'
-            onValueChange={(value) => selectTool(value as StudioToolId)}
-            options={STUDIO_TOOLS.map((tool) => ({ label: gt(tool.name), value: tool.id }))}
-            value={activeToolId}
-          />
-          <button
-            aria-haspopup='dialog'
-            aria-keyshortcuts='Meta+K Control+K /'
-            className='studio-command-launcher flex h-9 min-w-0 flex-1 max-w-xl items-center gap-2 border border-input bg-background px-3 text-left hover:border-foreground'
-            onClick={() => {
-              setQuery('');
-              setCommandOpen(true);
-            }}
-            type='button'
-          >
-            <Search className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' />
-            <span className='min-w-0 flex-1 truncate text-sm text-muted-foreground'><T>Search Studio tools…</T></span>
-            <kbd className='hidden border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
-          </button>
-          <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
-            <GitHubStarButton className='studio-github-star-button' />
-            <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
-              <Link aria-label={gt('Open documentation')} href='/docs'>
-                <BookOpen aria-hidden='true' />
-              </Link>
-            </Button>
-            <AppearanceMenu
-              appearance={resolvedAppearance}
-              onChange={(patch) => {
-                if (patch.theme) setProviderTheme(patch.theme);
-                setAppearance((current) => ({
-                  ...DEFAULT_APPEARANCE,
-                  ...current,
-                  ...patch,
-                }));
-              }}
-            />
-            <Button
-              aria-label={
-                resolvedTheme === 'light'
-                  ? gt('Switch to dark mode')
-                  : gt('Switch to light mode')
-              }
-              onClick={() => {
-                const nextTheme = resolvedTheme === 'light' ? 'dark' : 'light';
-                setProviderTheme(nextTheme);
-                setAppearance((current) => ({
-                  ...DEFAULT_APPEARANCE,
-                  ...current,
-                  theme: nextTheme,
-                }));
-              }}
-              size='icon-sm'
-              title={
-                resolvedTheme === 'light'
-                  ? gt('Dark mode')
-                  : gt('Light mode')
-              }
-              type='button'
-              variant='outline'
-            >
-              {resolvedTheme === 'light' ? (
-                <Moon aria-hidden='true' />
-              ) : (
-                <Sun aria-hidden='true' />
-              )}
-            </Button>
-          </div>
-        </div>
-
-      </header>
+      <StudioAppHeader
+        activeToolId={activeToolId}
+        appearance={resolvedAppearance}
+        onAppearanceChange={(patch) => {
+          if (patch.theme) setProviderTheme(patch.theme);
+          setAppearance((current) => ({
+            ...DEFAULT_APPEARANCE,
+            ...current,
+            ...patch,
+          }));
+        }}
+        onCommandOpen={() => {
+          setQuery('');
+          setCommandOpen(true);
+        }}
+        onThemeChange={(theme) => {
+          setProviderTheme(theme);
+          setAppearance((current) => ({
+            ...DEFAULT_APPEARANCE,
+            ...current,
+            theme,
+          }));
+        }}
+        onToolSelect={selectTool}
+        resolvedTheme={resolvedTheme}
+      />
 
       <div className='project-tabs-shell bg-background'>
         <SidebarDitherPanel />
@@ -1681,7 +1580,7 @@ export default function StudioApp() {
               className='project-tabs-scroll studio-scroll-area flex min-w-0 items-end gap-2 overflow-x-auto self-stretch'
               ref={projectTabsScrollRef}
             >
-              <div className='project-tabs-tablist flex shrink-0 items-end gap-1.5 self-stretch' role='tablist' aria-label={gt('Brand projects')}>
+              <nav className='project-tabs-tablist flex shrink-0 items-end gap-1.5 self-stretch' aria-label={gt('Brand projects')}>
                 {activeProjectTabIndex >= 0 ? (
                   <span
                     aria-hidden='true'
@@ -1693,7 +1592,7 @@ export default function StudioApp() {
                   />
                 ) : null}
                 {visibleIdentities.map(renderProjectTab)}
-              </div>
+              </nav>
               <span aria-live='polite' className='sr-only'>
                 {tabOrderAnnouncement}
               </span>
@@ -1808,70 +1707,15 @@ export default function StudioApp() {
             key={`${activeIdentity.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
           >
             {!activeIdentityIsOpen ? (
-              <div className='studio-closed-projects-empty'>
-                <Folder aria-hidden='true' />
-                <div>
-                  <h2><T>No project tab open</T></h2>
-                  <p><T>Your brands and every saved draft are still available in the project folder menu.</T></p>
-                </div>
-              </div>
+              <ClosedProjectNotice />
             ) : (
-              <>
-                {activeToolId === 'animation' || retainedWorkspaceToolIds.includes('animation') ? (
-                  <div
-                    aria-hidden={activeToolId !== 'animation'}
-                    className='studio-workspace-panel'
-                    hidden={activeToolId !== 'animation'}
-                    inert={activeToolId !== 'animation'}
-                  >
-                    <AnimationStudio
-                      embedded
-                      identity={activeIdentity}
-                    />
-                  </div>
-                ) : null}
-                {MATERIAL_TOOL && (
-                  activeToolId === 'material' || retainedWorkspaceToolIds.includes('material')
-                ) ? (
-                  <div
-                    aria-hidden={activeToolId !== 'material'}
-                    className='studio-workspace-panel'
-                    hidden={activeToolId !== 'material'}
-                    inert={activeToolId !== 'material'}
-                  >
-                    <StudioToolWorkspace
-                      hasPendingIdentityChanges={activeIdentityHasPendingChanges}
-                      identity={activeIdentity}
-                      onIdentityChange={updateIdentity}
-                      tool={MATERIAL_TOOL}
-                    />
-                  </div>
-                ) : null}
-                {activeToolId === 'animation' || activeToolId === 'material' ? null : (
-                  <div
-                    className='studio-workspace-panel'
-                    key={`${activeIdentity.id}-${activeTool.id}`}
-                  >
-                    {activeToolId === 'identity' ? (
-                      <BrandSettingsStudio
-                        hasPendingChanges={activeIdentityHasPendingChanges}
-                        identity={activeIdentity}
-                        onChange={updateIdentity}
-                        tool={activeTool}
-                      />
-                    ) : activeToolId === 'lottie' ? (
-                      <LottieStudio identity={activeIdentity} />
-                    ) : (
-                      <StudioToolWorkspace
-                        hasPendingIdentityChanges={activeIdentityHasPendingChanges}
-                        identity={activeIdentity}
-                        onIdentityChange={updateIdentity}
-                        tool={activeTool}
-                      />
-                    )}
-                  </div>
-                )}
-              </>
+              <StudioWorkspacePanels
+                activeIdentity={activeIdentity}
+                activeTool={activeTool}
+                activeToolId={activeToolId}
+                hasPendingIdentityChanges={activeIdentityHasPendingChanges}
+                onIdentityChange={updateIdentity}
+              />
             )}
           </div>
         </section>
@@ -1886,30 +1730,12 @@ export default function StudioApp() {
           tools={filteredTools}
         />
       ) : null}
-      {activeIdentityHasPendingChanges ? (
-        <div aria-live='polite' className='studio-save-toast' role='status'>
-          <div className='studio-save-toast-copy'>
-            <strong><T>Save these brand changes?</T></strong>
-            <span><T>Apply them across every design, or ignore this draft.</T></span>
-          </div>
-          <Button
-            onClick={() => ignoreIdentityChanges(activeIdentity.id)}
-            size='sm'
-            type='button'
-            variant='ghost'
-          >
-            <T>Ignore</T>
-          </Button>
-          <Button
-            onClick={() => saveIdentityChanges(activeIdentity.id)}
-            size='sm'
-            type='button'
-          >
-            <Save aria-hidden='true' />
-            <T>Save changes</T>
-          </Button>
-        </div>
-      ) : null}
+      <StudioSaveToast
+        identityId={activeIdentity.id}
+        onIgnore={ignoreIdentityChanges}
+        onSave={saveIdentityChanges}
+        visible={activeIdentityHasPendingChanges}
+      />
     </main>
     </StudioExportProgressProvider>
   );

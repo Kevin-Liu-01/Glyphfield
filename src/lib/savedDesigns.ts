@@ -16,6 +16,7 @@ const SAVED_DESIGN_DATABASE_VERSION = 1;
 const SAVED_DESIGN_STORE_NAME = 'designs';
 const SAVED_DESIGN_WORKSPACE_INDEX = 'workspaceKey';
 const AUTOSAVED_DESIGN_ID = 'autosaved-draft';
+const AUTOSAVE_RECOVERY_PREFIX = 'glyphfield-autosave-recovery-v1:';
 
 type SavedDesignRecord = {
   design: SavedDesign;
@@ -83,6 +84,10 @@ export function autosavedDesignStorageKey(workspaceKey: string): string {
   return `${workspaceKey}:autosave`;
 }
 
+export function autosaveRecoveryStorageKey(workspaceKey: string): string {
+  return `${AUTOSAVE_RECOVERY_PREFIX}${workspaceKey}`;
+}
+
 export function createAutosavedDesign({
   now,
   revision,
@@ -103,6 +108,66 @@ export function createAutosavedDesign({
   };
 }
 
+function isSavedDesign(value: unknown): value is SavedDesign {
+  if (!value || typeof value !== 'object') return false;
+  const design = value as Partial<SavedDesign>;
+  return typeof design.createdAt === 'string'
+    && design.id === AUTOSAVED_DESIGN_ID
+    && design.name === 'Autosaved draft'
+    && design.origin === 'saved'
+    && typeof design.source === 'string'
+    && typeof design.updatedAt === 'string';
+}
+
+function readAutosaveRecovery(workspaceKey: string): SavedDesign | null {
+  const key = autosaveRecoveryStorageKey(workspaceKey);
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (stored === null) return null;
+    const parsed = JSON.parse(stored) as unknown;
+    if (isSavedDesign(parsed)) return parsed;
+    window.localStorage.removeItem(key);
+  } catch {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Recovery storage is best-effort when browser privacy settings block it.
+    }
+  }
+  return null;
+}
+
+export function writeAutosaveRecovery(
+  workspaceKey: string,
+  source: string,
+  revision: string,
+  now = new Date().toISOString()
+): boolean {
+  try {
+    window.localStorage.setItem(
+      autosaveRecoveryStorageKey(workspaceKey),
+      JSON.stringify(createAutosavedDesign({ now, revision, source }))
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearMatchingAutosaveRecovery(
+  workspaceKey: string,
+  source: string,
+  revision: string
+): void {
+  const recovery = readAutosaveRecovery(workspaceKey);
+  if (recovery?.source !== source || recovery.revision !== revision) return;
+  try {
+    window.localStorage.removeItem(autosaveRecoveryStorageKey(workspaceKey));
+  } catch {
+    // A stale recovery entry is harmless and will be retried on the next load.
+  }
+}
+
 export function savedDesignRecordKey(workspaceKey: string, designId: string): string {
   return `${workspaceKey}:${designId}`;
 }
@@ -116,9 +181,7 @@ function openSavedDesignDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(SAVED_DESIGN_DATABASE_NAME, SAVED_DESIGN_DATABASE_VERSION);
     request.addEventListener('upgradeneeded', () => {
       const database = request.result;
-      const store = database.objectStoreNames.contains(SAVED_DESIGN_STORE_NAME)
-        ? request.transaction!.objectStore(SAVED_DESIGN_STORE_NAME)
-        : database.createObjectStore(SAVED_DESIGN_STORE_NAME, { keyPath: 'key' });
+      const store = database.createObjectStore(SAVED_DESIGN_STORE_NAME, { keyPath: 'key' });
       if (!store.indexNames.contains(SAVED_DESIGN_WORKSPACE_INDEX)) {
         store.createIndex(SAVED_DESIGN_WORKSPACE_INDEX, 'workspaceKey', { unique: false });
       }
@@ -218,7 +281,16 @@ export async function saveSavedDesign(workspaceKey: string, design: SavedDesign)
 
 export async function loadAutosavedDesign(workspaceKey: string): Promise<SavedDesign | null> {
   const designs = await loadSavedDesigns(autosavedDesignStorageKey(workspaceKey));
-  return designs.find(({ id }) => id === AUTOSAVED_DESIGN_ID) ?? null;
+  const stored = designs.find(({ id }) => id === AUTOSAVED_DESIGN_ID) ?? null;
+  const recovery = readAutosaveRecovery(workspaceKey);
+  if (!recovery) return stored;
+  if (stored && stored.updatedAt >= recovery.updatedAt) {
+    clearMatchingAutosaveRecovery(workspaceKey, recovery.source, recovery.revision ?? '');
+    return stored;
+  }
+  await saveSavedDesign(autosavedDesignStorageKey(workspaceKey), recovery);
+  clearMatchingAutosaveRecovery(workspaceKey, recovery.source, recovery.revision ?? '');
+  return recovery;
 }
 
 export async function saveAutosavedDesign(
@@ -231,6 +303,7 @@ export async function saveAutosavedDesign(
     autosavedDesignStorageKey(workspaceKey),
     createAutosavedDesign({ now, revision, source })
   );
+  clearMatchingAutosaveRecovery(workspaceKey, source, revision);
 }
 
 export async function deleteSavedDesign(workspaceKey: string, designId: string): Promise<void> {

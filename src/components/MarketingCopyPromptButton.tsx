@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy } from '@/components/ui/SolidIcons';
 import { T } from 'gt-next';
 import { useRef, useState } from 'react';
 

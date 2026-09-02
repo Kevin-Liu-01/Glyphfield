@@ -1,10 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
-import { useMountEffect } from '@/hooks/useMountEffect';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 const MarketingAnimationStudioLive = dynamic(() => import('@/components/MarketingAnimationStudioLive'), {
   loading: () => <AnimationStudioPlaceholder />,
@@ -22,39 +22,8 @@ function AnimationStudioPlaceholder() {
 
 export default function MarketingAnimationDemo({ eager = false }: { eager?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [inRange, setInRange] = useState(eager);
+  const inRange = useViewportActivity(containerRef, { initialActive: eager, rootMargin: '420px' });
   const runtimeReady = useDeferredRuntime(inRange, eager ? 900 : 300);
-
-  useMountEffect(() => {
-    const container = containerRef.current;
-    let intersecting = eager;
-
-    function syncVisibility() {
-      setInRange(intersecting && document.visibilityState === 'visible');
-    }
-
-    if (!container || !('IntersectionObserver' in window)) {
-      intersecting = true;
-      syncVisibility();
-      document.addEventListener('visibilitychange', syncVisibility);
-      return () => document.removeEventListener('visibilitychange', syncVisibility);
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        intersecting = entry?.isIntersecting ?? false;
-        syncVisibility();
-      },
-      { rootMargin: '420px' }
-    );
-
-    observer.observe(container);
-    document.addEventListener('visibilitychange', syncVisibility);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener('visibilitychange', syncVisibility);
-    };
-  });
 
   return (
     <div className='marketing-animation-lazy-shell' ref={containerRef}>

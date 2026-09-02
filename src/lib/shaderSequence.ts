@@ -1,6 +1,6 @@
 import type { LiveMaterialId } from './liveMaterials';
 
-export type ShaderSequencePace = 'accelerating' | 'even';
+type ShaderSequencePace = 'accelerating' | 'even';
 
 export type ShaderSequenceSettings = {
   cutCount: number;
@@ -22,7 +22,7 @@ export const DEFAULT_SHADER_SEQUENCE_SETTINGS: ShaderSequenceSettings = {
   pace: 'accelerating',
 };
 
-export const SHADER_SEQUENCE_CANDIDATE_IDS: readonly LiveMaterialId[] = [
+const SHADER_SEQUENCE_CANDIDATE_IDS: readonly LiveMaterialId[] = [
   'shadergradient-prismatic-sphere',
   'paper-god-rays',
   'paper-liquid-metal',

@@ -1,11 +1,11 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { LibraryBig, Search, X } from 'lucide-react';
+import { Search, X } from '@/components/ui/SolidIcons';
 import { useMemo, useState } from 'react';
 
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
-import { LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
+import { LabPanelHeading } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
 import {
@@ -31,28 +31,6 @@ function ShaderLibraryPreview({
       <AuthenticShaderPreview materialId={material.id} />
       <LiveMaterialSourceTag className='shader-library-source-tag' material={material} />
     </div>
-  );
-}
-
-function ShaderLibraryButton({
-  onClick,
-  open,
-}: {
-  onClick: () => void;
-  open: boolean;
-}) {
-  return (
-    <Button
-      aria-expanded={open}
-      aria-label='Toggle shader library'
-      onClick={onClick}
-      type='button'
-      variant='outline'
-    >
-      <LibraryBig aria-hidden='true' />
-      <span className='responsive-toolbar-label'><T>Shaders</T></span>
-      <span className='responsive-toolbar-count text-[10px] tabular-nums text-muted-foreground'>{DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length}</span>
-    </Button>
   );
 }
 
@@ -167,36 +145,4 @@ function ShaderLibraryBrowser({
   );
 }
 
-function ShaderLibrarySidebar({
-  activeMaterialId,
-  onClose,
-  onSelect,
-  side = 'left',
-  storageKey,
-}: {
-  activeMaterialId: LiveMaterialId;
-  onClose: () => void;
-  onSelect: (materialId: LiveMaterialId) => void;
-  side?: 'left' | 'right';
-  storageKey: string;
-}) {
-  const gt = useGT();
-  return (
-    <StudioSidebar
-      className={`shader-library-sidebar shader-library-sidebar-${side} min-h-0`}
-      kind='library'
-      label={gt('shader library')}
-      side={side}
-      storageKey={storageKey}
-    >
-      <ShaderLibraryBrowser
-        activeMaterialId={activeMaterialId}
-        onClose={onClose}
-        onSelect={onSelect}
-      />
-    </StudioSidebar>
-  );
-}
-
-export { ShaderLibraryBrowser, ShaderLibraryButton };
-export default ShaderLibrarySidebar;
+export { ShaderLibraryBrowser };

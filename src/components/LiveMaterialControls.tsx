@@ -1,7 +1,7 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink } from '@/components/ui/SolidIcons';
 
 import { LiveMaterialOptionLabel, LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';

@@ -272,7 +272,7 @@ function paddedBounds(bounds: MaterialBounds, padding: number): MaterialBounds {
   };
 }
 
-export function drawLiquidGlassPanel(
+function drawLiquidGlassPanel(
   context: CanvasRenderingContext2D,
   bounds: MaterialBounds,
   finish: MaterialFinishSettings,

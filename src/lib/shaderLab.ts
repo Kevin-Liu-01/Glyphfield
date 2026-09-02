@@ -185,10 +185,6 @@ export function shaderPreviewAssetPath(materialId: LiveMaterialId): string {
   return `/shader-previews/${materialId}.webp`;
 }
 
-export function isFeaturedShaderMaterial(id: LiveMaterialId): boolean {
-  return FEATURED_ID_SET.has(id);
-}
-
 const MATERIAL_TUNING: Partial<Record<LiveMaterialId, Partial<LiveMaterialSettings>>> = {
   'holo-cloth-silk': {
     amplitude: 5.2,

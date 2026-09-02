@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "complexity": ["error", 22],
+    "no-unused-vars": "error",
+    "typescript/no-explicit-any": "error"
+  }
+}

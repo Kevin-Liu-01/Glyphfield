@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
-import { useMountEffect } from '@/hooks/useMountEffect';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 
@@ -22,40 +22,9 @@ export default function MarketingArcField({
   settings: LiveMaterialSettings;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const visible = useViewportActivity(containerRef, { rootMargin: '180px' });
   const isPaperShader = materialId.startsWith('paper-');
   const runtimeReady = useDeferredRuntime(visible, 500);
-
-  useMountEffect(() => {
-    const container = containerRef.current;
-    let intersecting = false;
-
-    function syncVisibility() {
-      setVisible(intersecting && document.visibilityState === 'visible');
-    }
-
-    if (!container || !('IntersectionObserver' in window)) {
-      intersecting = true;
-      syncVisibility();
-      document.addEventListener('visibilitychange', syncVisibility);
-      return () => document.removeEventListener('visibilitychange', syncVisibility);
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        intersecting = entry?.isIntersecting ?? false;
-        syncVisibility();
-      },
-      { rootMargin: '180px' }
-    );
-
-    observer.observe(container);
-    document.addEventListener('visibilitychange', syncVisibility);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener('visibilitychange', syncVisibility);
-    };
-  });
 
   return (
     <div

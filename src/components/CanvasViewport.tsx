@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
-import { Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Maximize2, Minus, Plus, RotateCcw } from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { clampCanvasZoom } from '@/lib/canvasViewport';
@@ -52,10 +53,9 @@ export default function CanvasViewport({
   const panFrameRef = useRef<number | null>(null);
   const [zoom, setZoom] = useStudioDraft(identityId, toolId, draftKey, 100);
   const constrainedZoom = Math.min(zoom, maxZoom);
-  const zoomRef = useRef(zoom);
+  const zoomRef = useCommittedRef(constrainedZoom);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   useCanvasSelectionDismiss(viewportRef, onDeselect);
-  zoomRef.current = constrainedZoom;
 
   function applyStageTransform(x: number, y: number) {
     if (!stageRef.current) return;

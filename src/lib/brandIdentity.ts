@@ -96,7 +96,7 @@ export type BrandArtDirection = {
   titleMaxLines: 1 | 2;
 };
 
-export type BrandColor = {
+type BrandColor = {
   hex: string;
   id: string;
   name: string;
@@ -126,7 +126,7 @@ export type BrandFontAsset = {
   weightMin?: number;
 };
 
-export type BrandMotion = {
+type BrandMotion = {
   curve: string;
   description: string;
   durationMs: number;
@@ -135,7 +135,7 @@ export type BrandMotion = {
   previewPath: string;
 };
 
-export type BrandStyle = {
+type BrandStyle = {
   borderRadius: number;
   density: 'compact' | 'comfortable' | 'spacious';
   grid: 'none' | 'dots' | 'lines';
@@ -159,7 +159,7 @@ export type BrandApplication = {
   name: string;
 };
 
-export type BrandStrategy = {
+type BrandStrategy = {
   challenge: string;
   concept: string;
   outcome: string;
@@ -168,7 +168,7 @@ export type BrandStrategy = {
   promise: string;
 };
 
-export type BrandGraphicSystem = {
+type BrandGraphicSystem = {
   composition: string;
   description: string;
   device: string;
@@ -177,7 +177,7 @@ export type BrandGraphicSystem = {
   rules: string[];
 };
 
-export const DEFAULT_BRAND_STYLE: BrandStyle = {
+const DEFAULT_BRAND_STYLE: BrandStyle = {
   borderRadius: 6,
   density: 'comfortable',
   grid: 'none',
@@ -225,7 +225,7 @@ export type BrandIdentity = {
   website: string;
 };
 
-export const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
+const DEFAULT_BRAND_FONT_ASSETS: readonly BrandFontAsset[] = [
   {
     family: 'Switzer',
     fileName: 'Switzer-Regular.ttf',
@@ -471,7 +471,7 @@ function createPixelMark(label: string, seed: string, inverted: boolean): string
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-export function createPixelBrandAssets(label: string, seed: string): BrandAsset[] {
+function createPixelBrandAssets(label: string, seed: string): BrandAsset[] {
   return [
     {
       id: 'mark-dark',
@@ -507,6 +507,61 @@ export function updateGeneratedPixelAssets(
   );
 }
 
+function cloneBrandAsset(asset: BrandAsset): BrandAsset {
+  return {
+    ...asset,
+    focalPoint: asset.focalPoint ? { ...asset.focalPoint } : undefined,
+    tags: asset.tags ? [...asset.tags] : undefined,
+  };
+}
+
+function cloneBrandDossier(identity: BrandIdentity): BrandIdentity['dossier'] {
+  return {
+    ...STARTER_BRAND_IDENTITY.dossier,
+    ...identity.dossier,
+    applications: [
+      ...(identity.dossier?.applications ?? STARTER_BRAND_IDENTITY.dossier.applications),
+    ],
+    prohibited: [
+      ...(identity.dossier?.prohibited ?? STARTER_BRAND_IDENTITY.dossier.prohibited),
+    ],
+    renderingRecipe: [
+      ...(identity.dossier?.renderingRecipe ?? STARTER_BRAND_IDENTITY.dossier.renderingRecipe),
+    ],
+  };
+}
+
+function cloneBrandGraphicSystem(identity: BrandIdentity): BrandIdentity['graphicSystem'] {
+  return {
+    ...STARTER_BRAND_IDENTITY.graphicSystem,
+    ...identity.graphicSystem,
+    rules: [
+      ...(identity.graphicSystem?.rules ?? STARTER_BRAND_IDENTITY.graphicSystem.rules),
+    ],
+  };
+}
+
+function cloneBrandStrategy(identity: BrandIdentity): BrandIdentity['strategy'] {
+  return {
+    ...STARTER_BRAND_IDENTITY.strategy,
+    ...identity.strategy,
+    personality: [
+      ...(identity.strategy?.personality ?? STARTER_BRAND_IDENTITY.strategy.personality),
+    ],
+    pillars: [
+      ...(identity.strategy?.pillars ?? STARTER_BRAND_IDENTITY.strategy.pillars),
+    ],
+  };
+}
+
+function cloneBrandVoice(identity: BrandIdentity): BrandIdentity['voice'] {
+  return {
+    avoid: [...(identity.voice?.avoid ?? [])],
+    phrases: [...(identity.voice?.phrases ?? [])],
+    principles: [...(identity.voice?.principles ?? [])],
+  };
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -517,11 +572,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     applications: (identity.applications ?? STARTER_BRAND_IDENTITY.applications).map(
       (application) => ({ ...application })
     ),
-    assets: identity.assets.map((asset) => ({
-      ...asset,
-      focalPoint: asset.focalPoint ? { ...asset.focalPoint } : undefined,
-      tags: asset.tags ? [...asset.tags] : undefined,
-    })),
+    assets: identity.assets.map(cloneBrandAsset),
     audiences: [...(identity.audiences ?? [])],
     colors: (identity.colors ?? []).map((color) => ({
       ...color,
@@ -530,57 +581,22 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     contactEmail: identity.contactEmail ?? '',
     fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
-    dossier: {
-      ...STARTER_BRAND_IDENTITY.dossier,
-      ...identity.dossier,
-      applications: [
-        ...(identity.dossier?.applications ?? STARTER_BRAND_IDENTITY.dossier.applications),
-      ],
-      prohibited: [
-        ...(identity.dossier?.prohibited ?? STARTER_BRAND_IDENTITY.dossier.prohibited),
-      ],
-      renderingRecipe: [
-        ...(identity.dossier?.renderingRecipe ?? STARTER_BRAND_IDENTITY.dossier.renderingRecipe),
-      ],
-    },
-    graphicSystem: {
-      ...STARTER_BRAND_IDENTITY.graphicSystem,
-      ...identity.graphicSystem,
-      rules: [
-        ...(identity.graphicSystem?.rules ?? STARTER_BRAND_IDENTITY.graphicSystem.rules),
-      ],
-    },
+    dossier: cloneBrandDossier(identity),
+    graphicSystem: cloneBrandGraphicSystem(identity),
     mission: identity.mission ?? identity.positioning ?? '',
     motion: (identity.motion ?? []).map((motion) => ({ ...motion })),
     products: [...(identity.products ?? [])],
     proof: [...(identity.proof ?? [])],
-    proofAssets: (identity.proofAssets ?? []).map((asset) => ({
-      ...asset,
-      focalPoint: asset.focalPoint ? { ...asset.focalPoint } : undefined,
-      tags: asset.tags ? [...asset.tags] : undefined,
-    })),
+    proofAssets: (identity.proofAssets ?? []).map(cloneBrandAsset),
     references: (identity.references ?? []).map((reference) => ({ ...reference })),
     revision: identity.revision ?? 1,
     socialHandle: identity.socialHandle ?? '',
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
-    strategy: {
-      ...STARTER_BRAND_IDENTITY.strategy,
-      ...identity.strategy,
-      personality: [
-        ...(identity.strategy?.personality ?? STARTER_BRAND_IDENTITY.strategy.personality),
-      ],
-      pillars: [
-        ...(identity.strategy?.pillars ?? STARTER_BRAND_IDENTITY.strategy.pillars),
-      ],
-    },
+    strategy: cloneBrandStrategy(identity),
     typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
-    voice: {
-      avoid: [...(identity.voice?.avoid ?? [])],
-      phrases: [...(identity.voice?.phrases ?? [])],
-      principles: [...(identity.voice?.principles ?? [])],
-    },
+    voice: cloneBrandVoice(identity),
   };
 }
 

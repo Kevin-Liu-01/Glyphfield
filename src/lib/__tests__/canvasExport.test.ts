@@ -4,10 +4,12 @@ import {
   buildMotionFrames,
   canvasToImageBlob,
   encodeCanvasGif,
+  exportCanvasDocumentStill,
   resolveExportDimensions,
   resolveSeamlessLoopOverlapFrames,
   seamlessLoopBlendAmount,
 } from '../canvasExport';
+import { createCanvasDocument, createCanvasElement } from '../canvasDocument';
 
 describe('canvas export', () => {
   it('builds deterministic motion timestamps for GIF and MP4 encoders', () => {
@@ -32,6 +34,15 @@ describe('canvas export', () => {
       .toEqual({ height: 320, width: 320 });
     expect(() => resolveExportDimensions({ aspectHeight: 0, aspectWidth: 16, width: 960 }))
       .toThrow(RangeError);
+    expect(() => resolveExportDimensions({ aspectHeight: 9, aspectWidth: 16, width: Number.NaN }))
+      .toThrow(/finite number/i);
+    expect(() => resolveExportDimensions({
+      aspectHeight: 9,
+      aspectWidth: 16,
+      maxWidth: 200,
+      minWidth: 320,
+      width: 960,
+    })).toThrow(/limits are invalid/i);
   });
 
   it('uses a smooth loop envelope with identical cycle boundaries', () => {
@@ -39,6 +50,9 @@ describe('canvas export', () => {
     expect(seamlessLoopBlendAmount(1_200, 2_400)).toBeCloseTo(0.5, 8);
     expect(seamlessLoopBlendAmount(2_400, 2_400)).toBe(1);
     expect(seamlessLoopBlendAmount(2_333.333, 2_400)).toBeGreaterThan(0.998);
+    expect(seamlessLoopBlendAmount(-100, 2_400)).toBe(0);
+    expect(seamlessLoopBlendAmount(3_000, 2_400)).toBe(1);
+    expect(() => seamlessLoopBlendAmount(100, 0)).toThrow(/duration/i);
   });
 
   it('bounds the temporal overlap by duration, output size, and memory', () => {
@@ -63,6 +77,109 @@ describe('canvas export', () => {
     expect(requestedQuality).toBe(0.9);
     expect(blob.type).toBe('image/jpeg');
     expect(blob.size).toBeGreaterThan(0);
+  });
+
+  it('omits quality for PNG output and rejects empty browser encodes', async () => {
+    let requestedQuality: number | undefined;
+    const pngCanvas = {
+      toBlob(callback: BlobCallback, mime?: string, quality?: number) {
+        requestedQuality = quality;
+        callback(new Blob(['png'], { type: mime }));
+      },
+    } as HTMLCanvasElement;
+    expect((await canvasToImageBlob(pngCanvas, 'png')).type).toBe('image/png');
+    expect(requestedQuality).toBeUndefined();
+
+    const emptyCanvas = {
+      toBlob(callback: BlobCallback) {
+        callback(null);
+      },
+    } as HTMLCanvasElement;
+    await expect(canvasToImageBlob(emptyCanvas, 'png')).rejects.toThrow(/empty file/i);
+  });
+
+  it('invariant_export_dimensions_follow_the_document_request_not_preview_dpr', async () => {
+    const canvasDocument = createCanvasDocument(
+      'document',
+      'brand',
+      'DPR-safe export',
+      800,
+      500,
+      ['layers', 'pages']
+    );
+    const pageId = canvasDocument.pageIds[0]!;
+    const background = createCanvasElement(
+      'background',
+      'Background',
+      'shader',
+      { height: 500, rotation: 0, width: 800, x: 0, y: 0 }
+    );
+    const artwork = createCanvasElement(
+      'artwork',
+      'Artwork',
+      'component',
+      { height: 500, rotation: 0, width: 800, x: 0, y: 0 }
+    );
+    canvasDocument.elements = { artwork, background };
+    canvasDocument.pages[pageId] = {
+      ...canvasDocument.pages[pageId]!,
+      elementIds: ['background', 'artwork'],
+    };
+
+    const painted: string[] = [];
+    const context = {
+      clearRect() {},
+      fillRect() {},
+      fillStyle: '#000000',
+      globalAlpha: 1,
+      globalCompositeOperation: 'source-over',
+      restore() {},
+      save() {},
+    } as Pick<
+      CanvasRenderingContext2D,
+      | 'clearRect'
+      | 'fillRect'
+      | 'fillStyle'
+      | 'globalAlpha'
+      | 'globalCompositeOperation'
+      | 'restore'
+      | 'save'
+    > as CanvasRenderingContext2D;
+    const output = {
+      getContext: () => context,
+      height: 0,
+      toBlob(callback: BlobCallback, mime?: string) {
+        callback(new Blob(['png'], { type: mime }));
+      },
+      width: 0,
+    };
+
+    const exported = await exportCanvasDocumentStill({
+      canvasDocument,
+      canvasFactory: () => output,
+      height: 500,
+      renderElement: (_context, layer) => painted.push(layer.element.id),
+      width: 800,
+    });
+
+    expect({ height: output.height, width: output.width }).toEqual({ height: 500, width: 800 });
+    expect(painted).toEqual(['background', 'artwork']);
+    expect(exported.report.paintedElementIds).toEqual(painted);
+    expect(exported.blob.type).toBe('image/png');
+  });
+
+  it('rejects GIF export when the canvas has no rendering context', async () => {
+    const canvas = {
+      getContext: () => null,
+      height: 2,
+      width: 2,
+    } as Pick<HTMLCanvasElement, 'getContext' | 'height' | 'width'> as HTMLCanvasElement;
+    await expect(encodeCanvasGif({
+      canvas,
+      durationMs: 300,
+      fps: 10,
+      renderFrame: () => undefined,
+    })).rejects.toThrow(/rendering is unavailable/i);
   });
 
   it('encodes multiple independently-quantized GIF frames', async () => {

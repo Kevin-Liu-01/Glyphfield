@@ -1,13 +1,13 @@
 import type { StudioToolId } from './studioCatalog';
 import { downloadBlob } from './download';
 
-export type StudioAutomationControl = {
+type StudioAutomationControl = {
   kind: 'button' | 'checkbox' | 'input' | 'select' | 'textarea' | 'textbox';
   label: string;
   value?: boolean | string;
 };
 
-export type StudioAutomationValue = boolean | File | number | readonly File[] | string;
+type StudioAutomationValue = boolean | File | number | readonly File[] | string;
 
 export type StudioAutomationArtifact = {
   blob: Blob;
@@ -22,7 +22,7 @@ export type StudioAutomationAdapter = {
   toolId: StudioToolId;
 };
 
-export type GlyphfieldStudioAutomation = {
+type GlyphfieldStudioAutomation = {
   activate: (label: string) => void;
   activeTool: () => StudioToolId;
   applySource: (source: string | object) => Promise<void>;

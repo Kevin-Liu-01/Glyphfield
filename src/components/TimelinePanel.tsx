@@ -1,8 +1,8 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { Pause, Play, RotateCcw, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
@@ -45,6 +45,14 @@ export default function TimelinePanel({
   const frameDuration = 1000 / fps;
   const effectiveTransitionMs = labels.length > 1 ? transitionMs : 0;
   const holdFraction = holdMs / Math.max(1, holdMs + effectiveTransitionMs);
+  const segments = useMemo(() => {
+    const occurrences = new Map<string, number>();
+    return labels.map((label) => {
+      const occurrence = (occurrences.get(label) ?? 0) + 1;
+      occurrences.set(label, occurrence);
+      return { key: `${label}:${occurrence}`, label };
+    });
+  }, [labels]);
   const syncPlayheadUi = useCallback(() => {
     const currentMs = Math.min(currentMsRef.current, totalMs);
     const progress = totalMs === 0 ? 0 : (currentMs / totalMs) * 100;
@@ -143,10 +151,10 @@ export default function TimelinePanel({
       <div className='relative p-4'>
         <div className='relative h-16 overflow-hidden border border-border bg-muted/40'>
           <div className='absolute inset-0 flex'>
-            {labels.map((label, index) => (
+            {segments.map(({ key, label }, index) => (
               <div
                 className='relative min-w-0 flex-1 border-r border-border last:border-r-0'
-                key={`${label}-${index}`}
+                key={key}
               >
                 <div
                   className='absolute inset-y-0 left-0 bg-foreground/8'

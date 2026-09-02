@@ -7,6 +7,14 @@ import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
 import type { LogoAppearanceSettings } from '@/lib/logoAppearance';
 
+function appearancePreviewHandler<Key extends keyof LogoAppearanceSettings>(
+  onPreview: ((patch: Partial<LogoAppearanceSettings>) => void) | undefined,
+  key: Key
+): ((value: LogoAppearanceSettings[Key]) => void) | undefined {
+  if (!onPreview) return undefined;
+  return (value) => onPreview({ [key]: value });
+}
+
 function AppearanceRange({
   label,
   max,
@@ -128,9 +136,9 @@ export default function LogoAppearanceControls({
               ? <T>Resolve the selected image through an ordered print field without changing the source asset.</T>
               : <T>Resolve the selected mark through an ordered print field without changing the source asset.</T>}
           </p>
-          <AppearanceRange label={gt('Dither amount')} max={100} min={0} onChange={(ditherAmount) => onChange({ ditherAmount })} onPreview={onPreview ? (ditherAmount) => onPreview({ ditherAmount }) : undefined} suffix='%' value={settings.ditherAmount} />
-          <AppearanceRange label={gt('Cell size')} max={18} min={2} onChange={(ditherScale) => onChange({ ditherScale })} onPreview={onPreview ? (ditherScale) => onPreview({ ditherScale }) : undefined} suffix='px' value={settings.ditherScale} />
-          <AppearanceRange label={gt('Dither direction')} max={360} min={0} onChange={(ditherAngle) => onChange({ ditherAngle })} onPreview={onPreview ? (ditherAngle) => onPreview({ ditherAngle }) : undefined} suffix='°' value={settings.ditherAngle} />
+          <AppearanceRange label={gt('Dither amount')} max={100} min={0} onChange={(ditherAmount) => onChange({ ditherAmount })} onPreview={appearancePreviewHandler(onPreview, 'ditherAmount')} suffix='%' value={settings.ditherAmount} />
+          <AppearanceRange label={gt('Cell size')} max={18} min={2} onChange={(ditherScale) => onChange({ ditherScale })} onPreview={appearancePreviewHandler(onPreview, 'ditherScale')} suffix='px' value={settings.ditherScale} />
+          <AppearanceRange label={gt('Dither direction')} max={360} min={0} onChange={(ditherAngle) => onChange({ ditherAngle })} onPreview={appearancePreviewHandler(onPreview, 'ditherAngle')} suffix='°' value={settings.ditherAngle} />
         </div>
       ) : null}
       <label className='flex items-center justify-between gap-4 text-sm'>
@@ -139,8 +147,8 @@ export default function LogoAppearanceControls({
       </label>
       {settings.borderEnabled ? (
         <div className='flex flex-col gap-4 border-l border-border pl-3'>
-          <ColorControl ariaLabel={gt(isImage ? 'Image outline color' : 'Logo outline color')} label={<T>Outline color</T>} onChange={(borderColor) => onChange({ borderColor })} onOpacityChange={(borderOpacity) => onChange({ borderOpacity })} onOpacityPreview={onPreview ? (borderOpacity) => onPreview({ borderOpacity }) : undefined} onPreview={onPreview ? (borderColor) => onPreview({ borderColor }) : undefined} opacity={settings.borderOpacity} value={settings.borderColor} />
-          <AppearanceRange label={gt('Outline width')} max={12} min={0.5} onChange={(borderWidth) => onChange({ borderWidth })} onPreview={onPreview ? (borderWidth) => onPreview({ borderWidth }) : undefined} step={0.5} suffix='px' value={settings.borderWidth} />
+          <ColorControl ariaLabel={gt(isImage ? 'Image outline color' : 'Logo outline color')} label={<T>Outline color</T>} onChange={(borderColor) => onChange({ borderColor })} onOpacityChange={(borderOpacity) => onChange({ borderOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'borderOpacity')} onPreview={appearancePreviewHandler(onPreview, 'borderColor')} opacity={settings.borderOpacity} value={settings.borderColor} />
+          <AppearanceRange label={gt('Outline width')} max={12} min={0.5} onChange={(borderWidth) => onChange({ borderWidth })} onPreview={appearancePreviewHandler(onPreview, 'borderWidth')} step={0.5} suffix='px' value={settings.borderWidth} />
         </div>
       ) : null}
       <label className='flex items-center justify-between gap-4 text-sm'>
@@ -149,10 +157,10 @@ export default function LogoAppearanceControls({
       </label>
       {settings.shadowEnabled ? (
         <div className='flex flex-col gap-4 border-l border-border pl-3'>
-          <ColorControl ariaLabel={gt(isImage ? 'Image shadow color' : 'Logo shadow color')} label={<T>Shadow color</T>} onChange={(shadowColor) => onChange({ shadowColor })} onOpacityChange={(shadowOpacity) => onChange({ shadowOpacity })} onOpacityPreview={onPreview ? (shadowOpacity) => onPreview({ shadowOpacity }) : undefined} onPreview={onPreview ? (shadowColor) => onPreview({ shadowColor }) : undefined} opacity={settings.shadowOpacity} value={settings.shadowColor} />
-          <AppearanceRange label={gt('Blur')} max={64} min={0} onChange={(shadowBlur) => onChange({ shadowBlur })} onPreview={onPreview ? (shadowBlur) => onPreview({ shadowBlur }) : undefined} suffix='px' value={settings.shadowBlur} />
-          <AppearanceRange label={gt('Horizontal offset')} max={48} min={-48} onChange={(shadowOffsetX) => onChange({ shadowOffsetX })} onPreview={onPreview ? (shadowOffsetX) => onPreview({ shadowOffsetX }) : undefined} suffix='px' value={settings.shadowOffsetX} />
-          <AppearanceRange label={gt('Vertical offset')} max={48} min={-48} onChange={(shadowOffsetY) => onChange({ shadowOffsetY })} onPreview={onPreview ? (shadowOffsetY) => onPreview({ shadowOffsetY }) : undefined} suffix='px' value={settings.shadowOffsetY} />
+          <ColorControl ariaLabel={gt(isImage ? 'Image shadow color' : 'Logo shadow color')} label={<T>Shadow color</T>} onChange={(shadowColor) => onChange({ shadowColor })} onOpacityChange={(shadowOpacity) => onChange({ shadowOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'shadowOpacity')} onPreview={appearancePreviewHandler(onPreview, 'shadowColor')} opacity={settings.shadowOpacity} value={settings.shadowColor} />
+          <AppearanceRange label={gt('Blur')} max={64} min={0} onChange={(shadowBlur) => onChange({ shadowBlur })} onPreview={appearancePreviewHandler(onPreview, 'shadowBlur')} suffix='px' value={settings.shadowBlur} />
+          <AppearanceRange label={gt('Horizontal offset')} max={48} min={-48} onChange={(shadowOffsetX) => onChange({ shadowOffsetX })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetX')} suffix='px' value={settings.shadowOffsetX} />
+          <AppearanceRange label={gt('Vertical offset')} max={48} min={-48} onChange={(shadowOffsetY) => onChange({ shadowOffsetY })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetY')} suffix='px' value={settings.shadowOffsetY} />
         </div>
       ) : null}
     </div>

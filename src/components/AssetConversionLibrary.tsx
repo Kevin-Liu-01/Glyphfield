@@ -1,7 +1,7 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Check, Download, FileDown, ImagePlus, Trash2 } from 'lucide-react';
+import { Check, Download, FileDown, ImagePlus, Trash2 } from '@/components/ui/SolidIcons';
 import { useState } from 'react';
 
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -14,6 +14,24 @@ import {
   formatAssetBytes,
   type ConvertedAsset,
 } from '@/lib/convertedAssets';
+
+function assetPreviewFormat(
+  mimeType: string,
+  fallback: 'FILE' | 'PNG'
+): ExportPreviewAsset['format'] {
+  const subtype = mimeType.split('/').at(-1)?.split(';')[0]?.toLocaleLowerCase();
+  const formats: Record<string, ExportPreviewAsset['format']> = {
+    avif: 'AVIF',
+    bmp: 'BMP',
+    gif: 'GIF',
+    jpeg: 'JPG',
+    jpg: 'JPG',
+    png: 'PNG',
+    'svg+xml': 'SVG',
+    webp: 'WEBP',
+  };
+  return subtype ? formats[subtype] ?? fallback : fallback;
+}
 
 export default function AssetConversionLibrary({
   compact = false,
@@ -35,26 +53,13 @@ export default function AssetConversionLibrary({
   async function previewAsset(dataUrl: string, name: string, format: 'FILE' | 'PNG') {
     studioExport.start(`Preparing ${name} preview`);
     try {
-      const blob = await fetch(dataUrl).then((response) => response.blob());
-      const detectedFormat: ExportPreviewAsset['format'] = blob.type.includes('svg')
-        ? 'SVG'
-        : blob.type.includes('jpeg')
-          ? 'JPG'
-          : blob.type.includes('gif')
-            ? 'GIF'
-            : blob.type.includes('webp')
-              ? 'WEBP'
-              : blob.type.includes('avif')
-                ? 'AVIF'
-                : blob.type.includes('bmp')
-                  ? 'BMP'
-                  : blob.type.includes('png')
-                    ? 'PNG'
-                    : format;
+      const response = await fetch(dataUrl);
+      if (!response.ok) throw new Error(gt('The asset preview could not be loaded.'));
+      const blob = await response.blob();
       setLastExport({
         blob,
         fileName: name,
-        format: detectedFormat,
+        format: assetPreviewFormat(blob.type, format),
         previewKind: blob.type.startsWith('image/') ? 'image' : 'file',
       });
     } finally {

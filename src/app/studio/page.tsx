@@ -24,25 +24,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function StudioPage() {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@id': `${SITE_URL}/#software`,
-    '@type': 'SoftwareApplication',
-    applicationCategory: 'DesignApplication',
-    browserRequirements: 'Requires JavaScript and a modern web browser',
-    description:
-      'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
-    isAccessibleForFree: true,
-    name: 'Glyphfield Studio',
-    operatingSystem: 'Any',
-    url: absoluteUrl('/studio'),
-  };
+const STUDIO_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@id': `${SITE_URL}/#software`,
+  '@type': 'SoftwareApplication',
+  applicationCategory: 'DesignApplication',
+  browserRequirements: 'Requires JavaScript and a modern web browser',
+  description:
+    'Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.',
+  isAccessibleForFree: true,
+  name: 'Glyphfield Studio',
+  operatingSystem: 'Any',
+  url: absoluteUrl('/studio'),
+};
 
+export default function StudioPage() {
   return (
     <>
       <script
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(STUDIO_JSON_LD) }}
         type='application/ld+json'
       />
       <StudioApp />

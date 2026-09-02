@@ -9,7 +9,7 @@ import 'prismjs/components/prism-json';
 export type CodeLanguage = 'bash' | 'python' | 'typescript';
 export type HighlightLanguage = CodeLanguage | 'json';
 
-export type HighlightedToken = {
+type HighlightedToken = {
   color: string;
   content: string;
   type?: string;

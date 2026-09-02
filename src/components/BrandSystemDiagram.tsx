@@ -57,6 +57,8 @@ const DIAGRAM_CONTENT: Readonly<
   },
 };
 
+const DIAGRAM_ROWS = [78, 160, 242] as const;
+
 type BrandSystemDiagramProps = {
   compact?: boolean;
   identity: BrandIdentity;
@@ -89,8 +91,6 @@ export default function BrandSystemDiagram({ compact = false, identity }: BrandS
     '--diagram-ink': ink,
     '--diagram-paper': paper,
   } as CSSProperties;
-  const rows = [78, 160, 242];
-
   return (
     <div
       className='brand-system-diagram'
@@ -100,7 +100,7 @@ export default function BrandSystemDiagram({ compact = false, identity }: BrandS
     >
       <svg aria-label={`${identity.name} system diagram`} role='img' viewBox='0 0 960 320'>
         <rect className='brand-system-diagram-surface' height='320' width='960' />
-        {rows.map((y, index) => {
+        {DIAGRAM_ROWS.map((y, index) => {
           const label = content.inputs[index] ?? `Input ${index + 1}`;
           return (
             <g className='brand-system-diagram-input' key={label}>
@@ -116,7 +116,7 @@ export default function BrandSystemDiagram({ compact = false, identity }: BrandS
           <text textAnchor='middle' x='480' y='150'>{content.core}</text>
           <text className='brand-system-diagram-core-name' textAnchor='middle' x='480' y='182'>{identity.shortName}</text>
         </g>
-        {rows.map((y, index) => {
+        {DIAGRAM_ROWS.map((y, index) => {
           const label = content.outputs[index] ?? `Output ${index + 1}`;
           return (
             <g className='brand-system-diagram-output' key={label}>

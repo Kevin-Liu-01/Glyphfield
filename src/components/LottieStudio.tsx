@@ -1,6 +1,6 @@
 'use client';
 
-import { DotLottie, type Fit, type Mode } from '@lottiefiles/dotlottie-web';
+import { DotLottie, type Fit, type Mode } from '@lottiefiles/dotlottie-web/webgl';
 import { T, useGT } from 'gt-next';
 import {
   Download,
@@ -10,10 +10,11 @@ import {
   Play,
   RotateCcw,
   Upload,
-} from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+} from '@/components/ui/SolidIcons';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import DesignVersionControls from '@/components/DesignVersionControls';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
@@ -25,10 +26,19 @@ import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
-import { brandTypographyFamily, type BrandIdentity } from '@/lib/brandIdentity';
-import { imageUrlToDataUrl } from '@/lib/download';
+import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
+import {
+  brandFontAssets,
+  brandTypographyFamily,
+  brandTypographyRole,
+  type BrandIdentity,
+} from '@/lib/brandIdentity';
+import { canvasRevisionFromSignature } from '@/lib/canvasDocument';
+import { exportCanvasDocumentStill } from '@/lib/canvasExport';
+import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
 import {
   brandMaterialPalette,
   DEFAULT_LIVE_MATERIAL_ID,
@@ -37,15 +47,23 @@ import {
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
+  parseLottieDocument,
+  parseLottieWorkspaceSource,
+  type LottieCanvasState,
+} from '@/lib/lottieCanvasDocument';
+import {
   customizeLottieDocument,
   LOTTIE_EXAMPLES,
   type LottieAppearance,
   type LottieDocument,
 } from '@/lib/lottieExamples';
 import { isSupportedLottieFile } from '@/lib/studio';
+import { savedDesignStorageKey } from '@/lib/savedDesigns';
+import {
+  createStudioCanvasDocument,
+} from '@/lib/studioCanvasDocument';
 import { templateBrandLogo } from '@/lib/templateAssets';
 import type { BackgroundStyle } from '@/lib/renderFrame';
-import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 
 type LottieSource = {
   category: string;
@@ -55,6 +73,7 @@ type LottieSource = {
   format: 'dotlottie' | 'json';
   id: string;
   name: string;
+  portableDataUrl?: string;
   provenance: 'Glyphfield example' | 'Local import';
 };
 
@@ -200,6 +219,8 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:lottie`);
   const brandFontFamily = brandTypographyFamily(identity, 'Display');
+  const brandDisplayTypography = brandTypographyRole(identity, 'Display');
+  const brandDisplayFont = brandFontAssets(identity).find(({ id }) => id === brandDisplayTypography.fontId);
   const brandLogoAsset = templateBrandLogo(identity, 'blog', true);
   const defaultSurface = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const brandMaterialColors = brandMaterialPalette(identity).colors;
@@ -242,50 +263,174 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+  const [documentCreatedAt] = useState(() => new Date().toISOString());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shaderLayerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<DotLottie | null>(null);
-  const sourceRef = useRef(source);
-  const artColorRef = useRef(artColor);
-  const secondaryColorRef = useRef(secondaryColor);
-  const accentColorRef = useRef(accentColor);
-  const cornerRadiusRef = useRef(cornerRadius);
-  const strokeWidthRef = useRef(strokeWidth);
-  const speedRef = useRef(speed);
-  const loopRef = useRef(loop);
-  const interpolateRef = useRef(interpolate);
-  const fitRef = useRef(fit);
-  const modeRef = useRef(mode);
-  const transparentRef = useRef(transparent);
-  const backgroundRef = useRef(background);
-  const backgroundStyleRef = useRef(backgroundStyle);
-  const brandFontFamilyRef = useRef(brandFontFamily);
+  const sourceRef = useCommittedRef(source);
+  const artColorRef = useCommittedRef(artColor);
+  const secondaryColorRef = useCommittedRef(secondaryColor);
+  const accentColorRef = useCommittedRef(accentColor);
+  const cornerRadiusRef = useCommittedRef(cornerRadius);
+  const strokeWidthRef = useCommittedRef(strokeWidth);
+  const speedRef = useCommittedRef(speed);
+  const loopRef = useCommittedRef(loop);
+  const interpolateRef = useCommittedRef(interpolate);
+  const fitRef = useCommittedRef(fit);
+  const modeRef = useCommittedRef(mode);
+  const transparentRef = useCommittedRef(transparent);
+  const backgroundRef = useCommittedRef(background);
+  const backgroundStyleRef = useCommittedRef(backgroundStyle);
+  const brandFontFamilyRef = useCommittedRef(brandFontFamily);
   const brandLogoRef = useRef<LottieAppearance['brandLogo']>(undefined);
   const desiredPlayingRef = useRef(true);
   const lastFrameUpdateRef = useRef(0);
   const reloadFrameRef = useRef<number | null>(null);
   const sourceTransitionRef = useRef<number | null>(null);
-  const segmentStartRef = useRef(segmentStart);
-  const segmentEndRef = useRef(segmentEnd);
-  sourceRef.current = source;
-  artColorRef.current = artColor;
-  secondaryColorRef.current = secondaryColor;
-  accentColorRef.current = accentColor;
-  cornerRadiusRef.current = cornerRadius;
-  strokeWidthRef.current = strokeWidth;
-  speedRef.current = speed;
-  loopRef.current = loop;
-  interpolateRef.current = interpolate;
-  fitRef.current = fit;
-  modeRef.current = mode;
-  transparentRef.current = transparent;
-  backgroundRef.current = background;
-  backgroundStyleRef.current = backgroundStyle;
-  brandFontFamilyRef.current = brandFontFamily;
-  segmentStartRef.current = segmentStart;
-  segmentEndRef.current = segmentEnd;
+  const segmentStartRef = useCommittedRef(segmentStart);
+  const segmentEndRef = useCommittedRef(segmentEnd);
+  const restoredSegmentRef = useRef<{ end: number; start: number } | null>(null);
 
   const canvas = CANVAS_PRESETS[canvasPreset];
+  const serializableSource = useMemo(() => ({
+    category: source.category,
+    data: source.format === 'json' ? source.data : null,
+    description: source.description,
+    fileName: source.fileName,
+    format: source.format,
+    id: source.id,
+    name: source.name,
+    provenance: source.provenance,
+  }), [source]);
+  const lottieState = useMemo<LottieCanvasState>(() => ({
+    appearance: {
+      accentColor,
+      artColor,
+      cornerRadius,
+      secondaryColor,
+      strokeWidth,
+    },
+    background: {
+      color: background,
+      materialId,
+      materialSettings,
+      style: backgroundStyle,
+      transparent,
+    },
+    canvasPreset,
+    playback: {
+      fit,
+      interpolate,
+      loop,
+      mode,
+      segmentEnd,
+      segmentStart,
+      speed,
+    },
+    source: serializableSource as LottieCanvasState['source'],
+  }), [
+    accentColor,
+    artColor,
+    background,
+    backgroundStyle,
+    canvasPreset,
+    cornerRadius,
+    fit,
+    interpolate,
+    loop,
+    materialId,
+    materialSettings,
+    mode,
+    secondaryColor,
+    segmentEnd,
+    segmentStart,
+    serializableSource,
+    speed,
+    strokeWidth,
+    transparent,
+  ]);
+  const lottieRevision = useMemo(
+    () => JSON.stringify({ binarySource: source.portableDataUrl ?? null, state: lottieState }),
+    [lottieState, source.portableDataUrl]
+  );
+  const lottieDocument = useMemo(() => createStudioCanvasDocument({
+    background: transparent ? '#00000000' : background,
+    brandId: identity.id,
+    createdAt: documentCreatedAt,
+    height: canvas.height,
+    id: `${identity.id}:lottie:composition`,
+    layers: [
+      {
+        bounds: { height: canvas.height, rotation: 0, width: canvas.width, x: 0, y: 0 },
+        data: { materialId, materialSettings, style: backgroundStyle, transparent },
+        hidden: transparent,
+        id: 'lottie-background',
+        kind: backgroundStyle === 'shader' ? 'shader' as const : 'shape' as const,
+        name: 'Canvas background',
+      },
+      {
+        ...(source.format === 'dotlottie' && source.portableDataUrl ? {
+          asset: {
+            kind: 'binary' as const,
+            name: source.fileName,
+            source: source.portableDataUrl,
+          },
+        } : {}),
+        bounds: { height: canvas.height, rotation: 0, width: canvas.width, x: 0, y: 0 },
+        data: { fit, format: source.format, sourceId: source.id },
+        id: 'lottie-animation',
+        kind: 'component' as const,
+        name: source.name,
+      },
+      ...(brandDisplayFont ? [{
+        asset: {
+          kind: 'font' as const,
+          name: brandDisplayFont.label,
+          source: brandDisplayFont.path,
+        },
+        bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 },
+        hidden: true,
+        id: 'lottie-font',
+        kind: 'component' as const,
+        name: 'Display font',
+      }] : []),
+    ],
+    revision: canvasRevisionFromSignature(lottieRevision),
+    state: lottieState,
+    title: `${identity.name} Lottie`,
+    toolId: 'lottie',
+    updatedAt: documentCreatedAt,
+    width: canvas.width,
+  }), [
+    background,
+    backgroundStyle,
+    brandDisplayFont,
+    canvas.height,
+    canvas.width,
+    documentCreatedAt,
+    fit,
+    identity.id,
+    identity.name,
+    lottieRevision,
+    lottieState,
+    materialId,
+    materialSettings,
+    source.fileName,
+    source.format,
+    source.id,
+    source.name,
+    source.portableDataUrl,
+    transparent,
+  ]);
+  const lottieWorkspaceKey = useMemo(
+    () => savedDesignStorageKey(identity.id, 'lottie'),
+    [identity.id]
+  );
+  const portableLottie = usePortableCanvasWorkspace({
+    applySource: applyWorkspaceSource,
+    document: lottieDocument,
+    workspaceKey: lottieWorkspaceKey,
+  });
 
   function applyPlaybackSettings(player: DotLottie) {
     player.setSpeed(speedRef.current);
@@ -352,6 +497,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       mode: modeRef.current,
       renderConfig: {
         autoResize: false,
+        // Keep one stable native-density render target. dotLottie currently
+        // races its WASM pixel buffer when a live canvas target is resized;
+        // CSS can scale this preview without reallocating that buffer.
         devicePixelRatio: Math.min(window.devicePixelRatio, 2),
         freezeOnOffscreen: true,
         quality: 100,
@@ -381,12 +529,21 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
     const handleLoad = () => {
       const frameCount = Math.max(1, Math.floor(player.totalFrames));
+      const restoredSegment = restoredSegmentRef.current;
+      const restoredStart = restoredSegment
+        ? Math.max(0, Math.min(restoredSegment.start, frameCount - 2))
+        : 0;
+      const restoredEnd = restoredSegment
+        ? Math.max(restoredStart + 1, Math.min(restoredSegment.end, frameCount - 1))
+        : frameCount - 1;
+      restoredSegmentRef.current = null;
       setTotalFrames(frameCount);
       setDuration(player.duration);
-      setSegmentStart(0);
-      setSegmentEnd(frameCount - 1);
-      segmentStartRef.current = 0;
-      segmentEndRef.current = frameCount - 1;
+      setSegmentStart(restoredStart);
+      setSegmentEnd(restoredEnd);
+      segmentStartRef.current = restoredStart;
+      segmentEndRef.current = restoredEnd;
+      player.setSegment(restoredStart, restoredEnd);
       applyPlaybackSettings(player);
       if (desiredPlayingRef.current) player.play();
       else player.pause();
@@ -445,27 +602,65 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     sourceTransitionRef.current = window.setTimeout(() => {
       sourceTransitionRef.current = null;
       loadSource(nextSource);
-      }, 220);
+    }, 220);
   }
 
-  function applyLottieSource(nextSource: string) {
-    if (source.format === 'dotlottie') {
-      throw new TypeError('Binary .lottie bundles cannot be edited as text. Import or select a JSON animation first.');
+  async function applyWorkspaceSource(nextSource: string) {
+    const parsed = parseLottieWorkspaceSource(nextSource, lottieState);
+    const restored = parsed.state;
+    let nextData: ArrayBuffer | LottieDocument = restored.source.data ?? {};
+    if (restored.source.format === 'dotlottie') {
+      const response = await fetch(parsed.binarySource!);
+      if (!response.ok) throw new TypeError('The embedded .lottie bundle could not be read.');
+      nextData = await response.arrayBuffer();
     }
-    const document = parseSourceObject(nextSource) as LottieDocument;
-    if (!Array.isArray(document.layers) || typeof document.fr !== 'number') {
-      throw new TypeError('Lottie source must include a layers array and numeric frame rate.');
-    }
-    const next: LottieSource = {
-      ...source,
-      data: document,
-      fileName: source.fileName.replace(/\.lottie$/i, '.json'),
-      format: 'json',
-      id: `code-${crypto.randomUUID()}`,
-      name: source.name,
-      provenance: 'Local import',
+    const nextLottieSource: LottieSource = {
+      category: restored.source.category,
+      data: nextData,
+      description: restored.source.description,
+      fileName: restored.source.fileName,
+      format: restored.source.format,
+      id: parsed.legacy ? `code-${crypto.randomUUID()}` : restored.source.id,
+      name: restored.source.name,
+      portableDataUrl: parsed.binarySource ?? undefined,
+      provenance: restored.source.provenance,
     };
-    selectSource(next);
+
+    artColorRef.current = restored.appearance.artColor;
+    secondaryColorRef.current = restored.appearance.secondaryColor;
+    accentColorRef.current = restored.appearance.accentColor;
+    cornerRadiusRef.current = restored.appearance.cornerRadius;
+    strokeWidthRef.current = restored.appearance.strokeWidth;
+    backgroundRef.current = restored.background.color;
+    backgroundStyleRef.current = restored.background.style;
+    transparentRef.current = restored.background.transparent;
+    speedRef.current = restored.playback.speed;
+    loopRef.current = restored.playback.loop;
+    interpolateRef.current = restored.playback.interpolate;
+    fitRef.current = restored.playback.fit as Fit;
+    modeRef.current = restored.playback.mode as Mode;
+    restoredSegmentRef.current = {
+      end: restored.playback.segmentEnd,
+      start: restored.playback.segmentStart,
+    };
+
+    setBackground(restored.background.color);
+    setBackgroundStyle(restored.background.style);
+    setMaterialId(restored.background.materialId);
+    setMaterialSettings(restored.background.materialSettings);
+    setTransparent(restored.background.transparent);
+    setArtColor(restored.appearance.artColor);
+    setSecondaryColor(restored.appearance.secondaryColor);
+    setAccentColor(restored.appearance.accentColor);
+    setCornerRadius(restored.appearance.cornerRadius);
+    setStrokeWidth(restored.appearance.strokeWidth);
+    setSpeed(restored.playback.speed);
+    setLoop(restored.playback.loop);
+    setInterpolate(restored.playback.interpolate);
+    setFit(restored.playback.fit as Fit);
+    setMode(restored.playback.mode as Mode);
+    updateCanvasPreset(restored.canvasPreset);
+    selectSource(nextLottieSource);
   }
 
   async function importFile(file: File) {
@@ -475,9 +670,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     }
     try {
       const isDotLottie = file.name.toLowerCase().endsWith('.lottie');
-      const data = isDotLottie
-        ? await file.arrayBuffer()
-        : JSON.parse(await file.text()) as LottieDocument;
+      const [data, portableDataUrl] = isDotLottie
+        ? await Promise.all([file.arrayBuffer(), blobToDataUrl(file)])
+        : [parseLottieDocument(JSON.parse(await file.text()) as Record<string, unknown>), undefined];
       const nextSource: LottieSource = {
         category: gt('Imported'),
         data,
@@ -486,6 +681,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
         format: isDotLottie ? 'dotlottie' : 'json',
         id: crypto.randomUUID(),
         name: file.name.replace(/\.(json|lottie)$/i, ''),
+        portableDataUrl,
         provenance: 'Local import',
       };
       selectSource(nextSource);
@@ -632,43 +828,52 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     });
   }
 
-  function downloadPng() {
+  async function downloadPng() {
     const lottieCanvas = canvasRef.current;
-    if (!lottieCanvas) return;
+    const portableDocument = portableLottie.document;
+    if (!lottieCanvas || !portableDocument) return;
     studioExport.start('Rendering Lottie frame preview');
     const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
-    const completeExport = (blob: Blob | null) => {
-      if (blob) {
-        setLastExport({
-          blob,
-          fileName,
-          format: 'PNG',
-          height: canvas.height,
-          width: canvas.width,
-        });
-      }
+    try {
+      const shaderCanvas = shaderLayerRef.current?.querySelector('canvas') ?? null;
+      const exported = await exportCanvasDocumentStill({
+        canvasDocument: portableDocument,
+        height: canvas.height,
+        renderElement: (context, { element, outputBounds }) => {
+          if (element.id === 'lottie-background') {
+            if (element.kind === 'shader' && shaderCanvas) {
+              context.drawImage(
+                shaderCanvas,
+                outputBounds.x,
+                outputBounds.y,
+                outputBounds.width,
+                outputBounds.height
+              );
+            }
+            return;
+          }
+          if (element.id === 'lottie-animation') {
+            context.drawImage(
+              lottieCanvas,
+              outputBounds.x,
+              outputBounds.y,
+              outputBounds.width,
+              outputBounds.height
+            );
+          }
+        },
+        width: canvas.width,
+      });
+      setLastExport({
+        blob: exported.blob,
+        fileName,
+        format: 'PNG',
+        height: exported.height,
+        width: exported.width,
+      });
+    } finally {
       studioExport.finish();
-    };
-    const shaderCanvas = shaderLayerRef.current?.querySelector('canvas');
-    if (backgroundStyle !== 'shader' || transparent || !shaderCanvas) {
-      lottieCanvas.toBlob((blob) => {
-        completeExport(blob);
-      }, 'image/png');
-      return;
     }
-    const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = canvas.width;
-    exportCanvas.height = canvas.height;
-    const context = exportCanvas.getContext('2d');
-    if (!context) {
-      studioExport.finish();
-      return;
-    }
-    context.drawImage(shaderCanvas, 0, 0, canvas.width, canvas.height);
-    context.drawImage(lottieCanvas, 0, 0, canvas.width, canvas.height);
-    exportCanvas.toBlob((blob) => {
-      completeExport(blob);
-    }, 'image/png');
   }
 
   function resetEditor() {
@@ -703,17 +908,17 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     selectSource(DEFAULT_SOURCE);
   }
 
-  return (
-    <div className='source-code-host flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground'>
+  function renderHeader() {
+    return (
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <SourceCodeButton disabled={portableLottie.source === null} onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
           <Button aria-label={gt('Reset Lottie editor')} onClick={resetEditor} size='icon' type='button' variant='outline'>
             <RotateCcw aria-hidden='true' />
           </Button>
-          <Button onClick={downloadPng} type='button' variant='outline'>
+          <Button disabled={!portableLottie.document} onClick={() => void downloadPng()} type='button' variant='outline'>
             <ImageDown aria-hidden='true' />
             <T>Export frame</T>
           </Button>
@@ -724,11 +929,25 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           </>
         )}
         metadata={source.name}
+        status={(
+          <DesignVersionControls
+            autosaveState={portableLottie.autosaveState}
+            identityId={identity.id}
+            onOpen={applyWorkspaceSource}
+            revision={String(lottieDocument.revision)}
+            source={() => portableLottie.source}
+            toolId='lottie'
+            workspaceLabel='Lottie'
+          />
+        )}
         title={<T>Lottie</T>}
         toolId='lottie'
       />
+    );
+  }
 
-      <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
+  function renderSourceLibrary() {
+    return (
         <StudioSidebar
           className='lottie-source-sidebar min-h-0'
           density='compact'
@@ -780,7 +999,11 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             <p className='text-xs leading-5 text-muted-foreground'><T>Imported files stay local. Verify the license before redistributing third-party animation work.</T></p>
           </InspectorSection>
         </StudioSidebar>
+    );
+  }
 
+  function renderProperties() {
+    return (
         <StudioSidebar
           className='lottie-properties-sidebar min-h-0'
           density='compact'
@@ -865,7 +1088,11 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             </InspectorSection>
           )}
         </StudioSidebar>
+    );
+  }
 
+  function renderCanvasPanel() {
+    return (
         <section className='lottie-canvas flex min-h-0 min-w-0 flex-col bg-muted/20'>
           <div className='flex h-10 items-center justify-between border-b border-border bg-background px-4 text-xs text-muted-foreground'>
             <span>{canvas.width} × {canvas.height}</span>
@@ -886,9 +1113,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
               <canvas
                 aria-label={gt('Lottie animation preview')}
                 className={`absolute inset-0 z-10 size-full transition-[opacity,transform] duration-[360ms] [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${isSourceTransitioning ? 'translate-y-0.5 scale-[.996] opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
-                height={canvas.height}
                 ref={canvasRef}
-                width={canvas.width}
               />
             </div>
           </CanvasViewport>
@@ -899,21 +1124,30 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           </div>
           {error ? <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>{error}</div> : null}
         </section>
-      </div>
-      {sourceOpen ? (
+    );
+  }
+
+  function renderSourceDrawer() {
+    return sourceOpen && portableLottie.source ? (
         <SourceCodeDrawer
-          format={source.format === 'json' ? 'Lottie JSON' : 'Binary .lottie'}
-          onApply={applyLottieSource}
+          format='JSON · portable Lottie composition'
+          onApply={applyWorkspaceSource}
           onClose={() => setSourceOpen(false)}
-          source={source.format === 'json'
-            ? stringifySource(source.data)
-            : stringifySource({
-                fileName: source.fileName,
-                message: 'Binary .lottie bundles are downloadable but not editable as text. Select a JSON source to edit exact animation code.',
-              })}
-          title={gt('Lottie source')}
+          source={portableLottie.source}
+          title={gt('Lottie composition code')}
         />
-      ) : null}
+    ) : null;
+  }
+
+  return (
+    <div className='source-code-host flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground'>
+      {renderHeader()}
+      <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
+        {renderSourceLibrary()}
+        {renderProperties()}
+        {renderCanvasPanel()}
+      </div>
+      {renderSourceDrawer()}
     </div>
   );
 }

@@ -6,18 +6,20 @@ import {
   ArrowRight,
   Bot,
   BookOpen,
-  Braces,
+  Download,
   Film,
   Layers3,
+  MoveDiagonal2,
   Palette,
   ScanLine,
   Sparkles,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 import type { ReactNode } from 'react';
 
 import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
+import MarketingAgentControlLab from '@/components/MarketingAgentControlLab';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import MarketingMotion from '@/components/MarketingMotion';
@@ -32,13 +34,13 @@ import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 import { STUDIO_TOOLS } from '@/lib/studioCatalog';
 
 const BRAND_LOGOS = [
-  { height: 58, id: 'gt', name: 'General Translation', src: '/brands/gt/logos/mark-black.svg', width: 58 },
-  { height: 34, id: 'ramp', name: 'Ramp', src: '/brands/ramp/logos/wordmark-slate.svg', width: 106 },
-  { height: 26, id: 'mintlify', name: 'Mintlify', src: '/brands/mintlify/logos/wordmark.svg', width: 116 },
-  { height: 15, id: 'tailwind', name: 'Tailwind CSS', src: '/brands/tailwind/logos/wordmark.svg', width: 116 },
-  { height: 17, id: 'viteplus', name: 'Vite+', src: '/brands/viteplus/logos/wordmark-dark.svg', width: 116 },
-  { height: 34, id: 'stripe', name: 'Stripe', src: '/brands/stripe/logos/wordmark-slate.svg', width: 81 },
-  { height: 81, id: 'cloudflare', name: 'Cloudflare', src: '/brands/cloudflare/logos/wordmark.svg', width: 218 },
+  { darkSurfaceSrc: '/brands/gt/logos/mark-white.svg', id: 'gt', lightSurfaceSrc: '/brands/gt/logos/mark-black.svg', name: 'General Translation' },
+  { darkSurfaceSrc: '/brands/ramp/logos/mark-white.svg', id: 'ramp', lightSurfaceSrc: '/brands/ramp/logos/mark-slate.svg', name: 'Ramp' },
+  { darkSurfaceSrc: '/brands/mintlify/logos/mark-light.svg', id: 'mintlify', lightSurfaceSrc: '/brands/mintlify/logos/mark.svg', name: 'Mintlify' },
+  { darkSurfaceSrc: '/brands/tailwind/logos/mark.svg', id: 'tailwind', lightSurfaceSrc: '/brands/tailwind/logos/mark.svg', name: 'Tailwind CSS' },
+  { darkSurfaceSrc: '/brands/viteplus/logos/mark.svg', id: 'viteplus', lightSurfaceSrc: '/brands/viteplus/logos/mark.svg', name: 'Vite+' },
+  { darkSurfaceSrc: '/brands/stripe/logos/wordmark-white.svg', id: 'stripe', lightSurfaceSrc: '/brands/stripe/logos/wordmark-blurple.svg', name: 'Stripe' },
+  { darkSurfaceSrc: '/brands/cloudflare/logos/mark-white.svg', id: 'cloudflare', lightSurfaceSrc: '/brands/cloudflare/logos/mark.svg', name: 'Cloudflare' },
 ] as const;
 
 const GLYPH_FIELD_ROWS = [
@@ -88,48 +90,6 @@ const OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS = {
   rotationY: 0,
   rotationZ: -12,
   speed: 0.26,
-};
-
-const AGENT_LABS_DITHERING_SINE_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 2.2,
-  brightness: 0.94,
-  colorA: '#173E6B',
-  colorB: '#B7EBFF',
-  colorC: '#B7E5FF',
-  grain: 0,
-  rotationX: 0,
-  rotationY: 0,
-  rotationZ: -3,
-  speed: 0.36,
-};
-
-const AGENT_MATERIALS_DITHERING_WARP_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 3,
-  brightness: 0.92,
-  colorA: '#4C206D',
-  colorB: '#E8B4FF',
-  colorC: '#F1C0FF',
-  grain: 0,
-  rotationX: 0,
-  rotationY: 0,
-  rotationZ: 8,
-  speed: 0.28,
-};
-
-const AGENT_GENERATE_DITHERING_RIPPLE_SETTINGS = {
-  ...DEFAULT_LIVE_MATERIAL_SETTINGS,
-  amplitude: 2.8,
-  brightness: 0.94,
-  colorA: '#174C3E',
-  colorB: '#C6F29A',
-  colorC: '#D9F2A9',
-  grain: 0,
-  rotationX: 0,
-  rotationY: 0,
-  rotationZ: 4,
-  speed: 0.32,
 };
 
 const FOOTER_DITHERING_SWIRL_SETTINGS = {
@@ -322,7 +282,9 @@ export default async function HomePage() {
 
         <section className='marketing-v5-product-grid marketing-v7-corner-frame' data-motion-reveal>
           <FrameTriangles />
+          <SwissGrid />
           <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
+            <span className='marketing-v13-card-index'>03.1 / BRAND APPLICATIONS</span>
             <h2><T>Build the brand where it will live.</T></h2>
             <p>
               <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
@@ -348,6 +310,7 @@ export default async function HomePage() {
             </div>
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
+            <span className='marketing-v13-card-index'>03.2 / MOTION SYSTEM</span>
             <h2 className='marketing-v5-product-card-title--motion'>
               <span><T>Design the mark</T></span>{' '}
               <span><T>and its motion together.</T></span>
@@ -379,15 +342,17 @@ export default async function HomePage() {
 
         <section className='marketing-v5-agents marketing-v7-corner-frame' data-motion-reveal id='agents'>
           <FrameTriangles />
+          <SwissGrid />
           <div className='marketing-v5-agents-copy' data-motion-item>
+            <span className='marketing-v13-section-index'>04 / AGENT CONTRACT</span>
             <h2 className='marketing-v5-agent-title'>
               <span><T>Plug the system</T></span>{' '}
               <span><T>into any agent.</T></span>
             </h2>
             <p>
               <T>
-                Start from one manifest. Discover every Studio lab, inspect every shader and its
-                attribution, then choose deterministic generation or a browser-rendered workflow.
+                Tune the identity visually, then hand an agent the exact same typed values. Every
+                control maps directly to one portable generation contract.
               </T>
             </p>
             <div className='marketing-v5-agent-stats' aria-label={gt('Agent API coverage')}>
@@ -416,39 +381,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className='marketing-v5-agent-integration' data-motion-item>
-            <nav aria-label={gt('Agent API endpoints')} className='marketing-v5-agent-endpoints'>
-              <Link href='/api/labs'>
-                <MarketingArcField
-                  className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-dithering-sine-wave'
-                  settings={AGENT_LABS_DITHERING_SINE_SETTINGS}
-                />
-                <span><b>GET</b><code>/api/labs</code></span>
-                <strong><T>Discover capabilities</T></strong>
-                <small>{STUDIO_TOOLS.length} <T>Studio plugins</T></small>
-              </Link>
-              <Link href='/api/materials'>
-                <MarketingArcField
-                  className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-dithering-warp'
-                  settings={AGENT_MATERIALS_DITHERING_WARP_SETTINGS}
-                />
-                <span><b>GET</b><code>/api/materials</code></span>
-                <strong><T>Select a material</T></strong>
-                <small>{LIVE_MATERIAL_OPTIONS.length} <T>licensed shaders</T></small>
-              </Link>
-              <Link href='/api/generate'>
-                <MarketingArcField
-                  className='marketing-v5-agent-endpoint-shader'
-                  materialId='paper-dithering-ripple'
-                  settings={AGENT_GENERATE_DITHERING_RIPPLE_SETTINGS}
-                />
-                <span><b>POST</b><code>/api/generate</code></span>
-                <strong><T>Generate an artifact</T></strong>
-                <small><T>JSON or raw SVG</T></small>
-              </Link>
-            </nav>
-            <AgentPanel />
+            <MarketingAgentControlLab />
           </div>
         </section>
 
@@ -458,9 +391,17 @@ export default async function HomePage() {
           data-motion-reveal
         >
           <FrameTriangles />
+          <SwissGrid />
           <header data-motion-item>
-            <span><T>Glyphfield, answered</T></span>
-            <h2 id='frequently-asked-questions'><T>Frequently asked questions</T></h2>
+            <span>05 / <T>Glyphfield, answered</T></span>
+            <div className='marketing-v13-faq-heading'>
+              <h2 id='frequently-asked-questions'><T>Frequently asked questions</T></h2>
+              <StudioSelectionFrame
+                className='marketing-v13-faq-selection'
+                label='TEXT 05'
+                meta='W 288  /  AUTO HEIGHT'
+              />
+            </div>
             <p>
               <T>
                 The short version of what Glyphfield is, what it makes, and how people and agents
@@ -482,6 +423,7 @@ export default async function HomePage() {
 
         <section className='marketing-v7-open-source marketing-v7-corner-frame' data-motion-reveal id='open-source'>
           <FrameTriangles dark />
+          <SwissGrid dark />
           <MarketingArcField
             className='marketing-v8-open-source-glyph-field'
             materialId='glyphfield-glyph-field'
@@ -491,6 +433,7 @@ export default async function HomePage() {
             {GLYPH_FIELD_ROWS.map((row, index) => <span key={`${index}-${row}`}>{row}</span>)}
           </div>
           <div className='marketing-v7-open-source-copy' data-motion-item>
+            <span className='marketing-v13-section-index'>06 / OPEN SYSTEM</span>
             <h2><T>Free, open source, and built to extend.</T></h2>
             <p>
               <T>
@@ -510,16 +453,19 @@ export default async function HomePage() {
               </a>
             </div>
           </div>
-          <div className='marketing-v7-open-source-panel' data-motion-item>
-            <MarketingArcField
-              className='marketing-v8-open-source-panel-material'
-              materialId='paper-dithering-warp'
-              settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
-            />
-            <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
-            <div className='marketing-v7-open-source-meta'>
-              <strong>MIT</strong>
-              <span><T>Source, agent API, and artifact model included.</T></span>
+          <div className='marketing-v14-open-source-workbench' data-motion-item>
+            <StudioColorInspector dark />
+            <div className='marketing-v7-open-source-panel'>
+              <MarketingArcField
+                className='marketing-v8-open-source-panel-material'
+                materialId='paper-dithering-warp'
+                settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
+              />
+              <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
+              <div className='marketing-v7-open-source-meta'>
+                <strong>MIT</strong>
+                <span><T>Source, agent API, and artifact model included.</T></span>
+              </div>
             </div>
           </div>
         </section>
@@ -576,7 +522,7 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
         <ArrowRight aria-hidden='true' />
       </Link>
       <ul>
-        {BRAND_LOGOS.map(({ height, id, name, src, width }) => (
+        {BRAND_LOGOS.map(({ darkSurfaceSrc, id, lightSurfaceSrc, name }) => (
           <li key={id}>
             <Link
               aria-label={gt(`Open ${name} in the Studio`)}
@@ -585,14 +531,24 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
               href={`/studio?project=${id}`}
               title={gt(`Open ${name} in the Studio`)}
             >
-              <Image
-                alt=''
-                aria-hidden='true'
-                className={id === 'gt' ? 'marketing-v5-logo-rail-gt' : undefined}
-                height={height}
-                src={src}
-                width={width}
-              />
+              <span className='marketing-v5-logo-rail-mark' data-brand-id={id}>
+                <Image
+                  alt=''
+                  aria-hidden='true'
+                  className='marketing-v5-logo-rail-mark-light-surface'
+                  height={64}
+                  src={lightSurfaceSrc}
+                  width={64}
+                />
+                <Image
+                  alt=''
+                  aria-hidden='true'
+                  className='marketing-v5-logo-rail-mark-dark-surface'
+                  height={64}
+                  src={darkSurfaceSrc}
+                  width={64}
+                />
+              </span>
             </Link>
           </li>
         ))}
@@ -615,6 +571,90 @@ function FrameTriangles({ dark = false }: { dark?: boolean }) {
     <span className={`marketing-v6-triangles${dark ? ' marketing-v6-triangles--dark' : ''}`} aria-hidden='true'>
       <i /><i /><i /><i />
     </span>
+  );
+}
+
+function SwissGrid({ dark = false }: { dark?: boolean }) {
+  return (
+    <span
+      aria-hidden='true'
+      className={`marketing-v13-swiss-grid${dark ? ' marketing-v13-swiss-grid--dark' : ''}`}
+    >
+      {Array.from({ length: 11 }, (_, index) => <i key={`column-${index + 1}`} />)}
+      <b /><b /><b />
+    </span>
+  );
+}
+
+function StudioSelectionFrame({
+  className = '',
+  dark = false,
+  label,
+  meta,
+}: {
+  className?: string;
+  dark?: boolean;
+  label: string;
+  meta: string;
+}) {
+  return (
+    <span
+      aria-hidden='true'
+      className={`marketing-v13-selection-frame${dark ? ' marketing-v13-selection-frame--dark' : ''} ${className}`.trim()}
+    >
+      <span className='marketing-v13-selection-label'>{label}</span>
+      <span className='marketing-v13-selection-rotation'><i /></span>
+      {Array.from({ length: 7 }, (_, index) => (
+        <i className='marketing-v13-selection-handle' key={`handle-${index + 1}`} />
+      ))}
+      <span className='marketing-v13-selection-corner'><MoveDiagonal2 /></span>
+      <small>{meta}</small>
+    </span>
+  );
+}
+
+function StudioControlPanel({
+  children,
+  className = '',
+  dark = false,
+  meta,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  dark?: boolean;
+  meta: string;
+  title: string;
+}) {
+  return (
+    <aside
+      aria-hidden='true'
+      className={`marketing-v14-control-panel${dark ? ' marketing-v14-control-panel--dark' : ''} ${className}`.trim()}
+    >
+      <header><strong>{title}</strong><span>{meta}</span></header>
+      {children}
+    </aside>
+  );
+}
+
+function StudioColorInspector({ dark = false }: { dark?: boolean }) {
+  return (
+    <StudioControlPanel className='marketing-v14-color-inspector' dark={dark} meta='BACKGROUND' title='CANVAS'>
+      <div className='marketing-v14-color-field'>
+        <i />
+        <small>HEX</small>
+        <strong>#FFFFFF</strong>
+      </div>
+      <div className='marketing-v14-color-spectrum'><i /></div>
+      <div className='marketing-v14-hue-row'><b /><i /></div>
+      <div className='marketing-v14-hsv-row'>
+        <span>0 H</span><span>0 S</span><span>100 V</span>
+      </div>
+      <div className='marketing-v14-segmented-row'>
+        <span className='is-active'><Palette />Canvas</span>
+        <span><Download />Asset</span>
+      </div>
+    </StudioControlPanel>
   );
 }
 
@@ -660,16 +700,27 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
     <section className='marketing-v5-theme-gallery marketing-v7-corner-frame' data-motion-reveal id='themes'>
       <FrameTriangles />
+      <SwissGrid />
       <div className='marketing-v5-theme-gallery-copy' data-motion-item>
-        <h2 className='marketing-v5-theme-gallery-title'>
-          <span><T>Current Studio.</T></span>{' '}
-          <span><T>Real brand materials.</T></span>
-        </h2>
-        <p>
-          <T>
-            See identity settings and an art-directed moodboard inside the same working workspace.
-          </T>
-        </p>
+        <span className='marketing-v13-section-index'>02 / LIVE IDENTITY</span>
+        <div className='marketing-v13-theme-heading'>
+          <h2 className='marketing-v5-theme-gallery-title'>
+            <span><T>Current Studio.</T></span>{' '}
+            <span><T>Real brand materials.</T></span>
+          </h2>
+          <StudioSelectionFrame
+            className='marketing-v13-theme-selection'
+            label='TEXT / DISPLAY'
+            meta='X 048  Y 056  W 612'
+          />
+        </div>
+        <div className='marketing-v13-theme-notes'>
+          <p>
+            <T>
+              See identity settings and an art-directed moodboard inside the same working workspace.
+            </T>
+          </p>
+        </div>
       </div>
       <div className='marketing-v5-theme-gallery-grid'>
         <div data-motion-item>
@@ -690,45 +741,5 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function AgentPanel() {
-  return (
-    <div className='marketing-v5-agent-panel' data-motion-item>
-      <header>
-        <span className='marketing-v5-agent-request'>
-          <Braces aria-hidden='true' />
-          <strong>GET</strong>
-          <code>/api/materials</code>
-        </span>
-        <span className='marketing-v5-agent-status'>
-          <strong>200</strong>
-          <small>application/json</small>
-        </span>
-      </header>
-      <pre><code>{`{
-  "count": ${LIVE_MATERIAL_OPTIONS.length},
-  "materials": [{
-    "id": "paper-liquid-metal-noir",
-    "engine": "Paper Shaders",
-    "sourceLabel": "Paper · Apache-2.0"
-  }],
-  "sharedBy": [
-    "animation",
-    "material",
-    "surface"
-  ],
-  "controls": {
-    "colorA": { "type": "hex-color" },
-    "strength": { "min": 0, "max": 2 }
-  },
-  "schemaVersion": 1
-}`}</code></pre>
-      <footer>
-        <span><i /> live catalog synchronized</span>
-        <span>{STUDIO_TOOLS.length} labs · {LIVE_MATERIAL_OPTIONS.length} shaders</span>
-      </footer>
-    </div>
   );
 }

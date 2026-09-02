@@ -1,6 +1,6 @@
 'use client';
 
-import { MoveDiagonal2 } from 'lucide-react';
+import { MoveDiagonal2 } from '@/components/ui/SolidIcons';
 import {
   useRef,
   useState,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { paperControlOverrides, resolvePaperShaderScale } from '@/components/LiveMaterialCanvas';
+import { paperControlOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 
 describe('Paper shader preview controls', () => {

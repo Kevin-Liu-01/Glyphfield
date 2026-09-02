@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { ImageResponse } from 'next/og';
 
-import BrandOpenGraphImage, { OPEN_GRAPH_SIZE } from '@/components/BrandOpenGraphImage';
+import BrandOpenGraphImage from '@/components/BrandOpenGraphImage';
+import { OPEN_GRAPH_SIZE } from '@/lib/openGraph';
 import { docsSource } from '@/lib/docsSource';
 import { getOpenGraphFonts } from '@/lib/openGraphFonts';
 

@@ -1,5 +1,5 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from '@/components/ui/SolidIcons';
 import Image from 'next/image';
 import Link from 'next/link';
 

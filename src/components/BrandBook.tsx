@@ -20,7 +20,7 @@ import {
   Target,
   Triangle,
   X,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 import { T, useGT } from 'gt-next';
 import {
   useEffect,
@@ -311,6 +311,49 @@ function BrandBookCover({
   );
 }
 
+function BrandBookLogo({
+  alt,
+  decorative = false,
+  fallback = null,
+  src,
+}: {
+  alt: string;
+  decorative?: boolean;
+  fallback?: ReactNode;
+  src?: string;
+}) {
+  if (!src) return fallback;
+  return <img alt={decorative ? '' : alt} aria-hidden={decorative || undefined} src={src} />;
+}
+
+function brandBookVisualAssets(identity: BrandIdentity): BrandAsset[] {
+  const visualAssets = identity.assets.filter((asset) =>
+    ['background', 'image', 'motion', 'product', 'texture'].includes(asset.type)
+  );
+  return visualAssets.length > 0
+    ? visualAssets
+    : identity.assets.filter((asset) => asset.type !== 'logo');
+}
+
+function showcasePagePresentation(index: number): { position: string; tone: BookTone } {
+  return {
+    position: index % 2 ? 'center 35%' : 'center',
+    tone: index % 3 === 2 ? 'dark' : 'paper',
+  };
+}
+
+function brandBookMotionItems(identity: BrandIdentity): BrandIdentity['motion'] {
+  if (identity.motion.length > 0) return identity.motion.slice(0, 3);
+  return [{
+    curve: 'cubic-bezier(.22, 1, .36, 1)',
+    description: identity.dossier.motion,
+    durationMs: 900,
+    id: 'default',
+    name: 'Brand cadence',
+    previewPath: '',
+  }];
+}
+
 function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   const pages: BookPageSpec[] = [];
   const sectionPageNumbers = [4, 10, 16, 22, 27, 33, 37, 42] as const;
@@ -323,12 +366,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
   const lightMark = brandAssetPath(identity, 'mark-light') ?? darkMark;
   const wordmark = brandAssetPath(identity, 'wordmark') ?? darkMark;
   const wordmarkLight = brandAssetPath(identity, 'wordmark-light') ?? lightMark;
-  const visualAssets = identity.assets.filter((asset) =>
-    ['background', 'image', 'motion', 'product', 'texture'].includes(asset.type)
-  );
-  const allVisualAssets = visualAssets.length > 0
-    ? visualAssets
-    : identity.assets.filter((asset) => asset.type !== 'logo');
+  const allVisualAssets = brandBookVisualAssets(identity);
   const abstractAssets = orderUniqueAssets(
     allVisualAssets,
     ABSTRACT_ASSET_ORDER
@@ -482,7 +520,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Primary mark',
     content: (
       <div className={styles.logoHeroPage}>
-        {darkMark ? <img alt={`${identity.name} primary mark`} src={darkMark} /> : <strong>{identity.shortName}</strong>}
+        <BrandBookLogo alt={`${identity.name} primary mark`} fallback={<strong>{identity.shortName}</strong>} src={darkMark} />
         <p>The mark is a signature, not a decoration. Give it enough quiet space to remain exact and immediately recognizable.</p>
       </div>
     ),
@@ -494,10 +532,10 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     content: (
       <div className={styles.logoFamilyPage}>
         <div className={styles.logoFamilyGrid}>
-          <div>{darkMark ? <img alt='Primary mark on light' src={darkMark} /> : null}<span>Mark / light</span></div>
-          <div>{wordmark ? <img alt='Primary wordmark on light' src={wordmark} /> : null}<span>Wordmark / light</span></div>
-          <div data-inverse='true'>{lightMark ? <img alt='Primary mark on dark' src={lightMark} /> : null}<span>Mark / dark</span></div>
-          <div data-inverse='true'>{wordmarkLight ? <img alt='Primary wordmark on dark' src={wordmarkLight} /> : null}<span>Wordmark / dark</span></div>
+          <div><BrandBookLogo alt='Primary mark on light' src={darkMark} /><span>Mark / light</span></div>
+          <div><BrandBookLogo alt='Primary wordmark on light' src={wordmark} /><span>Wordmark / light</span></div>
+          <div data-inverse='true'><BrandBookLogo alt='Primary mark on dark' src={lightMark} /><span>Mark / dark</span></div>
+          <div data-inverse='true'><BrandBookLogo alt='Primary wordmark on dark' src={wordmarkLight} /><span>Wordmark / dark</span></div>
         </div>
       </div>
     ),
@@ -512,7 +550,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
       <div className={styles.clearspacePage}>
         <div className={styles.clearspaceDiagram}>
           <span className={styles.measureTop}>1×</span><span className={styles.measureSide}>1×</span>
-          {darkMark ? <img alt={`${identity.name} mark clear-space diagram`} src={darkMark} /> : null}
+          <BrandBookLogo alt={`${identity.name} mark clear-space diagram`} src={darkMark} />
         </div>
         <p>Use one mark-width around the signature whenever possible. At small sizes, protect recognition before adding information.</p>
       </div>
@@ -525,10 +563,15 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     content: (
       <div className={styles.colorwayPage}>
         <div className={styles.colorwayGrid}>
-          {[paper, muted, accent, ink].map((color, index) => {
+          {[
+            ['paper', paper],
+            ['muted', muted],
+            ['accent', accent],
+            ['ink', ink],
+          ].map(([token, color]) => {
             const isDark = contrastText(color) === '#FFFFFF';
             const activeLogo = isDark ? lightMark : darkMark;
-            return <div key={`${color}-${index}`} style={{ background: color, color: contrastText(color) }}>{activeLogo ? <img alt='' aria-hidden='true' src={activeLogo} /> : null}<span>{color}</span></div>;
+            return <div key={token} style={{ background: color, color: contrastText(color) }}><BrandBookLogo alt='' decorative src={activeLogo} /><span>{color}</span></div>;
           })}
         </div>
       </div>
@@ -675,9 +718,14 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     content: (
       <div className={styles.contrastPage}>
         <div className={styles.contrastGrid}>
-          {[[ink, paper], [ink, muted], [accent, paper], [accent, ink]].map(([foreground, background], index) => {
+          {[
+            ['ink-paper', ink, paper],
+            ['ink-muted', ink, muted],
+            ['accent-paper', accent, paper],
+            ['accent-ink', accent, ink],
+          ].map(([pair, foreground, background]) => {
             const ratio = contrastRatio(foreground, background);
-            return <article key={index} style={{ background, color: foreground }}><strong>Aa</strong><span>{ratio.toFixed(1)}:1</span><small>{ratio >= 4.5 ? 'AA normal text' : ratio >= 3 ? 'AA large text' : 'Display only'}</small></article>;
+            return <article key={pair} style={{ background, color: foreground }}><strong>Aa</strong><span>{ratio.toFixed(1)}:1</span><small>{ratio >= 4.5 ? 'AA normal text' : ratio >= 3 ? 'AA large text' : 'Display only'}</small></article>;
           })}
         </div>
       </div>
@@ -741,14 +789,27 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     content: (
       <div className={styles.motionPage}>
         <div className={styles.motionCards}>
-          {(identity.motion.length > 0 ? identity.motion.slice(0, 3) : [{ id: 'default', name: 'Brand cadence', durationMs: 900, curve: 'cubic-bezier(.22, 1, .36, 1)', description: identity.dossier.motion, previewPath: '' }]).map((motion) => <article key={motion.id}><strong>{motion.name}</strong><span>{motion.durationMs} ms</span><code>{motion.curve}</code><p>{motion.description}</p></article>)}
+          {brandBookMotionItems(identity).map((motion) => <article key={motion.id}><strong>{motion.name}</strong><span>{motion.durationMs} ms</span><code>{motion.curve}</code><p>{motion.description}</p></article>)}
         </div>
       </div>
     ),
   });
 
   addSectionStart(5);
-  const iconSet = [Asterisk, ArrowUpRight, Circle, Grid2X2, Layers3, Maximize2, MoveUpRight, Sparkles, Square, Target, Triangle, Rows3];
+  const iconSet = [
+    ['asterisk', Asterisk],
+    ['arrow', ArrowUpRight],
+    ['circle', Circle],
+    ['grid', Grid2X2],
+    ['layers', Layers3],
+    ['maximize', Maximize2],
+    ['move', MoveUpRight],
+    ['sparkles', Sparkles],
+    ['square', Square],
+    ['target', Target],
+    ['triangle', Triangle],
+    ['rows', Rows3],
+  ] as const;
   add({
     id: '5-system',
     section: 5,
@@ -756,7 +817,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     title: 'Icon system',
     content: (
       <div className={styles.iconSystemPage}>
-        <div className={styles.iconGrid}>{iconSet.map((Icon, index) => <div key={index}><Icon strokeWidth={identity.style.density === 'compact' ? 2.2 : 1.65} /></div>)}</div>
+        <div className={styles.iconGrid}>{iconSet.map(([name, Icon]) => <div key={name}><Icon strokeWidth={identity.style.density === 'compact' ? 2.2 : 1.65} /></div>)}</div>
       </div>
     ),
   });
@@ -780,7 +841,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     content: (
       <div className={styles.iconRulesPage}>
         {['Keep one optical weight across a set', 'Use simple geometry before adding detail', 'Align to the same underlying field', 'Let the icon support—not replace—the message'].map((rule, index) => {
-          const RuleIcon = iconSet[index];
+          const [, RuleIcon] = iconSet[index];
           return <article key={rule}><span>{String(index + 1).padStart(2, '0')}</span><div><RuleIcon aria-hidden='true' strokeWidth={1.6} /></div><p>{rule}</p></article>;
         })}
       </div>
@@ -835,15 +896,16 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
 
   addSectionStart(7);
   identity.applications.slice(0, 7).forEach((application, index) => {
+    const presentation = showcasePagePresentation(index);
     add({
       id: `7-${application.id}`,
       section: 7,
       showChrome: false,
       title: application.name,
-      tone: index % 3 === 2 ? 'dark' : 'paper',
+      tone: presentation.tone,
       content: (
         <div className={styles.showcasePage} data-layout={index % 3}>
-          <div className={styles.showcaseImage}><BookImage asset={applicationImage(index)} identity={identity} position={index % 2 ? 'center 35%' : 'center'} /></div>
+          <div className={styles.showcaseImage}><BookImage asset={applicationImage(index)} identity={identity} position={presentation.position} /></div>
           <div className={styles.showcaseCopy}>
             <h1>{application.name}</h1>
             <p>{flatVisualCopy(application.description)}</p>
@@ -872,7 +934,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
     tone: 'accent',
     content: (
       <div className={styles.closingPage}>
-        {darkMark ? <img alt={`${identity.name} mark`} src={darkMark} /> : null}
+        <BrandBookLogo alt={`${identity.name} mark`} src={darkMark} />
         <h1>{identity.tagline}</h1>
         <div><span>{identity.website}</span><span>{identity.socialHandle}</span><span>{identity.contactEmail}</span></div>
       </div>
@@ -900,10 +962,17 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
   const secondary = colorById(identity, 'success', 4);
   const highlight = colorById(identity, 'warning', 5);
   const progress = colorById(identity, 'progress', 6);
-  const pageGroups = useMemo(() => [INTRO_SECTION, ...BOOK_SECTIONS.map(({ id }) => id)].map((sectionId) => ({
-    pages: pages.map((page, index) => ({ page, index })).filter(({ page }) => page.section === sectionId),
-    sectionId,
-  })), [pages]);
+  const pageGroups = useMemo(() => {
+    const sectionIds = [INTRO_SECTION, ...BOOK_SECTIONS.map(({ id }) => id)];
+    const pagesBySection = new Map<number, Array<{ index: number; page: BookPageSpec }>>(
+      sectionIds.map((sectionId) => [sectionId, []])
+    );
+    pages.forEach((page, index) => pagesBySection.get(page.section)?.push({ index, page }));
+    return sectionIds.map((sectionId) => ({
+      pages: pagesBySection.get(sectionId) ?? [],
+      sectionId,
+    }));
+  }, [pages]);
   const rootStyle = {
     '--book-accent': accent,
     '--book-accent-ink': contrastText(accent, ink, paper),

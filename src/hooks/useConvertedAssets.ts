@@ -46,11 +46,10 @@ export function useConvertedAssets(): ConvertedAssetLibraryController {
     setError(null);
     const converted: ConvertedAsset[] = [];
     try {
-      for (const file of files) {
-        const asset = await convertAssetFile(file, maxDimension);
-        await saveConvertedAsset(asset);
-        converted.push(asset);
-      }
+      converted.push(...await Promise.all(
+        files.map((file) => convertAssetFile(file, maxDimension))
+      ));
+      await Promise.all(converted.map((asset) => saveConvertedAsset(asset)));
       announceConvertedAssetChange();
       await refresh();
       return converted;

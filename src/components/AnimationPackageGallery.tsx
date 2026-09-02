@@ -203,6 +203,7 @@ const AnimationPackagePreview = memo(function AnimationPackagePreview({
   && previous.settings.backgroundSecondary === next.settings.backgroundSecondary
   && previous.settings.backgroundStyle === next.settings.backgroundStyle
   && previous.settings.backgroundTransition === next.settings.backgroundTransition
+  && previous.settings.bezier.length === next.settings.bezier.length
   && previous.settings.bezier.every((value, index) => value === next.settings.bezier[index])
   && previous.settings.blur === next.settings.blur
   && previous.settings.foreground === next.settings.foreground
@@ -259,5 +260,3 @@ export default function AnimationPackageGallery({
     </div>
   );
 }
-
-export { ANIMATION_PACKAGES };

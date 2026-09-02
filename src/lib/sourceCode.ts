@@ -30,6 +30,28 @@ function normalizeMarkdownFence(source: string): string {
   return `${blankText(source.slice(0, openingEnd))}${source.slice(openingEnd, closingStart)}${blankText(source.slice(closingStart))}`;
 }
 
+type JsonStringState = {
+  escaped: boolean;
+  inside: boolean;
+};
+
+function normalizeJsonStringCharacter(character: string, state: JsonStringState): string | null {
+  if (!state.inside) return null;
+  if (state.escaped) state.escaped = false;
+  else if (character === '\\') state.escaped = true;
+  else if (character === '"') state.inside = false;
+  return character;
+}
+
+function normalizeJsonWhitespaceCharacter(character: string, state: JsonStringState): string {
+  if (character === '"') {
+    state.inside = true;
+    return character;
+  }
+  if (character === '\u2028' || character === '\u2029') return '\n';
+  return NON_JSON_SPACE.test(character) ? ' ' : character;
+}
+
 /**
  * Makes source copied from rich text safe for JSON.parse without changing any
  * characters inside JSON strings. The returned string keeps the same length
@@ -38,32 +60,11 @@ function normalizeMarkdownFence(source: string): string {
 export function normalizeSourceText(source: string): string {
   const unfenced = normalizeMarkdownFence(source);
   let normalized = '';
-  let escaped = false;
-  let insideString = false;
+  const state: JsonStringState = { escaped: false, inside: false };
 
   for (const character of unfenced) {
-    if (insideString) {
-      normalized += character;
-      if (escaped) {
-        escaped = false;
-      } else if (character === '\\') {
-        escaped = true;
-      } else if (character === '"') {
-        insideString = false;
-      }
-      continue;
-    }
-
-    if (character === '"') {
-      insideString = true;
-      normalized += character;
-    } else if (character === '\u2028' || character === '\u2029') {
-      normalized += '\n';
-    } else if (NON_JSON_SPACE.test(character)) {
-      normalized += ' ';
-    } else {
-      normalized += character;
-    }
+    normalized += normalizeJsonStringCharacter(character, state)
+      ?? normalizeJsonWhitespaceCharacter(character, state);
   }
 
   return normalized;
@@ -82,7 +83,7 @@ function lineColumnFromIndex(source: string, position: number) {
   const before = source.slice(0, Math.max(0, Math.min(source.length, position)));
   const lines = before.split('\n');
   return {
-    column: (lines.at(-1)?.length ?? 0) + 1,
+    column: lines.at(-1)!.length + 1,
     line: lines.length,
   };
 }

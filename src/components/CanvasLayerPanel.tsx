@@ -11,15 +11,15 @@ import {
   ArrowDown,
   ArrowUp,
   Layers3,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 import type {
   CanvasLayerAlignment,
   CanvasLayerTransform,
-} from '@/components/EditableCanvasLayer';
+} from '@/lib/canvasInteraction';
 import { Button } from '@/components/ui/Button';
 
-export type CanvasLayerPanelItem<LayerId extends string> = {
+type CanvasLayerPanelItem<LayerId extends string> = {
   canMoveBackward: boolean;
   canMoveForward: boolean;
   id: LayerId;
@@ -65,15 +65,14 @@ export default function CanvasLayerPanel<LayerId extends string>({
         <T>Nothing is selected until you choose a layer here or on the canvas. Drag to move, use arrow keys to nudge, and pull the blue corner to resize.</T>
       </p>
 
-      <div className='flex flex-col gap-2' role='list' aria-label={gt('Canvas layers')}>
+      <ul className='m-0 flex list-none flex-col gap-2 p-0' aria-label={gt('Canvas layers')}>
         {layers.map((layer) => {
           const selected = selectedLayerId === layer.id;
           return (
-            <div
+            <li
               className={`canvas-layer-row grid grid-cols-[1fr_30px_30px] items-center border ${selected ? 'border-foreground bg-muted' : 'border-border'}`}
               data-state={selected ? 'selected' : 'idle'}
               key={layer.id}
-              role='listitem'
             >
               <button
                 aria-pressed={selected}
@@ -107,10 +106,10 @@ export default function CanvasLayerPanel<LayerId extends string>({
               >
                 <ArrowDown aria-hidden='true' />
               </Button>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       <div className='border border-border'>
         <div className='flex items-center justify-between border-b border-border px-3 py-2'>

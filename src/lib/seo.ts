@@ -1,6 +1,6 @@
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
-export const DEFAULT_SITE_URL = 'https://studio.generaltranslation.com';
+const DEFAULT_SITE_URL = 'https://studio.generaltranslation.com';
 
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_STUDIO_URL ?? DEFAULT_SITE_URL

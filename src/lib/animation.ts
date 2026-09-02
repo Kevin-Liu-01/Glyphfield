@@ -20,6 +20,21 @@ export type FrameSchedule = {
   position: TimelinePosition;
 };
 
+export type PlaybackAdvance = {
+  stopped: boolean;
+  timeMs: number;
+};
+
+export type AnimationPreviewDecision = {
+  contentIsAnimated: boolean;
+  currentSourceId?: string;
+  directComposite: boolean;
+  frameIsDue: boolean;
+  pageVisible: boolean;
+  previewDirty: boolean;
+  previousSourceId: string;
+};
+
 export function clamp(value: number, minimum: number, maximum: number): number {
   if (Number.isNaN(value)) return minimum;
   return Math.min(maximum, Math.max(minimum, value));
@@ -76,6 +91,49 @@ export function cycleDurationMs(timing: TimelineTiming): number {
   return (
     Math.max(0, timing.holdMs) + Math.max(0, timing.transitionMs)
   ) * timing.itemCount;
+}
+
+export function advancePlaybackTime({
+  currentTimeMs,
+  durationMs,
+  elapsedMs,
+  loop,
+  playbackRate,
+}: {
+  currentTimeMs: number;
+  durationMs: number;
+  elapsedMs: number;
+  loop: boolean;
+  playbackRate: number;
+}): PlaybackAdvance {
+  if (durationMs <= 0) return { stopped: false, timeMs: currentTimeMs };
+  const nextTimeMs = currentTimeMs + Math.max(0, elapsedMs) * Math.max(0, playbackRate);
+  if (loop) return { stopped: false, timeMs: nextTimeMs % durationMs };
+  if (nextTimeMs >= durationMs) return { stopped: true, timeMs: durationMs };
+  return { stopped: false, timeMs: nextTimeMs };
+}
+
+export function animationTimelineChanged(
+  current: Pick<TimelinePosition, 'index' | 'nextIndex'>,
+  previous: Pick<TimelinePosition, 'index' | 'nextIndex'>
+): boolean {
+  return current.index !== previous.index || current.nextIndex !== previous.nextIndex;
+}
+
+export function shouldRenderAnimationPreview({
+  contentIsAnimated,
+  currentSourceId,
+  directComposite,
+  frameIsDue,
+  pageVisible,
+  previewDirty,
+  previousSourceId,
+}: AnimationPreviewDecision): boolean {
+  if (!pageVisible || !frameIsDue) return false;
+  return !directComposite
+    || contentIsAnimated
+    || previewDirty
+    || previousSourceId !== currentSourceId;
 }
 
 export function resolveTimeline(

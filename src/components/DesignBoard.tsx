@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { T } from 'gt-next';
-import { Download, FileJson, Layers3 } from 'lucide-react';
+import { Download, FileJson, Layers3 } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -37,6 +37,10 @@ import {
   stringifySource,
 } from '@/lib/sourceCode';
 import type { StudioTool } from '@/lib/studioCatalog';
+
+function finiteInputValue(input: HTMLInputElement, fallback: number): number {
+  return Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : fallback;
+}
 
 function fontPath(
   identity: BrandIdentity,
@@ -316,7 +320,7 @@ export default function DesignBoard({
                     className='h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 font-mono text-sm outline-none focus:border-foreground'
                     max={4800}
                     min={800}
-                    onChange={(event) => setCustomWidth(Number(event.target.value))}
+                    onChange={(event) => setCustomWidth(finiteInputValue(event.currentTarget, customWidth))}
                     step={100}
                     type='number'
                     value={customWidth}

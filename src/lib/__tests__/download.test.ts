@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { downloadBlob, downloadSvg } from '../download';
+import { downloadBlob, downloadSvg, imageUrlToDataUrl } from '../download';
 
 describe('browser downloads', () => {
   afterEach(() => {
@@ -67,5 +67,62 @@ describe('browser downloads', () => {
     expect(revokeObjectURL).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1_000);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:glyphfield-svg');
+  });
+});
+
+describe('asset embedding', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns embedded data without another browser request', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(imageUrlToDataUrl('data:image/png;base64,aGVybw=='))
+      .resolves.toBe('data:image/png;base64,aGVybw==');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('shares concurrent embedding work and releases it after completion', async () => {
+    class Reader {
+      error = null;
+      result: string | null = null;
+      private listeners = new Map<string, () => void>();
+
+      addEventListener(type: string, listener: () => void) {
+        this.listeners.set(type, listener);
+      }
+
+      readAsDataURL() {
+        this.result = 'data:image/png;base64,aGVybw==';
+        queueMicrotask(() => this.listeners.get('load')?.());
+      }
+    }
+    const fetch = vi.fn(async () => ({
+      blob: async () => new Blob(['hero'], { type: 'image/png' }),
+      ok: true,
+      status: 200,
+    }));
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('FileReader', Reader);
+
+    const first = imageUrlToDataUrl('/hero.png');
+    const second = imageUrlToDataUrl('/hero.png');
+    expect(second).toBe(first);
+    await expect(first).resolves.toBe('data:image/png;base64,aGVybw==');
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    await imageUrlToDataUrl('/hero.png');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retain failed requests', async () => {
+    const fetch = vi.fn(async () => ({ blob: vi.fn(), ok: false, status: 404 }));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(imageUrlToDataUrl('/missing.png')).rejects.toThrow('404');
+    await expect(imageUrlToDataUrl('/missing.png')).rejects.toThrow('404');
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

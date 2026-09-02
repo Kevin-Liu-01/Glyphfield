@@ -142,11 +142,11 @@ export const PAPER_SHADERS_SOURCE_URL = 'https://github.com/paper-design/shaders
 
 export const HOLOCLOTH_SOURCE_URL = 'https://github.com/dmitrykurash/holocloth';
 
-export const EVIL_RABBIT_SHADERS_SOURCE_URL = 'https://shaders.evilrabbit.com/';
+const EVIL_RABBIT_SHADERS_SOURCE_URL = 'https://shaders.evilrabbit.com/';
 
-export const GRADIENTOOL_SOURCE_URL = 'https://www.gradientool.com/';
+const GRADIENTOOL_SOURCE_URL = 'https://www.gradientool.com/';
 
-export const GRAINIENT_SOURCE_URL = 'https://grainient.supply/freebies';
+const GRAINIENT_SOURCE_URL = 'https://grainient.supply/freebies';
 
 const PAPER_FAMILY_QUALITY: Record<PaperShaderFamilyId, number> = {
   'liquid-metal': 92,
@@ -564,13 +564,14 @@ export const LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [...ALL_LIVE
   .sort((left, right) => right.qualityScore - left.qualityScore || left.name.localeCompare(right.name));
 
 export const STATIC_SURFACE_MATERIAL_IDS: readonly LiveMaterialId[] =
-  PAPER_LIVE_MATERIAL_DEFINITIONS
-    .filter(({ family }) => family === 'static-mesh-gradient' || family === 'static-radial-gradient')
-    .map(({ id }) => id);
+  PAPER_LIVE_MATERIAL_DEFINITIONS.reduce<LiveMaterialId[]>((ids, { family, id }) => {
+    if (family === 'static-mesh-gradient' || family === 'static-radial-gradient') ids.push(id);
+    return ids;
+  }, []);
 
 const STATIC_SURFACE_MATERIAL_ID_SET = new Set<LiveMaterialId>(STATIC_SURFACE_MATERIAL_IDS);
 
-export function isSurfaceLabStaticMaterial(id: LiveMaterialId): boolean {
+function isSurfaceLabStaticMaterial(id: LiveMaterialId): boolean {
   return STATIC_SURFACE_MATERIAL_ID_SET.has(id);
 }
 
@@ -612,18 +613,4 @@ export function isPaperLiveMaterialId(id: LiveMaterialId): id is PaperLiveMateri
 export function getPaperLiveMaterialDefinition(id: PaperLiveMaterialId): PaperLiveMaterialDefinition {
   return PAPER_LIVE_MATERIAL_DEFINITIONS.find((material) => material.id === id)
     ?? PAPER_LIVE_MATERIAL_DEFINITIONS[0]!;
-}
-
-const PAPER_NATIVE_IMAGE_FAMILIES: readonly PaperShaderFamilyId[] = [
-  'fluted-glass',
-  'halftone-cmyk',
-  'halftone-dots',
-  'heatmap',
-  'image-dithering',
-  'water',
-];
-
-export function liveMaterialConsumesSourceImage(id: LiveMaterialId): boolean {
-  if (!isPaperLiveMaterialId(id)) return false;
-  return PAPER_NATIVE_IMAGE_FAMILIES.includes(getPaperLiveMaterialDefinition(id).family);
 }

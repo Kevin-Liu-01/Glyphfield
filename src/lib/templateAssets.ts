@@ -18,11 +18,11 @@ export function templateBrandLogo(
   const preferredIds = kind === 'blog'
     ? [isDark ? 'mark-light' : 'mark-dark']
     : [isDark ? 'wordmark-light' : 'wordmark', isDark ? 'mark-light' : 'mark-dark'];
-
-  for (const id of preferredIds) {
-    const asset = identity.assets.find((candidate) => candidate.id === id);
-    if (asset) return asset;
-  }
+  const assetsById = new Map(identity.assets.map((asset) => [asset.id, asset]));
+  const preferredAsset = preferredIds
+    .map((id) => assetsById.get(id))
+    .find((asset) => asset !== undefined);
+  if (preferredAsset) return preferredAsset;
 
   const surface = isDark ? 'dark' : 'light';
   return identity.assets.find(

@@ -1,7 +1,7 @@
 'use client';
 
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 
 import type { BackgroundSettings } from '@/lib/backgroundSvg';
@@ -122,6 +122,110 @@ void main() {
   gl_FragColor = vec4(pow(max(color, 0.0), vec3(1.0 / 2.2)), uOpacity);
 }`;
 
+function clothPresentationDrape(
+  presentation: 'flat' | 'interactive' | 'showcase',
+  surfaceDepth: number
+): number {
+  if (presentation === 'flat') return 0;
+  if (presentation === 'interactive') return 0.04 + surfaceDepth / 100 * 0.18;
+  return surfaceDepth / 100;
+}
+
+function HoloClothView({
+  artworkLayerTexture,
+  artworkOpacity,
+  fullFrame,
+  geometry,
+  grabbing,
+  interactive,
+  materialRef,
+  meshRef,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  simulation,
+  transparent,
+  uniforms,
+  viewport,
+}: {
+  artworkLayerTexture: THREE.CanvasTexture | null;
+  artworkOpacity: number;
+  fullFrame: boolean;
+  geometry: THREE.PlaneGeometry;
+  grabbing: boolean;
+  interactive: boolean;
+  materialRef: RefObject<THREE.ShaderMaterial | null>;
+  meshRef: RefObject<THREE.Mesh | null>;
+  onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerMove: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerUp: (event: ThreeEvent<PointerEvent>) => void;
+  simulation: HoloClothSimulation;
+  transparent: boolean;
+  uniforms: Record<string, { value: number | THREE.Color | THREE.Vector3 }>;
+  viewport: { height: number; width: number };
+}) {
+  const rotation: [number, number, number] = fullFrame ? [0, 0, 0] : [-0.08, 0.16, -0.035];
+  const grabbingScale = grabbing ? 1.005 : 1;
+  const scale: [number, number, number] | number = fullFrame
+    ? [viewport.width / 3.7 * grabbingScale, viewport.height / 2.5 * grabbingScale, 1]
+    : grabbing ? 1.01 : 1;
+
+  return (
+    <>
+      {!transparent ? <color attach='background' args={['#07080b']} /> : null}
+      {!transparent ? (
+        <mesh position={[0, -1.22, -0.56]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[5.2, 3.8]} />
+          <meshBasicMaterial color='#020204' transparent opacity={0.72} />
+        </mesh>
+      ) : null}
+      <mesh
+        frustumCulled={false}
+        geometry={geometry}
+        onDoubleClick={interactive ? () => simulation.poke(0, 0, 0.24) : undefined}
+        onPointerCancel={onPointerUp}
+        onPointerDown={interactive ? onPointerDown : undefined}
+        onPointerMove={interactive ? onPointerMove : undefined}
+        onPointerUp={interactive ? onPointerUp : undefined}
+        ref={meshRef}
+        rotation={rotation}
+        scale={scale}
+      >
+        <shaderMaterial
+          fragmentShader={FRAGMENT_SHADER}
+          depthWrite={false}
+          ref={materialRef}
+          side={THREE.DoubleSide}
+          uniforms={uniforms}
+          vertexShader={VERTEX_SHADER}
+          transparent
+        />
+      </mesh>
+      {artworkLayerTexture ? (
+        <mesh
+          frustumCulled={false}
+          geometry={geometry}
+          renderOrder={2}
+          rotation={rotation}
+          scale={scale}
+        >
+          <meshBasicMaterial
+            alphaTest={0.015}
+            depthWrite={false}
+            map={artworkLayerTexture}
+            opacity={artworkOpacity}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+            transparent
+          />
+        </mesh>
+      ) : null}
+    </>
+  );
+}
+
 export default function HoloClothSurface({
   artworkAspectRatio = 1200 / 810,
   artworkLayers,
@@ -149,19 +253,14 @@ export default function HoloClothSurface({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const planeRef = useRef(new THREE.Plane());
-  const grabPointRef = useRef(new THREE.Vector3());
+  const interactionPlane = useMemo(() => new THREE.Plane(), []);
+  const grabPoint = useMemo(() => new THREE.Vector3(), []);
   const [grabbing, setGrabbing] = useState(false);
   const { camera, viewport } = useThree();
-  const flat = presentation === 'flat';
   const fullFrame = presentation !== 'showcase';
   const interactive = presentation !== 'flat';
-  const drape = flat
-    ? 0
-    : presentation === 'interactive'
-      ? 0.04 + settings.surfaceDepth / 100 * 0.18
-      : settings.surfaceDepth / 100;
-  const simulation = useMemo(() => new HoloClothSimulation(3.7, 2.5, SEGMENTS_X, SEGMENTS_Y, drape), []);
+  const drape = clothPresentationDrape(presentation, settings.surfaceDepth);
+  const [simulation] = useState(() => new HoloClothSimulation(3.7, 2.5, SEGMENTS_X, SEGMENTS_Y, drape));
   const geometry = useMemo(() => {
     const value = new THREE.PlaneGeometry(3.7, 2.5, SEGMENTS_X, SEGMENTS_Y);
     (value.attributes.position as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
@@ -235,10 +334,10 @@ export default function HoloClothSurface({
       texture.needsUpdate = true;
     });
     return () => { active = false; };
-  }, [artworkLayers, artworkOpacity, artworkScale, artworkSurface, artworkUrl, artworkX, artworkY]);
+  }, [artworkLayers, artworkScale, artworkSurface, artworkUrl, artworkX, artworkY]);
 
   const artworkLayerTexture = artworkSurface?.texture ?? null;
-  const uniforms = useMemo(() => ({
+  const [uniforms] = useState(() => ({
     uBands: { value: 1.25 + settings.surfaceAngle / 45 + settings.surfaceDepth / 70 },
     uCamera: { value: camera.position },
     uColorA: { value: colors.a },
@@ -252,7 +351,7 @@ export default function HoloClothSurface({
     uScale: { value: 18 + settings.surfaceScale * 2.2 + settings.surfaceOpenArea * 0.26 },
     uSparkle: { value: settings.surfaceIrregularity / 100 },
     uTime: { value: 0 },
-  }), []);
+  }));
 
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => {
@@ -263,17 +362,19 @@ export default function HoloClothSurface({
   }, [drape, geometry, simulation]);
 
   useEffect(() => {
-    uniforms.uColorA.value.copy(colors.a);
-    uniforms.uColorB.value.copy(colors.b);
-    uniforms.uColorC.value.copy(colors.c);
-    uniforms.uHolo.value = settings.surfaceTextureAmount / 100;
-    uniforms.uScale.value = 18 + settings.surfaceScale * 2.2 + settings.surfaceOpenArea * 0.26;
-    uniforms.uBands.value = 1.25 + settings.surfaceAngle / 45 + settings.surfaceDepth / 70;
-    uniforms.uHue.value = settings.surfaceAngle / 180;
-    uniforms.uSparkle.value = settings.surfaceIrregularity / 100;
-    uniforms.uRoughness.value = settings.surfaceRoughness / 100;
-    uniforms.uMetalness.value = settings.surfaceMetallic / 100;
-    uniforms.uOpacity.value = opacity;
+    const liveUniforms = materialRef.current?.uniforms;
+    if (!liveUniforms) return;
+    liveUniforms.uColorA.value.copy(colors.a);
+    liveUniforms.uColorB.value.copy(colors.b);
+    liveUniforms.uColorC.value.copy(colors.c);
+    liveUniforms.uHolo.value = settings.surfaceTextureAmount / 100;
+    liveUniforms.uScale.value = 18 + settings.surfaceScale * 2.2 + settings.surfaceOpenArea * 0.26;
+    liveUniforms.uBands.value = 1.25 + settings.surfaceAngle / 45 + settings.surfaceDepth / 70;
+    liveUniforms.uHue.value = settings.surfaceAngle / 180;
+    liveUniforms.uSparkle.value = settings.surfaceIrregularity / 100;
+    liveUniforms.uRoughness.value = settings.surfaceRoughness / 100;
+    liveUniforms.uMetalness.value = settings.surfaceMetallic / 100;
+    liveUniforms.uOpacity.value = opacity;
   }, [colors, opacity, settings.surfaceAngle, settings.surfaceDepth, settings.surfaceIrregularity, settings.surfaceMetallic, settings.surfaceOpenArea, settings.surfaceRoughness, settings.surfaceScale, settings.surfaceTextureAmount, uniforms]);
 
   useFrame((state, delta) => {
@@ -289,8 +390,11 @@ export default function HoloClothSurface({
       position.needsUpdate = true;
       geometry.computeVertexNormals();
     }
-    uniforms.uTime.value = state.clock.elapsedTime;
-    uniforms.uCamera.value.copy(camera.position);
+    const liveUniforms = materialRef.current?.uniforms;
+    if (liveUniforms) {
+      liveUniforms.uTime.value = state.clock.elapsedTime;
+      liveUniforms.uCamera.value.copy(camera.position);
+    }
   });
 
   function localPoint(point: THREE.Vector3) {
@@ -303,14 +407,14 @@ export default function HoloClothSurface({
     if (!simulation.startGrab([local.x, local.y, local.z], 0.46)) return;
     const normal = new THREE.Vector3();
     camera.getWorldDirection(normal);
-    planeRef.current.setFromNormalAndCoplanarPoint(normal, event.point);
+    interactionPlane.setFromNormalAndCoplanarPoint(normal, event.point);
     (event.nativeEvent.target as Element | null)?.setPointerCapture?.(event.pointerId);
     setGrabbing(true);
   }
 
   function handlePointerMove(event: ThreeEvent<PointerEvent>) {
     if (!simulation.isGrabbing) return;
-    const world = event.ray.intersectPlane(planeRef.current, grabPointRef.current);
+    const world = event.ray.intersectPlane(interactionPlane, grabPoint);
     if (!world) return;
     const local = localPoint(world);
     simulation.moveGrab([local.x, local.y, local.z]);
@@ -323,61 +427,22 @@ export default function HoloClothSurface({
   }
 
   return (
-    <>
-      {!transparent ? <color attach='background' args={['#07080b']} /> : null}
-      {!transparent ? (
-        <mesh position={[0, -1.22, -0.56]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[5.2, 3.8]} />
-          <meshBasicMaterial color='#020204' transparent opacity={0.72} />
-        </mesh>
-      ) : null}
-      <mesh
-        frustumCulled={false}
-        geometry={geometry}
-        onDoubleClick={interactive ? () => simulation.poke(0, 0, 0.24) : undefined}
-        onPointerCancel={handlePointerUp}
-        onPointerDown={interactive ? handlePointerDown : undefined}
-        onPointerMove={interactive ? handlePointerMove : undefined}
-        onPointerUp={interactive ? handlePointerUp : undefined}
-        ref={meshRef}
-        rotation={fullFrame ? [0, 0, 0] : [-0.08, 0.16, -0.035]}
-        scale={fullFrame
-          ? [viewport.width / 3.7 * (grabbing ? 1.005 : 1), viewport.height / 2.5 * (grabbing ? 1.005 : 1), 1]
-          : grabbing ? 1.01 : 1}
-      >
-        <shaderMaterial
-          fragmentShader={FRAGMENT_SHADER}
-          depthWrite={false}
-          ref={materialRef}
-          side={THREE.DoubleSide}
-          uniforms={uniforms}
-          vertexShader={VERTEX_SHADER}
-          transparent
-        />
-      </mesh>
-      {artworkLayerTexture ? (
-        <mesh
-          frustumCulled={false}
-          geometry={geometry}
-          renderOrder={2}
-          rotation={fullFrame ? [0, 0, 0] : [-0.08, 0.16, -0.035]}
-          scale={fullFrame
-            ? [viewport.width / 3.7 * (grabbing ? 1.005 : 1), viewport.height / 2.5 * (grabbing ? 1.005 : 1), 1]
-            : grabbing ? 1.01 : 1}
-        >
-          <meshBasicMaterial
-            alphaTest={0.015}
-            depthWrite={false}
-            map={artworkLayerTexture}
-            opacity={artworkOpacity}
-            polygonOffset
-            polygonOffsetFactor={-2}
-            side={THREE.DoubleSide}
-            toneMapped={false}
-            transparent
-          />
-        </mesh>
-      ) : null}
-    </>
+    <HoloClothView
+      artworkLayerTexture={artworkLayerTexture}
+      artworkOpacity={artworkOpacity}
+      fullFrame={fullFrame}
+      geometry={geometry}
+      grabbing={grabbing}
+      interactive={interactive}
+      materialRef={materialRef}
+      meshRef={meshRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      simulation={simulation}
+      transparent={transparent}
+      uniforms={uniforms}
+      viewport={viewport}
+    />
   );
 }

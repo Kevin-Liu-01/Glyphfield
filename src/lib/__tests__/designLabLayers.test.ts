@@ -9,7 +9,11 @@ const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/Edi
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
 const exportPreview = readFileSync(join(process.cwd(), 'src/components/ExportPreview.tsx'), 'utf8');
 const rangeLabel = readFileSync(join(process.cwd(), 'src/components/StudioRangeLabel.tsx'), 'utf8');
+const surfaceRangeControl = readFileSync(join(process.cwd(), 'src/components/SurfaceRangeControl.tsx'), 'utf8');
+const textAlignmentControl = readFileSync(join(process.cwd(), 'src/components/TextAlignmentControl.tsx'), 'utf8');
 const resizableSidebar = readFileSync(join(process.cwd(), 'src/components/ResizableSidebar.tsx'), 'utf8');
+const canvasDocumentAutosave = readFileSync(join(process.cwd(), 'src/hooks/useCanvasDocumentAutosave.ts'), 'utf8');
+const portableCanvasWorkspace = readFileSync(join(process.cwd(), 'src/hooks/usePortableCanvasWorkspace.ts'), 'utf8');
 const studioSelect = readFileSync(join(process.cwd(), 'src/components/ui/StudioSelect.tsx'), 'utf8');
 const stickerScene = readFileSync(join(process.cwd(), 'src/components/StickerDeviceScene.tsx'), 'utf8');
 const studioStyles = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
@@ -23,7 +27,7 @@ describe('Playground optional layers', () => {
   });
 
   it('keeps disabled layers out of rendering and PNG composition', () => {
-    expect(playground).toContain('{backgroundEnabled ? (');
+    expect(playground).toContain('<ConditionalRender when={backgroundEnabled}>');
     expect(playground).toContain('const liveSurface = surfaceEnabled ?');
     expect(playground).toMatch(/const composed = stickersEnabled(?:\s+&&[^?]+)?\s+\?/);
     expect(stickerScene).toContain("data-enabled={enabled ? 'true' : 'false'}");
@@ -34,7 +38,12 @@ describe('Playground optional layers', () => {
     expect(playground).toContain('backgroundEnabled?: boolean;');
     expect(playground).toContain('surfaceEnabled?: boolean;');
     expect(playground).toContain('stickersEnabled?: boolean;');
-    expect(playground).toMatch(/function playgroundSource\(\) \{[\s\S]*?backgroundEnabled,[\s\S]*?backgroundOpacity,[\s\S]*?brandAssetId,[\s\S]*?effectLayers,[\s\S]*?liveMaterialId,[\s\S]*?stickerTexts,[\s\S]*?stickersEnabled,[\s\S]*?surfaceEnabled,[\s\S]*?surfaceOpacity/);
+    expect(playground).toContain('createStudioCanvasDocument({');
+    expect(playground).toContain('usePortableCanvasWorkspace({');
+    expect(playground).toContain('document: playgroundDocument');
+    expect(playground).toContain('const playgroundDocumentSource = portablePlayground.source;');
+    expect(playground).toContain('parsePlaygroundSource(source, tool.id)');
+    expect(playground).toMatch(/const playgroundState = useMemo\(\(\) => \(\{[\s\S]*?backgroundEnabled,[\s\S]*?backgroundOpacity,[\s\S]*?brandAssetId,[\s\S]*?customArtwork,[\s\S]*?effectLayers,[\s\S]*?liveMaterialId,[\s\S]*?stickerPlacements,[\s\S]*?stickerTexts,[\s\S]*?stickersEnabled,[\s\S]*?surfaceEnabled,[\s\S]*?surfaceOpacity/);
   });
 
   it('supports multiple independently editable text stickers in the shared sticker scene and export path', () => {
@@ -52,7 +61,8 @@ describe('Playground optional layers', () => {
 
   it('keeps Playground text controls and export behavior aligned with Design Lab', () => {
     expect(playground).toContain("import StudioColorControl from '@/components/ui/ColorControl'");
-    expect(playground).toContain('function TextAlignmentControl(');
+    expect(playground).toContain("import TextAlignmentControl from '@/components/TextAlignmentControl'");
+    expect(textAlignmentControl).toContain('function TextAlignmentControl(');
     expect(playground).toContain("wrap?: 'nowrap' | 'wrap';");
     expect(playground).toContain("<span><WrapText aria-hidden='true' />Wrapping</span>");
     expect(playground).toContain("className='design-lab-text-effects'");
@@ -75,16 +85,17 @@ describe('Playground optional layers', () => {
   it('uses the Design Lab three-pane layout with contextual controls and attributed shaders', () => {
     expect(playground).toContain("className='design-lab-library-filter'");
     expect(playground).toContain("className='design-lab-shader-source'");
-    expect(playground).toContain("hidden={dock !== 'shader'}");
-    expect(playground).toContain("hidden={dock !== 'surface'}");
-    expect(playground).toContain("hidden={dock !== 'text'}");
-    expect(playground).toContain("hidden={dock !== 'sticker'}");
+    expect(playground).toContain("<ConditionalRender when={dock === 'shader'}>");
+    expect(playground).toContain("<ConditionalRender when={dock === 'surface'}>");
+    expect(playground).toContain("<ConditionalRender when={dock === 'text'}>");
+    expect(playground).toContain("<ConditionalRender when={dock === 'sticker'}>");
     expect(studioStyles).toContain('grid-template-columns: minmax(0, 1fr) var(--design-lab-inspector);');
     expect(studioStyles).toContain('padding-left: var(--playground-library);');
   });
 
   it('adds restrained semantic icons to shared sidebar slider labels', () => {
-    expect(playground).toContain("import StudioRangeLabel from '@/components/StudioRangeLabel'");
+    expect(playground).toContain("import RangeControl from '@/components/SurfaceRangeControl'");
+    expect(surfaceRangeControl).toContain("import StudioRangeLabel from '@/components/StudioRangeLabel'");
     expect(designLab).toContain("import StudioRangeLabel from '@/components/StudioRangeLabel'");
     expect(rangeLabel).toContain('LABEL_RULES');
     expect(rangeLabel).toContain('RotateCw');
@@ -161,10 +172,15 @@ describe('Playground optional layers', () => {
   });
 
   it('round-trips complete canvas layers, ordering, groups, shader frame history, and sequences', () => {
-    expect(designLab).toContain('version: 3,');
+    expect(designLab).toContain('createDesignLabCanvasDocument({');
+    expect(designLab).toContain('serializeExistingDesignLabCanvasDocument(withDesignLabTimeline(');
+    expect(designLab).toContain('parseDesignLabCanvasDocument(source)');
+    expect(designLab).toContain('revision: canvasRevisionFromSignature(compositionSignature),');
+    expect(designLab).toContain('canvasRevisionFromSignature(compositionSignature)');
     expect(designLab).toContain('assets: compositionAssets,');
     expect(designLab).toContain('logos: logoLayers,');
     expect(designLab).toContain('frame: boundedPreviewFrame,');
+    expect(designLab).toContain('timeline: { frame: boundedPreviewFrame, paused },');
     expect(designLab).toContain('setLogoLayers(nextLogoLayers);');
     expect(designLab).toContain('setCompositionAssets(nextAssets);');
     expect(designLab).toContain('setLayerGroups(nextGroups);');
@@ -231,7 +247,7 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('textEffectCssStyle(');
     expect(designLab).toContain("ariaLabel='Text effect foreground color'");
     expect(designLab).toContain("ariaLabel='Text effect background color'");
-    expect(designLab).toContain('textAppearance.textEffect.backgroundColor');
+    expect(designLab).toContain('appearance.textEffect.backgroundColor');
     expect(studioStyles).toContain('.text-effect-thumbnail {');
     expect(studioStyles).toMatch(/\.text-effect-thumbnail > span \{[\s\S]*?height: 100%;[\s\S]*?padding: 1px 0 3px;[\s\S]*?line-height: 1\.2;/);
   });
@@ -240,7 +256,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("'shader-lab-v3-canvas-background'");
     expect(designLab).toContain("ariaLabel='Canvas background color'");
     expect(designLab).toContain('backgroundColor: canvasBackground');
-    expect(designLab).toContain('context.fillStyle = canvasBackground');
+    expect(designLab).toContain('renderCanvasDocumentPage({');
+    expect(designLab).toContain('document: designLabDocument,');
   });
 
   it('supports reorderable full-composition converter layers with universal opacity', () => {
@@ -254,9 +271,11 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('effectLayers,');
     expect(playground).toContain("'playground-effect-layers-v1'");
     expect(playground).toContain('function addEffectLayer(');
-    expect(playground).toContain("hidden={dock !== 'effect'}");
+    expect(playground).toContain("<ConditionalRender when={dock === 'effect'}>");
     expect(playground).toContain("className='design-lab-composition-effect'");
-    expect(playground).toContain('effectLayers.filter(({ visible }) => visible).forEach((layer) => {');
+    expect(playground).toContain('function applyVisiblePlaygroundEffects(');
+    expect(playground).toContain('if (!layer.visible) continue;');
+    expect(playground).toContain('applyVisiblePlaygroundEffects(context, width, height, effectLayers, effectScratchRefs.current);');
   });
 
   it('renders the production converter thumbnail inside each effect layer card', () => {
@@ -271,17 +290,18 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('targetFrameRate = 30;');
     expect(designLab).not.toContain('1000 / 12');
     expect(playground).toContain('const buffer = effectBufferRef.current');
-    expect(playground).toContain('let targetFrameRate = 60;');
+    expect(playground).toContain('targetFrameRate: 60');
+    expect(playground).toContain('tuneEffectPreviewPerformance(previewPerformance, settings.width)');
     expect(playground).toContain('frameRate={60}');
   });
 
   it('renders previews and exports from the same logical text geometry', () => {
-    expect(designLab).toContain('resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight)');
-    expect(designLab).toContain('const box = outputLayerBox(layerId, transform, width, height);');
+    expect(designLab).toContain('resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight)');
+    expect(designLab).toContain('box: outputLayerBox(layerId, transform, width, height),');
     expect(designLab).toContain('const fontSize = Math.max(18, height * 0.17 * transform.scale);');
     expect(designLab).not.toContain('getComputedStyle(previewElement)');
     expect(designLab).not.toContain('fitContentHeight');
-    expect(designLab).toContain("justifyContent: textLayer.align === 'left'");
+    expect(designLab).toContain("justifyContent: layer.align === 'left'");
     expect(designLab).toContain("context.fontKerning = 'normal';");
     expect(designLab).toContain('context.letterSpacing = `${spacing}px`');
     expect(designLab.match(/await waitForCompositionFonts\(\);/g)).toHaveLength(2);
@@ -326,28 +346,37 @@ describe('Playground optional layers', () => {
   });
 
   it('pins static and shader-filled artwork to the editable layer bounds', () => {
-    expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(4);
+    expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(2);
+    expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(2);
     expect(studioStyles).toContain('.shader-lab-v2-appearance-preview {');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-preview \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
-    expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(2);
+    expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(1);
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-stack-layer \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
   });
 
   it('applies shadows with the shaded mark instead of an overlay silhouette', () => {
-    expect(designLab.match(/borderEnabled: false,/g)).toHaveLength(2);
-    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(3);
-    expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(2);
+    expect(designLab).toContain('settings={{ ...appearance, borderEnabled: false }}');
+    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(2);
+    expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(1);
     expect(designLab).not.toContain('appearance.borderEnabled || appearance.shadowEnabled');
   });
 });
 
 describe('Design Lab image import and selection chrome', () => {
   it('autosaves and restores the complete composition document', () => {
-    expect(designLab).toContain('loadAutosavedDesign(');
-    expect(designLab).toContain('saveAutosavedDesign(');
-    expect(designLab).toContain('compositionSetupSource()');
-    expect(designLab).toContain('applyCompositionSource(draft.source)');
-    expect(designLab).toContain("window.addEventListener('pagehide', flushAutosavedComposition)");
+    expect(designLab).toContain('usePortableCanvasWorkspace({');
+    expect(designLab).toContain('document: designLabDocument');
+    expect(designLab).toContain('applySource: applyCompositionSource');
+    expect(designLab).toContain('const compositionAutosaveState = portableDesignLab.autosaveState;');
+    expect(portableCanvasWorkspace).toContain('usePortableCanvasDocumentSource(document)');
+    expect(portableCanvasWorkspace).toContain('useCanvasDocumentAutosave({');
+    expect(canvasDocumentAutosave).toContain('loadAutosavedDesign(workspaceKey)');
+    expect(canvasDocumentAutosave).toContain('saveAutosavedDesign(');
+    expect(canvasDocumentAutosave).toContain('snapshot.source,\n        snapshot.revision,\n        capturedAt');
+    expect(canvasDocumentAutosave).toContain("window.addEventListener('pagehide', flushOnPageHide)");
+    expect(canvasDocumentAutosave).toContain("document.addEventListener('visibilitychange', flushWhenHidden)");
+    expect(canvasDocumentAutosave).toContain("window.removeEventListener('pagehide', flushOnPageHide)");
+    expect(canvasDocumentAutosave).toContain("document.removeEventListener('visibilitychange', flushWhenHidden);\n      flush();");
   });
 
   it('supports browse, drop, and paste imports with intrinsic image placement', () => {
@@ -361,7 +390,8 @@ describe('Design Lab image import and selection chrome', () => {
 
   it('portals single- and multi-selection chrome above the clipped canvas viewport', () => {
     expect(editableCanvasLayer).toContain('createPortal(');
-    expect(editableCanvasLayer).toContain('document.body');
+    expect(editableCanvasLayer).toContain('const portalHost = useDocumentBody();');
+    expect(editableCanvasLayer).toContain('portalHost={portalHost}');
     expect(designLab).toContain('<CanvasSelectionAssemblyOverlay');
     expect(designLab).toContain('document.body');
     expect(studioStyles).toMatch(/\.editable-canvas-layer-selection \{[\s\S]*?position: fixed;[\s\S]*?z-index: 2147483000;/);

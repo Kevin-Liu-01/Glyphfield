@@ -7,10 +7,31 @@ export function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-export async function imageUrlToDataUrl(source: string): Promise<string> {
-  const response = await fetch(source);
-  const blob = await response.blob();
+const pendingImageDataUrls = new Map<string, Promise<string>>();
 
+/**
+ * Embeds an image once even when the live canvas, autosave document, and export
+ * renderer request it during the same render. Completed requests leave the
+ * cache immediately so removed uploads cannot be retained by this module.
+ */
+export function imageUrlToDataUrl(source: string): Promise<string> {
+  if (/^data:/i.test(source)) return Promise.resolve(source);
+  const pending = pendingImageDataUrls.get(source);
+  if (pending) return pending;
+
+  const request = fetch(source).then(async (response) => {
+    if (!response.ok) throw new Error(`Asset request failed with ${response.status}.`);
+    return blobToDataUrl(await response.blob());
+  });
+  pendingImageDataUrls.set(source, request);
+  const clear = () => {
+    if (pendingImageDataUrls.get(source) === request) pendingImageDataUrls.delete(source);
+  };
+  void request.then(clear, clear);
+  return request;
+}
+
+export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.addEventListener('load', () => resolve(String(reader.result)), { once: true });
@@ -79,15 +100,4 @@ export async function svgToPngBlob(
   } finally {
     URL.revokeObjectURL(source);
   }
-}
-
-export async function downloadSvgAsPng(
-  svg: string,
-  width: number,
-  height: number,
-  filename: string
-): Promise<Blob> {
-  const png = await svgToPngBlob(svg, width, height);
-  downloadBlob(png, filename);
-  return png;
 }

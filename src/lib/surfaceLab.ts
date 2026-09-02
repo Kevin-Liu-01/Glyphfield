@@ -14,13 +14,13 @@ import {
 
 export type SurfaceLabMode = 'sheet' | 'shader' | 'cloth' | 'sticker';
 
-export type SurfaceLabSource = {
+type SurfaceLabSource = {
   license: string;
   name: string;
   url: string;
 };
 
-export type SurfaceLabMaterialRecord = {
+type SurfaceLabMaterialRecord = {
   applications: readonly string[];
   family: string;
   process: string;

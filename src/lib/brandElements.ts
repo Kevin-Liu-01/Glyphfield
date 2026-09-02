@@ -9,7 +9,7 @@ export type BrandElementCategory =
   | 'Event'
   | 'Physical';
 
-export type BrandElementPreview =
+type BrandElementPreview =
   | 'email'
   | 'developer'
   | 'social'

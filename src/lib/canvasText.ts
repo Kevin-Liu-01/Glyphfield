@@ -3,10 +3,13 @@ export type CanvasTextWrap = 'nowrap' | 'wrap';
 
 type MeasureText = (value: string) => number;
 
+const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  : null;
+
 export function canvasTextCharacters(value: string): string[] {
-  if (typeof Intl.Segmenter === 'function') {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-    return Array.from(segmenter.segment(value), ({ segment }) => segment);
+  if (GRAPHEME_SEGMENTER) {
+    return Array.from(GRAPHEME_SEGMENTER.segment(value), ({ segment }) => segment);
   }
   return Array.from(value);
 }

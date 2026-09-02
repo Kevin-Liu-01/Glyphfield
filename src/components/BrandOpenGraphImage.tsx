@@ -1,10 +1,5 @@
 import type { CSSProperties } from 'react';
 
-export const OPEN_GRAPH_SIZE = {
-  height: 630,
-  width: 1200,
-} as const;
-
 type BrandOpenGraphImageProps = {
   accent: string;
   description: string;
@@ -26,6 +21,16 @@ const BAYER_8X8 = [
   15, 47, 7, 39, 13, 45, 5, 37,
   63, 31, 55, 23, 61, 29, 53, 21,
 ] as const;
+const OPEN_GRAPH_SHELL_STYLE: CSSProperties = {
+  background: '#f4f3ef',
+  color: '#111113',
+  display: 'flex',
+  fontFamily: 'Switzer, Arial, sans-serif',
+  height: '100%',
+  overflow: 'hidden',
+  position: 'relative',
+  width: '100%',
+};
 
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const normalized = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
@@ -141,19 +146,8 @@ export default function BrandOpenGraphImage({
   const titleFromHighlight = highlightedTitleIndex >= 0
     ? title.slice(highlightedTitleIndex)
     : '';
-  const shellStyle: CSSProperties = {
-    background: '#f4f3ef',
-    color: '#111113',
-    display: 'flex',
-    fontFamily: 'Switzer, Arial, sans-serif',
-    height: '100%',
-    overflow: 'hidden',
-    position: 'relative',
-    width: '100%',
-  };
-
   return (
-    <div style={shellStyle}>
+    <div style={OPEN_GRAPH_SHELL_STYLE}>
       <div
         style={{
           borderRight: '1px solid rgba(17,17,19,0.2)',

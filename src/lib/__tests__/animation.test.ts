@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  advancePlaybackTime,
+  animationTimelineChanged,
   buildFrameSchedule,
   cycleDurationMs,
   cubicBezierAt,
@@ -8,7 +10,55 @@ import {
   resolveBezierControlPoint,
   resolveAnchor,
   resolveTimeline,
+  shouldRenderAnimationPreview,
 } from '../animation';
+
+describe('animation playback decisions', () => {
+  it('advances, loops, and stops the playhead deterministically', () => {
+    expect(advancePlaybackTime({
+      currentTimeMs: 900,
+      durationMs: 1_000,
+      elapsedMs: 100,
+      loop: true,
+      playbackRate: 2,
+    })).toEqual({ stopped: false, timeMs: 100 });
+    expect(advancePlaybackTime({
+      currentTimeMs: 900,
+      durationMs: 1_000,
+      elapsedMs: 100,
+      loop: false,
+      playbackRate: 2,
+    })).toEqual({ stopped: true, timeMs: 1_000 });
+    expect(advancePlaybackTime({
+      currentTimeMs: 400,
+      durationMs: 0,
+      elapsedMs: 100,
+      loop: false,
+      playbackRate: 1,
+    })).toEqual({ stopped: false, timeMs: 400 });
+  });
+
+  it('syncs only changed timeline indices', () => {
+    expect(animationTimelineChanged({ index: 1, nextIndex: 2 }, { index: 0, nextIndex: 1 })).toBe(true);
+    expect(animationTimelineChanged({ index: 1, nextIndex: 2 }, { index: 1, nextIndex: 2 })).toBe(false);
+  });
+
+  it('skips hidden and premature frames while preserving animated content', () => {
+    const base = {
+      contentIsAnimated: false,
+      currentSourceId: 'a',
+      directComposite: true,
+      frameIsDue: true,
+      pageVisible: true,
+      previewDirty: false,
+      previousSourceId: 'a',
+    };
+    expect(shouldRenderAnimationPreview(base)).toBe(false);
+    expect(shouldRenderAnimationPreview({ ...base, contentIsAnimated: true })).toBe(true);
+    expect(shouldRenderAnimationPreview({ ...base, pageVisible: false, previewDirty: true })).toBe(false);
+    expect(shouldRenderAnimationPreview({ ...base, frameIsDue: false, previewDirty: true })).toBe(false);
+  });
+});
 
 describe('cubicBezierAt', () => {
   it('preserves exact endpoints and accelerates the material curve', () => {

@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 
-import BrandOpenGraphImage, { OPEN_GRAPH_SIZE } from '@/components/BrandOpenGraphImage';
+import BrandOpenGraphImage from '@/components/BrandOpenGraphImage';
+import { OPEN_GRAPH_SIZE } from '@/lib/openGraph';
 import { getOpenGraphFonts } from '@/lib/openGraphFonts';
 
 export const alt = 'Glyphfield Studio — build the identity, then make everything else';

@@ -14,7 +14,7 @@ import {
   Search,
   Share2,
   TerminalSquare,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
@@ -63,6 +63,47 @@ const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
   Product: Component,
   Social: Share2,
 };
+
+const PERSON_ELEMENT_IDS = new Set(['email-signature', 'lanyard', 'event-badge', 'business-card']);
+const CONTENTLESS_ELEMENT_IDS = new Set(['logo-background', 'favicon-set', 'app-icon']);
+const HEADLINELESS_ELEMENT_IDS = new Set(['ascii-mark', 'partnership-lockup']);
+const BODYLESS_ELEMENT_IDS = new Set(['cli-banner', 'terminal-theme', 'event-backdrop', 'partnership-lockup']);
+const ACTIONLESS_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'partnership-lockup', 'slide-title', 'slide-section', 'report-cover', 'press-kit', 'event-backdrop', 'booth-wall']);
+const FIXED_LAYOUT_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'cli-banner', 'partnership-lockup', 'event-backdrop', 'booth-wall']);
+const FIXED_SCALE_ELEMENT_IDS = new Set(['form-controls', 'settings-panel', 'data-table']);
+const PATTERNLESS_ELEMENT_IDS = new Set(['email-signature', 'lanyard', 'event-badge', 'business-card', 'letterhead', 'favicon-set', 'app-icon']);
+const LOGOLESS_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'cli-banner']);
+const ARTWORK_ELEMENT_IDS = new Set(['logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph']);
+const WEBSITELESS_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'cli-banner', 'modal-dialog', 'toast-notification']);
+const PRIMARY_PRODUCT_COMPONENT_IDS = new Set([
+  'auth-screen',
+  'hero-section',
+  'navigation-bar',
+  'onboarding-checklist',
+  'search-surface',
+  'sidebar-navigation',
+]);
+
+function elementEditorCapabilities(element: BrandElement, identity: BrandIdentity) {
+  const contentless = CONTENTLESS_ELEMENT_IDS.has(element.id);
+  const personOnly = PERSON_ELEMENT_IDS.has(element.id);
+  const layoutSupported = !contentless && !personOnly && !FIXED_LAYOUT_ELEMENT_IDS.has(element.id);
+  return {
+    actionSupported: !contentless && !personOnly && !ACTIONLESS_ELEMENT_IDS.has(element.id),
+    artworkSupported: Boolean(getEmailLifecycleTemplate(element.id, identity)?.artworkPath)
+      || ARTWORK_ELEMENT_IDS.has(element.id),
+    bodyHidden: contentless || personOnly || BODYLESS_ELEMENT_IDS.has(element.id),
+    contentless,
+    hasPartner: element.id === 'partnership-lockup',
+    hasPerson: personOnly,
+    headlineHidden: contentless || personOnly || HEADLINELESS_ELEMENT_IDS.has(element.id),
+    layoutSupported,
+    logoSupported: !LOGOLESS_ELEMENT_IDS.has(element.id),
+    patternSupported: !PATTERNLESS_ELEMENT_IDS.has(element.id),
+    scaleSupported: layoutSupported && !FIXED_SCALE_ELEMENT_IDS.has(element.id),
+    websiteSupported: !contentless && !WEBSITELESS_ELEMENT_IDS.has(element.id),
+  };
+}
 
 function elementBriefExport(
   identity: BrandIdentity,
@@ -204,6 +245,147 @@ function ElementRangeControl({
   );
 }
 
+type ElementEditorCapabilities = ReturnType<typeof elementEditorCapabilities>;
+type ElementEditorChange = (patch: BrandElementOverrides) => void;
+
+function ElementEditorContentSection({
+  capabilities,
+  onChange,
+  onReset,
+  settings,
+}: {
+  capabilities: ElementEditorCapabilities;
+  onChange: ElementEditorChange;
+  onReset: () => void;
+  settings: BrandElementSettings;
+}) {
+  const gt = useGT();
+  if (capabilities.contentless) return null;
+  return (
+    <LabInspectorSection
+      action={<Button aria-label={gt('Reset element')} onClick={onReset} size='icon-xs' title={gt('Reset element')} type='button' variant='ghost'>
+          <RotateCcw aria-hidden='true' />
+        </Button>}
+      title={<T>Content</T>}
+    >
+      {!capabilities.headlineHidden ? <ElementTextControl label={<T>Headline</T>} multiline onChange={(headline) => onChange({ headline })} value={settings.headline} /> : null}
+      {!capabilities.bodyHidden ? <ElementTextControl label={<T>Supporting copy</T>} multiline onChange={(body) => onChange({ body })} value={settings.body} /> : null}
+      {capabilities.actionSupported ? <ElementTextControl label={<T>Action</T>} onChange={(cta) => onChange({ cta })} value={settings.cta} /> : null}
+      {capabilities.hasPerson ? (
+        <>
+          <ElementTextControl label={<T>Name</T>} onChange={(personName) => onChange({ personName })} value={settings.personName} />
+          <ElementTextControl label={<T>Role</T>} onChange={(personRole) => onChange({ personRole })} value={settings.personRole} />
+        </>
+      ) : null}
+      {capabilities.hasPartner ? <ElementTextControl label={<T>Partner name</T>} onChange={(partnerName) => onChange({ partnerName })} value={settings.partnerName} /> : null}
+    </LabInspectorSection>
+  );
+}
+
+function ElementEditorCompositionSection({
+  capabilities,
+  onChange,
+  settings,
+}: {
+  capabilities: ElementEditorCapabilities;
+  onChange: ElementEditorChange;
+  settings: BrandElementSettings;
+}) {
+  const gt = useGT();
+  if (!capabilities.layoutSupported && !capabilities.scaleSupported && !capabilities.patternSupported) return null;
+  return (
+    <LabInspectorSection title={<T>Composition</T>}>
+      {capabilities.layoutSupported ? <div className='element-editor-field'>
+        <span><T>Layout</T></span>
+        <StudioSelect ariaLabel={gt('Layout')} onValueChange={(layout) => onChange({ layout: layout as BrandElementSettings['layout'] })} options={[
+          { label: gt('Split'), value: 'split' },
+          { label: gt('Stacked'), value: 'stacked' },
+          { label: gt('Centered'), value: 'centered' },
+        ]} value={settings.layout} />
+      </div> : null}
+      {capabilities.scaleSupported ? <div className='element-editor-field'>
+        <span><T>Type scale</T></span>
+        <StudioSelect ariaLabel={gt('Type scale')} onValueChange={(scale) => onChange({ scale: scale as BrandElementSettings['scale'] })} options={[
+          { label: gt('Compact'), value: 'compact' },
+          { label: gt('Balanced'), value: 'balanced' },
+          { label: gt('Bold'), value: 'bold' },
+        ]} value={settings.scale} />
+      </div> : null}
+      {capabilities.patternSupported ? <div className='element-editor-field'>
+        <span><T>Pattern</T></span>
+        <StudioSelect ariaLabel={gt('Pattern')} onValueChange={(pattern) => onChange({ pattern: pattern as BrandElementSettings['pattern'] })} options={[
+          { label: gt('None'), value: 'none' },
+          { label: gt('Dots'), value: 'dots' },
+          { label: gt('Grid'), value: 'grid' },
+          { label: gt('Dither'), value: 'dither' },
+        ]} value={settings.pattern} />
+      </div> : null}
+      {capabilities.patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
+    </LabInspectorSection>
+  );
+}
+
+function ElementEditorSharedAssetSection({ onChange, identity, settings }: { identity: BrandIdentity; onChange: ElementEditorChange; settings: BrandElementSettings }) {
+  const gt = useGT();
+  return (
+    <LabInspectorSection title={<T>Shared asset</T>}>
+      <div className='element-editor-field'>
+        <span><T>Library asset</T></span>
+        <StudioSelect ariaLabel={gt('Library asset')} onValueChange={(assetId) => onChange({ assetId })} options={[
+          { label: gt('No shared asset'), value: '' },
+          ...[...identity.assets, ...identity.proofAssets].map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id })),
+        ]} value={settings.assetId} />
+      </div>
+      {settings.assetId ? <>
+        <div className='element-editor-field'>
+          <span><T>Placement</T></span>
+          <StudioSelect ariaLabel={gt('Asset placement')} onValueChange={(assetPlacement) => onChange({ assetPlacement: assetPlacement as BrandElementSettings['assetPlacement'] })} options={[
+            { label: gt('Background'), value: 'background' },
+            { label: gt('Header'), value: 'header' },
+            { label: gt('Banner'), value: 'banner' },
+            { label: gt('Card'), value: 'card' },
+          ]} value={settings.assetPlacement} />
+        </div>
+        <ElementRangeControl label={<T>Asset opacity</T>} max={100} min={0} onChange={(assetOpacity) => onChange({ assetOpacity })} suffix='%' value={settings.assetOpacity} />
+      </> : null}
+    </LabInspectorSection>
+  );
+}
+
+function ElementEditorArtworkSection({ artworkSupported, onChange, settings }: { artworkSupported: boolean; onChange: ElementEditorChange; settings: BrandElementSettings }) {
+  if (!artworkSupported) return null;
+  return (
+    <LabInspectorSection title={<T>Artwork</T>}>
+      <ElementRangeControl label={<T>Horizontal</T>} max={120} min={-120} onChange={(artworkX) => onChange({ artworkX })} suffix='px' value={settings.artworkX} />
+      <ElementRangeControl label={<T>Vertical</T>} max={120} min={-120} onChange={(artworkY) => onChange({ artworkY })} suffix='px' value={settings.artworkY} />
+      <ElementRangeControl label={<T>Scale</T>} max={200} min={40} onChange={(artworkScale) => onChange({ artworkScale })} suffix='%' value={settings.artworkScale} />
+    </LabInspectorSection>
+  );
+}
+
+function ElementEditorBrandDetailsSection({ capabilities, onChange, settings }: { capabilities: ElementEditorCapabilities; onChange: ElementEditorChange; settings: BrandElementSettings }) {
+  return (
+    <LabInspectorSection title={<T>Brand details</T>}>
+      {capabilities.logoSupported ? <label className='element-editor-toggle'>
+        <span><T>Show logo</T></span>
+        <input checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} type='checkbox' />
+      </label> : null}
+      {capabilities.logoSupported && settings.showLogo ? (
+        <div className='mt-2 border-t border-border pt-4'>
+          <LogoAppearanceControls
+            onChange={(patch) => onChange({ logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance, ...patch } })}
+            settings={{ ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance }}
+          />
+        </div>
+      ) : null}
+      {capabilities.websiteSupported ? <label className='element-editor-toggle'>
+        <span><T>Show website</T></span>
+        <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
+      </label> : null}
+    </LabInspectorSection>
+  );
+}
+
 function ElementEditor({
   element,
   identity,
@@ -218,43 +400,7 @@ function ElementEditor({
   settings: BrandElementSettings;
 }) {
   const gt = useGT();
-  const hasPerson = ['email-signature', 'lanyard', 'event-badge', 'business-card'].includes(
-    element.id
-  );
-  const hasPartner = element.id === 'partnership-lockup';
-  const contentless = ['logo-background', 'favicon-set', 'app-icon'].includes(element.id);
-  const personOnly = ['email-signature', 'lanyard', 'event-badge', 'business-card'].includes(
-    element.id
-  );
-  const headlineHidden = contentless || personOnly || ['ascii-mark', 'partnership-lockup'].includes(element.id);
-  const bodyHidden =
-    contentless ||
-    personOnly ||
-    ['cli-banner', 'terminal-theme', 'event-backdrop', 'partnership-lockup'].includes(
-      element.id
-    );
-  const actionSupported =
-    !contentless &&
-    !personOnly &&
-    !['ascii-mark', 'terminal-theme', 'partnership-lockup', 'slide-title', 'slide-section', 'report-cover', 'press-kit', 'event-backdrop', 'booth-wall'].includes(element.id);
-  const layoutSupported =
-    !contentless &&
-    !personOnly &&
-    !['ascii-mark', 'terminal-theme', 'cli-banner', 'partnership-lockup', 'event-backdrop', 'booth-wall'].includes(element.id);
-  const scaleSupported =
-    layoutSupported && !['form-controls', 'settings-panel', 'data-table'].includes(element.id);
-  const patternSupported =
-    !['email-signature', 'lanyard', 'event-badge', 'business-card', 'letterhead', 'favicon-set', 'app-icon'].includes(
-      element.id
-    );
-  const logoSupported = !['ascii-mark', 'terminal-theme', 'cli-banner'].includes(element.id);
-  const artworkSupported =
-    Boolean(getEmailLifecycleTemplate(element.id, identity)?.artworkPath) ||
-    ['logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph'].includes(
-      element.id
-    );
-  const websiteSupported =
-    !contentless && !['ascii-mark', 'terminal-theme', 'cli-banner', 'modal-dialog', 'toast-notification'].includes(element.id);
+  const capabilities = elementEditorCapabilities(element, identity);
 
   return (
     <StudioSidebar
@@ -262,54 +408,8 @@ function ElementEditor({
       label={gt('Element editor')}
       storageKey={`brand-elements-editor-${identity.id}`}
     >
-      {!contentless || hasPerson || hasPartner ? <LabInspectorSection
-        action={<Button aria-label={gt('Reset element')} onClick={onReset} size='icon-xs' title={gt('Reset element')} type='button' variant='ghost'>
-            <RotateCcw aria-hidden='true' />
-          </Button>}
-        title={<T>Content</T>}
-      >
-        {!headlineHidden ? <ElementTextControl label={<T>Headline</T>} multiline onChange={(headline) => onChange({ headline })} value={settings.headline} /> : null}
-        {!bodyHidden ? <ElementTextControl label={<T>Supporting copy</T>} multiline onChange={(body) => onChange({ body })} value={settings.body} /> : null}
-        {actionSupported ? <ElementTextControl label={<T>Action</T>} onChange={(cta) => onChange({ cta })} value={settings.cta} /> : null}
-        {hasPerson ? (
-          <>
-            <ElementTextControl label={<T>Name</T>} onChange={(personName) => onChange({ personName })} value={settings.personName} />
-            <ElementTextControl label={<T>Role</T>} onChange={(personRole) => onChange({ personRole })} value={settings.personRole} />
-          </>
-        ) : null}
-        {hasPartner ? (
-          <ElementTextControl label={<T>Partner name</T>} onChange={(partnerName) => onChange({ partnerName })} value={settings.partnerName} />
-        ) : null}
-      </LabInspectorSection> : null}
-
-      {layoutSupported || scaleSupported || patternSupported ? <LabInspectorSection title={<T>Composition</T>}>
-        {layoutSupported ? <div className='element-editor-field'>
-          <span><T>Layout</T></span>
-          <StudioSelect ariaLabel={gt('Layout')} onValueChange={(layout) => onChange({ layout: layout as BrandElementSettings['layout'] })} options={[
-            { label: gt('Split'), value: 'split' },
-            { label: gt('Stacked'), value: 'stacked' },
-            { label: gt('Centered'), value: 'centered' },
-          ]} value={settings.layout} />
-        </div> : null}
-        {scaleSupported ? <div className='element-editor-field'>
-          <span><T>Type scale</T></span>
-          <StudioSelect ariaLabel={gt('Type scale')} onValueChange={(scale) => onChange({ scale: scale as BrandElementSettings['scale'] })} options={[
-            { label: gt('Compact'), value: 'compact' },
-            { label: gt('Balanced'), value: 'balanced' },
-            { label: gt('Bold'), value: 'bold' },
-          ]} value={settings.scale} />
-        </div> : null}
-        {patternSupported ? <div className='element-editor-field'>
-          <span><T>Pattern</T></span>
-          <StudioSelect ariaLabel={gt('Pattern')} onValueChange={(pattern) => onChange({ pattern: pattern as BrandElementSettings['pattern'] })} options={[
-            { label: gt('None'), value: 'none' },
-            { label: gt('Dots'), value: 'dots' },
-            { label: gt('Grid'), value: 'grid' },
-            { label: gt('Dither'), value: 'dither' },
-          ]} value={settings.pattern} />
-        </div> : null}
-        {patternSupported && settings.pattern !== 'none' ? <ElementRangeControl label={<T>Pattern opacity</T>} max={100} min={0} onChange={(patternOpacity) => onChange({ patternOpacity })} suffix='%' value={settings.patternOpacity} /> : null}
-      </LabInspectorSection> : null}
+      <ElementEditorContentSection capabilities={capabilities} onChange={onChange} onReset={onReset} settings={settings} />
+      <ElementEditorCompositionSection capabilities={capabilities} onChange={onChange} settings={settings} />
 
       <LabInspectorSection title={<T>Typography</T>}>
         <div className='element-editor-field'>
@@ -319,33 +419,8 @@ function ElementEditor({
         <ElementRangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onChange({ fontWeight })} suffix='' value={settings.fontWeight} />
       </LabInspectorSection>
 
-      <LabInspectorSection title={<T>Shared asset</T>}>
-        <div className='element-editor-field'>
-          <span><T>Library asset</T></span>
-          <StudioSelect ariaLabel={gt('Library asset')} onValueChange={(assetId) => onChange({ assetId })} options={[
-            { label: gt('No shared asset'), value: '' },
-            ...[...identity.assets, ...identity.proofAssets].map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id })),
-          ]} value={settings.assetId} />
-        </div>
-        {settings.assetId ? <>
-          <div className='element-editor-field'>
-            <span><T>Placement</T></span>
-            <StudioSelect ariaLabel={gt('Asset placement')} onValueChange={(assetPlacement) => onChange({ assetPlacement: assetPlacement as BrandElementSettings['assetPlacement'] })} options={[
-              { label: gt('Background'), value: 'background' },
-              { label: gt('Header'), value: 'header' },
-              { label: gt('Banner'), value: 'banner' },
-              { label: gt('Card'), value: 'card' },
-            ]} value={settings.assetPlacement} />
-          </div>
-          <ElementRangeControl label={<T>Asset opacity</T>} max={100} min={0} onChange={(assetOpacity) => onChange({ assetOpacity })} suffix='%' value={settings.assetOpacity} />
-        </> : null}
-      </LabInspectorSection>
-
-      {artworkSupported ? <LabInspectorSection title={<T>Artwork</T>}>
-        <ElementRangeControl label={<T>Horizontal</T>} max={120} min={-120} onChange={(artworkX) => onChange({ artworkX })} suffix='px' value={settings.artworkX} />
-        <ElementRangeControl label={<T>Vertical</T>} max={120} min={-120} onChange={(artworkY) => onChange({ artworkY })} suffix='px' value={settings.artworkY} />
-        <ElementRangeControl label={<T>Scale</T>} max={200} min={40} onChange={(artworkScale) => onChange({ artworkScale })} suffix='%' value={settings.artworkScale} />
-      </LabInspectorSection> : null}
+      <ElementEditorSharedAssetSection identity={identity} onChange={onChange} settings={settings} />
+      <ElementEditorArtworkSection artworkSupported={capabilities.artworkSupported} onChange={onChange} settings={settings} />
 
       <LabInspectorSection title={<T>Color</T>}>
         <ElementColorControl label={<T>Background</T>} onChange={(backgroundColor) => onChange({ backgroundColor })} value={settings.backgroundColor} />
@@ -353,24 +428,7 @@ function ElementEditor({
         <ElementColorControl label={<T>Accent</T>} onChange={(accentColor) => onChange({ accentColor })} value={settings.accentColor} />
       </LabInspectorSection>
 
-      <LabInspectorSection title={<T>Brand details</T>}>
-        {logoSupported ? <label className='element-editor-toggle'>
-          <span><T>Show logo</T></span>
-          <input checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} type='checkbox' />
-        </label> : null}
-        {logoSupported && settings.showLogo ? (
-          <div className='mt-2 border-t border-border pt-4'>
-            <LogoAppearanceControls
-              onChange={(patch) => onChange({ logoAppearance: { ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance, ...patch } })}
-              settings={{ ...DEFAULT_LOGO_APPEARANCE, ...settings.logoAppearance }}
-            />
-          </div>
-        ) : null}
-        {websiteSupported ? <label className='element-editor-toggle'>
-          <span><T>Show website</T></span>
-          <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
-        </label> : null}
-      </LabInspectorSection>
+      <ElementEditorBrandDetailsSection capabilities={capabilities} onChange={onChange} settings={settings} />
     </StudioSidebar>
   );
 }
@@ -674,86 +732,94 @@ function EmailPreview({ element, identity, settings }: { element: BrandElement; 
   return <TransactionalEmailPreview element={element} identity={identity} settings={settings} />;
 }
 
-function DeveloperPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const ascii = (
-    identity.shortName === 'GT'
-      ? [
-          ' ██████╗ ████████╗',
-          '██╔════╝ ╚══██╔══╝',
-          '██║  ███╗   ██║   ',
-          '██║   ██║   ██║   ',
-          '╚██████╔╝   ██║   ',
-          ' ╚═════╝    ╚═╝   ',
-        ]
-      : identity.shortName === 'ST'
-        ? [
-            '███████╗████████╗',
-            '██╔════╝╚══██╔══╝',
-            '███████╗   ██║   ',
-            '╚════██║   ██║   ',
-            '███████║   ██║   ',
-            '╚══════╝   ╚═╝   ',
-          ]
-        : [
-            '┏━━━━━━━━━━━━━━━━━━━━━━┓',
-            `┃      ${identity.shortName.padEnd(10, ' ')}      ┃`,
-            '┣━━━━━━━━━━━━━━━━━━━━━━┫',
-            '┃  ███  BRAND  ███     ┃',
-            '┗━━━━━━━━━━━━━━━━━━━━━━┛',
-          ]
-  ).join('\n');
+const DEVELOPER_ASCII_MARKS: Record<string, readonly string[]> = {
+  GT: [
+    ' ██████╗ ████████╗',
+    '██╔════╝ ╚══██╔══╝',
+    '██║  ███╗   ██║   ',
+    '██║   ██║   ██║   ',
+    '╚██████╔╝   ██║   ',
+    ' ╚═════╝    ╚═╝   ',
+  ],
+  ST: [
+    '███████╗████████╗',
+    '██╔════╝╚══██╔══╝',
+    '███████╗   ██║   ',
+    '╚════██║   ██║   ',
+    '███████║   ██║   ',
+    '╚══════╝   ╚═╝   ',
+  ],
+};
+
+function developerAscii(shortName: string): string {
+  const fallback = [
+    '┏━━━━━━━━━━━━━━━━━━━━━━┓',
+    `┃      ${shortName.padEnd(10, ' ')}      ┃`,
+    '┣━━━━━━━━━━━━━━━━━━━━━━┫',
+    '┃  ███  BRAND  ███     ┃',
+    '┗━━━━━━━━━━━━━━━━━━━━━━┛',
+  ];
+  return (DEVELOPER_ASCII_MARKS[shortName] ?? fallback).join('\n');
+}
+
+function DeveloperAsciiPreview({ ascii, settings }: { ascii: string; settings: BrandElementSettings }) {
+  return (
+    <div className='relative mx-auto grid min-h-[440px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
+      <ElementPattern settings={settings} />
+      <div className='relative z-10 text-center'>
+        <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-base'>{ascii}</pre>
+        <p className='mt-8 max-w-lg text-sm leading-6 opacity-55'>{settings.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function DeveloperTerminalPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
+  return (
+    <div className='relative mx-auto w-full max-w-4xl overflow-hidden border p-6 font-mono sm:p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
+      <ElementPattern settings={settings} />
+      <div className='relative z-10'>
+        <div className='mb-10 flex items-center justify-end border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
+          <span>● ● ●</span>
+        </div>
+        <p><span style={{ color: settings.accentColor }}>import</span> {'{ '}tx{' }'} <span style={{ color: settings.accentColor }}>from</span> &apos;{identity.id}&apos;;</p>
+        <p className='mt-6'><span style={{ color: settings.accentColor }}>export function</span> Greeting() {'{'}</p>
+        <p className='ml-5 mt-2 opacity-70'>return &lt;h1&gt;{'{'}tx(&apos;Hello, world&apos;){'}'}&lt;/h1&gt;;</p>
+        <p className='mt-2'>{'}'}</p>
+        <h2 className='mt-12 text-2xl font-semibold tracking-tight'>{settings.headline}</h2>
+      </div>
+    </div>
+  );
+}
+
+function developerDocumentClassName(elementId: string, layout: BrandElementSettings['layout']): string {
+  const aspectRatio = elementId === 'package-card' ? 'aspect-[8/5]' : 'aspect-[16/7]';
+  if (layout === 'centered') return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} place-items-center text-center`;
+  if (layout === 'stacked') return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} grid-cols-1`;
+  return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} grid-cols-[1.15fr_0.85fr]`;
+}
+
+function DeveloperDocumentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
   const dark = isDarkSurface(settings.backgroundColor);
-
-  if (element.id === 'ascii-mark') {
-    return (
-      <div className='relative mx-auto grid min-h-[440px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 text-center'>
-          <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-base'>{ascii}</pre>
-          <p className='mt-8 max-w-lg text-sm leading-6 opacity-55'>{settings.body}</p>
-        </div>
+  return (
+    <div className={developerDocumentClassName(element.id, settings.layout)} style={elementSurfaceStyle(settings)}>
+      <ElementPattern settings={settings} />
+      <div className='relative z-10 flex flex-col justify-center p-8 sm:p-12'>
+        {settings.showLogo ? <IdentityMark className='mb-8 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}
+        <h2 className='mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl'>{settings.headline}</h2>
+        <p className='mt-4 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p>
+        {settings.cta ? <code className='mt-6 w-fit border px-3 py-2 text-xs' style={{ borderColor: settings.foregroundColor }}>{settings.cta}</code> : null}
       </div>
-    );
-  }
-
-  if (element.id === 'terminal-theme') {
-    return (
-      <div className='relative mx-auto w-full max-w-4xl overflow-hidden border p-6 font-mono sm:p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10'>
-          <div className='mb-10 flex items-center justify-end border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
-            <span>● ● ●</span>
-          </div>
-          <p><span style={{ color: settings.accentColor }}>import</span> {'{ '}tx{' }'} <span style={{ color: settings.accentColor }}>from</span> &apos;{identity.id}&apos;;</p>
-          <p className='mt-6'><span style={{ color: settings.accentColor }}>export function</span> Greeting() {'{'}</p>
-          <p className='ml-5 mt-2 opacity-70'>return &lt;h1&gt;{'{'}tx(&apos;Hello, world&apos;){'}'}&lt;/h1&gt;;</p>
-          <p className='mt-2'>{'}'}</p>
-          <h2 className='mt-12 text-2xl font-semibold tracking-tight'>{settings.headline}</h2>
+      {settings.layout === 'split' ? (
+        <div className='relative z-10 grid place-items-center p-8' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
+          <span className='font-mono text-6xl font-semibold tracking-[-0.08em]'>{element.id === 'package-card' ? '{}' : identity.shortName}</span>
         </div>
-      </div>
-    );
-  }
+      ) : null}
+    </div>
+  );
+}
 
-  if (['github-readme', 'docs-header', 'package-card', 'api-reference-hero', 'code-playground', 'release-notes'].includes(element.id)) {
-    return (
-      <div className={`relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${element.id === 'package-card' ? 'aspect-[8/5]' : 'aspect-[16/7]'} ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'grid-cols-[1.15fr_0.85fr]'}`} style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 flex flex-col justify-center p-8 sm:p-12'>
-          {settings.showLogo ? <IdentityMark className='mb-8 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}
-
-          <h2 className='mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl'>{settings.headline}</h2>
-          <p className='mt-4 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p>
-          {settings.cta ? <code className='mt-6 w-fit border px-3 py-2 text-xs' style={{ borderColor: settings.foregroundColor }}>{settings.cta}</code> : null}
-        </div>
-        {settings.layout === 'split' ? (
-          <div className='relative z-10 grid place-items-center p-8' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
-            <span className='font-mono text-6xl font-semibold tracking-[-0.08em]'>{element.id === 'package-card' ? '{}' : identity.shortName}</span>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
+function DeveloperCliPreview({ ascii, identity, settings }: { ascii: string; identity: BrandIdentity; settings: BrandElementSettings }) {
   return (
     <div className='relative mx-auto w-full max-w-4xl overflow-hidden border' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
       <ElementPattern settings={settings} />
@@ -770,6 +836,16 @@ function DeveloperPreview({ element, identity, settings }: { element: BrandEleme
       </div>
     </div>
   );
+}
+
+const DEVELOPER_DOCUMENT_ELEMENT_IDS = new Set(['github-readme', 'docs-header', 'package-card', 'api-reference-hero', 'code-playground', 'release-notes']);
+
+function DeveloperPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
+  const ascii = developerAscii(identity.shortName);
+  if (element.id === 'ascii-mark') return <DeveloperAsciiPreview ascii={ascii} settings={settings} />;
+  if (element.id === 'terminal-theme') return <DeveloperTerminalPreview identity={identity} settings={settings} />;
+  if (DEVELOPER_DOCUMENT_ELEMENT_IDS.has(element.id)) return <DeveloperDocumentPreview element={element} identity={identity} settings={settings} />;
+  return <DeveloperCliPreview ascii={ascii} identity={identity} settings={settings} />;
 }
 
 function SocialPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
@@ -956,13 +1032,31 @@ function WebPreview({ element, identity, settings }: { element: BrandElement; id
   );
 }
 
-function ProductComponentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
+function ProductPreviewLogo({
+  dark,
+  identity,
+  settings,
+}: {
+  dark: boolean;
+  identity: BrandIdentity;
+  settings: BrandElementSettings;
+}) {
+  if (!settings.showLogo) return null;
+  return <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} />;
+}
+
+function ProductPreviewAction({ settings }: { settings: BrandElementSettings }) {
+  if (!settings.cta) return null;
+  return <span className='inline-flex w-fit px-4 py-2.5 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span>;
+}
+
+function ProductComponentPrimaryPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
   const dark = isDarkSurface(settings.backgroundColor);
   const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
   const mutedSurface = `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})`;
   const radius = identity.style.borderRadius;
-  const logo = settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : null;
-  const action = settings.cta ? <span className='inline-flex w-fit px-4 py-2.5 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null;
+  const logo = <ProductPreviewLogo dark={dark} identity={identity} settings={settings} />;
+  const action = <ProductPreviewAction settings={settings} />;
 
   if (element.id === 'navigation-bar') {
     return (
@@ -1018,56 +1112,94 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
     );
   }
 
-  if (element.id === 'file-uploader') {
+  return null;
+}
+
+function ProductCommerceCardPreview({ elementId, identity, settings }: { elementId: string; identity: BrandIdentity; settings: BrandElementSettings }) {
+  const testimonial = elementId === 'testimonial-card';
+  const checkout = elementId === 'checkout-card';
+  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
+  const logo = <ProductPreviewLogo dark={isDarkSurface(settings.backgroundColor)} identity={identity} settings={settings} />;
+  const action = <ProductPreviewAction settings={settings} />;
+  return (
+    <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
+  );
+}
+
+function ProductOverlayPreview({ elementId, identity, settings }: { elementId: string; identity: BrandIdentity; settings: BrandElementSettings }) {
+  const compact = elementId === 'toast-notification';
+  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
+  const mutedSurface = `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})`;
+  const logo = <ProductPreviewLogo dark={isDarkSurface(settings.backgroundColor)} identity={identity} settings={settings} />;
+  const action = <ProductPreviewAction settings={settings} />;
+  return (
+    <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{elementId === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
+  );
+}
+
+function ProductComponentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
+  if (PRIMARY_PRODUCT_COMPONENT_IDS.has(element.id)) {
+    return <ProductComponentPrimaryPreview element={element} identity={identity} settings={settings} />;
+  }
+
+  const dark = isDarkSurface(settings.backgroundColor);
+  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
+  const radius = identity.style.borderRadius;
+  const logo = <ProductPreviewLogo dark={dark} identity={identity} settings={settings} />;
+  const action = <ProductPreviewAction settings={settings} />;
+
+  switch (element.id) {
+  case 'file-uploader': {
     return (
       <div className='relative mx-auto grid min-h-[480px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={{ ...elementSurfaceStyle(settings), borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex w-full max-w-xl flex-col items-center border border-dashed p-12 text-center' style={{ borderColor, borderRadius: radius }}><span className='grid size-12 place-items-center border text-xl' style={{ borderColor, borderRadius: Math.min(radius, 10) }}>↑</span><h2 className='mt-6 text-2xl font-semibold'>{settings.headline}</h2><p className='mt-3 max-w-sm text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-6'>{action}</div></div></div>
     );
   }
 
-  if (element.id === 'status-page') {
+  case 'status-page': {
     const services = settings.body.split('\n').map((item) => item.trim()).filter(Boolean);
     return (
       <div className='relative mx-auto w-full max-w-4xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex items-start justify-between gap-8'>{logo}</div><div className='relative z-10 mt-16 flex items-center gap-3'><span className='size-3 rounded-full bg-status-success' /><h2 className='text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2></div><div className='relative z-10 mt-10 flex flex-col'>{services.map((service) => <div className='flex items-center justify-between border-t py-4 text-sm' key={service} style={{ borderColor }}><span>{service}</span><span className='text-status-success'>Operational</span></div>)}</div></div>
     );
   }
 
-  if (element.id === 'feature-grid') {
+  case 'feature-grid': {
     const features = identity.strategy.pillars.slice(0, 3);
     return (
       <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><h2 className='max-w-3xl text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><p className='mt-4 max-w-2xl text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-12 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{features.map((title, index) => <div className='min-h-44 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-14 text-lg font-semibold'>{title}</p><p className='mt-2 text-xs uppercase tracking-wide opacity-35'>{identity.values[index] ?? identity.name}</p></div>)}</div></div></div>
     );
   }
 
-  if (['pricing-card', 'testimonial-card', 'checkout-card'].includes(element.id)) {
-    const testimonial = element.id === 'testimonial-card';
-    const checkout = element.id === 'checkout-card';
-    return (
-      <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
-    );
+  case 'pricing-card':
+  case 'testimonial-card':
+  case 'checkout-card': {
+    return <ProductCommerceCardPreview elementId={element.id} identity={identity} settings={settings} />;
   }
 
-  if (['form-controls', 'settings-panel'].includes(element.id)) {
+  case 'form-controls':
+  case 'settings-panel': {
     return (
       <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><input checked readOnly type='checkbox' /></label></div><div className='mt-7'>{action}</div></div></div>
     );
   }
 
-  if (['command-menu', 'modal-dialog', 'toast-notification', 'empty-state'].includes(element.id)) {
-    const compact = element.id === 'toast-notification';
-    return (
-      <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{element.id === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
-    );
+  case 'command-menu':
+  case 'modal-dialog':
+  case 'toast-notification':
+  case 'empty-state': {
+    return <ProductOverlayPreview elementId={element.id} identity={identity} settings={settings} />;
   }
 
-  if (element.id === 'data-table') {
+  case 'data-table': {
     return (
       <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><div className='flex items-end justify-between gap-6'><div><h2 className='text-3xl font-semibold'>{settings.headline}</h2></div>{action}</div><div className='mt-8 overflow-hidden border' style={{ borderColor }}><div className='grid grid-cols-[1.4fr_1fr_0.8fr] p-3 font-mono text-[10px] uppercase opacity-45'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product launch', 'Documentation', 'Email system', 'Design board'].map((item, index) => <div className='grid grid-cols-[1.4fr_1fr_0.8fr] border-t p-4 text-sm' key={item} style={{ borderColor }}><span className='font-medium'>{item}</span><span><i className='mr-2 inline-block size-2 rounded-full' style={{ backgroundColor: settings.accentColor }} />{index % 2 ? 'Draft' : 'Ready'}</span><span className='opacity-45'>Today</span></div>)}</div></div></div>
     );
   }
 
-  return (
-    <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}</div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
-  );
+  default:
+    return (
+      <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}</div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
+    );
+  }
 }
 
 function LogoPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
@@ -1079,15 +1211,29 @@ function LogoPreview({ identity, settings }: { identity: BrandIdentity; settings
   );
 }
 
+const ICON_PREVIEW_SIZES = [
+  { id: 'xs', size: 32 },
+  { id: 'sm', size: 64 },
+  { id: 'md', size: 128 },
+  { id: 'lg', size: 256 },
+  { id: 'xl', size: 512 },
+  { id: 'xxl', size: 1024 },
+  { id: 'sm-accent', size: 64 },
+  { id: 'md-accent', size: 128 },
+] as const;
+
 function IconPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
   return (
     <div className='mx-auto grid w-full max-w-3xl grid-cols-2 gap-px bg-border shadow-sm sm:grid-cols-4'>
-      {[32, 64, 128, 256, 512, 1024, 64, 128].map((size, index) => (
-        <div className='grid aspect-square place-items-center p-6' key={`${size}-${index}`} style={{ backgroundColor: index % 3 === 0 ? settings.accentColor : settings.backgroundColor, color: index % 3 === 0 ? settings.backgroundColor : settings.foregroundColor }}>
-          {settings.showLogo ? <IdentityMark className='size-2/3 object-contain text-2xl' identity={identity} inverted={isDarkSurface(index % 3 === 0 ? settings.accentColor : settings.backgroundColor)} style={artworkStyle(settings)} /> : null}
+      {ICON_PREVIEW_SIZES.map(({ id, size }) => {
+        const usesAccent = id === 'xs' || id === 'lg' || id === 'sm-accent';
+        const backgroundColor = usesAccent ? settings.accentColor : settings.backgroundColor;
+        return (
+        <div className='grid aspect-square place-items-center p-6' key={id} style={{ backgroundColor, color: usesAccent ? settings.backgroundColor : settings.foregroundColor }}>
+          {settings.showLogo ? <IdentityMark className='size-2/3 object-contain text-2xl' identity={identity} inverted={isDarkSurface(backgroundColor)} style={artworkStyle(settings)} /> : null}
           <span className='mt-3 font-mono text-[10px] opacity-40'>{size} PX</span>
         </div>
-      ))}
+      );})}
     </div>
   );
 }
@@ -1320,10 +1466,13 @@ export default function BrandElementsStudio({
                 className='brand-elements-mobile-select hidden'
                 onValueChange={setSelectedElementId}
                 options={BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
-                  identityElements.filter((element) => element.category === elementCategory).map((element) => ({
-                    label: `${gt(elementCategory)} / ${gt(element.name)}`,
-                    value: element.id,
-                  }))
+                  identityElements.reduce<Array<{ label: string; value: string }>>((options, element) => {
+                    if (element.category === elementCategory) options.push({
+                      label: `${gt(elementCategory)} / ${gt(element.name)}`,
+                      value: element.id,
+                    });
+                    return options;
+                  }, [])
                 )}
                 value={selectedElement.id}
               />

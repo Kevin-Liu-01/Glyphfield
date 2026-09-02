@@ -12,8 +12,10 @@ import {
 } from '@/lib/gifPalette';
 
 function noisyFrame(seed: number): Uint8ClampedArray {
-  const width = 128;
-  const height = 64;
+  // Large enough to make the authored color statistically rare, without
+  // turning coverage instrumentation into the dominant test workload.
+  const width = 96;
+  const height = 48;
   const pixels = new Uint8ClampedArray(width * height * 4);
   for (let index = 0; index < width * height; index += 1) {
     const x = index % width;

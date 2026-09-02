@@ -18,7 +18,7 @@ import { SURFACE_LAB_SHADER_PRESETS } from './surfaceLab';
 const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material', 'surface']);
 const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
 
-export const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
+const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
   ...tool,
   agentAccess: 'http-contract-and-browser-api',
   browserWorkspace: '/studio',

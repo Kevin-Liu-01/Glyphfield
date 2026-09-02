@@ -37,4 +37,37 @@ describe('Studio interaction performance contracts', () => {
     expect(setter).not.toContain('localStorage.setItem');
     expect(setter).not.toContain('JSON.stringify');
   });
+
+  it('unmounts inactive heavy workspaces instead of running hidden render loops', () => {
+    const source = readSource('src/components/StudioApp.tsx');
+
+    expect(source).not.toContain('RETAINED_WORKSPACE_TOOL_IDS');
+    expect(source).not.toContain('retainedWorkspaces');
+    expect(source).not.toContain('hidden={!showAnimation}');
+    expect(source).toContain("activeToolId === 'animation'");
+    expect(source).toContain("activeToolId === 'lottie'");
+  });
+
+  it('uses the accelerated Lottie renderer without live WASM buffer reallocations', () => {
+    const source = readSource('src/components/LottieStudio.tsx');
+    const previewCanvasStart = source.indexOf("aria-label={gt('Lottie animation preview')}");
+    const previewCanvas = source.slice(previewCanvasStart, source.indexOf('/>', previewCanvasStart));
+
+    expect(source).toContain("from '@lottiefiles/dotlottie-web/webgl'");
+    expect(source).toContain('autoResize: false');
+    expect(source).toContain('devicePixelRatio: Math.min(window.devicePixelRatio, 2)');
+    expect(previewCanvas).not.toContain('height={canvas.height}');
+    expect(previewCanvas).not.toContain('width={canvas.width}');
+  });
+
+  it('invariant_lottie_exports_logical_document_dimensions_instead_of_the_preview_buffer', () => {
+    const source = readSource('src/components/LottieStudio.tsx');
+    const exportStart = source.indexOf('async function downloadPng()');
+    const exportBody = source.slice(exportStart, source.indexOf('function resetEditor()', exportStart));
+
+    expect(exportBody).toContain('exportCanvasDocumentStill({');
+    expect(exportBody).toContain('canvasDocument: portableDocument');
+    expect(exportBody).not.toContain('lottieCanvas.toBlob');
+    expect(exportBody).not.toContain('exportCanvas.width = canvas.width');
+  });
 });

@@ -1,15 +1,36 @@
 'use client';
 
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 
-import { useMountEffect } from '@/hooks/useMountEffect';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 const PERSISTENCE_DELAY_MS = 120;
 const pendingPersistentWrites = new Map<string, unknown>();
 let persistentWriteTimer: number | null = null;
 let persistenceFlushListenerAttached = false;
 
-export function flushPendingPersistentWrites(): void {
+function resolveInitialValue<T>(initialValue: T | (() => T)): T {
+  return typeof initialValue === 'function'
+    ? (initialValue as () => T)()
+    : initialValue;
+}
+
+export function readPersistentValue<T>(storageKey: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const storedValue = window.localStorage.getItem(storageKey);
+    return storedValue === null ? fallback : JSON.parse(storedValue) as T;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // A disabled storage backend should not prevent the in-memory draft from working.
+    }
+    return fallback;
+  }
+}
+
+function flushPendingPersistentWrites(): void {
   if (typeof window === 'undefined') return;
   if (persistentWriteTimer !== null) {
     window.clearTimeout(persistentWriteTimer);
@@ -41,32 +62,24 @@ export function usePersistentState<T>(
   storageKey: string,
   initialValue: T | (() => T)
 ): [T, Dispatch<SetStateAction<T>>] {
-  const initialValueRef = useRef(initialValue);
-  const [value, setValue] = useState<T>(() => {
-    const currentInitialValue = initialValueRef.current;
-    return typeof currentInitialValue === 'function'
-      ? (currentInitialValue as () => T)()
-      : currentInitialValue;
-  });
-  const valueRef = useRef(value);
-  valueRef.current = value;
+  const initialValueRef = useCommittedRef(initialValue);
+  const [snapshot, setSnapshot] = useState<{ storageKey: string; value: T }>(() => ({
+    storageKey,
+    value: resolveInitialValue(initialValue),
+  }));
+  const value = snapshot.storageKey === storageKey
+    ? snapshot.value
+    : resolveInitialValue(initialValue);
+  const valueRef = useCommittedRef(value);
 
-  useMountEffect(() => {
-    try {
-      const storedValue = window.localStorage.getItem(storageKey);
-      if (storedValue !== null) {
-        const parsedValue = JSON.parse(storedValue) as T;
-        valueRef.current = parsedValue;
-        setValue(parsedValue);
-      }
-    } catch {
-      try {
-        window.localStorage.removeItem(storageKey);
-      } catch {
-        return;
-      }
-    }
-  });
+  useEffect(() => {
+    const nextValue = readPersistentValue(
+      storageKey,
+      resolveInitialValue(initialValueRef.current)
+    );
+    valueRef.current = nextValue;
+    setSnapshot({ storageKey, value: nextValue });
+  }, [initialValueRef, storageKey, valueRef]);
 
   const setPersistentValue = useCallback<Dispatch<SetStateAction<T>>>(
     (nextValue) => {
@@ -75,10 +88,10 @@ export function usePersistentState<T>(
           ? (nextValue as (current: T) => T)(valueRef.current)
           : nextValue;
       valueRef.current = resolvedValue;
-      setValue(resolvedValue);
+      setSnapshot({ storageKey, value: resolvedValue });
       schedulePersistentWrite(storageKey, resolvedValue);
     },
-    [storageKey]
+    [storageKey, valueRef]
   );
 
   return [value, setPersistentValue];

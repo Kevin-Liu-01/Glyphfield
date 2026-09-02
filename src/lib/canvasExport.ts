@@ -7,8 +7,24 @@ import {
   sampleGifPixels,
   type GifPaletteFormat,
 } from './gifPalette';
+import type { CanvasDocument } from './canvasDocument';
+import {
+  renderCanvasDocumentPage,
+  type CanvasRenderLayer,
+  type CanvasRenderReport,
+} from './canvasRenderer';
 
 export type StillImageFormat = 'jpg' | 'png';
+
+type CanvasImageEncoder = {
+  toBlob(callback: BlobCallback, type?: string, quality?: number): void;
+};
+
+type CanvasStillSurface = CanvasImageEncoder & {
+  getContext(contextId: '2d'): CanvasRenderingContext2D | null;
+  height: number;
+  width: number;
+};
 
 export type MotionExportQuality = 'balanced' | 'best' | 'fast';
 
@@ -34,7 +50,7 @@ export type MotionFrame = {
   timeMs: number;
 };
 
-export type MotionExportOptions = {
+type MotionExportOptions = {
   canvas: HTMLCanvasElement;
   durationMs: number;
   fps: number;
@@ -149,8 +165,43 @@ function countMismatchedPixels(left: Uint8ClampedArray, right: Uint8ClampedArray
   return mismatches;
 }
 
+function emitSeamlessLoopReport({
+  finalOutputPixels,
+  headFrames,
+  loopMode,
+  onLoopReport,
+  overlapFrames,
+  sourceFrameCount,
+  writtenFrames,
+}: {
+  finalOutputPixels: Uint8ClampedArray | null;
+  headFrames: readonly Uint8ClampedArray[];
+  loopMode: MotionLoopMode;
+  onLoopReport?: (report: MotionLoopReport) => void;
+  overlapFrames: number;
+  sourceFrameCount: number;
+  writtenFrames: number;
+}): void {
+  if (loopMode !== 'seamless') return;
+  // The final blended frame must land exactly on the captured frame immediately
+  // before the first output frame. That makes the GIF wrap reproduce a real,
+  // consecutive source transition instead of duplicating the first frame.
+  const capturedSeamAnchor = headFrames.at(-1) ?? null;
+  const comparableOutput = finalOutputPixels!;
+  const comparableAnchor = capturedSeamAnchor ?? new Uint8ClampedArray(0);
+  const closureMismatchPixels = countMismatchedPixels(comparableOutput, comparableAnchor);
+  onLoopReport?.({
+    closureMismatchPixels,
+    mode: 'seamless',
+    outputFrames: writtenFrames,
+    overlapFrames,
+    sourceFrames: sourceFrameCount,
+    verified: closureMismatchPixels === 0,
+  });
+}
+
 export function canvasToImageBlob(
-  canvas: HTMLCanvasElement,
+  canvas: CanvasImageEncoder,
   format: StillImageFormat,
   quality = 0.92
 ): Promise<Blob> {
@@ -161,6 +212,60 @@ export function canvasToImageBlob(
       else reject(new Error(`${format.toUpperCase()} encoding returned an empty file.`));
     }, mimeType, format === 'jpg' ? quality : undefined);
   });
+}
+
+export type CanvasDocumentStillExport = {
+  blob: Blob;
+  height: number;
+  report: CanvasRenderReport;
+  width: number;
+};
+
+/**
+ * Renders a portable canvas document at its declared logical output size before
+ * encoding it. Live preview canvases may use a higher device-pixel-ratio buffer;
+ * keeping that implementation detail behind this seam prevents exported files
+ * from changing dimensions when DPR or renderer backends change.
+ */
+export async function exportCanvasDocumentStill({
+  canvasDocument,
+  canvasFactory = () => document.createElement('canvas'),
+  format = 'png',
+  height,
+  pageId = canvasDocument.pageIds[0],
+  quality = 0.92,
+  renderElement,
+  width,
+}: {
+  canvasDocument: CanvasDocument;
+  canvasFactory?: () => CanvasStillSurface;
+  format?: StillImageFormat;
+  height: number;
+  pageId?: string;
+  quality?: number;
+  renderElement: (context: CanvasRenderingContext2D, layer: CanvasRenderLayer) => void;
+  width: number;
+}): Promise<CanvasDocumentStillExport> {
+  if (!pageId) throw new RangeError('Canvas document has no page to export.');
+  const canvas = canvasFactory();
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas rendering is unavailable.');
+  const report = renderCanvasDocumentPage({
+    context,
+    document: canvasDocument,
+    height,
+    pageId,
+    renderElement: (layer) => renderElement(context, layer),
+    width,
+  });
+  return {
+    blob: await canvasToImageBlob(canvas, format, quality),
+    height,
+    report,
+    width,
+  };
 }
 
 export async function encodeCanvasGif({
@@ -188,12 +293,11 @@ export async function encodeCanvasGif({
   const gif = GIFEncoder();
   const paletteSize = Math.min(256, Math.max(2, Math.round(colors)));
   const protectedColors = gifProtectedColors(protectedColorValues);
-  let globalPalette: number[][] | null = null;
   const headFrames: Uint8ClampedArray[] = [];
   let finalOutputPixels: Uint8ClampedArray | null = null;
   let writtenFrames = 0;
 
-  if (paletteStrategy === 'global') {
+  const createGlobalPalette = async (): Promise<number[][]> => {
     const samples: Uint8ClampedArray[] = [];
     const sampleIndices = gifSampleFrameIndices(sourceFrameCount);
     const samplePixelBudget = gifPaletteFramePixelBudget(sampleIndices.length);
@@ -210,14 +314,15 @@ export async function encodeCanvasGif({
       ));
     }
     const sample = collectGifPaletteSample(samples);
-    globalPalette = quantizeGifPalette({
+    return quantizeGifPalette({
       format: paletteFormat,
       maxColors: paletteSize,
       pixels: sample,
       protectedColors,
       quantize,
     });
-  }
+  };
+  const globalPalette = paletteStrategy === 'global' ? await createGlobalPalette() : null;
 
   const writePixels = (pixels: Uint8ClampedArray) => {
     finalOutputPixels = pixels.slice();
@@ -265,23 +370,15 @@ export async function encodeCanvasGif({
     onProgress?.((index + 1) / sourceFrameCount);
   }
 
-  if (loopMode === 'seamless') {
-    // The final blended frame must land exactly on the captured frame immediately
-    // before the first output frame. That makes the GIF wrap reproduce a real,
-    // consecutive source transition instead of duplicating the first frame.
-    const capturedSeamAnchor = headFrames.at(-1) ?? null;
-    const closureMismatchPixels = finalOutputPixels && capturedSeamAnchor
-      ? countMismatchedPixels(finalOutputPixels, capturedSeamAnchor)
-      : canvas.width * canvas.height;
-    onLoopReport?.({
-      closureMismatchPixels,
-      mode: 'seamless',
-      outputFrames: writtenFrames,
-      overlapFrames,
-      sourceFrames: sourceFrameCount,
-      verified: closureMismatchPixels === 0,
-    });
-  }
+  emitSeamlessLoopReport({
+    finalOutputPixels,
+    headFrames,
+    loopMode,
+    onLoopReport,
+    overlapFrames,
+    sourceFrameCount,
+    writtenFrames,
+  });
 
   gif.finish();
   const bytes = Uint8Array.from(gif.bytes());

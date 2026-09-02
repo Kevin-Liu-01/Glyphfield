@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Download, Eye, FilePenLine, FileText, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, Download, Eye, FilePenLine, FileText, RefreshCw, X } from '@/components/ui/SolidIcons';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -20,6 +20,66 @@ export type ExportPreviewAsset = {
   previewText?: string;
   width?: number;
 };
+
+type ExportPreviewKind = NonNullable<ExportPreviewAsset['previewKind']>;
+
+function exportPreviewKind(asset: ExportPreviewAsset): ExportPreviewKind {
+  if (asset.previewKind) return asset.previewKind;
+  if (asset.previewText !== undefined) return 'text';
+  if (asset.format === 'MP4') return 'video';
+  return ['AVIF', 'BMP', 'GIF', 'JPG', 'PNG', 'SVG', 'WEBP'].includes(asset.format)
+    ? 'image'
+    : 'file';
+}
+
+function ExportPreviewMedia({
+  asset,
+  downloadFileName,
+  kind,
+  url,
+}: {
+  asset: ExportPreviewAsset;
+  downloadFileName: string;
+  kind: ExportPreviewKind;
+  url: string;
+}) {
+  if (kind === 'video') {
+    return <video aria-label={`${asset.format} export preview`} autoPlay className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain' controls loop muted playsInline src={url} />;
+  }
+  if (kind === 'image') {
+    return <img alt={`${asset.format} export preview`} className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain' src={url} />;
+  }
+  if (kind === 'text') {
+    return <pre className='studio-scroll-area max-h-[min(66vh,680px)] w-full overflow-auto whitespace-pre-wrap break-words border border-border bg-background p-5 font-mono text-xs leading-5'>{asset.previewText}</pre>;
+  }
+  return (
+    <div className='flex max-w-sm flex-col items-center gap-4 text-center'>
+      <FileText aria-hidden='true' className='size-10 text-muted-foreground' />
+      <div>
+        <p className='text-sm font-medium'>{downloadFileName}</p>
+        <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+          This binary file is ready. Review its name, format, and size before saving it.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ExportPreviewContext({
+  kind,
+  needsRefresh,
+}: {
+  kind: ExportPreviewKind;
+  needsRefresh: boolean;
+}) {
+  if (!needsRefresh && kind !== 'text' && kind !== 'file') return null;
+  const message = needsRefresh
+    ? 'Updating the preview to match the current composition.'
+    : kind === 'text'
+      ? 'Review the generated contents here. Nothing is saved until you confirm the download.'
+      : 'Confirm the file name, format, and size here. Nothing is saved until you confirm the download.';
+  return <p aria-live='polite' className='text-sm leading-6 text-muted-foreground'>{message}</p>;
+}
 
 function formatFileSize(size: number): string {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
@@ -53,6 +113,11 @@ function safeExportBaseName(value: string, fallback: string): string {
     .replace(/[.\s]+$/g, '')
     .trim();
   return safe || fallback;
+}
+
+function exportDimensions(asset: ExportPreviewAsset): string | null {
+  if (!asset.width || !asset.height) return null;
+  return `${asset.width} × ${asset.height}`;
 }
 
 export default function ExportPreview({
@@ -128,17 +193,8 @@ export default function ExportPreview({
 
   if (!asset || !url) return null;
 
-  const dimensions = asset.width && asset.height
-    ? `${asset.width} × ${asset.height}`
-    : null;
-  const previewKind = asset.previewKind
-    ?? (asset.previewText !== undefined
-      ? 'text'
-      : asset.format === 'MP4'
-        ? 'video'
-        : ['AVIF', 'BMP', 'GIF', 'JPG', 'PNG', 'SVG', 'WEBP'].includes(asset.format)
-          ? 'image'
-          : 'file');
+  const dimensions = exportDimensions(asset);
+  const previewKind = exportPreviewKind(asset);
   const fallbackBaseName = fileNameParts(asset.fileName, asset.format).base;
   const typedBaseName = fileNameExtension && fileNameBase.toLocaleLowerCase().endsWith(`.${fileNameExtension}`)
     ? fileNameBase.slice(0, -(fileNameExtension.length + 1))
@@ -167,18 +223,23 @@ export default function ExportPreview({
       ) : null}
 
       {open ? createPortal(
-        <div
+        <dialog
+          aria-label={`${asset.format} export preview`}
+          aria-modal='true'
           className='shader-export-overlay'
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setOpen(false);
+          onCancel={(event) => {
+            event.preventDefault();
+            setOpen(false);
           }}
+          open
         >
-          <section
-            aria-label={`${asset.format} export preview`}
-            aria-modal='true'
-            className='shader-export-dialog'
-            role='dialog'
-          >
+          <button
+            aria-label='Close export preview'
+            className='studio-modal-backdrop'
+            onClick={() => setOpen(false)}
+            type='button'
+          />
+          <section className='shader-export-dialog'>
             <StudioToolHeader
               actions={<Button
                 aria-label='Close export preview'
@@ -197,38 +258,7 @@ export default function ExportPreview({
 
             <div className='shader-export-content'>
               <div className='grid min-h-72 min-w-0 place-items-center overflow-hidden bg-[radial-gradient(circle,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:14px_14px] p-5'>
-                {previewKind === 'video' ? (
-                  <video
-                    aria-label={`${asset.format} export preview`}
-                    autoPlay
-                    className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain'
-                    controls
-                    loop
-                    muted
-                    playsInline
-                    src={url}
-                  />
-                ) : previewKind === 'image' ? (
-                  <img
-                    alt={`${asset.format} export preview`}
-                    className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain'
-                    src={url}
-                  />
-                ) : previewKind === 'text' ? (
-                  <pre className='studio-scroll-area max-h-[min(66vh,680px)] w-full overflow-auto whitespace-pre-wrap break-words border border-border bg-background p-5 font-mono text-xs leading-5'>
-                    {asset.previewText}
-                  </pre>
-                ) : (
-                  <div className='flex max-w-sm flex-col items-center gap-4 text-center'>
-                    <FileText aria-hidden='true' className='size-10 text-muted-foreground' />
-                    <div>
-                      <p className='text-sm font-medium'>{downloadFileName}</p>
-                      <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                        This binary file is ready. Review its name, format, and size before saving it.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <ExportPreviewMedia asset={asset} downloadFileName={downloadFileName} kind={previewKind} url={url} />
               </div>
 
               <aside className='flex min-w-0 flex-col gap-5 border-l border-border p-5'>
@@ -263,15 +293,7 @@ export default function ExportPreview({
                   </p>
                 </div>
 
-                {needsRefresh || previewKind === 'text' || previewKind === 'file' ? (
-                  <p aria-live='polite' className='text-sm leading-6 text-muted-foreground'>
-                    {needsRefresh
-                      ? 'Updating the preview to match the current composition.'
-                      : previewKind === 'text'
-                        ? 'Review the generated contents here. Nothing is saved until you confirm the download.'
-                        : 'Confirm the file name, format, and size here. Nothing is saved until you confirm the download.'}
-                  </p>
-                ) : null}
+                <ExportPreviewContext kind={previewKind} needsRefresh={needsRefresh} />
 
                 {asset.loopReport ? (
                   <div className='shader-export-loop-proof' role='status'>
@@ -310,7 +332,7 @@ export default function ExportPreview({
               </aside>
             </div>
           </section>
-        </div>,
+        </dialog>,
         document.body
       ) : null}
     </>

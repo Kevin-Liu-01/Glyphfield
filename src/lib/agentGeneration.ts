@@ -82,13 +82,13 @@ type AgentGenerationBase = {
   output: AgentOutput;
 };
 
-export type AgentBackgroundPlan = AgentGenerationBase & {
+type AgentBackgroundPlan = AgentGenerationBase & {
   kind: 'background';
   logoPath: string | null;
   settings: BackgroundSettings;
 };
 
-export type AgentTemplatePlan = AgentGenerationBase & {
+type AgentTemplatePlan = AgentGenerationBase & {
   backgroundImageDataUrl: string | null;
   background: string;
   body: string;
@@ -105,7 +105,7 @@ export type AgentTemplatePlan = AgentGenerationBase & {
   width: number;
 };
 
-export type AgentElementBriefPlan = AgentGenerationBase & {
+type AgentElementBriefPlan = AgentGenerationBase & {
   element: BrandElement;
   kind: 'element-brief';
 };
@@ -127,7 +127,7 @@ type AgentDesignText = {
   y: number;
 };
 
-export type AgentDesignSequencePlan = AgentGenerationBase & {
+type AgentDesignSequencePlan = AgentGenerationBase & {
   backgroundColor: string;
   effect: {
     opacity: number;
@@ -229,8 +229,9 @@ function assertAllowedFields(
   allowedFields: readonly string[],
   field: string
 ): void {
+  const allowedFieldSet = new Set(allowedFields);
   const unknownField = Object.keys(input)
-    .filter((key) => !allowedFields.includes(key))
+    .filter((key) => !allowedFieldSet.has(key))
     .sort()[0];
   if (unknownField) {
     throw new AgentGenerationError(
@@ -608,6 +609,38 @@ function backgroundPlan(input: Record<string, unknown>): AgentBackgroundPlan {
   };
 }
 
+function templateDimensions(template: TemplateKind) {
+  if (template === 'slides') return { height: 900, width: 1600 };
+  return { height: template === 'blog' ? 630 : 600, width: 1200 };
+}
+
+function defaultTemplateTitle(identity: AgentIdentity, template: TemplateKind): string {
+  if (template === 'partnership') {
+    const partner = identity.base ? defaultTemplatePartner(identity.base).label : 'Northstar';
+    return `${identity.name} × ${partner}`;
+  }
+  return template === 'blog' ? identity.positioning : identity.tagline;
+}
+
+function resolveTemplatePartner(
+  identity: AgentIdentity,
+  input: Record<string, unknown>,
+  template: TemplateKind
+) {
+  const base = identity.base ?? STARTER_BRAND_IDENTITY;
+  const options = templatePartnerOptions(base);
+  const defaultPartner = defaultTemplatePartner(base);
+  const partnerId = textValue(input.partnerId, defaultPartner.id, 'partnerId', 80);
+  const selected = options.find(({ id }) => id === partnerId);
+  if (template === 'partnership' && !input.partnerLogoDataUrl && !selected) {
+    throw new AgentGenerationError(
+      `partnerId must reference a public partner asset: ${options.map(({ id }) => id).join(', ')}.`,
+      'partnerId'
+    );
+  }
+  return selected;
+}
+
 function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
   const identity = resolveAgentIdentity(input.identity);
   const template = oneOf(
@@ -629,33 +662,12 @@ function templatePlan(input: Record<string, unknown>): AgentTemplatePlan {
     'slideLayout'
   );
   const isDark = texture === 'dark';
-  const width = template === 'slides' ? 1600 : 1200;
-  const height = template === 'slides' ? 900 : template === 'blog' ? 630 : 600;
-  const defaultTitle = template === 'partnership'
-    ? `${identity.name} × ${identity.base ? defaultTemplatePartner(identity.base).label : 'Northstar'}`
-    : template === 'blog'
-      ? identity.positioning
-      : identity.tagline;
+  const { height, width } = templateDimensions(template);
+  const defaultTitle = defaultTemplateTitle(identity, template);
   const brandLogo = identity.base
     ? templateBrandLogo(identity.base, template, isDark)
     : null;
-  const partnerOptions = templatePartnerOptions(identity.base ?? STARTER_BRAND_IDENTITY);
-  const defaultPartner = identity.base
-    ? defaultTemplatePartner(identity.base)
-    : defaultTemplatePartner(STARTER_BRAND_IDENTITY);
-  const partnerId = textValue(
-    input.partnerId,
-    defaultPartner.id,
-    'partnerId',
-    80
-  );
-  const selectedPartner = partnerOptions.find(({ id }) => id === partnerId);
-  if (template === 'partnership' && !input.partnerLogoDataUrl && !selectedPartner) {
-    throw new AgentGenerationError(
-      `partnerId must reference a public partner asset: ${partnerOptions.map(({ id }) => id).join(', ')}.`,
-      'partnerId'
-    );
-  }
+  const selectedPartner = resolveTemplatePartner(identity, input, template);
 
   return {
     background: colorValue(
@@ -717,46 +729,39 @@ function elementBriefPlan(input: Record<string, unknown>): AgentElementBriefPlan
   };
 }
 
-function designSequencePlan(input: Record<string, unknown>): AgentDesignSequencePlan {
-  const identity = resolveAgentIdentity(input.identity);
-  const shaderInput = asRecord(input.shader, 'shader');
-  const materialId = liveMaterialIdValue(shaderInput.materialId, 'paper-gem-smoke', 'shader.materialId');
-  const sequenceInput = asRecord(input.sequence, 'sequence');
-  const sequence = normalizeShaderSequenceSettings({
-    cutCount: numberValue(sequenceInput.cutCount, 10, 'sequence.cutCount', 8, 12, true),
-    finalHoldMs: numberValue(sequenceInput.finalHoldMs, 5_000, 'sequence.finalHoldMs', 3_000, 6_000, true),
-    pace: oneOf(sequenceInput.pace, ['accelerating', 'even'] as const, 'accelerating', 'sequence.pace'),
-  });
-  const baseColors = identity.base?.colors.map(({ hex }) => hex) ?? [];
-  const palette = [identity.ink, baseColors[2] ?? '#737373', identity.paper];
-  const effectInput = input.effect === undefined || input.effect === null
-    ? null
-    : asRecord(input.effect, 'effect');
-  const effectKind = effectInput
-    ? oneOf(
-        effectInput.kind,
-        ['ascii', 'bayer', 'halftone', 'posterize'] as const satisfies readonly CompositionEffectKind[],
-        'bayer',
-        'effect.kind'
-      )
-    : null;
-  const effectDefaults = effectKind ? defaultCompositionEffectSettings(effectKind) : null;
-  const effectSettings = effectDefaults && effectInput
-    ? {
-        ...effectDefaults,
-        background: colorValue(effectInput.background, effectDefaults.background, 'effect.background'),
-        cellSize: numberValue(effectInput.cellSize, effectDefaults.cellSize, 'effect.cellSize', 1, 64),
-        contrast: numberValue(effectInput.contrast, effectDefaults.contrast, 'effect.contrast', 0.1, 4),
-        foreground: colorValue(effectInput.foreground, effectDefaults.foreground, 'effect.foreground'),
-        invert: booleanValue(effectInput.invert, effectDefaults.invert, 'effect.invert'),
-        levels: numberValue(effectInput.levels, effectDefaults.levels, 'effect.levels', 2, 8, true),
-        threshold: numberValue(effectInput.threshold, effectDefaults.threshold, 'effect.threshold', 0, 1),
-      }
-    : null;
-  const textInputs = input.texts === undefined
+function designSequenceEffect(input: unknown): AgentDesignSequencePlan['effect'] {
+  if (input === undefined || input === null) return null;
+  const effectInput = asRecord(input, 'effect');
+  const kind = oneOf(
+    effectInput.kind,
+    ['ascii', 'bayer', 'halftone', 'posterize'] as const satisfies readonly CompositionEffectKind[],
+    'bayer',
+    'effect.kind'
+  );
+  const defaults = defaultCompositionEffectSettings(kind);
+  return {
+    opacity: numberValue(effectInput.opacity, 1, 'effect.opacity', 0, 1),
+    settings: {
+      ...defaults,
+      background: colorValue(effectInput.background, defaults.background, 'effect.background'),
+      cellSize: numberValue(effectInput.cellSize, defaults.cellSize, 'effect.cellSize', 1, 64),
+      contrast: numberValue(effectInput.contrast, defaults.contrast, 'effect.contrast', 0.1, 4),
+      foreground: colorValue(effectInput.foreground, defaults.foreground, 'effect.foreground'),
+      invert: booleanValue(effectInput.invert, defaults.invert, 'effect.invert'),
+      levels: numberValue(effectInput.levels, defaults.levels, 'effect.levels', 2, 8, true),
+      threshold: numberValue(effectInput.threshold, defaults.threshold, 'effect.threshold', 0, 1),
+    },
+  };
+}
+
+function designSequenceTexts(
+  input: unknown,
+  identity: AgentIdentity
+): AgentDesignText[] {
+  const textInputs = input === undefined
     ? [{ value: 'Open Source' }]
-    : recordArray(input.texts, 'texts', 32);
-  const texts = textInputs.map((text, index): AgentDesignText => ({
+    : recordArray(input, 'texts', 32);
+  return textInputs.map((text, index): AgentDesignText => ({
     align: oneOf(text.align, ['center', 'left', 'right'] as const, 'center', `texts.${index}.align`),
     color: colorValue(text.color, identity.paper, `texts.${index}.color`),
     fontRole: oneOf(text.fontRole, ['Accent', 'Body', 'Code', 'Display'] as const, 'Display', `texts.${index}.fontRole`),
@@ -772,18 +777,38 @@ function designSequencePlan(input: Record<string, unknown>): AgentDesignSequence
     x: numberValue(text.x, 0, `texts.${index}.x`, -5_000, 5_000),
     y: numberValue(text.y, index * 120, `texts.${index}.y`, -5_000, 5_000),
   }));
+}
+
+function designSequenceLogoPath(identity: AgentIdentity): string | null {
+  const assets = identity.base?.assets ?? [];
+  const pathsById = new Map(assets.map((asset) => [asset.id, asset.path]));
+  for (const id of ['mark-light', 'logo-light', 'mark-dark']) {
+    const path = pathsById.get(id);
+    if (path) return path;
+  }
+  return null;
+}
+
+function designSequencePlan(input: Record<string, unknown>): AgentDesignSequencePlan {
+  const identity = resolveAgentIdentity(input.identity);
+  const shaderInput = asRecord(input.shader, 'shader');
+  const materialId = liveMaterialIdValue(shaderInput.materialId, 'paper-gem-smoke', 'shader.materialId');
+  const sequenceInput = asRecord(input.sequence, 'sequence');
+  const sequence = normalizeShaderSequenceSettings({
+    cutCount: numberValue(sequenceInput.cutCount, 10, 'sequence.cutCount', 8, 12, true),
+    finalHoldMs: numberValue(sequenceInput.finalHoldMs, 5_000, 'sequence.finalHoldMs', 3_000, 6_000, true),
+    pace: oneOf(sequenceInput.pace, ['accelerating', 'even'] as const, 'accelerating', 'sequence.pace'),
+  });
+  const baseColors = identity.base?.colors.map(({ hex }) => hex) ?? [];
+  const palette = [identity.ink, baseColors[2] ?? '#737373', identity.paper];
+  const effect = designSequenceEffect(input.effect);
+  const texts = designSequenceTexts(input.texts, identity);
   const exportInput = asRecord(input.export, 'export');
-  const logoPath = identity.base?.assets.find(({ id }) => id === 'mark-light')?.path
-    ?? identity.base?.assets.find(({ id }) => id === 'logo-light')?.path
-    ?? identity.base?.assets.find(({ id }) => id === 'mark-dark')?.path
-    ?? null;
+  const logoPath = designSequenceLogoPath(identity);
 
   return {
     backgroundColor: colorValue(input.backgroundColor, '#111216', 'backgroundColor'),
-    effect: effectSettings && effectInput ? {
-      opacity: numberValue(effectInput.opacity, 1, 'effect.opacity', 0, 1),
-      settings: effectSettings,
-    } : null,
+    effect,
     exportSettings: {
       durationMs: numberValue(exportInput.durationMs, 1_600, 'export.durationMs', 1_200, 4_000, true),
       fps: numericOneOf(exportInput.fps, [12, 15, 24, 30] as const, 30, 'export.fps'),

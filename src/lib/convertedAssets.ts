@@ -1,5 +1,5 @@
 export const CONVERTED_ASSET_EVENT = 'glyphfield:converted-assets-changed';
-export const CONVERTED_ASSET_MAX_BYTES = 25_000_000;
+const CONVERTED_ASSET_MAX_BYTES = 25_000_000;
 export const CONVERTED_ASSET_SIZES = [1024, 2048, 4096] as const;
 
 const DATABASE_NAME = 'glyphfield-asset-library';

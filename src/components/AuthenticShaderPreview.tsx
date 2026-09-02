@@ -17,7 +17,7 @@ import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
 
 const capturedPreviews = new Map<LiveMaterialId, string>();
 
-function AuthenticShaderPreview({
+function AuthenticShaderPreviewScene({
   className = '',
   materialId,
 }: {
@@ -30,11 +30,6 @@ function AuthenticShaderPreview({
   const [preview, setPreview] = useState(() => capturedPreviews.get(materialId));
   const settings = shaderLabSettingsFor(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
   const needsAuthenticCapture = isPaperLiveMaterialId(materialId);
-
-  useEffect(() => {
-    setPreview(capturedPreviews.get(materialId));
-    setRendering(false);
-  }, [materialId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -121,6 +116,13 @@ function AuthenticShaderPreview({
       ) : null}
     </span>
   );
+}
+
+function AuthenticShaderPreview(props: {
+  className?: string;
+  materialId: LiveMaterialId;
+}) {
+  return <AuthenticShaderPreviewScene key={props.materialId} {...props} />;
 }
 
 export default memo(AuthenticShaderPreview);

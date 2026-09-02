@@ -455,13 +455,17 @@ function capitalize(value: string): string {
   return `${value.charAt(0).toLocaleUpperCase()}${value.slice(1)}`;
 }
 
-function createIdentityEmailTemplate(
-  template: (typeof EMAIL_LIFECYCLE_TEMPLATES)[number],
-  identity: BrandIdentity
-) {
-  const program = BRAND_EMAIL_PROGRAMS[
-    identity.id as keyof typeof BRAND_EMAIL_PROGRAMS
-  ] ?? {
+type BrandEmailProgram = {
+  activatedBody: string;
+  activatedSubject: string;
+  firstAction: string;
+  noun: string;
+  outcome: string;
+  startSubject: string;
+};
+
+function resolveBrandEmailProgram(identity: BrandIdentity): BrandEmailProgram {
+  return BRAND_EMAIL_PROGRAMS[identity.id as keyof typeof BRAND_EMAIL_PROGRAMS] ?? {
     activatedBody: `Your ${identity.name} workspace is ready. Invite the team, review the system, and keep the next decision moving.`,
     activatedSubject: `Your ${identity.name} workspace is ready`,
     firstAction: `set up your first ${identity.products[0]?.toLocaleLowerCase() ?? 'workspace'} workflow`,
@@ -469,6 +473,13 @@ function createIdentityEmailTemplate(
     outcome: identity.tagline,
     startSubject: `Start building with ${identity.name}`,
   };
+}
+
+function createIdentityEmailTemplate(
+  template: (typeof EMAIL_LIFECYCLE_TEMPLATES)[number],
+  identity: BrandIdentity
+) {
+  const program = resolveBrandEmailProgram(identity);
   const noun = program.noun;
   const name = identity.name;
   const common = {
@@ -579,6 +590,23 @@ function createIdentityEmailTemplate(
         description: `A recognizable ${name} workspace invitation.`,
         subject: `You've been invited to join Acme on ${name}`,
       };
+    default:
+      return createIdentityOperationalEmailTemplate(template, identity, program);
+  }
+}
+
+function createIdentityOperationalEmailTemplate(
+  template: (typeof EMAIL_LIFECYCLE_TEMPLATES)[number],
+  identity: BrandIdentity,
+  program: BrandEmailProgram
+) {
+  const name = identity.name;
+  const common = {
+    ...template,
+    supportingCards: [] as const,
+  };
+
+  switch (template.id) {
     case 'enterprise-intro-email':
       return {
         ...common,

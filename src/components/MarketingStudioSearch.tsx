@@ -1,7 +1,7 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Search } from 'lucide-react';
+import { Search } from '@/components/ui/SolidIcons';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 

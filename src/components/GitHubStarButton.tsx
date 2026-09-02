@@ -1,7 +1,7 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Github, Star } from 'lucide-react';
+import { Github, Star } from '@/components/ui/SolidIcons';
 import { useEffect, useState } from 'react';
 
 import type { ReactNode } from 'react';

@@ -191,6 +191,57 @@ function renderPosterize(source: PixelBuffer, output: Uint8ClampedArray, setting
   }
 }
 
+function paintAsciiGlyphBlock(
+  source: PixelBuffer,
+  output: Uint8ClampedArray,
+  foreground: readonly [number, number, number],
+  startX: number,
+  endX: number,
+  startY: number,
+  endY: number
+) {
+  for (let y = startY; y < Math.min(source.height, endY); y += 1) {
+    for (let x = startX; x < Math.min(source.width, endX); x += 1) {
+      paintPixel(output, (y * source.width + x) * 4, foreground);
+    }
+  }
+}
+
+function paintAsciiGlyph({
+  cellX,
+  cellY,
+  foreground,
+  glyph,
+  glyphHeight,
+  glyphWidth,
+  insetX,
+  insetY,
+  output,
+  source,
+}: {
+  cellX: number;
+  cellY: number;
+  foreground: readonly [number, number, number];
+  glyph: readonly string[];
+  glyphHeight: number;
+  glyphWidth: number;
+  insetX: number;
+  insetY: number;
+  output: Uint8ClampedArray;
+  source: PixelBuffer;
+}) {
+  for (let glyphY = 0; glyphY < 7; glyphY += 1) {
+    for (let glyphX = 0; glyphX < 5; glyphX += 1) {
+      if (glyph[glyphY]![glyphX] !== '1') continue;
+      const startX = cellX + insetX + Math.floor(glyphX * glyphWidth / 5);
+      const endX = cellX + insetX + Math.max(1, Math.floor((glyphX + 1) * glyphWidth / 5));
+      const startY = cellY + insetY + Math.floor(glyphY * glyphHeight / 7);
+      const endY = cellY + insetY + Math.max(1, Math.floor((glyphY + 1) * glyphHeight / 7));
+      paintAsciiGlyphBlock(source, output, foreground, startX, endX, startY, endY);
+    }
+  }
+}
+
 function renderAscii(source: PixelBuffer, output: Uint8ClampedArray, settings: CompositionEffectSettings) {
   const foreground = parseHexColor(settings.foreground);
   const background = parseHexColor(settings.background);
@@ -205,20 +256,18 @@ function renderAscii(source: PixelBuffer, output: Uint8ClampedArray, settings: C
     for (let cellX = 0; cellX < source.width; cellX += cellWidth) {
       const tone = sampleCellLuminance(source, cellX, cellY, cellWidth, cellHeight, settings);
       const glyph = ASCII_GLYPHS[ASCII_RAMP[Math.round(tone * (ASCII_RAMP.length - 1))]!]!;
-      for (let glyphY = 0; glyphY < 7; glyphY += 1) {
-        for (let glyphX = 0; glyphX < 5; glyphX += 1) {
-          if (glyph[glyphY]![glyphX] !== '1') continue;
-          const startX = cellX + insetX + Math.floor(glyphX * glyphWidth / 5);
-          const endX = cellX + insetX + Math.max(1, Math.floor((glyphX + 1) * glyphWidth / 5));
-          const startY = cellY + insetY + Math.floor(glyphY * glyphHeight / 7);
-          const endY = cellY + insetY + Math.max(1, Math.floor((glyphY + 1) * glyphHeight / 7));
-          for (let y = startY; y < Math.min(source.height, endY); y += 1) {
-            for (let x = startX; x < Math.min(source.width, endX); x += 1) {
-              paintPixel(output, (y * source.width + x) * 4, foreground);
-            }
-          }
-        }
-      }
+      paintAsciiGlyph({
+        cellX,
+        cellY,
+        foreground,
+        glyph,
+        glyphHeight,
+        glyphWidth,
+        insetX,
+        insetY,
+        output,
+        source,
+      });
     }
   }
 }

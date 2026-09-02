@@ -1,9 +1,9 @@
 import type { BrandAsset, BrandIdentity } from './brandIdentity';
 import { moodboardAssets } from './moodboard';
 
-export type BrandAuditSeverity = 'error' | 'warning';
+type BrandAuditSeverity = 'error' | 'warning';
 
-export type BrandAuditCheck = {
+type BrandAuditCheck = {
   actual: number;
   id:
     | 'applications'
@@ -84,7 +84,7 @@ function check(
   return { actual, id, label, message, minimum, passed: actual >= minimum, severity };
 }
 
-export function auditBrandIdentity(
+function auditBrandIdentity(
   identity: BrandIdentity,
   identities: readonly BrandIdentity[] = [identity]
 ): BrandAuditReport {

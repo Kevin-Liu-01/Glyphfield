@@ -20,7 +20,7 @@ import {
   Waves,
   Weight,
   type LucideIcon,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
 type LabelRule = readonly [pattern: RegExp, icon: LucideIcon];
 

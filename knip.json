@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/getLocale.ts",
+    "src/**/__tests__/**/*.{ts,tsx}"
+  ],
+  "project": [
+    "content/**/*.mdx",
+    "src/**/*.{css,ts,tsx}"
+  ]
+}

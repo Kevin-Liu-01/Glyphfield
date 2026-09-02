@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export type TextEffectKind = 'solid' | 'dither' | 'halftone' | 'scanline' | 'gradient';
+type TextEffectKind = 'solid' | 'dither' | 'halftone' | 'scanline' | 'gradient';
 
 export type TextEffectSettings = {
   amount: number;

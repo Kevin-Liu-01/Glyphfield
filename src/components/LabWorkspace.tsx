@@ -2,8 +2,8 @@ import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react'
 
 import ResizableSidebar from '@/components/ResizableSidebar';
 
-export type StudioSidebarKind = 'inspector' | 'library' | 'navigation';
-export type StudioSidebarSide = 'left' | 'right';
+type StudioSidebarKind = 'inspector' | 'library' | 'navigation';
+type StudioSidebarSide = 'left' | 'right';
 
 type StudioSidebarProps = Omit<
   ComponentProps<typeof ResizableSidebar>,
@@ -45,7 +45,7 @@ export function StudioSidebar({
   );
 }
 
-export function StudioPanelHeader({
+export function LabPanelHeading({
   action,
   className = '',
   density = 'default',
@@ -69,9 +69,7 @@ export function StudioPanelHeader({
   );
 }
 
-export const LabPanelHeading = StudioPanelHeader;
-
-type StudioInspectorSectionProps = Omit<ComponentPropsWithoutRef<'section'>, 'title'> & {
+type LabInspectorSectionProps = Omit<ComponentPropsWithoutRef<'section'>, 'title'> & {
   action?: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
@@ -80,7 +78,7 @@ type StudioInspectorSectionProps = Omit<ComponentPropsWithoutRef<'section'>, 'ti
   title: ReactNode;
 };
 
-export function StudioInspectorSection({
+export function LabInspectorSection({
   action,
   children,
   className = '',
@@ -90,7 +88,7 @@ export function StudioInspectorSection({
   meta,
   title,
   ...sectionProps
-}: StudioInspectorSectionProps) {
+}: LabInspectorSectionProps) {
   return (
     <section {...sectionProps} className={`lab-inspector-section ${className}`.trim()} data-studio-inspector-section>
       <div className='lab-section-heading'>
@@ -105,5 +103,3 @@ export function StudioInspectorSection({
     </section>
   );
 }
-
-export const LabInspectorSection = StudioInspectorSection;

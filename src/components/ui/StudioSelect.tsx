@@ -1,7 +1,7 @@
 'use client';
 
 import * as Select from '@radix-ui/react-select';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from '@/components/ui/SolidIcons';
 
 import type { ReactNode } from 'react';
 
@@ -80,5 +80,3 @@ export default function StudioSelect({
     </Select.Root>
   );
 }
-
-export type { StudioSelectOption };

@@ -32,6 +32,11 @@ type ColorControlProps = {
   value: string;
 };
 
+type PropBoundPreview<T, Base = T> = {
+  base: Base;
+  value: T;
+};
+
 export default function ColorControl({
   ariaLabel,
   label,
@@ -45,11 +50,15 @@ export default function ColorControl({
   const pickerId = useId();
   const [pickerPosition, setPickerPosition] = useState({ left: 0, top: 0 });
   const committedHex = normalizeHexOrFallback(value);
-  const [previewHex, setPreviewHex] = useState<string | null>(null);
+  const [hexPreview, setHexPreview] = useState<PropBoundPreview<string> | null>(null);
+  const previewHex = hexPreview?.base === committedHex ? hexPreview.value : null;
   const pendingHexRef = useRef<string | null>(null);
   const latestHexRef = useRef<string | null>(null);
   const previewFrameRef = useRef(0);
-  const [previewOpacity, setPreviewOpacity] = useState<number | null>(null);
+  const [opacityPreview, setOpacityPreview] = useState<PropBoundPreview<number, number | undefined> | null>(null);
+  const previewOpacity = opacityPreview && opacityPreview.base === opacity
+    ? opacityPreview.value
+    : null;
   const pendingOpacityRef = useRef<number | null>(null);
   const latestOpacityRef = useRef<number | null>(null);
   const opacityFrameRef = useRef(0);
@@ -58,17 +67,13 @@ export default function ColorControl({
   const oklch = formatOklch(hex);
   const hsv = hexToHsv(hex);
 
-  useEffect(() => {
-    if (previewHex === committedHex) setPreviewHex(null);
-  }, [committedHex, previewHex]);
-
   useEffect(() => () => cancelAnimationFrame(previewFrameRef.current), []);
 
-  useEffect(() => {
-    if (previewOpacity === opacity) setPreviewOpacity(null);
-  }, [opacity, previewOpacity]);
-
   useEffect(() => () => cancelAnimationFrame(opacityFrameRef.current), []);
+
+  function showHexPreview(nextHex: string) {
+    setHexPreview({ base: committedHex, value: nextHex });
+  }
 
   function flushPreview(commit: boolean) {
     cancelAnimationFrame(previewFrameRef.current);
@@ -76,7 +81,7 @@ export default function ColorControl({
     const nextHex = pendingHexRef.current ?? latestHexRef.current;
     pendingHexRef.current = null;
     if (!nextHex) return;
-    setPreviewHex(nextHex);
+    showHexPreview(nextHex);
     onPreview?.(nextHex);
     if (commit) {
       latestHexRef.current = null;
@@ -94,7 +99,7 @@ export default function ColorControl({
       const frameHex = pendingHexRef.current;
       pendingHexRef.current = null;
       if (!frameHex) return;
-      setPreviewHex(frameHex);
+      showHexPreview(frameHex);
       (onPreview ?? onChange)(frameHex);
     });
   }
@@ -115,7 +120,7 @@ export default function ColorControl({
   function scheduleOpacityPreview(nextOpacity: number) {
     pendingOpacityRef.current = nextOpacity;
     latestOpacityRef.current = nextOpacity;
-    setPreviewOpacity(nextOpacity);
+    setOpacityPreview({ base: opacity, value: nextOpacity });
     if (opacityFrameRef.current) return;
     opacityFrameRef.current = requestAnimationFrame(() => {
       opacityFrameRef.current = 0;
@@ -173,7 +178,7 @@ export default function ColorControl({
     else return;
     event.preventDefault();
     const nextHex = hsvToHex(hsv.hue, saturation, nextValue);
-    setPreviewHex(nextHex);
+    showHexPreview(nextHex);
     onPreview?.(nextHex);
     onChange(nextHex);
   }
@@ -234,10 +239,11 @@ export default function ColorControl({
         </label>
       </div>
       <div
+        aria-label={`${ariaLabel} color picker`}
         className='color-picker-popover flex w-[260px] flex-col gap-3 rounded-md bg-background p-3 text-foreground smooth-shadow-ring-xl'
         id={pickerId}
         popover='auto'
-        role='dialog'
+        role='region'
         style={pickerPosition}
       >
         <div

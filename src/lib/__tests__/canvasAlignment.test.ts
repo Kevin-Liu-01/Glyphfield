@@ -7,11 +7,12 @@ import {
   canvasSelectionBounds,
   isAdditiveCanvasSelection,
   nextCanvasLayerSelection,
+  normalizeCanvasLayerTransform,
   resizeCanvasLayerScale,
   shouldDeselectCanvasLayer,
   snapCanvasLayer,
   type CanvasLayerGeometry,
-} from '../../components/EditableCanvasLayer';
+} from '../canvasInteraction';
 
 const geometry: CanvasLayerGeometry = {
   baseHeight: 200,
@@ -97,6 +98,27 @@ describe('resizeCanvasLayerScale', () => {
 
   it('does not impose an arbitrary maximum scale on canvas layers', () => {
     expect(resizeCanvasLayerScale({ scale: 2.8, x: 0, y: 0 }, 4).scale).toBe(6.8);
+  });
+});
+
+describe('normalizeCanvasLayerTransform', () => {
+  it('does not inherit independent dimensions that are absent from imported geometry', () => {
+    expect(normalizeCanvasLayerTransform(
+      { scale: 0.45, x: -168, y: 305 },
+      { heightScale: 1, scale: 1, widthScale: 1, x: 0, y: 0 }
+    )).toEqual({ scale: 0.45, x: -168, y: 305 });
+  });
+
+  it('uses the complete fallback only when source geometry is absent', () => {
+    const fallback = { heightScale: 0.5, scale: 0.8, widthScale: 1.4, x: 10, y: -8 };
+    expect(normalizeCanvasLayerTransform(undefined, fallback)).toEqual(fallback);
+  });
+
+  it('clamps invalid and non-positive scale values without changing valid placement', () => {
+    expect(normalizeCanvasLayerTransform(
+      { heightScale: Number.NaN, scale: -3, widthScale: 0, x: 24, y: -12 },
+      { heightScale: 2, scale: 1, widthScale: 3, x: 0, y: 0 }
+    )).toEqual({ heightScale: 2, scale: 0.01, widthScale: 0.01, x: 24, y: -12 });
   });
 });
 

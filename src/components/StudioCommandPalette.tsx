@@ -1,10 +1,10 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Search } from 'lucide-react';
+import { Search } from '@/components/ui/SolidIcons';
 import { useRef, useState } from 'react';
 
-import { STUDIO_TOOL_ICONS } from '@/components/StudioToolHeader';
+import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';

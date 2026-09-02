@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowDown,
@@ -9,9 +9,9 @@ import {
   Group,
   Trash2,
   Ungroup,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 
-import type { CanvasLayerAlignment } from '@/components/EditableCanvasLayer';
+import type { CanvasLayerAlignment } from '@/lib/canvasInteraction';
 
 export type CanvasSelectionMenuPosition = { x: number; y: number };
 
@@ -54,19 +54,7 @@ export default function CanvasSelectionMenu({
   position: CanvasSelectionMenuPosition | null;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [adjustedPosition, setAdjustedPosition] = useState(position);
-
-  useLayoutEffect(() => {
-    if (!position || !menuRef.current) {
-      setAdjustedPosition(position);
-      return;
-    }
-    const bounds = menuRef.current.getBoundingClientRect();
-    setAdjustedPosition({
-      x: Math.max(8, Math.min(position.x, window.innerWidth - bounds.width - 8)),
-      y: Math.max(8, Math.min(position.y, window.innerHeight - bounds.height - 8)),
-    });
-  }, [position]);
+  const closeMenu = useEffectEvent(onClose);
 
   useEffect(() => {
     if (!position) return;
@@ -74,12 +62,12 @@ export default function CanvasSelectionMenu({
     menu?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     const handlePointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && menu?.contains(event.target)) return;
-      onClose();
+      closeMenu();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        closeMenu();
         return;
       }
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -102,9 +90,20 @@ export default function CanvasSelectionMenu({
       window.removeEventListener('pointerdown', handlePointerDown, true);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose, position]);
+  }, [position]);
 
-  if (!position || !adjustedPosition || typeof document === 'undefined') return null;
+  if (!position || typeof document === 'undefined') return null;
+
+  const horizontalPosition = `clamp(8px, ${position.x}px, calc(100vw - min(250px, calc(100vw - 16px)) - 8px))`;
+  const verticalPosition = Math.max(8, position.y <= window.innerHeight / 2
+    ? position.y
+    : window.innerHeight - position.y);
+  const menuStyle: CSSProperties = {
+    left: horizontalPosition,
+    ...(position.y <= window.innerHeight / 2
+      ? { top: verticalPosition }
+      : { bottom: verticalPosition }),
+  };
 
   const run = (action: () => void) => {
     action();
@@ -118,7 +117,7 @@ export default function CanvasSelectionMenu({
       data-canvas-selection-preserve
       ref={menuRef}
       role='menu'
-      style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
+      style={menuStyle}
     >
       <div className='canvas-selection-menu__heading'>
         <span>{groupName ?? `${count} layer${count === 1 ? '' : 's'}`}</span>

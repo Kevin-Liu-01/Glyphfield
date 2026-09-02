@@ -15,6 +15,12 @@ type BezierEditorProps = {
   onChange: (curve: CubicBezier) => void;
 };
 
+const BEZIER_VALUE_LABELS = ['X1', 'Y1', 'X2', 'Y2'] as const;
+
+function finiteInputValue(input: HTMLInputElement, fallback: number): number {
+  return Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : fallback;
+}
+
 export default function BezierEditor({ compact = false, curve, onChange }: BezierEditorProps) {
   const [x1, y1, x2, y2] = curve;
   const path = `M 12 108 C ${12 + x1 * 96} ${108 - y1 * 96}, ${12 + x2 * 96} ${108 - y2 * 96}, 108 12`;
@@ -152,13 +158,13 @@ export default function BezierEditor({ compact = false, curve, onChange }: Bezie
         </svg>
         <div className={`grid ${compact ? 'grid-cols-4 gap-1.5' : 'grid-cols-2 gap-2'}`}>
           {curve.map((value, index) => (
-            <label className='flex flex-col gap-1 font-mono text-xs' key={index}>
-              <span className='text-muted-foreground'>{['X1', 'Y1', 'X2', 'Y2'][index]}</span>
+            <label className='flex flex-col gap-1 font-mono text-xs' key={BEZIER_VALUE_LABELS[index]}>
+              <span className='text-muted-foreground'>{BEZIER_VALUE_LABELS[index]}</span>
               <input
                 className={`bezier-editor-number-input ${compact ? 'h-7 px-1 text-[8px]' : 'h-9 px-2'} min-w-0 border border-input bg-background tabular-nums outline-none focus:border-foreground`}
                 max={index % 2 === 0 ? 1 : 2}
                 min={index % 2 === 0 ? 0 : -1}
-                onChange={(event) => update(index, Number(event.target.value))}
+                onChange={(event) => update(index, finiteInputValue(event.currentTarget, value))}
                 step='0.01'
                 type='number'
                 value={value}

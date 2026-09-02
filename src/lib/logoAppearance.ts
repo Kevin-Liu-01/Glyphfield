@@ -59,6 +59,26 @@ function ditherAlphaTable(amount: number): string {
   return Array.from({ length: 16 }, (_, index) => (index / 15) < threshold ? '0' : '1').join(' ');
 }
 
+export function resolveLogoSvgFilterModel(
+  settings: LogoAppearanceSettings,
+  preserveColors: boolean
+) {
+  const source = preserveColors ? 'SourceGraphic' : 'colored';
+  const filteredSource = settings.invert ? 'inverted' : source;
+  const ditherFrequency = 1 / Math.max(2, settings.ditherScale || DEFAULT_LOGO_APPEARANCE.ditherScale);
+  const ditherRadians = ((settings.ditherAngle || 0) * Math.PI) / 180;
+  const ditherEnabled = settings.ditherEnabled && settings.ditherAmount > 0;
+  return {
+    ditherEnabled,
+    ditherFrequencyX: ditherFrequency * (0.72 + Math.abs(Math.cos(ditherRadians)) * 0.52),
+    ditherFrequencyY: ditherFrequency * (0.72 + Math.abs(Math.sin(ditherRadians)) * 0.52),
+    ditherTable: ditherAlphaTable(settings.ditherAmount),
+    filteredSource,
+    outputSource: ditherEnabled ? 'dithered' : filteredSource,
+    source,
+  };
+}
+
 function buildSvgShadow(
   input: string,
   settings: LogoAppearanceSettings
@@ -97,30 +117,23 @@ export function buildLogoSvgFilter(
   id = 'logo-appearance',
   showSource = true
 ): string {
-  const coloredResult = settings.invert ? 'inverted' : 'colored';
+  const model = resolveLogoSvgFilterModel(settings, false);
   const invert = settings.invert
     ? '<feComponentTransfer in="colored" result="inverted"><feFuncR type="table" tableValues="1 0"/><feFuncG type="table" tableValues="1 0"/><feFuncB type="table" tableValues="1 0"/></feComponentTransfer>'
     : '';
-  const ditherFrequency = 1 / Math.max(2, settings.ditherScale || DEFAULT_LOGO_APPEARANCE.ditherScale);
-  const ditherRadians = ((settings.ditherAngle || 0) * Math.PI) / 180;
-  const ditherFrequencyX = ditherFrequency * (0.72 + Math.abs(Math.cos(ditherRadians)) * 0.52);
-  const ditherFrequencyY = ditherFrequency * (0.72 + Math.abs(Math.sin(ditherRadians)) * 0.52);
-  const ditherEnabled = settings.ditherEnabled && settings.ditherAmount > 0;
-  const ditheredResult = ditherEnabled ? 'dithered' : coloredResult;
-  const ditherTable = ditherAlphaTable(settings.ditherAmount);
-  const dither = ditherEnabled
-    ? `<feTurbulence type="fractalNoise" baseFrequency="${ditherFrequencyX.toFixed(4)} ${ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${ditherTable}"/></feComponentTransfer><feComposite in="${coloredResult}" in2="dither-threshold" operator="in" result="dithered"/>`
+  const dither = model.ditherEnabled
+    ? `<feTurbulence type="fractalNoise" baseFrequency="${model.ditherFrequencyX.toFixed(4)} ${model.ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${model.ditherTable}"/></feComponentTransfer><feComposite in="${model.filteredSource}" in2="dither-threshold" operator="in" result="dithered"/>`
     : '';
   const border = settings.borderEnabled && settings.borderWidth > 0
     ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
-    ? buildSvgShadow(showSource ? ditheredResult : 'SourceAlpha', settings)
+    ? buildSvgShadow(showSource ? model.outputSource : 'SourceAlpha', settings)
     : '';
   const merge = [
     settings.shadowEnabled ? '<feMergeNode in="shadow"/>' : '',
     settings.borderEnabled && settings.borderWidth > 0 ? '<feMergeNode in="outline"/>' : '',
-    showSource ? `<feMergeNode in="${ditheredResult}"/>` : '',
+    showSource ? `<feMergeNode in="${model.outputSource}"/>` : '',
   ].join('');
 
   return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feFlood flood-color="${escapeXml(color)}" result="logo-color"/><feComposite in="logo-color" in2="SourceAlpha" operator="in" result="colored"/>${invert}${dither}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;
@@ -130,30 +143,23 @@ export function buildImageSvgFilter(
   settings: LogoAppearanceSettings,
   id = 'image-appearance'
 ): string {
-  const sourceResult = settings.invert ? 'inverted' : 'SourceGraphic';
+  const model = resolveLogoSvgFilterModel(settings, true);
   const invert = settings.invert
     ? '<feComponentTransfer in="SourceGraphic" result="inverted"><feFuncR type="table" tableValues="1 0"/><feFuncG type="table" tableValues="1 0"/><feFuncB type="table" tableValues="1 0"/></feComponentTransfer>'
     : '';
-  const ditherFrequency = 1 / Math.max(2, settings.ditherScale || DEFAULT_LOGO_APPEARANCE.ditherScale);
-  const ditherRadians = ((settings.ditherAngle || 0) * Math.PI) / 180;
-  const ditherFrequencyX = ditherFrequency * (0.72 + Math.abs(Math.cos(ditherRadians)) * 0.52);
-  const ditherFrequencyY = ditherFrequency * (0.72 + Math.abs(Math.sin(ditherRadians)) * 0.52);
-  const ditherEnabled = settings.ditherEnabled && settings.ditherAmount > 0;
-  const ditheredResult = ditherEnabled ? 'dithered' : sourceResult;
-  const ditherTable = ditherAlphaTable(settings.ditherAmount);
-  const dither = ditherEnabled
-    ? `<feTurbulence type="fractalNoise" baseFrequency="${ditherFrequencyX.toFixed(4)} ${ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${ditherTable}"/></feComponentTransfer><feComposite in="${sourceResult}" in2="dither-threshold" operator="in" result="dithered"/>`
+  const dither = model.ditherEnabled
+    ? `<feTurbulence type="fractalNoise" baseFrequency="${model.ditherFrequencyX.toFixed(4)} ${model.ditherFrequencyY.toFixed(4)}" numOctaves="1" seed="23" stitchTiles="stitch" result="dither-noise"/><feColorMatrix in="dither-noise" type="luminanceToAlpha" result="dither-alpha"/><feComponentTransfer in="dither-alpha" result="dither-threshold"><feFuncA type="discrete" tableValues="${model.ditherTable}"/></feComponentTransfer><feComposite in="${model.filteredSource}" in2="dither-threshold" operator="in" result="dithered"/>`
     : '';
   const border = settings.borderEnabled && settings.borderWidth > 0
     ? `<feMorphology in="SourceAlpha" operator="dilate" radius="${settings.borderWidth}" result="expanded"/><feComposite in="expanded" in2="SourceAlpha" operator="out" result="outline-alpha"/><feFlood flood-color="${escapeXml(settings.borderColor)}" flood-opacity="${settings.borderOpacity / 100}" result="outline-color"/><feComposite in="outline-color" in2="outline-alpha" operator="in" result="outline"/>`
     : '';
   const shadow = settings.shadowEnabled
-    ? buildSvgShadow(ditheredResult, settings)
+    ? buildSvgShadow(model.outputSource, settings)
     : '';
   const merge = [
     settings.shadowEnabled ? '<feMergeNode in="shadow"/>' : '',
     settings.borderEnabled && settings.borderWidth > 0 ? '<feMergeNode in="outline"/>' : '',
-    `<feMergeNode in="${ditheredResult}"/>`,
+    `<feMergeNode in="${model.outputSource}"/>`,
   ].join('');
 
   return `<filter id="${escapeXml(id)}" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">${invert}${dither}${border}${shadow}<feMerge>${merge}</feMerge></filter>`;

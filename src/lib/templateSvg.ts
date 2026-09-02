@@ -175,47 +175,70 @@ function slideLayoutLayer(
   return `${svgTextLines(title, 84, 340, foreground, { fontSize: 78, lineHeight: 88, maxLines: 3 })}`;
 }
 
-export function buildTemplateSvg(options: TemplateSvgOptions): string {
+type ResolvedTemplateSvgOptions = Required<TemplateSvgOptions>;
+
+const TEMPLATE_SVG_DEFAULTS = {
+  backgroundImage: null,
+  backgroundImageOpacity: 24,
+  backgroundImageScale: 100,
+  backgroundImageX: 0,
+  backgroundImageY: 0,
+  body: '',
+  brandLogoScale: 100,
+  brandLogoX: 0,
+  brandLogoY: 0,
+  brandScale: 1,
+  brandX: 0,
+  brandY: 0,
+  contentScale: 1,
+  contentX: 0,
+  contentY: 0,
+  fontData: null,
+  fontFamily: 'Switzer',
+  fontWeight: 550,
+  footerScale: 1,
+  footerX: 0,
+  footerY: 0,
+  imageTreatment: 'natural',
+  invertPartner: false,
+  layerOrder: DEFAULT_LAYER_ORDER,
+  partnerLogo: null,
+  partnerLogoScale: 100,
+  partnerLogoX: 0,
+  partnerLogoY: 0,
+  slideLayout: 'title',
+  textureOpacity: 100,
+} as const;
+
+function resolveTemplateSvgOptions(options: TemplateSvgOptions): ResolvedTemplateSvgOptions {
+  const definedOptions = Object.fromEntries(
+    Object.entries(options).filter(([, value]) => value !== undefined)
+  ) as TemplateSvgOptions;
+  return { ...TEMPLATE_SVG_DEFAULTS, ...definedOptions } as ResolvedTemplateSvgOptions;
+}
+
+function imageTreatmentFilter(treatment: TemplateSvgOptions['imageTreatment']): string {
+  if (treatment === 'monochrome') {
+    return '<filter id="image-treatment"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.08" intercept="-.04"/><feFuncG type="linear" slope="1.08" intercept="-.04"/><feFuncB type="linear" slope="1.08" intercept="-.04"/></feComponentTransfer></filter>';
+  }
+  if (treatment === 'duotone') {
+    return '<filter id="image-treatment"><feColorMatrix values=".55 .35 .1 0 0 .18 .62 .2 0 0 .08 .28 .64 0 0 0 0 0 1 0"/></filter>';
+  }
+  return '';
+}
+
+function templateBackgroundLayer(options: ResolvedTemplateSvgOptions): string {
   const {
     background,
     backgroundImage,
-    backgroundImageOpacity = 24,
-    backgroundImageScale = 100,
-    backgroundImageX = 0,
-    backgroundImageY = 0,
-    body = '',
-    brandLogo,
-    brandLogoScale = 100,
-    brandLogoX = 0,
-    brandLogoY = 0,
-    brandScale = 1,
-    brandX = 0,
-    brandY = 0,
-    foreground,
-    fontData,
-    fontFamily = 'Switzer',
-    fontWeight = 550,
+    backgroundImageOpacity,
+    backgroundImageScale,
+    backgroundImageX,
+    backgroundImageY,
     height,
-    identityName,
-    imageTreatment = 'natural',
-    invertPartner,
-    kind,
-    layerOrder = DEFAULT_LAYER_ORDER,
-    partnerLogo,
-    partnerLogoScale = 100,
-    partnerLogoX = 0,
-    partnerLogoY = 0,
-    slideLayout = 'title',
+    imageTreatment,
     texture,
-    textureOpacity = 100,
-    title,
-    contentScale = 1,
-    contentX = 0,
-    contentY = 0,
-    footerScale = 1,
-    footerX = 0,
-    footerY = 0,
-    website,
+    textureOpacity,
     width,
   } = options;
   const backgroundPlacement = imagePlacement(
@@ -227,23 +250,43 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
     (backgroundImageY / 100) * height,
     backgroundImageScale
   );
-  const imageFilter = imageTreatment === 'natural'
-    ? ''
-    : imageTreatment === 'monochrome'
-      ? '<filter id="image-treatment"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.08" intercept="-.04"/><feFuncG type="linear" slope="1.08" intercept="-.04"/><feFuncB type="linear" slope="1.08" intercept="-.04"/></feComponentTransfer></filter>'
-      : '<filter id="image-treatment"><feColorMatrix values=".55 .35 .1 0 0 .18 .62 .2 0 0 .08 .28 .64 0 0 0 0 0 1 0"/></filter>';
-  const imageLayer = `<rect width="${width}" height="${height}" fill="${background}"/>${
+  const imageFilter = imageTreatmentFilter(imageTreatment);
+  return `<rect width="${width}" height="${height}" fill="${background}"/>${
     backgroundImage
       ? `<defs>${imageFilter}</defs><image href="${backgroundImage}" x="${backgroundPlacement.x}" y="${backgroundPlacement.y}" width="${backgroundPlacement.width}" height="${backgroundPlacement.height}" preserveAspectRatio="xMidYMid slice" opacity="${backgroundImageOpacity / 100}"${imageFilter ? ' filter="url(#image-treatment)"' : ''}/>`
       : ''
   }${textureLayer(texture, textureOpacity / 100)}`;
-  const lineStart = kind === 'partnership' ? 260 : kind === 'slides' ? 330 : 240;
-  const fontSize = kind === 'slides' ? 78 : 68;
-  const lineHeight = kind === 'slides' ? 88 : 78;
-  const lines = titleLines(title, kind)
+}
+
+function templateContentLayer(options: ResolvedTemplateSvgOptions): string {
+  const { body, foreground, kind, slideLayout, title, width } = options;
+  if (kind === 'slides') {
+    return slideLayoutLayer(slideLayout, title, body, foreground, width);
+  }
+  const lineStart = kind === 'partnership' ? 260 : 240;
+  const fontSize = 68;
+  const lineHeight = 78;
+  return titleLines(title, kind)
     .map((line, index) => `<text x="84" y="${lineStart + index * lineHeight}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${fontSize}" font-weight="550" letter-spacing="-2">${escapeXml(line)}</text>`)
     .join('');
+}
 
+function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
+  const {
+    brandLogo,
+    brandLogoScale,
+    brandLogoX,
+    brandLogoY,
+    foreground,
+    identityName,
+    invertPartner,
+    kind,
+    partnerLogo,
+    partnerLogoScale,
+    partnerLogoX,
+    partnerLogoY,
+    width,
+  } = options;
   const partnerFilter = invertPartner
     ? '<defs><filter id="partner-tone"><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/></filter></defs>'
     : '';
@@ -272,24 +315,49 @@ export function buildTemplateSvg(options: TemplateSvgOptions): string {
   const identityLabel = kind === 'blog'
     ? `<text x="158" y="99" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="19" font-weight="550">${escapeXml(identityName)}</text>`
     : '';
-  const pageNumber = kind === 'slides'
-    ? `<text x="${width - 84}" y="${height - 64}" text-anchor="end" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="16">01 / 12</text>`
-    : '';
+  return `${logoLayer}${identityLabel}`;
+}
 
-  const contentLayer = kind === 'slides'
-    ? slideLayoutLayer(slideLayout, title, body, foreground, width)
-    : lines;
+function templateFontStyles(options: ResolvedTemplateSvgOptions): string {
+  const { fontData, fontFamily, fontWeight } = options;
   const fontFace = fontData
     ? `@font-face{font-family:'TemplateBrand';src:url('${escapeXml(fontData)}');font-style:normal;font-weight:100 900;font-display:block;}`
     : '';
   const resolvedFontFamily = fontData ? 'TemplateBrand' : fontFamily;
-  const fontStyles = `<style>${fontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}</style>`;
+  return `<style>${fontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}</style>`;
+}
+
+function templateForegroundLayers(options: ResolvedTemplateSvgOptions): string {
+  const {
+    brandScale,
+    brandX,
+    brandY,
+    contentScale,
+    contentX,
+    contentY,
+    footerScale,
+    footerX,
+    footerY,
+    foreground,
+    height,
+    kind,
+    layerOrder,
+    website,
+    width,
+  } = options;
+  const pageNumber = kind === 'slides'
+    ? `<text x="${width - 84}" y="${height - 64}" text-anchor="end" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="16">01 / 12</text>`
+    : '';
   const layers: Record<TemplateLayerId, string> = {
-    brand: transformedLayer('brand', `${logoLayer}${identityLabel}`, brandX, brandY, brandScale, width / 2, 118),
-    content: transformedLayer('content', contentLayer, contentX, contentY, contentScale, width / 2, height / 2),
+    brand: transformedLayer('brand', templateBrandLayer(options), brandX, brandY, brandScale, width / 2, 118),
+    content: transformedLayer('content', templateContentLayer(options), contentX, contentY, contentScale, width / 2, height / 2),
     footer: transformedLayer('footer', `<text x="84" y="${height - 64}" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="16">${escapeXml(website)}</text>${pageNumber}`, footerX, footerY, footerScale, width / 2, height - 64),
   };
   const orderedLayerIds = [...layerOrder, ...DEFAULT_LAYER_ORDER.filter((id) => !layerOrder.includes(id))];
-  const foregroundLayers = orderedLayerIds.map((id) => layers[id]).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${fontStyles}${imageLayer}${foregroundLayers}</svg>`;
+  return orderedLayerIds.map((id) => layers[id]).join('');
+}
+
+export function buildTemplateSvg(options: TemplateSvgOptions): string {
+  const resolved = resolveTemplateSvgOptions(options);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${resolved.width}" height="${resolved.height}" viewBox="0 0 ${resolved.width} ${resolved.height}">${templateFontStyles(resolved)}${templateBackgroundLayer(resolved)}${templateForegroundLayers(resolved)}</svg>`;
 }

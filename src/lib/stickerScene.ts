@@ -27,6 +27,26 @@ export type StickerScenePlacement = {
   z: number;
 };
 
+export function starterStickerPlacement(asset: StickerSceneAsset | undefined): StickerScenePlacement[] {
+  return asset
+    ? [{ assetId: asset.id, id: `starter-${asset.id}`, rotation: -4, scale: 31, x: 50, y: 50, z: 1 }]
+    : [];
+}
+
+export function reconcileStickerScenePlacements(
+  placements: readonly StickerScenePlacement[],
+  assets: readonly StickerSceneAsset[]
+): StickerScenePlacement[] {
+  const assetIds = new Set(assets.map(({ id }) => id));
+  const placementIds = new Set<string>();
+  const retained = placements.filter(({ assetId, id }) => {
+    if (!assetIds.has(assetId) || placementIds.has(id)) return false;
+    placementIds.add(id);
+    return true;
+  });
+  return retained.length > 0 ? retained : starterStickerPlacement(assets[0]);
+}
+
 const STICKER_ASSET_PRIORITY: Partial<Record<BrandAsset['type'], number>> = {
   icon: 1,
   image: 4,

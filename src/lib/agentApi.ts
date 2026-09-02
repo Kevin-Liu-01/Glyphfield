@@ -4,7 +4,7 @@ export const AGENT_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
 } as const;
 
-export const AGENT_GENERATION_EXAMPLES = {
+const AGENT_GENERATION_EXAMPLES = {
   background: {
     identity: { preset: 'gt' },
     kind: 'background',

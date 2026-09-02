@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, PanelLeft } from 'lucide-react';
+import { BookOpen, PanelLeft } from '@/components/ui/SolidIcons';
 import { T, useGT } from 'gt-next';
 import { useDocsLayout } from 'fumadocs-ui/layouts/docs';
 

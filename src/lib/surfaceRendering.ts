@@ -1,7 +1,7 @@
 import type { BackgroundSettings } from './backgroundSvg';
 import type { OpenSurfaceAsset, OpenSurfaceMap } from './openSurfaceLibrary';
 
-export const SURFACE_TEXTURE_INVALIDATION_KEYS = [
+const SURFACE_TEXTURE_INVALIDATION_KEYS = [
   'colorA',
   'colorB',
   'colorC',
@@ -18,7 +18,7 @@ export type SurfaceTextureSettings = Pick<
   (typeof SURFACE_TEXTURE_INVALIDATION_KEYS)[number]
 >;
 
-export type SurfaceChannelMode = 'generated' | 'map' | 'uniform' | 'unused';
+type SurfaceChannelMode = 'generated' | 'map' | 'uniform' | 'unused';
 
 export type SurfaceChannel = {
   id: 'color' | 'height' | 'metalness' | 'normal' | 'roughness';
@@ -34,20 +34,6 @@ export function surfaceTextureCacheKey(settings: BackgroundSettings): string {
   return SURFACE_TEXTURE_INVALIDATION_KEYS
     .map((key) => `${key}:${settings[key]}`)
     .join('|');
-}
-
-export function surfaceTextureSettings(settings: BackgroundSettings): SurfaceTextureSettings {
-  return {
-    colorA: settings.colorA,
-    colorB: settings.colorB,
-    colorC: settings.colorC,
-    surfaceAngle: settings.surfaceAngle,
-    surfaceIrregularity: settings.surfaceIrregularity,
-    surfaceMaterial: settings.surfaceMaterial,
-    surfaceOpenArea: settings.surfaceOpenArea,
-    surfaceScale: settings.surfaceScale,
-    surfaceTextureAmount: settings.surfaceTextureAmount,
-  };
 }
 
 export function surfaceChannelInventory(asset?: OpenSurfaceAsset): readonly SurfaceChannel[] {

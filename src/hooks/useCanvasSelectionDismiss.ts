@@ -1,13 +1,13 @@
-import { useRef, type RefObject } from 'react';
+import { type RefObject } from 'react';
 
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
 export function useCanvasSelectionDismiss<T extends HTMLElement>(
   boundaryRef: RefObject<T | null>,
   onDismiss?: () => void
 ): void {
-  const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
+  const onDismissRef = useCommittedRef(onDismiss);
 
   useMountEffect(() => {
     function dismissOutsideCanvas(event: PointerEvent) {

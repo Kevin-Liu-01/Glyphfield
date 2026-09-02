@@ -5,7 +5,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-} from 'lucide-react';
+} from '@/components/ui/SolidIcons';
 import {
   useRef,
   useState,

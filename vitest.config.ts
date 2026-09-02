@@ -6,4 +6,7 @@ export default {
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  test: {
+    exclude: ['**/.stryker-tmp/**', '**/node_modules/**'],
+  },
 };

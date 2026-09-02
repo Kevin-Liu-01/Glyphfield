@@ -175,12 +175,6 @@ export const DEFAULT_STICKER_FINISH: StickerFinishSettings = {
   ...STICKER_FINISH_PRESETS[0].settings,
 };
 
-export function stickerFinishPreset(id: StickerFinishId): StickerFinishSettings {
-  return {
-    ...(STICKER_FINISH_PRESETS.find((preset) => preset.id === id) ?? STICKER_FINISH_PRESETS[0]).settings,
-  };
-}
-
 export function stickerShaderSource(id: StickerFinishSettings['presetId']): StickerShaderSource | undefined {
   return STICKER_FINISH_PRESETS.find((preset) => preset.id === id)?.source;
 }

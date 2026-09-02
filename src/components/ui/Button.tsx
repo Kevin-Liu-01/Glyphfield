@@ -1,7 +1,7 @@
 'use client';
 
 import { Slot } from '@radix-ui/react-slot';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/components/ui/SolidIcons';
 import type { ComponentProps, ReactNode } from 'react';
 
 type ButtonVariant =

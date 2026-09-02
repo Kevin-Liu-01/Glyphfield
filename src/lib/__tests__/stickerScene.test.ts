@@ -4,6 +4,7 @@ import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
   clampStickerPosition,
   nextStickerPlacement,
+  reconcileStickerScenePlacements,
   seedStickerScene,
   stickerSceneAssets,
   stickerSceneContrastColor,
@@ -43,6 +44,17 @@ describe('sticker scene', () => {
   it('keeps dragged stickers inside the usable metal surface', () => {
     expect(clampStickerPosition(-20, 110)).toEqual({ x: 7, y: 92 });
     expect(clampStickerPosition(48, 52)).toEqual({ x: 48, y: 52 });
+  });
+
+  it('removes stale and duplicate placements before preview, source, and export consume them', () => {
+    const assets = stickerSceneAssets(identityWithAssets());
+    expect(reconcileStickerScenePlacements([
+      { assetId: 'missing', id: 'stale', rotation: 0, scale: 20, x: 10, y: 10, z: 1 },
+      { assetId: assets[0]!.id, id: 'kept', rotation: 4, scale: 24, x: 30, y: 40, z: 2 },
+      { assetId: assets[1]!.id, id: 'kept', rotation: 9, scale: 18, x: 60, y: 70, z: 3 },
+    ], assets)).toEqual([
+      { assetId: assets[0]!.id, id: 'kept', rotation: 4, scale: 24, x: 30, y: 40, z: 2 },
+    ]);
   });
 
   it('maps the cut-border control to a crisp, bounded alpha dilation', () => {

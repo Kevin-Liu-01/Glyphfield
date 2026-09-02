@@ -1,7 +1,7 @@
 import type { BackgroundSettings, SurfaceMaterial } from './backgroundSvg';
 
 export type OpenSurfaceMap = 'color' | 'displacement' | 'metalness' | 'normal' | 'roughness';
-export type OpenSurfaceProvider = 'ambientCG' | 'Poly Haven';
+type OpenSurfaceProvider = 'ambientCG' | 'Poly Haven';
 
 export type OpenSurfaceAsset = {
   category: string;

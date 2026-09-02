@@ -3,7 +3,7 @@ import './docs.css';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { T } from 'gt-next';
-import { PanelsTopLeft } from 'lucide-react';
+import { PanelsTopLeft } from '@/components/ui/SolidIcons';
 import Link from 'next/link';
 
 import type { ReactNode } from 'react';

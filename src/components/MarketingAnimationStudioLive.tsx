@@ -17,6 +17,7 @@ export default function MarketingAnimationStudioLive() {
       compactControls
       embedded
       identity={MARKETING_ANIMATION_IDENTITY}
+      initialFontWeight={350}
       initialSequenceBackground={{
         colorA: settings.colorA,
         colorB: settings.colorB,

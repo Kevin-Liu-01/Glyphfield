@@ -1,10 +1,11 @@
 'use client';
 
-import { Check, ChevronDown, Copy, GitFork, History, Save, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Copy, GitFork, History, Save, Trash2 } from '@/components/ui/SolidIcons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
-import { useMountEffect } from '@/hooks/useMountEffect';
+import type { CanvasDocumentAutosaveState } from '@/hooks/useCanvasDocumentAutosave';
+import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import {
   activeSavedDesignStorageKey,
@@ -30,6 +31,164 @@ function designDate(isoDate: string): string {
   return date;
 }
 
+function visibleDesignState(
+  activeDesign: SavedDesign | null,
+  dirty: boolean,
+  autosaveState: CanvasDocumentAutosaveState
+): string {
+  if (activeDesign) return dirty ? 'Unsaved changes' : 'Saved';
+  const labels = {
+    error: 'Autosave failed',
+    loading: 'Loading autosave',
+    preparing: 'Preparing assets',
+    saved: 'Autosaved',
+    saving: 'Autosaving',
+  } as const;
+  return labels[autosaveState];
+}
+
+function DesignVersionsPopover({
+  activeDesign,
+  activeId,
+  designs,
+  error,
+  loading,
+  onClone,
+  onDelete,
+  onNormalizeName,
+  onOpen,
+  onRename,
+  saving,
+  sortedDesigns,
+  workspaceLabel,
+}: {
+  activeDesign: SavedDesign | null;
+  activeId: string | null;
+  designs: readonly SavedDesign[];
+  error: string;
+  loading: boolean;
+  onClone: (design: SavedDesign) => void;
+  onDelete: (design: SavedDesign) => void;
+  onNormalizeName: (design: SavedDesign) => void;
+  onOpen: (design: SavedDesign) => Promise<void>;
+  onRename: (design: SavedDesign, name: string) => void;
+  saving: boolean;
+  sortedDesigns: readonly SavedDesign[];
+  workspaceLabel: string;
+}) {
+  return (
+    <div aria-label={`${workspaceLabel} saved designs`} className={styles.popover} role='region'>
+      <header className={styles.popoverHeader}>
+        <div><strong>Saved designs</strong><span>{designs.length} stored in this browser</span></div>
+        <span className={styles.workspace}>{workspaceLabel}</span>
+      </header>
+
+      {activeDesign ? (
+        <label className={styles.nameField}>
+          <span>Current design name</span>
+          <input
+            aria-label='Current design name'
+            disabled={saving}
+            onBlur={() => onNormalizeName(activeDesign)}
+            onChange={(event) => onRename(activeDesign, event.target.value)}
+            value={activeDesign.name}
+          />
+        </label>
+      ) : (
+        <div className={styles.unsavedCallout}>
+          <Save aria-hidden='true' />
+          <span><strong>Current canvas is autosaved</strong><small>Save it as a named design whenever you want a checkpoint.</small></span>
+        </div>
+      )}
+
+      <div className={styles.list}>
+        {loading ? <p className={styles.empty}>Loading saved designs…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
+          <div className={styles.designRow} data-active={design.id === activeId ? 'true' : 'false'} key={design.id}>
+            <button className={styles.openDesign} onClick={() => void onOpen(design)} type='button'>
+              <span><strong>{design.name || 'Untitled design'}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
+              {design.id === activeId ? <Check aria-label='Current design' /> : null}
+            </button>
+            <button aria-label={`Clone ${design.name}`} disabled={saving} onClick={() => onClone(design)} title='Clone this design' type='button'><Copy aria-hidden='true' /></button>
+            <button aria-label={`Delete ${design.name}`} disabled={saving} onClick={() => onDelete(design)} title='Delete saved design' type='button'><Trash2 aria-hidden='true' /></button>
+          </div>
+        )) : <p className={styles.empty}>Saved designs will appear here.</p>}
+      </div>
+      {error ? <p className={styles.error} role='alert'>{error}</p> : null}
+    </div>
+  );
+}
+
+function DesignVersionTrigger({
+  activeDesign,
+  autosaveState,
+  dirty,
+  onToggle,
+  open,
+  visibleState,
+}: {
+  activeDesign: SavedDesign | null;
+  autosaveState: CanvasDocumentAutosaveState;
+  dirty: boolean;
+  onToggle: () => void;
+  open: boolean;
+  visibleState: string;
+}) {
+  const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
+  return (
+    <button
+      aria-expanded={open}
+      className={styles.trigger}
+      onClick={onToggle}
+      title='Open saved designs'
+      type='button'
+    >
+      <History aria-hidden='true' />
+      <span className={styles.currentName}>{activeDesign?.name ?? 'Autosaved draft'}</span>
+      <span aria-label={visibleState} className={styles.stateDot} data-dirty={String(stateIsDirty)} />
+      <ChevronDown aria-hidden='true' />
+    </button>
+  );
+}
+
+function DesignVersionActions({
+  dirty,
+  disabled,
+  onClone,
+  onFork,
+  onSave,
+  saving,
+}: {
+  dirty: boolean;
+  disabled: boolean;
+  onClone: () => void;
+  onFork: () => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  return (
+    <div className={styles.actions}>
+      <Button
+        aria-label={dirty ? 'Save design' : 'Design saved'}
+        disabled={disabled || !dirty}
+        onClick={() => void onSave()}
+        size='sm'
+        title={dirty ? 'Save design' : 'Design saved'}
+        type='button'
+        variant={dirty ? 'default' : 'outline'}
+      >
+        {dirty ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
+        <span className={styles.actionLabel}>{saving ? 'Saving' : dirty ? 'Save' : 'Saved'}</span>
+      </Button>
+      <Button aria-label='Fork design' disabled={disabled} onClick={() => void onFork()} size='icon-sm' title='Fork into a linked design' type='button' variant='outline'>
+        <GitFork aria-hidden='true' />
+      </Button>
+      <Button aria-label='Clone design' disabled={disabled} onClick={() => void onClone()} size='icon-sm' title='Clone as an independent copy' type='button' variant='outline'>
+        <Copy aria-hidden='true' />
+      </Button>
+    </div>
+  );
+}
+
 export default function DesignVersionControls({
   autosaveState = 'saved',
   identityId,
@@ -39,11 +198,11 @@ export default function DesignVersionControls({
   toolId,
   workspaceLabel,
 }: {
-  autosaveState?: 'error' | 'loading' | 'saved' | 'saving';
+  autosaveState?: CanvasDocumentAutosaveState;
   identityId: string;
-  onOpen: (source: string) => void;
+  onOpen: (source: string) => Promise<void> | void;
   revision?: string;
-  source: string | (() => string);
+  source: string | null | (() => string | null);
   toolId: string;
   workspaceLabel: string;
 }) {
@@ -60,20 +219,13 @@ export default function DesignVersionControls({
     null
   );
   const activeDesign = designs.find(({ id }) => id === activeId) ?? null;
-  const currentRevision = revision
-    ?? (typeof source === 'function' ? source() : source);
+  const currentSource = typeof source === 'function' ? source() : source;
+  const sourceReady = currentSource !== null;
+  const currentRevision = revision ?? currentSource ?? '';
   const dirty = activeDesign
     ? (activeDesign.revision ?? activeDesign.source) !== currentRevision
     : true;
-  const visibleState = activeDesign
-    ? dirty ? 'Unsaved changes' : 'Saved'
-    : autosaveState === 'error'
-      ? 'Autosave failed'
-      : autosaveState === 'loading'
-        ? 'Loading autosave'
-        : autosaveState === 'saving'
-          ? 'Autosaving'
-          : 'Autosaved';
+  const visibleState = visibleDesignState(activeDesign, dirty, autosaveState);
   const sortedDesigns = useMemo(
     () => [...designs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [designs]
@@ -97,34 +249,34 @@ export default function DesignVersionControls({
     };
   }, [workspaceStorageKey]);
 
-  useMountEffect(() => {
-    function closeMenu(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-
-    document.addEventListener('pointerdown', closeMenu);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeMenu);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  });
+  useDismissibleMenu(rootRef, () => setOpen(false));
 
   function announce(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(''), 1_800);
   }
 
+  function readCurrentSource(): string {
+    const value = typeof source === 'function' ? source() : source;
+    if (value === null) throw new Error('Portable source is still being prepared.');
+    return value;
+  }
+
   async function createDesign(
     name: string,
     origin: SavedDesignOrigin,
-    designSource = typeof source === 'function' ? source() : source,
-    parentId?: string
+    designSource?: string,
+    parentId?: string,
+    designRevision = currentRevision
   ): Promise<SavedDesign | null> {
+    let resolvedSource: string;
+    try {
+      resolvedSource = designSource ?? readCurrentSource();
+    } catch (sourceError) {
+      setError(sourceError instanceof Error ? sourceError.message : 'Portable source is not ready.');
+      setOpen(true);
+      return null;
+    }
     const now = new Date().toISOString();
     const design = createSavedDesign({
       designs,
@@ -133,8 +285,8 @@ export default function DesignVersionControls({
       now,
       origin,
       parentId,
-      revision: currentRevision,
-      source: designSource,
+      revision: designRevision,
+      source: resolvedSource,
     });
     setSaving(true);
     try {
@@ -158,8 +310,15 @@ export default function DesignVersionControls({
       await createDesign('Untitled design', 'saved');
       return;
     }
+    let latestSource: string;
+    try {
+      latestSource = readCurrentSource();
+    } catch (sourceError) {
+      setError(sourceError instanceof Error ? sourceError.message : 'Portable source is not ready.');
+      setOpen(true);
+      return;
+    }
     const now = new Date().toISOString();
-    const latestSource = typeof source === 'function' ? source() : source;
     const savedDesign: SavedDesign = {
       ...activeDesign,
       revision: currentRevision,
@@ -188,21 +347,43 @@ export default function DesignVersionControls({
     await createDesign(
       `${activeDesign?.name ?? 'Untitled design'} · Fork`,
       'fork',
-      typeof source === 'function' ? source() : source,
+      undefined,
       activeDesign?.id
     );
   }
 
   async function cloneDesign(
     design = activeDesign,
-    designSource = typeof source === 'function' ? source() : source
+    designSource?: string,
+    designRevision?: string
   ) {
-    return createDesign(`${design?.name ?? 'Untitled design'} · Copy`, 'clone', designSource);
+    return createDesign(
+      `${design?.name ?? 'Untitled design'} · Copy`,
+      'clone',
+      designSource,
+      undefined,
+      designRevision
+    );
   }
 
-  function openDesign(design: SavedDesign) {
+  async function cloneStoredDesign(design: SavedDesign) {
+    const clone = await cloneDesign(
+      design,
+      design.source,
+      design.revision ?? design.source
+    );
+    if (!clone) return;
     try {
-      onOpen(design.source);
+      await onOpen(clone.source);
+      setOpen(false);
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : 'This clone could not be opened.');
+    }
+  }
+
+  async function openDesign(design: SavedDesign) {
+    try {
+      await onOpen(design.source);
       setActiveId(design.id);
       setOpen(false);
       setError('');
@@ -251,94 +432,40 @@ export default function DesignVersionControls({
 
   return (
     <div className={styles.root} ref={rootRef} data-design-version-controls>
-      <button
-        aria-expanded={open}
-        aria-haspopup='dialog'
-        className={styles.trigger}
-        onClick={() => setOpen((current) => !current)}
-        title='Open saved designs'
-        type='button'
-      >
-        <History aria-hidden='true' />
-        <span className={styles.currentName}>{activeDesign?.name ?? 'Autosaved draft'}</span>
-        <span
-          aria-label={visibleState}
-          className={styles.stateDot}
-          data-dirty={activeDesign ? dirty ? 'true' : 'false' : autosaveState === 'error' ? 'true' : 'false'}
-        />
-        <ChevronDown aria-hidden='true' />
-      </button>
+      <DesignVersionTrigger
+        activeDesign={activeDesign}
+        autosaveState={autosaveState}
+        dirty={dirty}
+        onToggle={() => setOpen((current) => !current)}
+        open={open}
+        visibleState={visibleState}
+      />
 
-      <div className={styles.actions}>
-        <Button
-          aria-label={dirty ? 'Save design' : 'Design saved'}
-          disabled={loading || saving || !dirty}
-          onClick={() => void saveDesign()}
-          size='sm'
-          title={dirty ? 'Save design' : 'Design saved'}
-          type='button'
-          variant={dirty ? 'default' : 'outline'}
-        >
-          {dirty ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
-          <span className={styles.actionLabel}>{saving ? 'Saving' : dirty ? 'Save' : 'Saved'}</span>
-        </Button>
-        <Button aria-label='Fork design' disabled={loading || saving} onClick={() => void forkDesign()} size='icon-sm' title='Fork into a linked design' type='button' variant='outline'>
-          <GitFork aria-hidden='true' />
-        </Button>
-        <Button aria-label='Clone design' disabled={loading || saving} onClick={() => void cloneDesign()} size='icon-sm' title='Clone as an independent copy' type='button' variant='outline'>
-          <Copy aria-hidden='true' />
-        </Button>
-      </div>
+      <DesignVersionActions
+        dirty={dirty}
+        disabled={loading || saving || !sourceReady}
+        onClone={() => { void cloneDesign(); }}
+        onFork={() => { void forkDesign(); }}
+        onSave={() => { void saveDesign(); }}
+        saving={saving}
+      />
 
       {open ? (
-        <div aria-label={`${workspaceLabel} saved designs`} className={styles.popover} role='dialog'>
-          <header className={styles.popoverHeader}>
-            <div><strong>Saved designs</strong><span>{designs.length} stored in this browser</span></div>
-            <span className={styles.workspace}>{workspaceLabel}</span>
-          </header>
-
-          {activeDesign ? (
-            <label className={styles.nameField}>
-              <span>Current design name</span>
-              <input
-                aria-label='Current design name'
-                disabled={saving}
-                onBlur={() => void normalizeDesignName(activeDesign)}
-                onChange={(event) => renameDesign(activeDesign, event.target.value)}
-                value={activeDesign.name}
-              />
-            </label>
-          ) : (
-            <div className={styles.unsavedCallout}>
-              <Save aria-hidden='true' />
-              <span><strong>Current canvas is autosaved</strong><small>Save it as a named design whenever you want a checkpoint.</small></span>
-            </div>
-          )}
-
-          <div className={styles.list}>
-            {loading ? <p className={styles.empty}>Loading saved designs…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
-              <div className={styles.designRow} data-active={design.id === activeId ? 'true' : 'false'} key={design.id}>
-                <button className={styles.openDesign} onClick={() => openDesign(design)} type='button'>
-                  <span><strong>{design.name || 'Untitled design'}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
-                  {design.id === activeId ? <Check aria-label='Current design' /> : null}
-                </button>
-                <button aria-label={`Clone ${design.name}`} disabled={saving} onClick={() => {
-                  void createDesign(`${design.name} · Copy`, 'clone', design.source).then((clone) => {
-                    if (!clone) return;
-                    try {
-                      onOpen(clone.source);
-                      setOpen(false);
-                    } catch (openError) {
-                      setError(openError instanceof Error ? openError.message : 'This clone could not be opened.');
-                    }
-                  });
-                }} title='Clone this design' type='button'><Copy aria-hidden='true' /></button>
-                <button aria-label={`Delete ${design.name}`} disabled={saving} onClick={() => void deleteDesign(design)} title='Delete saved design' type='button'><Trash2 aria-hidden='true' /></button>
-              </div>
-            )) : <p className={styles.empty}>Saved designs will appear here.</p>}
-          </div>
-          {error ? <p className={styles.error} role='alert'>{error}</p> : null}
-        </div>
+        <DesignVersionsPopover
+          activeDesign={activeDesign}
+          activeId={activeId}
+          designs={designs}
+          error={error}
+          loading={loading}
+          onClone={(design) => { void cloneStoredDesign(design); }}
+          onDelete={(design) => { void deleteDesign(design); }}
+          onNormalizeName={(design) => { void normalizeDesignName(design); }}
+          onOpen={openDesign}
+          onRename={renameDesign}
+          saving={saving}
+          sortedDesigns={sortedDesigns}
+          workspaceLabel={workspaceLabel}
+        />
       ) : null}
       <span aria-live='polite' className='sr-only'>{notice}</span>
     </div>

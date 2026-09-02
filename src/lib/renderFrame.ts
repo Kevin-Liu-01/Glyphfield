@@ -35,7 +35,7 @@ export type AnimationPackageId =
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'shader';
 
-export type BackgroundTransitionId = 'crossfade' | 'wipe' | 'radial';
+type BackgroundTransitionId = 'crossfade' | 'wipe' | 'radial';
 
 export type StudioBackground = {
   angle: number;
@@ -72,6 +72,7 @@ export type StudioSource =
       image: CanvasImageSource;
       kind: 'image';
       name: string;
+      url?: string;
       width: number;
     });
 
@@ -135,9 +136,67 @@ type DrawOptions = {
   textOverride?: string;
 };
 
+const RENDER_GRAPHEME_SEGMENTER = new Intl.Segmenter('und', { granularity: 'grapheme' });
+
 function graphemes(text: string): string[] {
-  const segmenter = new Intl.Segmenter('und', { granularity: 'grapheme' });
-  return Array.from(segmenter.segment(text), ({ segment }) => segment);
+  return Array.from(RENDER_GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
+}
+
+function drawTextContent(
+  context: CanvasRenderingContext2D,
+  source: Extract<StudioSource, { kind: 'text' }>,
+  config: RenderConfig,
+  anchor: { x: number; y: number },
+  scale: number,
+  textOverride?: string
+): MaterialBounds {
+  const text = textOverride ?? source.text;
+  const fontSize = source.fontSize ?? config.fontSize;
+  context.fillStyle = source.foreground ?? config.foreground;
+  context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${fontSize}px Switzer, Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  const measuredWidth = context.measureText(text).width;
+  const textScale = Math.min(1, (config.width * 0.84) / measuredWidth);
+  context.scale(textScale, textScale);
+  context.fillText(text, 0, 0);
+  const width = measuredWidth * textScale * scale;
+  const height = fontSize * 1.18 * textScale * scale;
+  return { height, width, x: anchor.x - width / 2, y: anchor.y - height / 2 };
+}
+
+function drawImageContent(
+  context: CanvasRenderingContext2D,
+  source: Extract<StudioSource, { kind: 'image' }>,
+  config: RenderConfig,
+  anchor: { x: number; y: number },
+  scale: number
+): MaterialBounds {
+  const availableWidth = config.width * 0.78;
+  const availableHeight = config.height * 0.74;
+  const containScale = Math.min(availableWidth / source.width, availableHeight / source.height);
+  const coverScale = Math.max(availableWidth / source.width, availableHeight / source.height);
+  const imageScale = (source.fit ?? config.fit) === 'cover' ? coverScale : containScale;
+  const imageWidth = source.width * imageScale;
+  const imageHeight = source.height * imageScale;
+  context.drawImage(source.image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return { height, width, x: anchor.x - width / 2, y: anchor.y - height / 2 };
+}
+
+function configureSourceTransform(
+  context: CanvasRenderingContext2D,
+  source: StudioSource,
+  anchor: { x: number; y: number },
+  scale: number,
+  options: DrawOptions
+): void {
+  context.globalAlpha = (source.opacity ?? 1) * (options.alpha ?? 1);
+  context.filter = options.blur ? `blur(${options.blur}px)` : 'none';
+  context.translate(anchor.x + (options.offsetX ?? 0), anchor.y + (options.offsetY ?? 0));
+  context.rotate((((source.rotation ?? 0) + (options.rotation ?? 0)) * Math.PI) / 180);
+  context.scale(scale * (options.scaleX ?? 1), scale * (options.scaleY ?? 1));
 }
 
 function drawSourceContent(
@@ -153,70 +212,11 @@ function drawSourceContent(
     source.alignY ?? config.alignY
   );
   const scale = (source.scale ?? config.scale) * (options.scale ?? 1);
-  let bounds: MaterialBounds = {
-    height: config.height * 0.2,
-    width: config.width * 0.4,
-    x: anchor.x - config.width * 0.2,
-    y: anchor.y - config.height * 0.1,
-  };
   context.save();
-  context.globalAlpha = (source.opacity ?? 1) * (options.alpha ?? 1);
-  context.filter = options.blur ? `blur(${options.blur}px)` : 'none';
-  context.translate(
-    anchor.x + (options.offsetX ?? 0),
-    anchor.y + (options.offsetY ?? 0)
-  );
-  context.rotate((((source.rotation ?? 0) + (options.rotation ?? 0)) * Math.PI) / 180);
-  context.scale(
-    scale * (options.scaleX ?? 1),
-    scale * (options.scaleY ?? 1)
-  );
-
-  if (source.kind === 'text') {
-    const text = options.textOverride ?? source.text;
-    context.fillStyle = source.foreground ?? config.foreground;
-    context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${source.fontSize ?? config.fontSize}px Switzer, Arial, sans-serif`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    const measuredWidth = context.measureText(text).width;
-    const maximumWidth = config.width * 0.84;
-    let textScale = 1;
-    if (measuredWidth > maximumWidth) {
-      textScale = maximumWidth / measuredWidth;
-      context.scale(textScale, textScale);
-    }
-    context.fillText(text, 0, 0);
-    const renderedWidth = measuredWidth * textScale * scale;
-    const renderedHeight = (source.fontSize ?? config.fontSize) * 1.18 * textScale * scale;
-    bounds = {
-      height: renderedHeight,
-      width: renderedWidth,
-      x: anchor.x - renderedWidth / 2,
-      y: anchor.y - renderedHeight / 2,
-    };
-  } else {
-    const availableWidth = config.width * 0.78;
-    const availableHeight = config.height * 0.74;
-    const containScale = Math.min(
-      availableWidth / source.width,
-      availableHeight / source.height
-    );
-    const coverScale = Math.max(
-      availableWidth / source.width,
-      availableHeight / source.height
-    );
-    const imageScale = (source.fit ?? config.fit) === 'cover' ? coverScale : containScale;
-    const width = source.width * imageScale;
-    const height = source.height * imageScale;
-    context.drawImage(source.image, -width / 2, -height / 2, width, height);
-    bounds = {
-      height: height * scale,
-      width: width * scale,
-      x: anchor.x - (width * scale) / 2,
-      y: anchor.y - (height * scale) / 2,
-    };
-  }
-
+  configureSourceTransform(context, source, anchor, scale, options);
+  const bounds = source.kind === 'text'
+    ? drawTextContent(context, source, config, anchor, scale, options.textOverride)
+    : drawImageContent(context, source, config, anchor, scale);
   context.restore();
   return bounds;
 }
@@ -516,6 +516,196 @@ function drawTypeDelete(
   });
 }
 
+type TransitionEffect = (
+  context: CanvasRenderingContext2D,
+  current: StudioSource,
+  next: StudioSource,
+  config: RenderConfig,
+  eased: number,
+  backdrop?: CanvasImageSource
+) => void;
+
+function drawTransitionPair(
+  context: CanvasRenderingContext2D,
+  current: StudioSource,
+  next: StudioSource,
+  config: RenderConfig,
+  currentOptions: DrawOptions,
+  nextOptions: DrawOptions,
+  backdrop?: CanvasImageSource
+): void {
+  drawSource(context, current, config, { ...currentOptions, backdrop });
+  drawSource(context, next, config, { ...nextOptions, backdrop });
+}
+
+const transitionEffects: Record<Exclude<AnimationPackageId, 'type-delete'>, TransitionEffect> = {
+  'blur-swipe': (context, current, next, config, eased, backdrop) => {
+    const travel = config.width * 0.13;
+    const blur = config.blur * 1.35 * Math.sin(Math.PI * eased);
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, blur, offsetX: travel * eased },
+      { alpha: eased, blur, offsetX: -travel * (1 - eased) },
+      backdrop
+    );
+  },
+  crossfade: (context, current, next, config, eased, backdrop) => {
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased },
+      { alpha: eased },
+      backdrop
+    );
+  },
+  'drift-fade': (context, current, next, config, eased, backdrop) => {
+    const travelX = config.width * 0.07;
+    const travelY = config.height * 0.09;
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, offsetX: -travelX * eased, offsetY: travelY * eased, rotation: -3 * eased },
+      { alpha: eased, offsetX: travelX * (1 - eased), offsetY: -travelY * (1 - eased), rotation: 3 * (1 - eased) },
+      backdrop
+    );
+  },
+  'flip-fade': (context, current, next, config, eased, backdrop) => {
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, scaleX: Math.max(0.04, 1 - eased) },
+      { alpha: eased, scaleX: Math.max(0.04, eased) },
+      backdrop
+    );
+  },
+  'morph-fade': (context, current, next, config, eased, backdrop) => {
+    const melt = Math.sin(Math.PI * eased);
+    const blur = config.blur * melt;
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, blur, scale: 1 + melt * 0.025 },
+      { alpha: eased, blur, scale: 0.975 + eased * 0.025 },
+      backdrop
+    );
+  },
+  'rise-fade': (context, current, next, config, eased, backdrop) => {
+    const travel = config.height * 0.14;
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, offsetY: -travel * eased },
+      { alpha: eased, offsetY: travel * (1 - eased) },
+      backdrop
+    );
+  },
+  'rotate-fade': (context, current, next, config, eased, backdrop) => {
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, rotation: -8 * eased, scale: 1 - eased * 0.05 },
+      { alpha: eased, rotation: 8 * (1 - eased), scale: 0.95 + eased * 0.05 },
+      backdrop
+    );
+  },
+  'scale-fade': (context, current, next, config, eased, backdrop) => {
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, scale: 1 - eased * 0.08 },
+      { alpha: eased, scale: 1.08 - eased * 0.08 },
+      backdrop
+    );
+  },
+  'slide-fade': (context, current, next, config, eased, backdrop) => {
+    const travel = config.width * 0.08;
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, offsetX: -travel * eased },
+      { alpha: eased, offsetX: travel * (1 - eased) },
+      backdrop
+    );
+  },
+  'spring-pop': (context, current, next, config, eased, backdrop) => {
+    const lift = Math.sin(Math.PI * eased);
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, scale: 1 + lift * 0.08 },
+      { alpha: eased, scale: 0.72 + eased * 0.28 + lift * 0.13 },
+      backdrop
+    );
+  },
+  'zoom-through': (context, current, next, config, eased, backdrop) => {
+    drawTransitionPair(
+      context,
+      current,
+      next,
+      config,
+      { alpha: 1 - eased, scale: 1 + eased * 0.24 },
+      { alpha: eased, scale: 0.76 + eased * 0.24 },
+      backdrop
+    );
+  },
+};
+
+function drawEmptyFrame(context: CanvasRenderingContext2D, config: RenderConfig): void {
+  drawBackgroundLayer(context, fallbackBackground(config), config);
+  context.save();
+  context.fillStyle = config.foreground;
+  context.globalAlpha = 0.34;
+  context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px Switzer, Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('IMPORT IMAGES TO BEGIN', config.width / 2, config.height / 2);
+  context.restore();
+}
+
+function drawFrameBackground(
+  context: CanvasRenderingContext2D,
+  current: StudioSource,
+  next: StudioSource,
+  config: RenderConfig,
+  position: TimelinePosition,
+  sourceCount: number
+): void {
+  const currentBackground = current.background ?? fallbackBackground(config);
+  const nextBackground = next.background ?? currentBackground;
+  if (position.phase !== 'transition' || sourceCount === 1) {
+    drawBackgroundLayer(context, currentBackground, config);
+    return;
+  }
+  drawBackgroundTransition(
+    context,
+    currentBackground,
+    nextBackground,
+    config,
+    cubicBezierAt(position.progress, config.bezier)
+  );
+}
+
 export function renderFrame(
   context: CanvasRenderingContext2D,
   sources: readonly StudioSource[],
@@ -524,37 +714,14 @@ export function renderFrame(
   options: RenderFrameOptions = {}
 ): void {
   if (sources.length === 0) {
-    drawBackgroundLayer(context, fallbackBackground(config), config);
-    context.save();
-    context.fillStyle = config.foreground;
-    context.globalAlpha = 0.34;
-    context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px Switzer, Arial, sans-serif`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText('IMPORT IMAGES TO BEGIN', config.width / 2, config.height / 2);
-    context.restore();
+    drawEmptyFrame(context, config);
     return;
   }
 
   const current = sources[position.index % sources.length] ?? sources[0];
   if (!current) return;
   const next = sources[position.nextIndex % sources.length] ?? current;
-  const currentBackground = current.background ?? fallbackBackground(config);
-  const nextBackground = next.background ?? currentBackground;
-  const backgroundProgress = cubicBezierAt(position.progress, config.bezier);
-  if (!options.omitBackground) {
-    if (position.phase === 'transition' && sources.length > 1) {
-      drawBackgroundTransition(
-        context,
-        currentBackground,
-        nextBackground,
-        config,
-        backgroundProgress
-      );
-    } else {
-      drawBackgroundLayer(context, currentBackground, config);
-    }
-  }
+  if (!options.omitBackground) drawFrameBackground(context, current, next, config, position, sources.length);
   const needsBackdrop = current.finish?.glassEnabled || next.finish?.glassEnabled;
   const backdrop = needsBackdrop ? captureBackdrop(context) : undefined;
   if (position.phase === 'hold' || sources.length === 1) {
@@ -562,171 +729,16 @@ export function renderFrame(
     return;
   }
 
-  const eased = cubicBezierAt(position.progress, config.bezier);
   if (config.packageId === 'type-delete') {
     drawTypeDelete(context, current, next, config, position.progress, backdrop);
     return;
   }
-
-  if (config.packageId === 'morph-fade') {
-    const melt = Math.sin(Math.PI * eased);
-    const blur = config.blur * melt;
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      blur,
-      scale: 1 + melt * 0.025,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      blur,
-      scale: 0.975 + eased * 0.025,
-    });
-    return;
-  }
-
-  if (config.packageId === 'scale-fade') {
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      scale: 1 - eased * 0.08,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      scale: 1.08 - eased * 0.08,
-    });
-    return;
-  }
-
-  if (config.packageId === 'slide-fade') {
-    const travel = config.width * 0.08;
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      offsetX: -travel * eased,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      offsetX: travel * (1 - eased),
-    });
-    return;
-  }
-
-  if (config.packageId === 'rise-fade') {
-    const travel = config.height * 0.14;
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      offsetY: -travel * eased,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      offsetY: travel * (1 - eased),
-    });
-    return;
-  }
-
-  if (config.packageId === 'zoom-through') {
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      scale: 1 + eased * 0.24,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      scale: 0.76 + eased * 0.24,
-    });
-    return;
-  }
-
-  if (config.packageId === 'blur-swipe') {
-    const travel = config.width * 0.13;
-    const blur = config.blur * 1.35 * Math.sin(Math.PI * eased);
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      blur,
-      offsetX: travel * eased,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      blur,
-      offsetX: -travel * (1 - eased),
-    });
-    return;
-  }
-
-  if (config.packageId === 'flip-fade') {
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      scaleX: Math.max(0.04, 1 - eased),
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      scaleX: Math.max(0.04, eased),
-    });
-    return;
-  }
-
-  if (config.packageId === 'spring-pop') {
-    const lift = Math.sin(Math.PI * eased);
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      scale: 1 + lift * 0.08,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      scale: 0.72 + eased * 0.28 + lift * 0.13,
-    });
-    return;
-  }
-
-  if (config.packageId === 'rotate-fade') {
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      rotation: -8 * eased,
-      scale: 1 - eased * 0.05,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      rotation: 8 * (1 - eased),
-      scale: 0.95 + eased * 0.05,
-    });
-    return;
-  }
-
-  if (config.packageId === 'drift-fade') {
-    const travelX = config.width * 0.07;
-    const travelY = config.height * 0.09;
-    drawSource(context, current, config, {
-      alpha: 1 - eased,
-      backdrop,
-      offsetX: -travelX * eased,
-      offsetY: travelY * eased,
-      rotation: -3 * eased,
-    });
-    drawSource(context, next, config, {
-      alpha: eased,
-      backdrop,
-      offsetX: travelX * (1 - eased),
-      offsetY: -travelY * (1 - eased),
-      rotation: 3 * (1 - eased),
-    });
-    return;
-  }
-
-  drawSource(context, current, config, { alpha: 1 - eased, backdrop });
-  drawSource(context, next, config, { alpha: eased, backdrop });
+  transitionEffects[config.packageId](
+    context,
+    current,
+    next,
+    config,
+    cubicBezierAt(position.progress, config.bezier),
+    backdrop
+  );
 }
