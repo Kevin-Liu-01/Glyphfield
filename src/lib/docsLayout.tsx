@@ -2,11 +2,19 @@ import Image from 'next/image';
 
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 
+import GitHubStarButton from '@/components/GitHubStarButton';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
 export function docsBaseOptions(): BaseLayoutProps {
   return {
-    githubUrl: 'https://github.com/Kevin-Liu-01/Glyphfield',
+    links: [
+      {
+        children: <GitHubStarButton className='docs-layout-github-star-button' />,
+        on: 'all',
+        secondary: true,
+        type: 'custom',
+      },
+    ],
     nav: {
       title: (
         <span className='docs-brand-title flex items-center gap-2 font-semibold'>

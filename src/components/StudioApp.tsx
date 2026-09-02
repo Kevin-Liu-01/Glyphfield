@@ -24,7 +24,6 @@ import {
   ChevronRight,
   Folder,
   Grid3X3,
-  Github,
   Monitor,
   Moon,
   PanelTopClose,
@@ -40,6 +39,7 @@ import {
 
 import { useThemeOverride } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
+import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolHeader';
@@ -449,7 +449,7 @@ function AppearanceMenu({
                 onChange({ font: font as StudioAppearance['font'] })
               }
               options={[
-                { label: 'Switzer', value: 'switzer' },
+                { label: 'Helvetica Neue', value: 'switzer' },
                 { label: 'Be Vietnam Pro', value: 'be-vietnam-pro' },
                 { label: 'Schibsted Grotesk', value: 'schibsted-grotesk' },
                 { label: 'Rethink Sans', value: 'rethink-sans' },
@@ -780,6 +780,7 @@ export default function StudioApp() {
         storedIdentities ? JSON.parse(storedIdentities) : null
       );
       const launchParameters = new URLSearchParams(window.location.search);
+      const requestedTool = launchParameters.get('tool');
       const requestedProjectId = launchParameters.get('project');
       const requestedFolderValue = launchParameters.get('folder');
       const requestedFolderId =
@@ -789,7 +790,8 @@ export default function StudioApp() {
       const storedActiveIdentity =
         window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) ??
         window.localStorage.getItem('gt-studio-active-identity-v2');
-      const storedActiveTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
+      const storedActiveTool = requestedTool
+        ?? window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
       const storedActiveFolder = window.localStorage.getItem(ACTIVE_FOLDER_STORAGE_KEY);
       const requestedProject = nextIdentities.find(({ id }) => id === requestedProjectId);
       const requestedFolderProject = requestedFolderId
@@ -1606,16 +1608,7 @@ export default function StudioApp() {
             <kbd className='hidden border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline'>⌘K</kbd>
           </button>
           <div className='studio-appearance-toolbar ml-auto flex shrink-0 items-center gap-1.5'>
-            <Button asChild size='icon-sm' title={gt('GitHub')} variant='outline'>
-              <a
-                aria-label={gt('Open Glyphfield on GitHub')}
-                href='https://github.com/Kevin-Liu-01/Glyphfield'
-                rel='noreferrer'
-                target='_blank'
-              >
-                <Github aria-hidden='true' />
-              </a>
-            </Button>
+            <GitHubStarButton className='studio-github-star-button' />
             <Button asChild size='icon-sm' title={gt('Documentation')} variant='outline'>
               <Link aria-label={gt('Open documentation')} href='/docs'>
                 <BookOpen aria-hidden='true' />

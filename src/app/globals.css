@@ -31,10 +31,10 @@
   --color-status-success-border: hsl(var(--status-success-border));
   --default-font-family: var(--font-sans);
   --default-mono-font-family: var(--font-mono);
-  --font-weight-semibold: 550;
-  --font-weight-bold: 550;
-  --font-weight-extrabold: 550;
-  --font-weight-black: 550;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 500;
+  --font-weight-black: 500;
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -2786,7 +2786,7 @@ body:has([data-testid='shader-preview-capture']) nextjs-portal {
 }
 
 :root {
-  --font-sans: 'Switzer', var(--font-schibsted-grotesk), Arial, sans-serif;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --background: 0 0% 99%;
   --foreground: 0 0% 10%;
   --card: 0 0% 99%;
@@ -2844,7 +2844,7 @@ body {
 }
 
 :is(b, strong) {
-  font-weight: 550;
+  font-weight: 500;
 }
 
 * {
@@ -2978,7 +2978,7 @@ body:has(.studio-app) {
   height: 100dvh;
   min-height: 0;
   overflow: clip;
-  font-family: 'Switzer', var(--font-sans), Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .studio-app[data-studio-corners='rounded'] {
@@ -3070,8 +3070,8 @@ body {
   --color-fd-accent: #e8e8e8;
   --color-fd-accent-foreground: var(--docs-fg);
   --fd-header-height: 52px !important;
-  /* Viewport units avoid a cyclic percentage track in Fumadocs' outer grid. */
-  --fd-layout-width: min(100vw, 100rem);
+  /* Docs are a workspace surface: let the outer grid use the full viewport. */
+  --fd-layout-width: 100vw;
   --fd-sidebar-width: 256px !important;
   min-height: 100dvh;
   position: relative;
@@ -3083,7 +3083,7 @@ body {
     transparent 0.8px
   );
   background-size: 20px 20px;
-  font-family: 'Switzer', var(--font-sans), Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .dark .glyphfield-docs {
@@ -3490,6 +3490,20 @@ body {
   width: 13px;
   height: 13px;
   flex: none;
+}
+
+.glyphfield-docs-toc-actions .github-star-button {
+  justify-content: space-between;
+}
+
+.glyphfield-docs-toc-actions .github-star-button__count {
+  border-left-color: var(--docs-line);
+  color: var(--docs-muted);
+}
+
+.glyphfield-docs-toc-actions .github-star-button:hover .github-star-button__count {
+  border-left-color: color-mix(in srgb, var(--docs-bg) 30%, transparent);
+  color: var(--docs-bg);
 }
 
 .glyphfield-docs #toc-title {
@@ -4043,6 +4057,83 @@ body {
   display: grid;
   grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
   height: var(--studio-toolbar-height);
+}
+
+.github-star-button {
+  min-width: 0;
+  height: 36px;
+  padding: 0 4px 0 10px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, transform 140ms ease-out;
+}
+
+.github-star-button:hover {
+  border-color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.github-star-button:active {
+  transform: scale(0.97);
+}
+
+.github-star-button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.github-star-button__mark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.github-star-button__count {
+  min-width: 35px;
+  height: 26px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  border-left: 1px solid hsl(var(--border));
+  border-radius: 3px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.62);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, opacity 140ms ease;
+}
+
+.github-star-button__count svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+  stroke-width: 1.5;
+}
+
+.github-star-button[data-state='loading'] .github-star-button__count,
+.github-star-button[data-state='error'] .github-star-button__count {
+  opacity: 0.48;
+}
+
+.studio-github-star-button:hover .github-star-button__count {
+  color: hsl(var(--foreground));
+  border-left-color: hsl(var(--foreground) / 0.26);
 }
 
 .studio-app-body {
@@ -4695,9 +4786,18 @@ body {
   padding: min(14vh, 140px) 20px 20px;
   background: hsl(0 0% 0% / 0.52);
   backdrop-filter: blur(10px);
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
 }
 
 .studio-command-dialog {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(760px, 100%);
@@ -4728,6 +4828,15 @@ body {
   border-radius: var(--studio-corner-lg);
   background: hsl(var(--background));
   box-shadow: var(--studio-shadow-ring-2xl);
+}
+
+.studio-modal-backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
 }
 
 .shader-export-content {
@@ -12842,6 +12951,10 @@ body {
     grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
   }
 
+  .studio-github-star-button .github-star-button__label {
+    display: none;
+  }
+
   .studio-app-body {
     grid-template-columns: var(--studio-rail-width) minmax(0, 1fr);
   }
@@ -19060,7 +19173,7 @@ body {
   border-inline: 1px solid var(--marketing-v4-line);
   background: var(--marketing-v4-paper);
   color: var(--marketing-v4-ink);
-  font-family: 'Switzer', var(--font-sans), Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Marketing v5 */
@@ -19079,7 +19192,7 @@ body {
   border-inline: 1px solid var(--marketing-v5-line);
   color: var(--marketing-v5-ink);
   background: var(--marketing-v5-paper);
-  font-family: 'Switzer', var(--font-sans), Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .marketing-page-v5 *,
@@ -19390,7 +19503,7 @@ body {
 
 .marketing-v5-hero-specs strong {
   color: var(--marketing-v5-ink);
-  font-family: 'Switzer', var(--font-sans), sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.1rem;
   letter-spacing: -0.04em;
 }
@@ -20863,7 +20976,7 @@ body {
 }
 
 .marketing-v5-footer-wordmark {
-  letter-spacing: -0.05em;
+  letter-spacing: -0.032em;
 }
 
 .marketing-v5-corners {
@@ -23379,6 +23492,29 @@ body {
   height: 15px;
 }
 
+.marketing-v5-header-actions .github-star-button {
+  width: auto;
+  min-width: 106px;
+  padding-inline: 0.65rem;
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.marketing-v5-header-actions .github-star-button__count {
+  border-left-color: var(--marketing-v5-line);
+  color: var(--marketing-v5-muted);
+}
+
+.marketing-v5-header-actions .github-star-button:hover .github-star-button__count {
+  border-left-color: color-mix(in srgb, var(--marketing-v5-paper) 30%, transparent);
+  color: var(--marketing-v5-paper);
+}
+
+.marketing-v5-header-actions .github-star-button__count svg {
+  width: 11px;
+  height: 11px;
+}
+
 .marketing-v5-header-actions .marketing-v5-primary-link {
   padding-inline: 1rem;
 }
@@ -23807,6 +23943,14 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .github-star-button {
+    transition: none;
+  }
+
+  .github-star-button:active {
+    transform: none;
+  }
+
   [data-motion-item],
   [data-footer-wordmark] {
     opacity: 1 !important;
@@ -23885,7 +24029,7 @@ html[data-marketing-theme='dark'] body {
   color: var(--footer-ink);
   font-size: clamp(4rem, 8vw, 7.5rem);
   font-weight: 500;
-  letter-spacing: -0.072em;
+  letter-spacing: -0.032em;
   line-height: 0.88;
 }
 
@@ -24568,5 +24712,176 @@ html[data-marketing-theme='dark'] body {
 
   .marketing-v12-footer .marketing-v5-footer-wordmark {
     font-size: 15.4vw;
+  }
+}
+
+/* Helvetica Neue stays most precise when display type is regular and UI emphasis is medium. */
+:is(.studio-app, .glyphfield-docs) :is(h1, h2, h3, h4, h5, h6, button, b, strong) {
+  font-weight: 500;
+}
+
+.marketing-page-v5 :is(a, button, b, strong),
+.marketing-v5-kicker {
+  font-weight: 500;
+}
+
+.marketing-page-v5 :is(h1, h2, h3),
+.marketing-v5-live-motion-frame > span,
+.marketing-v7-open-source-panel > strong,
+.marketing-v5-footer-wordmark {
+  font-weight: 400;
+}
+
+.marketing-page-v5 .marketing-v5-hero-copy > h1 {
+  font-weight: 500;
+  letter-spacing: -0.042em;
+}
+
+.marketing-page-v5 .marketing-v5-hero-copy > p:not(.marketing-v5-kicker):not(.marketing-v5-hero-license) {
+  max-width: 660px;
+  margin-top: 1rem;
+  color: color-mix(in srgb, var(--marketing-v5-ink) 62%, var(--marketing-v5-paper));
+  font-size: clamp(0.95rem, 1.05vw, 1rem);
+  line-height: 1.48;
+  text-wrap: balance;
+}
+
+.marketing-page-v5 .marketing-v5-hero-mark {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.5rem;
+}
+
+.marketing-page-v5 .marketing-v5-actions {
+  margin-top: 1rem;
+}
+
+.marketing-page-v5 .marketing-v5-hero-copy > p.marketing-v5-hero-license {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.marketing-v5-hero-license svg {
+  width: 28px;
+  height: 15px;
+  flex: none;
+}
+
+.marketing-v5-search-launcher {
+  height: var(--marketing-control-height);
+  padding: 0 0.55rem;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--marketing-v5-line);
+  border-radius: var(--marketing-control-radius);
+  color: var(--marketing-v5-ink);
+  background: var(--marketing-v5-paper);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease, transform 140ms ease-out;
+}
+
+.marketing-v5-search-launcher:hover {
+  border-color: var(--marketing-v5-ink);
+  background: color-mix(in srgb, var(--marketing-v5-paper) 84%, var(--marketing-v5-ink));
+}
+
+.marketing-v5-search-launcher:active {
+  transform: scale(0.97);
+}
+
+.marketing-v5-search-launcher:focus-visible {
+  outline: 2px solid var(--marketing-v5-purple);
+  outline-offset: 2px;
+}
+
+.marketing-v5-search-launcher svg {
+  width: 14px;
+  height: 14px;
+  color: var(--marketing-v5-muted);
+}
+
+.marketing-v5-search-launcher kbd {
+  min-width: 27px;
+  height: 20px;
+  padding-inline: 0.3rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--marketing-v5-line);
+  border-radius: 3px;
+  color: var(--marketing-v5-muted);
+  background: color-mix(in srgb, var(--marketing-v5-paper) 92%, var(--marketing-v5-ink));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.5rem;
+}
+
+.marketing-v5-header-actions .marketing-v5-search-launcher kbd {
+  display: none;
+}
+
+.marketing-v5-header-actions .marketing-v5-primary-link {
+  white-space: nowrap;
+}
+
+.marketing-v5-header-actions .github-star-button__count {
+  background: color-mix(in srgb, var(--marketing-v5-paper) 88%, var(--marketing-v5-ink));
+}
+
+.marketing-v5-header-actions .github-star-button:hover .github-star-button__count {
+  background: color-mix(in srgb, var(--marketing-v5-ink) 84%, var(--marketing-v5-paper));
+}
+
+.marketing-v7-social-links .marketing-v7-github-star-button {
+  padding-right: 4px;
+}
+
+.marketing-v7-github-star-button .github-star-button__count {
+  border-left-color: #4a4a4a;
+  color: rgb(255 255 255 / 0.72);
+  background: #292929;
+}
+
+.marketing-v7-github-star-button:hover .github-star-button__count {
+  border-left-color: #686866;
+  color: #fff;
+  background: #333;
+}
+
+.glyphfield-docs .docs-layout-github-star-button {
+  width: auto;
+  max-width: 100%;
+}
+
+@media (max-width: 760px) {
+  .marketing-v5-brand > span {
+    display: none;
+  }
+
+  .marketing-v5-search-launcher {
+    width: var(--marketing-control-height);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .marketing-v5-search-launcher :is(span, kbd) {
+    display: none;
+  }
+
+  .marketing-v5-header-actions .github-star-button {
+    width: var(--marketing-control-height);
+    min-width: var(--marketing-control-height);
+    padding: 0;
+    gap: 0;
+  }
+
+  .marketing-v5-header-actions .github-star-button :is(.github-star-button__label, .github-star-button__count) {
+    display: none;
   }
 }

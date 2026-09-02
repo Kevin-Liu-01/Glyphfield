@@ -6,4 +6,10 @@ export const PRODUCT_BRAND = {
   markPath: '/brand/glyphfield-mark.svg',
   markWhitePath: '/brand/glyphfield-mark-white.svg',
   name: 'Glyphfield',
+  repository: {
+    apiUrl: 'https://api.github.com/repos/Kevin-Liu-01/Glyphfield',
+    name: 'Glyphfield',
+    owner: 'Kevin-Liu-01',
+    url: 'https://github.com/Kevin-Liu-01/Glyphfield',
+  },
 } as const;

@@ -6,6 +6,7 @@ const docsStyles = readFileSync('src/app/globals.css', 'utf8');
 const docsRouteStyles = readFileSync('src/app/docs/docs.css', 'utf8');
 const docsHeader = readFileSync('src/components/DocsHeader.tsx', 'utf8');
 const docsTocActions = readFileSync('src/components/DocsTocActions.tsx', 'utf8');
+const githubStarButton = readFileSync('src/components/GitHubStarButton.tsx', 'utf8');
 
 describe('documentation responsive shell', () => {
   it('loads the precompiled Fumadocs layout contract', () => {
@@ -13,8 +14,9 @@ describe('documentation responsive shell', () => {
     expect(docsRouteStyles).not.toContain("@import 'fumadocs-ui/css/preset.css';");
   });
 
-  it('uses a viewport-bounded grid instead of a cyclic percentage track', () => {
-    expect(docsStyles).toContain('--fd-layout-width: min(100vw, 100rem);');
+  it('uses the full viewport without a cyclic percentage track', () => {
+    expect(docsStyles).toContain('--fd-layout-width: 100vw;');
+    expect(docsStyles).not.toContain('--fd-layout-width: min(100vw, 100rem);');
     expect(docsStyles).not.toContain('--fd-layout-width: 100%;');
     expect(docsStyles).toMatch(/\.glyphfield-doc-page \{[\s\S]*?min-width: 0;[\s\S]*?max-width: none;[\s\S]*?margin-inline: auto;/);
     expect(docsStyles).toMatch(/\.glyphfield-docs #nd-page \{[\s\S]*?grid-area: main;/);
@@ -37,6 +39,8 @@ describe('documentation responsive shell', () => {
 
   it('keeps a single desktop search and an accessible GitHub utility', () => {
     expect(docsTocActions).not.toContain('SearchFull');
-    expect(docsTocActions).toContain("aria-label={gt('View Glyphfield on GitHub')}");
+    expect(docsTocActions).toContain('<GitHubStarButton />');
+    expect(githubStarButton).toContain("gt('View Glyphfield on GitHub')");
+    expect(githubStarButton).toContain('aria-label={title}');
   });
 });

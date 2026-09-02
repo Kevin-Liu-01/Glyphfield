@@ -119,12 +119,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
         <link href='/llms.txt' rel='alternate' title='Glyphfield agent and LLM instructions' type='text/plain' />
         <link href='/openapi.json' rel='service-desc' type='application/vnd.oai.openapi+json' />
-        <link href='https://api.fontshare.com' rel='preconnect' />
-        <link href='https://cdn.fontshare.com' rel='preconnect' />
-        <link
-          href='https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap'
-          rel='stylesheet'
-        />
       </head>
       <body className='flex min-h-screen flex-col'>
         <AppThemeProvider>

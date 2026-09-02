@@ -8,7 +8,6 @@ import {
   BookOpen,
   Braces,
   Film,
-  Github,
   Layers3,
   Palette,
   ScanLine,
@@ -20,9 +19,11 @@ import type { ReactNode } from 'react';
 import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
+import GitHubStarButton from '@/components/GitHubStarButton';
 import MarketingMotion from '@/components/MarketingMotion';
 import MarketingShaderMark from '@/components/MarketingShaderMark';
 import MarketingShaderText from '@/components/MarketingShaderText';
+import MarketingStudioSearch from '@/components/MarketingStudioSearch';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -48,6 +49,17 @@ const GLYPH_FIELD_ROWS = [
   'GLYPH           FIELD',
   'GLYPHFIELD GLYPHFIELD',
 ] as const;
+
+function MitLogo() {
+  return (
+    <svg aria-hidden='true' viewBox='160 159 1360 720'>
+      <path
+        d='M880 879.252h160v-480H880v480Zm240-560h400v-160h-400v160Zm-240-160h160v160H880v-160Zm-240 720h160v-720H640v720Zm-240-160h160v-560H400v560Zm-240 160h160v-720H160v720Zm960 0h160v-480h-160v480Z'
+        fill='currentColor'
+      />
+    </svg>
+  );
+}
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
@@ -209,17 +221,9 @@ export default async function HomePage() {
           <a href='#open-source'><T>Open source</T></a>
         </nav>
         <div className='marketing-v5-header-actions'>
+          <MarketingStudioSearch />
           <MarketingThemeToggle />
-          <a
-            aria-label={gt('Open Glyphfield on GitHub')}
-            className='marketing-v5-header-icon-link'
-            href='https://github.com/Kevin-Liu-01/Glyphfield'
-            rel='noreferrer'
-            target='_blank'
-            title={gt('GitHub')}
-          >
-            <Github aria-hidden='true' />
-          </a>
+          <GitHubStarButton className='marketing-v5-header-icon-link' />
           <Link
             aria-label={gt('Open documentation')}
             className='marketing-v5-header-icon-link'
@@ -267,6 +271,7 @@ export default async function HomePage() {
               <MarketingCopyPromptButton />
             </div>
             <p className='marketing-v5-hero-license' data-motion-item>
+              <MitLogo />
               <T>Free and open source under the MIT License.</T>
             </p>
           </div>
@@ -494,11 +499,10 @@ export default async function HomePage() {
               </T>
             </p>
             <div className='marketing-v7-social-links'>
-              <a href='https://github.com/Kevin-Liu-01/Glyphfield' rel='noreferrer' target='_blank'>
-                <Github aria-hidden='true' />
-                <T>View on GitHub</T>
-                <ArrowRight aria-hidden='true' />
-              </a>
+              <GitHubStarButton
+                className='marketing-v7-github-star-button'
+                label={<T>View on GitHub</T>}
+              />
               <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>
                 <XSocialIcon />
                 <T>Share on X</T>
@@ -546,7 +550,7 @@ export default async function HomePage() {
               <Link href='/studio'><T>Studio</T> ↗</Link>
               <Link href='/docs'><T>Docs</T> ↗</Link>
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
-              <a href='https://github.com/Kevin-Liu-01/Glyphfield' rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>
+              <a href={PRODUCT_BRAND.repository.url} rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>
               <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>X ↗</a>
               <Link href='/llms.txt'>llms.txt ↗</Link>
             </div>

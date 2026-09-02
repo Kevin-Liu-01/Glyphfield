@@ -51,7 +51,7 @@
   overflow: hidden;
   color: hsl(var(--foreground));
   font-size: var(--studio-toolbar-title-size);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.012em;
   line-height: 1;
   text-overflow: ellipsis;
