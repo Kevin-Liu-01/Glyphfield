@@ -124,6 +124,7 @@ export default function LogoAppearancePreview({
   className = '',
   color,
   fallback,
+  fillFrame = false,
   logoPath,
   opacity = 1,
   preserveColors = false,
@@ -134,6 +135,7 @@ export default function LogoAppearancePreview({
   className?: string;
   color: string;
   fallback?: ReactNode;
+  fillFrame?: boolean;
   logoPath?: string;
   opacity?: number;
   preserveColors?: boolean;
@@ -158,7 +160,7 @@ export default function LogoAppearancePreview({
     <svg
       aria-label={ariaLabel}
       className={`block size-full overflow-visible ${className}`}
-      preserveAspectRatio='xMidYMid meet'
+      preserveAspectRatio={fillFrame ? 'none' : 'xMidYMid meet'}
       role='img'
       viewBox='0 0 100 100'
     >
@@ -168,7 +170,7 @@ export default function LogoAppearancePreview({
         height='100'
         href={logoPath}
         opacity={opacity}
-        preserveAspectRatio='xMidYMid meet'
+        preserveAspectRatio={fillFrame ? 'none' : 'xMidYMid meet'}
         width='100'
       />
     </svg>

@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle2, Download, Eye, FilePenLine, FileText, RefreshCw, X } from '@/components/ui/SolidIcons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import StudioToolHeader from '@/components/StudioToolHeader';
@@ -68,13 +68,17 @@ function ExportPreviewMedia({
 function ExportPreviewContext({
   kind,
   needsRefresh,
+  refreshing,
 }: {
   kind: ExportPreviewKind;
   needsRefresh: boolean;
+  refreshing: boolean;
 }) {
-  if (!needsRefresh && kind !== 'text' && kind !== 'file') return null;
-  const message = needsRefresh
-    ? 'Updating the preview to match the current composition.'
+  if (!needsRefresh && !refreshing && kind !== 'text' && kind !== 'file') return null;
+  const message = refreshing
+    ? 'Rendering the updated preview with these export settings.'
+    : needsRefresh
+      ? 'Export settings changed. Update the preview before downloading.'
     : kind === 'text'
       ? 'Review the generated contents here. Nothing is saved until you confirm the download.'
       : 'Confirm the file name, format, and size here. Nothing is saved until you confirm the download.';
@@ -120,34 +124,93 @@ function exportDimensions(asset: ExportPreviewAsset): string | null {
   return `${asset.width} × ${asset.height}`;
 }
 
-export default function ExportPreview({
-  asset,
-  className,
-  needsRefresh = false,
+function exportPreviewTriggerLabel(asset: ExportPreviewAsset, triggerLabel?: string): string {
+  return triggerLabel || `${asset.format} preview`;
+}
+
+function exportFileMetadata(dimensions: string | null, asset: ExportPreviewAsset): string {
+  return dimensions ? `${dimensions} px` : asset.format;
+}
+
+function ExportPreviewConfiguration({ children }: { children?: ReactNode }) {
+  if (!children) return null;
+  return (
+    <section className='shader-export-settings'>
+      <div className='shader-export-section-heading'>
+        <strong>Export settings</strong>
+        <small>Configure the file before rendering</small>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function useExportPreviewRefresh({
+  autoRefresh,
+  needsRefresh,
   onRefresh,
+  open,
   refreshKey,
-  refreshing = false,
-  showTrigger = true,
+  refreshing,
 }: {
-  asset: ExportPreviewAsset | null;
-  className?: string;
-  needsRefresh?: boolean;
+  autoRefresh: boolean;
+  needsRefresh: boolean;
   onRefresh?: () => void;
+  open: boolean;
   refreshKey?: string;
-  refreshing?: boolean;
-  showTrigger?: boolean;
+  refreshing: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const [fileNameBase, setFileNameBase] = useState('export');
-  const [fileNameExtension, setFileNameExtension] = useState('');
-  const customizedNameRef = useRef(false);
   const onRefreshRef = useRef(onRefresh);
   const refreshedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
+
+  useEffect(() => {
+    if (!autoRefresh || !open || !needsRefresh || refreshing || !onRefreshRef.current) return;
+    const key = refreshKey ?? 'changed';
+    if (refreshedKeyRef.current === key) return;
+    const timeout = window.setTimeout(() => {
+      refreshedKeyRef.current = key;
+      onRefreshRef.current?.();
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [autoRefresh, needsRefresh, open, refreshKey, refreshing]);
+
+  useEffect(() => {
+    if (!needsRefresh) refreshedKeyRef.current = null;
+  }, [needsRefresh]);
+}
+
+export default function ExportPreview({
+  asset,
+  autoRefresh = true,
+  className,
+  configuration,
+  needsRefresh = false,
+  onRefresh,
+  refreshKey,
+  refreshing = false,
+  showTrigger = true,
+  triggerLabel,
+}: {
+  asset: ExportPreviewAsset | null;
+  autoRefresh?: boolean;
+  className?: string;
+  configuration?: ReactNode;
+  needsRefresh?: boolean;
+  onRefresh?: () => void;
+  refreshKey?: string;
+  refreshing?: boolean;
+  showTrigger?: boolean;
+  triggerLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [fileNameBase, setFileNameBase] = useState('export');
+  const [fileNameExtension, setFileNameExtension] = useState('');
+  const customizedNameRef = useRef(false);
 
   useEffect(() => {
     if (!asset) {
@@ -176,20 +239,7 @@ export default function ExportPreview({
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [open]);
 
-  useEffect(() => {
-    if (!open || !needsRefresh || refreshing || !onRefreshRef.current) return;
-    const key = refreshKey ?? 'changed';
-    if (refreshedKeyRef.current === key) return;
-    const timeout = window.setTimeout(() => {
-      refreshedKeyRef.current = key;
-      onRefreshRef.current?.();
-    }, 400);
-    return () => window.clearTimeout(timeout);
-  }, [needsRefresh, open, refreshKey, refreshing]);
-
-  useEffect(() => {
-    if (!needsRefresh) refreshedKeyRef.current = null;
-  }, [needsRefresh]);
+  useExportPreviewRefresh({ autoRefresh, needsRefresh, onRefresh, open, refreshKey, refreshing });
 
   if (!asset || !url) return null;
 
@@ -203,6 +253,8 @@ export default function ExportPreview({
   const downloadFileName = fileNameExtension
     ? `${resolvedBaseName}.${fileNameExtension}`
     : resolvedBaseName;
+  const resolvedTriggerLabel = exportPreviewTriggerLabel(asset, triggerLabel);
+  const fileMetadata = exportFileMetadata(dimensions, asset);
 
   return (
     <>
@@ -215,7 +267,7 @@ export default function ExportPreview({
           variant='outline'
         >
           <Eye aria-hidden='true' />
-          <span className='responsive-toolbar-label'>{asset.format} preview</span>
+          <span className='responsive-toolbar-label'>{resolvedTriggerLabel}</span>
           <span className='hidden font-mono text-[10px] text-muted-foreground 2xl:inline'>
             {formatFileSize(asset.blob.size)}
           </span>
@@ -261,8 +313,14 @@ export default function ExportPreview({
                 <ExportPreviewMedia asset={asset} downloadFileName={downloadFileName} kind={previewKind} url={url} />
               </div>
 
-              <aside className='flex min-w-0 flex-col gap-5 border-l border-border p-5'>
-                <div className='shader-export-name'>
+              <aside className='shader-export-sidebar studio-scroll-area'>
+                <ExportPreviewConfiguration>{configuration}</ExportPreviewConfiguration>
+
+                <section className='shader-export-name'>
+                  <div className='shader-export-section-heading'>
+                    <strong>File</strong>
+                    <small>{fileMetadata}</small>
+                  </div>
                   <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
                     {asset.format} export
                   </p>
@@ -291,9 +349,9 @@ export default function ExportPreview({
                       asset.elapsedMs === undefined ? null : `rendered in ${formatRenderTime(asset.elapsedMs)}`,
                     ].filter(Boolean).join(' · ')}
                   </p>
-                </div>
+                </section>
 
-                <ExportPreviewContext kind={previewKind} needsRefresh={needsRefresh} />
+                <ExportPreviewContext kind={previewKind} needsRefresh={needsRefresh} refreshing={refreshing} />
 
                 {asset.loopReport ? (
                   <div className='shader-export-loop-proof' role='status'>
@@ -307,7 +365,7 @@ export default function ExportPreview({
                   </div>
                 ) : null}
 
-                <div className='mt-auto flex gap-2 pt-3'>
+                <div className='shader-export-actions'>
                   <Button className='flex-1' onClick={() => setOpen(false)} type='button' variant='outline'>
                     Cancel
                   </Button>

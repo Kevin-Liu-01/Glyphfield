@@ -553,12 +553,14 @@ function StudioWorkspacePanels({
   activeToolId,
   hasPendingIdentityChanges,
   onIdentityChange,
+  onIdentitySave,
 }: {
   activeIdentity: BrandIdentity;
   activeTool: StudioTool;
   activeToolId: StudioToolId;
   hasPendingIdentityChanges: boolean;
   onIdentityChange: (identity: BrandIdentity) => void;
+  onIdentitySave: (identity: BrandIdentity) => void;
 }) {
   return (
     <div
@@ -581,6 +583,7 @@ function StudioWorkspacePanels({
           hasPendingIdentityChanges={hasPendingIdentityChanges}
           identity={activeIdentity}
           onIdentityChange={onIdentityChange}
+          onIdentitySave={onIdentitySave}
           tool={activeTool}
         />
       )}
@@ -1094,6 +1097,18 @@ export default function StudioApp() {
     setPendingIdentities((current) => {
       const nextPendingIdentities = { ...current };
       delete nextPendingIdentities[identityId];
+      return nextPendingIdentities;
+    });
+  }
+
+  function saveIdentityImmediately(nextIdentity: BrandIdentity) {
+    commitIdentities(
+      identities.map((identity) => identity.id === nextIdentity.id ? nextIdentity : identity)
+    );
+    setPendingIdentities((current) => {
+      if (!current[nextIdentity.id]) return current;
+      const nextPendingIdentities = { ...current };
+      delete nextPendingIdentities[nextIdentity.id];
       return nextPendingIdentities;
     });
   }
@@ -1715,6 +1730,7 @@ export default function StudioApp() {
                 activeToolId={activeToolId}
                 hasPendingIdentityChanges={activeIdentityHasPendingChanges}
                 onIdentityChange={updateIdentity}
+                onIdentitySave={saveIdentityImmediately}
               />
             )}
           </div>

@@ -1238,8 +1238,8 @@ function SurfaceTool({ identity, tool }: { identity: BrandIdentity; tool: Studio
   return <BackgroundStudio identity={identity} tool={{ ...tool, id: 'backgrounds' }} />;
 }
 
-function MaterialTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
-  return <LogoShaderStudio identity={identity} tool={{ ...tool, id: 'logo-shader' }} />;
+function MaterialTool({ identity, onIdentitySave, tool }: { identity: BrandIdentity; onIdentitySave: (identity: BrandIdentity) => void; tool: StudioTool }) {
+  return <LogoShaderStudio identity={identity} onIdentitySave={onIdentitySave} tool={{ ...tool, id: 'logo-shader' }} />;
 }
 
 type EditableColor = {
@@ -3616,11 +3616,13 @@ function StudioToolWorkspace({
   hasPendingIdentityChanges,
   identity,
   onIdentityChange,
+  onIdentitySave,
   tool,
 }: {
   hasPendingIdentityChanges: boolean;
   identity: BrandIdentity;
   onIdentityChange: (identity: BrandIdentity) => void;
+  onIdentitySave: (identity: BrandIdentity) => void;
   tool: StudioTool;
 }) {
   const renderers: Partial<Record<StudioToolId, ReactNode>> = {
@@ -3631,7 +3633,7 @@ function StudioToolWorkspace({
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
-    material: <MaterialTool identity={identity} tool={tool} />,
+    material: <MaterialTool identity={identity} onIdentitySave={onIdentitySave} tool={tool} />,
     opengraph: <OpenGraphTool key={`${identity.id}:${tool.id}`} identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,

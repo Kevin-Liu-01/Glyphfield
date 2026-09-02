@@ -113,6 +113,20 @@ describe('Playground optional layers', () => {
     expect(studioStyles).toContain('.shader-export-name-field {');
   });
 
+  it('configures Design Lab exports in one preview workspace instead of the composition sidebar', () => {
+    expect(designLab).toContain("function DesignExportWorkspace({");
+    expect(designLab).toContain("configuration={(");
+    expect(designLab).toContain("autoRefresh={false}");
+    expect(designLab).toContain("triggerLabel='Export'");
+    expect(designLab).toContain("aria-label='Export format'");
+    expect(designLab).not.toContain("shader-lab-v2-composition-subhead'><h4>Output</h4>");
+    expect(exportPreview).toContain('configuration?: ReactNode;');
+    expect(exportPreview).toContain("<strong>Export settings</strong>");
+    expect(exportPreview).toContain("needsRefresh ? 'Update preview'");
+    expect(studioStyles).toContain('.shader-export-settings,');
+    expect(studioStyles).toContain('.shader-export-format {');
+  });
+
   it('invalidates and refreshes an open preview when composition content changes', () => {
     expect(designLab).toContain('const savedDesignRevision = useMemo(() =>');
     expect(designLab).toContain('const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;');
@@ -138,8 +152,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("<span><Ruler aria-hidden='true' />Custom width</span>");
     expect(designLab).toContain("<span><CircleGauge aria-hidden='true' />Quality</span>");
     expect(designLab).toContain("<span><Clock3 aria-hidden='true' />Duration</span>");
-    expect(designLab).toContain("<ImageDown aria-hidden='true' />");
-    expect(designLab).toContain("<Clapperboard aria-hidden='true' />");
+    expect(designLab).toContain("icon: ImageDown, label: 'PNG'");
+    expect(designLab).toContain("icon: Clapperboard, label: 'MP4'");
     expect(studioStyles).toContain('.shader-lab-v2-export-overview {');
   });
 
@@ -213,7 +227,8 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("const DEFAULT_SHADER_MATERIAL_ID = 'paper-gem-smoke'");
     expect(designLab).toContain("const LEGACY_DEFAULT_SHADER_MATERIAL_ID = 'holo-cloth-silk'");
     expect(designLab).toContain('const untouchedLegacyDefault =');
-    expect(designLab).toContain('return untouchedLegacyDefault ? { ...initialShaderLayer } : layer;');
+    expect(designLab).toContain('? { ...initialShaderLayer }');
+    expect(designLab).toContain(': { ...layer, transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM) };');
     expect(designLab).toContain('editingShader?.materialId ?? shaderLayers.at(-1)?.materialId ?? DEFAULT_SHADER_MATERIAL_ID');
     expect(playground).toContain("const LEGACY_PLAYGROUND_SHADER_ID = 'holo-cloth-silk'");
     expect(playground).toContain('playground-gem-smoke-default-v1');
@@ -347,7 +362,9 @@ describe('Playground optional layers', () => {
 
   it('pins static and shader-filled artwork to the editable layer bounds', () => {
     expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(2);
-    expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(2);
+    expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(3);
+    expect(designLab).toContain("className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'");
+    expect(designLab).toContain("<img alt='' className='shader-lab-v2-layer-image' draggable={false} src={url} />");
     expect(studioStyles).toContain('.shader-lab-v2-appearance-preview {');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-preview \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
     expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(1);

@@ -51,6 +51,7 @@ import {
   canvasLayerDimensions,
   canvasSelectionBounds,
   isAdditiveCanvasSelection,
+  MIN_CANVAS_LAYER_SCALE,
   nextCanvasLayerSelection,
   normalizeCanvasLayerTransform,
   type CanvasLayerAlignment,
@@ -59,6 +60,7 @@ import {
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import ImageAssetModal, { type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
@@ -112,6 +114,7 @@ import {
   brandTypographyRole,
   brandTypographyWeightRange,
   resolveBrandTypographyWeight,
+  type BrandAsset,
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
@@ -184,9 +187,9 @@ import { copyTextToClipboard } from '@/lib/clipboard';
 import { imageUrlToDataUrl } from '@/lib/download';
 import {
   fitImageLayerToCanvas,
-  imageLayerName,
   previewContainedImageBounds,
 } from '@/lib/imagePlacement';
+import { createImportedBrandAsset, readEmbeddedImageFile } from '@/lib/imageAssets';
 import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
@@ -239,12 +242,13 @@ type LogoLayerId = `logo-${string}`;
 type TextLayerId = `text-${string}`;
 type AssetLayerId = `asset-${string}`;
 type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
+type CanvasLayerId = ShaderLayerId | ContentLayerId;
 type CompositionLayerId = ShaderLayerId | EffectLayerId | ContentLayerId;
 type CompositionLayerGroupId = `group-${string}`;
 
 type CompositionLayerGroup = {
   id: CompositionLayerGroupId;
-  layerIds: ContentLayerId[];
+  layerIds: CanvasLayerId[];
   name: string;
 };
 
@@ -259,6 +263,7 @@ type ShaderApplication = {
 type CompositionShaderLayer = ShaderApplication & {
   id: ShaderLayerId;
   name: string;
+  transform: CanvasLayerTransform;
   visible: boolean;
 };
 
@@ -286,6 +291,7 @@ type CompositionLogoLayer = {
 type CompositionAsset = {
   appearance?: LogoAppearanceSettings;
   id: AssetLayerId;
+  libraryAssetId?: string;
   name: string;
   opacity?: number;
   transform: CanvasLayerTransform;
@@ -438,10 +444,12 @@ function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExpor
 }
 
 function DesignExportControls({
+  format,
   onChange,
   ratioOption,
   settings,
 }: {
+  format: DesignExportFormat;
   onChange: (patch: Partial<DesignExportSettings>) => void;
   ratioOption: (typeof RATIO_OPTIONS)[number];
   settings: DesignExportSettings;
@@ -458,6 +466,7 @@ function DesignExportControls({
     height: dimensions.height,
     width: dimensions.width,
   });
+  const motion = format === 'gif' || format === 'mp4';
 
   return (
     <div className='shader-lab-v2-output-controls'>
@@ -467,8 +476,10 @@ function DesignExportControls({
           <span><small>Output size</small><strong>{dimensions.width} × {dimensions.height}</strong></span>
         </div>
         <div>
-          <Film aria-hidden='true' />
-          <span><small>Animation · {frameCount} frames</small><strong>{settings.durationMs / 1_000}s · {settings.fps} FPS</strong></span>
+          {motion ? <Film aria-hidden='true' /> : <FileImage aria-hidden='true' />}
+          {motion
+            ? <span><small>Animation · {frameCount} frames</small><strong>{settings.durationMs / 1_000}s · {settings.fps} FPS</strong></span>
+            : <span><small>Static image</small><strong>{format.toUpperCase()} · {settings.quality}</strong></span>}
         </div>
       </div>
       <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
@@ -530,51 +541,106 @@ function DesignExportControls({
           })}
         </div>
       </div>
-      <div className='shader-lab-v2-export-motion'>
-        <label>
-          <span><Clock3 aria-hidden='true' />Duration</span>
-          <StudioSelect
-            ariaLabel='Export duration'
-            onValueChange={(value) => onChange({ durationMs: Number(value) })}
-            options={[
-              { label: '1.2 seconds', value: '1200' },
-              { label: '1.6 seconds', value: '1600' },
-              { label: '2.4 seconds', value: '2400' },
-              { label: '4 seconds', value: '4000' },
-            ]}
-            value={String(settings.durationMs)}
-          />
-        </label>
-        <label>
-          <span><Film aria-hidden='true' />Frame rate</span>
-          <StudioSelect
-            ariaLabel='Export frame rate'
-            onValueChange={(value) => onChange({ fps: Number(value) })}
-            options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
-            value={String(settings.fps)}
-          />
-        </label>
-      </div>
-      <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
-        <span><Repeat2 aria-hidden='true' />GIF loop</span>
-        <div>
-          <button
-            aria-pressed={settings.gifLoop === 'seamless'}
-            onClick={() => onChange({ gifLoop: 'seamless' })}
-            title='Blend and verify the closing frame for a smooth loop.'
-            type='button'
-          >Seamless</button>
-          <button
-            aria-pressed={settings.gifLoop === 'raw'}
-            onClick={() => onChange({ gifLoop: 'raw' })}
-            title='Repeat captured frames without correcting the seam.'
-            type='button'
-          >Raw motion</button>
+      {motion ? (
+        <div className='shader-lab-v2-export-motion'>
+          <label>
+            <span><Clock3 aria-hidden='true' />Duration</span>
+            <StudioSelect
+              ariaLabel='Export duration'
+              onValueChange={(value) => onChange({ durationMs: Number(value) })}
+              options={[
+                { label: '1.2 seconds', value: '1200' },
+                { label: '1.6 seconds', value: '1600' },
+                { label: '2.4 seconds', value: '2400' },
+                { label: '4 seconds', value: '4000' },
+              ]}
+              value={String(settings.durationMs)}
+            />
+          </label>
+          <label>
+            <span><Film aria-hidden='true' />Frame rate</span>
+            <StudioSelect
+              ariaLabel='Export frame rate'
+              onValueChange={(value) => onChange({ fps: Number(value) })}
+              options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
+              value={String(settings.fps)}
+            />
+          </label>
         </div>
-        <small>{settings.gifLoop === 'seamless'
-          ? `Smooth close · ${loopOverlapFrames}-frame overlap verified after render`
-          : 'Direct repeat · best for shaders that already loop naturally'}</small>
+      ) : null}
+      {format === 'gif' ? (
+        <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
+          <span><Repeat2 aria-hidden='true' />GIF loop</span>
+          <div>
+            <button
+              aria-pressed={settings.gifLoop === 'seamless'}
+              onClick={() => onChange({ gifLoop: 'seamless' })}
+              title='Blend and verify the closing frame for a smooth loop.'
+              type='button'
+            >Seamless</button>
+            <button
+              aria-pressed={settings.gifLoop === 'raw'}
+              onClick={() => onChange({ gifLoop: 'raw' })}
+              title='Repeat captured frames without correcting the seam.'
+              type='button'
+            >Raw motion</button>
+          </div>
+          <small>{settings.gifLoop === 'seamless'
+            ? `Smooth close · ${loopOverlapFrames}-frame overlap verified after render`
+            : 'Direct repeat · best for shaders that already loop naturally'}</small>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DesignExportWorkspace({
+  disabled,
+  format,
+  onChange,
+  onFormatChange,
+  ratioOption,
+  settings,
+}: {
+  disabled: boolean;
+  format: DesignExportFormat;
+  onChange: (patch: Partial<DesignExportSettings>) => void;
+  onFormatChange: (format: DesignExportFormat) => void;
+  ratioOption: (typeof RATIO_OPTIONS)[number];
+  settings: DesignExportSettings;
+}) {
+  const formats: readonly { description: string; icon: typeof ImageDown; label: string; value: DesignExportFormat }[] = [
+    { description: 'Transparent image', icon: ImageDown, label: 'PNG', value: 'png' },
+    { description: 'Smaller image', icon: FileImage, label: 'JPG', value: 'jpg' },
+    { description: 'Looping motion', icon: Film, label: 'GIF', value: 'gif' },
+    { description: 'Video', icon: Clapperboard, label: 'MP4', value: 'mp4' },
+  ];
+
+  return (
+    <div className='shader-export-workspace' aria-busy={disabled}>
+      <div className='shader-export-format' aria-label='Export format'>
+        {formats.map((option) => {
+          const FormatIcon = option.icon;
+          return (
+            <button
+              aria-pressed={format === option.value}
+              disabled={disabled}
+              key={option.value}
+              onClick={() => onFormatChange(option.value)}
+              type='button'
+            >
+              <FormatIcon aria-hidden='true' />
+              <span><strong>{option.label}</strong><small>{option.description}</small></span>
+            </button>
+          );
+        })}
       </div>
+      <DesignExportControls
+        format={format}
+        onChange={onChange}
+        ratioOption={ratioOption}
+        settings={settings}
+      />
     </div>
   );
 }
@@ -900,18 +966,6 @@ const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
   textEffect: { ...DEFAULT_TEXT_EFFECT },
 };
 
-function fileDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      if (typeof reader.result === 'string') resolve(reader.result);
-      else reject(new TypeError(`Could not read ${file.name}.`));
-    }, { once: true });
-    reader.addEventListener('error', () => reject(reader.error ?? new TypeError(`Could not read ${file.name}.`)), { once: true });
-    reader.readAsDataURL(file);
-  });
-}
-
 function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
   return layerId?.startsWith('text-') ?? false;
 }
@@ -934,6 +988,10 @@ function isAssetLayerId(layerId: CompositionLayerId | null): layerId is AssetLay
 
 function isContentLayerId(layerId: CompositionLayerId | null): layerId is ContentLayerId {
   return isLogoLayerId(layerId) || isTextLayerId(layerId) || isAssetLayerId(layerId);
+}
+
+function isCanvasLayerId(layerId: CompositionLayerId | null): layerId is CanvasLayerId {
+  return isShaderLayerId(layerId) || isContentLayerId(layerId);
 }
 
 function CanvasLayerKindIcon({ layerId }: { layerId: CompositionLayerId }) {
@@ -1098,6 +1156,7 @@ function restoredImageLayers(
     return [{
       appearance: savedAsset.appearance ? { ...savedAsset.appearance } : current?.appearance ?? { ...DEFAULT_LOGO_APPEARANCE },
       id: savedAsset.id,
+      libraryAssetId: savedAsset.libraryAssetId ?? current?.libraryAssetId,
       name: savedAsset.name ?? current?.name ?? 'Image',
       opacity: savedAsset.opacity ?? current?.opacity ?? 1,
       transform: normalizeCanvasLayerTransform(savedAsset.transform, current?.transform ?? DEFAULT_LAYER_TRANSFORM),
@@ -1134,6 +1193,7 @@ function restoredShaderLayers(
     ...layer,
     settings: { ...layer.settings },
     shaderSize: clampShaderZoom(layer.shaderSize),
+    transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM),
   }));
   if (targetLayerId && !layers.some(({ id }) => id === targetLayerId)) {
     throw new TypeError('Shader sequence target layer does not exist.');
@@ -1357,8 +1417,16 @@ function InspectorTextArea({
   );
 }
 
-function layerGeometry(layerId: ContentLayerId, ratio: ShaderRatio): LayerGeometry {
+function layerGeometry(layerId: CanvasLayerId, ratio: ShaderRatio): LayerGeometry {
   const canvas = CANVAS_DIMENSIONS[ratio];
+  if (isShaderLayerId(layerId)) {
+    return {
+      baseHeight: canvas.height,
+      baseWidth: canvas.width,
+      baseX: 0,
+      baseY: 0,
+    };
+  }
   if (isTextLayerId(layerId)) {
     const baseWidth = canvas.width * 0.72;
     const baseHeight = canvas.height * 0.25;
@@ -1931,29 +1999,34 @@ function createContainedLayer(
   image: HTMLImageElement,
   width: number,
   height: number,
-  color?: string
+  color?: string,
+  fillFrame = false
 ) {
   const layer = document.createElement('canvas');
   layer.width = Math.max(1, Math.round(width));
   layer.height = Math.max(1, Math.round(height));
   const layerContext = layer.getContext('2d');
   if (!layerContext) return layer;
-  const bounds = previewContainedImageBounds({
-    boxHeight: layer.height,
-    boxWidth: layer.width,
-    imageHeight: image.naturalHeight || 1,
-    imageWidth: image.naturalWidth || 1,
-  });
-  drawContained(
-    layerContext,
-    image,
-    image.naturalWidth || 1,
-    image.naturalHeight || 1,
-    bounds.x,
-    bounds.y,
-    bounds.width,
-    bounds.height
-  );
+  if (fillFrame) {
+    layerContext.drawImage(image, 0, 0, layer.width, layer.height);
+  } else {
+    const bounds = previewContainedImageBounds({
+      boxHeight: layer.height,
+      boxWidth: layer.width,
+      imageHeight: image.naturalHeight || 1,
+      imageWidth: image.naturalWidth || 1,
+    });
+    drawContained(
+      layerContext,
+      image,
+      image.naturalWidth || 1,
+      image.naturalHeight || 1,
+      bounds.x,
+      bounds.y,
+      bounds.width,
+      bounds.height
+    );
+  }
   if (color) {
     layerContext.globalCompositeOperation = 'source-in';
     layerContext.fillStyle = color;
@@ -2303,17 +2376,18 @@ async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, 
 
 type RenderLiveMaterial = (application: ShaderApplication, instanceKey: string) => ReactNode;
 
-function canvasMediaMaskStyle(url: string): CSSProperties {
+function canvasMediaMaskStyle(url: string, fillFrame = false): CSSProperties {
+  const maskSize = fillFrame ? '100% 100%' : 'contain';
   return {
     WebkitMaskImage: `url("${url}")`,
     WebkitMaskPosition: 'center',
     WebkitMaskRepeat: 'no-repeat',
-    WebkitMaskSize: 'contain',
+    WebkitMaskSize: maskSize,
     maskImage: `url("${url}")`,
     maskMode: 'alpha',
     maskPosition: 'center',
     maskRepeat: 'no-repeat',
-    maskSize: 'contain',
+    maskSize,
   };
 }
 
@@ -2339,6 +2413,19 @@ function ShaderMaskedMediaContent({
   url: string;
 }) {
   const appearance = resolvedLogoAppearance(appearanceSettings);
+  if (!application && preserveColors) {
+    return (
+      <AppearanceFilteredContent
+        ariaLabel={label}
+        className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'
+        opacity={opacity}
+        settings={appearance}
+      >
+        {/* The canvas frame already carries the imported image's aspect ratio. */}
+        <img alt='' className='shader-lab-v2-layer-image' draggable={false} src={url} />
+      </AppearanceFilteredContent>
+    );
+  }
   if (!application) {
     return (
       <LogoAppearancePreview
@@ -2365,6 +2452,7 @@ function ShaderMaskedMediaContent({
           ariaLabel={`${label} silhouette effects`}
           className='shader-lab-v2-appearance-stack-layer'
           color={appearance.borderColor}
+          fillFrame={preserveColors}
           logoPath={url}
           settings={{
             ...appearance,
@@ -2383,7 +2471,7 @@ function ShaderMaskedMediaContent({
         <div
           className='shader-lab-v2-layer-logo-mask'
           data-shader-instance={instanceKey}
-          style={canvasMediaMaskStyle(url)}
+          style={canvasMediaMaskStyle(url, preserveColors)}
         >
           {renderMaterial(application, instanceKey)}
         </div>
@@ -3019,26 +3107,90 @@ function DesignLabShaderInspector({
   </>;
 }
 
+function DesignLabShaderFrameInspector({
+  canvasHeight,
+  canvasWidth,
+  layer,
+  onChange,
+}: {
+  canvasHeight: number;
+  canvasWidth: number;
+  layer: CompositionShaderLayer;
+  onChange: (transform: CanvasLayerTransform) => void;
+}) {
+  const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
+  const widthScale = transform.widthScale ?? transform.scale;
+  const heightScale = transform.heightScale ?? transform.scale;
+  return (
+    <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-shader-frame' meta='Canvas bounds' title='Shader frame'>
+      <p>Drag the shader directly on the canvas, or use exact position and size controls.</p>
+      <div className='shader-lab-v2-ranges'>
+        <RangeControl
+          formatValue={(value) => `${Math.round(value)} px`}
+          label='Horizontal position'
+          max={canvasWidth}
+          min={-canvasWidth}
+          onChange={(x) => onChange({ ...transform, x })}
+          step={1}
+          value={transform.x}
+        />
+        <RangeControl
+          formatValue={(value) => `${Math.round(value)} px`}
+          label='Vertical position'
+          max={canvasHeight}
+          min={-canvasHeight}
+          onChange={(y) => onChange({ ...transform, y })}
+          step={1}
+          value={transform.y}
+        />
+        <RangeControl
+          formatValue={(value) => `${Math.round(value * 100)}%`}
+          label='Frame width'
+          max={3}
+          min={MIN_CANVAS_LAYER_SCALE}
+          onChange={(widthScale) => onChange({ ...transform, widthScale })}
+          step={0.01}
+          value={widthScale}
+        />
+        <RangeControl
+          formatValue={(value) => `${Math.round(value * 100)}%`}
+          label='Frame height'
+          max={3}
+          min={MIN_CANVAS_LAYER_SCALE}
+          onChange={(heightScale) => onChange({ ...transform, heightScale })}
+          step={0.01}
+          value={heightScale}
+        />
+      </div>
+      <Button onClick={() => onChange({ ...DEFAULT_LAYER_TRANSFORM })} size='sm' type='button' variant='outline'>
+        <RotateCcw aria-hidden='true' />Fit shader to canvas
+      </Button>
+    </LabInspectorSection>
+  );
+}
+
 type DesignLabCanvasSelectionInput = {
   canvasDimensions: { height: number; width: number };
   compositionAssets: CompositionAsset[];
   duplicateLayer: (id: CompositionLayerId) => CompositionLayerId | null;
   layerGroups: CompositionLayerGroup[];
-  layerGroupByLayerId: ReadonlyMap<ContentLayerId, CompositionLayerGroup>;
+  layerGroupByLayerId: ReadonlyMap<CanvasLayerId, CompositionLayerGroup>;
   layerOrder: CompositionLayerId[];
   layerVisible: (id: CompositionLayerId) => boolean;
   logoLayers: CompositionLogoLayer[];
   ratio: ShaderRatio;
   removeLayer: (id: CompositionLayerId) => void;
-  selectedCanvasLayerIds: ContentLayerId[];
+  selectedCanvasLayerIds: CanvasLayerId[];
   setCompositionAssets: Dispatch<SetStateAction<CompositionAsset[]>>;
   setLayerGroups: Dispatch<SetStateAction<CompositionLayerGroup[]>>;
   setLayerOrder: Dispatch<SetStateAction<CompositionLayerId[]>>;
   setLogoLayers: Dispatch<SetStateAction<CompositionLogoLayer[]>>;
-  setSelectedCanvasLayerIds: Dispatch<SetStateAction<ContentLayerId[]>>;
+  setSelectedCanvasLayerIds: Dispatch<SetStateAction<CanvasLayerId[]>>;
   setSelectedLayerId: Dispatch<SetStateAction<CompositionLayerId | null>>;
   setSelectionMenuPosition: Dispatch<SetStateAction<CanvasSelectionMenuPosition | null>>;
+  setShaderLayers: Dispatch<SetStateAction<CompositionShaderLayer[]>>;
   setTextLayers: Dispatch<SetStateAction<CompositionTextLayer[]>>;
+  shaderLayers: CompositionShaderLayer[];
   textLayers: CompositionTextLayer[];
 };
 
@@ -3112,11 +3264,17 @@ function useDesignLabLayerActions({
     const source = shaderLayers.find((layer) => layer.id === id);
     if (!source) return null;
     const nextId = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
+    const transform = normalizeCanvasLayerTransform(source.transform, DEFAULT_LAYER_TRANSFORM);
     setShaderLayers((current) => [...current, {
       ...source,
       id: nextId,
       name: `${source.name} copy`,
       settings: { ...source.settings },
+      transform: {
+        ...transform,
+        x: transform.x + 32,
+        y: transform.y + 32,
+      },
     }]);
     placeLayerAfter(id, nextId);
     return nextId;
@@ -3261,15 +3419,21 @@ function useDesignLabCanvasSelection({
   setSelectedCanvasLayerIds,
   setSelectedLayerId,
   setSelectionMenuPosition,
+  setShaderLayers,
   setTextLayers,
+  shaderLayers,
   textLayers,
 }: DesignLabCanvasSelectionInput) {
   const selectedCanvasLayerIdSet = useMemo(
-    () => new Set<ContentLayerId>(selectedCanvasLayerIds),
+    () => new Set<CanvasLayerId>(selectedCanvasLayerIds),
     [selectedCanvasLayerIds]
   );
 
-  function contentLayerTransform(id: ContentLayerId): CanvasLayerTransform | null {
+  function canvasLayerTransform(id: CanvasLayerId): CanvasLayerTransform | null {
+    if (isShaderLayerId(id)) {
+      const transform = shaderLayers.find((candidate) => candidate.id === id)?.transform;
+      return transform ? normalizeCanvasLayerTransform(transform, DEFAULT_LAYER_TRANSFORM) : null;
+    }
     if (isTextLayerId(id)) {
       const layer = textLayers.find((candidate) => candidate.id === id);
       return layer ? resolvedTextTransform(layer.transform) : null;
@@ -3280,7 +3444,11 @@ function useDesignLabCanvasSelection({
     return compositionAssets.find((candidate) => candidate.id === id)?.transform ?? null;
   }
 
-  function updateContentLayerTransforms(updates: ReadonlyMap<ContentLayerId, CanvasLayerTransform>) {
+  function updateCanvasLayerTransforms(updates: ReadonlyMap<CanvasLayerId, CanvasLayerTransform>) {
+    setShaderLayers((current) => current.map((layer) => {
+      const transform = updates.get(layer.id);
+      return transform ? { ...layer, transform } : layer;
+    }));
     setTextLayers((current) => current.map((layer) => {
       const transform = updates.get(layer.id);
       return transform ? { ...layer, transform } : layer;
@@ -3295,16 +3463,16 @@ function useDesignLabCanvasSelection({
     }));
   }
 
-  function groupForLayer(id: ContentLayerId) {
+  function groupForLayer(id: CanvasLayerId) {
     return layerGroupByLayerId.get(id) ?? null;
   }
 
-  function selectableAssemblyFor(id: ContentLayerId): ContentLayerId[] {
+  function selectableAssemblyFor(id: CanvasLayerId): CanvasLayerId[] {
     const ids = groupForLayer(id)?.layerIds ?? [id];
     return ids.filter(layerVisible);
   }
 
-  function selectCanvasAssembly(id: ContentLayerId, additive = false) {
+  function selectCanvasAssembly(id: CanvasLayerId, additive = false) {
     const targetIds = selectableAssemblyFor(id);
     setSelectedCanvasLayerIds((current) => nextCanvasLayerSelection(current, targetIds, id, additive));
     if (additive && targetIds.every((layerId) => selectedCanvasLayerIdSet.has(layerId))) {
@@ -3325,33 +3493,33 @@ function useDesignLabCanvasSelection({
 
   function selectLayerFromStack(id: CompositionLayerId) {
     setSelectedLayerId(id);
-    setSelectedCanvasLayerIds(isContentLayerId(id) ? selectableAssemblyFor(id) : []);
+    setSelectedCanvasLayerIds(isCanvasLayerId(id) ? selectableAssemblyFor(id) : []);
     setSelectionMenuPosition(null);
   }
 
-  function updateCanvasLayerTransform(id: ContentLayerId, nextTransform: CanvasLayerTransform) {
-    const currentTransform = contentLayerTransform(id);
+  function updateCanvasLayerTransform(id: CanvasLayerId, nextTransform: CanvasLayerTransform) {
+    const currentTransform = canvasLayerTransform(id);
     if (!currentTransform) return;
     const selectedIds = selectedCanvasLayerIdSet.has(id)
       ? selectedCanvasLayerIds
       : selectableAssemblyFor(id);
     if (selectedIds.length <= 1) {
-      updateContentLayerTransforms(new Map([[id, nextTransform]]));
+      updateCanvasLayerTransforms(new Map([[id, nextTransform]]));
       return;
     }
     const deltaX = nextTransform.x - currentTransform.x;
     const deltaY = nextTransform.y - currentTransform.y;
-    const updates = new Map<ContentLayerId, CanvasLayerTransform>();
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
     selectedIds.forEach((layerId) => {
-      const transform = contentLayerTransform(layerId);
+      const transform = canvasLayerTransform(layerId);
       if (!transform) return;
       updates.set(layerId, { ...transform, x: transform.x + deltaX, y: transform.y + deltaY });
     });
-    updateContentLayerTransforms(updates);
+    updateCanvasLayerTransforms(updates);
   }
 
   const selectedCanvasItems = selectedCanvasLayerIds.flatMap((layerId): CanvasSelectionItem[] => {
-    const transform = contentLayerTransform(layerId);
+    const transform = canvasLayerTransform(layerId);
     return transform ? [{ geometry: layerGeometry(layerId, ratio), transform }] : [];
   });
   const selectedCanvasBounds = canvasSelectionBounds(selectedCanvasItems);
@@ -3363,18 +3531,18 @@ function useDesignLabCanvasSelection({
     group.layerIds.some((layerId) => selectedCanvasLayerIdSet.has(layerId))
   ));
 
-  function movementBoundsFor(id: ContentLayerId): CanvasLayerBounds | null {
+  function movementBoundsFor(id: CanvasLayerId): CanvasLayerBounds | null {
     const layerIds = selectedCanvasLayerIdSet.has(id) && selectedCanvasLayerIds.length > 1
       ? selectedCanvasLayerIds
       : groupForLayer(id)?.layerIds ?? [];
     if (layerIds.length < 2) return null;
     return canvasSelectionBounds(layerIds.flatMap((layerId): CanvasSelectionItem[] => {
-      const transform = contentLayerTransform(layerId);
+      const transform = canvasLayerTransform(layerId);
       return transform ? [{ geometry: layerGeometry(layerId, ratio), transform }] : [];
     }));
   }
 
-  function openCanvasSelectionMenu(id: ContentLayerId, event: ReactMouseEvent<HTMLDivElement>) {
+  function openCanvasSelectionMenu(id: CanvasLayerId, event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     if (!selectedCanvasLayerIdSet.has(id)) selectCanvasAssembly(id);
@@ -3413,12 +3581,12 @@ function useDesignLabCanvasSelection({
       canvasDimensions.height,
       alignment
     );
-    const updates = new Map<ContentLayerId, CanvasLayerTransform>();
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
     selectedCanvasLayerIds.forEach((layerId, index) => {
       const transform = transforms[index];
       if (transform) updates.set(layerId, transform);
     });
-    updateContentLayerTransforms(updates);
+    updateCanvasLayerTransforms(updates);
   }
 
   function moveCanvasSelection(direction: -1 | 1) {
@@ -3453,12 +3621,12 @@ function useDesignLabCanvasSelection({
   }
 
   function duplicateCanvasSelection() {
-    const sourceIds = layerOrder.filter((layerId): layerId is ContentLayerId => (
-      isContentLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)
+    const sourceIds = layerOrder.filter((layerId): layerId is CanvasLayerId => (
+      isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)
     ));
-    const nextIds = sourceIds.flatMap((layerId): ContentLayerId[] => {
+    const nextIds = sourceIds.flatMap((layerId): CanvasLayerId[] => {
       const nextId = duplicateLayer(layerId);
-      return nextId && isContentLayerId(nextId) ? [nextId] : [];
+      return nextId && isCanvasLayerId(nextId) ? [nextId] : [];
     });
     if (nextIds.length === 0) return;
     if (selectedCanvasGroup && nextIds.length > 1) {
@@ -3521,10 +3689,12 @@ function useDesignLabCanvasSelection({
 export default function ShaderLabStudio({
   identity,
   navigation,
+  onIdentitySave,
   tool,
 }: {
   identity: BrandIdentity;
   navigation?: ReactNode;
+  onIdentitySave?: (identity: BrandIdentity) => void;
   tool: StudioTool;
 }) {
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
@@ -3540,12 +3710,14 @@ export default function ShaderLabStudio({
     ...shaderApplicationFor(DEFAULT_SHADER_MATERIAL_ID, brandPalette.colors),
     id: DEFAULT_CANVAS_SHADER_ID,
     name: 'Canvas shader 1',
+    transform: { ...DEFAULT_LAYER_TRANSFORM },
     visible: true,
   }), [brandPalette.colors]);
   const legacyDefaultShaderLayer = useMemo<CompositionShaderLayer>(() => ({
     ...shaderApplicationFor(LEGACY_DEFAULT_SHADER_MATERIAL_ID, brandPalette.colors),
     id: DEFAULT_CANVAS_SHADER_ID,
     name: 'Canvas shader 1',
+    transform: { ...DEFAULT_LAYER_TRANSFORM },
     visible: true,
   }), [brandPalette.colors]);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -3559,7 +3731,7 @@ export default function ShaderLabStudio({
   }>>(new Map());
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const assetInputRef = useRef<HTMLInputElement>(null);
+  const imageImportRequestIdRef = useRef(0);
   const selectMaterialRef = useCommittedRef(selectMaterial);
   const handleMaterialSelect = useCallback((materialId: LiveMaterialId) => {
     selectMaterialRef.current(materialId);
@@ -3637,7 +3809,7 @@ export default function ShaderLabStudio({
   const [compositionAssets, setCompositionAssets] = useState<CompositionAsset[]>([]);
   const [storedLayerOrder, setLayerOrder] = useState<CompositionLayerId[]>([DEFAULT_CANVAS_SHADER_ID, DEFAULT_LOGO_LAYER_ID]);
   const [storedSelectedLayerId, setSelectedLayerId] = useState<CompositionLayerId | null>(DEFAULT_CANVAS_SHADER_ID);
-  const [storedSelectedCanvasLayerIds, setSelectedCanvasLayerIds] = useState<ContentLayerId[]>([]);
+  const [storedSelectedCanvasLayerIds, setSelectedCanvasLayerIds] = useState<CanvasLayerId[]>([DEFAULT_CANVAS_SHADER_ID]);
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -3650,6 +3822,9 @@ export default function ShaderLabStudio({
   const [exportError, setExportError] = useState<string | null>(null);
   const [imageDropActive, setImageDropActive] = useState(false);
   const [imageImportState, setImageImportState] = useState<ImageImportState>({ message: '', status: 'idle' });
+  const [imageImportOpen, setImageImportOpen] = useState(false);
+  const [imageImportRequest, setImageImportRequest] = useState<ImageImportRequest | null>(null);
+  const [imageImportError, setImageImportError] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [lastExportRequest, setLastExportRequest] = useState<DesignExportRequest | null>(null);
 
@@ -3731,19 +3906,20 @@ export default function ShaderLabStudio({
   const selectedLayerId = storedSelectedLayerId && layerOrderIdSet.has(storedSelectedLayerId)
     ? storedSelectedLayerId
     : null;
-  const contentLayerIds = useMemo<ContentLayerId[]>(() => [
+  const canvasLayerIds = useMemo<CanvasLayerId[]>(() => [
+    ...shaderLayers.map(({ id }) => id),
     ...textLayers.map(({ id }) => id),
     ...logoLayers.map(({ id }) => id),
     ...compositionAssets.map(({ id }) => id),
-  ], [compositionAssets, logoLayers, textLayers]);
-  const contentLayerIdSet = useMemo(() => new Set<ContentLayerId>(contentLayerIds), [contentLayerIds]);
+  ], [compositionAssets, logoLayers, shaderLayers, textLayers]);
+  const canvasLayerIdSet = useMemo(() => new Set<CanvasLayerId>(canvasLayerIds), [canvasLayerIds]);
   const layerGroups = useMemo(
-    () => reconcileDesignLabLayerGroups(storedLayerGroups, contentLayerIds) as CompositionLayerGroup[],
-    [contentLayerIds, storedLayerGroups]
+    () => reconcileDesignLabLayerGroups(storedLayerGroups, canvasLayerIds) as CompositionLayerGroup[],
+    [canvasLayerIds, storedLayerGroups]
   );
   const selectedCanvasLayerIds = useMemo(
-    () => storedSelectedCanvasLayerIds.filter((id) => contentLayerIdSet.has(id)),
-    [contentLayerIdSet, storedSelectedCanvasLayerIds]
+    () => storedSelectedCanvasLayerIds.filter((id) => canvasLayerIdSet.has(id)),
+    [canvasLayerIdSet, storedSelectedCanvasLayerIds]
   );
   const savedDesignRevision = useMemo(() => `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${JSON.stringify({
     background: canvasBackground,
@@ -3863,7 +4039,7 @@ export default function ShaderLabStudio({
     textLayers,
   });
   const layerGroupByLayerId = useMemo(() => {
-    const groups = new Map<ContentLayerId, CompositionLayerGroup>();
+    const groups = new Map<CanvasLayerId, CompositionLayerGroup>();
     for (const group of layerGroups) {
       for (const layerId of group.layerIds) groups.set(layerId, group);
     }
@@ -3935,7 +4111,9 @@ export default function ShaderLabStudio({
     setSelectedCanvasLayerIds,
     setSelectedLayerId,
     setSelectionMenuPosition,
+    setShaderLayers,
     setTextLayers,
+    shaderLayers,
     textLayers,
   });
   useEffect(() => () => {
@@ -3989,7 +4167,9 @@ export default function ShaderLabStudio({
         && layer.opacity === legacyDefaultShaderLayer.opacity
         && layer.shaderSize === legacyDefaultShaderLayer.shaderSize
         && JSON.stringify(layer.settings) === legacySettings;
-      return untouchedLegacyDefault ? { ...initialShaderLayer } : layer;
+      return untouchedLegacyDefault
+        ? { ...initialShaderLayer }
+        : { ...layer, transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM) };
     }));
   }, [brandPalette.colors, draftHydrated, identity.id, initialShaderLayer, legacyDefaultShaderLayer, setShaderLayers, tool.id]);
 
@@ -4259,6 +4439,7 @@ export default function ShaderLabStudio({
       }),
       id,
       name: `Canvas shader ${number}`,
+      transform: { ...DEFAULT_LAYER_TRANSFORM },
       visible: true,
     };
     setShaderLayers((current) => [...current, layer]);
@@ -4268,7 +4449,7 @@ export default function ShaderLabStudio({
       return [...current.slice(0, index), id, ...current.slice(index)];
     });
     setSelectedLayerId(id);
-    setSelectedCanvasLayerIds([]);
+    setSelectedCanvasLayerIds([id]);
   }
 
   function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
@@ -4469,37 +4650,34 @@ export default function ShaderLabStudio({
     setSelectedLayerId((current) => current === id ? null : current);
   }
 
-  const addAssets = useCallback(async (files: FileList | readonly File[] | null) => {
-    const images = Array.from(files ?? []).filter((file) => file.type.startsWith('image/'));
-    if (images.length === 0) {
-      setImageImportState({ message: 'Choose an image file to add it to the canvas.', status: 'error' });
-      if (assetInputRef.current) assetInputRef.current.value = '';
-      return;
-    }
-    setImageImportState({
-      message: `Adding ${images.length} image${images.length === 1 ? '' : 's'}…`,
-      status: 'importing',
-    });
+  const openImageImport = useCallback((files: readonly File[] = []) => {
+    imageImportRequestIdRef.current += 1;
+    setImageImportRequest({ files, id: imageImportRequestIdRef.current });
+    setImageImportError(null);
+    setImageImportOpen(true);
+  }, []);
+
+  const placeBrandAssets = useCallback(async (assets: readonly BrandAsset[]) => {
     const usedNames = new Set(compositionAssets.map(({ name }) => name));
     const geometry = layerGeometry('asset-import' as AssetLayerId, ratio);
-    const columns = Math.min(3, images.length);
-    const rows = Math.ceil(images.length / columns);
-    const results = await Promise.allSettled(images.map(async (file, index): Promise<CompositionAsset> => {
-      const baseName = imageLayerName(file.name, `Image ${compositionAssets.length + index + 1}`);
-      let name = baseName;
+    const columns = Math.min(3, assets.length);
+    const rows = Math.ceil(assets.length / Math.max(1, columns));
+    const results = await Promise.allSettled(assets.map(async (asset, index): Promise<CompositionAsset> => {
+      const image = await loadCanvasImage(asset.path);
+      let name = asset.label.trim() || `Image ${compositionAssets.length + index + 1}`;
+      const baseName = name;
       let suffix = 2;
       while (usedNames.has(name)) {
         name = `${baseName} ${suffix}`;
-        suffix = suffix + 1;
+        suffix += 1;
       }
       usedNames.add(name);
-      const url = await fileDataUrl(file);
-      const image = await loadCanvasImage(url);
-      const column = index % columns;
-      const row = Math.floor(index / columns);
+      const column = index % Math.max(1, columns);
+      const row = Math.floor(index / Math.max(1, columns));
       return {
         appearance: { ...DEFAULT_LOGO_APPEARANCE },
         id: `asset-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${index}`}`,
+        libraryAssetId: asset.id,
         name,
         opacity: 1,
         transform: fitImageLayerToCanvas({
@@ -4511,28 +4689,70 @@ export default function ShaderLabStudio({
           x: (column - (columns - 1) / 2) * 44,
           y: (row - (rows - 1) / 2) * 36,
         }),
-        url,
+        url: asset.path,
         visible: true,
       };
     }));
     const nextAssets = results.flatMap((result): CompositionAsset[] => result.status === 'fulfilled' ? [result.value] : []);
-    const failedCount = results.length - nextAssets.length;
-    if (assetInputRef.current) assetInputRef.current.value = '';
-    if (nextAssets.length === 0) {
-      setImageImportState({ message: 'Those images could not be read. Try PNG, JPG, WebP, AVIF, GIF, or SVG.', status: 'error' });
-      return;
-    }
+    if (nextAssets.length === 0) throw new TypeError('The selected image could not be decoded.');
     setCompositionAssets((current) => [...current, ...nextAssets]);
     setLayerOrder((current) => [...current, ...nextAssets.map(({ id }) => id)]);
     setSelectedLayerId(nextAssets.at(-1)?.id ?? null);
     setSelectedCanvasLayerIds(nextAssets.map(({ id }) => id));
-    setImageImportState({
-      message: failedCount > 0
-        ? `Added ${nextAssets.length}; ${failedCount} image${failedCount === 1 ? '' : 's'} could not be read.`
-        : `Added ${nextAssets.length} image${nextAssets.length === 1 ? '' : 's'} at the correct aspect ratio.`,
-      status: failedCount > 0 ? 'error' : 'success',
-    });
+    return { failedCount: results.length - nextAssets.length, nextAssets };
   }, [canvasDimensions.height, canvasDimensions.width, compositionAssets, ratio]);
+
+  const importAndSaveImages = useCallback(async (items: readonly PendingImageImport[]) => {
+    setImageImportError(null);
+    setImageImportState({ message: `Verifying and saving ${items.length} image${items.length === 1 ? '' : 's'}…`, status: 'importing' });
+    const results = await Promise.allSettled(items.map(async ({ file, label }) => {
+      const image = await readEmbeddedImageFile(file);
+      await loadCanvasImage(image.source);
+      return createImportedBrandAsset(image, label);
+    }));
+    const importedAssets = results.flatMap((result): BrandAsset[] => result.status === 'fulfilled' ? [result.value] : []);
+    const readFailures = results.flatMap((result): string[] => result.status === 'rejected'
+      ? [result.reason instanceof Error ? result.reason.message : 'An image could not be read.']
+      : []);
+    if (importedAssets.length === 0) {
+      const message = readFailures[0] ?? 'Choose a supported image to continue.';
+      setImageImportError(message);
+      setImageImportState({ message, status: 'error' });
+      return;
+    }
+    try {
+      if (!onIdentitySave) throw new Error('This project cannot save shared assets yet.');
+      onIdentitySave({ ...identity, assets: [...identity.assets, ...importedAssets] });
+      const placed = await placeBrandAssets(importedAssets);
+      const failedCount = readFailures.length + placed.failedCount;
+      setImageImportOpen(false);
+      setImageImportRequest(null);
+      setImageImportState({
+        message: failedCount > 0
+          ? `Saved and placed ${placed.nextAssets.length}; ${failedCount} file${failedCount === 1 ? '' : 's'} failed.`
+          : `Saved ${placed.nextAssets.length} image${placed.nextAssets.length === 1 ? '' : 's'} to Assets and placed ${placed.nextAssets.length} on canvas.`,
+        status: failedCount > 0 ? 'error' : 'success',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The image could not be saved.';
+      setImageImportError(message);
+      setImageImportState({ message, status: 'error' });
+    }
+  }, [identity, onIdentitySave, placeBrandAssets]);
+
+  const placeSavedAsset = useCallback(async (asset: BrandAsset) => {
+    setImageImportError(null);
+    try {
+      await placeBrandAssets([asset]);
+      setImageImportOpen(false);
+      setImageImportRequest(null);
+      setImageImportState({ message: `Placed ${asset.label} from Assets.`, status: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The image could not be placed.';
+      setImageImportError(message);
+      setImageImportState({ message, status: 'error' });
+    }
+  }, [placeBrandAssets]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -4541,20 +4761,22 @@ export default function ShaderLabStudio({
         target instanceof HTMLElement
         && target.closest('input, textarea, select, [contenteditable="true"]')
       ) return;
-      const images = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith('image/'));
+      const images = Array.from(event.clipboardData?.files ?? []).filter((file) => (
+        file.type.startsWith('image/') || /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(file.name)
+      ));
       if (images.length === 0) return;
       event.preventDefault();
-      void addAssets(images);
+      openImageImport(images);
     };
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [addAssets]);
+  }, [openImageImport]);
 
   function handleImageDrop(event: ReactDragEvent<HTMLElement>) {
     if (!dataTransferHasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setImageDropActive(false);
-    void addAssets(Array.from(event.dataTransfer.files));
+    openImageImport(Array.from(event.dataTransfer.files));
   }
 
   function removeAsset(id: AssetLayerId) {
@@ -4648,7 +4870,7 @@ export default function ShaderLabStudio({
     const nextLayerShaders = restoredLayerShaders(parsed.composition.layerShaders, layerShaders, allowedIds);
     const nextGroups = reconcileDesignLabLayerGroups(
       parsed.composition.groups ?? layerGroups,
-      nextOrder.filter(isContentLayerId)
+      nextOrder.filter(isCanvasLayerId)
     ) as CompositionLayerGroup[];
     const nextExportSettings = parsed.exportSettings
       ? normalizeDesignExportSettings(parsed.exportSettings)
@@ -4721,7 +4943,7 @@ export default function ShaderLabStudio({
   }
 
   function outputLayerBox(
-    layerId: ContentLayerId,
+    layerId: CanvasLayerId,
     transform: CanvasLayerTransform,
     outputWidth: number,
     outputHeight: number
@@ -4764,12 +4986,19 @@ export default function ShaderLabStudio({
     const renderedShader = capturedSequence?.layerId === layerId
       ? capturedSequence.application
       : shaderLayer;
+    const box = outputLayerBox(
+      layerId,
+      normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM),
+      width,
+      height
+    );
     context.save();
     context.globalAlpha = renderedShader.opacity;
     context.globalCompositeOperation = renderedShader.blendMode === 'normal'
       ? 'source-over'
       : renderedShader.blendMode;
-    paintShaderApplication(context, width, height, `canvas-${layerId}`, renderedShader);
+    context.translate(box.x, box.y);
+    paintShaderApplication(context, box.width, box.height, `canvas-${layerId}`, renderedShader);
     context.restore();
   }
 
@@ -4820,7 +5049,8 @@ export default function ShaderLabStudio({
         image,
         box.width,
         box.height,
-        isLogo ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : undefined
+        isLogo ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : undefined,
+        !isLogo
       );
       drawLogoAppearanceLayer(context, contained, box.x, box.y, box.width, box.height, appearance, layerOpacity);
       return;
@@ -4839,16 +5069,20 @@ export default function ShaderLabStudio({
       application
     );
     materialContext.globalCompositeOperation = 'destination-in';
-    drawContained(
-      materialContext,
-      image,
-      image.naturalWidth || 1,
-      image.naturalHeight || 1,
-      0,
-      0,
-      materialLayer.width,
-      materialLayer.height
-    );
+    if (isLogo) {
+      drawContained(
+        materialContext,
+        image,
+        image.naturalWidth || 1,
+        image.naturalHeight || 1,
+        0,
+        0,
+        materialLayer.width,
+        materialLayer.height
+      );
+    } else {
+      materialContext.drawImage(image, 0, 0, materialLayer.width, materialLayer.height);
+    }
     context.save();
     context.globalAlpha = application.opacity;
     context.globalCompositeOperation = application.blendMode === 'normal'
@@ -5311,6 +5545,15 @@ export default function ShaderLabStudio({
     void exportStill(lastExportRequest.format);
   }
 
+  function previewExportFormat(format: DesignExportFormat) {
+    if (exporting) return;
+    if (format === 'gif' || format === 'mp4') {
+      void exportMotion(format);
+      return;
+    }
+    void exportStill(format);
+  }
+
   function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
     const controlledTimeMs = captureTimeMs ?? (paused ? previewCaptureTimeMs : null);
     const renderedApplication = sequenceCapture && instanceKey === `canvas-${sequenceCapture.layerId}`
@@ -5338,28 +5581,34 @@ export default function ShaderLabStudio({
         actions={(
           <>
             <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
-            <ExportPreview
-              asset={lastExport}
-              needsRefresh={previewNeedsRefresh}
-              onRefresh={refreshExportPreview}
-              refreshKey={currentExportSettingsSignature}
-              refreshing={Boolean(exporting)}
-            />
+            {lastExport ? (
+              <ExportPreview
+                asset={lastExport}
+                autoRefresh={false}
+                configuration={(
+                  <DesignExportWorkspace
+                    disabled={Boolean(exporting)}
+                    format={exporting ?? lastExportRequest?.format ?? 'png'}
+                    onChange={updateExportSettings}
+                    onFormatChange={previewExportFormat}
+                    ratioOption={ratioOption}
+                    settings={normalizedExportSettings}
+                  />
+                )}
+                needsRefresh={previewNeedsRefresh}
+                onRefresh={refreshExportPreview}
+                refreshKey={currentExportSettingsSignature}
+                refreshing={Boolean(exporting)}
+                triggerLabel='Export'
+              />
+            ) : (
+              <Button aria-label='Open export settings' disabled={Boolean(exporting)} loading={exporting === 'png'} onClick={() => void exportStill('png')} type='button'>
+                <Download aria-hidden='true' /><span className='responsive-toolbar-label'>Export</span>
+              </Button>
+            )}
             {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
             <Button aria-label={paused ? 'Play shader' : 'Pause shader'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
               {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
-            </Button>
-            <Button aria-label='Preview PNG export' disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button' variant='outline'>
-              <Download aria-hidden='true' /><span className='responsive-toolbar-label'>PNG</span>
-            </Button>
-            <Button aria-label='Preview JPG export' disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button' variant='outline'>
-              <Download aria-hidden='true' /><span className='responsive-toolbar-label'>JPG</span>
-            </Button>
-            <Button aria-label='Preview animated GIF export' disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button' variant='outline'>
-              <Download aria-hidden='true' /><span className='responsive-toolbar-label'>GIF</span>
-            </Button>
-            <Button aria-label='Preview MP4 video export' disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'>
-              <Download aria-hidden='true' /><span className='responsive-toolbar-label'>MP4</span>
             </Button>
           </>
         )}
@@ -5430,19 +5679,39 @@ export default function ShaderLabStudio({
     if (isShaderLayerId(layerId)) {
       const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
       if (!shaderLayer) return null;
+      const geometry = layerGeometry(layerId, ratio);
+      const transform = normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM);
       return (
-        <div
-          className='shader-lab-v2-canvas-material'
-          data-shader-instance={`canvas-${layerId}`}
+        <EditableCanvasLayer
+          {...geometry}
+          canvasHeight={canvasDimensions.height}
+          canvasWidth={canvasDimensions.width}
+          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
           key={layerId}
-          style={{
-            mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
-            opacity: shaderLayer.opacity,
-            zIndex,
-          }}
+          label={shaderLayer.name}
+          movementBounds={movementBoundsFor(layerId)}
+          onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
+          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
+          onDeselect={deselectCanvasLayers}
+          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
+          resizeMode='box'
+          selected={selectedCanvasLayerIdSet.has(layerId)}
+          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
+          showSelectionControls={selectedCanvasLayerIds.length <= 1}
+          transform={transform}
+          zIndex={zIndex}
         >
-          {renderLiveMaterial(shaderLayer, `canvas-${layerId}`)}
-        </div>
+          <div
+            className='shader-lab-v2-canvas-material'
+            data-shader-instance={`canvas-${layerId}`}
+            style={{
+              mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
+              opacity: shaderLayer.opacity,
+            }}
+          >
+            {renderLiveMaterial(shaderLayer, `canvas-${layerId}`)}
+          </div>
+        </EditableCanvasLayer>
       );
     }
     if (isEffectLayerId(layerId)) {
@@ -5584,11 +5853,11 @@ export default function ShaderLabStudio({
       { assets: compositionAssets, effects: effectLayers, logos: logoLayers, shaders: shaderLayers, text: textLayers }
     );
     const appliedShader = shaderLayer ?? (isContentLayerId(layerId) ? layerShaders[layerId] : null);
-    const layerGroup = isContentLayerId(layerId) ? groupForLayer(layerId) : null;
+    const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
     const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
     const previewUrl = logoLayer?.url ?? assetLayer?.url;
     const selected = selectedLayerId === layerId
-      || (isContentLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
+      || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
     return (
       <div
         aria-selected={selected}
@@ -5743,7 +6012,6 @@ export default function ShaderLabStudio({
           />
           <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
             <input accept='image/*,.svg,.avif,.bmp' aria-label='Choose logos for the canvas' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
-            <input accept='image/*,.svg,.avif' aria-label='Choose images for the canvas' className='sr-only' multiple onChange={(event) => void addAssets(event.target.files)} ref={assetInputRef} type='file' />
             <div className='shader-lab-v2-dock-create'>
               <div className='shader-lab-v2-dock-heading'>
                 <span><Layers3 aria-hidden='true' />Layers</span>
@@ -5754,7 +6022,7 @@ export default function ShaderLabStudio({
                 <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
                 <button onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
                 <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
-                <button className='shader-lab-v2-dock-add-image' onClick={() => assetInputRef.current?.click()} title='Browse images · or drop and paste them onto the canvas' type='button'>
+                <button className='shader-lab-v2-dock-add-image' onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'>
                   <ImagePlus aria-hidden='true' />
                   <span><strong>Image</strong><small>Browse · drop · paste</small></span>
                 </button>
@@ -5811,24 +6079,10 @@ export default function ShaderLabStudio({
                   <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
                   <button onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
                   <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
-                  <button onClick={() => assetInputRef.current?.click()} title='Browse images · or drop and paste them onto the canvas' type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} · Drop, paste, or browse</small></span></button>
+                  <button onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.length} placed · {identity.assets.length + identity.proofAssets.length} saved</small></span></button>
                 </div>
               </div>
 
-              <div className='shader-lab-v2-composition-group'>
-                <div className='shader-lab-v2-composition-subhead'><h4>Output</h4><span>{exportDimensions.width} × {exportDimensions.height}</span></div>
-                <DesignExportControls
-                  onChange={updateExportSettings}
-                  ratioOption={ratioOption}
-                  settings={normalizedExportSettings}
-                />
-                <div className='shader-lab-v2-composition-output'>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('png')} type='button'><ImageDown aria-hidden='true' /><span><strong>PNG</strong><small>Image</small></span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportStill('jpg')} type='button'><FileImage aria-hidden='true' /><span><strong>JPG</strong><small>Image</small></span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('gif')} type='button'><Film aria-hidden='true' /><span><strong>GIF</strong><small>Loop</small></span></button>
-                  <button disabled={Boolean(exporting)} onClick={() => void exportMotion('mp4')} type='button'><Clapperboard aria-hidden='true' /><span><strong>MP4</strong><small>Video</small></span></button>
-                </div>
-              </div>
             </LabInspectorSection>
           </>}</ConditionalRender>
 
@@ -5884,6 +6138,14 @@ export default function ShaderLabStudio({
               shaderSize={shaderSize}
               updateSelectedShader={updateSelectedShader}
               updateSetting={updateSetting}
+            />
+          )}</OptionalRender>
+          <OptionalRender value={selectedShaderLayer}>{(selectedShaderLayer) => (
+            <DesignLabShaderFrameInspector
+              canvasHeight={canvasDimensions.height}
+              canvasWidth={canvasDimensions.width}
+              layer={selectedShaderLayer}
+              onChange={(transform) => updateCanvasLayerTransform(selectedShaderLayer.id, transform)}
             />
           )}</OptionalRender>
           <OptionalRender value={selectedContentLayerId}>{(selectedContentLayerId) => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={layerKind(selectedContentLayerId)} title='Selected layer'>
@@ -6007,6 +6269,21 @@ export default function ShaderLabStudio({
         </aside>
       </div>
       {renderSourceEditor()}
+      <ImageAssetModal
+        assets={[...identity.assets, ...identity.proofAssets]}
+        busy={imageImportState.status === 'importing'}
+        error={imageImportError}
+        onClose={() => {
+          if (imageImportState.status === 'importing') return;
+          setImageImportOpen(false);
+          setImageImportRequest(null);
+          setImageImportError(null);
+        }}
+        onImport={importAndSaveImages}
+        onPlace={placeSavedAsset}
+        open={imageImportOpen}
+        request={imageImportRequest}
+      />
     </div>
     );
   }

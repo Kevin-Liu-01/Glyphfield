@@ -43,4 +43,19 @@ describe('AppearanceFilteredContent', () => {
     expect(markup).toContain('<feMergeNode in="dithered"');
     expect(markup).not.toContain('dangerouslySetInnerHTML');
   });
+
+  it('can fit imported-image effects to the exact editable frame', () => {
+    const markup = renderToStaticMarkup(
+      <LogoAppearancePreview
+        ariaLabel='Imported image border'
+        color='#FFFFFF'
+        fillFrame
+        logoPath='data:image/png;base64,aGVybw=='
+        settings={DEFAULT_LOGO_APPEARANCE}
+      />
+    );
+
+    expect(markup).toContain('preserveAspectRatio="none"');
+    expect(markup).not.toContain('preserveAspectRatio="xMidYMid meet"');
+  });
 });

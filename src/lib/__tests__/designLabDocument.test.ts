@@ -18,6 +18,7 @@ function designLabInput(): DesignLabDocumentInput {
   return {
     assets: [{
       id: 'asset-photo',
+      libraryAssetId: 'asset-library-photo',
       name: 'Photo',
       opacity: 0.8,
       transform: { heightScale: 2, scale: 0.6, widthScale: 3, x: 12, y: -8 },
@@ -51,6 +52,7 @@ function designLabInput(): DesignLabDocumentInput {
       opacity: 1,
       settings: { colorA: '#111216', colorB: '#E8500A' },
       shaderSize: 0.65,
+      transform: { heightScale: 0.8, scale: 1, widthScale: 0.7, x: 42, y: -18 },
       visible: true,
     }],
     shaderSequence: { cutCount: 10, pace: 'accelerating', targetLayerId: 'shader-background' },
@@ -86,11 +88,41 @@ describe('Design Lab canvas document adapter', () => {
       'asset-photo',
       'text-title',
     ]);
-    expect(document.assets['resource:asset-photo']).toMatchObject({
+    expect(document.assets['brand-asset:asset-library-photo']).toMatchObject({
       byteLength: 4,
       source: 'data:image/png;base64,aGVybw==',
     });
+    expect(document.elements['shader-background']?.bounds).toEqual({
+      height: 0.8,
+      rotation: 0,
+      width: 0.7,
+      x: 42,
+      y: -18,
+    });
     expect(document.elements['text-title']?.content).toBe('Open Source');
+  });
+
+  it('reuses one embedded library asset across duplicated canvas placements', () => {
+    const input = designLabInput();
+    input.assets = [...input.assets, {
+      ...input.assets[0]!,
+      id: 'asset-photo-copy',
+      name: 'Photo copy',
+      transform: { heightScale: 2, scale: 0.6, widthScale: 3, x: 112, y: 42 },
+    }];
+    input.layerOrder = ['shader-background', 'asset-photo', 'asset-photo-copy', 'text-title'];
+
+    const document = createDesignLabCanvasDocument(input);
+
+    expect(Object.keys(document.assets)).toEqual(['brand-asset:asset-library-photo']);
+    expect(document.elements['asset-photo']?.assetId).toBe('brand-asset:asset-library-photo');
+    expect(document.elements['asset-photo-copy']?.assetId).toBe('brand-asset:asset-library-photo');
+    expect(parseDesignLabCanvasDocument(JSON.stringify(document)).composition).toMatchObject({
+      assets: [
+        { id: 'asset-photo', libraryAssetId: 'asset-library-photo' },
+        { id: 'asset-photo-copy', libraryAssetId: 'asset-library-photo' },
+      ],
+    });
   });
 
   it('round-trips current Design Lab source fields without losing transforms or order', () => {
@@ -100,6 +132,7 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.version).toBe(3);
     expect(composition.assets?.[0]).toMatchObject({
       id: 'asset-photo',
+      libraryAssetId: 'asset-library-photo',
       transform: { heightScale: 2, scale: 0.6, widthScale: 3, x: 12, y: -8 },
       url: 'data:image/png;base64,aGVybw==',
     });
@@ -108,7 +141,23 @@ describe('Design Lab canvas document adapter', () => {
       transform: { heightScale: 0.5, scale: 0.4, widthScale: 0.7, x: 74, y: 304 },
       value: 'Open Source',
     });
+    expect(composition.shaderLayers?.[0]).toMatchObject({
+      id: 'shader-background',
+      transform: { heightScale: 0.8, scale: 1, widthScale: 0.7, x: 42, y: -18 },
+    });
     expect((restored.composition as Record<string, string[]>).layerOrder).toEqual(designLabInput().layerOrder);
+  });
+
+  it('upgrades legacy full-canvas shaders with an explicit adjustable frame', () => {
+    const input = designLabInput();
+    const legacyShader = { ...input.shaderLayers[0] } as Record<string, unknown>;
+    delete legacyShader.transform;
+    input.shaderLayers = [legacyShader];
+
+    const restored = parseDesignLabCanvasDocument(serializeDesignLabCanvasDocument(input));
+    const shaders = (restored.composition as Record<string, Array<{ transform: object }>>).shaderLayers;
+
+    expect(shaders?.[0]?.transform).toEqual({ scale: 1, x: 0, y: 0 });
   });
 
   it('preserves uniform logo scale without inventing independent dimensions after reload', () => {

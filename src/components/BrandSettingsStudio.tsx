@@ -43,6 +43,7 @@ import {
 } from '@/lib/brandIdentity';
 import { formatOklch, hexToOklch, normalizeHex } from '@/lib/color';
 import { blobToDataUrl } from '@/lib/download';
+import { createImportedBrandAsset, readEmbeddedImageFile } from '@/lib/imageAssets';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
@@ -271,19 +272,11 @@ export default function BrandSettingsStudio({
   }
 
   async function addAsset(file: File) {
-    if (file.size > 4_000_000) {
-      setFeedback(gt('Keep image assets under 4 MB so this local identity remains portable.'));
-      return;
-    }
     try {
+      const image = await readEmbeddedImageFile(file);
+      const importedAsset = createImportedBrandAsset(image);
       const nextAsset: BrandAsset = {
-        alt: file.name.replace(/\.[^.]+$/, ''),
-        focalPoint: { x: 0.5, y: 0.5 },
-        id: `asset-${crypto.randomUUID()}`,
-        label: file.name.replace(/\.[^.]+$/, ''),
-        redistribution: 'original',
-        path: await blobToDataUrl(file),
-        surface: 'any',
+        ...importedAsset,
         tags: [assetType],
         type: assetType,
         usage: assetType === 'background' ? 'Backgrounds, headers, banners, and cards' : 'Reusable brand artwork',
@@ -291,8 +284,8 @@ export default function BrandSettingsStudio({
       if (assetType === 'proof') update({ proofAssets: [...identity.proofAssets, nextAsset] });
       else update({ assets: [...identity.assets, nextAsset] });
       setFeedback(gt('Asset added to the shared library.'));
-    } catch {
-      setFeedback(gt('That asset could not be loaded.'));
+    } catch (error) {
+      setFeedback(gt(error instanceof Error ? error.message : 'That asset could not be loaded.'));
     }
   }
 

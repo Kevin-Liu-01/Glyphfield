@@ -141,14 +141,17 @@ function layerKind(type: DesignLabLayerType): CanvasElementKind {
   return type;
 }
 
-function layerAssetId(type: DesignLabLayerType, id: string): string | undefined {
-  return type === 'asset' || type === 'logo' ? `resource:${id}` : undefined;
+function layerAssetId(type: DesignLabLayerType, layer: CanvasJsonObject): string | undefined {
+  if (type !== 'asset' && type !== 'logo') return undefined;
+  const id = stringValue(layer.id, '');
+  const libraryAssetId = type === 'asset' ? stringValue(layer.libraryAssetId, '') : '';
+  return libraryAssetId ? `brand-asset:${libraryAssetId}` : `resource:${id}`;
 }
 
 function assetFromLayer(layer: CanvasJsonObject, type: DesignLabLayerType): CanvasAsset | null {
   const id = stringValue(layer.id, '');
   const source = stringValue(layer.url, '');
-  const assetId = layerAssetId(type, id);
+  const assetId = layerAssetId(type, layer);
   if (!assetId || !id || !source) return null;
   const name = stringValue(layer.name, type === 'logo' ? 'Brand mark' : 'Image');
   if (/^data:/i.test(source)) {
@@ -172,7 +175,7 @@ function elementFromLayer(
 ): CanvasElement {
   const id = stringValue(layer.id, '');
   if (!id) throw new TypeError(`A ${type} layer is missing its id.`);
-  const bounds = type === 'shader' || type === 'effect'
+  const bounds = type === 'effect'
     ? { height, rotation: 0, width, x: 0, y: 0 }
     : layerTransform(layer);
   const element = createCanvasElement(
@@ -184,7 +187,7 @@ function elementFromLayer(
   const blendMode = stringValue(layer.blendMode, 'normal');
   return {
     ...element,
-    assetId: layerAssetId(type, id),
+    assetId: layerAssetId(type, layer),
     content: type === 'text' ? stringValue(layer.value, '') : undefined,
     data: { ...layer, layerType: type },
     hidden: !booleanValue(layer.visible, true),
@@ -300,7 +303,7 @@ function restoreLayer(document: CanvasDocument, element: CanvasElement): {
   layer.visible = !element.hidden;
   if (layerType === 'shader') layer.blendMode = element.style.blendMode;
   if (layerType === 'text') layer.value = element.content ?? '';
-  if (layerType === 'asset' || layerType === 'logo' || layerType === 'text') {
+  if (layerType === 'asset' || layerType === 'logo' || layerType === 'shader' || layerType === 'text') {
     layer.transform = restoredTransform(element);
   }
   if (element.assetId && document.assets[element.assetId]) {
