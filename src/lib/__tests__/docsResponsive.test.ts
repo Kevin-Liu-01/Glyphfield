@@ -27,7 +27,7 @@ describe('documentation responsive shell', () => {
   });
 
   it('switches from desktop rails to mobile navigation without losing search', () => {
-    expect(docsRouteStyles).toMatch(/@media \(max-width: 767px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
+    expect(docsRouteStyles).toMatch(/@media \(max-width: 767\.98px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
     expect(docsRouteStyles).toMatch(/\.glyphfield-docs-mobile-search,[\s\S]*?\.glyphfield-docs-sidebar-trigger \{[\s\S]*?display: grid !important;/);
     expect(docsRouteStyles).toContain('#nd-docs-layout [data-toc-popover] {');
     expect(docsHeader).toContain("aria-label={gt('Open documentation navigation')}");
@@ -46,7 +46,26 @@ describe('documentation responsive shell', () => {
     expect(docsControls).toContain("aria-label='Documentation controls'");
     expect(docsControls).toContain("className='glyphfield-docs-controls__icon'");
     expect(docsControls).toContain("className='glyphfield-docs-controls__studio'");
+    expect(docsRouteStyles).toContain('top: 12px;');
+    expect(docsRouteStyles).toContain('min-height: 46px;');
     expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) \{[\s\S]*?\.glyphfield-docs-controls \{[\s\S]*?display: flex;/);
+  });
+
+  it('matches the reference page hierarchy and TOC geometry', () => {
+    expect(docsPage).not.toContain('glyphfield-doc-page-kicker');
+    expect(docsPage).toContain("tableOfContent={{ style: 'clerk' }}");
+    expect(docsRouteStyles).toMatch(/\.glyphfield-doc-title \{[\s\S]*?font-size: 32px;[\s\S]*?font-weight: 600;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-doc-description \{[\s\S]*?font-size: 16px;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-doc-page-meta \{[\s\S]*?border-bottom: 1px solid var\(--docs-line\);/);
+    expect(docsRouteStyles).toContain('--fd-toc-width: 360px;');
+  });
+
+  it('draws animated nested sidebar rails instead of a decorative divider', () => {
+    const sidebarMotion = readFileSync('src/components/DocsSidebarMotion.tsx', 'utf8');
+    expect(sidebarMotion).toContain("rail.className = 'docs-sb-rail'");
+    expect(sidebarMotion).toContain('maskImage: mask');
+    expect(sidebarMotion).toContain("placeThumb('hoverThumb', row)");
+    expect(docsRouteStyles).toContain('#nd-sidebar .docs-sb-thumb-hover');
   });
 
   it('keeps the Glyphfield identity block in the top-left sidebar', () => {
