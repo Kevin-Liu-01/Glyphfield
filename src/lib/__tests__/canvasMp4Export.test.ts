@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockState = vi.hoisted(() => ({
+  addedAudio: [] as unknown[],
+  audioCodec: 'aac' as string | null,
+  audioTracks: 0,
   addedFrames: [] as Array<{ duration: number; time: number }>,
   buffer: new ArrayBuffer(4) as ArrayBuffer | null,
   codec: 'avc' as string | null,
@@ -10,6 +13,13 @@ const mockState = vi.hoisted(() => ({
 }));
 
 vi.mock('mediabunny', () => ({
+  AudioBufferSource: class AudioBufferSource {
+    constructor(_options: object) {}
+
+    async add(audio: unknown) {
+      mockState.addedAudio.push(audio);
+    }
+  },
   BufferTarget: class BufferTarget {
     buffer = mockState.buffer;
   },
@@ -26,9 +36,17 @@ vi.mock('mediabunny', () => ({
     getSupportedVideoCodecs() {
       return ['hevc', 'avc'];
     }
+
+    getSupportedAudioCodecs() {
+      return ['aac', 'opus'];
+    }
   },
   Output: class Output {
     constructor(_options: object) {}
+
+    addAudioTrack(_source: object) {
+      mockState.audioTracks += 1;
+    }
 
     addVideoTrack(_source: object) {}
 
@@ -45,6 +63,7 @@ vi.mock('mediabunny', () => ({
       mockState.qualityLevels.push(level);
     }
   },
+  getFirstEncodableAudioCodec: async () => mockState.audioCodec,
   getFirstEncodableVideoCodec: async () => mockState.codec,
 }));
 
@@ -52,6 +71,9 @@ import { encodeCanvasMp4 } from '../canvasExport';
 
 describe('canvas MP4 export', () => {
   beforeEach(() => {
+    mockState.addedAudio.length = 0;
+    mockState.audioCodec = 'aac';
+    mockState.audioTracks = 0;
     mockState.addedFrames.length = 0;
     mockState.buffer = new ArrayBuffer(4);
     mockState.codec = 'avc';
@@ -102,6 +124,22 @@ describe('canvas MP4 export', () => {
       renderFrame: () => undefined,
     })).rejects.toThrow(/cannot encode an MP4/i);
     expect(mockState.started).toBe(0);
+  });
+
+  it('adds a decoded audio buffer to the MP4 when supplied', async () => {
+    const canvas = { height: 2, width: 2 } as HTMLCanvasElement;
+    const audio = { numberOfChannels: 2, sampleRate: 48_000 } as AudioBuffer;
+
+    await encodeCanvasMp4({
+      audio,
+      canvas,
+      durationMs: 200,
+      fps: 10,
+      renderFrame: () => undefined,
+    });
+
+    expect(mockState.audioTracks).toBe(1);
+    expect(mockState.addedAudio).toEqual([audio]);
   });
 
   it('rejects an encoder that finalizes without bytes', async () => {

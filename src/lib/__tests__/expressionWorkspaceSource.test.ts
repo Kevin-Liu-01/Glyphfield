@@ -43,7 +43,20 @@ const templateFallback: TemplateWorkspaceDefaults = {
   fontWeight: 600,
   footerLayer: { scale: 1, x: 0, y: 0 },
   layerOrder: ['brand', 'content', 'footer'],
-  partner: { asset: null, id: 'partner', opacity: 1, scale: 100, x: 0, y: 0 },
+  partner: {
+    asset: null,
+    fontAsset: null,
+    fontId: 'gt:switzer-500',
+    fontWeight: 500,
+    gap: 18,
+    id: 'partner',
+    name: 'Partner',
+    opacity: 1,
+    scale: 100,
+    treatment: 'logo',
+    x: 0,
+    y: 0,
+  },
   slideLayout: 'title',
   texture: 'white',
   textureOpacity: 100,
@@ -137,7 +150,17 @@ describe('expression workspace source', () => {
         footer: { scale: 0.9, x: 5, y: 6 },
         order: ['content', 'brand', 'footer'],
       },
-      partner: { id: 'partner-two', scale: 77, x: 10, y: 11 },
+      partner: {
+        fontId: 'ramp:ramp-lausanne-350',
+        fontWeight: 350,
+        gap: 12,
+        id: 'partner-two',
+        name: 'Ramp',
+        scale: 77,
+        treatment: 'text',
+        x: 10,
+        y: 11,
+      },
       slideLayout: 'quote',
       texture: { opacity: 45, type: 'noise' },
       title: 'Updated title',
@@ -146,6 +169,7 @@ describe('expression workspace source', () => {
       { asset: { name: 'Background', source: 'data:image/png;base64,Ymc=' }, bounds: { height: 630, rotation: 0, width: 1200, x: 0, y: 0 }, id: 'template-background', kind: 'image', name: 'Background' },
       { asset: { name: 'Brand', source: 'data:image/svg+xml;base64,YnJhbmQ=' }, bounds: { height: 100, rotation: 0, width: 100, x: 0, y: 0 }, id: 'template-brand', kind: 'logo', name: 'Brand' },
       { asset: { name: 'Partner', source: 'data:image/svg+xml;base64,cGFydG5lcg==' }, bounds: { height: 100, rotation: 0, width: 100, x: 0, y: 0 }, id: 'template-partner', kind: 'logo', name: 'Partner' },
+      { asset: { kind: 'font', name: 'Partner font', source: 'data:font/woff2;base64,bGF1c2FubmU=' }, bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 }, hidden: true, id: 'template-partner-font', kind: 'component', name: 'Partner font' },
       { asset: { kind: 'font', name: 'Font', source: 'data:font/woff2;base64,Zm9udA==' }, bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 }, hidden: true, id: 'template-font', kind: 'component', name: 'Font' },
     ]);
 
@@ -158,6 +182,13 @@ describe('expression workspace source', () => {
       fontWeight: 500,
       footerLayer: { scale: 0.9, x: 5, y: 6 },
       layerOrder: ['content', 'brand', 'footer'],
+      partner: {
+        fontId: 'ramp:ramp-lausanne-350',
+        fontWeight: 350,
+        gap: 12,
+        name: 'Ramp',
+        treatment: 'text',
+      },
       slideLayout: 'quote',
       texture: 'noise',
       textureOpacity: 45,
@@ -166,6 +197,7 @@ describe('expression workspace source', () => {
     expect(parsed.background.asset?.url).toBe('data:image/png;base64,Ymc=');
     expect(parsed.brandLogoSource).toBe('data:image/svg+xml;base64,YnJhbmQ=');
     expect(parsed.partner.asset?.url).toBe('data:image/svg+xml;base64,cGFydG5lcg==');
+    expect(parsed.partner.fontAsset?.url).toBe('data:font/woff2;base64,bGF1c2FubmU=');
     expect(parsed.fontSource).toBe('data:font/woff2;base64,Zm9udA==');
   });
 
@@ -185,6 +217,11 @@ describe('expression workspace source', () => {
       'blog-cover',
       templateFallback
     )).toThrow('exactly once');
+    expect(() => parseTemplateWorkspaceSource(
+      '{"partner":{"treatment":"monogram"}}',
+      'partnership',
+      templateFallback
+    )).toThrow('partner treatment');
 
     const legacy = parseTemplateWorkspaceSource('{}', 'blog-cover', templateFallback);
     expect(legacy.brandLogoSource).toBeNull();

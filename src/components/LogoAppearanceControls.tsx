@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import StudioRange from '@/components/ui/StudioRange';
 import type { LogoAppearanceSettings } from '@/lib/logoAppearance';
 
 function appearancePreviewHandler<Key extends keyof LogoAppearanceSettings>(
@@ -79,8 +81,8 @@ function AppearanceRange({
         label={label}
         value={<output className='font-mono text-[10px]'>{localValue}{suffix}</output>}
       />
-      <input
-        className='studio-range'
+      <StudioRange
+        aria-label={label}
         max={max}
         min={min}
         onBlur={() => {
@@ -98,7 +100,6 @@ function AppearanceRange({
           commitPreview();
         }}
         step={step}
-        type='range'
         value={localValue}
       />
     </label>
@@ -111,58 +112,79 @@ export default function LogoAppearanceControls({
   onPreview,
   settings,
 }: {
-  kind?: 'image' | 'logo';
+  kind?: 'image' | 'logo' | 'sticker';
   onChange: (patch: Partial<LogoAppearanceSettings>) => void;
   onPreview?: (patch: Partial<LogoAppearanceSettings>) => void;
   settings: LogoAppearanceSettings;
 }) {
   const gt = useGT();
-  const isImage = kind === 'image';
+  const isImage = kind !== 'logo';
+  const isSticker = kind === 'sticker';
 
   return (
-    <div className='flex flex-col gap-4'>
-      <label className='flex items-center justify-between gap-4 text-sm'>
-        <span>{isImage ? <T>Invert image colors</T> : <T>Invert logo color</T>}</span>
-        <input checked={settings.invert} onChange={(event) => onChange({ invert: event.target.checked })} type='checkbox' />
-      </label>
-      <label className='flex items-center justify-between gap-4 text-sm'>
-        <span>{isImage ? <T>Dither image</T> : <T>Dither logo</T>}</span>
-        <input checked={settings.ditherEnabled} onChange={(event) => onChange({ ditherEnabled: event.target.checked })} type='checkbox' />
-      </label>
-      {settings.ditherEnabled ? (
-        <div className='flex flex-col gap-4 border-l border-border pl-3'>
-          <p className='text-xs leading-5 text-muted-foreground'>
-            {isImage
-              ? <T>Resolve the selected image through an ordered print field without changing the source asset.</T>
-              : <T>Resolve the selected mark through an ordered print field without changing the source asset.</T>}
-          </p>
-          <AppearanceRange label={gt('Dither amount')} max={100} min={0} onChange={(ditherAmount) => onChange({ ditherAmount })} onPreview={appearancePreviewHandler(onPreview, 'ditherAmount')} suffix='%' value={settings.ditherAmount} />
-          <AppearanceRange label={gt('Cell size')} max={18} min={2} onChange={(ditherScale) => onChange({ ditherScale })} onPreview={appearancePreviewHandler(onPreview, 'ditherScale')} suffix='px' value={settings.ditherScale} />
-          <AppearanceRange label={gt('Dither direction')} max={360} min={0} onChange={(ditherAngle) => onChange({ ditherAngle })} onPreview={appearancePreviewHandler(onPreview, 'ditherAngle')} suffix='°' value={settings.ditherAngle} />
-        </div>
-      ) : null}
-      <label className='flex items-center justify-between gap-4 text-sm'>
-        <span>{isImage ? <T>Outline image shape</T> : <T>Outline SVG shape</T>}</span>
-        <input checked={settings.borderEnabled} onChange={(event) => onChange({ borderEnabled: event.target.checked })} type='checkbox' />
-      </label>
-      {settings.borderEnabled ? (
-        <div className='flex flex-col gap-4 border-l border-border pl-3'>
-          <ColorControl ariaLabel={gt(isImage ? 'Image outline color' : 'Logo outline color')} label={<T>Outline color</T>} onChange={(borderColor) => onChange({ borderColor })} onOpacityChange={(borderOpacity) => onChange({ borderOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'borderOpacity')} onPreview={appearancePreviewHandler(onPreview, 'borderColor')} opacity={settings.borderOpacity} value={settings.borderColor} />
-          <AppearanceRange label={gt('Outline width')} max={12} min={0.5} onChange={(borderWidth) => onChange({ borderWidth })} onPreview={appearancePreviewHandler(onPreview, 'borderWidth')} step={0.5} suffix='px' value={settings.borderWidth} />
-        </div>
-      ) : null}
-      <label className='flex items-center justify-between gap-4 text-sm'>
-        <span>{isImage ? <T>Image shadow</T> : <T>Logo shadow</T>}</span>
-        <input checked={settings.shadowEnabled} onChange={(event) => onChange({ shadowEnabled: event.target.checked })} type='checkbox' />
-      </label>
-      {settings.shadowEnabled ? (
-        <div className='flex flex-col gap-4 border-l border-border pl-3'>
-          <ColorControl ariaLabel={gt(isImage ? 'Image shadow color' : 'Logo shadow color')} label={<T>Shadow color</T>} onChange={(shadowColor) => onChange({ shadowColor })} onOpacityChange={(shadowOpacity) => onChange({ shadowOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'shadowOpacity')} onPreview={appearancePreviewHandler(onPreview, 'shadowColor')} opacity={settings.shadowOpacity} value={settings.shadowColor} />
-          <AppearanceRange label={gt('Blur')} max={64} min={0} onChange={(shadowBlur) => onChange({ shadowBlur })} onPreview={appearancePreviewHandler(onPreview, 'shadowBlur')} suffix='px' value={settings.shadowBlur} />
-          <AppearanceRange label={gt('Horizontal offset')} max={48} min={-48} onChange={(shadowOffsetX) => onChange({ shadowOffsetX })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetX')} suffix='px' value={settings.shadowOffsetX} />
-          <AppearanceRange label={gt('Vertical offset')} max={48} min={-48} onChange={(shadowOffsetY) => onChange({ shadowOffsetY })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetY')} suffix='px' value={settings.shadowOffsetY} />
-        </div>
-      ) : null}
+    <div className='shader-lab-v2-appearance-controls'>
+      <div className='shader-lab-v2-effect-group'>
+        <label className='shader-lab-v2-effect-toggle'>
+          <span>
+            <strong>{isSticker ? <T>Print treatment</T> : <T>Color treatment</T>}</strong>
+            <small>{isSticker ? <T>Adjust the artwork without changing its source.</T> : <T>Adjust the source colors non-destructively.</T>}</small>
+          </span>
+        </label>
+        <label className='shader-lab-v2-appearance-option'>
+          <span>{isImage ? <T>Invert image colors</T> : <T>Invert logo color</T>}</span>
+          <StudioCheckbox checked={settings.invert} onChange={(event) => onChange({ invert: event.target.checked })} />
+        </label>
+        <label className='shader-lab-v2-appearance-option'>
+          <span>{isImage ? <T>Dither image</T> : <T>Dither logo</T>}</span>
+          <StudioCheckbox checked={settings.ditherEnabled} onChange={(event) => onChange({ ditherEnabled: event.target.checked })} />
+        </label>
+        {settings.ditherEnabled ? (
+          <div className='shader-lab-v2-effect-settings'>
+            <p>
+              {isImage
+                ? <T>Resolve the selected image through an ordered print field without changing the source asset.</T>
+                : <T>Resolve the selected mark through an ordered print field without changing the source asset.</T>}
+            </p>
+            <AppearanceRange label={gt('Dither amount')} max={100} min={0} onChange={(ditherAmount) => onChange({ ditherAmount })} onPreview={appearancePreviewHandler(onPreview, 'ditherAmount')} suffix='%' value={settings.ditherAmount} />
+            <AppearanceRange label={gt('Cell size')} max={18} min={2} onChange={(ditherScale) => onChange({ ditherScale })} onPreview={appearancePreviewHandler(onPreview, 'ditherScale')} suffix='px' value={settings.ditherScale} />
+            <AppearanceRange label={gt('Dither direction')} max={360} min={0} onChange={(ditherAngle) => onChange({ ditherAngle })} onPreview={appearancePreviewHandler(onPreview, 'ditherAngle')} suffix='°' value={settings.ditherAngle} />
+          </div>
+        ) : null}
+      </div>
+
+      <div className='shader-lab-v2-effect-group'>
+        <label className='shader-lab-v2-effect-toggle'>
+          <span>
+            <strong>{isSticker ? <T>Die-cut outline</T> : <T>Outline</T>}</strong>
+            <small>{isSticker ? <T>Add a clean printable edge around the artwork.</T> : <T>Trace the visible shape with a crisp edge.</T>}</small>
+          </span>
+          <StudioCheckbox checked={settings.borderEnabled} onChange={(event) => onChange({ borderEnabled: event.target.checked })} />
+        </label>
+        {settings.borderEnabled ? (
+          <div className='shader-lab-v2-effect-settings'>
+            <ColorControl ariaLabel={gt(isImage ? 'Image outline color' : 'Logo outline color')} label={<T>Outline color</T>} onChange={(borderColor) => onChange({ borderColor })} onOpacityChange={(borderOpacity) => onChange({ borderOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'borderOpacity')} onPreview={appearancePreviewHandler(onPreview, 'borderColor')} opacity={settings.borderOpacity} value={settings.borderColor} />
+            <AppearanceRange label={gt('Outline width')} max={isSticker ? 24 : 12} min={0.5} onChange={(borderWidth) => onChange({ borderWidth })} onPreview={appearancePreviewHandler(onPreview, 'borderWidth')} step={0.5} suffix='px' value={settings.borderWidth} />
+          </div>
+        ) : null}
+      </div>
+
+      <div className='shader-lab-v2-effect-group'>
+        <label className='shader-lab-v2-effect-toggle'>
+          <span>
+            <strong>{isSticker ? <T>Sticker shadow</T> : isImage ? <T>Image shadow</T> : <T>Logo shadow</T>}</strong>
+            <small><T>Add depth while preserving the editable layer.</T></small>
+          </span>
+          <StudioCheckbox checked={settings.shadowEnabled} onChange={(event) => onChange({ shadowEnabled: event.target.checked })} />
+        </label>
+        {settings.shadowEnabled ? (
+          <div className='shader-lab-v2-effect-settings'>
+            <ColorControl ariaLabel={gt(isImage ? 'Image shadow color' : 'Logo shadow color')} label={<T>Shadow color</T>} onChange={(shadowColor) => onChange({ shadowColor })} onOpacityChange={(shadowOpacity) => onChange({ shadowOpacity })} onOpacityPreview={appearancePreviewHandler(onPreview, 'shadowOpacity')} onPreview={appearancePreviewHandler(onPreview, 'shadowColor')} opacity={settings.shadowOpacity} value={settings.shadowColor} />
+            <AppearanceRange label={gt('Blur')} max={64} min={0} onChange={(shadowBlur) => onChange({ shadowBlur })} onPreview={appearancePreviewHandler(onPreview, 'shadowBlur')} suffix='px' value={settings.shadowBlur} />
+            <AppearanceRange label={gt('Horizontal offset')} max={48} min={-48} onChange={(shadowOffsetX) => onChange({ shadowOffsetX })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetX')} suffix='px' value={settings.shadowOffsetX} />
+            <AppearanceRange label={gt('Vertical offset')} max={48} min={-48} onChange={(shadowOffsetY) => onChange({ shadowOffsetY })} onPreview={appearancePreviewHandler(onPreview, 'shadowOffsetY')} suffix='px' value={settings.shadowOffsetY} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

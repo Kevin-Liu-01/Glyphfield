@@ -15,7 +15,7 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.materials.map(({ id }) => id)).toEqual(
       shaderLabMaterials('', 'all').map(({ id }) => id)
     );
-    expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material', 'surface']);
+    expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material']);
   });
 
   it('derives every lab plugin from the navigable Studio catalog', () => {
@@ -27,7 +27,7 @@ describe('agent discovery catalogs', () => {
       AGENT_LAB_CATALOG.plugins
         .filter(({ capabilities }) => capabilities.sharedShaderLibrary)
         .map(({ id }) => id)
-    ).toEqual(['animation', 'material', 'surface']);
+    ).toEqual(['animation', 'material']);
     expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.browserApi)).toBe(true);
     expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.controlAutomation)).toBe(true);
     expect(

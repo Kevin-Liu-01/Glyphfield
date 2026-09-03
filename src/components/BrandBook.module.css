@@ -3246,7 +3246,7 @@
   cursor: pointer;
 }
 
-.readerArrow:disabled { opacity: 0.25; cursor: default; }
+.readerArrow:disabled { opacity: 0.25; cursor: not-allowed; }
 .readerArrow svg { width: 18px; height: 18px; }
 
 @keyframes page-enter {

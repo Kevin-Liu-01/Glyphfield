@@ -26,6 +26,7 @@ import {
   Type,
   WandSparkles,
   WrapText,
+  X,
 } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
@@ -53,6 +54,7 @@ import StickerDeviceScene, {
 import SurfaceMaterialStage from '@/components/SurfaceMaterialStage';
 import { Button } from '@/components/ui/Button';
 import StudioColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioSelect from '@/components/ui/StudioSelect';
 import type { CanvasLayerTransform } from '@/lib/canvasInteraction';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
@@ -205,8 +207,8 @@ function resolveDesignDockPresentation({
     activeName: shaderName ?? 'Custom shader',
     guidance: 'Choose a preset from the library',
     inspectorTitle: backgroundEnabled ? shaderName ?? 'Custom shader' : 'No background',
-    label: 'Background',
-    libraryLabel: 'Background library',
+    label: 'Material',
+    libraryLabel: 'Material library',
     resetLabel: 'Reset background',
   };
   if (dock === 'surface') return {
@@ -221,26 +223,66 @@ function resolveDesignDockPresentation({
     activeName: textName ?? 'No text selected',
     guidance: 'Add or select a text layer',
     inspectorTitle: textName ?? 'No text selected',
-    label: 'Text layer',
-    libraryLabel: 'Text layer stack',
+    label: 'Type',
+    libraryLabel: 'Type layer stack',
     resetLabel: 'Reset text position',
   };
   if (dock === 'sticker') return {
     activeName: stickerName ?? 'Composition stickers',
     guidance: 'Choose a preset from the library',
     inspectorTitle: stickerName ?? 'Composition stickers',
-    label: 'Sticker finish',
-    libraryLabel: 'Sticker library',
+    label: 'Artwork',
+    libraryLabel: 'Artwork library',
     resetLabel: 'Reset stickers',
   };
   return {
     activeName: effectName ?? 'No effect selected',
     guidance: 'Add or select a converter layer',
     inspectorTitle: effectName ?? 'No converter selected',
-    label: 'Converter',
-    libraryLabel: 'Effect layer stack',
+    label: 'Finish',
+    libraryLabel: 'Finish layer stack',
     resetLabel: 'Reset effect',
   };
+}
+
+const PLAYGROUND_TOUR_STEPS: readonly {
+  description: string;
+  dock: DesignDock;
+  label: string;
+  title: string;
+}[] = [
+  { description: 'Choose the live shader that establishes the composition. Every material remains editable.', dock: 'shader', label: 'Material', title: 'Start with a material' },
+  { description: 'Layer paper, metal, or interactive cloth over the shader without flattening it.', dock: 'surface', label: 'Surface', title: 'Give it a surface' },
+  { description: 'Add multiple editable text layers, then move and resize them directly on the canvas.', dock: 'text', label: 'Type', title: 'Set the message' },
+  { description: 'Place marks, saved assets, images, and text stickers independently or bind them to cloth.', dock: 'sticker', label: 'Artwork', title: 'Add artwork' },
+  { description: 'Apply non-destructive converters, inspect the output size, then export or copy the recipe.', dock: 'effect', label: 'Finish', title: 'Finish and export' },
+];
+
+function PlaygroundTour({
+  onClose,
+  onOpenStep,
+  onNext,
+  step,
+}: {
+  onClose: () => void;
+  onOpenStep: (dock: DesignDock) => void;
+  onNext: () => void;
+  step: number;
+}) {
+  const boundedStep = Math.min(PLAYGROUND_TOUR_STEPS.length - 1, Math.max(0, step));
+  const item = PLAYGROUND_TOUR_STEPS[boundedStep]!;
+  return (
+    <aside className='playground-tour' data-canvas-selection-preserve>
+      <header><span>{boundedStep + 1} / {PLAYGROUND_TOUR_STEPS.length}</span><button aria-label='Close Playground tutorial' onClick={onClose} type='button'><X aria-hidden='true' /></button></header>
+      <small>{item.label}</small>
+      <strong>{item.title}</strong>
+      <p>{item.description}</p>
+      <footer>
+        <button onClick={() => onOpenStep(item.dock)} type='button'>Open {item.label}</button>
+        <button onClick={onNext} type='button'>{boundedStep === PLAYGROUND_TOUR_STEPS.length - 1 ? 'Done' : 'Next'}</button>
+      </footer>
+    </aside>
+  );
 }
 
 type PlaygroundEffectLayer = {
@@ -630,7 +672,7 @@ function PlaygroundEffectInspector({
         </div>
         <label className='design-lab-effect-toggle'>
           <span><strong>Invert tones</strong><small>Swap light and dark sampling.</small></span>
-          <input checked={layer.settings.invert} onChange={(event) => updateEffectLayer(layer.id, { settings: { ...layer.settings, invert: event.target.checked } })} type='checkbox' />
+          <StudioCheckbox checked={layer.settings.invert} onChange={(event) => updateEffectLayer(layer.id, { settings: { ...layer.settings, invert: event.target.checked } })} />
         </label>
         <div className='design-lab-selection-actions'>
           <button disabled={orderIndex === effectLayers.length - 1} onClick={() => moveEffectLayer(layer.id, 1)} type='button'><ArrowUp aria-hidden='true' /><span>Forward</span></button>
@@ -717,7 +759,7 @@ function PlaygroundTextInspector({
             <div className='design-lab-text-effect-group'>
               <label className='design-lab-effect-toggle'>
                 <span><strong>Outline</strong><small>Add a crisp edge around the type.</small></span>
-                <input checked={layer.outlineEnabled ?? false} onChange={(event) => updateTextLayer(layer.id, { outlineEnabled: event.target.checked })} type='checkbox' />
+                <StudioCheckbox checked={layer.outlineEnabled ?? false} onChange={(event) => updateTextLayer(layer.id, { outlineEnabled: event.target.checked })} />
               </label>
               {layer.outlineEnabled ? <>
                 <CompactColorControl label='Outline' onChange={(outlineColor) => updateTextLayer(layer.id, { outlineColor })} value={layer.outlineColor ?? '#000000'} />
@@ -727,7 +769,7 @@ function PlaygroundTextInspector({
             <div className='design-lab-text-effect-group'>
               <label className='design-lab-effect-toggle'>
                 <span><strong>Shadow</strong><small>Add depth without changing the text box.</small></span>
-                <input checked={layer.shadowEnabled ?? false} onChange={(event) => updateTextLayer(layer.id, { shadowEnabled: event.target.checked })} type='checkbox' />
+                <StudioCheckbox checked={layer.shadowEnabled ?? false} onChange={(event) => updateTextLayer(layer.id, { shadowEnabled: event.target.checked })} />
               </label>
               {layer.shadowEnabled ? <>
                 <CompactColorControl label='Shadow' onChange={(shadowColor) => updateTextLayer(layer.id, { shadowColor })} value={layer.shadowColor ?? '#000000'} />
@@ -846,7 +888,7 @@ function findStickerText(
   return findItemById(stickerTexts, selection.assetId);
 }
 
-export default function SurfaceLabStudio({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
+export default function SurfaceLabStudio({ active = true, identity, tool }: { active?: boolean; identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:playground`);
   const palette = useMemo(() => brandMaterialPalette(identity), [identity]);
@@ -883,8 +925,10 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     []
   );
   const [customArtwork, setCustomArtwork] = useState<{ name: string; url: string } | null>(null);
-  const [mountPhase, setMountPhase] = useState(0);
+  const mountPhase = 5;
   const [dock, setDock] = useStudioDraft<DesignDock>(identity.id, tool.id, 'design-lab-dock-v2', 'shader');
+  const [playgroundTourOpen, setPlaygroundTourOpen] = useStudioDraft(identity.id, tool.id, 'playground-tour-v1', true);
+  const [playgroundTourStep, setPlaygroundTourStep] = useState(0);
   const [shaderCategory, setShaderCategory] = useState<ShaderLabCategory>('all');
   const [shaderQuery, setShaderQuery] = useState('');
   const [textLayers, setTextLayers] = useStudioDraft<PlaygroundTextLayer[]>(identity.id, tool.id, 'playground-text-layers-v1', []);
@@ -983,7 +1027,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       detail: backgroundEnabled ? shaderPreset?.name ?? 'Custom shader' : 'None',
       enabled: backgroundEnabled,
       Icon: Sparkles,
-      label: 'Background',
+      label: 'Material',
       value: 'shader' as const,
     },
     {
@@ -997,21 +1041,21 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       detail: textLayers.length === 0 ? 'None' : `${textLayers.filter(({ visible }) => visible).length} visible`,
       enabled: textLayers.some(({ visible }) => visible),
       Icon: Type,
-      label: 'Text',
+      label: 'Type',
       value: 'text' as const,
     },
     {
       detail: stickersEnabled ? selectedSticker?.label ?? `${stickerRenderLayers.length} placed` : 'None',
       enabled: stickersEnabled,
       Icon: Sticker,
-      label: 'Stickers',
+      label: 'Artwork',
       value: 'sticker' as const,
     },
     {
       detail: effectLayers.length === 0 ? 'None' : `${effectLayers.filter(({ visible }) => visible).length} live`,
       enabled: effectLayers.some(({ visible }) => visible),
       Icon: Grid3X3,
-      label: 'Effects',
+      label: 'Finish',
       value: 'effect' as const,
     },
   ];
@@ -1153,18 +1197,6 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
     else stickerStageRef.current?.addSticker(pending.assetId);
     pendingStickerActionRef.current = null;
   }, [stickerAssets]);
-
-  useMountEffect(() => {
-    let animationFrame = 0;
-    let nextPhase = 1;
-    const advance = () => {
-      setMountPhase(nextPhase);
-      nextPhase += 1;
-      if (nextPhase <= 5) animationFrame = window.requestAnimationFrame(advance);
-    };
-    animationFrame = window.requestAnimationFrame(advance);
-    return () => window.cancelAnimationFrame(animationFrame);
-  });
 
   useMountEffect(() => () => {
     if (customArtworkRef.current) URL.revokeObjectURL(customArtworkRef.current.url);
@@ -1422,6 +1454,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
   });
 
   useEffect(() => {
+    if (!active) return;
     if (!stickersEnabled || !hasVisibleEffects || surfaceIsCloth) {
       stickerPreviewRef.current = null;
       return;
@@ -1443,11 +1476,12 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [hasVisibleEffects, stickerPreviewSignature, stickersEnabled, surfaceIsCloth]);
+  }, [active, hasVisibleEffects, stickerPreviewSignature, stickersEnabled, surfaceIsCloth]);
 
   useEffect(() => {
     const visibleCanvas = effectCanvasRef.current;
     if (!visibleCanvas) return;
+    if (!active) return;
     if (!hasVisibleEffects) {
       const context = visibleCanvas.getContext('2d');
       if (context) context.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
@@ -1493,7 +1527,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       observer?.disconnect();
       cancelAnimationFrame(animationFrame);
     };
-  }, [aspectRatio, hasVisibleEffects, renderEffectFrameRef, settings.width]);
+  }, [active, aspectRatio, hasVisibleEffects, renderEffectFrameRef, settings.width]);
 
   function applyShaderPreset(preset: SurfaceLabPreset) {
     if (!preset.liveMaterialId) return;
@@ -1693,19 +1727,13 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           <>
           <SourceCodeButton disabled={playgroundDocumentSource === null} onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
-          <Button disabled={exporting} onClick={exportPng} type='button'>
-            <Download aria-hidden='true' /><T>Export PNG</T>
+          <Button aria-label='Export Playground PNG' disabled={exporting} onClick={exportPng} type='button'>
+            <Download aria-hidden='true' /><span className='responsive-toolbar-label'><T>Export</T></span>
           </Button>
+          <Button aria-label='Open Playground tutorial' aria-pressed={playgroundTourOpen} onClick={() => setPlaygroundTourOpen((value) => !value)} size='icon' title='Playground tutorial' type='button' variant='outline'>?</Button>
           </>
         )}
-        context={<div className='design-lab-layer-readout' aria-label={gt('Active design layers')}>
-          <button aria-pressed={backgroundEnabled} data-active={backgroundEnabled ? 'true' : 'false'} onClick={() => setBackgroundEnabled((value) => !value)} type='button'>Background</button>
-          <button aria-pressed={surfaceEnabled} data-active={surfaceEnabled ? 'true' : 'false'} onClick={() => setSurfaceEnabled((value) => !value)} type='button'>Surface</button>
-          <button aria-pressed={textLayers.some(({ visible }) => visible)} data-active={textLayers.some(({ visible }) => visible) ? 'true' : 'false'} onClick={() => setDock('text')} type='button'>Text {textLayers.length}</button>
-          <button aria-pressed={stickersEnabled} data-active={stickersEnabled ? 'true' : 'false'} onClick={() => setStickersEnabled((value) => !value)} type='button'>Stickers</button>
-          <button aria-pressed={effectLayers.some(({ visible }) => visible)} data-active={effectLayers.some(({ visible }) => visible) ? 'true' : 'false'} onClick={() => setDock('effect')} type='button'>Effects {effectLayers.length}</button>
-        </div>}
-        metadata='Shaders · surfaces · type · stickers · converters'
+        metadata='Build from material to finish'
         status={(
           <DesignVersionControls
             autosaveState={playgroundAutosaveState}
@@ -1722,7 +1750,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
       />
 
       <div className='design-lab-body'>
-        <main className='design-lab-workspace'>
+        <section className='design-lab-workspace'>
           <CanvasViewport
             autoFit
             className='design-lab-viewport'
@@ -1739,11 +1767,12 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
                 <ConditionalRender when={backgroundEnabled}>{() => (
                   <div className='design-lab-shader-layer' ref={shaderStageRef} style={{ opacity: backgroundOpacity }}>
                     <LazyLiveMaterialCanvas
-                      activeWhileMounted
+                      activeWhileMounted={active}
                       className='absolute inset-0 size-full'
                       frameRate={60}
                       materialId={liveMaterialId}
                       maxPixelCount={2_000_000}
+                      paused={!active}
                       settings={liveSettings}
                     />
                   </div>
@@ -1753,6 +1782,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               <ConditionalRender when={mountPhase >= 2 && surfaceEnabled}>{() => (
                   <div className='design-lab-surface-layer' data-interactive={surfaceIsCloth ? 'true' : 'false'} ref={surfaceStageRef}>
                     <SurfaceMaterialStage
+                      active={active}
                       artworkAspectRatio={aspectRatio}
                       artworkLayers={stickersFollowSurface ? stickerRenderLayers : undefined}
                       artworkOpacity={stickerOpacity}
@@ -1841,6 +1871,20 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               />
             </div>
           </CanvasViewport>
+
+          {playgroundTourOpen ? (
+            <PlaygroundTour
+              onClose={() => setPlaygroundTourOpen(false)}
+              onNext={() => playgroundTourStep >= PLAYGROUND_TOUR_STEPS.length - 1
+                ? setPlaygroundTourOpen(false)
+                : setPlaygroundTourStep((step) => step + 1)}
+              onOpenStep={(nextDock) => {
+                setDock(nextDock);
+                setPlaygroundTourOpen(false);
+              }}
+              step={playgroundTourStep}
+            />
+          ) : null}
 
           <div className='design-lab-dock studio-sidebar lab-sidebar lab-sidebar-left'>
             <ConditionalRender when={mountPhase >= 4}>{() => (
@@ -2043,7 +2087,7 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
               </>
             )}</ConditionalRender>
           </div>
-        </main>
+        </section>
 
         <aside className='design-lab-inspector studio-sidebar lab-sidebar lab-sidebar-right studio-scroll-area' aria-label={gt('Playground controls')} data-canvas-selection-preserve>
           <ConditionalRender when={mountPhase >= 5}>{() => (
@@ -2224,11 +2268,11 @@ export default function SurfaceLabStudio({ identity, tool }: { identity: BrandId
           </details>}</ConditionalRender>
 
           <LabInspectorSection className='design-lab-inspector-section' icon={<ImageDown aria-hidden='true' />} meta='PNG image' title='Output'>
-            <div className='design-lab-output-overview' aria-label='Current Playground output'>
+            <div className='design-lab-output-overview' aria-label='Current Playground output' role='group'>
               <div><ImageDown aria-hidden='true' /><span><small>Output size</small><strong>{settings.width} × {settings.height}</strong></span></div>
               <div><FileImage aria-hidden='true' /><span><small>File type</small><strong>PNG image</strong></span></div>
             </div>
-            <div className='design-lab-output-sizes' aria-label={gt('Output size')}>
+            <div className='design-lab-output-sizes' aria-label={gt('Output size')} role='group'>
               {OUTPUT_SIZES.map((size) => {
                 const Icon = size.id === 'wide' ? RectangleHorizontal : size.id === 'square' ? Square : RectangleVertical;
                 return (

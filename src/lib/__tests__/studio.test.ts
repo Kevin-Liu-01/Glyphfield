@@ -10,6 +10,7 @@ import {
   mergeStudioBackground,
   orderStudioSources,
   resolveStudioFrameSettings,
+  resolveStudioTransitionSettings,
 } from '../studio';
 
 const textSource: StudioSource = {
@@ -119,6 +120,32 @@ describe('sequence backgrounds', () => {
     expect(resolveStudioFrameSettings(DEFAULT_SETTINGS, storedFrame, sequenceBackground, true).background).toMatchObject({
       colorA: '#FF0000',
       style: 'solid',
+    });
+  });
+});
+
+describe('sequence transitions', () => {
+  it('inherits the sequence motion until a cut supplies its own style and easing', () => {
+    expect(resolveStudioTransitionSettings(DEFAULT_SETTINGS, undefined)).toEqual({
+      backgroundTransition: DEFAULT_SETTINGS.backgroundTransition,
+      bezier: DEFAULT_SETTINGS.bezier,
+      packageId: DEFAULT_SETTINGS.packageId,
+    });
+    expect(resolveStudioTransitionSettings(DEFAULT_SETTINGS, {
+      backgroundTransition: 'wipe',
+      bezier: [0.2, 0.8, 0.2, 1],
+      packageId: 'slide-fade',
+    })).toEqual({
+      backgroundTransition: 'wipe',
+      bezier: [0.2, 0.8, 0.2, 1],
+      packageId: 'slide-fade',
+    });
+    expect(resolveStudioTransitionSettings(DEFAULT_SETTINGS, {
+      bezier: [0.2, 0.8, 0.2, 1],
+      packageId: 'slide-fade',
+    })).toMatchObject({
+      backgroundTransition: DEFAULT_SETTINGS.backgroundTransition,
+      packageId: 'slide-fade',
     });
   });
 });

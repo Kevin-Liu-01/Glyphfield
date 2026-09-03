@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ImagePlus, Upload, X } from '@/components/ui/SolidIcons';
+import { Check, ImagePlus, Sticker, Type, Upload, X } from '@/components/ui/SolidIcons';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -18,6 +18,31 @@ export type ImageImportRequest = {
   files: readonly File[];
   id: number;
 };
+
+export type ImageAssetPlacementMode = 'image' | 'sticker';
+
+const IMAGE_ASSET_MODE_COPY = {
+  image: {
+    closeLabel: 'Close image library',
+    dialogLabel: 'Add image assets',
+    libraryDescription: 'Place an existing asset without making another copy.',
+    libraryTitle: 'Brand assets',
+    metadata: 'Upload once, reuse everywhere, and keep the source embedded in saved composition code.',
+    sourceDescription: 'Browse, drop, or paste an image. Confirming saves it to this brand’s Asset library and places it on the canvas.',
+    sourceTitle: 'Upload new',
+    title: 'Add image',
+  },
+  sticker: {
+    closeLabel: 'Close sticker library',
+    dialogLabel: 'Add sticker artwork',
+    libraryDescription: 'Choose any saved mark or image and apply the sticker treatment without changing its source.',
+    libraryTitle: 'Sticker artwork',
+    metadata: 'Place text or artwork with an editable die-cut edge and shadow. The result remains a native Design Lab layer.',
+    sourceDescription: 'Use editable text or choose artwork. Image sources are saved to the brand Asset library before being placed with the sticker treatment.',
+    sourceTitle: 'Sticker source',
+    title: 'Add sticker',
+  },
+} as const;
 
 function fileSize(size: number): string {
   if (size < 1_000_000) return `${Math.max(1, Math.round(size / 1_000))} KB`;
@@ -47,18 +72,22 @@ export default function ImageAssetModal({
   busy,
   error,
   onClose,
+  onCreateTextSticker,
   onImport,
   onPlace,
   open,
   request,
+  placementMode = 'image',
 }: {
   assets: readonly BrandAsset[];
   busy: boolean;
   error: string | null;
   onClose: () => void;
+  onCreateTextSticker?: () => void;
   onImport: (items: readonly PendingImageImport[]) => Promise<void> | void;
   onPlace: (asset: BrandAsset) => Promise<void> | void;
   open: boolean;
+  placementMode?: ImageAssetPlacementMode;
   request: ImageImportRequest | null;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -66,6 +95,8 @@ export default function ImageAssetModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestId = request?.id ?? 0;
   const reusableAssets = useMemo(() => assets.filter(isReusableImageAsset), [assets]);
+  const addingSticker = placementMode === 'sticker';
+  const modeCopy = IMAGE_ASSET_MODE_COPY[placementMode];
 
   useEffect(() => {
     if (!open) {
@@ -101,23 +132,29 @@ export default function ImageAssetModal({
   }
 
   return createPortal(
-    <dialog aria-label='Add image assets' aria-modal='true' className='shader-export-overlay' open>
-      <button aria-label='Close image library' className='studio-modal-backdrop' disabled={busy} onClick={onClose} type='button' />
+    <dialog aria-label={modeCopy.dialogLabel} aria-modal='true' className='shader-export-overlay image-asset-overlay' open>
+      <button aria-label={modeCopy.closeLabel} className='studio-modal-backdrop' disabled={busy} onClick={onClose} type='button' />
       <section className='image-asset-dialog'>
         <StudioToolHeader
-          actions={<Button aria-label='Close image library' disabled={busy} onClick={onClose} size='icon-sm' type='button' variant='ghost'><X aria-hidden='true' /></Button>}
+          actions={<Button aria-label={modeCopy.closeLabel} disabled={busy} onClick={onClose} size='icon-sm' type='button' variant='ghost'><X aria-hidden='true' /></Button>}
           headingLevel={2}
-          icon={<ImagePlus aria-hidden='true' />}
-          metadata='Upload once, reuse everywhere, and keep the source embedded in saved composition code.'
-          title='Add image'
+          icon={addingSticker ? <Sticker aria-hidden='true' /> : <ImagePlus aria-hidden='true' />}
+          metadata={modeCopy.metadata}
+          title={modeCopy.title}
         />
 
         <div className='image-asset-dialog__body'>
           <section className='image-asset-import'>
             <div className='image-asset-section-heading'>
-              <div><h3>Upload new</h3><p>Browse, drop, or paste an image. Confirming saves it to this brand’s Asset library and places it on the canvas.</p></div>
+              <div><h3>{modeCopy.sourceTitle}</h3><p>{modeCopy.sourceDescription}</p></div>
               <span>{pending.length} queued</span>
             </div>
+            {addingSticker && onCreateTextSticker ? (
+              <button className='image-asset-sticker-shortcut' disabled={busy} onClick={onCreateTextSticker} type='button'>
+                <span><Type aria-hidden='true' /></span>
+                <span><strong>Create text sticker</strong><small>Add editable type with a die-cut edge and shadow.</small></span>
+              </button>
+            ) : null}
             <div
               className='image-asset-dropzone'
               data-dragging={dragging || undefined}
@@ -165,11 +202,11 @@ export default function ImageAssetModal({
 
           <section className='image-asset-library'>
             <div className='image-asset-section-heading'>
-              <div><h3>Brand assets</h3><p>Place an existing asset without making another copy.</p></div>
+              <div><h3>{modeCopy.libraryTitle}</h3><p>{modeCopy.libraryDescription}</p></div>
               <span>{reusableAssets.length} saved</span>
             </div>
             {reusableAssets.length > 0 ? (
-              <div aria-label='Reusable brand assets' className='image-asset-library-grid'>
+              <div aria-label='Reusable brand assets' className='image-asset-library-grid' role='group'>
                 {reusableAssets.map((asset) => (
                   <button disabled={busy} key={asset.id} onClick={() => void onPlace(asset)} type='button'>
                     <span><img alt='' draggable={false} src={asset.path} /></span>

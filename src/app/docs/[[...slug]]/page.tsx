@@ -9,7 +9,8 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import { getDocsMdxComponents } from '@/components/DocsMdx';
-import DocsTocActions from '@/components/DocsTocActions';
+import DocsPageActions from '@/components/DocsPageActions';
+import { AlertCircle, ArrowUpRight, FilePenLine } from '@/components/ui/SolidIcons';
 import { docsSource, getDocumentationImage } from '@/lib/docsSource';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 import { SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/seo';
@@ -24,8 +25,29 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
   if (!page) notFound();
 
   const Content = page.data.body;
-  const location = page.slugs.length > 0 ? page.slugs.join(' / ') : 'overview';
   const canonicalUrl = absoluteUrl(page.url);
+  const markdownBody = await page.data.getText('processed');
+  const markdown = `# ${page.data.title}\n\n${page.data.description}\n\n${markdownBody.trimStart()}`;
+  const markdownUrl = `${page.url}.md`;
+  const sourcePath = page.data.info.path.replaceAll('\\', '/');
+  const sourceUrl = `${PRODUCT_BRAND.repository.url}/blob/main/content/docs/${sourcePath}`;
+  const issueUrl = `${PRODUCT_BRAND.repository.url}/issues/new?${new URLSearchParams({
+    title: `Docs: ${page.data.title}`,
+  })}`;
+  const lastModifiedValue = page.data._exports.lastModified;
+  const lastModified = lastModifiedValue instanceof Date
+    ? lastModifiedValue
+    : typeof lastModifiedValue === 'string' || typeof lastModifiedValue === 'number'
+      ? new Date(lastModifiedValue)
+      : null;
+  const lastUpdatedLabel = lastModified && !Number.isNaN(lastModified.getTime())
+    ? new Intl.DateTimeFormat('en-US', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+      year: 'numeric',
+    }).format(lastModified)
+    : 'Open source';
   const image = getDocumentationImage(page);
   const breadcrumbItems = [
     {
@@ -87,17 +109,37 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
       <DocsPage
         breadcrumb={{ enabled: false }}
         className='glyphfield-doc-page'
-        tableOfContent={{ header: <DocsTocActions /> }}
+        tableOfContent={{ style: 'clerk' }}
         toc={page.data.toc}
       >
         <header className='glyphfield-doc-page-header'>
-          <div className='glyphfield-doc-page-kicker'><span>GLYPHFIELD / DOCS</span><span>{location}</span></div>
           <DocsTitle className='glyphfield-doc-title'>{page.data.title}</DocsTitle>
           <DocsDescription className='glyphfield-doc-description'>{page.data.description}</DocsDescription>
+          <div className='glyphfield-doc-page-meta'>
+            <DocsPageActions
+              content={markdown}
+              markdownUrl={markdownUrl}
+              pageUrl={canonicalUrl}
+              sourceUrl={sourceUrl}
+            />
+            <span>Last updated {lastUpdatedLabel}</span>
+          </div>
         </header>
         <DocsBody className='glyphfield-docs-body'>
           <Content components={getDocsMdxComponents()} />
         </DocsBody>
+        <nav aria-label='Page feedback' className='glyphfield-doc-footer-actions'>
+          <a href={sourceUrl} rel='noreferrer' target='_blank'>
+            <FilePenLine aria-hidden='true' />
+            Edit this page
+            <ArrowUpRight aria-hidden='true' />
+          </a>
+          <a href={issueUrl} rel='noreferrer' target='_blank'>
+            <AlertCircle aria-hidden='true' />
+            Report an issue
+            <ArrowUpRight aria-hidden='true' />
+          </a>
+        </nav>
       </DocsPage>
     </>
   );
@@ -118,6 +160,9 @@ export async function generateMetadata({ params }: DocumentationPageProps): Prom
   return {
     alternates: {
       canonical: page.url,
+      types: {
+        'text/markdown': `${page.url}.md`,
+      },
     },
     category: 'documentation',
     description: page.data.description,

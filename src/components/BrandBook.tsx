@@ -41,6 +41,7 @@ import type { StudioTool } from '@/lib/studioCatalog';
 
 import ThemeAwareBrandMark from './ThemeAwareBrandMark';
 import StudioToolHeader from './StudioToolHeader';
+import StudioRange from './ui/StudioRange';
 
 import styles from './BrandBook.module.css';
 
@@ -1034,7 +1035,7 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
         context={mode === 'overview' ? (
             <label className={styles.zoomControl}>
               <Minus aria-hidden='true' />
-              <input aria-label={gt('Page thumbnail size')} max='360' min='210' onChange={(event) => setThumbnailWidth(Number(event.target.value))} type='range' value={thumbnailWidth} />
+              <StudioRange aria-label={gt('Page thumbnail size')} max='360' min='210' onChange={(event) => setThumbnailWidth(Number(event.target.value))} value={thumbnailWidth} />
               <Plus aria-hidden='true' />
             </label>
           ) : (

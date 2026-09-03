@@ -33,4 +33,25 @@ describe('shader sequence', () => {
     expect(shaderSequenceSegmentAt(timeline, timeline[0]!.endMs)?.index).toBe(1);
     expect(shaderSequenceSegmentAt(timeline, Number.POSITIVE_INFINITY)?.materialId).toBe('paper-gem-smoke');
   });
+
+  it('rotates curated cuts deterministically while preserving the final shader', () => {
+    const candidates = [
+      'paper-gem-smoke',
+      'paper-god-rays',
+      'paper-liquid-metal',
+      'paper-warp',
+      'paper-water',
+      'paper-voronoi',
+      'paper-spiral',
+      'paper-swirl',
+      'paper-metaballs',
+      'paper-perlin-noise',
+    ] as const;
+    const first = shaderSequenceMaterialIds('paper-gem-smoke', 8, candidates, 0);
+    const second = shaderSequenceMaterialIds('paper-gem-smoke', 8, candidates, 1);
+    expect(first.at(-1)).toBe('paper-gem-smoke');
+    expect(second.at(-1)).toBe('paper-gem-smoke');
+    expect(second[0]).toBe(first[1]);
+    expect(shaderSequenceMaterialIds('paper-gem-smoke', 8, candidates, 1)).toEqual(second);
+  });
 });

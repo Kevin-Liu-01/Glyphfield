@@ -32,7 +32,10 @@ describe('filterStudioTools', () => {
       'lottie'
     );
     expect(filterStudioTools(STUDIO_TOOLS, 'dither').map(({ id }) => id)).toContain(
-      'surface'
+      'material'
+    );
+    expect(filterStudioTools(STUDIO_TOOLS, 'sticker').map(({ id }) => id)).toContain(
+      'material'
     );
     expect(filterStudioTools(STUDIO_TOOLS, 'lanyard').map(({ id }) => id)).toContain(
       'brand-elements'
@@ -44,16 +47,15 @@ describe('filterStudioTools', () => {
     expect(new Set(STUDIO_TOOLS.map(({ id }) => id)).size).toBe(STUDIO_TOOLS.length);
   });
 
-  it('separates the precision Design Lab from the experimental Playground', () => {
-    expect(STUDIO_TOOLS.filter(({ id }) => id === 'surface')).toHaveLength(1);
-    expect(STUDIO_TOOLS.find(({ id }) => id === 'surface')).toMatchObject({
-      category: 'Foundations',
-      name: 'Playground',
-    });
+  it('consolidates Playground capabilities into Design Lab', () => {
+    expect(STUDIO_TOOLS.filter(({ id }) => id === 'surface')).toHaveLength(0);
     expect(STUDIO_TOOLS.find(({ id }) => id === 'material')).toMatchObject({
       category: 'Foundations',
       name: 'Design Lab',
     });
+    expect(STUDIO_TOOLS.find(({ id }) => id === 'material')?.keywords).toEqual(
+      expect.arrayContaining(['playground', 'surface lab', 'sticker', 'die cut'])
+    );
     expect(STUDIO_TOOLS.map(({ id }) => id)).not.toEqual(
       expect.arrayContaining(['logo', 'logo-shader', 'backgrounds'])
     );

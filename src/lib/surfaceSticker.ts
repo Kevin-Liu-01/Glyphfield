@@ -179,6 +179,98 @@ export function stickerShaderSource(id: StickerFinishSettings['presetId']): Stic
   return STICKER_FINISH_PRESETS.find((preset) => preset.id === id)?.source;
 }
 
+export function stickerFinishSwatch(value?: Partial<StickerFinishSettings>): string {
+  const finish = normalizeStickerFinish(value);
+  return STICKER_FINISH_PRESETS.find(({ id }) => id === finish.presetId)?.swatch
+    ?? STICKER_FINISH_PRESETS[0].swatch;
+}
+
+export function stickerFinishPalette(value?: Partial<StickerFinishSettings>): string[] {
+  const finish = normalizeStickerFinish(value);
+  if (finish.presetId === 'embossed-foil') return ['#5E441E', '#F6DC91', '#9D772E', '#FFF0B1', '#60451F'];
+  if (finish.presetId === 'epoxy-dome') return ['#DDF1FF', '#98B9D4', '#263F5C', '#EAF7FF'];
+  if (['mirror-chrome', 'brushed-metal', 'precision-metal-inset'].includes(finish.presetId)) {
+    return ['#25272B', '#F9FAFB', '#777D86', '#FFFFFF', '#34373C', '#DFE3E8'];
+  }
+  if (['clear-frost', 'soft-touch', 'spot-gloss'].includes(finish.presetId)) {
+    return ['#F7FAFC', '#AAB3BC', '#FFFFFF', '#66707A'];
+  }
+  const hue = finish.hueShift * 3.6;
+  return [0, 58, 118, 188, 258, 324, 360].map((offset) => `hsl(${hue + offset} 88% 76%)`);
+}
+
+export function drawStickerFinishOverlay(
+  context: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  bounds: { height: number; width: number; x: number; y: number },
+  value?: Partial<StickerFinishSettings>,
+  opacity = 1
+): void {
+  const finish = normalizeStickerFinish(value);
+  if (finish.intensity <= 0 || opacity <= 0) return;
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
+  const overlay = document.createElement('canvas');
+  overlay.width = width;
+  overlay.height = height;
+  const overlayContext = overlay.getContext('2d');
+  if (!overlayContext) return;
+
+  overlayContext.drawImage(source, 0, 0, width, height);
+  overlayContext.globalCompositeOperation = 'source-atop';
+  const angle = finish.glintAngle * Math.PI / 180;
+  const halfSpan = Math.abs(Math.cos(angle)) * width / 2 + Math.abs(Math.sin(angle)) * height / 2;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const optical = overlayContext.createLinearGradient(
+    centerX - Math.cos(angle) * halfSpan,
+    centerY - Math.sin(angle) * halfSpan,
+    centerX + Math.cos(angle) * halfSpan,
+    centerY + Math.sin(angle) * halfSpan
+  );
+  const palette = stickerFinishPalette(finish);
+  palette.forEach((color, index) => optical.addColorStop(index / Math.max(1, palette.length - 1), color));
+  overlayContext.globalAlpha = Math.min(0.76, finish.intensity / 132);
+  overlayContext.fillStyle = optical;
+  overlayContext.fillRect(0, 0, width, height);
+
+  const glint = overlayContext.createLinearGradient(0, height, width, 0);
+  glint.addColorStop(0.34, 'rgba(255,255,255,0)');
+  glint.addColorStop(0.5, 'rgba(255,255,255,0.96)');
+  glint.addColorStop(0.66, 'rgba(255,255,255,0)');
+  overlayContext.globalAlpha = finish.intensity / 190;
+  overlayContext.fillStyle = glint;
+  overlayContext.fillRect(0, 0, width, height);
+
+  if (finish.texture > 0) {
+    const texture = document.createElement('canvas');
+    texture.width = 24;
+    texture.height = 24;
+    const textureContext = texture.getContext('2d');
+    if (textureContext) {
+      textureContext.fillStyle = 'rgba(255,255,255,0.78)';
+      textureContext.fillRect(3, 4, 1, 1);
+      textureContext.fillRect(17, 7, 1, 1);
+      textureContext.fillRect(9, 18, 1, 1);
+      textureContext.fillRect(22, 21, 1, 1);
+      const pattern = overlayContext.createPattern(texture, 'repeat');
+      if (pattern) {
+        overlayContext.globalAlpha = finish.texture / 360;
+        overlayContext.fillStyle = pattern;
+        overlayContext.fillRect(0, 0, width, height);
+      }
+    }
+  }
+
+  overlayContext.globalAlpha = 1;
+  overlayContext.globalCompositeOperation = 'source-over';
+  context.save();
+  context.globalAlpha = Math.max(0, Math.min(1, opacity));
+  context.globalCompositeOperation = 'screen';
+  context.drawImage(overlay, bounds.x, bounds.y, bounds.width, bounds.height);
+  context.restore();
+}
+
 export function normalizeStickerFinish(value?: Partial<StickerFinishSettings>): StickerFinishSettings {
   const source = value ?? {};
   const presetCandidate = source.presetId;

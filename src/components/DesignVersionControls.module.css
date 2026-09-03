@@ -59,6 +59,58 @@
   gap: 4px;
 }
 
+.root[data-layout='panel'] {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 7px;
+}
+
+.root[data-layout='panel'] .trigger {
+  width: 100%;
+  max-width: none;
+  height: 36px;
+  padding-inline: 10px;
+}
+
+.root[data-layout='panel'] .actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px 32px;
+  gap: 5px;
+}
+
+.root[data-layout='panel'] .actions > button {
+  min-width: 0;
+}
+
+.root[data-layout='panel'] button {
+  transition: transform 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out;
+}
+
+.root[data-layout='panel'] .popover {
+  position: relative;
+  z-index: 1;
+  top: auto;
+  right: auto;
+  width: 100%;
+  box-shadow: none;
+}
+
+.root[data-layout='panel'] .popoverHeader {
+  min-height: 54px;
+}
+
+.root[data-layout='panel'] .list {
+  max-height: 248px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .root button:active {
+    transform: scale(0.97);
+  }
+}
+
 .popover {
   position: absolute;
   z-index: 160;
@@ -225,12 +277,12 @@
 }
 
 @media (max-width: 1280px) {
-  .trigger {
-    max-width: 126px;
-  }
-
   .actionLabel {
     display: none;
+  }
+
+  .root[data-layout='panel'] .actionLabel {
+    display: inline;
   }
 }
 

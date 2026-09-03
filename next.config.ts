@@ -5,6 +5,14 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { destination: '/api/docs', source: '/docs.md' },
+        { destination: '/api/docs/:path*', source: '/docs/:path*.md' },
+      ],
+    };
+  },
 };
 
 const withMDX = createMDX();

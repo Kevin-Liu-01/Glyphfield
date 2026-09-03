@@ -14,7 +14,7 @@ export type LiveMaterialSettingsPreview = {
 
 export type LiveMaterialTimePreview = {
   group: string;
-  timeMs: number;
+  timeMs: number | null;
 };
 
 export function previewLiveMaterialPatternScale(channel: string, value: number): void {
@@ -41,5 +41,13 @@ export function previewLiveMaterialTime(group: string, timeMs: number): void {
   window.dispatchEvent(new CustomEvent<LiveMaterialTimePreview>(
     LIVE_MATERIAL_TIME_PREVIEW_EVENT,
     { detail: { group, timeMs } }
+  ));
+}
+
+export function clearLiveMaterialTimePreview(group: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<LiveMaterialTimePreview>(
+    LIVE_MATERIAL_TIME_PREVIEW_EVENT,
+    { detail: { group, timeMs: null } }
   ));
 }

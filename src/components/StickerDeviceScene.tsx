@@ -23,7 +23,11 @@ import {
   type StickerSceneAsset,
   type StickerScenePlacement,
 } from '@/lib/stickerScene';
-import { STICKER_FINISH_PRESETS, type StickerFinishSettings } from '@/lib/surfaceSticker';
+import {
+  stickerFinishPalette,
+  stickerFinishSwatch,
+  type StickerFinishSettings,
+} from '@/lib/surfaceSticker';
 
 type DragState = {
   id: string;
@@ -51,11 +55,6 @@ export type StickerStudioStageHandle = {
   updateSelected: (patch: Partial<Pick<StickerScenePlacement, 'rotation' | 'scale' | 'x' | 'y'>>) => void;
 };
 
-function finishSwatch(finish: StickerFinishSettings): string {
-  return STICKER_FINISH_PRESETS.find(({ id }) => id === finish.presetId)?.swatch
-    ?? STICKER_FINISH_PRESETS[0].swatch;
-}
-
 function loadSceneImage(path: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -69,19 +68,6 @@ function loadSceneImage(path: string): Promise<HTMLImageElement> {
 
 function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-}
-
-function exportFinishPalette(finish: StickerFinishSettings): string[] {
-  if (finish.presetId === 'embossed-foil') return ['#5E441E', '#F6DC91', '#9D772E', '#FFF0B1', '#60451F'];
-  if (finish.presetId === 'epoxy-dome') return ['#DDF1FF', '#98B9D4', '#263F5C', '#EAF7FF'];
-  if (['mirror-chrome', 'brushed-metal', 'precision-metal-inset'].includes(finish.presetId)) {
-    return ['#25272B', '#F9FAFB', '#777D86', '#FFFFFF', '#34373C', '#DFE3E8'];
-  }
-  if (['clear-frost', 'soft-touch', 'spot-gloss'].includes(finish.presetId)) {
-    return ['#F7FAFC', '#AAB3BC', '#FFFFFF', '#66707A'];
-  }
-  const hue = finish.hueShift * 3.6;
-  return [0, 58, 118, 188, 258, 324, 360].map((offset) => `hsl(${hue + offset} 88% 76%)`);
 }
 
 function buildExportStickerLayers(image: HTMLImageElement, finish: StickerFinishSettings) {
@@ -112,7 +98,7 @@ function buildExportStickerLayers(image: HTMLImageElement, finish: StickerFinish
     centerX + Math.cos(angle) * halfSpan,
     centerY + Math.sin(angle) * halfSpan
   );
-  const colors = exportFinishPalette(finish);
+  const colors = stickerFinishPalette(finish);
   colors.forEach((color, index) => optical.addColorStop(index / Math.max(1, colors.length - 1), color));
   artworkContext.globalAlpha = Math.min(0.72, Math.max(0.06, finish.intensity / 135));
   artworkContext.fillStyle = optical;
@@ -419,7 +405,7 @@ const StickerDeviceScene = forwardRef<StickerStudioStageHandle, {
   const sceneStyle = {
     '--sticker-border': finish.borderColor,
     '--sticker-depth': `${Math.round(5 + finish.depth * 0.1)}px`,
-    '--sticker-finish': finishSwatch(finish),
+    '--sticker-finish': stickerFinishSwatch(finish),
     '--sticker-finish-opacity': Math.max(0.08, finish.intensity / 125),
     '--sticker-shine-x': '50%',
     '--sticker-shine-y': '30%',

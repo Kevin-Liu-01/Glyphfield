@@ -27,6 +27,32 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('setPanOffset({ x: pan.currentX, y: pan.currentY });');
   });
 
+  it('keeps the fixed selection overlay frame-locked to viewport transforms', () => {
+    const layer = readSource('src/components/EditableCanvasLayer.tsx');
+    const viewport = readSource('src/components/CanvasViewport.tsx');
+    const changeZoom = viewport.slice(viewport.indexOf('function changeZoom'), viewport.indexOf('const handleCanvasWheel'));
+
+    expect(layer).toContain('if (frame !== null) return;');
+    expect(layer).toContain('new MutationObserver(measureImmediately)');
+    expect(layer).toContain("overlay.style.left = `${next.left}px`;");
+    expect(layer).toContain("overlay.style.top = `${next.top}px`;");
+    expect(changeZoom).toContain('zoomRef.current = nextZoom;');
+    expect(changeZoom).toContain('applyStageTransform(nextPan.x, nextPan.y);');
+  });
+
+  it('uses wheel gestures only for pointer-anchored zoom and reserves panning for drag gestures', () => {
+    const source = readSource('src/components/CanvasViewport.tsx');
+    const wheelHandler = source.slice(source.indexOf('const handleCanvasWheel'), source.indexOf('function fitCanvas'));
+
+    expect(wheelHandler).toContain('resolveCanvasWheelZoomDelta');
+    expect(wheelHandler).toContain('changeZoom(zoomRef.current - zoomSteps * 5');
+    expect(wheelHandler).not.toContain('setPanOffset');
+    expect(wheelHandler).not.toContain('event.ctrlKey');
+    expect(wheelHandler).not.toContain('event.metaKey');
+    expect(source).toContain("addEventListener('wheel', handleCanvasWheel, { passive: false })");
+    expect(source).not.toContain('onWheel=');
+  });
+
   it('keeps persistence serialization outside high-frequency React setters', () => {
     const source = readSource('src/hooks/usePersistentState.ts');
     const setter = source.slice(source.indexOf('const setPersistentValue'), source.indexOf('return [value'));
@@ -38,14 +64,21 @@ describe('Studio interaction performance contracts', () => {
     expect(setter).not.toContain('JSON.stringify');
   });
 
-  it('unmounts inactive heavy workspaces instead of running hidden render loops', () => {
+  it('retains Design Lab while pausing its hidden renderer', () => {
     const source = readSource('src/components/StudioApp.tsx');
+    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+    const styles = readSource('src/app/globals.css');
 
-    expect(source).not.toContain('RETAINED_WORKSPACE_TOOL_IDS');
-    expect(source).not.toContain('retainedWorkspaces');
-    expect(source).not.toContain('hidden={!showAnimation}');
+    expect(source).toContain("const PERSISTENT_LAB_TOOL_IDS = ['material']");
+    expect(source).toContain("storedTool === 'logo-shader' || storedTool === 'surface'");
+    expect(source).toContain("className='studio-workspace-layer'");
+    expect(source).toContain('inert={!active}');
+    expect(source).toContain('useDeferredValue(activeToolId)');
     expect(source).toContain("activeToolId === 'animation'");
     expect(source).toContain("activeToolId === 'lottie'");
+    expect(designLab).toContain('paused={!active || paused || controlledTimeMs !== null}');
+    expect(styles).toContain(".studio-workspace-layer[data-active='true']");
+    expect(styles).not.toContain('@keyframes studio-workspace-enter');
   });
 
   it('uses the accelerated Lottie renderer without live WASM buffer reallocations', () => {

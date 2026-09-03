@@ -5,11 +5,11 @@ import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   normalizeLiveMaterialId,
 } from '@/lib/liveMaterials';
-import { shaderLabSettingsFor, shaderMaterialPreviewStyle } from '@/lib/shaderLab';
+import { shaderMaterialPreviewStyle, shaderPreviewCaptureSettings } from '@/lib/shaderLab';
 
 export default function ShaderPreviewCapture({ materialId: requestedMaterialId }: { materialId: string }) {
   const materialId = normalizeLiveMaterialId(requestedMaterialId);
-  const settings = shaderLabSettingsFor(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
+  const settings = shaderPreviewCaptureSettings(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
 
   return (
     <main
@@ -29,7 +29,7 @@ export default function ShaderPreviewCapture({ materialId: requestedMaterialId }
         className='absolute inset-0 size-full'
         materialId={materialId}
         paused
-        preservePresetAppearance
+        preservePresetGeometry
         renderScale={1}
         settings={settings}
       />

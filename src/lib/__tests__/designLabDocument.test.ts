@@ -18,6 +18,7 @@ function designLabInput(): DesignLabDocumentInput {
   return {
     assets: [{
       id: 'asset-photo',
+      kind: 'sticker',
       libraryAssetId: 'asset-library-photo',
       name: 'Photo',
       opacity: 0.8,
@@ -73,6 +74,16 @@ function designLabInput(): DesignLabDocumentInput {
     title: 'GT Design Lab',
     updatedAt: CREATED_AT,
     width: 960,
+    workspace: {
+      activeArtboardId: 'artboard-main',
+      artboards: [{
+        id: 'artboard-main',
+        name: 'Launch frame',
+        snapshot: { backgroundColor: '#111216', ratio: 'wide' },
+        x: 120,
+        y: 180,
+      }],
+    },
   };
 }
 
@@ -129,9 +140,11 @@ describe('Design Lab canvas document adapter', () => {
     const restored = parseDesignLabCanvasDocument(serializeDesignLabCanvasDocument(designLabInput()));
     const composition = restored.composition as Record<string, object[]>;
 
-    expect(restored.version).toBe(3);
+    expect(restored.version).toBe(4);
+    expect(restored.canvasDimensions).toEqual({ height: 540, width: 960 });
     expect(composition.assets?.[0]).toMatchObject({
       id: 'asset-photo',
+      kind: 'sticker',
       libraryAssetId: 'asset-library-photo',
       transform: { heightScale: 2, scale: 0.6, widthScale: 3, x: 12, y: -8 },
       url: 'data:image/png;base64,aGVybw==',
@@ -146,6 +159,7 @@ describe('Design Lab canvas document adapter', () => {
       transform: { heightScale: 0.8, scale: 1, widthScale: 0.7, x: 42, y: -18 },
     });
     expect((restored.composition as Record<string, string[]>).layerOrder).toEqual(designLabInput().layerOrder);
+    expect(restored.workspace).toEqual(designLabInput().workspace);
   });
 
   it('upgrades legacy full-canvas shaders with an explicit adjustable frame', () => {

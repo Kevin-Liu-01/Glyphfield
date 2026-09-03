@@ -35,7 +35,7 @@ export type AnimationPackageId =
 
 export type BackgroundStyle = 'solid' | 'gradient' | 'shader';
 
-type BackgroundTransitionId = 'crossfade' | 'wipe' | 'radial';
+export type BackgroundTransitionId = 'crossfade' | 'wipe' | 'radial';
 
 export type StudioBackground = {
   angle: number;
@@ -46,9 +46,16 @@ export type StudioBackground = {
   image?: CanvasImageSource;
   materialId: LiveMaterialId;
   materialSettings: LiveMaterialSettings;
+  opacity?: number;
   patternScale?: number;
   style: BackgroundStyle;
 };
+
+export function resolveStudioBackgroundOpacity(
+  background: Pick<StudioBackground, 'opacity'>
+): number {
+  return Math.min(1, Math.max(0, background.opacity ?? 1));
+}
 
 type StudioSourceBase = {
   alignX?: number;
@@ -433,13 +440,14 @@ function drawBackgroundLayer(
   config: RenderConfig,
   alpha = 1
 ): void {
-  drawBackgroundContent(context, background, config, alpha);
+  const effectiveAlpha = alpha * resolveStudioBackgroundOpacity(background);
+  drawBackgroundContent(context, background, config, effectiveAlpha);
   if (hasMaterialFinish(background.finish)) {
     drawBackgroundFinish(
       context,
       normalizeMaterialFinish(background.finish),
       config,
-      alpha
+      effectiveAlpha
     );
   }
 }

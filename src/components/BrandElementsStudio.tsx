@@ -25,6 +25,8 @@ import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
@@ -240,7 +242,7 @@ function ElementRangeControl({
   return (
     <label className='element-editor-range'>
       <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} type='range' value={resolvedValue} />
+      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} value={resolvedValue} />
     </label>
   );
 }
@@ -368,7 +370,7 @@ function ElementEditorBrandDetailsSection({ capabilities, onChange, settings }: 
     <LabInspectorSection title={<T>Brand details</T>}>
       {capabilities.logoSupported ? <label className='element-editor-toggle'>
         <span><T>Show logo</T></span>
-        <input checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} type='checkbox' />
+        <StudioCheckbox checked={settings.showLogo} onChange={(event) => onChange({ showLogo: event.target.checked })} variant='switch' />
       </label> : null}
       {capabilities.logoSupported && settings.showLogo ? (
         <div className='mt-2 border-t border-border pt-4'>
@@ -380,7 +382,7 @@ function ElementEditorBrandDetailsSection({ capabilities, onChange, settings }: 
       ) : null}
       {capabilities.websiteSupported ? <label className='element-editor-toggle'>
         <span><T>Show website</T></span>
-        <input checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} type='checkbox' />
+        <StudioCheckbox checked={settings.showWebsite} onChange={(event) => onChange({ showWebsite: event.target.checked })} variant='switch' />
       </label> : null}
     </LabInspectorSection>
   );
@@ -1178,7 +1180,7 @@ function ProductComponentPreview({ element, identity, settings }: { element: Bra
   case 'form-controls':
   case 'settings-panel': {
     return (
-      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><input checked readOnly type='checkbox' /></label></div><div className='mt-7'>{action}</div></div></div>
+      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><StudioCheckbox checked readOnly /></label></div><div className='mt-7'>{action}</div></div></div>
     );
   }
 

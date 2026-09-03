@@ -28,6 +28,7 @@ import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
   brandAssetPath,
@@ -146,7 +147,7 @@ function RangeField({
   return (
     <label className='brand-identity-range'>
       <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={resolvedValue} />
+      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={resolvedValue} />
     </label>
   );
 }

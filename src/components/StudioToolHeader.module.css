@@ -1,4 +1,5 @@
 .root {
+  --studio-toolbar-label-size: 0.75rem;
   position: relative;
   z-index: 20;
   min-width: 0;
@@ -29,7 +30,6 @@
 
 .identity {
   gap: 10px;
-  overflow: hidden;
 }
 
 .icon {
@@ -47,14 +47,13 @@
 }
 
 .identity :is(h1, h2) {
+  flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden;
   color: hsl(var(--foreground));
-  font-size: var(--studio-toolbar-title-size);
+  font-size: var(--studio-toolbar-label-size);
   font-weight: 500;
   letter-spacing: -0.012em;
   line-height: 1;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -85,11 +84,15 @@
   gap: 8px;
 }
 
+.context :global(button),
+.navigation :global(button),
+.status :global(button),
 .actions :global(button),
 .actions :global(a) {
   min-height: var(--studio-toolbar-control-height);
   max-height: var(--studio-toolbar-control-height);
-  font-size: 0.75rem;
+  font-size: var(--studio-toolbar-label-size);
+  white-space: nowrap;
 }
 
 .actions :global(svg) {

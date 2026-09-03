@@ -17,6 +17,7 @@ import {
 } from './sourceCode';
 import { parseStudioCanvasDocument } from './studioCanvasDocument';
 import type { SlideLayout, TemplateLayerId, TemplateTexture } from './templateSvg';
+import type { TemplatePartnerTreatment } from './templateAssets';
 
 type PortableNamedAsset = {
   name: string;
@@ -175,6 +176,7 @@ const SLIDE_LAYOUT_IDS: readonly SlideLayout[] = [
 ];
 const TEMPLATE_TEXTURES: readonly TemplateTexture[] = ['white', 'dark', 'grid', 'noise'];
 const TEMPLATE_LAYER_IDS: readonly TemplateLayerId[] = ['brand', 'content', 'footer'];
+const TEMPLATE_PARTNER_TREATMENTS: readonly TemplatePartnerTreatment[] = ['logo', 'text'];
 
 type TemplateMediaSource = {
   asset: PortableNamedAsset | null;
@@ -195,7 +197,15 @@ export type TemplateWorkspaceDefaults = {
   fontWeight: number;
   footerLayer: CanvasLayerTransform;
   layerOrder: readonly TemplateLayerId[];
-  partner: TemplateMediaSource & { id: string };
+  partner: TemplateMediaSource & {
+    fontAsset: PortableNamedAsset | null;
+    fontId: string;
+    fontWeight: number;
+    gap: number;
+    id: string;
+    name: string;
+    treatment: TemplatePartnerTreatment;
+  };
   slideLayout: SlideLayout;
   texture: TemplateTexture;
   textureOpacity: number;
@@ -255,11 +265,15 @@ export function parseTemplateWorkspaceSource(
   const slideLayout = sourceString(state, 'slideLayout', fallback.slideLayout);
   const textureType = sourceString(texture, 'type', fallback.texture);
   const fontRole = sourceString(typography, 'role', fallback.fontRole);
+  const partnerTreatment = sourceString(partner, 'treatment', fallback.partner.treatment);
   const layerOrder = sourceStringArray(layers, 'order', [...fallback.layerOrder]);
 
   if (!SLIDE_LAYOUT_IDS.includes(slideLayout as SlideLayout)) throw new TypeError('Unknown slide layout.');
   if (!TEMPLATE_TEXTURES.includes(textureType as TemplateTexture)) throw new TypeError('Unknown surface texture.');
   if (!fallback.allowedFontRoles.includes(fontRole as BrandTypography['role'])) throw new TypeError('Unknown typography role.');
+  if (!TEMPLATE_PARTNER_TREATMENTS.includes(partnerTreatment as TemplatePartnerTreatment)) {
+    throw new TypeError('Unknown partner treatment.');
+  }
   if (!exactTemplateLayerOrder(layerOrder)) {
     throw new TypeError('Layer order must contain brand, content, and footer exactly once.');
   }
@@ -293,9 +307,15 @@ export function parseTemplateWorkspaceSource(
     layerOrder,
     partner: {
       asset: portableAsset(document, 'template-partner', sourceObject(partner, 'asset'), 'Imported partner mark'),
+      fontAsset: portableAsset(document, 'template-partner-font', sourceObject(partner, 'fontAsset'), 'Imported partner font'),
+      fontId: sourceString(partner, 'fontId', fallback.partner.fontId),
+      fontWeight: sourceNumber(partner, 'fontWeight', fallback.partner.fontWeight),
+      gap: sourceNumber(partner, 'gap', fallback.partner.gap),
       id: sourceString(partner, 'id', fallback.partner.id),
+      name: sourceString(partner, 'name', fallback.partner.name),
       opacity: fallback.partner.opacity,
       scale: sourceNumber(partner, 'scale', fallback.partner.scale),
+      treatment: partnerTreatment as TemplatePartnerTreatment,
       x: sourceNumber(partner, 'x', fallback.partner.x),
       y: sourceNumber(partner, 'y', fallback.partner.y),
     },

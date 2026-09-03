@@ -1,4 +1,5 @@
 import StudioRangeLabel from '@/components/StudioRangeLabel';
+import StudioRange from '@/components/ui/StudioRange';
 
 export default function SurfaceRangeControl({
   disabled = false,
@@ -22,7 +23,7 @@ export default function SurfaceRangeControl({
   return (
     <label className='design-lab-range' data-disabled={disabled ? 'true' : 'false'}>
       <StudioRangeLabel label={label} value={<output>{Math.round(value * 100) / 100}{suffix}</output>} />
-      <input aria-label={label} className='studio-range' disabled={disabled} max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
+      <StudioRange aria-label={label} disabled={disabled} max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={value} />
     </label>
   );
 }

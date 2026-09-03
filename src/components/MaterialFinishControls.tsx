@@ -5,6 +5,8 @@ import { T, useGT } from 'gt-next';
 
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
   MATERIAL_FINISH_PRESETS,
@@ -38,7 +40,7 @@ function RangeControl({
         label={label}
         value={<output className='font-mono text-xs tabular-nums'>{value}{unit}</output>}
       />
-      <input className='studio-range' max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} type='range' value={value} />
+      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={value} />
     </label>
   );
 }
@@ -55,8 +57,7 @@ function FinishToggle({
   return (
     <label className={`relative flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-md border px-3 text-sm ${checked ? 'border-foreground bg-foreground text-background' : 'border-border bg-background text-foreground'}`}>
       <span>{label}</span>
-      <input checked={checked} className='sr-only' onChange={(event) => onChange(event.target.checked)} type='checkbox' />
-      <span aria-hidden='true' className={`size-2 rounded-full ${checked ? 'bg-background' : 'bg-muted-foreground/35'}`} />
+      <StudioCheckbox checked={checked} onChange={(event) => onChange(event.target.checked)} variant='dot' />
     </label>
   );
 }

@@ -50,14 +50,17 @@ export function normalizeShaderSequenceSettings(
 export function shaderSequenceMaterialIds(
   finalMaterialId: LiveMaterialId,
   cutCount: number,
-  candidates: readonly LiveMaterialId[] = SHADER_SEQUENCE_CANDIDATE_IDS
+  candidates: readonly LiveMaterialId[] = SHADER_SEQUENCE_CANDIDATE_IDS,
+  offset = 0
 ): LiveMaterialId[] {
   const normalizedCount = normalizeShaderSequenceSettings({ cutCount }).cutCount;
   const intros = Array.from(new Set(candidates)).filter((id) => id !== finalMaterialId);
   if (intros.length < normalizedCount - 1) {
     throw new RangeError('The shader sequence needs enough unique intro materials.');
   }
-  return [...intros.slice(0, normalizedCount - 1), finalMaterialId];
+  const start = ((Math.round(offset) % intros.length) + intros.length) % intros.length;
+  const rotated = [...intros.slice(start), ...intros.slice(0, start)];
+  return [...rotated.slice(0, normalizedCount - 1), finalMaterialId];
 }
 
 export function buildShaderSequenceTimeline(

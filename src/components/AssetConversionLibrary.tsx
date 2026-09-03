@@ -7,6 +7,11 @@ import { useState } from 'react';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import { Button } from '@/components/ui/Button';
+import StudioContextMenu, {
+  contextMenuPositionFromElement,
+  contextMenuPositionFromEvent,
+  type StudioContextMenuPosition,
+} from '@/components/ui/StudioContextMenu';
 import StudioSelect from '@/components/ui/StudioSelect';
 import type { ConvertedAssetLibraryController } from '@/hooks/useConvertedAssets';
 import {
@@ -49,6 +54,13 @@ export default function AssetConversionLibrary({
   const [maxDimension, setMaxDimension] = useState(2048);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
+  const [assetMenu, setAssetMenu] = useState<{
+    assetId: string;
+    position: StudioContextMenuPosition;
+  } | null>(null);
+  const contextAsset = assetMenu
+    ? library.assets.find(({ id }) => id === assetMenu.assetId) ?? null
+    : null;
 
   async function previewAsset(dataUrl: string, name: string, format: 'FILE' | 'PNG') {
     studioExport.start(`Preparing ${name} preview`);
@@ -124,12 +136,26 @@ export default function AssetConversionLibrary({
         {library.assets.map((asset) => {
           const selected = selectedAssetId === asset.id;
           return (
-            <article className={`min-w-0 overflow-hidden border bg-background ${selected ? 'border-foreground ring-1 ring-foreground' : 'border-border'}`} key={asset.id}>
+            <article
+              className={`min-w-0 overflow-hidden border bg-background ${selected ? 'border-foreground ring-1 ring-foreground' : 'border-border'}`}
+              data-studio-context-trigger='asset'
+              key={asset.id}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setAssetMenu({ assetId: asset.id, position: contextMenuPositionFromEvent(event) });
+              }}
+            >
               <button
+                aria-keyshortcuts='Shift+F10'
                 aria-label={onSelect ? gt('Use {name}', { name: asset.originalName }) : gt('Preview {name}', { name: asset.originalName })}
                 aria-pressed={onSelect ? selected : undefined}
                 className='block w-full text-left'
                 onClick={() => onSelect?.(asset)}
+                onKeyDown={(event) => {
+                  if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
+                  event.preventDefault();
+                  setAssetMenu({ assetId: asset.id, position: contextMenuPositionFromElement(event.currentTarget) });
+                }}
                 type='button'
               >
                 <span className='relative block aspect-[16/10] overflow-hidden bg-[linear-gradient(45deg,hsl(var(--muted))_25%,transparent_25%,transparent_75%,hsl(var(--muted))_75%),linear-gradient(45deg,hsl(var(--muted))_25%,transparent_25%,transparent_75%,hsl(var(--muted))_75%)] bg-[length:16px_16px] bg-[position:0_0,8px_8px]'>
@@ -166,9 +192,54 @@ export default function AssetConversionLibrary({
           );
         })}
       </div>
+      <StudioContextMenu
+        detail={contextAsset ? `${contextAsset.width} × ${contextAsset.height} · ${formatAssetBytes(contextAsset.convertedBytes)}` : undefined}
+        label={contextAsset?.originalName ?? gt('Asset')}
+        onClose={() => setAssetMenu(null)}
+        position={assetMenu?.position ?? null}
+        sections={contextAsset ? [
+          {
+            items: [
+              ...(onSelect ? [{
+                checked: selectedAssetId === contextAsset.id,
+                icon: <Check aria-hidden='true' />,
+                id: 'use-asset',
+                label: gt('Use this asset'),
+                onSelect: () => onSelect(contextAsset),
+              }] : []),
+              {
+                icon: <FileDown aria-hidden='true' />,
+                id: 'preview-original',
+                label: gt('Preview original'),
+                onSelect: () => void previewAsset(contextAsset.originalDataUrl, contextAsset.originalName, 'FILE'),
+              },
+              {
+                icon: <Download aria-hidden='true' />,
+                id: 'preview-converted',
+                label: gt('Preview converted PNG'),
+                onSelect: () => void previewAsset(contextAsset.convertedDataUrl, contextAsset.name, 'PNG'),
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                danger: true,
+                icon: <Trash2 aria-hidden='true' />,
+                id: 'delete-asset',
+                label: gt('Delete asset'),
+                onSelect: () => {
+                  if (selectedAssetId === contextAsset.id) onSelect?.(null);
+                  void library.removeAsset(contextAsset.id);
+                },
+              },
+            ],
+          },
+        ] : []}
+      />
       {library.assets.length === 0 && !library.busy ? (
         <p className='mt-3 border border-dashed border-border p-4 text-center text-[10px] leading-4 text-muted-foreground'>
-          <T>Converted assets stay local in this browser and can be reused across Design Lab and Playground.</T>
+          <T>Converted assets stay local in this browser and can be reused across every Design Lab artboard.</T>
         </p>
       ) : null}
     </div>

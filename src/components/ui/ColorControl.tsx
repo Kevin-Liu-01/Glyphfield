@@ -20,9 +20,11 @@ import {
   oklchToHex,
   parseOklch,
 } from '@/lib/color';
+import StudioRange from '@/components/ui/StudioRange';
 
 type ColorControlProps = {
   ariaLabel: string;
+  compact?: boolean;
   label: ReactNode;
   onChange: (value: string) => void;
   onPreview?: (value: string) => void;
@@ -39,6 +41,7 @@ type PropBoundPreview<T, Base = T> = {
 
 export default function ColorControl({
   ariaLabel,
+  compact = false,
   label,
   onChange,
   onPreview,
@@ -187,7 +190,7 @@ export default function ColorControl({
     const bounds = event.currentTarget.getBoundingClientRect();
     const viewportPadding = 12;
     const pickerWidth = 260;
-    const pickerHeight = 320;
+    const pickerHeight = compact ? 410 : 320;
     const left = Math.min(
       window.innerWidth - pickerWidth - viewportPadding,
       Math.max(viewportPadding, bounds.left)
@@ -200,19 +203,14 @@ export default function ColorControl({
   }
 
   return (
-    <div className='studio-color-control flex flex-col gap-2.5 rounded-md border border-border p-3'>
-      <div className='flex items-center justify-between gap-3'>
-        <span className='text-xs font-semibold text-foreground'>{label}</span>
-        {opacity === undefined ? null : (
-          <output className='font-mono text-[10px] text-muted-foreground'>{displayedOpacity}%</output>
-        )}
-      </div>
-      <div className='studio-color-control-row grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
+    <div className={compact
+      ? 'studio-color-control studio-color-control-compact design-lab-color'
+      : 'studio-color-control flex flex-col gap-2.5 rounded-md border border-border p-3'}>
+      {compact ? (
         <button
-          aria-controls={pickerId}
           aria-haspopup='dialog'
           aria-label={ariaLabel}
-          className='studio-color-control-swatch relative grid size-[38px] shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-background p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          className='studio-color-control-compact-trigger'
           onClick={positionPicker}
           popoverTarget={pickerId}
           popoverTargetAction='toggle'
@@ -220,30 +218,56 @@ export default function ColorControl({
         >
           <span
             aria-hidden='true'
-            className='size-full border border-foreground/10'
+            className='studio-color-control-compact-swatch'
             style={{ backgroundColor: hex }}
           />
+          <span>{label}</span>
+          <code>{hex}</code>
         </button>
-        <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
-          <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
-          <input
-            aria-label={`${ariaLabel} HEX`}
-            className='h-9 min-w-0 bg-transparent pr-2 font-mono text-xs uppercase outline-none'
-            defaultValue={hex}
-            key={hex}
-            onBlur={(event) => commitHex(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur();
-            }}
-          />
-        </label>
-      </div>
+      ) : <>
+        <div className='flex items-center justify-between gap-3'>
+          <span className='text-xs font-semibold text-foreground'>{label}</span>
+          {opacity === undefined ? null : (
+            <output className='font-mono text-[10px] text-muted-foreground'>{displayedOpacity}%</output>
+          )}
+        </div>
+        <div className='studio-color-control-row grid grid-cols-[38px_minmax(0,1fr)] items-stretch gap-2'>
+          <button
+            aria-haspopup='dialog'
+            aria-label={ariaLabel}
+            className='studio-color-control-swatch relative grid size-[38px] shrink-0 cursor-pointer place-items-center rounded-md border border-input bg-background p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring'
+            onClick={positionPicker}
+            popoverTarget={pickerId}
+            popoverTargetAction='toggle'
+            type='button'
+          >
+            <span
+              aria-hidden='true'
+              className='size-full border border-foreground/10'
+              style={{ backgroundColor: hex }}
+            />
+          </button>
+          <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+            <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
+            <input
+              aria-label={`${ariaLabel} HEX`}
+              className='h-9 min-w-0 bg-transparent pr-2 font-mono text-xs uppercase outline-none'
+              defaultValue={hex}
+              key={hex}
+              onBlur={(event) => commitHex(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+            />
+          </label>
+        </div>
+      </>}
       <div
         aria-label={`${ariaLabel} color picker`}
         className='color-picker-popover flex w-[260px] flex-col gap-3 rounded-md bg-background p-3 text-foreground smooth-shadow-ring-xl'
         id={pickerId}
         popover='auto'
-        role='region'
+        role='dialog'
         style={pickerPosition}
       >
         <div
@@ -280,16 +304,15 @@ export default function ColorControl({
         </div>
         <label className='flex items-center gap-3'>
           <span className='size-5 shrink-0 rounded-full border border-border' style={{ backgroundColor: hex }} />
-          <input
+          <StudioRange
             aria-label={`${ariaLabel} hue`}
-            className='studio-range color-hue-range min-w-0 flex-1'
+            className='color-hue-range min-w-0 flex-1'
             max={360}
             min={0}
             onBlur={() => flushPreview(true)}
             onInput={(event) => schedulePreview(hsvToHex(Number(event.currentTarget.value), hsv.saturation, hsv.value))}
             onPointerCancel={() => flushPreview(true)}
             onPointerUp={() => flushPreview(true)}
-            type='range'
             value={Math.round(hsv.hue)}
           />
         </label>
@@ -298,8 +321,36 @@ export default function ColorControl({
           <span className='rounded-sm border border-border py-1.5'><strong className='font-medium text-foreground'>{Math.round(hsv.saturation * 100)}</strong> S</span>
           <span className='rounded-sm border border-border py-1.5'><strong className='font-medium text-foreground'>{Math.round(hsv.value * 100)}</strong> V</span>
         </div>
+        {compact ? <>
+          <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+            <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
+            <input
+              aria-label={`${ariaLabel} HEX`}
+              className='h-9 min-w-0 bg-transparent pr-2 font-mono text-xs uppercase outline-none'
+              defaultValue={hex}
+              key={hex}
+              onBlur={(event) => commitHex(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+            />
+          </label>
+          <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+            <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>OKLCH</span>
+            <input
+              aria-label={`${ariaLabel} OKLCH`}
+              className='h-9 min-w-0 bg-transparent pr-2 font-mono text-[10px] outline-none'
+              defaultValue={oklch}
+              key={oklch}
+              onBlur={(event) => commitOklch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+            />
+          </label>
+        </> : null}
       </div>
-      <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
+      {compact ? null : <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
         <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>OKLCH</span>
         <input
           aria-label={`${ariaLabel} OKLCH`}
@@ -311,18 +362,16 @@ export default function ColorControl({
             if (event.key === 'Enter') event.currentTarget.blur();
           }}
         />
-      </label>
-      {opacity === undefined || !onOpacityChange ? null : (
-        <input
+      </label>}
+      {compact || opacity === undefined || !onOpacityChange ? null : (
+        <StudioRange
           aria-label={`${ariaLabel} opacity`}
-          className='studio-range'
           max={100}
           min={0}
           onBlur={commitOpacityPreview}
           onInput={(event) => scheduleOpacityPreview(Number(event.currentTarget.value))}
           onPointerCancel={commitOpacityPreview}
           onPointerUp={commitOpacityPreview}
-          type='range'
           value={displayedOpacity}
         />
       )}

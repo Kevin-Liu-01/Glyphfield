@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { GT_BRAND_IDENTITY, STARTER_BRAND_IDENTITY } from '../brandIdentity';
 import {
+  BUILT_IN_BRAND_IDENTITIES,
+  GT_BRAND_IDENTITY,
+  STARTER_BRAND_IDENTITY,
+} from '../brandIdentity';
+import {
+  defaultTemplatePartnerFont,
+  defaultTemplatePartnerTreatment,
   defaultTemplatePartner,
   templateBackgroundOptions,
   templateBrandLogo,
+  templatePartnerFontOptions,
   templatePartnerOptions,
 } from '../templateAssets';
 
@@ -29,6 +36,26 @@ describe('template assets', () => {
     expect(templatePartnerOptions(GT_BRAND_IDENTITY).map(({ id }) => id)).toEqual(
       expect.arrayContaining(['ramp', 'cursor', 'template-northstar'])
     );
+  });
+
+  it('uses the partner brand font when a matching identity exists', () => {
+    expect(defaultTemplatePartnerFont(
+      GT_BRAND_IDENTITY,
+      'ramp',
+      BUILT_IN_BRAND_IDENTITIES
+    )).toMatchObject({
+      family: 'Lausanne',
+      id: 'ramp:ramp-lausanne-350',
+      path: '/fonts/brands/ramp/lausanne-350.woff2',
+      weight: 350,
+    });
+    expect(templatePartnerFontOptions(
+      GT_BRAND_IDENTITY,
+      'ramp',
+      BUILT_IN_BRAND_IDENTITIES
+    ).map(({ family }) => family)).toContain('Lausanne');
+    expect(defaultTemplatePartnerTreatment('ramp', BUILT_IN_BRAND_IDENTITIES)).toBe('text');
+    expect(defaultTemplatePartnerTreatment('cursor', BUILT_IN_BRAND_IDENTITIES)).toBe('logo');
   });
 
   it('keeps product identities out of background artwork options', () => {

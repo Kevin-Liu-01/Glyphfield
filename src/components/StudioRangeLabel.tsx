@@ -73,7 +73,7 @@ export default function StudioRangeLabel({
         <span aria-hidden='true' className='studio-range-icon'><Icon /></span>
         <span>{label}</span>
       </span>
-      {value}
+      {value !== undefined ? <span className='studio-range-value'>{value}</span> : null}
     </span>
   );
 }

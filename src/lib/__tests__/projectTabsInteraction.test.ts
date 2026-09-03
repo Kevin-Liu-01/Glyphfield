@@ -35,9 +35,11 @@ describe('project tab interaction', () => {
 
   it('keeps click, close, keyboard, and pointer alternatives independent', () => {
     expect(studioApp).toContain("aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10'");
-    expect(studioApp).toContain("target.closest('.project-tab-close, .project-tab-reorder-controls')");
+    expect(studioApp).toContain("target.closest('.project-tab-close')");
     expect(studioApp).toContain('onContextMenu={(event) => {');
     expect(studioApp).toContain("className='project-tab-close'");
-    expect(studioApp).toContain("role='menu'");
+    expect(studioApp).toContain('<StudioContextMenu');
+    expect(studioApp).toContain("data-studio-context-trigger='project-tab'");
+    expect(studioApp).toContain("label: gt('Move tab left')");
   });
 });

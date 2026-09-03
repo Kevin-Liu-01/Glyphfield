@@ -13,6 +13,7 @@ import {
   serializeAnimationCanvasDocument,
   type AnimationDocumentInput,
 } from '../animationDocument';
+import { createDefaultFrameSettings, DEFAULT_SETTINGS } from '../studio';
 
 const CREATED_AT = '2026-09-01T12:00:00.000Z';
 
@@ -98,6 +99,114 @@ describe('Animation Studio canvas document adapter', () => {
       source: 'data:image/png;base64,aGVybw==',
       width: 640,
     }]);
+  });
+
+  it('round-trips named output artboards with their independent settings', () => {
+    const next = input();
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      bezier: [...DEFAULT_SETTINGS.bezier] as typeof DEFAULT_SETTINGS.bezier,
+      height: 900,
+      shaderSettings: { ...DEFAULT_SETTINGS.shaderSettings },
+      width: 1600,
+    };
+    const frame = createDefaultFrameSettings(settings);
+    const artboardAudio = {
+      assets: [{
+        durationMs: 8_400,
+        id: 'score',
+        mimeType: 'audio/wav',
+        name: 'Open Source Score',
+        peaks: [0.2, 1, 0.4],
+        source: '/audio/open-source-score.wav',
+      }],
+      clips: [{
+        assetId: 'score',
+        id: 'score-clip',
+        timelineStartMs: 400,
+        trimEndMs: 4_000,
+        trimStartMs: 200,
+        volume: 0.6,
+      }],
+      muted: false,
+      volume: 0.8,
+    };
+    next.state = {
+      ...next.state,
+      activeArtboardId: 'animation-artboard-wide',
+      artboards: [{
+        id: 'animation-artboard-wide',
+        name: 'Launch wide',
+        snapshot: {
+          audio: artboardAudio,
+          backgroundOverrides: {},
+          frameSettings: { 'text-0': frame },
+          sequenceBackground: frame.background,
+          sequenceOrder: ['text-0'],
+          settings,
+        },
+      }],
+      settings,
+    };
+
+    const restored = parseAnimationCanvasDocument(
+      serializeAnimationCanvasDocument(createAnimationCanvasDocument(next))
+    ).state;
+
+    expect(restored.activeArtboardId).toBe('animation-artboard-wide');
+    expect(restored.artboards).toHaveLength(1);
+    expect(restored.artboards?.[0]).toMatchObject({
+      name: 'Launch wide',
+      snapshot: {
+        audio: {
+          assets: [{ source: '/audio/open-source-score.wav' }],
+          clips: [{ timelineStartMs: 400, trimStartMs: 200 }],
+        },
+        settings: { height: 900, width: 1600 },
+      },
+    });
+    expect(createAnimationCanvasDocument(next).assets['animation:audio:score']).toMatchObject({
+      kind: 'binary',
+      source: '/audio/open-source-score.wav',
+    });
+  });
+
+  it('embeds audio assets and restores the editable timeline', () => {
+    const next = input();
+    next.state.audio = {
+      assets: [{
+        durationMs: 2_000,
+        id: 'audio-one',
+        mimeType: 'audio/wav',
+        name: 'Launch bed.wav',
+        peaks: [0.25, 1, 0.5],
+        source: 'data:audio/wav;base64,aGVsbG8=',
+      }],
+      clips: [{
+        assetId: 'audio-one',
+        id: 'clip-one',
+        timelineStartMs: 250,
+        trimEndMs: 1_500,
+        trimStartMs: 100,
+        volume: 0.7,
+      }],
+      muted: false,
+      volume: 0.8,
+    };
+
+    const document = createAnimationCanvasDocument(next);
+    expect(document.assets['animation:audio:audio-one']).toMatchObject({
+      byteLength: 5,
+      kind: 'binary',
+      mimeType: 'audio/wav',
+      name: 'Launch bed.wav',
+    });
+    const restored = parseAnimationCanvasDocument(serializeAnimationCanvasDocument(document)).state.audio;
+    expect(restored).toMatchObject({
+      assets: [{ id: 'audio-one', source: 'data:audio/wav;base64,aGVsbG8=' }],
+      clips: [{ id: 'clip-one', timelineStartMs: 250, trimEndMs: 1_500, trimStartMs: 100 }],
+      volume: 0.8,
+    });
   });
 
   it('exposes the same state and asset projections without reparsing', () => {

@@ -25,6 +25,7 @@ import { browserSupportsWebGL2 } from '@/lib/webglContext';
 const TEXTURE_SIZE = 256;
 
 type SurfaceMaterialStageProps = {
+  active?: boolean;
   artworkAspectRatio?: number;
   artworkLayers?: readonly HoloClothArtworkLayer[];
   artworkOpacity?: number;
@@ -420,6 +421,7 @@ function SurfacePanel(props: SurfaceMaterialStageProps) {
   if (props.settings.surfaceMaterial === 'holo-cloth') {
     return (
       <HoloClothSurface
+        active={props.active}
         artworkAspectRatio={props.artworkAspectRatio}
         artworkLayers={props.artworkLayers}
         artworkOpacity={props.artworkOpacity}
@@ -438,6 +440,7 @@ function SurfacePanel(props: SurfaceMaterialStageProps) {
 }
 
 export default function SurfaceMaterialStage({
+  active = true,
   artworkAspectRatio,
   artworkLayers,
   artworkOpacity,
@@ -498,7 +501,7 @@ export default function SurfaceMaterialStage({
       <Canvas
         camera={{ fov: 34, position: [0, 0, 4.65] }}
         dpr={[1, 1.5]}
-        frameloop={holoCloth ? 'always' : 'demand'}
+        frameloop={active && holoCloth ? 'always' : 'demand'}
         gl={{ alpha: transparent, antialias: true, powerPreference: 'low-power' }}
         key={contextVersion}
         onCreated={({ gl }) => {
@@ -507,6 +510,7 @@ export default function SurfaceMaterialStage({
       >
         <ContextGuard onLost={recoverContext} />
         <SurfacePanel
+          active={active}
           artworkAspectRatio={artworkAspectRatio}
           artworkLayers={artworkLayers}
           artworkOpacity={artworkOpacity}

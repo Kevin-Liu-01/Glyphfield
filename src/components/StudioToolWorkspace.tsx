@@ -24,6 +24,7 @@ import {
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
 import ComponentLibraryPreview from '@/components/ComponentLibraryPreview';
+import ComponentLibraryCatalog, { ComponentPatternIcon } from '@/components/ComponentLibraryCatalog';
 import {
   COMPONENT_FAMILY_OPTIONS,
   COMPONENT_PATTERNS,
@@ -43,15 +44,18 @@ import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
+import StudioRange from '@/components/ui/StudioRange';
 import TemplateCanvasPreview from '@/components/TemplateCanvasPreview';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
+  BUILT_IN_BRAND_IDENTITIES,
   brandAssetPath,
   brandFontAssets,
   brandTypographyFamily,
@@ -65,6 +69,7 @@ import {
   canvasElementAssetSource,
   canvasRevisionFromSignature,
   isCanvasDocumentEnvelope,
+  type CanvasDocument,
 } from '@/lib/canvasDocument';
 import { colorContrastRatio, formatOklch, hexToOklch, mixHexColors, normalizeHex, normalizeHexOrFallback, oklchToHex, resolveReadableColor } from '@/lib/color';
 import { CODE_THEME, type CodeLanguage } from '@/lib/codeHighlight';
@@ -90,11 +95,15 @@ import {
   parseTemplateWorkspaceSource,
 } from '@/lib/expressionWorkspaceSource';
 import {
+  defaultTemplatePartnerFont,
+  defaultTemplatePartnerTreatment,
   defaultTemplatePartner,
   templateBackgroundOptions,
   templateBrandLogo,
+  templatePartnerFontOptions,
   templatePartnerOptions,
   type TemplateKind,
+  type TemplatePartnerTreatment,
 } from '@/lib/templateAssets';
 import {
   buildTemplateSvg,
@@ -371,8 +380,7 @@ function RangeField({
         label={label}
         value={<output className='font-mono text-xs tabular-nums'>{resolvedValue}{suffix}</output>}
       />
-      <input
-        className='studio-range'
+      <StudioRange
         max={max}
         min={min}
         onBlur={onChangeEnd}
@@ -387,7 +395,6 @@ function RangeField({
         onPointerDown={onChangeStart}
         onPointerUp={onChangeEnd}
         step={step}
-        type='range'
         value={resolvedValue}
       />
     </label>
@@ -395,10 +402,12 @@ function RangeField({
 }
 
 function SegmentedChoice<T extends string | number>({
+  ariaLabel,
   onChange,
   options,
   value,
 }: {
+  ariaLabel?: string;
   onChange: (value: T) => void;
   options: readonly { label: string; value: T }[];
   value: T;
@@ -406,9 +415,14 @@ function SegmentedChoice<T extends string | number>({
   const gt = useGT();
 
   return (
-    <div className='grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border'>
+    <div
+      aria-label={ariaLabel ? gt(ariaLabel) : undefined}
+      className='grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border'
+      role={ariaLabel ? 'group' : undefined}
+    >
       {options.map((option) => (
         <Button
+          aria-pressed={value === option.value}
           className='rounded-none border-0'
           key={option.value}
           onClick={() => onChange(option.value)}
@@ -1234,12 +1248,12 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
   );
 }
 
-function SurfaceTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
-  return <BackgroundStudio identity={identity} tool={{ ...tool, id: 'backgrounds' }} />;
+function SurfaceTool({ active, identity, tool }: { active: boolean; identity: BrandIdentity; tool: StudioTool }) {
+  return <BackgroundStudio active={active} identity={identity} tool={{ ...tool, id: 'backgrounds' }} />;
 }
 
-function MaterialTool({ identity, onIdentitySave, tool }: { identity: BrandIdentity; onIdentitySave: (identity: BrandIdentity) => void; tool: StudioTool }) {
-  return <LogoShaderStudio identity={identity} onIdentitySave={onIdentitySave} tool={{ ...tool, id: 'logo-shader' }} />;
+function MaterialTool({ active, identity, onIdentitySave, tool }: { active: boolean; identity: BrandIdentity; onIdentitySave: (identity: BrandIdentity) => void; tool: StudioTool }) {
+  return <LogoShaderStudio active={active} identity={identity} onIdentitySave={onIdentitySave} tool={{ ...tool, id: 'logo-shader' }} />;
 }
 
 type EditableColor = {
@@ -2497,6 +2511,16 @@ function resolveTemplateAssetSource(uploadedUrl: string | undefined, libraryUrl:
   return uploadedUrl ?? libraryUrl;
 }
 
+function resolvePartnershipAssetSource(
+  kind: TemplateKind,
+  document: CanvasDocument | null,
+  elementId: string,
+  fallback: string
+): string | null {
+  if (kind !== 'partnership') return null;
+  return canvasElementAssetSource(document, elementId, fallback);
+}
+
 function TemplateSlideBodyField({
   body,
   kind,
@@ -2596,10 +2620,16 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:${kind}`);
   const partnerAsset = useLocalAsset();
+  const partnerFontAsset = useLocalAsset();
   const backgroundAsset = useLocalAsset();
   const backgroundOptions = useMemo(() => templateBackgroundOptions(identity), [identity]);
   const partnerOptions = useMemo(() => templatePartnerOptions(identity), [identity]);
   const initialPartner = defaultTemplatePartner(identity);
+  const initialPartnerFont = defaultTemplatePartnerFont(
+    identity,
+    initialPartner.id,
+    BUILT_IN_BRAND_IDENTITIES
+  );
   const defaults = templateDraftDefaults(identity, kind, initialPartner.label);
   const [partnerId, setPartnerId] = useStudioDraft(
     identity.id,
@@ -2608,6 +2638,47 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     initialPartner.id
   );
   const selectedPartner = partnerOptions.find(({ id }) => id === partnerId) ?? initialPartner;
+  const partnerFontOptions = useMemo(
+    () => templatePartnerFontOptions(identity, selectedPartner.id, BUILT_IN_BRAND_IDENTITIES),
+    [identity, selectedPartner.id]
+  );
+  const selectedPartnerDefaultFont = defaultTemplatePartnerFont(
+    identity,
+    selectedPartner.id,
+    BUILT_IN_BRAND_IDENTITIES
+  );
+  const [partnerName, setPartnerName] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'partner-name',
+    initialPartner.label
+  );
+  const [partnerTreatment, setPartnerTreatment] = useStudioDraft<TemplatePartnerTreatment>(
+    identity.id,
+    tool.id,
+    'partner-treatment',
+    defaultTemplatePartnerTreatment(initialPartner.id, BUILT_IN_BRAND_IDENTITIES)
+  );
+  const [partnerFontId, setPartnerFontId] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'partner-font',
+    initialPartnerFont.id
+  );
+  const selectedPartnerFont = partnerFontOptions.find(({ id }) => id === partnerFontId)
+    ?? selectedPartnerDefaultFont;
+  const [partnerFontWeight, setPartnerFontWeight] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'partner-font-weight',
+    initialPartnerFont.weight
+  );
+  const [partnerGap, setPartnerGap] = useStudioDraft(
+    identity.id,
+    tool.id,
+    'partner-lockup-gap',
+    18
+  );
   const [title, setTitle] = useStudioDraft(
     identity.id,
     tool.id,
@@ -2674,6 +2745,10 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     partnerAsset.asset?.url,
     selectedPartner.path
   );
+  const partnerFontSource = resolveTemplateAssetSource(
+    partnerFontAsset.asset?.url,
+    selectedPartnerFont.path
+  );
   const fontSource = restoredFontSource ?? selectedFont?.path ?? null;
   const layerTransforms = useMemo<Record<TemplateLayerId, CanvasLayerTransform>>(() => ({
     brand: brandLayer,
@@ -2738,8 +2813,14 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     },
     partner: {
       asset: partnerAsset.asset,
+      fontAsset: partnerFontAsset.asset,
+      fontId: selectedPartnerFont.id,
+      fontWeight: partnerFontWeight,
+      gap: partnerGap,
       id: partnerId,
+      name: partnerName,
       scale: partnerLogoScale,
+      treatment: partnerTreatment,
       x: partnerLogoX,
       y: partnerLogoY,
     },
@@ -2766,10 +2847,16 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     layerOrder,
     libraryBackgroundId,
     partnerAsset.asset,
+    partnerFontAsset.asset,
+    partnerFontWeight,
+    partnerGap,
     partnerId,
     partnerLogoScale,
     partnerLogoX,
     partnerLogoY,
+    partnerName,
+    partnerTreatment,
+    selectedPartnerFont.id,
     slideLayout,
     texture,
     textureOpacity,
@@ -2822,17 +2909,31 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           id: `template-${id}`,
           name: TEMPLATE_LAYER_LABELS[id],
         })),
-        ...(kind === 'partnership' ? [{
-          asset: {
-            name: partnerAsset.asset?.name ?? selectedPartner.label,
-            source: partnerLogoSource,
+        ...(kind === 'partnership' ? [
+          {
+            asset: {
+              name: partnerAsset.asset?.name ?? selectedPartner.label,
+              source: partnerLogoSource,
+            },
+            bounds: transformedBounds('brand'),
+            data: { scale: partnerLogoScale, x: partnerLogoX, y: partnerLogoY },
+            id: 'template-partner',
+            kind: 'logo' as const,
+            name: 'Partner mark',
           },
-          bounds: transformedBounds('brand'),
-          data: { scale: partnerLogoScale, x: partnerLogoX, y: partnerLogoY },
-          id: 'template-partner',
-          kind: 'logo' as const,
-          name: 'Partner mark',
-        }] : []),
+          {
+            asset: {
+              kind: 'font' as const,
+              name: partnerFontAsset.asset?.name ?? selectedPartnerFont.label,
+              source: partnerFontSource,
+            },
+            bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 },
+            hidden: true,
+            id: 'template-partner-font',
+            kind: 'component' as const,
+            name: 'Partner font',
+          },
+        ] : []),
         ...(fontSource ? [{
           asset: {
             kind: 'font' as const,
@@ -2868,6 +2969,8 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     layerOrder,
     layerTransforms,
     partnerAsset.asset,
+    partnerFontAsset.asset,
+    partnerFontSource,
     partnerLogoScale,
     partnerLogoSource,
     partnerLogoX,
@@ -2876,6 +2979,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     fontSource,
     selectedFont,
     selectedPartner.label,
+    selectedPartnerFont.label,
     templateRevision,
     templateState,
     title,
@@ -2906,9 +3010,18 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         backgroundAsset.asset?.url ?? selectedBackground!.path
       )
     : null;
-  const resolvedPartnerLogo = kind === 'partnership'
-    ? canvasElementAssetSource(portableTemplateDocument, 'template-partner', partnerLogoSource)
-    : null;
+  const resolvedPartnerLogo = resolvePartnershipAssetSource(
+    kind,
+    portableTemplateDocument,
+    'template-partner',
+    partnerLogoSource
+  );
+  const resolvedPartnerFont = resolvePartnershipAssetSource(
+    kind,
+    portableTemplateDocument,
+    'template-partner-font',
+    partnerFontSource
+  );
   const resolvedFont = fontSource
     ? canvasElementAssetSource(portableTemplateDocument, 'template-font', fontSource)
     : null;
@@ -2946,9 +3059,16 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     partnerLogo: kind === 'partnership'
       ? resolvedPartnerLogo
       : null,
+    partnerFontData: resolvedPartnerFont,
+    partnerFontFamily: selectedPartnerFont.family,
+    partnerFontWeight,
+    partnerGap,
+    partnerLetterSpacing: selectedPartnerFont.letterSpacing,
     partnerLogoScale,
     partnerLogoX,
     partnerLogoY,
+    partnerName,
+    partnerTreatment,
     slideLayout,
     texture,
     textureOpacity,
@@ -2979,12 +3099,19 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     kind,
     layerOrder,
     partnerLogoScale,
+    partnerFontWeight,
+    partnerGap,
     resolvedBackground,
     resolvedBrandLogo,
     resolvedFont,
     resolvedPartnerLogo,
+    resolvedPartnerFont,
     partnerLogoX,
     partnerLogoY,
+    partnerName,
+    partnerTreatment,
+    selectedPartnerFont.family,
+    selectedPartnerFont.letterSpacing,
     selectedBackground,
     fontSource,
     slideLayout,
@@ -3020,9 +3147,15 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       layerOrder,
       partner: {
         asset: partnerAsset.asset,
+        fontAsset: partnerFontAsset.asset,
+        fontId: selectedPartnerFont.id,
+        fontWeight: partnerFontWeight,
+        gap: partnerGap,
         id: partnerId,
+        name: partnerName,
         opacity: 1,
         scale: partnerLogoScale,
+        treatment: partnerTreatment,
         x: partnerLogoX,
         y: partnerLogoY,
       },
@@ -3047,9 +3180,15 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     setBrandLogoY(next.brandLogo.y);
     setPartnerId(next.partner.id);
     partnerAsset.restore(next.partner.asset);
+    partnerFontAsset.restore(next.partner.fontAsset);
+    setPartnerFontId(next.partner.fontId);
+    setPartnerFontWeight(next.partner.fontWeight);
+    setPartnerGap(next.partner.gap);
     setPartnerLogoScale(next.partner.scale);
     setPartnerLogoX(next.partner.x);
     setPartnerLogoY(next.partner.y);
+    setPartnerName(next.partner.name);
+    setPartnerTreatment(next.partner.treatment);
     setRestoredBrandLogoSource(next.brandLogoSource);
     setRestoredFontSource(next.fontSource);
     setFontRole(next.fontRole);
@@ -3073,6 +3212,123 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     }
   }
 
+  function selectTemplatePartner(value: string) {
+    const nextPartner = partnerOptions.find(({ id }) => id === value) ?? initialPartner;
+    const nextFont = defaultTemplatePartnerFont(
+      identity,
+      nextPartner.id,
+      BUILT_IN_BRAND_IDENTITIES
+    );
+    if (title === `${identity.name} × ${selectedPartner.label}`) {
+      setTitle(`${identity.name} × ${nextPartner.label}`);
+    }
+    partnerAsset.clear();
+    partnerFontAsset.clear();
+    setPartnerId(nextPartner.id);
+    setPartnerName(nextPartner.label);
+    setPartnerTreatment(defaultTemplatePartnerTreatment(
+      nextPartner.id,
+      BUILT_IN_BRAND_IDENTITIES
+    ));
+    setPartnerFontId(nextFont.id);
+    setPartnerFontWeight(nextFont.weight);
+  }
+
+  function selectPartnerFont(value: string) {
+    if (value === 'custom') return;
+    const nextFont = partnerFontOptions.find(({ id }) => id === value)
+      ?? selectedPartnerDefaultFont;
+    partnerFontAsset.clear();
+    setPartnerFontId(nextFont.id);
+    setPartnerFontWeight(nextFont.weight);
+  }
+
+  function uploadPartnerFont(file: File) {
+    void partnerFontAsset.select(file);
+  }
+
+  function renderPartnerControls() {
+    if (kind !== 'partnership') return null;
+    return (
+      <ControlSection title={<T>Partner</T>}>
+        <Field label={<T>Partner</T>}>
+          <StudioSelect
+            ariaLabel='Partner'
+            onValueChange={selectTemplatePartner}
+            options={partnerOptions.map((asset) => ({ label: asset.label, value: asset.id }))}
+            value={partnerId}
+          />
+        </Field>
+        <div className='flex flex-col gap-2 text-sm'>
+          <span className='text-muted-foreground'><T>Partner treatment</T></span>
+          <SegmentedChoice
+            ariaLabel='Partner treatment'
+            onChange={setPartnerTreatment}
+            options={[
+              { label: 'Write name', value: 'text' },
+              { label: 'Use logo', value: 'logo' },
+            ]}
+            value={partnerTreatment}
+          />
+        </div>
+        {partnerTreatment === 'text' ? (
+          <>
+            <Field label={<T>Partner name</T>}>
+              <input
+                className={INPUT_CLASS}
+                onChange={(event) => setPartnerName(event.target.value)}
+                value={partnerName}
+              />
+            </Field>
+            <Field label={<T>Partner font</T>}>
+                <StudioSelect
+                  ariaLabel='Partner font'
+                  onValueChange={selectPartnerFont}
+                  options={[
+                    ...(partnerFontAsset.asset ? [{
+                      label: `Uploaded · ${partnerFontAsset.asset.name}`,
+                      value: 'custom',
+                    }] : []),
+                    ...partnerFontOptions.map((font) => ({ label: font.label, value: font.id })),
+                  ]}
+                  value={partnerFontAsset.asset ? 'custom' : selectedPartnerFont.id}
+                />
+            </Field>
+            <UploadField
+              accept='.otf,.ttf,.woff,.woff2,font/*'
+              fileName={partnerFontAsset.asset?.name}
+              label='Upload partner font'
+              onFile={uploadPartnerFont}
+            />
+            <RangeField
+              label={<T>Partner font weight</T>}
+              max={MAX_VISIBLE_FONT_WEIGHT}
+              min={100}
+              onChange={setPartnerFontWeight}
+              step={50}
+              value={partnerFontWeight}
+            />
+          </>
+        ) : (
+          <UploadField
+            accept='image/*,.svg'
+            fileName={partnerAsset.asset?.name}
+            label='Replace partner logo'
+            onFile={partnerAsset.select}
+          />
+        )}
+        <RangeField
+          label={<T>Lockup spacing</T>}
+          max={160}
+          min={0}
+          onChange={setPartnerGap}
+          suffix='px'
+          value={partnerGap}
+        />
+      </ControlSection>
+    );
+  }
+
   const inspector = (
     <>
       <ControlSection title={<T>Content</T>}>
@@ -3083,6 +3339,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
         <Field label={<T>Typography role</T>}><StudioSelect ariaLabel='Template typography role' onValueChange={(value) => { const role = value as BrandTypography['role']; setRestoredFontSource(null); setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
         <RangeField label={<T>Font weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
       </ControlSection>
+      {renderPartnerControls()}
       <TemplateSlideLibrary kind={kind} onChange={setSlideLayout} value={slideLayout} />
       <ControlSection title={<T>Layers</T>}>
         <CanvasLayerPanel
@@ -3139,27 +3396,6 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             <RangeField label={<T>Scale</T>} max={240} min={50} onChange={setBackgroundScale} suffix='%' value={backgroundScale} />
           </div>
         ) : null}
-        {kind === 'partnership' && (
-          <>
-            <Field label={<T>Partner logo</T>}>
-              <StudioSelect
-                ariaLabel='Partner logo'
-                onValueChange={(value) => {
-                  partnerAsset.clear();
-                  setPartnerId(value);
-                }}
-                options={partnerOptions.map((asset) => ({ label: asset.label, value: asset.id }))}
-                value={partnerId}
-              />
-            </Field>
-            <UploadField
-              accept='image/*,.svg'
-              fileName={partnerAsset.asset?.name}
-              label='Replace partner logo'
-              onFile={partnerAsset.select}
-            />
-          </>
-        )}
       </ControlSection>
       <ControlSection title={<T>Brand artwork</T>}>
         <RangeField label={<T>Horizontal</T>} max={240} min={-240} onChange={setBrandLogoX} suffix='px' value={brandLogoX} />
@@ -3314,12 +3550,6 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
       : getFirstComponentPattern(family);
   const selectedPatternConfig =
     COMPONENT_PATTERNS.find((item) => item.id === selectedPattern) ?? COMPONENT_PATTERNS[0];
-  const familyPatterns = COMPONENT_PATTERNS.filter((item) => item.family === family);
-
-  function selectFamily(nextFamily: ComponentFamily) {
-    setFamily(nextFamily);
-    setPattern(getFirstComponentPattern(nextFamily));
-  }
 
   function selectPattern(nextPattern: ComponentPatternId) {
     const nextPatternConfig = COMPONENT_PATTERNS.find((item) => item.id === nextPattern);
@@ -3403,25 +3633,25 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
     setDangerColor(normalizeHexOrFallback(sourceString(colorsSource, 'danger', dangerColor), dangerColor));
   }
 
+  const library = (
+    <ComponentLibraryCatalog
+      onSelect={selectPattern}
+      selectedPattern={selectedPattern}
+    />
+  );
+
   const inspector = (
     <>
-      <ControlSection title={<T>Component controls</T>}>
-        <Field label={<T>Component family</T>}>
-          <StudioSelect
-            ariaLabel='Component family'
-            onValueChange={(value) => selectFamily(value as ComponentFamily)}
-            options={COMPONENT_FAMILY_OPTIONS}
-            value={family}
-          />
-        </Field>
-        <Field label={<T>Component</T>}>
-          <StudioSelect
-            ariaLabel='Component'
-            onValueChange={(value) => selectPattern(value as ComponentPatternId)}
-            options={familyPatterns.map((item) => ({ label: item.label, value: item.id }))}
-            value={selectedPattern}
-          />
-        </Field>
+      <LabPanelHeading
+        description={<T>Configuration updates the live preview without hiding the catalog.</T>}
+        title={(
+          <span className='component-library-inspector-title'>
+            <ComponentPatternIcon pattern={selectedPattern} />
+            {gt(selectedPatternConfig.label)}
+          </span>
+        )}
+      />
+      <ControlSection title={<T>Content</T>}>
         <Field label={<T>Label</T>}>
           <input
             className={INPUT_CLASS}
@@ -3440,10 +3670,9 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
       <ControlSection title={<T>System</T>}>
         <label className='flex items-center justify-between gap-4 text-sm'>
           <span><T>Follow brand defaults</T></span>
-          <input
+          <StudioCheckbox
             checked={useBrandDefaults}
             onChange={(event) => setUseBrandDefaults(event.target.checked)}
-            type='checkbox'
           />
         </label>
         <Field label={<T>Component size</T>}>
@@ -3511,10 +3740,9 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
         </Field>
         <label className='flex items-center justify-between gap-4 text-sm'>
           <T>Disabled state</T>
-          <input
+          <StudioCheckbox
             checked={disabled}
             onChange={(event) => setDisabled(event.target.checked)}
-            type='checkbox'
           />
         </label>
       </ControlSection>
@@ -3540,30 +3768,11 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
         <Field label={<T>Shared asset</T>}><StudioSelect ariaLabel='Component shared asset' onValueChange={setComponentAssetId} options={[{ label: 'None', value: 'none' }, ...componentAssets.map((asset) => ({ label: `${asset.label} · ${asset.type}`, value: asset.id }))]} value={componentAsset?.id ?? 'none'} /></Field>
         {componentAsset ? <RangeField label={<T>Asset opacity</T>} max={100} min={0} onChange={setComponentAssetOpacity} value={componentAssetOpacity} /> : null}
       </ControlSection>
-      <ControlSection title={<T>Included</T>}>
-        <div className='grid grid-cols-2 gap-2 text-xs'>
-          {COMPONENT_PATTERNS.map((item) => (
-            <button
-              aria-pressed={selectedPattern === item.id}
-              className={`min-w-0 border px-2 py-1.5 text-left transition-colors ${
-                selectedPattern === item.id
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border text-muted-foreground hover:border-foreground/45 hover:text-foreground'
-              }`}
-              key={item.id}
-              onClick={() => selectPattern(item.id)}
-              type='button'
-            >
-              {gt(item.label)}
-            </button>
-          ))}
-        </div>
-      </ControlSection>
     </>
   );
 
   return (
-    <ToolShell inspector={inspector} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Component source') }} tool={tool}>
+    <ToolShell inspector={inspector} library={library} sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Component source') }} tool={tool}>
       <div className='grid min-h-full content-center p-5 sm:p-8'>
         <div
           className={`component-library-demo component-density-${resolvedDensity} relative mx-auto w-full max-w-5xl overflow-hidden smooth-shadow-ring-sm`}
@@ -3574,11 +3783,14 @@ function ComponentLibraryTool({ identity, tool }: { identity: BrandIdentity; too
         >
           {componentAsset ? <img alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover' src={componentAsset.path} style={{ opacity: componentAssetOpacity / 100 }} /> : null}
           <header className='component-library-header relative z-10 flex items-center justify-between gap-6 border-b border-border px-5 py-4'>
-            <div>
-              <p className='text-sm font-semibold'>{gt(selectedPatternConfig.label)}</p>
-              <p className='mt-1 text-xs capitalize opacity-55'>{family} · {resolvedDensity}</p>
+            <div className='component-library-preview-title'>
+              <span><ComponentPatternIcon pattern={selectedPattern} /></span>
+              <div>
+                <p className='text-sm font-semibold'>{gt(selectedPatternConfig.label)}</p>
+                <p className='mt-1 text-xs capitalize text-muted-foreground'>{family} · {resolvedDensity}</p>
+              </div>
             </div>
-            <span className='font-mono text-xs opacity-55'>
+            <span className='font-mono text-xs text-muted-foreground'>
               {COMPONENT_PATTERNS.length} <T>patterns</T> · {COMPONENT_FAMILY_OPTIONS.length} <T>families</T>
             </span>
           </header>
@@ -3613,12 +3825,14 @@ function ToolPlaceholder({ tool }: { tool: StudioTool }) {
 }
 
 function StudioToolWorkspace({
+  active = true,
   hasPendingIdentityChanges,
   identity,
   onIdentityChange,
   onIdentitySave,
   tool,
 }: {
+  active?: boolean;
   hasPendingIdentityChanges: boolean;
   identity: BrandIdentity;
   onIdentityChange: (identity: BrandIdentity) => void;
@@ -3633,11 +3847,11 @@ function StudioToolWorkspace({
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
-    material: <MaterialTool identity={identity} onIdentitySave={onIdentitySave} tool={tool} />,
+    material: <MaterialTool active={active} identity={identity} onIdentitySave={onIdentitySave} tool={tool} />,
     opengraph: <OpenGraphTool key={`${identity.id}:${tool.id}`} identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
     slides: <TemplateTool identity={identity} kind='slides' tool={tool} />,
-    surface: <SurfaceTool identity={identity} tool={tool} />,
+    surface: <SurfaceTool active={active} identity={identity} tool={tool} />,
     terminal: <TerminalTool identity={identity} tool={tool} />,
     typography: <TypographyTool identity={identity} onIdentityChange={onIdentityChange} tool={tool} />,
   };

@@ -1,6 +1,21 @@
-import type { BrandAsset, BrandIdentity } from '@/lib/brandIdentity';
+import {
+  brandFontAssets,
+  brandTypographyRole,
+  type BrandAsset,
+  type BrandIdentity,
+} from '@/lib/brandIdentity';
 
 export type TemplateKind = 'partnership' | 'blog' | 'slides';
+export type TemplatePartnerTreatment = 'logo' | 'text';
+
+export type TemplatePartnerFontOption = {
+  family: string;
+  id: string;
+  label: string;
+  letterSpacing: number;
+  path: string;
+  weight: number;
+};
 
 const NORTHSTAR_PARTNER: BrandAsset = {
   id: 'template-northstar',
@@ -44,4 +59,54 @@ export function defaultTemplatePartner(identity: BrandIdentity): BrandAsset {
   return identity.proofAssets.find(({ id }) => id === 'ramp')
     ?? identity.proofAssets[0]
     ?? NORTHSTAR_PARTNER;
+}
+
+export function templatePartnerFontOptions(
+  identity: BrandIdentity,
+  partnerId: string,
+  availableIdentities: readonly BrandIdentity[]
+): TemplatePartnerFontOption[] {
+  const partnerIdentity = availableIdentities.find(({ id }) => id === partnerId);
+  const sourceIdentities = partnerIdentity && partnerIdentity.id !== identity.id
+    ? [partnerIdentity, identity]
+    : [identity];
+
+  return sourceIdentities.flatMap((sourceIdentity) => (
+    brandFontAssets(sourceIdentity)
+      .filter(({ style }) => style === 'normal')
+      .map((font) => {
+        const typography = sourceIdentity.typography.find(({ fontId }) => fontId === font.id);
+        return {
+          family: font.family,
+          id: `${sourceIdentity.id}:${font.id}`,
+          label: `${sourceIdentity.name} · ${font.label}`,
+          letterSpacing: typography?.letterSpacing ?? 0,
+          path: font.path,
+          weight: font.weight,
+        };
+      })
+  ));
+}
+
+export function defaultTemplatePartnerFont(
+  identity: BrandIdentity,
+  partnerId: string,
+  availableIdentities: readonly BrandIdentity[]
+): TemplatePartnerFontOption {
+  const options = templatePartnerFontOptions(identity, partnerId, availableIdentities);
+  const partnerIdentity = availableIdentities.find(({ id }) => id === partnerId);
+  const partnerDisplayFontId = partnerIdentity
+    ? brandTypographyRole(partnerIdentity, 'Display').fontId
+    : undefined;
+  const preferredId = partnerDisplayFontId
+    ? `${partnerIdentity!.id}:${partnerDisplayFontId}`
+    : undefined;
+  return options.find(({ id }) => id === preferredId) ?? options[0]!;
+}
+
+export function defaultTemplatePartnerTreatment(
+  partnerId: string,
+  availableIdentities: readonly BrandIdentity[]
+): TemplatePartnerTreatment {
+  return availableIdentities.some(({ id }) => id === partnerId) ? 'text' : 'logo';
 }

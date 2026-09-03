@@ -68,6 +68,7 @@ export type GifExportOptions = MotionExportOptions & {
 };
 
 export type Mp4ExportOptions = MotionExportOptions & {
+  audio?: AudioBuffer | null;
   quality?: MotionExportQuality;
 };
 
@@ -387,6 +388,7 @@ export async function encodeCanvasGif({
 }
 
 export async function encodeCanvasMp4({
+  audio,
   canvas,
   durationMs,
   fps,
@@ -395,11 +397,13 @@ export async function encodeCanvasMp4({
   renderFrame,
 }: Mp4ExportOptions): Promise<Blob> {
   const {
+    AudioBufferSource,
     BufferTarget,
     CanvasSource,
     Mp4OutputFormat,
     Output,
     Quality,
+    getFirstEncodableAudioCodec,
     getFirstEncodableVideoCodec,
   } = await import('mediabunny');
   const frames = buildMotionFrames(durationMs, fps);
@@ -424,13 +428,27 @@ export async function encodeCanvasMp4({
     quality,
   });
   output.addVideoTrack(source);
+  let audioSource: InstanceType<typeof AudioBufferSource> | null = null;
+  if (audio) {
+    const audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), {
+      numberOfChannels: audio.numberOfChannels,
+      quality,
+      sampleRate: audio.sampleRate,
+    });
+    if (!audioCodec) throw new Error('This browser cannot encode an MP4 audio track.');
+    audioSource = new AudioBufferSource({ codec: audioCodec, quality });
+    output.addAudioTrack(audioSource);
+  }
   await output.start();
+  const pendingAudio = audioSource && audio ? audioSource.add(audio) : null;
 
   for (const frame of frames) {
     await renderFrame(frame);
     await source.add(frame.timeMs / 1_000, frame.durationMs / 1_000);
     onProgress?.((frame.index + 1) / frames.length);
   }
+
+  await pendingAudio;
 
   await output.finalize();
   if (!target.buffer || target.buffer.byteLength === 0) throw new Error('MP4 encoding returned an empty file.');

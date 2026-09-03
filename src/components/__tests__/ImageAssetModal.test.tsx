@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import ImageAssetModal, { type PendingImageImport } from '@/components/ImageAssetModal';
+import ImageAssetModal, { type ImageAssetPlacementMode, type PendingImageImport } from '@/components/ImageAssetModal';
 import type { BrandAsset } from '@/lib/brandIdentity';
 
 const SAVED_ASSET: BrandAsset = {
@@ -56,13 +56,17 @@ describe('ImageAssetModal', () => {
   async function render({
     assets = [SAVED_ASSET],
     files = [new File(['image'], 'homepage.png', { type: 'image/png' })],
+    onCreateTextSticker,
     onImport = vi.fn(),
     onPlace = vi.fn(),
+    placementMode = 'image',
   }: {
     assets?: readonly BrandAsset[];
     files?: readonly File[];
+    onCreateTextSticker?: () => void;
     onImport?: (items: readonly PendingImageImport[]) => Promise<void> | void;
     onPlace?: (asset: BrandAsset) => Promise<void> | void;
+    placementMode?: ImageAssetPlacementMode;
   } = {}) {
     await act(() => {
       root.render(
@@ -71,9 +75,11 @@ describe('ImageAssetModal', () => {
           busy={false}
           error={null}
           onClose={vi.fn()}
+          onCreateTextSticker={onCreateTextSticker}
           onImport={onImport}
           onPlace={onPlace}
           open
+          placementMode={placementMode}
           request={{ files, id: 1 }}
         />
       );
@@ -117,5 +123,15 @@ describe('ImageAssetModal', () => {
 
     expect(document.querySelector('[aria-label="Asset name for homepage.png"]')).toBeNull();
     expect(buttonWithText('Import & save').disabled).toBe(true);
+  });
+
+  it('offers native text and image sticker sources in sticker mode', async () => {
+    const onCreateTextSticker = vi.fn();
+    await render({ files: [], onCreateTextSticker, placementMode: 'sticker' });
+
+    expect(document.querySelector('dialog')?.getAttribute('aria-label')).toBe('Add sticker artwork');
+    expect(document.body.textContent).toContain('Sticker artwork');
+    await act(() => buttonWithText('Create text sticker').click());
+    expect(onCreateTextSticker).toHaveBeenCalledOnce();
   });
 });

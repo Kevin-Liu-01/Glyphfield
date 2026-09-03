@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import {
-  startTransition,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -46,6 +46,12 @@ import { StudioExportProgressProvider } from '@/components/StudioExportProgress'
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import StudioContextMenu, {
+  contextMenuPositionFromElement,
+  contextMenuPositionFromEvent,
+  type StudioContextMenuPosition,
+} from '@/components/ui/StudioContextMenu';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useHydrated, useMountEffect } from '@/hooks/useMountEffect';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
@@ -120,6 +126,11 @@ type ProjectTabDragState = {
   targetId: string;
 };
 
+type ProjectTabMenuState = {
+  identityId: string;
+  position: StudioContextMenuPosition;
+};
+
 type StudioAppearance = {
   accent: 'neutral' | 'violet' | 'teal' | 'lime';
   canvas: 'dots' | 'grid' | 'plain';
@@ -178,18 +189,14 @@ function readStoredIdentities(): BrandIdentity[] {
 }
 
 function resolveStoredStudioTool(storedTool: string | null, identityId: string): StudioToolId | null {
-  if (storedTool === 'logo-shader') return 'material';
+  if (storedTool === 'logo-shader' || storedTool === 'surface') return 'material';
   if (storedTool && storedTool in LEGACY_SURFACE_TOOL_MODES) {
     window.localStorage.setItem(
       `glyphfield-draft-v1:${identityId}:surface:mode-v2`,
       JSON.stringify(LEGACY_SURFACE_TOOL_MODES[storedTool as keyof typeof LEGACY_SURFACE_TOOL_MODES])
     );
-    return 'surface';
+    return 'material';
   }
-  if (
-    storedTool === 'surface'
-    && window.localStorage.getItem(`glyphfield-draft-v1:${identityId}:surface:mode`) === JSON.stringify('material')
-  ) return 'material';
   return storedTool && STUDIO_TOOLS.some(({ id }) => id === storedTool)
     ? storedTool as StudioToolId
     : null;
@@ -513,10 +520,10 @@ function AppearanceMenu({
                 <strong><T>Compact UI</T></strong>
                 <small><T>Tighter navigation</T></small>
               </span>
-              <input
+              <StudioCheckbox
                 checked={appearance.density === 'compact'}
                 onChange={(event) => onChange({ density: event.target.checked ? 'compact' : 'comfortable' })}
-                type='checkbox'
+                variant='switch'
               />
             </label>
             <label>
@@ -524,16 +531,111 @@ function AppearanceMenu({
                 <strong><T>Reduce motion</T></strong>
                 <small><T>Pause decorative effects</T></small>
               </span>
-              <input
+              <StudioCheckbox
                 checked={appearance.motion === 'reduced'}
                 onChange={(event) => onChange({ motion: event.target.checked ? 'reduced' : 'full' })}
-                type='checkbox'
+                variant='switch'
               />
             </label>
           </section>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ProjectTabContextMenu({
+  activeIdentityId,
+  identity,
+  menu,
+  onClose,
+  onCloseOthers,
+  onCloseTab,
+  onDuplicate,
+  onMove,
+  onOpen,
+  openCount,
+  tabCount,
+  tabIndex,
+}: {
+  activeIdentityId: string;
+  identity: BrandIdentity | null;
+  menu: ProjectTabMenuState | null;
+  onClose: () => void;
+  onCloseOthers: (identityId: string) => void;
+  onCloseTab: (identityId: string) => void;
+  onDuplicate: (identityId: string) => void;
+  onMove: (identityId: string, direction: -1 | 1) => void;
+  onOpen: (identityId: string) => void;
+  openCount: number;
+  tabCount: number;
+  tabIndex: number;
+}) {
+  const gt = useGT();
+  return (
+    <StudioContextMenu
+      detail={identity ? (identity.kind === 'custom' ? gt('My brand') : gt(identity.kind)) : undefined}
+      label={identity?.name ?? gt('Project')}
+      onClose={onClose}
+      position={menu?.position ?? null}
+      sections={identity ? [
+        {
+          items: [
+            {
+              checked: identity.id === activeIdentityId,
+              icon: <ThemeAwareBrandMark className='size-[14px]' identity={identity} />,
+              id: 'open-project',
+              label: gt('Open project'),
+              onSelect: () => onOpen(identity.id),
+            },
+            {
+              icon: <Copy aria-hidden='true' />,
+              id: 'duplicate-project',
+              label: gt('Duplicate project'),
+              onSelect: () => onDuplicate(identity.id),
+            },
+          ],
+        },
+        {
+          label: gt('Tab order'),
+          items: [
+            {
+              disabled: tabIndex <= 0,
+              icon: <ChevronLeft aria-hidden='true' />,
+              id: 'move-left',
+              label: gt('Move tab left'),
+              onSelect: () => onMove(identity.id, -1),
+              shortcut: '⌥←',
+            },
+            {
+              disabled: tabIndex < 0 || tabIndex >= tabCount - 1,
+              icon: <ChevronRight aria-hidden='true' />,
+              id: 'move-right',
+              label: gt('Move tab right'),
+              onSelect: () => onMove(identity.id, 1),
+              shortcut: '⌥→',
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              icon: <X aria-hidden='true' />,
+              id: 'close-tab',
+              label: gt('Close tab'),
+              onSelect: () => onCloseTab(identity.id),
+            },
+            {
+              disabled: openCount <= 1,
+              icon: <PanelTopClose aria-hidden='true' />,
+              id: 'close-others',
+              label: gt('Close other tabs'),
+              onSelect: () => onCloseOthers(identity.id),
+            },
+          ],
+        },
+      ] : []}
+    />
   );
 }
 
@@ -545,6 +647,12 @@ function ProjectTabMark({ identity, selected }: { identity: BrandIdentity; selec
       inverse={selected}
     />
   );
+}
+
+const PERSISTENT_LAB_TOOL_IDS = ['material'] as const satisfies readonly StudioToolId[];
+
+function isPersistentLabTool(toolId: StudioToolId): toolId is typeof PERSISTENT_LAB_TOOL_IDS[number] {
+  return PERSISTENT_LAB_TOOL_IDS.includes(toolId as typeof PERSISTENT_LAB_TOOL_IDS[number]);
 }
 
 function StudioWorkspacePanels({
@@ -562,6 +670,38 @@ function StudioWorkspacePanels({
   onIdentityChange: (identity: BrandIdentity) => void;
   onIdentitySave: (identity: BrandIdentity) => void;
 }) {
+  const deferredActiveToolId = useDeferredValue(activeToolId);
+  if (isPersistentLabTool(activeToolId)) {
+    return (
+      <div className='studio-workspace-panel studio-workspace-panel--persistent-labs'>
+        {PERSISTENT_LAB_TOOL_IDS.map((toolId) => {
+          const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
+          if (!tool) return null;
+          const active = activeToolId === toolId;
+          const renderActive = deferredActiveToolId === toolId;
+          return (
+            <div
+              aria-hidden={!active}
+              className='studio-workspace-layer'
+              data-active={active ? 'true' : 'false'}
+              inert={!active}
+              key={`${activeIdentity.id}-${toolId}`}
+            >
+              <StudioToolWorkspace
+                active={renderActive}
+                hasPendingIdentityChanges={hasPendingIdentityChanges}
+                identity={activeIdentity}
+                onIdentityChange={onIdentityChange}
+                onIdentitySave={onIdentitySave}
+                tool={tool}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
       className='studio-workspace-panel'
@@ -746,12 +886,9 @@ export default function StudioApp() {
     tabs: HTMLElement[];
   } | null>(null);
   const suppressProjectTabClickRef = useRef<string | null>(null);
-  const [reorderControlsIdentityId, setReorderControlsIdentityId] = useState<string | null>(
-    null
-  );
+  const [projectTabMenu, setProjectTabMenu] = useState<ProjectTabMenuState | null>(null);
   const [tabOrderAnnouncement, setTabOrderAnnouncement] = useState('');
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
-  const workspaceDirectionRef = useRef<'backward' | 'forward'>('forward');
   const [tabScrollState, setTabScrollState] = useState({
     availableWidth: 0,
     canScrollLeft: false,
@@ -815,6 +952,12 @@ export default function StudioApp() {
   );
   const openIdentityIdSet = useMemo(() => new Set(openIdentityIds), [openIdentityIds]);
   const activeIdentityIsOpen = openIdentityIdSet.has(activeIdentity?.id ?? '');
+  const projectTabMenuIdentity = projectTabMenu
+    ? identityById.get(projectTabMenu.identityId) ?? null
+    : null;
+  const projectTabMenuIndex = projectTabMenuIdentity
+    ? visibleIdentities.findIndex(({ id }) => id === projectTabMenuIdentity.id)
+    : -1;
   const folderCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -940,14 +1083,7 @@ export default function StudioApp() {
   });
 
   function selectTool(toolId: StudioToolId) {
-    if (toolId !== activeToolId) {
-      const currentIndex = STUDIO_TOOLS.findIndex(({ id }) => id === activeToolId);
-      const nextIndex = STUDIO_TOOLS.findIndex(({ id }) => id === toolId);
-      workspaceDirectionRef.current = nextIndex < currentIndex ? 'backward' : 'forward';
-    }
-    startTransition(() => {
-      setActiveToolId(toolId);
-    });
+    setActiveToolId(toolId);
     setQuery('');
     window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, toolId);
   }
@@ -957,18 +1093,12 @@ export default function StudioApp() {
     setQuery('');
   }
 
-  function commitIdentities(nextIdentities: BrandIdentity[]) {
+  const commitIdentities = useCallback((nextIdentities: BrandIdentity[]) => {
     setIdentities(nextIdentities);
     window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(nextIdentities));
-  }
+  }, []);
 
   function selectIdentity(identityId: string) {
-    if (identityId !== activeIdentity?.id) {
-      const currentIndex = openIdentityIds.indexOf(activeIdentity?.id ?? '');
-      const nextIndex = openIdentityIds.indexOf(identityId);
-      workspaceDirectionRef.current =
-        nextIndex >= 0 && nextIndex < currentIndex ? 'backward' : 'forward';
-    }
     setOpenIdentityIds((current) =>
       current.includes(identityId) ? current : [...current, identityId]
     );
@@ -1000,7 +1130,7 @@ export default function StudioApp() {
     const closingIndex = visibleIdentities.findIndex(({ id }) => id === identityId);
     const nextOpenIdentityIds = openIdentityIds.filter((id) => id !== identityId);
     setOpenIdentityIds(nextOpenIdentityIds);
-    if (reorderControlsIdentityId === identityId) setReorderControlsIdentityId(null);
+    if (projectTabMenu?.identityId === identityId) setProjectTabMenu(null);
 
     if (identityId !== activeIdentity?.id) return;
     const folderCandidates = nextOpenIdentityIds
@@ -1034,9 +1164,14 @@ export default function StudioApp() {
     activateCreatedIdentity(createBrandIdentity(`Brand ${customCount + 1}`));
   }
 
+  function copyIdentityById(identityId: string) {
+    const identity = identityById.get(identityId);
+    if (!identity) return;
+    activateCreatedIdentity(duplicateBrandIdentity(identity));
+  }
+
   function copyIdentity() {
-    if (!activeIdentity) return;
-    activateCreatedIdentity(duplicateBrandIdentity(activeIdentity));
+    if (activeIdentity) copyIdentityById(activeIdentity.id);
   }
 
   function closeOtherIdentities() {
@@ -1101,7 +1236,7 @@ export default function StudioApp() {
     });
   }
 
-  function saveIdentityImmediately(nextIdentity: BrandIdentity) {
+  const saveIdentityImmediately = useCallback((nextIdentity: BrandIdentity) => {
     commitIdentities(
       identities.map((identity) => identity.id === nextIdentity.id ? nextIdentity : identity)
     );
@@ -1111,7 +1246,7 @@ export default function StudioApp() {
       delete nextPendingIdentities[nextIdentity.id];
       return nextPendingIdentities;
     });
-  }
+  }, [commitIdentities, identities]);
 
   function ignoreIdentityChanges(identityId: string) {
     setPendingIdentities((current) => {
@@ -1185,7 +1320,7 @@ export default function StudioApp() {
     const target = event.target;
     if (
       target instanceof HTMLElement &&
-      target.closest('.project-tab-close, .project-tab-reorder-controls')
+      target.closest('.project-tab-close')
     ) {
       return;
     }
@@ -1327,7 +1462,7 @@ export default function StudioApp() {
       pointerDrag.sourceIndex = sourceIndex;
       pointerDrag.tabs = tabs;
       event.currentTarget.setPointerCapture(event.pointerId);
-      setReorderControlsIdentityId(null);
+      setProjectTabMenu(null);
     }
     event.preventDefault();
     pointerDrag.pendingClientX = event.clientX;
@@ -1379,21 +1514,21 @@ export default function StudioApp() {
     clearProjectTabDrag();
   }
 
-  function openProjectTabMoveControls(identityId: string) {
-    setReorderControlsIdentityId(identityId);
-    window.requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLButtonElement>(
-          `#project-tab-reorder-${CSS.escape(identityId)} button:not(:disabled)`
-        )
-        ?.focus();
+  function openProjectTabContext(
+    identityId: string,
+    position: StudioContextMenuPosition
+  ) {
+    setProjectTabMenu({
+      identityId,
+      position: {
+        ...position,
+        anchor: document.getElementById(`project-tab-trigger-${identityId}`),
+      },
     });
   }
 
   function renderProjectTab(identity: BrandIdentity) {
     const selected = identity.id === activeIdentity?.id;
-    const visibleIndex = visibleIdentities.findIndex(({ id }) => id === identity.id);
-    const reorderControlsOpen = reorderControlsIdentityId === identity.id;
     return (
       <div
         aria-label={identity.name}
@@ -1404,6 +1539,7 @@ export default function StudioApp() {
         }`}
         data-project-id={identity.id}
         data-selected={selected ? 'true' : 'false'}
+        data-studio-context-trigger='project-tab'
         key={identity.id}
         onClickCapture={(event) => {
           if (suppressProjectTabClickRef.current !== identity.id) return;
@@ -1413,7 +1549,7 @@ export default function StudioApp() {
         }}
         onContextMenu={(event) => {
           event.preventDefault();
-          openProjectTabMoveControls(identity.id);
+          openProjectTabContext(identity.id, contextMenuPositionFromEvent(event));
         }}
         onKeyDown={(event) => {
           if (event.altKey && event.key === 'ArrowLeft') {
@@ -1424,7 +1560,7 @@ export default function StudioApp() {
             moveProjectTab(identity.id, 1);
           } else if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
             event.preventDefault();
-            openProjectTabMoveControls(identity.id);
+            openProjectTabContext(identity.id, contextMenuPositionFromElement(event.currentTarget));
           }
         }}
         onLostPointerCapture={(event) => {
@@ -1459,7 +1595,7 @@ export default function StudioApp() {
             className='flex min-w-0 flex-1 items-center gap-2 text-left'
             id={`project-tab-trigger-${identity.id}`}
             onClick={() => {
-              setReorderControlsIdentityId(null);
+              setProjectTabMenu(null);
               selectIdentity(identity.id);
             }}
             type='button'
@@ -1471,51 +1607,6 @@ export default function StudioApp() {
             </span>
           </button>
         )}
-        {reorderControlsOpen ? (
-          <div
-            aria-label={gt('Move {name} tab', { name: identity.name })}
-            className='project-tab-reorder-controls'
-            id={`project-tab-reorder-${identity.id}`}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setReorderControlsIdentityId(null);
-                window.requestAnimationFrame(() => {
-                  document
-                    .getElementById(`project-tab-trigger-${identity.id}`)
-                    ?.focus();
-                });
-              }
-            }}
-            role='menu'
-          >
-            <button
-              aria-label={gt('Move {name} tab left', { name: identity.name })}
-              disabled={visibleIndex <= 0}
-              onClick={() => {
-                moveProjectTab(identity.id, -1);
-                setReorderControlsIdentityId(null);
-              }}
-              role='menuitem'
-              title={gt('Move tab left')}
-              type='button'
-            >
-              <ChevronLeft aria-hidden='true' />
-            </button>
-            <button
-              aria-label={gt('Move {name} tab right', { name: identity.name })}
-              disabled={visibleIndex < 0 || visibleIndex >= visibleIdentities.length - 1}
-              onClick={() => {
-                moveProjectTab(identity.id, 1);
-                setReorderControlsIdentityId(null);
-              }}
-              role='menuitem'
-              title={gt('Move tab right')}
-              type='button'
-            >
-              <ChevronRight aria-hidden='true' />
-            </button>
-          </div>
-        ) : null}
         <button
           aria-label={gt('Close {name} tab', { name: identity.name })}
           className='project-tab-close'
@@ -1657,6 +1748,23 @@ export default function StudioApp() {
           </div>
         </div>
       </div>
+      <ProjectTabContextMenu
+        activeIdentityId={activeIdentity.id}
+        identity={projectTabMenuIdentity}
+        menu={projectTabMenu}
+        onClose={() => setProjectTabMenu(null)}
+        onCloseOthers={(identityId) => {
+          setOpenIdentityIds([identityId]);
+          selectIdentity(identityId);
+        }}
+        onCloseTab={closeIdentity}
+        onDuplicate={copyIdentityById}
+        onMove={moveProjectTab}
+        onOpen={selectIdentity}
+        openCount={openIdentityIds.length}
+        tabCount={visibleIdentities.length}
+        tabIndex={projectTabMenuIndex}
+      />
 
       <div className='studio-app-body'>
         <aside className='app-navbar studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
@@ -1718,7 +1826,6 @@ export default function StudioApp() {
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
           <div
             className='studio-workspace-view'
-            data-motion-direction={workspaceDirectionRef.current}
             key={`${activeIdentity.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
           >
             {!activeIdentityIsOpen ? (

@@ -15,7 +15,7 @@ import {
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 import { SURFACE_LAB_SHADER_PRESETS } from './surfaceLab';
 
-const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material', 'surface']);
+const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
 const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
 
 const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
@@ -31,7 +31,7 @@ const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
         ? ['element-brief']
         : ['template', 'background'].filter((kind) => (
             (kind === 'template' && ['blog', 'opengraph', 'partnership', 'slides'].includes(tool.id))
-            || (kind === 'background' && ['opengraph', 'surface'].includes(tool.id))
+            || (kind === 'background' && tool.id === 'opengraph')
           )),
     sharedShaderLibrary: SHARED_SHADER_LIBRARY_TOOLS.has(tool.id),
     sourceEditing: true,
@@ -70,7 +70,7 @@ export const AGENT_SHADER_LIBRARY = {
   materials: SHARED_SHADER_MATERIALS,
   palettes: LIVE_MATERIAL_PALETTES,
   schemaVersion: 1,
-  sharedBy: ['animation', 'material', 'surface'] as const,
+  sharedBy: ['animation', 'material'] as const,
 } as const;
 
 export const AGENT_SURFACE_LIBRARY = {

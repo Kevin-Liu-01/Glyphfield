@@ -1,12 +1,13 @@
 'use client';
 
-import { Check, ChevronDown, Copy, GitFork, History, Save, Trash2 } from '@/components/ui/SolidIcons';
+import { Check, ChevronDown, Copy, GitFork, History, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import type { CanvasDocumentAutosaveState } from '@/hooks/useCanvasDocumentAutosave';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { canvasSourceContentRevision } from '@/lib/canvasDocument';
 import {
   activeSavedDesignStorageKey,
   createSavedDesign,
@@ -47,6 +48,22 @@ function visibleDesignState(
   return labels[autosaveState];
 }
 
+function savedRevisionMatches(activeDesign: SavedDesign | null, currentRevision: string): boolean {
+  if (!activeDesign) return false;
+  return (activeDesign.revision ?? activeDesign.source) === currentRevision;
+}
+
+function comparableCanvasRevision(
+  source: string | null,
+  toolId: string,
+  enabled: boolean
+): number | null {
+  if (!enabled || source === null) return null;
+  return canvasSourceContentRevision(source, {
+    omitMetadataKeys: toolId === 'animation' ? ['peaks'] : [],
+  });
+}
+
 function DesignVersionsPopover({
   activeDesign,
   activeId,
@@ -60,6 +77,9 @@ function DesignVersionsPopover({
   onRename,
   saving,
   sortedDesigns,
+  collectionLabel,
+  defaultName,
+  itemLabel,
   workspaceLabel,
 }: {
   activeDesign: SavedDesign | null;
@@ -74,20 +94,23 @@ function DesignVersionsPopover({
   onRename: (design: SavedDesign, name: string) => void;
   saving: boolean;
   sortedDesigns: readonly SavedDesign[];
+  collectionLabel: string;
+  defaultName: string;
+  itemLabel: string;
   workspaceLabel: string;
 }) {
   return (
-    <div aria-label={`${workspaceLabel} saved designs`} className={styles.popover} role='region'>
+    <div aria-label={`${workspaceLabel} ${collectionLabel.toLocaleLowerCase()}`} className={styles.popover} role='region'>
       <header className={styles.popoverHeader}>
-        <div><strong>Saved designs</strong><span>{designs.length} stored in this browser</span></div>
+        <div><strong>{collectionLabel}</strong><span>{designs.length} stored in this browser</span></div>
         <span className={styles.workspace}>{workspaceLabel}</span>
       </header>
 
       {activeDesign ? (
         <label className={styles.nameField}>
-          <span>Current design name</span>
+          <span>Current {itemLabel} name</span>
           <input
-            aria-label='Current design name'
+            aria-label={`Current ${itemLabel} name`}
             disabled={saving}
             onBlur={() => onNormalizeName(activeDesign)}
             onChange={(event) => onRename(activeDesign, event.target.value)}
@@ -97,21 +120,21 @@ function DesignVersionsPopover({
       ) : (
         <div className={styles.unsavedCallout}>
           <Save aria-hidden='true' />
-          <span><strong>Current canvas is autosaved</strong><small>Save it as a named design whenever you want a checkpoint.</small></span>
+          <span><strong>Current {itemLabel} is autosaved</strong><small>Save it as a named {itemLabel} whenever you want a checkpoint.</small></span>
         </div>
       )}
 
       <div className={styles.list}>
-        {loading ? <p className={styles.empty}>Loading saved designs…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
+        {loading ? <p className={styles.empty}>Loading {collectionLabel.toLocaleLowerCase()}…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
           <div className={styles.designRow} data-active={design.id === activeId ? 'true' : 'false'} key={design.id}>
             <button className={styles.openDesign} onClick={() => void onOpen(design)} type='button'>
-              <span><strong>{design.name || 'Untitled design'}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
-              {design.id === activeId ? <Check aria-label='Current design' /> : null}
+              <span><strong>{design.name || defaultName}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
+              {design.id === activeId ? <Check aria-label={`Current ${itemLabel}`} /> : null}
             </button>
             <button aria-label={`Clone ${design.name}`} disabled={saving} onClick={() => onClone(design)} title='Clone this design' type='button'><Copy aria-hidden='true' /></button>
             <button aria-label={`Delete ${design.name}`} disabled={saving} onClick={() => onDelete(design)} title='Delete saved design' type='button'><Trash2 aria-hidden='true' /></button>
           </div>
-        )) : <p className={styles.empty}>Saved designs will appear here.</p>}
+        )) : <p className={styles.empty}>{collectionLabel} will appear here.</p>}
       </div>
       {error ? <p className={styles.error} role='alert'>{error}</p> : null}
     </div>
@@ -125,6 +148,8 @@ function DesignVersionTrigger({
   onToggle,
   open,
   visibleState,
+  collectionLabel,
+  draftLabel,
 }: {
   activeDesign: SavedDesign | null;
   autosaveState: CanvasDocumentAutosaveState;
@@ -132,6 +157,8 @@ function DesignVersionTrigger({
   onToggle: () => void;
   open: boolean;
   visibleState: string;
+  collectionLabel: string;
+  draftLabel: string;
 }) {
   const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
   return (
@@ -139,11 +166,11 @@ function DesignVersionTrigger({
       aria-expanded={open}
       className={styles.trigger}
       onClick={onToggle}
-      title='Open saved designs'
+      title={`Open ${collectionLabel.toLocaleLowerCase()}`}
       type='button'
     >
       <History aria-hidden='true' />
-      <span className={styles.currentName}>{activeDesign?.name ?? 'Autosaved draft'}</span>
+      <span className={styles.currentName}>{activeDesign?.name ?? draftLabel}</span>
       <span aria-label={visibleState} className={styles.stateDot} data-dirty={String(stateIsDirty)} />
       <ChevronDown aria-hidden='true' />
     </button>
@@ -155,34 +182,45 @@ function DesignVersionActions({
   disabled,
   onClone,
   onFork,
+  onNew,
   onSave,
   saving,
+  itemLabel,
 }: {
   dirty: boolean;
   disabled: boolean;
   onClone: () => void;
   onFork: () => void;
+  onNew?: () => void;
   onSave: () => void;
   saving: boolean;
+  itemLabel: string;
 }) {
+  const itemTitle = itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1);
   return (
     <div className={styles.actions}>
+      {onNew ? (
+        <Button aria-label={`New ${itemLabel}`} disabled={disabled} onClick={onNew} size='sm' type='button' variant='outline'>
+          <Plus aria-hidden='true' />
+          <span className={styles.actionLabel}>New</span>
+        </Button>
+      ) : null}
       <Button
-        aria-label={dirty ? 'Save design' : 'Design saved'}
+        aria-label={dirty ? `Save ${itemLabel}` : `${itemTitle} saved`}
         disabled={disabled || !dirty}
         onClick={() => void onSave()}
         size='sm'
-        title={dirty ? 'Save design' : 'Design saved'}
+        title={dirty ? `Save ${itemLabel}` : `${itemTitle} saved`}
         type='button'
         variant={dirty ? 'default' : 'outline'}
       >
         {dirty ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
         <span className={styles.actionLabel}>{saving ? 'Saving' : dirty ? 'Save' : 'Saved'}</span>
       </Button>
-      <Button aria-label='Fork design' disabled={disabled} onClick={() => void onFork()} size='icon-sm' title='Fork into a linked design' type='button' variant='outline'>
+      <Button aria-label={`Fork ${itemLabel}`} disabled={disabled} onClick={() => void onFork()} size='icon-sm' title={`Fork into a linked ${itemLabel}`} type='button' variant='outline'>
         <GitFork aria-hidden='true' />
       </Button>
-      <Button aria-label='Clone design' disabled={disabled} onClick={() => void onClone()} size='icon-sm' title='Clone as an independent copy' type='button' variant='outline'>
+      <Button aria-label={`Clone ${itemLabel}`} disabled={disabled} onClick={() => void onClone()} size='icon-sm' title='Clone as an independent copy' type='button' variant='outline'>
         <Copy aria-hidden='true' />
       </Button>
     </div>
@@ -191,7 +229,13 @@ function DesignVersionActions({
 
 export default function DesignVersionControls({
   autosaveState = 'saved',
+  collectionLabel = 'Saved designs',
+  defaultName = 'Untitled design',
+  draftLabel = 'Autosaved draft',
   identityId,
+  itemLabel = 'design',
+  layout = 'toolbar',
+  onNew,
   onOpen,
   revision,
   source,
@@ -199,7 +243,13 @@ export default function DesignVersionControls({
   workspaceLabel,
 }: {
   autosaveState?: CanvasDocumentAutosaveState;
+  collectionLabel?: string;
+  defaultName?: string;
+  draftLabel?: string;
   identityId: string;
+  itemLabel?: string;
+  layout?: 'panel' | 'toolbar';
+  onNew?: () => Promise<void> | void;
   onOpen: (source: string) => Promise<void> | void;
   revision?: string;
   source: string | null | (() => string | null);
@@ -222,8 +272,21 @@ export default function DesignVersionControls({
   const currentSource = typeof source === 'function' ? source() : source;
   const sourceReady = currentSource !== null;
   const currentRevision = revision ?? currentSource ?? '';
+  const revisionsMatch = savedRevisionMatches(activeDesign, currentRevision);
+  const compareCanvasContent = Boolean(activeDesign && !revisionsMatch && currentSource !== null);
+  const currentContentRevision = useMemo(
+    () => comparableCanvasRevision(currentSource, toolId, compareCanvasContent),
+    [compareCanvasContent, currentSource, toolId]
+  );
+  const activeContentRevision = useMemo(
+    () => comparableCanvasRevision(activeDesign?.source ?? null, toolId, compareCanvasContent),
+    [activeDesign, compareCanvasContent, toolId]
+  );
+  const sameCanvasContent = currentContentRevision !== null
+    && activeContentRevision !== null
+    && currentContentRevision === activeContentRevision;
   const dirty = activeDesign
-    ? (activeDesign.revision ?? activeDesign.source) !== currentRevision
+    ? !revisionsMatch && !sameCanvasContent
     : true;
   const visibleState = visibleDesignState(activeDesign, dirty, autosaveState);
   const sortedDesigns = useMemo(
@@ -305,10 +368,9 @@ export default function DesignVersionControls({
     }
   }
 
-  async function saveDesign() {
+  async function saveDesign(): Promise<boolean> {
     if (!activeDesign) {
-      await createDesign('Untitled design', 'saved');
-      return;
+      return Boolean(await createDesign(defaultName, 'saved'));
     }
     let latestSource: string;
     try {
@@ -316,7 +378,7 @@ export default function DesignVersionControls({
     } catch (sourceError) {
       setError(sourceError instanceof Error ? sourceError.message : 'Portable source is not ready.');
       setOpen(true);
-      return;
+      return false;
     }
     const now = new Date().toISOString();
     const savedDesign: SavedDesign = {
@@ -335,9 +397,11 @@ export default function DesignVersionControls({
       }));
       setError('');
       announce('Changes saved');
+      return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'These changes could not be saved.');
       setOpen(true);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -345,7 +409,7 @@ export default function DesignVersionControls({
 
   async function forkDesign() {
     await createDesign(
-      `${activeDesign?.name ?? 'Untitled design'} · Fork`,
+      `${activeDesign?.name ?? defaultName} · Fork`,
       'fork',
       undefined,
       activeDesign?.id
@@ -358,12 +422,30 @@ export default function DesignVersionControls({
     designRevision?: string
   ) {
     return createDesign(
-      `${design?.name ?? 'Untitled design'} · Copy`,
+      `${design?.name ?? defaultName} · Copy`,
       'clone',
       designSource,
       undefined,
       designRevision
     );
+  }
+
+  async function startNewDesign() {
+    if (!onNew) return;
+    const preserved = activeDesign
+      ? (!dirty || await saveDesign())
+      : Boolean(await createDesign(defaultName, 'saved'));
+    if (!preserved) return;
+    try {
+      await onNew();
+      setActiveId(null);
+      setOpen(false);
+      setError('');
+      announce(`New ${itemLabel} ready`);
+    } catch (newError) {
+      setError(newError instanceof Error ? newError.message : `A new ${itemLabel} could not be created.`);
+      setOpen(true);
+    }
   }
 
   async function cloneStoredDesign(design: SavedDesign) {
@@ -431,7 +513,7 @@ export default function DesignVersionControls({
   }
 
   return (
-    <div className={styles.root} ref={rootRef} data-design-version-controls>
+    <div className={styles.root} data-layout={layout} ref={rootRef} data-design-version-controls>
       <DesignVersionTrigger
         activeDesign={activeDesign}
         autosaveState={autosaveState}
@@ -439,6 +521,8 @@ export default function DesignVersionControls({
         onToggle={() => setOpen((current) => !current)}
         open={open}
         visibleState={visibleState}
+        collectionLabel={collectionLabel}
+        draftLabel={draftLabel}
       />
 
       <DesignVersionActions
@@ -446,8 +530,10 @@ export default function DesignVersionControls({
         disabled={loading || saving || !sourceReady}
         onClone={() => { void cloneDesign(); }}
         onFork={() => { void forkDesign(); }}
+        onNew={onNew ? () => { void startNewDesign(); } : undefined}
         onSave={() => { void saveDesign(); }}
         saving={saving}
+        itemLabel={itemLabel}
       />
 
       {open ? (
@@ -464,6 +550,9 @@ export default function DesignVersionControls({
           onRename={renameDesign}
           saving={saving}
           sortedDesigns={sortedDesigns}
+          collectionLabel={collectionLabel}
+          defaultName={defaultName}
+          itemLabel={itemLabel}
           workspaceLabel={workspaceLabel}
         />
       ) : null}

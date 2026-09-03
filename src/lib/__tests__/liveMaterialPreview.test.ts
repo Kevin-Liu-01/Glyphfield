@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  clearLiveMaterialTimePreview,
   LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT,
   LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT,
   LIVE_MATERIAL_TIME_PREVIEW_EVENT,
@@ -32,11 +33,13 @@ describe('live material local previews', () => {
     previewLiveMaterialPatternScale('content-asset-1', 2.4);
     previewLiveMaterialSettings('content-asset-1', { frequency: 8, colorA: '#2F6BFF' });
     previewLiveMaterialTime('design-lab', 640);
+    clearLiveMaterialTimePreview('design-lab');
 
     expect(received).toEqual([
       { channel: 'content-asset-1', value: 2.4 },
       { channel: 'content-asset-1', settings: { frequency: 8, colorA: '#2F6BFF' } },
       { group: 'design-lab', timeMs: 640 },
+      { group: 'design-lab', timeMs: null },
     ]);
   });
 });

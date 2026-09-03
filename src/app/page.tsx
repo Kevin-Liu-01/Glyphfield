@@ -6,7 +6,8 @@ import {
   ArrowRight,
   Bot,
   BookOpen,
-  Download,
+  Braces,
+  Component,
   Film,
   Layers3,
   MoveDiagonal2,
@@ -22,10 +23,18 @@ import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
 import MarketingAgentControlLab from '@/components/MarketingAgentControlLab';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import GitHubStarButton from '@/components/GitHubStarButton';
+import MitLogo from '@/components/MitLogo';
 import MarketingMotion from '@/components/MarketingMotion';
+import MarketingOpenSourceWorkbench from '@/components/MarketingOpenSourceWorkbench';
 import MarketingShaderMark from '@/components/MarketingShaderMark';
 import MarketingShaderText from '@/components/MarketingShaderText';
 import MarketingStudioSearch from '@/components/MarketingStudioSearch';
+import {
+  MarketingApplicationsDemo,
+  MarketingIdentityDemo,
+  MarketingMaterialDemo,
+  MarketingMotionDemo,
+} from '@/components/MarketingStudioShowcaseDemos';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -51,17 +60,6 @@ const GLYPH_FIELD_ROWS = [
   'GLYPH           FIELD',
   'GLYPHFIELD GLYPHFIELD',
 ] as const;
-
-function MitLogo() {
-  return (
-    <svg aria-hidden='true' viewBox='160 159 1360 720'>
-      <path
-        d='M880 879.252h160v-480H880v480Zm240-560h400v-160h-400v160Zm-240-160h160v160H880v-160Zm-240 720h160v-720H640v720Zm-240-160h160v-560H400v560Zm-240 160h160v-720H160v720Zm960 0h160v-480h-160v480Z'
-        fill='currentColor'
-      />
-    </svg>
-  );
-}
 
 const OPEN_SOURCE_FIELD_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
@@ -92,6 +90,57 @@ const OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS = {
   speed: 0.26,
 };
 
+const AGENT_STAT_SHADER_SETTINGS = [
+  {
+    materialId: 'paper-dithering-sine-wave',
+    settings: {
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      amplitude: 2.2,
+      brightness: 0.94,
+      colorA: '#173E6B',
+      colorB: '#B7EBFF',
+      colorC: '#B7E5FF',
+      grain: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: -3,
+      speed: 0.36,
+    },
+  },
+  {
+    materialId: 'paper-dithering-warp',
+    settings: {
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      amplitude: 3,
+      brightness: 0.92,
+      colorA: '#4C206D',
+      colorB: '#E8B4FF',
+      colorC: '#F1C0FF',
+      grain: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 8,
+      speed: 0.28,
+    },
+  },
+  {
+    materialId: 'paper-dithering-ripple',
+    settings: {
+      ...DEFAULT_LIVE_MATERIAL_SETTINGS,
+      amplitude: 2.8,
+      brightness: 0.94,
+      colorA: '#174C3E',
+      colorB: '#C6F29A',
+      colorC: '#D9F2A9',
+      grain: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 4,
+      speed: 0.32,
+    },
+  },
+] as const;
+
 const FOOTER_DITHERING_SWIRL_SETTINGS = {
   ...DEFAULT_LIVE_MATERIAL_SETTINGS,
   amplitude: 5.2,
@@ -113,10 +162,10 @@ const FOOTER_DITHERING_SWIRL_SETTINGS = {
 const FEATURES = [
   {
     description: 'Logo families, source assets, fonts, color roles, voice, and layout rules stay connected.',
-    darkImage: '/screenshots/studio-gt-identity-dark-2026.png',
+    darkImage: '/screenshots/studio-gt-moodboard-dark-2026.png',
     icon: Palette,
     label: 'Identity source',
-    lightImage: '/screenshots/studio-gt-identity-light-2026.png',
+    lightImage: '/screenshots/studio-gt-moodboard-light-2026.png',
   },
   {
     description: 'Compose moodboards, email, decks, product UI, editorial graphics, and physical pieces.',
@@ -140,11 +189,11 @@ const FEATURES = [
     lightImage: '/screenshots/studio-gt-design-lab-light-2026.png',
   },
   {
-    description: 'Select, drag, resize, layer, zoom, and export from a direct-manipulation canvas.',
-    darkImage: '/screenshots/studio-gt-playground-dark-2026.png',
+    description: 'Select, drag, resize, layer, add sticker treatments, and export from a direct-manipulation canvas.',
+    darkImage: '/screenshots/studio-gt-design-lab-dark-2026.png',
     icon: ScanLine,
     label: 'Editable canvas',
-    lightImage: '/screenshots/studio-gt-playground-light-2026.png',
+    lightImage: '/screenshots/studio-gt-design-lab-light-2026.png',
   },
   {
     description: 'Agents discover the same identities and tools, then generate stable SVG and browser artifacts.',
@@ -278,7 +327,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <ThemeGallery gt={gt} />
+        <ThemeGallery />
 
         <section className='marketing-v5-product-grid marketing-v7-corner-frame' data-motion-reveal>
           <FrameTriangles />
@@ -290,23 +339,7 @@ export default async function HomePage() {
               <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
             </p>
             <div className='marketing-v5-product-card-image marketing-v5-product-card-image--artifacts'>
-              <Image
-                alt={gt('The General Translation brand book open in the complete Glyphfield Studio workspace')}
-                className='marketing-v5-theme-shot marketing-v5-theme-shot--light'
-                fill
-                sizes='(max-width: 800px) 96vw, 64vw'
-                src='/screenshots/studio-gt-brand-book-light-2026.png'
-                unoptimized
-              />
-              <Image
-                alt=''
-                aria-hidden='true'
-                className='marketing-v5-theme-shot marketing-v5-theme-shot--dark'
-                fill
-                sizes='(max-width: 800px) 96vw, 64vw'
-                src='/screenshots/studio-gt-brand-book-dark-2026.png'
-                unoptimized
-              />
+              <MarketingApplicationsDemo />
             </div>
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
@@ -317,23 +350,7 @@ export default async function HomePage() {
             </h2>
             <p><T>Apply live type, material, depth, and timing to a mark, then reuse the result across every export.</T></p>
             <div className='marketing-v5-product-card-image marketing-v5-product-card-image--animation'>
-              <Image
-                alt={gt('The complete Glyphfield Animation Studio composing the General Translation mark over a live dither shader')}
-                className='marketing-v5-theme-shot marketing-v5-theme-shot--light'
-                fill
-                sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-gt-animation-light-2026.png'
-                unoptimized
-              />
-              <Image
-                alt=''
-                aria-hidden='true'
-                className='marketing-v5-theme-shot marketing-v5-theme-shot--dark'
-                fill
-                sizes='(max-width: 800px) 96vw, 36vw'
-                src='/screenshots/studio-gt-animation-dark-2026.png'
-                unoptimized
-              />
+              <MarketingMotionDemo />
             </div>
           </article>
         </section>
@@ -357,18 +374,43 @@ export default async function HomePage() {
             </p>
             <div className='marketing-v5-agent-stats' aria-label={gt('Agent API coverage')}>
               <div>
+                <MarketingArcField
+                  className='marketing-v5-agent-stat-shader'
+                  materialId={AGENT_STAT_SHADER_SETTINGS[0].materialId}
+                  paperShaderOverrides={{ size: 2.6 }}
+                  settings={AGENT_STAT_SHADER_SETTINGS[0].settings}
+                />
                 <strong>{STUDIO_TOOLS.length}</strong>
-                <span><T>Lab plugins</T></span>
+                <span className='marketing-v5-agent-stat-label'>
+                  <Component aria-hidden='true' />
+                  <T>Lab plugins</T>
+                </span>
                 <code>/api/labs</code>
               </div>
               <div>
+                <MarketingArcField
+                  className='marketing-v5-agent-stat-shader'
+                  materialId={AGENT_STAT_SHADER_SETTINGS[1].materialId}
+                  settings={AGENT_STAT_SHADER_SETTINGS[1].settings}
+                />
                 <strong>{LIVE_MATERIAL_OPTIONS.length}</strong>
-                <span><T>Live shaders</T></span>
+                <span className='marketing-v5-agent-stat-label'>
+                  <Sparkles aria-hidden='true' />
+                  <T>Live shaders</T>
+                </span>
                 <code>/api/materials</code>
               </div>
               <div>
+                <MarketingArcField
+                  className='marketing-v5-agent-stat-shader'
+                  materialId={AGENT_STAT_SHADER_SETTINGS[2].materialId}
+                  settings={AGENT_STAT_SHADER_SETTINGS[2].settings}
+                />
                 <strong>1</strong>
-                <span><T>Shared contract</T></span>
+                <span className='marketing-v5-agent-stat-label'>
+                  <Braces aria-hidden='true' />
+                  <T>Shared contract</T>
+                </span>
                 <code>/api/agent</code>
               </div>
             </div>
@@ -453,20 +495,12 @@ export default async function HomePage() {
               </a>
             </div>
           </div>
-          <div className='marketing-v14-open-source-workbench' data-motion-item>
-            <StudioColorInspector dark />
-            <div className='marketing-v7-open-source-panel'>
-              <MarketingArcField
-                className='marketing-v8-open-source-panel-material'
-                materialId='paper-dithering-warp'
-                settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
-              />
-              <Image alt='' aria-hidden='true' height={64} src={PRODUCT_BRAND.markPath} width={64} />
-              <div className='marketing-v7-open-source-meta'>
-                <strong>MIT</strong>
-                <span><T>Source, agent API, and artifact model included.</T></span>
-              </div>
-            </div>
+          <div className='marketing-v14-open-source-workbench-shell' data-motion-item>
+            <MarketingOpenSourceWorkbench
+              markPath={PRODUCT_BRAND.markPath}
+              materialId='paper-dithering-warp'
+              settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
+            />
           </div>
         </section>
 
@@ -613,51 +647,6 @@ function StudioSelectionFrame({
   );
 }
 
-function StudioControlPanel({
-  children,
-  className = '',
-  dark = false,
-  meta,
-  title,
-}: {
-  children: ReactNode;
-  className?: string;
-  dark?: boolean;
-  meta: string;
-  title: string;
-}) {
-  return (
-    <aside
-      aria-hidden='true'
-      className={`marketing-v14-control-panel${dark ? ' marketing-v14-control-panel--dark' : ''} ${className}`.trim()}
-    >
-      <header><strong>{title}</strong><span>{meta}</span></header>
-      {children}
-    </aside>
-  );
-}
-
-function StudioColorInspector({ dark = false }: { dark?: boolean }) {
-  return (
-    <StudioControlPanel className='marketing-v14-color-inspector' dark={dark} meta='BACKGROUND' title='CANVAS'>
-      <div className='marketing-v14-color-field'>
-        <i />
-        <small>HEX</small>
-        <strong>#FFFFFF</strong>
-      </div>
-      <div className='marketing-v14-color-spectrum'><i /></div>
-      <div className='marketing-v14-hue-row'><b /><i /></div>
-      <div className='marketing-v14-hsv-row'>
-        <span>0 H</span><span>0 S</span><span>100 V</span>
-      </div>
-      <div className='marketing-v14-segmented-row'>
-        <span className='is-active'><Palette />Canvas</span>
-        <span><Download />Asset</span>
-      </div>
-    </StudioControlPanel>
-  );
-}
-
 function XSocialIcon() {
   return (
     <svg aria-hidden='true' viewBox='0 0 24 24'>
@@ -666,37 +655,7 @@ function XSocialIcon() {
   );
 }
 
-function ProductFrame({
-  alt,
-  darkSrc,
-  label,
-  priority = false,
-  src,
-  themeLabel = 'Light / Studio',
-}: {
-  alt: string;
-  darkSrc?: string;
-  label: string;
-  priority?: boolean;
-  src: string;
-  themeLabel?: string;
-}) {
-  return (
-    <figure className={`marketing-v5-studio-frame${darkSrc ? ' marketing-v5-studio-frame--adaptive' : ''}`}>
-      <figcaption>
-        <span><i /><i /><i />{label}</span>
-        <small className='marketing-v5-studio-label marketing-v5-studio-label--light'>{themeLabel}</small>
-        {darkSrc ? <small className='marketing-v5-studio-label marketing-v5-studio-label--dark'>Dark / Studio</small> : null}
-      </figcaption>
-      <div>
-        <Image alt={alt} className='marketing-v5-studio-shot marketing-v5-studio-shot--light' fill priority={priority} sizes='(max-width: 900px) 92vw, 76vw' src={src} />
-        {darkSrc ? <Image alt='' aria-hidden='true' className='marketing-v5-studio-shot marketing-v5-studio-shot--dark' fill priority={priority} sizes='(max-width: 900px) 92vw, 76vw' src={darkSrc} /> : null}
-      </div>
-    </figure>
-  );
-}
-
-function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
+function ThemeGallery() {
   return (
     <section className='marketing-v5-theme-gallery marketing-v7-corner-frame' data-motion-reveal id='themes'>
       <FrameTriangles />
@@ -717,27 +676,17 @@ function ThemeGallery({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
         <div className='marketing-v13-theme-notes'>
           <p>
             <T>
-              See identity settings and an art-directed moodboard inside the same working workspace.
+              Tune the identity, compose live materials, and carry the same system into every output.
             </T>
           </p>
         </div>
       </div>
       <div className='marketing-v5-theme-gallery-grid'>
         <div data-motion-item>
-          <ProductFrame
-            alt={gt('The General Translation identity system in Glyphfield Studio')}
-            darkSrc='/screenshots/studio-gt-identity-dark-2026.png'
-            label='Brand identity / General Translation'
-            src='/screenshots/studio-gt-identity-light-2026.png'
-          />
+          <MarketingIdentityDemo />
         </div>
         <div data-motion-item>
-          <ProductFrame
-            alt={gt('The General Translation moodboard in Glyphfield Studio')}
-            darkSrc='/screenshots/studio-gt-moodboard-dark-2026.png'
-            label='Moodboard / General Translation'
-            src='/screenshots/studio-gt-moodboard-light-2026.png'
-          />
+          <MarketingMaterialDemo />
         </div>
       </div>
     </section>

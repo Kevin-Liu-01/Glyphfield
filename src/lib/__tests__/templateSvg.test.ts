@@ -25,6 +25,28 @@ describe('buildTemplateSvg', () => {
     expect(svg).not.toContain('>PARTNER<');
   });
 
+  it('writes a partner name in its own uploaded font and keeps the lockup compact', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      partnerFontData: 'data:font/woff2;base64,LAUSANNE',
+      partnerFontFamily: 'Lausanne',
+      partnerFontWeight: 350,
+      partnerGap: 18,
+      partnerLetterSpacing: -1.1,
+      partnerName: 'Ramp',
+      partnerTreatment: 'text',
+    });
+
+    expect(svg).toContain("font-family:'TemplatePartner'");
+    expect(svg).toContain('data:font/woff2;base64,LAUSANNE');
+    expect(svg).toContain('data-template-partner="text"');
+    expect(svg).toContain('class="template-partner-text" x="274"');
+    expect(svg).toContain('font-weight="350"');
+    expect(svg).toContain('letter-spacing="-1.1"');
+    expect(svg).toContain('>Ramp</text>');
+    expect(svg).not.toContain(`href="${baseOptions.partnerLogo}"`);
+  });
+
   it('keeps a real brand logo on slide exports and escapes content', () => {
     const svg = buildTemplateSvg({
       ...baseOptions,
@@ -61,7 +83,7 @@ describe('buildTemplateSvg', () => {
     expect(svg).toContain('fill="url(#texture)" opacity="0.25"');
     expect(svg).toContain(`href="${baseOptions.brandLogo}" x="62"`);
     expect(svg).toContain('width="204"');
-    expect(svg).toContain(`href="${baseOptions.partnerLogo}" x="950"`);
+    expect(svg).toContain(`href="${baseOptions.partnerLogo}" x="362"`);
     expect(svg).toContain('width="104"');
   });
 

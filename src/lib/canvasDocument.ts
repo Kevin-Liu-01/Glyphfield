@@ -702,6 +702,61 @@ function stableJson(value: CanvasJsonValue): CanvasJsonValue {
   );
 }
 
+/** Produces the canonical JSON signature used for stable document revisions. */
+export function canvasSignatureFromValue(value: unknown): string {
+  return JSON.stringify(stableJson(toCanvasJsonValue(value, 'Canvas revision input')));
+}
+
+/** Hashes only editable document content, excluding timestamps and the revision itself. */
+function omitCanvasJsonObjectKeys(
+  value: CanvasJsonValue,
+  omittedKeys: ReadonlySet<string>
+): CanvasJsonValue {
+  if (Array.isArray(value)) {
+    return value.map((entry) => omitCanvasJsonObjectKeys(entry, omittedKeys));
+  }
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).flatMap(([key, entry]) => (
+    omittedKeys.has(key) ? [] : [[key, omitCanvasJsonObjectKeys(entry, omittedKeys)]]
+  )));
+}
+
+export type CanvasContentRevisionOptions = {
+  omitMetadataKeys?: readonly string[];
+};
+
+export function canvasDocumentContentRevision(
+  document: CanvasDocument,
+  options: CanvasContentRevisionOptions = {}
+): number {
+  const omittedMetadataKeys = new Set(options.omitMetadataKeys ?? []);
+  return canvasRevisionFromSignature(canvasSignatureFromValue({
+    assets: document.assets,
+    brandId: document.brandId,
+    capabilities: document.capabilities,
+    elements: document.elements,
+    guides: document.guides,
+    id: document.id,
+    metadata: omitCanvasJsonObjectKeys(document.metadata, omittedMetadataKeys),
+    pageIds: document.pageIds,
+    pages: document.pages,
+    schemaVersion: document.schemaVersion,
+    title: document.title,
+  }));
+}
+
+/** Returns a semantic revision for portable canvas source, or null for non-canvas source. */
+export function canvasSourceContentRevision(
+  source: string,
+  options: CanvasContentRevisionOptions = {}
+): number | null {
+  try {
+    return canvasDocumentContentRevision(parseCanvasDocument(source), options);
+  } catch {
+    return null;
+  }
+}
+
 export function parseCanvasDocument(source: string): CanvasDocument {
   const diagnostic = inspectSourceText(source);
   if (!diagnostic.valid) throw new SyntaxError(diagnostic.message);

@@ -1,80 +1,119 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
-import { Pause, Play, RotateCcw, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import AnimationAudioTrack from '@/components/AnimationAudioTrack';
+import { animationPackagePresentation } from '@/components/AnimationPackageGallery';
+import AnimationSequenceTooltipPreview from '@/components/AnimationSequenceTooltipPreview';
+import AnimationTimelinePreview from '@/components/AnimationTimelinePreview';
 import { Button } from '@/components/ui/Button';
+import { Frame, Pause, Play, RotateCcw, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
+import StudioContextMenu, {
+  contextMenuPositionFromElement,
+  contextMenuPositionFromEvent,
+  type StudioContextMenuPosition,
+} from '@/components/ui/StudioContextMenu';
+import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
+import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
+import type { StudioSource } from '@/lib/renderFrame';
+import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
+
 type TimelinePanelProps = {
+  audio: AnimationAudioState;
   currentMsRef: { current: number };
-  fps: number;
-  holdMs: number;
   isPlaying: boolean;
-  labels: readonly string[];
+  onAudioClipChange: (clipId: string, patch: Partial<AnimationAudioClip>) => void;
+  onAudioFiles: (files: FileList) => void;
+  onAudioMutedChange: (muted: boolean) => void;
+  onAudioRemoveClip: (clipId: string) => void;
+  onAudioSelectedClipChange: (clipId: string | null) => void;
+  onAudioSplitClip: (clipId: string) => void;
+  onAudioVolumeChange: (volume: number) => void;
   onPlayChange: (playing: boolean) => void;
   onRateChange: (rate: number) => void;
   onSeek: (timeMs: number) => void;
+  onSelectSource: (id: string) => void;
+  onSelectTransition: (index: number) => void;
   playbackRate: number;
+  presentationMode?: boolean;
+  previewSources: readonly StudioSource[];
+  selectedAudioClipId: string | null;
+  selectedSourceId: string | null;
+  selectedTransitionIndex: number | null;
+  settings: StudioSettings;
+  sources: readonly StudioSource[];
   totalMs: number;
-  transitionMs: number;
+  transitionSettings: readonly StudioTransitionSettings[];
 };
 
 function formatTime(timeMs: number): string {
-  const seconds = Math.max(0, timeMs) / 1000;
-  return `${seconds.toFixed(2)}s`;
+  return `${(Math.max(0, timeMs) / 1000).toFixed(2)}s`;
+}
+
+function sourceLabel(source: StudioSource): string {
+  return source.kind === 'text' ? source.text : source.name;
 }
 
 export default function TimelinePanel({
+  audio,
   currentMsRef,
-  fps,
-  holdMs,
   isPlaying,
-  labels,
+  onAudioClipChange,
+  onAudioFiles,
+  onAudioMutedChange,
+  onAudioRemoveClip,
+  onAudioSelectedClipChange,
+  onAudioSplitClip,
+  onAudioVolumeChange,
   onPlayChange,
   onRateChange,
   onSeek,
+  onSelectSource,
+  onSelectTransition,
   playbackRate,
+  presentationMode = false,
+  previewSources,
+  selectedAudioClipId,
+  selectedSourceId,
+  selectedTransitionIndex,
+  settings,
+  sources,
   totalMs,
-  transitionMs,
+  transitionSettings,
 }: TimelinePanelProps) {
   const gt = useGT();
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLOutputElement>(null);
   const playheadElementRef = useRef<HTMLDivElement>(null);
-  const frameDuration = 1000 / fps;
-  const effectiveTransitionMs = labels.length > 1 ? transitionMs : 0;
-  const holdFraction = holdMs / Math.max(1, holdMs + effectiveTransitionMs);
-  const segments = useMemo(() => {
-    const occurrences = new Map<string, number>();
-    return labels.map((label) => {
-      const occurrence = (occurrences.get(label) ?? 0) + 1;
-      occurrences.set(label, occurrence);
-      return { key: `${label}:${occurrence}`, label };
-    });
-  }, [labels]);
+  const [timelineMenu, setTimelineMenu] = useState<{
+    index: number;
+    kind: 'frame' | 'transition';
+    position: StudioContextMenuPosition;
+  } | null>(null);
+  const frameDuration = 1000 / settings.fps;
+  const effectiveTransitionMs = sources.length > 1 ? settings.transitionMs : 0;
+  const timelineWidth = useMemo(() => Math.max(1, sources.length * 224), [sources.length]);
   const syncPlayheadUi = useCallback(() => {
     const currentMs = Math.min(currentMsRef.current, totalMs);
-    const progress = totalMs === 0 ? 0 : (currentMs / totalMs) * 100;
-    if (playheadElementRef.current) {
-      playheadElementRef.current.style.left = `${progress}%`;
-    }
-    if (outputRef.current) {
-      outputRef.current.value = `${formatTime(currentMs)} / ${formatTime(totalMs)}`;
-    }
+    const progress = totalMs === 0 ? 0 : currentMs / totalMs * 100;
+    if (playheadElementRef.current) playheadElementRef.current.style.left = `${progress}%`;
+    if (outputRef.current) outputRef.current.value = `${formatTime(currentMs)} / ${formatTime(totalMs)}`;
     if (inputRef.current) {
       inputRef.current.value = String(currentMs);
+      const rangeProgress = totalMs === 0 ? 0 : Number(inputRef.current.value) / totalMs * 100;
+      inputRef.current.style.setProperty('--studio-range-progress', `${rangeProgress}%`);
     }
   }, [currentMsRef, totalMs]);
 
   useEffect(() => {
     let animationFrame = 0;
-
     function tick() {
       syncPlayheadUi();
       animationFrame = requestAnimationFrame(tick);
     }
-
     syncPlayheadUi();
     if (isPlaying) animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
@@ -86,54 +125,38 @@ export default function TimelinePanel({
   }
 
   return (
-    <section className='border-t border-border bg-background'>
-      <div className='flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2'>
-        <div className='flex items-center gap-1'>
-          <Button
-            aria-label={isPlaying ? gt('Pause preview') : gt('Play preview')}
-            className='rounded-none'
-            onClick={() => onPlayChange(!isPlaying)}
-            size='icon-sm'
-            type='button'
-            variant='outline'
-          >
+    <section className='animation-timeline' data-animation-storyboard>
+      <header className='animation-timeline-toolbar'>
+        <div className='animation-timeline-transport'>
+          <Button aria-label={isPlaying ? gt('Pause preview') : gt('Play preview')} onClick={() => onPlayChange(!isPlaying)} size='icon-sm' type='button' variant='outline'>
             {isPlaying ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
           </Button>
-          <Button
-            aria-label={gt('Restart preview')}
-            className='rounded-none'
-            onClick={() => seekAndSync(0)}
-            size='icon-sm'
-            type='button'
-            variant='outline'
-          >
-            <RotateCcw aria-hidden='true' />
-          </Button>
-          <Button
-            aria-label={gt('Previous frame')}
-            className='rounded-none'
-            onClick={() => seekAndSync(Math.max(0, currentMsRef.current - frameDuration))}
-            size='icon-sm'
-            type='button'
-            variant='outline'
-          >
-            <SkipBack aria-hidden='true' />
-          </Button>
-          <Button
-            aria-label={gt('Next frame')}
-            className='rounded-none'
-            onClick={() => seekAndSync(Math.min(totalMs, currentMsRef.current + frameDuration))}
-            size='icon-sm'
-            type='button'
-            variant='outline'
-          >
-            <SkipForward aria-hidden='true' />
-          </Button>
+          <Button aria-label={gt('Restart preview')} onClick={() => seekAndSync(0)} size='icon-sm' type='button' variant='outline'><RotateCcw aria-hidden='true' /></Button>
+          <Button aria-label={gt('Previous frame')} onClick={() => seekAndSync(Math.max(0, currentMsRef.current - frameDuration))} size='icon-sm' type='button' variant='outline'><SkipBack aria-hidden='true' /></Button>
+          <Button aria-label={gt('Next frame')} onClick={() => seekAndSync(Math.min(totalMs, currentMsRef.current + frameDuration))} size='icon-sm' type='button' variant='outline'><SkipForward aria-hidden='true' /></Button>
         </div>
 
-        <div className='flex items-center gap-3'>
-          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-            <T>Rate</T>
+        <div className='animation-timeline-storyboard-control'>
+          <div className='animation-timeline-heading'>
+            <strong><T>Storyboard</T></strong>
+          </div>
+          <div className='animation-timeline-scrubber'>
+            <StudioRange
+              aria-label={gt('Timeline playhead')}
+              defaultValue={Math.min(currentMsRef.current, Math.max(1, totalMs))}
+              max={Math.max(1, totalMs)}
+              min='0'
+              onChange={(event) => seekAndSync(Number(event.currentTarget.value))}
+              ref={inputRef}
+              step='1'
+            />
+          </div>
+        </div>
+
+        <div className='animation-timeline-status'>
+          <output ref={outputRef}>{formatTime(currentMsRef.current)} / {formatTime(totalMs)}</output>
+          <label>
+            <span><T>Rate</T></span>
             <StudioSelect
               ariaLabel={gt('Playback rate')}
               className='h-8 w-20 font-mono text-xs'
@@ -141,63 +164,191 @@ export default function TimelinePanel({
               options={[0.1, 0.25, 0.5, 1, 2, 4].map((rate) => ({ label: `${rate}×`, value: String(rate) }))}
               value={String(playbackRate)}
             />
+          </label>
+        </div>
+      </header>
+
+      <div className='animation-timeline-scroll'>
+        <div className='animation-timeline-content' style={{ width: `${timelineWidth}px` }}>
+          <div className='animation-timeline-playhead' ref={playheadElementRef}><i /></div>
+          <div className='animation-storyboard-track'>
+            {sources.map((source, index) => {
+              const selected = source.id === selectedSourceId;
+              const nextSource = sources[(index + 1) % sources.length];
+              const transitionSetting = transitionSettings[index];
+              const transitionPreviewSettings = transitionSetting
+                ? { ...settings, ...transitionSetting }
+                : settings;
+              const packagePresentation = animationPackagePresentation(
+                transitionSetting?.packageId ?? settings.packageId
+              );
+              return (
+                <article className='animation-storyboard-segment' key={source.id}>
+                  <StudioPreviewTooltip
+                    preview={(
+                      <AnimationSequenceTooltipPreview count={sources.length} index={index} kind='frame'>
+                        <AnimationTimelinePreview index={index} kind='frame' layout='tooltip' settings={settings} sources={previewSources} />
+                      </AnimationSequenceTooltipPreview>
+                    )}
+                    size='compact'
+                    title={sourceLabel(source)}
+                  >
+                    <button
+                      aria-keyshortcuts='Shift+F10'
+                      aria-label={`${gt('Edit frame')} ${index + 1}: ${sourceLabel(source)}`}
+                      className='animation-storyboard-frame'
+                      data-studio-context-trigger='timeline-frame'
+                      data-selected={selected ? 'true' : 'false'}
+                      onClick={() => {
+                        onSelectSource(source.id);
+                        seekAndSync(index * (settings.holdMs + effectiveTransitionMs));
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        setTimelineMenu({ index, kind: 'frame', position: contextMenuPositionFromEvent(event) });
+                      }}
+                      onKeyDown={(event) => {
+                        if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
+                        event.preventDefault();
+                        setTimelineMenu({ index, kind: 'frame', position: contextMenuPositionFromElement(event.currentTarget) });
+                      }}
+                      type='button'
+                    >
+                      <AnimationTimelinePreview index={index} kind='frame' settings={settings} sources={previewSources} />
+                      <span className='animation-storyboard-caption'>
+                        <b>{String(index + 1).padStart(2, '0')}</b>
+                        <strong>{sourceLabel(source)}</strong>
+                        <small>{formatTime(settings.holdMs)}</small>
+                      </span>
+                    </button>
+                  </StudioPreviewTooltip>
+                  {sources.length > 1 ? (
+                    <StudioPreviewTooltip
+                      preview={(
+                        <AnimationSequenceTooltipPreview count={sources.length} index={index} kind='transition'>
+                          <AnimationTimelinePreview index={index} kind='transition' layout='tooltip' settings={transitionPreviewSettings} sources={previewSources} />
+                        </AnimationSequenceTooltipPreview>
+                      )}
+                      size='compact'
+                      title={packagePresentation.label}
+                    >
+                      <button
+                        aria-keyshortcuts='Shift+F10'
+                        aria-label={`${gt('Preview transition to')} ${sourceLabel(nextSource ?? source)} · ${packagePresentation.label} · ${settings.transitionMs}ms`}
+                        aria-pressed={selectedTransitionIndex === index}
+                        className='animation-storyboard-transition'
+                        data-studio-context-trigger='timeline-transition'
+                        onClick={() => {
+                          onSelectTransition(index);
+                          seekAndSync(index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs + settings.transitionMs / 2);
+                        }}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setTimelineMenu({ index, kind: 'transition', position: contextMenuPositionFromEvent(event) });
+                        }}
+                        onKeyDown={(event) => {
+                          if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
+                          event.preventDefault();
+                          setTimelineMenu({ index, kind: 'transition', position: contextMenuPositionFromElement(event.currentTarget) });
+                        }}
+                        type='button'
+                      >
+                        <AnimationTimelinePreview index={index} kind='transition' settings={transitionPreviewSettings} sources={previewSources} />
+                        <span className='animation-storyboard-transition-caption'>
+                          <b aria-hidden='true'>
+                            {String(index + 1).padStart(2, '0')}→{String((index + 1) % sources.length + 1).padStart(2, '0')}
+                          </b>
+                          <strong>{packagePresentation.label}</strong>
+                          <small>{settings.transitionMs}ms</small>
+                        </span>
+                      </button>
+                    </StudioPreviewTooltip>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
-          <output className='min-w-28 text-right font-mono text-xs tabular-nums' ref={outputRef}>
-            {formatTime(currentMsRef.current)} / {formatTime(totalMs)}
-          </output>
+
+          {presentationMode ? null : (
+            <AnimationAudioTrack
+              audio={audio}
+              onClipChange={onAudioClipChange}
+              onFiles={onAudioFiles}
+              onMutedChange={onAudioMutedChange}
+              onRemoveClip={onAudioRemoveClip}
+              onSelectedClipChange={onAudioSelectedClipChange}
+              onSplitClip={onAudioSplitClip}
+              onVolumeChange={onAudioVolumeChange}
+              selectedClipId={selectedAudioClipId}
+              totalMs={totalMs}
+            />
+          )}
         </div>
       </div>
 
-      <div className='relative p-4'>
-        <div className='relative h-16 overflow-hidden border border-border bg-muted/40'>
-          <div className='absolute inset-0 flex'>
-            {segments.map(({ key, label }, index) => (
-              <div
-                className='relative min-w-0 flex-1 border-r border-border last:border-r-0'
-                key={key}
-              >
-                <div
-                  className='absolute inset-y-0 left-0 bg-foreground/8'
-                  style={{ width: `${holdFraction * 100}%` }}
-                />
-                <div className='absolute inset-x-2 top-2 truncate font-mono text-[10px] text-muted-foreground'>
-                  {String(index + 1).padStart(2, '0')} {label}
-                </div>
-                <div
-                  className='absolute right-0 bottom-2 h-2 bg-foreground/20'
-                  style={{ width: `${(1 - holdFraction) * 100}%` }}
-                />
-              </div>
-            ))}
-          </div>
-          <div
-            className='pointer-events-none absolute inset-y-0 z-10 w-px bg-foreground'
-            ref={playheadElementRef}
-            style={{ left: 0 }}
-          >
-            <div className='absolute -top-1 -left-[3px] size-[7px] rotate-45 bg-foreground' />
-          </div>
-          <input
-            aria-label={gt('Timeline playhead')}
-            className='absolute inset-0 z-20 size-full cursor-ew-resize opacity-0'
-            max={Math.max(1, totalMs)}
-            min='0'
-            onChange={(event) => seekAndSync(Number(event.target.value))}
-            ref={inputRef}
-            step={Math.max(1, frameDuration)}
-            type='range'
-            defaultValue={Math.min(currentMsRef.current, Math.max(1, totalMs))}
-          />
-        </div>
-        <div className='mt-2 flex items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
-          <span>
-            <T>Master playhead</T>
-          </span>
-          <span>
-            {labels.length} <T>states</T> · {fps} fps · {holdMs}ms + {effectiveTransitionMs}ms
-          </span>
-        </div>
-      </div>
+      <StudioContextMenu
+        detail={timelineMenu ? `${formatTime(timelineMenu.index * (settings.holdMs + effectiveTransitionMs))} on master timeline` : undefined}
+        label={timelineMenu
+          ? timelineMenu.kind === 'frame'
+            ? `Frame ${timelineMenu.index + 1} · ${sourceLabel(sources[timelineMenu.index]!)}`
+            : `${animationPackagePresentation(transitionSettings[timelineMenu.index]?.packageId ?? settings.packageId).label} transition`
+          : gt('Timeline')}
+        onClose={() => setTimelineMenu(null)}
+        position={timelineMenu?.position ?? null}
+        sections={timelineMenu ? timelineMenu.kind === 'frame' ? [
+          {
+            items: [
+              {
+                icon: <Frame aria-hidden='true' />,
+                id: 'edit-frame',
+                label: gt('Edit frame'),
+                onSelect: () => onSelectSource(sources[timelineMenu.index]!.id),
+              },
+              {
+                icon: <SkipForward aria-hidden='true' />,
+                id: 'jump-frame',
+                label: gt('Jump to frame start'),
+                onSelect: () => seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs)),
+              },
+              {
+                icon: <Play aria-hidden='true' />,
+                id: 'play-frame',
+                label: gt('Play from here'),
+                onSelect: () => {
+                  seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs));
+                  onPlayChange(true);
+                },
+              },
+            ],
+          },
+        ] : [
+          {
+            items: [
+              {
+                icon: <Frame aria-hidden='true' />,
+                id: 'preview-transition',
+                label: gt('Preview transition'),
+                onSelect: () => seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs + settings.transitionMs / 2),
+              },
+              {
+                icon: <Play aria-hidden='true' />,
+                id: 'play-transition',
+                label: gt('Play transition'),
+                onSelect: () => {
+                  seekAndSync(timelineMenu.index * (settings.holdMs + effectiveTransitionMs) + settings.holdMs);
+                  onPlayChange(true);
+                },
+              },
+              {
+                icon: <SkipForward aria-hidden='true' />,
+                id: 'edit-next-frame',
+                label: gt('Edit next frame'),
+                onSelect: () => onSelectSource(sources[(timelineMenu.index + 1) % sources.length]!.id),
+              },
+            ],
+          },
+        ] : []}
+      />
     </section>
   );
 }

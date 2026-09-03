@@ -4,10 +4,13 @@ import {
   applyCanvasMutation,
   asCanvasJsonObject,
   canvasJsonBoolean,
+  canvasDocumentContentRevision,
   canvasDocumentNeedsAssetEmbedding,
   canvasElementAsset,
   canvasElementAssetSource,
   canvasRevisionFromSignature,
+  canvasSignatureFromValue,
+  canvasSourceContentRevision,
   canvasJsonNumber,
   canvasJsonString,
   commitCanvasChange,
@@ -82,6 +85,34 @@ describe('canvas document', () => {
       canvasRevisionFromSignature('different composition')
     );
     expect(canvasRevisionFromSignature('same composition')).toBeGreaterThanOrEqual(0);
+    expect(canvasSignatureFromValue({ beta: 2, alpha: { zeta: 3, gamma: 1 } })).toBe(
+      canvasSignatureFromValue({ alpha: { gamma: 1, zeta: 3 }, beta: 2 })
+    );
+  });
+
+  it('derives the same semantic revision across timestamp and revision changes', () => {
+    const first = createCanvasDocument('deck', 'gt', 'GT deck', 1200, 675, ['pages']);
+    const second = {
+      ...first,
+      createdAt: '2030-01-01T00:00:00.000Z',
+      revision: first.revision + 99,
+      updatedAt: '2030-01-02T00:00:00.000Z',
+    };
+
+    expect(canvasDocumentContentRevision(second)).toBe(canvasDocumentContentRevision(first));
+    expect(canvasSourceContentRevision(serializeCanvasDocument(second))).toBe(
+      canvasDocumentContentRevision(first)
+    );
+    expect(canvasSourceContentRevision('{"version":3}')).toBeNull();
+
+    const withPeaks = { ...first, metadata: { waveform: { peaks: [0.1, 0.8] } } };
+    const regeneratedPeaks = { ...first, metadata: { waveform: { peaks: [0.2, 1] } } };
+    expect(canvasDocumentContentRevision(withPeaks)).not.toBe(
+      canvasDocumentContentRevision(regeneratedPeaks)
+    );
+    expect(canvasDocumentContentRevision(withPeaks, { omitMetadataKeys: ['peaks'] })).toBe(
+      canvasDocumentContentRevision(regeneratedPeaks, { omitMetadataKeys: ['peaks'] })
+    );
   });
 
   it('normalizes runtime state into strict JSON without serialization clones', () => {

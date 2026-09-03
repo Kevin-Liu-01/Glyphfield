@@ -21,7 +21,7 @@ import {
   type CanvasJsonValue,
 } from './canvasDocument';
 
-const DESIGN_LAB_SOURCE_VERSION = 3;
+const DESIGN_LAB_SOURCE_VERSION = 4;
 const DESIGN_LAB_METADATA_KEY = 'designLab';
 
 type DesignLabLayerType = 'asset' | 'effect' | 'logo' | 'shader' | 'text';
@@ -48,6 +48,7 @@ export type DesignLabDocumentInput = {
   updatedAt: string;
   width: number;
   height: number;
+  workspace?: object;
 };
 
 export type DesignLabLayerOrderInput = {
@@ -251,6 +252,7 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
         shaderSequence: jsonValue(input.shaderSequence),
         sourceVersion: DESIGN_LAB_SOURCE_VERSION,
         timeline: jsonValue(input.timeline),
+        workspace: input.workspace ? jsonValue(input.workspace) : {},
       },
       tool: 'design-lab',
     },
@@ -334,6 +336,7 @@ export function designLabSourceFromCanvasDocument(document: CanvasDocument): Can
     sourcesByType[layer.type].push(layer.source);
   });
   return {
+    canvasDimensions: { height: page.height, width: page.width },
     composition: {
       assets: sourcesByType.asset,
       backgroundColor: page.background,
@@ -349,6 +352,7 @@ export function designLabSourceFromCanvasDocument(document: CanvasDocument): Can
     ratio: stringValue(metadata.ratio, 'wide'),
     shaderSequence: objectValue(metadata.shaderSequence) ?? {},
     timeline: objectValue(metadata.timeline) ?? {},
+    workspace: objectValue(metadata.workspace) ?? {},
     version: DESIGN_LAB_SOURCE_VERSION,
   };
 }

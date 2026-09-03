@@ -1,5 +1,6 @@
 import {
   asCanvasJsonObject as objectValue,
+  canvasJsonBoolean as booleanValue,
   canvasJsonNumber as numberValue,
   canvasJsonString as stringValue,
   createCanvasDocument,
@@ -16,11 +17,20 @@ import {
   type CanvasJsonObject,
   type CanvasJsonValue,
 } from './canvasDocument';
+import {
+  createEmptyAnimationAudioState,
+  normalizeAnimationAudioState,
+  type AnimationAudioState,
+} from './animationAudio';
 import type { StudioSource } from './renderFrame';
+import type { AnimationArtboard } from './animationArtboards';
 
 const ANIMATION_METADATA_KEY = 'animation';
 
 export type AnimationDocumentState = {
+  activeArtboardId?: string;
+  artboards?: readonly AnimationArtboard[];
+  audio?: AnimationAudioState;
   backgroundOverrides: object;
   frameSettings: object;
   includeBrandLogo: boolean;
@@ -115,6 +125,78 @@ function sourceBounds(source: StudioSource, width: number, height: number) {
   };
 }
 
+function audioStateFromValue(
+  value: CanvasJsonValue | undefined,
+  document: CanvasDocument
+): AnimationAudioState | undefined {
+  const audio = objectValue(value);
+  if (!audio) return undefined;
+  const assets = Array.isArray(audio.assets) ? audio.assets.flatMap((value) => {
+    const candidate = objectValue(value);
+    if (!candidate) return [];
+    const assetId = stringValue(candidate.assetId, '');
+    const asset = assetId ? document.assets[assetId] : undefined;
+    const source = asset?.source ?? stringValue(candidate.source, '');
+    const durationMs = numberValue(candidate.durationMs, 0);
+    if (!source || durationMs <= 0) return [];
+    const peaks = Array.isArray(candidate.peaks)
+      ? candidate.peaks.flatMap((peak) => typeof peak === 'number' && Number.isFinite(peak) ? [peak] : [])
+      : [];
+    return [{
+      durationMs,
+      id: stringValue(candidate.id, assetId),
+      mimeType: asset?.mimeType ?? stringValue(candidate.mimeType, 'audio/mpeg'),
+      name: stringValue(candidate.name, asset?.name ?? 'Audio track'),
+      peaks,
+      source,
+    }];
+  }) : [];
+  const clips = Array.isArray(audio.clips) ? audio.clips.flatMap((value) => {
+    const candidate = objectValue(value);
+    if (!candidate) return [];
+    const id = stringValue(candidate.id, '');
+    const assetId = stringValue(candidate.assetId, '');
+    if (!id || !assetId) return [];
+    return [{
+      assetId,
+      id,
+      timelineStartMs: numberValue(candidate.timelineStartMs, 0),
+      trimEndMs: numberValue(candidate.trimEndMs, 0),
+      trimStartMs: numberValue(candidate.trimStartMs, 0),
+      volume: numberValue(candidate.volume, 1),
+    }];
+  }) : [];
+  return normalizeAnimationAudioState({
+    assets,
+    clips,
+    muted: booleanValue(audio.muted, false),
+    volume: numberValue(audio.volume, 1),
+  });
+}
+
+function audioMetadataFromState(
+  audio: AnimationAudioState,
+  assets: Record<string, CanvasAsset>
+) {
+  return {
+    ...audio,
+    assets: audio.assets.map(({ source, ...asset }) => {
+      const assetId = `animation:audio:${asset.id}`;
+      assets[assetId] = /^data:/i.test(source)
+        ? createEmbeddedCanvasAsset({ id: assetId, kind: 'binary', name: asset.name, source })
+        : {
+            byteLength: 0,
+            id: assetId,
+            kind: 'binary',
+            mimeType: asset.mimeType || inferCanvasAssetMimeType(source),
+            name: asset.name,
+            source,
+          };
+      return { ...asset, assetId };
+    }),
+  };
+}
+
 export function createAnimationCanvasDocument(input: AnimationDocumentInput): CanvasDocument {
   const settings = jsonObject(input.state.settings, 'Animation settings');
   const canvasWidth = numberValue(settings.width, 1000);
@@ -131,6 +213,17 @@ export function createAnimationCanvasDocument(input: AnimationDocumentInput): Ca
   const elements: CanvasDocument['elements'] = {};
   const pages: CanvasDocument['pages'] = {};
   const pageIds: string[] = [];
+  const audio = input.state.audio ?? createEmptyAnimationAudioState();
+  const audioMetadata = audioMetadataFromState(audio, assets);
+  const artboardsMetadata = input.state.artboards?.map((artboard) => ({
+    ...artboard,
+    snapshot: {
+      ...artboard.snapshot,
+      audio: artboard.snapshot.audio
+        ? audioMetadataFromState(artboard.snapshot.audio, assets)
+        : undefined,
+    },
+  }));
 
   for (const source of input.sources) {
     const pageId = `${input.id}:frame:${source.id}`;
@@ -161,7 +254,11 @@ export function createAnimationCanvasDocument(input: AnimationDocumentInput): Ca
     createdAt: input.createdAt,
     elements,
     metadata: {
-      [ANIMATION_METADATA_KEY]: jsonValue(input.state),
+      [ANIMATION_METADATA_KEY]: jsonValue({
+        ...input.state,
+        artboards: artboardsMetadata,
+        audio: audioMetadata,
+      }),
       tool: 'animation-studio',
     },
     pageIds,
@@ -179,7 +276,34 @@ export function animationStateFromCanvasDocument(document: CanvasDocument): Anim
   const sequenceOrder = Array.isArray(metadata.sequenceOrder)
     ? metadata.sequenceOrder.filter((value): value is string => typeof value === 'string')
     : [];
+  const artboards = Array.isArray(metadata.artboards)
+    ? metadata.artboards.flatMap((value) => {
+        const candidate = objectValue(value);
+        if (
+          !candidate
+          || typeof candidate.id !== 'string'
+          || typeof candidate.name !== 'string'
+          || !objectValue(candidate.snapshot)
+        ) return [];
+        const snapshot = objectValue(candidate.snapshot);
+        if (!snapshot) return [];
+        const audio = audioStateFromValue(snapshot.audio, document);
+        return [{
+          id: candidate.id,
+          name: candidate.name,
+          snapshot: {
+            ...snapshot,
+            ...(audio ? { audio } : {}),
+          },
+        } as unknown as AnimationArtboard];
+      })
+    : undefined;
   return {
+    activeArtboardId: typeof metadata.activeArtboardId === 'string'
+      ? metadata.activeArtboardId
+      : undefined,
+    artboards,
+    audio: audioStateFromValue(metadata.audio, document),
     backgroundOverrides: objectValue(metadata.backgroundOverrides) ?? {},
     frameSettings: objectValue(metadata.frameSettings) ?? {},
     includeBrandLogo: metadata.includeBrandLogo === true,

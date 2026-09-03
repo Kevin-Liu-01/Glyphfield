@@ -20,7 +20,7 @@ type AnimationPackageOption = {
   textOnly?: boolean;
 };
 
-const ANIMATION_PACKAGES: readonly AnimationPackageOption[] = [
+export const ANIMATION_PACKAGES: readonly AnimationPackageOption[] = [
   { id: 'morph-fade', label: 'Morph fade', description: 'Soft blur and shared center.' },
   { id: 'type-delete', label: 'Type / delete', description: 'Grapheme-by-grapheme handoff.', textOnly: true },
   { id: 'crossfade', label: 'Crossfade', description: 'Clean opacity exchange.' },
@@ -34,6 +34,14 @@ const ANIMATION_PACKAGES: readonly AnimationPackageOption[] = [
   { id: 'rotate-fade', label: 'Rotate fade', description: 'Small angular handoff.' },
   { id: 'drift-fade', label: 'Drift fade', description: 'Diagonal floating exchange.' },
 ];
+
+export function animationPackagePresentation(packageId: AnimationPackageId): AnimationPackageOption {
+  return ANIMATION_PACKAGES.find(({ id }) => id === packageId) ?? {
+    description: 'A timed visual handoff between frames.',
+    id: packageId,
+    label: packageId.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+  };
+}
 
 const PREVIEW_WIDTH = 220;
 const PREVIEW_HEIGHT = 124;
@@ -70,7 +78,7 @@ function subscribeToPreviewFrames(subscriber: PreviewSubscriber) {
   };
 }
 
-const AnimationPackagePreview = memo(function AnimationPackagePreview({
+export const AnimationPackagePreview = memo(function AnimationPackagePreview({
   animate,
   packageId,
   settings,
@@ -213,6 +221,7 @@ export default function AnimationPackageGallery({
   animatePreviews = true,
   compact = false,
   hasImageSources,
+  layout = 'grid',
   onSelect,
   selectedId,
   settings,
@@ -220,12 +229,13 @@ export default function AnimationPackageGallery({
   animatePreviews?: boolean;
   compact?: boolean;
   hasImageSources: boolean;
+  layout?: 'grid' | 'sidebar';
   onSelect: (id: AnimationPackageId) => void;
   selectedId: AnimationPackageId;
   settings: StudioSettings;
 }) {
   return (
-    <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2'}`}>
+    <div className={`animation-package-gallery animation-package-gallery-${layout} ${compact ? 'is-compact' : ''}`}>
       {ANIMATION_PACKAGES.map((option) => {
         const disabled = Boolean(option.textOnly && hasImageSources);
         const selected = selectedId === option.id;

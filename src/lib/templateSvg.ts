@@ -1,5 +1,5 @@
 import { escapeXml } from '@/lib/download';
-import type { TemplateKind } from '@/lib/templateAssets';
+import type { TemplateKind, TemplatePartnerTreatment } from '@/lib/templateAssets';
 import { capVisibleFontWeight } from '@/lib/typography';
 
 export type TemplateTexture = 'white' | 'dark' | 'grid' | 'noise';
@@ -49,6 +49,13 @@ export type TemplateSvgOptions = {
   partnerLogoScale?: number;
   partnerLogoX?: number;
   partnerLogoY?: number;
+  partnerFontData?: string | null;
+  partnerFontFamily?: string;
+  partnerFontWeight?: number;
+  partnerGap?: number;
+  partnerLetterSpacing?: number;
+  partnerName?: string;
+  partnerTreatment?: TemplatePartnerTreatment;
   slideLayout?: SlideLayout;
   texture: TemplateTexture;
   textureOpacity?: number;
@@ -206,6 +213,13 @@ const TEMPLATE_SVG_DEFAULTS = {
   partnerLogoScale: 100,
   partnerLogoX: 0,
   partnerLogoY: 0,
+  partnerFontData: null,
+  partnerFontFamily: 'Switzer',
+  partnerFontWeight: 500,
+  partnerGap: 18,
+  partnerLetterSpacing: 0,
+  partnerName: 'Partner',
+  partnerTreatment: 'logo',
   slideLayout: 'title',
   textureOpacity: 100,
 } as const;
@@ -285,7 +299,11 @@ function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
     partnerLogoScale,
     partnerLogoX,
     partnerLogoY,
-    width,
+    partnerFontWeight,
+    partnerGap,
+    partnerLetterSpacing,
+    partnerName,
+    partnerTreatment,
   } = options;
   const partnerFilter = invertPartner
     ? '<defs><filter id="partner-tone"><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/></filter></defs>'
@@ -300,8 +318,10 @@ function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
     brandLogoY,
     brandLogoScale
   );
+  const separatorX = brandPlacement.x + brandPlacement.width + partnerGap;
+  const partnerX = separatorX + 18 + partnerGap;
   const partnerPlacement = imagePlacement(
-    width - 292,
+    partnerX,
     78,
     208,
     82,
@@ -309,8 +329,14 @@ function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
     partnerLogoY,
     partnerLogoScale
   );
+  const partnerText = `<text data-template-partner="text" class="template-partner-text" x="${partnerX + partnerLogoX}" y="${140 + partnerLogoY}" fill="${foreground}" font-size="${64 * (partnerLogoScale / 100)}" font-weight="${capVisibleFontWeight(partnerFontWeight)}" letter-spacing="${partnerLetterSpacing}">${escapeXml(partnerName)}</text>`;
+  const partnerArtwork = partnerTreatment === 'text'
+    ? partnerText
+    : partnerLogo
+      ? `<image data-template-partner="logo" href="${partnerLogo}" x="${partnerPlacement.x}" y="${partnerPlacement.y}" width="${partnerPlacement.width}" height="${partnerPlacement.height}" preserveAspectRatio="xMidYMid meet"${invertPartner ? ' filter="url(#partner-tone)"' : ''}/>`
+      : '';
   const logoLayer = kind === 'partnership'
-    ? `${partnerFilter}<image href="${brandLogo}" x="${brandPlacement.x}" y="${brandPlacement.y}" width="${brandPlacement.width}" height="${brandPlacement.height}" preserveAspectRatio="xMidYMid meet"/><text x="${width - 356}" y="131" fill="${foreground}" opacity="0.38" font-family="Switzer,Arial,sans-serif" font-size="30">×</text>${partnerLogo ? `<image href="${partnerLogo}" x="${partnerPlacement.x}" y="${partnerPlacement.y}" width="${partnerPlacement.width}" height="${partnerPlacement.height}" preserveAspectRatio="xMidYMid meet"${invertPartner ? ' filter="url(#partner-tone)"' : ''}/>` : ''}`
+    ? `${partnerFilter}<image href="${brandLogo}" x="${brandPlacement.x}" y="${brandPlacement.y}" width="${brandPlacement.width}" height="${brandPlacement.height}" preserveAspectRatio="xMidYMid meet"/><text data-lockup-separator="true" x="${separatorX}" y="131" fill="${foreground}" opacity="0.38" font-family="Switzer,Arial,sans-serif" font-size="30">×</text>${partnerArtwork}`
     : `<image href="${brandLogo}" x="${brandPlacement.x}" y="${brandPlacement.y}" width="${brandPlacement.width}" height="${brandPlacement.height}" preserveAspectRatio="xMidYMid meet"/>`;
   const identityLabel = kind === 'blog'
     ? `<text x="158" y="99" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="19" font-weight="550">${escapeXml(identityName)}</text>`
@@ -319,12 +345,23 @@ function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
 }
 
 function templateFontStyles(options: ResolvedTemplateSvgOptions): string {
-  const { fontData, fontFamily, fontWeight } = options;
+  const {
+    fontData,
+    fontFamily,
+    fontWeight,
+    partnerFontData,
+    partnerFontFamily,
+    partnerFontWeight,
+  } = options;
   const fontFace = fontData
     ? `@font-face{font-family:'TemplateBrand';src:url('${escapeXml(fontData)}');font-style:normal;font-weight:100 900;font-display:block;}`
     : '';
+  const partnerFontFace = partnerFontData
+    ? `@font-face{font-family:'TemplatePartner';src:url('${escapeXml(partnerFontData)}');font-style:normal;font-weight:${capVisibleFontWeight(partnerFontWeight)};font-display:block;}`
+    : '';
   const resolvedFontFamily = fontData ? 'TemplateBrand' : fontFamily;
-  return `<style>${fontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}</style>`;
+  const resolvedPartnerFontFamily = partnerFontData ? 'TemplatePartner' : partnerFontFamily;
+  return `<style>${fontFace}${partnerFontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}.template-partner-text{font-family:${JSON.stringify(resolvedPartnerFontFamily)} !important;font-weight:${capVisibleFontWeight(partnerFontWeight)} !important;}</style>`;
 }
 
 function templateForegroundLayers(options: ResolvedTemplateSvgOptions): string {

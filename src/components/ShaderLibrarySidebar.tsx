@@ -2,7 +2,7 @@
 
 import { T, useGT } from 'gt-next';
 import { Search, X } from '@/components/ui/SolidIcons';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import { LabPanelHeading } from '@/components/LabWorkspace';
@@ -52,17 +52,24 @@ function ShaderLibraryBrowser({
   const gt = useGT();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
-  const filteredMaterials = useMemo(() => {
+  const [visibleLimit, setVisibleLimit] = useState(limit);
+  const matchedMaterials = useMemo(() => {
     const excludedIds = new Set(excludeMaterialIds);
-    const materials = shaderLabMaterials(query, category).filter(({ id }) => !excludedIds.has(id));
-    if (!limit || materials.length <= limit) return materials;
-    const topMaterials = materials.slice(0, limit);
-    const activeMaterial = materials.find(({ id }) => id === activeMaterialId);
+    return shaderLabMaterials(query, category).filter(({ id }) => !excludedIds.has(id));
+  }, [category, excludeMaterialIds, query]);
+  const filteredMaterials = useMemo(() => {
+    if (!visibleLimit || matchedMaterials.length <= visibleLimit) return matchedMaterials;
+    const topMaterials = matchedMaterials.slice(0, visibleLimit);
+    const activeMaterial = matchedMaterials.find(({ id }) => id === activeMaterialId);
     if (!activeMaterial || topMaterials.some(({ id }) => id === activeMaterialId)) {
       return topMaterials;
     }
-    return [activeMaterial, ...topMaterials.slice(0, limit - 1)];
-  }, [activeMaterialId, category, excludeMaterialIds, limit, query]);
+    return [activeMaterial, ...topMaterials.slice(0, visibleLimit - 1)];
+  }, [activeMaterialId, matchedMaterials, visibleLimit]);
+
+  useEffect(() => {
+    setVisibleLimit(limit);
+  }, [category, limit, query]);
 
   return (
     <div className={compact ? 'shader-library-browser-compact' : 'shader-library-browser'}>
@@ -72,10 +79,12 @@ function ShaderLibraryBrowser({
         {compact ? (
           <div className='mb-2 flex items-center justify-between gap-2'>
             <p className='font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>
-              <T>Top shaders</T>
+              <T>Shader library</T>
             </p>
             <span className='font-mono text-[9px] tabular-nums text-muted-foreground'>
-              {filteredMaterials.length}{limit ? ` / ${limit}` : ''}
+              {filteredMaterials.length === matchedMaterials.length
+                ? matchedMaterials.length
+                : `${filteredMaterials.length} of ${matchedMaterials.length}`}
             </span>
           </div>
         ) : (
@@ -101,7 +110,7 @@ function ShaderLibraryBrowser({
             value={query}
           />
         </label>
-        <div aria-label={gt('Shader category filter')} className='mt-2 flex flex-wrap gap-1' role='group'>
+        <div aria-label={gt('Shader category filter')} className='shader-library-category-filter mt-2 flex gap-1' role='group'>
           {SHADER_LAB_CATEGORIES.map((option) => (
             <button
               aria-pressed={category === option.id}
@@ -116,7 +125,7 @@ function ShaderLibraryBrowser({
         </div>
       </div>
 
-      <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2 p-3'}`}>
+      <div className={`shader-library-grid grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2 p-3'}`}>
         {filteredMaterials.map((material) => (
           <button
             aria-label={gt('Use {name} shader', { name: material.name })}
@@ -140,6 +149,17 @@ function ShaderLibraryBrowser({
 
       {filteredMaterials.length === 0 ? (
         <div className='p-8 text-center text-xs text-muted-foreground'><T>No shaders match this search.</T></div>
+      ) : null}
+      {visibleLimit && matchedMaterials.length > filteredMaterials.length ? (
+        <Button
+          className='shader-library-show-more w-full'
+          onClick={() => setVisibleLimit((current) => (current ?? 0) + (limit ?? 0))}
+          size='sm'
+          type='button'
+          variant='outline'
+        >
+          <T>Show more shaders</T>
+        </Button>
       ) : null}
     </div>
   );

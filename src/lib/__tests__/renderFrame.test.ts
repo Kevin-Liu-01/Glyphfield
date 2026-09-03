@@ -7,6 +7,7 @@ import {
   hasAnimatedShaderBackgrounds,
   renderFrame,
   resolveDrawableImageSize,
+  resolveStudioBackgroundOpacity,
   type AnimationPackageId,
   type RenderConfig,
   type StudioSource,
@@ -23,6 +24,15 @@ describe('resolveDrawableImageSize', () => {
     const canvas = { height: 328, width: 1_099 } as HTMLCanvasElement;
 
     expect(resolveDrawableImageSize(canvas, 1_000, 300)).toEqual({ height: 328, width: 1_099 });
+  });
+});
+
+describe('resolveStudioBackgroundOpacity', () => {
+  it('defaults to opaque and clamps authored background opacity', () => {
+    expect(resolveStudioBackgroundOpacity({})).toBe(1);
+    expect(resolveStudioBackgroundOpacity({ opacity: 0.88 })).toBe(0.88);
+    expect(resolveStudioBackgroundOpacity({ opacity: -1 })).toBe(0);
+    expect(resolveStudioBackgroundOpacity({ opacity: 2 })).toBe(1);
   });
 });
 

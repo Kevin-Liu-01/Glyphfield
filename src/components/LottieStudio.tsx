@@ -25,6 +25,8 @@ import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioCheckbox from '@/components/ui/StudioCheckbox';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
@@ -151,13 +153,11 @@ function RangeControl({
         label={label}
         value={<output className='text-xs tabular-nums text-muted-foreground'>{value}{suffix}</output>}
       />
-      <input
-        className='studio-range'
+      <StudioRange
         max={max}
         min={min}
         onChange={(event) => onChange(Number(event.target.value))}
         step={step}
-        type='range'
         value={value}
       />
     </label>
@@ -1030,8 +1030,8 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
               { label: gt('Bounce'), value: 'bounce' },
               { label: gt('Reverse bounce'), value: 'reverse-bounce' },
             ]} value={mode} />
-            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Loop</T></span><input checked={loop} onChange={(event) => { setLoop(event.target.checked); loopRef.current = event.target.checked; playerRef.current?.setLoop(event.target.checked); }} type='checkbox' /></label>
-            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Frame interpolation</T></span><input checked={interpolate} onChange={(event) => { setInterpolate(event.target.checked); interpolateRef.current = event.target.checked; playerRef.current?.setUseFrameInterpolation(event.target.checked); }} type='checkbox' /></label>
+            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Loop</T></span><StudioCheckbox checked={loop} onChange={(event) => { setLoop(event.target.checked); loopRef.current = event.target.checked; playerRef.current?.setLoop(event.target.checked); }} /></label>
+            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Frame interpolation</T></span><StudioCheckbox checked={interpolate} onChange={(event) => { setInterpolate(event.target.checked); interpolateRef.current = event.target.checked; playerRef.current?.setUseFrameInterpolation(event.target.checked); }} /></label>
             <div className='grid grid-cols-2 gap-3'>
               <RangeControl label={<T>In</T>} max={Math.max(1, segmentEnd - 1)} min={0} onChange={(value) => updateSegment(value, segmentEnd)} value={segmentStart} />
               <RangeControl label={<T>Out</T>} max={Math.max(1, totalFrames - 1)} min={Math.min(totalFrames - 1, segmentStart + 1)} onChange={(value) => updateSegment(segmentStart, value)} value={segmentEnd} />
@@ -1047,7 +1047,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
               { label: gt('Fit width'), value: 'fit-width' },
               { label: gt('Fit height'), value: 'fit-height' },
             ]} value={fit} />
-            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Transparent background</T></span><input checked={transparent} onChange={(event) => updateTransparency(event.target.checked)} type='checkbox' /></label>
+            <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'><span><T>Transparent background</T></span><StudioCheckbox checked={transparent} onChange={(event) => updateTransparency(event.target.checked)} /></label>
             {transparent ? null : (
               <StudioSelect
                 ariaLabel={gt('Canvas background type')}
@@ -1077,7 +1077,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
 
           {transparent || backgroundStyle !== 'shader' ? null : (
             <InspectorSection index='04' title={<T>Live material</T>}>
-              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab, Playground, and Animation.</T></p>
+              <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab and Animation.</T></p>
               <LiveMaterialControls
                 identity={identity}
                 materialId={materialId}
@@ -1119,7 +1119,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           </CanvasViewport>
           <div className='grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-border bg-background px-4 py-3'>
             <Button aria-label={isPlaying ? gt('Pause animation') : gt('Play animation')} onClick={togglePlayback} size='icon-sm' type='button' variant='outline'>{isPlaying ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}</Button>
-            <input aria-label={gt('Animation frame')} className='studio-range' max={Math.max(1, segmentEnd)} min={segmentStart} onChange={(event) => { const frame = Number(event.target.value); playerRef.current?.pause(); desiredPlayingRef.current = false; setIsPlaying(false); playerRef.current?.setFrame(frame); setCurrentFrame(frame); }} type='range' value={Math.min(currentFrame, segmentEnd)} />
+            <StudioRange aria-label={gt('Animation frame')} max={Math.max(1, segmentEnd)} min={segmentStart} onChange={(event) => { const frame = Number(event.target.value); playerRef.current?.pause(); desiredPlayingRef.current = false; setIsPlaying(false); playerRef.current?.setFrame(frame); setCurrentFrame(frame); }} value={Math.min(currentFrame, segmentEnd)} />
             <output className='min-w-24 text-right text-xs tabular-nums text-muted-foreground'>{Math.round(currentFrame)} / {Math.max(0, totalFrames - 1)}</output>
           </div>
           {error ? <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>{error}</div> : null}

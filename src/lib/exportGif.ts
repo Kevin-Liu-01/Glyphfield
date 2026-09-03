@@ -25,12 +25,14 @@ export async function exportGif({
   beforeFrame,
   config,
   onProgress,
+  resolveRenderConfig,
   sampleHoldFrames = false,
   sources,
 }: {
   beforeFrame?: (frame: FrameSchedule) => Promise<void> | void;
   config: GifExportConfig;
   onProgress?: (progress: number) => void;
+  resolveRenderConfig?: (frame: FrameSchedule) => RenderConfig;
   sampleHoldFrames?: boolean;
   sources: readonly StudioSource[];
 }): Promise<Blob> {
@@ -64,7 +66,7 @@ export async function exportGif({
     const frame = schedule[index];
     if (!frame) continue;
     await beforeFrame?.(frame);
-    renderFrame(context, sources, config, frame.position);
+    renderFrame(context, sources, resolveRenderConfig?.(frame) ?? config, frame.position);
     samples.push(sampleGifPixels(
       context.getImageData(0, 0, config.width, config.height).data,
       samplePixelBudget
@@ -81,7 +83,7 @@ export async function exportGif({
     const frame = schedule[index];
     if (!frame) continue;
     await beforeFrame?.(frame);
-    renderFrame(context, sources, config, frame.position);
+    renderFrame(context, sources, resolveRenderConfig?.(frame) ?? config, frame.position);
     const rgba = context.getImageData(0, 0, config.width, config.height).data;
     const indexed = applyPalette(rgba, palette, 'rgb565');
     gif.writeFrame(indexed, config.width, config.height, {

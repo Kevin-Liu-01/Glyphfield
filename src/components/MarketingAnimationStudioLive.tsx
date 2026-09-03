@@ -7,13 +7,14 @@ import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 const MARKETING_ANIMATION_IDENTITY = {
   ...GT_BRAND_IDENTITY,
   builtIn: false,
-  id: 'marketing-animation-demo-dithering-swirl-v1',
+  id: 'marketing-animation-demo-dithering-swirl-v2',
 };
 
 export default function MarketingAnimationStudioLive() {
   const { materialId, settings } = SHADER_LIBRARY_SCENES.heroAnimation;
   return (
     <AnimationStudio
+      autoPlay
       compactControls
       embedded
       identity={MARKETING_ANIMATION_IDENTITY}
@@ -24,8 +25,10 @@ export default function MarketingAnimationStudioLive() {
         colorC: settings.colorC,
         materialId,
         materialSettings: settings,
+        opacity: 0.88,
         style: 'shader',
       }}
+      presentationMode
     />
   );
 }

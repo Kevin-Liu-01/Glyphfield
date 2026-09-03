@@ -11,6 +11,8 @@ import {
   type MaterialFinishSettings,
 } from './materialFinish';
 import type {
+  AnimationPackageId,
+  BackgroundTransitionId,
   StudioBackground,
   StudioSource,
 } from './renderFrame';
@@ -49,9 +51,16 @@ export type StudioFrameSettings = {
   opacity: number;
   rotation: number;
   scale: number;
+  transition?: StudioTransitionSettings;
 };
 
 export type StudioBackgroundSettings = StudioFrameSettings['background'];
+
+export type StudioTransitionSettings = {
+  backgroundTransition?: BackgroundTransitionId;
+  bezier: CubicBezier;
+  packageId: AnimationPackageId;
+};
 
 export type StudioSettings = GifExportConfig & {
   shaderSettings: LiveMaterialSettings;
@@ -154,6 +163,17 @@ export function resolveStudioFrameSettings(
       {},
       settings.shaderSettings
     ),
+  };
+}
+
+export function resolveStudioTransitionSettings(
+  settings: StudioSettings,
+  storedTransition: StudioTransitionSettings | undefined
+): StudioTransitionSettings & { backgroundTransition: BackgroundTransitionId } {
+  return {
+    backgroundTransition: storedTransition?.backgroundTransition ?? settings.backgroundTransition,
+    bezier: [...(storedTransition?.bezier ?? settings.bezier)] as CubicBezier,
+    packageId: storedTransition?.packageId ?? settings.packageId,
   };
 }
 

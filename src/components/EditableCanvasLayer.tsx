@@ -253,6 +253,7 @@ function useCanvasLayerSelectionBounds({
   height,
   layerRef,
   selected,
+  selectionOverlayRef,
   transform,
   width,
 }: {
@@ -260,6 +261,7 @@ function useCanvasLayerSelectionBounds({
   height: number;
   layerRef: RefObject<HTMLDivElement | null>;
   selected: boolean;
+  selectionOverlayRef: RefObject<HTMLDivElement | null>;
   transform: CanvasLayerTransform;
   width: number;
 }) {
@@ -273,6 +275,13 @@ function useCanvasLayerSelectionBounds({
       top: bounds.top,
       width: bounds.width,
     };
+    const overlay = selectionOverlayRef.current;
+    if (overlay) {
+      overlay.style.height = `${next.height}px`;
+      overlay.style.left = `${next.left}px`;
+      overlay.style.top = `${next.top}px`;
+      overlay.style.width = `${next.width}px`;
+    }
     setSelectionBounds((current) => current
       && Math.abs(current.height - next.height) < 0.25
       && Math.abs(current.left - next.left) < 0.25
@@ -280,7 +289,7 @@ function useCanvasLayerSelectionBounds({
       && Math.abs(current.width - next.width) < 0.25
       ? current
       : next);
-  }, [layerRef]);
+  }, [layerRef, selectionOverlayRef]);
 
   useLayoutEffect(() => {
     if (!selected) {
@@ -294,21 +303,29 @@ function useCanvasLayerSelectionBounds({
     if (!selected) return;
     const layer = layerRef.current;
     if (!layer) return;
-    let frame = 0;
+    let frame: number | null = null;
     const scheduleMeasure = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(measureSelectionBounds);
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        measureSelectionBounds();
+      });
+    };
+    const measureImmediately = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = null;
+      measureSelectionBounds();
     };
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(layer);
     if (layer.parentElement) resizeObserver.observe(layer.parentElement);
     const stage = layer.closest('.canvas-viewport-stage');
-    const stageObserver = stage ? new MutationObserver(scheduleMeasure) : null;
+    const stageObserver = stage ? new MutationObserver(measureImmediately) : null;
     if (stage) stageObserver?.observe(stage, { attributeFilter: ['style'], attributes: true });
     window.addEventListener('resize', scheduleMeasure, { passive: true });
     document.addEventListener('scroll', scheduleMeasure, { capture: true, passive: true });
     return () => {
-      window.cancelAnimationFrame(frame);
+      if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       stageObserver?.disconnect();
       window.removeEventListener('resize', scheduleMeasure);
@@ -385,6 +402,7 @@ export default function EditableCanvasLayer({
     height,
     layerRef,
     selected,
+    selectionOverlayRef,
     transform,
     width,
   });
@@ -757,6 +775,19 @@ export default function EditableCanvasLayer({
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (
+      onContextMenu
+      && ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')
+    ) {
+      event.preventDefault();
+      const bounds = event.currentTarget.getBoundingClientRect();
+      event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        clientX: bounds.left + Math.min(32, bounds.width / 2),
+        clientY: bounds.top + Math.min(32, bounds.height),
+      }));
+      return;
+    }
+    if (
       allowContentInteraction
       && event.target instanceof HTMLElement
       && event.target.closest('[data-canvas-editable="true"]')
@@ -796,8 +827,9 @@ export default function EditableCanvasLayer({
   return (
     <>
       <div
+        aria-keyshortcuts={onContextMenu ? 'Shift+F10' : undefined}
         aria-label={label}
-        aria-selected={selected}
+        aria-pressed={selected}
         className={`editable-canvas-layer ${className}`}
         data-assembly-move={presentation.assemblyMove}
         data-canvas-selection-member={presentation.selectionMember}

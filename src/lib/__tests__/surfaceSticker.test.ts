@@ -4,6 +4,8 @@ import { DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
 import {
   buildSurfaceStickerSvg,
   normalizeStickerFinish,
+  stickerFinishPalette,
+  stickerFinishSwatch,
   stickerShaderSource,
   STICKER_FINISH_PRESETS,
 } from '../surfaceSticker';
@@ -40,6 +42,20 @@ describe('surface stickers', () => {
       seamWidth: 0,
       texture: 100,
     });
+  });
+
+  it('shares every finish visual across live stickers and canvas exports', () => {
+    expect(stickerFinishSwatch({ presetId: 'mirror-chrome' })).toBe(
+      STICKER_FINISH_PRESETS.find(({ id }) => id === 'mirror-chrome')?.swatch
+    );
+    expect(stickerFinishPalette({ presetId: 'embossed-foil' })).toEqual([
+      '#5E441E',
+      '#F6DC91',
+      '#9D772E',
+      '#FFF0B1',
+      '#60451F',
+    ]);
+    expect(stickerFinishPalette({ hueShift: 50, presetId: 'custom' })[0]).toBe('hsl(180 88% 76%)');
   });
 
   it('builds a portable die-cut SVG with the surface, laminate, edge, and shadow layers', () => {

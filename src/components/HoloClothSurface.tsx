@@ -227,6 +227,7 @@ function HoloClothView({
 }
 
 export default function HoloClothSurface({
+  active = true,
   artworkAspectRatio = 1200 / 810,
   artworkLayers,
   artworkOpacity = 1,
@@ -239,6 +240,7 @@ export default function HoloClothSurface({
   settings,
   transparent = false,
 }: {
+  active?: boolean;
   artworkAspectRatio?: number;
   artworkLayers?: readonly HoloClothArtworkLayer[];
   artworkOpacity?: number;
@@ -253,6 +255,7 @@ export default function HoloClothSurface({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const motionTimeRef = useRef(0);
   const interactionPlane = useMemo(() => new THREE.Plane(), []);
   const grabPoint = useMemo(() => new THREE.Vector3(), []);
   const [grabbing, setGrabbing] = useState(false);
@@ -362,6 +365,12 @@ export default function HoloClothSurface({
   }, [drape, geometry, simulation]);
 
   useEffect(() => {
+    if (active) return;
+    simulation.endGrab();
+    setGrabbing(false);
+  }, [active, simulation]);
+
+  useEffect(() => {
     const liveUniforms = materialRef.current?.uniforms;
     if (!liveUniforms) return;
     liveUniforms.uColorA.value.copy(colors.a);
@@ -377,9 +386,12 @@ export default function HoloClothSurface({
     liveUniforms.uOpacity.value = opacity;
   }, [colors, opacity, settings.surfaceAngle, settings.surfaceDepth, settings.surfaceIrregularity, settings.surfaceMetallic, settings.surfaceOpenArea, settings.surfaceRoughness, settings.surfaceScale, settings.surfaceTextureAmount, uniforms]);
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
+    if (!active) return;
+    const frameDelta = Math.min(delta, 1 / 30);
+    motionTimeRef.current += frameDelta;
     if (interactive) {
-      simulation.step(delta, {
+      simulation.step(frameDelta, {
         damping: 0.1 + (100 - settings.surfaceOpenArea) / 250,
         iterations: 2 + Math.round(settings.surfaceOpenArea / 28),
         relaxation: 0.04 + settings.surfaceRoughness / 280,
@@ -392,7 +404,7 @@ export default function HoloClothSurface({
     }
     const liveUniforms = materialRef.current?.uniforms;
     if (liveUniforms) {
-      liveUniforms.uTime.value = state.clock.elapsedTime;
+      liveUniforms.uTime.value = motionTimeRef.current;
       liveUniforms.uCamera.value.copy(camera.position);
     }
   });

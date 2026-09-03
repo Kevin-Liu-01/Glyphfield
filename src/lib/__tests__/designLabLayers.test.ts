@@ -82,6 +82,11 @@ describe('Playground optional layers', () => {
     expect(studioStyles).toContain('grid-template-rows: minmax(0, 1fr) 120px;');
   });
 
+  it('reserves enough height for the complete Design Lab layer dock', () => {
+    expect(studioStyles).toMatch(/\.shader-lab-v2-workspace\s*\{[\s\S]*?grid-template-rows: minmax\(0, 1fr\) 44px 160px;/);
+    expect(studioStyles).toMatch(/\.shader-lab-v2-dock-layer\s*\{[\s\S]*?height: 134px;/);
+  });
+
   it('uses the Design Lab three-pane layout with contextual controls and attributed shaders', () => {
     expect(playground).toContain("className='design-lab-library-filter'");
     expect(playground).toContain("className='design-lab-shader-source'");
@@ -200,15 +205,56 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('setLayerGroups(nextGroups);');
     expect(designLab).toContain('setLayerOrder(nextOrder);');
     expect(designLab).toContain('shaderSequence: normalizedShaderSequenceSettings,');
-    expect(designLab).toContain('setShaderSequenceSettings({');
-    expect(designLab).toContain("aria-label='Shader frame history'");
+    expect(designLab).toContain('setShaderSequenceSettings(nextShaderSequence);');
+    expect(designLab).toContain("aria-label='Deterministic motion timeline'");
     expect(designLab).not.toContain('assets: compositionAssets.map(({ appearance, id, name, opacity, transform })');
     expect(designLab).not.toContain('logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform })');
   });
 
+  it('persists a multi-artboard workspace without hydrating stale per-layer drafts over it', () => {
+    expect(designLab).toContain("'design-lab-active-artboard-v1'");
+    expect(designLab).toContain('if (compositionAutosaveState !== \'loading\') setDraftHydrated(true);');
+    expect(designLab).toContain("throw new TypeError('Artboard workspace is invalid.')");
+    expect(designLab).toContain("data-canvas-fit-target='true'");
+    expect(designLab).toContain('function arrangeArtboards()');
+    expect(designLab).toContain('arrangeCanvasFrames(');
+    expect(designLab).toContain('New artboard');
+    expect(designLab).toContain('Arrange all');
+    expect(designLab).toContain("aria-label='Choose an artboard'");
+    expect(designLab).toContain("className='design-artboard-picker-trigger'");
+    expect(designLab).toContain('onClick={() => selectArtboardFromPicker(artboard.id)}');
+    expect(designLab).toContain('activateArtboard(id, true);');
+    expect(studioStyles).toContain('.design-artboard-picker-menu {');
+    expect(studioStyles).toContain('grid-template-columns: 16px minmax(0, 1fr) auto 12px;');
+  });
+
+  it('moves artboards from a full-width drag handle with keyboard parity', () => {
+    expect(designLab).toContain('function translateArtboard(');
+    expect(designLab).toContain('translateCanvasFrame(artboard, { deltaX, deltaY, minX: 80, minY })');
+    expect(designLab).toContain('Math.ceil(36 / Math.max(0.01, artboardScale))');
+    expect(designLab).toContain('onPointerDown={(event) => beginArtboardMove(event, artboard)}');
+    expect(designLab).toContain('onKeyDown={(event) => nudgeArtboard(event, artboard)}');
+    expect(designLab).toContain('dragHandle.setPointerCapture(pointerId);');
+    expect(studioStyles).toMatch(/\.design-artboard-label\s*\{[\s\S]*?height: calc\(34px \* var\(--canvas-zoom-inverse, 1\)\);[\s\S]*?touch-action: none;/);
+    expect(studioStyles).toContain(".design-artboard-shell[data-moving='true'] {");
+    expect(studioStyles).toContain('will-change: transform;');
+  });
+
+  it('teaches a staged Playground workflow instead of exposing unrelated controls at once', () => {
+    expect(playground).toContain('const PLAYGROUND_TOUR_STEPS: readonly');
+    expect(playground).toContain("aria-label='Close Playground tutorial'");
+    expect(playground).toContain("className='design-lab-dock-tabs'");
+    expect(playground).not.toContain('playground-workflow-tabs');
+    expect(playground).toContain("metadata='Build from material to finish'");
+    expect(designLab).toContain("metadata='Compose graphics across artboards'");
+    expect(designLab).not.toContain('Type · marks · images · live materials');
+    expect(playground).toContain("label: 'Finish'");
+  });
+
   it('exports authentic accelerating shader cuts as a native MP4 sequence', () => {
     expect(designLab).toContain("import {\n  buildShaderSequenceTimeline,");
-    expect(designLab).toContain("title='Shader sequence'");
+    expect(designLab).toContain("className='design-motion-workspace'");
+    expect(designLab).toContain("<strong>Shader sequence</strong>");
     expect(designLab).toContain("ariaLabel='Shader sequence background layer'");
     expect(designLab).toContain("ariaLabel='Shader sequence cut count'");
     expect(designLab).toContain("ariaLabel='Shader sequence final hold'");
@@ -221,11 +267,20 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("'design.export.shader-sequence.gif'");
     expect(designLab).toContain("'design.export.shader-sequence.mp4'");
     expect(designLab).toContain("if (request.download) downloadStudioArtifact(asset);");
+    expect(designLab).toContain("sequenceOffset: Math.max(0, Math.round(next.sequenceOffset))");
+    expect(designLab).toContain('onShuffle={() => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 })}');
+    expect(designLab).toContain('New cuts');
+    expect(designLab).toContain('Open Animation Studio');
   });
 
   it('starts untouched compositions on Gem Smoke and migrates only the legacy Holo default', () => {
     expect(designLab).toContain("const DEFAULT_SHADER_MATERIAL_ID = 'paper-gem-smoke'");
     expect(designLab).toContain("const LEGACY_DEFAULT_SHADER_MATERIAL_ID = 'holo-cloth-silk'");
+    expect(designLab).toContain('const DEFAULT_DESIGN_LAB_LAYER_ORDER = [');
+    expect(designLab).toContain('DEFAULT_CANVAS_SHADER_ID,\n  DEFAULT_LOGO_LAYER_ID,');
+    expect(designLab).toContain('const DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID = DEFAULT_CANVAS_SHADER_ID;');
+    expect(designLab).toContain("name: 'Brand mark'");
+    expect(designLab).toMatch(/useState<CompositionLayerId\[\]>\(\s*\(\) => \[\.\.\.DEFAULT_DESIGN_LAB_LAYER_ORDER\]\s*\)/);
     expect(designLab).toContain('const untouchedLegacyDefault =');
     expect(designLab).toContain('? { ...initialShaderLayer }');
     expect(designLab).toContain(': { ...layer, transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM) };');
@@ -241,7 +296,7 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("ariaLabel='Text font role'");
     expect(designLab).toContain("<LogoAppearanceControls");
     expect(designLab).toContain("<AppearanceFilteredContent");
-    expect(designLab).toContain("kind='image'");
+    expect(designLab).toContain("kind={sticker ? 'sticker' : 'image'}");
     expect(designLab).toContain("<AssetConversionLibrary");
     expect(designLab).toContain('SVG conversion & mark library');
   });
@@ -269,7 +324,7 @@ describe('Playground optional layers', () => {
 
   it('uses one persisted canvas background across preview, handoff, and export', () => {
     expect(designLab).toContain("'shader-lab-v3-canvas-background'");
-    expect(designLab).toContain("ariaLabel='Canvas background color'");
+    expect(designLab).toContain("ariaLabel='Artboard background color'");
     expect(designLab).toContain('backgroundColor: canvasBackground');
     expect(designLab).toContain('renderCanvasDocumentPage({');
     expect(designLab).toContain('document: designLabDocument,');
@@ -336,11 +391,22 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('if (resumeAfterExport) setPaused(false);');
   });
 
-  it('keeps stage actions in the layer dock and inspector instead of a duplicate toolbar', () => {
+  it('restores complete composition and artboard controls before the dedicated layer view', () => {
+    const compositionSection = designLab.indexOf("title='Composition'");
+    const artboardsSection = designLab.indexOf("title='Artboards'");
+    const layersSection = designLab.indexOf("title='Layers'");
+
     expect(designLab).not.toContain('shader-lab-v2-stage-toolbar');
     expect(studioStyles).not.toContain('.shader-lab-v2-stage-toolbar');
     expect(designLab).toContain("className='shader-lab-v2-dock-add'");
-    expect(designLab).toContain("className='shader-lab-v2-composition-ratios'");
+    expect(designLab).toContain('<ArtboardSizeMenu');
+    expect(designLab).toContain('<ArtboardSetupFields');
+    expect(designLab).not.toContain("className='shader-lab-v2-composition-ratios'");
+    expect(designLab).toContain("className='design-layer-inspector-list'");
+    expect(designLab).toContain('removeActiveArtboard');
+    expect(compositionSection).toBeGreaterThan(-1);
+    expect(artboardsSection).toBeGreaterThan(compositionSection);
+    expect(layersSection).toBeGreaterThan(artboardsSection);
   });
 
   it('maps ordinary vertical wheel gestures onto the horizontal layer dock', () => {
@@ -361,7 +427,7 @@ describe('Playground optional layers', () => {
   });
 
   it('pins static and shader-filled artwork to the editable layer bounds', () => {
-    expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(2);
+    expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(3);
     expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(3);
     expect(designLab).toContain("className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'");
     expect(designLab).toContain("<img alt='' className='shader-lab-v2-layer-image' draggable={false} src={url} />");
@@ -396,6 +462,19 @@ describe('Design Lab image import and selection chrome', () => {
     expect(canvasDocumentAutosave).toContain("document.removeEventListener('visibilitychange', flushWhenHidden);\n      flush();");
   });
 
+  it('copies and pastes complete layer selections or artboards through the native clipboard', () => {
+    expect(designLab).toContain("document.addEventListener('copy', handleCopy)");
+    expect(designLab).toContain("document.addEventListener('paste', handlePaste)");
+    expect(designLab).toContain('serializeDesignLabClipboard({');
+    expect(designLab).toContain('parseDesignLabClipboard(');
+    expect(designLab).toContain('remapDesignLabClipboardSnapshot(payload.snapshot, {');
+    expect(designLab).toContain('remapDesignLabClipboardSnapshot(payload.artboard.snapshot)');
+    expect(designLab).toContain("`Pasted ${nextArtboard.name} · autosaving`");
+    expect(designLab).toContain("const workspaceAutosaveLabel = compositionAutosaveState === 'loading'");
+    expect(designLab).toContain("? 'Autosave needs attention'");
+    expect(designLab).toContain('{canvasClipboardStatus ?? workspaceAutosaveLabel}');
+  });
+
   it('supports browse, drop, and paste imports with intrinsic image placement', () => {
     expect(designLab).toContain("className='shader-lab-v2-image-drop-overlay'");
     expect(designLab).toContain("document.addEventListener('paste', handlePaste)");
@@ -403,6 +482,26 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab).toContain("className='shader-lab-v2-dock-add-image'");
     expect(designLab).toContain('Images keep their aspect ratio when added.');
     expect(studioStyles).toContain('.shader-lab-v2-image-drop-overlay {');
+  });
+
+  it('adds editable text and image stickers as native Design Lab layers', () => {
+    expect(designLab).toContain('const STICKER_IMAGE_APPEARANCE');
+    expect(designLab).toContain('const STICKER_TEXT_APPEARANCE');
+    expect(designLab).toContain("openImageImport([], 'sticker')");
+    expect(designLab).toContain("addTextLayer('sticker')");
+    expect(designLab).toContain("kind: placementMode");
+    expect(designLab).toContain("aria-label={sticker ? 'Sticker appearance' : 'Image appearance'}");
+    expect(designLab).toContain('<Sticker aria-hidden=\'true\' />Make sticker');
+  });
+
+  it('renders and exports persistent sticker finishes while keeping outline scrubbing live', () => {
+    expect(designLab).toContain('stickerFinish?: StickerFinishSettings;');
+    expect(designLab).toContain("asset.kind === 'sticker' ? <StickerFinishOverlay");
+    expect(designLab).toContain('drawStickerFinishOverlay(context, contained, box, stickerFinish, layerOpacity)');
+    expect(designLab).toContain("<LogoAppearanceControls\n        kind={sticker ? 'sticker' : 'image'}");
+    expect(designLab).toContain('STICKER_FINISH_PRESETS.map((preset) => (');
+    expect(designLab).toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject' && selectedLayerShader");
+    expect(designLab).not.toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject' ? { borderEnabled: false } : {}");
   });
 
   it('portals single- and multi-selection chrome above the clipped canvas viewport', () => {

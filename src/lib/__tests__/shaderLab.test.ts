@@ -16,6 +16,7 @@ import {
   shaderLabSettingsFor,
   shaderMaterialPreviewStyle,
   shaderPreviewAssetPath,
+  shaderPreviewCaptureSettings,
 } from '../shaderLab';
 
 describe('shader lab', () => {
@@ -72,6 +73,23 @@ describe('shader lab', () => {
     expect(settings).toMatchObject({ colorB: DEFAULT_LIVE_MATERIAL_SETTINGS.colorB, detail: 6.2, grain: 24, strength: 0.76 });
     const clothStyle = shaderMaterialPreviewStyle('holo-cloth-silk', settings);
     expect(String(clothStyle.backgroundImage)).toContain('repeating-linear-gradient');
+  });
+
+  it('uses restrained category-aware palettes for captured library previews', () => {
+    expect(shaderPreviewCaptureSettings('paper-dithering-swirl')).toMatchObject({
+      colorA: '#170B33',
+      colorB: '#8B72FF',
+      colorC: '#F3B5D8',
+    });
+    expect(shaderPreviewCaptureSettings('shaders-fluid-chrome')).toMatchObject({
+      colorA: '#09090D',
+      colorB: '#D8D4FF',
+      colorC: '#765BFF',
+    });
+    expect(shaderPreviewCaptureSettings('holo-cloth-silk')).toMatchObject({
+      grain: 10,
+      strength: 0.08,
+    });
   });
 
   it('owns the shared defaults and homepage scenes consumed by every shader surface', () => {

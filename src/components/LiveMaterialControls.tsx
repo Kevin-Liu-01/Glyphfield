@@ -7,6 +7,7 @@ import { LiveMaterialOptionLabel, LiveMaterialSourceBadge } from '@/components/L
 import MaterialPalettePresets from '@/components/MaterialPalettePresets';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import ColorControl from '@/components/ui/ColorControl';
+import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import {
@@ -80,13 +81,11 @@ function MaterialRange({
         label={label}
         value={<output className='text-xs tabular-nums'>{value.toFixed(precision)}{unit}</output>}
       />
-      <input
-        className='studio-range'
+      <StudioRange
         max={max}
         min={min}
         onChange={(event) => onChange(Number(event.target.value))}
         step={step}
-        type='range'
         value={value}
       />
     </label>

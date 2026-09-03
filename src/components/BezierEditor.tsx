@@ -113,7 +113,7 @@ export default function BezierEditor({ compact = false, curve, onChange }: Bezie
           <path d={path} fill='none' stroke='currentColor' strokeWidth='3' />
           {controlPoints.map(({ x, xIndex, y, yIndex }, index) => (
             <g
-              aria-label={`${index === 0 ? 'First' : 'Second'} control point. Use arrow keys to adjust.`}
+              aria-label={`${index === 0 ? 'First' : 'Second'} control point at ${x.toFixed(2)}, ${y.toFixed(2)}. Use arrow keys to adjust.`}
               className='group cursor-grab touch-none outline-none active:cursor-grabbing'
               key={xIndex}
               onKeyDown={(event) => handleKeyDown(xIndex, yIndex, event)}
@@ -137,6 +137,7 @@ export default function BezierEditor({ compact = false, curve, onChange }: Bezie
                   event.currentTarget.releasePointerCapture(event.pointerId);
                 }
               }}
+              role='group'
               tabIndex={0}
             >
               <circle

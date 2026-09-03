@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import DesignVersionControls from '@/components/DesignVersionControls';
+import { createCanvasDocument, serializeCanvasDocument } from '@/lib/canvasDocument';
 import {
   activeSavedDesignStorageKey,
   loadSavedDesigns,
@@ -64,10 +65,22 @@ describe('DesignVersionControls', () => {
   });
 
   async function render({
+    collectionLabel,
+    defaultName,
+    draftLabel,
+    itemLabel,
+    layout,
+    onNew,
     onOpen = vi.fn(),
     revision = 'revision-1',
     source = '{"version":3}',
   }: {
+    collectionLabel?: string;
+    defaultName?: string;
+    draftLabel?: string;
+    itemLabel?: string;
+    layout?: 'panel' | 'toolbar';
+    onNew?: () => Promise<void> | void;
     onOpen?: (source: string) => Promise<void> | void;
     revision?: string;
     source?: string | null;
@@ -75,7 +88,13 @@ describe('DesignVersionControls', () => {
     await act(() => {
       root.render(
         <DesignVersionControls
+          collectionLabel={collectionLabel}
+          defaultName={defaultName}
+          draftLabel={draftLabel}
           identityId='gt'
+          itemLabel={itemLabel}
+          layout={layout}
+          onNew={onNew}
           onOpen={onOpen}
           revision={revision}
           source={source}
@@ -144,6 +163,33 @@ describe('DesignVersionControls', () => {
     designs = await loadSavedDesigns(WORKSPACE_KEY);
     expect(designs.filter(({ origin }) => origin === 'clone')).toHaveLength(1);
     expect(designs.every(({ source }) => source === '{"version":3}')).toBe(true);
+  });
+
+  it('checkpoints an autosaved draft before starting a fresh animation', async () => {
+    const onNew = vi.fn();
+    await render({
+      collectionLabel: 'Saved animations',
+      defaultName: 'Untitled animation',
+      draftLabel: 'Autosaved animation',
+      itemLabel: 'animation',
+      layout: 'panel',
+      onNew,
+    });
+
+    expect(document.querySelector('[data-design-version-controls]')?.getAttribute('data-layout')).toBe('panel');
+    await click(button('New animation'));
+
+    expect(onNew).toHaveBeenCalledOnce();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+      expect.objectContaining({
+        name: 'Untitled animation',
+        origin: 'saved',
+        revision: 'revision-1',
+        source: '{"version":3}',
+      }),
+    ]);
+    const trigger = document.querySelector<HTMLButtonElement>('button[title="Open saved animations"]');
+    expect(trigger?.textContent).toContain('Autosaved animation');
   });
 
   it('waits for asynchronous source application and reports open failures', async () => {
@@ -231,6 +277,22 @@ describe('DesignVersionControls', () => {
 
     designs = await loadSavedDesigns(WORKSPACE_KEY);
     expect(designs.find(({ id }) => id === active.id)?.name).toBe('Beta 2');
+  });
+
+  it('does not mark an equivalent reopened canvas dirty when its legacy revision differs', async () => {
+    const canvasSource = serializeCanvasDocument(
+      createCanvasDocument('saved-canvas', 'gt', 'Saved canvas', 800, 600, ['pages'])
+    );
+    const active = savedDesign({ revision: 'legacy-revision', source: canvasSource });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(
+      activeSavedDesignStorageKey('gt', 'design-lab'),
+      JSON.stringify(active.id)
+    );
+
+    await render({ revision: 'canonical-revision', source: canvasSource });
+
+    expect(button('Design saved').disabled).toBe(true);
   });
 
   it('disables version actions while portable assets are still preparing', async () => {

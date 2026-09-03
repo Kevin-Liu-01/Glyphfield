@@ -2,11 +2,16 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-const docsStyles = readFileSync('src/app/globals.css', 'utf8');
 const docsRouteStyles = readFileSync('src/app/docs/docs.css', 'utf8');
+const docsLayout = readFileSync('src/app/docs/layout.tsx', 'utf8');
 const docsHeader = readFileSync('src/components/DocsHeader.tsx', 'utf8');
-const docsTocActions = readFileSync('src/components/DocsTocActions.tsx', 'utf8');
-const githubStarButton = readFileSync('src/components/GitHubStarButton.tsx', 'utf8');
+const docsMobileA11y = readFileSync('src/components/DocsMobileA11y.tsx', 'utf8');
+const docsControls = readFileSync('src/components/DocsControls.tsx', 'utf8');
+const docsPage = readFileSync('src/app/docs/[[...slug]]/page.tsx', 'utf8');
+const docsPageActions = readFileSync('src/components/DocsPageActions.tsx', 'utf8');
+const docsMarkdownRoute = readFileSync('src/app/api/docs/[[...slug]]/route.ts', 'utf8');
+const nextConfig = readFileSync('next.config.ts', 'utf8');
+const sourceConfig = readFileSync('source.config.ts', 'utf8');
 
 describe('documentation responsive shell', () => {
   it('loads the precompiled Fumadocs layout contract', () => {
@@ -15,32 +20,48 @@ describe('documentation responsive shell', () => {
   });
 
   it('uses the full viewport without a cyclic percentage track', () => {
-    expect(docsStyles).toContain('--fd-layout-width: 100vw;');
-    expect(docsStyles).not.toContain('--fd-layout-width: min(100vw, 100rem);');
-    expect(docsStyles).not.toContain('--fd-layout-width: 100%;');
-    expect(docsStyles).toMatch(/\.glyphfield-doc-page \{[\s\S]*?min-width: 0;[\s\S]*?max-width: none;[\s\S]*?margin-inline: auto;/);
-    expect(docsStyles).toMatch(/\.glyphfield-docs #nd-page \{[\s\S]*?grid-area: main;/);
-    expect(docsStyles).toMatch(/\.glyphfield-docs #nd-toc \{[\s\S]*?grid-area: toc;/);
+    expect(docsRouteStyles).toContain('--fd-layout-width: 100vw;');
+    expect(docsRouteStyles).not.toContain('--fd-layout-width: min(100vw, 100rem);');
+    expect(docsRouteStyles).not.toContain('--fd-layout-width: 100%;');
+    expect(docsRouteStyles).toMatch(/#nd-docs-layout #nd-page\.glyphfield-doc-page \{[\s\S]*?min-width: 0;[\s\S]*?max-width: none;[\s\S]*?margin: 0;/);
   });
 
   it('switches from desktop rails to mobile navigation without losing search', () => {
-    expect(docsStyles).toMatch(/@media \(max-width: 767px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
-    expect(docsStyles).toMatch(/\.glyphfield-docs-header-mobile-theme,[\s\S]*?\.glyphfield-docs-sidebar-trigger \{[\s\S]*?display: grid !important;/);
-    expect(docsStyles).toContain('.glyphfield-docs [data-toc-popover] {');
+    expect(docsRouteStyles).toMatch(/@media \(max-width: 767px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-mobile-search,[\s\S]*?\.glyphfield-docs-sidebar-trigger \{[\s\S]*?display: grid !important;/);
+    expect(docsRouteStyles).toContain('#nd-docs-layout [data-toc-popover] {');
     expect(docsHeader).toContain("aria-label={gt('Open documentation navigation')}");
     expect(docsHeader).toContain("className='glyphfield-docs-mobile-search'");
+    expect(docsMobileA11y).toContain('Close documentation navigation');
   });
 
   it('contains wide content inside its own horizontal scroller', () => {
-    expect(docsStyles).toMatch(/\.glyphfield-docs-body pre \{[\s\S]*?max-width: 100%;[\s\S]*?overflow-x: auto;/);
-    expect(docsStyles).toMatch(/\.glyphfield-docs-body table \{[\s\S]*?max-width: 100%;[\s\S]*?overflow-x: auto;/);
-    expect(docsStyles).toMatch(/\.glyphfield-docs-body img \{[\s\S]*?max-width: 100%;[\s\S]*?height: auto;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-body pre \{[\s\S]*?max-width: 100%;[\s\S]*?overflow-x: auto;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-body table \{[\s\S]*?max-width: 100%;[\s\S]*?overflow-x: auto;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-body img \{[\s\S]*?max-width: 100%;[\s\S]*?height: auto;/);
   });
 
-  it('keeps a single desktop search and an accessible GitHub utility', () => {
-    expect(docsTocActions).not.toContain('SearchFull');
-    expect(docsTocActions).toContain('<GitHubStarButton />');
-    expect(githubStarButton).toContain("gt('View Glyphfield on GitHub')");
-    expect(githubStarButton).toContain('aria-label={title}');
+  it('moves desktop utilities into one floating control dock', () => {
+    expect(docsLayout).toContain('<DocsControls />');
+    expect(docsControls).toContain("aria-label='Documentation controls'");
+    expect(docsControls).toContain("className='glyphfield-docs-controls__icon'");
+    expect(docsControls).toContain("className='glyphfield-docs-controls__studio'");
+    expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) \{[\s\S]*?\.glyphfield-docs-controls \{[\s\S]*?display: flex;/);
+  });
+
+  it('keeps the Glyphfield identity block in the top-left sidebar', () => {
+    expect(docsLayout).toContain("className='glyphfield-docs-sidebar-mobile-brand'");
+    expect(docsLayout).toContain('<SidebarDitherPanel />');
+    expect(docsLayout).toContain("className='glyphfield-docs-sidebar-studio-link'");
+  });
+
+  it('offers a keyboard-aware copy-page menu and agent-readable Markdown twins', () => {
+    expect(docsPage).toContain('<DocsPageActions');
+    expect(docsPageActions).toContain("aria-haspopup='menu'");
+    expect(docsPageActions).toContain("event.key === 'ArrowDown'");
+    expect(docsPageActions).toContain("event.key === 'ArrowUp'");
+    expect(sourceConfig).toContain('includeProcessedMarkdown: true');
+    expect(nextConfig).toContain("source: '/docs/:path*.md'");
+    expect(docsMarkdownRoute).toContain("'Content-Type': 'text/markdown; charset=utf-8'");
   });
 });

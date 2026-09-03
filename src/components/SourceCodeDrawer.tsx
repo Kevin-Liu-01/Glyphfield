@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
+import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { highlightCode } from '@/lib/codeHighlight';
 import { copyTextToClipboard } from '@/lib/clipboard';
@@ -647,26 +648,22 @@ export default function SourceCodeDrawer({
             <span className='source-code-stats'>Ln {cursor.line}, Col {cursor.column} · {lineCount} lines · {sourceSize(draft)}</span>
             <div className='source-code-toolbar-actions'>
               {sections.length > 0 ? (
-                <label className='source-code-outline'>
-                  <ListTree aria-hidden='true' />
-                  <span className='sr-only'><T>Jump to section</T></span>
-                  <select
-                    aria-label={gt('Jump to top-level section')}
-                    onChange={(event) => {
-                      const position = Number(event.target.value);
-                      const section = sections.find((candidate) => candidate.position === position);
-                      if (section) restoreSelection(section.position, section.position + section.key.length + 2);
-                    }}
-                    title={gt('Jump to top-level section')}
-                    value={activeSection?.position ?? sections[0]?.position ?? 0}
-                  >
-                    {sections.map((section) => (
-                      <option key={`${section.key}:${section.position}`} value={section.position}>
-                        {section.key} · Ln {section.line}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <StudioSelect
+                  ariaLabel={gt('Jump to top-level section')}
+                  className='source-code-outline font-mono'
+                  leadingIcon={<ListTree aria-hidden='true' />}
+                  onValueChange={(value) => {
+                    const position = Number(value);
+                    const section = sections.find((candidate) => candidate.position === position);
+                    if (section) restoreSelection(section.position, section.position + section.key.length + 2);
+                  }}
+                  options={sections.map((section) => ({
+                    label: `${section.key} · Ln ${section.line}`,
+                    value: String(section.position),
+                  }))}
+                  title={gt('Jump to top-level section')}
+                  value={String(activeSection?.position ?? sections[0]?.position ?? 0)}
+                />
               ) : null}
               {diagnostic.normalized ? (
                 <Button

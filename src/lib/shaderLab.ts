@@ -202,11 +202,34 @@ const MATERIAL_TUNING: Partial<Record<LiveMaterialId, Partial<LiveMaterialSettin
   'shaders-fluid-chrome': { brightness: 0.82, detail: 4.8, frequency: 4.2, grain: 8, rotationZ: 8, speed: 0.12, strength: 0.46 },
 };
 
+const SHADER_PREVIEW_PALETTES = {
+  fluid: { colorA: '#170B33', colorB: '#8B72FF', colorC: '#F3B5D8' },
+  gradient: { colorA: '#24124F', colorB: '#8B78FF', colorC: '#D7D0FF' },
+  graphic: { colorA: '#0B0B10', colorB: '#B3A6FF', colorC: '#F4F2FF' },
+  light: { colorA: '#080A18', colorB: '#7056FF', colorC: '#91FFE1' },
+  metal: { colorA: '#09090D', colorB: '#D8D4FF', colorC: '#765BFF' },
+} as const satisfies Record<Exclude<ShaderLabCategory, 'all'>, Pick<LiveMaterialSettings, 'colorA' | 'colorB' | 'colorC'>>;
+
 export function shaderLabSettingsFor(
   materialId: LiveMaterialId,
   current: LiveMaterialSettings
 ): LiveMaterialSettings {
   return { ...current, ...MATERIAL_TUNING[materialId] };
+}
+
+export function shaderPreviewCaptureSettings(
+  materialId: LiveMaterialId,
+  current: LiveMaterialSettings = DEFAULT_LIVE_MATERIAL_SETTINGS
+): LiveMaterialSettings {
+  const material = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.find((option) => option.id === materialId);
+  const category = material ? shaderLabCategory(material) : 'graphic';
+  const tuned = shaderLabSettingsFor(materialId, {
+    ...current,
+    ...SHADER_PREVIEW_PALETTES[category],
+  });
+  return materialId === 'holo-cloth-silk'
+    ? { ...tuned, amplitude: 2.6, density: 0.72, grain: 10, strength: 0.08 }
+    : tuned;
 }
 
 export function shaderMaterialPreviewStyle(

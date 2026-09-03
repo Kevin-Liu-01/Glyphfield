@@ -23,24 +23,14 @@ function controlFactor(value: number, defaultValue: number, minimum: number, max
   return Math.min(maximum, Math.max(minimum, 0.4 + (value / defaultValue) * 0.6));
 }
 
-export function paperControlOverrides(
+export function paperPaletteOverrides(
   params: Record<string, unknown>,
-  settings: LiveMaterialSettings,
-  preservePresetAppearance: boolean
+  settings: LiveMaterialSettings
 ): Record<string, unknown> {
-  if (preservePresetAppearance) return {};
   const overrides: Record<string, unknown> = {};
   const setIfPresent = (key: string, value: unknown) => {
     if (Object.prototype.hasOwnProperty.call(params, key)) overrides[key] = value;
   };
-  const scale = (keys: readonly string[], factor: number, zeroSpan = 0.25, integer = false) => {
-    scaleNumericControls(params, overrides, keys, factor, zeroSpan, integer);
-  };
-  const strengthFactor = controlFactor(settings.strength, 0.3, 0.35, 3.4);
-  const detailFactor = controlFactor(settings.detail, 3.2, 0.35, 2.5);
-  const frequencyFactor = controlFactor(settings.frequency, 5.5, 0.3, 2.3);
-  const amplitudeFactor = controlFactor(settings.amplitude, 3.2, 0.3, 2.4);
-  const densityFactor = controlFactor(settings.density, 0.8, 0.35, 2.2);
   const palette = [settings.colorB, settings.colorC, settings.colorA];
   if (Array.isArray(params.colors)) {
     overrides.colors = params.colors.map((_, index) => palette[index % palette.length]);
@@ -61,7 +51,27 @@ export function paperControlOverrides(
   setIfPresent('colorM', settings.colorC);
   setIfPresent('colorY', settings.colorB);
   setIfPresent('colorK', settings.colorA);
+  return overrides;
+}
 
+export function paperControlOverrides(
+  params: Record<string, unknown>,
+  settings: LiveMaterialSettings,
+  preservePresetAppearance: boolean
+): Record<string, unknown> {
+  if (preservePresetAppearance) return {};
+  const overrides = paperPaletteOverrides(params, settings);
+  const setIfPresent = (key: string, value: unknown) => {
+    if (Object.prototype.hasOwnProperty.call(params, key)) overrides[key] = value;
+  };
+  const scale = (keys: readonly string[], factor: number, zeroSpan = 0.25, integer = false) => {
+    scaleNumericControls(params, overrides, keys, factor, zeroSpan, integer);
+  };
+  const strengthFactor = controlFactor(settings.strength, 0.3, 0.35, 3.4);
+  const detailFactor = controlFactor(settings.detail, 3.2, 0.35, 2.5);
+  const frequencyFactor = controlFactor(settings.frequency, 5.5, 0.3, 2.3);
+  const amplitudeFactor = controlFactor(settings.amplitude, 3.2, 0.3, 2.4);
+  const densityFactor = controlFactor(settings.density, 0.8, 0.35, 2.2);
   scale(['intensity', 'contrast', 'bloom', 'outerGlow', 'innerGlow', 'highlights', 'glow'], strengthFactor, 0.35);
   scale(['noiseIterations', 'octaveCount', 'foldCount', 'count', 'bandCount', 'stepsPerColor', 'layering', 'edges'], detailFactor, 2, true);
   scale(['frequency', 'noiseFrequency', 'noiseScale', 'repetition', 'spots', 'gapX', 'gapY', 'strokeWidth'], frequencyFactor, 1.5);

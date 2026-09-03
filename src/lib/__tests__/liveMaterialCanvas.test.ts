@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { paperControlOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
+import { paperControlOverrides, paperPaletteOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 
 describe('Paper shader preview controls', () => {
@@ -44,6 +44,16 @@ describe('Paper shader preview controls', () => {
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorC,
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
     ]);
+  });
+
+  it('can retake a preset palette without changing its identifying geometry', () => {
+    const overrides = paperPaletteOverrides(presetParams, DEFAULT_LIVE_MATERIAL_SETTINGS);
+
+    expect(overrides).toMatchObject({
+      colorBack: DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
+      colorFront: DEFAULT_LIVE_MATERIAL_SETTINGS.colorB,
+    });
+    expect(overrides).not.toHaveProperty('scale');
   });
 
   it('applies the full 0.1×–10× zoom range after presentation sizing', () => {

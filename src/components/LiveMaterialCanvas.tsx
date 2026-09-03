@@ -99,7 +99,7 @@ import {
   type LiveMaterialTimePreview,
 } from '@/lib/liveMaterialPreview';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
-import { paperControlOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
+import { paperControlOverrides, paperPaletteOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
@@ -170,9 +170,11 @@ export type LiveMaterialCanvasProps = {
   frameRate?: number;
   materialId: LiveMaterialId;
   maxPixelCount?: number;
+  paperShaderOverrides?: Readonly<Record<string, unknown>>;
   patternScale?: number;
   paused?: boolean;
   preservePresetAppearance?: boolean;
+  preservePresetGeometry?: boolean;
   previewChannel?: string;
   previewGroup?: string;
   renderScale?: number;
@@ -1950,9 +1952,11 @@ function PaperShaderSurface({
   captureTimeMs,
   materialId,
   maxPixelCount,
+  paperShaderOverrides,
   patternScale,
   paused,
   preservePresetAppearance,
+  preservePresetGeometry,
   renderScale,
   settings,
   sourceImage,
@@ -1960,9 +1964,11 @@ function PaperShaderSurface({
   captureTimeMs: number | null;
   materialId: PaperLiveMaterialId;
   maxPixelCount?: number;
+  paperShaderOverrides?: Readonly<Record<string, unknown>>;
   patternScale: number;
   paused: boolean;
   preservePresetAppearance: boolean;
+  preservePresetGeometry: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
   sourceImage?: string;
@@ -1973,16 +1979,22 @@ function PaperShaderSurface({
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
   const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
-  const motionMultiplier = preservePresetAppearance ? 1 : liveMaterialMotionRate(settings.speed);
+  const preserveGeometry = preservePresetAppearance || preservePresetGeometry;
+  const motionMultiplier = preserveGeometry ? 1 : liveMaterialMotionRate(settings.speed);
   const controlledMotionTimeMs = paperShaderMotionTime(
     captureTimeMs,
-    preservePresetAppearance,
+    preserveGeometry,
     settings.speed
   );
   const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
   const controlledParams = {
     ...preset.params,
-    ...paperControlOverrides(preset.params, settings, preservePresetAppearance),
+    ...(preservePresetAppearance
+      ? {}
+      : preservePresetGeometry
+        ? paperPaletteOverrides(preset.params, settings)
+        : paperControlOverrides(preset.params, settings, false)),
+    ...paperShaderOverrides,
   };
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
     && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
@@ -2055,19 +2067,20 @@ function PaperShaderSurface({
     <div
       aria-label={`Paper Shaders ${definition.name} material`}
       className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
+      role='img'
       data-paper-motion={effectiveSpeed === 0 ? 'paused' : 'running'}
       data-paper-scale={resolvedScale}
       data-paper-speed={effectiveSpeed}
       data-paper-zoom={clampShaderZoom(patternScale)}
       style={{
         contain: 'strict',
-        filter: paperShaderFilter(preservePresetAppearance, settings),
+        filter: paperShaderFilter(preserveGeometry, settings),
         isolation: 'isolate',
       }}
     >
       {surface}
       <PaperMaterialGrain
-        preservePresetAppearance={preservePresetAppearance}
+        preservePresetAppearance={preserveGeometry}
         settings={settings}
       />
     </div>
@@ -2114,9 +2127,11 @@ function LiveMaterialRenderView({
   onContextLost,
   onProviderFailure,
   paperUsesSourceImage,
+  paperShaderOverrides,
   patternScale,
   paused,
   preservePresetAppearance,
+  preservePresetGeometry,
   recoveryFailed,
   renderScale,
   settings,
@@ -2138,9 +2153,11 @@ function LiveMaterialRenderView({
   onContextLost: () => void;
   onProviderFailure: () => void;
   paperUsesSourceImage: boolean;
+  paperShaderOverrides?: Readonly<Record<string, unknown>>;
   patternScale: number;
   paused: boolean;
   preservePresetAppearance: boolean;
+  preservePresetGeometry: boolean;
   recoveryFailed: boolean;
   renderScale: number;
   settings: LiveMaterialSettings;
@@ -2245,9 +2262,11 @@ function LiveMaterialRenderView({
             captureTimeMs={captureTimeMs}
             materialId={materialId}
             maxPixelCount={maxPixelCount}
+            paperShaderOverrides={paperShaderOverrides}
             patternScale={patternScale}
             paused={paused || !active}
             preservePresetAppearance={preservePresetAppearance}
+            preservePresetGeometry={preservePresetGeometry}
             renderScale={renderScale}
             settings={settings}
             sourceImage={sourceImage}
@@ -2290,9 +2309,11 @@ function LiveMaterialCanvas({
   frameRate = 60,
   materialId,
   maxPixelCount,
+  paperShaderOverrides,
   patternScale = 1,
   paused = false,
   preservePresetAppearance = false,
+  preservePresetGeometry = false,
   previewChannel,
   previewGroup,
   renderScale = 1,
@@ -2364,7 +2385,12 @@ function LiveMaterialCanvas({
     if (!previewGroup) return;
     const previewMaterialTime = (event: Event) => {
       const detail = (event as CustomEvent<LiveMaterialTimePreview>).detail;
-      if (detail?.group !== previewGroup || !Number.isFinite(detail.timeMs)) return;
+      if (detail?.group !== previewGroup) return;
+      if (detail.timeMs === null) {
+        setTimePreview(null);
+        return;
+      }
+      if (!Number.isFinite(detail.timeMs)) return;
       setTimePreview({
         base: captureTimeMsRef.current,
         value: Math.max(0, detail.timeMs),
@@ -2461,9 +2487,11 @@ function LiveMaterialCanvas({
       onContextLost={recoverContext}
       onProviderFailure={failProviderContext}
       paperUsesSourceImage={paperUsesSourceImage}
+      paperShaderOverrides={paperShaderOverrides}
       patternScale={resolvedPatternScale}
       paused={paused}
       preservePresetAppearance={preservePresetAppearance}
+      preservePresetGeometry={preservePresetGeometry}
       recoveryFailed={activeRecovery.failed}
       renderScale={renderScale}
       settings={resolvedSettings}
