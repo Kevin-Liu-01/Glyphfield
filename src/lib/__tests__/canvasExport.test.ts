@@ -6,6 +6,8 @@ import {
   encodeCanvasGif,
   exportCanvasDocumentStill,
   resolveExportDimensions,
+  resolveLoopedMotionFrame,
+  resolveMotionFrame,
   resolveSeamlessLoopOverlapFrames,
   seamlessLoopBlendAmount,
 } from '../canvasExport';
@@ -23,6 +25,14 @@ describe('canvas export', () => {
   it('rejects invalid motion schedules', () => {
     expect(() => buildMotionFrames(0, 15)).toThrow(RangeError);
     expect(() => buildMotionFrames(2_400, 0)).toThrow(RangeError);
+  });
+
+  it('uses the export frame table for preview bounds and looping playback', () => {
+    expect(resolveMotionFrame(1_600, 15, 8.6).index).toBe(9);
+    expect(resolveMotionFrame(1_600, 15, 999).index).toBe(23);
+    expect(resolveMotionFrame(1_600, 15, Number.NaN).timeMs).toBe(0);
+    expect(resolveLoopedMotionFrame({ durationMs: 1_600, elapsedMs: 1_600, fps: 15 }).index).toBe(0);
+    expect(resolveLoopedMotionFrame({ durationMs: 1_600, elapsedMs: 200, fps: 15, startFrame: 22 }).index).toBe(1);
   });
 
   it('resolves ratio-aware export dimensions with encoder-safe even pixels', () => {

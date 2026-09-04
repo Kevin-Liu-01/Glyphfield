@@ -78,7 +78,7 @@ function ExportPreviewContext({
   const message = refreshing
     ? 'Rendering the updated preview with these export settings.'
     : needsRefresh
-      ? 'Export settings changed. Update the preview before downloading.'
+      ? 'Export settings changed. The preview will update automatically.'
     : kind === 'text'
       ? 'Review the generated contents here. Nothing is saved until you confirm the download.'
       : 'Confirm the file name, format, and size here. Nothing is saved until you confirm the download.';
@@ -371,20 +371,16 @@ export default function ExportPreview({
                   </Button>
                   <Button
                     className='flex-1'
-                    disabled={refreshing || (needsRefresh && !onRefresh)}
-                    loading={refreshing}
+                    disabled={refreshing || needsRefresh}
+                    loading={refreshing || needsRefresh}
                     onClick={() => {
-                      if (needsRefresh && onRefresh) {
-                        onRefresh();
-                        return;
-                      }
                       downloadBlob(asset.blob, downloadFileName);
                       setOpen(false);
                     }}
                     type='button'
                   >
                     {needsRefresh ? <RefreshCw aria-hidden='true' /> : <Download aria-hidden='true' />}
-                    {needsRefresh ? 'Update preview' : `Download ${asset.format}`}
+                    {needsRefresh ? 'Updating preview…' : `Download ${asset.format}`}
                   </Button>
                 </div>
               </aside>

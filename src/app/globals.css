@@ -888,10 +888,6 @@
   color: #5b7cff;
 }
 
-.design-artboard-preview-layer {
-  pointer-events: none;
-}
-
 .design-artboard-toolbar {
   position: absolute;
   z-index: 29;
@@ -15000,6 +14996,114 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   height: 18px;
   margin: 0 0.15rem;
   background: hsl(var(--border));
+}
+
+.canvas-action-history {
+  position: absolute;
+  z-index: 29;
+  top: 4rem;
+  right: 1rem;
+  width: min(280px, calc(100% - 2rem));
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.55rem;
+  color: hsl(var(--foreground));
+  background: hsl(var(--raised-background) / 0.98);
+  box-shadow: var(--studio-shadow-lg);
+  backdrop-filter: blur(16px);
+}
+
+.canvas-action-history > header {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.75rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.canvas-action-history > header > span,
+.canvas-action-history > header > div {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.canvas-action-history > header svg {
+  width: 13px;
+  height: 13px;
+}
+
+.canvas-action-history > header strong {
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+.canvas-action-history ol {
+  max-height: 260px;
+  margin: 0;
+  padding: 0.35rem 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.canvas-action-history li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.canvas-action-history li > span {
+  width: 6px;
+  height: 6px;
+  margin-top: 0.25rem;
+  border: 1px solid hsl(var(--muted-foreground) / 0.55);
+  border-radius: 50%;
+}
+
+.canvas-action-history li[aria-current='step'] {
+  background: hsl(var(--muted) / 0.72);
+}
+
+.canvas-action-history li[aria-current='step'] > span {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+}
+
+.canvas-action-history li div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.canvas-action-history li strong {
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-action-history li small {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-action-history-empty {
+  grid-template-columns: 1fr !important;
+  color: hsl(var(--muted-foreground));
+}
+
+.shader-lab-v2-composer-viewport .canvas-action-history {
+  top: 3.5rem;
+  right: 0.75rem;
 }
 
 .canvas-viewport-scroll {

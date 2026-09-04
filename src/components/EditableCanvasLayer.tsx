@@ -183,6 +183,45 @@ function canvasLayerPresentation({
   };
 }
 
+function canvasLayerElementInteractivity({
+  beginPointer,
+  handleKeyDown,
+  interactive,
+  onContextMenu,
+  presentation,
+  selected,
+}: {
+  beginPointer: BeginPointer;
+  handleKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  interactive: boolean;
+  onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  presentation: ReturnType<typeof canvasLayerPresentation>;
+  selected: boolean;
+}) {
+  if (!interactive) {
+    return {
+      ariaKeyShortcuts: undefined,
+      ariaPressed: undefined,
+      onContextMenu: undefined,
+      onKeyDown: undefined,
+      onPointerDown: undefined,
+      pointerEvents: 'none' as const,
+      role: 'presentation' as const,
+      tabIndex: -1,
+    };
+  }
+  return {
+    ariaKeyShortcuts: onContextMenu ? 'Shift+F10' : undefined,
+    ariaPressed: selected,
+    onContextMenu,
+    onKeyDown: handleKeyDown,
+    onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => beginPointer(event, 'move'),
+    pointerEvents: undefined,
+    role: presentation.role,
+    tabIndex: presentation.tabIndex,
+  };
+}
+
 function canvasLayerStyle({
   canvasHeight,
   canvasWidth,
@@ -347,6 +386,7 @@ export default function EditableCanvasLayer({
   className = '',
   allowContentInteraction = false,
   fitContentHeight = false,
+  interactive = true,
   label,
   movementBounds = null,
   onChange,
@@ -370,6 +410,7 @@ export default function EditableCanvasLayer({
   className?: string;
   allowContentInteraction?: boolean;
   fitContentHeight?: boolean;
+  interactive?: boolean;
   label: string;
   movementBounds?: CanvasLayerBounds | null;
   onChange: (transform: CanvasLayerTransform) => void;
@@ -822,27 +863,36 @@ export default function EditableCanvasLayer({
     selectionMember,
     showSelectionControls,
   });
+  const elementInteractivity = canvasLayerElementInteractivity({
+    beginPointer,
+    handleKeyDown,
+    interactive,
+    onContextMenu,
+    presentation,
+    selected,
+  });
   const guideHost = layerRef.current?.parentElement ?? null;
 
   return (
     <>
       <div
-        aria-keyshortcuts={onContextMenu ? 'Shift+F10' : undefined}
+        aria-keyshortcuts={elementInteractivity.ariaKeyShortcuts}
         aria-label={label}
-        aria-pressed={selected}
+        aria-pressed={elementInteractivity.ariaPressed}
         className={`editable-canvas-layer ${className}`}
         data-assembly-move={presentation.assemblyMove}
         data-canvas-selection-member={presentation.selectionMember}
         data-content-interactive={presentation.contentInteractive}
         data-fit-content-height={presentation.fitContent}
         data-multi-selection={presentation.multiSelection}
-        onKeyDown={handleKeyDown}
-        onContextMenu={onContextMenu}
-        onPointerDown={(event) => beginPointer(event, 'move')}
+        inert={!interactive}
+        onKeyDown={elementInteractivity.onKeyDown}
+        onContextMenu={elementInteractivity.onContextMenu}
+        onPointerDown={elementInteractivity.onPointerDown}
         ref={layerRef}
-        role={presentation.role}
-        style={style}
-        tabIndex={presentation.tabIndex}
+        role={elementInteractivity.role}
+        style={{ ...style, pointerEvents: elementInteractivity.pointerEvents }}
+        tabIndex={elementInteractivity.tabIndex}
       >
         <div className='editable-canvas-layer-content'>{children}</div>
       </div>
@@ -851,7 +901,7 @@ export default function EditableCanvasLayer({
         label={label}
         portalHost={portalHost}
         resizeMode={resizeMode}
-        selectionBounds={presentation.selectionBounds ? selectionBounds : null}
+        selectionBounds={interactive && presentation.selectionBounds ? selectionBounds : null}
         selectionOverlayRef={selectionOverlayRef}
       />
       <CanvasLayerSmartGuides

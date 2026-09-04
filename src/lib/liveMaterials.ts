@@ -251,8 +251,11 @@ export function resolveShaderGradientMotionClock(
   if (captureTimeMs !== null) {
     return {
       animate: 'off',
-      uSpeed: 1,
-      uTime: liveMaterialMotionTimeMs(captureTimeMs, speed) / 1_000,
+      // ShaderGradient's loop path derives its phase from uTime / loopDuration;
+      // uSpeed controls the path radius. Keep those uniforms independent so a
+      // controlled frame closes at the declared loop duration at every speed.
+      uSpeed: liveMaterialMotionRate(speed),
+      uTime: Math.max(0, captureTimeMs) / 1_000,
     };
   }
 

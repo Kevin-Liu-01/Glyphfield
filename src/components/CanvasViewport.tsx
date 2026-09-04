@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { T, useGT } from 'gt-next';
-import { Maximize2, Minus, Plus, RotateCcw } from '@/components/ui/SolidIcons';
+import { History, Maximize2, Minus, Plus, RotateCcw, RotateCw } from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
 import StudioContextMenu, {
@@ -31,7 +31,21 @@ import {
   resolveCenteredCanvasPan,
 } from '@/lib/canvasViewport';
 
+export type CanvasActionHistory = {
+  canRedo: boolean;
+  canUndo: boolean;
+  entries: Array<{
+    current?: boolean;
+    detail?: string;
+    id: string;
+    label: string;
+  }>;
+  onRedo: () => void;
+  onUndo: () => void;
+};
+
 export default function CanvasViewport({
+  actionHistory,
   autoFit = false,
   children,
   className = '',
@@ -50,6 +64,7 @@ export default function CanvasViewport({
   stageClassName = '',
   toolId,
 }: {
+  actionHistory?: CanvasActionHistory;
   autoFit?: boolean;
   children: ReactNode;
   className?: string;
@@ -91,6 +106,8 @@ export default function CanvasViewport({
   const [panOffset, setPanOffset] = useState(initialPan);
   const panOffsetRef = useCommittedRef(panOffset);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const actionHistoryRef = useCommittedRef(actionHistory);
   const [viewMenuPosition, setViewMenuPosition] = useState<StudioContextMenuPosition | null>(null);
   useCanvasSelectionDismiss(viewportRef, onDeselect);
 
@@ -236,9 +253,27 @@ export default function CanvasViewport({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.code !== 'Space' || event.repeat || !canvasHoveredRef.current) return;
       const target = event.target;
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const editing = target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+      const history = actionHistoryRef.current;
+      if (
+        history
+        && canvasHoveredRef.current
+        && !editing
+        && (event.metaKey || event.ctrlKey)
+        && !event.altKey
+        && event.key.toLocaleLowerCase() === 'z'
+      ) {
+        const redo = event.shiftKey;
+        if ((redo && history.canRedo) || (!redo && history.canUndo)) {
+          event.preventDefault();
+          if (redo) history.onRedo();
+          else history.onUndo();
+        }
+        return;
+      }
+      if (event.code !== 'Space' || event.repeat || !canvasHoveredRef.current) return;
+      if (editing) return;
       event.preventDefault();
       setSpacePressed(true);
     }
@@ -259,7 +294,7 @@ export default function CanvasViewport({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, []);
+  }, [actionHistoryRef]);
 
   useEffect(() => {
     if (fitKey === undefined || fitKey === fitKeyRef.current) {
@@ -349,7 +384,47 @@ export default function CanvasViewport({
         <Button aria-label={gt('Fit canvas')} onClick={fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
           <Maximize2 aria-hidden='true' />
         </Button>
+        {actionHistory ? (
+          <>
+            <span className='canvas-toolbar-divider' />
+            <Button
+              aria-expanded={historyOpen}
+              aria-haspopup='dialog'
+              aria-label={gt('Action history')}
+              onClick={() => setHistoryOpen((open) => !open)}
+              size='icon-sm'
+              title={gt('Action history')}
+              type='button'
+              variant='ghost'
+            >
+              <History aria-hidden='true' />
+            </Button>
+          </>
+        ) : null}
       </div>
+      {actionHistory && historyOpen ? (
+        <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve role='dialog'>
+          <header>
+            <span><History aria-hidden='true' /><strong><T>Action history</T></strong></span>
+            <div aria-label={gt('History actions')} role='group'>
+              <Button aria-keyshortcuts='Meta+Z Control+Z' aria-label={gt('Undo')} disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo} size='icon-sm' title={gt('Undo')} type='button' variant='ghost'>
+                <RotateCcw aria-hidden='true' />
+              </Button>
+              <Button aria-keyshortcuts='Meta+Shift+Z Control+Shift+Z' aria-label={gt('Redo')} disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo} size='icon-sm' title={gt('Redo')} type='button' variant='ghost'>
+                <RotateCw aria-hidden='true' />
+              </Button>
+            </div>
+          </header>
+          <ol className='studio-scroll-area'>
+            {actionHistory.entries.length > 0 ? actionHistory.entries.map((entry) => (
+              <li aria-current={entry.current ? 'step' : undefined} key={entry.id}>
+                <span aria-hidden='true' />
+                <div><strong>{entry.label}</strong>{entry.detail ? <small>{entry.detail}</small> : null}</div>
+              </li>
+            )) : <li className='canvas-action-history-empty'><div><strong><T>No canvas actions yet</T></strong></div></li>}
+          </ol>
+        </aside>
+      ) : null}
       <div
         aria-keyshortcuts='Shift+F10'
         aria-label={gt('Canvas viewport')}

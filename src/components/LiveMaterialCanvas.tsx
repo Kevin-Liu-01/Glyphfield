@@ -169,6 +169,7 @@ export type LiveMaterialCanvasProps = {
   captureTimeMs?: number | null;
   enabled?: boolean;
   frameRate?: number;
+  loopDurationMs?: number;
   materialId: LiveMaterialId;
   maxPixelCount?: number;
   paperShaderOverrides?: Readonly<Record<string, unknown>>;
@@ -1070,6 +1071,7 @@ function compileShader(
 function ShaderGradientSurface({
   captureTimeMs,
   className,
+  loopDurationMs,
   patternScale,
   paused,
   renderScale,
@@ -1077,6 +1079,7 @@ function ShaderGradientSurface({
 }: {
   captureTimeMs: number | null;
   className: string;
+  loopDurationMs: number;
   patternScale: number;
   paused: boolean;
   renderScale: number;
@@ -1106,6 +1109,8 @@ function ShaderGradientSurface({
         envPreset='city'
         grain={settings.grain > 0 ? 'on' : 'off'}
         lightType='env'
+        loop='on'
+        loopDuration={loopDurationMs / 1_000}
         positionX={-0.1}
         positionY={0}
         positionZ={0}
@@ -2136,6 +2141,7 @@ function LiveMaterialRenderView({
   contextVersion,
   enabled,
   frameRate,
+  loopDurationMs,
   maxPixelCount,
   materialId,
   onContextLost,
@@ -2162,6 +2168,7 @@ function LiveMaterialRenderView({
   contextVersion: number;
   enabled: boolean;
   frameRate: number;
+  loopDurationMs: number;
   materialId: LiveMaterialId;
   maxPixelCount?: number;
   onContextLost: () => void;
@@ -2216,6 +2223,7 @@ function LiveMaterialRenderView({
             <ShaderGradientSurface
               captureTimeMs={captureTimeMs}
               className=''
+              loopDurationMs={loopDurationMs}
               patternScale={patternScale}
               paused={paused || !active}
               renderScale={renderScale}
@@ -2321,6 +2329,7 @@ function LiveMaterialCanvas({
   captureTimeMs = null,
   enabled = true,
   frameRate = 60,
+  loopDurationMs = 1_600,
   materialId,
   maxPixelCount,
   paperShaderOverrides,
@@ -2498,6 +2507,7 @@ function LiveMaterialCanvas({
       contextVersion={activeRecovery.version}
       enabled={enabled}
       frameRate={frameRate}
+      loopDurationMs={loopDurationMs}
       materialId={resolvedMaterialId}
       maxPixelCount={maxPixelCount}
       onContextLost={recoverContext}

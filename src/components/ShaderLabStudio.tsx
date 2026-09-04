@@ -44,7 +44,7 @@ import {
 import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
-import CanvasViewport from '@/components/CanvasViewport';
+import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
 import ArtboardSizeMenu, { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
@@ -57,7 +57,6 @@ import DesignVersionControls from '@/components/DesignVersionControls';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import {
   alignCanvasSelection,
-  canvasLayerBounds,
   canvasLayerDimensions,
   canvasSelectionBounds,
   isAdditiveCanvasSelection,
@@ -151,8 +150,11 @@ import {
 } from '@/lib/canvasText';
 import {
   canvasToImageBlob,
+  buildMotionFrames,
   encodeCanvasGif,
   encodeCanvasMp4,
+  resolveLoopedMotionFrame,
+  resolveMotionFrame,
   resolveExportDimensions,
   resolveSeamlessLoopOverlapFrames,
   type MotionLoopMode,
@@ -441,6 +443,11 @@ type DesignShaderSequenceSettings = ShaderSequenceSettings & {
 
 type DesignArtboardId = `artboard-${string}`;
 
+type DesignArtboardTimeline = {
+  frame: number;
+  paused: boolean;
+};
+
 type DesignArtboardSnapshot = {
   assets: CompositionAsset[];
   backgroundColor: string;
@@ -454,6 +461,7 @@ type DesignArtboardSnapshot = {
   shaderLayers: CompositionShaderLayer[];
   shaderSequence: DesignShaderSequenceSettings;
   textLayers: CompositionTextLayer[];
+  timeline: DesignArtboardTimeline;
 };
 
 type DesignArtboard = {
@@ -467,6 +475,20 @@ type DesignArtboard = {
 type DesignArtboardWorkspaceSource = {
   activeArtboardId?: DesignArtboardId;
   artboards?: DesignArtboard[];
+};
+
+type DesignCanvasHistoryEntry = {
+  artboards: DesignArtboard[];
+  detail: string;
+  id: string;
+  label: string;
+  signature: string;
+};
+
+type DesignCanvasHistoryState = {
+  future: DesignCanvasHistoryEntry[];
+  past: DesignCanvasHistoryEntry[];
+  present: DesignCanvasHistoryEntry | null;
 };
 
 const DEFAULT_DESIGN_ARTBOARD_ID = 'artboard-main' as DesignArtboardId;
@@ -520,7 +542,99 @@ function cloneArtboardSnapshot(snapshot: DesignArtboardSnapshot): DesignArtboard
       textEffect: layer.textEffect ? { ...layer.textEffect } : undefined,
       transform: { ...layer.transform },
     })),
+    timeline: {
+      frame: Number.isFinite(snapshot.timeline?.frame) ? Math.max(0, Math.round(snapshot.timeline.frame)) : 0,
+      paused: snapshot.timeline?.paused ?? true,
+    },
   };
+}
+
+function cloneDesignArtboards(artboards: readonly DesignArtboard[]): DesignArtboard[] {
+  return artboards.map((artboard) => ({ ...artboard, snapshot: cloneArtboardSnapshot(artboard.snapshot) }));
+}
+
+function designCanvasHistorySignature(artboards: readonly DesignArtboard[]): string {
+  return JSON.stringify(artboards.map((artboard) => ({
+    ...artboard,
+    snapshot: {
+      ...artboard.snapshot,
+      // Live playback advances continuously and is not a user action. Keeping
+      // that clock out of the signature prevents history churn while retaining
+      // an exact frame whenever the user pauses or scrubs the timeline.
+      timeline: artboard.snapshot.timeline.paused
+        ? artboard.snapshot.timeline
+        : { frame: 0, paused: false },
+    },
+  })));
+}
+
+function artboardSnapshotPersistenceSignature(snapshot: DesignArtboardSnapshot): string {
+  return JSON.stringify({
+    ...snapshot,
+    timeline: snapshot.timeline.paused
+      ? snapshot.timeline
+      : { frame: 0, paused: false },
+  });
+}
+
+function canUndoDesignCanvasHistory(history: DesignCanvasHistoryState, signature: string): boolean {
+  if (history.past.length > 0) return true;
+  return Boolean(history.present && history.present.signature !== signature);
+}
+
+function resolveActiveDesignArtboard(
+  artboards: readonly DesignArtboard[],
+  activeArtboardId: DesignArtboardId
+): DesignArtboard | null {
+  return artboards.find(({ id }) => id === activeArtboardId) ?? artboards[0] ?? null;
+}
+
+function presentCanvasActionHistory(
+  history: DesignCanvasHistoryState,
+  signature: string,
+  onRedo: () => void,
+  onUndo: () => void
+): CanvasActionHistory {
+  const entries = [...history.past.slice(-7), ...(history.present ? [history.present] : [])];
+  return {
+    canRedo: history.future.length > 0,
+    canUndo: canUndoDesignCanvasHistory(history, signature),
+    entries: entries.map((entry) => ({
+      current: entry === history.present,
+      detail: entry.detail,
+      id: entry.id,
+      label: entry.label,
+    })),
+    onRedo,
+    onUndo,
+  };
+}
+
+function describeDesignCanvasChange(previous: readonly DesignArtboard[], next: readonly DesignArtboard[]): string {
+  if (next.length > previous.length) return 'Added artboard';
+  if (next.length < previous.length) return 'Deleted artboard';
+  for (const artboard of next) {
+    const before = previous.find(({ id }) => id === artboard.id);
+    if (!before) return 'Added artboard';
+    if (before.name !== artboard.name) return 'Renamed artboard';
+    if (before.x !== artboard.x || before.y !== artboard.y) return 'Moved artboard';
+    if (
+      before.snapshot.dimensions.width !== artboard.snapshot.dimensions.width
+      || before.snapshot.dimensions.height !== artboard.snapshot.dimensions.height
+    ) return 'Resized artboard';
+    const beforeLayers = before.snapshot.layerOrder.length;
+    const nextLayers = artboard.snapshot.layerOrder.length;
+    if (nextLayers > beforeLayers) return 'Added layer';
+    if (nextLayers < beforeLayers) return 'Deleted layer';
+    if (
+      before.snapshot.timeline.frame !== artboard.snapshot.timeline.frame
+      || before.snapshot.timeline.paused !== artboard.snapshot.timeline.paused
+    ) return 'Changed shader frame';
+    if (artboardSnapshotSignature(before.snapshot) !== artboardSnapshotSignature(artboard.snapshot)) {
+      return 'Updated canvas';
+    }
+  }
+  return 'Updated canvas';
 }
 
 function studioDimensionsForRatio(ratio: ShaderRatio): StudioArtboardDimensions {
@@ -634,6 +748,17 @@ function DesignArtboardTour({
 
 function artboardSnapshotSignature(snapshot: DesignArtboardSnapshot): string {
   return JSON.stringify(snapshot);
+}
+
+function artboardSnapshotReady(
+  pending: { id: DesignArtboardId; signature: string } | null,
+  activeArtboardId: DesignArtboardId,
+  currentSignature: string
+): boolean {
+  return !pending || (
+    pending.id === activeArtboardId
+    && pending.signature === currentSignature
+  );
 }
 
 type ShaderSequenceCapture = {
@@ -1026,13 +1151,16 @@ function ShaderFrameHistoryControl({
   onScrubPreview: (frame: number) => void;
   playing: boolean;
 }) {
-  const frameCount = Math.max(2, Math.round(durationMs / (1_000 / fps)));
-  const boundedFrame = Math.min(frameCount - 1, Math.max(0, Math.round(frame)));
+  const frames = buildMotionFrames(durationMs, fps);
+  const frameCount = frames.length;
+  const boundedFrame = resolveMotionFrame(durationMs, fps, frame).index;
   const [displayFrame, setDisplayFrame] = useState(boundedFrame);
   const pendingScrubFrameRef = useRef<number | null>(null);
   const latestScrubFrameRef = useRef<number | null>(null);
   const scrubAnimationFrameRef = useRef(0);
   const previewPlaybackFrame = useEffectEvent(onFramePreview);
+  const previewPlaybackTime = useEffectEvent(onScrubPreview);
+  const playbackStartFrameRef = useCommittedRef(boundedFrame);
 
   useEffect(() => {
     if (!playing) setDisplayFrame(boundedFrame);
@@ -1040,22 +1168,28 @@ function ShaderFrameHistoryControl({
 
   useEffect(() => {
     if (!playing) return;
-    const frameDurationMs = 1_000 / fps;
-    const startedAt = performance.now() - boundedFrame * frameDurationMs;
+    const startedAt = performance.now();
+    const startFrame = playbackStartFrameRef.current;
     let animationFrame = 0;
     let previousFrame = -1;
     const tick = (now: number) => {
-      const nextFrame = Math.floor(((now - startedAt) % durationMs) / frameDurationMs) % frameCount;
+      const nextFrame = resolveLoopedMotionFrame({
+        durationMs,
+        elapsedMs: now - startedAt,
+        fps,
+        startFrame,
+      }).index;
       if (nextFrame !== previousFrame) {
         previousFrame = nextFrame;
         previewPlaybackFrame(nextFrame);
+        previewPlaybackTime(nextFrame);
         setDisplayFrame(nextFrame);
       }
       animationFrame = requestAnimationFrame(tick);
     };
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [boundedFrame, durationMs, fps, frameCount, playing]);
+  }, [durationMs, fps, playbackStartFrameRef, playing]);
 
   useEffect(() => () => cancelAnimationFrame(scrubAnimationFrameRef.current), []);
 
@@ -1087,7 +1221,7 @@ function ShaderFrameHistoryControl({
     onScrub(nextFrame);
   }
 
-  const seconds = displayFrame / fps;
+  const seconds = resolveMotionFrame(durationMs, fps, displayFrame).timeMs / 1_000;
   return (
     <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve>
       <button
@@ -1903,23 +2037,6 @@ function layerGeometry(layerId: CanvasLayerId, canvas: StudioArtboardDimensions)
     baseWidth,
     baseX: (canvas.width - baseWidth) / 2,
     baseY: (canvas.height - baseHeight) / 2,
-  };
-}
-
-function artboardLayerStyle(
-  layerId: CanvasLayerId,
-  canvas: StudioArtboardDimensions,
-  transform: CanvasLayerTransform,
-  zIndex: number
-): CSSProperties {
-  const bounds = canvasLayerBounds(transform, layerGeometry(layerId, canvas));
-  return {
-    height: `${bounds.height / canvas.height * 100}%`,
-    left: `${bounds.left / canvas.width * 100}%`,
-    position: 'absolute',
-    top: `${bounds.top / canvas.height * 100}%`,
-    width: `${bounds.width / canvas.width * 100}%`,
-    zIndex,
   };
 }
 
@@ -4616,6 +4733,7 @@ export default function ShaderLabStudio({
       shaderLayers,
       shaderSequence: shaderSequenceSettings,
       textLayers,
+      timeline: { frame: 0, paused: false },
     },
     x: 280,
     y: 240,
@@ -4685,12 +4803,16 @@ export default function ShaderLabStudio({
     () => normalizeDesignExportSettings(exportSettings),
     [exportSettings]
   );
-  const previewFrameCount = Math.max(
-    2,
-    Math.round(normalizedExportSettings.durationMs / (1_000 / normalizedExportSettings.fps))
+  const previewFrames = useMemo(
+    () => buildMotionFrames(normalizedExportSettings.durationMs, normalizedExportSettings.fps),
+    [normalizedExportSettings.durationMs, normalizedExportSettings.fps]
   );
-  const boundedPreviewFrame = Math.min(previewFrameCount - 1, Math.max(0, Math.round(previewFrame)));
-  const previewCaptureTimeMs = boundedPreviewFrame / normalizedExportSettings.fps * 1_000;
+  const boundedPreviewFrame = resolveMotionFrame(
+    normalizedExportSettings.durationMs,
+    normalizedExportSettings.fps,
+    previewFrame
+  ).index;
+  const previewCaptureTimeMs = previewFrames[boundedPreviewFrame]!.timeMs;
   const exportDimensions = resolveExportDimensions({
     aspectHeight: ratioOption.height,
     aspectWidth: ratioOption.width,
@@ -4752,6 +4874,7 @@ export default function ShaderLabStudio({
     shaderLayers,
     shaderSequence: normalizedShaderSequenceSettings,
     textLayers,
+    timeline: { frame: boundedPreviewFrame, paused },
   }), [
     canvasBackground,
     canvasDimensions,
@@ -4765,22 +4888,41 @@ export default function ShaderLabStudio({
     ratio,
     shaderLayers,
     textLayers,
+    boundedPreviewFrame,
+    paused,
   ]);
   const currentArtboardSignature = useMemo(
     () => artboardSnapshotSignature(currentArtboardSnapshot),
     [currentArtboardSnapshot]
   );
+  const currentArtboardPersistenceSignature = useMemo(
+    () => artboardSnapshotPersistenceSignature(currentArtboardSnapshot),
+    [currentArtboardSnapshot]
+  );
+  const pendingArtboardApply = pendingArtboardApplyRef.current;
+  const activeArtboardSnapshotReady = artboardSnapshotReady(
+    pendingArtboardApply,
+    activeArtboardId,
+    currentArtboardSignature
+  );
   const workspaceArtboards = useMemo(() => artboards.map((artboard) => (
-    artboard.id === activeArtboardId
+    artboard.id === activeArtboardId && activeArtboardSnapshotReady
       ? { ...artboard, snapshot: currentArtboardSnapshot }
       : artboard
-  )), [activeArtboardId, artboards, currentArtboardSnapshot]);
+  )), [activeArtboardId, activeArtboardSnapshotReady, artboards, currentArtboardSnapshot]);
   const workspaceArtboardsRef = useCommittedRef(workspaceArtboards);
   const activeArtboardIdRef = useCommittedRef(activeArtboardId);
   const currentArtboardSnapshotRef = useCommittedRef(currentArtboardSnapshot);
-  const activeArtboard = workspaceArtboards.find(({ id }) => id === activeArtboardId)
-    ?? workspaceArtboards[0]
-    ?? null;
+  const designHistoryRef = useRef<DesignCanvasHistoryState>({ future: [], past: [], present: null });
+  const designHistoryTimerRef = useRef(0);
+  const designHistorySequenceRef = useRef(0);
+  const designHistoryRestoreSignatureRef = useRef<string | null>(null);
+  const [designHistoryRevision, setDesignHistoryRevision] = useState(0);
+  const designHistorySignature = useMemo(
+    () => designCanvasHistorySignature(workspaceArtboards),
+    [workspaceArtboards]
+  );
+  const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
   const activeArtboardRawName = activeArtboard?.name ?? '';
   const activeArtboardName = resolvedDesignArtboardName(activeArtboard?.name);
   const workspaceSize = useMemo(
@@ -4893,6 +5035,14 @@ export default function ShaderLabStudio({
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
+  const designHistoryView = designHistoryRef.current;
+  const canvasActionHistory = presentCanvasActionHistory(
+    designHistoryView,
+    designHistorySignature,
+    redoDesignCanvas,
+    undoDesignCanvas
+  );
+  void designHistoryRevision;
 
   useEffect(() => {
     cancelAnimationFrame(sequencePreviewAnimationRef.current);
@@ -5058,7 +5208,11 @@ export default function ShaderLabStudio({
   }, []);
 
   function pauseAtPreviewFrame(frame: number) {
-    const nextFrame = Math.min(previewFrameCount - 1, Math.max(0, Math.round(frame)));
+    const nextFrame = resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      frame
+    ).index;
     previewFrameRef.current = nextFrame;
     setPreviewFrame(nextFrame);
     setPaused(true);
@@ -5079,6 +5233,11 @@ export default function ShaderLabStudio({
 
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
     const next = cloneArtboardSnapshot(snapshot);
+    const nextFrame = resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      next.timeline.frame
+    ).index;
     setRatio(next.ratio);
     setCanvasDimensions(next.dimensions);
     setCanvasBackground(next.backgroundColor);
@@ -5091,9 +5250,109 @@ export default function ShaderLabStudio({
     setCompositionAssets(next.assets);
     setShaderSequenceSettings(next.shaderSequence);
     setLayerOrder(next.layerOrder);
+    previewFrameRef.current = nextFrame;
+    setPreviewFrame(nextFrame);
+    setPaused(next.timeline.paused);
     setSelectedLayerId(null);
     setSelectedCanvasLayerIds([]);
     setSelectionMenuPosition(null);
+  }
+
+  function snapshotAtCurrentShaderFrame(snapshot: DesignArtboardSnapshot, freeze = false): DesignArtboardSnapshot {
+    return {
+      ...cloneArtboardSnapshot(snapshot),
+      timeline: {
+        frame: resolveMotionFrame(
+          normalizedExportSettings.durationMs,
+          normalizedExportSettings.fps,
+          previewFrameRef.current
+        ).index,
+        paused: freeze || paused,
+      },
+    };
+  }
+
+  function createDesignHistoryEntry(
+    nextArtboards: readonly DesignArtboard[],
+    label: string
+  ): DesignCanvasHistoryEntry {
+    const clonedArtboards = cloneDesignArtboards(nextArtboards);
+    designHistorySequenceRef.current += 1;
+    return {
+      artboards: clonedArtboards,
+      detail: `${clonedArtboards.length} artboard${clonedArtboards.length === 1 ? '' : 's'}`,
+      id: `canvas-action-${designHistorySequenceRef.current}`,
+      label,
+      signature: designCanvasHistorySignature(clonedArtboards),
+    };
+  }
+
+  function restoreDesignHistoryEntry(entry: DesignCanvasHistoryEntry) {
+    const nextArtboards = cloneDesignArtboards(entry.artboards);
+    const activeId = nextArtboards.some(({ id }) => id === activeArtboardIdRef.current)
+      ? activeArtboardIdRef.current
+      : nextArtboards[0]?.id;
+    const activeEntry = nextArtboards.find(({ id }) => id === activeId);
+    if (!activeId || !activeEntry) return;
+    window.clearTimeout(designHistoryTimerRef.current);
+    designHistoryTimerRef.current = 0;
+    designHistoryRestoreSignatureRef.current = entry.signature;
+    pendingArtboardApplyRef.current = {
+      id: activeId,
+      signature: artboardSnapshotSignature(activeEntry.snapshot),
+    };
+    workspaceArtboardsRef.current = nextArtboards;
+    activeArtboardIdRef.current = activeId;
+    currentArtboardSnapshotRef.current = activeEntry.snapshot;
+    setArtboards(nextArtboards);
+    setActiveArtboardId(activeId);
+    applyArtboardSnapshot(activeEntry.snapshot);
+  }
+
+  function undoDesignCanvas() {
+    const history = designHistoryRef.current;
+    if (!history.present) return;
+    window.clearTimeout(designHistoryTimerRef.current);
+    designHistoryTimerRef.current = 0;
+    const liveArtboards = cloneDesignArtboards(workspaceArtboardsRef.current);
+    const liveSignature = designCanvasHistorySignature(liveArtboards);
+    if (liveSignature !== history.present.signature) {
+      const liveEntry = createDesignHistoryEntry(
+        liveArtboards,
+        describeDesignCanvasChange(history.present.artboards, liveArtboards)
+      );
+      designHistoryRef.current = { ...history, future: [liveEntry, ...history.future] };
+      restoreDesignHistoryEntry(history.present);
+      setDesignHistoryRevision((revision) => revision + 1);
+      announceCanvasClipboard(`Undid ${liveEntry.label.toLocaleLowerCase()}`);
+      return;
+    }
+    const previous = history.past.at(-1);
+    if (!previous) return;
+    designHistoryRef.current = {
+      future: [history.present, ...history.future],
+      past: history.past.slice(0, -1),
+      present: previous,
+    };
+    restoreDesignHistoryEntry(previous);
+    setDesignHistoryRevision((revision) => revision + 1);
+    announceCanvasClipboard(`Undid ${history.present.label.toLocaleLowerCase()}`);
+  }
+
+  function redoDesignCanvas() {
+    const history = designHistoryRef.current;
+    const next = history.future[0];
+    if (!history.present || !next) return;
+    window.clearTimeout(designHistoryTimerRef.current);
+    designHistoryTimerRef.current = 0;
+    designHistoryRef.current = {
+      future: history.future.slice(1),
+      past: [...history.past, history.present].slice(-39),
+      present: next,
+    };
+    restoreDesignHistoryEntry(next);
+    setDesignHistoryRevision((revision) => revision + 1);
+    announceCanvasClipboard(`Redid ${next.label.toLocaleLowerCase()}`);
   }
 
   function requestArtboardFocus(id: DesignArtboardId) {
@@ -5107,7 +5366,7 @@ export default function ShaderLabStudio({
     }
     const committedArtboards = workspaceArtboardsRef.current.map((artboard) => (
       artboard.id === activeArtboardIdRef.current
-        ? { ...artboard, snapshot: cloneArtboardSnapshot(currentArtboardSnapshotRef.current) }
+        ? { ...artboard, snapshot: snapshotAtCurrentShaderFrame(currentArtboardSnapshotRef.current) }
         : artboard
     ));
     const nextArtboard = committedArtboards.find((artboard) => artboard.id === id);
@@ -5140,7 +5399,7 @@ export default function ShaderLabStudio({
     const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
     const position = nextArtboardPosition(canvasDimensions);
     const snapshot = duplicate
-      ? cloneArtboardSnapshot(currentArtboardSnapshot)
+      ? snapshotAtCurrentShaderFrame(currentArtboardSnapshot, true)
       : {
           assets: [],
           backgroundColor: canvasBackground,
@@ -5154,6 +5413,7 @@ export default function ShaderLabStudio({
           shaderLayers: [],
           shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
           textLayers: [],
+          timeline: { frame: 0, paused: true },
         } satisfies DesignArtboardSnapshot;
     const nextArtboard: DesignArtboard = {
       id,
@@ -5163,7 +5423,7 @@ export default function ShaderLabStudio({
     };
     const nextArtboards = [
       ...workspaceArtboardsRef.current.map((artboard) => artboard.id === activeArtboardIdRef.current
-        ? { ...artboard, snapshot: cloneArtboardSnapshot(currentArtboardSnapshotRef.current) }
+        ? { ...artboard, snapshot: snapshotAtCurrentShaderFrame(currentArtboardSnapshotRef.current) }
         : artboard),
       nextArtboard,
     ];
@@ -5316,14 +5576,57 @@ export default function ShaderLabStudio({
     setArtboards((current) => {
       const target = current.find((artboard) => artboard.id === activeArtboardId);
       if (!target) return current;
-      if (artboardSnapshotSignature(target.snapshot) === currentArtboardSignature) return current;
+      if (artboardSnapshotPersistenceSignature(target.snapshot) === currentArtboardPersistenceSignature) return current;
       const nextArtboards = current.map((artboard) => artboard.id === activeArtboardId
         ? { ...artboard, snapshot: cloneArtboardSnapshot(currentArtboardSnapshot) }
         : artboard);
       workspaceArtboardsRef.current = nextArtboards;
       return nextArtboards;
     });
-  }, [activeArtboardId, currentArtboardSignature, currentArtboardSnapshot, draftHydrated, workspaceArtboardsRef]);
+  }, [activeArtboardId, currentArtboardPersistenceSignature, currentArtboardSnapshot, draftHydrated, workspaceArtboardsRef]);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    const pending = pendingArtboardApplyRef.current;
+    if (pending && (pending.id !== activeArtboardId || pending.signature !== currentArtboardSignature)) return;
+    if (designHistoryRestoreSignatureRef.current === designHistorySignature) {
+      designHistoryRestoreSignatureRef.current = null;
+      return;
+    }
+    const history = designHistoryRef.current;
+    if (!history.present) {
+      designHistoryRef.current = {
+        future: [],
+        past: [],
+        present: createDesignHistoryEntry(workspaceArtboards, 'Opened canvas'),
+      };
+      setDesignHistoryRevision((revision) => revision + 1);
+      return;
+    }
+    if (history.present.signature === designHistorySignature) return;
+    window.clearTimeout(designHistoryTimerRef.current);
+    designHistoryTimerRef.current = window.setTimeout(() => {
+      designHistoryTimerRef.current = 0;
+      const latestArtboards = cloneDesignArtboards(workspaceArtboardsRef.current);
+      const current = designHistoryRef.current;
+      if (!current.present) return;
+      const signature = designCanvasHistorySignature(latestArtboards);
+      if (signature === current.present.signature) return;
+      const next = createDesignHistoryEntry(
+        latestArtboards,
+        describeDesignCanvasChange(current.present.artboards, latestArtboards)
+      );
+      designHistoryRef.current = {
+        future: [],
+        past: [...current.past, current.present].slice(-39),
+        present: next,
+      };
+      setDesignHistoryRevision((revision) => revision + 1);
+    }, 220);
+    return () => window.clearTimeout(designHistoryTimerRef.current);
+  }, [activeArtboardId, currentArtboardSignature, designHistorySignature, draftHydrated, workspaceArtboards, workspaceArtboardsRef]);
+
+  useEffect(() => () => window.clearTimeout(designHistoryTimerRef.current), []);
 
   useEffect(() => {
     if (!draftHydrated) return;
@@ -6296,8 +6599,24 @@ export default function ShaderLabStudio({
       shaderLayers: nextShaderLayers,
       shaderSequence: nextShaderSequence,
       textLayers: nextTextLayers,
+      timeline: { frame: nextPreviewFrame, paused: parsed.timeline?.paused ?? paused },
     };
     const restoredWorkspace = restoreDesignArtboardWorkspace(parsed.workspace, restoredActiveSnapshot);
+    const restoredWorkspaceSnapshot = restoredWorkspace.artboards.find(
+      ({ id }) => id === restoredWorkspace.activeArtboardId
+    )?.snapshot ?? restoredActiveSnapshot;
+
+    // Opening source updates a set of independently persisted fields. Keep the
+    // exact saved artboard authoritative until every live field has reached the
+    // same snapshot; otherwise an intermediate render can publish the previous
+    // (often centered default-logo) state back into the workspace and autosave.
+    pendingArtboardApplyRef.current = {
+      id: restoredWorkspace.activeArtboardId,
+      signature: artboardSnapshotSignature(restoredWorkspaceSnapshot),
+    };
+    workspaceArtboardsRef.current = restoredWorkspace.artboards;
+    activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
+    currentArtboardSnapshotRef.current = restoredWorkspaceSnapshot;
 
     setRatio(restoredActiveSnapshot.ratio);
     setCanvasDimensions(restoredActiveSnapshot.dimensions);
@@ -6311,10 +6630,6 @@ export default function ShaderLabStudio({
     setCompositionAssets(nextAssets);
     setExportSettings(nextExportSettings);
     setShaderSequenceSettings(nextShaderSequence);
-    pendingArtboardApplyRef.current = null;
-    workspaceArtboardsRef.current = restoredWorkspace.artboards;
-    activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
-    currentArtboardSnapshotRef.current = restoredActiveSnapshot;
     setArtboards(restoredWorkspace.artboards);
     setActiveArtboardId(restoredWorkspace.activeArtboardId);
     setLayerOrder(nextOrder);
@@ -6752,7 +7067,11 @@ export default function ShaderLabStudio({
     const stillFrame = paused ? boundedPreviewFrame : previewFrameRef.current;
     flushSync(() => {
       setExporting(format);
-      setCaptureTimeMs(stillFrame / normalizedExportSettings.fps * 1_000);
+      setCaptureTimeMs(resolveMotionFrame(
+        normalizedExportSettings.durationMs,
+        normalizedExportSettings.fps,
+        stillFrame
+      ).timeMs);
       setPaused(true);
     });
     setExportError(null);
@@ -6993,6 +7312,7 @@ export default function ShaderLabStudio({
         captureTimeMs={controlledTimeMs}
         className='absolute inset-0 size-full'
         key={`${instanceKey}:${renderedApplication.materialId}`}
+        loopDurationMs={normalizedExportSettings.durationMs}
         materialId={renderedApplication.materialId}
         maxPixelCount={captureTimeMs === null
           ? DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT
@@ -7016,7 +7336,6 @@ export default function ShaderLabStudio({
             {lastExport ? (
               <ExportPreview
                 asset={lastExport}
-                autoRefresh={false}
                 configuration={(
                   <DesignExportWorkspace
                     disabled={Boolean(exporting)}
@@ -7199,13 +7518,18 @@ export default function ShaderLabStudio({
     );
   }
 
-  function renderArtboardPreviewMaterial(application: ShaderApplication, instanceKey: string) {
+  function renderArtboardPreviewMaterial(
+    application: ShaderApplication,
+    instanceKey: string,
+    captureTimeMs = previewCaptureTimeMs
+  ) {
     return (
       <LiveMaterialCanvas
-        captureTimeMs={previewCaptureTimeMs}
+        captureTimeMs={captureTimeMs}
         className='absolute inset-0 size-full'
         frameRate={24}
-        key={instanceKey}
+        key={`${instanceKey}:${application.materialId}`}
+        loopDurationMs={normalizedExportSettings.durationMs}
         materialId={application.materialId}
         maxPixelCount={420_000}
         patternScale={clampShaderZoom(application.shaderSize)}
@@ -7218,56 +7542,120 @@ export default function ShaderLabStudio({
 
   function renderInactiveArtboardLayer(artboard: DesignArtboard, layerId: CompositionLayerId, index: number) {
     const { snapshot } = artboard;
+    const artboardCaptureTimeMs = resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      snapshot.timeline.frame
+    ).timeMs;
     const zIndex = 4 + index;
     if (isEffectLayerId(layerId)) return null;
     if (isShaderLayerId(layerId)) {
       const layer = snapshot.shaderLayers.find(({ id }) => id === layerId);
       if (!layer?.visible) return null;
       const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
-      return <div key={layerId} style={artboardLayerStyle(layerId, snapshot.dimensions, transform, zIndex)}>
-        <div className='shader-lab-v2-canvas-material' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
-          {renderArtboardPreviewMaterial(layer, `preview-${artboard.id}-${layerId}`)}
-        </div>
-      </div>;
+      return (
+        <EditableCanvasLayer
+          {...layerGeometry(layerId, snapshot.dimensions)}
+          canvasHeight={snapshot.dimensions.height}
+          canvasWidth={snapshot.dimensions.width}
+          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
+          interactive={false}
+          key={layerId}
+          label={layer.name}
+          onChange={() => undefined}
+          onDeselect={() => undefined}
+          onSelect={() => undefined}
+          resizeMode='box'
+          selected={false}
+          transform={transform}
+          zIndex={zIndex}
+        >
+          <div className='shader-lab-v2-canvas-material' data-shader-instance={`canvas-${layerId}`} key='content' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
+            {renderArtboardPreviewMaterial(layer, `canvas-${layerId}`, artboardCaptureTimeMs)}
+          </div>
+        </EditableCanvasLayer>
+      );
     }
     if (isTextLayerId(layerId)) {
       const layer = snapshot.textLayers.find(({ id }) => id === layerId);
       if (!layer?.visible) return null;
       const transform = resolvedTextTransform(layer.transform);
-      return <div className='design-artboard-preview-layer' key={layerId} style={artboardLayerStyle(layerId, snapshot.dimensions, transform, zIndex)}>
-        <CanvasTextLayerContent
-          application={snapshot.layerShaders[layerId]}
-          fontSizeCqw={snapshot.dimensions.height / snapshot.dimensions.width * 17 * transform.scale}
-          identity={identity}
-          layer={layer}
+      return (
+        <EditableCanvasLayer
+          {...layerGeometry(layerId, snapshot.dimensions)}
+          allowContentInteraction
+          canvasHeight={snapshot.dimensions.height}
+          canvasWidth={snapshot.dimensions.width}
+          className='shader-lab-v2-composition-layer'
+          interactive={false}
+          key={layerId}
+          label={layer.name}
           onChange={() => undefined}
-          onFocus={() => undefined}
-          renderMaterial={renderArtboardPreviewMaterial}
-        />
-      </div>;
+          onDeselect={() => undefined}
+          onSelect={() => undefined}
+          resizeMode='box'
+          selected={false}
+          transform={transform}
+          zIndex={zIndex}
+        >
+          <CanvasTextLayerContent
+            application={snapshot.layerShaders[layerId]}
+            fontSizeCqw={snapshot.dimensions.height / snapshot.dimensions.width * 17 * transform.scale}
+            identity={identity}
+            key='content'
+            layer={layer}
+            onChange={() => undefined}
+            onFocus={() => undefined}
+            renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
+          />
+        </EditableCanvasLayer>
+      );
     }
     const layer = isLogoLayerId(layerId)
       ? snapshot.logos.find(({ id }) => id === layerId)
       : snapshot.assets.find(({ id }) => id === layerId);
     if (!layer?.visible) return null;
-    return <div className='design-artboard-preview-layer' key={layerId} style={artboardLayerStyle(layerId, snapshot.dimensions, layer.transform, zIndex)}>
-      <ShaderMaskedMediaContent
-        application={snapshot.layerShaders[layerId as ContentLayerId]}
-        appearance={layer.appearance}
-        fallbackColor={isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : '#FFFFFF'}
-        instanceKey={`preview-content-${artboard.id}-${layerId}`}
+    return (
+      <EditableCanvasLayer
+        {...layerGeometry(layerId, snapshot.dimensions)}
+        canvasHeight={snapshot.dimensions.height}
+        canvasWidth={snapshot.dimensions.width}
+        className='shader-lab-v2-composition-layer'
+        interactive={false}
+        key={layerId}
         label={layer.name}
-        opacity={layer.opacity ?? 1}
-        preserveColors={isAssetLayerId(layerId)}
-        renderMaterial={renderArtboardPreviewMaterial}
-        url={layer.url}
-      />
-    </div>;
+        onChange={() => undefined}
+        onDeselect={() => undefined}
+        onSelect={() => undefined}
+        selected={false}
+        transform={layer.transform}
+        zIndex={zIndex}
+      >
+        <ShaderMaskedMediaContent
+          application={snapshot.layerShaders[layerId as ContentLayerId]}
+          appearance={layer.appearance}
+          fallbackColor={isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : '#FFFFFF'}
+          instanceKey={`content-${layerId}`}
+          key='content'
+          label={layer.name}
+          opacity={layer.opacity ?? 1}
+          preserveColors={isAssetLayerId(layerId)}
+          renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
+          url={layer.url}
+        />
+        {'kind' in layer && layer.kind === 'sticker' ? <StickerFinishOverlay finish={layer.stickerFinish} key='finish' url={layer.url} /> : null}
+      </EditableCanvasLayer>
+    );
   }
 
   function renderArtboard(artboard: DesignArtboard) {
     const selected = artboard.id === activeArtboardId;
-    const snapshot = selected ? currentArtboardSnapshot : artboard.snapshot;
+    const pending = pendingArtboardApplyRef.current;
+    const selectedReady = selected && (
+      !pending
+      || (pending.id === artboard.id && pending.signature === currentArtboardSignature)
+    );
+    const snapshot = selectedReady ? currentArtboardSnapshot : artboard.snapshot;
     const size = designArtboardDisplaySize(snapshot.dimensions);
     const ratioPresentation: DesignRatioOption = RATIO_OPTIONS.find(({ value }) => value === snapshot.ratio) ?? {
       ...snapshot.dimensions,
@@ -7327,20 +7715,20 @@ export default function ShaderLabStudio({
         </header>
         <div
           className={`shader-lab-v2-stage shader-lab-v2-stage-${snapshot.ratio}`}
-          data-material-id={selected ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
-          data-testid={selected ? 'shader-lab-live-stage' : undefined}
-          onKeyDown={selected ? handleCanvasAssemblyKeyDown : undefined}
-          onPointerDown={selected ? deselectCanvasLayers : undefined}
-          ref={selected ? stageRef : undefined}
+          data-material-id={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
+          data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
+          onKeyDown={selectedReady ? handleCanvasAssemblyKeyDown : undefined}
+          onPointerDown={selectedReady ? deselectCanvasLayers : undefined}
+          ref={selectedReady ? stageRef : undefined}
           style={{
             aspectRatio: `${ratioPresentation.width} / ${ratioPresentation.height}`,
             backgroundColor: snapshot.backgroundColor,
           }}
         >
-          {selected
+          {selectedReady
             ? visibleLayerIds.map(renderStageLayer)
             : previewLayerIds.map((layerId, index) => renderInactiveArtboardLayer(artboard, layerId, index))}
-          {selected ? <span aria-live='polite' className='sr-only'>
+          {selectedReady ? <span aria-live='polite' className='sr-only'>
             {canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name)}
           </span> : null}
           <div className='shader-lab-v2-stage-shade' aria-hidden='true' />
@@ -7379,6 +7767,7 @@ export default function ShaderLabStudio({
           <div
             className='shader-lab-v2-canvas-material'
             data-shader-instance={`canvas-${layerId}`}
+            key='content'
             style={{
               mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
               opacity: shaderLayer.opacity,
@@ -7436,6 +7825,7 @@ export default function ShaderLabStudio({
             appearance={logoLayer.appearance}
             fallbackColor={logoLayer.color ?? '#FFFFFF'}
             instanceKey={`content-${layerId}`}
+            key='content'
             label={logoLayer.name}
             opacity={logoLayer.opacity ?? 1}
             renderMaterial={renderLiveMaterial}
@@ -7475,6 +7865,7 @@ export default function ShaderLabStudio({
             application={application}
             fontSizeCqw={textFontSizeCqw}
             identity={identity}
+            key='content'
             layer={textLayer}
             onChange={(value) => updateTextLayer(layerId, { value })}
             onFocus={() => selectCanvasAssembly(layerId)}
@@ -7765,6 +8156,7 @@ export default function ShaderLabStudio({
             />
           ) : null}
           <CanvasViewport
+            actionHistory={canvasActionHistory}
             className='shader-lab-v2-composer-viewport'
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}
@@ -7845,7 +8237,14 @@ export default function ShaderLabStudio({
               onPlay={playShaderHistory}
               onScrub={pauseAtPreviewFrame}
               onScrubPreview={(frame) => {
-                previewLiveMaterialTime('design-lab', frame / normalizedExportSettings.fps * 1_000);
+                previewLiveMaterialTime(
+                  'design-lab',
+                  resolveMotionFrame(
+                    normalizedExportSettings.durationMs,
+                    normalizedExportSettings.fps,
+                    frame
+                  ).timeMs
+                );
               }}
               playing={!paused && captureTimeMs === null}
             />

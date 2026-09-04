@@ -128,13 +128,13 @@ describe('Playground optional layers', () => {
   it('configures Design Lab exports in one preview workspace instead of the composition sidebar', () => {
     expect(designLab).toContain("function DesignExportWorkspace({");
     expect(designLab).toContain("configuration={(");
-    expect(designLab).toContain("autoRefresh={false}");
+    expect(designLab).not.toContain("autoRefresh={false}");
     expect(designLab).toContain("triggerLabel='Export'");
     expect(designLab).toContain("aria-label='Export format'");
     expect(designLab).not.toContain("shader-lab-v2-composition-subhead'><h4>Output</h4>");
     expect(exportPreview).toContain('configuration?: ReactNode;');
     expect(exportPreview).toContain("<strong>Export settings</strong>");
-    expect(exportPreview).toContain("needsRefresh ? 'Update preview'");
+    expect(exportPreview).toContain("needsRefresh ? 'Updating preview…'");
     expect(studioStyles).toContain('.shader-export-settings,');
     expect(studioStyles).toContain('.shader-export-format {');
   });
@@ -214,6 +214,10 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('shaderSequence: normalizedShaderSequenceSettings,');
     expect(designLab).toContain('setShaderSequenceSettings(nextShaderSequence);');
     expect(designLab).toContain("aria-label='Deterministic motion timeline'");
+    expect(designLab).toContain('timeline: { frame: boundedPreviewFrame, paused },');
+    expect(designLab).toContain('snapshotAtCurrentShaderFrame(currentArtboardSnapshot, true)');
+    expect(designLab).toContain('actionHistory={canvasActionHistory}');
+    expect(designLab).toContain('Live playback advances continuously and is not a user action');
     expect(designLab).not.toContain('assets: compositionAssets.map(({ appearance, id, name, opacity, transform })');
     expect(designLab).not.toContain('logos: logoLayers.map(({ appearance, color, convertedAssetId, id, name, opacity, transform })');
   });
@@ -233,6 +237,16 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('activateArtboard(id, true);');
     expect(studioStyles).toContain('.design-artboard-picker-menu {');
     expect(studioStyles).toContain('grid-template-columns: 16px minmax(0, 1fr) auto 12px;');
+  });
+
+  it('keeps a saved off-center mark authoritative for the entire source restore', () => {
+    expect(designLab).toContain('function artboardSnapshotReady(');
+    expect(designLab).toContain('const activeArtboardSnapshotReady = artboardSnapshotReady(');
+    expect(designLab).toContain('artboard.id === activeArtboardId && activeArtboardSnapshotReady');
+    expect(designLab).toContain('const restoredWorkspaceSnapshot = restoredWorkspace.artboards.find(');
+    expect(designLab).toContain('signature: artboardSnapshotSignature(restoredWorkspaceSnapshot),');
+    expect(designLab).toContain('currentArtboardSnapshotRef.current = restoredWorkspaceSnapshot;');
+    expect(designLab).not.toContain('pendingArtboardApplyRef.current = null;\n    workspaceArtboardsRef.current = restoredWorkspace.artboards;');
   });
 
   it('moves artboards from a full-width drag handle with keyboard parity', () => {

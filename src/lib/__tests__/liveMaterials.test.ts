@@ -42,7 +42,8 @@ describe('live materials', () => {
     const phases = clocks.map(({ uSpeed, uTime }) => uSpeed * uTime);
 
     expect(clocks.every(({ animate }) => animate === 'off')).toBe(true);
-    expect(clocks.every(({ uSpeed }) => uSpeed === 1)).toBe(true);
+    expect(clocks.every(({ uSpeed }) => uSpeed === liveMaterialMotionRate(0.3))).toBe(true);
+    expect(clocks.map(({ uTime }) => uTime)).toEqual(frames.map(({ timeMs }) => timeMs / 1_000));
     expect(new Set(phases.map((phase) => phase.toFixed(8))).size).toBe(frames.length);
     expect(phases.at(-1)).toBeGreaterThan(phases[0] ?? 0);
   });

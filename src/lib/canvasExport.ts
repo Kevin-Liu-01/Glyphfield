@@ -111,6 +111,36 @@ export function buildMotionFrames(durationMs: number, fps: number): MotionFrame[
   }));
 }
 
+/**
+ * Resolves a timeline frame through the same frame table used by motion export.
+ * Keeping preview, scrubbing, and export on this clock prevents the visible
+ * playhead from drifting away from the frame that is actually rendered.
+ */
+export function resolveMotionFrame(durationMs: number, fps: number, frame: number): MotionFrame {
+  const frames = buildMotionFrames(durationMs, fps);
+  const index = Math.min(frames.length - 1, Math.max(0, Math.round(Number.isFinite(frame) ? frame : 0)));
+  return frames[index]!;
+}
+
+/** Returns the exported frame reached after an elapsed amount of playback time. */
+export function resolveLoopedMotionFrame({
+  durationMs,
+  elapsedMs,
+  fps,
+  startFrame = 0,
+}: {
+  durationMs: number;
+  elapsedMs: number;
+  fps: number;
+  startFrame?: number;
+}): MotionFrame {
+  const frames = buildMotionFrames(durationMs, fps);
+  const frameDurationMs = frames[0]!.durationMs;
+  const firstIndex = resolveMotionFrame(durationMs, fps, startFrame).index;
+  const elapsedFrames = Math.floor(Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) / frameDurationMs);
+  return frames[(firstIndex + elapsedFrames) % frames.length]!;
+}
+
 export function seamlessLoopBlendAmount(timeMs: number, durationMs: number): number {
   if (!Number.isFinite(durationMs) || durationMs <= 0) throw new RangeError('Loop duration must be greater than zero.');
   const progress = Math.min(1, Math.max(0, timeMs / durationMs));
