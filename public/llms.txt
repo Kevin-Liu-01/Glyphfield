@@ -1,363 +1,185 @@
-# Glyphfield
+# Glyphfield agent operating guide
 
-> Glyphfield is a free, MIT-licensed, local-first brand design and motion studio with public structured discovery and deterministic artifact generation for software agents.
+Glyphfield is a local-first brand system, visual Studio, deterministic generation API, and authentic browser-rendering surface. This file is the concise router. Load `/llms-full.txt` when the task needs the complete documentation corpus.
 
-Glyphfield lets designers, developers, brand teams, and AI agents define one identity and apply it across product, marketing, developer, motion, editorial, event, and physical design. The browser Studio exports PNG, JPG, SVG, GIF, MP4, and JSON. The public API exposes machine-readable catalogs, deterministic generation, and an in-browser programmatic API without an API key.
+## Start here
 
-## Canonical resources
+1. Read `GET /api/agent` for the current manifest, policies, interfaces, execution rules, and generation schema.
+2. Read `GET /api/labs` for the live Studio tool list. Never hard-code its count.
+3. Read the task-specific catalog: `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog`.
+4. Read `GET /api/generate` immediately before constructing a generation request.
+5. Choose HTTP or the Browser API according to the artifact, then verify the terminal result.
 
-- [Studio](/studio): Browser-local visual workspace.
-- [Documentation](/docs): Human-readable product, artifact, and integration guides.
-- [Agent manifest](/api/agent): Versioned policies, resources, and generation contract.
-- [OpenAPI 3.1](/openapi.json): Machine-readable API document.
-- [Generation API](/api/generate): Current request contract and examples.
-- [Tool catalog](/api/catalog): Studio tools and capability keywords.
-- [Lab catalog](/api/labs): Studio plugins and shared-library capabilities.
-- [Shader library](/api/materials): Materials, attribution, presets, and editable controls.
-- [Identity catalog](/api/identities): Built-in template and reference identity records.
-- [Brand element catalog](/api/elements): Product, marketing, developer, social, editorial, event, and physical applications.
-- [Agent connection guide](/docs/agents/connect): End-to-end integration walkthrough.
+Machine-readable resources:
 
-## Preferred agent workflow
+- Complete docs: `/llms-full.txt`
+- One processed Markdown page: `/api/docs/{slug}`
+- Human docs: `/docs`
+- Search: `/api/search`
+- OpenAPI: `/openapi.json`
+- Agent manifest: `/api/agent`
+- Studio catalog: `/api/labs`
+- Full combined catalog: `/api/catalog`
+- Shader catalog: `/api/materials`
+- Allowlisted surface maps: `/api/surface-textures/:assetId/:map`
+- Identity catalog: `/api/identities`
+- Brand-element catalog: `/api/elements`
+- Generation contract: `/api/generate`
+- Interactive workspace: `/studio`
+- Installable skill guide: `/docs/skills.md`
 
-1. GET /api/agent.
-2. GET /api/labs to discover every Studio plugin and whether it shares the Shader Library.
-3. GET /api/materials before selecting a live shader, palette, look preset, or editable control.
-4. GET /api/identities when using any built-in preset.
-5. GET /api/elements when selecting a brand application.
-6. GET /api/generate before constructing a request. Treat this response as the current schema.
-7. POST application/json to /api/generate.
-8. Use output="json" when the caller needs metadata plus artifact content. Use output="raw" when the caller can accept image/svg+xml directly.
-9. Save SVG responses as UTF-8. Generated SVGs embed all bundled logos as data URLs and are portable outside Glyphfield.
-10. For Canvas, WebGL, font, upload, or motion work, open /studio and use window.glyphfield.studio. Every visible control is discoverable and operable through this browser API; source-enabled tools additionally expose exact read/apply operations.
+Repository Agent Skills:
 
-Do not infer undocumented enum values. Do not scrape application JavaScript when /api/agent, /openapi.json, or a catalog endpoint provides the same information.
-Use /docs for human-readable feature, artifact, and integration guides. Treat the versioned API responses as authoritative for machine validation.
+- `skills/glyphfield-create`: layered Design Lab composition and saved-design work.
+- `skills/glyphfield-api`: deterministic HTTP discovery and generation.
+- `skills/glyphfield-studio`: live Studio controls, source round trips, files, and browser rendering.
+- `skills/glyphfield-export`: artifact export and still/motion verification.
 
-## Studio source editing
+Load only the skill whose description matches the current task. Combine them when a workflow actually crosses generation, browser operation, and export boundaries.
 
-Every major Studio artifact exposes a Code action that opens a right-side source drawer. This is the editable browser document for the active tool, not a POST /api/generate request body.
+## Choose the interface
 
-Source-enabled surfaces include Brand settings, Brand elements, Moodboard, Animation, Lottie, Material, Surface Lab, OpenGraph, Color tokens, Typography, Terminal card, Partnership lockup, Blog cover, Slide templates, and Component library.
+Use `POST /api/generate` for deterministic SVG, structured element briefs, and apply-ready Design Lab source documents. It is appropriate for repeatable batch generation and source-controlled outputs.
 
-Drawer workflow:
+Use `window.glyphfield.studio` inside `/studio` for anything that depends on the real browser workspace: Canvas, WebGL shaders, local files, local fonts, Lottie, direct visual placement, saved composition state, PNG, JPG, GIF, or MP4. This is not a fallback API; it is the programmatic interface to the authentic UI renderer.
 
-1. Open /studio and select the project and tool.
-2. Activate the visible Code action.
-3. Read or edit the source in the drawer.
-4. Activate Apply.
-5. If an inline validation error appears, correct the source. The visual document has not changed.
-6. Verify the canvas. Visual controls can continue editing the applied state.
-7. Activate Reset only when the drawer should reload the current visual snapshot.
-8. Download from the tool's normal output action.
+Use both for a Design Lab sequence: create the versioned source with `kind: "design-sequence"`, apply `response.document` in the browser, then export through `design.export`.
 
-Common constraints:
+Do not imitate a browser-rendered result with server SVG when the user requested the authentic live material, motion, font, or layout.
 
-- Source must be a JSON object unless the tool explicitly exposes another text format.
-- Animation playbackRate must be greater than 0 and at most 4.
-- Moodboard composition is showcase, system, or catalog; customWidth is clamped to 800–4800.
-- Lottie JSON must contain layers as an array and fr as a number.
-- Binary .lottie archives are preserved and downloaded as bundles; they are not editable as raw JSON.
-- Material source may select studio-glsl, shadergradient, glyphfield, shaders, fluid, paper, or custom-glsl and may include custom GLSL in customSource.
-- Surface Lab source includes surface settings, logo appearance, asset fit, opacity, logo visibility, and selected brand asset.
+## HTTP generation
 
-Human-readable workflow: /docs/studio/source-editing
-Exact browser formats: /docs/reference/source-formats
+`POST /api/generate` accepts `Content-Type: application/json` and one of these `kind` values:
 
-Never submit an arbitrary Studio drawer document to /api/generate. The design-sequence generator is the exception: it returns response.document in the exact Design Lab source format.
+- `background`: deterministic SVG gradient, pattern, dither, or tactile surface; output `json` or `raw`.
+- `template`: deterministic slide, blog-cover, or partnership SVG; output `json` or `raw`.
+- `element-brief`: one brand-element brief resolved against a built-in or custom identity.
+- `design-sequence`: a response-schema-1 envelope containing an apply-ready Design Lab version-3 compatibility document, resolved shader timeline, and browser commands. Applying it normalizes the active Studio source to CanvasDocument schema 2 with Design Lab source 4.
 
-## Browser Studio API
+Unknown top-level fields are rejected. Treat structured `400`, `413`, `415`, and `429` responses as actionable errors. Do not retry unchanged invalid input.
 
-The active Studio tool registers `window.glyphfield.studio` and dispatches `glyphfield:studio-api-ready`. This is the stable programmatic equivalent of operating visible controls.
+Remote URL fetching is not supported. Provide authorized local data through allowed data-URL fields or a real browser `File` object.
 
-- `describe()` returns the active tool, exact actions, and source support.
-- `controls()` lists visible controls by accessible label and current value.
-- `activate(label)` activates a visible button, tab, or control.
-- `set(label, value)` changes a visible input by accessible label; file inputs accept a `File` or `File[]` created from an authorized local source.
-- `readSource()` returns the active tool's exact source document when supported.
-- `await applySource(json)` validates and applies a JSON string or object, then waits for the UI commit.
-- `download(artifact)` saves an artifact returned by an export action with its deterministic file name.
-- `await invoke(action, input)` runs standard or tool-specific actions.
+## Studio Browser API
 
-Standard invoke actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`. Design Lab also exposes `design.sequence.describe`, `design.sequence.configure`, `design.sequence.preview`, `design.sequence.stop`, unified `design.export`, named PNG/JPG/GIF/MP4 actions, and shader-sequence GIF/MP4 actions.
+The active Studio tool registers `window.glyphfield.studio` and dispatches `glyphfield:studio-api-ready`. Re-read the global after changing tools because each tool installs its own adapter.
 
-Use `await invoke('design.export', { format: 'png' | 'jpg' | 'gif' | 'mp4', mode?: 'standard' | 'shader-sequence', download?: true })`. Shader-sequence mode supports GIF and MP4. The action resolves to the same artifact object used by the UI preview, including its `blob`, `fileName`, dimensions, and format; `download: true` also saves the real file. This preserves Canvas/WebGL authenticity without requiring a second server renderer.
+Core methods:
 
-## POST /api/generate
+- `activeTool()` returns the public Studio tool ID. Design Lab is `material`; `logo-shader` is an internal legacy draft scope and must not be expected by integrations.
+- `describe()` returns version, tool ID, source support, and exact action names.
+- `controls()` lists accessible control labels, control kinds, and current values.
+- `activate(label)` clicks a control by its exact accessible label.
+- `set(label, value)` changes a supported input, select, checkbox, contenteditable, or file input.
+- `readSource()` returns the active tool's complete source string.
+- `applySource(source)` validates and applies an object or JSON string, then waits for the React commit boundary.
+- `invoke(action, input?)` runs a standard or tool-specific action.
+- `download({ blob, fileName })` saves a previously returned artifact.
 
-Required header:
+Standard `invoke` actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`.
 
-Content-Type: application/json
+Always call `describe()` before a tool-specific action. Never invent accessible labels or action names.
 
-Optional response selection:
+### Design Lab actions
 
-- output="json" is the default. SVG generators return { schemaVersion, artifact: { content, filename, mimeType, width, height } }.
-- output="raw" returns image/svg+xml with Content-Disposition and a deterministic filename.
-- element-brief always returns application/json.
+Design Lab exposes:
 
-The endpoint supports CORS with Access-Control-Allow-Origin: *.
+```text
+design.sequence.describe
+design.sequence.configure
+design.sequence.preview
+design.sequence.stop
+design.export
+design.export.png
+design.export.jpg
+design.export.gif
+design.export.mp4
+design.export.shader-sequence.gif
+design.export.shader-sequence.mp4
+```
 
-Unknown top-level request fields return HTTP 400 with code `unknown_field`. Do not send alternate or guessed envelopes such as a top-level `dimensions` object; background dimensions are `settings.width` and `settings.height`.
-
-The endpoint supports `template`, `background`, `element-brief`, and `design-sequence`. `design-sequence` returns a validated Design Lab document plus its cut timeline and exact PNG/JPG/GIF/MP4 browser API commands. Apply `response.document` in `/studio`, then invoke `design.export` with the required format and `download: true` for the authentic WebGL/Canvas file.
-
-In the examples below, set BASE_URL to the Glyphfield deployment origin. For local development use:
-
-BASE_URL=http://localhost:3012
-
-For a JSON SVG response, extract the portable asset with:
-
-jq -r '.artifact.content' response.json > artifact.svg
-
-### Identity object
-
-Every generator accepts an identity object.
-
-- preset: starter | template | gt | ramp | mintlify | tailwind | viteplus | cloudflare | stripe | custom. Defaults to starter.
-- name: optional, 1–80 characters.
-- shortName: optional, 1–8 characters.
-- website: optional, 1–200 characters.
-- tagline: optional, 1–180 characters.
-- positioning: optional, 1–320 characters.
-- description: optional, 1–320 characters.
-- ink: optional six-digit HEX color such as #181818.
-- paper: optional six-digit HEX color such as #FFFFFF.
-- logoDataUrl: optional base64 PNG, JPEG, WebP, GIF, or SVG data URL, maximum 5 MB.
-
-Use a built-in preset to resolve its bundled logo family, colors, typography, strategy, graphic system, voice, applications, and proof assets. Use preset="custom" for an identity that should not inherit a preset logo. A custom identity without logoDataUrl receives a generated monogram.
-
-Remote asset URLs are intentionally unsupported. Convert an authorized local asset to a base64 data URL before sending it.
-
-### Generator: template
-
-Generates a standalone SVG slide, blog cover, or partnership lockup.
-
-Fields:
-
-- kind: "template"
-- template: slides | blog | partnership
-- texture: white | dark | grid | noise
-- title: optional, maximum 240 characters
-- body: optional, maximum 1000 characters; use newline-delimited items for list layouts
-- slideLayout: title | section | agenda | split | metrics | quote | timeline | closing
-- foreground: optional six-digit HEX
-- background: optional six-digit HEX
-- backgroundImageDataUrl: optional base64 image data URL, maximum 5 MB
-- partnerId: optional ID from the selected preset's proofAssets
-- partnerLogoDataUrl: optional base64 image data URL, maximum 5 MB
-- identity: identity object
-- output: json | raw
-
-Fixed dimensions:
-
-- slides: 1600 × 900
-- blog: 1200 × 630
-- partnership: 1200 × 600
-
-Example: raw GT slide
-
-curl -sS -X POST "$BASE_URL/api/generate" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "kind": "template",
-    "template": "slides",
-    "texture": "white",
-    "title": "Code is the source of truth.",
-    "identity": { "preset": "gt" },
-    "output": "raw"
-  }' \
-  -o gt-slide.svg
-
-Example: custom partnership returned as JSON
-
-curl -sS -X POST "$BASE_URL/api/generate" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "kind": "template",
-    "template": "partnership",
-    "title": "Acme × Northstar",
-    "identity": {
-      "preset": "custom",
-      "name": "Acme",
-      "website": "acme.test",
-      "ink": "#111111",
-      "paper": "#FFFFFF"
-    },
-    "output": "json"
-  }'
-
-### Generator: background
-
-Generates a standalone SVG background with an optional preset logo or custom logoDataUrl.
-
-Fields:
-
-- kind: "background"
-- identity: identity object
-- output: json | raw
-- settings.width: integer 64–4096
-- settings.height: integer 64–4096
-- width × height must not exceed 12,000,000 pixels
-- settings.style: gradient | grain-gradient | dither | pattern
-- settings.gradient: linear | radial
-- settings.colorA and settings.colorB: six-digit HEX
-- settings.angle: -360–360
-- settings.grain: 0–100
-- settings.ditherMatrix: 2 | 4 | 8
-- settings.pattern: none | dots | lines | grid
-- settings.patternOpacity: 0–100
-- settings.spacing: integer 8–256
-- settings.logoScale: 5–90
-- settings.logoOpacity: 0–100
-- settings.logoX and settings.logoY: -50–50
-- settings.logoTone: black | white
-
-Example: grainy GT OpenGraph background
-
-curl -sS -X POST "$BASE_URL/api/generate" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "kind": "background",
-    "identity": { "preset": "gt" },
-    "settings": {
-      "width": 1200,
-      "height": 630,
-      "style": "grain-gradient",
-      "gradient": "linear",
-      "angle": 32,
-      "colorA": "#FFFFFF",
-      "colorB": "#181818",
-      "grain": 18,
-      "pattern": "dots",
-      "patternOpacity": 14,
-      "logoTone": "white"
-    },
-    "output": "raw"
-  }' \
-  -o gt-background.svg
-
-Example: ordered dither
-
-curl -sS -X POST "$BASE_URL/api/generate" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "kind": "background",
-    "settings": {
-      "width": 1200,
-      "height": 750,
-      "style": "dither",
-      "colorA": "#FFFFFF",
-      "colorB": "#181818",
-      "ditherMatrix": 4,
-      "spacing": 24
-    },
-    "output": "raw"
-  }' \
-  -o dither.svg
-
-### Generator: element-brief
-
-Resolves any record from /api/elements against an identity. This is the machine-readable production brief for product UI, email, developer, social, editorial, event, and physical applications.
-
-Fields:
-
-- kind: "element-brief"
-- elementId: required ID from /api/elements
-- identity: identity object
-
-Example:
-
-curl -sS -X POST "$BASE_URL/api/generate" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "kind": "element-brief",
-    "elementId": "email-signature",
-    "identity": {
-      "preset": "custom",
-      "name": "Acme",
-      "website": "acme.test",
-      "tagline": "Tools for careful teams."
-    }
-  }'
-
-The response contains the complete element record, its symbol, dimensions, format, keywords, the resolved identity foundations, and a suggested Studio preview family.
-
-## Brand element catalog
-
-/api/elements returns the current application catalog grouped into:
-
-- Digital: welcome email, transactional email, email signature, web card, logo background, OpenGraph, 404, favicon, and app icon.
-- Product: navigation, heroes, feature grids, pricing, testimonials, forms, command menus, modals, feedback, tables, metrics, empty states, checkout, and settings.
-- Developer: CLI banner, ASCII mark, terminal theme, GitHub README hero, documentation header, and package card.
-- Social: X, LinkedIn, community, avatar, and product-launch graphics.
-- Editorial: title slides, section slides, blog covers, reports, and press kits.
-- Event: lanyards, badges, backdrops, and partnership lockups.
-- Physical: business cards, sticker sheets, packaging labels, and letterhead.
-
-Use the exact element.id value as elementId. The symbol field is a compact visual shorthand, not a file format.
-
-## UI-capable agent workflow
-
-Use /studio for browser-local capabilities whose output depends on Canvas, WebGL, local fonts, or animated frame capture:
-
-- Moodboard PNG export as a 16:9 application showcase up to 4800 × 2700 or a 4:5 identity system up to 4800 × 6000
-- Reorderable text, brand-logo, and imported-image sequences with direct drag, keyboard nudge, corner scaling, per-frame placement, opacity, rotation, fit, typography, and 256-color GIF export
-- Text-to-image and image-to-text morph, type/delete, crossfade, scale-fade, and slide-fade transitions
-- Per-frame solid, gradient, ShaderGradient, Paper Shaders, WebGL Fluid, and Shaders.com-inspired material backgrounds with crossfade, wipe, or radial transitions
-- A shared, searchable 141-material shader library in Animation and Material, including 29 Paper families and 120 authored presets, with live lazy previews, source filters, one-click selection, and an Animation-style library + selected-controls double sidebar
-- A static Surface Lab for deterministic SVG gradients, grain, dither, patterns, brand-asset layers, and logo placement without WebGL dependencies
-- Live ShaderGradient, licensed Paper Shaders, WebGL Fluid, and original local GLSL logo materials, including ten Shaders.com-inspired scene families, with PNG/GIF export
-- Browser color controls with HEX, OKLCH, and percentage opacity input
-- Lossless high-resolution PNG raster export for OpenGraph, terminal cards, logos, and templates
-- Local font, image, logo, and GLSL inputs
-- Shared Brand Settings that update every browser-local design for the active identity
-
-Workflow:
-
-1. GET /api/labs and select a plugin.id. GET /api/materials when the plugin uses the shared Shader Library.
-2. Open /studio.
-3. Select the tool by visible name or search.
-4. Select a built-in identity or create a local brand project.
-5. Configure inputs in the inspector or open Code for an exact source edit.
-6. Apply the source and resolve any inline validation error.
-7. Verify the canvas at 100 percent.
-8. Use the visible Download action.
-
-Browser-local projects persist in localStorage. API generation requests do not read or mutate browser-local projects.
-
-## Errors
-
-Validation errors use this shape:
-
-{
-  "error": {
-    "code": "invalid_request",
-    "field": "settings.width",
-    "message": "settings.width must be an integer between 64 and 4096."
-  },
-  "schemaVersion": 1
+Preferred export call:
+
+```js
+const studio = window.glyphfield.studio;
+if (studio.activeTool() !== 'material') throw new Error('Open Design Lab first.');
+
+const artifact = await studio.invoke('design.export', {
+  format: 'mp4',
+  mode: 'shader-sequence',
+  download: false,
+});
+
+if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
+  throw new Error('The export is empty.');
 }
 
-Relevant HTTP statuses:
+studio.download(artifact);
+```
 
-- 400: malformed JSON or field validation failure
-- 413: request body exceeds 5 MB
-- 415: Content-Type is not application/json
-- 429: production request rate limit exceeded
-- 500: artifact generation failed
+`format` accepts `png`, `jpg`, `gif`, and `mp4`. `mode: "shader-sequence"` is valid for GIF and MP4. Run exports serially because browser canvases and encoders are shared resources.
 
-Correct the named field. Do not retry an unchanged validation request. For 429, stop concurrent work and wait for the rate-limit window instead of fanning out retries.
+## Source mutation protocol
 
-## Data and asset rules
+1. Call `describe()` and confirm source read/apply support.
+2. Call `readSource()` and parse the current document.
+3. Preserve every unknown field. Make the smallest targeted change.
+4. Call `applySource(document)`; never write React state, IndexedDB, or localStorage directly.
+5. Re-read source and confirm the intended value round-tripped.
+6. Inspect the rendered canvas when the requested result is visual.
+7. Export only after the preview is ready.
 
-- GET endpoints are public and CORS-readable.
-- POST /api/generate processes data in memory and does not persist an identity or input asset.
-- Browser Studio local files remain in the browser.
-- Agents must only submit assets they are authorized to process.
-- Bundled GT and reference-brand assets remain the property of their respective owners.
+Design Lab's active source is a versioned CanvasDocument. It contains assets, capabilities, elements, pages, layer order, transforms, styles, opacity, blend modes, text and converter effects, shaders, saved sequence settings, and export settings. Do not rebuild this envelope from memory. For an existing design, start from `readSource()`. For a new generated sequence, apply the version-3 compatibility document from `response.document`, then re-read the normalized CanvasDocument before further edits.
 
-## Source and service policy
+## Files, fonts, and privacy
 
-The deployed Studio and agent API are available for browsing and artifact generation.
+Browser file controls accept `File` or `File[]`, never a filesystem path string. Construct the `File` only from bytes the user authorized. Local images, converted assets, fonts, Lottie files, saved designs, and recovery drafts remain in the browser unless the user explicitly exports or sends them elsewhere.
 
-Glyphfield source is open-source software licensed under MIT. Agents may use, copy, modify, merge, publish, distribute, sublicense, and sell the software subject to the copyright notice and warranty terms in /LICENSE. The software license does not grant rights in bundled third-party marks, reference-brand assets, or user-submitted assets.
+Generation requests are processed in memory and are not persisted by Glyphfield. Bundled third-party marks and upstream shader/material sources retain their own attribution and ownership.
+
+## Completion rules
+
+A successful request is not sufficient evidence of a finished task.
+
+- After a mutation, re-read source or controls and confirm the new state.
+- For a visual task, inspect the authentic canvas.
+- For an artifact, confirm the Blob or response body is non-empty and that MIME type, extension, dimensions, and requested format agree.
+- For GIF or MP4, inspect multiple frames. For a seamless GIF, verify closure rather than assuming the encoder loop flag creates a visual loop.
+- For MP4 with audio, confirm the expected audio track is present. GIF never contains audio.
+- If the browser cannot encode MP4, report that limitation and preserve the source. Do not silently substitute GIF.
+- If WebGL is unavailable, use a deterministic fallback only when it still satisfies the request.
+
+## Current product model
+
+One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
+
+Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; frame-history scrubbing; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
+
+The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, categories, controls, palettes, and defaults. Never infer a material ID from its display name.
+
+New Design Lab compositions default to Gem Smoke. Saved documents remain authoritative, and authored legacy materials must not be replaced merely because defaults changed.
+
+Animation builds text, mark, and image sequences with per-frame layout, timing, material backgrounds, frame overrides, audio clips, GIF, and MP4. Lottie imports JSON or `.lottie`, supports recoloring, trim/playback, live-material backgrounds, frame PNG, and source download.
+
+Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Components share the same identity and reusable Studio editor systems. Read `/api/labs` and the relevant docs page for current availability and exact behavior.
+
+## High-value docs
+
+- `/docs/agents/choose-interface.md`
+- `/docs/agents/recipes.md`
+- `/docs/reference/browser-api.md`
+- `/docs/reference/endpoints.md`
+- `/docs/reference/source-formats.md`
+- `/docs/reference/version-compatibility.md`
+- `/docs/reference/capability-matrix.md`
+- `/docs/reference/troubleshooting.md`
+- `/docs/reference/browser-support.md`
+- `/docs/reference/api-security.md`
+- `/docs/studio/design-lab.md`
+- `/docs/studio/shader-library.md`
+- `/docs/studio/animation.md`
+- `/docs/studio/lottie.md`
+- `/docs/artifacts/formats-and-portability.md`
+- `/docs/artifacts/backup-and-restore.md`
+
+When exact behavior matters, prefer the live catalogs, manifest, current source document, and processed Markdown endpoints over remembered examples.

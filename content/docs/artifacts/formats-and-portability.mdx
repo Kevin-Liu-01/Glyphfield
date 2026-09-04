@@ -1,51 +1,84 @@
 ---
 title: Formats and portability
-description: Learn how PNG, SVG, GIF, and JSON outputs behave after leaving Glyphfield.
+description: Understand SVG, PNG, JPG, GIF, MP4, PDF, JSON, Lottie, fonts, assets, loops, and codec boundaries.
 icon: Files
 ---
 
 ## SVG
 
-Agent-generated templates and backgrounds are standalone UTF-8 SVG documents.
+HTTP-generated templates and backgrounds are standalone UTF-8 SVG documents.
 
-- Bundled logos are embedded as data URLs.
-- The file does not depend on the Glyphfield deployment after download.
-- Dimensions are fixed in the root SVG.
-- Text remains text unless the generator uses an image logo.
-- Custom data URL images are embedded into the result.
+- Dimensions are fixed on the root SVG.
+- Authorized data-URL images and bundled marks can be embedded.
+- Deterministic filters/patterns travel with the file.
+- Text normally remains text and therefore depends on the documented font stack.
+- The downloaded file does not depend on the Glyphfield deployment.
 
-Use SVG as the canonical API artifact.
+Keep SVG as the canonical API artifact and rasterize per destination.
 
 ## PNG
 
-Browser PNG exports rasterize the current composition at its defined dimensions. Moodboards can reach 4800 × 6000; templates use their production canvas sizes.
+PNG is a lossless browser still. It preserves transparency where the tool supports it and is appropriate for social images, slide backgrounds, documentation, product surfaces, and archival proofs.
 
-PNG is appropriate for social uploads, slide backgrounds, email graphics, and systems that do not accept SVG.
+Design Lab PNG resolves the complete layer stack: background, shaders at the selected frame, converter effects, text effects, assets, marks, stickers, opacity, blend, and transforms.
+
+## JPG
+
+JPG is an opaque Design Lab still. Transparent pixels are composited against the selected canvas background before encoding. Use it when file size matters more than transparency or pixel-perfect flat-color edges.
 
 ## GIF
 
-GIF exports contain a fixed color palette and frame rate. They are broadly compatible but less color-efficient than modern video formats. Glyphfield exposes palette size, frame rate, dimensions, and timing so the export can be tuned for its destination.
+GIF is palette-based motion and has no audio channel. Glyphfield protects important brand/text colors and can build a global or per-frame palette depending on the export configuration.
 
-## JSON
+Two loop modes exist:
 
-Glyphfield produces several useful JSON shapes:
+- **Raw motion** records the requested shader or animation interval without seam correction. Use it for already periodic motion or intentional hard cuts.
+- **Seamless** captures overlap, blends the tail toward recorded head frames, and verifies closure against the seam anchor.
 
-1. **Brand identity** — the browser project’s shared foundation record.
-2. **Element brief** — a catalog application resolved against an identity.
-3. **Artifact envelope** — API metadata plus embedded SVG content.
-4. **Studio tool source** — the active browser generator's editable configuration.
-5. **Lottie JSON** — a vector animation document with layers and frame timing.
+The GIF loop flag only repeats playback; it does not make the last visual state match the first. Inspect the actual seam.
 
-All versioned agent responses include `schemaVersion`. Callers should retain and inspect it before assuming a future response shape.
+<DocsMediaGrid>
+  <DocsMedia alt='Animated General Translation mark morph' caption='Morph package' height={300} meta='GIF · exact frame preparation' src='/examples/gt-morph.gif' width={1000} />
+  <DocsMedia alt='Animated General Translation typography deleting and rebuilding' caption='Typography package' height={300} meta='GIF · protected text color' src='/examples/gt-type-delete.gif' width={1000} />
+</DocsMediaGrid>
 
-Studio tool source is local editor state and does not use the API artifact-envelope schema. Material source may include custom GLSL inside its configuration. Raw Lottie JSON can round-trip through the drawer; binary `.lottie` archives remain binary and are downloaded as the original bundle.
+## MP4
 
-See [Source format reference](/docs/reference/source-formats) for browser document constraints.
+MP4 is browser-encoded video for higher color fidelity and motion efficiency. Design Lab encodes the standard live composition or shader-cut sequence. Animation can mix overlapping audio clips into the exported video.
 
-## Filenames
+Codec availability depends on the browser. If MP4 encoding is unavailable, keep the source and report the limitation; do not silently substitute GIF.
 
-Generated filenames are deterministic from the project, generator, and output dimensions where possible. A caller may rename downloaded files, but should preserve the extension that matches `mimeType`.
+## PDF
 
-## Fonts
+Brand Book uses the browser print/export path to produce a paginated standards document. PDF is a snapshot of the current identity-derived pages, not the editable source. Re-export after changing the identity.
 
-Browser moodboards embed their bundled font dependencies before rasterization. One-off local font files are session-local and are not available to the HTTP generator. API SVG uses its documented font stack unless the generator embeds a supplied image.
+## JSON and CanvasDocument
+
+JSON may represent:
+
+1. A `BrandIdentity`.
+2. An identity-resolved element brief.
+3. An API artifact envelope with embedded SVG.
+4. A Studio tool's source configuration.
+5. A CanvasDocument scene graph.
+6. Raw Lottie JSON.
+
+Retain `schemaVersion`, tool metadata, stable IDs, asset references, ordering, and unknown fields. Design Lab's current source is CanvasDocument schema 2 with Design Lab metadata source version 4.
+
+## Lottie
+
+Raw Lottie JSON can be edited, recolored, and downloaded. A binary `.lottie` archive remains binary and can be replayed/downloaded without being misrepresented as expanded JSON.
+
+## Fonts and assets
+
+Browser-local fonts and object URLs are not automatically portable. A rendered PNG/JPG/GIF/MP4 captures their visible result, but an editable JSON document may still require the original authorized bytes. Embedded data URLs increase document size but improve portability.
+
+For durable handoff, preserve:
+
+- The editable source or saved design.
+- Authorized original images and fonts not embedded in source.
+- The rendered artifact.
+- The requested dimensions, frame rate, duration, loop mode, and codec expectations.
+- Attribution/license records for upstream shader and material sources.
+
+See [Storage and privacy](/docs/artifacts/storage-and-privacy) and [Source formats](/docs/reference/source-formats).

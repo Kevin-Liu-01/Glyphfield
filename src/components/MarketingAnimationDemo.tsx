@@ -27,7 +27,7 @@ export default function MarketingAnimationDemo({ eager = false }: { eager?: bool
 
   return (
     <div className='marketing-animation-lazy-shell' ref={containerRef}>
-      {inRange && runtimeReady ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
+      {runtimeReady ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
     </div>
   );
 }

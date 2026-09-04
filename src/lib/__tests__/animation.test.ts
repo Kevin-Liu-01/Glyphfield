@@ -7,6 +7,7 @@ import {
   cycleDurationMs,
   cubicBezierAt,
   resolveContinuousSourceFrame,
+  resolveAnimationPreviewResolution,
   resolveBezierControlPoint,
   resolveAnchor,
   resolveTimeline,
@@ -45,9 +46,9 @@ describe('animation playback decisions', () => {
 
   it('skips hidden and premature frames while preserving animated content', () => {
     const base = {
+      compositedBackgroundIsAnimated: false,
       contentIsAnimated: false,
       currentSourceId: 'a',
-      directComposite: true,
       frameIsDue: true,
       pageVisible: true,
       previewDirty: false,
@@ -55,8 +56,29 @@ describe('animation playback decisions', () => {
     };
     expect(shouldRenderAnimationPreview(base)).toBe(false);
     expect(shouldRenderAnimationPreview({ ...base, contentIsAnimated: true })).toBe(true);
+    expect(shouldRenderAnimationPreview({ ...base, compositedBackgroundIsAnimated: true })).toBe(true);
     expect(shouldRenderAnimationPreview({ ...base, pageVisible: false, previewDirty: true })).toBe(false);
     expect(shouldRenderAnimationPreview({ ...base, frameIsDue: false, previewDirty: true })).toBe(false);
+  });
+
+  it('budgets interactive preview pixels to the visible canvas without changing export dimensions', () => {
+    expect(resolveAnimationPreviewResolution({
+      devicePixelRatio: 2,
+      logicalHeight: 1_080,
+      logicalWidth: 1_920,
+      maxPixelCount: 1_000_000,
+      viewportHeight: 450,
+      viewportWidth: 800,
+    })).toEqual({ height: 750, width: 1_333 });
+
+    expect(resolveAnimationPreviewResolution({
+      devicePixelRatio: 1,
+      logicalHeight: 300,
+      logicalWidth: 1_000,
+      maxPixelCount: 360_000,
+      viewportHeight: 141,
+      viewportWidth: 471,
+    })).toEqual({ height: 141, width: 470 });
   });
 });
 

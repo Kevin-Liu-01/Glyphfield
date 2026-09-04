@@ -1,0 +1,5 @@
+interface:
+  display_name: "Glyphfield Studio"
+  short_description: "Operate the authentic Glyphfield browser Studio"
+  brand_color: "#7058FF"
+  default_prompt: "Use $glyphfield-studio to edit this design in the live Glyphfield Studio."

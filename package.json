@@ -4,6 +4,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "agent-docs": "npx tsx scripts/run-agent-docs.ts",
     "analyze:dead-code": "knip",
     "analyze:duplicates": "jscpd --min-lines 12 --min-tokens 80 --threshold 0 --reporters console --format typescript,tsx --ignore '**/__tests__/**' src",
     "analyze:crap": "node scripts/check-crap.cjs",
@@ -21,6 +22,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --coverage.all --coverage.include='src/**/*.{ts,tsx}' --coverage.reporter=text-summary --coverage.reporter=json-summary",
     "test:coverage:strict": "vitest run --coverage --coverage.include='src/lib/{portableCanvasAssets,sourceCode}.ts' --coverage.reporter=text --coverage.reporter=json-summary --coverage.thresholds.100 --coverage.thresholds.perFile",
+    "test:performance": "node scripts/check-interaction-performance.mjs",
     "test:watch": "vitest",
     "typecheck": "fumadocs-mdx && tsc6 --noEmit"
   },
@@ -32,9 +34,9 @@
     "@radix-ui/react-slot": "^1.3.1",
     "@react-three/fiber": "^9.6.1",
     "@shadergradient/react": "2.4.20",
-    "fumadocs-core": "16.12.0",
-    "fumadocs-mdx": "15.2.0",
-    "fumadocs-ui": "16.12.0",
+    "fumadocs-core": "16.15.4",
+    "fumadocs-mdx": "15.4.0",
+    "fumadocs-ui": "16.15.4",
     "gifenc": "^1.0.3",
     "gt-next": "11.0.0-odysseus.15",
     "lucide-react": "^0.577.0",

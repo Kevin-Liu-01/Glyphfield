@@ -1,0 +1,92 @@
+---
+title: Version compatibility
+description: Identify Glyphfield API, CanvasDocument, Design Lab, saved-design, and Lottie versions and migrate without losing newer state.
+icon: GitBranch
+---
+
+Glyphfield versions multiple boundaries independently. The HTTP envelope version, portable canvas schema, Design Lab metadata version, generated compatibility document, and third-party Lottie version are not interchangeable numbers.
+
+<DocsMedia alt='Glyphfield Design Lab with source-backed layers and output controls' caption='One visible design, several explicit contracts' meta='HTTP · CanvasDocument · Design Lab · export' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+
+## Current contract matrix
+
+| Boundary | Current version | Compatibility behavior | Authority |
+| --- | --- | --- | --- |
+| Agent discovery responses | `schemaVersion: 1` | Clients should stop on an unknown version | Live `/api/agent`, `/api/catalog`, `/api/labs`, and related routes |
+| `POST /api/generate` response envelope | `schemaVersion: 1` | The envelope is not a CanvasDocument | `GET /api/generate` and `/openapi.json` |
+| CanvasDocument | `schemaVersion: 2` | Valid schema 1 documents migrate to schema 2; unknown versions are rejected | `readSource()` after applying |
+| Design Lab metadata | `sourceVersion: 4` | Parsed inside the CanvasDocument metadata boundary | Active Design Lab source |
+| Generated Design Lab sequence document | `version: 3` | Apply-ready compatibility input; application normalizes it into current CanvasDocument source | `design-sequence` response `document` |
+| Saved-design database | Internal database version 1 | Migrates valid legacy browser saves into IndexedDB; not a public interchange format | Glyphfield persistence layer |
+| Lottie | File-defined `v`, `fr`, `ip`, and `op` | Player support depends on the animation features and browser | Imported JSON or `.lottie` file |
+
+Never compare these values as though one supersedes another. For example, CanvasDocument schema 2 can legitimately contain Design Lab source version 4.
+
+## Compatibility policy
+
+Glyphfield follows four rules:
+
+1. **Discover live contracts.** Read the relevant endpoint or active Studio adapter rather than trusting an old sample.
+2. **Migrate through the owner.** Apply source through `applySource()` so the tool validator performs supported normalization.
+3. **Reject unknown major shapes.** Do not guess how to interpret a future schema version.
+4. **Preserve data you do not own.** Start from current source, retain stable IDs and unknown metadata, and change the smallest intended field.
+
+## CanvasDocument migration
+
+The canvas parser accepts the current schema 2 and can migrate a valid schema 1 document. The migration creates schema-2 asset records from legacy asset/font IDs, adds empty element `data` where required, and records the source version in metadata.
+
+After applying any older document, immediately re-read and store the normalized result:
+
+```js
+const studio = window.glyphfield.studio;
+const imported = JSON.parse(legacySource);
+
+await studio.applySource(imported);
+
+const normalized = JSON.parse(studio.readSource());
+if (normalized.schemaVersion !== 2) {
+  throw new Error('Glyphfield did not return the current canvas schema.');
+}
+
+// Persist `normalized`, not the older input.
+```
+
+Migration does not invent missing binary assets. A legacy reference with no embedded bytes can still require the original authorized image or font before the document is portable.
+
+## Generated sequence compatibility
+
+`kind: "design-sequence"` intentionally returns a concise version-3 document inside a response-schema-1 envelope. It is designed to create a composition, not to mirror every field in the current canvas scene graph.
+
+The safe bridge is:
+
+1. Read `GET /api/generate` and build a valid request.
+2. Confirm the response envelope has `schemaVersion: 1`.
+3. Apply `response.document` to active Design Lab.
+4. Re-read the normalized CanvasDocument.
+5. Make later edits against that current document.
+
+Do not continue mutating the version-3 input after it has been applied; it cannot contain every newer field produced by the Studio.
+
+## Unknown and future versions
+
+Stop safely when any of these occurs:
+
+- A discovery or generation envelope has an unknown `schemaVersion`.
+- A CanvasDocument schema is newer than the parser supports.
+- The active tool does not identify the expected source boundary.
+- A Lottie source lacks numeric frame metadata or a `layers` array.
+
+Retain the original bytes, record the Glyphfield commit or deployed version, and open the source in a compatible or newer release. Do not strip version fields to force acceptance.
+
+## Regression checklist for schema changes
+
+Any source-contract change should update:
+
+1. Serializer, parser, validation, and migration code.
+2. Browser API `describe()` metadata and action behavior.
+3. HTTP request/response schemas when the deterministic API is affected.
+4. `/api/agent`, `/openapi.json`, `/llms.txt`, and processed Markdown docs.
+5. Round-trip, persistence, old-version migration, and malformed-input tests.
+6. A visual restore/export check using a realistic saved document.
+
+See [Source format reference](/docs/reference/source-formats), [Backup and restore](/docs/artifacts/backup-and-restore), and [Studio Browser API](/docs/reference/browser-api).

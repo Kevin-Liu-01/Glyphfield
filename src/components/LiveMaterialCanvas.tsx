@@ -77,6 +77,7 @@ import {
 import type { RefObject } from 'react';
 
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import {
   getPaperLiveMaterialDefinition,
@@ -1948,6 +1949,18 @@ function PaperMaterialGrain({
   );
 }
 
+function paperShaderSettingOverrides(
+  presetParams: Readonly<Record<string, unknown>>,
+  preservePresetAppearance: boolean,
+  preservePresetGeometry: boolean,
+  settings: LiveMaterialSettings
+) {
+  if (preservePresetAppearance) return {};
+  return preservePresetGeometry
+    ? paperPaletteOverrides(presetParams, settings)
+    : paperControlOverrides(presetParams, settings, false);
+}
+
 function PaperShaderSurface({
   captureTimeMs,
   materialId,
@@ -1989,11 +2002,12 @@ function PaperShaderSurface({
   const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
   const controlledParams = {
     ...preset.params,
-    ...(preservePresetAppearance
-      ? {}
-      : preservePresetGeometry
-        ? paperPaletteOverrides(preset.params, settings)
-        : paperControlOverrides(preset.params, settings, false)),
+    ...paperShaderSettingOverrides(
+      preset.params,
+      preservePresetAppearance,
+      preservePresetGeometry,
+      settings
+    ),
     ...paperShaderOverrides,
   };
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
@@ -2323,6 +2337,8 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [workspaceActive, setWorkspaceActive] = useState(true);
+  useAncestorWorkspaceActivity(containerRef, setWorkspaceActive);
   const captureTimeMsRef = useCommittedRef(captureTimeMs);
   const patternScaleRef = useCommittedRef(patternScale);
   const settingsRef = useCommittedRef(settings);
@@ -2347,7 +2363,7 @@ function LiveMaterialCanvas({
   }));
   const recoveryTimerRef = useRef(0);
   const activeRecovery = currentContextRecovery(contextRecovery, resolvedMaterialId);
-  const renderActive = (activeWhileMounted || renderVisible) && enabled;
+  const renderActive = (activeWhileMounted || renderVisible) && enabled && workspaceActive;
   const requiresWebGL2 = resolvedMaterialId === 'shadergradient-prismatic-sphere'
     || isPaperLiveMaterialId(resolvedMaterialId);
   const paperUsesSourceImage = paperMaterialUsesSourceImage(resolvedMaterialId);

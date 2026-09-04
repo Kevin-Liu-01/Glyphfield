@@ -54,7 +54,7 @@ describe('template assets', () => {
       'ramp',
       BUILT_IN_BRAND_IDENTITIES
     ).map(({ family }) => family)).toContain('Lausanne');
-    expect(defaultTemplatePartnerTreatment('ramp', BUILT_IN_BRAND_IDENTITIES)).toBe('text');
+    expect(defaultTemplatePartnerTreatment('ramp', BUILT_IN_BRAND_IDENTITIES)).toBe('logo');
     expect(defaultTemplatePartnerTreatment('cursor', BUILT_IN_BRAND_IDENTITIES)).toBe('logo');
   });
 

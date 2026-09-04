@@ -45,9 +45,12 @@ Design sequence creates the same versioned composition used by Design Lab. It su
 
 The response is JSON with:
 
-- `document`: exact Design Lab source version 3.
+- `schemaVersion: 1`: the HTTP response-envelope version.
+- `document`: an apply-ready Design Lab compatibility source with `version: 3`.
 - `sequence.timeline`: resolved material IDs and cut boundaries.
 - `automation`: the stable browser global and exact apply/export commands.
+
+`document.version` is not the active canvas schema. `applySource(response.document)` validates and migrates the compact compatibility source, then the Design Lab adapter exposes the normalized result as CanvasDocument schema 2 with Design Lab source metadata version 4. Re-read source after application before making targeted CanvasDocument edits.
 
 Apply and render inside `/studio`:
 
@@ -82,7 +85,7 @@ Template generates slides, blog covers, and partnership lockups.
 
 - `template`: `slides | blog | partnership`
 - `texture`: `white | dark | grid | noise`
-- `slideLayout`: `title | section | agenda | split | metrics | quote | timeline | closing`
+- `slideLayout`: `title | section | agenda | split | metrics | quote | timeline | statement | comparison | process | chart | team | image | closing`
 
 Fixed output sizes are 1600 × 900 for slides, 1200 × 630 for blog, and 1200 × 600 for partnership.
 
@@ -160,6 +163,6 @@ Check `schemaVersion`, `mimeType`, and dimensions before storing the content.
 
 ## Studio source is a separate contract
 
-The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, animation, Lottie, materials, Surface Lab, templates, foundations, and components. Those documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
+The **Code** drawer inside `/studio` serializes the active browser tool. It supports exact edits for identities, boards, Animation, Lottie, Design Lab, templates, foundations, and components. Design Lab uses CanvasDocument schema 2 with Design Lab metadata source version 4. Browser documents are intentionally shaped around each interactive tool and are not interchangeable with the `POST /api/generate` request body.
 
-Use the HTTP contract on this page for deterministic remote generation. `design-sequence` is deliberately a bridge: it emits an exact Studio source document for programmatic browser rendering. For every other tool, use the active `window.glyphfield.studio` API to read/apply source or operate visible controls.
+Use the HTTP contract on this page for deterministic remote generation. `design-sequence` is deliberately a bridge: it emits a compact, apply-ready compatibility document for programmatic browser rendering, and the browser normalizes it to current Studio source. For every other tool, use the active `window.glyphfield.studio` API to read/apply source or operate visible controls.

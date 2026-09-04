@@ -1,12 +1,7 @@
 'use client';
 
 import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-} from '@/components/ui/SolidIcons';
-import {
+  useId,
   useRef,
   useState,
   type CSSProperties,
@@ -57,6 +52,7 @@ export default function ResizableSidebar({
   resizeEdge = 'right',
   storageKey,
 }: ResizableSidebarProps) {
+  const contentId = useId();
   const widthStorageKey = `glyphfield:sidebar:${storageKey}:width`;
   const collapsedStorageKey = `glyphfield:sidebar:${storageKey}:collapsed`;
   const [width, setWidth] = useState(() =>
@@ -148,10 +144,6 @@ export default function ResizableSidebar({
     window.localStorage.setItem(collapsedStorageKey, String(nextCollapsed));
   }
 
-  const CollapseIcon = resizeEdge === 'right' ? PanelLeftClose : PanelRightClose;
-  const RestoreIcon = resizeEdge === 'right' ? PanelLeftOpen : PanelRightOpen;
-  const ToggleIcon = collapsed ? RestoreIcon : CollapseIcon;
-
   return (
     <aside
       className={`resizable-sidebar ${className}`}
@@ -161,15 +153,19 @@ export default function ResizableSidebar({
       data-resizing={resizing ? 'true' : 'false'}
       style={style}
     >
-      <div className='resizable-sidebar-scroll studio-scroll-area'>{children}</div>
+      <div className='resizable-sidebar-scroll studio-scroll-area' id={contentId}>
+        {children}
+      </div>
       <button
-        aria-label={`${collapsed ? 'Show' : 'Hide'} ${label}`}
+        aria-controls={contentId}
+        aria-expanded={!collapsed}
+        aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
         className='resizable-sidebar-toggle'
         onClick={toggleCollapsed}
-        title={`${collapsed ? 'Show' : 'Hide'} ${label}`}
+        title={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
         type='button'
       >
-        <ToggleIcon aria-hidden='true' />
+        <span aria-hidden='true' className='resizable-sidebar-toggle-line' />
       </button>
       <div
         aria-label={`Resize ${label}`}

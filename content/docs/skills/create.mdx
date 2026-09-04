@@ -1,0 +1,41 @@
+---
+title: Create
+description: Use $glyphfield-create to build and revise editable Design Lab compositions without losing source structure.
+icon: WandSparkles
+---
+
+`$glyphfield-create` owns editable visual composition. Use it for Design Lab artboards containing text, marks, images, stickers, shader layers, converter effects, and saved designs.
+
+<DocsMedia alt='Design Lab showing a layered composition and the layer dock' caption='The create skill works in the real composition model' meta='CanvasDocument schema 2 · source 4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+
+## Invoke it
+
+Ask for the skill explicitly or describe a matching outcome:
+
+```text
+Use $glyphfield-create to build a 1920×1080 launch card with Gem Smoke,
+two editable text layers, the active brand mark, and a subtle Bayer overlay.
+Save the composition as “Launch signal”.
+```
+
+## Workflow
+
+1. Identify the active brand, dimensions, still or motion intent, and whether the work starts from an existing design.
+2. Open Design Lab and call `describe()` before relying on controls or actions. Its public tool ID is `material`.
+3. For existing work, call `readSource()` and preserve unknown fields, stable page and element IDs, asset records, and back-to-front ordering.
+4. Add or update only the necessary layers. Use each layer's own opacity, blend mode, geometry, and effect settings.
+5. Apply the complete source through the Studio adapter, then re-read the normalized CanvasDocument.
+6. Inspect the authentic canvas at the intended shader frame and save the design when it needs to be restored later.
+
+## Composition rules
+
+- Start with no shader when the brand mark is strong enough; otherwise Gem Smoke is the preferred general-purpose material.
+- Keep shader layers behind authored content unless the composition intentionally masks or converts the result.
+- Give Bayer, ASCII, halftone, and posterize effects deliberate foreground and background colors.
+- Preserve contrast between white artwork and white sticker borders with a fill, outline, alpha-aware shadow, surface, or border color.
+- Treat shader size as material zoom from `0.1` to `10`, not as canvas zoom.
+- Save the selected frame history and timeline state with the design.
+
+## Completion proof
+
+The skill is not finished when source application resolves. Confirm layer order, visible placement, identity, opacity, selected material frame, saved-design restoration, and the resulting canvas. If the request includes a file, hand the result to [`$glyphfield-export`](/docs/skills/export).

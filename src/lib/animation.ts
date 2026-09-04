@@ -26,13 +26,18 @@ export type PlaybackAdvance = {
 };
 
 export type AnimationPreviewDecision = {
+  compositedBackgroundIsAnimated: boolean;
   contentIsAnimated: boolean;
   currentSourceId?: string;
-  directComposite: boolean;
   frameIsDue: boolean;
   pageVisible: boolean;
   previewDirty: boolean;
   previousSourceId: string;
+};
+
+export type AnimationPreviewResolution = {
+  height: number;
+  width: number;
 };
 
 export function clamp(value: number, minimum: number, maximum: number): number {
@@ -121,19 +126,54 @@ export function animationTimelineChanged(
 }
 
 export function shouldRenderAnimationPreview({
+  compositedBackgroundIsAnimated,
   contentIsAnimated,
   currentSourceId,
-  directComposite,
   frameIsDue,
   pageVisible,
   previewDirty,
   previousSourceId,
 }: AnimationPreviewDecision): boolean {
   if (!pageVisible || !frameIsDue) return false;
-  return !directComposite
+  return compositedBackgroundIsAnimated
     || contentIsAnimated
     || previewDirty
     || previousSourceId !== currentSourceId;
+}
+
+/**
+ * Sizes the interactive backing buffer for what is actually visible on screen.
+ * Exporters continue to render at the authored document dimensions.
+ */
+export function resolveAnimationPreviewResolution({
+  devicePixelRatio = 1,
+  logicalHeight,
+  logicalWidth,
+  maxPixelCount,
+  viewportHeight,
+  viewportWidth,
+}: {
+  devicePixelRatio?: number;
+  logicalHeight: number;
+  logicalWidth: number;
+  maxPixelCount: number;
+  viewportHeight: number;
+  viewportWidth: number;
+}): AnimationPreviewResolution {
+  const width = Math.max(1, logicalWidth);
+  const height = Math.max(1, logicalHeight);
+  const pixelRatio = clamp(devicePixelRatio, 1, 2);
+  const hasViewport = viewportWidth > 0 && viewportHeight > 0;
+  const viewportScale = hasViewport
+    ? Math.min(viewportWidth / width, viewportHeight / height)
+    : 1;
+  const visibleScale = Math.min(1, Math.max(1 / Math.max(width, height), viewportScale * pixelRatio));
+  const pixelBudgetScale = Math.sqrt(Math.max(1, maxPixelCount) / (width * height));
+  const renderScale = Math.min(visibleScale, pixelBudgetScale);
+  return {
+    height: Math.max(1, Math.round(height * renderScale)),
+    width: Math.max(1, Math.round(width * renderScale)),
+  };
 }
 
 export function resolveTimeline(

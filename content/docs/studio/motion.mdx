@@ -1,10 +1,22 @@
 ---
-title: Motion and GIFs
-description: Create frame animation, preview motion packages, edit Lottie vectors, and apply shared live materials.
+title: Motion overview
+description: Choose between sequence animation, Lottie vector playback, and Design Lab material motion.
 icon: Blend
 ---
 
-Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Shaders for live WebGL motion. Animation and Shaders share the same [Shader Library](/docs/studio/shader-library), palettes, and live-material settings.
+Glyphfield includes three focused motion systems: frame-based Animation, a dedicated Lottie editor, and Design Lab for live-material compositions and shader-cut sequences. Animation and Design Lab share the same [Shader Library](/docs/studio/shader-library), palettes, shader zoom, and deterministic material-time model.
+
+<DocsMediaGrid>
+  <DocsMedia alt='General Translation multilingual Animation sequence' caption='Animation' meta='Frames · transitions · audio' src='/screenshots/studio-gt-animation-dark-2026.png' />
+  <DocsMedia alt='General Translation Design Lab material composition' caption='Design Lab motion' meta='Shaders · converters · MP4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+</DocsMediaGrid>
+
+| Need | Use |
+| --- | --- |
+| Move between text, logo, and image states | [Animation](/docs/studio/animation) |
+| Edit or composite a Lottie vector document | [Lottie](/docs/studio/lottie) |
+| Animate a layered poster or a sequence of shaders | [Design Lab](/docs/studio/design-lab) |
+| Choose and tune a live material | [Shader Library](/docs/studio/shader-library) |
 
 ## Animation
 
@@ -12,13 +24,18 @@ Animation combines text, identity logos, and imported images in one reorderable 
 
 Open **Code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, `sequenceBackground`, `backgroundOverrides`, per-frame settings, and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
 
+<DocsMediaGrid>
+  <DocsMedia alt='General Translation mark morphing through a motion sequence' caption='Morph sequence' height={300} meta='Animated GIF' src='/examples/gt-morph.gif' width={1000} />
+  <DocsMedia alt='General Translation type deleting and rebuilding' caption='Type and delete' height={300} meta='Animated GIF' src='/examples/gt-type-delete.gif' width={1000} />
+</DocsMediaGrid>
+
 ## Lottie
 
 Lottie is a separate Motion tool with its own vector playback model. Import a local `.lottie` bundle or Lottie JSON document, or begin with the Orbit, Signal, and Geometric Fold examples. Its source library sits to the left of the canvas; playback, appearance, and live-material properties remain visible in the right inspector.
 
 The editor includes play, pause, restart, scrubbing, speed, forward/reverse/bounce modes, looping, interpolation, in/out trimming, contain/cover/fill layout, transparent or solid canvases, and high-resolution frame export. Generic JSON artwork can be recolored directly. `.lottie` bundles retain embedded colors unless they provide their own named themes.
 
-The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation and Material. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
+The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation and Design Lab. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
 
 The source drawer exposes raw Lottie JSON for documents that can be represented as text. Apply requires a JSON object with a `layers` array and numeric `fr` frame rate. A `.lottie` bundle is a binary archive, so Glyphfield preserves and downloads that original bundle instead of presenting it as editable JSON.
 
@@ -46,17 +63,17 @@ Control hold time, transition time, playback speed, frame rate, loop, and a cubi
 
 The playhead is deterministic: preview and export resolve from the same timing model. Alignment guides indicate the configured horizontal and vertical center.
 
-### GIF output
+### GIF and MP4 output
 
-Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then select **Export GIF**. Email, HD, and 2× presets are included. New and migrated projects default to the GIF format’s full 256-color palette with RGB565 quantization. The export composites the same text, image, logo, background transitions, gradients, and live shader canvases used by the preview. Larger canvases, more frames, higher frame rates, live materials, and larger palettes increase encoding time and file size.
+Choose canvas dimensions, frame rate, palette colors, per-frame fit and scale, then export. Email, HD, and 2× presets are included. New and migrated projects default to the GIF format’s full 256-color palette with protected brand/text colors. Seamless mode captures and blends overlap frames, then verifies closure against the real head frame. MP4 uses the browser's supported video codec and includes mixed timeline audio when present.
 
 The same per-frame preparation hook is the basis for Glyphfield's general HTML/canvas-to-GIF pipeline: a source resolves its visual state at an exact timeline position, then the shared renderer captures that state.
 
-## Shaders
+## Design Lab material motion
 
-Shaders composes two independent live layers: the canvas background and the alpha-masked logo. Either layer can be enabled alone, one shader can be copied to both, or each layer can use a different library shader and its own colors, form, light, grain, orientation, and speed. Logo-only artwork and finish controls contain outline, glass, reflection, shadow, and depth. Surface Lab is the static SVG-background counterpart.
+Design Lab composes independent live shader layers with any number of text, mark, image, sticker, and converter layers. A material can cover the canvas or be clipped into one content layer. Every shader owns its colors, form, light, grain, orientation, speed, opacity, blend mode, `0.1×–10×` size, and selected timeline frame.
 
-The quality-sorted library includes more than 140 materials and presets:
+The quality-sorted library changes as materials are added or retired; use `/api/materials` as the authoritative live count:
 
 - The editable ShaderGradient sphere preset, including three colors, environment brightness, amplitude, density, frequency, strength, grain, rotation, and speed.
 - Original Glyphfield mesh, grain, dither, glyph-volume, and GLSL materials.
@@ -66,19 +83,20 @@ The quality-sorted library includes more than 140 materials and presets:
 - Original design studies informed by Evil Rabbit Shaders, GRADIENTOOL, and Grainient, with reference links in the inspector.
 - A local custom GLSL editor using the same time, resolution, color, and material uniforms.
 
-Every material color accepts HEX or OKLCH input. The palette picker combines the active brand with considered monochrome, mercury, ultraviolet, signal, copper, arctic, vermilion, cobalt, and Surface Lab starting points. PNG and GIF export use the same live canvas visible in the preview.
+Every material color accepts HEX or OKLCH input. The palette picker combines the active brand with considered monochrome, mercury, ultraviolet, signal, copper, arctic, vermilion, cobalt, mineral, paper, and dither starting points. PNG, JPG, GIF, and MP4 export use the same live canvas visible in the preview where that format applies.
 
 Control the material colors, distortion parameters, speed, aspect ratio, logo placement, scale, opacity, and transparent output. Upload a transparent PNG or SVG to replace the identity mark for the current session.
 
-Open **Code** to edit the complete shader composition. `layers.background` and `layers.logo` each store enablement, material ID, and live settings; the logo layer also owns its finish object. Legacy top-level engine, target, and live-material fields remain readable. The drawer and visual inspectors resolve into the same renderer, so a source edit can be refined visually without conversion.
+Open **Code** to edit the complete version 4 canvas document. Ordered elements preserve geometry, visibility, opacity, blend mode, assets, content-bound shader assignments, groups, timeline, and export settings. The drawer and visual inspectors resolve into the same renderer, so a source edit can be refined visually without conversion.
 
-### Shader output
+### Design Lab material output
 
 - Download PNG for a still frame.
-- Download GIF to capture the animated material at 20 fps with a 256-color palette.
-- Choose Standard, High, or Ultra output dimensions; High is the default and PNG remains lossless.
+- Download GIF to capture animated material with raw or verified seamless looping.
+- Download MP4 for higher-fidelity motion or shader-cut sequences.
+- Choose output width, quality, frame rate, duration, and wide, square, or OpenGraph ratio.
 - Transparent logo output preserves alpha when the selected target supports it.
 
-WebGL and motion capture use the browser renderer. Agents can operate them through `window.glyphfield.studio`; Design Lab exposes PNG/JPG, GIF, MP4, and shader-sequence GIF/MP4 export actions. Use unified `design.export` with `download: true` to render and save in one call.
+WebGL and motion capture use the browser renderer. Agents can operate them through `window.glyphfield.studio`; use unified `design.export` with `download: true` to render and save in one call.
 
 See [Source code editing](/docs/studio/source-editing) for the round-trip workflow and [Source format reference](/docs/reference/source-formats) for exact constraints.

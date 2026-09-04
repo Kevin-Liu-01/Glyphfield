@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_MANIFEST, OPENAPI_DOCUMENT } from '../agentApi';
+import { AGENT_MANIFEST, GLYPHFIELD_AGENT_SKILLS, OPENAPI_DOCUMENT } from '../agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
 import { DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
@@ -62,14 +62,32 @@ describe('agent discovery catalogs', () => {
 
   it('publishes the lab and material endpoints from the manifest and OpenAPI document', () => {
     expect(AGENT_MANIFEST.resources).toMatchObject({
+      fullInstructions: '/llms-full.txt',
       labs: '/api/labs',
       materials: '/api/materials',
+      markdownDocs: '/docs/:path.md',
+      skillGuide: '/docs/skills.md',
+      surfaceTextures: '/api/surface-textures/:assetId/:map',
     });
+    expect(AGENT_MANIFEST.skills.packages).toEqual(GLYPHFIELD_AGENT_SKILLS);
+    expect(GLYPHFIELD_AGENT_SKILLS.map(({ id }) => id)).toEqual([
+      'glyphfield-create',
+      'glyphfield-api',
+      'glyphfield-studio',
+      'glyphfield-export',
+    ]);
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/labs');
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/materials');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/docs/{slug}');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/surface-textures/{assetId}/{map}');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/llms-full.txt');
     expect(AGENT_MANIFEST.studioBrowserApi.global).toBe('window.glyphfield.studio');
     expect(AGENT_MANIFEST.studioBrowserApi.operations.download).toContain('Blob');
     expect(AGENT_MANIFEST.studioBrowserApi.standardActions).toContain('artifact.download');
     expect(AGENT_MANIFEST.generation.kinds).toHaveProperty('design-sequence');
+    expect(AGENT_MANIFEST.interfaces.browser.global).toBe('window.glyphfield.studio');
+    expect(AGENT_MANIFEST.execution.never).toContain(
+      'Do not invent catalog IDs, accessible labels, source fields, or enum values.'
+    );
   });
 });

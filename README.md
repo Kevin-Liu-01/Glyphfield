@@ -34,7 +34,7 @@ complete production catalog without rebuilding the context for every artifact.
 | Logo family | Animation + Lottie | OpenGraph + social | PNG |
 | Color tokens | Shader Library | Design Lab compositions | SVG |
 | Typography | Dither + grain + materials | Templates + editorial | GIF |
-| Voice + positioning | Playground surfaces | Product + documentation | JSON |
+| Voice + positioning | Design Lab surfaces | Product + documentation | JSON |
 
 The Studio ships with a Starter creation system plus complete reference
 identities for General Translation, Ramp, Mintlify, Tailwind CSS,
@@ -113,11 +113,7 @@ speed, direction, recoloring, playback, source download, and frame export.
   live shaders in one direct-manipulation canvas. Its layer rail carries previews,
   visibility, ordering, duplication, and per-layer controls, while the inspector
   handles exact content, appearance, aspect ratio, and developer handoff.
-- Playground combines shaders, tactile surfaces, artwork, and finished stickers
-  on one interactive canvas. Surface movement carries the applied sticker with
-  it, while material, texture, foil, relief, border, and composition controls
-  remain independently editable.
-- The shared, quality-sorted Shader Library provides 141 searchable materials
+- The shared, quality-sorted Shader Library provides a live searchable catalog
   from Paper, WebGL, ShaderGradient, Fluid Energy, Shaders.com studies, and
   original Glyphfield renderers. Brand colors seed every material and the same
   controls drive library previews, canvases, and exports.

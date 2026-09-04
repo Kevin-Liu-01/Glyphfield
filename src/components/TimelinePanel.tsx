@@ -1,7 +1,16 @@
 'use client';
 
-import { T, useGT } from 'gt-next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { T as GTText } from 'gt-next';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 
 import AnimationAudioTrack from '@/components/AnimationAudioTrack';
 import { animationPackagePresentation } from '@/components/AnimationPackageGallery';
@@ -17,9 +26,21 @@ import StudioContextMenu, {
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useCachedGT } from '@/hooks/useCachedGT';
 import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
 import type { StudioSource } from '@/lib/renderFrame';
 import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
+
+const T = memo(GTText);
+T.displayName = 'TimelineTranslation';
+
+type PlayheadDragSession = {
+  axisLeft: number;
+  axisWidth: number;
+  frame: number;
+  latestClientX: number;
+  pointerId: number;
+};
 
 type TimelinePanelProps = {
   audio: AnimationAudioState;
@@ -44,6 +65,7 @@ type TimelinePanelProps = {
   selectedSourceId: string | null;
   selectedTransitionIndex: number | null;
   settings: StudioSettings;
+  subscribeToPlayhead: (listener: (timeMs: number) => void) => () => void;
   sources: readonly StudioSource[];
   totalMs: number;
   transitionSettings: readonly StudioTransitionSettings[];
@@ -80,14 +102,18 @@ export default function TimelinePanel({
   selectedSourceId,
   selectedTransitionIndex,
   settings,
+  subscribeToPlayhead,
   sources,
   totalMs,
   transitionSettings,
 }: TimelinePanelProps) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLOutputElement>(null);
-  const playheadElementRef = useRef<HTMLDivElement>(null);
+  const audioPlayheadRef = useRef<HTMLDivElement>(null);
+  const storyboardPlayheadRef = useRef<HTMLDivElement>(null);
+  const playheadDragRef = useRef<PlayheadDragSession | null>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
   const [timelineMenu, setTimelineMenu] = useState<{
     index: number;
     kind: 'frame' | 'transition';
@@ -95,11 +121,20 @@ export default function TimelinePanel({
   } | null>(null);
   const frameDuration = 1000 / settings.fps;
   const effectiveTransitionMs = sources.length > 1 ? settings.transitionMs : 0;
-  const timelineWidth = useMemo(() => Math.max(1, sources.length * 224), [sources.length]);
-  const syncPlayheadUi = useCallback(() => {
-    const currentMs = Math.min(currentMsRef.current, totalMs);
+  const timelineWidth = useMemo(() => Math.max(1, sources.length * 224 + 20), [sources.length]);
+  const segmentColumns = sources.length > 1
+    ? `minmax(0, ${settings.holdMs}fr) minmax(0, ${effectiveTransitionMs}fr)`
+    : 'minmax(0, 1fr)';
+  const syncPlayheadUi = useCallback((timeMs = currentMsRef.current) => {
+    const currentMs = Math.min(timeMs, totalMs);
     const progress = totalMs === 0 ? 0 : currentMs / totalMs * 100;
-    if (playheadElementRef.current) playheadElementRef.current.style.left = `${progress}%`;
+    for (const playhead of [storyboardPlayheadRef.current, audioPlayheadRef.current]) {
+      if (!playhead) continue;
+      playhead.style.transform = `translate3d(${progress}%, 0, 0)`;
+      const handle = playhead.querySelector<HTMLElement>('[data-timeline-playhead-handle]');
+      handle?.setAttribute('aria-valuenow', String(Math.round(currentMs)));
+      handle?.setAttribute('aria-valuetext', formatTime(currentMs));
+    }
     if (outputRef.current) outputRef.current.value = `${formatTime(currentMs)} / ${formatTime(totalMs)}`;
     if (inputRef.current) {
       inputRef.current.value = String(currentMs);
@@ -108,24 +143,76 @@ export default function TimelinePanel({
     }
   }, [currentMsRef, totalMs]);
 
-  useEffect(() => {
-    let animationFrame = 0;
-    function tick() {
-      syncPlayheadUi();
-      animationFrame = requestAnimationFrame(tick);
-    }
-    syncPlayheadUi();
-    if (isPlaying) animationFrame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [isPlaying, syncPlayheadUi]);
+  useEffect(() => subscribeToPlayhead(syncPlayheadUi), [subscribeToPlayhead, syncPlayheadUi]);
 
   function seekAndSync(timeMs: number) {
     onSeek(timeMs);
-    syncPlayheadUi();
+    syncPlayheadUi(timeMs);
+  }
+
+  function applyPlayheadDrag(session: PlayheadDragSession) {
+    const progress = Math.min(1, Math.max(0, (session.latestClientX - session.axisLeft) / session.axisWidth));
+    seekAndSync(progress * totalMs);
+  }
+
+  function beginPlayheadDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || playheadDragRef.current) return;
+    const surface = event.currentTarget.closest<HTMLElement>('[data-timeline-scrub-surface]');
+    if (!surface) return;
+    const bounds = surface.getBoundingClientRect();
+    const inset = Number(surface.dataset.timelineAxisInset ?? 0);
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const session = {
+      axisLeft: bounds.left + inset,
+      axisWidth: Math.max(1, bounds.width - inset * 2),
+      frame: 0,
+      latestClientX: event.clientX,
+      pointerId: event.pointerId,
+    };
+    playheadDragRef.current = session;
+    setIsScrubbing(true);
+    applyPlayheadDrag(session);
+  }
+
+  function movePlayheadDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const session = playheadDragRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    session.latestClientX = event.clientX;
+    if (session.frame) return;
+    session.frame = requestAnimationFrame(() => {
+      session.frame = 0;
+      applyPlayheadDrag(session);
+    });
+  }
+
+  function endPlayheadDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const session = playheadDragRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (session.frame) cancelAnimationFrame(session.frame);
+    session.latestClientX = event.clientX;
+    applyPlayheadDrag(session);
+    playheadDragRef.current = null;
+    setIsScrubbing(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handlePlayheadKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    let nextTime: number | null = null;
+    if (event.key === 'Home') nextTime = 0;
+    if (event.key === 'End') nextTime = totalMs;
+    if (event.key === 'ArrowLeft') nextTime = currentMsRef.current - (event.shiftKey ? 1000 : frameDuration);
+    if (event.key === 'ArrowRight') nextTime = currentMsRef.current + (event.shiftKey ? 1000 : frameDuration);
+    if (nextTime === null) return;
+    event.preventDefault();
+    seekAndSync(Math.min(totalMs, Math.max(0, nextTime)));
   }
 
   return (
-    <section className='animation-timeline' data-animation-storyboard>
+    <section className='animation-timeline' data-animation-storyboard data-scrubbing={isScrubbing ? 'true' : 'false'}>
       <header className='animation-timeline-toolbar'>
         <div className='animation-timeline-transport'>
           <Button aria-label={isPlaying ? gt('Pause preview') : gt('Play preview')} onClick={() => onPlayChange(!isPlaying)} size='icon-sm' type='button' variant='outline'>
@@ -170,8 +257,28 @@ export default function TimelinePanel({
 
       <div className='animation-timeline-scroll'>
         <div className='animation-timeline-content' style={{ width: `${timelineWidth}px` }}>
-          <div className='animation-timeline-playhead' ref={playheadElementRef}><i /></div>
-          <div className='animation-storyboard-track'>
+          <div className='animation-storyboard-track' data-timeline-axis-inset='10' data-timeline-scrub-surface>
+            <div className='animation-timeline-playhead' ref={storyboardPlayheadRef}>
+              <div
+                aria-label={gt('Storyboard playhead')}
+                aria-orientation='horizontal'
+                aria-valuemax={Math.round(totalMs)}
+                aria-valuemin={0}
+                aria-valuenow={Math.round(Math.min(currentMsRef.current, totalMs))}
+                aria-valuetext={formatTime(currentMsRef.current)}
+                className='animation-timeline-playhead-handle'
+                data-timeline-playhead-handle
+                onKeyDown={handlePlayheadKeyDown}
+                onPointerCancel={endPlayheadDrag}
+                onPointerDown={beginPlayheadDrag}
+                onPointerMove={movePlayheadDrag}
+                onPointerUp={endPlayheadDrag}
+                role='slider'
+                tabIndex={0}
+              >
+                <span /><i />
+              </div>
+            </div>
             {sources.map((source, index) => {
               const selected = source.id === selectedSourceId;
               const nextSource = sources[(index + 1) % sources.length];
@@ -183,7 +290,11 @@ export default function TimelinePanel({
                 transitionSetting?.packageId ?? settings.packageId
               );
               return (
-                <article className='animation-storyboard-segment' key={source.id}>
+                <article
+                  className='animation-storyboard-segment'
+                  key={source.id}
+                  style={{ gridTemplateColumns: segmentColumns }}
+                >
                   <StudioPreviewTooltip
                     preview={(
                       <AnimationSequenceTooltipPreview count={sources.length} index={index} kind='frame'>
@@ -275,11 +386,19 @@ export default function TimelinePanel({
               onClipChange={onAudioClipChange}
               onFiles={onAudioFiles}
               onMutedChange={onAudioMutedChange}
+              onPlayheadKeyDown={handlePlayheadKeyDown}
+              onPlayheadPointerCancel={endPlayheadDrag}
+              onPlayheadPointerDown={beginPlayheadDrag}
+              onPlayheadPointerMove={movePlayheadDrag}
+              onPlayheadPointerUp={endPlayheadDrag}
               onRemoveClip={onAudioRemoveClip}
               onSelectedClipChange={onAudioSelectedClipChange}
               onSplitClip={onAudioSplitClip}
               onVolumeChange={onAudioVolumeChange}
+              playheadMs={Math.min(currentMsRef.current, totalMs)}
+              playheadRef={audioPlayheadRef}
               selectedClipId={selectedAudioClipId}
+              segmentCount={sources.length}
               totalMs={totalMs}
             />
           )}

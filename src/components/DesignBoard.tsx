@@ -20,7 +20,7 @@ import {
   brandTypographyRole,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
-import { imageUrlToDataUrl, svgToPngBlob } from '@/lib/download';
+import { imageUrlToDataUrl, resolveSvgRasterDimensions, svgToPngBlob } from '@/lib/download';
 import {
   moodboardFilename,
   moodboardAssets,
@@ -169,6 +169,7 @@ export default function DesignBoard({
       );
 
       const fileName = moodboardFilename(identity.name, exportDimensions.width, exportDimensions.height);
+      const raster = resolveSvgRasterDimensions(exportDimensions.width, exportDimensions.height);
       const blob = await svgToPngBlob(
         svg,
         exportDimensions.width,
@@ -178,8 +179,8 @@ export default function DesignBoard({
         blob,
         fileName,
         format: 'PNG',
-        height: exportDimensions.height,
-        width: exportDimensions.width,
+        height: raster.height,
+        width: raster.width,
       });
     } finally {
       setExporting(false);

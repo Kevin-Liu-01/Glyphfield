@@ -9,6 +9,8 @@ icon: Braces
 | Method | Route | Response |
 | --- | --- | --- |
 | GET | `/llms.txt` | Plain-text agent runbook |
+| GET | `/llms-full.txt` | Complete agent-readable documentation corpus |
+| GET | `/api/docs/{slug}` | One processed documentation page as Markdown |
 | GET | `/api/agent` | Versioned manifest and generation contract |
 | GET | `/openapi.json` | OpenAPI 3.1 JSON |
 | GET | `/api/catalog` | Studio tool catalog, resource links, Shader Library, and deterministic Surface Library |
@@ -17,6 +19,8 @@ icon: Braces
 | GET | `/api/identities` | Built-in template and reference identity records |
 | GET | `/api/elements` | Searchable brand element records |
 | GET | `/api/generate` | Current generation contract and examples |
+| GET | `/api/search` | Self-hosted documentation search index/query response |
+| GET | `/api/surface-textures/{assetId}/{map}` | Allowlisted CC0 surface map with provider/license headers |
 
 ## Generation
 
@@ -27,7 +31,7 @@ icon: Braces
 
 Generation supports `template`, `background`, `element-brief`, and `design-sequence` kinds.
 
-`design-sequence` returns an exact Design Lab document rather than a server-rendered approximation. Apply it with the programmatic browser API, then invoke `design.export` with `png`, `jpg`, `gif`, or `mp4`. GIF and MP4 also accept `mode: 'shader-sequence'`; this keeps the result on the authentic Canvas/WebGL renderer.
+`design-sequence` returns a response-schema-1 envelope with a version-3, apply-ready Design Lab compatibility document rather than a server-rendered approximation. Apply it with the programmatic browser API; Design Lab validates and normalizes it to CanvasDocument schema 2 with Design Lab source 4. Re-read that source, then invoke `design.export` with `png`, `jpg`, `gif`, or `mp4`. GIF and MP4 also accept `mode: 'shader-sequence'`; this keeps the result on the authentic Canvas/WebGL renderer.
 
 ## Browser API
 
@@ -42,6 +46,14 @@ Design Lab actions include PNG/JPG stills, GIF, ordinary MP4, sequence GIF/MP4, 
 | GET | `/api/search` | Self-hosted Fumadocs/Orama documentation search |
 
 Search is used by the documentation UI and is separate from Studio tool search.
+
+## Supporting routes
+
+`GET /api/surface-textures/{assetId}/{map}` only accepts an `assetId` published by the surface catalog and a map of `color`, `displacement`, `metalness`, `normal`, or `roughness`. It never acts as an arbitrary URL proxy. Successful responses include `X-Surface-License` and `X-Surface-Provider`; unavailable maps return `404`, and unreachable allowlisted upstreams return `502`.
+
+`GET /api/github-stars` supplies the current repository-star count to product chrome. It is an optional UI utility rather than a generation dependency; consumers must tolerate `503` and `stars: null`.
+
+OpenGraph routes `/api/og-home`, `/api/og`, and `/og/docs/{slug}/image.png` are covered in [Social previews](/docs/reference/social-previews).
 
 ## Caching
 
@@ -58,3 +70,13 @@ Access-Control-Allow-Headers: Content-Type, Accept
 ```
 
 The current routes do not require an API key.
+
+## Recommended discovery order
+
+1. `/api/agent`
+2. `/api/labs`
+3. The task-specific catalog
+4. `/api/generate` when producing an HTTP artifact
+5. `/api/docs/{slug}` or `/llms-full.txt` for the necessary operating detail
+
+Catalog IDs, schemas, and action lists are authoritative. Examples are explanatory and should not be treated as a substitute for discovery.

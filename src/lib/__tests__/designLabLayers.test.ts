@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const playground = readFileSync(join(process.cwd(), 'src/components/SurfaceLabStudio.tsx'), 'utf8');
 const designLab = readFileSync(join(process.cwd(), 'src/components/ShaderLabStudio.tsx'), 'utf8');
+const studioWorkspace = readFileSync(join(process.cwd(), 'src/components/StudioToolWorkspace.tsx'), 'utf8');
 const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/EditableCanvasLayer.tsx'), 'utf8');
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
 const exportPreview = readFileSync(join(process.cwd(), 'src/components/ExportPreview.tsx'), 'utf8');
@@ -19,6 +20,12 @@ const stickerScene = readFileSync(join(process.cwd(), 'src/components/StickerDev
 const studioStyles = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
 
 describe('Playground optional layers', () => {
+  it('publishes the Design Lab catalog id through browser automation while retaining the legacy draft scope', () => {
+    expect(studioWorkspace).toContain('automationToolId={tool.id}');
+    expect(studioWorkspace).toContain("tool={{ ...tool, id: 'logo-shader' }}");
+    expect(designLab).toContain('toolId: automationToolId ?? tool.id');
+  });
+
   it('persists independent background, surface, and sticker visibility', () => {
     expect(playground).toContain('design-lab-background-enabled-v1');
     expect(playground).toContain('design-lab-surface-enabled-v1');

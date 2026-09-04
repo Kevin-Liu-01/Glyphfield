@@ -8,6 +8,34 @@ export function escapeXml(value: string): string {
 }
 
 const pendingImageDataUrls = new Map<string, Promise<string>>();
+const DEFAULT_SVG_RASTER_PIXEL_RATIO = 2;
+const MAX_SVG_RASTER_EDGE = 4_800;
+
+export type SvgRasterDimensions = {
+  height: number;
+  pixelRatio: number;
+  width: number;
+};
+
+export function resolveSvgRasterDimensions(
+  width: number,
+  height: number,
+  requestedPixelRatio = DEFAULT_SVG_RASTER_PIXEL_RATIO
+): SvgRasterDimensions {
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new RangeError('SVG export dimensions must be positive finite numbers.');
+  }
+  const safePixelRatio = Number.isFinite(requestedPixelRatio) && requestedPixelRatio > 0
+    ? requestedPixelRatio
+    : DEFAULT_SVG_RASTER_PIXEL_RATIO;
+  const largestEdge = Math.max(width, height);
+  const pixelRatio = Math.max(1, Math.min(safePixelRatio, MAX_SVG_RASTER_EDGE / largestEdge));
+  return {
+    height: Math.max(1, Math.round(height * pixelRatio)),
+    pixelRatio,
+    width: Math.max(1, Math.round(width * pixelRatio)),
+  };
+}
 
 /**
  * Embeds an image once even when the live canvas, autosave document, and export
@@ -75,7 +103,8 @@ export function downloadSvg(svg: string, filename: string): void {
 export async function svgToPngBlob(
   svg: string,
   width: number,
-  height: number
+  height: number,
+  pixelRatio = DEFAULT_SVG_RASTER_PIXEL_RATIO
 ): Promise<Blob> {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
   const source = URL.createObjectURL(blob);
@@ -84,9 +113,10 @@ export async function svgToPngBlob(
 
   try {
     await image.decode();
+    const raster = resolveSvgRasterDimensions(width, height, pixelRatio);
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = raster.width;
+    canvas.height = raster.height;
     const context = canvas.getContext('2d', { alpha: true });
 
     if (!context) {
@@ -95,7 +125,7 @@ export async function svgToPngBlob(
 
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
-    context.drawImage(image, 0, 0, width, height);
+    context.drawImage(image, 0, 0, raster.width, raster.height);
     return await canvasToBlob(canvas);
   } finally {
     URL.revokeObjectURL(source);

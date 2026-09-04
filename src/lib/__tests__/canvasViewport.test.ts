@@ -4,6 +4,7 @@ import {
   arrangeCanvasFrames,
   clampCanvasZoom,
   resolveCanvasGridStep,
+  resolveCanvasStageTransform,
   resolveCenteredCanvasPan,
   resolveCanvasWheelZoomDelta,
   resolveZoomedScrollPosition,
@@ -11,6 +12,12 @@ import {
 } from '@/lib/canvasViewport';
 
 describe('canvas viewport', () => {
+  it('keeps the neutral canvas out of a transformed compositor layer', () => {
+    expect(resolveCanvasStageTransform({ x: 0, y: 0, zoom: 100 })).toBe('none');
+    expect(resolveCanvasStageTransform({ x: 24, y: -10, zoom: 125 }))
+      .toBe('translate(24px, -10px) scale(1.25)');
+  });
+
   it('clamps and rounds zoom to usable five-percent steps', () => {
     expect(clampCanvasZoom(37)).toBe(40);
     expect(clampCanvasZoom(113)).toBe(115);

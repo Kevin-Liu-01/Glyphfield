@@ -3,15 +3,19 @@
   "icon": "PanelsTopLeft",
   "pages": [
     "index",
-    "source-editing",
     "brand-settings",
     "brand-elements",
     "moodboards",
+    "brand-book",
     "motion",
+    "animation",
+    "lottie",
+    "design-lab",
     "shader-library",
     "logo-background",
     "templates",
     "editor-systems",
-    "components"
+    "components",
+    "source-editing"
   ]
 }

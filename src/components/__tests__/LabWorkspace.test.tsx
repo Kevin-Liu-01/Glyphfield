@@ -48,6 +48,9 @@ describe('LabWorkspace', () => {
     expect(markup).toContain('lab-sidebar-right');
     expect(markup).toContain('data-resize-edge="left"');
     expect(markup).toContain('--resizable-sidebar-expanded-width:292px');
+    expect(markup).toContain('aria-label="Collapse assets"');
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('resizable-sidebar-toggle-line');
   });
 
   it('keeps double-rail workspaces compact', () => {

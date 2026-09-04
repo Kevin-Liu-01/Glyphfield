@@ -1,0 +1,5 @@
+interface:
+  display_name: "Glyphfield Export"
+  short_description: "Export and verify Glyphfield stills and motion"
+  brand_color: "#7058FF"
+  default_prompt: "Use $glyphfield-export to export and verify this Glyphfield artifact."

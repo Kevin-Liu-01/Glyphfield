@@ -1,0 +1,5 @@
+interface:
+  display_name: "Glyphfield API"
+  short_description: "Generate Glyphfield assets programmatically"
+  brand_color: "#7058FF"
+  default_prompt: "Use $glyphfield-api to generate this artifact through the Glyphfield API."

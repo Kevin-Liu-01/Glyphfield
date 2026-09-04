@@ -29,6 +29,7 @@ import MarketingOpenSourceWorkbench from '@/components/MarketingOpenSourceWorkbe
 import MarketingShaderMark from '@/components/MarketingShaderMark';
 import MarketingShaderText from '@/components/MarketingShaderText';
 import MarketingStudioSearch from '@/components/MarketingStudioSearch';
+import MarketingStudioLink from '@/components/MarketingStudioLink';
 import {
   MarketingApplicationsDemo,
   MarketingIdentityDemo,
@@ -241,10 +242,10 @@ export default async function HomePage() {
           >
             <BookOpen aria-hidden='true' />
           </Link>
-          <Link className='marketing-v5-primary-link' href='/studio'>
+          <MarketingStudioLink className='marketing-v5-primary-link'>
             <T>Open Studio</T>
             <ArrowRight aria-hidden='true' />
-          </Link>
+          </MarketingStudioLink>
         </div>
       </header>
 
@@ -267,13 +268,12 @@ export default async function HomePage() {
               </T>
             </p>
             <div className='marketing-v5-actions' data-motion-item>
-              <Link
+              <MarketingStudioLink
                 className='marketing-v5-primary-link marketing-v5-primary-link--large marketing-v5-primary-link--iridescent'
-                href='/studio'
               >
                 <T>Open Glyphfield</T>
                 <ArrowRight aria-hidden='true' />
-              </Link>
+              </MarketingStudioLink>
               <Link className='marketing-v5-secondary-link' href='/docs/getting-started'>
                 <T>Docs</T>
               </Link>
@@ -519,15 +519,15 @@ export default async function HomePage() {
             <div data-motion-item>
               <h2><T>Make the field yours.</T></h2>
             </div>
-            <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/studio'>
+            <MarketingStudioLink className='marketing-v5-primary-link marketing-v5-primary-link--inverse'>
               <T>Open Glyphfield</T><ArrowRight aria-hidden='true' />
-            </Link>
+            </MarketingStudioLink>
           </div>
           <div className='marketing-v5-footer-wordmark' data-footer-wordmark>GLYPHFIELD</div>
           <div className='marketing-v5-footer-bottom'>
             <span><T>© 2026 Kevin Liu · MIT licensed</T></span>
             <div>
-              <Link href='/studio'><T>Studio</T> ↗</Link>
+              <MarketingStudioLink><T>Studio</T> ↗</MarketingStudioLink>
               <Link href='/docs'><T>Docs</T> ↗</Link>
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
               <a href={PRODUCT_BRAND.repository.url} rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>

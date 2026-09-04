@@ -1,70 +1,76 @@
 ---
-title: Surface Lab, color, and typography
-description: Build deterministic static backgrounds, color systems, and type foundations.
+title: Color, typography, and tactile backgrounds
+description: Build identity foundations and deterministic tactile surfaces, then use them inside Design Lab and every expression tool.
 icon: Palette
 ---
 
-## Surface Lab
+Glyphfield no longer treats physical material, sticker, cloth, shader, type, and artwork as unrelated labs. Design Lab is the composition surface; Color tokens and Typography define reusable foundations; deterministic background generation supplies portable SVG recipes when a live shader is unnecessary.
 
-Surface Lab is the physical, static counterpart to [Shaders](/docs/studio/shader-library). Shaders is for time-based GPU motion; Surface Lab is for tactile construction that should hold on a package, panel, card, wall, sticker, or exported background. It builds deterministic SVG without WebGL or playback.
-
-Surface Lab keeps the static composition workflow in one canvas:
-
-- A first-class Open PBR gallery backed by real CC0 map sets from Poly Haven and ambientCG
-- Color, normal, displacement, roughness, and metalness maps rather than simulated CSS texture cards
-- Linear, radial, band, orbit, and wave gradients
-- Three-color grainy gradients with focal-point and relief controls
-- Ordered Bayer dither using 2×2, 4×4, or 8×8 matrices and dot or square cells
-- Dot, line, and grid pattern overlays with editable spacing and opacity
-- Named spectral, mineral, paper, signal, and active-brand color presets
-- Tactile textures for wood grain, woven wire, perforated metal, carved stone, embossed paper, brushed and hammered metal, molded polymer, cork, frosted glass, linen, felt, pebbled leather, crackle ceramic, mineral plaster, and carbon twill
-- Independent texture amount, relief depth, texture scale, grain direction, irregularity, roughness, metallic response, and density or openness controls
-- Reusable brand-image and texture layers with contain or cover fitting
-- Logo placement, direct dragging and scaling, custom color, dither, outline, and shadow
-- Square, landscape, and OpenGraph output sizes
-
-### Texture construction
-
-The gallery opens on **Open PBR**. These entries are real, source-linked material captures from [Poly Haven](https://polyhaven.com/textures) and [ambientCG](https://ambientcg.com/). Both providers publish their assets under CC0. Glyphfield requests the selected 1K maps through a strict same-origin cache route, shows provider and license information in the card and inspector, and never accepts an arbitrary proxy URL.
-
-The live proof applies the captured color, normal, displacement, roughness, and—when available—metalness maps together. The existing procedural structures remain under **Procedural** as offline fallbacks and as deterministic building blocks for agent-generated SVG.
-
-Every texture recipe separates tactile structure from color. **Texture amount** controls how strongly the texture reads; **relief depth** controls its height response; **texture scale** changes the repeat size; **irregularity** moves a structure from manufactured to organic; **roughness** spreads or tightens the highlight; **metallic response** controls specular intensity; and **density / openness** changes mesh, holes, pores, grooves, threads, and cells. These values map to both the fixed-view PBR proof and deterministic SVG lighting primitives.
-
-When a tactile texture is selected, the canvas becomes a fixed-camera PBR relief preview. It shows actual microstructure, bump depth, roughness, metallic response, and frosted-glass transmission without turning Surface Lab into an orbitable object editor. **Grain direction** rotates the texture itself; the presentation camera remains fixed. If WebGL is unavailable, the same canvas falls back to the deterministic SVG construction without throwing a renderer error.
-
-The 3D view is a material proof, while SVG remains the portable source of truth. PNG export rasterizes that deterministic SVG recipe at the selected output dimensions, so a surface remains reproducible in browsers, agents, and non-WebGL environments.
-
-The Texture Gallery opens on tactile recipes by default and separates them from non-textural color fields. It also owns the eight explicitly static **Static Mesh** and **Static Radial** looks previously discovered in the live Shader Library. Their old material IDs remain readable for saved-project compatibility, but new selection happens in Surface Lab as non-moving SVG recipes.
-
-### Converted artwork and stickers
-
-Surface Lab shares the local conversion library with Brand settings and Shaders. Add an SVG, PNG, JPEG, WebP, GIF, AVIF, or BMP file once, choose a 1024, 2048, or 4096 pixel working size, and reuse the resulting transparent PNG without uploading it.
-
-In **Background** mode, converted artwork can cover or fit inside the surface with editable opacity. In **Sticker** mode, the converted alpha channel becomes the die-cut silhouette and can receive the same laminate, glint, reflection, edge, shadow, and depth finishes as a brand mark. Every sticker includes an explicit editable cut border around that silhouette, with independent border color and width controls. The selected converted asset is embedded into PNG export and preserved as `convertedAssetId` in the source drawer.
-
-Holographic sticker motion uses an adapted optical layer from the MIT-licensed [GMHoloSticker](https://github.com/HannulaTero/GMHoloSticker) spectrum/mask model. Prismatic and glitter motion adapt the public-domain [FoilStickerShader](https://github.com/TastiestLemon/FoilStickerShader) diagonal shimmer model. Their upstream project and license appear directly in the finish picker and selected-finish inspector; the repository also carries the required notices.
-
-The **Precision metal inset** finish turns a mark into an architectural emblem: a polished structural perimeter surrounds a microscopic dark separation seam and a recessed satin insert. The frame width, seam width, inset depth, texture, glint, physical depth, and outer sticker border remain editable, while the active three-color surface palette supplies the insert material.
-
-Existing Surface Lab drafts that selected a live shader open as a static grain-gradient recipe. Live and image-aware Paper effects remain in Shaders; only the explicitly static Mesh and Radial families are routed to Surface Lab discovery. Upstream attribution remains in the material catalog for saved documents.
-
-### Output and source
-
-**Download PNG** rasterizes the same SVG composition shown in the canvas. The **Code** action opens the Surface Lab document in a right-side drawer with static surface settings, sticker application and finish settings, logo appearance, asset fit and opacity, logo visibility, and the selected brand or converted asset.
-
-Applying valid source updates the same preview used by the inspector and export. Surface Lab rejects `live-shader` source values and directs that work to Shaders. The source object and agent `background` generator accept `surfaceLibraryAssetId`, `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`. `GET /api/catalog` publishes the same open PBR catalog, provider links, licenses, map availability, procedural fallbacks, and sticker-shader sources used by the browser.
+<DocsMediaGrid>
+  <DocsMedia alt='Design Lab composition using material, type, and brand mark layers' caption='Combined composition' meta='Type · mark · shader · effects' src='/screenshots/studio-gt-design-lab-light-2026.png' />
+  <DocsMedia alt='Design Lab composition with material and artwork controls' caption='Rapid exploration' meta='Same brand foundations' src='/screenshots/studio-gt-playground-dark-2026.png' />
+</DocsMediaGrid>
 
 ## Color tokens
 
-Color tokens provides large swatches with editable HEX and OKLCH values plus percentage opacity. **Copy tokens** writes perceptual CSS custom properties and preserves a HEX reference.
+Color tokens presents the active identity's semantic colors as large swatches with editable HEX and OKLCH values. Opacity remains independent from the color value. **Copy tokens** produces CSS custom properties while retaining the HEX reference used by SVG and Canvas renderers.
 
-Use this tool to check contrast across ink, paper, emphasis, and status colors before committing the values in Brand settings.
+Use Color tokens to:
+
+- Check ink/paper contrast before composing.
+- Inspect perceptual lightness in OKLCH.
+- Establish emphasis and status roles.
+- Confirm a palette works across both light and dark surfaces.
+- Supply the same three-color starting point to the Shader Library.
+
+Commit foundational changes in Brand identity when every artifact should inherit them. Tool-local color edits remain part of that artifact.
 
 ## Typography
 
-Typography compares Display, Body, Accent, and Code roles in one view. Select a bundled family or load an OTF, TTF, WOFF, or WOFF2 file for the current browser session.
+Typography compares Display, Body, Accent, and Code roles, weights, spacing, and hierarchy in one specimen. A custom OTF, TTF, WOFF, or WOFF2 file can be loaded into the current browser with the FontFace API.
 
-Uploaded font files are loaded with the browser FontFace API. They are not uploaded to Glyphfield.
+Uploaded font files are not sent to Glyphfield's HTTP generator. Preserve the authorized font separately or convert a final browser composition to an embedded/raster output when exact typography must travel.
 
-See [Source code editing](/docs/studio/source-editing) for validation and round-trip behavior.
+## Deterministic tactile backgrounds
+
+`POST /api/generate` with `kind: "background"` creates portable SVG from the same background recipe vocabulary published in `/api/catalog`:
+
+- Linear, radial, mesh, orbit, wave, and bloom gradients.
+- Grain and relief.
+- Bayer dither with 2×2, 4×4, or 8×8 matrices.
+- Dot, line, grid, fiber, speckle, topographic, and crosshatch patterns.
+- Wood, wire, perforated metal, stone, paper, metal, foil, polymer, cork, glass, linen, felt, leather, ceramic, plaster, and carbon-inspired tactile structures.
+- Texture amount, scale, angle, irregularity, depth, roughness, metallic response, and open area.
+- Optional logo placement and tone.
+
+The catalog also publishes CC0 Open PBR references from sources such as Poly Haven and ambientCG. Those entries provide provenance and visual reference. Deterministic SVG generation remains the portable output and does not require WebGL.
+
+```bash
+curl -fsS -X POST http://localhost:3012/api/generate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "background",
+    "identity": { "preset": "gt" },
+    "settings": {
+      "width": 1600,
+      "height": 900,
+      "style": "grain-gradient",
+      "gradient": "mesh",
+      "surfaceMaterial": "embossed-paper",
+      "surfaceDepth": 36,
+      "surfaceRoughness": 72,
+      "colorA": "#F5F5F2",
+      "colorB": "#181818",
+      "colorC": "#7058FF"
+    },
+    "output": "raw"
+  }' -o tactile-background.svg
+```
+
+## Put the foundation into Design Lab
+
+Use a generated SVG as an authorized image/background layer, or choose a live shader directly from the shared library. Add text, multiple marks, images, stickers, and converter layers above it. Every layer has its own visibility, transform, ordering, and opacity.
+
+For white artwork on a white sticker border, adjust the mark treatment separately from the cut line: apply an alpha-aware outline, shadow, alternate mark color, or contrasting surface while preserving the sticker's white physical edge.
+
+Use [Design Lab](/docs/studio/design-lab) for full composition, [Shader Library](/docs/studio/shader-library) for live material behavior, and [Background generation](/docs/agents/generate) for deterministic SVG.

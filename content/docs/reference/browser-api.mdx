@@ -1,0 +1,136 @@
+---
+title: Studio Browser API
+description: Operate every visible Studio control, round-trip source documents, and export authentic browser-rendered artifacts.
+icon: MonitorCog
+---
+
+The active Studio tool registers `window.glyphfield.studio`. This API is the programmatic equivalent of the visible workspace and intentionally uses the same controls, source validators, project state, renderers, and export actions.
+
+## Lifecycle
+
+The global is replaced whenever the active tool changes. Glyphfield dispatches `glyphfield:studio-api-ready` with `studio.describe()` as event detail after each adapter is registered.
+
+```js
+await new Promise((resolve) => {
+  if (window.glyphfield?.studio) resolve();
+  else window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+});
+```
+
+When automation activates another tool, subscribe before the click, wait for the event, then read `window.glyphfield.studio` again.
+
+## Core methods
+
+| Method | Result | Use |
+| --- | --- | --- |
+| `activeTool()` | Studio tool ID | Confirm the adapter matches the intended tool |
+| `describe()` | Version, tool ID, source support, action list | Discover before invoking |
+| `controls()` | Visible control labels, kinds, and values | Inspect the actual UI contract |
+| `activate(label)` | `void` | Click a visible button, tab, or role button by exact accessible label |
+| `set(label, value)` | `void` | Change an input, textarea, select, checkbox, contenteditable, or file input |
+| `readSource()` | JSON string | Read the active tool's exact source document |
+| `applySource(source)` | `Promise<void>` | Validate and apply a JSON object or string, then wait for the React commit |
+| `invoke(action, input?)` | `Promise<unknown>` | Run standard or tool-specific actions |
+| `download(artifact)` | `void` | Save a returned `{ blob, fileName }` artifact |
+
+## Standard actions
+
+Every adapter supports these through `invoke` when the corresponding capability exists:
+
+```text
+source.read
+source.apply
+controls.list
+control.activate
+control.set
+artifact.download
+```
+
+`source.read` and `source.apply` fail clearly when the active tool does not expose source. Use `describe().source` to check first.
+
+## Accessible control contract
+
+`controls()` discovers enabled `button`, `input`, `textarea`, `select`, `[role="button"]`, and `[role="textbox"]` elements. Labels resolve in this order:
+
+1. `aria-label`
+2. `title`
+3. `name`
+4. `aria-labelledby`
+5. Wrapping `<label>` text
+6. Element text
+
+Matching is whitespace-normalized and case-insensitive but otherwise exact. If two visible controls share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
+
+## Values and files
+
+`set` accepts strings, numbers, booleans, `File`, or `File[]`.
+
+- Checkboxes require a Boolean.
+- File inputs require a `File` or array of `File` objects.
+- Inputs and textareas dispatch bubbling `input` and `change` events.
+- Contenteditable controls receive a bubbling `InputEvent`.
+
+Browser automation must not synthesize a file path into a file input. Read the authorized bytes and create a real `File` object.
+
+## Source round trips
+
+```js
+const studio = window.glyphfield.studio;
+const document = JSON.parse(studio.readSource());
+// Make the smallest targeted change and preserve every unknown field.
+await studio.applySource(document);
+```
+
+Application waits for two animation frames after the tool validator resolves. This is a UI commit boundary, not a guarantee that a remote font, image decode, WebGL compilation, or long export has completed. Wait for the relevant preview state before final capture.
+
+## Design Lab actions
+
+Design Lab adds:
+
+```text
+design.sequence.describe
+design.sequence.configure
+design.sequence.preview
+design.sequence.stop
+design.export
+design.export.png
+design.export.jpg
+design.export.gif
+design.export.mp4
+design.export.shader-sequence.gif
+design.export.shader-sequence.mp4
+```
+
+Use the unified action for new clients:
+
+```js
+const artifact = await studio.invoke('design.export', {
+  format: 'mp4',
+  mode: 'shader-sequence',
+  download: true,
+});
+```
+
+`format` accepts `png`, `jpg`, `gif`, or `mp4`. `mode` accepts `standard` or `shader-sequence`; the latter is valid for GIF and MP4. With `download: false` or omitted, the method returns the Blob without saving it. Call `studio.download(artifact)` later if needed.
+
+## Completion and verification
+
+For a mutation:
+
+1. Apply or operate the control.
+2. Re-read source or controls and confirm the expected state.
+3. Inspect the rendered canvas when visual behavior matters.
+
+For an export:
+
+1. Wait for the action Promise.
+2. Confirm `artifact.blob` is a non-empty Blob.
+3. Confirm the file name and MIME type match the request.
+4. When `download: true`, confirm the browser download completed.
+5. For motion, inspect more than the first frame and verify loop behavior when requested.
+
+## Error model
+
+The Browser API throws JavaScript `TypeError` for malformed action input or unsupported source, and `RangeError` when a control or action cannot be found. Tool renderers may throw `Error` for WebGL, image decode, Canvas, GIF, MP4, or browser-codec failures.
+
+Do not catch and ignore these failures. Include the active tool ID, action, and `describe()` output in diagnostic logs, then either correct the operation or report the actual browser capability limitation.

@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { docsSidebarRailPath, type DocsSidebarRailPoint } from '@/lib/docsSidebarRail';
+
 const VIEWPORT_SELECTOR = '#nd-sidebar [data-radix-scroll-area-viewport]';
 const ROW_SELECTOR = 'a[href], button[type="button"]';
 const PENDING_CLASS = 'docs-sb-pending';
@@ -11,11 +13,10 @@ const ROW_INSET_Y = 6;
 const STROKE = 1.5;
 const TRAVEL_MS = 300;
 
-type RowGeometry = { bottom: number; top: number; x: number };
 type RailRun = {
   hoverThumb: HTMLElement;
   rail: HTMLElement;
-  rows: Map<HTMLElement, RowGeometry>;
+  rows: Map<HTMLElement, DocsSidebarRailPoint>;
   thumb: HTMLElement;
   top: number;
 };
@@ -36,7 +37,10 @@ function collectRows(node: Element, rows: HTMLElement[]) {
     rows.push(node as HTMLElement);
     return;
   }
-  if (!node.matches('div[data-state]')) return;
+  if (!node.matches('div[data-state]')) {
+    for (const child of node.children) collectRows(child, rows);
+    return;
+  }
 
   const header = node.querySelector<HTMLElement>(':scope > :is(button, a[href])');
   if (header) rows.push(header);
@@ -123,9 +127,7 @@ function buildRails() {
     rows.forEach((row, rowIndex) => run.rows.set(row, geometry[rowIndex]!));
     run.top = top;
     const height = bottom - top;
-    const path = geometry.map((point, pointIndex) => (
-      `${pointIndex === 0 ? 'M' : 'L'}${point.x} ${point.top - top} L${point.x} ${point.bottom - top}`
-    )).join(' ');
+    const path = docsSidebarRailPath(geometry, top);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><path d="${path}" stroke="black" stroke-width="${STROKE}" fill="none" stroke-linejoin="round" stroke-linecap="round" /></svg>`;
     const mask = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
     Object.assign(run.rail.style, {
@@ -220,7 +222,10 @@ function setup() {
   const host = (viewport.firstElementChild as HTMLElement | null) ?? viewport;
   const previousPosition = host.style.position;
   host.style.position = 'relative';
+  host.setAttribute('data-sidebar-rail-host', '');
   motionState = { host, runs: [], viewport };
+  let hoveredRow: HTMLElement | null = null;
+  let layoutFrame = 0;
 
   const hover = document.createElement('div');
   const current = document.createElement('div');
@@ -238,18 +243,47 @@ function setup() {
     const row = (event.target as Element | null)?.closest<HTMLElement>(ROW_SELECTOR);
     return row && viewport.contains(row) ? row : null;
   };
+  const refreshLayout = () => {
+    layoutFrame = 0;
+    buildRails();
+    markCurrent(currentRow(), true);
+    const visibleHover = hoveredRow?.isConnected ? hoveredRow : null;
+    placePill('hover', visibleHover, true);
+    placeThumb('hoverThumb', visibleHover, true);
+  };
+  const scheduleLayout = () => {
+    if (layoutFrame) return;
+    layoutFrame = requestAnimationFrame(refreshLayout);
+  };
   const onPointerOver = (event: PointerEvent) => {
     if (!finePointer.matches) return;
     const row = rowFromEvent(event);
+    if (row === hoveredRow) return;
+    hoveredRow = row;
     placePill('hover', row);
     placeThumb('hoverThumb', row);
   };
   const onPointerLeave = () => {
+    hoveredRow = null;
     placePill('hover', null);
     placeThumb('hoverThumb', null);
   };
+  const onFocusIn = (event: FocusEvent) => {
+    const row = rowFromEvent(event);
+    hoveredRow = row;
+    placePill('hover', row);
+    placeThumb('hoverThumb', row);
+  };
+  const onFocusOut = (event: FocusEvent) => {
+    const nextRow = event.relatedTarget instanceof Element
+      ? event.relatedTarget.closest<HTMLElement>(ROW_SELECTOR)
+      : null;
+    if (nextRow && viewport.contains(nextRow)) return;
+    onPointerLeave();
+  };
   const onClick = (event: MouseEvent) => {
     const row = rowFromEvent(event);
+    scheduleLayout();
     if (!row?.matches('a[href]')) return;
     clearPending();
     row.classList.add(PENDING_CLASS);
@@ -258,21 +292,36 @@ function setup() {
   };
 
   viewport.addEventListener('click', onClick);
+  viewport.addEventListener('focusin', onFocusIn);
+  viewport.addEventListener('focusout', onFocusOut);
   viewport.addEventListener('pointerleave', onPointerLeave);
   viewport.addEventListener('pointerover', onPointerOver);
-  const observer = new ResizeObserver(() => {
-    buildRails();
-    placePill('hover', null);
-    placeThumb('hoverThumb', null);
-    markCurrent(currentRow(), true);
+  const resizeObserver = new ResizeObserver(scheduleLayout);
+  const mutationObserver = new MutationObserver((mutations) => {
+    if (mutations.some((mutation) => (
+      mutation.type === 'childList'
+      || mutation.attributeName === 'data-active'
+      || mutation.attributeName === 'data-state'
+      || mutation.attributeName === 'hidden'
+    ))) scheduleLayout();
   });
-  observer.observe(host);
+  resizeObserver.observe(host);
+  mutationObserver.observe(host, {
+    attributeFilter: ['data-active', 'data-state', 'hidden'],
+    attributes: true,
+    childList: true,
+    subtree: true,
+  });
 
   return () => {
     clearTimeout(landingTimer);
+    cancelAnimationFrame(layoutFrame);
     shell?.removeAttribute('data-sb-ready');
-    observer.disconnect();
+    resizeObserver.disconnect();
+    mutationObserver.disconnect();
     viewport.removeEventListener('click', onClick);
+    viewport.removeEventListener('focusin', onFocusIn);
+    viewport.removeEventListener('focusout', onFocusOut);
     viewport.removeEventListener('pointerleave', onPointerLeave);
     viewport.removeEventListener('pointerover', onPointerOver);
     hover.remove();
@@ -280,6 +329,7 @@ function setup() {
     motionState?.runs.forEach((run) => run.rail.remove());
     motionState = null;
     host.style.position = previousPosition;
+    host.removeAttribute('data-sidebar-rail-host');
   };
 }
 

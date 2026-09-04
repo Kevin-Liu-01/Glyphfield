@@ -1,0 +1,123 @@
+---
+title: Self-hosting
+description: Run Glyphfield locally or in production with its dynamic docs, generation routes, browser-local persistence, and rendering boundaries intact.
+icon: MonitorCog
+---
+
+Glyphfield is a Next.js application with dynamic API, OpenGraph, Markdown, and full-corpus routes. It is not configured as a static export. A complete deployment must run the Next.js server and preserve normal browser access to Canvas, WebGL, storage, files, and downloads.
+
+<DocsMedia alt='Glyphfield documentation and Studio system represented by the General Translation identity workspace' caption='One deployment serves docs, discovery, API, and Studio' meta='Next.js · local-first browser state' src='/screenshots/studio-gt-identity-dark-2026.png' />
+
+## Install and run
+
+The lockfile is the dependency authority. No project-wide Node engine is declared, so use a current Node release compatible with the checked-in Next.js version and pin it in your deployment environment.
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Development runs on `http://localhost:3012`.
+
+For a production server:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm start
+```
+
+Set the listening host/port with the hosting platform or Next.js start options. Do not rewrite source examples around a hardcoded deployment hostname; integrations should define their own `BASE_URL`.
+
+## Routes the host must preserve
+
+| Route family | Purpose | Runtime behavior |
+| --- | --- | --- |
+| `/studio` | Interactive brand tools | Browser-rendered and browser-persisted |
+| `/docs/**` | Human documentation | Server-rendered Fumadocs pages |
+| `/docs.md`, `/docs/**.md` | Processed Markdown twins | Rewritten to the docs Markdown route |
+| `/llms.txt` | Compact agent router | Static public asset |
+| `/llms-full.txt` | Complete processed docs corpus | Generated dynamically from the current docs source |
+| `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, `/api/elements` | Agent discovery | JSON; safe to cache briefly according to response headers |
+| `/api/generate` | Deterministic generation | Public POST; validates and processes in memory; `no-store` |
+| `/openapi.json` | OpenAPI 3.1 contract | Generated dynamically |
+| `/og/**`, `/api/og-*` | Social preview rendering | Dynamic image responses |
+| `/api/surface-textures/**` | Allowlisted material maps | Only known bundled assets/maps are served |
+
+Do not configure a CDN to turn dynamic API, Markdown, OpenGraph, or full-corpus routes into the same long-lived static response.
+
+## Local-first deployment boundary
+
+Projects and tool state live in the visitor's browser rather than a server database. This has three operational consequences:
+
+1. Deploying a new server does not migrate browser projects.
+2. Changing the hostname, scheme, or port creates a different browser-storage origin.
+3. Server backups do not contain user projects, saved designs, or original local files.
+
+Before changing a production origin, instruct users to follow [Backup and restore](/docs/artifacts/backup-and-restore).
+
+## Reverse proxy and response requirements
+
+- Forward GET, POST, and OPTIONS requests without stripping request bodies.
+- Preserve `Content-Type`, `Content-Disposition`, cache, and CORS headers from API responses.
+- Allow request bodies up to Glyphfield's 5 MB application limit without substituting an ambiguous proxy error.
+- Do not HTML-rewrite raw SVG responses from `/api/generate`.
+- Keep cross-origin isolation changes deliberate; test Canvas, fonts, local files, downloads, and WebGL after any security-header change.
+- Serve the application over HTTPS in production so browser APIs are available in a secure context where required.
+
+## Health verification
+
+After deployment, verify the contracts rather than checking only the home page:
+
+```bash
+BASE_URL=https://your-glyphfield.example
+
+curl -fsS "$BASE_URL/api/agent" | jq '.schemaVersion'
+curl -fsS "$BASE_URL/api/labs" | jq '.count'
+curl -fsS "$BASE_URL/api/materials" | jq '.count'
+curl -fsS "$BASE_URL/openapi.json" | jq '.openapi'
+curl -fsS "$BASE_URL/docs/reference/endpoints.md" | head
+curl -fsS "$BASE_URL/llms-full.txt" | head
+```
+
+Then open the deployed Studio in a supported browser, create a temporary project, render a material, reload once, and export a small PNG. HTTP health does not prove browser persistence or graphics support.
+
+## Generation smoke test
+
+```bash
+curl -fsS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "background",
+    "identity": { "preset": "gt" },
+    "settings": { "width": 1200, "height": 630 },
+    "output": "raw"
+  }' \
+  -o glyphfield-smoke.svg
+
+test -s glyphfield-smoke.svg
+```
+
+Read `GET /api/generate` before adapting the request; the live contract is authoritative.
+
+## Operational ownership
+
+The repository validates request shapes and size/geometry bounds. The production platform owns network-level rate limiting, request logs, abuse response, uptime, and deploy rollback. Keep those responsibilities explicit: a local build passing does not confirm that a provider firewall rule is active.
+
+See [API security](/docs/reference/api-security) for the current production control model and [Browser support](/docs/reference/browser-support) for graphics, storage, and codec verification.
+
+## Release checklist
+
+1. Install from the lockfile.
+2. Generate docs and typecheck.
+3. Run contract and rendering tests.
+4. Build the production application.
+5. Inspect deployment firewall changes before publishing them.
+6. Verify discovery, Markdown, OpenAPI, generation, and social-preview routes.
+7. Verify browser persistence and one still/motion path appropriate to the release.
+8. Preserve the previous deploy until source and artifact smoke tests pass.
+
+See [Contributing](/docs/contributing), [Troubleshooting](/docs/reference/troubleshooting), and [Storage and privacy](/docs/artifacts/storage-and-privacy).

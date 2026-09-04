@@ -142,7 +142,7 @@ export const AGENT_GENERATION_CONTRACT = {
       mimeTypes: ['application/json', 'image/svg+xml'],
     },
     'design-sequence': {
-      description: 'Create an exact Design Lab source document for a fixed composition with authentic browser-native PNG, JPG, GIF, and MP4 export.',
+      description: 'Create an apply-ready Design Lab compatibility document for a fixed composition. Design Lab validates and normalizes it to the current CanvasDocument before authentic browser-native PNG, JPG, GIF, and MP4 export.',
       fields: {
         backgroundColor: 'Optional six-digit HEX; defaults to #111216',
         effect: 'Optional bayer | ascii | halftone | posterize converter with opacity and converter settings',
@@ -156,7 +156,7 @@ export const AGENT_GENERATION_CONTRACT = {
         texts: 'Optional array of up to 32 positioned text layers',
       },
       mimeTypes: ['application/json'],
-      programmaticExport: "Open /studio, apply response.document, then invoke design.export with format png | jpg | gif | mp4, optional mode shader-sequence, and optional download true.",
+      programmaticExport: "Open /studio, apply response.document (version 3 compatibility source), re-read the normalized CanvasDocument schema 2 / Design Lab source 4, then invoke design.export with format png | jpg | gif | mp4, optional mode shader-sequence, and optional download true.",
     },
     'element-brief': {
       description: 'Resolve one /api/elements record against a preset or custom identity.',
@@ -211,9 +211,78 @@ export const STUDIO_BROWSER_API_CONTRACT = {
   version: 1,
 } as const;
 
+export const GLYPHFIELD_AGENT_SKILLS = [
+  {
+    id: 'glyphfield-create',
+    repositoryPath: 'skills/glyphfield-create',
+    useFor: 'Layered Design Lab composition, shaders, authored layers, and saved designs',
+  },
+  {
+    id: 'glyphfield-api',
+    repositoryPath: 'skills/glyphfield-api',
+    useFor: 'Deterministic HTTP discovery, generation, and batch workflows',
+  },
+  {
+    id: 'glyphfield-studio',
+    repositoryPath: 'skills/glyphfield-studio',
+    useFor: 'Authentic browser Studio operation, source round trips, and local files',
+  },
+  {
+    id: 'glyphfield-export',
+    repositoryPath: 'skills/glyphfield-export',
+    useFor: 'Still and motion export with artifact, loop, frame, and audio verification',
+  },
+] as const;
+
 export const AGENT_MANIFEST = {
   description: 'Discover Glyphfield labs, shaders, identities, generation contracts, and the programmatic Studio browser API from one agent-readable interface.',
+  execution: {
+    completion: [
+      'Re-read source or controls after every mutation and confirm the requested state.',
+      'For a rendered artifact, verify that the returned Blob is non-empty and its MIME type and file name match the requested format.',
+      'For visual work, inspect the authentic rendered canvas; for motion, inspect more than the first frame and verify the requested loop behavior.',
+      'Report browser capability failures explicitly. Never claim an export completed from a successful request alone.',
+    ],
+    discoveryOrder: [
+      '/api/agent',
+      '/api/labs',
+      '/api/materials or another task-specific catalog',
+      '/api/generate for the current schema',
+      '/docs/agents/choose-interface.md for interface selection',
+    ],
+    mutation: [
+      'Read the current source document before editing an open Studio artifact.',
+      'Preserve unknown document fields and make the smallest targeted change.',
+      'Apply through the active tool validator; do not mutate React state or storage directly.',
+      'Do not run browser exports concurrently because they share renderer and encoder resources.',
+    ],
+    never: [
+      'Do not invent catalog IDs, accessible labels, source fields, or enum values.',
+      'Do not put filesystem paths into browser file inputs; construct an authorized File object.',
+      'Do not silently replace MP4 with GIF or a live shader with a static approximation.',
+      'Do not retry an unchanged validation failure.',
+    ],
+  },
   generation: AGENT_GENERATION_CONTRACT,
+  interfaces: {
+    browser: {
+      bestFor: ['Canvas', 'WebGL', 'local files', 'local fonts', 'visual placement', 'PNG', 'JPG', 'GIF', 'MP4', 'Lottie'],
+      contract: '/docs/reference/browser-api.md',
+      global: STUDIO_BROWSER_API_CONTRACT.global,
+      workspace: '/studio',
+    },
+    docs: {
+      complete: '/llms-full.txt',
+      concise: '/llms.txt',
+      markdownPattern: '/docs/:path.md',
+      search: '/api/search',
+    },
+    http: {
+      bestFor: ['discovery', 'deterministic SVG', 'identity data', 'element briefs', 'Design Lab source generation'],
+      contract: '/openapi.json',
+      generation: '/api/generate',
+    },
+  },
   name: 'Glyphfield Agent API',
   policies: {
     assets: 'Use only assets you are authorized to process. Remote URL fetching is not supported.',
@@ -223,17 +292,27 @@ export const AGENT_MANIFEST = {
   resources: {
     catalog: '/api/catalog',
     docs: '/docs',
+    fullInstructions: '/llms-full.txt',
     elements: '/api/elements',
     generate: '/api/generate',
     identities: '/api/identities',
     instructions: '/llms.txt',
+    markdownDocs: '/docs/:path.md',
     integrationGuide: '/docs/agents/connect',
     labs: '/api/labs',
     materials: '/api/materials',
     openapi: '/openapi.json',
+    search: '/api/search',
+    skillGuide: '/docs/skills.md',
+    surfaceTextures: '/api/surface-textures/:assetId/:map',
     workspace: '/studio',
   },
   schemaVersion: 2,
+  skills: {
+    guide: '/docs/skills.md',
+    packages: GLYPHFIELD_AGENT_SKILLS,
+    repositoryDirectory: 'skills',
+  },
   studioBrowserApi: STUDIO_BROWSER_API_CONTRACT,
   version: '0.2.0',
 } as const;
@@ -319,6 +398,39 @@ export const OPENAPI_DOCUMENT = {
       get: {
         responses: { '200': { description: 'Complete shader library, controls, palettes, presets, attribution, and background/logo layer compatibility' } },
         summary: 'List every shader available for independent background and logo layers',
+      },
+    },
+    '/api/surface-textures/{assetId}/{map}': {
+      get: {
+        parameters: [
+          { in: 'path', name: 'assetId', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'map', required: true, schema: { enum: ['color', 'displacement', 'metalness', 'normal', 'roughness'], type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Allowlisted CC0 texture map with provider and license headers' },
+          '404': { description: 'Unknown asset, map type, or unavailable map' },
+          '502': { description: 'Allowlisted upstream provider is unavailable' },
+        },
+        summary: 'Fetch an allowlisted open-surface texture map',
+      },
+    },
+    '/api/docs/{slug}': {
+      get: {
+        parameters: [{ in: 'path', name: 'slug', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'One documentation page as processed Markdown' }, '404': { description: 'Documentation page not found' } },
+        summary: 'Read one documentation page as Markdown',
+      },
+    },
+    '/llms-full.txt': {
+      get: {
+        responses: { '200': { description: 'Complete concatenated Glyphfield documentation corpus' } },
+        summary: 'Load the complete agent-readable documentation corpus',
+      },
+    },
+    '/llms.txt': {
+      get: {
+        responses: { '200': { description: 'Concise agent router and operating contract' } },
+        summary: 'Load concise agent instructions',
       },
     },
   },

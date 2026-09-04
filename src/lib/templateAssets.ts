@@ -105,8 +105,8 @@ export function defaultTemplatePartnerFont(
 }
 
 export function defaultTemplatePartnerTreatment(
-  partnerId: string,
-  availableIdentities: readonly BrandIdentity[]
+  _partnerId: string,
+  _availableIdentities: readonly BrandIdentity[]
 ): TemplatePartnerTreatment {
-  return availableIdentities.some(({ id }) => id === partnerId) ? 'text' : 'logo';
+  return 'logo';
 }

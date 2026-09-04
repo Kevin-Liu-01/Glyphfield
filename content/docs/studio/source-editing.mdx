@@ -1,102 +1,90 @@
 ---
 title: Source code editing
-description: Open any supported artifact as JSON, Lottie JSON, or material configuration in a right-side drawer and apply it to the live canvas.
+description: Round-trip the active artifact through validated JSON without separating code, canvas, persistence, and export.
 icon: Braces
 ---
 
-Every major Studio artifact can be edited visually or as structured source. The **Code** action opens a right-side drawer without replacing the canvas, so the source, inspector controls, preview, persisted draft, and export continue to describe the same artifact.
+Every source-enabled Studio tool can be edited visually or structurally. **Code** opens the document beside the live canvas; `window.glyphfield.studio` exposes the same read/apply boundary to agents.
 
-## Open the source drawer
+<DocsMedia alt='Design Lab with the live composition and inspector visible together' caption='One artifact, two editing modes' meta='Visual controls and source stay synchronized' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
 
-1. Open a project and choose a Studio tool.
-2. Select **Code** in the tool header.
-3. Edit the current source in the right drawer.
-4. Select **Apply** to validate the document and update the live tool.
-5. Inspect the canvas before downloading or continuing visually.
+## Human workflow
 
-**Reset** restores the drawer to the current visual snapshot. **Close** hides the drawer without changing the tool. Invalid source remains unapplied and produces an inline error with the field or format that needs attention.
+1. Select a project and tool.
+2. Open **Code** from the tool action area.
+3. Make a targeted edit to the current source.
+4. Select **Apply**.
+5. Resolve any inline validation error.
+6. Inspect the canvas and layers.
+7. Continue visually, save the design, or export.
 
-## What can be edited
+**Reset** reloads the latest visual snapshot into the editor. **Close** dismisses the drawer without applying uncommitted text. The drawer does not create a second copy of the artifact.
 
-| Studio surface | Source format | Applied result |
+## Agent workflow
+
+```js
+const studio = window.glyphfield.studio;
+const capabilities = studio.describe();
+if (!capabilities.source.read || !capabilities.source.apply) {
+  throw new Error(`${capabilities.toolId} does not expose source round trips.`);
+}
+
+const document = JSON.parse(studio.readSource());
+// Preserve the document and edit only known fields.
+await studio.applySource(document);
+```
+
+Application waits for the tool validator and two animation frames. Image decode, font loading, shader compilation, and encoding may take longer; wait for the relevant preview before capture.
+
+## Source families
+
+| Family | Tools | Shape |
 | --- | --- | --- |
-| Brand settings | Complete `BrandIdentity` JSON | Replaces the active identity after required collections validate |
-| Brand elements | Selected element override JSON | Updates the selected application and its visual preview |
-| Moodboard | Composition and export JSON | Changes board mode and output dimensions |
-| Animation | Sequence, timing, frame, and playback JSON | Updates the same frame model used by preview and GIF export |
-| Lottie | Raw Lottie JSON | Replaces the vector document and rebuilds playback |
-| Material | Material-engine JSON with optional GLSL source | Updates the live WebGL material, logo target, finish, and export settings |
-| Surface Lab | Background, logo, asset, and appearance JSON | Updates the shared surface canvas and PNG output |
-| OpenGraph and templates | Tool-specific content, layout, surface, and layer JSON | Updates the selected graphic and its exported PNG |
-| Color and typography | Token and font-role JSON | Updates identity-bound foundation previews |
-| Terminal and components | Tool-specific configuration JSON | Updates the rendered card or component family |
+| Shared identity | Brand identity and identity-bound foundations | Complete brand record or controlled identity subset |
+| Portable canvas | Design Lab | CanvasDocument v2, Design Lab metadata source v4 |
+| Motion | Animation | Sequence, frame, transform, timing, shader, output, and audio state |
+| Vector animation | Lottie | Raw Lottie JSON when a JSON document is available |
+| Expression configuration | OpenGraph, Terminal, Partnership, Blog, Slides, Components | Tool-specific content, layout, asset, and transform object |
+| Derived publication | Brand book | Identity is source; the book is regenerated output |
 
-See [Source format reference](/docs/reference/source-formats) for field-level constraints.
+## Why current source is authoritative
 
-## Animation source
+Examples explain concepts but may omit fields added by later releases. `readSource()` contains the active migration result, stable IDs, exact asset references, layer order, saved frame/timeline values, and tool metadata. Starting there prevents logos from shifting, layers from reordering, or newer settings from disappearing.
 
-Animation uses one JSON object. `textFrames` is a newline-delimited string, while `sequenceOrder` determines where text, logo, and image states appear.
+Do not:
 
-```json
-{
-  "mode": "sequence",
-  "textFrames": "Welcome\n你好\nようこそ",
-  "includeBrandLogo": true,
-  "sequenceOrder": ["brand-logo", "text-0", "text-1", "text-2"],
-  "playbackRate": 1,
-  "settings": {},
-  "frameSettings": {}
-}
+- Recreate a CanvasDocument from an old code sample.
+- Change element IDs when updating content or style.
+- Drop unknown metadata or assets.
+- Write directly to localStorage or IndexedDB.
+- Apply one tool's document to another tool.
+- Treat a successful apply as visual verification.
+
+## Design Lab specifics
+
+Design Lab source contains the complete composition: pages, elements, embedded/library assets, exact order, groups, layer shaders, text/converter effects, background color, output settings, shader frame history, and sequence timeline. Named saves and autosave use the same portable source.
+
+Use a `design-sequence` HTTP response when an agent needs to create a new exact composition. Use `readSource()` for an existing one. Both are applied through the active Design Lab adapter, whose public tool ID is `material`.
+
+## Source versus generation request
+
+`POST /api/generate` accepts a concise, versioned request and returns an artifact or apply-ready document. A source drawer exposes the richer state of one open browser tool. They are not interchangeable.
+
+The safe bridge is explicit:
+
+```js
+const generated = await fetch('/api/generate', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    kind: 'design-sequence',
+    identity: { preset: 'gt' },
+    shader: { materialId: 'paper-gem-smoke' },
+    sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' }
+  })
+}).then((response) => response.json());
+
+await window.glyphfield.studio.applySource(generated.document);
 ```
 
-Start from the source already shown in the drawer and change only the fields you need. This preserves the complete timing and per-frame objects produced by the visual editor.
-
-## Lottie source
-
-Imported Lottie JSON is edited as the animation document itself rather than as a Glyphfield wrapper.
-
-```json
-{
-  "v": "5.12.2",
-  "fr": 60,
-  "ip": 0,
-  "op": 180,
-  "w": 1200,
-  "h": 750,
-  "layers": []
-}
-```
-
-The editor requires a numeric `fr` and a `layers` array. A binary `.lottie` bundle cannot be converted into editable text automatically; import or select a JSON source before using the drawer. The original bundle remains downloadable.
-
-## Material and GLSL source
-
-Material source keeps renderer selection, colors, parameters, live-material settings, surface finish, logo placement, output ratio, quality, and speed in one object. Custom shader text is stored in `customSource`.
-
-```json
-{
-  "engine": "custom-glsl",
-  "target": "both",
-  "ratio": "opengraph",
-  "exportQuality": "high",
-  "colors": ["#181818", "#ffffff", "#a8a8a8"],
-  "customSource": "void main() { /* use the supplied uniforms */ }"
-}
-```
-
-Use the current drawer source when authoring a shader so the engine-specific parameters and finish values remain intact. The material canvas recompiles only after a valid document is applied.
-
-## Validation and shared state
-
-- The drawer accepts JSON objects, not arrays or primitive values.
-- Tool-specific enums and numeric ranges validate before the visual state changes.
-- Applying valid source updates the same project-scoped draft used by the inspector.
-- Subsequent visual edits regenerate the source representation.
-- Preview and export resolve from the applied tool state, not from an isolated code sample.
-- Source editing does not bypass asset authorization, font availability, or export preflight.
-
-## Source drawer versus the agent API
-
-The drawer is a browser-local editing surface for an open project. `POST /api/generate` is the stable public contract for deterministic SVG and JSON generation. They share identity concepts, but their payloads are not interchangeable.
-
-Agents operating the browser may open **Code**, edit the current document, apply it, visually verify the canvas, and use the visible download action. Headless integrations should use [`/api/generate`](/docs/agents/generate) and validate against `/openapi.json` instead.
+See [Source format reference](/docs/reference/source-formats), [Studio Browser API](/docs/reference/browser-api), and [Agent recipes](/docs/agents/recipes).

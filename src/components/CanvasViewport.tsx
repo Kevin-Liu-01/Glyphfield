@@ -26,6 +26,7 @@ import { useStudioDraft } from '@/hooks/usePersistentState';
 import {
   clampCanvasZoom,
   resolveCanvasGridStep,
+  resolveCanvasStageTransform,
   resolveCanvasWheelZoomDelta,
   resolveCenteredCanvasPan,
 } from '@/lib/canvasViewport';
@@ -95,7 +96,7 @@ export default function CanvasViewport({
 
   function applyStageTransform(x: number, y: number) {
     if (!stageRef.current) return;
-    stageRef.current.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${zoomRef.current / 100})`;
+    stageRef.current.style.transform = resolveCanvasStageTransform({ x, y, zoom: zoomRef.current });
     scrollRef.current?.style.setProperty('--canvas-grid-x', `${x}px`);
     scrollRef.current?.style.setProperty('--canvas-grid-y', `${y}px`);
     scrollRef.current?.style.setProperty('--canvas-grid-step', `${resolveCanvasGridStep(zoomRef.current)}px`);
@@ -439,7 +440,7 @@ export default function CanvasViewport({
             '--canvas-zoom-inverse': 100 / constrainedZoom,
             fontFamily,
             fontWeight,
-            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${constrainedZoom / 100})`,
+            transform: resolveCanvasStageTransform({ ...panOffset, zoom: constrainedZoom }),
           } as CSSProperties}
         >
           {children}

@@ -1,0 +1,63 @@
+---
+title: Choose the right interface
+description: Route an agent request to deterministic HTTP generation, the Studio Browser API, or direct markdown documentation.
+icon: GitBranch
+---
+
+Glyphfield has three agent-facing interfaces. Choosing the correct one is the first correctness decision.
+
+## Routing rule
+
+| Need | Use | Why |
+| --- | --- | --- |
+| Discover tools, identities, shaders, surfaces, elements, schemas, or policies | HTTP discovery endpoints | Structured, cacheable, versioned data |
+| Generate a slide, blog cover, partnership lockup, static background, element brief, or Design Lab source document | `POST /api/generate` | Deterministic validation and portable response |
+| Render WebGL, Canvas, local fonts/files, Lottie, interactive placement, GIF, JPG, PNG, or MP4 | `window.glyphfield.studio` | Uses the authentic browser renderer and active project |
+| Read one topic | `/docs/<path>.md` | Clean processed markdown for the exact page |
+| Load the complete knowledge surface | `/llms-full.txt` | Concatenated current docs without scraping HTML |
+| Find an unknown topic | `/api/search` or `/api/catalog` | Search prose or structured capabilities |
+
+<DocsFeatureGrid>
+  <DocsFeature icon='api' label='HTTP' title='Plan and generate'>Best for source-controlled SVG, JSON briefs, repeatable requests, and initial Design Lab documents.</DocsFeature>
+  <DocsFeature icon='render' label='Browser API' title='Operate and render'>Best for everything that depends on the current canvas, WebGL, browser codecs, file objects, or visual verification.</DocsFeature>
+  <DocsFeature icon='document' label='Markdown' title='Learn the contract'>Best for instructions, workflows, examples, edge cases, and exact source semantics.</DocsFeature>
+  <DocsFeature icon='verify' label='Human UI' title='Verify the artifact'>The visual workspace remains the final evidence for placement, contrast, clipping, timing, and motion quality.</DocsFeature>
+</DocsFeatureGrid>
+
+## Default decision tree
+
+1. Read `/llms.txt` and `/api/agent`.
+2. Discover the exact tool or generator instead of inventing an ID.
+3. If `POST /api/generate` fully expresses the result, use it.
+4. If the result depends on Canvas, WebGL, browser codecs, local files, or visual placement, open `/studio` and use the Browser API.
+5. If HTTP returns an apply-ready `design-sequence`, explicitly pass `response.document` to `applySource`; HTTP generation never mutates the open Studio by itself.
+6. Inspect the canvas and export through the active tool.
+7. Treat the downloaded file or returned Blob—not a button click—as completion.
+
+## Examples
+
+### Static agenda slide
+
+Use HTTP. The slide renderer is deterministic SVG and does not require an open project.
+
+### Live Gem Smoke poster
+
+Use HTTP to create a `design-sequence` document, then use the browser to apply and export it. The server returns composition intent; the browser produces the authentic shader pixels.
+
+### Existing local project update
+
+Use the Browser API. Read the open tool's source, apply the smallest change, and save/export in that project. A stateless request cannot infer which browser-local project the user meant.
+
+### Brand-element production brief
+
+Use `/api/elements` to find the ID and `POST /api/generate` with `kind: "element-brief"`. Use Studio only if the user also needs a visual proof or manual composition.
+
+## Never guess across boundaries
+
+- A Code-drawer document is not automatically a `/api/generate` request.
+- A discovery record is not a rendered artifact.
+- An HTTP success does not mean a browser-local design was updated.
+- A browser control activation does not mean an export finished.
+- A material preview is not permission to redistribute a third-party asset.
+
+See [Connect an agent](/docs/agents/connect), [Browser API](/docs/reference/browser-api), and [Capability matrix](/docs/reference/capability-matrix).

@@ -8,6 +8,25 @@ function source(path: string) {
 }
 
 describe('shared Studio control layout', () => {
+  it('flashes semantic solid icons only while the shared sidebar signal panel is hovered', () => {
+    const panel = source('src/components/SidebarDitherPanel.tsx');
+    const studio = source('src/components/StudioApp.tsx');
+    const styles = source('src/app/globals.css');
+
+    expect(panel).toContain("className='project-dither-symbols'");
+    expect(panel).toContain("aria-hidden='true'");
+    expect(panel).toContain('icons.slice(0, 4)');
+    expect(studio).toContain('icons={[<Folder />, <Palette />, <Film />, <Sticker />]}');
+    expect(styles).toContain('animation: project-dither-symbol 3.6s');
+    expect(styles).toContain('@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)');
+    expect(styles).toContain('.project-dither-panel:hover .project-dither-field');
+    expect(styles).toContain('.project-dither-panel:hover .project-dither-symbols > span');
+    expect(styles).toMatch(/\.project-dither-symbols > span \{[\s\S]*?opacity: 0;/);
+    expect(styles).toMatch(/@keyframes project-dither-symbol \{[\s\S]*?12%,[\s\S]*?22% \{[\s\S]*?opacity: var\(--project-dither-icon-opacity\);/);
+    expect(styles).toContain('animation-delay: 2700ms');
+    expect(styles).toContain('.project-dither-panel:hover .project-dither-symbols > span:first-child');
+  });
+
   it('keeps select values on one clipped line at narrow inspector widths', () => {
     const select = source('src/components/ui/StudioSelect.tsx');
 
@@ -164,16 +183,31 @@ describe('shared Studio control layout', () => {
     expect(audio).toContain("beginDrag(event, clip, 'trim-start')");
     expect(audio).toContain("beginDrag(event, clip, 'trim-end')");
     expect(audio).toContain('onSplitClip(selectedClip.id)');
+    expect(timeline).toContain('setPointerCapture(event.pointerId)');
+    expect(timeline).toContain('applyPlayheadDrag(session)');
+    expect(timeline).toContain("role='slider'");
+    expect(audio.indexOf("className='animation-audio-lane'")).toBeLessThan(
+      audio.indexOf("<header className='animation-audio-track-header'>")
+    );
     expect(animation).toContain("handleExport('mp4')");
     expect(animation).toContain('mixAnimationAudio(');
     expect(styles).toMatch(/\.animation-timeline-scroll\s*\{[\s\S]*?overflow-x: auto;/);
     expect(styles).toMatch(/\.animation-storyboard-segment\s*\{[\s\S]*?flex: 1 0 224px;/);
-    expect(styles).toMatch(/\.animation-storyboard-segment\s*\{[\s\S]*?grid-template-columns: minmax\(140px, 1fr\) 84px;/);
+    expect(timeline).toContain('style={{ gridTemplateColumns: segmentColumns }}');
+    expect(timeline).toContain('minmax(0, ${settings.holdMs}fr) minmax(0, ${effectiveTransitionMs}fr)');
     expect(styles).toMatch(/\.animation-storyboard-segment\s*\{[\s\S]*?padding-right: 0;/);
     expect(styles).toMatch(/\.animation-storyboard-frame,[\s\S]*?\.animation-storyboard-transition\s*\{[\s\S]*?border: 0;[\s\S]*?border-radius: 0;/);
     expect(styles).toMatch(/\.animation-storyboard-transition-caption strong\s*\{[\s\S]*?text-overflow: ellipsis;/);
     expect(styles).toMatch(/\.animation-timeline-preview-canvas\s*\{[\s\S]*?object-fit: contain;/);
     expect(styles).toMatch(/\.animation-audio-trim\s*\{[\s\S]*?cursor: ew-resize;/);
+    expect(styles).toMatch(/\.animation-timeline-playhead\s*\{[\s\S]*?left: 10px;[\s\S]*?width: calc\(100% - 20px\);/);
+    expect(styles).toMatch(/\.animation-timeline-playhead-handle\s*\{[\s\S]*?cursor: ew-resize;[\s\S]*?touch-action: none;/);
+    expect(styles).toMatch(/\.animation-audio-playhead\s*\{[\s\S]*?left: 0;[\s\S]*?width: 100%;/);
+    expect(styles).toMatch(/\.animation-audio-lane\s*\{[\s\S]*?margin-inline: 10px;/);
+    expect(styles).toMatch(/\.animation-timeline-scroll\s*\{[\s\S]*?container-name: animation-timeline-scroll;/);
+    expect(styles).toMatch(/\.animation-audio-track-header\s*\{[\s\S]*?position: sticky;[\s\S]*?width: 100cqw;/);
+    expect(audio).toContain("aria-label={gt('Master audio volume')}");
+    expect(audio).toContain("aria-label={gt('Selected audio clip volume')}");
     expect(timeline).toContain('onSelectTransition(index);');
     expect(timeline).toContain('aria-pressed={selectedTransitionIndex === index}');
     expect(styles).toMatch(/@container \(max-width: 300px\)\s*\{[\s\S]*?\.animation-layer-create/);

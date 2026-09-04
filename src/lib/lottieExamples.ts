@@ -36,17 +36,17 @@ type AnimatedProperty = ReturnType<typeof animated>;
 const COMPOSITION_FRAMES = 240;
 const FADE_OUT_START = 218;
 const PALETTE: readonly LottieColor[] = [
-  [0.96, 0.96, 0.96, 1],
-  [0.42, 0.42, 0.46, 1],
-  [0.34, 0.55, 1, 1],
+  [0.97, 0.98, 0.99, 1],
+  [0.49, 0.53, 0.61, 1],
+  [0.49, 0.36, 0.99, 1],
 ];
 
 const EASINGS = {
   inCubic: { i: { x: [0.67], y: [0] }, o: { x: [0.32], y: [0] } },
-  inOutCubic: { i: { x: [0.35], y: [1] }, o: { x: [0.65], y: [0] } },
+  inOutCubic: { i: { x: [0.2], y: [1] }, o: { x: [0.4], y: [0] } },
   linear: { i: { x: [0.667], y: [0.667] }, o: { x: [0.333], y: [0.333] } },
   outCubic: { i: { x: [0.68], y: [1] }, o: { x: [0.33], y: [1] } },
-  outQuart: { i: { x: [0.5], y: [1] }, o: { x: [0.25], y: [1] } },
+  outQuart: { i: { x: [0.1], y: [1] }, o: { x: [0.05], y: [0.7] } },
 } as const;
 
 function animated(values: readonly TimedValue[]) {
@@ -60,49 +60,82 @@ function animated(values: readonly TimedValue[]) {
 }
 
 function loopOpacity(start = 0, end = FADE_OUT_START, peak = 100) {
+  if (start === 0) {
+    return animated([
+      { ease: 'linear', t: 0, value: [peak] },
+      { ease: 'linear', t: end, value: [peak] },
+      { ease: 'linear', t: COMPOSITION_FRAMES, value: [peak] },
+    ]);
+  }
   return animated([
-    { ease: 'linear', t: 0, value: [start === 0 ? peak : 0] },
-    ...(start === 0
-      ? []
-      : [
-          { ease: 'outQuart' as const, t: start, value: [0] },
-          { ease: 'linear' as const, t: start + 18, value: [peak] },
-        ]),
+    { ease: 'linear', t: 0, value: [0] },
+    { ease: 'outQuart', t: start, value: [0] },
+    { ease: 'linear', t: start + 14, value: [peak] },
     { ease: 'inCubic', t: end, value: [peak] },
-    { ease: 'linear', t: COMPOSITION_FRAMES, value: [start === 0 ? peak : 0] },
+    { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
   ]);
 }
 
-function phaseOpacity(start: number, end: number, idle = 22, peak = 100) {
-  const fadeInEnd = Math.min(start + 12, end);
-  const fadeOutStart = Math.max(fadeInEnd, end - 12);
-
+function phaseOpacity(start: number, end: number, idle = 0, peak = 100) {
   return animated([
     { ease: 'linear', t: 0, value: [idle] },
     { ease: 'outQuart', t: start, value: [idle] },
-    { ease: 'linear', t: fadeInEnd, value: [peak] },
-    { ease: 'inCubic', t: fadeOutStart, value: [peak] },
+    { ease: 'linear', t: start + 10, value: [peak] },
+    { ease: 'inCubic', t: end - 10, value: [peak] },
     { ease: 'linear', t: end, value: [idle] },
     { ease: 'linear', t: COMPOSITION_FRAMES, value: [idle] },
   ]);
 }
 
-function revealScale(start: number, minimum = 92) {
+function revealScale(start: number, minimum = 94) {
   return animated([
     { ease: 'linear', t: 0, value: [minimum, minimum, 100] },
     { ease: 'outQuart', t: start, value: [minimum, minimum, 100] },
-    { ease: 'linear', t: start + 30, value: [100, 100, 100] },
+    { ease: 'linear', t: start + 22, value: [100, 100, 100] },
     { ease: 'inCubic', t: FADE_OUT_START, value: [100, 100, 100] },
     { ease: 'linear', t: COMPOSITION_FRAMES, value: [minimum, minimum, 100] },
   ]);
 }
 
-function settlePosition(start: number, from: Point, to: Point, end = FADE_OUT_START) {
+function settlePosition(
+  start: number,
+  from: Point,
+  to: Point,
+  end = FADE_OUT_START,
+  duration = 24,
+) {
   return animated([
     { ease: 'linear', t: 0, value: from },
     { ease: 'outQuart', t: start, value: from },
-    { ease: 'linear', t: start + 36, value: to },
+    { ease: 'linear', t: start + duration, value: to },
     { ease: 'inCubic', t: end, value: to },
+    { ease: 'linear', t: COMPOSITION_FRAMES, value: from },
+  ]);
+}
+
+function travelPosition(start: number, end: number, from: Point, to: Point) {
+  const midpoint: Point = [
+    (from[0] + to[0]) / 2,
+    (from[1] + to[1]) / 2 - (Math.abs(to[0] - from[0]) > 300 ? 6 : 0),
+    (from[2] + to[2]) / 2,
+  ];
+  return animated([
+    { ease: 'linear', t: 0, value: from },
+    { ease: 'inOutCubic', t: start, value: from },
+    { ease: 'inOutCubic', t: Math.round((start + end) / 2), value: midpoint },
+    { ease: 'linear', t: end, value: to },
+    { ease: 'linear', t: FADE_OUT_START, value: to },
+    { ease: 'linear', t: COMPOSITION_FRAMES, value: from },
+  ]);
+}
+
+function phasePosition(start: number, end: number, from: Point, active: Point, exit: Point) {
+  return animated([
+    { ease: 'linear', t: 0, value: from },
+    { ease: 'outQuart', t: start, value: from },
+    { ease: 'linear', t: start + 12, value: active },
+    { ease: 'inCubic', t: end - 10, value: active },
+    { ease: 'linear', t: end, value: exit },
     { ease: 'linear', t: COMPOSITION_FRAMES, value: from },
   ]);
 }
@@ -141,7 +174,7 @@ function fill(slot: number, opacity = 100) {
   };
 }
 
-function stroke(slot: number, width = 3, opacity = 100) {
+function stroke(slot: number, width = 1, opacity = 100) {
   return {
     c: { a: 0, k: PALETTE[slot] ?? PALETTE[0] },
     lc: 2,
@@ -155,33 +188,20 @@ function stroke(slot: number, width = 3, opacity = 100) {
 }
 
 function lottieGradientStops(from: LottieColor, to: LottieColor) {
-  return [
-    0,
-    from[0],
-    from[1],
-    from[2],
-    1,
-    to[0],
-    to[1],
-    to[2],
-  ];
-}
-
-function gradientStops(fromSlot: number, toSlot: number) {
-  const from = PALETTE[fromSlot] ?? PALETTE[0];
-  const to = PALETTE[toSlot] ?? PALETTE[0];
-  return lottieGradientStops(from, to);
+  return [0, from[0], from[1], from[2], 1, to[0], to[1], to[2]];
 }
 
 function gradientFill(fromSlot: number, toSlot: number, opacity = 100) {
+  const from = PALETTE[fromSlot] ?? PALETTE[0];
+  const to = PALETTE[toSlot] ?? PALETTE[0];
   return {
-    e: { a: 0, k: [120, 120] },
-    g: { p: 2, k: { a: 0, k: gradientStops(fromSlot, toSlot) } },
+    e: { a: 0, k: [120, 0] },
+    g: { p: 2, k: { a: 0, k: lottieGradientStops(from, to) } },
     h: { a: 0, k: 0 },
     nm: `Palette Gradient ${fromSlot + 1} ${toSlot + 1}`,
     o: { a: 0, k: opacity },
     r: 1,
-    s: { a: 0, k: [-120, -120] },
+    s: { a: 0, k: [-120, 0] },
     t: 1,
     ty: 'gf',
   };
@@ -192,7 +212,7 @@ function rectangleGroup(
   size: Size,
   slot: number,
   position: [number, number] = [0, 0],
-  radius = 16,
+  radius = 8,
   opacity = 100,
 ) {
   return {
@@ -212,8 +232,8 @@ function outlinedRectangleGroup(
   size: Size,
   slot: number,
   position: [number, number] = [0, 0],
-  radius = 16,
-  width = 2,
+  radius = 8,
+  width = 1,
   opacity = 100,
 ) {
   return {
@@ -234,7 +254,7 @@ function gradientRectangleGroup(
   fromSlot: number,
   toSlot: number,
   position: [number, number] = [0, 0],
-  radius = 16,
+  radius = 8,
   opacity = 100,
 ) {
   return {
@@ -266,101 +286,6 @@ function ellipseGroup(
     np: 3,
     ty: 'gr',
   };
-}
-
-function ellipseOutlineGroup(
-  name: string,
-  size: Size,
-  slot: number,
-  position: [number, number] = [0, 0],
-  width = 2,
-  opacity = 100,
-) {
-  return {
-    it: [
-      { d: 1, nm: name, p: { a: 0, k: [0, 0] }, s: { a: 0, k: size }, ty: 'el' },
-      stroke(slot, width, opacity),
-      groupTransform(position),
-    ],
-    nm: name,
-    np: 3,
-    ty: 'gr',
-  };
-}
-
-type PanelOptions = {
-  accentOpacity?: number;
-  accentSide?: 'bottom' | 'left' | 'right' | 'top';
-  accentSlot?: number;
-  fillOpacity?: number;
-  fillSlot?: number;
-  rimOpacity?: number;
-  rimSlot?: number;
-};
-
-function sceneBackdrop(index: number, name: string, accentSlot = 2) {
-  return shapeLayer({
-    index,
-    name: `${name} workspace`,
-    opacity: loopOpacity(0, 224, 100),
-    position: [480, 360, 0],
-    shapes: [
-      rectangleGroup('Workspace base', [900, 640], 1, [0, 0], 8, 5),
-      outlinedRectangleGroup('Workspace rim', [900, 640], 0, [0, 0], 8, 1, 18),
-      gradientRectangleGroup('Workspace header rule', [840, 1], 1, accentSlot, [0, -228], 0, 14),
-    ],
-  });
-}
-
-function panelGroups(
-  name: string,
-  size: Size,
-  position: [number, number] = [0, 0],
-  radius = 8,
-  {
-    accentOpacity = 72,
-    accentSide,
-    accentSlot = 2,
-    fillOpacity = 10,
-    fillSlot = 1,
-    rimOpacity = 32,
-    rimSlot = 0,
-  }: PanelOptions = {},
-) {
-  const [width, height] = size;
-  const [x, y] = position;
-  const resolvedRadius = Math.min(radius, 8);
-  const groups: Array<
-    | ReturnType<typeof outlinedRectangleGroup>
-    | ReturnType<typeof rectangleGroup>
-  > = [
-    rectangleGroup(`${name} base`, size, fillSlot, position, resolvedRadius, fillOpacity),
-    outlinedRectangleGroup(`${name} rim`, size, rimSlot, position, resolvedRadius, 1, rimOpacity),
-  ];
-
-  if (accentSide) {
-    const vertical = accentSide === 'left' || accentSide === 'right';
-    const accentSize: Size = vertical ? [2, Math.max(20, height - 28)] : [Math.max(20, width - 28), 2];
-    const accentPosition: [number, number] = accentSide === 'left'
-      ? [x - width / 2 + 7, y]
-      : accentSide === 'right'
-        ? [x + width / 2 - 7, y]
-        : accentSide === 'top'
-          ? [x, y - height / 2 + 7]
-          : [x, y + height / 2 - 7];
-    groups.push(rectangleGroup(`${name} accent`, accentSize, accentSlot, accentPosition, 1, accentOpacity));
-  }
-
-  return groups;
-}
-
-function orbGroups(name: string, size: number, position: [number, number] = [0, 0], slot = 2) {
-  return [
-    ellipseGroup(`${name} halo`, [size + 12, size + 12], slot, position, 3),
-    ellipseGroup(`${name} core`, [size, size], slot, position, 30),
-    ellipseOutlineGroup(`${name} rim`, [size, size], 0, position, 1, 38),
-    ellipseGroup(`${name} center`, [Math.max(8, size * 0.18), Math.max(8, size * 0.18)], slot, position, 86),
-  ];
 }
 
 function shapeLayer({
@@ -412,14 +337,13 @@ function textLayer(
   fontSize: number,
   colorSlot = 0,
   weight: 400 | 500 | 600 = 400,
-  opacity: AnimatedProperty = loopOpacity(0, FADE_OUT_START, 100),
+  opacity: AnimatedProperty = loopOpacity(),
   tracking = 0,
   justification: 0 | 1 | 2 = 0,
 ) {
   const fontStyle = weight === 600 ? 'Semibold' : weight === 500 ? 'Medium' : 'Regular';
   const staticPosition: Point = Array.isArray(position) ? position as Point : [0, 0, 0];
   const base = transform(staticPosition);
-
   return {
     ao: 0,
     bm: 0,
@@ -443,7 +367,7 @@ function textLayer(
             f: `GlyphfieldSans-${fontStyle}`,
             fc: (PALETTE[colorSlot] ?? PALETTE[0]).slice(0, 3),
             j: justification,
-            lh: fontSize * 1.18,
+            lh: fontSize * 1.08,
             ls: 0,
             s: fontSize,
             t: text,
@@ -459,19 +383,30 @@ function textLayer(
   };
 }
 
-function sceneDescriptionLayer(index: number, text: string) {
-  return textLayer(
+function stageBackdrop(index: number, name: string) {
+  return shapeLayer({
     index,
-    'Scene description',
-    text,
-    [480, 92, 0],
-    17,
-    0,
-    500,
-    loopOpacity(0, FADE_OUT_START, 100),
-    0,
-    2,
-  );
+    name: `${name} stage`,
+    opacity: loopOpacity(),
+    position: [480, 360, 0],
+    shapes: [
+      rectangleGroup('Stage wash base', [896, 656], 1, [0, 0], 12, 4),
+      outlinedRectangleGroup('Stage boundary', [896, 656], 1, [0, 0], 12, 1, 14),
+      gradientRectangleGroup('Stage signal base', [896, 2], 1, 2, [0, -208], 1, 72),
+    ],
+  });
+}
+
+function sceneHeaderLayers(
+  kicker: string,
+  title: string,
+  meta: string,
+) {
+  return [
+    textLayer(70, 'Scene kicker', kicker, [208, 80, 0], 12, 2, 600, loopOpacity(4), 86),
+    textLayer(71, 'Scene title', title, [208, 120, 0], 32, 0, 600, loopOpacity(8), -8),
+    textLayer(72, 'Scene meta', meta, [876, 86, 0], 12, 1, 500, loopOpacity(12), 36, 1),
+  ];
 }
 
 function baseDocument(name: string, layers: unknown[]): LottieDocument {
@@ -497,19 +432,14 @@ function baseDocument(name: string, layers: unknown[]): LottieDocument {
   };
 }
 
-function brandLogoLayer(
-  index: number,
-  width: number,
-  height: number,
-) {
+function brandLogoLayer(index: number, width: number, height: number) {
   const maximumWidth = 96;
   const maximumHeight = 48;
   const scale = Math.min(1, maximumWidth / width, maximumHeight / height);
   const renderedWidth = width * scale;
-  const centerX = 60 + renderedWidth / 2;
+  const centerX = 64 + renderedWidth / 2;
   const centerY = 84;
   const scalePercent = scale * 100;
-
   return {
     ao: 0,
     bm: 0,
@@ -518,19 +448,15 @@ function brandLogoLayer(
     ip: 0,
     ks: {
       a: { a: 0, k: [width / 2, height / 2, 0] },
-      o: loopOpacity(6, FADE_OUT_START, 100),
-      p: settlePosition(
-        6,
-        [centerX, centerY - 14, 0],
-        [centerX, centerY, 0],
-      ),
+      o: loopOpacity(6),
+      p: settlePosition(6, [centerX, centerY - 10, 0], [centerX, centerY, 0], FADE_OUT_START, 36),
       r: { a: 0, k: 0 },
       s: animated([
-        { ease: 'linear', t: 0, value: [scalePercent * 0.88, scalePercent * 0.88, 100] },
-        { ease: 'outQuart', t: 6, value: [scalePercent * 0.88, scalePercent * 0.88, 100] },
-        { ease: 'linear', t: 30, value: [scalePercent, scalePercent, 100] },
+        { ease: 'linear', t: 0, value: [scalePercent * 0.94, scalePercent * 0.94, 100] },
+        { ease: 'outQuart', t: 6, value: [scalePercent * 0.94, scalePercent * 0.94, 100] },
+        { ease: 'linear', t: 42, value: [scalePercent, scalePercent, 100] },
         { ease: 'inCubic', t: FADE_OUT_START, value: [scalePercent, scalePercent, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [scalePercent * 0.88, scalePercent * 0.88, 100] },
+        { ease: 'linear', t: COMPOSITION_FRAMES, value: [scalePercent * 0.94, scalePercent * 0.94, 100] },
       ]),
     },
     nm: 'Brand logo',
@@ -544,699 +470,489 @@ function brandLogoLayer(
 
 function dashboardLaunchDocument(): LottieDocument {
   const layers: unknown[] = [
+    ...sceneHeaderLayers('PRODUCT / MOTION', 'Dashboard launch', '01 / 07'),
+    textLayer(40, 'Coverage label', 'COVERAGE', [96, 322, 0], 13, 1, 600, loopOpacity(18), 96),
+    textLayer(41, 'Coverage value', '98%', [88, 464, 0], 126, 0, 600, loopOpacity(22), -42),
+    textLayer(42, 'Activity label', 'LIVE ACTIVITY', [544, 286, 0], 13, 1, 600, loopOpacity(30), 88),
+    textLayer(43, 'Activity delta', '+14.8%', [880, 286, 0], 18, 2, 600, loopOpacity(44), 4, 1),
     shapeLayer({
       index: 1,
-      name: 'Dashboard shell',
-      opacity: loopOpacity(6),
-      position: [480, 400, 0],
-      scale: revealScale(6, 96),
-      shapes: [
-        ...panelGroups('Shell', [810, 480], [0, 0], 8, { fillOpacity: 7, rimOpacity: 18 }),
-        rectangleGroup('Sidebar divider', [1, 336], 0, [-236, 18], 0, 12),
-      ],
+      name: 'Dashboard division',
+      opacity: loopOpacity(12, 214, 34),
+      position: [480, 420, 0],
+      shapes: [rectangleGroup('Dashboard division base', [2, 536], 1, [0, 0], 1, 48)],
     }),
     shapeLayer({
       index: 2,
-      name: 'Navigation focus',
-      position: animated([
-        { ease: 'linear', t: 0, value: [191, 280, 0] },
-        { ease: 'outQuart', t: 34, value: [191, 280, 0] },
-        { ease: 'inOutCubic', t: 92, value: [191, 350, 0] },
-        { ease: 'inOutCubic', t: 152, value: [191, 420, 0] },
-        { ease: 'linear', t: 204, value: [191, 420, 0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [191, 280, 0] },
-      ]),
-      opacity: loopOpacity(24),
-      shapes: [rectangleGroup('Active item', [74, 34], 2, [0, 0], 5, 62)],
+      name: 'Coverage scan',
+      opacity: phaseOpacity(48, 174, 0, 100),
+      position: travelPosition(48, 170, [104, 420, 0], [440, 420, 0]),
+      shapes: [gradientRectangleGroup('Coverage scan base', [2, 536], 2, 0, [0, 0], 1, 92)],
     }),
     shapeLayer({
       index: 3,
-      name: 'Metric one',
-      opacity: loopOpacity(18),
-      position: settlePosition(18, [390, 314, 0], [390, 286, 0]),
-      scale: revealScale(18),
-      shapes: [
-        ...panelGroups('Metric card', [220, 112], [0, 0], 8, { accentSide: 'left', fillOpacity: 9, rimOpacity: 22 }),
-      ],
-    }),
-    shapeLayer({
-      index: 4,
-      name: 'Metric two',
-      opacity: loopOpacity(30),
-      position: settlePosition(30, [642, 314, 0], [642, 286, 0]),
-      scale: revealScale(30),
-      shapes: [
-        ...panelGroups('Metric card', [220, 112], [0, 0], 8, { accentOpacity: 42, accentSide: 'left', fillOpacity: 7, rimOpacity: 18 }),
-      ],
-    }),
-    shapeLayer({
-      index: 5,
-      name: 'Activity panel',
-      opacity: loopOpacity(38),
-      position: [516, 474, 0],
-      shapes: [
-        ...panelGroups('Activity', [472, 184], [0, 0], 8, { fillOpacity: 6, rimOpacity: 18 }),
-      ],
+      name: 'Activity baseline',
+      opacity: loopOpacity(26, 214, 34),
+      position: [704, 540, 0],
+      shapes: [rectangleGroup('Activity baseline base', [448, 2], 1, [0, 0], 1, 48)],
     }),
   ];
 
-  const heights = [44, 78, 58, 112, 86, 132, 102];
+  const heights = [132, 198, 158, 244, 206];
   heights.forEach((height, index) => {
-    const start = 50 + index * 5;
+    const start = 34 + index * 6;
+    const slot = index === 3 ? 2 : 0;
     layers.push(shapeLayer({
-      index: 20 + index,
-      name: `Activity bar ${index + 1}`,
-      opacity: loopOpacity(start, 212),
-      position: [354 + index * 54, 532 - height / 2, 0],
+      index: 10 + index,
+      name: `Activity signal ${index + 1}`,
+      opacity: loopOpacity(start, 212, slot === 2 ? 100 : 64),
+      position: [560 + index * 78, 540 - height / 2, 0],
       scale: animated([
-        { ease: 'linear', t: 0, value: [100, 0, 100] },
-        { ease: 'outQuart', t: start, value: [100, 0, 100] },
-        { ease: 'outCubic', t: start + 28, value: [100, 100, 100] },
-        { ease: 'inOutCubic', t: 154, value: [100, 94 + (index % 3) * 3, 100] },
+        { ease: 'linear', t: 0, value: [100, 2, 100] },
+        { ease: 'outQuart', t: start, value: [100, 2, 100] },
+        { ease: 'linear', t: start + 30, value: [100, 100, 100] },
         { ease: 'inCubic', t: 212, value: [100, 100, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [100, 0, 100] },
+        { ease: 'linear', t: COMPOSITION_FRAMES, value: [100, 2, 100] },
       ]),
-      shapes: [rectangleGroup('Bar', [28, height], index % 3 === 2 ? 2 : 0, [0, 0], 4, index % 3 === 2 ? 82 : 66)],
+      shapes: [rectangleGroup('Signal base', [28, height], slot, [0, 0], 3, 100)],
     }));
   });
-
-  layers.unshift(
-    sceneDescriptionLayer(40, 'Product overview'),
-    textLayer(41, 'Metric one label', 'Locales', [306, 270, 0], 14, 1, 500, loopOpacity(18)),
-    textLayer(42, 'Metric one value', '24', [306, 312, 0], 30, 0, 600, loopOpacity(18)),
-    textLayer(43, 'Metric two label', 'Coverage', [558, 270, 0], 14, 1, 500, loopOpacity(30)),
-    textLayer(44, 'Metric two value', '98%', [558, 312, 0], 30, 0, 600, loopOpacity(30)),
-    textLayer(45, 'Activity label', 'Publishing activity', [318, 430, 0], 16, 0, 500, loopOpacity(38)),
-  );
-
-  layers.push(sceneBackdrop(90, 'Dashboard launch'));
-
+  layers.push(stageBackdrop(90, 'Dashboard launch'));
   return baseDocument('Dashboard launch', layers);
 }
 
 function apiExchangeDocument(): LottieDocument {
   const layers: unknown[] = [
+    ...sceneHeaderLayers('DEVELOPER / MOTION', 'API exchange', '02 / 07'),
+    textLayer(40, 'Client name', 'CLIENT', [80, 314, 0], 13, 1, 600, loopOpacity(18), 90),
+    textLayer(41, 'Client request', 'POST', [72, 426, 0], 76, 0, 600, loopOpacity(24), -28),
+    textLayer(42, 'API name', 'API', [744, 314, 0], 13, 1, 600, loopOpacity(28), 90),
+    textLayer(43, 'API response', '200', [736, 426, 0], 76, 2, 600, phaseOpacity(118, 204, 30, 100), -28),
+    textLayer(44, 'Request caption', 'REQUEST', [480, 342, 0], 11, 1, 600, phaseOpacity(40, 110, 10, 100), 92, 2),
+    textLayer(45, 'Response caption', 'RESPONSE', [480, 490, 0], 11, 1, 600, phaseOpacity(116, 194, 10, 100), 92, 2),
     shapeLayer({
       index: 1,
-      name: 'Client endpoint',
-      opacity: loopOpacity(8),
-      position: settlePosition(8, [170, 360, 0], [220, 360, 0]),
-      scale: revealScale(8),
-      shapes: [
-        ...panelGroups('Client', [220, 260], [0, 0], 22, { accentOpacity: 48, accentSide: 'right', fillOpacity: 7, rimOpacity: 22 }),
-      ],
+      name: 'Client boundary',
+      opacity: loopOpacity(14, 214, 34),
+      position: [250, 420, 0],
+      shapes: [rectangleGroup('Client boundary base', [2, 536], 1, [0, 0], 1, 46)],
     }),
     shapeLayer({
       index: 2,
-      name: 'API endpoint',
-      opacity: loopOpacity(20),
-      position: settlePosition(20, [790, 360, 0], [740, 360, 0]),
-      scale: revealScale(20),
-      shapes: [
-        ...panelGroups('API', [220, 260], [0, 0], 22, { accentSide: 'left', fillOpacity: 9, rimOpacity: 30 }),
-      ],
+      name: 'API boundary',
+      opacity: loopOpacity(22, 214, 34),
+      position: [710, 420, 0],
+      shapes: [rectangleGroup('API boundary base', [2, 536], 2, [0, 0], 1, 52)],
     }),
     shapeLayer({
       index: 3,
-      name: 'Request rail',
-      opacity: loopOpacity(0, 224, 30),
-      position: [480, 322, 0],
-      shapes: [rectangleGroup('Rail', [280, 2], 0, [0, 0], 1, 24)],
+      name: 'Request path',
+      opacity: loopOpacity(24, 214, 36),
+      position: [480, 380, 0],
+      shapes: [rectangleGroup('Request path base', [460, 2], 1, [0, 0], 1, 48)],
     }),
     shapeLayer({
       index: 4,
-      name: 'Response rail',
-      opacity: loopOpacity(0, 224, 30),
-      position: [480, 410, 0],
-      shapes: [rectangleGroup('Rail', [280, 2], 0, [0, 0], 1, 24)],
+      name: 'Response path',
+      opacity: loopOpacity(24, 214, 28),
+      position: [480, 452, 0],
+      shapes: [rectangleGroup('Response path base', [460, 2], 1, [0, 0], 1, 40)],
     }),
     shapeLayer({
       index: 5,
-      name: 'Request packet',
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [0] },
-        { ease: 'outCubic', t: 38, value: [0] },
-        { ease: 'linear', t: 48, value: [100] },
-        { ease: 'linear', t: 96, value: [100] },
-        { ease: 'inCubic', t: 108, value: [0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
-      ]),
-      position: animated([
-        { ease: 'linear', t: 0, value: [340, 322, 0] },
-        { ease: 'inOutCubic', t: 42, value: [340, 322, 0] },
-        { ease: 'outQuart', t: 104, value: [620, 322, 0] },
-        { ease: 'linear', t: 214, value: [620, 322, 0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [340, 322, 0] },
-      ]),
-      shapes: [rectangleGroup('Request', [64, 24], 2, [0, 0], 12, 90)],
+      name: 'Request signal',
+      opacity: phaseOpacity(40, 110),
+      position: travelPosition(40, 106, [286, 380, 0], [674, 380, 0]),
+      shapes: [gradientRectangleGroup('Request signal base', [86, 14], 2, 0, [0, 0], 7, 100)],
     }),
     shapeLayer({
       index: 6,
-      name: 'Response packet',
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [0] },
-        { ease: 'outCubic', t: 112, value: [0] },
-        { ease: 'linear', t: 122, value: [100] },
-        { ease: 'linear', t: 174, value: [100] },
-        { ease: 'inCubic', t: 186, value: [0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
-      ]),
-      position: animated([
-        { ease: 'linear', t: 0, value: [620, 410, 0] },
-        { ease: 'inOutCubic', t: 116, value: [620, 410, 0] },
-        { ease: 'outQuart', t: 182, value: [340, 410, 0] },
-        { ease: 'linear', t: 214, value: [340, 410, 0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [620, 410, 0] },
-      ]),
-      shapes: [rectangleGroup('Response', [52, 20], 1, [0, 0], 10, 74)],
+      name: 'Response signal',
+      opacity: phaseOpacity(116, 194),
+      position: travelPosition(116, 190, [674, 452, 0], [286, 452, 0]),
+      shapes: [rectangleGroup('Response signal base', [62, 10], 0, [0, 0], 5, 86)],
     }),
+    shapeLayer({
+      index: 7,
+      name: 'Endpoint confirmation',
+      opacity: phaseOpacity(96, 144),
+      position: [710, 420, 0],
+      shapes: [gradientRectangleGroup('Confirmation line base', [5, 536], 2, 0, [0, 0], 2, 100)],
+    }),
+    stageBackdrop(90, 'API exchange'),
   ];
-
-  [
-    { index: 7, position: [740, 360, 0] as Point, start: 94 },
-    { index: 8, position: [220, 360, 0] as Point, start: 174 },
-  ].forEach(({ index, position, start }) => {
-    layers.push(shapeLayer({
-      index,
-      name: `Endpoint pulse ${index}`,
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [0] },
-        { ease: 'outCubic', t: start, value: [0] },
-        { ease: 'inCubic', t: start + 18, value: [32] },
-        { ease: 'linear', t: start + 34, value: [0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
-      ]),
-      position,
-      scale: animated([
-        { ease: 'linear', t: 0, value: [72, 72, 100] },
-        { ease: 'outQuart', t: start, value: [72, 72, 100] },
-        { ease: 'linear', t: start + 34, value: [124, 124, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [72, 72, 100] },
-      ]),
-      shapes: [ellipseOutlineGroup('Pulse', [170, 170], 2, [0, 0], 2, 70)],
-    }));
-  });
-
-  layers.unshift(
-    sceneDescriptionLayer(40, 'API exchange'),
-    textLayer(41, 'Client label', 'CLIENT', [146, 286, 0], 13, 1, 500, loopOpacity(8), 80),
-    textLayer(42, 'Client value', 'POST /translate', [146, 344, 0], 20, 0, 500, loopOpacity(8)),
-    textLayer(43, 'API label', 'TRANSLATION API', [666, 286, 0], 13, 1, 500, loopOpacity(20), 60),
-    textLayer(44, 'API value', '200 OK', [666, 344, 0], 20, 2, 600, loopOpacity(20)),
-    textLayer(45, 'Request direction', 'request', [438, 302, 0], 13, 1, 500, phaseOpacity(38, 108, 12, 100)),
-    textLayer(46, 'Response direction', 'response', [430, 442, 0], 13, 1, 500, phaseOpacity(112, 186, 12, 100)),
-  );
-
-  layers.push(sceneBackdrop(90, 'API exchange'));
-
   return baseDocument('API exchange', layers);
 }
 
 function localeMatrixDocument(): LottieDocument {
-  const layers: unknown[] = [];
-  const localeCodes = ['EN', 'ES', 'FR', 'DE', 'JA', 'KO', 'ZH', 'AR', 'PT', 'IT', 'HI', 'NL'];
-  for (let row = 0; row < 3; row += 1) {
-    for (let column = 0; column < 4; column += 1) {
-      const index = row * 4 + column;
-      const start = 18 + index * 13;
-      const end = Math.min(start + 42, 210);
-      const x = 300 + column * 120;
-      const y = 258 + row * 104;
-      layers.push(shapeLayer({
-        index: index + 1,
-        name: `Locale tile ${index + 1}`,
-        opacity: phaseOpacity(start, end, 16, 100),
-        position: [x, y, 0],
-        scale: animated([
-          { ease: 'linear', t: 0, value: [96, 96, 100] },
-          { ease: 'outQuart', t: start, value: [96, 96, 100] },
-          { ease: 'linear', t: start + 24, value: [100, 100, 100] },
-          { ease: 'linear', t: 214, value: [100, 100, 100] },
-          { ease: 'linear', t: COMPOSITION_FRAMES, value: [96, 96, 100] },
-        ]),
-        shapes: [
-          ...panelGroups('Locale', [96, 72], [0, 0], 15, {
-            accentOpacity: (row + column) % 3 === 0 ? 78 : 0,
-            accentSide: (row + column) % 3 === 0 ? 'bottom' : undefined,
-            fillOpacity: 6 + ((row + column) % 3) * 2,
-            rimOpacity: 20,
-          }),
-        ],
-      }));
-      layers.unshift(textLayer(
-        40 + index,
-        `Locale code ${localeCodes[index]}`,
-        localeCodes[index] ?? '--',
-        [x - 15, y + 7, 0],
-        18,
-        (row + column) % 3 === 0 ? 2 : 0,
-        600,
-        phaseOpacity(start, end, 26, 100),
-      ));
-    }
-  }
-
-  layers.unshift(
-    sceneDescriptionLayer(60, 'Locale coverage'),
-  );
-
-  layers.push(sceneBackdrop(90, 'Locale matrix'));
-
-  return baseDocument('Locale matrix', layers);
+  const words = [
+    { code: 'EN', end: 62, start: 18, word: 'HELLO' },
+    { code: 'ES', end: 108, start: 64, word: 'HOLA' },
+    { code: 'FR', end: 154, start: 110, word: 'BONJOUR' },
+    { code: 'DE', end: 202, start: 156, word: 'HALLO' },
+  ];
+  const layers: unknown[] = [
+    ...sceneHeaderLayers('GLOBAL / MOTION', 'Locale cadence', '03 / 07'),
+    shapeLayer({
+      index: 1,
+      name: 'Language axis',
+      opacity: loopOpacity(16, 214, 34),
+      position: [480, 420, 0],
+      shapes: [gradientRectangleGroup('Language axis base', [2, 536], 1, 2, [0, 0], 1, 82)],
+    }),
+    shapeLayer({
+      index: 2,
+      name: 'Locale baseline',
+      opacity: loopOpacity(18, 214, 28),
+      position: [480, 566, 0],
+      shapes: [rectangleGroup('Locale baseline base', [896, 2], 1, [0, 0], 1, 42)],
+    }),
+  ];
+  words.forEach(({ code, end, start, word }, index) => {
+    layers.push(textLayer(
+      40 + index,
+      `Language word ${word}`,
+      word,
+      phasePosition(start, end, [480, 444, 0], [480, 412, 0], [480, 380, 0]),
+      word.length > 6 ? 88 : 108,
+      index === 1 || index === 3 ? 2 : 0,
+      600,
+      phaseOpacity(start, end),
+      -30,
+      2,
+    ));
+    const x = 204 + index * 184;
+    layers.push(shapeLayer({
+      index: 10 + index,
+      name: `Locale marker ${code}`,
+      opacity: phaseOpacity(start, end, 24, 100),
+      position: [x, 566, 0],
+      scale: revealScale(start, 88),
+      shapes: [rectangleGroup('Locale marker base', [42, 4], 2, [0, 0], 2, 100)],
+    }));
+    layers.push(textLayer(
+      50 + index,
+      `Locale code ${code}`,
+      code,
+      [x, 616, 0],
+      12,
+      index === 1 || index === 3 ? 2 : 1,
+      600,
+      phaseOpacity(start, end, 32, 100),
+      70,
+      2,
+    ));
+  });
+  layers.push(stageBackdrop(90, 'Locale cadence'));
+  return baseDocument('Locale cadence', layers);
 }
 
 function releaseStackDocument(): LottieDocument {
-  const layers: unknown[] = [];
-  const widths = [520, 560, 600, 640];
-  widths.forEach((width, index) => {
-    const start = 10 + index * 18;
-    const y = 252 + index * 76;
-    const initialX = index % 2 === 0 ? 330 : 630;
+  const labels = ['CODE', 'CONTENT', 'LOCALES'];
+  const layers: unknown[] = [
+    ...sceneHeaderLayers('RELEASE / MOTION', 'Release assembly', '04 / 07'),
+  ];
+  labels.forEach((label, index) => {
+    const start = 16 + index * 18;
+    const y = 286 + index * 124;
     layers.push(shapeLayer({
-      index: index + 1,
-      name: `Release layer ${index + 1}`,
+      index: 1 + index,
+      name: `Release plane ${label}`,
       opacity: loopOpacity(start),
-      position: animated([
-        { ease: 'linear', t: 0, value: [initialX, y, 0] },
-        { ease: 'outQuart', t: start, value: [initialX, y, 0] },
-        { ease: 'outCubic', t: start + 28, value: [480, y, 0] },
-        { ease: 'inOutCubic', t: 174, value: [480, y, 0] },
-        { ease: 'inCubic', t: FADE_OUT_START, value: [480, y, 0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [initialX, y, 0] },
-      ]),
+      position: settlePosition(start, [480, y + 22, 0], [480, y, 0]),
       shapes: [
-        ...panelGroups('Release plane', [width, 60], [0, 0], 14, {
-          accentSide: index === 3 ? 'bottom' : undefined,
-          fillOpacity: index === 3 ? 10 : 5 + index,
-          rimOpacity: index === 3 ? 32 : 20,
-        }),
-        ...orbGroups('Lock', 18, [width / 2 - 44, 0], index === 3 ? 0 : 2),
+        rectangleGroup('Release plane base', [896, 92], index === 2 ? 2 : 1, [0, 0], 0, index === 2 ? 24 : 10 + index * 4),
+        rectangleGroup('Release edge base', [6, 92], 2, [-445, 0], 0, 100),
       ],
     }));
-  });
-
-  layers.push(shapeLayer({
-    index: 10,
-    name: 'Release completion',
-    opacity: loopOpacity(66, 208),
-    position: [480, 568, 0],
-    scale: animated([
-      { ease: 'linear', t: 0, value: [0, 100, 100] },
-      { ease: 'outQuart', t: 66, value: [0, 100, 100] },
-      { ease: 'inOutCubic', t: 152, value: [100, 100, 100] },
-      { ease: 'inCubic', t: 208, value: [100, 100, 100] },
-      { ease: 'linear', t: COMPOSITION_FRAMES, value: [0, 100, 100] },
-    ]),
-    shapes: [rectangleGroup('Completion rail', [640, 8], 2, [0, 0], 4, 82)],
-  }));
-
-  const releaseLabels = ['Content', 'Code', 'Assets', 'Locales'];
-  releaseLabels.forEach((label, index) => {
-    const start = 10 + index * 18;
-    const y = 258 + index * 76;
-    layers.unshift(textLayer(
+    layers.push(textLayer(
       40 + index,
       `Release label ${label}`,
       label,
-      [232, y, 0],
+      [80, y + 8, 0],
       17,
-      index === 3 ? 2 : 0,
-      500,
-      loopOpacity(start),
+      index === 2 ? 0 : 1,
+      600,
+      loopOpacity(start + 6),
+      76,
     ));
   });
-  layers.unshift(
-    sceneDescriptionLayer(50, 'Release stack'),
-    textLayer(51, 'Completion label', 'Ready to ship', [390, 548, 0], 18, 2, 600, loopOpacity(66, 208)),
+  layers.push(
+    shapeLayer({
+      index: 10,
+      name: 'Release verification sweep',
+      opacity: phaseOpacity(92, 184),
+      position: travelPosition(92, 180, [104, 420, 0], [856, 420, 0]),
+      shapes: [gradientRectangleGroup('Verification sweep base', [4, 536], 2, 0, [0, 0], 2, 100)],
+    }),
+    shapeLayer({
+      index: 11,
+      name: 'Release seal',
+      opacity: loopOpacity(150, 208),
+      position: [856, 534, 0],
+      scale: revealScale(150, 82),
+      shapes: [
+        ellipseGroup('Release seal base', [52, 52], 2, [0, 0], 100),
+        ellipseGroup('Release seal center', [12, 12], 0, [0, 0], 100),
+      ],
+    }),
+    textLayer(43, 'Release status', 'READY', [784, 540, 0], 16, 2, 600, loopOpacity(150, 208), 70),
+    stageBackdrop(90, 'Release assembly'),
   );
-
-  layers.push(sceneBackdrop(90, 'Release stack'));
-
-  return baseDocument('Release stack', layers);
+  return baseDocument('Release assembly', layers);
 }
 
 function contentSyncDocument(): LottieDocument {
   const layers: unknown[] = [
+    ...sceneHeaderLayers('CONTENT / MOTION', 'Content relay', '05 / 07'),
+    textLayer(40, 'Source heading', 'SOURCE', [80, 260, 0], 13, 1, 600, loopOpacity(16), 88),
+    textLayer(41, 'Source file', 'product.json', [80, 304, 0], 24, 0, 500, loopOpacity(20), -6),
+    textLayer(42, 'Output heading', 'LOCALIZED', [656, 260, 0], 13, 1, 600, loopOpacity(24), 88),
+    textLayer(43, 'Output file', '4 versions', [656, 304, 0], 24, 2, 600, phaseOpacity(126, 210), -6),
     shapeLayer({
       index: 1,
-      name: 'Source document',
-      opacity: loopOpacity(8),
-      position: [270, 360, 0],
-      scale: revealScale(8),
-      shapes: [
-        ...panelGroups('Source', [284, 380], [0, 0], 22, { accentOpacity: 46, accentSide: 'right', fillOpacity: 7, rimOpacity: 22 }),
-      ],
+      name: 'Translation threshold',
+      opacity: loopOpacity(20, 214, 34),
+      position: [480, 420, 0],
+      shapes: [gradientRectangleGroup('Translation threshold base', [2, 536], 1, 2, [0, 0], 1, 88)],
     }),
     shapeLayer({
       index: 2,
-      name: 'Localized document',
-      opacity: loopOpacity(24),
-      position: [690, 360, 0],
-      scale: revealScale(24),
-      shapes: [
-        ...panelGroups('Localized', [284, 380], [0, 0], 22, { accentSide: 'left', fillOpacity: 9, rimOpacity: 30 }),
-      ],
+      name: 'Content row field',
+      opacity: loopOpacity(24, 214, 24),
+      position: [480, 420, 0],
+      shapes: [-90, -20, 50, 120].map((offset, index) => (
+        rectangleGroup(`Content row ${index + 1} base`, [896, 2], 1, [0, offset], 1, 34)
+      )),
     }),
     shapeLayer({
       index: 3,
-      name: 'Sync axis',
-      opacity: loopOpacity(0, 224, 28),
-      position: [480, 360, 0],
-      shapes: [rectangleGroup('Axis', [2, 310], 0, [0, 0], 1, 24)],
-    }),
-  ];
-
-  const sourceWidths = [194, 154, 208, 126];
-  const outputWidths = [164, 204, 144, 192];
-  sourceWidths.forEach((width, index) => {
-    const y = 292 + index * 48;
-    const start = 38 + index * 24;
-    layers.push(shapeLayer({
-      index: 10 + index,
-      name: `Source row ${index + 1}`,
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [46] },
-        { ease: 'inOutCubic', t: start, value: [46] },
-        { ease: 'inCubic', t: start + 32, value: [14] },
-        { ease: 'linear', t: 214, value: [14] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [46] },
-      ]),
-      position: [270 - (194 - width) / 2, y, 0],
+      name: 'Content hero signal',
+      opacity: phaseOpacity(40, 178, 0, 100),
+      position: travelPosition(40, 166, [162, 400, 0], [798, 400, 0]),
       scale: animated([
         { ease: 'linear', t: 0, value: [100, 100, 100] },
-        { ease: 'inCubic', t: start, value: [100, 100, 100] },
-        { ease: 'linear', t: start + 32, value: [18, 100, 100] },
-        { ease: 'linear', t: 214, value: [18, 100, 100] },
+        { ease: 'inOutCubic', t: 40, value: [100, 100, 100] },
+        { ease: 'inOutCubic', t: 104, value: [72, 100, 100] },
+        { ease: 'outQuart', t: 166, value: [118, 100, 100] },
+        { ease: 'linear', t: FADE_OUT_START, value: [118, 100, 100] },
         { ease: 'linear', t: COMPOSITION_FRAMES, value: [100, 100, 100] },
       ]),
-      shapes: [rectangleGroup('Source line', [width, 10], 1, [0, 0], 5, 78)],
-    }));
-    layers.push(shapeLayer({
-      index: 20 + index,
-      name: `Localized row ${index + 1}`,
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [14] },
-        { ease: 'outQuart', t: start + 20, value: [14] },
-        { ease: 'inOutCubic', t: start + 44, value: [100] },
-        { ease: 'linear', t: start + 62, value: [100] },
-        { ease: 'inCubic', t: start + 76, value: [48] },
-        { ease: 'linear', t: 214, value: [48] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [14] },
-      ]),
-      position: [690 - (204 - outputWidths[index]!) / 2, y, 0],
+      shapes: [gradientRectangleGroup('Content hero base', [260, 12], 0, 2, [0, 0], 6, 100)],
+    }),
+    shapeLayer({
+      index: 4,
+      name: 'Content reaction one',
+      opacity: loopOpacity(126, 206, 76),
+      position: [798, 470, 0],
       scale: animated([
-        { ease: 'linear', t: 0, value: [18, 100, 100] },
-        { ease: 'outQuart', t: start + 20, value: [18, 100, 100] },
-        { ease: 'inOutCubic', t: start + 50, value: [100, 100, 100] },
-        { ease: 'linear', t: 214, value: [100, 100, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [18, 100, 100] },
+        { ease: 'linear', t: 0, value: [0, 100, 100] },
+        { ease: 'outQuart', t: 126, value: [0, 100, 100] },
+        { ease: 'linear', t: 156, value: [100, 100, 100] },
+        { ease: 'inCubic', t: 206, value: [100, 100, 100] },
+        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0, 100, 100] },
       ]),
-      shapes: [rectangleGroup('Localized line', [outputWidths[index]!, 10], index === 1 ? 2 : 1, [0, 0], 5, index === 1 ? 88 : 68)],
-    }));
-    layers.push(shapeLayer({
-      index: 30 + index,
-      name: `Sync packet ${index + 1}`,
-      opacity: animated([
-        { ease: 'linear', t: 0, value: [0] },
-        { ease: 'outCubic', t: start, value: [0] },
-        { ease: 'linear', t: start + 8, value: [100] },
-        { ease: 'linear', t: start + 46, value: [100] },
-        { ease: 'inCubic', t: start + 54, value: [0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
+      shapes: [rectangleGroup('Content reaction one base', [210, 8], 2, [0, 0], 4, 86)],
+    }),
+    shapeLayer({
+      index: 5,
+      name: 'Content reaction two',
+      opacity: loopOpacity(136, 210, 58),
+      position: [798, 540, 0],
+      scale: animated([
+        { ease: 'linear', t: 0, value: [0, 100, 100] },
+        { ease: 'outQuart', t: 136, value: [0, 100, 100] },
+        { ease: 'linear', t: 166, value: [100, 100, 100] },
+        { ease: 'inCubic', t: 210, value: [100, 100, 100] },
+        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0, 100, 100] },
       ]),
-      position: animated([
-        { ease: 'linear', t: 0, value: [416, y, 0] },
-        { ease: 'inOutCubic', t: start, value: [416, y, 0] },
-        { ease: 'outQuart', t: start + 54, value: [544, y, 0] },
-        { ease: 'linear', t: 214, value: [544, y, 0] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [416, y, 0] },
-      ]),
-      shapes: [rectangleGroup('Packet', [34, 8], 2, [0, 0], 4, 88)],
-    }));
-  });
-
-  layers.unshift(
-    sceneDescriptionLayer(50, 'Content sync'),
-    textLayer(51, 'Source label', 'SOURCE', [164, 220, 0], 13, 1, 500, loopOpacity(8), 80),
-    textLayer(52, 'Source value', 'product.json', [164, 250, 0], 18, 0, 500, loopOpacity(8)),
-    textLayer(53, 'Localized label', 'LOCALIZED', [584, 220, 0], 13, 1, 500, loopOpacity(24), 80),
-    textLayer(54, 'Localized value', '4 updates', [584, 250, 0], 18, 2, 600, loopOpacity(24)),
-  );
-
-  layers.push(sceneBackdrop(90, 'Content sync'));
-
-  return baseDocument('Content sync', layers);
+      shapes: [rectangleGroup('Content reaction two base', [168, 8], 0, [0, 0], 4, 72)],
+    }),
+    stageBackdrop(90, 'Content relay'),
+  ];
+  return baseDocument('Content relay', layers);
 }
 
 function conversionFlowDocument(): LottieDocument {
-  const layers: unknown[] = [
-    shapeLayer({
-      index: 1,
-      name: 'Flow rail',
-      opacity: loopOpacity(0, 224, 28),
-      position: [480, 360, 0],
-      shapes: [rectangleGroup('Rail', [500, 2], 0, [0, 0], 1, 24)],
-    }),
+  const steps = [
+    { end: 88, label: 'CONNECT', number: '01', start: 18 },
+    { end: 154, label: 'CONFIGURE', number: '02', start: 74 },
+    { end: 210, label: 'SHIP', number: '03', start: 140 },
   ];
-  const positions = [230, 480, 730];
-  positions.forEach((x, index) => {
-    const start = 24 + index * 60;
-    const end = start + 52;
-    layers.push(shapeLayer({
-      index: index + 2,
-      name: `Conversion step ${index + 1}`,
-      opacity: phaseOpacity(start, end, 18, 100),
-      position: [x, 360, 0],
-      scale: animated([
-        { ease: 'linear', t: 0, value: [92, 92, 100] },
-        { ease: 'outQuart', t: start, value: [92, 92, 100] },
-        { ease: 'outCubic', t: start + 28, value: [100, 100, 100] },
-        { ease: 'inCubic', t: end - 10, value: [100, 100, 100] },
-        { ease: 'linear', t: end, value: [94, 94, 100] },
-        { ease: 'linear', t: 214, value: [94, 94, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [92, 92, 100] },
-      ]),
-      shapes: [
-        ...orbGroups('Step node', 92, [0, 0], index === 1 ? 2 : 0),
-        ellipseGroup('Step core', [30, 30], index === 1 ? 0 : 2, [0, 0], 92),
-      ],
-    }));
-    layers.push(shapeLayer({
-      index: 10 + index,
-      name: `Step detail ${index + 1}`,
-      opacity: phaseOpacity(start, end, 18, 100),
-      position: [x, 492, 0],
-      shapes: [
-        ...panelGroups('Detail', [174, 86], [0, 0], 16, { accentOpacity: 72, accentSide: 'top', fillOpacity: 7, rimOpacity: 22 }),
-      ],
-    }));
-    layers.unshift(textLayer(
-      60 + index,
-      `Step number ${index + 1}`,
-      `0${index + 1}`,
-      [x - 12, 367, 0],
-      18,
-      index === 1 ? 0 : 2,
-      600,
-      phaseOpacity(start, end, 22, 100),
-    ));
-  });
-
-  ['Connect', 'Configure', 'Ship'].forEach((label, index) => {
-    layers.unshift(textLayer(
-      40 + index,
-      `Step label ${label}`,
-      label,
-      [positions[index]! - 47, 499, 0],
-      17,
-      0,
-      500,
-      phaseOpacity(24 + index * 60, 76 + index * 60, 18, 100),
-    ));
-  });
-  layers.unshift(
-    sceneDescriptionLayer(50, 'Onboarding'),
-  );
-
-  layers.push(sceneBackdrop(90, 'Conversion flow'));
-
-  return baseDocument('Conversion flow', layers);
-}
-
-function agentQueueDocument(): LottieDocument {
   const layers: unknown[] = [
+    ...sceneHeaderLayers('ONBOARDING / MOTION', 'Activation path', '06 / 07'),
     shapeLayer({
       index: 1,
-      name: 'Agent hub',
-      opacity: loopOpacity(8),
-      position: [500, 360, 0],
-      scale: animated([
-        { ease: 'linear', t: 0, value: [96, 96, 100] },
-        { ease: 'outQuart', t: 8, value: [96, 96, 100] },
-        { ease: 'linear', t: 36, value: [100, 100, 100] },
-        { ease: 'inCubic', t: 214, value: [100, 100, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [96, 96, 100] },
-      ]),
-      shapes: [
-        ...orbGroups('Hub', 142, [0, 0], 0),
-        ellipseOutlineGroup('Hub orbit', [204, 204], 2, [0, 0], 1, 26),
-      ],
+      name: 'Activation axis',
+      opacity: loopOpacity(14, 214, 34),
+      position: [480, 420, 0],
+      shapes: [gradientRectangleGroup('Activation axis base', [2, 536], 1, 2, [0, 0], 1, 82)],
     }),
     shapeLayer({
       index: 2,
-      name: 'Output panel',
-      opacity: loopOpacity(34),
-      position: [748, 360, 0],
-      scale: revealScale(34),
-      shapes: [
-        ...panelGroups('Output', [176, 246], [0, 0], 20, { accentSide: 'left', fillOpacity: 8, rimOpacity: 28 }),
-      ],
+      name: 'Activation crossbar',
+      opacity: loopOpacity(18, 214, 28),
+      position: [480, 500, 0],
+      shapes: [rectangleGroup('Activation crossbar base', [896, 2], 1, [0, 0], 1, 42)],
     }),
     shapeLayer({
       index: 3,
-      name: 'Hub to output rail',
-      opacity: loopOpacity(0, 224, 28),
-      position: [626, 360, 0],
-      shapes: [rectangleGroup('Rail', [108, 2], 0, [0, 0], 1, 24)],
+      name: 'Progress path',
+      opacity: loopOpacity(18, 214, 34),
+      position: [480, 592, 0],
+      shapes: [rectangleGroup('Progress path base', [896, 2], 1, [0, 0], 1, 48)],
+    }),
+    shapeLayer({
+      index: 4,
+      name: 'Progress signal',
+      opacity: loopOpacity(22, 210),
+      position: travelPosition(22, 198, [104, 592, 0], [856, 592, 0]),
+      shapes: [gradientRectangleGroup('Progress signal base', [132, 6], 2, 0, [0, 0], 3, 100)],
     }),
   ];
-
-  const queueY = [246, 322, 398, 474];
-  queueY.forEach((y, index) => {
-    const start = 30 + index * 34;
-    const taskOpacity = phaseOpacity(start, start + 34, 20, 100);
-    layers.push(shapeLayer({
-      index: 10 + index,
-      name: `Queued task ${index + 1}`,
-      opacity: taskOpacity,
-      position: [230, y, 0],
-      scale: animated([
-        { ease: 'linear', t: 0, value: [98, 98, 100] },
-        { ease: 'outCubic', t: start, value: [98, 98, 100] },
-        { ease: 'outQuart', t: start + 10, value: [100, 100, 100] },
-        { ease: 'inCubic', t: start + 34, value: [98, 98, 100] },
-        { ease: 'linear', t: COMPOSITION_FRAMES, value: [98, 98, 100] },
-      ]),
-      shapes: [
-        ...panelGroups('Task', [176, 54], [0, 0], 13, { accentOpacity: 76, accentSide: 'left', fillOpacity: 6 + (index % 2) * 2, rimOpacity: 20 }),
-        ellipseGroup('State', [14, 14], 2, [62, 0], 78),
-      ],
-    }));
-    layers.unshift(textLayer(
+  steps.forEach(({ end, label, number, start }, index) => {
+    layers.push(textLayer(
       40 + index,
-      `Task label ${index + 1}`,
-      ['Copy', 'Docs', 'UI', 'Release'][index] ?? 'Task',
-      [158, y + 6, 0],
-      16,
-      index === 2 ? 2 : 0,
-      500,
-      taskOpacity,
+      `Step number ${number}`,
+      number,
+      phasePosition(start, end, [96, 472, 0], [96, 438, 0], [96, 404, 0]),
+      172,
+      index === 1 ? 2 : 0,
+      600,
+      phaseOpacity(start, end),
+      -42,
+    ));
+    layers.push(textLayer(
+      50 + index,
+      `Step label ${label}`,
+      label,
+      [552, 428, 0],
+      18,
+      index === 1 ? 2 : 1,
+      600,
+      phaseOpacity(start, end),
+      96,
     ));
   });
+  layers.push(stageBackdrop(90, 'Activation path'));
+  return baseDocument('Activation path', layers);
+}
 
-  layers.push(shapeLayer({
-    index: 19,
-    name: 'Agent input packet',
-    opacity: animated([
-      { ease: 'linear', t: 0, value: [0] },
-      { ease: 'outCubic', t: 36, value: [0] },
-      { ease: 'linear', t: 48, value: [100] },
-      { ease: 'linear', t: 168, value: [100] },
-      { ease: 'inCubic', t: 184, value: [0] },
-      { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
-    ]),
-    position: animated([
-      { ease: 'linear', t: 0, value: [340, 360, 0] },
-      { ease: 'outQuart', t: 48, value: [340, 360, 0] },
-      { ease: 'inOutCubic', t: 168, value: [418, 360, 0] },
-      { ease: 'linear', t: 184, value: [418, 360, 0] },
-      { ease: 'linear', t: COMPOSITION_FRAMES, value: [340, 360, 0] },
-    ]),
-    shapes: [rectangleGroup('Input packet', [28, 10], 2, [0, 0], 5, 88)],
-  }));
-
-  layers.push(shapeLayer({
-    index: 20,
-    name: 'Agent result packet',
-    opacity: animated([
-      { ease: 'linear', t: 0, value: [0] },
-      { ease: 'outCubic', t: 154, value: [0] },
-      { ease: 'linear', t: 164, value: [100] },
-      { ease: 'linear', t: 198, value: [100] },
-      { ease: 'inCubic', t: 208, value: [0] },
-      { ease: 'linear', t: COMPOSITION_FRAMES, value: [0] },
-    ]),
-    position: animated([
-      { ease: 'linear', t: 0, value: [572, 360, 0] },
-      { ease: 'inOutCubic', t: 158, value: [572, 360, 0] },
-      { ease: 'outQuart', t: 204, value: [660, 360, 0] },
-      { ease: 'linear', t: 214, value: [660, 360, 0] },
-      { ease: 'linear', t: COMPOSITION_FRAMES, value: [572, 360, 0] },
-    ]),
-    shapes: [rectangleGroup('Result', [42, 18], 2, [0, 0], 9, 88)],
-  }));
-
-  layers.unshift(
-    sceneDescriptionLayer(50, 'Agent queue'),
-    textLayer(51, 'Hub label', 'AGENT', [468, 366, 0], 14, 0, 600, loopOpacity(8), 80),
-    textLayer(52, 'Output label', 'OUTPUT', [690, 286, 0], 13, 1, 500, loopOpacity(34), 80),
-    textLayer(53, 'Output value', 'Ready', [690, 334, 0], 22, 2, 600, loopOpacity(154, 208)),
-  );
-
-  layers.push(sceneBackdrop(90, 'Agent task queue'));
-
-  return baseDocument('Agent task queue', layers);
+function agentQueueDocument(): LottieDocument {
+  const tasks = ['COPY', 'DOCS', 'UI', 'RELEASE'];
+  const layers: unknown[] = [
+    ...sceneHeaderLayers('AGENTS / MOTION', 'Agent orchestration', '07 / 07'),
+    textLayer(40, 'Queue count', '04', [80, 612, 0], 118, 0, 600, loopOpacity(18), -38),
+    textLayer(41, 'Queue label', 'QUEUED', [88, 650, 0], 12, 1, 600, loopOpacity(22), 96),
+    textLayer(42, 'Result count', '01', [682, 456, 0], 150, 2, 600, loopOpacity(144, 210), -42),
+    textLayer(43, 'Result label', 'READY', [692, 510, 0], 13, 2, 600, loopOpacity(150, 210), 96),
+    textLayer(44, 'Agent label', 'ORCHESTRATOR', [522, 286, 0], 13, 1, 600, loopOpacity(32), 82),
+    shapeLayer({
+      index: 1,
+      name: 'Agent spine',
+      opacity: loopOpacity(20, 214, 34),
+      position: [480, 420, 0],
+      shapes: [gradientRectangleGroup('Agent spine base', [2, 536], 1, 2, [0, 0], 1, 86)],
+    }),
+    shapeLayer({
+      index: 2,
+      name: 'Task rail field',
+      opacity: loopOpacity(24, 214, 26),
+      position: [256, 420, 0],
+      shapes: [-144, -76, -8, 60].map((offset, index) => (
+        rectangleGroup(`Task rail ${index + 1} base`, [448, 2], 1, [0, offset], 1, 40)
+      )),
+    }),
+    shapeLayer({
+      index: 3,
+      name: 'Result beam',
+      opacity: loopOpacity(138, 208),
+      position: [480, 412, 0],
+      scale: animated([
+        { ease: 'linear', t: 0, value: [0, 100, 100] },
+        { ease: 'outQuart', t: 138, value: [0, 100, 100] },
+        { ease: 'linear', t: 164, value: [100, 100, 100] },
+        { ease: 'inCubic', t: 208, value: [100, 100, 100] },
+        { ease: 'linear', t: COMPOSITION_FRAMES, value: [0, 100, 100] },
+      ]),
+      shapes: [gradientRectangleGroup('Result beam base', [448, 6], 2, 0, [224, 0], 3, 100)],
+    }),
+  ];
+  tasks.forEach((task, index) => {
+    const start = 34 + index * 24;
+    const y = 276 + index * 68;
+    layers.push(shapeLayer({
+      index: 10 + index,
+      name: `Task signal ${task}`,
+      opacity: phaseOpacity(start, start + 54, 12, 100),
+      position: travelPosition(start, start + 50, [136, y, 0], [438, y, 0]),
+      shapes: [rectangleGroup('Task signal base', [92 + index * 10, 6], index === 2 ? 2 : 0, [0, 0], 3, index === 2 ? 100 : 66)],
+    }));
+    layers.push(textLayer(
+      50 + index,
+      `Task label ${task}`,
+      task,
+      [80, y + 5, 0],
+      11,
+      index === 2 ? 2 : 1,
+      600,
+      phaseOpacity(start, start + 54, 18, 100),
+      72,
+    ));
+  });
+  layers.push(stageBackdrop(90, 'Agent orchestration'));
+  return baseDocument('Agent orchestration', layers);
 }
 
 export const LOTTIE_EXAMPLES: readonly LottieExample[] = [
   {
     category: 'Product UI',
     data: dashboardLaunchDocument(),
-    description: 'A product shell resolves before metrics and activity settle into place.',
+    description: 'A single coverage signal resolves into a coordinated product pulse.',
     id: 'dashboard-launch',
     name: 'Dashboard launch',
   },
   {
     category: 'Developer',
     data: apiExchangeDocument(),
-    description: 'One request and response exchange with directional endpoint feedback.',
+    description: 'A precise request and response complete one readable exchange.',
     id: 'api-exchange',
     name: 'API exchange',
   },
   {
     category: 'Global product',
     data: localeMatrixDocument(),
-    description: 'Locale tiles activate diagonally as focus moves through the matrix.',
+    description: 'Language changes through one typographic cadence instead of a tile grid.',
     id: 'locale-matrix',
-    name: 'Locale matrix',
+    name: 'Locale cadence',
   },
   {
     category: 'Release',
     data: releaseStackDocument(),
-    description: 'Independent product layers align and lock into one stable release.',
+    description: 'Product layers converge, verify, and resolve into a single release.',
     id: 'release-stack',
-    name: 'Release stack',
+    name: 'Release assembly',
   },
   {
     category: 'Content',
     data: contentSyncDocument(),
-    description: 'Source rows contract while localized rows resolve across a shared axis.',
+    description: 'Content crosses one translation threshold and resolves in place.',
     id: 'content-sync',
-    name: 'Content sync',
+    name: 'Content relay',
   },
   {
     category: 'Onboarding',
     data: conversionFlowDocument(),
-    description: 'A restrained three-step flow advances with one continuous focus signal.',
+    description: 'One large numbered state advances through the activation sequence.',
     id: 'conversion-flow',
-    name: 'Conversion flow',
+    name: 'Activation path',
   },
   {
     category: 'Agents',
     data: agentQueueDocument(),
-    description: 'Queued work converges on an agent hub before a single result resolves.',
+    description: 'Four inputs compress into one deliberate, legible agent result.',
     id: 'agent-queue',
-    name: 'Agent task queue',
+    name: 'Agent orchestration',
   },
 ] as const;
 
@@ -1260,7 +976,7 @@ function paletteSlot(name: unknown, pattern: RegExp, capture = 1): number {
 function customizeLottiePaint(
   record: LottieRecord,
   next: LottieRecord,
-  colors: readonly string[]
+  colors: readonly string[],
 ) {
   if (record.ty !== 'fl' && record.ty !== 'st') return;
   if (!record.c || typeof record.c !== 'object') return;
@@ -1276,7 +992,7 @@ function customizeLottiePaint(
 function customizedTextKeyframe(
   keyframe: unknown,
   color: number[],
-  fontFamily: string | undefined
+  fontFamily: string | undefined,
 ) {
   if (!keyframe || typeof keyframe !== 'object') return keyframe;
   const keyframeRecord = keyframe as LottieRecord;
@@ -1300,7 +1016,7 @@ function customizeLottieText(
   record: LottieRecord,
   next: LottieRecord,
   appearance: LottieAppearance,
-  colors: readonly string[]
+  colors: readonly string[],
 ) {
   if (record.ty !== 5 || !record.t || typeof record.t !== 'object') return;
   const text = next.t as LottieRecord;
@@ -1310,9 +1026,7 @@ function customizeLottieText(
   const color = hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818').slice(0, 3);
   text.d = {
     ...documentData,
-    k: keyframes.map((keyframe) => (
-      customizedTextKeyframe(keyframe, color, appearance.fontFamily)
-    )),
+    k: keyframes.map((keyframe) => customizedTextKeyframe(keyframe, color, appearance.fontFamily)),
   };
   next.t = text;
 }
@@ -1320,7 +1034,7 @@ function customizeLottieText(
 function customizeLottieGradient(
   record: LottieRecord,
   next: LottieRecord,
-  colors: readonly string[]
+  colors: readonly string[],
 ) {
   if (record.ty !== 'gf' || !record.g || typeof record.g !== 'object') return;
   const gradient = record.g as LottieRecord;
@@ -1345,7 +1059,7 @@ function customizeLottieGradient(
 function customizeLottieGeometry(
   record: LottieRecord,
   next: LottieRecord,
-  appearance: LottieAppearance
+  appearance: LottieAppearance,
 ) {
   if (record.ty === 'st' && record.w && typeof record.w === 'object') {
     const widthProperty = record.w as LottieRecord;
@@ -1424,8 +1138,6 @@ export function customizeLottieDocument(
     const index = (layer as Record<string, unknown>).ind;
     return typeof index === 'number' ? Math.max(maximum, index) : maximum;
   }, 0);
-  const logoWidth = Math.max(1, appearance.brandLogo.width);
-  const logoHeight = Math.max(1, appearance.brandLogo.height);
 
   return {
     ...customizedWithFonts,
@@ -1433,16 +1145,15 @@ export function customizeLottieDocument(
       ...assets,
       {
         e: 1,
-        h: logoHeight,
+        h: appearance.brandLogo.height,
         id: 'glyphfield-brand-logo',
-        nm: appearance.brandLogo.label,
         p: appearance.brandLogo.dataUrl,
         u: '',
-        w: logoWidth,
+        w: appearance.brandLogo.width,
       },
     ],
     layers: [
-      brandLogoLayer(maximumLayerIndex + 1, logoWidth, logoHeight),
+      brandLogoLayer(maximumLayerIndex + 1, appearance.brandLogo.width, appearance.brandLogo.height),
       ...layers,
     ],
   };

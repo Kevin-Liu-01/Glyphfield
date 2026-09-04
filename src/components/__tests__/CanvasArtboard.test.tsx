@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import CanvasArtboard from '@/components/CanvasArtboard';
 import TemplateCanvasPreview from '@/components/TemplateCanvasPreview';
+import {
+  STUDIO_ARTIFACT_FRAME_CLASS,
+  STUDIO_ARTIFACT_PLANE_CLASS,
+} from '@/lib/studioCanvasPresentation';
 import { buildTemplateSvg } from '@/lib/templateSvg';
 
 const layerGeometries = {
@@ -76,5 +80,7 @@ describe('TemplateCanvasPreview', () => {
     expect(markup).toContain(encodeURIComponent(svg));
     expect(markup).not.toContain('dangerouslySetInnerHTML');
     expect(markup.match(/template-canvas-hit-layer/g)).toHaveLength(3);
+    expect(markup).toContain(STUDIO_ARTIFACT_FRAME_CLASS);
+    expect(markup).toContain(STUDIO_ARTIFACT_PLANE_CLASS);
   });
 });

@@ -3,8 +3,10 @@
   "icon": "Bot",
   "pages": [
     "index",
+    "choose-interface",
     "connect",
     "generate",
+    "recipes",
     "identity-assets",
     "browser-workflow",
     "errors"

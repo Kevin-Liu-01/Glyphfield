@@ -4,6 +4,24 @@ export function clampCanvasZoom(value: number, min = 40, max = 200): number {
   return Math.min(boundedMax, Math.max(boundedMin, Math.round(value / 5) * 5));
 }
 
+export function resolveCanvasStageTransform({
+  x,
+  y,
+  zoom,
+}: {
+  x: number;
+  y: number;
+  zoom: number;
+}): string {
+  const safeX = Number.isFinite(x) ? x : 0;
+  const safeY = Number.isFinite(y) ? y : 0;
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 100;
+  if (Math.abs(safeX) < 0.01 && Math.abs(safeY) < 0.01 && Math.abs(safeZoom - 100) < 0.01) {
+    return 'none';
+  }
+  return `translate(${safeX}px, ${safeY}px) scale(${safeZoom / 100})`;
+}
+
 export function resolveCanvasGridStep(
   zoom: number,
   baseStep = 20,

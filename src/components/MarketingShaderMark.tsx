@@ -12,7 +12,7 @@ export default function MarketingShaderMark({ materialId, settings }: { material
     <span aria-hidden='true' className='marketing-v5-hero-mark' data-motion-item>
       {runtimeReady ? (
         <LazyLiveMaterialCanvas
-          frameRate={60}
+          frameRate={24}
           materialId={materialId}
           renderScale={1}
           settings={settings}

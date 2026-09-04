@@ -6,15 +6,14 @@ import { Moon, Sun } from '@/components/ui/SolidIcons';
 
 export default function DocsThemeButton({ className = '' }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const dark = resolvedTheme === 'dark';
-  const nextTheme = dark ? 'light' : 'dark';
+  const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
 
   return (
     <button
-      aria-label={`Use ${nextTheme} theme`}
+      aria-label='Toggle color theme'
       className={`docs-theme-button ${className}`.trim()}
-      onClick={() => setTheme(nextTheme)}
-      title={`${nextTheme === 'dark' ? 'Dark' : 'Light'} theme`}
+      onClick={toggleTheme}
+      title='Toggle color theme'
       type='button'
     >
       <Sun aria-hidden='true' className='docs-theme-button__sun' />

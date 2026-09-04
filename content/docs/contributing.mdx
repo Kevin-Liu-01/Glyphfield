@@ -1,0 +1,190 @@
+---
+title: Contributing
+description: Extend Glyphfield while keeping the visual Studio, portable source, browser automation, deterministic APIs, docs, exports, and tests in parity.
+icon: GitBranch
+---
+
+Glyphfield is an open-source local-first brand studio. A complete contribution updates the user-facing behavior and every public contract that represents it. The goal is not merely to make a new control appear; it is to keep preview, source, persistence, automation, documentation, and export resolving from the same state.
+
+<DocsMediaGrid>
+  <DocsMedia alt='Glyphfield Design Lab showing its material library, canvas, inspector, and layer dock' caption='Editor systems compose into tools' meta='Library · canvas · source · export' src='/screenshots/studio-gt-design-lab-light-2026.png' />
+  <DocsMedia alt='Glyphfield Components workspace showing reusable brand-aware component output' caption='Build reusable surfaces' meta='Identity-aware · documented · testable' src='/screenshots/studio-gt-components-light-2026.png' />
+</DocsMediaGrid>
+
+## Development setup
+
+```bash
+git clone https://github.com/Kevin-Liu-01/Glyphfield.git
+cd Glyphfield
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Development runs at `http://localhost:3012`.
+
+Before opening a change, run the checks appropriate to its scope:
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm build
+```
+
+Documentation-only changes should still run docs generation/typecheck and the focused documentation tests. Visual changes should also be inspected in the real browser at representative desktop and mobile widths.
+
+## Architecture map
+
+| Area | Primary owner |
+| --- | --- |
+| Projects, tabs, active identity/tool | `src/components/StudioApp.tsx` |
+| Public Studio tool catalog | `src/lib/studioCatalog.ts` |
+| Tool-to-editor rendering | `src/components/StudioToolWorkspace.tsx` |
+| Design Lab composition and export | `src/components/ShaderLabStudio.tsx` |
+| Portable canvas scene graph | `src/lib/canvasDocument.ts` |
+| Design Lab source adapter | `src/lib/designLabDocument.ts` |
+| Shared persistent editor state | `src/hooks/` and `src/lib/savedDesigns.ts` |
+| Browser automation | `src/lib/studioAutomation.ts` plus each tool adapter |
+| Agent discovery and generation | `src/lib/agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts` |
+| Human and machine docs | `content/docs/**`, `/llms.txt`, generated `/llms-full.txt` |
+| Shared Studio controls | `src/components/StudioControls.tsx`, `CanvasViewport.tsx`, and related editor components |
+
+Read the repository `AGENTS.md`, root `SKILL.md`, and the nearest directory `SKILL.md` before changing these owners.
+
+## Core invariants
+
+- Preview, source, saved state, and export must use the same resolved configuration.
+- Public tool IDs come from `STUDIO_TOOLS`; Design Lab's public ID is `material`.
+- Canvas layer order comes from `page.elementIds` and must retain stable element/asset IDs.
+- Source changes go through the owning validator. Never mutate browser storage or component internals as a substitute.
+- Every editable color uses the shared color component and normalization path.
+- Every scrollable Studio region uses the shared minimal scrollbar treatment.
+- Browser exports run serially and return a non-empty Blob with matching filename/MIME data.
+- GIF repeat and visual loop closure are different checks.
+- MP4 codec failures remain explicit; do not substitute another format silently.
+- Shader/material counts and tool counts come from live catalogs, not prose constants.
+- Preserve unrelated work in an already-dirty checkout.
+
+## Add or change a Studio tool
+
+Follow the parity chain in order:
+
+1. **Catalog** — add or update the public entry in `studioCatalog.ts`.
+2. **Workspace** — map the tool to its editor in `StudioToolWorkspace.tsx`.
+3. **State** — define one authoritative state model, persistence keys, and initialization behavior.
+4. **Preview** — render from that state with shared canvas/color/select/layer systems.
+5. **Source** — serialize and validate every meaningful editable field.
+6. **Browser API** — expose accessible controls, source support, and tool-specific actions.
+7. **HTTP** — update deterministic generation only when the feature can be represented without the browser.
+8. **Export** — render from the same source and validate returned bytes.
+9. **Documentation** — update the tool guide, capability matrix, agent guidance, examples, and processed Markdown.
+10. **Tests** — cover catalog visibility, source round trip, persistence, automation, and output.
+
+Do not create an agent-only renderer that approximates an authentic browser visual. Use the Browser API for Canvas, WebGL, local fonts/files, and browser codecs.
+
+## Reuse editor systems
+
+Prefer shared components over one-off controls:
+
+- `ColorControl` for HEX, OKLCH, native picker, and opacity.
+- `CanvasViewport` for fit, reset, zoom, pan, and intrinsic output geometry.
+- `EditableCanvasLayer` plus `CanvasLayerPanel` for selection, transforms, order, and keyboard nudge.
+- `SourceCodeDrawer` for validated visual/source parity.
+- `StudioSelect` for consistent accessible selection.
+- `LogoAppearanceControls` for inversion, outline, dither, and shadow.
+- `usePortableCanvasWorkspace` for portable source plus autosave.
+- `window.glyphfield.studio` adapters for agent-visible labels and actions.
+
+See [Editor systems and plugins](/docs/studio/editor-systems) before adding a new primitive.
+
+## Change a source schema
+
+Schema changes require an explicit compatibility decision:
+
+1. Update types and serializer.
+2. Validate the new field and reject malformed values without partial mutation.
+3. Add a migration when older durable documents must remain supported.
+4. Preserve stable IDs, ordering, asset records, and unknown metadata.
+5. Update Browser API descriptions and source examples.
+6. Update HTTP response/request schemas when relevant.
+7. Add current round-trip, old-version migration, and future/invalid-version tests.
+8. Update [Version compatibility](/docs/reference/version-compatibility).
+
+Never make removing a version field the recommended way to open an unsupported document.
+
+## Change an export
+
+Test the complete terminal result:
+
+| Output | Minimum proof |
+| --- | --- |
+| SVG | Non-empty UTF-8 SVG, declared dimensions, valid MIME/filename |
+| PNG/JPG | Non-empty decoded image, exact dimensions, expected alpha/background |
+| GIF | Multiple changing frames, expected duration/FPS, protected colors, actual seam |
+| MP4 | Playable video, expected dimensions/duration, browser codec result, required audio track |
+| PDF | Complete page set, print geometry, legible text and links |
+| JSON/Lottie | Parser accepts it, source re-applies, visible result matches |
+
+Use small fixtures for focused tests, then visually verify a realistic composition. Do not infer success from a resolved Promise alone.
+
+## Document a feature
+
+Update documentation in the same change as behavior:
+
+- Add the page to the nearest `meta.json` navigation list.
+- State the owner, input, output, limits, persistence, and completion rule.
+- Use actual product names and link to exact reference pages.
+- Include a current screenshot when the visual structure matters.
+- Avoid hardcoded catalog counts; point to live discovery endpoints.
+- Confirm the processed `.md` route and `/llms-full.txt` contain the guidance.
+- Update `/llms.txt` only for compact, high-value agent routing.
+
+Use the existing MDX components for path cards, feature grids, system grids, and media rather than introducing page-local visual wrappers.
+
+## Tests and review
+
+Start with the narrowest affected test, then widen:
+
+```bash
+pnpm vitest run src/lib/__tests__/documentationCoverage.test.ts
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm build
+```
+
+For UI work, review:
+
+- Desktop and narrow/mobile layout.
+- Light and dark themes.
+- Keyboard-only operation and visible focus.
+- Reduced motion where animation is automatic.
+- Empty, loading, error, restored, and long-content states.
+- Source apply/reset and browser reload.
+- One authentic exported artifact.
+
+## Security and privacy
+
+- Keep remote URL fetching disabled unless a separately reviewed feature requires it.
+- Bound request bodies, image geometry, and generated work.
+- Never commit secrets, local browser data, or proprietary user assets.
+- Keep generation stateless unless a persistence feature explicitly defines ownership and deletion.
+- Treat production firewall state as deployment infrastructure and verify it separately.
+- Preserve third-party license and attribution notices.
+
+See [API security](/docs/reference/api-security) and [Storage and privacy](/docs/artifacts/storage-and-privacy).
+
+## Pull request handoff
+
+A useful handoff explains:
+
+1. The user-facing behavior changed.
+2. The state/source owner and compatibility decision.
+3. API or Browser API parity.
+4. Persistence and export implications.
+5. Tests run and visual states inspected.
+6. Any unsupported browser or migration boundary.
+7. Documentation and attribution updates.
+
+See [Capability matrix](/docs/reference/capability-matrix), [Accessibility](/docs/reference/accessibility), and [Self-hosting](/docs/reference/self-hosting).

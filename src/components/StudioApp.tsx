@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import {
+  memo,
+  startTransition,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -22,16 +24,19 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Film,
   Folder,
   Grid3X3,
   Monitor,
   Moon,
+  Palette,
   PanelTopClose,
   Plus,
   Rocket,
   Save,
   Search,
   Settings2,
+  Sticker,
   Sun,
   Trash2,
   X,
@@ -78,20 +83,35 @@ import {
   type StudioToolId,
 } from '@/lib/studioCatalog';
 
-const AnimationStudio = dynamic(() => import('@/components/AnimationStudio'), {
+const loadAnimationStudio = () => import('@/components/AnimationStudio');
+const loadBrandSettingsStudio = () => import('@/components/BrandSettingsStudio');
+const loadLottieStudio = () => import('@/components/LottieStudio');
+const loadStudioToolWorkspace = () => import('@/components/StudioToolWorkspace');
+
+const AnimationStudio = dynamic(loadAnimationStudio, {
   loading: StudioWorkspaceLoading,
   ssr: false,
 });
-const BrandSettingsStudio = dynamic(() => import('@/components/BrandSettingsStudio'), {
+const BrandSettingsStudio = dynamic(loadBrandSettingsStudio, {
   loading: StudioWorkspaceLoading,
 });
-const LottieStudio = dynamic(() => import('@/components/LottieStudio'), {
+const LottieStudio = dynamic(loadLottieStudio, {
   loading: StudioWorkspaceLoading,
   ssr: false,
 });
-const StudioToolWorkspace = dynamic(() => import('@/components/StudioToolWorkspace'), {
+const StudioToolWorkspace = dynamic(loadStudioToolWorkspace, {
   loading: StudioWorkspaceLoading,
 });
+
+async function preloadStudioTool(toolId: StudioToolId) {
+  if (toolId === 'animation') return loadAnimationStudio();
+  if (toolId === 'identity') return loadBrandSettingsStudio();
+  if (toolId === 'lottie') {
+    const { preloadLottieRuntime } = await loadLottieStudio();
+    return preloadLottieRuntime();
+  }
+  return loadStudioToolWorkspace();
+}
 
 function StudioWorkspaceLoading() {
   return (
@@ -107,6 +127,7 @@ const ACTIVE_TOOL_STORAGE_KEY = 'glyphfield-active-tool-v2';
 const ACTIVE_FOLDER_STORAGE_KEY = 'glyphfield-active-folder-v1';
 const OPEN_TABS_STORAGE_KEY = 'glyphfield-open-tabs-v1';
 const APPEARANCE_STORAGE_KEY = 'glyphfield-appearance-v1';
+const MAX_RETAINED_PROJECT_WORKSPACES = 3;
 const LEGACY_PROJECTS_STORAGE_KEYS = [
   'gt-studio-identities-v2',
   'gt-studio-identities-v1',
@@ -266,6 +287,7 @@ function ProjectFolderMenu({
   identities,
   onOpenProject,
   onSelect,
+  onWarmProject,
   openIdentityIds,
 }: {
   activeIdentityId: string;
@@ -274,6 +296,7 @@ function ProjectFolderMenu({
   identities: BrandIdentity[];
   onOpenProject: (identityId: string) => void;
   onSelect: (folderId: ProjectFolderId) => void;
+  onWarmProject: (identityId: string) => void;
   openIdentityIds: string[];
 }) {
   const gt = useGT();
@@ -347,6 +370,8 @@ function ProjectFolderMenu({
                     onOpenProject(identity.id);
                     setOpen(false);
                   }}
+                  onFocus={() => onWarmProject(identity.id)}
+                  onPointerEnter={() => onWarmProject(identity.id)}
                   role='menuitem'
                   type='button'
                 >
@@ -649,13 +674,13 @@ function ProjectTabMark({ identity, selected }: { identity: BrandIdentity; selec
   );
 }
 
-const PERSISTENT_LAB_TOOL_IDS = ['material'] as const satisfies readonly StudioToolId[];
+const PERSISTENT_WORKSPACE_TOOL_IDS = ['material', 'animation', 'lottie'] as const satisfies readonly StudioToolId[];
 
-function isPersistentLabTool(toolId: StudioToolId): toolId is typeof PERSISTENT_LAB_TOOL_IDS[number] {
-  return PERSISTENT_LAB_TOOL_IDS.includes(toolId as typeof PERSISTENT_LAB_TOOL_IDS[number]);
+function isPersistentWorkspaceTool(toolId: StudioToolId): toolId is typeof PERSISTENT_WORKSPACE_TOOL_IDS[number] {
+  return PERSISTENT_WORKSPACE_TOOL_IDS.includes(toolId as typeof PERSISTENT_WORKSPACE_TOOL_IDS[number]);
 }
 
-function StudioWorkspacePanels({
+const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
   activeIdentity,
   activeTool,
   activeToolId,
@@ -671,22 +696,41 @@ function StudioWorkspacePanels({
   onIdentitySave: (identity: BrandIdentity) => void;
 }) {
   const deferredActiveToolId = useDeferredValue(activeToolId);
-  if (isPersistentLabTool(activeToolId)) {
-    return (
-      <div className='studio-workspace-panel studio-workspace-panel--persistent-labs'>
-        {PERSISTENT_LAB_TOOL_IDS.map((toolId) => {
-          const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
-          if (!tool) return null;
-          const active = activeToolId === toolId;
-          const renderActive = deferredActiveToolId === toolId;
-          return (
-            <div
-              aria-hidden={!active}
-              className='studio-workspace-layer'
-              data-active={active ? 'true' : 'false'}
-              inert={!active}
-              key={`${activeIdentity.id}-${toolId}`}
-            >
+  const [visitedPersistentTools, setVisitedPersistentTools] = useState<StudioToolId[]>(() => (
+    isPersistentWorkspaceTool(activeToolId) ? [activeToolId] : []
+  ));
+  useEffect(() => {
+    if (!isPersistentWorkspaceTool(activeToolId)) return;
+    setVisitedPersistentTools((current) => current.includes(activeToolId)
+      ? current
+      : [...current, activeToolId]);
+  }, [activeToolId]);
+  const mountedPersistentTools = isPersistentWorkspaceTool(activeToolId)
+    && !visitedPersistentTools.includes(activeToolId)
+    ? [...visitedPersistentTools, activeToolId]
+    : visitedPersistentTools;
+  const persistentToolIsActive = isPersistentWorkspaceTool(activeToolId);
+
+  return (
+    <div className='studio-workspace-panel studio-workspace-panel--persistent-labs'>
+      {mountedPersistentTools.map((toolId) => {
+        const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
+        if (!tool) return null;
+        const layerIsVisible = activeToolId === toolId;
+        const renderActive = deferredActiveToolId === toolId;
+        return (
+          <div
+            aria-hidden={!layerIsVisible}
+            className='studio-workspace-layer'
+            data-active={layerIsVisible ? 'true' : 'false'}
+            inert={!layerIsVisible}
+            key={`${activeIdentity.id}-${toolId}`}
+          >
+            {toolId === 'animation' ? (
+              <AnimationStudio active={renderActive} embedded identity={activeIdentity} />
+            ) : toolId === 'lottie' ? (
+              <LottieStudio active={renderActive} identity={activeIdentity} />
+            ) : (
               <StudioToolWorkspace
                 active={renderActive}
                 hasPendingIdentityChanges={hasPendingIdentityChanges}
@@ -695,41 +739,37 @@ function StudioWorkspacePanels({
                 onIdentitySave={onIdentitySave}
                 tool={tool}
               />
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className='studio-workspace-panel'
-      key={`${activeIdentity.id}-${activeTool.id}`}
-    >
-      {activeToolId === 'animation' ? (
-          <AnimationStudio embedded identity={activeIdentity} />
-      ) : activeToolId === 'identity' ? (
-        <BrandSettingsStudio
-          hasPendingChanges={hasPendingIdentityChanges}
-          identity={activeIdentity}
-          onChange={onIdentityChange}
-          tool={activeTool}
-        />
-      ) : activeToolId === 'lottie' ? (
-        <LottieStudio identity={activeIdentity} />
-      ) : (
-        <StudioToolWorkspace
-          hasPendingIdentityChanges={hasPendingIdentityChanges}
-          identity={activeIdentity}
-          onIdentityChange={onIdentityChange}
-          onIdentitySave={onIdentitySave}
-          tool={activeTool}
-        />
-      )}
+            )}
+          </div>
+        );
+      })}
+      {!persistentToolIsActive ? (
+        <div
+          className='studio-workspace-layer'
+          data-active='true'
+          key={`${activeIdentity.id}-${activeTool.id}`}
+        >
+          {activeToolId === 'identity' ? (
+            <BrandSettingsStudio
+              hasPendingChanges={hasPendingIdentityChanges}
+              identity={activeIdentity}
+              onChange={onIdentityChange}
+              tool={activeTool}
+            />
+          ) : (
+            <StudioToolWorkspace
+              hasPendingIdentityChanges={hasPendingIdentityChanges}
+              identity={activeIdentity}
+              onIdentityChange={onIdentityChange}
+              onIdentitySave={onIdentitySave}
+              tool={activeTool}
+            />
+          )}
+        </div>
+      ) : null}
     </div>
   );
-}
+});
 
 function ClosedProjectNotice() {
   return (
@@ -899,6 +939,7 @@ export default function StudioApp() {
     OPEN_TABS_STORAGE_KEY,
     [STARTER_BRAND_IDENTITY.id, GT_BRAND_IDENTITY.id]
   );
+  const [warmIdentityIds, setWarmIdentityIds] = useState<string[]>([]);
   const [appearance, setAppearance] = usePersistentState<StudioAppearance>(
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
@@ -932,6 +973,14 @@ export default function StudioApp() {
     () => new Map(resolvedIdentities.map((identity) => [identity.id, identity])),
     [resolvedIdentities]
   );
+  const retainedWorkspaceIdentities = useMemo(() => {
+    const retainedIds = new Set(warmIdentityIds);
+    if (activeIdentity) retainedIds.add(activeIdentity.id);
+    return openIdentityIds
+      .filter((identityId) => retainedIds.has(identityId))
+      .map((identityId) => identityById.get(identityId))
+      .filter((identity): identity is BrandIdentity => identity !== undefined);
+  }, [activeIdentity?.id, identityById, openIdentityIds, warmIdentityIds]);
   const visibleIdentities = useMemo(
     () =>
       openIdentityIds
@@ -1099,21 +1148,43 @@ export default function StudioApp() {
   }, []);
 
   function selectIdentity(identityId: string) {
+    warmProjectWorkspace(identityId);
     setOpenIdentityIds((current) =>
       current.includes(identityId) ? current : [...current, identityId]
     );
-    setActiveIdentityId(identityId);
+    startTransition(() => setActiveIdentityId(identityId));
     window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, identityId);
+    if (!tabScrollState.canScrollLeft && !tabScrollState.canScrollRight) return;
     window.requestAnimationFrame(() => {
-      projectTabsScrollRef.current
-        ?.querySelector<HTMLElement>(
-          `[data-project-id="${CSS.escape(identityId)}"]`
-        )
-        ?.scrollIntoView({
+      const rail = projectTabsScrollRef.current;
+      const tab = rail?.querySelector<HTMLElement>(
+        `[data-project-id="${CSS.escape(identityId)}"]`
+      );
+      if (!rail || !tab) return;
+      const railBounds = rail.getBoundingClientRect();
+      const tabBounds = tab.getBoundingClientRect();
+      if (tabBounds.left >= railBounds.left && tabBounds.right <= railBounds.right) return;
+      tab.scrollIntoView({
           behavior: resolvedAppearance.motion === 'reduced' ? 'auto' : 'smooth',
           block: 'nearest',
           inline: 'nearest',
-        });
+      });
+    });
+  }
+
+  function warmProjectWorkspace(identityId: string) {
+    const activeId = activeIdentity?.id;
+    startTransition(() => {
+      setWarmIdentityIds((current) => {
+        if (current.includes(identityId) && (!activeId || current.includes(activeId))) {
+          return current;
+        }
+        return [
+          ...current.filter((candidate) => candidate !== identityId && candidate !== activeId),
+          ...(activeId ? [activeId] : []),
+          identityId,
+        ].slice(-MAX_RETAINED_PROJECT_WORKSPACES);
+      });
     });
   }
 
@@ -1380,7 +1451,10 @@ export default function StudioApp() {
       },
       []
     );
-    const previewIndex = remainingTabs.filter(({ center }) => center < draggedCenter).length;
+    const movingRight = pointerOffsetX > 0;
+    const previewIndex = remainingTabs.filter(({ center }) => (
+      movingRight ? center <= draggedCenter : center < draggedCenter
+    )).length;
     const previewOrder = remainingTabs.map(({ id }) => id);
     previewOrder.splice(previewIndex, 0, pointerDrag.sourceId);
 
@@ -1570,8 +1644,10 @@ export default function StudioApp() {
         }}
         onPointerCancel={handleProjectTabPointerCancel}
         onPointerDown={(event) => handleProjectTabPointerDown(event, identity.id)}
+        onPointerEnter={() => warmProjectWorkspace(identity.id)}
         onPointerMove={handleProjectTabPointerMove}
         onPointerUp={handleProjectTabPointerEnd}
+        onFocus={() => warmProjectWorkspace(identity.id)}
         role='group'
         title={identity.name}
       >
@@ -1637,7 +1713,9 @@ export default function StudioApp() {
       data-theme={resolvedAppearance.theme}
       data-resolved-theme={resolvedTheme}
     >
-      <BrandFontFaces identity={activeIdentity} />
+      {retainedWorkspaceIdentities.map((identity) => (
+        <BrandFontFaces identity={identity} key={identity.id} />
+      ))}
       <StudioAppHeader
         activeToolId={activeToolId}
         appearance={resolvedAppearance}
@@ -1666,7 +1744,10 @@ export default function StudioApp() {
       />
 
       <div className='project-tabs-shell bg-background'>
-        <SidebarDitherPanel />
+        <SidebarDitherPanel
+          icons={[<Folder />, <Palette />, <Film />, <Sticker />]}
+          variant='studio'
+        />
         <div
           className='app-navbar project-tabs flex min-w-0 items-end gap-2 px-2'
           data-tab-density={projectTabDensity}
@@ -1743,6 +1824,7 @@ export default function StudioApp() {
               identities={resolvedIdentities}
               onOpenProject={selectIdentity}
               onSelect={selectProjectFolder}
+              onWarmProject={warmProjectWorkspace}
               openIdentityIds={openIdentityIds}
             />
           </div>
@@ -1794,7 +1876,9 @@ export default function StudioApp() {
                         <Button
                           className='h-9 w-full justify-start border-0 px-2.5'
                           key={tool.id}
+                          onFocus={() => void preloadStudioTool(tool.id)}
                           onClick={() => selectTool(tool.id)}
+                          onPointerEnter={() => void preloadStudioTool(tool.id)}
                           title={gt(tool.description)}
                           type='button'
                           variant={selected ? 'default' : 'ghost'}
@@ -1824,21 +1908,30 @@ export default function StudioApp() {
         </aside>
 
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
-          <div
-            className='studio-workspace-view'
-            key={`${activeIdentity.id}-${activeIdentityIsOpen ? 'open' : 'closed'}`}
-          >
+          <div className='studio-workspace-view'>
             {!activeIdentityIsOpen ? (
               <ClosedProjectNotice />
             ) : (
-              <StudioWorkspacePanels
-                activeIdentity={activeIdentity}
-                activeTool={activeTool}
-                activeToolId={activeToolId}
-                hasPendingIdentityChanges={activeIdentityHasPendingChanges}
-                onIdentityChange={updateIdentity}
-                onIdentitySave={saveIdentityImmediately}
-              />
+              retainedWorkspaceIdentities.map((identity) => {
+                const projectIsActive = identity.id === activeIdentity.id;
+                return (
+                  <div
+                    aria-hidden={!projectIsActive}
+                    className='studio-project-workspace-layer'
+                    data-active={projectIsActive ? 'true' : 'false'}
+                    key={identity.id}
+                  >
+                    <StudioWorkspacePanels
+                      activeIdentity={identity}
+                      activeTool={activeTool}
+                      activeToolId={activeToolId}
+                      hasPendingIdentityChanges={Boolean(pendingIdentities[identity.id])}
+                      onIdentityChange={updateIdentity}
+                      onIdentitySave={saveIdentityImmediately}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
         </section>

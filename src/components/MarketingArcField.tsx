@@ -42,13 +42,15 @@ export default function MarketingArcField({
         className='marketing-v5-field-fallback'
         style={isPaperShader ? { background: settings.colorA } : undefined}
       />
-      {visible && runtimeReady ? (
+      {runtimeReady ? (
         <LazyLiveMaterialCanvas
           activeWhileMounted
+          enabled={visible}
           frameRate={24}
           materialId={materialId}
           maxPixelCount={maxPixelCount}
           paperShaderOverrides={paperShaderOverrides}
+          paused={!visible}
           renderScale={renderScale}
           settings={settings}
         />

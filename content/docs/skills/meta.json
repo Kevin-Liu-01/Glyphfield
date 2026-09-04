@@ -1,0 +1,11 @@
+{
+  "title": "Skills",
+  "icon": "Sparkles",
+  "pages": [
+    "index",
+    "create",
+    "api",
+    "studio",
+    "export"
+  ]
+}

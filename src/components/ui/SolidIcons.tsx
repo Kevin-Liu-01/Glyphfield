@@ -22,6 +22,7 @@ import {
   BookBookmark as BookMarkedIcon,
   BookOpen as BookOpenIcon,
   BookOpenText as BookOpenTextIcon,
+  Books as BooksIcon,
   Robot as BotIcon,
   Cube as BoxIcon,
   BracketsCurly as BracesIcon,
@@ -60,6 +61,7 @@ import {
   Folder as FolderIcon,
   FrameCorners as FrameIcon,
   Gauge as GaugeIcon,
+  GitBranch as GitBranchIcon,
   GitFork as GitForkIcon,
   GithubLogo as GithubIcon,
   GridFour as Grid2X2Icon,
@@ -69,6 +71,7 @@ import {
   Image as ImageIcon,
   ImageSquare as ImageDownIcon,
   ImagesSquare as ImagePlusIcon,
+  Images as ImagesIcon,
   Info as InfoIcon,
   Stack as Layers3Icon,
   GridFour as LayoutGridIcon,
@@ -98,8 +101,11 @@ import {
   SidebarSimple as PanelRightOpenIcon,
   Browser as PanelTopCloseIcon,
   Browsers as PanelsTopLeftIcon,
+  Package as PackageIcon,
   Pause as PauseIcon,
   Play as PlayIcon,
+  Planet as PlanetIcon,
+  PlugsConnected as PlugsConnectedIcon,
   Plus as PlusIcon,
   PresentationChart as PresentationIcon,
   Quotes as QuotesIcon,
@@ -116,11 +122,13 @@ import {
   FloppyDisk as SaveIcon,
   Scan as ScanLineIcon,
   Scissors as ScissorsIcon,
+  SealCheck as SealCheckIcon,
   MagnifyingGlass as SearchIcon,
   GearSix as SettingsIcon,
   SlidersHorizontal as Settings2Icon,
   Shapes as ShapesIcon,
   ShareNetwork as Share2Icon,
+  ShieldCheck as ShieldCheckIcon,
   SkipBack as SkipBackIcon,
   SkipForward as SkipForwardIcon,
   SlidersHorizontal as SlidersHorizontalIcon,
@@ -144,6 +152,7 @@ import {
   SpeakerHigh as Volume2Icon,
   SpeakerSlash as VolumeXIcon,
   MagicWand as WandSparklesIcon,
+  Warning as WarningIcon,
   Waves as WavesIcon,
   Barbell as WeightIcon,
   TextColumns as WrapTextIcon,
@@ -197,6 +206,7 @@ export const Blend = lineIcon(BlendIcon, 'Blend');
 export const BookMarked = lineIcon(BookMarkedIcon, 'BookMarked');
 export const BookOpen = lineIcon(BookOpenIcon, 'BookOpen');
 export const BookOpenText = lineIcon(BookOpenTextIcon, 'BookOpenText');
+export const Books = solidIcon(BooksIcon, 'Books');
 export const Bot = solidIcon(BotIcon, 'Bot');
 export const Box = solidIcon(BoxIcon, 'Box');
 export const Braces = lineIcon(BracesIcon, 'Braces');
@@ -236,6 +246,7 @@ export const Film = solidIcon(FilmIcon, 'Film');
 export const Folder = solidIcon(FolderIcon, 'Folder');
 export const Frame = lineIcon(FrameIcon, 'Frame');
 export const Gauge = lineIcon(GaugeIcon, 'Gauge');
+export const GitBranch = solidIcon(GitBranchIcon, 'GitBranch');
 export const GitFork = lineIcon(GitForkIcon, 'GitFork');
 export const Github = solidIcon(GithubIcon, 'Github');
 export const Grid2X2 = lineIcon(Grid2X2Icon, 'Grid2X2');
@@ -245,6 +256,7 @@ export const History = lineIcon(HistoryIcon, 'History');
 export const Image = solidIcon(ImageIcon, 'Image');
 export const ImageDown = lineIcon(ImageDownIcon, 'ImageDown');
 export const ImagePlus = lineIcon(ImagePlusIcon, 'ImagePlus');
+export const Images = solidIcon(ImagesIcon, 'Images');
 export const Info = lineIcon(InfoIcon, 'Info');
 export const Layers3 = solidIcon(Layers3Icon, 'Layers3');
 export const LayoutGrid = lineIcon(LayoutGridIcon, 'LayoutGrid');
@@ -274,8 +286,11 @@ export const PanelRightClose = lineIcon(PanelRightCloseIcon, 'PanelRightClose');
 export const PanelRightOpen = lineIcon(PanelRightOpenIcon, 'PanelRightOpen');
 export const PanelTopClose = lineIcon(PanelTopCloseIcon, 'PanelTopClose');
 export const PanelsTopLeft = lineIcon(PanelsTopLeftIcon, 'PanelsTopLeft');
+export const Package = solidIcon(PackageIcon, 'Package');
 export const Pause = solidIcon(PauseIcon, 'Pause');
 export const Play = solidIcon(PlayIcon, 'Play');
+export const Planet = solidIcon(PlanetIcon, 'Planet');
+export const PlugsConnected = solidIcon(PlugsConnectedIcon, 'PlugsConnected');
 export const Plus = lineIcon(PlusIcon, 'Plus');
 export const Presentation = solidIcon(PresentationIcon, 'Presentation');
 export const Quotes = lineIcon(QuotesIcon, 'Quotes');
@@ -292,11 +307,13 @@ export const Ruler = lineIcon(RulerIcon, 'Ruler');
 export const Save = lineIcon(SaveIcon, 'Save');
 export const ScanLine = lineIcon(ScanLineIcon, 'ScanLine');
 export const Scissors = lineIcon(ScissorsIcon, 'Scissors');
+export const SealCheck = solidIcon(SealCheckIcon, 'SealCheck');
 export const Search = lineIcon(SearchIcon, 'Search');
 export const Settings = lineIcon(SettingsIcon, 'Settings');
 export const Settings2 = lineIcon(Settings2Icon, 'Settings2');
 export const Shapes = solidIcon(ShapesIcon, 'Shapes');
 export const Share2 = lineIcon(Share2Icon, 'Share2');
+export const ShieldCheck = solidIcon(ShieldCheckIcon, 'ShieldCheck');
 export const SkipBack = solidIcon(SkipBackIcon, 'SkipBack');
 export const SkipForward = solidIcon(SkipForwardIcon, 'SkipForward');
 export const SlidersHorizontal = lineIcon(SlidersHorizontalIcon, 'SlidersHorizontal');
@@ -320,6 +337,7 @@ export const Upload = lineIcon(UploadIcon, 'Upload');
 export const Volume2 = lineIcon(Volume2Icon, 'Volume2');
 export const VolumeX = lineIcon(VolumeXIcon, 'VolumeX');
 export const WandSparkles = solidIcon(WandSparklesIcon, 'WandSparkles');
+export const Warning = solidIcon(WarningIcon, 'Warning');
 export const Waves = lineIcon(WavesIcon, 'Waves');
 export const Weight = solidIcon(WeightIcon, 'Weight');
 export const WrapText = lineIcon(WrapTextIcon, 'WrapText');

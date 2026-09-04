@@ -1,7 +1,14 @@
 'use client';
 
-import { T, useGT } from 'gt-next';
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { T as GTText } from 'gt-next';
+import {
+  memo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react';
 
 import { Button } from '@/components/ui/Button';
 import StudioRange from '@/components/ui/StudioRange';
@@ -22,6 +29,10 @@ import {
   type AnimationAudioClip,
   type AnimationAudioState,
 } from '@/lib/animationAudio';
+import { useCachedGT } from '@/hooks/useCachedGT';
+
+const T = memo(GTText);
+T.displayName = 'AnimationAudioTranslation';
 
 type DragKind = 'move' | 'trim-end' | 'trim-start';
 
@@ -40,16 +51,28 @@ type AnimationAudioTrackProps = {
   onClipChange: (clipId: string, patch: Partial<AnimationAudioClip>) => void;
   onFiles: (files: FileList) => void;
   onMutedChange: (muted: boolean) => void;
+  onPlayheadKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  onPlayheadPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPlayheadPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPlayheadPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPlayheadPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onRemoveClip: (clipId: string) => void;
   onSelectedClipChange: (clipId: string | null) => void;
   onSplitClip: (clipId: string) => void;
   onVolumeChange: (volume: number) => void;
+  playheadMs: number;
+  playheadRef: RefObject<HTMLDivElement | null>;
   selectedClipId: string | null;
+  segmentCount: number;
   totalMs: number;
 };
 
 function formatDuration(timeMs: number): string {
   return `${(Math.max(0, timeMs) / 1000).toFixed(2)}s`;
+}
+
+function formatVolume(volume: number): string {
+  return `${Math.round(volume * 100)}%`;
 }
 
 function waveformPeaks(assetPeaks: readonly number[], clip: AnimationAudioClip, assetDurationMs: number) {
@@ -64,19 +87,29 @@ export default function AnimationAudioTrack({
   onClipChange,
   onFiles,
   onMutedChange,
+  onPlayheadKeyDown,
+  onPlayheadPointerCancel,
+  onPlayheadPointerDown,
+  onPlayheadPointerMove,
+  onPlayheadPointerUp,
   onRemoveClip,
   onSelectedClipChange,
   onSplitClip,
   onVolumeChange,
+  playheadMs,
+  playheadRef,
   selectedClipId,
+  segmentCount,
   totalMs,
 }: AnimationAudioTrackProps) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const [expanded, setExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const laneRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragSession | null>(null);
-  const selectedClip = audio.clips.find(({ id }) => id === selectedClipId) ?? null;
+  const selectedClip = audio.clips.find(({ id }) => id === selectedClipId)
+    ?? audio.clips[0]
+    ?? null;
   const selectedAsset = selectedClip
     ? audio.assets.find(({ id }) => id === selectedClip.assetId) ?? null
     : null;
@@ -155,79 +188,55 @@ export default function AnimationAudioTrack({
     dragRef.current = null;
   }
 
+  function toggleExpanded() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && !selectedClipId && audio.clips[0]) {
+      onSelectedClipChange(audio.clips[0].id);
+    }
+  }
+
   return (
     <section className='animation-audio-track' aria-label={gt('Audio track')} data-expanded={expanded ? 'true' : 'false'}>
-      <header className='animation-audio-track-header'>
-        <button
-          aria-expanded={expanded}
-          className='animation-audio-track-title'
-          onClick={() => setExpanded((current) => !current)}
-          type='button'
-        >
-          <Music aria-hidden='true' />
-          <span><T>Audio</T></span>
-          <small>{audio.clips.length ? `${audio.clips.length} ${audio.clips.length === 1 ? 'clip' : 'clips'}` : <T>Optional for MP4</T>}</small>
-          {expanded ? <ChevronDown aria-hidden='true' /> : <ChevronRight aria-hidden='true' />}
-        </button>
-        {expanded ? <div className='animation-audio-track-actions'>
-          <input
-            accept='audio/*'
-            className='sr-only'
-            multiple
-            onChange={(event) => {
-              if (event.currentTarget.files?.length) onFiles(event.currentTarget.files);
-              event.currentTarget.value = '';
-            }}
-            ref={fileInputRef}
-            type='file'
-          />
-          <Button onClick={() => fileInputRef.current?.click()} size='sm' type='button' variant='outline'>
-            <Plus aria-hidden='true' /><T>Add audio</T>
-          </Button>
-          <Button
-            aria-label={gt('Split selected audio clip at the playhead')}
-            disabled={!selectedClip}
-            onClick={() => selectedClip && onSplitClip(selectedClip.id)}
-            size='sm'
-            type='button'
-            variant='outline'
-          >
-            <Scissors aria-hidden='true' /><T>Split</T>
-          </Button>
-          <Button
-            aria-label={audio.muted ? gt('Unmute audio') : gt('Mute audio')}
-            aria-pressed={audio.muted}
-            onClick={() => onMutedChange(!audio.muted)}
-            size='icon-sm'
-            type='button'
-            variant='outline'
-          >
-            {audio.muted ? <VolumeX aria-hidden='true' /> : <Volume2 aria-hidden='true' />}
-          </Button>
-          <label className='animation-audio-master-volume'>
-            <span className='sr-only'><T>Master audio volume</T></span>
-            <input
-              aria-label={gt('Master audio volume')}
-              max='1'
-              min='0'
-              onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
-              step='0.01'
-              value={audio.volume}
-            />
-          </label>
-        </div> : null}
-      </header>
-
-      {expanded ? <><div
+      {expanded ? <div
         className='animation-audio-lane'
+        data-timeline-scrub-surface
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
           if (event.dataTransfer.files.length) onFiles(event.dataTransfer.files);
         }}
-        onPointerDown={() => onSelectedClipChange(null)}
         ref={laneRef}
       >
+        <div className='animation-timeline-playhead animation-audio-playhead' ref={playheadRef}>
+          <div
+            aria-label={gt('Audio track playhead')}
+            aria-orientation='horizontal'
+            aria-valuemax={Math.round(totalMs)}
+            aria-valuemin={0}
+            aria-valuenow={Math.round(playheadMs)}
+            aria-valuetext={formatDuration(playheadMs)}
+            className='animation-timeline-playhead-handle'
+            data-timeline-playhead-handle
+            onKeyDown={onPlayheadKeyDown}
+            onPointerCancel={onPlayheadPointerCancel}
+            onPointerDown={onPlayheadPointerDown}
+            onPointerMove={onPlayheadPointerMove}
+            onPointerUp={onPlayheadPointerUp}
+            role='slider'
+            tabIndex={0}
+          >
+            <span /><i />
+          </div>
+        </div>
+        <span className='animation-audio-lane-guides' aria-hidden='true'>
+          {Array.from({ length: Math.max(1, segmentCount) + 1 }, (_, index) => (
+            <i
+              key={index}
+              style={{ left: `${index / Math.max(1, segmentCount) * 100}%` }}
+            />
+          ))}
+        </span>
         {audio.clips.length === 0 ? (
           <button className='animation-audio-empty' onClick={() => fileInputRef.current?.click()} type='button'>
             <Upload aria-hidden='true' />
@@ -238,7 +247,7 @@ export default function AnimationAudioTrack({
           const asset = audio.assets.find(({ id }) => id === clip.assetId);
           if (!asset) return null;
           const peaks = waveformPeaks(asset.peaks, clip, asset.durationMs);
-          const selected = clip.id === selectedClipId;
+          const selected = clip.id === selectedClip?.id;
           const visibleDurationMs = Math.min(
             animationAudioClipDurationMs(clip),
             Math.max(MIN_AUDIO_CLIP_MS, totalMs - clip.timelineStartMs)
@@ -290,14 +299,83 @@ export default function AnimationAudioTrack({
             </div>
           );
         })}
-      </div>
+      </div> : null}
 
-      {selectedClip && selectedAsset ? (
+      <header className='animation-audio-track-header'>
+        <button
+          aria-expanded={expanded}
+          className='animation-audio-track-title'
+          onClick={toggleExpanded}
+          type='button'
+        >
+          <Music aria-hidden='true' />
+          <span><T>Audio</T></span>
+          <small>{audio.clips.length ? `${audio.clips.length} ${audio.clips.length === 1 ? 'clip' : 'clips'}` : <T>Optional for MP4</T>}</small>
+          {expanded ? <ChevronDown aria-hidden='true' /> : <ChevronRight aria-hidden='true' />}
+        </button>
+        {expanded ? <div className='animation-audio-track-actions'>
+          <input
+            accept='audio/*'
+            aria-label={gt('Choose audio files')}
+            className='sr-only'
+            multiple
+            onChange={(event) => {
+              if (event.currentTarget.files?.length) onFiles(event.currentTarget.files);
+              event.currentTarget.value = '';
+            }}
+            ref={fileInputRef}
+            type='file'
+          />
+          <div className='animation-audio-mixer'>
+            <Button
+              aria-label={audio.muted ? gt('Unmute audio') : gt('Mute audio')}
+              aria-pressed={audio.muted}
+              onClick={() => onMutedChange(!audio.muted)}
+              size='icon-sm'
+              type='button'
+              variant='outline'
+            >
+              {audio.muted ? <VolumeX aria-hidden='true' /> : <Volume2 aria-hidden='true' />}
+            </Button>
+            <label className='animation-audio-master-volume'>
+              <span><T>Master</T></span>
+              <StudioRange
+                aria-label={gt('Master audio volume')}
+                aria-valuetext={formatVolume(audio.volume)}
+                max='1'
+                min='0'
+                onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
+                step='0.01'
+                value={audio.volume}
+              />
+              <output>{formatVolume(audio.volume)}</output>
+            </label>
+          </div>
+          <div className='animation-audio-edit-actions'>
+            <Button onClick={() => fileInputRef.current?.click()} size='sm' type='button' variant='outline'>
+              <Plus aria-hidden='true' /><T>Add audio</T>
+            </Button>
+            <Button
+              aria-label={gt('Split selected audio clip at the playhead')}
+              disabled={!selectedClip}
+              onClick={() => selectedClip && onSplitClip(selectedClip.id)}
+              size='sm'
+              type='button'
+              variant='outline'
+            >
+              <Scissors aria-hidden='true' /><T>Split</T>
+            </Button>
+          </div>
+        </div> : null}
+      </header>
+
+      {expanded && selectedClip && selectedAsset ? (
         <div className='animation-audio-inspector'>
           <strong>{selectedAsset.name}</strong>
           <label>
-            <span><T>Start</T></span>
+            <span><T>Timeline</T></span>
             <input
+              aria-label={gt('Audio clip timeline position in seconds')}
               min='0'
               onChange={(event) => onClipChange(selectedClip.id, { timelineStartMs: Number(event.currentTarget.value) * 1000 })}
               step='0.01'
@@ -308,6 +386,7 @@ export default function AnimationAudioTrack({
           <label>
             <span><T>In</T></span>
             <input
+              aria-label={gt('Audio clip source in point in seconds')}
               min='0'
               onChange={(event) => onClipChange(selectedClip.id, { trimStartMs: Number(event.currentTarget.value) * 1000 })}
               step='0.01'
@@ -318,6 +397,7 @@ export default function AnimationAudioTrack({
           <label>
             <span><T>Out</T></span>
             <input
+              aria-label={gt('Audio clip source out point in seconds')}
               min='0.1'
               onChange={(event) => onClipChange(selectedClip.id, { trimEndMs: Number(event.currentTarget.value) * 1000 })}
               step='0.01'
@@ -325,15 +405,18 @@ export default function AnimationAudioTrack({
               value={(selectedClip.trimEndMs / 1000).toFixed(2)}
             />
           </label>
-          <label>
-            <span><T>Clip volume</T></span>
+          <label className='animation-audio-clip-volume'>
+            <span><T>Clip level</T></span>
             <StudioRange
+              aria-label={gt('Selected audio clip volume')}
+              aria-valuetext={formatVolume(selectedClip.volume)}
               max='1'
               min='0'
               onChange={(event) => onClipChange(selectedClip.id, { volume: Number(event.currentTarget.value) })}
               step='0.01'
               value={selectedClip.volume}
             />
+            <output>{formatVolume(selectedClip.volume)}</output>
           </label>
           <Button
             aria-label={gt('Delete selected audio clip')}
@@ -345,7 +428,7 @@ export default function AnimationAudioTrack({
             <Trash2 aria-hidden='true' />
           </Button>
         </div>
-      ) : null}</> : null}
+      ) : null}
     </section>
   );
 }

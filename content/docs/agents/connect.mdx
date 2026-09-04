@@ -8,10 +8,10 @@ icon: PlugZap
 
 An agent should follow this sequence for every new deployment origin:
 
-1. Fetch `/llms.txt` for operational instructions.
+1. Fetch `/llms.txt` for the concise operating router. Fetch `/llms-full.txt` when the task needs the complete product model.
 2. Fetch `/api/agent` for the current version, policies, resources, and contract.
 3. Fetch `/api/labs` to discover the current Studio plugin surface.
-4. Fetch `/api/catalog` when selecting a deterministic Surface Lab recipe; its `surfaceLibrary` contains every preset and physical control.
+4. Fetch `/api/catalog` when selecting a deterministic background or tactile surface recipe; its `surfaceLibrary` contains every preset, attribution record, and physical control.
 5. Fetch `/api/materials` when selecting a shader or editing shared material controls.
 6. Fetch `/api/identities` when using any built-in preset.
 7. Fetch `/api/elements` when choosing a brand application.
@@ -27,7 +27,7 @@ Do not infer undocumented enum values. Do not scrape the client bundle when a st
 BASE_URL=http://localhost:3012
 
 curl -fsS "$BASE_URL/llms.txt"
-curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources }'
+curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources, interfaces, execution }'
 curl -fsS "$BASE_URL/api/labs" | jq '{ count, plugins: [.plugins[].id] }'
 curl -fsS "$BASE_URL/api/catalog" | jq '{ surfaces: .surfaceLibrary.count, surfaceControls: (.surfaceLibrary.controls | keys) }'
 curl -fsS "$BASE_URL/api/materials" | jq '{ count, engines, sharedBy }'
@@ -102,6 +102,7 @@ const generated = await response.json();
 
 // Run inside the open /studio page after selecting Design Lab.
 const studio = window.glyphfield.studio;
+if (studio.activeTool() !== 'material') throw new Error('Open Design Lab first.');
 await studio.applySource(generated.document);
 const artifact = await studio.invoke('design.export', {
   format: 'mp4',
@@ -124,6 +125,8 @@ Do not use undocumented enum values.
 ```
 
 This keeps the deployment’s current contract authoritative.
+
+For broad implementation work, replace `/llms.txt` with `/llms-full.txt`. For a focused task, load one page such as `/api/docs/studio/design-lab` or `/api/docs/reference/browser-api`.
 
 ## Browser source workflow
 

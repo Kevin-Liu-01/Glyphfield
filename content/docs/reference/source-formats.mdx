@@ -1,50 +1,117 @@
 ---
 title: Source format reference
-description: Validate the JSON and GLSL-bearing documents accepted by Studio source drawers.
+description: Understand the portable CanvasDocument, tool-local documents, validation boundaries, migrations, and safe round trips.
 icon: Braces
 ---
 
-The Studio source drawer exposes the working state of the active browser tool. Every source document is a JSON object. The exact fields vary by tool, and the source already visible in the drawer is the authoritative starting point for that project.
+Studio source is the structured state behind the active artifact. It is available to people through **Code** and to agents through `window.glyphfield.studio.readSource()` and `applySource()`.
 
-## Common contract
+## Rules shared by every tool
 
-- The top level must parse as a JSON object.
-- Unknown top-level fields are not a compatibility mechanism; preserve the fields supplied by the current Studio version.
-- Invalid fields remain unapplied and produce an inline error.
-- Successful application writes into the same project-scoped state as the visual inspector.
-- Reset returns the editor to the current visual snapshot.
-- Browser source documents are not the same schema as `POST /api/generate` requests. The `design-sequence` generator returns its apply-ready source in `response.document`.
+- Source must parse as a JSON object. Arrays and primitive top-level values are rejected.
+- Each tool validates its own enums, ranges, references, and required collections before changing visible state.
+- Failed application leaves the current artifact unchanged and reports the error.
+- A successful application updates the same state used by the inspector, preview, persistence, and export.
+- Browser source is not automatically a `POST /api/generate` request. Only a `design-sequence` response explicitly contains an apply-ready `document`; that compact version-3 compatibility source is normalized to the current CanvasDocument when applied.
+- Preserve unknown fields. Forward compatibility depends on editing the current document rather than reconstructing an older example.
 
-## Tool formats
+## Portable CanvasDocument
 
-| Tool | Required or constrained fields | Notes |
-| --- | --- | --- |
-| Brand settings | `id`, `name`, `assets[]`, `colors[]`, `typography[]` | Applies a complete identity object |
-| Brand elements | JSON object | Treated as the selected element override |
-| Moodboard | `composition`, `exportPresetId`, `customWidth` | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to 800–4800 px |
-| Animation | `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `playbackRate` | Mode is `sequence`, `text`, or `images`; playback rate must be greater than zero and no more than four |
-| Lottie | Numeric `fr`, `layers[]` | Raw Lottie JSON only; binary `.lottie` bundles are not text-editable |
-| Design Lab | `version: 3`, `composition`, `exportSettings`, `ratio`, `shaderSequence`, `timeline` | Supports exact layer order, multiple text/mark/image/shader/converter layers, per-layer opacity and transforms, and an agent-generated sequence target |
-| Shaders | `layers.background`, `layers.logo`, `target`, `ratio`, `exportQuality`, logo artwork and finish objects | Each layer stores independent material settings; custom background GLSL is stored in `customSource` |
-| Surface Lab | `settings`, `application`, `stickerFinish`, `logoAppearance`, asset fit/opacity, logo visibility, optional asset ID | `surfaceLibraryAssetId` selects a cataloged CC0 PBR source. Texture settings include `surfaceMaterial`, `surfaceTextureAmount`, `surfaceIrregularity`, `surfaceDepth`, `surfaceScale`, `surfaceAngle`, `surfaceRoughness`, `surfaceMetallic`, and `surfaceOpenArea`; sticker finishes add cut-border and optional frame, seam, and inset controls |
-| OpenGraph, Terminal, templates, components | Tool-specific JSON object | Open the corresponding drawer to obtain the current schema |
+Design Lab is backed by the shared CanvasDocument scene graph. The current canvas schema is `schemaVersion: 2`; Design Lab-specific metadata records `sourceVersion: 4`.
 
-## Shader enums
+```json
+{
+  "schemaVersion": 2,
+  "id": "design-lab:gt:wide",
+  "brandId": "gt",
+  "capabilities": ["animation", "assets", "constraints", "guides", "history", "layers", "pages", "text"],
+  "pageIds": ["page-1"],
+  "pages": {
+    "page-1": {
+      "width": 1920,
+      "height": 1080,
+      "background": "#111216",
+      "elementIds": ["shader-1", "text-1", "brand-mark"]
+    }
+  },
+  "elements": {},
+  "assets": {},
+  "metadata": {
+    "tool": "design-lab",
+    "designLab": {
+      "sourceVersion": 4,
+      "ratio": "wide",
+      "exportSettings": {},
+      "shaderSequence": {},
+      "timeline": {},
+      "layerShaders": {},
+      "groups": [],
+      "workspace": {}
+    }
+  }
+}
+```
 
-| Field | Accepted values |
+The complete document also carries timestamps, revision, fonts, resources, saved versions, and element records. Each element owns bounds, constraints, visibility, style, opacity, blend mode, and tool-specific `data`. Image and logo elements reference asset records rather than browser-only paths.
+
+### Generated compatibility source
+
+`POST /api/generate` with `kind: "design-sequence"` returns an HTTP envelope with `schemaVersion: 1` and a compact `document` whose `version` is `3`. That document uses `composition`, `ratio`, `timeline`, `shaderSequence`, and `exportSettings` fields. It is an input contract, not the current CanvasDocument envelope. Apply it, then call `readSource()` to receive the normalized CanvasDocument shown above.
+
+### Design Lab layer data
+
+Design Lab supports these element/layer families:
+
+| Kind | Important state |
 | --- | --- |
-| `engine` | `studio-glsl`, `shadergradient`, `glyphfield`, `shaders`, `fluid`, `paper`, `custom-glsl` |
-| `target` | `background`, `logo`, `both` |
-| `ratio` | `square`, `wide`, `opengraph` |
-| `exportQuality` | `standard`, `high`, `ultra` |
+| Shader | Material ID, colors, engine settings, frame history, size, motion, transform, opacity, blend |
+| Text | Content, type role, family, weight, size, color, text effect, shader fill, transform |
+| Logo | Brand/custom asset, appearance, sticker finish, shader fill, transform |
+| Image | Embedded or library asset, fit, opacity, transform, optional treatment |
+| Effect | Bayer, ASCII, halftone, or posterize settings; foreground/background colors; opacity |
 
-Shader documents contain `layers.background` and `layers.logo`. Each layer has `enabled`, `liveMaterialId`, and `liveSettings`; the background layer additionally carries its engine, preset, and GLSL parameters, while the logo layer owns `finish`. `liveMaterialId` identifies the exact Shader Library card and `liveSettings` contains that layer's three colors and numeric controls. The legacy top-level `engine`, `target`, `liveMaterialId`, and `liveSettings` fields remain available for backward-compatible readers.
+`page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. Shader layers remain below content during reconciliation.
 
-Animation documents store the inherited canvas material in `sequenceBackground`. `backgroundOverrides` is an object keyed by frame ID; only IDs set to `true` use the background stored inside their corresponding `frameSettings` entry. Frames not listed there follow `sequenceBackground` automatically.
+## Tool document map
+
+| Tool | Document boundary | Key constraints |
+| --- | --- | --- |
+| Brand identity | Complete `BrandIdentity` | Requires stable ID/name and valid asset, color, typography, strategy, and application collections |
+| Brand elements | Selected application override | Applies only to the selected element; the base identity remains shared |
+| Moodboard | Composition/export document | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to the supported range |
+| Brand book | Derived from the active identity | Edit the identity rather than creating book-only foundation data |
+| Animation | Sequence, frames, timing, material, output, and audio clip state | Playback rate and frame references validate; GIF has no audio channel |
+| Lottie | Raw Lottie JSON | Numeric `fr` and `layers[]` are required; binary `.lottie` remains an archive |
+| Design Lab | CanvasDocument v2 with Design Lab source metadata v4 | Exact layers, transforms, assets, effects, sequences, saved frames, and export settings |
+| OpenGraph/templates | Tool-specific composition object | Content, selected layout, assets, colors, and transforms are validated by the host tool |
+| Color/Typography | Identity-bound foundation state | Colors normalize through shared HEX/OKLCH utilities; font files remain local |
+| Terminal/Components | Tool-specific configuration | Code language, content, variant, and display settings depend on the active tool |
+
+## Safe agent mutation
+
+```js
+const studio = window.glyphfield.studio;
+const before = JSON.parse(studio.readSource());
+
+// Preserve the envelope and change only the intended element.
+const text = Object.values(before.elements)
+  .find((element) => element.kind === 'text');
+if (!text) throw new Error('No text element exists.');
+
+text.content = 'Every language. One source.';
+text.style.opacity = 0.92;
+
+await studio.applySource(before);
+
+const after = JSON.parse(studio.readSource());
+if (after.elements[text.id].content !== text.content) {
+  throw new Error('The change did not round-trip.');
+}
+```
+
+Use `describe().source` before reading or applying. Do not write directly to localStorage, IndexedDB, component state, or internal React properties.
 
 ## Lottie validation
-
-Glyphfield validates the document before replacing the active animation:
 
 ```json
 {
@@ -58,18 +125,17 @@ Glyphfield validates the document before replacing the active animation:
 }
 ```
 
-`fr` must be numeric and `layers` must be an array. The remaining Lottie structure is passed to the vector player. Unsupported Lottie features follow the rendering limits of the browser player.
+The browser player decides support for individual Lottie features. Recoloring, trim, and frame selection are Studio state; downloading edited JSON emits the updated vector document. An imported `.lottie` bundle can be replayed and downloaded but is not presented as editable raw JSON unless a JSON source exists.
 
-## Portability
+## Portability checklist
 
-Source drawers are intended for precise browser editing and round trips between visual controls and code. To move a finished result elsewhere:
+1. Read and retain the current schema/source versions.
+2. Preserve asset records, page ordering, unknown metadata, and stable element IDs.
+3. Apply through the tool validator and re-read.
+4. Save the source or named design when later regeneration matters.
+5. Export the requested rendered format separately.
+6. Carry authorized fonts/assets with the document when they are not embedded.
 
-- Use `window.glyphfield.studio.readSource()` and `await applySource(...)` for programmatic round trips without opening the drawer.
+See [Source code editing](/docs/studio/source-editing), [Studio Browser API](/docs/reference/browser-api), and [Formats and portability](/docs/artifacts/formats-and-portability).
 
-- Download raw or edited Lottie JSON from Lottie.
-- Download identity or element JSON where the tool provides it.
-- Download PNG, SVG, or GIF for rendered artifacts.
-- Use [`POST /api/generate`](/docs/agents/generate) for a versioned, headless generation contract.
-- Package authorized fonts and source assets separately when the target format does not embed them.
-
-See [Source code editing](/docs/studio/source-editing) for the browser workflow and [Formats and portability](/docs/artifacts/formats-and-portability) for output behavior.
+For migration behavior and the relationship between these independent version numbers, see [Version compatibility](/docs/reference/version-compatibility).

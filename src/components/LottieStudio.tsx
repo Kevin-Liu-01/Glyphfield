@@ -11,7 +11,7 @@ import {
   RotateCcw,
   Upload,
 } from '@/components/ui/SolidIcons';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import DesignVersionControls from '@/components/DesignVersionControls';
@@ -28,6 +28,7 @@ import ColorControl from '@/components/ui/ColorControl';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -108,8 +109,19 @@ const CANVAS_PRESETS = {
 } as const;
 
 const DEFAULT_LOTTIE_BACKGROUND = '#0B0D10';
+const DEFAULT_LOTTIE_ART_COLOR = '#F7F8FC';
+const DEFAULT_LOTTIE_SECONDARY_COLOR = '#8B93A7';
+const DEFAULT_LOTTIE_ACCENT_COLOR = '#7C5CFC';
 const DEFAULT_LOTTIE_CORNER_RADIUS = 8;
-const DEFAULT_LOTTIE_STROKE_WIDTH = 2;
+const DEFAULT_LOTTIE_STROKE_WIDTH = 1;
+const DOTLOTTIE_WASM_URL = '/vendor/dotlottie-player-webgl-0.78.2.wasm';
+let lottieRuntimePreload: Promise<void> | null = null;
+
+export function preloadLottieRuntime(): Promise<void> {
+  DotLottie.setWasmUrl(DOTLOTTIE_WASM_URL);
+  lottieRuntimePreload ??= DotLottie.preload();
+  return lottieRuntimePreload;
+}
 
 type CanvasPreset = keyof typeof CANVAS_PRESETS;
 
@@ -215,21 +227,114 @@ function rasterizeImageDataUrl(
   });
 }
 
-export default function LottieStudio({ identity }: { identity: BrandIdentity }) {
+function copyWebGlFrame(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+  if (!gl) throw new Error('The Lottie frame buffer is unavailable.');
+  const width = gl.drawingBufferWidth;
+  const height = gl.drawingBufferHeight;
+  const source = new Uint8Array(width * height * 4);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, source);
+
+  const stride = width * 4;
+  const flipped = new Uint8ClampedArray(source.length);
+  for (let row = 0; row < height; row += 1) {
+    const sourceStart = (height - row - 1) * stride;
+    flipped.set(source.subarray(sourceStart, sourceStart + stride), row * stride);
+  }
+
+  const snapshot = document.createElement('canvas');
+  snapshot.width = width;
+  snapshot.height = height;
+  const context = snapshot.getContext('2d');
+  if (!context) throw new Error('The Lottie export surface is unavailable.');
+  context.putImageData(new ImageData(flipped, width, height), 0, 0);
+  return snapshot;
+}
+
+function renderLottieFrame({
+  data,
+  fit,
+  frame,
+  height,
+  width,
+}: {
+  data: ArrayBuffer | LottieDocument;
+  fit: Fit;
+  frame: number;
+  height: number;
+  width: number;
+}): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const surface = document.createElement('canvas');
+    surface.width = width;
+    surface.height = height;
+    let loaded = false;
+    let settled = false;
+    let player: DotLottie;
+    const timeout = window.setTimeout(() => finish(new Error('The Lottie frame took too long to render.')), 8000);
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      player.removeEventListener('load', handleLoad);
+      player.removeEventListener('render', handleRender);
+      player.removeEventListener('loadError', handleError);
+      player.removeEventListener('renderError', handleError);
+      if (error) {
+        player.destroy();
+        reject(error);
+        return;
+      }
+      try {
+        const snapshot = copyWebGlFrame(surface);
+        player.destroy();
+        resolve(snapshot);
+      } catch (captureError) {
+        player.destroy();
+        reject(captureError);
+      }
+    };
+    const handleLoad = () => {
+      loaded = true;
+      player.setFrame(Math.max(0, Math.min(frame, player.totalFrames - 1)));
+    };
+    const handleRender = () => {
+      if (loaded) finish();
+    };
+    const handleError = () => finish(new Error('The Lottie frame could not be rendered.'));
+
+    void preloadLottieRuntime();
+    player = new DotLottie({
+      autoplay: false,
+      backgroundColor: 'transparent',
+      canvas: surface,
+      data,
+      layout: { align: [0.5, 0.5], fit },
+      loop: false,
+      renderConfig: {
+        autoResize: false,
+        devicePixelRatio: 1,
+        freezeOnOffscreen: false,
+        quality: 100,
+      },
+      useFrameInterpolation: true,
+    });
+    player.addEventListener('load', handleLoad);
+    player.addEventListener('render', handleRender);
+    player.addEventListener('loadError', handleError);
+    player.addEventListener('renderError', handleError);
+  });
+}
+
+export default function LottieStudio({ active = true, identity }: { active?: boolean; identity: BrandIdentity }) {
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:lottie`);
   const brandFontFamily = brandTypographyFamily(identity, 'Display');
   const brandDisplayTypography = brandTypographyRole(identity, 'Display');
   const brandDisplayFont = brandFontAssets(identity).find(({ id }) => id === brandDisplayTypography.fontId);
   const brandLogoAsset = templateBrandLogo(identity, 'blog', true);
-  const defaultSurface = identity.colors.find(({ id }) => id === 'paper')?.hex ?? '#FFFFFF';
   const brandMaterialColors = brandMaterialPalette(identity).colors;
-  const defaultSecondary = identity.colors.find(({ id }) => id === 'progress')?.hex
-    ?? identity.colors.find(({ id }) => id === 'error')?.hex
-    ?? brandMaterialColors[1];
-  const defaultAccent = identity.colors.find(({ id }) => id === 'emphasis')?.hex
-    ?? identity.colors.find(({ id }) => id === 'success')?.hex
-    ?? brandMaterialColors[2];
   const defaultMaterialSettings: LiveMaterialSettings = {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     colorA: brandMaterialColors[0],
@@ -238,16 +343,16 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   };
   const [source, setSource] = useState<LottieSource>(DEFAULT_SOURCE);
   const [canvasPreset, setCanvasPreset] = useStudioDraft<CanvasPreset>(identity.id, 'lottie', 'canvas-preset', 'landscape');
-  const [background, setBackground] = useStudioDraft(identity.id, 'lottie', 'background-v3', DEFAULT_LOTTIE_BACKGROUND);
-  const [backgroundStyle, setBackgroundStyle] = useStudioDraft<BackgroundStyle>(identity.id, 'lottie', 'background-style-v3', 'solid');
+  const [background, setBackground] = useStudioDraft(identity.id, 'lottie', 'background-v4', DEFAULT_LOTTIE_BACKGROUND);
+  const [backgroundStyle, setBackgroundStyle] = useStudioDraft<BackgroundStyle>(identity.id, 'lottie', 'background-style-v4', 'solid');
   const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, 'lottie', 'material-id', DEFAULT_LIVE_MATERIAL_ID);
   const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(identity.id, 'lottie', 'material-settings', defaultMaterialSettings);
   const [transparent, setTransparent] = useStudioDraft(identity.id, 'lottie', 'transparent', false);
-  const [artColor, setArtColor] = useStudioDraft(identity.id, 'lottie', 'art-color-v3', defaultSurface);
-  const [secondaryColor, setSecondaryColor] = useStudioDraft(identity.id, 'lottie', 'secondary-color-v3', defaultSecondary);
-  const [accentColor, setAccentColor] = useStudioDraft(identity.id, 'lottie', 'accent-color-v3', defaultAccent);
-  const [cornerRadius, setCornerRadius] = useStudioDraft(identity.id, 'lottie', 'corner-radius-v2', DEFAULT_LOTTIE_CORNER_RADIUS);
-  const [strokeWidth, setStrokeWidth] = useStudioDraft(identity.id, 'lottie', 'stroke-width-v3', DEFAULT_LOTTIE_STROKE_WIDTH);
+  const [artColor, setArtColor] = useStudioDraft(identity.id, 'lottie', 'art-color-v4', DEFAULT_LOTTIE_ART_COLOR);
+  const [secondaryColor, setSecondaryColor] = useStudioDraft(identity.id, 'lottie', 'secondary-color-v4', DEFAULT_LOTTIE_SECONDARY_COLOR);
+  const [accentColor, setAccentColor] = useStudioDraft(identity.id, 'lottie', 'accent-color-v4', DEFAULT_LOTTIE_ACCENT_COLOR);
+  const [cornerRadius, setCornerRadius] = useStudioDraft(identity.id, 'lottie', 'corner-radius-v4', DEFAULT_LOTTIE_CORNER_RADIUS);
+  const [strokeWidth, setStrokeWidth] = useStudioDraft(identity.id, 'lottie', 'stroke-width-v4', DEFAULT_LOTTIE_STROKE_WIDTH);
   const [speed, setSpeed] = useStudioDraft(identity.id, 'lottie', 'speed', 1);
   const [loop, setLoop] = useStudioDraft(identity.id, 'lottie', 'loop', true);
   const [interpolate, setInterpolate] = useStudioDraft(identity.id, 'lottie', 'interpolate', true);
@@ -284,12 +389,23 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
   const brandFontFamilyRef = useCommittedRef(brandFontFamily);
   const brandLogoRef = useRef<LottieAppearance['brandLogo']>(undefined);
   const desiredPlayingRef = useRef(true);
+  const reducedMotionRef = useRef(false);
   const lastFrameUpdateRef = useRef(0);
   const reloadFrameRef = useRef<number | null>(null);
   const sourceTransitionRef = useRef<number | null>(null);
   const segmentStartRef = useCommittedRef(segmentStart);
   const segmentEndRef = useCommittedRef(segmentEnd);
   const restoredSegmentRef = useRef<{ end: number; start: number } | null>(null);
+  const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(canvasRef, (workspaceActive) => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (!active || !workspaceActive) {
+      player.freeze();
+      return;
+    }
+    player.unfreeze();
+    if (desiredPlayingRef.current) player.play();
+  });
 
   const canvas = CANVAS_PRESETS[canvasPreset];
   const serializableSource = useMemo(() => ({
@@ -477,8 +593,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     const canvasElement = canvasRef.current;
     if (!canvasElement) return;
     let disposed = false;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    reducedMotionRef.current = prefersReducedMotion;
+    desiredPlayingRef.current = !prefersReducedMotion;
+    setIsPlaying(!prefersReducedMotion);
+    void preloadLottieRuntime();
     const player = new DotLottie({
-      autoplay: true,
+      autoplay: !prefersReducedMotion,
       backgroundColor:
         transparentRef.current || backgroundStyleRef.current === 'shader'
           ? 'transparent'
@@ -545,8 +666,13 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
       segmentEndRef.current = restoredEnd;
       player.setSegment(restoredStart, restoredEnd);
       applyPlaybackSettings(player);
-      if (desiredPlayingRef.current) player.play();
-      else player.pause();
+      if (desiredPlayingRef.current) {
+        player.setFrame(restoredStart);
+        player.play();
+      } else {
+        player.setFrame(Math.round((restoredStart + restoredEnd) / 2));
+        player.pause();
+      }
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => setIsSourceTransitioning(false));
       });
@@ -591,10 +717,21 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     };
   });
 
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (!active || !projectWorkspaceActiveRef.current) {
+      player.freeze();
+      return;
+    }
+    player.unfreeze();
+    if (desiredPlayingRef.current) player.play();
+  }, [active, projectWorkspaceActiveRef]);
+
   function selectSource(nextSource: LottieSource) {
     setSource(nextSource);
-    desiredPlayingRef.current = true;
-    setIsPlaying(true);
+    desiredPlayingRef.current = !reducedMotionRef.current;
+    setIsPlaying(!reducedMotionRef.current);
     setIsSourceTransitioning(true);
     if (sourceTransitionRef.current !== null) {
       window.clearTimeout(sourceTransitionRef.current);
@@ -602,7 +739,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     sourceTransitionRef.current = window.setTimeout(() => {
       sourceTransitionRef.current = null;
       loadSource(nextSource);
-    }, 220);
+    }, 110);
   }
 
   async function applyWorkspaceSource(nextSource: string) {
@@ -762,6 +899,26 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     scheduleSourceReload();
   }
 
+  function useStudioPalette() {
+    setArtColor(DEFAULT_LOTTIE_ART_COLOR);
+    setSecondaryColor(DEFAULT_LOTTIE_SECONDARY_COLOR);
+    setAccentColor(DEFAULT_LOTTIE_ACCENT_COLOR);
+    artColorRef.current = DEFAULT_LOTTIE_ART_COLOR;
+    secondaryColorRef.current = DEFAULT_LOTTIE_SECONDARY_COLOR;
+    accentColorRef.current = DEFAULT_LOTTIE_ACCENT_COLOR;
+    scheduleSourceReload();
+  }
+
+  function useMonochromePalette() {
+    setArtColor('#FFFFFF');
+    setSecondaryColor('#8A8F98');
+    setAccentColor('#FFFFFF');
+    artColorRef.current = '#FFFFFF';
+    secondaryColorRef.current = '#8A8F98';
+    accentColorRef.current = '#FFFFFF';
+    scheduleSourceReload();
+  }
+
   function updateBackground(value: string) {
     setBackground(value);
     backgroundRef.current = value;
@@ -835,6 +992,20 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     studioExport.start('Rendering Lottie frame preview');
     const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
     try {
+      const renderedLottie = await renderLottieFrame({
+        data: resolveSourceData(
+          source,
+          [artColor, secondaryColor, accentColor],
+          cornerRadius,
+          strokeWidth,
+          brandFontFamily,
+          brandLogoRef.current,
+        ),
+        fit,
+        frame: currentFrame,
+        height: canvas.height,
+        width: canvas.width,
+      });
       const shaderCanvas = shaderLayerRef.current?.querySelector('canvas') ?? null;
       const exported = await exportCanvasDocumentStill({
         canvasDocument: portableDocument,
@@ -854,7 +1025,7 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
           }
           if (element.id === 'lottie-animation') {
             context.drawImage(
-              lottieCanvas,
+              renderedLottie,
               outputBounds.x,
               outputBounds.y,
               outputBounds.width,
@@ -882,9 +1053,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     setMaterialId(DEFAULT_LIVE_MATERIAL_ID);
     setMaterialSettings(defaultMaterialSettings);
     setTransparent(false);
-    setArtColor(defaultSurface);
-    setSecondaryColor(defaultSecondary);
-    setAccentColor(defaultAccent);
+    setArtColor(DEFAULT_LOTTIE_ART_COLOR);
+    setSecondaryColor(DEFAULT_LOTTIE_SECONDARY_COLOR);
+    setAccentColor(DEFAULT_LOTTIE_ACCENT_COLOR);
     setCornerRadius(DEFAULT_LOTTIE_CORNER_RADIUS);
     setStrokeWidth(DEFAULT_LOTTIE_STROKE_WIDTH);
     setSpeed(1);
@@ -895,9 +1066,9 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
     updateCanvasPreset('landscape');
     backgroundRef.current = DEFAULT_LOTTIE_BACKGROUND;
     transparentRef.current = false;
-    artColorRef.current = defaultSurface;
-    secondaryColorRef.current = defaultSecondary;
-    accentColorRef.current = defaultAccent;
+    artColorRef.current = DEFAULT_LOTTIE_ART_COLOR;
+    secondaryColorRef.current = DEFAULT_LOTTIE_SECONDARY_COLOR;
+    accentColorRef.current = DEFAULT_LOTTIE_ACCENT_COLOR;
     cornerRadiusRef.current = DEFAULT_LOTTIE_CORNER_RADIUS;
     strokeWidthRef.current = DEFAULT_LOTTIE_STROKE_WIDTH;
     speedRef.current = 1;
@@ -1062,9 +1233,11 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             {transparent || backgroundStyle === 'shader' ? null : <ColorControl ariaLabel={gt('Canvas background')} label={<T>Canvas background</T>} onChange={updateBackground} value={background} />}
             {source.format === 'json' ? (
               <div className='flex flex-col gap-3'>
-                <div className='flex items-center justify-between gap-3'>
-                  <p className='text-xs leading-5 text-muted-foreground'><T>Preset artwork starts with this brand’s color system. Every palette slot and geometric detail remains editable.</T></p>
-                  <Button className='shrink-0' onClick={useBrandPalette} size='sm' type='button' variant='outline'><T>Brand colors</T></Button>
+                <p className='text-xs leading-5 text-muted-foreground'><T>Start with a crisp studio palette, switch to monochrome, or pull colors from this brand. Every slot stays editable.</T></p>
+                <div className='grid grid-cols-3 gap-1.5'>
+                  <Button onClick={useStudioPalette} size='sm' type='button' variant='outline'><T>Studio</T></Button>
+                  <Button onClick={useMonochromePalette} size='sm' type='button' variant='outline'><T>Mono</T></Button>
+                  <Button onClick={useBrandPalette} size='sm' type='button' variant='outline'><T>Brand</T></Button>
                 </div>
                 <ColorControl ariaLabel={gt('Primary artwork color')} label={<T>Primary</T>} onChange={updateArtColor} value={artColor} />
                 <ColorControl ariaLabel={gt('Secondary artwork color')} label={<T>Secondary</T>} onChange={updateSecondaryColor} value={secondaryColor} />
@@ -1107,12 +1280,12 @@ export default function LottieStudio({ identity }: { identity: BrandIdentity }) 
             <div className='relative w-full max-w-6xl overflow-hidden rounded-sm smooth-shadow-ring-lg' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
               {transparent || backgroundStyle !== 'shader' ? null : (
                 <div className='absolute inset-0' ref={shaderLayerRef}>
-                  <LiveMaterialCanvas materialId={materialId} paused={!isPlaying} settings={materialSettings} />
+                  <LiveMaterialCanvas materialId={materialId} paused={!active || !isPlaying} settings={materialSettings} />
                 </div>
               )}
               <canvas
                 aria-label={gt('Lottie animation preview')}
-                className={`absolute inset-0 z-10 size-full transition-[opacity,transform] duration-[360ms] [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${isSourceTransitioning ? 'translate-y-0.5 scale-[.996] opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
+                className={`absolute inset-0 z-10 size-full transition-[opacity,transform] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${isSourceTransitioning ? 'translate-y-px scale-[.998] opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
                 ref={canvasRef}
               />
             </div>

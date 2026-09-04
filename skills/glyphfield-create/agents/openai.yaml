@@ -1,0 +1,5 @@
+interface:
+  display_name: "Glyphfield Create"
+  short_description: "Create and revise layered Glyphfield designs"
+  brand_color: "#7058FF"
+  default_prompt: "Use $glyphfield-create to build a layered brand composition in Glyphfield."

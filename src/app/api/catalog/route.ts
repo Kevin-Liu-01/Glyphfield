@@ -1,4 +1,4 @@
-import { AGENT_CORS_HEADERS, STUDIO_BROWSER_API_CONTRACT } from '@/lib/agentApi';
+import { AGENT_CORS_HEADERS, GLYPHFIELD_AGENT_SKILLS, STUDIO_BROWSER_API_CONTRACT } from '@/lib/agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '@/lib/agentCatalog';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS } from '@/lib/studioCatalog';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -27,17 +27,23 @@ export function GET() {
       resources: {
         agent: '/api/agent',
         docs: '/docs',
+        fullInstructions: '/llms-full.txt',
         elements: '/api/elements',
         generate: '/api/generate',
         identities: '/api/identities',
         instructions: '/llms.txt',
+        markdownDocs: '/docs/:path.md',
         integrationGuide: '/docs/agents/connect',
         labs: '/api/labs',
         materials: '/api/materials',
         openapi: '/openapi.json',
+        search: '/api/search',
+        skillGuide: '/docs/skills.md',
+        surfaceTextures: '/api/surface-textures/:assetId/:map',
         workspace: '/studio',
       },
       shaderLibrary: AGENT_SHADER_LIBRARY,
+      skills: GLYPHFIELD_AGENT_SKILLS,
       surfaceLibrary: AGENT_SURFACE_LIBRARY,
       tools: STUDIO_TOOLS,
       version: '0.2.0',

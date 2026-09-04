@@ -48,3 +48,29 @@ For transient 5xx responses, use bounded exponential backoff and retain the orig
 ## Contract drift
 
 Always read `GET /api/generate` and check `schemaVersion`. If the schema version is unknown, stop and update the client rather than silently guessing.
+
+## Browser API failures
+
+Browser automation uses JavaScript errors rather than HTTP status codes:
+
+| Error | Typical cause | Response |
+| --- | --- | --- |
+| `TypeError` | Malformed action input, unsupported source, wrong control value, empty artifact | Correct the input; do not retry unchanged |
+| `RangeError` | Accessible control label or action is not exposed by the active adapter | Re-read `describe()` and `controls()`; confirm the active tool |
+| `Error` from a renderer | WebGL context, image decode, Canvas, GIF, MP4, font, or codec failure | Preserve source, capture the exact capability failure, retry only when conditions changed |
+
+After a tool switch, the global adapter is replaced. A stale reference can report the old action set or mutate the wrong tool. Wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`.
+
+Do not swallow export errors and report success because the source was valid. A valid document and a rendered file are separate completion checkpoints.
+
+## Recovery-safe behavior
+
+When rendering fails after source application:
+
+1. Re-read the source and retain it.
+2. Record `activeTool()`, `describe()`, browser capability, requested format, dimensions, and action.
+3. Stop sequence preview or release any active export job.
+4. Retry only after changing the actual failure condition.
+5. If the browser lacks the requested codec, report that limitation without substituting a different format.
+
+For human-facing Studio, storage, WebGL, and export diagnosis, continue with [Troubleshooting and recovery](/docs/reference/troubleshooting). For deployment abuse controls, see [API security](/docs/reference/api-security).

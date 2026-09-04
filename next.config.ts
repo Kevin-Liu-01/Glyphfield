@@ -5,6 +5,18 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        headers: [
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Accept' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+        source: '/llms.txt',
+      },
+    ];
+  },
   async rewrites() {
     return {
       beforeFiles: [

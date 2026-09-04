@@ -6,12 +6,17 @@ icon: Blocks
 
 Glyphfield tools are composed from shared editor systems. A generator should not invent its own color field, zoom bar, layer behavior, select menu, or draft-storage scheme. Reusing these components keeps interaction state, accessibility, and exports consistent across the Studio.
 
+<DocsMediaGrid>
+  <DocsMedia alt='Design Lab showing shared library, canvas viewport, inspector, and layer dock systems' caption='Layered editor systems' meta='Selection · zoom · source · persistence' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+  <DocsMedia alt='Brand Elements showing identity-aware artifact controls' caption='Identity-aware systems' meta='Shared assets · color · output' src='/screenshots/studio-gt-brand-elements-dark-2026.png' />
+</DocsMediaGrid>
+
 ## Component map
 
 | Component | Responsibility | State owner | Reused by |
 | --- | --- | --- | --- |
-| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Surface Lab, Brand elements, material finishes |
-| `CanvasViewport` | Zoom, reset, fit, clipping, and scrollable stage | Persists zoom per project and tool with `useStudioDraft` | Moodboards, Brand elements, OpenGraph, templates, Surface Lab |
+| `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Design Lab, Brand elements, finishes |
+| `CanvasViewport` | Zoom, reset, fit, clipping, pan, and scrollable stage | Persists view state per project and tool | Moodboards, Brand elements, OpenGraph, templates, Design Lab |
 | `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
 | `CanvasLayerPanel` | Layer selection, order, alignment, disabled actions, and reset | Controlled by the host tool; emits semantic layer operations | Template and slide systems, ready for any layered generator |
 | `SourceCodeDrawer` | Right-side source editing, validation feedback, apply, reset, and close | Host supplies the current serialized source and an apply function | Identity, boards, motion, surfaces, templates, foundations, and components |
@@ -19,8 +24,10 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | `canvasDocument` | Versioned pages, elements, constraints, resources, history, checkpoints, and export preflight | Immutable scene graph and command history | Migration target for every editable artifact and agent operation |
 | `StudioSelect` | Consistent select trigger, popover, keyboard navigation, and value changes | Controlled value | Fonts, assets, materials, layouts, sizes, languages, presets |
 | `MaterialFinishControls` | Reflection, shadow, border, glass, and finish presets | Controlled finish object | Animation and logo-material surfaces |
-| `LogoAppearanceControls` | Inversion, ordered dither, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Surface Lab, OpenGraph, and Brand elements |
+| `LogoAppearanceControls` | Inversion, ordered dither, alpha-aware SVG outline, shadow color, blur, opacity, and offsets | Controlled logo appearance object | Design Lab, OpenGraph, and Brand elements |
 | `useStudioDraft` | Project-and-tool-scoped browser persistence | `localStorage` through one shared hook | Tool fields, zoom, layers, surfaces, layout, and export settings |
+| `usePortableCanvasWorkspace` | Canvas serialization and exact autosave lifecycle | CanvasDocument plus IndexedDB/recovery adapter | Design Lab and portable layered workspaces |
+| `studioAutomation` | Accessible controls, source round trips, tool actions, and Blob download | Active tool adapter | Every navigable Studio tool |
 
 ## Color control
 
@@ -65,7 +72,7 @@ The shared viewport also supports wheel/trackpad zoom, drag-to-pan on empty work
 
 The drawer is a shared interaction shell, not a universal schema. Each tool owns its field constraints and converts valid source into the same state used by its visual controls. Raw Lottie JSON remains a Lottie document; material configuration can carry custom GLSL; template and component drawers expose their own configuration objects.
 
-See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).
+See [Source code editing](/docs/studio/source-editing), [Source format reference](/docs/reference/source-formats), and [Studio Browser API](/docs/reference/browser-api).
 
 ## Layers and direct manipulation
 
@@ -113,7 +120,7 @@ Export preflight reports:
 - Elements clipped beyond their page.
 - Text exceeding a declared maximum line count.
 
-The current direct-manipulation components are adapters over tool-specific transforms. New artifacts should use the scene graph, and existing tools will migrate to it in reviewable waves so preview and export converge on one renderer.
+Direct-manipulation components adapt tool state to this model. Design Lab already serializes the portable scene graph for source, saved designs, autosave, recovery, and agent round trips; other editors can migrate incrementally while preserving their public formats.
 
 ## Logo appearance
 
@@ -139,9 +146,9 @@ Third-party packages sit behind local components so individual Studio tools do n
 | `@shadergradient/react` | Live-material adapter | Editable ShaderGradient sphere presets |
 | `@paper-design/shaders-react` | `LiveMaterialCanvas` Paper adapter | 29 Paper shader families and 120 licensed presets in the shared gallery |
 | PavelDoGreat WebGL Fluid Simulation | Local fluid adapter | MIT-licensed GPU advection model used by Fluid Energy |
-| `camera-controls` + `three-stdlib` | Material canvas | Stable camera behavior and Three.js utilities |
 | `gifenc` | GIF export pipeline | Deterministic browser GIF encoding and palette control |
-| `@lottiefiles/dotlottie-web` | Animation source adapter | Local `.lottie` and Lottie JSON playback, exact frame seeking, and GIF capture |
+| `mediabunny` | Browser video/audio muxing | MP4 export and Animation audio mixing |
+| `@lottiefiles/dotlottie-web` | Animation source adapter | Local `.lottie` and Lottie JSON playback and exact frame seeking |
 | PrismJS | Code-highlighting adapter | TypeScript, Python, Bash, JSON, and shell token color |
 | Lucide | Component-local icons | Consistent semantic control icons |
 | `gt-next` | `<T>` and `useGT` | Translatable Studio labels and accessible names |

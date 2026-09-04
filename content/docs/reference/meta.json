@@ -4,9 +4,16 @@
   "pages": [
     "index",
     "endpoints",
+    "browser-api",
     "social-previews",
     "capability-matrix",
     "source-formats",
+    "version-compatibility",
+    "browser-support",
+    "self-hosting",
+    "api-security",
+    "troubleshooting",
+    "accessibility",
     "shortcuts"
   ]
 }

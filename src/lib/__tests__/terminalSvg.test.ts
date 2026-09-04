@@ -24,6 +24,12 @@ describe('terminal SVG', () => {
     expect(svg).toContain("font-family:'StudioTerminalTitle'");
     expect(svg).toContain('Ship &lt;safely&gt;');
     expect(svg).toContain('&quot;&lt;safe&gt;&quot;');
+    expect(svg).toContain('data-code-block-base="rareui"');
+    expect(svg).toContain('data-slot="code-block-header"');
+    expect(svg).toContain('data-language-icon="typescript"');
+    expect(svg).toContain('fill="#3178C6"');
+    expect(svg).toContain('data-slot="code-block-line"');
+    expect(svg).toContain('>1</text>');
     expect(svg).not.toContain('Ship <safely>');
   });
 
@@ -42,5 +48,24 @@ describe('terminal SVG', () => {
     expect(svg).not.toContain('<image');
     expect(svg).toContain('font-family="Display &amp; Sans"');
     expect(svg).toContain('font-family="Code &amp; Mono"');
+    expect(svg).toContain('data-language-icon="bash"');
+  });
+
+  it('uses the actual theSVG Python artwork for Python cards', () => {
+    const svg = buildTerminalSvg({
+      assetOpacity: 0,
+      code: 'print("hello")',
+      codeFontFamily: 'Mono',
+      codeFontWeight: 400,
+      language: 'python',
+      title: 'Translate with Python',
+      titleFontFamily: 'Display',
+      titleFontWeight: 500,
+    });
+
+    expect(svg).toContain('data-language-icon="python"');
+    expect(svg).toContain('id="terminal-python-a"');
+    expect(svg).toContain('stop-color="#387EB8"');
+    expect(svg).toContain('stop-color="#FFE052"');
   });
 });

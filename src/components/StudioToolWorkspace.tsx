@@ -76,6 +76,7 @@ import { CODE_THEME, type CodeLanguage } from '@/lib/codeHighlight';
 import {
   blobToDataUrl,
   escapeXml,
+  resolveSvgRasterDimensions,
   svgToPngBlob,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
@@ -85,6 +86,11 @@ import {
   createStudioCanvasDocument,
   parseStudioCanvasDocument,
 } from '@/lib/studioCanvasDocument';
+import {
+  STUDIO_ARTIFACT_FRAME_CLASS,
+  STUDIO_ARTIFACT_PLANE_CLASS,
+  STUDIO_ARTIFACT_STAGE_CLASS,
+} from '@/lib/studioCanvasPresentation';
 import {
   DEFAULT_LOGO_APPEARANCE,
   type LogoAppearanceSettings,
@@ -1098,8 +1104,9 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     setExporting(true);
     studioExport.start('Rendering OpenGraph PNG preview');
     try {
+      const raster = resolveSvgRasterDimensions(1200, 630);
       const blob = await svgToPngBlob(previewSvg, 1200, 630);
-      setLastExport({ blob, fileName: 'studio-opengraph.png', format: 'PNG', height: 630, width: 1200 });
+      setLastExport({ blob, fileName: 'studio-opengraph.png', format: 'PNG', height: raster.height, width: raster.width });
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -1209,11 +1216,11 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('OpenGraph source') }}
       tool={tool}
     >
-      <CanvasViewport fontFamily={brandTypographyFamily(identity, fontRole)} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
+      <CanvasViewport fontFamily={brandTypographyFamily(identity, fontRole)} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setLogoSelected(false)} stageClassName={STUDIO_ARTIFACT_STAGE_CLASS} toolId={tool.id}>
         <CanvasArtboard
           aria-label={gt('OpenGraph canvas')}
-          className='overflow-hidden rounded-md'
-          frameClassName='artifact-preview w-full max-w-5xl smooth-shadow-ring-sm'
+          className={STUDIO_ARTIFACT_PLANE_CLASS}
+          frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}
           height={630}
           onPointerDown={() => setLogoSelected(false)}
           role='group'
@@ -1253,7 +1260,7 @@ function SurfaceTool({ active, identity, tool }: { active: boolean; identity: Br
 }
 
 function MaterialTool({ active, identity, onIdentitySave, tool }: { active: boolean; identity: BrandIdentity; onIdentitySave: (identity: BrandIdentity) => void; tool: StudioTool }) {
-  return <LogoShaderStudio active={active} identity={identity} onIdentitySave={onIdentitySave} tool={{ ...tool, id: 'logo-shader' }} />;
+  return <LogoShaderStudio active={active} automationToolId={tool.id} identity={identity} onIdentitySave={onIdentitySave} tool={{ ...tool, id: 'logo-shader' }} />;
 }
 
 type EditableColor = {
@@ -2358,8 +2365,9 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
     setExporting(true);
     studioExport.start('Rendering terminal PNG preview');
     try {
+      const raster = resolveSvgRasterDimensions(1200, 630);
       const blob = await svgToPngBlob(previewSvg, 1200, 630);
-      setLastExport({ blob, fileName: 'studio-terminal.png', format: 'PNG', height: 630, width: 1200 });
+      setLastExport({ blob, fileName: 'studio-terminal.png', format: 'PNG', height: raster.height, width: raster.width });
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -2420,11 +2428,11 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt('Terminal source') }}
       tool={tool}
     >
-      <CanvasViewport identityId={identity.id} stageClassName='grid min-h-full place-items-center p-6 lg:p-10' toolId={tool.id}>
+      <CanvasViewport identityId={identity.id} stageClassName={STUDIO_ARTIFACT_STAGE_CLASS} toolId={tool.id}>
         <CanvasArtboard
           aria-label={gt('Terminal card canvas')}
-          className='artifact-preview overflow-hidden rounded-lg bg-[#0D1117]'
-          frameClassName='w-full max-w-4xl smooth-shadow-ring-lg smooth-ring-white/10'
+          className={`${STUDIO_ARTIFACT_PLANE_CLASS} bg-[#0D1117]`}
+          frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}
           height={630}
           role='group'
           width={1200}
@@ -2616,6 +2624,20 @@ function TemplateTextureOpacityField({
   );
 }
 
+const TEMPLATE_FONT_ARIA_LABELS: Record<TemplateKind, string> = {
+  blog: 'Template typography role',
+  partnership: 'GT headline font',
+  slides: 'Template typography role',
+};
+
+function TemplateFontRoleLabel({ kind }: { kind: TemplateKind }) {
+  return kind === 'partnership' ? <T>GT headline font</T> : <T>Typography role</T>;
+}
+
+function TemplateFontWeightLabel({ kind }: { kind: TemplateKind }) {
+  return kind === 'partnership' ? <T>GT headline weight</T> : <T>Font weight</T>;
+}
+
 function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind: TemplateKind; tool: StudioTool }) {
   const gt = useGT();
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:${kind}`);
@@ -2656,7 +2678,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
   const [partnerTreatment, setPartnerTreatment] = useStudioDraft<TemplatePartnerTreatment>(
     identity.id,
     tool.id,
-    'partner-treatment',
+    'partner-treatment-v2',
     defaultTemplatePartnerTreatment(initialPartner.id, BUILT_IN_BRAND_IDENTITIES)
   );
   const [partnerFontId, setPartnerFontId] = useStudioDraft(
@@ -2811,6 +2833,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       footer: footerLayer,
       order: layerOrder,
     },
+    partnerRenderingVersion: 2,
     partner: {
       asset: partnerAsset.asset,
       fontAsset: partnerFontAsset.asset,
@@ -3204,8 +3227,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     setExporting(true);
     studioExport.start(`Rendering ${kind} PNG preview`);
     try {
+      const raster = resolveSvgRasterDimensions(width, height);
       const blob = await svgToPngBlob(previewSvg, width, height);
-      setLastExport({ blob, fileName: `studio-${kind}.png`, format: 'PNG', height, width });
+      setLastExport({ blob, fileName: `studio-${kind}.png`, format: 'PNG', height: raster.height, width: raster.width });
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -3265,50 +3289,20 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             ariaLabel='Partner treatment'
             onChange={setPartnerTreatment}
             options={[
-              { label: 'Write name', value: 'text' },
               { label: 'Use logo', value: 'logo' },
+              { label: 'Write name', value: 'text' },
             ]}
             value={partnerTreatment}
           />
         </div>
         {partnerTreatment === 'text' ? (
-          <>
-            <Field label={<T>Partner name</T>}>
-              <input
-                className={INPUT_CLASS}
-                onChange={(event) => setPartnerName(event.target.value)}
-                value={partnerName}
-              />
-            </Field>
-            <Field label={<T>Partner font</T>}>
-                <StudioSelect
-                  ariaLabel='Partner font'
-                  onValueChange={selectPartnerFont}
-                  options={[
-                    ...(partnerFontAsset.asset ? [{
-                      label: `Uploaded · ${partnerFontAsset.asset.name}`,
-                      value: 'custom',
-                    }] : []),
-                    ...partnerFontOptions.map((font) => ({ label: font.label, value: font.id })),
-                  ]}
-                  value={partnerFontAsset.asset ? 'custom' : selectedPartnerFont.id}
-                />
-            </Field>
-            <UploadField
-              accept='.otf,.ttf,.woff,.woff2,font/*'
-              fileName={partnerFontAsset.asset?.name}
-              label='Upload partner font'
-              onFile={uploadPartnerFont}
+          <Field label={<T>Lockup name</T>}>
+            <input
+              className={INPUT_CLASS}
+              onChange={(event) => setPartnerName(event.target.value)}
+              value={partnerName}
             />
-            <RangeField
-              label={<T>Partner font weight</T>}
-              max={MAX_VISIBLE_FONT_WEIGHT}
-              min={100}
-              onChange={setPartnerFontWeight}
-              step={50}
-              value={partnerFontWeight}
-            />
-          </>
+          </Field>
         ) : (
           <UploadField
             accept='image/*,.svg'
@@ -3317,6 +3311,37 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             onFile={partnerAsset.select}
           />
         )}
+        <Field label={<T>Partner headline font</T>}>
+          <StudioSelect
+            ariaLabel='Partner headline font'
+            onValueChange={selectPartnerFont}
+            options={[
+              ...(partnerFontAsset.asset ? [{
+                label: `Uploaded · ${partnerFontAsset.asset.name}`,
+                value: 'custom',
+              }] : []),
+              ...partnerFontOptions.map((font) => ({ label: font.label, value: font.id })),
+            ]}
+            value={partnerFontAsset.asset ? 'custom' : selectedPartnerFont.id}
+          />
+        </Field>
+        <UploadField
+          accept='.otf,.ttf,.woff,.woff2,font/*'
+          fileName={partnerFontAsset.asset?.name}
+          label='Upload partner headline font'
+          onFile={uploadPartnerFont}
+        />
+        <RangeField
+          label={<T>Partner headline weight</T>}
+          max={MAX_VISIBLE_FONT_WEIGHT}
+          min={100}
+          onChange={setPartnerFontWeight}
+          step={50}
+          value={partnerFontWeight}
+        />
+        <p className='text-xs leading-5 text-muted-foreground'>
+          <T>Styles the partner name in the headline and in text-based lockups.</T>
+        </p>
         <RangeField
           label={<T>Lockup spacing</T>}
           max={160}
@@ -3336,8 +3361,8 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           <textarea className={TEXTAREA_CLASS} onChange={(event) => setTitle(event.target.value)} value={title} />
         </Field>
         <TemplateSlideBodyField body={body} kind={kind} onChange={setBody} />
-        <Field label={<T>Typography role</T>}><StudioSelect ariaLabel='Template typography role' onValueChange={(value) => { const role = value as BrandTypography['role']; setRestoredFontSource(null); setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
-        <RangeField label={<T>Font weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
+        <Field label={<TemplateFontRoleLabel kind={kind} />}><StudioSelect ariaLabel={TEMPLATE_FONT_ARIA_LABELS[kind]} onValueChange={(value) => { const role = value as BrandTypography['role']; setRestoredFontSource(null); setFontRole(role); setFontWeight(brandTypographyRole(identity, role).weight ?? 400); }} options={identity.typography.map((font) => ({ label: `${font.role} · ${brandTypographyFamily(identity, font.role)}`, value: font.role }))} value={fontRole} /></Field>
+        <RangeField label={<TemplateFontWeightLabel kind={kind} />} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={setFontWeight} step={50} value={fontWeight} />
       </ControlSection>
       {renderPartnerControls()}
       <TemplateSlideLibrary kind={kind} onChange={setSlideLayout} value={slideLayout} />
@@ -3437,7 +3462,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
       sourceCode={{ format: 'JSON', onApply: applySourceCode, source: sourceCode, title: gt(`${tool.name} source`) }}
       tool={tool}
     >
-      <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setSelectedLayer(null)} stageClassName='template-workspace grid min-h-full place-items-center p-5 md:p-8 xl:p-12' toolId={tool.id}>
+      <CanvasViewport fontFamily={displayFont} fontWeight={capVisibleFontWeight(fontWeight)} identityId={identity.id} onDeselect={() => setSelectedLayer(null)} stageClassName={STUDIO_ARTIFACT_STAGE_CLASS} toolId={tool.id}>
         <TemplateCanvasPreview
           ariaLabel={gt(`${tool.name} canvas`)}
           background={background}

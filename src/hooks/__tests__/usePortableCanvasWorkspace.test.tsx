@@ -47,14 +47,17 @@ function workspaceDocument(revision = 7) {
 function WorkspaceHarness({
   applySource,
   onWorkspace,
+  suspendAutosave = false,
 }: {
   applySource: (source: string) => void;
   onWorkspace: (workspace: PortableCanvasWorkspace) => void;
+  suspendAutosave?: boolean;
 }) {
   const document = useMemo(() => workspaceDocument(), []);
   const workspace = usePortableCanvasWorkspace({
     applySource,
     document,
+    suspendAutosave,
     workspaceKey: 'gt:test-tool',
   });
   useEffect(() => {
@@ -136,5 +139,24 @@ describe('usePortableCanvasWorkspace', () => {
 
     expect(applySource).toHaveBeenCalledWith(storedSource);
     expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+  });
+
+  it('keeps stale document snapshots out of autosave while live edits are settling', async () => {
+    const workspaces: PortableCanvasWorkspace[] = [];
+    await act(async () => {
+      root.render(
+        <WorkspaceHarness
+          applySource={vi.fn()}
+          onWorkspace={(workspace) => workspaces.push(workspace)}
+          suspendAutosave
+        />
+      );
+      await settle();
+      vi.advanceTimersByTime(1_000);
+      await settle();
+    });
+
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    expect(workspaces.at(-1)?.autosaveState).toBe('preparing');
   });
 });

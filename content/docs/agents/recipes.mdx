@@ -1,0 +1,194 @@
+---
+title: Agent recipes
+description: Complete programmatic workflows for discovery, design composition, material selection, saving, verification, and export.
+icon: ListChecks
+---
+
+These recipes show the full operation, including discovery and completion checks. Replace `BASE_URL` with the Glyphfield deployment origin.
+
+## Discover before generating
+
+```bash
+BASE_URL=http://localhost:3012
+
+curl -fsS "$BASE_URL/api/agent" | jq '{version, schemaVersion, resources, interfaces}'
+curl -fsS "$BASE_URL/api/labs" | jq '.plugins[] | {id, name, capabilities}'
+curl -fsS "$BASE_URL/api/materials" | jq '{count, defaults, engines, sharedBy}'
+curl -fsS "$BASE_URL/api/identities" | jq '.identities[] | {id, name}'
+curl -fsS "$BASE_URL/api/generate" | jq '{schemaVersion, kinds}'
+```
+
+Cache discovery only within the endpoint's advertised cache window. Fetch the generation contract again before emitting a request if the client may be stale.
+
+## Generate and save a raw SVG
+
+```bash
+curl -fsS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "template",
+    "template": "slides",
+    "slideLayout": "statement",
+    "texture": "dark",
+    "title": "One system. Every surface.",
+    "identity": { "preset": "gt" },
+    "output": "raw"
+  }' \
+  -o one-system.svg
+
+test -s one-system.svg
+```
+
+The terminal success condition is a non-empty SVG file, not a `200` response alone.
+
+## Generate a tactile background
+
+```bash
+curl -fsS -X POST "$BASE_URL/api/generate" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "background",
+    "identity": { "preset": "gt" },
+    "settings": {
+      "width": 1600,
+      "height": 900,
+      "style": "grain-gradient",
+      "gradient": "mesh",
+      "colorA": "#F5F5F2",
+      "colorB": "#181818",
+      "colorC": "#7058FF",
+      "surfaceMaterial": "embossed-paper",
+      "surfaceDepth": 36,
+      "surfaceRoughness": 72,
+      "surfaceScale": 44,
+      "grain": 12
+    },
+    "output": "raw"
+  }' \
+  -o tactile-background.svg
+```
+
+## Create and render a Design Lab sequence
+
+First generate the exact composition document:
+
+```js
+const baseUrl = 'http://localhost:3012';
+const response = await fetch(`${baseUrl}/api/generate`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    kind: 'design-sequence',
+    identity: { preset: 'gt' },
+    ratio: 'wide',
+    backgroundColor: '#111216',
+    includeBrandMark: true,
+    texts: [
+      { value: 'Open source', weight: 500 },
+      { value: 'Every language. One source.', weight: 400 },
+    ],
+    shader: {
+      materialId: 'paper-gem-smoke',
+      shaderSize: 0.8,
+      opacity: 1,
+    },
+    effect: {
+      kind: 'bayer',
+      opacity: 0.72,
+      foreground: '#F5F5F2',
+      background: '#111216',
+    },
+    sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' },
+    export: { width: 1920, fps: 30, quality: 'best', gifLoop: 'seamless' },
+  }),
+});
+
+if (!response.ok) throw new Error(await response.text());
+const generated = await response.json();
+```
+
+Then run inside the open Design Lab page:
+
+```js
+await new Promise((resolve) => {
+  if (window.glyphfield?.studio) resolve();
+  else window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+});
+
+let studio = window.glyphfield.studio;
+if (studio.activeTool() !== 'material') {
+  const ready = new Promise((resolve) => {
+    window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+  });
+  studio.activate('Design Lab');
+  await ready;
+  studio = window.glyphfield.studio;
+}
+
+await studio.applySource(generated.document);
+const artifact = await studio.invoke('design.export', {
+  format: 'mp4',
+  mode: 'shader-sequence',
+  download: true,
+});
+
+if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
+  throw new Error('Design Lab returned an empty export.');
+}
+```
+
+Re-read `window.glyphfield.studio` after switching tools because the active adapter is replaced.
+
+## Edit an existing composition safely
+
+```js
+const studio = window.glyphfield.studio;
+const source = JSON.parse(studio.readSource());
+
+const firstText = Object.values(source.elements)
+  .find((element) => element.kind === 'text');
+
+if (!firstText) throw new Error('No text layer exists.');
+firstText.content = 'Updated by an agent';
+firstText.style.opacity = 0.88;
+
+await studio.applySource(source);
+const applied = JSON.parse(studio.readSource());
+if (applied.elements[firstText.id].content !== 'Updated by an agent') {
+  throw new Error('The source did not round-trip.');
+}
+```
+
+Preserve unknown fields from the read document. Do not reconstruct the canvas envelope when a targeted edit is sufficient.
+
+## Use a local file
+
+```js
+const bytes = await fileHandle.getFile();
+const file = new File([bytes], 'mark.svg', { type: 'image/svg+xml' });
+window.glyphfield.studio.set('Upload mark', file);
+```
+
+Only create a `File` from a source the user authorized. Wait for the preview or source to confirm the asset loaded before exporting.
+
+## Export every supported format
+
+```js
+for (const format of ['png', 'jpg', 'gif', 'mp4']) {
+  const artifact = await window.glyphfield.studio.invoke('design.export', {
+    format,
+    download: true,
+  });
+  console.log(format, artifact.fileName, artifact.blob.size);
+}
+```
+
+Do not run these exports concurrently. They share live canvases and browser encoder resources. Generate one, verify it, then continue.
+
+## Failure handling
+
+1. For HTTP failures, parse `error.code`, `error.field`, and `error.message`.
+2. Do not retry unchanged validation input.
+3. For Browser API failures, call `describe()` and `controls()` again; the active tool may have changed.
+4. If a browser lacks MP4 encoding, report the capability failure and retain the source document; do not silently substitute GIF.
+5. If WebGL is unavailable, use a deterministic surface/background fallback only when it still satisfies the requested artifact.

@@ -1,44 +1,89 @@
 ---
 title: Documentation
-description: Build a reusable brand identity, turn it into production artifacts, and let software agents generate from the same system.
+description: Define one brand system, compose production artifacts, animate it, and let agents operate the same tools.
 icon: BookOpen
 ---
 
-Glyphfield is a local-first brand studio for defining one identity and applying it across product, marketing, developer, motion, and physical design.
+Glyphfield is a local-first, open-source brand studio. It keeps identity foundations, design applications, live materials, motion, source documents, exports, and agent operations connected instead of treating each output as a separate file.
 
-The Studio and agent API share the same built-in identities, catalog, and generation language. Humans can work visually in the browser; agents can discover structured capabilities and generate portable artifacts over HTTP.
+<DocsMedia
+  alt='Glyphfield Brand identity workspace for General Translation'
+  caption='One identity feeds every visual and programmatic surface'
+  meta='Local-first brand system'
+  src='/screenshots/studio-gt-identity-dark-2026.png'
+/>
 
 ## Choose a path
 
 <DocsPathGrid>
-  <DocsPathCard href='/docs/getting-started' index='01' title='Getting started'>Create a project, define its identity, and export your first artifact.</DocsPathCard>
-  <DocsPathCard href='/docs/studio' index='02' title='Studio tools'>Learn the visual workspace, shared Shader Library, generators, templates, motion, and components.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/source-editing' index='03' title='Source editing'>Edit exact JSON, Lottie, and material source without leaving the canvas.</DocsPathCard>
-  <DocsPathCard href='/docs/artifacts' index='04' title='Artifacts'>Download, inspect, and ship portable PNG, SVG, GIF, and JSON outputs.</DocsPathCard>
-  <DocsPathCard href='/docs/agents/connect' index='05' title='Agent connection'>Connect an LLM or coding agent to the same brand system humans edit.</DocsPathCard>
-  <DocsPathCard href='/docs/agents/generate' index='06' title='Generation API'>Generate branded SVG artifacts through structured HTTP requests.</DocsPathCard>
-  <DocsPathCard href='/docs/reference' index='07' title='Reference'>Inspect exact endpoints, capabilities, shortcuts, formats, and limits.</DocsPathCard>
+  <DocsPathCard href='/docs/getting-started' icon='start' index='01' title='Build your first artifact'>Create or duplicate a project, edit the shared identity, choose a tool, and export.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/design-lab' icon='design' index='02' title='Compose in Design Lab'>Layer type, marks, images, stickers, converters, and live shaders; save and export still or motion files.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/animation' icon='motion' index='03' title='Create motion'>Build frame sequences with per-state timing, materials, image transforms, audio, GIF, and MP4.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/shader-library' icon='material' index='04' title='Use live materials'>Browse the quality-ranked shared Shader Library, tune its controls, scrub time, and reuse it across tools.</DocsPathCard>
+  <DocsPathCard href='/docs/agents/choose-interface' icon='agent' index='05' title='Connect an agent'>Choose HTTP generation, the Studio Browser API, markdown docs, or a combined workflow.</DocsPathCard>
+  <DocsPathCard href='/docs/artifacts' icon='artifact' index='06' title='Ship artifacts'>Understand PNG, JPG, SVG, GIF, MP4, PDF, Lottie, and JSON portability.</DocsPathCard>
+  <DocsPathCard href='/docs/reference/capability-matrix' icon='table' index='07' title='Check parity'>Map every Studio capability to source, browser automation, HTTP, and output formats.</DocsPathCard>
+  <DocsPathCard href='/docs/reference' icon='reference' index='08' title='Read exact reference'>Inspect endpoints, browser methods, source models, shortcuts, limits, and social previews.</DocsPathCard>
 </DocsPathGrid>
 
-## The system
+## What is connected
 
 <DocsSystemGrid>
-  <DocsSystemItem index='01' title='Identity foundations'>Name, positioning, voice, colors, typography, logo family, assets, and system defaults.</DocsSystemItem>
-  <DocsSystemItem index='02' title='Reusable generators'>Backgrounds, logos, slides, OpenGraph images, terminal cards, components, motion, and a shared live-shader catalog with visual and exact-source editing.</DocsSystemItem>
-  <DocsSystemItem index='03' title='Brand applications'>Digital, product, developer, social, editorial, event, and physical identity elements.</DocsSystemItem>
-  <DocsSystemItem index='04' title='Portable outputs'>PNG, SVG, GIF, and JSON artifacts designed to leave the Studio cleanly.</DocsSystemItem>
+  <DocsSystemItem icon='identity' index='01' title='Identity foundations'>Strategy, art direction, logos, authorized assets, colors, typography, language, voice, applications, and defaults.</DocsSystemItem>
+  <DocsSystemItem icon='studio' index='02' title='Visual editors'>Brand elements, moodboards, a complete brand book, Design Lab, Animation, Lottie, templates, tokens, type, and components.</DocsSystemItem>
+  <DocsSystemItem icon='document' index='03' title='Portable documents'>Exact source drawers, a versioned canvas scene graph, saved designs, autosave recovery, layer history, and export preflight.</DocsSystemItem>
+  <DocsSystemItem icon='api' index='04' title='Agent interfaces'>Versioned discovery, deterministic HTTP generation, processed markdown, full-text docs, and browser-native automation.</DocsSystemItem>
 </DocsSystemGrid>
+
+## See the system
+
+<DocsMediaGrid>
+  <DocsMedia alt='General Translation Design Lab composition' caption='Design Lab' meta='Layers · shaders · output' src='/screenshots/studio-gt-design-lab-light-2026.png' />
+  <DocsMedia alt='General Translation Animation sequence' caption='Animation' meta='Frames · timing · materials' src='/screenshots/studio-gt-animation-light-2026.png' />
+  <DocsMedia alt='General Translation Brand Book overview' caption='Brand Book' meta='Generated standards' src='/screenshots/studio-gt-brand-book-light-2026.png' />
+  <DocsMedia alt='General Translation Moodboard' caption='Moodboard' meta='Identity applications' src='/screenshots/studio-gt-moodboard-light-2026.png' />
+</DocsMediaGrid>
+
+## Human and agent parity
+
+The visual UI and agent surfaces share the same owners:
+
+- `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, and `/api/elements` publish current capabilities.
+- `POST /api/generate` validates deterministic template, background, element-brief, and Design Lab sequence requests.
+- `window.glyphfield.studio` operates the active browser tool, including local files, exact source, Canvas, WebGL, GIF, and MP4.
+- Every documentation page is available as processed markdown by adding `.md` to its URL.
+- `/llms.txt` is the compact agent router; `/llms-full.txt` is the complete generated documentation corpus.
+
+Agents should discover first, choose an interface deliberately, apply the smallest source change, visually verify browser-rendered work, and treat a non-empty returned or downloaded artifact as completion.
 
 ## Local-first by default
 
-Browser projects and uploaded files remain in the browser. The public generation API processes each request in memory and does not persist the submitted identity or asset. Remote asset URLs are intentionally unsupported.
+Browser projects, saved designs, uploaded files, fonts, and drafts remain in the current browser profile. Stateless generation requests are processed in memory and do not silently read or mutate a browser-local project. Remote asset URLs are intentionally unsupported.
+
+## Operate and extend
+
+<DocsFeatureGrid>
+  <DocsFeature icon='document' label='Preserve' title='Back up editable work'>Keep identity and tool source, original authorized assets, and rendered proofs outside the browser.</DocsFeature>
+  <DocsFeature icon='verify' label='Recover' title='Diagnose by boundary'>Separate source, storage, Canvas, WebGL, codec, and download failures without clearing the active project.</DocsFeature>
+  <DocsFeature icon='reference' label='Deploy' title='Host the complete system'>Serve the dynamic docs, discovery, generation, OpenGraph, and Studio routes with browser capabilities intact.</DocsFeature>
+  <DocsFeature icon='studio' label='Contribute' title='Keep every interface aligned'>Update catalog, state, source, Browser API, HTTP, docs, exports, and tests as one parity chain.</DocsFeature>
+</DocsFeatureGrid>
+
+- [Back up and restore a project](/docs/artifacts/backup-and-restore)
+- [Troubleshoot Studio and exports](/docs/reference/troubleshooting)
+- [Check browser capabilities](/docs/reference/browser-support)
+- [Self-host Glyphfield](/docs/reference/self-hosting)
+- [Review version compatibility](/docs/reference/version-compatibility)
+- [Contribute to Glyphfield](/docs/contributing)
 
 ## Important links
 
 - [Open the Studio](/studio)
-- [Read the agent runbook](/llms.txt)
+- [Read the compact agent runbook](/llms.txt)
+- [Read the complete agent corpus](/llms-full.txt)
 - [Inspect the agent manifest](/api/agent)
 - [Inspect OpenAPI 3.1](/openapi.json)
+- [Read the contribution guide](/docs/contributing)
 - [View the source](https://github.com/Kevin-Liu-01/Glyphfield)
 
-Glyphfield is open-source software released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). Bundled third-party marks and reference-brand assets remain separately owned.
+Glyphfield software is released under the [MIT License](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/LICENSE). Bundled third-party marks, fonts, textures, shaders, and reference-brand assets retain their own licenses and ownership.

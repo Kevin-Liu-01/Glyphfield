@@ -1,35 +1,52 @@
 ---
 title: Artifacts
-description: Understand which outputs Glyphfield creates, where they are generated, and which workflow to use.
+description: Choose, produce, verify, preserve, and reuse every Glyphfield output format.
 icon: Download
 ---
 
-An artifact is a portable output produced from an identity and a generator. Glyphfield has two complementary production paths.
+An artifact is a portable result produced from an identity and an exact configuration. Keep the editable source beside the rendered output whenever the work may need another size, language, material frame, or motion encoding later.
 
-## Browser Studio
+<DocsMediaGrid>
+  <DocsMedia alt='General Translation moodboard artifact in Glyphfield' caption='System board' meta='High-resolution PNG' src='/screenshots/studio-gt-moodboard-dark-2026.png' />
+  <DocsMedia alt='General Translation Design Lab artifact in Glyphfield' caption='Layered composition' meta='PNG · JPG · GIF · MP4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+</DocsMediaGrid>
 
-Use the Studio for visual composition, local files, fonts, Canvas, WebGL, and animated capture.
+## Output map
 
-| Output | Tools |
-| --- | --- |
-| PNG | Moodboard, Surface Lab, OpenGraph, Terminal card, Partnership, Blog, Slides |
-| GIF | Animation, Material |
-| JSON | Identity export, Brand element brief, editable Studio configuration, Lottie source |
+| Output | Produced by | Best use |
+| --- | --- | --- |
+| SVG | HTTP backgrounds and templates | Canonical deterministic vector artifact, source control, downstream rasterization |
+| PNG | Design Lab, Moodboard, Lottie frame, OpenGraph, Terminal, Partnership, Blog, Slides | Lossless stills, transparency, exact browser composition |
+| JPG | Design Lab | Smaller opaque photographic/material stills |
+| GIF | Design Lab and Animation | Portable short motion, email/docs, transparent or palette-constrained loops |
+| MP4 | Design Lab and Animation | Higher-fidelity motion; Animation can include mixed audio |
+| PDF | Brand book print/export | Shareable identity standards snapshot |
+| JSON | Identities, briefs, source documents, Lottie | Editing, automation, handoff, regeneration |
+| `.lottie` | Lottie | Original compact vector animation archive |
 
-## Agent API
+## Production paths
 
-Use `POST /api/generate` for deterministic HTTP generation without operating the UI.
+### Deterministic HTTP
 
-| Kind | Output |
-| --- | --- |
-| `template` | Portable SVG or JSON envelope containing SVG |
-| `background` | Portable SVG or JSON envelope containing SVG |
-| `element-brief` | Production-brief JSON |
+Use `POST /api/generate` for repeatable SVG, structured briefs, and apply-ready Design Lab sequence source. The request is validated against the current GET contract and does not silently alter a browser project.
 
-## Choose the path
+### Authentic browser rendering
 
-Use the API when the artifact can be fully expressed by the versioned JSON contract. Use the browser when output depends on local fonts, local interactive layout, WebGL, Canvas, or multi-frame GIF encoding.
+Use Studio or `window.glyphfield.studio` when the output depends on Canvas, WebGL, local files, local fonts, visual transforms, Lottie, frame capture, or browser codecs. Programmatic export uses the same live renderer as the visible UI.
 
-The Studio's **Code** drawer is part of the browser path. It edits the configuration behind the current visual artifact and can be used before any PNG, GIF, JSON, or browser-rendered export. It is distinct from the request body accepted by `/api/generate`.
+### Combined
 
-Continue with [Download and use artifacts](/docs/artifacts/download-and-use) for exact commands and integration examples.
+Generate a Design Lab document through HTTP, apply it in the browser, inspect it, then export PNG/JPG/GIF/MP4. This separates deterministic authoring from authentic rendering without creating two visual implementations.
+
+## Definition of done
+
+For every artifact:
+
+1. Confirm the intended identity and source revision.
+2. Inspect the rendered composition when visual output is requested.
+3. Confirm dimensions, format, transparency/opacity, and filename.
+4. Require a non-empty response body or Blob.
+5. For motion, inspect multiple frames and the loop seam; for MP4 audio, confirm the track.
+6. Retain the portable source or named saved design when regeneration matters.
+
+Continue with [Formats and portability](/docs/artifacts/formats-and-portability), [Download and use artifacts](/docs/artifacts/download-and-use), and [Backup and restore](/docs/artifacts/backup-and-restore).

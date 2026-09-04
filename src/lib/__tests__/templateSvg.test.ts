@@ -47,6 +47,33 @@ describe('buildTemplateSvg', () => {
     expect(svg).not.toContain(`href="${baseOptions.partnerLogo}"`);
   });
 
+  it('keeps the official partner logo while typesetting each headline brand independently', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      fontData: 'data:font/ttf;base64,SWITZER',
+      fontFamily: 'Switzer',
+      fontWeight: 500,
+      partnerFontData: 'data:font/woff2;base64,LAUSANNE',
+      partnerFontFamily: 'Lausanne',
+      partnerFontWeight: 350,
+      partnerLetterSpacing: -1.1,
+      partnerName: 'Ramp',
+      partnerTreatment: 'logo',
+      title: 'General Translation × Ramp',
+    });
+
+    expect(svg).toContain(`href="${baseOptions.partnerLogo}"`);
+    expect(svg).toContain('data-template-partner="logo"');
+    expect(svg).toContain('data-template-headline="mixed"');
+    expect(svg).toContain('<tspan class="template-headline-brand">General Translation</tspan>');
+    expect(svg).toContain('<tspan class="template-headline-separator"> × </tspan>');
+    expect(svg).toContain('<tspan class="template-headline-partner">Ramp</tspan>');
+    expect(svg).toContain("font-family:'TemplateBrand'");
+    expect(svg).toContain("font-family:'TemplatePartner'");
+    expect(svg).toContain('.template-partner-text,.template-headline-partner');
+    expect(svg).toContain('letter-spacing:-1.1px');
+  });
+
   it('keeps a real brand logo on slide exports and escapes content', () => {
     const svg = buildTemplateSvg({
       ...baseOptions,
@@ -119,6 +146,43 @@ describe('buildTemplateSvg', () => {
     expect(timeline).not.toBe(metrics);
     expect(chart).toContain('+42%');
     expect(chart).not.toBe(metrics);
+  });
+
+  it('keeps every title word while centering title and statement slide layouts', () => {
+    const title = buildTemplateSvg({
+      ...baseOptions,
+      height: 900,
+      kind: 'slides',
+      slideLayout: 'title',
+      title: 'Code is the source of truth.',
+      width: 1600,
+    });
+    const statement = buildTemplateSvg({
+      ...baseOptions,
+      height: 900,
+      kind: 'slides',
+      slideLayout: 'statement',
+      title: 'Every language. One source.',
+      width: 1600,
+    });
+
+    expect(title).toContain('data-text-block="slide-title" data-center-y="450"');
+    expect(title).toContain('Code is the source of truth.');
+    expect(statement).toContain('data-text-block="slide-statement" data-center-y="450"');
+    expect(statement).toContain('data-line-count="2"');
+    expect(statement).toContain('Every language.');
+    expect(statement).toContain('One source.');
+  });
+
+  it('vertically centers the partnership headline without losing its mixed fonts', () => {
+    const svg = buildTemplateSvg({
+      ...baseOptions,
+      title: 'General Translation × Ramp',
+    });
+
+    expect(svg).toContain('data-text-block="partnership-title" data-center-y="324"');
+    expect(svg).toContain('<tspan class="template-headline-brand">General Translation</tspan>');
+    expect(svg).toContain('<tspan class="template-headline-partner">Ramp</tspan>');
   });
 
   it('embeds the selected identity font and caps its exported weight', () => {

@@ -26,8 +26,6 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
 
   const Content = page.data.body;
   const canonicalUrl = absoluteUrl(page.url);
-  const markdownBody = await page.data.getText('processed');
-  const markdown = `# ${page.data.title}\n\n${page.data.description}\n\n${markdownBody.trimStart()}`;
   const markdownUrl = `${page.url}.md`;
   const sourcePath = page.data.info.path.replaceAll('\\', '/');
   const sourceUrl = `${PRODUCT_BRAND.repository.url}/blob/main/content/docs/${sourcePath}`;
@@ -47,7 +45,7 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
       timeZone: 'UTC',
       year: 'numeric',
     }).format(lastModified)
-    : 'Open source';
+    : null;
   const image = getDocumentationImage(page);
   const breadcrumbItems = [
     {
@@ -117,12 +115,10 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
           <DocsDescription className='glyphfield-doc-description'>{page.data.description}</DocsDescription>
           <div className='glyphfield-doc-page-meta'>
             <DocsPageActions
-              content={markdown}
               markdownUrl={markdownUrl}
-              pageUrl={canonicalUrl}
               sourceUrl={sourceUrl}
             />
-            <span>Last updated {lastUpdatedLabel}</span>
+            <span>{lastUpdatedLabel ? `Last updated ${lastUpdatedLabel}` : 'Maintained with source'}</span>
           </div>
         </header>
         <DocsBody className='glyphfield-docs-body'>

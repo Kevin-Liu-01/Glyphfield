@@ -1,7 +1,7 @@
 'use client';
 
-import { type CSSProperties, type ReactNode } from 'react';
-import { T, useGT } from 'gt-next';
+import { memo, startTransition, type CSSProperties, type ReactNode } from 'react';
+import { T as GTText } from 'gt-next';
 import {
   ArrowDown,
   ArrowUp,
@@ -37,6 +37,7 @@ import {
   brandMaterialPalette,
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   type LiveMaterialId,
+  type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import type { StudioSource } from '@/lib/renderFrame';
@@ -58,6 +59,10 @@ import {
 } from '@/lib/studio';
 import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { normalizeMaterialFinish } from '@/lib/materialFinish';
+import { useCachedGT } from '@/hooks/useCachedGT';
+
+const T = memo(GTText);
+T.displayName = 'StudioTranslation';
 
 type StudioControlsProps = {
   backgroundOverrideCount: number;
@@ -160,7 +165,10 @@ function RangeControl({
         aria-label={ariaLabel}
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => {
+          const nextValue = Number(event.currentTarget.value);
+          startTransition(() => onChange(nextValue));
+        }}
         step={step}
         value={resolvedValue}
       />
@@ -187,7 +195,7 @@ function BackgroundScopeControl({
   selected: boolean;
   sourceCount: number;
 }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const effectiveScope = scope === 'frame' && selected ? 'frame' : 'sequence';
   return (
     <div className='animation-background-scope'>
@@ -260,7 +268,7 @@ function AnimationSequenceSceneRow({
   index: number;
   source: StudioSource;
 }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const {
     backgroundOverrideSourceIds,
     backgroundScope,
@@ -379,7 +387,7 @@ function AnimationSequenceSceneRow({
 }
 
 function AnimationSequenceLayerControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const {
     backgroundScope,
     backgroundOverrideSourceIds,
@@ -489,7 +497,7 @@ function AnimationBackgroundControls({
   shaderGallerySettings,
   showScope = true,
 }: AnimationBackgroundControlsProps) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const {
     backgroundOverrideCount,
     backgroundScope,
@@ -617,6 +625,148 @@ type SelectedFrameControlsProps = AnimationBackgroundControlsProps & {
   usesGenericMaterialColors: boolean;
 };
 
+type SelectedFrameContentControlsProps = Pick<
+  StudioControlsProps,
+  'onFrameSettingsChange' | 'onTextSourceChange'
+> & {
+  frameSettings: StudioFrameSettings;
+  selectedSource: StudioSource;
+};
+
+function SelectedFrameContentControls({
+  frameSettings,
+  onFrameSettingsChange,
+  onTextSourceChange,
+  selectedSource,
+}: SelectedFrameContentControlsProps) {
+  const gt = useCachedGT();
+  return (
+    <>
+      {selectedSource.kind === 'text' ? (
+        <label className='animation-layer-text-field'>
+          <span><T>Text</T></span>
+          <input
+            aria-label={gt('Selected layer text')}
+            onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
+            spellCheck={false}
+            type='text'
+            value={selectedSource.text}
+          />
+        </label>
+      ) : null}
+      <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
+      <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
+      <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
+      <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
+      <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
+      {selectedSource.kind === 'text' ? (
+        <>
+          <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
+          <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
+          <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Text color</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
+        </>
+      ) : (
+        <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+          <T>Image fit</T>
+          <StudioSelect ariaLabel={gt('Image fit')} onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })} options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]} value={frameSettings.fit} />
+        </div>
+      )}
+      <div className='border-t border-border pt-4'>
+        <div className='mb-3'>
+          <p className='text-sm font-semibold'>{selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}</p>
+          <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shadows, outlines, glass, and reflections render in preview and GIF export.</T></p>
+        </div>
+        <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
+      </div>
+    </>
+  );
+}
+
+type SelectedFrameBackgroundControlsProps = Pick<
+  StudioControlsProps,
+  'hasSelectedBackgroundOverride' | 'onBackgroundChange' | 'onResetSelectedBackgroundOverride'
+> & {
+  brandMaterialColors: readonly string[];
+  editableBackground: StudioBackgroundSettings;
+  frameMaterialSettings: LiveMaterialSettings;
+  materialIdentity: NonNullable<StudioControlsProps['identity']>;
+  usesGenericMaterialColors: boolean;
+};
+
+function SelectedFrameBackgroundControls({
+  brandMaterialColors,
+  editableBackground,
+  frameMaterialSettings,
+  hasSelectedBackgroundOverride,
+  materialIdentity,
+  onBackgroundChange,
+  onResetSelectedBackgroundOverride,
+  usesGenericMaterialColors,
+}: SelectedFrameBackgroundControlsProps) {
+  const gt = useCachedGT();
+  return (
+    <>
+      <div className='animation-layer-scope-note'>
+        <Palette aria-hidden='true' />
+        <span><strong><T>Scene background</T></strong><small>{hasSelectedBackgroundOverride ? <T>Custom for this scene</T> : <T>Inherits base background</T>}</small></span>
+      </div>
+      {hasSelectedBackgroundOverride ? (
+        <Button className='w-full' onClick={onResetSelectedBackgroundOverride} size='sm' type='button' variant='outline'>
+          <T>Use base background</T>
+        </Button>
+      ) : null}
+      <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+        <T>Background type</T>
+        <StudioSelect
+          ariaLabel={gt('Scene background')}
+          onValueChange={(style) => {
+            const nextStyle = style as StudioFrameSettings['background']['style'];
+            if (nextStyle === 'shader' && usesGenericMaterialColors) {
+              onBackgroundChange({
+                colorA: brandMaterialColors[0],
+                colorB: brandMaterialColors[1],
+                colorC: brandMaterialColors[2],
+                materialSettings: { ...frameMaterialSettings, colorA: brandMaterialColors[0], colorB: brandMaterialColors[1], colorC: brandMaterialColors[2] },
+                style: nextStyle,
+              });
+              return;
+            }
+            onBackgroundChange({ style: nextStyle });
+          }}
+          options={[{ label: gt('Solid'), value: 'solid' }, { label: gt('Gradient'), value: 'gradient' }, { label: gt('Live shader'), value: 'shader' }]}
+          value={editableBackground.style}
+        />
+      </div>
+      {editableBackground.style === 'shader' ? (
+        <LiveMaterialControls
+          identity={materialIdentity}
+          materialId={editableBackground.materialId}
+          onMaterialIdChange={(materialId) => onBackgroundChange({ materialId })}
+          onSettingsChange={(materialSettings) => onBackgroundChange({ colorA: materialSettings.colorA, colorB: materialSettings.colorB, colorC: materialSettings.colorC, materialSettings })}
+          settings={frameMaterialSettings}
+        />
+      ) : (
+        <>
+          <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={editableBackground.colorA} />
+          {editableBackground.style === 'solid' ? null : (
+            <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={editableBackground.colorB} />
+          )}
+        </>
+      )}
+      {editableBackground.style === 'gradient' ? (
+        <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={editableBackground.angle} />
+      ) : null}
+      <div className='border-t border-border pt-4'>
+        <div className='mb-3'>
+          <p className='text-sm font-semibold'><T>Background effects</T></p>
+          <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Add edge light, glass, reflection, or depth to the scene background.</T></p>
+        </div>
+        <MaterialFinishControls onChange={(finish) => onBackgroundChange({ finish })} settings={normalizeMaterialFinish(editableBackground.finish)} />
+      </div>
+    </>
+  );
+}
+
 function SelectedFrameControls({
   brandMaterialColors,
   controls,
@@ -625,7 +775,7 @@ function SelectedFrameControls({
   materialIdentity,
   usesGenericMaterialColors,
 }: SelectedFrameControlsProps) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const {
     frameSettings,
     hasSelectedBackgroundOverride,
@@ -676,104 +826,23 @@ function SelectedFrameControls({
       </div>
 
       {selectedEffectTarget === 'content' ? (
-        <>
-          {selectedSource.kind === 'text' ? (
-            <label className='animation-layer-text-field'>
-              <span><T>Text</T></span>
-              <input
-                aria-label={gt('Selected layer text')}
-                onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
-                spellCheck={false}
-                type='text'
-                value={selectedSource.text}
-              />
-            </label>
-          ) : null}
-          <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
-          <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
-          <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
-          <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
-          <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
-          {selectedSource.kind === 'text' ? (
-            <>
-              <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
-              <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
-              <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Text color</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
-            </>
-          ) : (
-            <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-              <T>Image fit</T>
-              <StudioSelect ariaLabel={gt('Image fit')} onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })} options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]} value={frameSettings.fit} />
-            </div>
-          )}
-          <div className='border-t border-border pt-4'>
-            <div className='mb-3'>
-              <p className='text-sm font-semibold'>{selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}</p>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Shadows, outlines, glass, and reflections render in preview and GIF export.</T></p>
-            </div>
-            <MaterialFinishControls onChange={(finish) => onFrameSettingsChange({ finish })} settings={frameSettings.finish} />
-          </div>
-        </>
+        <SelectedFrameContentControls
+          frameSettings={frameSettings}
+          onFrameSettingsChange={onFrameSettingsChange}
+          onTextSourceChange={onTextSourceChange}
+          selectedSource={selectedSource}
+        />
       ) : (
-        <>
-          <div className='animation-layer-scope-note'>
-            <Palette aria-hidden='true' />
-            <span><strong><T>Scene background</T></strong><small>{hasSelectedBackgroundOverride ? <T>Custom for this scene</T> : <T>Inherits base background</T>}</small></span>
-          </div>
-          {hasSelectedBackgroundOverride ? (
-            <Button className='w-full' onClick={onResetSelectedBackgroundOverride} size='sm' type='button' variant='outline'>
-              <T>Use base background</T>
-            </Button>
-          ) : null}
-          <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
-            <T>Background type</T>
-            <StudioSelect
-              ariaLabel={gt('Scene background')}
-              onValueChange={(style) => {
-                const nextStyle = style as StudioFrameSettings['background']['style'];
-                if (nextStyle === 'shader' && usesGenericMaterialColors) {
-                  onBackgroundChange({
-                    colorA: brandMaterialColors[0],
-                    colorB: brandMaterialColors[1],
-                    colorC: brandMaterialColors[2],
-                    materialSettings: { ...frameMaterialSettings, colorA: brandMaterialColors[0], colorB: brandMaterialColors[1], colorC: brandMaterialColors[2] },
-                    style: nextStyle,
-                  });
-                  return;
-                }
-                onBackgroundChange({ style: nextStyle });
-              }}
-              options={[{ label: gt('Solid'), value: 'solid' }, { label: gt('Gradient'), value: 'gradient' }, { label: gt('Live shader'), value: 'shader' }]}
-              value={editableBackground.style}
-            />
-          </div>
-          {editableBackground.style === 'shader' ? (
-            <LiveMaterialControls
-              identity={materialIdentity}
-              materialId={editableBackground.materialId}
-              onMaterialIdChange={(materialId) => onBackgroundChange({ materialId })}
-              onSettingsChange={(materialSettings) => onBackgroundChange({ colorA: materialSettings.colorA, colorB: materialSettings.colorB, colorC: materialSettings.colorC, materialSettings })}
-              settings={frameMaterialSettings}
-            />
-          ) : (
-            <>
-              <ColorControl ariaLabel={gt('Background color A')} label={<T>Color A</T>} onChange={(colorA) => onBackgroundChange({ colorA })} value={editableBackground.colorA} />
-              {editableBackground.style === 'solid' ? null : (
-                <ColorControl ariaLabel={gt('Background color B')} label={<T>Color B</T>} onChange={(colorB) => onBackgroundChange({ colorB })} value={editableBackground.colorB} />
-              )}
-            </>
-          )}
-          {editableBackground.style === 'gradient' ? (
-            <RangeControl label={<T>Angle</T>} max={360} min={0} onChange={(angle) => onBackgroundChange({ angle })} step={1} unit='°' value={editableBackground.angle} />
-          ) : null}
-          <div className='border-t border-border pt-4'>
-            <div className='mb-3'>
-              <p className='text-sm font-semibold'><T>Background effects</T></p>
-              <p className='mt-1 text-xs leading-5 text-muted-foreground'><T>Add edge light, glass, reflection, or depth to the scene background.</T></p>
-            </div>
-            <MaterialFinishControls onChange={(finish) => onBackgroundChange({ finish })} settings={normalizeMaterialFinish(editableBackground.finish)} />
-          </div>
-        </>
+        <SelectedFrameBackgroundControls
+          brandMaterialColors={brandMaterialColors}
+          editableBackground={editableBackground}
+          frameMaterialSettings={frameMaterialSettings}
+          hasSelectedBackgroundOverride={hasSelectedBackgroundOverride}
+          materialIdentity={materialIdentity}
+          onBackgroundChange={onBackgroundChange}
+          onResetSelectedBackgroundOverride={onResetSelectedBackgroundOverride}
+          usesGenericMaterialColors={usesGenericMaterialColors}
+        />
       )}
     </>
   );
@@ -860,7 +929,7 @@ function AnimationPanelHeading({
 }
 
 function AnimationTransitionControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const {
     compact = false,
     hasImageSources,
@@ -939,7 +1008,7 @@ function AnimationTransitionControls({ controls }: { controls: StudioControlsPro
 }
 
 function AnimationGlobalControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const { compact = false, hasImageSources, onSettingsChange, settings } = controls;
   return (
     <>
@@ -1018,6 +1087,94 @@ function shouldShowAnimationPanelHeading(
     || selectedSource === null;
 }
 
+type AnimationControlPanelContentProps = {
+  brandMaterialColors: readonly string[];
+  childControls: StudioControlsProps;
+  editableBackground: StudioBackgroundSettings;
+  frameMaterialSettings: LiveMaterialSettings;
+  materialIdentity: NonNullable<StudioControlsProps['identity']>;
+  panel: StudioControlsProps['panel'];
+  selectedEffectTarget: StudioControlsProps['selectedEffectTarget'];
+  selectedSource: StudioSource | null;
+  selectedSourceNumber: number;
+  selectedTransitionIndex: number | null;
+  sequenceBackground: StudioBackgroundSettings;
+  sequenceBackgroundSelected: boolean;
+  shaderGallerySettings: LiveMaterialSettings;
+  usesGenericMaterialColors: boolean;
+};
+
+function AnimationControlPanelContent({
+  brandMaterialColors,
+  childControls,
+  editableBackground,
+  frameMaterialSettings,
+  materialIdentity,
+  panel,
+  selectedEffectTarget,
+  selectedSource,
+  selectedSourceNumber,
+  selectedTransitionIndex,
+  sequenceBackground,
+  sequenceBackgroundSelected,
+  shaderGallerySettings,
+  usesGenericMaterialColors,
+}: AnimationControlPanelContentProps) {
+  if (panel === 'source') {
+    return (
+      <>
+        <InspectorSection index='01' title={<T>Scenes and layers</T>}>
+          <AnimationSequenceLayerControls controls={childControls} />
+        </InspectorSection>
+        <AnimationGlobalControls controls={childControls} />
+      </>
+    );
+  }
+  if (selectedTransitionIndex !== null) {
+    return (
+      <InspectorSection index='01' title={<T>Selected transition</T>}>
+        <AnimationTransitionControls controls={childControls} />
+      </InspectorSection>
+    );
+  }
+  if (selectedSource) {
+    return (
+      <InspectorSection
+        index={String(selectedSourceNumber).padStart(2, '0')}
+        title={selectedEffectTarget === 'background' ? <T>Selected background</T> : animationSourceLabel(selectedSource)}
+      >
+        <SelectedFrameControls
+          brandMaterialColors={brandMaterialColors}
+          controls={childControls}
+          editableBackground={editableBackground}
+          frameMaterialSettings={frameMaterialSettings}
+          materialIdentity={materialIdentity}
+          shaderGallerySettings={shaderGallerySettings}
+          usesGenericMaterialColors={usesGenericMaterialColors}
+        />
+      </InspectorSection>
+    );
+  }
+  if (sequenceBackgroundSelected) {
+    return (
+      <InspectorSection index='01' title={<T>Selected background</T>}>
+        <AnimationBackgroundControls
+          controls={childControls}
+          editableBackground={sequenceBackground}
+          frameMaterialSettings={frameMaterialSettings}
+          shaderGallerySettings={shaderGallerySettings}
+          showScope={false}
+        />
+      </InspectorSection>
+    );
+  }
+  return (
+    <InspectorSection index='01' title={<T>Nothing selected</T>}>
+      <p className='text-sm leading-5 text-muted-foreground'><T>Select a content, transition, or background row in the left sidebar.</T></p>
+    </InspectorSection>
+  );
+}
+
 export default function StudioControls({
   backgroundOverrideCount,
   backgroundOverrideSourceIds,
@@ -1062,7 +1219,7 @@ export default function StudioControls({
   sources,
   transitionSettings,
 }: StudioControlsProps) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const effectiveBackgroundScope = backgroundScope === 'frame' && selectedSource
     ? 'frame'
     : 'sequence';
@@ -1161,49 +1318,22 @@ export default function StudioControls({
       label={gt(sidebarLayout.label)}
     >
       {showPanelHeading ? <AnimationPanelHeading controls={childControls} /> : null}
-      {panel === 'source' ? (
-        <>
-          <InspectorSection index='01' title={<T>Scenes and layers</T>}>
-            <AnimationSequenceLayerControls controls={childControls} />
-          </InspectorSection>
-          <AnimationGlobalControls controls={childControls} />
-        </>
-      ) : (
-        selectedTransitionIndex !== null ? (
-          <InspectorSection index='01' title={<T>Selected transition</T>}>
-            <AnimationTransitionControls controls={childControls} />
-          </InspectorSection>
-        ) : selectedSource ? (
-          <InspectorSection
-            index={String(selectedSourceNumber).padStart(2, '0')}
-            title={selectedEffectTarget === 'background' ? <T>Selected background</T> : animationSourceLabel(selectedSource)}
-          >
-            <SelectedFrameControls
-              brandMaterialColors={brandMaterialColors}
-              controls={childControls}
-              editableBackground={editableBackground}
-              frameMaterialSettings={frameMaterialSettings}
-              materialIdentity={materialIdentity}
-              shaderGallerySettings={shaderGallerySettings}
-              usesGenericMaterialColors={usesGenericMaterialColors}
-            />
-          </InspectorSection>
-        ) : sequenceBackgroundSelected ? (
-          <InspectorSection index='01' title={<T>Selected background</T>}>
-            <AnimationBackgroundControls
-              controls={childControls}
-              editableBackground={sequenceBackground}
-              frameMaterialSettings={frameMaterialSettings}
-              shaderGallerySettings={shaderGallerySettings}
-              showScope={false}
-            />
-          </InspectorSection>
-        ) : (
-          <InspectorSection index='01' title={<T>Nothing selected</T>}>
-            <p className='text-sm leading-5 text-muted-foreground'><T>Select a content, transition, or background row in the left sidebar.</T></p>
-          </InspectorSection>
-        )
-      )}
+      <AnimationControlPanelContent
+        brandMaterialColors={brandMaterialColors}
+        childControls={childControls}
+        editableBackground={editableBackground}
+        frameMaterialSettings={frameMaterialSettings}
+        materialIdentity={materialIdentity}
+        panel={panel}
+        selectedEffectTarget={selectedEffectTarget}
+        selectedSource={selectedSource}
+        selectedSourceNumber={selectedSourceNumber}
+        selectedTransitionIndex={selectedTransitionIndex}
+        sequenceBackground={sequenceBackground}
+        sequenceBackgroundSelected={sequenceBackgroundSelected}
+        shaderGallerySettings={shaderGallerySettings}
+        usesGenericMaterialColors={usesGenericMaterialColors}
+      />
     </StudioSidebar>
   );
 }

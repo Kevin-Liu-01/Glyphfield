@@ -1,4 +1,5 @@
 import { docsSource } from '@/lib/docsSource';
+import { AGENT_CORS_HEADERS } from '@/lib/agentApi';
 
 type MarkdownRouteProps = {
   params: Promise<{ slug?: string[] }>;
@@ -10,7 +11,10 @@ export async function GET(_request: Request, { params }: MarkdownRouteProps) {
 
   if (!page) {
     return new Response('Documentation page not found.\n', {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        ...AGENT_CORS_HEADERS,
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
       status: 404,
     });
   }
@@ -20,6 +24,7 @@ export async function GET(_request: Request, { params }: MarkdownRouteProps) {
 
   return new Response(markdown, {
     headers: {
+      ...AGENT_CORS_HEADERS,
       'Cache-Control': 'public, max-age=0, must-revalidate',
       'Content-Type': 'text/markdown; charset=utf-8',
       'X-Content-Type-Options': 'nosniff',

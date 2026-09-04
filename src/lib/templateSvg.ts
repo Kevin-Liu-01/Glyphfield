@@ -115,22 +115,101 @@ function imagePlacement(
   };
 }
 
-function titleLines(value: string, kind: TemplateKind): string[] {
-  const limit = kind === 'slides' ? 34 : 29;
+type TextLayout = {
+  fontSize: number;
+  lineHeight: number;
+  lines: string[];
+};
+
+type TextLayoutOptions = {
+  fontSize: number;
+  lineHeight: number;
+  maxHeight: number;
+  maxLines: number;
+  maxWidth: number;
+  minFontSize?: number;
+};
+
+function estimatedTextWidth(value: string, fontSize: number): number {
+  return [...value].reduce((width, character) => {
+    if (/\s/.test(character)) return width + fontSize * 0.28;
+    if (/[ilI.,'’!|:]/.test(character)) return width + fontSize * 0.26;
+    if (/[MW@%#&]/.test(character)) return width + fontSize * 0.82;
+    if (/[A-Z0-9]/.test(character)) return width + fontSize * 0.59;
+    return width + fontSize * 0.5;
+  }, 0);
+}
+
+function balanceWrappedLines(lines: string[], maxWidth: number, fontSize: number): string[] {
+  const balanced = [...lines];
+  for (let index = 0; index < balanced.length - 1; index += 1) {
+    let currentWords = balanced[index]!.split(' ');
+    let nextWords = balanced[index + 1]!.split(' ');
+    while (currentWords.length > 1) {
+      const currentDifference = Math.abs(
+        estimatedTextWidth(currentWords.join(' '), fontSize)
+          - estimatedTextWidth(nextWords.join(' '), fontSize)
+      );
+      const movedWord = currentWords.at(-1)!;
+      const nextCurrentWords = currentWords.slice(0, -1);
+      const nextLineWords = [movedWord, ...nextWords];
+      const nextLineWidth = estimatedTextWidth(nextLineWords.join(' '), fontSize);
+      const nextDifference = Math.abs(
+        estimatedTextWidth(nextCurrentWords.join(' '), fontSize) - nextLineWidth
+      );
+      if (nextLineWidth > maxWidth || nextDifference >= currentDifference) break;
+      currentWords = nextCurrentWords;
+      nextWords = nextLineWords;
+    }
+    balanced[index] = currentWords.join(' ');
+    balanced[index + 1] = nextWords.join(' ');
+  }
+  return balanced;
+}
+
+function wrapParagraph(value: string, maxWidth: number, fontSize: number): string[] {
   const words = value.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
-
   for (const word of words) {
     const current = lines.at(-1);
-    if (!current || current.length + word.length + 1 > limit) {
-      if (lines.length === 3) break;
-      lines.push(word);
-    } else {
-      lines[lines.length - 1] = `${current} ${word}`;
-    }
+    const next = current ? `${current} ${word}` : word;
+    if (current && estimatedTextWidth(next, fontSize) > maxWidth) lines.push(word);
+    else if (current) lines[lines.length - 1] = next;
+    else lines.push(word);
+  }
+  return balanceWrappedLines(lines, maxWidth, fontSize);
+}
+
+function wrapText(value: string, maxWidth: number, fontSize: number): string[] {
+  const paragraphs = value.trim().split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const lines = paragraphs.flatMap((paragraph) => wrapParagraph(paragraph, maxWidth, fontSize));
+  return lines.length > 0 ? lines : [''];
+}
+
+function resolveTextLayout(value: string, options: TextLayoutOptions): TextLayout {
+  const lineHeightRatio = options.lineHeight / options.fontSize;
+  const minFontSize = Math.min(options.fontSize, options.minFontSize ?? 24);
+  let fallback: TextLayout = {
+    fontSize: minFontSize,
+    lineHeight: Math.round(minFontSize * lineHeightRatio),
+    lines: wrapText(value, options.maxWidth, minFontSize),
+  };
+
+  for (let fontSize = options.fontSize; fontSize >= minFontSize; fontSize -= 2) {
+    const lineHeight = Math.round(fontSize * lineHeightRatio);
+    const lines = wrapText(value, options.maxWidth, fontSize);
+    fallback = { fontSize, lineHeight, lines };
+    const blockHeight = fontSize + Math.max(0, lines.length - 1) * lineHeight;
+    const fitsWidth = lines.every((line) => estimatedTextWidth(line, fontSize) <= options.maxWidth);
+    if (fitsWidth && lines.length <= options.maxLines && blockHeight <= options.maxHeight) return fallback;
   }
 
-  return lines;
+  return fallback;
+}
+
+function centeredFirstBaseline(layout: TextLayout, centerY: number): number {
+  const lineSpan = Math.max(0, layout.lines.length - 1) * layout.lineHeight;
+  return centerY + layout.fontSize * 0.28 - lineSpan / 2;
 }
 
 function svgTextLines(
@@ -138,23 +217,35 @@ function svgTextLines(
   x: number,
   y: number,
   foreground: string,
-  options: { anchor?: 'start' | 'middle'; fontSize?: number; lineHeight?: number; maxLines?: number; weight?: number } = {}
+  options: {
+    anchor?: 'start' | 'middle';
+    blockId?: string;
+    centerY?: number;
+    fontSize?: number;
+    lineHeight?: number;
+    maxHeight?: number;
+    maxLines?: number;
+    maxWidth?: number;
+    minFontSize?: number;
+    weight?: number;
+  } = {}
 ): string {
   const fontSize = options.fontSize ?? 68;
   const lineHeight = options.lineHeight ?? 78;
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  const limit = Math.max(12, Math.round(760 / (fontSize * 0.52)));
-  const lines: string[] = [];
-  for (const word of words) {
-    const current = lines.at(-1);
-    if (!current || current.length + word.length + 1 > limit) {
-      if (lines.length === (options.maxLines ?? 3)) break;
-      lines.push(word);
-    } else {
-      lines[lines.length - 1] = `${current} ${word}`;
-    }
-  }
-  return lines.map((line, index) => `<text x="${x}" y="${y + index * lineHeight}"${options.anchor === 'middle' ? ' text-anchor="middle"' : ''} fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${fontSize}" font-weight="${capVisibleFontWeight(options.weight ?? 550)}" letter-spacing="-2">${escapeXml(line)}</text>`).join('');
+  const layout = resolveTextLayout(value, {
+    fontSize,
+    lineHeight,
+    maxHeight: options.maxHeight ?? Number.POSITIVE_INFINITY,
+    maxLines: options.maxLines ?? 3,
+    maxWidth: options.maxWidth ?? 760,
+    minFontSize: options.minFontSize,
+  });
+  const firstBaseline = options.centerY === undefined
+    ? y
+    : centeredFirstBaseline(layout, options.centerY);
+  const text = layout.lines.map((line, index) => `<text x="${x}" y="${firstBaseline + index * layout.lineHeight}"${options.anchor === 'middle' ? ' text-anchor="middle"' : ''} fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${layout.fontSize}" font-weight="${capVisibleFontWeight(options.weight ?? 550)}" letter-spacing="-2">${escapeXml(line)}</text>`).join('');
+  if (!options.blockId) return text;
+  return `<g data-text-block="${options.blockId}" data-center-y="${options.centerY ?? ''}" data-line-count="${layout.lines.length}" data-font-size="${layout.fontSize}">${text}</g>`;
 }
 
 function slideLayoutLayer(
@@ -162,24 +253,25 @@ function slideLayoutLayer(
   title: string,
   body: string,
   foreground: string,
-  width: number
+  width: number,
+  height: number
 ): string {
   const bodyItems = body.split('\n').map((item) => item.trim()).filter(Boolean);
   const items = bodyItems.length > 0 ? bodyItems : ['Foundation', 'Expression', 'Application', 'Delivery'];
-  if (layout === 'section') return `<text x="84" y="520" fill="${foreground}" opacity="0.12" font-family="Switzer,Arial,sans-serif" font-size="330" font-weight="550">01</text>${svgTextLines(title, 420, 370, foreground, { fontSize: 76, lineHeight: 84, maxLines: 2 })}`;
-  if (layout === 'agenda') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 64, maxLines: 2 })}${items.slice(0, 4).map((item, index) => `<text x="880" y="270" fill="${foreground}" opacity="0.38" font-family="Switzer,Arial,sans-serif" font-size="16">0${index + 1}</text><text x="940" y="270" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="25" transform="translate(0 ${index * 72})">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'split') return `${svgTextLines(title, 84, 310, foreground, { fontSize: 66, maxLines: 3 })}<line x1="800" y1="230" x2="800" y2="690" stroke="${foreground}" opacity="0.18"/>${items.slice(0, 5).map((item, index) => `<text x="880" y="${290 + index * 70}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="24">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'metrics') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2 })}${[['98.7%','Coverage'],['42','Markets'],['7d','Launch']].map(([value, label], index) => `<rect x="${84 + index * 490}" y="470" width="430" height="220" fill="none" stroke="${foreground}" opacity="0.2"/><text x="${120 + index * 490}" y="580" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="64" font-weight="550">${value}</text><text x="${120 + index * 490}" y="635" fill="${foreground}" opacity="0.52" font-family="Switzer,Arial,sans-serif" font-size="16">${label}</text>`).join('')}`;
-  if (layout === 'quote') return `<text x="84" y="360" fill="${foreground}" opacity="0.16" font-family="Georgia,serif" font-size="180">“</text>${svgTextLines(title, 220, 390, foreground, { fontSize: 62, lineHeight: 72, maxLines: 3, weight: 550 })}<text x="220" y="690" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="17">${escapeXml(bodyItems[0] ?? 'Alex Morgan · Customer')}</text>`;
-  if (layout === 'timeline') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2 })}<line x1="110" y1="560" x2="1490" y2="560" stroke="${foreground}" opacity="0.24"/>${items.slice(0, 4).map((item, index) => `<circle cx="${150 + index * 430}" cy="560" r="10" fill="${foreground}"/><text x="${150 + index * 430}" y="520" fill="${foreground}" opacity="0.45" font-family="Switzer,Arial,sans-serif" font-size="15">0${index + 1}</text><text x="${150 + index * 430}" y="620" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="21">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'statement') return svgTextLines(title, width / 2, 430, foreground, { anchor: 'middle', fontSize: 104, lineHeight: 108, maxLines: 2 });
-  if (layout === 'comparison') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 56, maxLines: 2 })}${[items[0] ?? 'Before', items[1] ?? 'After'].map((item, index) => `<rect x="${84 + index * 748}" y="440" width="700" height="280" fill="none" stroke="${foreground}" opacity="0.22"/><text x="${124 + index * 748}" y="510" fill="${foreground}" opacity="0.42" font-family="Switzer,Arial,sans-serif" font-size="16">0${index + 1}</text><text x="${124 + index * 748}" y="610" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="36" font-weight="550">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'process') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2 })}${items.slice(0, 4).map((item, index) => `<rect x="${84 + index * 374}" y="470" width="340" height="220" fill="none" stroke="${foreground}" opacity="0.2"/><text x="${114 + index * 374}" y="525" fill="${foreground}" opacity="0.4" font-family="Switzer,Arial,sans-serif" font-size="15">0${index + 1}</text><text x="${114 + index * 374}" y="615" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="25" font-weight="550">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'chart') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2 })}<line x1="840" y1="690" x2="1500" y2="690" stroke="${foreground}" opacity="0.25"/>${[0.42, 0.68, 0.55, 0.88, 0.76].map((value, index) => `<rect x="${880 + index * 118}" y="${690 - value * 360}" width="72" height="${value * 360}" fill="${foreground}" opacity="${0.28 + index * 0.13}"/>`).join('')}<text x="84" y="610" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="118" font-weight="550" letter-spacing="-5">+42%</text><text x="90" y="660" fill="${foreground}" opacity="0.5" font-family="Switzer,Arial,sans-serif" font-size="16">YEAR OVER YEAR</text>`;
-  if (layout === 'team') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2 })}${items.slice(0, 3).map((item, index) => `<circle cx="${360 + index * 440}" cy="520" r="88" fill="${foreground}" opacity="${0.12 + index * 0.08}"/><text x="${360 + index * 440}" y="535" text-anchor="middle" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="42" font-weight="550">${escapeXml(item.slice(0, 2).toUpperCase())}</text><text x="${360 + index * 440}" y="660" text-anchor="middle" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="23">${escapeXml(item)}</text>`).join('')}`;
-  if (layout === 'image') return `${svgTextLines(title, 84, 330, foreground, { fontSize: 64, maxLines: 3 })}<rect x="900" y="170" width="616" height="560" fill="${foreground}" opacity="0.08"/><circle cx="1208" cy="450" r="150" fill="none" stroke="${foreground}" stroke-width="2" opacity="0.24"/><line x1="900" y1="170" x2="1516" y2="730" stroke="${foreground}" opacity="0.18"/><line x1="1516" y1="170" x2="900" y2="730" stroke="${foreground}" opacity="0.18"/>`;
-  if (layout === 'closing') return `${svgTextLines(title, width / 2, 430, foreground, { anchor: 'middle', fontSize: 82, lineHeight: 88, maxLines: 2 })}<text x="${width / 2}" y="660" text-anchor="middle" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="22">${escapeXml(body)}</text>`;
-  return `${svgTextLines(title, 84, 340, foreground, { fontSize: 78, lineHeight: 88, maxLines: 3 })}`;
+  if (layout === 'section') return `<text x="84" y="520" fill="${foreground}" opacity="0.12" font-family="Switzer,Arial,sans-serif" font-size="330" font-weight="550">01</text>${svgTextLines(title, 420, 370, foreground, { fontSize: 76, lineHeight: 84, maxLines: 2, maxWidth: width - 504 })}`;
+  if (layout === 'agenda') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 64, maxLines: 2, maxWidth: 660 })}${items.slice(0, 4).map((item, index) => `<text x="880" y="270" fill="${foreground}" opacity="0.38" font-family="Switzer,Arial,sans-serif" font-size="16">0${index + 1}</text><text x="940" y="270" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="25" transform="translate(0 ${index * 72})">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'split') return `${svgTextLines(title, 84, 310, foreground, { fontSize: 66, maxLines: 3, maxWidth: 650 })}<line x1="800" y1="230" x2="800" y2="690" stroke="${foreground}" opacity="0.18"/>${items.slice(0, 5).map((item, index) => `<text x="880" y="${290 + index * 70}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="24">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'metrics') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2, maxWidth: width - 168 })}${[['98.7%','Coverage'],['42','Markets'],['7d','Launch']].map(([value, label], index) => `<rect x="${84 + index * 490}" y="470" width="430" height="220" fill="none" stroke="${foreground}" opacity="0.2"/><text x="${120 + index * 490}" y="580" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="64" font-weight="550">${value}</text><text x="${120 + index * 490}" y="635" fill="${foreground}" opacity="0.52" font-family="Switzer,Arial,sans-serif" font-size="16">${label}</text>`).join('')}`;
+  if (layout === 'quote') return `<text x="84" y="360" fill="${foreground}" opacity="0.16" font-family="Georgia,serif" font-size="180">“</text>${svgTextLines(title, 220, 390, foreground, { fontSize: 62, lineHeight: 72, maxLines: 3, maxWidth: width - 304, weight: 550 })}<text x="220" y="690" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="17">${escapeXml(bodyItems[0] ?? 'Alex Morgan · Customer')}</text>`;
+  if (layout === 'timeline') return `${svgTextLines(title, 84, 300, foreground, { fontSize: 58, maxLines: 2, maxWidth: width - 168 })}<line x1="110" y1="560" x2="1490" y2="560" stroke="${foreground}" opacity="0.24"/>${items.slice(0, 4).map((item, index) => `<circle cx="${150 + index * 430}" cy="560" r="10" fill="${foreground}"/><text x="${150 + index * 430}" y="520" fill="${foreground}" opacity="0.45" font-family="Switzer,Arial,sans-serif" font-size="15">0${index + 1}</text><text x="${150 + index * 430}" y="620" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="21">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'statement') return svgTextLines(title, width / 2, 0, foreground, { anchor: 'middle', blockId: 'slide-statement', centerY: height / 2, fontSize: 104, lineHeight: 108, maxHeight: height - 260, maxLines: 2, maxWidth: Math.min(width - 240, 1120) });
+  if (layout === 'comparison') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 56, maxLines: 2, maxWidth: width - 168 })}${[items[0] ?? 'Before', items[1] ?? 'After'].map((item, index) => `<rect x="${84 + index * 748}" y="440" width="700" height="280" fill="none" stroke="${foreground}" opacity="0.22"/><text x="${124 + index * 748}" y="510" fill="${foreground}" opacity="0.42" font-family="Switzer,Arial,sans-serif" font-size="16">0${index + 1}</text><text x="${124 + index * 748}" y="610" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="36" font-weight="550">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'process') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2, maxWidth: width - 168 })}${items.slice(0, 4).map((item, index) => `<rect x="${84 + index * 374}" y="470" width="340" height="220" fill="none" stroke="${foreground}" opacity="0.2"/><text x="${114 + index * 374}" y="525" fill="${foreground}" opacity="0.4" font-family="Switzer,Arial,sans-serif" font-size="15">0${index + 1}</text><text x="${114 + index * 374}" y="615" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="25" font-weight="550">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'chart') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2, maxWidth: 650 })}<line x1="840" y1="690" x2="1500" y2="690" stroke="${foreground}" opacity="0.25"/>${[0.42, 0.68, 0.55, 0.88, 0.76].map((value, index) => `<rect x="${880 + index * 118}" y="${690 - value * 360}" width="72" height="${value * 360}" fill="${foreground}" opacity="${0.28 + index * 0.13}"/>`).join('')}<text x="84" y="610" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="118" font-weight="550" letter-spacing="-5">+42%</text><text x="90" y="660" fill="${foreground}" opacity="0.5" font-family="Switzer,Arial,sans-serif" font-size="16">YEAR OVER YEAR</text>`;
+  if (layout === 'team') return `${svgTextLines(title, 84, 290, foreground, { fontSize: 58, maxLines: 2, maxWidth: width - 168 })}${items.slice(0, 3).map((item, index) => `<circle cx="${360 + index * 440}" cy="520" r="88" fill="${foreground}" opacity="${0.12 + index * 0.08}"/><text x="${360 + index * 440}" y="535" text-anchor="middle" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="42" font-weight="550">${escapeXml(item.slice(0, 2).toUpperCase())}</text><text x="${360 + index * 440}" y="660" text-anchor="middle" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="23">${escapeXml(item)}</text>`).join('')}`;
+  if (layout === 'image') return `${svgTextLines(title, 84, 330, foreground, { fontSize: 64, maxLines: 3, maxWidth: 730 })}<rect x="900" y="170" width="616" height="560" fill="${foreground}" opacity="0.08"/><circle cx="1208" cy="450" r="150" fill="none" stroke="${foreground}" stroke-width="2" opacity="0.24"/><line x1="900" y1="170" x2="1516" y2="730" stroke="${foreground}" opacity="0.18"/><line x1="1516" y1="170" x2="900" y2="730" stroke="${foreground}" opacity="0.18"/>`;
+  if (layout === 'closing') return `${svgTextLines(title, width / 2, 0, foreground, { anchor: 'middle', blockId: 'slide-closing', centerY: height / 2 - 30, fontSize: 82, lineHeight: 88, maxHeight: height - 320, maxLines: 2, maxWidth: width - 240 })}<text x="${width / 2}" y="660" text-anchor="middle" fill="${foreground}" opacity="0.58" font-family="Switzer,Arial,sans-serif" font-size="22">${escapeXml(body)}</text>`;
+  return `${svgTextLines(title, 84, 0, foreground, { blockId: 'slide-title', centerY: height / 2, fontSize: 78, lineHeight: 88, maxHeight: height - 260, maxLines: 3, maxWidth: width - 168 })}`;
 }
 
 type ResolvedTemplateSvgOptions = Required<TemplateSvgOptions>;
@@ -273,16 +365,40 @@ function templateBackgroundLayer(options: ResolvedTemplateSvgOptions): string {
 }
 
 function templateContentLayer(options: ResolvedTemplateSvgOptions): string {
-  const { body, foreground, kind, slideLayout, title, width } = options;
+  const { body, foreground, height, kind, slideLayout, title, width } = options;
   if (kind === 'slides') {
-    return slideLayoutLayer(slideLayout, title, body, foreground, width);
+    return slideLayoutLayer(slideLayout, title, body, foreground, width, height);
   }
-  const lineStart = kind === 'partnership' ? 260 : 240;
-  const fontSize = 68;
-  const lineHeight = 78;
-  return titleLines(title, kind)
-    .map((line, index) => `<text x="84" y="${lineStart + index * lineHeight}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${fontSize}" font-weight="550" letter-spacing="-2">${escapeXml(line)}</text>`)
+  if (kind !== 'partnership') {
+    return svgTextLines(title, 84, 240, foreground, {
+      blockId: 'blog-title',
+      fontSize: 68,
+      lineHeight: 78,
+      maxHeight: height - 320,
+      maxLines: 3,
+      maxWidth: width - 168,
+    });
+  }
+  const layout = resolveTextLayout(title, {
+    fontSize: 68,
+    lineHeight: 78,
+    maxHeight: height - 260,
+    maxLines: 1,
+    maxWidth: width - 168,
+    minFontSize: 24,
+  });
+  const lineStart = centeredFirstBaseline(layout, height / 2 + 24);
+  const text = layout.lines
+    .map((line, index) => {
+      const titleY = lineStart + index * layout.lineHeight;
+      const partnershipParts = line.split(/\s*×\s*/, 2).map((part) => part.trim());
+      if (partnershipParts.length === 2 && partnershipParts.every(Boolean)) {
+        return `<text data-template-headline="mixed" x="84" y="${titleY}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${layout.fontSize}" font-weight="550" letter-spacing="-2"><tspan class="template-headline-brand">${escapeXml(partnershipParts[0]!)}</tspan><tspan class="template-headline-separator"> × </tspan><tspan class="template-headline-partner">${escapeXml(partnershipParts[1]!)}</tspan></text>`;
+      }
+      return `<text x="84" y="${titleY}" fill="${foreground}" font-family="Switzer,Arial,sans-serif" font-size="${layout.fontSize}" font-weight="550" letter-spacing="-2">${escapeXml(line)}</text>`;
+    })
     .join('');
+  return `<g data-text-block="partnership-title" data-center-y="${height / 2 + 24}" data-line-count="${layout.lines.length}" data-font-size="${layout.fontSize}">${text}</g>`;
 }
 
 function templateBrandLayer(options: ResolvedTemplateSvgOptions): string {
@@ -352,6 +468,7 @@ function templateFontStyles(options: ResolvedTemplateSvgOptions): string {
     partnerFontData,
     partnerFontFamily,
     partnerFontWeight,
+    partnerLetterSpacing,
   } = options;
   const fontFace = fontData
     ? `@font-face{font-family:'TemplateBrand';src:url('${escapeXml(fontData)}');font-style:normal;font-weight:100 900;font-display:block;}`
@@ -361,7 +478,7 @@ function templateFontStyles(options: ResolvedTemplateSvgOptions): string {
     : '';
   const resolvedFontFamily = fontData ? 'TemplateBrand' : fontFamily;
   const resolvedPartnerFontFamily = partnerFontData ? 'TemplatePartner' : partnerFontFamily;
-  return `<style>${fontFace}${partnerFontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}.template-partner-text{font-family:${JSON.stringify(resolvedPartnerFontFamily)} !important;font-weight:${capVisibleFontWeight(partnerFontWeight)} !important;}</style>`;
+  return `<style>${fontFace}${partnerFontFace}text{font-family:${JSON.stringify(resolvedFontFamily)} !important;font-weight:${capVisibleFontWeight(fontWeight)};}.template-partner-text,.template-headline-partner{font-family:${JSON.stringify(resolvedPartnerFontFamily)} !important;font-weight:${capVisibleFontWeight(partnerFontWeight)} !important;letter-spacing:${partnerLetterSpacing}px;}</style>`;
 }
 
 function templateForegroundLayers(options: ResolvedTemplateSvgOptions): string {

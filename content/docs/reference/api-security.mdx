@@ -1,0 +1,121 @@
+---
+title: API security
+description: Operate Glyphfield's public generation API with bounded inputs, no remote fetching, explicit CORS, rate limiting, and deployment verification.
+icon: ShieldCheck
+---
+
+`POST /api/generate` is intentionally public and unauthenticated. Security is split between application validation in the repository and request-volume controls at the production edge. Both are required; neither replaces the other.
+
+## Threat and control map
+
+| Risk | Repository control | Deployment control |
+| --- | --- | --- |
+| Oversized work | Request and data-URL bodies are limited to 5 MB; background geometry and total pixels are bounded | Proxy/body limits should fail clearly before excessive serverless work |
+| Unexpected request fields | Unknown top-level fields fail with `400 unknown_field` | Log repeated invalid traffic without storing submitted assets unnecessarily |
+| Remote file access | Remote asset URLs are rejected; supported custom assets use authorized data URLs | Egress policy can provide another boundary where available |
+| Repeated generation abuse | Deterministic route validation reduces wasted work | IP-keyed rate limit on `POST /api/generate` before serverless execution |
+| Browser-local data exposure | The HTTP generator does not read Studio localStorage or IndexedDB | Keep the app on trusted HTTPS origins and control third-party script access |
+| Stale or shared responses | Generation returns `Cache-Control: no-store` | Do not override it with CDN caching |
+
+## Application-owned validation
+
+The route owns request shape, content size, and generator-specific bounds:
+
+- JSON requests require `Content-Type: application/json`.
+- The request body and supported data-URL assets are limited to 5 MB.
+- Background width and height are limited to the documented range and 12,000,000 total pixels.
+- Remote URLs are unsupported.
+- Unknown top-level fields are rejected instead of ignored.
+- Malformed or invalid requests return structured errors without mutating browser projects.
+- Submitted identity and asset data are processed in memory and are not persisted by the generation route.
+
+Read `GET /api/generate` and `/openapi.json` before sending a request. Do not weaken validators to make an outdated client appear compatible.
+
+## CORS
+
+Discovery and generation endpoints expose explicit cross-origin response headers. `Access-Control-Allow-Origin: *` makes the public contract callable from another origin; it is not authentication and should not be combined with an assumption that callers are trusted.
+
+If a private deployment requires authentication, add it as a deliberate deployment/application contract and update:
+
+1. OPTIONS behavior and allowed headers.
+2. OpenAPI security schemes.
+3. `/api/agent` policies and examples.
+4. Browser and server clients.
+5. Error handling and documentation.
+
+Do not silently add a cookie requirement to public examples.
+
+## Production rate limiting
+
+The General Translation production deployment expects an edge firewall rule that matches only `POST /api/generate`, uses an IP-keyed fixed window of 10 requests per 60 seconds, returns `429` after the limit, and keeps the client limited for one minute.
+
+The firewall is provider project state, not repository state. A deployment administrator must inspect it separately:
+
+```bash
+vercel firewall overview --project glyphfield --scope general-translation --json
+vercel firewall rules list --project glyphfield --scope general-translation --json
+vercel firewall diff --project glyphfield --scope general-translation --json
+```
+
+If the rule is absent, create the intended change and inspect the diff before publication:
+
+```bash
+vercel firewall rules add "Rate limit Glyphfield generation" \
+  --description "Bound unauthenticated generation before serverless execution." \
+  --condition '{"type":"path","op":"eq","value":"/api/generate"}' \
+  --condition '{"type":"method","op":"eq","value":"POST"}' \
+  --action rate_limit \
+  --rate-limit-algo fixed_window \
+  --rate-limit-keys ip \
+  --rate-limit-requests 10 \
+  --rate-limit-window 60 \
+  --rate-limit-action rate_limit \
+  --duration 1m \
+  --yes \
+  --project glyphfield \
+  --scope general-translation
+```
+
+Publication changes live infrastructure and belongs to an authorized administrator. After publication, confirm that the eleventh request from one client inside the window receives `429` and that normal requests resume after the window.
+
+Other hosts should implement an equivalent bound appropriate to their traffic model rather than copying provider-specific commands blindly.
+
+## Browser API security boundary
+
+`window.glyphfield.studio` operates the active browser project. It can read/apply source, interact with controls, handle local files supplied as authorized `File` objects, and return downloadable artifacts.
+
+- Do not inject untrusted scripts into the Studio origin.
+- Do not pass arbitrary filesystem path strings to file controls.
+- Do not write directly to localStorage, IndexedDB, or React internals.
+- Do not expose a returned Blob or copied source beyond the user's authorized destination.
+- Treat imported SVG, font, image, audio, and Lottie content as user-supplied data.
+
+The HTTP generation API cannot silently access this browser-local state.
+
+## Logging and privacy
+
+Operational logs should retain enough information to diagnose route, status, duration, and request class without storing complete user identities, embedded data URLs, or generated artifact bodies. Redact authorization headers if a private deployment adds them.
+
+For a reportable failure, prefer:
+
+- Request kind and response error code.
+- Dimensions and approximate body size.
+- Deployed commit/version and route.
+- Whether the failure occurred before validation or during generation.
+
+Do not paste proprietary source or binary data into a public issue.
+
+## Security verification
+
+Before release:
+
+1. Confirm valid discovery and generation requests succeed.
+2. Confirm malformed JSON returns 400.
+3. Confirm wrong content type returns 415.
+4. Confirm oversized input returns 413.
+5. Confirm unknown fields and remote URLs are rejected.
+6. Confirm generation responses remain `no-store`.
+7. Confirm edge rate limiting is active in production.
+8. Confirm browser-local projects are not returned by any HTTP route.
+
+See [Errors and limits](/docs/agents/errors), [Endpoint reference](/docs/reference/endpoints), and [Self-hosting](/docs/reference/self-hosting).

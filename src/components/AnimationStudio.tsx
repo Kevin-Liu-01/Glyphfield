@@ -1,8 +1,8 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
-import { T, useGT } from 'gt-next';
+import { T as GTText } from 'gt-next';
 import { Clapperboard, Copy, Download, PanelsTopLeft, Plus, RotateCcw, Trash2 } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
@@ -25,7 +25,9 @@ import StudioContextMenu, {
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
+import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
@@ -34,13 +36,13 @@ import {
   advancePlaybackTime,
   animationTimelineChanged,
   cycleDurationMs,
+  resolveAnimationPreviewResolution,
   resolveTimeline,
   shouldRenderAnimationPreview,
 } from '@/lib/animation';
 import {
   ANIMATION_ARTBOARD_PRESETS,
   animationArtboardPresetForSize,
-  animationArtboardSnapshotSignature,
   cloneAnimationArtboardSnapshot,
   DEFAULT_ANIMATION_ARTBOARD_ID,
   restoreAnimationArtboardWorkspace,
@@ -56,7 +58,6 @@ import {
 import {
   animationAudioClipEndMs,
   audioPeaks,
-  createDefaultAnimationAudioState,
   createEmptyAnimationAudioState,
   mixAnimationAudio,
   normalizeAnimationAudioState,
@@ -107,6 +108,9 @@ import {
   type StudioSettings,
   type StudioTransitionSettings,
 } from '@/lib/studio';
+
+const T = memo(GTText);
+T.displayName = 'AnimationStudioTranslation';
 
 const INTERACTIVE_PREVIEW_FPS = 60;
 
@@ -210,13 +214,102 @@ function animationSourceBounds(
   return { height: width / ratio, width };
 }
 
+function renderInteractiveAnimationPreview({
+  attachShaderLayers,
+  backgroundOverrides,
+  canvas,
+  currentSettings,
+  currentSources,
+  frameSettings,
+  isPlaying,
+  position,
+  previewDirty,
+  previousRenderTimestamp,
+  previousRenderedSourceId,
+  previewFrameRate,
+  previewResolution,
+  timestamp,
+}: {
+  attachShaderLayers: (sources: readonly StudioSource[]) => StudioSource[];
+  backgroundOverrides: Record<string, boolean>;
+  canvas: HTMLCanvasElement | null;
+  currentSettings: StudioSettings;
+  currentSources: readonly StudioSource[];
+  frameSettings: Record<string, StudioFrameSettings>;
+  isPlaying: boolean;
+  position: ReturnType<typeof resolveTimeline>;
+  previewDirty: boolean;
+  previousRenderTimestamp: number;
+  previousRenderedSourceId: string;
+  previewFrameRate: number;
+  previewResolution: { height: number; width: number };
+  timestamp: number;
+}): { rendered: boolean; sourceId: string } {
+  const currentSource = currentSources[position.index];
+  const nextSource = currentSources[position.nextIndex];
+  const directComposite = canCompositeShaderDirectly(
+    currentSource,
+    nextSource,
+    backgroundOverrides
+  );
+  const contentIsAnimated = position.phase === 'transition' && currentSources.length > 1;
+  const compositedBackgroundIsAnimated = !directComposite && (
+    currentSource?.background?.style === 'shader'
+    || (position.phase === 'transition' && nextSource?.background?.style === 'shader')
+  );
+  const shouldRender = shouldRenderAnimationPreview({
+    compositedBackgroundIsAnimated,
+    contentIsAnimated,
+    currentSourceId: currentSource?.id,
+    frameIsDue: !isPlaying || timestamp - previousRenderTimestamp >= 1000 / previewFrameRate,
+    pageVisible: true,
+    previewDirty,
+    previousSourceId: previousRenderedSourceId,
+  });
+  if (!canvas || !shouldRender) {
+    return { rendered: false, sourceId: previousRenderedSourceId };
+  }
+  const logicalWidth = Math.max(120, currentSettings.width);
+  const logicalHeight = Math.max(120, currentSettings.height);
+  const width = previewResolution.width;
+  const height = previewResolution.height;
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) return { rendered: false, sourceId: previousRenderedSourceId };
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, width, height);
+  context.save();
+  context.scale(width / logicalWidth, height / logicalHeight);
+  renderFrame(
+    context,
+    attachShaderLayers(currentSources),
+    {
+      ...currentSettings,
+      ...resolveStudioTransitionSettings(
+        currentSettings,
+        currentSource ? frameSettings[currentSource.id]?.transition : undefined
+      ),
+      width: logicalWidth,
+      height: logicalHeight,
+    },
+    position,
+    { omitBackground: directComposite }
+  );
+  context.restore();
+  return { rendered: true, sourceId: currentSource?.id ?? '' };
+}
+
 function AnimationShaderLayers({
+  active,
   activeShaderSourceIds,
   backgroundOverrides,
   directShaderComposite,
   exportProgress,
   isPlaying,
   overrideShaderSettings,
+  previewFrameRate,
+  previewMaxPixelCount,
   sequenceBackground,
   sequenceShaderIsActive,
   sequenceShaderLayerRef,
@@ -228,12 +321,15 @@ function AnimationShaderLayers({
   sources,
   studioShaderSettings,
 }: {
+  active: boolean;
   activeShaderSourceIds: Set<string>;
   backgroundOverrides: Record<string, boolean>;
   directShaderComposite: boolean;
   exportProgress: number | null;
   isPlaying: boolean;
   overrideShaderSettings: Map<string, StudioSettings['shaderSettings']>;
+  previewFrameRate: number;
+  previewMaxPixelCount: number;
   sequenceBackground: StudioBackgroundSettings;
   sequenceShaderIsActive: boolean;
   sequenceShaderLayerRef: RefObject<HTMLDivElement | null>;
@@ -258,11 +354,12 @@ function AnimationShaderLayers({
         >
           <LiveMaterialCanvas
             captureTimeMs={shaderCaptureTimeMs}
-            enabled
-            frameRate={INTERACTIVE_PREVIEW_FPS}
+            enabled={active || exportProgress !== null}
+            frameRate={previewFrameRate}
             materialId={sequenceBackground.materialId}
+            maxPixelCount={previewMaxPixelCount}
             patternScale={sequenceBackground.patternScale ?? 1}
-            paused={exportProgress === null && (!isPlaying || !sequenceShaderIsActive)}
+            paused={exportProgress === null && (!active || !isPlaying || !sequenceShaderIsActive)}
             settings={sequenceShaderSettings}
           />
         </div>
@@ -281,11 +378,12 @@ function AnimationShaderLayers({
           >
             <LiveMaterialCanvas
               captureTimeMs={shaderCaptureTimeMs}
-              enabled={exportProgress !== null || activeShaderSourceIds.has(source.id)}
-              frameRate={INTERACTIVE_PREVIEW_FPS}
+              enabled={exportProgress !== null || (active && activeShaderSourceIds.has(source.id))}
+              frameRate={previewFrameRate}
               materialId={source.background.materialId}
+              maxPixelCount={previewMaxPixelCount}
               patternScale={source.background.patternScale ?? 1}
-              paused={!isPlaying && exportProgress === null}
+              paused={exportProgress === null && (!active || !isPlaying)}
               settings={overrideShaderSettings.get(source.id) ?? studioShaderSettings}
             />
           </div>
@@ -465,24 +563,100 @@ function presentationWorkspaceControls(
   return controls;
 }
 
+function useSettledValue<T>(value: T, delayMs: number): { pending: boolean; value: T } {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (settled === value) return;
+    const timer = window.setTimeout(() => {
+      startTransition(() => setSettled(value));
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, settled, value]);
+  return { pending: settled !== value, value: settled };
+}
+
+function frameDefaultsMatch(first: StudioSettings, second: StudioSettings): boolean {
+  return first.alignX === second.alignX
+    && first.alignY === second.alignY
+    && first.background === second.background
+    && first.backgroundAngle === second.backgroundAngle
+    && first.backgroundSecondary === second.backgroundSecondary
+    && first.backgroundStyle === second.backgroundStyle
+    && first.fit === second.fit
+    && first.fontSize === second.fontSize
+    && first.fontWeight === second.fontWeight
+    && first.foreground === second.foreground
+    && first.scale === second.scale
+    && first.shaderSettings === second.shaderSettings;
+}
+
+function mergeAnimationSettings(
+  identitySettings: StudioSettings,
+  storedSettings: StudioSettings,
+  shaderSettings: StudioSettings['shaderSettings'],
+  compact: boolean
+): StudioSettings {
+  const merged = { ...identitySettings, ...storedSettings, shaderSettings };
+  if (!compact) return merged;
+  return { ...merged, fontSize: Math.min(88, merged.fontSize) };
+}
+
+function useFrameResolutionSettings(settings: StudioSettings): StudioSettings {
+  const settingsRef = useRef(settings);
+  if (!frameDefaultsMatch(settingsRef.current, settings)) settingsRef.current = settings;
+  return settingsRef.current;
+}
+
+function resolvedAnimationAutosaveState(
+  pending: boolean,
+  state: ReturnType<typeof usePortableCanvasWorkspace>['autosaveState']
+) {
+  return pending ? 'preparing' as const : state;
+}
+
+function resolvedAnimationSource(pending: boolean, source: string | null): string | null {
+  return pending ? null : source;
+}
+
+function interactiveAnimationPreviewPixelBudget(presentationMode: boolean): number {
+  return presentationMode ? 360_000 : 1_000_000;
+}
+
+function animationBrandLogoSource(brandLogo: StudioSource | null): string | undefined {
+  return brandLogo?.kind === 'image' ? brandLogo.url : undefined;
+}
+
+function resolveSelectedFrameSettings(
+  source: StudioSource | null,
+  frameSettings: Record<string, StudioFrameSettings>,
+  settings: StudioSettings
+): StudioFrameSettings | null {
+  if (!source) return null;
+  return frameSettings[source.id] ?? createDefaultFrameSettings(settings);
+}
+
 function AnimationStudio({
+  active = true,
   autoPlay = false,
   compactControls = false,
   embedded = false,
   identity,
   initialFontWeight,
   initialSequenceBackground,
+  previewFrameRate = INTERACTIVE_PREVIEW_FPS,
   presentationMode = false,
 }: {
+  active?: boolean;
   autoPlay?: boolean;
   compactControls?: boolean;
   embedded?: boolean;
   identity?: BrandIdentity;
   initialFontWeight?: number;
   initialSequenceBackground?: Partial<StudioBackgroundSettings>;
+  previewFrameRate?: number;
   presentationMode?: boolean;
 }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const identitySettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
     background: identity?.colors.find(({ id }) => id === 'ink')?.hex ?? DEFAULT_SETTINGS.background,
@@ -509,19 +683,19 @@ function AnimationStudio({
     'quality-defaults-v2',
     false
   );
+  const mergedShaderSettings = useMemo(() => ({
+    ...identitySettings.shaderSettings,
+    ...storedSettings.shaderSettings,
+  }), [identitySettings.shaderSettings, storedSettings.shaderSettings]);
   const settings = useMemo<StudioSettings>(() => {
-    const mergedSettings = {
-      ...identitySettings,
-      ...storedSettings,
-      shaderSettings: {
-        ...identitySettings.shaderSettings,
-        ...storedSettings.shaderSettings,
-      },
-    };
-    return compactControls
-      ? { ...mergedSettings, fontSize: Math.min(88, mergedSettings.fontSize) }
-      : mergedSettings;
-  }, [compactControls, identitySettings, storedSettings]);
+    return mergeAnimationSettings(
+      identitySettings,
+      storedSettings,
+      mergedShaderSettings,
+      compactControls
+    );
+  }, [compactControls, identitySettings, mergedShaderSettings, storedSettings]);
+  const frameResolutionSettings = useFrameResolutionSettings(settings);
   const [mode, setMode] = useState<SourceMode>('sequence');
   const [textFrames, setTextFrames] = useStudioDraft(
     identityId,
@@ -550,10 +724,10 @@ function AnimationStudio({
     {}
   );
   const defaultSequenceBackground = useMemo(() => mergeStudioBackground(
-    createDefaultFrameSettings(settings).background,
+    createDefaultFrameSettings(frameResolutionSettings).background,
     initialSequenceBackground ?? {},
-    settings.shaderSettings
-  ), [initialSequenceBackground, settings]);
+    frameResolutionSettings.shaderSettings
+  ), [frameResolutionSettings, initialSequenceBackground]);
   const [storedSequenceBackground, setStoredSequenceBackground] = useStudioDraft<StudioBackgroundSettings>(
     identityId,
     'animation',
@@ -594,7 +768,7 @@ function AnimationStudio({
     'playback-rate',
     1
   );
-  const [audioState, setAudioState] = useState<AnimationAudioState>(createDefaultAnimationAudioState);
+  const [audioState, setAudioState] = useState<AnimationAudioState>(createEmptyAnimationAudioState);
   const [selectedAudioClipId, setSelectedAudioClipId] = useState<string | null>(null);
   const [audioBufferRevision, setAudioBufferRevision] = useState(0);
   const [activeTimeline, setActiveTimeline] = useState({ index: 0, nextIndex: 0 });
@@ -606,17 +780,31 @@ function AnimationStudio({
   const [documentCreatedAt] = useState(() => new Date().toISOString());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const workspaceVisibleRef = useRef(true);
+  const workspaceVisibleRef = useRef(active);
+  const workspaceIntersectingRef = useRef(true);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const sequenceShaderLayerRef = useRef<HTMLDivElement>(null);
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBuffersRef = useRef(new Map<string, AudioBuffer>());
   const audioPlaybackNodesRef = useRef<AudioBufferSourceNode[]>([]);
+  const audioPlaybackRequestedRef = useRef(false);
   const audioScheduleRevisionRef = useRef(0);
   const playheadRef = useRef(0);
   const previewDirtyRef = useRef(true);
+  const previewClockResetRef = useRef(true);
+  const previewResolutionRef = useRef({ height: 1, width: 1 });
+  const requestPreviewFrameRef = useRef<() => void>(() => undefined);
+  const playheadListenersRef = useRef(new Set<(timeMs: number) => void>());
   const initialSelectionAppliedRef = useRef(false);
+  const publishPlayhead = useCallback((timeMs: number) => {
+    for (const listener of playheadListenersRef.current) listener(timeMs);
+  }, []);
+  const subscribeToPlayhead = useCallback((listener: (timeMs: number) => void) => {
+    playheadListenersRef.current.add(listener);
+    listener(playheadRef.current);
+    return () => playheadListenersRef.current.delete(listener);
+  }, []);
   useCanvasSelectionDismiss(canvasSelectionRef, () => {
     setSelectedSourceId(null);
     setSelectedTransitionIndex(null);
@@ -656,20 +844,20 @@ function AnimationStudio({
     () => Object.fromEntries(baseSources.map((source) => [
       source.id,
       resolveStudioFrameSettings(
-        settings,
+        frameResolutionSettings,
         frameSettings[source.id],
         sequenceBackground,
         Boolean(backgroundOverrides[source.id])
       ),
     ])),
-    [backgroundOverrides, baseSources, frameSettings, sequenceBackground, settings]
+    [backgroundOverrides, baseSources, frameResolutionSettings, frameSettings, sequenceBackground]
   );
   const resolvedSources = useMemo(
     () =>
       orderStudioSources(baseSources, sequenceOrder).map((source) =>
-        applyFrameSettings(source, resolvedFrameSettings[source.id] ?? createDefaultFrameSettings(settings))
+        applyFrameSettings(source, resolvedFrameSettings[source.id] ?? createDefaultFrameSettings(frameResolutionSettings))
       ),
-    [baseSources, resolvedFrameSettings, sequenceOrder, settings]
+    [baseSources, frameResolutionSettings, resolvedFrameSettings, sequenceOrder]
   );
   const currentArtboardSnapshot = useMemo<AnimationArtboardSnapshot>(() => ({
     audio: audioState,
@@ -690,10 +878,6 @@ function AnimationStudio({
     name: `${animationArtboardPresetForSize(settings.width, settings.height)?.label ?? 'Custom'} animation`,
     snapshot: cloneAnimationArtboardSnapshot(currentArtboardSnapshot),
   }]);
-  const currentArtboardSignature = useMemo(
-    () => animationArtboardSnapshotSignature(currentArtboardSnapshot),
-    [currentArtboardSnapshot]
-  );
   const workspaceArtboards = useMemo(() => artboards.map((artboard) => (
     artboard.id === activeArtboardId
       ? { ...artboard, snapshot: currentArtboardSnapshot }
@@ -702,7 +886,6 @@ function AnimationStudio({
   const workspaceArtboardsRef = useCommittedRef(workspaceArtboards);
   const activeArtboardIdRef = useCommittedRef(activeArtboardId);
   const currentArtboardSnapshotRef = useCommittedRef(currentArtboardSnapshot);
-  const pendingArtboardApplyRef = useRef<{ id: AnimationArtboardId; signature: string } | null>(null);
   const activeArtboard = resolveActiveAnimationArtboard(workspaceArtboards, activeArtboardId);
   const animationState = useMemo<AnimationDocumentState>(() => ({
     activeArtboardId,
@@ -731,14 +914,19 @@ function AnimationStudio({
     settings,
     textFrames,
   ]);
+  const animationDocumentInput = useMemo(() => ({
+    sources: resolvedSources,
+    state: animationState,
+  }), [animationState, resolvedSources]);
+  const settledAnimationDocumentInput = useSettledValue(animationDocumentInput, 180);
   const animationDocument = useMemo(() => {
     const draft = createAnimationCanvasDocument({
       brandId: identityId,
       createdAt: documentCreatedAt,
       id: `${identityId}:animation:scene`,
       revision: 1,
-      sources: resolvedSources,
-      state: animationState,
+      sources: settledAnimationDocumentInput.value.sources,
+      state: settledAnimationDocumentInput.value.state,
       title: `${identity?.name ?? 'Glyphfield'} Animation`,
       updatedAt: documentCreatedAt,
     });
@@ -746,15 +934,8 @@ function AnimationStudio({
       ...draft,
       revision: canvasDocumentContentRevision(draft, { omitMetadataKeys: ['peaks'] }),
     };
-  }, [animationState, documentCreatedAt, identity?.name, identityId, resolvedSources]);
-  const sources = useMemo(() => {
-    const sourceById = new Map(resolvedSources.map((source) => [source.id, source]));
-    return animationDocument.pageIds.flatMap((pageId) => {
-      const elementId = animationDocument.pages[pageId]?.elementIds[0];
-      const source = elementId ? sourceById.get(elementId) : undefined;
-      return source ? [source] : [];
-    });
-  }, [animationDocument, resolvedSources]);
+  }, [documentCreatedAt, identity?.name, identityId, settledAnimationDocumentInput.value]);
+  const sources = resolvedSources;
   useEffect(() => {
     if (initialSelectionAppliedRef.current || sources.length === 0) return;
     if (selectedSourceId === 'brand-logo' && includeBrandLogo && !brandLogo) return;
@@ -779,28 +960,17 @@ function AnimationStudio({
   const portableAnimation = usePortableCanvasWorkspace({
     applySource: applyStudioSource,
     document: animationDocument,
+    suspendAutosave: settledAnimationDocumentInput.pending,
     workspaceKey: animationWorkspaceKey,
   });
-  const animationSource = portableAnimation.source;
-  const autosaveState = portableAnimation.autosaveState;
-  useEffect(() => {
-    if (autosaveState === 'loading') return;
-    const pending = pendingArtboardApplyRef.current;
-    if (pending) {
-      if (pending.id !== activeArtboardId || pending.signature !== currentArtboardSignature) return;
-      pendingArtboardApplyRef.current = null;
-    }
-    setArtboards((current) => {
-      const target = current.find(({ id }) => id === activeArtboardId);
-      if (!target) return current;
-      if (animationArtboardSnapshotSignature(target.snapshot) === currentArtboardSignature) return current;
-      const next = current.map((artboard) => artboard.id === activeArtboardId
-        ? { ...artboard, snapshot: cloneAnimationArtboardSnapshot(currentArtboardSnapshot) }
-        : artboard);
-      workspaceArtboardsRef.current = next;
-      return next;
-    });
-  }, [activeArtboardId, autosaveState, currentArtboardSignature, currentArtboardSnapshot, workspaceArtboardsRef]);
+  const animationSource = resolvedAnimationSource(
+    settledAnimationDocumentInput.pending,
+    portableAnimation.source
+  );
+  const autosaveState = resolvedAnimationAutosaveState(
+    settledAnimationDocumentInput.pending,
+    portableAnimation.autosaveState
+  );
   useEffect(() => {
     if (autosaveState === 'loading' || artboards.some(({ id }) => id === activeArtboardId)) return;
     const fallback = artboards[0];
@@ -810,9 +980,11 @@ function AnimationStudio({
   }, [activeArtboardId, activeArtboardIdRef, artboards, autosaveState, setActiveArtboardId]);
   const selectedSource =
     sources.find((source) => source.id === selectedSourceId) ?? null;
-  const selectedFrameSettings = selectedSource
-    ? resolvedFrameSettings[selectedSource.id] ?? createDefaultFrameSettings(settings)
-    : null;
+  const selectedFrameSettings = resolveSelectedFrameSettings(
+    selectedSource,
+    resolvedFrameSettings,
+    settings
+  );
   const transitionSettings = useMemo(
     () => sources.map((source) => resolveStudioTransitionSettings(
       settings,
@@ -878,6 +1050,8 @@ function AnimationStudio({
   ), [backgroundOverrides, settings.shaderSettings, sources]);
   const canvasWidth = Math.max(120, settings.width);
   const canvasHeight = Math.max(120, settings.height);
+  const resolvedPreviewFrameRate = Math.min(60, Math.max(12, previewFrameRate));
+  const previewMaxPixelCount = interactiveAnimationPreviewPixelBudget(presentationMode);
   const selectedBounds = animationSourceBounds(
     selectedSource,
     selectedFrameSettings,
@@ -890,12 +1064,38 @@ function AnimationStudio({
   const sourcesRef = useCommittedRef(sources);
   const frameSettingsRef = useCommittedRef(frameSettings);
   const imagesRef = useCommittedRef(images);
+  const workspaceActiveRef = useCommittedRef(active);
   const isPlayingRef = useCommittedRef(isPlaying);
   const playbackRateRef = useCommittedRef(playbackRate);
   const audioStateRef = useCommittedRef(audioState);
   const activeTimelineRef = useCommittedRef(activeTimeline);
   const backgroundOverridesRef = useCommittedRef(backgroundOverrides);
   const timelineRequiresShaderSyncRef = useCommittedRef(timelineRequiresShaderSync);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const updateResolution = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const next = resolveAnimationPreviewResolution({
+        devicePixelRatio: window.devicePixelRatio,
+        logicalHeight: canvasHeight,
+        logicalWidth: canvasWidth,
+        maxPixelCount: previewMaxPixelCount,
+        viewportHeight: bounds.height,
+        viewportWidth: bounds.width,
+      });
+      const current = previewResolutionRef.current;
+      if (current.width === next.width && current.height === next.height) return;
+      previewResolutionRef.current = next;
+      previewDirtyRef.current = true;
+      requestPreviewFrameRef.current();
+    };
+    updateResolution();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateResolution);
+    observer?.observe(canvas);
+    return () => observer?.disconnect();
+  }, [canvasHeight, canvasWidth, previewMaxPixelCount]);
 
   const getAudioContext = useCallback(() => {
     audioContextRef.current ??= createBrowserAudioContext();
@@ -947,6 +1147,7 @@ function AnimationStudio({
 
   const scheduleAudioPlayback = useCallback(async (timeMs: number) => {
     stopAudioPlayback();
+    if (!audioPlaybackRequestedRef.current || !isPlayingRef.current) return;
     const scheduleRevision = audioScheduleRevisionRef.current;
     const state = audioStateRef.current;
     if (state.muted || state.volume <= 0 || state.clips.length === 0) return;
@@ -988,15 +1189,26 @@ function AnimationStudio({
     }
   }, [audioStateRef, getAudioContext, gt, hydrateAudioBuffers, isPlayingRef, playbackRateRef, stopAudioPlayback]);
 
+  const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(workspaceRef, (projectActive) => {
+    const visible = projectActive
+      && workspaceActiveRef.current
+      && workspaceIntersectingRef.current;
+    workspaceVisibleRef.current = visible;
+    previewClockResetRef.current = true;
+    if (!visible) {
+      stopAudioPlayback();
+      return;
+    }
+    requestPreviewFrameRef.current();
+    if (isPlayingRef.current) {
+      audioPlaybackRequestedRef.current = true;
+      void scheduleAudioPlayback(playheadRef.current);
+    }
+  });
+
   useEffect(() => {
     setAudioState((current) => normalizeAnimationAudioState(current, totalMs));
   }, [totalMs]);
-
-  useEffect(() => {
-    void hydrateAudioBuffers(audioState.assets).catch(() => {
-      setError(gt('One or more audio files could not be decoded.'));
-    });
-  }, [audioState.assets, gt, hydrateAudioBuffers]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -1010,6 +1222,7 @@ function AnimationStudio({
   useEffect(() => {
     if (audioState.clips.length === 0) return;
     const unlockAudio = () => {
+      if (!audioPlaybackRequestedRef.current || !isPlayingRef.current) return;
       const context = getAudioContext();
       if (context.state === 'running') return;
       void context.resume().then(() => {
@@ -1037,13 +1250,18 @@ function AnimationStudio({
 
   useEffect(() => {
     previewDirtyRef.current = true;
+    requestPreviewFrameRef.current();
   }, [settings, sources]);
 
   useMountEffect(() => {
     const workspace = workspaceRef.current;
     if (!workspace) return;
     const observer = new IntersectionObserver(([entry]) => {
-      workspaceVisibleRef.current = entry?.isIntersecting ?? true;
+      workspaceIntersectingRef.current = entry?.isIntersecting ?? true;
+      workspaceVisibleRef.current = workspaceActiveRef.current
+        && projectWorkspaceActiveRef.current
+        && workspaceIntersectingRef.current;
+      if (workspaceVisibleRef.current) requestPreviewFrameRef.current();
     });
     observer.observe(workspace);
     return () => observer.disconnect();
@@ -1110,7 +1328,22 @@ function AnimationStudio({
     };
   });
 
-  const brandLogoSource = brandLogo?.kind === 'image' ? brandLogo.url : undefined;
+  useEffect(() => {
+    workspaceVisibleRef.current = active
+      && projectWorkspaceActiveRef.current
+      && workspaceIntersectingRef.current;
+    previewClockResetRef.current = true;
+    if (active) {
+      requestPreviewFrameRef.current();
+      return;
+    }
+    audioPlaybackRequestedRef.current = false;
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    stopAudioPlayback();
+  }, [active, isPlayingRef, projectWorkspaceActiveRef, stopAudioPlayback]);
+
+  const brandLogoSource = animationBrandLogoSource(brandLogo);
   useEffect(() => {
     const source = brandLogoSource;
     if (!source || /^data:[^;,]+;base64,/i.test(source)) return;
@@ -1128,7 +1361,7 @@ function AnimationStudio({
     };
   }, [brandLogoSource, gt]);
 
-  function attachShaderLayers(currentSources: readonly StudioSource[]): StudioSource[] {
+  const attachShaderLayers = useCallback((currentSources: readonly StudioSource[]): StudioSource[] => {
     return currentSources.map((source) => {
       if (source.background?.style !== 'shader') return source;
       const wrapper = backgroundOverridesRef.current[source.id]
@@ -1141,7 +1374,7 @@ function AnimationStudio({
         background: { ...source.background, image },
       };
     });
-  }
+  }, []);
 
   useMountEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1149,18 +1382,29 @@ function AnimationStudio({
       setIsPlaying(false);
     }
 
-    let animationFrame = 0;
+    let animationFrame: number | null = null;
+    let disposed = false;
     let previousTimestamp = performance.now();
     let previousRenderTimestamp = 0;
     let previousRenderedSourceId = '';
 
+    function requestTick() {
+      if (disposed || animationFrame !== null) return;
+      animationFrame = requestAnimationFrame(tick);
+    }
+
     function tick(timestamp: number) {
-      if (!workspaceVisibleRef.current) {
+      animationFrame = null;
+      if (disposed) return;
+      if (!workspaceVisibleRef.current || document.visibilityState === 'hidden') {
         previousTimestamp = timestamp;
-        animationFrame = requestAnimationFrame(tick);
         return;
       }
-      const elapsed = Math.min(100, timestamp - previousTimestamp);
+      const resetClock = previewClockResetRef.current;
+      previewClockResetRef.current = false;
+      const elapsed = resetClock || !isPlayingRef.current
+        ? 0
+        : Math.min(100, timestamp - previousTimestamp);
       previousTimestamp = timestamp;
       const currentSettings = settingsRef.current;
       const currentSources = sourcesRef.current;
@@ -1184,10 +1428,12 @@ function AnimationStudio({
           void scheduleAudioPlayback(advance.timeMs);
         }
         if (advance.stopped) {
+          audioPlaybackRequestedRef.current = false;
           isPlayingRef.current = false;
           setIsPlaying(false);
         }
       }
+      publishPlayhead(playheadRef.current);
 
       const position = resolveTimeline(playheadRef.current, {
         holdMs: currentSettings.holdMs,
@@ -1204,62 +1450,44 @@ function AnimationStudio({
         setActiveTimeline(nextActiveTimeline);
       }
 
-      const canvas = canvasRef.current;
-      const currentSource = currentSources[position.index];
-      const nextSource = currentSources[position.nextIndex];
-      const directComposite = canCompositeShaderDirectly(
-        currentSource,
-        nextSource,
-        backgroundOverridesRef.current
-      );
-      const previewFrameInterval = isPlayingRef.current
-        ? 1000 / INTERACTIVE_PREVIEW_FPS
-        : 120;
-      const frameIsDue = timestamp - previousRenderTimestamp >= previewFrameInterval;
-      const contentIsAnimated = position.phase === 'transition' && currentSources.length > 1;
-      const shouldRender = shouldRenderAnimationPreview({
-        contentIsAnimated,
-        currentSourceId: currentSource?.id,
-        directComposite,
-        frameIsDue,
-        pageVisible: document.visibilityState !== 'hidden',
+      const previewRender = renderInteractiveAnimationPreview({
+        attachShaderLayers,
+        backgroundOverrides: backgroundOverridesRef.current,
+        canvas: canvasRef.current,
+        currentSettings,
+        currentSources,
+        frameSettings: frameSettingsRef.current,
+        isPlaying: isPlayingRef.current,
+        position,
         previewDirty: previewDirtyRef.current,
-        previousSourceId: previousRenderedSourceId,
+        previousRenderTimestamp,
+        previousRenderedSourceId,
+        previewFrameRate: resolvedPreviewFrameRate,
+        previewResolution: previewResolutionRef.current,
+        timestamp,
       });
-      if (canvas && shouldRender) {
+      if (previewRender.rendered) {
         previousRenderTimestamp = timestamp;
-        previousRenderedSourceId = currentSource?.id ?? '';
+        previousRenderedSourceId = previewRender.sourceId;
         previewDirtyRef.current = false;
-        const width = Math.max(120, currentSettings.width);
-        const height = Math.max(120, currentSettings.height);
-        if (canvas.width !== width) canvas.width = width;
-        if (canvas.height !== height) canvas.height = height;
-        const context = canvas.getContext('2d');
-        if (context) {
-          context.clearRect(0, 0, width, height);
-          renderFrame(
-            context,
-            attachShaderLayers(currentSources),
-            {
-              ...currentSettings,
-              ...resolveStudioTransitionSettings(
-                currentSettings,
-                currentSource ? frameSettingsRef.current[currentSource.id]?.transition : undefined
-              ),
-              width,
-              height,
-            },
-            position,
-            { omitBackground: directComposite }
-          );
-        }
       }
-      animationFrame = requestAnimationFrame(tick);
+      if (isPlayingRef.current) requestTick();
     }
 
-    animationFrame = requestAnimationFrame(tick);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') {
+        previewClockResetRef.current = true;
+        requestTick();
+      }
+    };
+    requestPreviewFrameRef.current = requestTick;
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    requestTick();
     return () => {
-      cancelAnimationFrame(animationFrame);
+      disposed = true;
+      requestPreviewFrameRef.current = () => undefined;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame);
       for (const image of imagesRef.current) URL.revokeObjectURL(image.url);
     };
   });
@@ -1271,7 +1499,7 @@ function AnimationStudio({
   function applyArtboardSnapshot(snapshot: AnimationArtboardSnapshot) {
     const next = cloneAnimationArtboardSnapshot(snapshot);
     setAudioState(normalizeAnimationAudioState(
-      next.audio ?? createDefaultAnimationAudioState(),
+      next.audio ?? createEmptyAnimationAudioState(),
       cycleDurationMs({
         holdMs: next.settings.holdMs,
         itemCount: sources.length,
@@ -1304,10 +1532,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = committed;
     activeArtboardIdRef.current = id;
     currentArtboardSnapshotRef.current = snapshot;
-    pendingArtboardApplyRef.current = {
-      id,
-      signature: animationArtboardSnapshotSignature(snapshot),
-    };
     setArtboards(committed);
     setActiveArtboardId(id);
     applyArtboardSnapshot(snapshot);
@@ -1334,7 +1558,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = nextArtboards;
     activeArtboardIdRef.current = id;
     currentArtboardSnapshotRef.current = snapshot;
-    pendingArtboardApplyRef.current = { id, signature: animationArtboardSnapshotSignature(snapshot) };
     setArtboards(nextArtboards);
     setActiveArtboardId(id);
     applyArtboardSnapshot(snapshot);
@@ -1355,7 +1578,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = nextArtboards;
     activeArtboardIdRef.current = id;
     currentArtboardSnapshotRef.current = snapshot;
-    pendingArtboardApplyRef.current = { id, signature: animationArtboardSnapshotSignature(snapshot) };
     setArtboards(nextArtboards);
     setActiveArtboardId(id);
     applyArtboardSnapshot(snapshot);
@@ -1372,10 +1594,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = nextArtboards;
     activeArtboardIdRef.current = fallback.id;
     currentArtboardSnapshotRef.current = snapshot;
-    pendingArtboardApplyRef.current = {
-      id: fallback.id,
-      signature: animationArtboardSnapshotSignature(snapshot),
-    };
     setArtboards(nextArtboards);
     setActiveArtboardId(fallback.id);
     applyArtboardSnapshot(snapshot);
@@ -1713,6 +1931,9 @@ function AnimationStudio({
     });
     const next = Math.min(Math.max(0, timeMs), duration);
     playheadRef.current = next;
+    previewDirtyRef.current = true;
+    publishPlayhead(next);
+    requestPreviewFrameRef.current();
     const nextTimeline = resolveTimeline(next, {
       holdMs: settingsRef.current.holdMs,
       itemCount: Math.max(1, sourcesRef.current.length),
@@ -1741,8 +1962,12 @@ function AnimationStudio({
       setBackgroundEditScope('sequence');
       setSelectedEffectTarget('content');
     }
+    audioPlaybackRequestedRef.current = playing;
+    previewClockResetRef.current = true;
     isPlayingRef.current = playing;
     setIsPlaying(playing);
+    publishPlayhead(playheadRef.current);
+    requestPreviewFrameRef.current();
   }
 
   async function waitForShaderCapture(timeMs: number, initial = false) {
@@ -1856,7 +2081,7 @@ function AnimationStudio({
   function resetStudio() {
     const resetBackground = createDefaultFrameSettings(identitySettings).background;
     const resetSnapshot: AnimationArtboardSnapshot = {
-      audio: createDefaultAnimationAudioState(),
+      audio: createEmptyAnimationAudioState(),
       backgroundOverrides: {},
       frameSettings: {},
       sequenceBackground: resetBackground,
@@ -1871,7 +2096,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = resetArtboards;
     activeArtboardIdRef.current = DEFAULT_ANIMATION_ARTBOARD_ID;
     currentArtboardSnapshotRef.current = resetSnapshot;
-    pendingArtboardApplyRef.current = null;
     setArtboards(resetArtboards);
     setActiveArtboardId(DEFAULT_ANIMATION_ARTBOARD_ID);
     setStoredSettings(identitySettings);
@@ -1888,7 +2112,7 @@ function AnimationStudio({
     setSelectedEffectTarget('content');
     setError(null);
     setPlaybackRate(1);
-    setAudioState(createDefaultAnimationAudioState());
+    setAudioState(createEmptyAnimationAudioState());
     setSelectedAudioClipId(null);
     audioBuffersRef.current.clear();
     setLastExport(null);
@@ -1898,7 +2122,7 @@ function AnimationStudio({
 
   function startNewAnimation() {
     const scratchSnapshot = cloneAnimationArtboardSnapshot({
-      audio: createDefaultAnimationAudioState(),
+      audio: createEmptyAnimationAudioState(),
       backgroundOverrides: {},
       frameSettings: {},
       sequenceBackground: createDefaultFrameSettings(identitySettings).background,
@@ -1914,7 +2138,6 @@ function AnimationStudio({
     workspaceArtboardsRef.current = scratchArtboards;
     activeArtboardIdRef.current = DEFAULT_ANIMATION_ARTBOARD_ID;
     currentArtboardSnapshotRef.current = scratchSnapshot;
-    pendingArtboardApplyRef.current = null;
     setArtboards(scratchArtboards);
     setActiveArtboardId(DEFAULT_ANIMATION_ARTBOARD_ID);
     setStoredSettings(scratchSnapshot.settings);
@@ -1932,7 +2155,7 @@ function AnimationStudio({
     setImages([]);
     setError(null);
     setPlaybackRate(1);
-    setAudioState(scratchSnapshot.audio ?? createDefaultAnimationAudioState());
+    setAudioState(scratchSnapshot.audio ?? createEmptyAnimationAudioState());
     setSelectedAudioClipId(null);
     audioBuffersRef.current.clear();
     setAudioBufferRevision((revision) => revision + 1);
@@ -1952,7 +2175,7 @@ function AnimationStudio({
     }
 
     const restoredSnapshot: AnimationArtboardSnapshot = {
-      audio: normalizeAnimationAudioState(next.audio ?? createDefaultAnimationAudioState()),
+      audio: normalizeAnimationAudioState(next.audio ?? createEmptyAnimationAudioState()),
       backgroundOverrides: next.backgroundOverrides as Record<string, boolean>,
       frameSettings: next.frameSettings as Record<string, StudioFrameSettings>,
       sequenceBackground: next.sequenceBackground as StudioBackgroundSettings,
@@ -1976,7 +2199,6 @@ function AnimationStudio({
     setAudioState(restoredSnapshot.audio ?? createEmptyAnimationAudioState());
     setSelectedAudioClipId(null);
     audioBuffersRef.current.clear();
-    pendingArtboardApplyRef.current = null;
     workspaceArtboardsRef.current = restoredWorkspace.artboards;
     activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
     currentArtboardSnapshotRef.current = restoredSnapshot;
@@ -2088,7 +2310,10 @@ function AnimationStudio({
     changePlaying(false);
   }
 
-  const previewSources = attachShaderLayers(sources);
+  const previewSources = useMemo(
+    () => attachShaderLayers(sources),
+    [attachShaderLayers, sources]
+  );
   const studioControlProps = {
     backgroundOverrideCount: sources.filter((source) => backgroundOverrides[source.id]).length,
     backgroundOverrideSourceIds: sources.filter((source) => backgroundOverrides[source.id]).map(({ id }) => id),
@@ -2254,12 +2479,15 @@ function AnimationStudio({
                 style={{ aspectRatio: `${Math.max(120, settings.width)} / ${Math.max(120, settings.height)}` }}
               >
                 <AnimationShaderLayers
+                  active={active}
                   activeShaderSourceIds={activeShaderSourceIds}
                   backgroundOverrides={backgroundOverrides}
                   directShaderComposite={directShaderComposite}
                   exportProgress={exportProgress}
                   isPlaying={isPlaying}
                   overrideShaderSettings={overrideShaderSettings}
+                  previewFrameRate={resolvedPreviewFrameRate}
+                  previewMaxPixelCount={previewMaxPixelCount}
                   sequenceBackground={sequenceBackground}
                   sequenceShaderIsActive={sequenceShaderIsActive}
                   sequenceShaderLayerRef={sequenceShaderLayerRef}
@@ -2274,9 +2502,9 @@ function AnimationStudio({
                 <canvas
                   aria-label={gt('Animation preview canvas')}
                   className='absolute inset-0 z-10 size-full'
-                  height={canvasHeight}
+                  height={1}
                   ref={canvasRef}
-                  width={canvasWidth}
+                  width={1}
                 />
                 {selectedSource && selectedFrameSettings ? (
                   <EditableCanvasLayer
@@ -2360,6 +2588,7 @@ function AnimationStudio({
             selectedSourceId={selectedSourceId}
             selectedTransitionIndex={selectedTransitionIndex}
             settings={settings}
+            subscribeToPlayhead={subscribeToPlayhead}
             sources={sources}
             totalMs={totalMs}
             transitionSettings={transitionSettings}

@@ -1,21 +1,34 @@
 ---
 title: Shader library
-description: Browse, preview, customize, and reuse live GPU materials across Material and Animation.
+description: Browse, preview, customize, scrub, and reuse the live GPU material catalog across Design Lab and Animation.
 icon: LibraryBig
 ---
 
 The Shader Library is Glyphfield's shared catalog of live GPU materials. It keeps material discovery separate from editing: choose a moving preview in the library, then refine that shader with the common color, form, light, texture, orientation, and motion controls.
 
-The catalog stores more than 140 licensed material definitions. The eight explicitly static Paper **Static Mesh** and **Static Radial** presets are now discovered in Surface Lab, leaving more than 130 time-based and image-aware shaders in the live browser. Results are curated by visual quality rather than grouped by provider, so the strongest starting points appear first in **All sources**.
+The catalog combines licensed upstream adapters and original Glyphfield studies. Results are curated by visual quality rather than grouped by provider, so the strongest starting points appear first in **All**. Gem Smoke and Architectural Chrome lead the default order; Prismatic Sphere appears before Glyph Field; utility and novelty looks are available without crowding the best starting points. Read `/api/materials` for the current count and exact IDs.
+
+## Defaults by surface
+
+New Design Lab compositions start with **Gem Smoke** (`paper-gem-smoke`), replacing the legacy Holo Cloth default. Existing drafts are migrated only when they still contain that untouched legacy default; an authored Holo Cloth choice is preserved.
+
+Animation and marketing hero surfaces use their own intentional defaults. Read `defaults` from `/api/materials` for the current mapping instead of assuming every host starts on the same material. A saved composition always uses its serialized material ID and frame state rather than a new-project default.
+
+<DocsMedia
+  alt='Glyphfield Design Lab showing the quality-sorted Shader Library beside the live canvas'
+  caption='A shared, searchable material catalog with authentic previews'
+  meta='Live catalog · 6 categories'
+  src='/screenshots/studio-gt-design-lab-dark-2026.png'
+/>
 
 ## Where it appears
 
 | Workspace | Library behavior | Selection result |
 | --- | --- | --- |
-| Material | Opens by default as a resizable secondary sidebar | Replaces the active material while preserving the shared inspector workflow |
+| Design Lab | Opens as the left library beside the composition | Adds or replaces the selected shader layer while keeping content layers independent |
 | Animation | Appears below sources and the two-column animation-package gallery | Updates the shared sequence background by default, with explicit per-frame overrides |
 
-Use the **Shaders** button in Material to close and reopen the secondary sidebar. Its width is resizable and saved independently from the main inspector.
+Design Lab's library, canvas, inspector, and layer dock each scroll independently with Glyphfield's minimal scrollbar. Narrow layouts collapse secondary controls without losing the selected material.
 
 ## Browse and select
 
@@ -30,11 +43,11 @@ Every card contains a live preview, material name, source badge, and selected st
 
 Choosing a source filter narrows the current quality-sorted catalog; it does not change how the shader is rendered or edited.
 
-Previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints allow many moving choices to remain visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
+Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
 
 ### WebGL availability
 
-Studio probes WebGL 2 before mounting Three.js, Paper, or ShaderGradient providers. If the browser is sandboxed, GPU access is disabled, or context creation fails, the provider is never constructed and the canvas displays the same three-color static fallback instead. A provider error boundary also catches context-loss races. Studio controls, source editing, static Surface Lab recipes, and non-WebGL exports remain usable without a runtime overlay.
+Studio probes WebGL 2 before mounting Three.js, Paper, or ShaderGradient providers. If the browser is sandboxed, GPU access is disabled, or context creation fails, the provider is never constructed and the canvas displays a representative three-color static fallback instead. A provider error boundary also catches context-loss races. Studio controls, source editing, deterministic background recipes, and non-WebGL exports remain usable without a runtime overlay.
 
 ## Shared controls
 
@@ -45,10 +58,14 @@ After choosing a material, use the adjacent inspector to edit it. Paper presets,
 - **Light and texture:** brightness and grain
 - **Orientation:** X, Y, and Z rotation
 - **Motion:** playback speed
+- **Scale:** logarithmic shader zoom from `0.1×` to `10×`
+- **Frame:** a deterministic material-time slider that can pause on an exact look
 
-The palette menu includes the active identity plus the original material looks and Surface Lab's signal, mineral, paper, and dither palettes. Each palette applies a coordinated group of three colors without locking later edits.
+The palette menu includes the active identity plus curated signal, mineral, paper, dither, monochrome, mercury, ultraviolet, copper, arctic, vermilion, and cobalt starting points. Each palette applies a coordinated group of three colors without locking later edits.
 
 Not every underlying shader interprets a control identically. The common settings are mapped into the vocabulary of each renderer so switching materials remains predictable while each family keeps its own character.
+
+Shader time, pause state, size, colors, and every common setting are part of the host document. Saved Design Lab compositions therefore reopen on the authored material frame instead of restarting from an unrelated wall-clock time.
 
 ## Converted source assets
 
@@ -85,8 +102,8 @@ The animation canvas also supports direct size editing: drag the right edge to c
 
 ## Output and portability
 
-Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation composites selected shader backgrounds into its GIF. Live WebGL output uses the browser renderer and is programmatically available through `window.glyphfield.studio`; Surface Lab also provides deterministic static SVG backgrounds and physical-material recipes.
+Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation composites selected shader backgrounds into GIF or MP4 and keeps material time synchronized with its playhead. Live WebGL output uses the browser renderer and is programmatically available through `window.glyphfield.studio`; deterministic background generation remains available through `POST /api/generate`.
 
-The Material **Code** drawer preserves `liveMaterialId`, `liveSettings`, `sourceAssetId`, `sourceAssetOpacity`, and the complete finish object. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source already shown by the current drawer as the authoritative schema for round trips.
+Design Lab's portable source preserves the material ID and settings inside shader elements and metadata, including layer opacity/blend, source assets, frame history, transforms, and sequence timing. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source returned by the current tool as the authoritative schema for round trips.
 
-See [Motion and GIFs](/docs/studio/motion), [Surface Lab, color, and typography](/docs/studio/logo-background), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.
+See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.

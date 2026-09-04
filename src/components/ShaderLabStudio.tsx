@@ -124,6 +124,7 @@ function designLabInspectorDescription({
   }
   return 'Select a layer to edit its content and appearance, or add a new one below.';
 }
+import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
@@ -268,7 +269,7 @@ import {
   type StickerFinishSettings,
 } from '@/lib/surfaceSticker';
 import { downloadStudioArtifact, registerStudioAutomation } from '@/lib/studioAutomation';
-import type { StudioTool } from '@/lib/studioCatalog';
+import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
   applyTextEffectMask,
   createTextEffectGradient,
@@ -1196,6 +1197,9 @@ function CanvasSelectionAssemblyOverlay({
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
+const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 180_000;
+const SHADER_LIBRARY_INITIAL_CARD_COUNT = 24;
+const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
 const DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS: DesignShaderSequenceSettings = {
   ...DEFAULT_SHADER_SEQUENCE_SETTINGS,
   sequenceOffset: 0,
@@ -4409,12 +4413,14 @@ function LayerDockContextMenu({
 
 export default function ShaderLabStudio({
   active = true,
+  automationToolId,
   identity,
   navigation,
   onIdentitySave,
   tool,
 }: {
   active?: boolean;
+  automationToolId?: StudioToolId;
   identity: BrandIdentity;
   navigation?: ReactNode;
   onIdentitySave?: (identity: BrandIdentity) => void;
@@ -4444,6 +4450,7 @@ export default function ShaderLabStudio({
     visible: true,
   }), [brandPalette.colors]);
   const stageRef = useRef<HTMLDivElement>(null);
+  const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(stageRef);
   const defaultShaderMigrationRef = useRef('');
   const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
   const effectScratchRefs = useRef<Map<EffectLayerId, CompositionEffectScratch>>(new Map());
@@ -4454,6 +4461,8 @@ export default function ShaderLabStudio({
   }>>(new Map());
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const materialLibraryRef = useRef<HTMLElement>(null);
+  const materialLoadMoreRef = useRef<HTMLButtonElement>(null);
   const imageImportRequestIdRef = useRef(0);
   const selectMaterialRef = useCommittedRef(selectMaterial);
   const handleMaterialSelect = useCallback((materialId: LiveMaterialId) => {
@@ -4543,6 +4552,7 @@ export default function ShaderLabStudio({
   const [previewFrame, setPreviewFrame] = useState(0);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
+  const [visibleMaterialCount, setVisibleMaterialCount] = useState(SHADER_LIBRARY_INITIAL_CARD_COUNT);
   const [logoLayers, setLogoLayers] = useState<CompositionLogoLayer[]>(() => [{
     appearance: { ...DEFAULT_LOGO_APPEARANCE },
     color: '#FFFFFF',
@@ -4893,6 +4903,23 @@ export default function ShaderLabStudio({
     return () => cancelAnimationFrame(sequencePreviewAnimationRef.current);
   }, [active, sequencePreviewing]);
   const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
+  const visibleMaterials = useMemo(
+    () => materials.slice(0, visibleMaterialCount),
+    [materials, visibleMaterialCount]
+  );
+  const remainingMaterialCount = Math.max(0, materials.length - visibleMaterials.length);
+
+  useEffect(() => {
+    const sentinel = materialLoadMoreRef.current;
+    const root = materialLibraryRef.current;
+    if (!sentinel || !root || remainingMaterialCount === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setVisibleMaterialCount((count) => Math.min(materials.length, count + SHADER_LIBRARY_CARD_BATCH_SIZE));
+    }, { root, rootMargin: '240px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [materials.length, remainingMaterialCount]);
   const selectedEffectLayer = isEffectLayerId(selectedLayerId)
     ? effectLayers.find(({ id }) => id === selectedLayerId) ?? null
     : null;
@@ -5577,7 +5604,11 @@ export default function ShaderLabStudio({
     sequencePreviewLastTimeRef.current = performance.now();
     let previousSegmentIndex = -1;
     const tick = (now: number) => {
-      if (!workspaceActiveRef.current) return;
+      if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current) {
+        sequencePreviewLastTimeRef.current = now;
+        sequencePreviewAnimationRef.current = requestAnimationFrame(tick);
+        return;
+      }
       const previousTime = sequencePreviewLastTimeRef.current || now;
       sequencePreviewLastTimeRef.current = now;
       sequencePreviewElapsedRef.current += Math.max(0, now - previousTime);
@@ -5977,7 +6008,7 @@ export default function ShaderLabStudio({
   }
 
   function copyDesignLabSelection(event: ClipboardEvent) {
-    if (!active || isCanvasClipboardEditingTarget(event.target)) return;
+    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
     const browserSelection = window.getSelection();
     if (browserSelection && !browserSelection.isCollapsed && browserSelection.toString()) return;
 
@@ -6098,7 +6129,7 @@ export default function ShaderLabStudio({
 
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
   const handleDesignLabPaste = useEffectEvent((event: ClipboardEvent) => {
-    if (!active || isCanvasClipboardEditingTarget(event.target)) return;
+    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
     const customSource = event.clipboardData?.getData(DESIGN_LAB_CLIPBOARD_MIME) ?? '';
     const textSource = event.clipboardData?.getData('text/plain') ?? '';
     const payload = parseDesignLabClipboard(customSource || textSource || (!event.clipboardData ? designLabClipboardRef.current ?? '' : ''));
@@ -6608,7 +6639,12 @@ export default function ShaderLabStudio({
       if (cancelled) return;
       const tick = (now: number) => {
         if (cancelled) return;
-        const shouldRender = inViewport && !document.hidden && !rendering && (paused || now - lastRenderedAt >= 1000 / targetFrameRate);
+        const shouldRender = workspaceActiveRef.current
+          && projectWorkspaceActiveRef.current
+          && inViewport
+          && !document.hidden
+          && !rendering
+          && (paused || now - lastRenderedAt >= 1000 / targetFrameRate);
         if (shouldRender) {
           rendering = true;
           const renderStartedAt = performance.now();
@@ -6926,8 +6962,8 @@ export default function ShaderLabStudio({
       return source;
     },
     invoke: (action, input) => invokeDesignAutomationAction(designAutomationRef.current, action, input),
-    toolId: tool.id,
-  }), [designAutomationRef, tool.id]);
+    toolId: automationToolId ?? tool.id,
+  }), [automationToolId, designAutomationRef, tool.id]);
 
   function refreshExportPreview() {
     if (!lastExportRequest || exporting) return;
@@ -6958,6 +6994,9 @@ export default function ShaderLabStudio({
         className='absolute inset-0 size-full'
         key={`${instanceKey}:${renderedApplication.materialId}`}
         materialId={renderedApplication.materialId}
+        maxPixelCount={captureTimeMs === null
+          ? DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT
+          : Math.max(DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, exportDimensions.width * exportDimensions.height)}
         patternScale={clampShaderZoom(renderedApplication.shaderSize)}
         paused={!active || paused || controlledTimeMs !== null}
         previewChannel={instanceKey}
@@ -7091,7 +7130,7 @@ export default function ShaderLabStudio({
 
   function renderShaderLibrary() {
     return (
-      <aside className='shader-lab-v2-library studio-sidebar lab-sidebar lab-sidebar-left studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve>
+      <aside className='shader-lab-v2-library studio-sidebar lab-sidebar lab-sidebar-left studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve ref={materialLibraryRef}>
         {renderArtboardToolbar('sidebar')}
         <LabPanelHeading
           action={<button aria-label='Choose a random shader' onClick={selectRandomMaterial} title='Random shader' type='button'><Sparkles aria-hidden='true' /></button>}
@@ -7101,19 +7140,47 @@ export default function ShaderLabStudio({
         />
         <label className='shader-lab-v2-search'>
           <Search aria-hidden='true' />
-          <input aria-label='Search shaders' onChange={(event) => setQuery(event.target.value)} placeholder={`Search all ${shaderLabCategoryCount('all')} shaders`} type='search' value={query} />
+          <input
+            aria-label='Search shaders'
+            onChange={(event) => {
+              setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
+              setQuery(event.target.value);
+            }}
+            placeholder={`Search all ${shaderLabCategoryCount('all')} shaders`}
+            type='search'
+            value={query}
+          />
         </label>
         <div aria-label='Shader categories' className='shader-lab-v2-categories' role='group'>
           {SHADER_LAB_CATEGORIES.map((option) => (
-            <button aria-pressed={category === option.id} key={option.id} onClick={() => setCategory(option.id)} type='button'>
+            <button
+              aria-pressed={category === option.id}
+              key={option.id}
+              onClick={() => {
+                setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
+                setCategory(option.id);
+              }}
+              type='button'
+            >
               {option.label}<span>{shaderLabCategoryCount(option.id)}</span>
             </button>
           ))}
         </div>
         <div className='shader-lab-v2-material-grid studio-scroll-area'>
-          {materials.map((option) => (
+          {visibleMaterials.map((option) => (
             <ShaderMaterialCard key={option.id} material={option} onSelect={handleMaterialSelect} selected={editingShader?.materialId === option.id} />
           ))}
+          {remainingMaterialCount > 0 ? (
+            <button
+              className='shader-lab-v2-load-more'
+              onClick={() => setVisibleMaterialCount((count) => Math.min(materials.length, count + SHADER_LIBRARY_CARD_BATCH_SIZE))}
+              ref={materialLoadMoreRef}
+              type='button'
+            >
+              <span>Load more shaders</span>
+              <small>{remainingMaterialCount} remaining</small>
+            </button>
+          ) : null}
         </div>
       </aside>
     );

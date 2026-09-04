@@ -3,7 +3,7 @@ import './docs.css';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { T } from 'gt-next';
-import { PanelsTopLeft } from '@/components/ui/SolidIcons';
+import { Books, Bot, Braces, PanelsTopLeft, Search } from '@/components/ui/SolidIcons';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -33,7 +33,10 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
                 <span>{PRODUCT_BRAND.name}</span>
                 <small>Docs</small>
               </Link>
-              <SidebarDitherPanel />
+              <SidebarDitherPanel
+                icons={[<Books />, <Braces />, <Bot />, <Search />]}
+                variant='docs'
+              />
               <nav aria-label='Documentation help' className='studio-sidebar-help'>
                 <Link className='glyphfield-docs-sidebar-studio-link' href='/studio'>
                   <PanelsTopLeft aria-hidden='true' />
@@ -44,7 +47,7 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
           ),
           collapsible: false,
           defaultOpenLevel: 0,
-          footer: <DocsSidebarFooter />,
+          footer: <DocsSidebarFooter key='docs-sidebar-footer' />,
           prefetch: false,
         }}
         slots={{ header: DocsHeader }}

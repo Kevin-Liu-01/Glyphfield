@@ -1,50 +1,69 @@
 ---
 title: Capability matrix
-description: Compare Studio tools, browser downloads, and agent API equivalents.
+description: Compare the visual Studio, source documents, HTTP generation, browser automation, persistence, and exports.
 icon: TableProperties
 ---
 
-| Capability | Browser output | Source drawer | Agent API |
+## Product capabilities
+
+| Capability | Authentic browser result | Editable source | Programmatic route |
 | --- | --- | --- | --- |
-| Brand settings | Persistent identity | Full identity JSON | Identity object in every request |
-| Brand elements | JSON brief | Selected element override JSON | `element-brief` JSON |
-| Moodboard | PNG, identity JSON | Composition, size, and export configuration | Browser API: source read/apply plus labelled controls and export |
-| Animation | GIF from text, image, and logo sequences with live per-frame materials | Sequence and timing JSON | Browser API: source read/apply plus labelled controls and export |
-| Lottie | Edited JSON or `.lottie`, high-resolution frame PNG composited over solid, transparent, or live-material backgrounds | Raw Lottie JSON; binary `.lottie` remains bundled | Browser API: source read/apply plus labelled controls and export |
-| Shader Library | Live selection shared by Material and sequence-first Animation backgrounds with optional frame overrides | Material ID and common live settings are stored by the host tool | `GET /api/materials`; Browser API for live selection and rendering |
-| Material / Design Lab | PNG, JPG, GIF, MP4, and sequence GIF/MP4 with live shaders and converters | Complete version 3 composition and shader-sequence document | `design-sequence` HTTP generator; Browser API for source, controls, preview, Blob return, and file download |
-| Surface Lab | Fixed-camera proof using real CC0 color, normal, displacement, roughness, and metalness maps; PNG; static tactile background; or die-cut sticker SVG | Open PBR asset ID and source, texture family, amount, irregularity, scale, direction, relief, roughness, metallic response, density, cut border, laminate, and precision metal-inset architecture | Catalog and source metadata from `GET /api/catalog`; `background` SVG for deterministic output; browser preview falls back to SVG when WebGL is unavailable |
-| OpenGraph | PNG | Tool configuration JSON | Compose with template/background SVG |
-| Color tokens | Copied CSS tokens | Token configuration JSON | Identity HEX fields |
-| Typography | Browser preview, local font | Typography configuration JSON | Documented font stack only |
-| Terminal card | PNG | Tool configuration JSON | Browser API: source read/apply plus labelled controls and export |
-| Partnership | PNG | Tool configuration JSON | `template: partnership` SVG |
-| Blog cover | PNG | Tool configuration JSON | `template: blog` SVG |
-| Slide templates | PNG | Tool configuration and layer transforms | `template: slides` SVG |
-| Component library | Interactive preview | Selected component configuration | Element briefs for product patterns |
+| Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults | Complete `BrandIdentity` | `/api/identities`; identity object in generation requests; Browser API |
+| Brand elements | Application previews and JSON brief | Selected application override | `/api/elements`, `element-brief`, Browser API |
+| Moodboard | Application showcase or full system board; PNG | Composition and export state | Browser API |
+| Brand book | Navigable standards document; print/PDF workflow | Derived from identity | Browser API controls; identity source is authoritative |
+| Animation | Text/logo/image sequences, live materials, audio; GIF/MP4 | Frames, timing, material, output, audio clips | Browser API |
+| Lottie | Vector playback, recolor, trim, live background; PNG/JSON/`.lottie` | Raw Lottie JSON when available | Browser API |
+| Shader Library | Quality-sorted authentic materials shared by Design Lab and Animation | Stored in host documents by material ID and settings | `/api/materials`, Browser API |
+| Design Lab | Layered composition; PNG/JPG/GIF/MP4 and shader-sequence GIF/MP4 | CanvasDocument v2 + Design Lab source v4 | `design-sequence`, Browser API |
+| Deterministic backgrounds | Gradient, grain, dither, pattern, tactile surface SVG | Versioned request/response | `background` generation |
+| OpenGraph | 1200 × 630 social image; PNG | Tool composition | Browser API; deterministic pieces from generation API |
+| Color tokens | HEX/OKLCH inspection and copied CSS variables | Identity-bound colors | Browser API; identity fields over HTTP |
+| Typography | Role specimens and local font preview | Identity type roles | Browser API |
+| Terminal card | Syntax-highlighted card; PNG | Tool configuration | Browser API |
+| Partnership | Dual-mark composition; PNG/SVG | Tool configuration | `template: partnership`, Browser API |
+| Blog cover | Editorial cover; PNG/SVG | Tool configuration | `template: blog`, Browser API |
+| Slides | 14 production layouts; PNG/SVG | Content, layout, assets, transforms | `template: slides`, Browser API |
+| Components | Identity-aware interactive variants | Component configuration | Browser API; element briefs for production intent |
 
-## Shared editor capabilities
+<DocsMediaGrid>
+  <DocsMedia alt='Glyphfield Design Lab with shader library, canvas, inspector, and layer dock' caption='Design Lab' meta='Source v4 · PNG/JPG/GIF/MP4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+  <DocsMedia alt='Glyphfield Animation tool showing motion composition and controls' caption='Animation' meta='Frames · materials · audio' src='/screenshots/studio-gt-animation-dark-2026.png' />
+</DocsMediaGrid>
 
-| System | Browser behavior | Persistence and output |
+## Shared editing systems
+
+| System | Behavior | Persistence/output invariant |
 | --- | --- | --- |
-| Color control | Native picker, HEX, OKLCH, optional opacity | Controlled value shared by previews and exports |
-| Canvas viewport | Zoom from 40–200 percent, reset, and fit | Zoom saved per project and tool; intrinsic artifact ratio is unchanged |
-| Canvas dimension handles | Drag width, height, or both directly on the Animation canvas | Output dimensions update the same persistent settings used by preview and GIF export |
-| Shader gallery | Quality-sorted, searchable two-column live previews with source filters and badges | Shared catalog used by Material and Animation |
-| Editable layers | Select, drag, resize, keyboard nudge | Transform values feed the same renderer used for export |
-| Layer panel | Reorder, six-way alignment, reset, boundary-disabled actions | Layer order and transforms saved per project and template |
-| Logo shader finishes | Reflections, shadows, outlines, glass, and presets | Finish object belongs to the independent logo shader layer |
-| Uploaded assets | Logos, fonts, backgrounds, partner marks, Lottie JSON, and `.lottie` bundles | Sources remain local; supported exports embed resolved visual frames |
-| Source drawer | Exact source editing with apply, reset, close, and inline validation | Applies into the same persistent tool state and renderer as visual controls |
+| Color control | Native picker, HEX, OKLCH, optional opacity | One normalized value feeds preview and export |
+| Canvas viewport | Zoom, fit, reset, pan, wheel/trackpad navigation | View transform never changes artifact geometry |
+| Editable layers | Select, multi-select, drag, resize, rotate/nudge where supported | Same transform drives canvas, source, saved design, and export |
+| Layer dock | Add, duplicate, hide, reorder, group, align, delete | Ordered IDs are serialized; opacity belongs to each layer |
+| Shader controls | Size 0.1×–10×, colors, center, detail, motion, frame history | Material ID/settings are shared across preview and capture |
+| Converter effects | Bayer, ASCII, halftone, posterize with explicit foreground/background | Effect layer remains non-destructive and independently opaque |
+| Text effects | Solid, Bayer/dither, halftone, scan/gradient families | Effects work on text glyph masks, not only logo icons |
+| Source drawer | Apply, reset, close, inline validation | Valid source updates the same live state as controls |
+| Saved designs | Named snapshots and full autosave | IndexedDB stores the portable document; recovery journal protects unload timing |
+| Browser API | Discover controls/actions, read/apply source, invoke export | Programmatic operations use the same validators and renderers |
 
-Every row above is programmatically operable through `window.glyphfield.studio`. `controls()` lists the exact visible control labels; `activate()` and `set()` operate them; source-enabled tools add `readSource()` and async `applySource()`; `invoke()` exposes stable tool-specific operations; `download()` saves returned Blob artifacts.
+## Export support
 
-## Browser-rendered reasons
+| Format | Main producers | Important behavior |
+| --- | --- | --- |
+| SVG | HTTP templates/backgrounds | Standalone, deterministic, best canonical server artifact |
+| PNG | Design Lab, Moodboard, Lottie frame, templates and expressions | Lossless still with transparency where supported |
+| JPG | Design Lab | Smaller opaque still composited against the selected background |
+| GIF | Design Lab and Animation | Palette-controlled motion; raw or verified seamless closure; never audio |
+| MP4 | Design Lab and Animation | Higher-fidelity motion; Animation can mix timeline audio |
+| PDF | Brand book print/export flow | Snapshot of the current identity-derived book |
+| JSON | Identity, briefs, source documents, Lottie | Preserve schema/version and authorized asset dependencies |
+| `.lottie` | Lottie | Original binary animation archive |
 
-Some outputs still render in the browser because they depend on Canvas, WebGL, local font loading, object URLs, interactive visual placement, or multi-frame capture. They are not agent-only gaps: the Browser API exposes those same controls and exports programmatically while preserving the authentic renderer.
+## Interface choice
 
-## API strengths
+- Choose HTTP for deterministic and batchable artifacts fully described by the generation contract.
+- Choose the Browser API for the real Canvas/WebGL/local-file renderer.
+- Combine them when HTTP should author exact Design Lab source and the browser should render it.
+- Use human Studio controls when visual judgment is the task; the resulting source remains available to an agent afterward.
 
-The API is best for repeatability, source-controlled SVG, batch generation, agent workflows, and downstream rendering pipelines.
-
-The source drawer is not the HTTP request body for `/api/generate`. It is the active browser tool's document. See [Source format reference](/docs/reference/source-formats) before moving configuration between environments.
+Every navigable Studio tool publishes Browser API control automation. Source and tool-specific actions vary, so call `describe()` before operation. See [Choose an interface](/docs/agents/choose-interface) and [Studio Browser API](/docs/reference/browser-api).

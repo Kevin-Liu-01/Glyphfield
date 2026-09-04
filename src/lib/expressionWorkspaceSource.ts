@@ -265,6 +265,8 @@ export function parseTemplateWorkspaceSource(
   const slideLayout = sourceString(state, 'slideLayout', fallback.slideLayout);
   const textureType = sourceString(texture, 'type', fallback.texture);
   const fontRole = sourceString(typography, 'role', fallback.fontRole);
+  const partnerId = sourceString(partner, 'id', fallback.partner.id);
+  const partnerRenderingVersion = sourceNumber(state, 'partnerRenderingVersion', 0);
   const partnerTreatment = sourceString(partner, 'treatment', fallback.partner.treatment);
   const layerOrder = sourceStringArray(layers, 'order', [...fallback.layerOrder]);
 
@@ -311,11 +313,13 @@ export function parseTemplateWorkspaceSource(
       fontId: sourceString(partner, 'fontId', fallback.partner.fontId),
       fontWeight: sourceNumber(partner, 'fontWeight', fallback.partner.fontWeight),
       gap: sourceNumber(partner, 'gap', fallback.partner.gap),
-      id: sourceString(partner, 'id', fallback.partner.id),
+      id: partnerId,
       name: sourceString(partner, 'name', fallback.partner.name),
       opacity: fallback.partner.opacity,
       scale: sourceNumber(partner, 'scale', fallback.partner.scale),
-      treatment: partnerTreatment as TemplatePartnerTreatment,
+      treatment: partnerRenderingVersion < 2 && partnerId === 'ramp' && partnerTreatment === 'text'
+        ? 'logo'
+        : partnerTreatment as TemplatePartnerTreatment,
       x: sourceNumber(partner, 'x', fallback.partner.x),
       y: sourceNumber(partner, 'y', fallback.partner.y),
     },

@@ -224,9 +224,15 @@ function AnimationTimelinePreview({
     const canvas = canvasRef.current;
     if (!canvas || sources.length === 0) return;
     let disposed = false;
+    let activated = layout === 'tooltip';
     const logicalWidth = Math.max(120, settings.width);
     const logicalHeight = Math.max(120, settings.height);
-    const shaderSignature = shaderBackgroundSignature(sources);
+    const currentSource = sources[index % sources.length];
+    const nextSource = sources[(index + 1) % sources.length];
+    const previewSources = kind === 'transition' && nextSource
+      ? [currentSource, nextSource]
+      : [currentSource];
+    const shaderSignature = shaderBackgroundSignature(previewSources);
     if (shaderSignatureRef.current !== shaderSignature) {
       shaderSnapshotsRef.current.clear();
       shaderSignatureRef.current = shaderSignature;
@@ -237,7 +243,7 @@ function AnimationTimelinePreview({
       ? Math.max(1, Math.round(fallbackWidth * logicalHeight / logicalWidth))
       : 80;
     const drawPreview = () => {
-      const staticSources = freezeShaderBackgrounds(sources, shaderSnapshotsRef.current);
+      const staticSources = freezeShaderBackgrounds(previewSources, shaderSnapshotsRef.current);
       const previewWidth = Math.max(1, Math.round(canvas.clientWidth || fallbackWidth));
       const previewHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
       const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
@@ -247,10 +253,9 @@ function AnimationTimelinePreview({
       if (canvas.height !== renderHeight) canvas.height = renderHeight;
       const context = canvas.getContext('2d');
       if (!context) return;
-      const segmentMs = settings.holdMs + (sources.length > 1 ? settings.transitionMs : 0);
       const timeMs = kind === 'transition'
-        ? index * segmentMs + settings.holdMs + settings.transitionMs / 2
-        : index * segmentMs + Math.max(0, Math.min(settings.holdMs / 2, settings.holdMs - 1));
+        ? settings.holdMs + settings.transitionMs / 2
+        : Math.max(0, Math.min(settings.holdMs / 2, settings.holdMs - 1));
       const scale = Math.min(canvas.width / logicalWidth, canvas.height / logicalHeight);
       const offsetX = (canvas.width - logicalWidth * scale) / 2;
       const offsetY = (canvas.height - logicalHeight * scale) / 2;
@@ -268,32 +273,52 @@ function AnimationTimelinePreview({
         { ...settings, height: logicalHeight, width: logicalWidth },
         resolveTimeline(timeMs, {
           holdMs: settings.holdMs,
-          itemCount: sources.length,
+          itemCount: staticSources.length,
           transitionMs: settings.transitionMs,
         }),
         { omitBackground: showAuthenticShader }
       );
       context.restore();
     };
-    drawPreview();
-    const materialIds = new Set(sources.flatMap((source) => (
-      source.background?.style === 'shader' && !source.background.image
-        ? [source.background.materialId]
-        : []
-    )));
-    materialIds.forEach((materialId) => {
-      void requestShaderPreviewImage(materialId).then(() => {
-        if (!disposed) drawPreview();
-      }).catch(() => {
-        // The authored color fallback remains visible when a preview asset cannot load.
+    const activate = () => {
+      if (disposed) return;
+      activated = true;
+      drawPreview();
+      const materialIds = new Set(previewSources.flatMap((source) => (
+        source.background?.style === 'shader' && !source.background.image
+          ? [source.background.materialId]
+          : []
+      )));
+      materialIds.forEach((materialId) => {
+        void requestShaderPreviewImage(materialId).then(() => {
+          if (!disposed) drawPreview();
+        }).catch(() => {
+          // The authored color fallback remains visible when a preview asset cannot load.
+        });
       });
-    });
-    if (typeof ResizeObserver === 'undefined') return () => { disposed = true; };
-    const resizeObserver = new ResizeObserver(drawPreview);
-    resizeObserver.observe(canvas);
+    };
+    let intersectionObserver: IntersectionObserver | null = null;
+    if (activated || typeof IntersectionObserver === 'undefined') {
+      activate();
+    } else {
+      intersectionObserver = new IntersectionObserver(([entry]) => {
+        if (!entry?.isIntersecting) return;
+        intersectionObserver?.disconnect();
+        intersectionObserver = null;
+        activate();
+      }, { rootMargin: '160px' });
+      intersectionObserver.observe(canvas);
+    }
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => {
+        if (activated) drawPreview();
+      });
+    resizeObserver?.observe(canvas);
     return () => {
       disposed = true;
-      resizeObserver.disconnect();
+      intersectionObserver?.disconnect();
+      resizeObserver?.disconnect();
     };
   }, [index, kind, layout, settings, showAuthenticShader, sources]);
 
@@ -319,4 +344,32 @@ function AnimationTimelinePreview({
   );
 }
 
-export default memo(AnimationTimelinePreview);
+function previewSettingsMatch(first: StudioSettings, second: StudioSettings): boolean {
+  return first.alignX === second.alignX
+    && first.alignY === second.alignY
+    && first.background === second.background
+    && first.backgroundAngle === second.backgroundAngle
+    && first.backgroundSecondary === second.backgroundSecondary
+    && first.backgroundStyle === second.backgroundStyle
+    && first.backgroundTransition === second.backgroundTransition
+    && first.bezier === second.bezier
+    && first.blur === second.blur
+    && first.fit === second.fit
+    && first.fontSize === second.fontSize
+    && first.fontWeight === second.fontWeight
+    && first.foreground === second.foreground
+    && first.height === second.height
+    && first.packageId === second.packageId
+    && first.scale === second.scale
+    && first.shaderSettings === second.shaderSettings
+    && first.width === second.width;
+}
+
+export default memo(AnimationTimelinePreview, (first, second) => (
+  first.authenticShader === second.authenticShader
+  && first.index === second.index
+  && first.kind === second.kind
+  && first.layout === second.layout
+  && first.sources === second.sources
+  && previewSettingsMatch(first.settings, second.settings)
+));

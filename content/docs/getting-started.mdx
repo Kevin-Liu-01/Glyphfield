@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Create a project, define its shared identity, explore tools, and export the first artifact.
+description: Create a project, define its shared identity, compose an artifact, save it, and export a production file.
 icon: Sparkles
 ---
 
@@ -17,7 +17,7 @@ The local Studio runs at `http://localhost:3012/studio`.
 
 ## 1. Choose a project
 
-The project library contains three project kinds:
+The project library contains three project kinds and presents them as draggable, browser-style tabs:
 
 - **Starter** is the complete creation system you can duplicate into a new identity.
 - **Examples** are audited reference identities for General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare, and Stripe.
@@ -25,9 +25,16 @@ The project library contains three project kinds:
 
 Closing a tab only closes its view. The project remains available under **All projects**. Deleting a custom project removes its saved browser data.
 
+<DocsMedia
+  alt='Glyphfield Brand identity workspace for the General Translation project'
+  caption='The active project owns one shared identity and tool-specific drafts'
+  meta='Project-scoped persistence'
+  src='/screenshots/studio-gt-identity-light-2026.png'
+/>
+
 ## 2. Set the foundations
 
-Open **Brand settings** and edit the identity source:
+Open **Brand identity** and edit the shared source:
 
 - Brand and short names
 - Website, tagline, positioning, and description
@@ -40,7 +47,7 @@ Open **Brand settings** and edit the identity source:
 - Voice principles, phrases, avoided language, and audiences
 - Named brand applications with categories, formats, and production intent
 
-Every generator reads the active identity. A change here flows into boards, templates, components, brand elements, and exports.
+Every generator reads the active identity. A change here flows into books, boards, templates, components, brand elements, motion, Design Lab defaults, agent presets, and exports.
 
 ## 3. Find a tool
 
@@ -48,29 +55,51 @@ Use the left navigation or press `⌘K` / `Ctrl+K` and search for a capability s
 
 Tools are grouped into Brand, Motion, Foundations, Expressions, and Components.
 
-## 4. Edit and inspect
+## 4. Compose and inspect
 
 Most tools use the same layout:
 
-- The left inspector controls content, layout, surface, and uploaded assets.
+- The left inspector or library controls content, layout, material, surface, and uploaded assets.
 - The center canvas renders the current artifact.
+- The right inspector edits the selected frame or layer.
+- Layered tools use a bottom dock for selection, ordering, visibility, duplication, grouping, and deletion.
 - The canvas toolbar supports zoom out, zoom in, reset, and fit.
 - Wheel or trackpad input zooms the canvas, and dragging empty workspace pans a zoomed view.
 - **Code** opens the exact artifact configuration in a right-side drawer.
-- The top-right action downloads the artifact or production brief.
+- The top-right actions save, preview, or export the artifact.
 
 In the source drawer, **Apply** validates and writes the edited source into the same state used by the visual controls. Invalid source remains in the drawer with an inline error and does not alter the canvas. **Reset** reloads the current visual snapshot; it does not restore a stale copy from when the drawer first opened.
 
 Use **Visual settings** to switch light, dark, or automatic system appearance and choose Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans for the interface. Studio appearance never changes the selected brand surface or exported colors.
 
+For a flexible first composition, open **Design Lab**:
+
+1. Choose wide, square, or OpenGraph output.
+2. Add text, a brand mark, an image, a shader, or a converter.
+3. Select each layer to edit geometry, appearance, opacity, and material.
+4. Scrub the material timeline to choose an exact shader frame.
+5. Save the design before producing variants.
+
+<DocsMedia
+  alt='Glyphfield Design Lab with a brand mark over a live material'
+  caption='Design Lab combines reusable layers with the shared Shader Library'
+  meta='Still + motion output'
+  src='/screenshots/studio-gt-design-lab-dark-2026.png'
+/>
+
 ## 5. Export
 
 Download actions are specific to each tool. Common outputs include:
 
-- PNG for rasterized templates, boards, backgrounds, and graphics
-- GIF for motion and animated shaders
-- JSON for identities and element production briefs
-- SVG from the agent API
+- PNG for lossless rasterized templates, boards, backgrounds, Lottie frames, and compositions
+- JPG for smaller opaque Design Lab stills
+- GIF for frame animation, live materials, and seamless loops
+- MP4 for browser-encoded video and Animation audio
+- PDF for the generated Brand Book
+- JSON for identities, Lottie, canvas documents, and production briefs
+- SVG for deterministic API templates and backgrounds
+
+The export review is the last checkpoint. Confirm dimensions, clipping, background, text contrast, motion, and file type before downloading. A successful click is not the artifact; verify that the downloaded file is non-empty and opens in its target application.
 
 Continue with [Download and use artifacts](/docs/artifacts/download-and-use).
 

@@ -6,13 +6,17 @@ icon: ShieldCheck
 
 ## Browser projects
 
-The Studio stores projects, active tabs, drafts, appearance, and canvas zoom in browser `localStorage`. Data is scoped to the current origin and browser profile.
+The Studio stores projects, active tabs, most tool drafts, appearance, and canvas view state in browser `localStorage`. Design Lab named designs, complete autosaves, and converted assets use IndexedDB. A small localStorage recovery journal protects the newest portable Design Lab source during unload and is cleared after IndexedDB catches up. Data is scoped to the current origin and browser profile.
 
 Closing a project tab does not delete the project. Deleting a custom project removes it from the Studio’s stored project list.
 
 ## Local files
 
-Uploaded images, logos, fonts, and shader source are loaded by the browser. Most are represented by temporary object URLs for the current page session. A downloaded artifact may embed the selected image when portability requires it.
+Uploaded images, logos, fonts, Lottie files, and shader inputs are loaded by the browser. Some are represented by temporary object URLs for the current page session; converted assets and portable canvas records may store embedded data locally. A downloaded artifact captures or embeds the selected visual input where its format allows it.
+
+Clearing site data can remove projects, drafts, saved designs, and converted assets. Export identity/source documents and original authorized files before clearing the origin when the work must survive.
+
+Named saves and autosaves are recovery conveniences inside the current browser, not off-device backups. Follow [Backup and restore](/docs/artifacts/backup-and-restore) for a durable source-plus-assets bundle.
 
 ## Agent requests
 

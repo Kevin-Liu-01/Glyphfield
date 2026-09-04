@@ -28,6 +28,7 @@ export default function MarketingAnimationStudioLive() {
         opacity: 0.88,
         style: 'shader',
       }}
+      previewFrameRate={30}
       presentationMode
     />
   );

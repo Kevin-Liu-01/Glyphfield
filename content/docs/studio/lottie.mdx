@@ -1,0 +1,44 @@
+---
+title: Lottie
+description: Import, inspect, recolor, trim, seek, and export Lottie JSON or .lottie animation with brand-aware backgrounds.
+icon: Files
+---
+
+Lottie is the vector-motion workspace. It accepts Lottie JSON and `.lottie` bundles, plays them locally, and combines the vector frame with a transparent, solid, gradient, or live-material background.
+
+## Import behavior
+
+| Input | Editable as source | Preserved for download |
+| --- | --- | --- |
+| Lottie JSON | Yes | Yes |
+| `.lottie` bundle | No; the binary archive is not rewritten as JSON | Yes |
+
+Raw JSON must include numeric `fr` and an array-valued `layers` field. Unsupported renderer features follow the limits of `@lottiefiles/dotlottie-web`.
+
+## Playback and frame selection
+
+Play, pause, restart, seek, trim the in/out range, and select an exact frame. Frame seeking is deterministic and can be used to create a high-resolution poster image from the animation.
+
+The background uses the same shared material controls as Animation. Material time follows the Lottie playhead during preview and capture, so selecting a vector frame also selects its composited shader frame.
+
+## Recoloring
+
+Use the discovered color list to replace vector colors without manually editing every layer. Recoloring applies to the live document; open Code when a path-level change requires direct Lottie JSON.
+
+## Output
+
+- Download the edited Lottie JSON when the input is source JSON.
+- Download the original `.lottie` bundle when the input is binary.
+- Export the selected composited frame as a high-resolution PNG.
+- Use transparent background for downstream composition, or render over a brand color or live shader.
+
+## Agent workflow
+
+Lottie depends on browser playback and local files, so agents use `window.glyphfield.studio`. File inputs accept a `File` or `File[]` created from an authorized local source.
+
+```js
+const file = new File([lottieJson], 'animation.json', { type: 'application/json' });
+window.glyphfield.studio.set('Import Lottie', file);
+```
+
+After import, wait for the document to load, call `readSource()` for the exact JSON when available, and use the visible frame/export controls. Never treat a binary `.lottie` archive as editable UTF-8 text.

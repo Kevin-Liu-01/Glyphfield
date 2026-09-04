@@ -1,0 +1,48 @@
+---
+title: API
+description: Use $glyphfield-api for live catalog discovery, deterministic HTTP generation, batches, and apply-ready Design Lab sequences.
+icon: Braces
+---
+
+`$glyphfield-api` owns deterministic, browser-independent discovery and generation. Use it for template SVG, background SVG, element briefs, batch work, and apply-ready Design Lab sequences.
+
+## Invoke it
+
+```text
+Use $glyphfield-api to discover the current slide contract and generate a set
+of source-controlled agenda slides for the General Translation identity.
+```
+
+## Discover before generating
+
+1. Read `/api/agent` for current interfaces, policies, resources, and generation kinds.
+2. Read `/api/labs` instead of hard-coding the Studio tool list.
+3. Read the relevant `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog` resource.
+4. Read `GET /api/generate` immediately before constructing a POST body.
+5. Use `/openapi.json`, `/llms.txt`, or `/llms-full.txt` when the job needs the complete contract.
+
+```bash
+curl -fsS http://localhost:3012/api/agent
+curl -fsS http://localhost:3012/api/generate
+```
+
+## Generation kinds
+
+| Kind | Result |
+| --- | --- |
+| `template` | Deterministic slide, blog-cover, or partnership SVG |
+| `background` | Deterministic gradient, pattern, dither, or tactile surface SVG |
+| `element-brief` | One catalog element resolved against an identity |
+| `design-sequence` | An apply-ready layered composition with shader timeline and Browser API commands |
+
+Use `output: "raw"` for direct SVG where the live contract permits it. Other responses use the structured artifact envelope. A `design-sequence` requires the browser for authentic Canvas/WebGL raster or motion output.
+
+## Contract boundaries
+
+- Send `Content-Type: application/json` and only fields returned by current discovery.
+- Do not invent identity, material, element, surface, or tool IDs.
+- Do not send remote asset URLs. Use supported data URLs or an authorized browser `File`.
+- Treat structured `400`, `413`, `415`, and `429` responses as actionable errors; never retry unchanged invalid input.
+- Remember that HTTP generation does not mutate the open Studio project.
+
+For a rendered Design Lab result, continue with [`$glyphfield-studio`](/docs/skills/studio). For file validation, use [`$glyphfield-export`](/docs/skills/export).

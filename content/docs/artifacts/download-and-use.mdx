@@ -1,94 +1,112 @@
 ---
 title: Download and use artifacts
-description: Save outputs from the Studio or API, extract SVG from JSON, and integrate generated files into web and product workflows.
+description: Export from Studio or the API, verify the result, and integrate SVG, still, motion, PDF, JSON, and Lottie outputs.
 icon: PackageOpen
 ---
 
-## Download from the Studio
+## Export from Studio
 
-Each generator exposes its action in the top-right header. Configure the canvas first, then select **Download PNG**, **Download logo**, **Export GIF**, **Identity JSON**, or **Element brief**.
+Configure the artifact, inspect the preview, then use the tool's export action. Design Lab offers PNG, JPG, GIF, and MP4; Animation offers GIF and MP4; Brand Book exposes PDF through print/export; other tools expose the formats listed in the [capability matrix](/docs/reference/capability-matrix).
 
-The browser writes the file through its normal download mechanism. Local uploads are embedded where the tool supports portable export.
+For a programmatic Design Lab export:
 
-Before downloading, select **Code** when you need to inspect or precisely edit the artifact’s working source. Applying source updates the same state used by preview and export. Download the rendered artifact through the normal output action; the drawer itself is not an export format.
+```js
+const studio = window.glyphfield.studio;
+if (studio.activeTool() !== 'material') throw new Error('Open Design Lab first.');
 
-Raw Lottie JSON is the exception: it is both editable source and a portable animation document. Binary `.lottie` bundles remain downloadable but are not expanded into editable JSON automatically.
+const artifact = await studio.invoke('design.export', {
+  format: 'gif',
+  mode: 'standard',
+  download: false,
+});
+
+if (!(artifact.blob instanceof Blob) || artifact.blob.size === 0) {
+  throw new Error('Empty GIF export.');
+}
+
+studio.download(artifact);
+```
+
+Do not run browser exports concurrently. Wait for one renderer/encoder job and verify it before starting the next.
 
 ## Download raw SVG from the API
-
-Set `output` to `raw` and save the response directly:
 
 ```bash
 BASE_URL=http://localhost:3012
 
-curl -sS -X POST "$BASE_URL/api/generate" \
+curl -fsS -X POST "$BASE_URL/api/generate" \
   -H 'Content-Type: application/json' \
   -d '{
     "kind": "template",
     "template": "slides",
-    "slideLayout": "title",
+    "slideLayout": "statement",
     "texture": "white",
     "title": "One identity. Every surface.",
     "identity": { "preset": "gt" },
     "output": "raw"
   }' \
-  -o gt-title-slide.svg
+  -o gt-statement-slide.svg
+
+test -s gt-statement-slide.svg
 ```
 
-The response uses `image/svg+xml` and includes a deterministic `Content-Disposition` filename.
+Raw output returns `image/svg+xml` and a deterministic `Content-Disposition` filename.
 
-## Extract SVG from a JSON response
-
-Use JSON output when a caller needs dimensions, MIME type, and filename alongside the asset:
+## Extract SVG from a JSON envelope
 
 ```bash
-curl -sS -X POST "$BASE_URL/api/generate" \
+curl -fsS -X POST "$BASE_URL/api/generate" \
   -H 'Content-Type: application/json' \
   -d @request.json \
   -o response.json
 
 jq -r '.artifact.content' response.json > artifact.svg
 jq '.artifact | { filename, mimeType, width, height }' response.json
+test -s artifact.svg
 ```
 
-## Use SVG on the web
+## Integrate SVG
 
-Reference the saved file as a normal image:
+The command above writes the file into the current working directory. Copy it into your application's public asset directory before referencing it from HTML or CSS; the example asset is generated output and is not bundled with Glyphfield.
+
+```bash
+mkdir -p public/brand
+cp gt-statement-slide.svg public/brand/gt-statement-slide.svg
+```
 
 ```html
-<img src="/brand/gt-title-slide.svg" alt="General Translation title slide" />
+<img src="/brand/gt-statement-slide.svg" alt="General Translation statement slide" />
 ```
-
-Or use a background artifact from CSS:
 
 ```css
 .launch-hero {
-  background-image: url('/brand/launch-background.svg');
-  background-position: center;
-  background-size: cover;
+  background: center / cover no-repeat url('/brand/launch-background.svg');
 }
 ```
 
-Inline SVG only when you need to style or manipulate internal paths and the asset came from a trusted source.
+Inline only trusted SVG when internal styling or scripting is required.
 
-## Convert SVG to another format
+## Integrate stills and motion
 
-Glyphfield’s API intentionally returns portable SVG. A downstream image pipeline can rasterize it to PNG, WebP, AVIF, PDF, or video at the final required dimensions.
+- Use PNG for transparency and crisp flat graphics.
+- Use JPG for smaller opaque images.
+- Use GIF when the destination requires it; check dimensions, palette artifacts, file size, and seam.
+- Use MP4 for longer or higher-fidelity motion; include captions/transcripts where relevant and verify audio.
+- Keep autoplay respectful of `prefers-reduced-motion` and platform policy.
 
-Keep the original SVG as the canonical generated artifact. Rasterize per destination to avoid repeated quality loss.
+## Use JSON and briefs
 
-## Use JSON briefs
+Element briefs are production specifications, not images. Store them next to the implementation when traceability matters. CanvasDocument or tool source should be treated as editable state and opened/applied through a compatible Studio version rather than rendered by guessing at fields.
 
-Element briefs are not images. Treat them as structured production specifications that can feed:
+## Handoff bundle
 
-- A design or frontend implementation task
-- A component generator
-- A ticket or handoff document
-- A second agent that produces an asset in another tool
-- Validation against the identity’s colors, voice, dimensions, and format
+A robust handoff contains:
 
-Store the brief next to the implementation when traceability matters.
+1. Rendered artifact(s).
+2. Exact editable source or named Design Lab save.
+3. Identity ID/revision.
+4. Non-embedded authorized assets/fonts.
+5. Output settings and loop/audio expectations.
+6. License/attribution notes where required.
 
-## Use GIF output
-
-GIFs from Animation and Material are browser-generated. Use them in email and documentation only after checking file size and client support. Preserve the original project settings so a lighter or differently timed export can be regenerated later.
+This is enough for a person or agent to regenerate the work without shifting layers or losing material timing.

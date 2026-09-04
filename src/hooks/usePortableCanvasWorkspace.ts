@@ -18,17 +18,19 @@ export type PortableCanvasWorkspace = PortableCanvasDocumentSource & {
 export function usePortableCanvasWorkspace({
   applySource,
   document,
+  suspendAutosave = false,
   workspaceKey,
 }: {
   applySource: (source: string) => Promise<void> | void;
   document: CanvasDocument;
+  suspendAutosave?: boolean;
   workspaceKey: string;
 }): PortableCanvasWorkspace {
   const portable = usePortableCanvasDocumentSource(document);
   const autosaveState = useCanvasDocumentAutosave({
     applySource,
     revision: String(document.revision),
-    source: portable.source,
+    source: suspendAutosave ? null : portable.source,
     workspaceKey,
   });
   return { ...portable, autosaveState };

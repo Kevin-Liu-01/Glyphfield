@@ -8,6 +8,10 @@ import type {
   CanvasLayerGeometry,
   CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
+import {
+  STUDIO_ARTIFACT_FRAME_CLASS,
+  STUDIO_ARTIFACT_PLANE_CLASS,
+} from '@/lib/studioCanvasPresentation';
 import type { TemplateKind } from '@/lib/templateAssets';
 import type { TemplateLayerId } from '@/lib/templateSvg';
 
@@ -52,8 +56,8 @@ export default function TemplateCanvasPreview({
   return (
     <CanvasArtboard
       aria-label={ariaLabel}
-      className={`artifact-preview template-artboard template-artboard-${kind} overflow-hidden border border-border`}
-      frameClassName='template-artboard-frame w-full max-w-5xl'
+      className={`${STUDIO_ARTIFACT_PLANE_CLASS} template-artboard-${kind}`}
+      frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}
       height={height}
       onPointerDown={onDeselect}
       role='group'

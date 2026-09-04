@@ -1,20 +1,22 @@
 ---
 title: Browser-agent workflow
-description: Operate the Studio when generation depends on WebGL, Canvas, local files, visual placement, or GIF capture.
+description: Operate the Studio when generation depends on WebGL, Canvas, local files, visual placement, Lottie, GIF, or MP4 capture.
 icon: MonitorCog
 ---
 
 Some capabilities intentionally render in the browser because their output depends on browser graphics APIs or interactive composition. They remain programmatically available through the Studio Browser API.
 
+<DocsMedia alt='Glyphfield Design Lab showing the authentic shader canvas, layers, and output inspector an agent operates' caption='The Browser API operates this exact workspace' meta='No separate agent-only renderer' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+
 ## Use the browser for
 
 - Moodboard PNG up to 4800 × 6000
-- Animation GIF packages
-- Live Material shaders and GIFs
+- Animation GIF and MP4 packages, including MP4 audio
+- Live Design Lab shaders, stills, GIFs, MP4, and shader sequences
 - PNG output from OpenGraph, terminal, logos, and templates
 - Local font, image, logo, and shader inputs
 - Visual placement, opacity, scale, and zoom inspection
-- Shared Brand settings that update all browser-local designs
+- Shared Brand identity settings that update all browser-local designs
 - Exact source editing for the active artifact through the right-side Code drawer
 
 ## Discovery before operation
@@ -27,8 +29,8 @@ Some capabilities intentionally render in the browser because their output depen
 6. Read `window.glyphfield.studio.describe()` and `controls()`.
 7. Configure by accessible label with `activate`/`set`, or use `readSource`/`applySource` for exact source editing.
 8. Resolve any inline validation error before continuing; an error means the visual document was not changed.
-9. Verify the canvas at 100% and use Reset/Fit when needed.
-10. Activate the visible download action.
+9. Verify the canvas at a useful inspection zoom and use Reset/Fit when needed.
+10. Invoke the tool's export action and verify the returned artifact.
 
 ## Stable programmatic interface
 
@@ -43,6 +45,10 @@ await nextToolReady;
 
 // Re-read the adapter after switching tools.
 const studio = window.glyphfield.studio;
+
+if (studio.activeTool() !== 'material') {
+  throw new Error(`Expected Design Lab, received ${studio.activeTool()}`);
+}
 
 const current = JSON.parse(studio.readSource());
 current.composition.backgroundColor = '#111216';
@@ -65,12 +71,14 @@ Generic actions are `source.read`, `source.apply`, `controls.list`, `control.act
 - Use the canvas at 100% for final inspection.
 - Confirm surface and logo reversal in both light and dark compositions.
 - Treat browser download completion as the terminal success condition.
+- For Blob-only export, require a non-empty Blob with the expected MIME type and filename.
+- Inspect multiple motion frames and verify the seam when a perfect loop is required.
 - Do not delete projects unless the user explicitly requests deletion.
 - Do not assume the drawer document is a `/api/generate` payload. Use the tool's [source format](/docs/reference/source-formats).
 
 ## Persistence boundary
 
-Browser projects persist in `localStorage`. The Browser API reads and mutates that same active project state. Stateless HTTP requests do not silently mutate projects; generated apply-ready documents must be passed explicitly to `applySource`.
+Project identity, navigation, tabs, and most tool drafts persist in `localStorage`. Design Lab named designs, complete autosaves, and converted assets use IndexedDB with a small synchronous recovery journal where needed. The Browser API reads and mutates the same active project state. Stateless HTTP requests do not silently mutate projects; generated apply-ready documents must be passed explicitly to `applySource`.
 
 ## Choosing API versus browser
 

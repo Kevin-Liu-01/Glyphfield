@@ -1,0 +1,133 @@
+---
+title: Troubleshooting and recovery
+description: Diagnose Studio loading, storage, source, WebGL, asset, GIF, MP4, and export failures without losing the active design.
+icon: TriangleAlert
+---
+
+Preserve the editable source before changing the environment. Most failures are easier to reproduce than to reconstruct after browser storage or local inputs have been cleared.
+
+<DocsMediaGrid>
+  <DocsMedia alt='Glyphfield Design Lab with live shader, canvas, layers, and output inspector visible' caption='Inspect the whole rendering chain' meta='Source → preview → export' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+  <DocsMedia alt='Glyphfield Animation timeline and motion preview' caption='Motion has additional checkpoints' meta='Frames → encoder → downloaded file' src='/screenshots/studio-gt-animation-dark-2026.png' />
+</DocsMediaGrid>
+
+## First response
+
+1. Stop playback or any active export.
+2. Copy the current source from **Code** or `readSource()`.
+3. Record the active identity, public tool ID, output settings, and exact error.
+4. Keep the original local files available.
+5. Retry only after changing the actual failure condition.
+
+Do not clear site data, delete a project, or rebuild the document from an example as a first troubleshooting step.
+
+## Symptom guide
+
+| Symptom | Likely boundary | Safe next action |
+| --- | --- | --- |
+| Shader card or canvas is blank/static | WebGL/WebGL2 unavailable, lost context, offscreen preview budget, or reduced motion | Bring the preview onscreen, stop duplicate live canvases, reload once, and test another material; do not claim motion from a static fallback |
+| Canvas looks clipped or too small | View zoom/pan differs from output geometry | Use Fit/Reset and verify declared output dimensions; changing zoom must not change export size |
+| Logo, text, or layers shift after restore | Stale/reconstructed source, changed IDs, missing assets/fonts, or wrong tool | Reapply the exact current document, preserve IDs/order, restore dependencies, and re-read after apply |
+| Save state remains “preparing” or reports error | IndexedDB blocked, storage quota/transaction failure, or page closing during write | Copy Code source immediately, remain on the same origin, and retry in a persistent browser profile |
+| Local image/font disappears after reload | Session object URL or original bytes were not embedded | Reattach the authorized original file and export a new portable source/proof |
+| PNG/JPG is empty | Canvas context or encoder returned no bytes | Reduce dimensions for diagnosis, reload the renderer, and require a non-empty Blob before completion |
+| GIF has a flashing text/color frame | Source color changes between frames or palette quantization cannot hold the intended colors | Compare still captures at the same times, confirm source colors are stable, use a solid background where appropriate, then retry at a lower diagnostic size |
+| GIF repeats with a visible jump | Repeat flag is set but visual endpoints differ | Choose Seamless, inspect the seam report and actual wrap, or use Raw only for periodic/intentionally cut motion |
+| MP4 fails before rendering | Browser exposes no compatible MP4 video codec | Preserve source and use another supported environment; do not silently substitute GIF |
+| MP4 plays but required audio is absent | Audio decode/mix/codec failed or the tool has no audio source | Verify the Animation audio track and inspect the final file; GIF never contains audio |
+| Export stalls or browser memory spikes | Too many concurrent jobs or excessive pixels × frames | Stop other previews, run one export, test smaller width/FPS/duration, then return to the required settings |
+| `applySource()` throws | JSON/schema/field validation, wrong active tool, or stale adapter | Re-read `describe()` and `readSource()`, change only the intended field, and wait for the tool-ready event after navigation |
+| Docs/sidebar behaves incorrectly at a narrow width | Stale CSS/client state or an unsupported embedded webview | Hard reload, test the same route in a current full browser, and include viewport dimensions in the report |
+
+## Recover a Design Lab draft
+
+Design Lab autosaves the complete portable document to IndexedDB and uses a small localStorage recovery journal while a newer write settles.
+
+1. Return to the exact origin and browser profile where the design was edited.
+2. Reload once without clearing data.
+3. Select the original identity and Design Lab.
+4. Wait for autosave restoration to finish.
+5. Open **Code** and copy the restored document.
+6. Create a named save and export a proof after visual inspection.
+
+If the design does not return, check whether the hostname, scheme, port, browser profile, or private-browsing state changed. Browser storage does not follow those changes automatically.
+
+## Diagnose source application
+
+```js
+const studio = window.glyphfield.studio;
+
+console.log({
+  tool: studio.activeTool(),
+  description: studio.describe(),
+  controls: studio.controls(),
+});
+
+const before = studio.readSource();
+
+try {
+  const document = JSON.parse(before);
+  // Make one targeted change while preserving the envelope and stable IDs.
+  await studio.applySource(document);
+  const after = studio.readSource();
+  if (!after) throw new Error('The applied source could not be read back.');
+} catch (error) {
+  console.error(error);
+  // Retain `before`; do not write directly to browser storage.
+}
+```
+
+After changing tools, wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`. A stale adapter can expose actions from the previous tool.
+
+## Diagnose still export
+
+For PNG/JPG:
+
+1. Export at a modest width such as 960 pixels.
+2. Confirm the returned Blob is non-empty.
+3. Confirm MIME type and extension agree.
+4. Decode the file and verify its pixel dimensions.
+5. Check transparency for PNG and the selected opaque background for JPG.
+6. Compare the result to the preview at Fit or 100% inspection zoom.
+
+If the small proof succeeds and the target size fails, the issue is likely resource pressure rather than invalid source.
+
+## Diagnose GIF
+
+- Inspect more than the first frame; a valid GIF can still contain no visible motion.
+- Compare text/logo colors at multiple frames to distinguish source flicker from palette quantization.
+- Keep important foreground colors explicit. Glyphfield protects known brand/text colors, but a highly complex moving palette can still require a smaller proof or simpler composition.
+- Use Seamless only when closure is required and inspect the final-to-first transition.
+- Remember that GIF has no audio channel.
+
+## Diagnose MP4
+
+MP4 encoding asks the browser for an encodable video codec and fails before starting if none is available. Animation adds an audio track only when a decoded audio buffer and supported audio codec are available.
+
+Try one change at a time:
+
+1. One export job only.
+2. Lower diagnostic width.
+3. Lower diagnostic FPS or duration.
+4. No audio, to isolate video encoding.
+5. A current full desktop browser with hardware acceleration.
+
+Restore the requested dimensions/audio after identifying the failure. A lower-resolution proof is not the final deliverable unless the user accepts it.
+
+## Useful diagnostics
+
+Capture this information without including confidential assets:
+
+- Glyphfield URL and deployed commit/version if known.
+- Browser and operating system.
+- Viewport size and device-pixel ratio.
+- Active identity and public tool ID.
+- Source schema versions, not necessarily the full source.
+- Material ID, output format, dimensions, duration, FPS, quality, and loop mode.
+- Whether Canvas 2D, WebGL/WebGL2, IndexedDB, localStorage, and downloads work.
+- Exact error message and whether a non-empty Blob was returned.
+- A screenshot or short recording showing the failure.
+
+For API errors, include HTTP status, structured `error.code`, `error.field`, and request kind; redact embedded assets.
+
+See [Browser support](/docs/reference/browser-support), [Backup and restore](/docs/artifacts/backup-and-restore), [Errors and limits](/docs/agents/errors), and [Version compatibility](/docs/reference/version-compatibility).

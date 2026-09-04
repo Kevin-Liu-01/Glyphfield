@@ -201,6 +201,25 @@ describe('expression workspace source', () => {
     expect(parsed.fontSource).toBe('data:font/woff2;base64,Zm9udA==');
   });
 
+  it('migrates the old Ramp text default while preserving new explicit text lockups', () => {
+    const legacy = parseTemplateWorkspaceSource(
+      JSON.stringify({ partner: { id: 'ramp', treatment: 'text' } }),
+      'partnership',
+      templateFallback
+    );
+    const current = parseTemplateWorkspaceSource(
+      JSON.stringify({
+        partner: { id: 'ramp', treatment: 'text' },
+        partnerRenderingVersion: 2,
+      }),
+      'partnership',
+      templateFallback
+    );
+
+    expect(legacy.partner.treatment).toBe('logo');
+    expect(current.partner.treatment).toBe('text');
+  });
+
   it('rejects invalid variants and duplicate template layers', () => {
     expect(() => parseOpenGraphWorkspaceSource(
       '{"surface":"sepia"}',

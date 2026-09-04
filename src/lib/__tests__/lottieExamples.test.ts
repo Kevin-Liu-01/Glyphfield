@@ -174,56 +174,44 @@ describe('Lottie product presets', () => {
     }
   });
 
-  it('uses one wide quiet shell with sharp cards and a centered header', () => {
+  it('uses one coordinated editorial stage without generic dashboard chrome', () => {
     for (const example of LOTTIE_EXAMPLES) {
       const layers = example.data.layers as Record<string, unknown>[];
       const records = collectRecords(example.data);
-      const strokes = records.filter(
-        (record) => record.ty === 'st',
-      );
-      const workspaceBase = records.find(
-        ({ nm, ty }) => nm === 'Workspace base' && ty === 'rc',
-      );
-      const workspaceSize = workspaceBase?.s as Record<string, unknown> | undefined;
-      const cardRectangles = records.filter(
-        ({ nm, ty }) => ty === 'rc' && typeof nm === 'string' && nm.endsWith(' base'),
-      );
-      const description = layers.find(
-        ({ nm }) => typeof nm === 'string' && nm.endsWith('Scene description'),
-      );
-      const descriptionTransform = description?.ks as Record<string, unknown> | undefined;
-      const descriptionPosition = descriptionTransform?.p as Record<string, unknown> | undefined;
-      const text = description?.t as Record<string, unknown> | undefined;
-      const documentData = text?.d as Record<string, unknown> | undefined;
-      const keyframes = Array.isArray(documentData?.k) ? documentData.k : [];
-      const firstKeyframe = keyframes[0] as Record<string, unknown> | undefined;
-      const style = firstKeyframe?.s as Record<string, unknown> | undefined;
+      const strokes = records.filter((record) => record.ty === 'st');
+      const stageBase = records.find(({ nm, ty }) => nm === 'Stage wash base' && ty === 'rc');
+      const stageSize = stageBase?.s as Record<string, unknown> | undefined;
+      const rectangles = records.filter(({ ty }) => ty === 'rc');
+      const kicker = layers.find(({ nm }) => nm === 'Palette 3 Text | Scene kicker');
+      const title = layers.find(({ nm }) => nm === 'Palette 1 Text | Scene title');
+      const meta = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene meta');
+      const titleTransform = title?.ks as Record<string, unknown> | undefined;
+      const titlePosition = titleTransform?.p as Record<string, unknown> | undefined;
+      const titleText = title?.t as Record<string, unknown> | undefined;
+      const titleDocument = titleText?.d as Record<string, unknown> | undefined;
+      const titleKeyframes = Array.isArray(titleDocument?.k) ? titleDocument.k : [];
+      const titleStyle = (titleKeyframes[0] as Record<string, unknown> | undefined)?.s as Record<string, unknown> | undefined;
 
-      expect(
-        records.some(({ nm }) => nm === 'Workspace focus'),
-      ).toBe(false);
-      expect(
-        records.some(({ nm }) => typeof nm === 'string' && nm.endsWith(' highlight')),
-      ).toBe(false);
-      expect(
-        records.some(({ nm }) => ['Workspace accent', 'Workspace title rail', 'Workspace status', 'Workspace end rail'].includes(String(nm))),
-      ).toBe(false);
-      expect(strokes.length).toBeGreaterThan(0);
+      expect(layers.length).toBeLessThanOrEqual(22);
+      expect(records.some(({ nm }) => (
+        typeof nm === 'string' && /(card|panel|tile|workspace|halo)/i.test(nm)
+      ))).toBe(false);
       expect(
         strokes.every((stroke) => {
           const opacity = stroke.o as Record<string, unknown> | undefined;
           return typeof opacity?.k === 'number' && opacity.k <= 35;
         }),
       ).toBe(true);
-      expect(numericValues(workspaceSize?.k)).toEqual([900, 640]);
-      expect(cardRectangles.length).toBeGreaterThan(0);
-      expect(cardRectangles.every((rectangle) => {
+      expect(numericValues(stageSize?.k)).toEqual([896, 656]);
+      expect(rectangles.every((rectangle) => {
         const radius = rectangle.r as Record<string, unknown> | undefined;
-        return typeof radius?.k === 'number' && radius.k <= 8;
+        return typeof radius?.k === 'number' && radius.k <= 12;
       })).toBe(true);
-      expect(description).toBeDefined();
-      expect(descriptionPosition?.k).toEqual([480, 92, 0]);
-      expect(style?.j).toBe(2);
+      expect(kicker).toBeDefined();
+      expect(meta).toBeDefined();
+      expect(titlePosition?.k).toEqual([208, 120, 0]);
+      expect(titleStyle?.s).toBe(32);
+      expect(titleStyle?.j).toBe(0);
     }
   });
 
