@@ -60,6 +60,7 @@ import {
   warpPresets,
   waterPresets,
   wavesPresets,
+  type PaperShaderElement,
   type ShaderComponentProps,
 } from '@paper-design/shaders-react';
 import {
@@ -899,6 +900,7 @@ function GlyphFieldCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  frameRate,
   patternScale,
   paused,
   renderScale,
@@ -907,6 +909,7 @@ function GlyphFieldCanvas({
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
+  frameRate: number;
   patternScale: number;
   paused: boolean;
   renderScale: number;
@@ -914,6 +917,7 @@ function GlyphFieldCanvas({
 }) {
   const activeRef = useCommittedRef(active);
   const captureTimeRef = useCommittedRef(captureTimeMs);
+  const frameRateRef = useCommittedRef(frameRate);
   const patternScaleRef = useCommittedRef(patternScale);
   const pausedRef = useCommittedRef(paused);
   const settingsRef = useCommittedRef(settings);
@@ -932,6 +936,13 @@ function GlyphFieldCanvas({
     let previous = performance.now();
 
     function scheduleNextFrame() {
+      if (activeRef.current && !pausedRef.current && captureTimeRef.current === null) {
+        const interval = 1000 / Math.max(1, frameRateRef.current);
+        timeout = window.setTimeout(() => {
+          frame = requestAnimationFrame(draw);
+        }, Math.max(0, interval - 8));
+        return;
+      }
       timeout = scheduleLiveMaterialFrame(activeRef.current, captureTimeRef.current, pausedRef.current, draw, (nextFrame) => { frame = nextFrame; });
     }
 
@@ -1861,6 +1872,59 @@ type PaperShaderRenderer = {
   presets: readonly PaperShaderPreset[];
 };
 
+function resolvePaperShaderTiming(speed: number, frameRate: number) {
+  const cappedFrameRate = Math.min(60, Math.max(1, frameRate));
+  const manuallyTimed = speed !== 0 && cappedFrameRate < 55;
+  return {
+    cappedFrameRate,
+    manuallyTimed,
+    nativeSpeed: manuallyTimed ? 0 : speed,
+  };
+}
+
+function useCappedPaperShaderClock(
+  surfaceRef: RefObject<PaperShaderElement | null>,
+  frameRate: number,
+  speed: number,
+  enabled: boolean
+) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let animationFrame = 0;
+    let disposed = false;
+    let startFrame = 0;
+    let startTime = 0;
+    let timeout = 0;
+    const interval = 1000 / frameRate;
+
+    const draw = (time: number) => {
+      if (disposed) return;
+      const mount = surfaceRef.current?.paperShaderMount;
+      if (!mount) {
+        timeout = window.setTimeout(schedule, 16);
+        return;
+      }
+      if (startTime === 0) {
+        startTime = time;
+        startFrame = mount.getCurrentFrame();
+      }
+      mount.setFrame(startFrame + (time - startTime) * speed);
+      timeout = window.setTimeout(schedule, Math.max(0, interval - 8));
+    };
+    const schedule = () => {
+      if (!disposed) animationFrame = requestAnimationFrame(draw);
+    };
+
+    schedule();
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(animationFrame);
+      window.clearTimeout(timeout);
+    };
+  }, [enabled, frameRate, speed, surfaceRef]);
+}
+
 function paperShaderRenderer(component: unknown, presets: readonly unknown[]): PaperShaderRenderer {
   return {
     component: component as PaperShaderRenderer['component'],
@@ -1968,6 +2032,7 @@ function paperShaderSettingOverrides(
 
 function PaperShaderSurface({
   captureTimeMs,
+  frameRate,
   materialId,
   maxPixelCount,
   paperShaderOverrides,
@@ -1980,6 +2045,7 @@ function PaperShaderSurface({
   sourceImage,
 }: {
   captureTimeMs: number | null;
+  frameRate: number;
   materialId: PaperLiveMaterialId;
   maxPixelCount?: number;
   paperShaderOverrides?: Readonly<Record<string, unknown>>;
@@ -1991,6 +2057,7 @@ function PaperShaderSurface({
   settings: LiveMaterialSettings;
   sourceImage?: string;
 }) {
+  const surfaceRef = useRef<PaperShaderElement>(null);
   const definition = getPaperLiveMaterialDefinition(materialId);
   const renderer = PAPER_SHADER_RENDERERS[definition.family];
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
@@ -2005,6 +2072,11 @@ function PaperShaderSurface({
     settings.speed
   );
   const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
+  const { cappedFrameRate, manuallyTimed, nativeSpeed } = resolvePaperShaderTiming(
+    effectiveSpeed,
+    frameRate
+  );
+  useCappedPaperShaderClock(surfaceRef, cappedFrameRate, effectiveSpeed, manuallyTimed);
   const controlledParams = {
     ...preset.params,
     ...paperShaderSettingOverrides(
@@ -2050,6 +2122,7 @@ function PaperShaderSurface({
     maxPixelCount: maxPixelCount
       ?? Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
     minPixelRatio: 0.5,
+    ref: surfaceRef,
     style: {
       display: 'block',
       height: '100%',
@@ -2070,6 +2143,7 @@ function PaperShaderSurface({
     },
     width: '100%',
   };
+
   const surface = createElement(renderer.component, {
     ...surfaceProps,
     ...controlledParams,
@@ -2079,7 +2153,7 @@ function PaperShaderSurface({
     frame: controlledMotionTimeMs === null
       ? presetFrame
       : presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + controlledMotionTimeMs * motionSpeed,
-    speed: effectiveSpeed,
+    speed: nativeSpeed,
   });
 
   return (
@@ -2088,6 +2162,7 @@ function PaperShaderSurface({
       className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
       role='img'
       data-paper-motion={effectiveSpeed === 0 ? 'paused' : 'running'}
+      data-paper-frame-rate={cappedFrameRate}
       data-paper-scale={resolvedScale}
       data-paper-speed={effectiveSpeed}
       data-paper-zoom={clampShaderZoom(patternScale)}
@@ -2243,6 +2318,7 @@ function LiveMaterialRenderView({
           active={active}
           canvasRef={canvasRef}
           captureTimeMs={captureTimeMs}
+          frameRate={frameRate}
           patternScale={patternScale}
           paused={paused || !active}
           renderScale={renderScale}
@@ -2282,6 +2358,7 @@ function LiveMaterialRenderView({
         >
           <PaperShaderSurface
             captureTimeMs={captureTimeMs}
+            frameRate={frameRate}
             materialId={materialId}
             maxPixelCount={maxPixelCount}
             paperShaderOverrides={paperShaderOverrides}

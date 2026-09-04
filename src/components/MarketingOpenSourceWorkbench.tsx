@@ -237,9 +237,11 @@ export default function MarketingOpenSourceWorkbench({
       <div className='marketing-v7-open-source-panel'>
         <MarketingArcField
           className='marketing-v8-open-source-panel-material'
+          frameRate={20}
           materialId={materialId}
-          maxPixelCount={320_000}
-          renderScale={0.64}
+          maxPixelCount={180_000}
+          paperShaderOverrides={{ size: 2.6 }}
+          renderScale={0.58}
           settings={shaderSettings}
         />
         <div className='marketing-v7-open-source-panel-content' style={outputColorStyle}>

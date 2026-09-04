@@ -93,6 +93,22 @@ describe('Studio interaction performance contracts', () => {
     expect(marketingDemo).toContain('previewFrameRate={30}');
   });
 
+  it('prewarms landing shaders without animating them outside the viewport', () => {
+    const field = readSource('src/components/MarketingArcField.tsx');
+    const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
+    const landing = readSource('src/app/page.tsx');
+
+    expect(field).toContain("const SHADER_PREWARM_MARGIN = '720px 0px';");
+    expect(field).toContain("const SHADER_ACTIVE_MARGIN = '96px 0px';");
+    expect(field).toContain('deferWhileScrolling: false');
+    expect(field).toContain('enabled={active}');
+    expect(field).toContain('paused={!active}');
+    expect(liveMaterial).toContain('speed: nativeSpeed');
+    expect(liveMaterial).toContain('const interval = 1000 / frameRate;');
+    expect(landing).toContain('frameRate={18}');
+    expect(landing).toContain('maxPixelCount={360_000}');
+  });
+
   it('defers portable animation documents and keeps static previews out of urgent renders', () => {
     const studio = readSource('src/components/AnimationStudio.tsx');
     const preview = readSource('src/components/AnimationTimelinePreview.tsx');

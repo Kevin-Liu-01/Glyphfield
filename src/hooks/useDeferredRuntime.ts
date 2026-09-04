@@ -2,11 +2,23 @@
 
 import { useEffect, useState } from 'react';
 
+type DeferredRuntimeOptions = {
+  deferWhileScrolling?: boolean;
+  useIdleCallback?: boolean;
+};
+
 /**
  * Keeps optional editors and GPU runtimes out of the critical rendering path.
  * The delay guarantees the browser gets an initial paint before idle work begins.
  */
-export function useDeferredRuntime(enabled: boolean, delayMs = 500) {
+export function useDeferredRuntime(
+  enabled: boolean,
+  delayMs = 500,
+  {
+    deferWhileScrolling = true,
+    useIdleCallback = true,
+  }: DeferredRuntimeOptions = {}
+) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -24,23 +36,25 @@ export function useDeferredRuntime(enabled: boolean, delayMs = 500) {
     const schedule = () => {
       clearSchedule();
       delayId = window.setTimeout(() => {
-        if ('requestIdleCallback' in window) {
+        if (useIdleCallback && 'requestIdleCallback' in window) {
           idleId = window.requestIdleCallback(() => setReady(true), { timeout: 1_000 });
         } else {
           setReady(true);
         }
       }, delayMs);
     };
-    const deferWhileScrolling = () => schedule();
+    const rescheduleAfterScroll = () => schedule();
 
     schedule();
-    window.addEventListener('scroll', deferWhileScrolling, { passive: true });
+    if (deferWhileScrolling) {
+      window.addEventListener('scroll', rescheduleAfterScroll, { passive: true });
+    }
 
     return () => {
-      window.removeEventListener('scroll', deferWhileScrolling);
+      if (deferWhileScrolling) window.removeEventListener('scroll', rescheduleAfterScroll);
       clearSchedule();
     };
-  }, [delayMs, enabled, ready]);
+  }, [deferWhileScrolling, delayMs, enabled, ready, useIdleCallback]);
 
   return ready;
 }

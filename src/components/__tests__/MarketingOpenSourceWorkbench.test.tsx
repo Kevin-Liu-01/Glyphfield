@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
 
 vi.mock('@/components/MarketingArcField', () => ({
-  default: ({ maxPixelCount, renderScale, settings }: {
+  default: ({ frameRate, maxPixelCount, paperShaderOverrides, renderScale, settings }: {
+    frameRate: number;
     maxPixelCount: number;
+    paperShaderOverrides: { size: number };
     renderScale: number;
     settings: { colorA: string; colorB: string; colorC: string };
   }) => (
@@ -16,7 +18,9 @@ vi.mock('@/components/MarketingArcField', () => ({
       data-color-a={settings.colorA}
       data-color-b={settings.colorB}
       data-color-c={settings.colorC}
+      data-frame-rate={frameRate}
       data-max-pixel-count={maxPixelCount}
+      data-paper-size={paperShaderOverrides.size}
       data-render-scale={renderScale}
       data-testid='live-shader'
     />
@@ -64,8 +68,10 @@ describe('MarketingOpenSourceWorkbench', () => {
 
     const shader = container.querySelector<HTMLElement>('[data-testid="live-shader"]');
     expect(shader?.dataset.colorB).toBe('#FF9B75');
-    expect(shader?.dataset.maxPixelCount).toBe('320000');
-    expect(shader?.dataset.renderScale).toBe('0.64');
+    expect(shader?.dataset.frameRate).toBe('20');
+    expect(shader?.dataset.maxPixelCount).toBe('180000');
+    expect(shader?.dataset.paperSize).toBe('2.6');
+    expect(shader?.dataset.renderScale).toBe('0.58');
 
     const accentInput = container.querySelector<HTMLInputElement>('[aria-label="Accent shader color"]');
     if (!accentInput) throw new Error('Missing accent color field');

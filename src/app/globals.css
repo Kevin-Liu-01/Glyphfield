@@ -26647,12 +26647,52 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 
 .marketing-v5-field-fallback {
   position: absolute;
+  z-index: 0;
   inset: 0;
   background:
     radial-gradient(circle at 50% 22%, #e0fffb 0, transparent 18%),
     radial-gradient(circle at 15% 78%, #907cff 0, transparent 42%),
     radial-gradient(circle at 92% 40%, #55d8cc 0, transparent 35%),
     #3721a4;
+}
+
+.marketing-v5-paper-field > .marketing-v5-field-fallback {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 68% 82% at 82% 8%, var(--marketing-shader-color-c) 0 17%, transparent 52%),
+    radial-gradient(ellipse 62% 74% at 12% 96%, var(--marketing-shader-color-b) 0 13%, transparent 55%),
+    conic-gradient(from 118deg at 48% 52%, var(--marketing-shader-color-a), var(--marketing-shader-color-b) 31%, var(--marketing-shader-color-a) 54%, var(--marketing-shader-color-c) 72%, var(--marketing-shader-color-a));
+}
+
+.marketing-v5-paper-field > .marketing-v5-field-fallback::after {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--marketing-shader-color-c) 0 1px, transparent 1.3px);
+  background-size: 6px 6px;
+  content: '';
+  opacity: 0.52;
+  mask-image:
+    radial-gradient(ellipse 74% 86% at 78% 5%, #000 0 31%, transparent 67%),
+    radial-gradient(ellipse 76% 74% at 12% 100%, #000 0 24%, transparent 67%);
+}
+
+.marketing-v5-paper-field > .marketing-v5-field-fallback[data-material='paper-dithering-swirl'] {
+  background:
+    radial-gradient(ellipse 52% 60% at 50% 48%, var(--marketing-shader-color-a) 0 28%, transparent 29%),
+    conic-gradient(from 18deg at 50% 48%, var(--marketing-shader-color-b), var(--marketing-shader-color-a) 23%, var(--marketing-shader-color-c) 49%, var(--marketing-shader-color-a) 72%, var(--marketing-shader-color-b));
+}
+
+.marketing-v5-field-runtime {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  contain: strict;
+  animation: marketing-shader-runtime-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes marketing-shader-runtime-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .marketing-v5-field-grain {
@@ -30373,6 +30413,21 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   background: #401b45;
 }
 
+.marketing-v8-open-source-panel-material .marketing-v5-field-runtime {
+  filter: saturate(1.06) contrast(1.04);
+}
+
+.marketing-v8-open-source-panel-material::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 46%, rgb(20 8 34 / 0.2)),
+    linear-gradient(135deg, color-mix(in srgb, var(--marketing-shader-color-a) 36%, transparent), transparent 48%, color-mix(in srgb, var(--marketing-shader-color-a) 28%, transparent));
+  content: '';
+  pointer-events: none;
+}
+
 .marketing-v7-open-source-panel-content {
   position: absolute;
   z-index: 6;
@@ -31812,8 +31867,9 @@ html[data-marketing-theme='dark'] body {
   z-index: 1;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(12 8 22 / 0.2), rgb(12 8 22 / 0.58)),
-    radial-gradient(circle at 72% 24%, transparent 0 18%, rgb(12 8 22 / 0.2) 58%);
+    linear-gradient(90deg, rgb(12 8 22 / 0.28), transparent 58%),
+    linear-gradient(180deg, rgb(12 8 22 / 0.12), rgb(12 8 22 / 0.66)),
+    radial-gradient(circle at 72% 24%, transparent 0 18%, rgb(12 8 22 / 0.18) 58%);
   content: '';
   pointer-events: none;
 }
@@ -31821,6 +31877,10 @@ html[data-marketing-theme='dark'] body {
 .marketing-v12-footer-shader {
   z-index: 0;
   background: #201046;
+}
+
+.marketing-v12-footer-shader .marketing-v5-field-runtime {
+  filter: saturate(1.04) contrast(1.02);
 }
 
 .marketing-v12-footer > .marketing-v5-footer-top,
@@ -35569,6 +35629,10 @@ html[data-marketing-theme='dark'] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .marketing-v5-field-runtime {
+    animation: none;
+  }
+
   .marketing-v14-segmented-row > button,
   .marketing-v7-social-links > a {
     transition: color 120ms ease-out, background-color 120ms ease-out;

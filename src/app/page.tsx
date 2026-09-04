@@ -468,6 +468,7 @@ export default async function HomePage() {
           <SwissGrid dark />
           <MarketingArcField
             className='marketing-v8-open-source-glyph-field'
+            frameRate={14}
             materialId='glyphfield-glyph-field'
             settings={OPEN_SOURCE_FIELD_SETTINGS}
           />
@@ -510,9 +511,11 @@ export default async function HomePage() {
           <FrameTriangles dark />
           <MarketingArcField
             className='marketing-v12-footer-shader'
+            frameRate={18}
             materialId='paper-dithering-swirl'
-            maxPixelCount={720_000}
-            renderScale={0.9}
+            maxPixelCount={360_000}
+            paperShaderOverrides={{ size: 2.8, type: '4x4' }}
+            renderScale={0.72}
             settings={FOOTER_DITHERING_SWIRL_SETTINGS}
           />
           <div className='marketing-v5-footer-top' data-motion-reveal>

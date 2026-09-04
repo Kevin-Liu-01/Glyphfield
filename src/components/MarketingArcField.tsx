@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, type CSSProperties } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
@@ -8,12 +8,14 @@ import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 
-// Start the GPU runtime about half a desktop viewport before it is visible.
-// The idle delay below still keeps offscreen shaders out of the initial render path.
-const SHADER_PREWARM_MARGIN = '520px 0px';
+// Fetch and prepare the renderer well before the field is visible, but only spend
+// recurring GPU time once it is at the edge of the viewport.
+const SHADER_PREWARM_MARGIN = '720px 0px';
+const SHADER_ACTIVE_MARGIN = '96px 0px';
 
 export default function MarketingArcField({
   className = '',
+  frameRate = 20,
   materialId,
   maxPixelCount,
   paperShaderOverrides,
@@ -21,6 +23,7 @@ export default function MarketingArcField({
   settings,
 }: {
   className?: string;
+  frameRate?: number;
   materialId: LiveMaterialId;
   maxPixelCount?: number;
   paperShaderOverrides?: Readonly<Record<string, unknown>>;
@@ -28,32 +31,46 @@ export default function MarketingArcField({
   settings: LiveMaterialSettings;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const visible = useViewportActivity(containerRef, { rootMargin: SHADER_PREWARM_MARGIN });
+  const nearViewport = useViewportActivity(containerRef, { rootMargin: SHADER_PREWARM_MARGIN });
+  const active = useViewportActivity(containerRef, { rootMargin: SHADER_ACTIVE_MARGIN });
   const isPaperShader = materialId.startsWith('paper-');
-  const runtimeReady = useDeferredRuntime(visible, 500);
+  const runtimeReady = useDeferredRuntime(nearViewport, 80, {
+    deferWhileScrolling: false,
+    useIdleCallback: false,
+  });
+  const fallbackStyle = isPaperShader ? {
+    '--marketing-shader-color-a': settings.colorA,
+    '--marketing-shader-color-b': settings.colorB,
+    '--marketing-shader-color-c': settings.colorC,
+  } as CSSProperties : undefined;
 
   return (
     <div
       className={`marketing-v5-arc-field${isPaperShader ? ' marketing-v5-paper-field' : ''} ${className}`}
+      data-shader-active={active ? 'true' : 'false'}
+      data-shader-runtime={runtimeReady ? 'ready' : 'fallback'}
       ref={containerRef}
       aria-hidden='true'
+      style={fallbackStyle}
     >
       <div
         className='marketing-v5-field-fallback'
-        style={isPaperShader ? { background: settings.colorA } : undefined}
+        data-material={isPaperShader ? materialId : undefined}
       />
       {runtimeReady ? (
-        <LazyLiveMaterialCanvas
-          activeWhileMounted
-          enabled={visible}
-          frameRate={24}
-          materialId={materialId}
-          maxPixelCount={maxPixelCount}
-          paperShaderOverrides={paperShaderOverrides}
-          paused={!visible}
-          renderScale={renderScale}
-          settings={settings}
-        />
+        <div className='marketing-v5-field-runtime'>
+          <LazyLiveMaterialCanvas
+            activeWhileMounted
+            enabled={active}
+            frameRate={frameRate}
+            materialId={materialId}
+            maxPixelCount={maxPixelCount}
+            paperShaderOverrides={paperShaderOverrides}
+            paused={!active}
+            renderScale={renderScale}
+            settings={settings}
+          />
+        </div>
       ) : null}
       {isPaperShader ? null : <div className='marketing-v5-field-grain' />}
     </div>
