@@ -13654,6 +13654,17 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   overflow: hidden !important;
 }
 
+@keyframes live-material-canvas-ready {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-live-material-surface] canvas {
+    animation: live-material-canvas-ready 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
 .shader-library-browser-compact .shader-library-preview {
   aspect-ratio: 16 / 9;
 }

@@ -68,6 +68,7 @@ import {
   createElement,
   memo,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -110,6 +111,8 @@ import {
 } from '@/lib/webglContext';
 
 const SHADER_ZOOM_RESPONSE_MS = 45;
+const PAPER_PREVIEW_FRAME_RATE = 30;
+const WEBGL_PREVIEW_FRAME_RATE = 60;
 
 function useSmoothedShaderZoom(target: number, immediate = false): number {
   const boundedTarget = clampShaderZoom(target);
@@ -1229,6 +1232,8 @@ function ProviderContextGuard({
       window.clearTimeout(recoveryTimer);
       observedCanvases.forEach((canvas) => {
         canvas.removeEventListener('webglcontextlost', handleContextLost);
+        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+        if (context) scheduleWebGLContextRelease(canvas, context);
       });
     };
   });
@@ -2021,6 +2026,37 @@ function paperShaderMotionTime(
   return liveMaterialMotionTimeMs(captureTimeMs, speed);
 }
 
+function paperShaderFrameAt(
+  materialId: PaperLiveMaterialId,
+  captureTimeMs: number,
+  preserveGeometry: boolean,
+  settings: LiveMaterialSettings
+): number {
+  const definition = getPaperLiveMaterialDefinition(materialId);
+  const renderer = PAPER_SHADER_RENDERERS[definition.family];
+  const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
+  const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
+  const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
+  const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
+  const motionTimeMs = paperShaderMotionTime(captureTimeMs, preserveGeometry, settings.speed)
+    ?? captureTimeMs;
+  return presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + motionTimeMs * motionSpeed;
+}
+
+function applyPaperShaderFrame(
+  container: HTMLElement | null,
+  materialId: PaperLiveMaterialId,
+  captureTimeMs: number,
+  preserveGeometry: boolean,
+  settings: LiveMaterialSettings
+): boolean {
+  const surface = container?.querySelector<PaperShaderElement>('[data-paper-shader]');
+  const mount = surface?.paperShaderMount;
+  if (!mount) return false;
+  mount.setFrame(paperShaderFrameAt(materialId, captureTimeMs, preserveGeometry, settings));
+  return true;
+}
+
 function paperShaderFilter(
   preservePresetAppearance: boolean,
   settings: LiveMaterialSettings
@@ -2109,34 +2145,46 @@ function PaperShaderSurface({
     frameRate
   );
   useCappedPaperShaderClock(surfaceRef, cappedFrameRate, effectiveSpeed, manuallyTimed);
-  const controlledParams = {
-    ...preset.params,
-    ...paperShaderSettingOverrides(
-      preset.params,
-      preservePresetAppearance,
-      preservePresetGeometry,
-      settings
-    ),
-    ...paperShaderOverrides,
-  };
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
     && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
   const rendersBackdrop = usesImage || PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
-  const rotation = typeof controlledParams.rotation === 'number' ? controlledParams.rotation : 0;
-  const resolvedScale = resolvePaperShaderScale(controlledParams.scale, patternScale, {
-    gemSmoke: definition.family === 'gem-smoke',
+  const controlledParams = useMemo(() => {
+    const params = {
+      ...preset.params,
+      ...paperShaderSettingOverrides(
+        preset.params,
+        preservePresetAppearance,
+        preservePresetGeometry,
+        settings
+      ),
+      ...paperShaderOverrides,
+    };
+    const rotation = typeof params.rotation === 'number' ? params.rotation : 0;
+    params.scale = resolvePaperShaderScale(params.scale, patternScale, {
+      gemSmoke: definition.family === 'gem-smoke',
+      rendersBackdrop,
+      rotation,
+    });
+    return params;
+  }, [
+    definition.family,
+    paperShaderOverrides,
+    patternScale,
+    preservePresetAppearance,
+    preservePresetGeometry,
+    preset.params,
     rendersBackdrop,
-    rotation,
-  });
-  controlledParams.scale = resolvedScale;
-  const backdropParams = rendersBackdrop ? {
+    settings,
+  ]);
+  const resolvedScale = Number(controlledParams.scale);
+  const backdropParams = useMemo(() => rendersBackdrop ? {
     fit: 'cover',
     worldHeight: 0,
     worldWidth: 0,
-  } : {};
+  } : {}, [rendersBackdrop]);
   // Canvas-fill mode exposes a flat rectangular plate in these edge-driven shaders.
   // Oversized organic masks keep the material full-bleed without hiding its texture.
-  const proceduralBackdropParams = definition.family === 'gem-smoke'
+  const proceduralBackdropParams = useMemo(() => definition.family === 'gem-smoke'
     ? {
         colorInner: '#00000000',
         image: undefined,
@@ -2147,7 +2195,25 @@ function PaperShaderSurface({
           image: undefined,
           shape: 'metaballs',
         }
-      : {};
+      : {}, [definition.family]);
+  const surfaceStyle = useMemo(() => ({
+    display: 'block',
+    height: '100%',
+    inset: 0,
+    margin: 0,
+    maxHeight: 'none',
+    maxWidth: 'none',
+    minHeight: 0,
+    minWidth: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    width: '100%',
+  } as const), []);
+  const webGlContextAttributes = useMemo(() => ({
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: true,
+  }), []);
   const surfaceProps: ShaderComponentProps = {
     className: 'absolute inset-0 block size-full max-h-none max-w-none overflow-hidden',
     height: '100%',
@@ -2155,26 +2221,31 @@ function PaperShaderSurface({
       ?? Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
     minPixelRatio: 0.5,
     ref: surfaceRef,
-    style: {
-      display: 'block',
-      height: '100%',
-      inset: 0,
-      margin: 0,
-      maxHeight: 'none',
-      maxWidth: 'none',
-      minHeight: 0,
-      minWidth: 0,
-      overflow: 'hidden',
-      position: 'absolute',
-      width: '100%',
-    },
-    webGlContextAttributes: {
-      alpha: false,
-      antialias: false,
-      preserveDrawingBuffer: true,
-    },
+    style: surfaceStyle,
+    webGlContextAttributes,
     width: '100%',
   };
+
+  useEffect(() => {
+    if (controlledMotionTimeMs === null) return;
+    let animationFrame = 0;
+    let disposed = false;
+    const applyFrame = () => {
+      const mount = surfaceRef.current?.paperShaderMount;
+      if (!mount) {
+        if (!disposed) animationFrame = requestAnimationFrame(applyFrame);
+        return;
+      }
+      mount.setFrame(
+        presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + controlledMotionTimeMs * motionSpeed
+      );
+    };
+    applyFrame();
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [controlledMotionTimeMs, motionSpeed, presetFrame, surfaceRef]);
 
   const surface = createElement(renderer.component, {
     ...surfaceProps,
@@ -2182,9 +2253,10 @@ function PaperShaderSurface({
     ...backdropParams,
     ...(usesImage ? { image: sourceImage ?? '/shader-source-art.svg' } : {}),
     ...proceduralBackdropParams,
-    frame: controlledMotionTimeMs === null
-      ? presetFrame
-      : presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + controlledMotionTimeMs * motionSpeed,
+    // Controlled frames are applied imperatively above. Keeping this prop stable
+    // prevents Paper's React wrapper from rebuilding every uniform (and decoding
+    // image uniforms) for every playhead tick.
+    frame: presetFrame,
     speed: nativeSpeed,
   });
 
@@ -2215,14 +2287,12 @@ function PaperShaderSurface({
 
 function StaticMaterialFallback({
   className,
-  containerRef,
   materialId,
   settings,
   sourceImage,
   sourceImageOpacity,
 }: {
   className: string;
-  containerRef: RefObject<HTMLDivElement | null>;
   materialId: LiveMaterialId;
   settings: LiveMaterialSettings;
   sourceImage?: string;
@@ -2232,7 +2302,6 @@ function StaticMaterialFallback({
     <div
       aria-label='Static shader fallback'
       className={`absolute inset-0 size-full ${className}`}
-      ref={containerRef}
       style={shaderMaterialPreviewStyle(materialId, settings)}
     >
       <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
@@ -2264,14 +2333,12 @@ function LiveMaterialRenderView({
   settings,
   sourceImage,
   sourceImageOpacity,
-  containerRef,
   webGL2Available,
 }: {
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
   className: string;
-  containerRef: RefObject<HTMLDivElement | null>;
   contextVersion: number;
   enabled: boolean;
   frameRate: number;
@@ -2299,7 +2366,6 @@ function LiveMaterialRenderView({
     return (
       <StaticMaterialFallback
         className={className}
-        containerRef={containerRef}
         materialId={materialId}
         settings={settings}
         sourceImage={sourceImage}
@@ -2317,7 +2383,7 @@ function LiveMaterialRenderView({
       />
     );
     return (
-      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+      <div className={`absolute inset-0 size-full ${className}`}>
         <WebGLProviderBoundary
           fallback={providerFallback}
           key={`shadergradient-boundary-${contextVersion}`}
@@ -2345,7 +2411,7 @@ function LiveMaterialRenderView({
 
   if (materialId === 'glyphfield-glyph-field') {
     return (
-      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+      <div className={`absolute inset-0 size-full ${className}`}>
         <GlyphFieldCanvas
           active={active}
           canvasRef={canvasRef}
@@ -2364,7 +2430,7 @@ function LiveMaterialRenderView({
 
   if (materialId === 'pavel-fluid-energy') {
     return (
-      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+      <div className={`absolute inset-0 size-full ${className}`}>
         <FluidSimulationCanvas
           active={active}
           canvasRef={canvasRef}
@@ -2385,7 +2451,7 @@ function LiveMaterialRenderView({
 
   if (isPaperLiveMaterialId(materialId)) {
     return (
-      <div className={`absolute inset-0 size-full ${className}`} ref={containerRef}>
+      <div className={`absolute inset-0 size-full ${className}`}>
         <ProviderContextGuard
           key={`paper-${materialId}-${contextVersion}`}
           onContextLost={onProviderFailure}
@@ -2413,7 +2479,6 @@ function LiveMaterialRenderView({
   return (
     <div
       className={`absolute inset-0 size-full ${className}`}
-      ref={containerRef}
       style={shaderMaterialPreviewStyle(materialId, settings)}
     >
       <OriginalMaterialCanvas
@@ -2465,6 +2530,10 @@ function LiveMaterialCanvas({
   const settingsRef = useCommittedRef(settings);
   const [timePreview, setTimePreview] = useState<PropBoundPreview<number, number | null> | null>(null);
   const resolvedCaptureTimeMs = resolvePropBoundPreview(timePreview, captureTimeMs, captureTimeMs);
+  const resolvedMaterialId = normalizeLiveMaterialId(materialId);
+  const previewFrameRate = isPaperLiveMaterialId(resolvedMaterialId)
+    ? PAPER_PREVIEW_FRAME_RATE
+    : WEBGL_PREVIEW_FRAME_RATE;
   const smoothedPatternScale = useSmoothedShaderZoom(patternScale, resolvedCaptureTimeMs !== null);
   const [patternPreview, setPatternPreview] = useState<PropBoundPreview<number> | null>(null);
   const resolvedPatternScale = resolvePropBoundPreview(
@@ -2473,8 +2542,8 @@ function LiveMaterialCanvas({
     smoothedPatternScale
   );
   const [settingsPreview, setSettingsPreview] = useState<PropBoundPreview<Partial<LiveMaterialSettings>, LiveMaterialSettings> | null>(null);
+  const settingsPreviewRef = useCommittedRef(settingsPreview);
   const resolvedSettings = resolveLiveSettingsPreview(settingsPreview, settings);
-  const resolvedMaterialId = normalizeLiveMaterialId(materialId);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);
   const [contextRecovery, setContextRecovery] = useState(() => ({
@@ -2484,7 +2553,8 @@ function LiveMaterialCanvas({
   }));
   const recoveryTimerRef = useRef(0);
   const activeRecovery = currentContextRecovery(contextRecovery, resolvedMaterialId);
-  const renderActive = (activeWhileMounted || renderVisible) && enabled && workspaceActive;
+  const renderEnabled = (activeWhileMounted || renderVisible) && enabled && workspaceActive;
+  const renderActive = renderEnabled;
   const requiresWebGL2 = resolvedMaterialId === 'shadergradient-prismatic-sphere'
     || isPaperLiveMaterialId(resolvedMaterialId);
   const paperUsesSourceImage = paperMaterialUsesSourceImage(resolvedMaterialId);
@@ -2506,54 +2576,138 @@ function LiveMaterialCanvas({
 
   useEffect(() => {
     if (!previewChannel) return;
+    let lastPublishedAt = 0;
+    let pendingPreview: PropBoundPreview<number> | null = null;
+    let timer = 0;
+    const publishPreview = () => {
+      timer = 0;
+      if (!pendingPreview) return;
+      lastPublishedAt = performance.now();
+      setPatternPreview(pendingPreview);
+      pendingPreview = null;
+    };
     const previewPatternScale = (event: Event) => {
       const detail = (event as CustomEvent<LiveMaterialPatternScalePreview>).detail;
       if (detail?.channel !== previewChannel) return;
-      setPatternPreview({
+      pendingPreview = {
         base: clampShaderZoom(patternScaleRef.current),
         value: clampShaderZoom(detail.value),
-      });
+      };
+      if (timer) return;
+      timer = window.setTimeout(
+        publishPreview,
+        Math.max(0, 1_000 / previewFrameRate - (performance.now() - lastPublishedAt))
+      );
     };
     window.addEventListener(LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT, previewPatternScale);
-    return () => window.removeEventListener(LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT, previewPatternScale);
-  }, [patternScaleRef, previewChannel]);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT, previewPatternScale);
+    };
+  }, [patternScaleRef, previewChannel, previewFrameRate]);
 
   useEffect(() => {
     if (!previewGroup) return;
+    let lastPublishedAt = 0;
+    let pendingPreview: PropBoundPreview<number, number | null> | null = null;
+    let paperPreviewActive = false;
+    let timer = 0;
+    const publishPreview = () => {
+      timer = 0;
+      if (!pendingPreview) return;
+      lastPublishedAt = performance.now();
+      const nextPreview = pendingPreview;
+      pendingPreview = null;
+      if (isPaperLiveMaterialId(resolvedMaterialId) && paperPreviewActive) {
+        applyPaperShaderFrame(
+          containerRef.current,
+          resolvedMaterialId,
+          nextPreview.value,
+          preservePresetAppearance || preservePresetGeometry,
+          settingsRef.current
+        );
+        return;
+      }
+      paperPreviewActive = isPaperLiveMaterialId(resolvedMaterialId);
+      setTimePreview(nextPreview);
+    };
     const previewMaterialTime = (event: Event) => {
       const detail = (event as CustomEvent<LiveMaterialTimePreview>).detail;
       if (detail?.group !== previewGroup) return;
       if (detail.timeMs === null) {
+        window.clearTimeout(timer);
+        timer = 0;
+        pendingPreview = null;
+        paperPreviewActive = false;
         setTimePreview(null);
         return;
       }
       if (!Number.isFinite(detail.timeMs)) return;
-      setTimePreview({
+      pendingPreview = {
         base: captureTimeMsRef.current,
         value: Math.max(0, detail.timeMs),
-      });
+      };
+      if (timer) return;
+      timer = window.setTimeout(
+        publishPreview,
+        Math.max(0, 1_000 / previewFrameRate - (performance.now() - lastPublishedAt))
+      );
     };
     window.addEventListener(LIVE_MATERIAL_TIME_PREVIEW_EVENT, previewMaterialTime);
-    return () => window.removeEventListener(LIVE_MATERIAL_TIME_PREVIEW_EVENT, previewMaterialTime);
-  }, [captureTimeMsRef, previewGroup]);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(LIVE_MATERIAL_TIME_PREVIEW_EVENT, previewMaterialTime);
+    };
+  }, [
+    captureTimeMsRef,
+    containerRef,
+    preservePresetAppearance,
+    preservePresetGeometry,
+    previewFrameRate,
+    previewGroup,
+    resolvedMaterialId,
+    settingsRef,
+  ]);
 
   useEffect(() => {
     if (!previewChannel) return;
+    let lastPublishedAt = 0;
+    let pendingPreview: PropBoundPreview<Partial<LiveMaterialSettings>, LiveMaterialSettings> | null = null;
+    let timer = 0;
+    const publishPreview = () => {
+      timer = 0;
+      if (!pendingPreview) return;
+      lastPublishedAt = performance.now();
+      setSettingsPreview(pendingPreview);
+      pendingPreview = null;
+    };
     const previewMaterialSettings = (event: Event) => {
       const detail = (event as CustomEvent<LiveMaterialSettingsPreview>).detail;
       if (detail?.channel !== previewChannel) return;
       const base = settingsRef.current;
-      setSettingsPreview((current) => ({
+      pendingPreview = {
         base,
         value: {
-          ...(current?.base === base ? current.value : {}),
+          ...(pendingPreview?.base === base
+            ? pendingPreview.value
+            : settingsPreviewRef.current?.base === base
+              ? settingsPreviewRef.current.value
+              : {}),
           ...detail.settings,
         },
-      }));
+      };
+      if (timer) return;
+      timer = window.setTimeout(
+        publishPreview,
+        Math.max(0, 1_000 / previewFrameRate - (performance.now() - lastPublishedAt))
+      );
     };
     window.addEventListener(LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT, previewMaterialSettings);
-    return () => window.removeEventListener(LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT, previewMaterialSettings);
-  }, [previewChannel, settingsRef]);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT, previewMaterialSettings);
+    };
+  }, [previewChannel, previewFrameRate, settingsPreviewRef, settingsRef]);
 
   useEffect(() => {
     if (!requiresWebGL2) {
@@ -2610,33 +2764,43 @@ function LiveMaterialCanvas({
   }, [activeRecovery.version, enabled, resolvedMaterialId, webGL2Available]);
 
   return (
-    <LiveMaterialRenderView
-      active={renderActive}
-      canvasRef={canvasRef}
-      captureTimeMs={resolvedCaptureTimeMs}
-      className={className}
-      containerRef={containerRef}
-      contextVersion={activeRecovery.version}
-      enabled={enabled}
-      frameRate={frameRate}
-      loopDurationMs={loopDurationMs}
-      materialId={resolvedMaterialId}
-      maxPixelCount={maxPixelCount}
-      onContextLost={recoverContext}
-      onProviderFailure={failProviderContext}
-      paperUsesSourceImage={paperUsesSourceImage}
-      paperShaderOverrides={paperShaderOverrides}
-      patternScale={resolvedPatternScale}
-      paused={paused}
-      preservePresetAppearance={preservePresetAppearance}
-      preservePresetGeometry={preservePresetGeometry}
-      recoveryFailed={activeRecovery.failed}
-      renderScale={renderScale}
-      settings={resolvedSettings}
-      sourceImage={sourceImage}
-      sourceImageOpacity={sourceImageOpacity}
-      webGL2Available={webGL2Available}
-    />
+    <div
+      className={`absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden ${className}`}
+      data-live-material-surface={resolvedMaterialId}
+      ref={containerRef}
+      style={{
+        ...shaderMaterialPreviewStyle(resolvedMaterialId, resolvedSettings),
+        contain: 'strict',
+        isolation: 'isolate',
+      }}
+    >
+      <LiveMaterialRenderView
+        active={renderActive}
+        canvasRef={canvasRef}
+        captureTimeMs={resolvedCaptureTimeMs}
+        className=''
+        contextVersion={activeRecovery.version}
+        enabled={renderEnabled}
+        frameRate={frameRate}
+        loopDurationMs={loopDurationMs}
+        materialId={resolvedMaterialId}
+        maxPixelCount={maxPixelCount}
+        onContextLost={recoverContext}
+        onProviderFailure={failProviderContext}
+        paperUsesSourceImage={paperUsesSourceImage}
+        paperShaderOverrides={paperShaderOverrides}
+        patternScale={resolvedPatternScale}
+        paused={paused}
+        preservePresetAppearance={preservePresetAppearance}
+        preservePresetGeometry={preservePresetGeometry}
+        recoveryFailed={activeRecovery.failed}
+        renderScale={renderScale}
+        settings={resolvedSettings}
+        sourceImage={sourceImage}
+        sourceImageOpacity={sourceImageOpacity}
+        webGL2Available={webGL2Available}
+      />
+    </div>
   );
 }
 

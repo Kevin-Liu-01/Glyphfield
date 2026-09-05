@@ -41,7 +41,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from '@/components/ui/SolidIcons';
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, startTransition, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
@@ -1158,7 +1158,10 @@ function ShaderFrameHistoryControl({
   const frames = buildMotionFrames(durationMs, fps);
   const frameCount = frames.length;
   const boundedFrame = resolveMotionFrame(durationMs, fps, frame).index;
-  const [displayFrame, setDisplayFrame] = useState(boundedFrame);
+  const displayFrameRef = useRef(boundedFrame);
+  const rangeRef = useRef<HTMLInputElement>(null);
+  const secondsRef = useRef<HTMLElement>(null);
+  const frameNumberRef = useRef<HTMLElement>(null);
   const pendingScrubFrameRef = useRef<number | null>(null);
   const latestScrubFrameRef = useRef<number | null>(null);
   const scrubAnimationFrameRef = useRef(0);
@@ -1166,9 +1169,22 @@ function ShaderFrameHistoryControl({
   const previewPlaybackTime = useEffectEvent(onScrubPreview);
   const playbackStartFrameRef = useCommittedRef(boundedFrame);
 
-  useEffect(() => {
-    if (!playing) setDisplayFrame(boundedFrame);
-  }, [boundedFrame, playing]);
+  const syncDisplayFrame = useCallback((nextFrame: number) => {
+    const resolved = resolveMotionFrame(durationMs, fps, nextFrame);
+    displayFrameRef.current = resolved.index;
+    const range = rangeRef.current;
+    if (range) {
+      range.value = String(resolved.index);
+      const progress = frameCount <= 1 ? 0 : resolved.index / (frameCount - 1) * 100;
+      range.style.setProperty('--studio-range-progress', `${progress}%`);
+    }
+    if (secondsRef.current) secondsRef.current.textContent = `${(resolved.timeMs / 1_000).toFixed(2)}s`;
+    if (frameNumberRef.current) frameNumberRef.current.textContent = String(resolved.index + 1).padStart(2, '0');
+  }, [durationMs, fps, frameCount]);
+
+  useLayoutEffect(() => {
+    if (!playing) syncDisplayFrame(boundedFrame);
+  }, [boundedFrame, playing, syncDisplayFrame]);
 
   useEffect(() => {
     if (!playing) return;
@@ -1187,19 +1203,19 @@ function ShaderFrameHistoryControl({
         previousFrame = nextFrame;
         previewPlaybackFrame(nextFrame);
         previewPlaybackTime(nextFrame);
-        setDisplayFrame(nextFrame);
+        syncDisplayFrame(nextFrame);
       }
       animationFrame = requestAnimationFrame(tick);
     };
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [durationMs, fps, playbackStartFrameRef, playing]);
+  }, [durationMs, fps, playbackStartFrameRef, playing, syncDisplayFrame]);
 
   useEffect(() => () => cancelAnimationFrame(scrubAnimationFrameRef.current), []);
 
   function scheduleScrub(nextFrame: number) {
     const boundedNextFrame = Math.min(frameCount - 1, Math.max(0, Math.round(nextFrame)));
-    setDisplayFrame(boundedNextFrame);
+    syncDisplayFrame(boundedNextFrame);
     pendingScrubFrameRef.current = boundedNextFrame;
     latestScrubFrameRef.current = boundedNextFrame;
     if (scrubAnimationFrameRef.current) return;
@@ -1225,12 +1241,12 @@ function ShaderFrameHistoryControl({
     onScrub(nextFrame);
   }
 
-  const seconds = resolveMotionFrame(durationMs, fps, displayFrame).timeMs / 1_000;
+  const seconds = resolveMotionFrame(durationMs, fps, boundedFrame).timeMs / 1_000;
   return (
     <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve>
       <button
         aria-label={playing ? 'Pause at current shader frame' : 'Play shader history'}
-        onClick={() => playing ? onPauseAtFrame(displayFrame) : onPlay()}
+        onClick={() => playing ? onPauseAtFrame(displayFrameRef.current) : onPlay()}
         title={playing ? 'Pause at this frame' : 'Resume live shader motion'}
         type='button'
       >
@@ -1238,24 +1254,25 @@ function ShaderFrameHistoryControl({
       </button>
       <div className='shader-lab-v2-frame-history-copy'>
         <span><Clock3 aria-hidden='true' />Motion timeline</span>
-        <small>{playing ? 'Live' : 'Selected'} · {seconds.toFixed(2)}s</small>
+        <small>{playing ? 'Live' : 'Selected'} · <span ref={secondsRef}>{seconds.toFixed(2)}s</span></small>
       </div>
       <StudioRange
         aria-label='Deterministic motion timeline'
+        defaultValue={boundedFrame}
         max={frameCount - 1}
         min={0}
         onBlur={flushScrub}
         onInput={(event) => scheduleScrub(Number(event.currentTarget.value))}
         onPointerCancel={flushScrub}
         onPointerDown={() => {
-          if (playing) onPauseAtFrame(displayFrame);
+          if (playing) onPauseAtFrame(displayFrameRef.current);
         }}
         onPointerUp={flushScrub}
+        ref={rangeRef}
         step={1}
-        value={displayFrame}
       />
       <output aria-live='off'>
-        <strong>{String(displayFrame + 1).padStart(2, '0')}</strong>
+        <strong ref={frameNumberRef}>{String(boundedFrame + 1).padStart(2, '0')}</strong>
         <span>/ {String(frameCount).padStart(2, '0')}</span>
       </output>
     </section>
@@ -2146,53 +2163,70 @@ function RangeControl({
   step: number;
   value: number;
 }) {
-  const [displayValue, setDisplayValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLOutputElement>(null);
   const pendingValueRef = useRef<number | null>(null);
   const latestValueRef = useRef<number | null>(null);
-  const valueFrameRef = useRef(0);
+  const previewTimerRef = useRef(0);
   const scrubbingRef = useRef(false);
 
-  useEffect(() => {
-    if (!scrubbingRef.current && pendingValueRef.current === null && valueFrameRef.current === 0) {
-      setDisplayValue(value);
-    }
-  }, [value]);
+  const formatDisplayValue = useCallback((nextValue: number) => (
+    formatValue?.(nextValue) ?? (Number.isInteger(step) ? Math.round(nextValue).toString() : nextValue.toFixed(2))
+  ), [formatValue, step]);
 
-  useEffect(() => () => cancelAnimationFrame(valueFrameRef.current), []);
+  const syncDisplayValue = useCallback((nextValue: number) => {
+    const input = inputRef.current;
+    if (input) {
+      input.value = String(nextValue);
+      const progress = max <= min ? 0 : Math.min(100, Math.max(0, (nextValue - min) / (max - min) * 100));
+      input.style.setProperty('--studio-range-progress', `${progress}%`);
+    }
+    if (outputRef.current) outputRef.current.textContent = formatDisplayValue(nextValue);
+  }, [formatDisplayValue, max, min]);
+
+  useLayoutEffect(() => {
+    if (!scrubbingRef.current && pendingValueRef.current === null && previewTimerRef.current === 0) {
+      syncDisplayValue(value);
+    }
+  }, [max, min, syncDisplayValue, value]);
+
+  useEffect(() => () => window.clearTimeout(previewTimerRef.current), []);
 
   function flushValue() {
-    cancelAnimationFrame(valueFrameRef.current);
-    valueFrameRef.current = 0;
+    window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = 0;
     const nextValue = pendingValueRef.current ?? latestValueRef.current;
     pendingValueRef.current = null;
     latestValueRef.current = null;
     if (nextValue === null) return;
     onPreview?.(nextValue);
-    onChange(nextValue);
+    startTransition(() => onChange(nextValue));
   }
 
   function scheduleValue(nextValue: number) {
-    setDisplayValue(nextValue);
+    syncDisplayValue(nextValue);
     pendingValueRef.current = nextValue;
     latestValueRef.current = nextValue;
-    if (valueFrameRef.current) return;
-    valueFrameRef.current = requestAnimationFrame(() => {
-      valueFrameRef.current = 0;
+    if (previewTimerRef.current) return;
+    previewTimerRef.current = window.setTimeout(() => {
+      previewTimerRef.current = 0;
       if (pendingValueRef.current === null) return;
       const previewValue = pendingValueRef.current;
       pendingValueRef.current = null;
-      (onPreview ?? onChange)(previewValue);
-    });
+      if (onPreview) onPreview(previewValue);
+      else startTransition(() => onChange(previewValue));
+    }, 16);
   }
 
   return (
     <label className='shader-lab-v2-range'>
       <StudioRangeLabel
         label={label}
-        value={<output>{formatValue?.(displayValue) ?? (Number.isInteger(step) ? Math.round(displayValue) : displayValue.toFixed(2))}</output>}
+        value={<output ref={outputRef}>{formatDisplayValue(value)}</output>}
       />
       <StudioRange
         aria-label={label}
+        defaultValue={value}
         max={max}
         min={min}
         onBlur={() => {
@@ -2209,8 +2243,8 @@ function RangeControl({
           scrubbingRef.current = false;
           flushValue();
         }}
+        ref={inputRef}
         step={step}
-        value={displayValue}
       />
     </label>
   );
@@ -7361,10 +7395,12 @@ export default function ShaderLabStudio({
     }
     return (
       <LiveMaterialCanvas
+        activeWhileMounted
         captureTimeMs={controlledTimeMs}
         className='absolute inset-0 size-full'
+        enabled={active}
         frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
-        key={`${instanceKey}:${renderedApplication.materialId}`}
+        key={instanceKey}
         loopDurationMs={normalizedExportSettings.durationMs}
         materialId={renderedApplication.materialId}
         maxPixelCount={captureTimeMs === null
@@ -7580,8 +7616,9 @@ export default function ShaderLabStudio({
       <LiveMaterialCanvas
         captureTimeMs={captureTimeMs}
         className='absolute inset-0 size-full'
+        enabled={active}
         frameRate={24}
-        key={`${instanceKey}:${application.materialId}`}
+        key={instanceKey}
         loopDurationMs={normalizedExportSettings.durationMs}
         materialId={application.materialId}
         maxPixelCount={420_000}

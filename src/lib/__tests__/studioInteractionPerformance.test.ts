@@ -101,6 +101,34 @@ describe('Studio interaction performance contracts', () => {
     expect(deferredRuntime).toContain("addEventListener('wheel', rescheduleAfterInteraction");
   });
 
+  it('keeps Design Lab playhead and inspector previews off the full editor render path', () => {
+    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+    const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
+    const rangeControl = designLab.slice(
+      designLab.indexOf('function RangeControl'),
+      designLab.indexOf('function ShaderZoomControl')
+    );
+    const frameHistory = designLab.slice(
+      designLab.indexOf('function ShaderFrameHistoryControl'),
+      designLab.indexOf('function CanvasSelectionAssemblyOverlay')
+    );
+
+    expect(rangeControl).toContain('defaultValue={value}');
+    expect(rangeControl).toContain("input.style.setProperty('--studio-range-progress'");
+    expect(rangeControl).toContain('startTransition(() => onChange(nextValue))');
+    expect(rangeControl).not.toContain('setDisplayValue');
+    expect(frameHistory).toContain('syncDisplayFrame(nextFrame)');
+    expect(frameHistory).toContain('defaultValue={boundedFrame}');
+    expect(frameHistory).not.toContain('setDisplayFrame');
+    expect(liveMaterial).toContain('applyPaperShaderFrame(');
+    expect(liveMaterial).toContain('frame: presetFrame,');
+    expect(liveMaterial).toContain('const PAPER_PREVIEW_FRAME_RATE = 30;');
+    expect(liveMaterial).toContain('data-live-material-surface={resolvedMaterialId}');
+    expect(designLab).toContain('activeWhileMounted');
+    expect(designLab).toContain('key={instanceKey}');
+    expect(designLab).not.toContain('key={`${instanceKey}:${renderedApplication.materialId}`}');
+  });
+
   it('prewarms landing shaders without animating them outside the viewport', () => {
     const field = readSource('src/components/MarketingArcField.tsx');
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
@@ -158,6 +186,7 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('if (!tabScrollState.canScrollLeft && !tabScrollState.canScrollRight) return;');
     expect(source).toContain('<BrandFontFaces identity={identity} key={identity.id} />');
     expect(designLab).toContain('paused={!active || paused || controlledTimeMs !== null}');
+    expect(designLab).toContain('enabled={active}');
     expect(designLab).toContain('useDeferredRuntime(active, 150');
     expect(designLab).toContain('deferWhileInteracting: true');
     expect(designLab).toContain('useIdleCallback: false');
@@ -172,6 +201,8 @@ describe('Studio interaction performance contracts', () => {
     expect(designLab).toContain('materials.slice(0, visibleMaterialCount)');
     expect(designLab).toContain("{ root, rootMargin: '240px 0px' }");
     expect(liveMaterial).toContain('enabled && workspaceActive');
+    expect(liveMaterial).toContain('enabled={renderEnabled}');
+    expect(liveMaterial).toContain('scheduleWebGLContextRelease(canvas, context)');
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");
     expect(styles).toContain(".studio-workspace-layer[data-active='true']");
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
