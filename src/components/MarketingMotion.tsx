@@ -6,12 +6,16 @@ type NavigatorConnection = {
   saveData?: boolean;
 };
 
+const MOTION_REVEAL_SETTLE_MS = 180;
+
 export default function MarketingMotion() {
   useMountEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const connection = (navigator as Navigator & { connection?: NavigatorConnection }).connection;
     const sections = [...document.querySelectorAll<HTMLElement>('[data-motion-reveal]')];
     const footer = document.querySelector<HTMLElement>('[data-motion-footer]');
+    const intersectingSections = new Set<HTMLElement>();
+    let revealTimer = 0;
 
     function reveal(section: HTMLElement) {
       section.dataset.motionState = 'visible';
@@ -23,15 +27,27 @@ export default function MarketingMotion() {
       return;
     }
 
+    const revealSettledSections = () => {
+      revealTimer = 0;
+      intersectingSections.forEach((section) => {
+        if (section.hasAttribute('data-motion-footer')) section.dataset.footerState = 'visible';
+        else reveal(section);
+        observer.unobserve(section);
+      });
+      intersectingSections.clear();
+    };
+    const scheduleSettledReveal = () => {
+      window.clearTimeout(revealTimer);
+      revealTimer = window.setTimeout(revealSettledSections, MOTION_REVEAL_SETTLE_MS);
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
           const section = entry.target as HTMLElement;
-          if (section.hasAttribute('data-motion-footer')) section.dataset.footerState = 'visible';
-          else reveal(section);
-          observer.unobserve(section);
+          if (entry.isIntersecting) intersectingSections.add(section);
+          else intersectingSections.delete(section);
         });
+        if (intersectingSections.size > 0) scheduleSettledReveal();
       },
       { rootMargin: '0px 0px -8% 0px', threshold: 0.04 }
     );
@@ -51,8 +67,11 @@ export default function MarketingMotion() {
       footer.dataset.footerState = 'waiting';
       observer.observe(footer);
     }
+    window.addEventListener('scroll', scheduleSettledReveal, { passive: true });
 
     return () => {
+      window.clearTimeout(revealTimer);
+      window.removeEventListener('scroll', scheduleSettledReveal);
       observer.disconnect();
     };
   });

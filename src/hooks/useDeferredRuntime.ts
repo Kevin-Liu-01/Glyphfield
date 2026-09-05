@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 
 type DeferredRuntimeOptions = {
+  deferWhileInteracting?: boolean;
   deferWhileScrolling?: boolean;
+  resetWhenDisabled?: boolean;
   useIdleCallback?: boolean;
 };
 
@@ -15,14 +17,20 @@ export function useDeferredRuntime(
   enabled: boolean,
   delayMs = 500,
   {
+    deferWhileInteracting = false,
     deferWhileScrolling = true,
+    resetWhenDisabled = false,
     useIdleCallback = true,
   }: DeferredRuntimeOptions = {}
 ) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!enabled || ready) return;
+    if (!enabled) {
+      if (resetWhenDisabled && ready) setReady(false);
+      return;
+    }
+    if (ready) return;
 
     let delayId = 0;
     let idleId: number | undefined;
@@ -44,17 +52,40 @@ export function useDeferredRuntime(
       }, delayMs);
     };
     const rescheduleAfterScroll = () => schedule();
+    const rescheduleAfterInteraction = () => schedule();
 
     schedule();
     if (deferWhileScrolling) {
       window.addEventListener('scroll', rescheduleAfterScroll, { passive: true });
     }
+    if (deferWhileInteracting) {
+      window.addEventListener('pointerdown', rescheduleAfterInteraction, true);
+      window.addEventListener('mousedown', rescheduleAfterInteraction, true);
+      window.addEventListener('touchstart', rescheduleAfterInteraction, { capture: true, passive: true });
+      window.addEventListener('keydown', rescheduleAfterInteraction, true);
+      window.addEventListener('wheel', rescheduleAfterInteraction, { capture: true, passive: true });
+    }
 
     return () => {
       if (deferWhileScrolling) window.removeEventListener('scroll', rescheduleAfterScroll);
+      if (deferWhileInteracting) {
+        window.removeEventListener('pointerdown', rescheduleAfterInteraction, true);
+        window.removeEventListener('mousedown', rescheduleAfterInteraction, true);
+        window.removeEventListener('touchstart', rescheduleAfterInteraction, true);
+        window.removeEventListener('keydown', rescheduleAfterInteraction, true);
+        window.removeEventListener('wheel', rescheduleAfterInteraction, true);
+      }
       clearSchedule();
     };
-  }, [deferWhileScrolling, delayMs, enabled, ready, useIdleCallback]);
+  }, [
+    deferWhileInteracting,
+    deferWhileScrolling,
+    delayMs,
+    enabled,
+    ready,
+    resetWhenDisabled,
+    useIdleCallback,
+  ]);
 
   return ready;
 }

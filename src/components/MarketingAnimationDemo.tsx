@@ -23,11 +23,15 @@ function AnimationStudioPlaceholder() {
 export default function MarketingAnimationDemo({ eager = false }: { eager?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inRange = useViewportActivity(containerRef, { initialActive: eager, rootMargin: '420px' });
-  const runtimeReady = useDeferredRuntime(inRange, eager ? 900 : 300);
+  const runtimeReady = useDeferredRuntime(inRange, eager ? 3_600 : 300, {
+    deferWhileInteracting: true,
+    resetWhenDisabled: true,
+  });
+  const runtimeMounted = runtimeReady && inRange;
 
   return (
     <div className='marketing-animation-lazy-shell' ref={containerRef}>
-      {runtimeReady ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
+      {runtimeMounted ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
     </div>
   );
 }

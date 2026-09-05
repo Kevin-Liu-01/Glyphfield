@@ -83,6 +83,8 @@ describe('Studio interaction performance contracts', () => {
   it('keeps interactive animation work within the visible preview budget', () => {
     const studio = readSource('src/components/AnimationStudio.tsx');
     const marketingDemo = readSource('src/components/MarketingAnimationStudioLive.tsx');
+    const marketingLoader = readSource('src/components/MarketingAnimationDemo.tsx');
+    const deferredRuntime = readSource('src/hooks/useDeferredRuntime.ts');
 
     expect(studio).toContain('resolveAnimationPreviewResolution({');
     expect(studio).toContain('new ResizeObserver(updateResolution)');
@@ -91,6 +93,12 @@ describe('Studio interaction performance contracts', () => {
     expect(studio).not.toContain('void hydrateAudioBuffers(audioState.assets).catch');
     expect(studio).toContain('if (!audioPlaybackRequestedRef.current || !isPlayingRef.current) return;');
     expect(marketingDemo).toContain('previewFrameRate={30}');
+    expect(marketingLoader).toContain('deferWhileInteracting: true');
+    expect(marketingLoader).toContain('resetWhenDisabled: true');
+    expect(marketingLoader).toContain('runtimeReady && inRange');
+    expect(deferredRuntime).toContain("addEventListener('mousedown', rescheduleAfterInteraction, true)");
+    expect(deferredRuntime).toContain("addEventListener('touchstart', rescheduleAfterInteraction");
+    expect(deferredRuntime).toContain("addEventListener('wheel', rescheduleAfterInteraction");
   });
 
   it('prewarms landing shaders without animating them outside the viewport', () => {
@@ -98,15 +106,18 @@ describe('Studio interaction performance contracts', () => {
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
     const landing = readSource('src/app/page.tsx');
 
-    expect(field).toContain("const SHADER_PREWARM_MARGIN = '720px 0px';");
+    expect(field).toContain("const SHADER_PREWARM_MARGIN = '960px 0px';");
     expect(field).toContain("const SHADER_ACTIVE_MARGIN = '96px 0px';");
-    expect(field).toContain('deferWhileScrolling: false');
+    expect(field).toContain('deferWhileScrolling: true');
+    expect(field).toContain('resetWhenDisabled: !persistAfterReady');
+    expect(field).toContain('useIdleCallback: true');
     expect(field).toContain('enabled={active}');
     expect(field).toContain('paused={!active}');
     expect(liveMaterial).toContain('speed: nativeSpeed');
     expect(liveMaterial).toContain('const interval = 1000 / frameRate;');
     expect(landing).toContain('frameRate={18}');
     expect(landing).toContain('maxPixelCount={360_000}');
+    expect(landing).toContain('persistAfterReady');
   });
 
   it('defers portable animation documents and keeps static previews out of urgent renders', () => {
@@ -135,7 +146,9 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('useDeferredValue(activeToolId)');
     expect(source).toContain("toolId === 'animation'");
     expect(source).toContain("toolId === 'lottie'");
+    expect(source).toContain("toolId === 'material'");
     expect(source).toContain('<AnimationStudio active={renderActive}');
+    expect(source).toContain('<ShaderLabStudio');
     expect(source).toContain('<LottieStudio active={renderActive}');
     expect(source).toContain('const MAX_RETAINED_PROJECT_WORKSPACES = 3;');
     expect(source).toContain("className='studio-project-workspace-layer'");
@@ -145,9 +158,17 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('if (!tabScrollState.canScrollLeft && !tabScrollState.canScrollRight) return;');
     expect(source).toContain('<BrandFontFaces identity={identity} key={identity.id} />');
     expect(designLab).toContain('paused={!active || paused || controlledTimeMs !== null}');
+    expect(designLab).toContain('useDeferredRuntime(active, 150');
+    expect(designLab).toContain('deferWhileInteracting: true');
+    expect(designLab).toContain('useIdleCallback: false');
+    expect(designLab).toContain('const DESIGN_LAB_PREVIEW_FRAME_RATE = 60;');
+    expect(designLab).toContain('frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}');
+    expect(designLab).toContain('liveMaterialInstancePixelBudget({');
+    expect(designLab).toContain('fps: 30');
+    expect(designLab).toContain('[12, 15, 24, 30, 60]');
     expect(designLab).toContain('projectWorkspaceActiveRef.current');
-    expect(designLab).toContain('const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 180_000;');
-    expect(designLab).toContain('const SHADER_LIBRARY_INITIAL_CARD_COUNT = 24;');
+    expect(designLab).toContain('const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;');
+    expect(designLab).toContain('const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;');
     expect(designLab).toContain('materials.slice(0, visibleMaterialCount)');
     expect(designLab).toContain("{ root, rootMargin: '240px 0px' }");
     expect(liveMaterial).toContain('enabled && workspaceActive');

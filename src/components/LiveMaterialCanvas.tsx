@@ -100,6 +100,7 @@ import {
   type LiveMaterialSettingsPreview,
   type LiveMaterialTimePreview,
 } from '@/lib/liveMaterialPreview';
+import { resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
 import { paperControlOverrides, paperPaletteOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
 import {
@@ -191,6 +192,7 @@ type WebglLiveMaterialCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
   frameRate: number;
+  maxPixelCount?: number;
   onContextLost: () => void;
   patternScale: number;
   paused: boolean;
@@ -901,6 +903,7 @@ function GlyphFieldCanvas({
   canvasRef,
   captureTimeMs,
   frameRate,
+  maxPixelCount,
   patternScale,
   paused,
   renderScale,
@@ -910,6 +913,7 @@ function GlyphFieldCanvas({
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
   frameRate: number;
+  maxPixelCount?: number;
   patternScale: number;
   paused: boolean;
   renderScale: number;
@@ -918,6 +922,7 @@ function GlyphFieldCanvas({
   const activeRef = useCommittedRef(active);
   const captureTimeRef = useCommittedRef(captureTimeMs);
   const frameRateRef = useCommittedRef(frameRate);
+  const maxPixelCountRef = useCommittedRef(maxPixelCount);
   const patternScaleRef = useCommittedRef(patternScale);
   const pausedRef = useCommittedRef(paused);
   const settingsRef = useCommittedRef(settings);
@@ -961,9 +966,16 @@ function GlyphFieldCanvas({
       const renderedTime = (controlledTime === null
         ? elapsed
         : liveMaterialMotionTimeMs(controlledTime, current.speed)) / 1000;
-      const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
       const width = Math.max(1, drawingCanvas.clientWidth);
       const height = Math.max(1, drawingCanvas.clientHeight);
+      const pixelRatio = resolveLiveMaterialPixelRatio({
+        cssHeight: height,
+        cssWidth: width,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        maxDevicePixelRatio: 2.5,
+        maxPixelCount: maxPixelCountRef.current,
+        renderScale,
+      });
       const outputWidth = Math.round(width * pixelRatio);
       const outputHeight = Math.round(height * pixelRatio);
       if (drawingCanvas.width !== outputWidth || drawingCanvas.height !== outputHeight) {
@@ -1251,6 +1263,7 @@ function OriginalMaterialCanvas({
   captureTimeMs,
   frameRate,
   fragmentSource,
+  maxPixelCount,
   onContextLost,
   patternScale,
   paused,
@@ -1260,6 +1273,7 @@ function OriginalMaterialCanvas({
   fragmentSource: string;
 }) {
   const { activeRef, captureTimeRef, frameRateRef, patternScaleRef, pausedRef, settingsRef } = useWebglLiveMaterialRefs({ active, captureTimeMs, frameRate, patternScale, paused, settings });
+  const maxPixelCountRef = useCommittedRef(maxPixelCount);
 
   useMountEffect(() => {
     const canvas = canvasRef.current;
@@ -1403,9 +1417,18 @@ function OriginalMaterialCanvas({
       const renderedTime = controlledTime === null
         ? elapsed
         : liveMaterialMotionTimeMs(controlledTime, current.speed);
-      const pixelRatio = Math.min(3, (window.devicePixelRatio || 1) * renderScale);
-      const width = Math.max(1, Math.round(drawingCanvas.clientWidth * pixelRatio));
-      const height = Math.max(1, Math.round(drawingCanvas.clientHeight * pixelRatio));
+      const cssWidth = Math.max(1, drawingCanvas.clientWidth);
+      const cssHeight = Math.max(1, drawingCanvas.clientHeight);
+      const pixelRatio = resolveLiveMaterialPixelRatio({
+        cssHeight,
+        cssWidth,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        maxDevicePixelRatio: 3,
+        maxPixelCount: maxPixelCountRef.current,
+        renderScale,
+      });
+      const width = Math.max(1, Math.round(cssWidth * pixelRatio));
+      const height = Math.max(1, Math.round(cssHeight * pixelRatio));
       if (drawingCanvas.width !== width || drawingCanvas.height !== height) {
         drawingCanvas.width = width;
         drawingCanvas.height = height;
@@ -1549,6 +1572,7 @@ function FluidSimulationCanvas({
   canvasRef,
   captureTimeMs,
   frameRate,
+  maxPixelCount,
   onContextLost,
   patternScale,
   paused,
@@ -1556,6 +1580,7 @@ function FluidSimulationCanvas({
   settings,
 }: WebglLiveMaterialCanvasProps) {
   const { activeRef, captureTimeRef, frameRateRef, patternScaleRef, pausedRef, settingsRef } = useWebglLiveMaterialRefs({ active, captureTimeMs, frameRate, patternScale, paused, settings });
+  const maxPixelCountRef = useCommittedRef(maxPixelCount);
 
   useMountEffect(() => {
     const canvas = canvasRef.current;
@@ -1740,7 +1765,7 @@ function FluidSimulationCanvas({
         scheduleNextFrame();
         return;
       }
-      const maximumRate = Math.min(45, Math.max(1, frameRateRef.current));
+      const maximumRate = Math.min(60, Math.max(1, frameRateRef.current));
       const frameInterval = 1000 / maximumRate;
       if (shouldThrottleFluidFrame({
         captureTimeMs: captureTimeRef.current,
@@ -1769,7 +1794,14 @@ function FluidSimulationCanvas({
       });
       elapsed = timing.elapsedMs;
       previousControlledTime = controlledTime;
-      const pixelRatio = Math.min(2.5, (window.devicePixelRatio || 1) * renderScale);
+      const pixelRatio = resolveLiveMaterialPixelRatio({
+        cssHeight: drawingCanvas.clientHeight,
+        cssWidth: drawingCanvas.clientWidth,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        maxDevicePixelRatio: 2.5,
+        maxPixelCount: maxPixelCountRef.current,
+        renderScale,
+      });
       const { height, width } = resizeFluidCanvas(drawingCanvas, pixelRatio);
       const simulationDimensions = fluidSimulationDimensions(
         width,
@@ -2319,6 +2351,7 @@ function LiveMaterialRenderView({
           canvasRef={canvasRef}
           captureTimeMs={captureTimeMs}
           frameRate={frameRate}
+          maxPixelCount={maxPixelCount}
           patternScale={patternScale}
           paused={paused || !active}
           renderScale={renderScale}
@@ -2338,6 +2371,7 @@ function LiveMaterialRenderView({
           captureTimeMs={captureTimeMs}
           frameRate={frameRate}
           key={`pavel-fluid-${contextVersion}`}
+          maxPixelCount={maxPixelCount}
           onContextLost={onContextLost}
           patternScale={patternScale}
           paused={paused || !active}
@@ -2389,6 +2423,7 @@ function LiveMaterialRenderView({
         frameRate={frameRate}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[materialId]}`}
         key={`${materialId}-${contextVersion}`}
+        maxPixelCount={maxPixelCount}
         onContextLost={onContextLost}
         patternScale={patternScale}
         paused={paused || !active}

@@ -86,6 +86,7 @@ import {
 const loadAnimationStudio = () => import('@/components/AnimationStudio');
 const loadBrandSettingsStudio = () => import('@/components/BrandSettingsStudio');
 const loadLottieStudio = () => import('@/components/LottieStudio');
+const loadShaderLabStudio = () => import('@/components/ShaderLabStudio');
 const loadStudioToolWorkspace = () => import('@/components/StudioToolWorkspace');
 
 const AnimationStudio = dynamic(loadAnimationStudio, {
@@ -96,6 +97,10 @@ const BrandSettingsStudio = dynamic(loadBrandSettingsStudio, {
   loading: StudioWorkspaceLoading,
 });
 const LottieStudio = dynamic(loadLottieStudio, {
+  loading: StudioWorkspaceLoading,
+  ssr: false,
+});
+const ShaderLabStudio = dynamic(loadShaderLabStudio, {
   loading: StudioWorkspaceLoading,
   ssr: false,
 });
@@ -110,6 +115,7 @@ async function preloadStudioTool(toolId: StudioToolId) {
     const { preloadLottieRuntime } = await loadLottieStudio();
     return preloadLottieRuntime();
   }
+  if (toolId === 'material') return loadShaderLabStudio();
   return loadStudioToolWorkspace();
 }
 
@@ -730,6 +736,14 @@ const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
               <AnimationStudio active={renderActive} embedded identity={activeIdentity} />
             ) : toolId === 'lottie' ? (
               <LottieStudio active={renderActive} identity={activeIdentity} />
+            ) : toolId === 'material' ? (
+              <ShaderLabStudio
+                active={renderActive}
+                automationToolId={tool.id}
+                identity={activeIdentity}
+                onIdentitySave={onIdentitySave}
+                tool={{ ...tool, id: 'logo-shader' }}
+              />
             ) : (
               <StudioToolWorkspace
                 active={renderActive}
@@ -1191,10 +1205,7 @@ export default function StudioApp() {
   function scrollProjectTabs(direction: -1 | 1) {
     const rail = projectTabsScrollRef.current;
     if (!rail) return;
-    rail.scrollBy({
-      behavior: resolvedAppearance.motion === 'reduced' ? 'auto' : 'smooth',
-      left: direction * Math.max(180, rail.clientWidth * 0.64),
-    });
+    rail.scrollLeft += direction * Math.max(180, rail.clientWidth * 0.64);
   }
 
   function closeIdentity(identityId: string) {

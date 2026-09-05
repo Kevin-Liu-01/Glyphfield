@@ -90,6 +90,8 @@ import StudioContextMenu, {
 } from '@/components/ui/StudioContextMenu';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { useMountEffect } from '@/hooks/useMountEffect';
 
 function canvasSelectionAnnouncement(count: number, groupName?: string): string {
   if (count === 0) return 'Canvas selection cleared.';
@@ -216,6 +218,7 @@ import {
   previewLiveMaterialSettings,
   previewLiveMaterialTime,
 } from '@/lib/liveMaterialPreview';
+import { liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
 import {
   buildImageSvgFilter,
   buildLogoSvgFilter,
@@ -234,6 +237,7 @@ import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
   shaderLabMaterials,
+  shaderMaterialPreviewStyle,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
   type ShaderLabCategory,
@@ -773,7 +777,7 @@ const RATIO_OPTIONS: readonly { height: number; label: string; value: StudioArtb
 
 const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
   durationMs: 1_600,
-  fps: 15,
+  fps: 30,
   gifLoop: 'seamless',
   quality: 'balanced',
   width: 960,
@@ -795,7 +799,7 @@ function normalizeDesignExportSettings(settings?: Partial<DesignExportSettings>)
     durationMs: settings?.durationMs && [1_200, 1_600, 2_400, 4_000].includes(settings.durationMs)
       ? settings.durationMs
       : DEFAULT_EXPORT_SETTINGS.durationMs,
-    fps: settings?.fps && [12, 15, 24, 30].includes(settings.fps)
+    fps: settings?.fps && [12, 15, 24, 30, 60].includes(settings.fps)
       ? settings.fps
       : DEFAULT_EXPORT_SETTINGS.fps,
     gifLoop: settings?.gifLoop === 'raw' ? 'raw' : 'seamless',
@@ -931,7 +935,7 @@ function DesignExportControls({
             <StudioSelect
               ariaLabel='Export frame rate'
               onValueChange={(value) => onChange({ fps: Number(value) })}
-              options={[12, 15, 24, 30].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
+              options={[12, 15, 24, 30, 60].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
               value={String(settings.fps)}
             />
           </label>
@@ -1331,8 +1335,11 @@ function CanvasSelectionAssemblyOverlay({
 
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
-const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 180_000;
-const SHADER_LIBRARY_INITIAL_CARD_COUNT = 24;
+const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
+const DESIGN_LAB_PREVIEW_MIN_PIXEL_COUNT = 48_000;
+const DESIGN_LAB_PREVIEW_TOTAL_PIXEL_BUDGET = 300_000;
+const DESIGN_LAB_PREVIEW_FRAME_RATE = 60;
+const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;
 const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
 const DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS: DesignShaderSequenceSettings = {
   ...DEFAULT_SHADER_SEQUENCE_SETTINGS,
@@ -4595,6 +4602,10 @@ export default function ShaderLabStudio({
   const sequencePreviewTickRef = useRef<FrameRequestCallback>(() => {});
   const sequencePreviewRestorePausedRef = useRef(false);
   const workspaceActiveRef = useCommittedRef(active);
+  const livePreviewRuntimeReady = useDeferredRuntime(active, 150, {
+    deferWhileInteracting: true,
+    useIdleCallback: false,
+  });
   const [compositionDocumentCreatedAt] = useState(() => new Date().toISOString());
   const [shaderLayers, setShaderLayers] = useStudioDraft<CompositionShaderLayer[]>(
     identity.id,
@@ -4641,6 +4652,24 @@ export default function ShaderLabStudio({
     'shader-lab-v3-export-settings',
     DEFAULT_EXPORT_SETTINGS
   );
+  useMountEffect(() => {
+    // Lift untouched 15 FPS drafts to the denser default without rewriting
+    // deliberate low-frame-rate export settings.
+    try {
+      const storageKey = `glyphfield-draft-v1:${identity.id}:${tool.id}:shader-lab-v3-export-settings`;
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? 'null') as Partial<DesignExportSettings> | null;
+      if (!stored) return;
+      const normalized = normalizeDesignExportSettings(stored);
+      const isLegacyDefault = normalized.fps === 15
+        && normalized.durationMs === 1_600
+        && normalized.width === 960
+        && normalized.quality === 'balanced'
+        && normalized.gifLoop === 'seamless';
+      if (isLegacyDefault) setExportSettings({ ...normalized, fps: DEFAULT_EXPORT_SETTINGS.fps });
+    } catch {
+      // Storage can be unavailable or malformed; the current draft remains valid.
+    }
+  });
   const [shaderSequenceSettings, setShaderSequenceSettings] = useStudioDraft<DesignShaderSequenceSettings>(
     identity.id,
     tool.id,
@@ -6523,6 +6552,20 @@ export default function ShaderLabStudio({
     [designLabDocument, listedLayerIds]
   );
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds]);
+  const visibleShaderRendererCount = useMemo(
+    () => visibleLayerIds.reduce((count, layerId) => (
+      isShaderLayerId(layerId) || (isContentLayerId(layerId) && layerShaders[layerId])
+        ? count + 1
+        : count
+    ), 0),
+    [layerShaders, visibleLayerIds]
+  );
+  const livePreviewPixelBudget = liveMaterialInstancePixelBudget({
+    instanceCount: visibleShaderRendererCount,
+    maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
+    minPerInstance: DESIGN_LAB_PREVIEW_MIN_PIXEL_COUNT,
+    totalBudget: DESIGN_LAB_PREVIEW_TOTAL_PIXEL_BUDGET,
+  });
 
   function compositionSetupSource(): string | null {
     if (!portableDesignLab.document) return null;
@@ -7307,15 +7350,25 @@ export default function ShaderLabStudio({
     const renderedApplication = sequenceCapture && instanceKey === `canvas-${sequenceCapture.layerId}`
       ? sequenceCapture.application
       : application;
+    if (!livePreviewRuntimeReady && captureTimeMs === null) {
+      return (
+        <span
+          aria-hidden='true'
+          className='absolute inset-0 block'
+          style={shaderMaterialPreviewStyle(renderedApplication.materialId, renderedApplication.settings)}
+        />
+      );
+    }
     return (
       <LiveMaterialCanvas
         captureTimeMs={controlledTimeMs}
         className='absolute inset-0 size-full'
+        frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
         key={`${instanceKey}:${renderedApplication.materialId}`}
         loopDurationMs={normalizedExportSettings.durationMs}
         materialId={renderedApplication.materialId}
         maxPixelCount={captureTimeMs === null
-          ? DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT
+          ? livePreviewPixelBudget
           : Math.max(DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, exportDimensions.width * exportDimensions.height)}
         patternScale={clampShaderZoom(renderedApplication.shaderSize)}
         paused={!active || paused || controlledTimeMs !== null}

@@ -289,7 +289,8 @@ export default async function HomePage() {
             <MarketingArcField
               className='marketing-v5-hero-grain-gradient'
               materialId={SHADER_LIBRARY_SCENES.heroField.materialId}
-              maxPixelCount={2_000_000}
+              maxPixelCount={900_000}
+              persistAfterReady
               renderScale={1}
               settings={SHADER_LIBRARY_SCENES.heroField.settings}
             />

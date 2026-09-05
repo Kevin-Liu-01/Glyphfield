@@ -10,7 +10,7 @@ import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 
 // Fetch and prepare the renderer well before the field is visible, but only spend
 // recurring GPU time once it is at the edge of the viewport.
-const SHADER_PREWARM_MARGIN = '720px 0px';
+const SHADER_PREWARM_MARGIN = '960px 0px';
 const SHADER_ACTIVE_MARGIN = '96px 0px';
 
 export default function MarketingArcField({
@@ -19,6 +19,7 @@ export default function MarketingArcField({
   materialId,
   maxPixelCount,
   paperShaderOverrides,
+  persistAfterReady = false,
   renderScale = 0.5,
   settings,
 }: {
@@ -27,6 +28,7 @@ export default function MarketingArcField({
   materialId: LiveMaterialId;
   maxPixelCount?: number;
   paperShaderOverrides?: Readonly<Record<string, unknown>>;
+  persistAfterReady?: boolean;
   renderScale?: number;
   settings: LiveMaterialSettings;
 }) {
@@ -34,9 +36,10 @@ export default function MarketingArcField({
   const nearViewport = useViewportActivity(containerRef, { rootMargin: SHADER_PREWARM_MARGIN });
   const active = useViewportActivity(containerRef, { rootMargin: SHADER_ACTIVE_MARGIN });
   const isPaperShader = materialId.startsWith('paper-');
-  const runtimeReady = useDeferredRuntime(nearViewport, 80, {
-    deferWhileScrolling: false,
-    useIdleCallback: false,
+  const runtimeReady = useDeferredRuntime(nearViewport, 420, {
+    deferWhileScrolling: true,
+    resetWhenDisabled: !persistAfterReady,
+    useIdleCallback: true,
   });
   const fallbackStyle = isPaperShader ? {
     '--marketing-shader-color-a': settings.colorA,
