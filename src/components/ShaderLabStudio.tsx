@@ -48,6 +48,7 @@ import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasVie
 import ArtboardSizeMenu, { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
+import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import StudioRange from '@/components/ui/StudioRange';
@@ -213,12 +214,16 @@ import {
 } from '@/lib/designLabDocument';
 import { parseSourceObject } from '@/lib/sourceCode';
 import {
+  captureLiveMaterialFrameState,
   clearLiveMaterialTimePreview,
+  normalizeLiveMaterialFrameState,
   previewLiveMaterialPatternScale,
   previewLiveMaterialSettings,
   previewLiveMaterialTime,
+  type LiveMaterialFrameState,
 } from '@/lib/liveMaterialPreview';
-import { liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
+import { liveMaterialFrameIsDue, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
+import { waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
 import {
   buildImageSvgFilter,
   buildLogoSvgFilter,
@@ -306,6 +311,7 @@ type CompositionLayerGroup = {
 
 type ShaderApplication = {
   blendMode: ShaderBlendMode;
+  frameState?: LiveMaterialFrameState;
   materialId: LiveMaterialId;
   opacity: number;
   settings: LiveMaterialSettings;
@@ -1166,7 +1172,6 @@ function ShaderFrameHistoryControl({
   const latestScrubFrameRef = useRef<number | null>(null);
   const scrubAnimationFrameRef = useRef(0);
   const previewPlaybackFrame = useEffectEvent(onFramePreview);
-  const previewPlaybackTime = useEffectEvent(onScrubPreview);
   const playbackStartFrameRef = useCommittedRef(boundedFrame);
 
   const syncDisplayFrame = useCallback((nextFrame: number) => {
@@ -1202,7 +1207,6 @@ function ShaderFrameHistoryControl({
       if (nextFrame !== previousFrame) {
         previousFrame = nextFrame;
         previewPlaybackFrame(nextFrame);
-        previewPlaybackTime(nextFrame);
         syncDisplayFrame(nextFrame);
       }
       animationFrame = requestAnimationFrame(tick);
@@ -1214,6 +1218,7 @@ function ShaderFrameHistoryControl({
   useEffect(() => () => cancelAnimationFrame(scrubAnimationFrameRef.current), []);
 
   function scheduleScrub(nextFrame: number) {
+    if (playing) onPauseAtFrame(displayFrameRef.current);
     const boundedNextFrame = Math.min(frameCount - 1, Math.max(0, Math.round(nextFrame)));
     syncDisplayFrame(boundedNextFrame);
     pendingScrubFrameRef.current = boundedNextFrame;
@@ -1254,7 +1259,7 @@ function ShaderFrameHistoryControl({
       </button>
       <div className='shader-lab-v2-frame-history-copy'>
         <span><Clock3 aria-hidden='true' />Motion timeline</span>
-        <small>{playing ? 'Live' : 'Selected'} · <span ref={secondsRef}>{seconds.toFixed(2)}s</span></small>
+        <small>{playing ? 'Live' : 'Captured'} · <span ref={secondsRef}>{seconds.toFixed(2)}s</span></small>
       </div>
       <StudioRange
         aria-label='Deterministic motion timeline'
@@ -1296,19 +1301,26 @@ function CanvasSelectionAssemblyOverlay({
     height: number;
     left: number;
     top: number;
+    viewportClipPath?: string;
     width: number;
   } | null>(null);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    const viewport = stage.closest('.canvas-viewport-scroll, .canvas-viewport');
     let frame = 0;
     const measure = () => {
+      if (stage.closest('[data-canvas-initializing="true"]')) {
+        setScreenBounds(null);
+        return;
+      }
       const stageBounds = stage.getBoundingClientRect();
       const next = {
         height: bounds.height / canvasHeight * stageBounds.height,
         left: stageBounds.left + bounds.left / canvasWidth * stageBounds.width,
         top: stageBounds.top + bounds.top / canvasHeight * stageBounds.height,
+        viewportClipPath: canvasSelectionViewportClipPath(viewport),
         width: bounds.width / canvasWidth * stageBounds.width,
       };
       setScreenBounds((current) => current
@@ -1316,6 +1328,7 @@ function CanvasSelectionAssemblyOverlay({
         && Math.abs(current.left - next.left) < 0.25
         && Math.abs(current.top - next.top) < 0.25
         && Math.abs(current.width - next.width) < 0.25
+        && current.viewportClipPath === next.viewportClipPath
         ? current
         : next);
     };
@@ -1326,6 +1339,7 @@ function CanvasSelectionAssemblyOverlay({
     const viewportStage = stage.closest('.canvas-viewport-stage');
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(stage);
+    if (viewport) resizeObserver.observe(viewport);
     if (viewportStage) resizeObserver.observe(viewportStage);
     const transformObserver = viewportStage ? new MutationObserver(scheduleMeasure) : null;
     transformObserver?.observe(viewportStage!, { attributeFilter: ['style'], attributes: true });
@@ -1342,10 +1356,13 @@ function CanvasSelectionAssemblyOverlay({
   }, [bounds.height, bounds.left, bounds.top, bounds.width, canvasHeight, canvasWidth, stageRef]);
 
   if (!screenBounds) return null;
+  const { viewportClipPath, ...selectionBounds } = screenBounds;
   return createPortal(
-    <div aria-hidden='true' className='canvas-selection-assembly' data-canvas-selection-preserve style={screenBounds}>
-      <span className='canvas-selection-assembly__label'>{label}</span>
-    </div>,
+    <CanvasSelectionClip clipPath={viewportClipPath}>
+      <div aria-hidden='true' className='canvas-selection-assembly' data-canvas-selection-preserve style={selectionBounds}>
+        <span className='canvas-selection-assembly__label'>{label}</span>
+      </div>
+    </CanvasSelectionClip>,
     document.body
   );
 }
@@ -1508,7 +1525,7 @@ function LayerDockStaticPreview({
   previewUrl?: string;
 }) {
   let preview: ReactNode = <span aria-hidden='true' />;
-  if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} />;
+  if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />;
   else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} />;
   return (
     <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${label} preview`} onClick={onSelect} type='button'>
@@ -1565,7 +1582,7 @@ function LayerDockTooltipPreview({
           src={shaderPreviewAssetPath(appliedShader.materialId)}
         />
       ) : null}
-      {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} /> : null}
+      {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} /> : null}
       {previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : null}
       {textLayer && textAppearance ? (
         <span
@@ -1769,6 +1786,7 @@ function restoredLayerShaders(
     if (!allowedIds.has(layerId) || !isContentLayerId(layerId)) continue;
     restored[layerId] = application ? {
         ...application,
+        frameState: normalizeLiveMaterialFrameState(application.frameState),
         settings: { ...application.settings },
         shaderSize: clampShaderZoom(application.shaderSize),
       } : application;
@@ -1783,6 +1801,7 @@ function restoredShaderLayers(
 ): CompositionShaderLayer[] {
   const layers = (savedLayers ?? currentLayers).map((layer) => ({
     ...layer,
+    frameState: normalizeLiveMaterialFrameState(layer.frameState),
     settings: { ...layer.settings },
     shaderSize: clampShaderZoom(layer.shaderSize),
     transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM),
@@ -4805,12 +4824,13 @@ export default function ShaderLabStudio({
     identity.id,
     tool.id,
     'design-lab-artboard-tour-v1',
-    true
+    false
   );
   const [workspaceTourStep, setWorkspaceTourStep] = useState(0);
   const [motionWorkspaceOpen, setMotionWorkspaceOpen] = useState(false);
   const [artboardPickerOpen, setArtboardPickerOpen] = useState(false);
   const [artboardFocusRequest, setArtboardFocusRequest] = useState<{ id: DesignArtboardId; revision: number } | null>(null);
+  const initialArtboardFocusedRef = useRef(false);
   const [workspaceFitRevision, setWorkspaceFitRevision] = useState(0);
   const pendingArtboardApplyRef = useRef<{ id: DesignArtboardId; signature: string } | null>(null);
   const designLabClipboardRef = useRef<string | null>(null);
@@ -5088,6 +5108,12 @@ export default function ShaderLabStudio({
     if (compositionAutosaveState !== 'loading') setDraftHydrated(true);
   }, [compositionAutosaveState]);
   useEffect(() => {
+    if (!active || compositionAutosaveState === 'loading' || initialArtboardFocusedRef.current) return;
+    if (!artboards.some(({ id }) => id === activeArtboardId)) return;
+    initialArtboardFocusedRef.current = true;
+    setArtboardFocusRequest({ id: activeArtboardId, revision: 0 });
+  }, [active, activeArtboardId, artboards, compositionAutosaveState]);
+  useEffect(() => {
     if (compositionAutosaveState === 'loading' || artboards.some(({ id }) => id === activeArtboardId)) return;
     const fallbackId = artboards[0]?.id;
     if (!fallbackId) return;
@@ -5281,6 +5307,46 @@ export default function ShaderLabStudio({
     setPaused(true);
   }
 
+  function captureAndPauseAtPreviewFrame(frame: number) {
+    const nextFrame = resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      frame
+    );
+    const capturedShaderFrames = new Map<ShaderLayerId, LiveMaterialFrameState>();
+    const capturedContentFrames = new Map<ContentLayerId, LiveMaterialFrameState>();
+    shaderLayers.forEach((layer) => {
+      const instanceKey = `canvas-${layer.id}`;
+      const host = stageRef.current?.querySelector<HTMLElement>(
+        `[data-shader-instance="${CSS.escape(instanceKey)}"]`
+      ) ?? null;
+      const frameState = captureLiveMaterialFrameState(host, nextFrame.timeMs);
+      if (frameState) capturedShaderFrames.set(layer.id, frameState);
+    });
+    Object.keys(layerShaders).forEach((layerId) => {
+      const id = layerId as ContentLayerId;
+      const instanceKey = `content-${id}`;
+      const host = stageRef.current?.querySelector<HTMLElement>(
+        `[data-shader-instance="${CSS.escape(instanceKey)}"]`
+      ) ?? null;
+      const frameState = captureLiveMaterialFrameState(host, nextFrame.timeMs);
+      if (frameState) capturedContentFrames.set(id, frameState);
+    });
+    if (capturedShaderFrames.size > 0) {
+      setShaderLayers((current) => current.map((layer) => {
+        const frameState = capturedShaderFrames.get(layer.id);
+        return frameState ? { ...layer, frameState } : layer;
+      }));
+    }
+    if (capturedContentFrames.size > 0) {
+      setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([layerId, application]) => {
+        const frameState = capturedContentFrames.get(layerId as ContentLayerId);
+        return [layerId, application && frameState ? { ...application, frameState } : application];
+      })) as Partial<Record<ContentLayerId, ShaderApplication>>);
+    }
+    pauseAtPreviewFrame(nextFrame.index);
+  }
+
   function playShaderHistory() {
     clearLiveMaterialTimePreview('design-lab');
     setPaused(false);
@@ -5291,7 +5357,7 @@ export default function ShaderLabStudio({
       playShaderHistory();
       return;
     }
-    pauseAtPreviewFrame(previewFrameRef.current);
+    captureAndPauseAtPreviewFrame(previewFrameRef.current);
   }
 
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
@@ -7036,7 +7102,7 @@ export default function ShaderLabStudio({
           && inViewport
           && !document.hidden
           && !rendering
-          && (paused || now - lastRenderedAt >= 1000 / targetFrameRate);
+          && (paused || liveMaterialFrameIsDue(now, lastRenderedAt, targetFrameRate));
         if (shouldRender) {
           rendering = true;
           const renderStartedAt = performance.now();
@@ -7143,6 +7209,7 @@ export default function ShaderLabStudio({
     const resumeAfterExport = !paused;
     const stillFrame = paused ? boundedPreviewFrame : previewFrameRef.current;
     flushSync(() => {
+      if (!paused) captureAndPauseAtPreviewFrame(stillFrame);
       setExporting(format);
       setCaptureTimeMs(resolveMotionFrame(
         normalizedExportSettings.durationMs,
@@ -7156,6 +7223,7 @@ export default function ShaderLabStudio({
     try {
       const startedAt = performance.now();
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      await waitForLiveMaterialReady(stageRef.current);
       await waitForCompositionFonts();
       const output = createExportCanvas();
       const context = output.getContext('2d');
@@ -7212,6 +7280,7 @@ export default function ShaderLabStudio({
       };
       requestAnimationFrame(settleFrame);
     });
+    await waitForLiveMaterialReady(stageRef.current);
   }
 
   async function exportMotion(format: 'gif' | 'mp4', motionMode: DesignMotionMode = 'standard'): Promise<ExportPreviewAsset | null> {
@@ -7400,6 +7469,7 @@ export default function ShaderLabStudio({
         className='absolute inset-0 size-full'
         enabled={active}
         frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
+        frameState={renderedApplication.frameState}
         key={instanceKey}
         loopDurationMs={normalizedExportSettings.durationMs}
         materialId={renderedApplication.materialId}
@@ -7447,7 +7517,7 @@ export default function ShaderLabStudio({
               </Button>
             )}
             {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
-            <Button aria-label={paused ? 'Play shader' : 'Pause shader'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
+            <Button aria-label={paused ? 'Resume native shader motion' : 'Capture current shader frame'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
               {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
             </Button>
           </>
@@ -7618,6 +7688,7 @@ export default function ShaderLabStudio({
         className='absolute inset-0 size-full'
         enabled={active}
         frameRate={24}
+        frameState={application.frameState}
         key={instanceKey}
         loopDurationMs={normalizedExportSettings.durationMs}
         materialId={application.materialId}
@@ -8084,7 +8155,9 @@ export default function ShaderLabStudio({
         </button>
         <div className='shader-lab-v2-dock-layer-preview'>
           {appliedShader ? (
-            <span className='shader-lab-v2-dock-material-frame'><AuthenticShaderPreview materialId={appliedShader.materialId} /></span>
+            <span className='shader-lab-v2-dock-material-frame'>
+              <AuthenticShaderPreview materialId={appliedShader.materialId} settings={appliedShader.settings} />
+            </span>
           ) : null}
           {textLayer && textAppearance ? (
             <input
@@ -8254,6 +8327,7 @@ export default function ShaderLabStudio({
             focusOffsetY={16}
             identityId={identity.id}
             initialPan={{ x: 0, y: -40 }}
+            initialViewReady={compositionAutosaveState !== 'loading' && Boolean(artboardFocusRequest)}
             initialZoom={40}
             maxZoom={220}
             minZoom={10}
@@ -8323,7 +8397,7 @@ export default function ShaderLabStudio({
               fps={normalizedExportSettings.fps}
               frame={boundedPreviewFrame}
               onFramePreview={trackPreviewFrame}
-              onPauseAtFrame={pauseAtPreviewFrame}
+              onPauseAtFrame={captureAndPauseAtPreviewFrame}
               onPlay={playShaderHistory}
               onScrub={pauseAtPreviewFrame}
               onScrubPreview={(frame) => {
@@ -8336,15 +8410,15 @@ export default function ShaderLabStudio({
                   ).timeMs
                 );
               }}
-              playing={!paused && captureTimeMs === null}
+              playing={active && !paused && captureTimeMs === null}
             />
-            <button aria-expanded={motionWorkspaceOpen} onClick={() => setMotionWorkspaceOpen((value) => !value)} type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
-            <a href='/studio?tool=animation' title='Continue in Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
+            <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
+            <a aria-label='Open Animation Studio' href='/studio?tool=animation' title='Open Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
           </div>
           {motionWorkspaceOpen ? (
             <aside className='design-motion-workspace' data-canvas-selection-preserve>
               <header><span><Clapperboard aria-hidden='true' /><strong>Shader sequence</strong></span><button aria-label='Close shader sequence' onClick={() => setMotionWorkspaceOpen(false)} type='button'><X aria-hidden='true' /></button></header>
-              <p>Build a deterministic cut sequence for this artboard, preview it here, or continue with keyframes in Animation Studio.</p>
+              <p>Build and preview a cut sequence for this artboard. Animation Studio opens a separate workspace for keyframe animation.</p>
               <ShaderSequenceControls
                 disabled={Boolean(exporting)}
                 durationMs={shaderSequenceDuration}

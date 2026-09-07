@@ -7,6 +7,14 @@ export type LiveMaterialPixelRatioInput = {
   renderScale: number;
 };
 
+export function liveMaterialFrameIsDue(timeMs: number, lastDrawnMs: number, frameRate: number): boolean {
+  if (lastDrawnMs <= 0) return true;
+  const intervalMs = 1_000 / Math.max(1, frameRate);
+  // rAF timestamps fluctuate slightly around vsync (16.6 vs 16.67ms at 60Hz).
+  // A strict interval comparison drops alternate frames at the native rate.
+  return timeMs - lastDrawnMs >= intervalMs - Math.min(0.75, intervalMs * 0.05);
+}
+
 export function resolveLiveMaterialPixelRatio({
   cssHeight,
   cssWidth,

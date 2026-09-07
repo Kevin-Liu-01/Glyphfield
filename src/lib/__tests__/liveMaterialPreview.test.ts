@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  captureLiveMaterialFrameState,
   clearLiveMaterialTimePreview,
   LIVE_MATERIAL_PATTERN_SCALE_PREVIEW_EVENT,
   LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT,
@@ -8,6 +9,7 @@ import {
   previewLiveMaterialPatternScale,
   previewLiveMaterialSettings,
   previewLiveMaterialTime,
+  normalizeLiveMaterialFrameState,
   type LiveMaterialPatternScalePreview,
   type LiveMaterialSettingsPreview,
   type LiveMaterialTimePreview,
@@ -41,5 +43,25 @@ describe('live material local previews', () => {
       { group: 'design-lab', timeMs: 640 },
       { group: 'design-lab', timeMs: null },
     ]);
+  });
+
+  it('captures a compact native Paper frame instead of persisting canvas pixels', () => {
+    const surface = {
+      paperShaderMount: { getCurrentFrame: () => 412.75 },
+      querySelectorAll: () => [],
+    } as unknown as ParentNode;
+
+    expect(captureLiveMaterialFrameState(surface, 640)).toEqual({
+      engine: 'paper',
+      frame: 412.75,
+      timelineTimeMs: 640,
+      version: 1,
+    });
+    expect(normalizeLiveMaterialFrameState({
+      engine: 'paper',
+      frame: Number.NaN,
+      timelineTimeMs: 640,
+      version: 1,
+    })).toBeUndefined();
   });
 });

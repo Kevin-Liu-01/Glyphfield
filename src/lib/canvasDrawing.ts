@@ -23,3 +23,20 @@ export function drawCanvasImageCover(
   const drawnHeight = sourceHeight * scale;
   context.drawImage(source, (width - drawnWidth) / 2, (height - drawnHeight) / 2, drawnWidth, drawnHeight);
 }
+
+/** Scale a configured font without parsing a different CSS font for every glyph.
+ * Coordinates are CSS pixels; glyphScale is relative to the context's font size.
+ * Like other canvas primitives, this leaves its transform in the caller's context.
+ */
+export function drawCanvasGlyph(
+  context: CanvasRenderingContext2D,
+  glyph: string,
+  x: number,
+  y: number,
+  glyphScale: number,
+  pixelRatio: number
+) {
+  const scale = pixelRatio * glyphScale;
+  context.setTransform(scale, 0, 0, scale, x * pixelRatio, y * pixelRatio);
+  context.fillText(glyph, 0, 0);
+}

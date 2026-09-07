@@ -1,11 +1,36 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  liveMaterialFrameIsDue,
   liveMaterialInstancePixelBudget,
   resolveLiveMaterialPixelRatio,
 } from '@/lib/liveMaterialRenderBudget';
 
 describe('live material render budget', () => {
+  it('keeps every native 60Hz frame despite fractional vsync timestamps', () => {
+    let lastDrawn = 100;
+    let drawn = 0;
+    for (let index = 1; index <= 60; index += 1) {
+      const time = 100 + index * 16.6;
+      if (!liveMaterialFrameIsDue(time, lastDrawn, 60)) continue;
+      lastDrawn = time;
+      drawn += 1;
+    }
+    expect(drawn).toBe(60);
+  });
+
+  it('continues respecting the lower render budget on high-refresh displays', () => {
+    let lastDrawn = 100;
+    let drawn = 0;
+    for (let index = 1; index <= 120; index += 1) {
+      const time = 100 + index * (1_000 / 120);
+      if (!liveMaterialFrameIsDue(time, lastDrawn, 30)) continue;
+      lastDrawn = time;
+      drawn += 1;
+    }
+    expect(drawn).toBe(30);
+  });
+
   it('caps a high-density canvas to its pixel budget', () => {
     const ratio = resolveLiveMaterialPixelRatio({
       cssHeight: 450,

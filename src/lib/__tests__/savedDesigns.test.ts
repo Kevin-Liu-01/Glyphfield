@@ -10,6 +10,7 @@ import {
   deleteSavedDesign,
   loadAutosavedDesign,
   loadSavedDesigns,
+  renameSavedDesign,
   saveAutosavedDesign,
   saveSavedDesign,
   savedDesignStorageKey,
@@ -155,6 +156,31 @@ describe('saved designs', () => {
     expect(await loadAutosavedDesign('missing-workspace')).toBeNull();
   });
 
+  it('renames a checkpoint without replacing its newer source or lineage', async () => {
+    const workspaceKey = savedDesignStorageKey('gt', 'material');
+    const updated = {
+      ...saved,
+      origin: 'fork' as const,
+      parentId: 'original',
+      revision: 'revision-2',
+      source: '{"frame":2}',
+    };
+    await saveSavedDesign(workspaceKey, updated);
+
+    await renameSavedDesign(workspaceKey, updated.id, 'Renamed checkpoint');
+
+    expect(await loadSavedDesigns(workspaceKey)).toEqual([{ ...updated, name: 'Renamed checkpoint' }]);
+  });
+
+  it('does not recreate a deleted checkpoint when its pending rename completes', async () => {
+    const workspaceKey = savedDesignStorageKey('gt', 'material');
+    await saveSavedDesign(workspaceKey, saved);
+    await deleteSavedDesign(workspaceKey, saved.id);
+
+    await expect(renameSavedDesign(workspaceKey, saved.id, 'Renamed checkpoint')).rejects.toThrow();
+    expect(await loadSavedDesigns(workspaceKey)).toEqual([]);
+  });
+
   it('recovers a newer unload journal into IndexedDB and then removes it', async () => {
     const workspaceKey = savedDesignStorageKey('gt', 'shader-lab');
     await saveAutosavedDesign(workspaceKey, '{"frame":1}', 'revision-1', '2026-09-01T12:00:00.000Z');
@@ -183,6 +209,52 @@ describe('saved designs', () => {
     localValues.set(recoveryKey, '{broken');
     expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({ revision: 'revision-3' });
     expect(localValues.has(recoveryKey)).toBe(false);
+  });
+
+  it('reopens an intact recovery draft even when IndexedDB is unavailable', async () => {
+    const workspaceKey = savedDesignStorageKey('gt', 'material');
+    const recoveryKey = autosaveRecoveryStorageKey(workspaceKey);
+    writeAutosaveRecovery(workspaceKey, '{"x":246}', 'revision-4', '2026-09-01T12:04:00.000Z');
+    vi.stubGlobal('indexedDB', undefined);
+
+    expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({
+      revision: 'revision-4',
+      source: '{"x":246}',
+    });
+    expect(localValues.has(recoveryKey)).toBe(true);
+
+    vi.stubGlobal('indexedDB', fakeIndexedDB);
+    expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({ revision: 'revision-4' });
+    expect(localValues.has(recoveryKey)).toBe(false);
+    expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({ source: '{"x":246}' });
+  });
+
+  it('autosaves to recovery storage while IndexedDB is unavailable and later migrates it', async () => {
+    const workspaceKey = savedDesignStorageKey('gt', 'material');
+    vi.stubGlobal('indexedDB', undefined);
+
+    await saveAutosavedDesign(workspaceKey, '{"x":12}', 'revision-1', '2026-09-01T12:01:00.000Z');
+    await saveAutosavedDesign(workspaceKey, '{"x":36}', 'revision-2', '2026-09-01T12:02:00.000Z');
+    expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({
+      revision: 'revision-2',
+      source: '{"x":36}',
+    });
+
+    vi.stubGlobal('indexedDB', fakeIndexedDB);
+    expect(await loadAutosavedDesign(workspaceKey)).toMatchObject({ revision: 'revision-2' });
+    expect(localValues.has(autosaveRecoveryStorageKey(workspaceKey))).toBe(false);
+  });
+
+  it('reports a failed autosave when neither storage backend can preserve the draft', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    localStorage.setItem.mockImplementationOnce(() => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    });
+
+    await expect(saveAutosavedDesign('unavailable', '{"x":36}', 'revision-2'))
+      .rejects.toThrow(/storage is unavailable/i);
+    expect(localValues.has(autosaveRecoveryStorageKey('unavailable'))).toBe(false);
+    await expect(loadAutosavedDesign('unavailable')).rejects.toThrow(/storage is unavailable/i);
   });
 
   it('falls back cleanly when synchronous recovery storage is unavailable', () => {

@@ -2,10 +2,17 @@ import { useState, type RefObject } from 'react';
 
 import { useMountEffect } from './useMountEffect';
 
-/** Keeps an expensive visual active only while its host is near the visible page. */
+/**
+ * Tracks a host's viewport range. Activity normally also follows tab visibility;
+ * retained renderers can opt out for their mount range and pause separately.
+ */
 export function useViewportActivity(
   containerRef: RefObject<Element | null>,
-  { initialActive = false, rootMargin }: { initialActive?: boolean; rootMargin: string }
+  { initialActive = false, respectDocumentVisibility = true, rootMargin }: {
+    initialActive?: boolean;
+    respectDocumentVisibility?: boolean;
+    rootMargin: string;
+  }
 ): boolean {
   const [active, setActive] = useState(initialActive);
   useMountEffect(() => {
@@ -13,14 +20,16 @@ export function useViewportActivity(
     let intersecting = initialActive;
 
     function syncVisibility() {
-      setActive(intersecting && document.visibilityState === 'visible');
+      setActive(intersecting && (!respectDocumentVisibility || document.visibilityState === 'visible'));
     }
 
     if (!container || !('IntersectionObserver' in window)) {
       intersecting = true;
       syncVisibility();
-      document.addEventListener('visibilitychange', syncVisibility);
-      return () => document.removeEventListener('visibilitychange', syncVisibility);
+      if (respectDocumentVisibility) document.addEventListener('visibilitychange', syncVisibility);
+      return () => {
+        if (respectDocumentVisibility) document.removeEventListener('visibilitychange', syncVisibility);
+      };
     }
 
     const observer = new IntersectionObserver(
@@ -32,10 +41,10 @@ export function useViewportActivity(
     );
 
     observer.observe(container);
-    document.addEventListener('visibilitychange', syncVisibility);
+    if (respectDocumentVisibility) document.addEventListener('visibilitychange', syncVisibility);
     return () => {
       observer.disconnect();
-      document.removeEventListener('visibilitychange', syncVisibility);
+      if (respectDocumentVisibility) document.removeEventListener('visibilitychange', syncVisibility);
     };
   });
   return active;

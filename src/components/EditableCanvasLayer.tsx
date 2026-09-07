@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from '@/components/ui/SolidIcons';
 
+import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useDocumentBody } from '@/hooks/useMountEffect';
 import {
@@ -45,6 +46,7 @@ type SelectionBounds = {
   height: number;
   left: number;
   top: number;
+  viewportClipPath?: string;
   width: number;
 };
 
@@ -71,54 +73,57 @@ function CanvasLayerSelectionOverlay({
   selectionOverlayRef: RefObject<HTMLDivElement | null>;
 }) {
   if (!portalHost || !selectionBounds) return null;
+  const { viewportClipPath, ...bounds } = selectionBounds;
   return createPortal(
-    <div
-      className='editable-canvas-layer-selection'
-      data-canvas-selection-preserve
-      ref={selectionOverlayRef}
-      style={selectionBounds}
-    >
-      <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
-      {CANVAS_SELECTION_SIDES.map((side) => (
+    <CanvasSelectionClip clipPath={viewportClipPath}>
+      <div
+        className='editable-canvas-layer-selection'
+        data-canvas-selection-preserve
+        ref={selectionOverlayRef}
+        style={bounds}
+      >
+        <span aria-hidden='true' className='editable-canvas-layer-name'>{label}</span>
+        {CANVAS_SELECTION_SIDES.map((side) => (
+          <button
+            aria-label={`Move ${label} from ${side} edge`}
+            className={`editable-canvas-layer-move-edge editable-canvas-layer-move-edge--${side}`}
+            key={`move-${side}`}
+            onPointerDown={(event) => beginPointer(event, 'move')}
+            tabIndex={-1}
+            title={`Move ${label}`}
+            type='button'
+          />
+        ))}
         <button
-          aria-label={`Move ${label} from ${side} edge`}
-          className={`editable-canvas-layer-move-edge editable-canvas-layer-move-edge--${side}`}
-          key={`move-${side}`}
+          aria-label={`Move ${label}`}
+          className='editable-canvas-layer-move'
           onPointerDown={(event) => beginPointer(event, 'move')}
           tabIndex={-1}
           title={`Move ${label}`}
           type='button'
         />
-      ))}
-      <button
-        aria-label={`Move ${label}`}
-        className='editable-canvas-layer-move'
-        onPointerDown={(event) => beginPointer(event, 'move')}
-        tabIndex={-1}
-        title={`Move ${label}`}
-        type='button'
-      />
-      {resizeMode === 'box' ? CANVAS_SELECTION_SIDES.map((side) => (
+        {resizeMode === 'box' ? CANVAS_SELECTION_SIDES.map((side) => (
+          <button
+            aria-label={`Resize ${label} from ${side}`}
+            className={`editable-canvas-layer-edge editable-canvas-layer-edge--${side}`}
+            key={side}
+            onPointerDown={(event) => beginPointer(event, `resize-${side}`)}
+            tabIndex={-1}
+            title={`Resize from ${side}`}
+            type='button'
+          />
+        )) : null}
         <button
-          aria-label={`Resize ${label} from ${side}`}
-          className={`editable-canvas-layer-edge editable-canvas-layer-edge--${side}`}
-          key={side}
-          onPointerDown={(event) => beginPointer(event, `resize-${side}`)}
+          aria-label={`Resize ${label}`}
+          className='editable-canvas-layer-resize'
+          onPointerDown={(event) => beginPointer(event, 'resize')}
           tabIndex={-1}
-          title={`Resize from ${side}`}
           type='button'
-        />
-      )) : null}
-      <button
-        aria-label={`Resize ${label}`}
-        className='editable-canvas-layer-resize'
-        onPointerDown={(event) => beginPointer(event, 'resize')}
-        tabIndex={-1}
-        type='button'
-      >
-        <MoveDiagonal2 aria-hidden='true' />
-      </button>
-    </div>,
+        >
+          <MoveDiagonal2 aria-hidden='true' />
+        </button>
+      </div>
+    </CanvasSelectionClip>,
     portalHost
   );
 }
@@ -306,12 +311,19 @@ function useCanvasLayerSelectionBounds({
 }) {
   const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
   const measureSelectionBounds = useCallback(() => {
-    const bounds = layerRef.current?.getBoundingClientRect();
+    const layer = layerRef.current;
+    if (layer?.closest('[data-canvas-initializing="true"]')) {
+      setSelectionBounds(null);
+      return;
+    }
+    const bounds = layer?.getBoundingClientRect();
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+    const viewport = layer?.closest('.canvas-viewport-scroll, .canvas-viewport') ?? null;
     const next = {
       height: bounds.height,
       left: bounds.left,
       top: bounds.top,
+      viewportClipPath: canvasSelectionViewportClipPath(viewport),
       width: bounds.width,
     };
     const overlay = selectionOverlayRef.current;
@@ -320,12 +332,14 @@ function useCanvasLayerSelectionBounds({
       overlay.style.left = `${next.left}px`;
       overlay.style.top = `${next.top}px`;
       overlay.style.width = `${next.width}px`;
+      if (overlay.parentElement) overlay.parentElement.style.clipPath = next.viewportClipPath ?? '';
     }
     setSelectionBounds((current) => current
       && Math.abs(current.height - next.height) < 0.25
       && Math.abs(current.left - next.left) < 0.25
       && Math.abs(current.top - next.top) < 0.25
       && Math.abs(current.width - next.width) < 0.25
+      && current.viewportClipPath === next.viewportClipPath
       ? current
       : next);
   }, [layerRef, selectionOverlayRef]);
@@ -358,6 +372,8 @@ function useCanvasLayerSelectionBounds({
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(layer);
     if (layer.parentElement) resizeObserver.observe(layer.parentElement);
+    const viewport = layer.closest('.canvas-viewport-scroll, .canvas-viewport');
+    if (viewport) resizeObserver.observe(viewport);
     const stage = layer.closest('.canvas-viewport-stage');
     const stageObserver = stage ? new MutationObserver(measureImmediately) : null;
     if (stage) stageObserver?.observe(stage, { attributeFilter: ['style'], attributes: true });

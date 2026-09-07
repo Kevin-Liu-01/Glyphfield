@@ -1,11 +1,12 @@
 'use client';
 
 import { Check, ChevronDown, Copy, GitFork, History, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Button } from '@/components/ui/Button';
 import type { CanvasDocumentAutosaveState } from '@/hooks/useCanvasDocumentAutosave';
-import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { canvasSourceContentRevision } from '@/lib/canvasDocument';
 import {
@@ -13,6 +14,7 @@ import {
   createSavedDesign,
   deleteSavedDesign as deleteSavedDesignFromStore,
   loadSavedDesigns,
+  renameSavedDesign,
   saveSavedDesign,
   savedDesignStorageKey,
   uniqueDesignName,
@@ -32,12 +34,18 @@ function designDate(isoDate: string): string {
   return date;
 }
 
-function visibleDesignState(
+function designVersionStatus(
   activeDesign: SavedDesign | null,
   dirty: boolean,
-  autosaveState: CanvasDocumentAutosaveState
-): string {
-  if (activeDesign) return dirty ? 'Unsaved changes' : 'Saved';
+  autosaveState: CanvasDocumentAutosaveState,
+  saving: boolean,
+  renaming: boolean,
+  opening: boolean
+): { busy: boolean; label: string } {
+  if (opening) return { busy: true, label: 'Opening' };
+  if (saving) return { busy: true, label: 'Saving' };
+  if (renaming) return { busy: false, label: 'Saving name' };
+  if (activeDesign) return { busy: false, label: dirty ? 'Unsaved changes' : 'Saved' };
   const labels = {
     error: 'Autosave failed',
     loading: 'Loading autosave',
@@ -45,7 +53,7 @@ function visibleDesignState(
     saved: 'Autosaved',
     saving: 'Autosaving',
   } as const;
-  return labels[autosaveState];
+  return { busy: false, label: labels[autosaveState] };
 }
 
 function savedRevisionMatches(activeDesign: SavedDesign | null, currentRevision: string): boolean {
@@ -62,6 +70,117 @@ function comparableCanvasRevision(
   return canvasSourceContentRevision(source, {
     omitMetadataKeys: toolId === 'animation' ? ['peaks'] : [],
   });
+}
+
+function DesignVersionsSurface({
+  anchorRef,
+  children,
+  layout,
+  onDismiss,
+}: {
+  anchorRef: RefObject<HTMLDivElement | null>;
+  children: ReactNode;
+  layout: 'panel' | 'toolbar';
+  onDismiss: () => void;
+}) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const enteredRef = useRef(false);
+  const dismissRef = useCommittedRef(onDismiss);
+  const [placement, setPlacement] = useState<CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    if (layout === 'panel') return;
+    const position = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const bounds = anchor.getBoundingClientRect();
+      const padding = 12;
+      const width = Math.min(360, window.innerWidth - padding * 2);
+      const below = Math.max(0, window.innerHeight - bounds.bottom - padding - 10);
+      const above = Math.max(0, bounds.top - padding - 10);
+      const placeBelow = below >= 300 || below >= above;
+      const maxHeight = Math.max(80, placeBelow ? below : above);
+      setPlacement({
+        left: Math.max(padding, Math.min(bounds.right - width, window.innerWidth - width - padding)),
+        maxHeight,
+        top: placeBelow ? bounds.bottom + 10 : undefined,
+        bottom: placeBelow ? undefined : window.innerHeight - bounds.top + 10,
+        width,
+      });
+    };
+    position();
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    return () => {
+      window.removeEventListener('resize', position);
+      window.removeEventListener('scroll', position, true);
+    };
+  }, [anchorRef, layout]);
+
+  useLayoutEffect(() => {
+    if (!placement || enteredRef.current) return;
+    enteredRef.current = true;
+    const firstControl = surfaceRef.current?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled)');
+    const target = firstControl ?? surfaceRef.current?.querySelector<HTMLElement>('[role="region"]');
+    target?.focus({ preventScroll: true });
+  }, [placement]);
+
+  useEffect(() => {
+    const commitFocusedName = () => {
+      if (document.activeElement instanceof HTMLElement && surfaceRef.current?.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+    };
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (anchorRef.current?.contains(target) || surfaceRef.current?.contains(target)) return;
+      commitFocusedName();
+      dismissRef.current();
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      // Commit an in-progress name before removing its focused field.
+      commitFocusedName();
+      dismissRef.current();
+      anchorRef.current?.querySelector<HTMLButtonElement>('button[aria-expanded]')?.focus({ preventScroll: true });
+    };
+    // Retained editors hide their own DOM, but a body portal lives outside those
+    // inert layers. Watch both tool and project owners so keyboard/API navigation
+    // cannot leave this editor's checkpoints over the next workspace.
+    const owners = [
+      anchorRef.current?.closest<HTMLElement>('.studio-workspace-layer'),
+      anchorRef.current?.closest<HTMLElement>('.studio-project-workspace-layer'),
+    ].filter((owner): owner is HTMLElement => Boolean(owner));
+    const dismissInactiveOwner = () => {
+      if (owners.every((owner) => owner.dataset.active !== 'false')) return;
+      commitFocusedName();
+      dismissRef.current();
+    };
+    const activityObserver = new MutationObserver(dismissInactiveOwner);
+    owners.forEach((owner) => activityObserver.observe(owner, { attributeFilter: ['data-active'], attributes: true }));
+    dismissInactiveOwner();
+    document.addEventListener('pointerdown', dismissOutside);
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => {
+      activityObserver.disconnect();
+      document.removeEventListener('pointerdown', dismissOutside);
+      document.removeEventListener('keydown', dismissOnEscape);
+    };
+  }, [anchorRef, dismissRef]);
+
+  const surface = (
+    <div
+      className={styles.surface}
+      data-layout={layout}
+      ref={surfaceRef}
+      style={layout === 'toolbar' ? placement ?? { visibility: 'hidden' } : undefined}
+    >
+      {children}
+    </div>
+  );
+  return layout === 'panel' ? surface : createPortal(surface, document.body);
 }
 
 function DesignVersionsPopover({
@@ -100,7 +219,7 @@ function DesignVersionsPopover({
   workspaceLabel: string;
 }) {
   return (
-    <div aria-label={`${workspaceLabel} ${collectionLabel.toLocaleLowerCase()}`} className={styles.popover} role='region'>
+    <div aria-label={`${workspaceLabel} ${collectionLabel.toLocaleLowerCase()}`} className={styles.popover} role='region' tabIndex={-1}>
       <header className={styles.popoverHeader}>
         <div><strong>{collectionLabel}</strong><span>{designs.length} stored in this browser</span></div>
         <span className={styles.workspace}>{workspaceLabel}</span>
@@ -127,7 +246,7 @@ function DesignVersionsPopover({
       <div className={styles.list}>
         {loading ? <p className={styles.empty}>Loading {collectionLabel.toLocaleLowerCase()}…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
           <div className={styles.designRow} data-active={design.id === activeId ? 'true' : 'false'} key={design.id}>
-            <button className={styles.openDesign} onClick={() => void onOpen(design)} type='button'>
+            <button className={styles.openDesign} disabled={saving} onClick={() => void onOpen(design)} type='button'>
               <span><strong>{design.name || defaultName}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
               {design.id === activeId ? <Check aria-label={`Current ${itemLabel}`} /> : null}
             </button>
@@ -263,6 +382,9 @@ export default function DesignVersionControls({
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const renameRequestRef = useRef(0);
   const workspaceStorageKey = savedDesignStorageKey(identityId, toolId);
   const [activeId, setActiveId] = usePersistentState<string | null>(
     activeSavedDesignStorageKey(identityId, toolId),
@@ -288,7 +410,7 @@ export default function DesignVersionControls({
   const dirty = activeDesign
     ? !revisionsMatch && !sameCanvasContent
     : true;
-  const visibleState = visibleDesignState(activeDesign, dirty, autosaveState);
+  const { busy, label: visibleState } = designVersionStatus(activeDesign, dirty, autosaveState, saving, renaming, opening);
   const sortedDesigns = useMemo(
     () => [...designs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [designs]
@@ -312,8 +434,6 @@ export default function DesignVersionControls({
     };
   }, [workspaceStorageKey]);
 
-  useDismissibleMenu(rootRef, () => setOpen(false));
-
   function announce(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(''), 1_800);
@@ -330,7 +450,8 @@ export default function DesignVersionControls({
     origin: SavedDesignOrigin,
     designSource?: string,
     parentId?: string,
-    designRevision = currentRevision
+    designRevision = currentRevision,
+    activate = true
   ): Promise<SavedDesign | null> {
     let resolvedSource: string;
     try {
@@ -355,7 +476,7 @@ export default function DesignVersionControls({
     try {
       await saveSavedDesign(workspaceStorageKey, design);
       setDesigns((current) => [design, ...current.filter(({ id }) => id !== design.id)]);
-      setActiveId(design.id);
+      if (activate) setActiveId(design.id);
       setError('');
       announce(origin === 'fork' ? 'Fork created' : origin === 'clone' ? 'Clone created' : 'Design saved');
       return design;
@@ -419,14 +540,16 @@ export default function DesignVersionControls({
   async function cloneDesign(
     design = activeDesign,
     designSource?: string,
-    designRevision?: string
+    designRevision?: string,
+    activate = true
   ) {
     return createDesign(
       `${design?.name ?? defaultName} · Copy`,
       'clone',
       designSource,
       undefined,
-      designRevision
+      designRevision,
+      activate
     );
   }
 
@@ -436,6 +559,7 @@ export default function DesignVersionControls({
       ? (!dirty || await saveDesign())
       : Boolean(await createDesign(defaultName, 'saved'));
     if (!preserved) return;
+    setOpening(true);
     try {
       await onNew();
       setActiveId(null);
@@ -445,25 +569,38 @@ export default function DesignVersionControls({
     } catch (newError) {
       setError(newError instanceof Error ? newError.message : `A new ${itemLabel} could not be created.`);
       setOpen(true);
+    } finally {
+      setOpening(false);
     }
   }
 
   async function cloneStoredDesign(design: SavedDesign) {
+    if (busy) return;
+    setOpening(true);
     const clone = await cloneDesign(
       design,
       design.source,
-      design.revision ?? design.source
+      design.revision ?? design.source,
+      false
     );
-    if (!clone) return;
+    if (!clone) {
+      setOpening(false);
+      return;
+    }
     try {
       await onOpen(clone.source);
+      setActiveId(clone.id);
       setOpen(false);
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : 'This clone could not be opened.');
+    } finally {
+      setOpening(false);
     }
   }
 
   async function openDesign(design: SavedDesign) {
+    if (busy) return;
+    setOpening(true);
     try {
       await onOpen(design.source);
       setActiveId(design.id);
@@ -472,6 +609,8 @@ export default function DesignVersionControls({
       announce(`${design.name} opened`);
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : 'This design could not be opened.');
+    } finally {
+      setOpening(false);
     }
   }
 
@@ -482,17 +621,21 @@ export default function DesignVersionControls({
   async function normalizeDesignName(design: SavedDesign) {
     const otherDesigns = designs.filter(({ id }) => id !== design.id);
     const name = uniqueDesignName(otherDesigns, design.name);
-    const renamedDesign = { ...design, name };
-    setSaving(true);
+    const requestId = ++renameRequestRef.current;
+    setDesigns((current) => updateSavedDesign(current, design.id, { name }));
+    // Blur fires before a neighboring button's click. Naming must not disable
+    // Save/Fork/Clone and swallow the user's next action.
+    setRenaming(true);
     try {
-      await saveSavedDesign(workspaceStorageKey, renamedDesign);
-      setDesigns((current) => updateSavedDesign(current, design.id, { name }));
+      await renameSavedDesign(workspaceStorageKey, design.id, name);
+      if (requestId !== renameRequestRef.current) return;
       setError('');
     } catch (saveError) {
+      if (requestId !== renameRequestRef.current) return;
       setError(saveError instanceof Error ? saveError.message : 'This design name could not be saved.');
       setOpen(true);
     } finally {
-      setSaving(false);
+      if (requestId === renameRequestRef.current) setRenaming(false);
     }
   }
 
@@ -527,7 +670,7 @@ export default function DesignVersionControls({
 
       <DesignVersionActions
         dirty={dirty}
-        disabled={loading || saving || !sourceReady}
+        disabled={loading || busy || !sourceReady}
         onClone={() => { void cloneDesign(); }}
         onFork={() => { void forkDesign(); }}
         onNew={onNew ? () => { void startNewDesign(); } : undefined}
@@ -537,7 +680,8 @@ export default function DesignVersionControls({
       />
 
       {open ? (
-        <DesignVersionsPopover
+        <DesignVersionsSurface anchorRef={rootRef} layout={layout} onDismiss={() => setOpen(false)}>
+          <DesignVersionsPopover
           activeDesign={activeDesign}
           activeId={activeId}
           designs={designs}
@@ -548,13 +692,14 @@ export default function DesignVersionControls({
           onNormalizeName={(design) => { void normalizeDesignName(design); }}
           onOpen={openDesign}
           onRename={renameDesign}
-          saving={saving}
+          saving={busy}
           sortedDesigns={sortedDesigns}
           collectionLabel={collectionLabel}
           defaultName={defaultName}
           itemLabel={itemLabel}
           workspaceLabel={workspaceLabel}
-        />
+          />
+        </DesignVersionsSurface>
       ) : null}
       <span aria-live='polite' className='sr-only'>{notice}</span>
     </div>

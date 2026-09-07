@@ -518,6 +518,7 @@
   font-family: var(--font-mono), monospace;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .shader-lab-v2-frame-history output strong {
@@ -565,6 +566,30 @@
 .design-motion-strip > :is(button, a) svg {
   width: 12px;
   height: 12px;
+  flex-shrink: 0;
+}
+
+@container design-lab-workspace (max-width: 620px) {
+  .shader-lab-v2-frame-history {
+    grid-template-columns: 28px minmax(24px, 1fr) max-content;
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .shader-lab-v2-frame-history-copy {
+    display: none;
+  }
+
+  .design-motion-strip > :is(button, a) {
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+}
+
+@container design-lab-workspace (max-width: 420px) {
+  .design-motion-strip > :is(button, a) > span {
+    display: none;
+  }
 }
 
 .design-motion-workspace {
@@ -1725,7 +1750,7 @@
   background: hsl(var(--background) / .12);
 }
 
-.shader-lab-v2-dock-layer-preview img {
+.shader-lab-v2-dock-preview-select > img {
   display: block;
   width: 62%;
   height: 62%;
@@ -1744,6 +1769,15 @@
   border-radius: 4px;
   background: #111216;
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / .035);
+}
+
+.shader-lab-v2-dock-material-frame img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  filter: none;
 }
 
 .shader-lab-v2-dock-layer[data-kind='brand-mark'] .shader-lab-v2-dock-material-frame,
@@ -1781,21 +1815,6 @@
 .shader-lab-v2-dock-layer-preview input:focus {
   background: hsl(var(--background) / .16);
   box-shadow: inset 0 0 0 1px hsl(var(--foreground) / .42);
-}
-
-.shader-lab-v2-dock-layer[data-kind='shader'] .shader-lab-v2-dock-layer-preview > button::after {
-  position: absolute;
-  right: 10px;
-  bottom: 9px;
-  padding: 2px 4px;
-  border: 1px solid rgb(255 255 255 / .24);
-  border-radius: 3px;
-  color: white;
-  content: 'LIVE';
-  background: rgb(0 0 0 / .45);
-  font-family: var(--font-mono), monospace;
-  font-size: 6px;
-  letter-spacing: .08em;
 }
 
 .shader-lab-v2-dock-layer-actions {
@@ -5127,6 +5146,11 @@ body {
 .studio-github-star-button:hover .github-star-button__count {
   color: hsl(var(--foreground));
   border-left-color: hsl(var(--foreground) / 0.26);
+}
+
+.studio-github-star-button .github-star-button__count > span {
+  min-width: 4ch;
+  text-align: left;
 }
 
 .studio-app-body {
@@ -31096,7 +31120,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 
 [data-motion-footer][data-footer-state='waiting'] [data-footer-wordmark] {
   opacity: 0.18;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.05em;
   transform: translate3d(0, 28px, 0);
 }
 
@@ -31104,7 +31128,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   opacity: 1;
   letter-spacing: -0.05em;
   transform: translate3d(0, 0, 0);
-  transition: opacity 480ms ease, letter-spacing 600ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 480ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .marketing-v5-composer,

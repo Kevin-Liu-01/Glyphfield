@@ -1,12 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { drawCanvasImageCover, loadCanvasImage } from '../canvasDrawing';
+import { drawCanvasGlyph, drawCanvasImageCover, loadCanvasImage } from '../canvasDrawing';
 
 describe('canvas drawing primitives', () => {
   const NativeImage = globalThis.Image;
 
   afterEach(() => {
     globalThis.Image = NativeImage;
+  });
+
+  it('scales glyphs continuously in document coordinates without changing the font', () => {
+    const setTransform = vi.fn();
+    const fillText = vi.fn();
+    const context = { font: '500 32px Switzer', setTransform, fillText } as unknown as CanvasRenderingContext2D;
+
+    drawCanvasGlyph(context, 'G', 20.5, 12.25, 0.3125, 2);
+    expect(setTransform).toHaveBeenLastCalledWith(0.625, 0, 0, 0.625, 41, 24.5);
+    expect(fillText).toHaveBeenLastCalledWith('G', 0, 0);
+    drawCanvasGlyph(context, 'L', -8, 16, 0.35, 0.5);
+    expect(setTransform).toHaveBeenLastCalledWith(0.175, 0, 0, 0.175, -4, 8);
+    expect(fillText).toHaveBeenLastCalledWith('L', 0, 0);
+    expect(context.font).toBe('500 32px Switzer');
   });
 
   it('covers the destination without changing the source aspect ratio', () => {

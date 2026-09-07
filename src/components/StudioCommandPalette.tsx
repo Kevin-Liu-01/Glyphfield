@@ -2,7 +2,7 @@
 
 import { T, useGT } from 'gt-next';
 import { Search } from '@/components/ui/SolidIcons';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import { useMountEffect } from '@/hooks/useMountEffect';
@@ -28,12 +28,27 @@ export default function StudioCommandPalette({
 }: StudioCommandPaletteProps) {
   const gt = useGT();
   const [activeIndex, setActiveIndex] = useState(0);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useMountEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      dialog?.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
   });
+
+  useEffect(() => {
+    resultsRef.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, tools]);
 
   function selectResult(toolId: StudioToolId) {
     onSelect(toolId);
@@ -49,7 +64,7 @@ export default function StudioCommandPalette({
         event.preventDefault();
         onClose();
       }}
-      open
+      ref={dialogRef}
     >
       <button
         aria-label={gt('Close Studio search')}
@@ -100,7 +115,7 @@ export default function StudioCommandPalette({
           <span>{tools.length} {tools.length === 1 ? <T>result</T> : <T>results</T>}</span>
         </div>
 
-        <div className='studio-command-results' id='studio-command-results' role='listbox'>
+        <div className='studio-command-results' id='studio-command-results' ref={resultsRef} role='listbox'>
           {tools.map((tool, index) => {
             const Icon = STUDIO_TOOL_ICONS[tool.id];
             const selected = index === activeIndex;

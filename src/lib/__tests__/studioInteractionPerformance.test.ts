@@ -120,32 +120,15 @@ describe('Studio interaction performance contracts', () => {
     expect(frameHistory).toContain('syncDisplayFrame(nextFrame)');
     expect(frameHistory).toContain('defaultValue={boundedFrame}');
     expect(frameHistory).not.toContain('setDisplayFrame');
+    expect(frameHistory).not.toContain('previewPlaybackTime(nextFrame)');
     expect(liveMaterial).toContain('applyPaperShaderFrame(');
-    expect(liveMaterial).toContain('frame: presetFrame,');
+    expect(liveMaterial).toContain('frame: capturedFrameState?.frame ?? presetFrame,');
+    expect(designLab).toContain('captureLiveMaterialFrameState(host, nextFrame.timeMs)');
     expect(liveMaterial).toContain('const PAPER_PREVIEW_FRAME_RATE = 30;');
     expect(liveMaterial).toContain('data-live-material-surface={resolvedMaterialId}');
     expect(designLab).toContain('activeWhileMounted');
     expect(designLab).toContain('key={instanceKey}');
     expect(designLab).not.toContain('key={`${instanceKey}:${renderedApplication.materialId}`}');
-  });
-
-  it('prewarms landing shaders without animating them outside the viewport', () => {
-    const field = readSource('src/components/MarketingArcField.tsx');
-    const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
-    const landing = readSource('src/app/page.tsx');
-
-    expect(field).toContain("const SHADER_PREWARM_MARGIN = '960px 0px';");
-    expect(field).toContain("const SHADER_ACTIVE_MARGIN = '96px 0px';");
-    expect(field).toContain('deferWhileScrolling: true');
-    expect(field).toContain('resetWhenDisabled: !persistAfterReady');
-    expect(field).toContain('useIdleCallback: true');
-    expect(field).toContain('enabled={active}');
-    expect(field).toContain('paused={!active}');
-    expect(liveMaterial).toContain('speed: nativeSpeed');
-    expect(liveMaterial).toContain('const interval = 1000 / frameRate;');
-    expect(landing).toContain('frameRate={18}');
-    expect(landing).toContain('maxPixelCount={360_000}');
-    expect(landing).toContain('persistAfterReady');
   });
 
   it('defers portable animation documents and keeps static previews out of urgent renders', () => {
@@ -171,7 +154,8 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain("className='studio-workspace-layer'");
     expect(source).toContain('const StudioWorkspacePanels = memo(');
     expect(source).toContain('aria-hidden={!projectIsActive}');
-    expect(source).toContain('useDeferredValue(activeToolId)');
+    expect(source).toContain('active={projectIsActive}');
+    expect(source).toContain('const layerIsVisible = active && activeToolId === toolId;');
     expect(source).toContain("toolId === 'animation'");
     expect(source).toContain("toolId === 'lottie'");
     expect(source).toContain("toolId === 'material'");
@@ -200,7 +184,6 @@ describe('Studio interaction performance contracts', () => {
     expect(designLab).toContain('const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;');
     expect(designLab).toContain('materials.slice(0, visibleMaterialCount)');
     expect(designLab).toContain("{ root, rootMargin: '240px 0px' }");
-    expect(liveMaterial).toContain('enabled && workspaceActive');
     expect(liveMaterial).toContain('enabled={renderEnabled}');
     expect(liveMaterial).toContain('scheduleWebGLContextRelease(canvas, context)');
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");

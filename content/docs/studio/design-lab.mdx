@@ -24,6 +24,8 @@ Design Lab is Glyphfield's general composition workspace. It combines the shared
 
 The canvas itself is the output surface. The surrounding dotted workspace, library, inspector, zoom controls, and layer dock are editing chrome and never appear in an export.
 
+On entry, the restored active artboard is fitted into view. Use **Fit canvas** to see all artboards, or open **Artboard guide** when you need help. View changes do not reposition your layers.
+
 ## Add and arrange layers
 
 Use the layer actions to add any number of:
@@ -37,6 +39,8 @@ Use the layer actions to add any number of:
 Select a layer on the canvas or in the bottom dock. Drag it to move, pull the resize handle to scale, use arrow keys to nudge, and use Shift + arrow for larger steps. The inspector controls exact position, size, rotation, opacity, visibility, material, appearance, and type settings.
 
 The dock is ordered **front to back**. Move layers up or down, duplicate them, hide them without deleting them, or remove them. Multi-selection and groups let related layers move as one unit while preserving individual settings.
+
+Use **Action history** in the canvas toolbar to inspect edits and undo or redo them. Command/Ctrl + Z works while the canvas has keyboard focus or the pointer is over it; Shift + Command/Ctrl + Z redoes. Text fields keep their native text undo.
 
 ### Layer opacity and blending
 
@@ -79,7 +83,9 @@ Select a card to add or replace a shader layer. Common controls include three-co
 
 **Shader size** behaves like material zoom from `0.1×` to `10×`. Values below `1×` reveal more of the field; values above `1×` move into its details. The control maps logarithmically so equal travel feels like equal visual zoom rather than a jump through the high end.
 
-The motion timeline exposes the material's time history. Scrub to choose a particular look, pause to keep that frame, or resume live playback. The selected frame is serialized into saved designs and source so reopening the composition does not silently move the shader to a different look.
+The motion timeline exposes the material's time history. Live Paper materials run on the shader engine's native clock; choose **Capture current shader frame** to pin the exact floating-point engine frame, or scrub while paused to move relative to it. That compact frame anchor is serialized with the material settings, so saved designs, reopened source, still export, and motion export begin from the same look without embedding a large base64 canvas image. Deterministic stepping is used only for pause, scrub, and export.
+
+Scrubbing by pointer or keyboard pauses live playback. Exact native frame anchors currently apply to Paper materials; other providers use their own time/capture behavior. A library thumbnail is a representative preview, not a saved bitmap of your current composition.
 
 ## Shader-cut sequences
 
@@ -88,6 +94,8 @@ Sequence mode turns one canvas shader into an 8–12 material timeline. Intro cu
 The timeline is deterministic: it records material IDs, segment start/end times, target shader layer, sequence offset, and paused frame. Preview, GIF, and MP4 resolve from the same timeline.
 
 Use sequence export for a deliberately edited montage. Use standard GIF or MP4 when the current shader should animate continuously without material cuts.
+
+Sequences are optional: you do not need one to save a shader look. **Open Animation Studio** opens a separate workspace; it does not automatically transfer this composition.
 
 ## Stickers and surfaces
 
@@ -112,7 +120,11 @@ A sticker does not require a surface. Choose no background and export it over th
 - Shader settings, frame history, shader sequence, and timeline.
 - Export width, duration, frame rate, quality, and loop mode.
 
-Autosave writes a recovery record while editing. Reloading can restore the last consistent draft even if a larger IndexedDB write was interrupted. Saving, cloning, and forking create independent records rather than sharing mutable layer objects.
+Autosave preserves your working draft while editing. **Save** updates the selected named checkpoint, or creates one when none is selected. **Fork** captures the current edits in a new checkpoint linked to its parent; **Clone** creates an independent copy. Neither changes the original checkpoint. Restoring a checkpoint replaces the working composition with its stored source.
+
+**Unsaved changes** means the working draft differs from the selected named checkpoint; draft recovery can still be up to date. Renaming changes only the checkpoint name, not its stored artwork. You can rename and then click **Save** to commit both the name and current composition.
+
+The draft indicator shows pending changes as **Saving**. Fast tool/project switches retain queued edits. If loading fails, saving stays suspended while recovery retries so the initial canvas cannot overwrite your previous design. A local recovery journal can retain work while IndexedDB is temporarily unavailable; clearing browser site data still removes local work, so export portable source for an independent backup.
 
 ## Export
 
@@ -124,6 +136,8 @@ Autosave writes a recovery record while editing. Reloading can restore the last 
 | MP4 | Browser-native video, with quality selection and H.264 when the browser exposes it |
 
 Output width ranges from 320–3840 pixels and preserves the selected wide, square, or OpenGraph ratio. Motion exports use 12, 15, 24, or 30 FPS and a bounded duration. The export review displays the completed artifact before download.
+
+Export waits for material readiness as well as fonts and images. Prismatic sphere needs its environment lighting to load; a loading silhouette is not accepted as a finished shader frame. If those resources cannot load, export reports a readiness timeout instead of silently treating the placeholder as the result.
 
 For a perfect-loop GIF, choose **Seamless**. Glyphfield captures overlap frames, blends the tail into the recorded head, and verifies that the final output frame closes against the seam anchor. Use **Raw motion** only when the shader is already mathematically periodic or when a hard cut is intentional.
 

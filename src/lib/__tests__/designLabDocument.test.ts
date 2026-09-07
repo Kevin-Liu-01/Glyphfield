@@ -47,6 +47,7 @@ function designLabInput(): DesignLabDocumentInput {
     revision: 7,
     shaderLayers: [{
       blendMode: 'normal',
+      frameState: { engine: 'paper', frame: 412.75, timelineTimeMs: 766.67, version: 1 },
       id: 'shader-background',
       materialId: 'paper-gem-smoke',
       name: 'Canvas shader',
@@ -155,6 +156,7 @@ describe('Design Lab canvas document adapter', () => {
       value: 'Open Source',
     });
     expect(composition.shaderLayers?.[0]).toMatchObject({
+      frameState: { engine: 'paper', frame: 412.75, timelineTimeMs: 766.67, version: 1 },
       id: 'shader-background',
       transform: { heightScale: 0.8, scale: 1, widthScale: 0.7, x: 42, y: -18 },
     });

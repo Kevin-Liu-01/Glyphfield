@@ -14,6 +14,9 @@ import {
   Sparkles,
   Weight,
 } from '@/components/ui/SolidIcons';
+import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, type LiveMaterialSettings } from '@/lib/liveMaterials';
 
 import type { LucideIcon } from '@/components/ui/SolidIcons';
@@ -369,6 +372,14 @@ export default function MarketingAgentControlLab() {
   const [sceneGeometry, setSceneGeometry] = useState<AgentSceneGeometry>(EMPTY_SCENE_GEOMETRY);
   const [userInteractionKey, setUserInteractionKey] = useState<ControlKey | null>(null);
   const labRef = useRef<HTMLDivElement>(null);
+  const nearViewport = useViewportActivity(labRef, {
+    respectDocumentVisibility: false,
+    rootMargin: '960px 0px',
+  });
+  const active = useViewportActivity(labRef, { rootMargin: '96px 0px' });
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const motionActive = active && !prefersReducedMotion;
+  const runtimeReady = useDeferredRuntime(nearViewport, 420, { resetWhenDisabled: true });
   const previewScanRef = useRef<HTMLDivElement>(null);
   const autonomousStepRef = useRef(0);
   const automationPausedUntilRef = useRef(0);
@@ -512,12 +523,12 @@ export default function MarketingAgentControlLab() {
   }, [activeKey, agentTargets]);
 
   useLayoutEffect(() => {
-    updateSceneGeometry();
-  }, [updateSceneGeometry]);
+    if (active) updateSceneGeometry();
+  }, [active, updateSceneGeometry]);
 
   useEffect(() => {
     const lab = labRef.current;
-    if (!lab) return;
+    if (!lab || !active) return;
     const observer = new ResizeObserver(updateSceneGeometry);
     observer.observe(lab);
     window.addEventListener('resize', updateSceneGeometry);
@@ -525,7 +536,7 @@ export default function MarketingAgentControlLab() {
       observer.disconnect();
       window.removeEventListener('resize', updateSceneGeometry);
     };
-  }, [updateSceneGeometry]);
+  }, [active, updateSceneGeometry]);
 
   useEffect(() => {
     valuesRef.current = values;
@@ -535,14 +546,23 @@ export default function MarketingAgentControlLab() {
     const animation = previewScanRef.current?.getAnimations()[0];
     if (!animation) return;
     animation.updatePlaybackRate(1.6 / Math.max(0.1, values.duration));
-  }, [values.duration]);
+    if (motionActive) animation.play();
+    else animation.pause();
+  }, [motionActive, values.duration]);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!motionActive) {
+      // Cancelled drags keep their latest values, but must not keep showing a
+      // grabbed handle when the next autonomous step resumes.
+      setAgentPhases((current) => (
+        current.claude === 'idle' && current.codex === 'idle' ? current : INITIAL_AGENT_PHASES
+      ));
+      return;
+    }
     let timer = 0;
 
     const advance = () => {
-      if (!reducedMotion.matches && document.visibilityState !== 'hidden' && Date.now() >= automationPausedUntilRef.current) {
+      if (document.visibilityState !== 'hidden' && Date.now() >= automationPausedUntilRef.current) {
         const sequenceIndex = autonomousStepRef.current;
         const step = AUTONOMOUS_CONTROL_STEPS[sequenceIndex % AUTONOMOUS_CONTROL_STEPS.length]!;
         const valueIndex = Math.floor(sequenceIndex / AUTONOMOUS_CONTROL_STEPS.length) % step.values.length;
@@ -568,7 +588,7 @@ export default function MarketingAgentControlLab() {
       window.clearTimeout(timer);
       (Object.keys(AGENTS) as AgentId[]).forEach(clearAgentMotion);
     };
-  }, [clearAgentMotion, scheduleAgentTimer, tweenAgentControl]);
+  }, [motionActive, clearAgentMotion, scheduleAgentTimer, tweenAgentControl]);
 
   const beginUserInteraction = useCallback((key: ControlKey) => {
     (Object.keys(AGENTS) as AgentId[]).forEach(clearAgentMotion);
@@ -644,6 +664,7 @@ export default function MarketingAgentControlLab() {
     <div
       className='marketing-agent-lab'
       data-active-agent={activeAgent}
+      data-viewport-active={active ? 'true' : 'false'}
       data-user-interacting={userInteractionKey ? 'true' : 'false'}
       ref={labRef}
     >
@@ -668,7 +689,7 @@ export default function MarketingAgentControlLab() {
         </code></pre>
       </section>
 
-      {sceneGeometry.width > 0 && sceneGeometry.height > 0 ? (
+      {active && sceneGeometry.width > 0 && sceneGeometry.height > 0 ? (
         <svg
           aria-hidden='true'
           className='marketing-agent-connectors'
@@ -750,14 +771,17 @@ export default function MarketingAgentControlLab() {
         data-shader-scale={round(shaderResponse.shaderScale, 2)}
         data-shader-speed={round(shaderResponse.motionSpeed, 2)}
       >
-        <LazyLiveMaterialCanvas
-          activeWhileMounted
-          frameRate={24}
-          materialId='paper-dithering-warp'
-          paperShaderOverrides={paperShaderOverrides}
-          renderScale={0.6}
-          settings={previewSettings}
-        />
+        {nearViewport && runtimeReady ? (
+          <LazyLiveMaterialCanvas
+            activeWhileMounted
+            frameRate={24}
+            materialId='paper-dithering-warp'
+            paperShaderOverrides={paperShaderOverrides}
+            paused={!motionActive}
+            renderScale={0.6}
+            settings={previewSettings}
+          />
+        ) : null}
         <div className='marketing-agent-preview-shade' aria-hidden='true' />
         <div className='marketing-agent-preview-scan' aria-hidden='true' ref={previewScanRef} />
         <div className='marketing-agent-preview-copy'>

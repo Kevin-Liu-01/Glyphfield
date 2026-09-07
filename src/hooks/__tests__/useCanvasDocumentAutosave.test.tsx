@@ -96,11 +96,35 @@ describe('useCanvasDocumentAutosave', () => {
       source: '{"stored":true}',
     });
 
-    await render({ applySource, revision: 'initial-revision', source: '{"initial":true}' });
+    await render({ applySource, revision: 'stored-revision', source: '{"stored":true}' });
 
     expect(applySource).toHaveBeenCalledWith('{"stored":true}');
     expect(states).toContain('loading');
     expect(states.at(-1)).toBe('saved');
+  });
+
+  it('stops reporting saved as soon as the document changes, before the write debounce', async () => {
+    const applySource = vi.fn();
+    await render({ applySource, delayMs: 180, revision: 'revision-1', source: '{"x":1}' });
+    await act(async () => {
+      vi.advanceTimersByTime(180);
+      await settle();
+    });
+    expect(states.at(-1)).toBe('saved');
+    storage.saveAutosavedDesign.mockClear();
+
+    await render({ applySource, delayMs: 180, revision: 'revision-2', source: '{"x":2}' });
+
+    expect(states.at(-1)).toBe('saving');
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(180);
+      await settle();
+    });
+    expect(states.at(-1)).toBe('saved');
+    expect(storage.saveAutosavedDesign).toHaveBeenLastCalledWith(
+      'workspace', '{"x":2}', 'revision-2', expect.any(String)
+    );
   });
 
   it('saves when the portable source changes even if the revision is unchanged', async () => {
@@ -149,6 +173,43 @@ describe('useCanvasDocumentAutosave', () => {
       'revision-2',
       expect.any(String)
     );
+  });
+
+  it('waits for an unmounted workspace to flush its newest edit before reopening it', async () => {
+    const applySource = vi.fn();
+    let stored = { revision: 'revision-0', source: '{"x":0}' };
+    let releaseFirstWrite!: () => void;
+    const firstWrite = new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+    storage.loadAutosavedDesign.mockImplementation(async () => stored);
+    storage.saveAutosavedDesign.mockImplementation(async (_key, source, revision) => {
+      if (revision === 'revision-1') await firstWrite;
+      stored = { revision, source };
+    });
+
+    await render({ applySource, delayMs: 20, revision: 'revision-1', source: '{"x":1}' });
+    await act(async () => {
+      vi.advanceTimersByTime(20);
+      await settle();
+    });
+    expect(storage.saveAutosavedDesign).toHaveBeenCalledOnce();
+
+    await render({ applySource, delayMs: 20, revision: 'revision-2', source: '{"x":2}' });
+    await act(async () => {
+      root.unmount();
+      await settle();
+    });
+    applySource.mockClear();
+    root = createRoot(container);
+    await render({ applySource, delayMs: 20, revision: 'initial', source: '{"x":0}' });
+
+    expect(applySource).not.toHaveBeenCalled();
+    expect(states.at(-1)).toBe('loading');
+    await act(async () => {
+      releaseFirstWrite();
+      await firstWrite;
+      await settle();
+    });
+    expect(applySource).toHaveBeenCalledExactlyOnceWith('{"x":2}');
   });
 
   it('journals an unsaved snapshot synchronously when the page is hidden', async () => {
@@ -225,6 +286,7 @@ describe('useCanvasDocumentAutosave', () => {
     });
     expect(applySource).toHaveBeenCalledOnce();
     expect(applySource).toHaveBeenCalledWith('{"stored":"b"}');
+    await render({ applySource, revision: 'stored-b', source: '{"stored":"b"}', workspaceKey: 'second' });
     expect(states.at(-1)).toBe('saved');
   });
 
@@ -278,5 +340,42 @@ describe('useCanvasDocumentAutosave', () => {
       workspaceKey: 'blocked-workspace',
     });
     expect(states.at(-1)).toBe('error');
+  });
+
+  it('never overwrites a saved design with defaults after a transient read failure', async () => {
+    const applySource = vi.fn();
+    storage.loadAutosavedDesign
+      .mockRejectedValueOnce(new Error('temporarily unavailable'))
+      .mockResolvedValue({ revision: 'stored-4', source: '{"x":246}' });
+    await render({
+      applySource,
+      revision: 'initial',
+      source: '{"x":0}',
+      workspaceKey: 'read-retry',
+    });
+    expect(states.at(-1)).toBe('error');
+
+    await act(async () => {
+      vi.advanceTimersByTime(180);
+      await settle();
+    });
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(820);
+      await settle();
+    });
+    expect(applySource).toHaveBeenCalledExactlyOnceWith('{"x":246}');
+    await render({
+      applySource,
+      revision: 'stored-4',
+      source: '{"x":246}',
+      workspaceKey: 'read-retry',
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(180);
+      await settle();
+    });
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    expect(states.at(-1)).toBe('saved');
   });
 });

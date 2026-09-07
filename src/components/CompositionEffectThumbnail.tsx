@@ -6,6 +6,7 @@ import {
   applyCompositionEffect,
   defaultCompositionEffectSettings,
   type CompositionEffectKind,
+  type CompositionEffectSettings,
 } from '@/lib/compositionEffects';
 
 const WIDTH = 112;
@@ -18,7 +19,13 @@ const THUMBNAIL_PALETTES: Record<CompositionEffectKind, { background: string; fo
   posterize: { background: '#15172A', foreground: '#C6D0FF' },
 };
 
-export default function CompositionEffectThumbnail({ kind }: { kind: CompositionEffectKind }) {
+export default function CompositionEffectThumbnail({
+  kind,
+  settings,
+}: {
+  kind: CompositionEffectKind;
+  settings?: CompositionEffectSettings;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useLayoutEffect(() => {
@@ -42,14 +49,14 @@ export default function CompositionEffectThumbnail({ kind }: { kind: Composition
         source.data[offset + 3] = 255;
       }
     }
-    const settings = {
+    const resolvedSettings = settings ?? {
       ...defaultCompositionEffectSettings(kind),
       ...THUMBNAIL_PALETTES[kind],
       cellSize: kind === 'ascii' ? 7 : kind === 'halftone' ? 9 : 3,
     };
     context.putImageData(source, 0, 0);
-    applyCompositionEffect(context, WIDTH, HEIGHT, settings, 1);
-  }, [kind]);
+    applyCompositionEffect(context, WIDTH, HEIGHT, resolvedSettings, 1);
+  }, [kind, settings]);
 
   return (
     <span aria-hidden='true' className='composition-effect-thumbnail' data-effect-kind={kind}>

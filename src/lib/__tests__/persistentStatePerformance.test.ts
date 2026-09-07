@@ -59,6 +59,29 @@ describe('persistent state write scheduling', () => {
     expect(readPersistentValue('draft:brand-c', { x: 0 })).toEqual({ x: 0 });
   });
 
+  it('restores the latest queued edit when a workspace reopens before the write debounce', () => {
+    const values = new Map([
+      ['draft:quick-return', JSON.stringify({ x: 12 })],
+      ['draft:other-workspace', JSON.stringify({ x: 84 })],
+    ]);
+    const setItem = vi.fn((key: string, value: string) => values.set(key, value));
+    vi.stubGlobal('window', {
+      addEventListener: vi.fn(),
+      clearTimeout: (timer: number) => clearTimeout(timer),
+      localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem },
+      setTimeout: (callback: () => void, delay: number) => setTimeout(callback, delay),
+    });
+
+    schedulePersistentWrite('draft:quick-return', { x: 36 });
+    expect(setItem).not.toHaveBeenCalled();
+    expect(readPersistentValue('draft:quick-return', { x: 0 })).toEqual({ x: 36 });
+    expect(readPersistentValue('draft:other-workspace', { x: 0 })).toEqual({ x: 84 });
+
+    vi.advanceTimersByTime(120);
+    expect(readPersistentValue('draft:quick-return', { x: 0 })).toEqual({ x: 36 });
+    expect(setItem).toHaveBeenCalledExactlyOnceWith('draft:quick-return', '{"x":36}');
+  });
+
   it('drops corrupt storage and keeps the in-memory fallback', () => {
     const removeItem = vi.fn();
     vi.stubGlobal('window', {

@@ -17,6 +17,10 @@ function resolveInitialValue<T>(initialValue: T | (() => T)): T {
 
 export function readPersistentValue<T>(storageKey: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
+  // A tool can remount before its debounced write reaches localStorage.
+  if (pendingPersistentWrites.has(storageKey)) {
+    return pendingPersistentWrites.get(storageKey) as T;
+  }
   try {
     const storedValue = window.localStorage.getItem(storageKey);
     return storedValue === null ? fallback : JSON.parse(storedValue) as T;

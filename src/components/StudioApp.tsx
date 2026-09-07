@@ -7,7 +7,6 @@ import {
   memo,
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -18,7 +17,6 @@ import { T, useGT } from 'gt-next';
 import { useTheme } from 'next-themes';
 import {
   BookOpen,
-  Box,
   Check,
   Copy,
   ChevronDown,
@@ -686,7 +684,21 @@ function isPersistentWorkspaceTool(toolId: StudioToolId): toolId is typeof PERSI
   return PERSISTENT_WORKSPACE_TOOL_IDS.includes(toolId as typeof PERSISTENT_WORKSPACE_TOOL_IDS[number]);
 }
 
-const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
+export function retainedProjectWorkspaceIdentities(
+  identities: readonly BrandIdentity[],
+  openIdentityIds: readonly string[],
+  warmIdentityIds: readonly string[],
+  activeIdentityId: string | undefined
+): BrandIdentity[] {
+  const openIds = new Set(openIdentityIds);
+  const retainedIds = new Set(warmIdentityIds);
+  if (activeIdentityId) retainedIds.add(activeIdentityId);
+  // Tab order must not move mounted editors or their global @font-face styles.
+  return identities.filter(({ id }) => openIds.has(id) && retainedIds.has(id));
+}
+
+export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
+  active,
   activeIdentity,
   activeTool,
   activeToolId,
@@ -694,6 +706,7 @@ const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
   onIdentityChange,
   onIdentitySave,
 }: {
+  active: boolean;
   activeIdentity: BrandIdentity;
   activeTool: StudioTool;
   activeToolId: StudioToolId;
@@ -701,17 +714,16 @@ const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
   onIdentityChange: (identity: BrandIdentity) => void;
   onIdentitySave: (identity: BrandIdentity) => void;
 }) {
-  const deferredActiveToolId = useDeferredValue(activeToolId);
   const [visitedPersistentTools, setVisitedPersistentTools] = useState<StudioToolId[]>(() => (
-    isPersistentWorkspaceTool(activeToolId) ? [activeToolId] : []
+    active && isPersistentWorkspaceTool(activeToolId) ? [activeToolId] : []
   ));
   useEffect(() => {
-    if (!isPersistentWorkspaceTool(activeToolId)) return;
+    if (!active || !isPersistentWorkspaceTool(activeToolId)) return;
     setVisitedPersistentTools((current) => current.includes(activeToolId)
       ? current
       : [...current, activeToolId]);
-  }, [activeToolId]);
-  const mountedPersistentTools = isPersistentWorkspaceTool(activeToolId)
+  }, [active, activeToolId]);
+  const mountedPersistentTools = active && isPersistentWorkspaceTool(activeToolId)
     && !visitedPersistentTools.includes(activeToolId)
     ? [...visitedPersistentTools, activeToolId]
     : visitedPersistentTools;
@@ -722,8 +734,8 @@ const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
       {mountedPersistentTools.map((toolId) => {
         const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
         if (!tool) return null;
-        const layerIsVisible = activeToolId === toolId;
-        const renderActive = deferredActiveToolId === toolId;
+        const layerIsVisible = active && activeToolId === toolId;
+        const renderActive = layerIsVisible;
         return (
           <div
             aria-hidden={!layerIsVisible}
@@ -757,7 +769,7 @@ const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
           </div>
         );
       })}
-      {!persistentToolIsActive ? (
+      {active && !persistentToolIsActive ? (
         <div
           className='studio-workspace-layer'
           data-active='true'
@@ -987,14 +999,12 @@ export default function StudioApp() {
     () => new Map(resolvedIdentities.map((identity) => [identity.id, identity])),
     [resolvedIdentities]
   );
-  const retainedWorkspaceIdentities = useMemo(() => {
-    const retainedIds = new Set(warmIdentityIds);
-    if (activeIdentity) retainedIds.add(activeIdentity.id);
-    return openIdentityIds
-      .filter((identityId) => retainedIds.has(identityId))
-      .map((identityId) => identityById.get(identityId))
-      .filter((identity): identity is BrandIdentity => identity !== undefined);
-  }, [activeIdentity?.id, identityById, openIdentityIds, warmIdentityIds]);
+  const retainedWorkspaceIdentities = useMemo(() => retainedProjectWorkspaceIdentities(
+    resolvedIdentities,
+    openIdentityIds,
+    warmIdentityIds,
+    activeIdentity?.id
+  ), [activeIdentity?.id, resolvedIdentities, openIdentityIds, warmIdentityIds]);
   const visibleIdentities = useMemo(
     () =>
       openIdentityIds
@@ -1066,6 +1076,17 @@ export default function StudioApp() {
     }
   });
 
+  useEffect(() => {
+    if (!identitiesReady || !activeIdentityIsOpen || !activeIdentity) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tool', activeToolId);
+    url.searchParams.set('project', activeIdentity.id);
+    url.searchParams.set('folder', activeFolderId);
+    if (url.href !== window.location.href) {
+      window.history.replaceState(null, '', url);
+    }
+  }, [activeFolderId, activeIdentity?.id, activeIdentityIsOpen, activeToolId, identitiesReady]);
+
   useMountEffect(() => {
     const rail = projectTabsScrollRef.current;
     if (!rail) return;
@@ -1120,7 +1141,8 @@ export default function StudioApp() {
       const isEditing =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement;
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
       const isCommandK =
         (event.metaKey || event.ctrlKey) &&
         (event.code === 'KeyK' || event.key.toLocaleLowerCase() === 'k');
@@ -1871,7 +1893,7 @@ export default function StudioApp() {
           </nav>
           <div className='studio-sidebar-scroll studio-scroll-area min-h-0 flex-1 overflow-y-auto px-2 py-3'>
             {STUDIO_CATEGORIES.map((category) => {
-              const tools = filteredTools.filter((tool) => tool.category === category);
+              const tools = STUDIO_TOOLS.filter((tool) => tool.category === category);
               if (tools.length === 0) return null;
 
               return (
@@ -1885,6 +1907,7 @@ export default function StudioApp() {
                       const selected = activeToolId === tool.id;
                       return (
                         <Button
+                          aria-current={selected ? 'page' : undefined}
                           className='h-9 w-full justify-start border-0 px-2.5'
                           key={tool.id}
                           onFocus={() => void preloadStudioTool(tool.id)}
@@ -1904,23 +1927,14 @@ export default function StudioApp() {
               );
             })}
 
-            {filteredTools.length === 0 ? (
-              <div className='flex flex-col gap-2 px-4 py-8'>
-                <Box className='size-5 text-muted-foreground' aria-hidden='true' />
-                <p className='text-sm font-medium'>
-                  <T>No Studio tool found</T>
-                </p>
-                <p className='text-sm leading-5 text-muted-foreground'>
-                  <T>Try “email,” “logo,” “ASCII,” or “lanyard.”</T>
-                </p>
-              </div>
-            ) : null}
           </div>
         </aside>
 
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
           <div className='studio-workspace-view'>
-            {!activeIdentityIsOpen ? (
+            {!identitiesReady ? (
+              <StudioWorkspaceLoading />
+            ) : !activeIdentityIsOpen ? (
               <ClosedProjectNotice />
             ) : (
               retainedWorkspaceIdentities.map((identity) => {
@@ -1930,9 +1944,11 @@ export default function StudioApp() {
                     aria-hidden={!projectIsActive}
                     className='studio-project-workspace-layer'
                     data-active={projectIsActive ? 'true' : 'false'}
+                    inert={!projectIsActive}
                     key={identity.id}
                   >
                     <StudioWorkspacePanels
+                      active={projectIsActive}
                       activeIdentity={identity}
                       activeTool={activeTool}
                       activeToolId={activeToolId}

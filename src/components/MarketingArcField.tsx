@@ -4,6 +4,7 @@ import { useRef, type CSSProperties } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
@@ -33,14 +34,20 @@ export default function MarketingArcField({
   settings: LiveMaterialSettings;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const nearViewport = useViewportActivity(containerRef, { rootMargin: SHADER_PREWARM_MARGIN });
-  const active = useViewportActivity(containerRef, { rootMargin: SHADER_ACTIVE_MARGIN });
+  const nearViewport = useViewportActivity(containerRef, {
+    respectDocumentVisibility: false,
+    rootMargin: SHADER_PREWARM_MARGIN,
+  });
+  const viewportActive = useViewportActivity(containerRef, { rootMargin: SHADER_ACTIVE_MARGIN });
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const active = viewportActive && !prefersReducedMotion;
   const isPaperShader = materialId.startsWith('paper-');
   const runtimeReady = useDeferredRuntime(nearViewport, 420, {
     deferWhileScrolling: true,
     resetWhenDisabled: !persistAfterReady,
     useIdleCallback: true,
   });
+  const runtimeMounted = runtimeReady && (nearViewport || persistAfterReady);
   const fallbackStyle = isPaperShader ? {
     '--marketing-shader-color-a': settings.colorA,
     '--marketing-shader-color-b': settings.colorB,
@@ -51,7 +58,7 @@ export default function MarketingArcField({
     <div
       className={`marketing-v5-arc-field${isPaperShader ? ' marketing-v5-paper-field' : ''} ${className}`}
       data-shader-active={active ? 'true' : 'false'}
-      data-shader-runtime={runtimeReady ? 'ready' : 'fallback'}
+      data-shader-runtime={runtimeMounted ? 'ready' : 'fallback'}
       ref={containerRef}
       aria-hidden='true'
       style={fallbackStyle}
@@ -60,11 +67,12 @@ export default function MarketingArcField({
         className='marketing-v5-field-fallback'
         data-material={isPaperShader ? materialId : undefined}
       />
-      {runtimeReady ? (
+      {runtimeMounted ? (
         <div className='marketing-v5-field-runtime'>
           <LazyLiveMaterialCanvas
             activeWhileMounted
-            enabled={active}
+            // Keep the prepared context and native phase while nearby. Disabling
+            // the renderer here would defer GPU compilation until the active edge.
             frameRate={frameRate}
             materialId={materialId}
             maxPixelCount={maxPixelCount}

@@ -3,6 +3,7 @@
 import {
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -44,6 +45,17 @@ export type CanvasActionHistory = {
   onUndo: () => void;
 };
 
+function handleHistoryShortcut(event: KeyboardEvent, history?: CanvasActionHistory): boolean {
+  if (!history || !(event.metaKey || event.ctrlKey) || event.altKey || event.key.toLowerCase() !== 'z') return false;
+  const redo = event.shiftKey;
+  if ((redo && history.canRedo) || (!redo && history.canUndo)) {
+    event.preventDefault();
+    if (redo) history.onRedo();
+    else history.onUndo();
+  }
+  return true;
+}
+
 export default function CanvasViewport({
   actionHistory,
   autoFit = false,
@@ -57,6 +69,7 @@ export default function CanvasViewport({
   fontWeight,
   identityId,
   initialPan = { x: 0, y: 0 },
+  initialViewReady = true,
   initialZoom = 100,
   maxZoom = 200,
   minZoom = 40,
@@ -76,6 +89,7 @@ export default function CanvasViewport({
   fontWeight?: CSSProperties['fontWeight'];
   identityId: string;
   initialPan?: { x: number; y: number };
+  initialViewReady?: boolean;
   initialZoom?: number;
   maxZoom?: number;
   minZoom?: number;
@@ -104,6 +118,9 @@ export default function CanvasViewport({
   const constrainedZoom = clampCanvasZoom(zoom, minZoom, maxZoom);
   const zoomRef = useCommittedRef(constrainedZoom);
   const [panOffset, setPanOffset] = useState(initialPan);
+  const [viewInitialized, setViewInitialized] = useState(initialViewReady);
+  const viewInitializedRef = useCommittedRef(viewInitialized);
+  const viewInitializing = !initialViewReady || !viewInitialized;
   const panOffsetRef = useCommittedRef(panOffset);
   const [spacePressed, setSpacePressed] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -209,6 +226,9 @@ export default function CanvasViewport({
   }
 
   useMountEffect(() => {
+    // A restored editor supplies its focus target only after its document is ready.
+    // Do not paint the default centering before that first, authoritative focus.
+    if (!initialViewReady || focusKey) return;
     const scrollElement = scrollRef.current;
     let animationFrame = 0;
 
@@ -253,27 +273,13 @@ export default function CanvasViewport({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || viewportRef.current?.closest('[inert]')) return;
       const target = event.target;
       const editing = target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
-      const history = actionHistoryRef.current;
-      if (
-        history
-        && canvasHoveredRef.current
-        && !editing
-        && (event.metaKey || event.ctrlKey)
-        && !event.altKey
-        && event.key.toLocaleLowerCase() === 'z'
-      ) {
-        const redo = event.shiftKey;
-        if ((redo && history.canRedo) || (!redo && history.canUndo)) {
-          event.preventDefault();
-          if (redo) history.onRedo();
-          else history.onUndo();
-        }
-        return;
-      }
-      if (event.code !== 'Space' || event.repeat || !canvasHoveredRef.current) return;
-      if (editing) return;
+      const canvasFocused = viewportRef.current?.contains(document.activeElement) ?? false;
+      if (editing || (!canvasHoveredRef.current && !canvasFocused)) return;
+      if (handleHistoryShortcut(event, actionHistoryRef.current)) return;
+      if (event.code !== 'Space' || event.repeat) return;
       event.preventDefault();
       setSpacePressed(true);
     }
@@ -306,13 +312,17 @@ export default function CanvasViewport({
     return () => window.cancelAnimationFrame(frame);
   }, [fitKey]);
 
-  useEffect(() => {
-    if (!focusKey) return;
-    const frame = window.requestAnimationFrame(() => {
-      const scrollElement = scrollRef.current;
-      const stageElement = stageRef.current;
-      const target = stageElement?.querySelector<HTMLElement>('[data-canvas-focus-target="true"]');
-      if (!scrollElement || !stageElement || !target) return;
+  useLayoutEffect(() => {
+    if (!initialViewReady) return;
+    if (!focusKey) {
+      setViewInitialized(true);
+      return;
+    }
+    const scrollElement = scrollRef.current;
+    const stageElement = stageRef.current;
+    const target = stageElement?.querySelector<HTMLElement>('[data-canvas-focus-target="true"]');
+    if (!scrollElement || !stageElement || !target) return;
+    const focusTarget = () => {
       const focusedZoom = clampCanvasZoom(Math.min(
         100,
         (scrollElement.clientWidth - 96) / Math.max(1, target.offsetWidth) * 100,
@@ -327,9 +337,20 @@ export default function CanvasViewport({
       };
       panOffsetRef.current = nextPan;
       setPanOffset(nextPan);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusKey, focusOffsetY, zoomRef]);
+      setViewInitialized(true);
+    };
+    if (!viewInitializedRef.current && 'ResizeObserver' in window) {
+      // The restored editor is still hidden. Wait for browser layout instead of
+      // forcing its first full geometry calculation inside React's commit.
+      const observer = new ResizeObserver(() => {
+        observer.disconnect();
+        focusTarget();
+      });
+      observer.observe(scrollElement);
+      return () => observer.disconnect();
+    }
+    focusTarget();
+  }, [focusKey, focusOffsetY, initialViewReady, viewInitializedRef, zoomRef]);
 
   function resetView() {
     wheelDeltaRef.current = 0;
@@ -351,6 +372,7 @@ export default function CanvasViewport({
 
   return (
     <div
+      aria-busy={viewInitializing || undefined}
       className={`canvas-viewport ${className}`}
       onPointerDownCapture={(event) => {
         const target = event.target;
@@ -508,6 +530,7 @@ export default function CanvasViewport({
         <div
           className={`canvas-viewport-stage ${stageClassName}`}
           data-canvas-font={fontFamily ? 'enforced' : undefined}
+          data-canvas-initializing={viewInitializing ? 'true' : undefined}
           ref={stageRef}
           style={{
             '--canvas-selected-font': fontFamily,
@@ -516,6 +539,7 @@ export default function CanvasViewport({
             fontFamily,
             fontWeight,
             transform: resolveCanvasStageTransform({ ...panOffset, zoom: constrainedZoom }),
+            visibility: viewInitializing ? 'hidden' : undefined,
           } as CSSProperties}
         >
           {children}

@@ -370,9 +370,17 @@ describe('Playground optional layers', () => {
   });
 
   it('renders the production converter thumbnail inside each effect layer card', () => {
-    expect(designLab).toContain('<CompositionEffectThumbnail kind={effectLayer.settings.kind} />');
+    expect(designLab).toContain('<CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />');
     expect(designLab).not.toContain("className='shader-lab-v2-effect-swatch'");
     expect(studioStyles).toContain(".shader-lab-v2-dock-layer[data-kind='converter'] .composition-effect-thumbnail {");
+  });
+
+  it('keeps dock shader previews full-frame without styling them like imported artwork', () => {
+    expect(studioStyles).toContain('.shader-lab-v2-dock-preview-select > img {');
+    expect(studioStyles).toContain('.shader-lab-v2-dock-material-frame img {');
+    expect(studioStyles).not.toContain('.shader-lab-v2-dock-layer-preview img {');
+    expect(studioStyles).not.toContain("content: 'LIVE';");
+    expect(designLab).toContain('settings={appliedShader.settings}');
   });
 
   it('keeps live converter motion buffered and adaptive instead of throttling it to 12 FPS', () => {

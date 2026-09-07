@@ -2,7 +2,11 @@
 
 import { memo } from 'react';
 
-import { DEFAULT_LIVE_MATERIAL_SETTINGS, type LiveMaterialId } from '@/lib/liveMaterials';
+import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
+  type LiveMaterialId,
+  type LiveMaterialSettings,
+} from '@/lib/liveMaterials';
 import {
   shaderLabSettingsFor,
   shaderMaterialPreviewStyle,
@@ -11,17 +15,19 @@ import {
 function AuthenticShaderPreview({
   className = '',
   materialId,
+  settings,
 }: {
   className?: string;
   materialId: LiveMaterialId;
+  settings?: LiveMaterialSettings;
 }) {
-  const settings = shaderLabSettingsFor(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
+  const resolvedSettings = settings ?? shaderLabSettingsFor(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
 
   return (
     <span
       aria-hidden='true'
       className={`absolute inset-0 block overflow-hidden ${className}`}
-      style={shaderMaterialPreviewStyle(materialId, settings)}
+      style={shaderMaterialPreviewStyle(materialId, resolvedSettings)}
     >
       <img
         alt=''

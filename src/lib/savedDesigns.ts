@@ -279,8 +279,36 @@ export async function saveSavedDesign(workspaceKey: string, design: SavedDesign)
   }
 }
 
+export async function renameSavedDesign(workspaceKey: string, designId: string, name: string): Promise<void> {
+  const database = await openSavedDesignDatabase();
+  try {
+    const transaction = database.transaction(SAVED_DESIGN_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(SAVED_DESIGN_STORE_NAME);
+    const request = store.get(savedDesignRecordKey(workspaceKey, designId));
+    request.addEventListener('success', () => {
+      const record = request.result as SavedDesignRecord | undefined;
+      if (!record) {
+        transaction.abort();
+        return;
+      }
+      // Rename only metadata; a concurrent canvas save may have newer source.
+      store.put({ ...record, design: { ...record.design, name } });
+    });
+    await transactionComplete(transaction);
+  } finally {
+    database.close();
+  }
+}
+
 export async function loadAutosavedDesign(workspaceKey: string): Promise<SavedDesign | null> {
-  const designs = await loadSavedDesigns(autosavedDesignStorageKey(workspaceKey));
+  let designs: SavedDesign[];
+  try {
+    designs = await loadSavedDesigns(autosavedDesignStorageKey(workspaceKey));
+  } catch (error) {
+    const recovery = readAutosaveRecovery(workspaceKey);
+    if (recovery) return recovery;
+    throw error;
+  }
   const stored = designs.find(({ id }) => id === AUTOSAVED_DESIGN_ID) ?? null;
   const recovery = readAutosaveRecovery(workspaceKey);
   if (!recovery) return stored;
@@ -288,7 +316,12 @@ export async function loadAutosavedDesign(workspaceKey: string): Promise<SavedDe
     clearMatchingAutosaveRecovery(workspaceKey, recovery.source, recovery.revision ?? '');
     return stored;
   }
-  await saveSavedDesign(autosavedDesignStorageKey(workspaceKey), recovery);
+  try {
+    await saveSavedDesign(autosavedDesignStorageKey(workspaceKey), recovery);
+  } catch {
+    // The recovery copy remains usable even if IndexedDB cannot accept it yet.
+    return recovery;
+  }
   clearMatchingAutosaveRecovery(workspaceKey, recovery.source, recovery.revision ?? '');
   return recovery;
 }
@@ -299,10 +332,15 @@ export async function saveAutosavedDesign(
   revision: string,
   now = new Date().toISOString()
 ): Promise<void> {
-  await saveSavedDesign(
-    autosavedDesignStorageKey(workspaceKey),
-    createAutosavedDesign({ now, revision, source })
-  );
+  try {
+    await saveSavedDesign(
+      autosavedDesignStorageKey(workspaceKey),
+      createAutosavedDesign({ now, revision, source })
+    );
+  } catch (error) {
+    if (writeAutosaveRecovery(workspaceKey, source, revision, now)) return;
+    throw error;
+  }
   clearMatchingAutosaveRecovery(workspaceKey, source, revision);
 }
 
