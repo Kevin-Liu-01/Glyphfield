@@ -116,6 +116,13 @@ to 30 FPS if the minimum-size conversion still consumes excessive CPU. Native
 shader playback, deterministic capture, and authored export settings remain
 separate from that converter-specific protection.
 
+The beta deployment was also checked after publication. An initial visible-but-
+inactive browser target was throttled down to 1 FPS, so the cadence runner now
+explicitly brings its own page to the foreground through CDP, matching the
+interaction benchmark. With foreground scheduling restored, custom dithering,
+Gem Smoke, and Prismatic sphere measured 59.63–60 draw FPS and passed the gap
+budgets. The throttled runs remain diagnostic failures, not shader/GPU timing.
+
 ## Verification commands
 
 Start a production build on port 3013, then run these serially so browser
@@ -195,6 +202,14 @@ cold-entry costs above.
 deployment serves the beta alias; a successful push there does not establish
 that the public custom domain has been updated. Always resolve the domain's
 deployment, verify the intended project, and verify the public alias afterward.
+
+On 2026-09-07, the public team's enforced Git-source policy blocked automatic
+production deployment from `Kevin-Liu-01/Glyphfield`: only repositories under
+`generaltranslation` are allowed. The separate beta project accepted and deployed
+the commit. Updating the public release requires an owner-approved, project-only
+repository exception or an approved production source. Do not switch upload
+mechanisms to sidestep a known repository restriction. See
+[Vercel deployment policies](https://vercel.com/docs/deployments/deployment-policy).
 
 ### Preview release published 2026-09-06
 

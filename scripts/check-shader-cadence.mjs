@@ -26,6 +26,43 @@ function browser(args) {
   return result.data?.result ?? result.data;
 }
 
+async function bringPageToFront() {
+  const url = execFileSync(command, ['--session', session, 'get', 'cdp-url'], { encoding: 'utf8' }).trim();
+  const socket = new WebSocket(url);
+  const pending = new Map();
+  let sequence = 0;
+  const deadline = setTimeout(() => socket.close(), 10_000);
+  socket.addEventListener('close', () => {
+    pending.forEach(({ reject }) => reject(new Error('Browser foreground connection closed.')));
+    pending.clear();
+  });
+  socket.addEventListener('message', ({ data }) => {
+    const message = JSON.parse(data);
+    const request = pending.get(message.id);
+    if (!request) return;
+    pending.delete(message.id);
+    if (message.error) request.reject(new Error(message.error.message));
+    else request.resolve(message.result);
+  });
+  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
+    const id = ++sequence;
+    pending.set(id, { resolve, reject });
+    socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      socket.addEventListener('open', resolve, { once: true });
+      socket.addEventListener('error', reject, { once: true });
+      socket.addEventListener('close', () => reject(new Error('Browser foreground connection closed before opening.')), { once: true });
+    });
+    const { targetInfos } = await send('Target.getTargets');
+    const target = targetInfos.find((item) => item.type === 'page' && item.url.startsWith(baseUrl));
+    if (!target) throw new Error('Cannot foreground the shader benchmark page.');
+    const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
+    await send('Page.bringToFront', {}, sessionId);
+  } finally { clearTimeout(deadline); socket.close(); }
+}
+
 // Observe native drawing APIs, not React state, shader time, or an rAF-only FPS
 // counter. Multiple passes on one canvas count once per display opportunity.
 const measure = `(async () => {
@@ -101,6 +138,9 @@ try {
   for (const [index, materialId] of materials.entries()) {
     try {
       if (index) browser(['open', `${baseUrl}/shader-preview?diagnostics=1&live=1&materialId=${encodeURIComponent(materialId)}`]);
+      // A visible document may still be an inactive/occluded browser target.
+      // Use the same explicit foreground step as the interaction benchmark.
+      await bringPageToFront();
       browser(['wait', '--fn', `Boolean(document.querySelector('[data-live-material-surface] canvas')) && !document.querySelector('[data-live-material-ready="false"], [data-live-material-ready="error"]')`]);
       browser(['wait', '2000']);
       const result = browser(['eval', measure]);
