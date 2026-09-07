@@ -1,40 +1,56 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 
 import {
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
 import {
-  shaderLabSettingsFor,
-  shaderMaterialPreviewStyle,
   shaderPreviewAssetPath,
 } from '@/lib/shaderLab';
+import ShaderSkeleton from '@/components/ShaderSkeleton';
+
 function AuthenticShaderPreview({
   className = '',
   materialId,
-  settings,
 }: {
   className?: string;
   materialId: LiveMaterialId;
   settings?: LiveMaterialSettings;
 }) {
-  const resolvedSettings = settings ?? shaderLabSettingsFor(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
+  const src = shaderPreviewAssetPath(materialId);
+  const [loadedSource, setLoadedSource] = useState<string | null>(null);
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const ready = loadedSource === src && failedSource !== src;
 
   return (
     <span
       aria-hidden='true'
-      className={`absolute inset-0 block overflow-hidden ${className}`}
-      style={shaderMaterialPreviewStyle(materialId, resolvedSettings)}
+      className={`authentic-shader-preview ${className}`}
+      data-shader-preview-ready={ready}
     >
+      {!ready && <ShaderSkeleton state={failedSource === src ? 'unavailable' : 'loading'} />}
       <img
         alt=''
-        className='absolute inset-0 block size-full object-cover'
+        className='authentic-shader-preview-image'
         decoding='async'
+        key={src}
         loading='lazy'
-        src={shaderPreviewAssetPath(materialId)}
+        onError={() => setFailedSource(src)}
+        onLoad={async (event) => {
+          const image = event.currentTarget;
+          try {
+            await image.decode();
+            if (!image.isConnected) return;
+            setLoadedSource(src);
+            setFailedSource(null);
+          } catch {
+            if (image.isConnected) setFailedSource(src);
+          }
+        }}
+        src={src}
+        style={{ opacity: ready ? 1 : 0 }}
       />
     </span>
   );

@@ -1,13 +1,16 @@
 'use client';
 
-import { useRef, type CSSProperties } from 'react';
+import { useRef } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import ShaderSkeleton from '@/components/ShaderSkeleton';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
+import { LANDING_RENDER_FRAME_RATE, landingRenderBudget } from '@/lib/landingRenderQuality';
 
 // Fetch and prepare the renderer well before the field is visible, but only spend
 // recurring GPU time once it is at the edge of the viewport.
@@ -16,7 +19,7 @@ const SHADER_ACTIVE_MARGIN = '96px 0px';
 
 export default function MarketingArcField({
   className = '',
-  frameRate = 20,
+  frameRate = LANDING_RENDER_FRAME_RATE,
   materialId,
   maxPixelCount,
   paperShaderOverrides,
@@ -39,6 +42,7 @@ export default function MarketingArcField({
     rootMargin: SHADER_PREWARM_MARGIN,
   });
   const viewportActive = useViewportActivity(containerRef, { rootMargin: SHADER_ACTIVE_MARGIN });
+  const visible = useViewportActivity(containerRef, { rootMargin: '0px' });
   const prefersReducedMotion = usePrefersReducedMotion();
   const active = viewportActive && !prefersReducedMotion;
   const isPaperShader = materialId.startsWith('paper-');
@@ -48,25 +52,19 @@ export default function MarketingArcField({
     useIdleCallback: true,
   });
   const runtimeMounted = runtimeReady && (nearViewport || persistAfterReady);
-  const fallbackStyle = isPaperShader ? {
-    '--marketing-shader-color-a': settings.colorA,
-    '--marketing-shader-color-b': settings.colorB,
-    '--marketing-shader-color-c': settings.colorC,
-  } as CSSProperties : undefined;
+  const { quality } = useLandingRenderQuality(visible && active && runtimeMounted);
+  const renderBudget = landingRenderBudget(quality, renderScale, maxPixelCount);
 
   return (
     <div
       className={`marketing-v5-arc-field${isPaperShader ? ' marketing-v5-paper-field' : ''} ${className}`}
       data-shader-active={active ? 'true' : 'false'}
       data-shader-runtime={runtimeMounted ? 'ready' : 'fallback'}
+      data-render-quality={quality}
       ref={containerRef}
       aria-hidden='true'
-      style={fallbackStyle}
     >
-      <div
-        className='marketing-v5-field-fallback'
-        data-material={isPaperShader ? materialId : undefined}
-      />
+      <ShaderSkeleton />
       {runtimeMounted ? (
         <div className='marketing-v5-field-runtime'>
           <LazyLiveMaterialCanvas
@@ -75,10 +73,10 @@ export default function MarketingArcField({
             // the renderer here would defer GPU compilation until the active edge.
             frameRate={frameRate}
             materialId={materialId}
-            maxPixelCount={maxPixelCount}
+            maxPixelCount={renderBudget.maxPixelCount}
             paperShaderOverrides={paperShaderOverrides}
             paused={!active}
-            renderScale={renderScale}
+            renderScale={renderBudget.renderScale}
             settings={settings}
           />
         </div>

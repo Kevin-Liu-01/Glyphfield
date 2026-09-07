@@ -15,9 +15,11 @@ import {
   Weight,
 } from '@/components/ui/SolidIcons';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, type LiveMaterialSettings } from '@/lib/liveMaterials';
+import { LANDING_RENDER_FRAME_RATE, landingRenderBudget } from '@/lib/landingRenderQuality';
 
 import type { LucideIcon } from '@/components/ui/SolidIcons';
 
@@ -377,9 +379,12 @@ export default function MarketingAgentControlLab() {
     rootMargin: '960px 0px',
   });
   const active = useViewportActivity(labRef, { rootMargin: '96px 0px' });
+  const visible = useViewportActivity(labRef, { rootMargin: '0px' });
   const prefersReducedMotion = usePrefersReducedMotion();
   const motionActive = active && !prefersReducedMotion;
   const runtimeReady = useDeferredRuntime(nearViewport, 420, { resetWhenDisabled: true });
+  const { quality } = useLandingRenderQuality(visible && motionActive && runtimeReady && nearViewport);
+  const renderBudget = landingRenderBudget(quality, 0.6);
   const previewScanRef = useRef<HTMLDivElement>(null);
   const autonomousStepRef = useRef(0);
   const automationPausedUntilRef = useRef(0);
@@ -666,6 +671,7 @@ export default function MarketingAgentControlLab() {
       data-active-agent={activeAgent}
       data-viewport-active={active ? 'true' : 'false'}
       data-user-interacting={userInteractionKey ? 'true' : 'false'}
+      data-render-quality={quality}
       ref={labRef}
     >
       <section className='marketing-agent-json' aria-label='Generated JSON contract'>
@@ -774,11 +780,12 @@ export default function MarketingAgentControlLab() {
         {nearViewport && runtimeReady ? (
           <LazyLiveMaterialCanvas
             activeWhileMounted
-            frameRate={24}
+            frameRate={LANDING_RENDER_FRAME_RATE}
             materialId='paper-dithering-warp'
+            maxPixelCount={renderBudget.maxPixelCount}
             paperShaderOverrides={paperShaderOverrides}
             paused={!motionActive}
-            renderScale={0.6}
+            renderScale={renderBudget.renderScale}
             settings={previewSettings}
           />
         ) : null}

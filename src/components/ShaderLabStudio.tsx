@@ -50,6 +50,7 @@ import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport'
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
+import ShaderSkeleton from '@/components/ShaderSkeleton';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
@@ -222,7 +223,7 @@ import {
   previewLiveMaterialTime,
   type LiveMaterialFrameState,
 } from '@/lib/liveMaterialPreview';
-import { liveMaterialFrameIsDue, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
+import { createLiveMaterialFramePacer, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
 import { waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
 import {
   buildImageSvgFilter,
@@ -242,7 +243,6 @@ import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
   shaderLabMaterials,
-  shaderMaterialPreviewStyle,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
   type ShaderLabCategory,
@@ -1140,7 +1140,7 @@ function ShaderSequenceControls({
   );
 }
 
-function ShaderFrameHistoryControl({
+export function ShaderFrameHistoryControl({
   durationMs,
   fps,
   frame,
@@ -1163,6 +1163,7 @@ function ShaderFrameHistoryControl({
 }) {
   const frames = buildMotionFrames(durationMs, fps);
   const frameCount = frames.length;
+  const frameDigits = Math.max(2, String(frameCount).length);
   const boundedFrame = resolveMotionFrame(durationMs, fps, frame).index;
   const displayFrameRef = useRef(boundedFrame);
   const rangeRef = useRef<HTMLInputElement>(null);
@@ -1258,7 +1259,7 @@ function ShaderFrameHistoryControl({
         {playing ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
       </button>
       <div className='shader-lab-v2-frame-history-copy'>
-        <span><Clock3 aria-hidden='true' />Motion timeline</span>
+        <span><Clock3 aria-hidden='true' /><span>Motion timeline</span></span>
         <small>{playing ? 'Live' : 'Captured'} · <span ref={secondsRef}>{seconds.toFixed(2)}s</span></small>
       </div>
       <StudioRange
@@ -1276,9 +1277,10 @@ function ShaderFrameHistoryControl({
         ref={rangeRef}
         step={1}
       />
-      <output aria-live='off'>
+      <output aria-live='off' style={{ '--shader-frame-digits': `${frameDigits}ch` } as CSSProperties}>
         <strong ref={frameNumberRef}>{String(boundedFrame + 1).padStart(2, '0')}</strong>
-        <span>/ {String(frameCount).padStart(2, '0')}</span>
+        <span>/</span>
+        <span>{String(frameCount).padStart(2, '0')}</span>
       </output>
     </section>
   );
@@ -7080,7 +7082,7 @@ export default function ShaderLabStudio({
     let animationFrame = 0;
     let cancelled = false;
     let inViewport = true;
-    let lastRenderedAt = -Infinity;
+    const framePacer = createLiveMaterialFramePacer();
     let rendering = false;
     let previewWidth = Math.min(640, canvasDimensions.width);
     let targetFrameRate = 60;
@@ -7102,7 +7104,7 @@ export default function ShaderLabStudio({
           && inViewport
           && !document.hidden
           && !rendering
-          && (paused || liveMaterialFrameIsDue(now, lastRenderedAt, targetFrameRate));
+          && framePacer.shouldDraw(now, targetFrameRate, paused);
         if (shouldRender) {
           rendering = true;
           const renderStartedAt = performance.now();
@@ -7146,7 +7148,6 @@ export default function ShaderLabStudio({
             renderDurationTotal = 0;
             renderSamples = 0;
           }
-          lastRenderedAt = now;
           rendering = false;
         }
         if (!paused) animationFrame = requestAnimationFrame(tick);
@@ -7454,13 +7455,7 @@ export default function ShaderLabStudio({
       ? sequenceCapture.application
       : application;
     if (!livePreviewRuntimeReady && captureTimeMs === null) {
-      return (
-        <span
-          aria-hidden='true'
-          className='absolute inset-0 block'
-          style={shaderMaterialPreviewStyle(renderedApplication.materialId, renderedApplication.settings)}
-        />
-      );
+      return <ShaderSkeleton />;
     }
     return (
       <LiveMaterialCanvas
@@ -8412,7 +8407,7 @@ export default function ShaderLabStudio({
               }}
               playing={active && !paused && captureTimeMs === null}
             />
-            <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
+            <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} title='Shader sequence' type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
             <a aria-label='Open Animation Studio' href='/studio?tool=animation' title='Open Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
           </div>
           {motionWorkspaceOpen ? (

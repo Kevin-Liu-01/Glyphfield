@@ -59,6 +59,7 @@ const beginProbe = `(() => {
   const probe = window.__glyphfieldPerformanceProbe = {
     cls: 0,
     events: [],
+    excludedPreProbeEntries: [],
     frames: [],
     lastFrame: performance.now(),
     loaf: [],
@@ -130,7 +131,22 @@ const beginProbe = `(() => {
   ];
   definitions.forEach(([type, consume]) => {
     try {
-      const observer = new PerformanceObserver((list) => list.getEntries().forEach(consume));
+      const observer = new PerformanceObserver((list) => list.getEntries().forEach((entry) => {
+        // Delivery can lag the measured interval even with buffered:false.
+        // Keep overlapping entries in full; only wholly earlier work is excluded.
+        if (entry.startTime + entry.duration < probe.startedAt) {
+          probe.excludedPreProbeEntries.push({
+            duration: entry.duration,
+            observedOffset: performance.now() - probe.startedAt,
+            relativeEndTime: entry.startTime + entry.duration - probe.startedAt,
+            relativeStartTime: entry.startTime - probe.startedAt,
+            startTime: entry.startTime,
+            type,
+          });
+          return;
+        }
+        consume(entry);
+      }));
       observer.observe(type === 'event'
         ? { durationThreshold: 16, type }
         : { buffered: false, type });
@@ -145,8 +161,8 @@ const beginProbe = `(() => {
   return true;
 })()`;
 
-// Attribution is diagnostic only: every observed entry still contributes to the
-// existing budgets, including a frame that started before the probe was armed.
+// Overlapping entries contribute their full duration to the existing budgets.
+// Wholly pre-probe intervals remain visible only as diagnostic attribution.
 const probeDiagnostics = `(probe) => {
   const longest = (entries) => [...entries]
     .sort((first, second) => second.duration - first.duration)
@@ -159,7 +175,8 @@ const probeDiagnostics = `(probe) => {
     longAnimationFrameCount: probe.loaf.length,
     longestFrames: longest(probe.loaf),
     longestTasks: longest(probe.longTaskDetails),
-    preProbeFrames: longest(probe.loaf.filter((entry) => entry.relativeEndTime < 0)),
+    excludedPreProbeEntries: longest(probe.excludedPreProbeEntries),
+    preProbeFrames: longest(probe.excludedPreProbeEntries.filter((entry) => entry.type === 'long-animation-frame')),
     startedAt: probe.startedAt,
     visibility: {
       changes: probe.visibilityChanges,

@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LiveMaterialCanvasProps } from '@/components/LiveMaterialCanvas';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
+import { landingRenderQualityStore } from '@/lib/landingRenderQuality';
 
 const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
 
 vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
-  default: ({ enabled = true, paused }: LiveMaterialCanvasProps) => {
+  default: ({ enabled = true, frameRate, maxPixelCount, paused, renderScale }: LiveMaterialCanvasProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     useEffect(() => {
       if (!enabled) return;
@@ -23,7 +24,7 @@ vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
         renderer.release();
       };
     }, [enabled]);
-    return enabled ? <canvas data-live-material-ready='false' data-paused={String(paused)} ref={canvasRef} /> : null;
+    return enabled ? <canvas data-frame-rate={frameRate} data-live-material-ready='false' data-max-pixel-count={maxPixelCount} data-paused={String(paused)} data-render-scale={renderScale} ref={canvasRef} /> : null;
   },
 }));
 
@@ -109,11 +110,13 @@ describe('MarketingArcField renderer prewarming', () => {
     const canvas = container.querySelector('canvas');
     expect(canvas?.dataset.liveMaterialReady).toBe('true');
     expect(canvas?.dataset.paused).toBe('true');
+    expect(canvas?.dataset.frameRate).toBe('60');
     expect(renderer.create).toHaveBeenCalledTimes(1);
 
     intersect('96px 0px', true);
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(canvas?.dataset.paused).toBe('false');
+    expect(canvas?.dataset.frameRate).toBe('60');
     intersect('96px 0px', false);
     expect(canvas?.dataset.paused).toBe('true');
     intersect('96px 0px', true);
@@ -192,5 +195,26 @@ describe('MarketingArcField renderer prewarming', () => {
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(renderer.create).toHaveBeenCalledTimes(1);
     expect(renderer.release).not.toHaveBeenCalled();
+  });
+
+  it('changes only resolution when quality is overridden, retaining the prepared canvas and reduced-motion pause', () => {
+    Reflect.set(motionPreference, 'matches', true);
+    render();
+    intersect('960px 0px', true);
+    intersect('96px 0px', true);
+    completeIdlePrewarm();
+    const canvas = container.querySelector('canvas');
+    act(() => landingRenderQualityStore.setMode('low'));
+    expect(canvas?.dataset.maxPixelCount).toBe('45000');
+    expect(canvas?.dataset.frameRate).toBe('60');
+    expect(Number(canvas?.dataset.renderScale)).toBeCloseTo(0.5 * Math.SQRT1_2);
+    act(() => landingRenderQualityStore.setMode('high'));
+    expect(canvas?.dataset.renderScale).toBe('0.5');
+    expect(canvas?.dataset.frameRate).toBe('60');
+    expect(canvas?.dataset.paused).toBe('true');
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledTimes(1);
+    expect(renderer.release).not.toHaveBeenCalled();
+    act(() => landingRenderQualityStore.setMode('auto'));
   });
 });

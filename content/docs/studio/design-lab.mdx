@@ -87,6 +87,8 @@ The motion timeline exposes the material's time history. Live Paper materials ru
 
 Scrubbing by pointer or keyboard pauses live playback. Exact native frame anchors currently apply to Paper materials; other providers use their own time/capture behavior. A library thumbnail is a representative preview, not a saved bitmap of your current composition.
 
+Live shaders target smooth 60 FPS using display-timed rendering, independently of the motion timeline's frame count or export frame rate. Adding stored frames does not make live motion smoother. Actual playback depends on the device and composition; hidden or paused shaders stop drawing. Saved captures and export settings retain their authored timing.
+
 ## Shader-cut sequences
 
 Sequence mode turns one canvas shader into an 8–12 material timeline. Intro cuts can accelerate toward the final selected shader or use even timing; the last material holds for 3–6 seconds.

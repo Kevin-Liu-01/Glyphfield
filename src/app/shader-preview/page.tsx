@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 export default async function ShaderPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ materialId?: string }>;
+  searchParams: Promise<{ diagnostics?: string; live?: string; materialId?: string }>;
 }) {
-  const { materialId = 'holo-cloth-silk' } = await searchParams;
-  return <ShaderPreviewCapture materialId={materialId} />;
+  const { diagnostics, live, materialId = 'holo-cloth-silk' } = await searchParams;
+  return <ShaderPreviewCapture diagnostics={diagnostics === '1'} livePlayback={live === '1'} materialId={materialId} />;
 }

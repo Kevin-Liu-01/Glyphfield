@@ -15,6 +15,35 @@ export function liveMaterialFrameIsDue(timeMs: number, lastDrawnMs: number, fram
   return timeMs - lastDrawnMs >= intervalMs - Math.min(0.75, intervalMs * 0.05);
 }
 
+/** Carry fractional vsync remainder instead of rounding 60fps down to 45/48fps. */
+export function createLiveMaterialFramePacer() {
+  let nextFrameAt: number | null = null;
+  let previousRate = 0;
+  return {
+    shouldDraw(timeMs: number, requestedRate: number, force = false): boolean {
+      const rate = Number.isFinite(requestedRate) ? Math.min(60, Math.max(1, requestedRate)) : 60;
+      const intervalMs = 1_000 / rate;
+      const toleranceMs = Math.min(0.75, intervalMs * 0.05);
+      if (rate !== previousRate) nextFrameAt = null;
+      previousRate = rate;
+      if (!force && nextFrameAt !== null && timeMs + toleranceMs < nextFrameAt) return false;
+      if (force || nextFrameAt === null || timeMs < nextFrameAt) {
+        // Slightly early native vsync must not accumulate into a skipped frame
+        // on a 59.94/60Hz display. Forced edits start a new phase.
+        nextFrameAt = timeMs + intervalMs;
+      } else {
+        // Skip missed deadlines after a stall without replaying old frames.
+        nextFrameAt += (Math.floor((timeMs - nextFrameAt) / intervalMs) + 1) * intervalMs;
+      }
+      return true;
+    },
+    delayUntilNext(timeMs: number): number {
+      return Math.max(0, (nextFrameAt ?? timeMs) - timeMs);
+    },
+    reset() { nextFrameAt = null; },
+  };
+}
+
 export function resolveLiveMaterialPixelRatio({
   cssHeight,
   cssWidth,

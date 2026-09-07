@@ -13,9 +13,11 @@ import {
 } from 'react';
 
 import MarketingArcField from '@/components/MarketingArcField';
+import MarketingRenderQualityControl from '@/components/MarketingRenderQualityControl';
 import MitLogo from '@/components/MitLogo';
 import StudioRange from '@/components/ui/StudioRange';
 import { hexToHsv, hsvToHex, normalizeHex, normalizeHexOrFallback } from '@/lib/color';
+import { LANDING_RENDER_FRAME_RATE } from '@/lib/landingRenderQuality';
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
 
 type ShaderColorRole = 'colorA' | 'colorB' | 'colorC';
@@ -160,6 +162,7 @@ export default function MarketingOpenSourceWorkbench({
     <div className='marketing-v14-open-source-workbench'>
       <aside aria-label='Shader color controls' className='marketing-v14-control-panel marketing-v14-control-panel--dark marketing-v14-color-inspector'>
         <header><strong>SHADER PALETTE</strong><span>{activeRole.label.toUpperCase()} / {activeRole.meta}</span></header>
+        <MarketingRenderQualityControl />
         <div aria-label='Shader color stop' className='marketing-v14-segmented-row' role='group'>
           {SHADER_COLOR_ROLES.map((option) => (
             <button
@@ -237,7 +240,7 @@ export default function MarketingOpenSourceWorkbench({
       <div className='marketing-v7-open-source-panel'>
         <MarketingArcField
           className='marketing-v8-open-source-panel-material'
-          frameRate={20}
+          frameRate={LANDING_RENDER_FRAME_RATE}
           materialId={materialId}
           maxPixelCount={180_000}
           paperShaderOverrides={{ size: 2.6 }}

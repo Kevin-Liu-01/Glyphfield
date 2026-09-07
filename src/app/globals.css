@@ -447,7 +447,7 @@
   z-index: 21;
   display: grid;
   min-width: 0;
-  grid-template-columns: 28px 122px minmax(80px, 1fr) 58px;
+  grid-template-columns: 28px minmax(0, 122px) minmax(48px, 1fr) max-content;
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
@@ -493,6 +493,18 @@
   font-weight: 640;
 }
 
+.shader-lab-v2-frame-history-copy svg {
+  flex: none;
+}
+
+.shader-lab-v2-frame-history-copy > span > span,
+.shader-lab-v2-frame-history-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shader-lab-v2-frame-history-copy small {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
@@ -511,13 +523,15 @@
 }
 
 .shader-lab-v2-frame-history output {
-  display: flex;
-  justify-content: flex-end;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: var(--shader-frame-digits, 2ch) auto var(--shader-frame-digits, 2ch);
+  align-items: center;
+  gap: 4px;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
-  font-size: 9px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -554,6 +568,7 @@
   background: transparent;
   font-size: 9px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .design-motion-strip > button:hover,
@@ -571,7 +586,7 @@
 
 @container design-lab-workspace (max-width: 620px) {
   .shader-lab-v2-frame-history {
-    grid-template-columns: 28px minmax(24px, 1fr) max-content;
+    grid-template-columns: 28px minmax(48px, 1fr) max-content;
     gap: 8px;
     padding-inline: 8px;
   }
@@ -1771,7 +1786,7 @@
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / .035);
 }
 
-.shader-lab-v2-dock-material-frame img {
+.shader-lab-v2-dock-material-frame > img {
   width: 100%;
   height: 100%;
   max-width: none;
@@ -13676,17 +13691,6 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   max-height: none !important;
   margin: 0 !important;
   overflow: hidden !important;
-}
-
-@keyframes live-material-canvas-ready {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-live-material-surface] canvas {
-    animation: live-material-canvas-ready 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
 }
 
 .shader-library-browser-compact .shader-library-preview {
@@ -26678,41 +26682,77 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   background: #3820a4;
 }
 
-.marketing-v5-field-fallback {
+.shader-skeleton {
   position: absolute;
-  z-index: 0;
   inset: 0;
-  background:
-    radial-gradient(circle at 50% 22%, #e0fffb 0, transparent 18%),
-    radial-gradient(circle at 15% 78%, #907cff 0, transparent 42%),
-    radial-gradient(circle at 92% 40%, #55d8cc 0, transparent 35%),
-    #3721a4;
-}
-
-.marketing-v5-paper-field > .marketing-v5-field-fallback {
+  display: block;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 68% 82% at 82% 8%, var(--marketing-shader-color-c) 0 17%, transparent 52%),
-    radial-gradient(ellipse 62% 74% at 12% 96%, var(--marketing-shader-color-b) 0 13%, transparent 55%),
-    conic-gradient(from 118deg at 48% 52%, var(--marketing-shader-color-a), var(--marketing-shader-color-b) 31%, var(--marketing-shader-color-a) 54%, var(--marketing-shader-color-c) 72%, var(--marketing-shader-color-a));
+  isolation: isolate;
+  pointer-events: none;
+  background: #ecece9;
+  color: #8d8d88;
 }
 
-.marketing-v5-paper-field > .marketing-v5-field-fallback::after {
+.dark .shader-skeleton,
+.marketing-v5-arc-field .shader-skeleton {
+  background: #18181a;
+  color: #55555d;
+}
+
+/* A quiet, shared dither silhouette; no runtime, shimmer, or layout animation. */
+.shader-skeleton::before {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, var(--marketing-shader-color-c) 0 1px, transparent 1.3px);
-  background-size: 6px 6px;
   content: '';
-  opacity: 0.52;
-  mask-image:
-    radial-gradient(ellipse 74% 86% at 78% 5%, #000 0 31%, transparent 67%),
-    radial-gradient(ellipse 76% 74% at 12% 100%, #000 0 24%, transparent 67%);
+  opacity: 0.4;
+  background-image: radial-gradient(currentColor 0.75px, transparent 1px);
+  background-size: 6px 6px;
+  mask-image: radial-gradient(ellipse at 70% 18%, #000, transparent 62%);
 }
 
-.marketing-v5-paper-field > .marketing-v5-field-fallback[data-material='paper-dithering-swirl'] {
-  background:
-    radial-gradient(ellipse 52% 60% at 50% 48%, var(--marketing-shader-color-a) 0 28%, transparent 29%),
-    conic-gradient(from 18deg at 50% 48%, var(--marketing-shader-color-b), var(--marketing-shader-color-a) 23%, var(--marketing-shader-color-c) 49%, var(--marketing-shader-color-a) 72%, var(--marketing-shader-color-b));
+.shader-skeleton::after {
+  position: absolute;
+  inset: 16% -12% -56% 8%;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  content: '';
+  opacity: 0.2;
+  transform: rotate(-24deg);
+}
+
+/* Readiness changes once per mount/recovery, not per animation frame. Keep the
+   loading surface above an unfinished canvas, never behind transparent artwork. */
+[data-live-material-surface] > .live-material-loading {
+  display: none;
+}
+
+[data-live-material-surface][data-live-material-ready='false'] > .live-material-loading,
+[data-live-material-surface][data-live-material-ready='error'] > .live-material-loading,
+[data-live-material-surface]:not(:has(canvas)) > .live-material-loading,
+[data-live-material-surface]:has([data-live-material-ready='false'], [data-live-material-ready='error']) > .live-material-loading {
+  display: block;
+}
+
+.authentic-shader-preview {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+
+.authentic-shader-preview > .authentic-shader-preview-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
 }
 
 .marketing-v5-field-runtime {
@@ -35674,4 +35714,34 @@ html[data-marketing-theme='dark'] body {
   .marketing-v7-social-links > a:active {
     transform: none;
   }
+}
+
+/* Landing-only resolution preference. No Studio artwork or export styling. */
+.marketing-render-quality {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 14px 12px;
+  color: var(--marketing-v14-control-muted, hsl(var(--muted-foreground)));
+  font-size: 0.66rem;
+}
+
+.marketing-render-quality > span {
+  color: var(--marketing-v14-control-fg, hsl(var(--foreground)));
+}
+
+.marketing-render-quality [data-studio-select] {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  height: 32px;
+  padding-inline: 9px;
+  border-color: var(--marketing-v14-control-line, hsl(var(--border)));
+  background: var(--marketing-v14-control-raised, hsl(var(--background)));
+  color: var(--marketing-v14-control-fg, hsl(var(--foreground)));
+}
+
+.marketing-render-quality > output {
+  min-height: 1em;
+  font-size: 0.6rem;
 }

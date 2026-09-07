@@ -82,6 +82,7 @@ import type { RefObject } from 'react';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useMountEffect } from '@/hooks/useMountEffect';
+import { observePaperShaderReadiness } from '@/lib/paperShaderReadiness';
 import {
   getPaperLiveMaterialDefinition,
   isPaperLiveMaterialId,
@@ -103,8 +104,9 @@ import {
   type LiveMaterialSettingsPreview,
   type LiveMaterialTimePreview,
 } from '@/lib/liveMaterialPreview';
-import { liveMaterialFrameIsDue, resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
+import { resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
 import { createLiveMaterialFrameLoop } from '@/lib/liveMaterialFrameLoop';
+import { createShaderDiagnostics } from '@/lib/shaderDiagnostics';
 import { drawCanvasGlyph } from '@/lib/canvasDrawing';
 import { liveMaterialReadinessStatus, shouldMountLiveMaterial } from '@/lib/liveMaterialReadiness';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
@@ -170,11 +172,11 @@ function useSmoothedShaderZoom(target: number, immediate = false): number {
   useEffect(() => () => cancelAnimationFrame(animationFrameRef.current), []);
   return renderedZoom;
 }
-import { shaderMaterialPreviewStyle } from '@/lib/shaderLab';
+import ShaderSkeleton from '@/components/ShaderSkeleton';
 import { SEAMLESS_POLAR_GLSL } from '@/lib/liveMaterialPolar';
 
 const ShaderGradientSurface = dynamic(() => import('./ShaderGradientSurface'), {
-  loading: () => <div className='absolute inset-0' data-live-material-ready='false' aria-hidden='true' />,
+  loading: () => <div data-live-material-ready='false'><ShaderSkeleton /></div>,
   ssr: false,
 });
 
@@ -182,6 +184,7 @@ export type LiveMaterialCanvasProps = {
   activeWhileMounted?: boolean;
   className?: string;
   captureTimeMs?: number | null;
+  diagnostics?: boolean;
   enabled?: boolean;
   frameRate?: number;
   frameState?: LiveMaterialFrameState;
@@ -205,6 +208,7 @@ type WebglLiveMaterialCanvasProps = {
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
+  diagnostics?: boolean;
   frameRate: number;
   maxPixelCount?: number;
   onContextLost: () => void;
@@ -914,6 +918,7 @@ function GlyphFieldCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  diagnostics: diagnosticsEnabled = false,
   frameRate,
   maxPixelCount,
   patternScale,
@@ -924,6 +929,7 @@ function GlyphFieldCanvas({
   active: boolean;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   captureTimeMs: number | null;
+  diagnostics?: boolean;
   frameRate: number;
   maxPixelCount?: number;
   patternScale: number;
@@ -953,8 +959,10 @@ function GlyphFieldCanvas({
     }
     const drawingCanvas: HTMLCanvasElement = canvas;
     const drawingContext: CanvasRenderingContext2D = context;
+    const diagnostics = createShaderDiagnostics({ canvas, enabled: diagnosticsEnabled, provider: 'glyphfield-canvas2d' });
 
     const glyphs = 'GLYPHFIELD';
+    let didRender = false;
     let elapsed = 0;
     let previous = performance.now();
 
@@ -1069,11 +1077,15 @@ function GlyphFieldCanvas({
           (5 + (index % 4)) / glyphFontSize, pixelRatio
         );
       }
-
+      if (!didRender) {
+        didRender = true;
+        drawingCanvas.dataset.liveMaterialReady = 'true';
+        diagnostics?.markReady();
+      }
     }
 
     const loop = createLiveMaterialFrameLoop({
-      draw,
+      draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
       isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
     });
@@ -1085,10 +1097,11 @@ function GlyphFieldCanvas({
       invalidateRef.current = null;
       resizeObserver.disconnect();
       loop.dispose();
+      diagnostics?.dispose();
     };
   });
 
-  return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
+  return <canvas className='absolute inset-0 size-full' data-live-material-ready='false' ref={canvasRef} />;
 }
 
 function compileShader(
@@ -1218,6 +1231,7 @@ function OriginalMaterialCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  diagnostics: diagnosticsEnabled = false,
   frameRate,
   fragmentSource,
   maxPixelCount,
@@ -1251,19 +1265,25 @@ function OriginalMaterialCanvas({
     const drawingCanvas: HTMLCanvasElement = canvas;
     const drawingContext: WebGLRenderingContext = context;
     cancelWebGLContextRelease(drawingCanvas);
+    const diagnostics = createShaderDiagnostics({ canvas, enabled: diagnosticsEnabled, gl: context, provider: 'original-webgl' });
+    const compile = (type: number, source: string) => diagnostics
+      ? diagnostics.measureCompilation(() => compileShader(context, type, source))
+      : compileShader(context, type, source);
 
     let vertexShader: WebGLShader;
     let fragmentShader: WebGLShader;
     try {
-      vertexShader = compileShader(context, context.VERTEX_SHADER, VERTEX_SOURCE);
-      fragmentShader = compileShader(context, context.FRAGMENT_SHADER, fragmentSource);
+      vertexShader = compile(context.VERTEX_SHADER, VERTEX_SOURCE);
+      fragmentShader = compile(context.FRAGMENT_SHADER, fragmentSource);
     } catch {
+      diagnostics?.dispose();
       scheduleWebGLContextRelease(drawingCanvas, context);
       requestMaterialContextRecovery(canvas, onContextLost);
       return;
     }
     const program = context.createProgram();
     if (!program) {
+      diagnostics?.dispose();
       context.deleteShader(fragmentShader);
       context.deleteShader(vertexShader);
       scheduleWebGLContextRelease(drawingCanvas, context);
@@ -1272,8 +1292,10 @@ function OriginalMaterialCanvas({
     }
     context.attachShader(program, vertexShader);
     context.attachShader(program, fragmentShader);
-    context.linkProgram(program);
+    if (diagnostics) diagnostics.measureCompilation(() => context.linkProgram(program));
+    else context.linkProgram(program);
     if (!context.getProgramParameter(program, context.LINK_STATUS)) {
+      diagnostics?.dispose();
       context.deleteProgram(program);
       context.deleteShader(fragmentShader);
       context.deleteShader(vertexShader);
@@ -1283,6 +1305,7 @@ function OriginalMaterialCanvas({
     }
     const buffer = context.createBuffer();
     if (!buffer) {
+      diagnostics?.dispose();
       context.deleteProgram(program);
       context.deleteShader(fragmentShader);
       context.deleteShader(vertexShader);
@@ -1318,10 +1341,10 @@ function OriginalMaterialCanvas({
     const scaleLocation = context.getUniformLocation(program, 'u_scale');
 
     let elapsed = 0;
-    let lastDrawn = 0;
     let previous = performance.now();
     let disposed = false;
     const pointer = { x: 0.5, y: 0.5 };
+    let didRender = false;
 
     function handlePointerMove(event: PointerEvent) {
       const bounds = drawingCanvas.getBoundingClientRect();
@@ -1350,14 +1373,6 @@ function OriginalMaterialCanvas({
         previous = time;
         return;
       }
-      if (
-        captureTimeRef.current === null
-        && !pausedRef.current
-        && !liveMaterialFrameIsDue(time, lastDrawn, frameRateRef.current)
-      ) {
-        return;
-      }
-      lastDrawn = time;
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
       const motionRate = liveMaterialMotionRate(current.speed);
@@ -1400,10 +1415,15 @@ function OriginalMaterialCanvas({
       drawingContext.uniform1f(rotationLocation, current.rotationZ);
       drawingContext.uniform1f(scaleLocation, patternScaleRef.current);
       drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
+      if (!didRender) {
+        didRender = true;
+        drawingCanvas.dataset.liveMaterialReady = 'true';
+        diagnostics?.markReady();
+      }
     }
 
     const loop = createLiveMaterialFrameLoop({
-      draw,
+      draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
       isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
     });
@@ -1416,6 +1436,7 @@ function OriginalMaterialCanvas({
       invalidateRef.current = null;
       resizeObserver.disconnect();
       loop.dispose();
+      diagnostics?.dispose();
       drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
       drawingCanvas.removeEventListener('pointermove', handlePointerMove);
       drawingCanvas.removeEventListener('pointerleave', handlePointerLeave);
@@ -1427,7 +1448,7 @@ function OriginalMaterialCanvas({
     };
   });
 
-  return <canvas className='absolute inset-0 size-full' ref={canvasRef} />;
+  return <canvas className='absolute inset-0 size-full' data-live-material-ready='false' ref={canvasRef} />;
 }
 
 type FluidRenderTarget = {
@@ -1436,24 +1457,6 @@ type FluidRenderTarget = {
   texture: WebGLTexture;
   width: number;
 };
-
-function shouldThrottleFluidFrame({
-  captureTimeMs,
-  frameRate,
-  lastDrawn,
-  paused,
-  time,
-}: {
-  captureTimeMs: number | null;
-  frameRate: number;
-  lastDrawn: number;
-  paused: boolean;
-  time: number;
-}): boolean {
-  return captureTimeMs === null
-    && !paused
-    && !liveMaterialFrameIsDue(time, lastDrawn, frameRate);
-}
 
 function fluidFrameTiming({
   controlledTimeMs,
@@ -1528,6 +1531,7 @@ function FluidSimulationCanvas({
   active,
   canvasRef,
   captureTimeMs,
+  diagnostics: diagnosticsEnabled = false,
   frameRate,
   maxPixelCount,
   onContextLost,
@@ -1559,6 +1563,7 @@ function FluidSimulationCanvas({
     const drawingCanvas: HTMLCanvasElement = canvas;
     const gl: WebGLRenderingContext = context;
     cancelWebGLContextRelease(drawingCanvas);
+    const diagnostics = createShaderDiagnostics({ canvas, enabled: diagnosticsEnabled, gl, provider: 'fluid-webgl' });
 
     const shaders: WebGLShader[] = [];
     const programs: WebGLProgram[] = [];
@@ -1632,10 +1637,13 @@ function FluidSimulationCanvas({
     let velocityProgram: WebGLProgram;
     let dyeProgram: WebGLProgram;
     let displayProgram: WebGLProgram;
+    const compile = (source: string) => diagnostics
+      ? diagnostics.measureCompilation(() => createProgram(source))
+      : createProgram(source);
     try {
-      velocityProgram = createProgram(FLUID_VELOCITY_SOURCE);
-      dyeProgram = createProgram(FLUID_DYE_SOURCE);
-      displayProgram = createProgram(FLUID_DISPLAY_SOURCE);
+      velocityProgram = compile(FLUID_VELOCITY_SOURCE);
+      dyeProgram = compile(FLUID_DYE_SOURCE);
+      displayProgram = compile(FLUID_DISPLAY_SOURCE);
       buffer = gl.createBuffer();
       if (!buffer) throw new Error('Fluid geometry allocation failed');
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -1647,6 +1655,7 @@ function FluidSimulationCanvas({
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.BLEND);
     } catch {
+      diagnostics?.dispose();
       if (buffer) gl.deleteBuffer(buffer);
       programs.forEach((program) => gl.deleteProgram(program));
       shaders.forEach((shader) => gl.deleteShader(shader));
@@ -1664,9 +1673,9 @@ function FluidSimulationCanvas({
     let simulationHeight = 0;
     let previous = performance.now();
     let elapsed = 0;
-    let lastDrawn = 0;
     let previousControlledTime: number | null = null;
     const pointer = { activeUntil: 0, lastX: 0.5, lastY: 0.5, velocityX: 0, velocityY: 0, x: 0.5, y: 0.5 };
+    let didRender = false;
 
     function initializeTargets(width: number, height: number, current: LiveMaterialSettings) {
       deleteTargets();
@@ -1718,17 +1727,6 @@ function FluidSimulationCanvas({
         previous = time;
         return;
       }
-      const maximumRate = Math.min(60, Math.max(1, frameRateRef.current));
-      if (shouldThrottleFluidFrame({
-        captureTimeMs: captureTimeRef.current,
-        frameRate: maximumRate,
-        lastDrawn,
-        paused: pausedRef.current,
-        time,
-      })) {
-        return;
-      }
-      lastDrawn = time;
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
       const motionRate = liveMaterialMotionRate(current.speed);
@@ -1824,10 +1822,15 @@ function FluidSimulationCanvas({
       }
       pointer.velocityX *= 0.82;
       pointer.velocityY *= 0.82;
+      if (!didRender) {
+        didRender = true;
+        drawingCanvas.dataset.liveMaterialReady = 'true';
+        diagnostics?.markReady();
+      }
     }
 
     const loop = createLiveMaterialFrameLoop({
-      draw,
+      draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
       isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
     });
@@ -1840,6 +1843,7 @@ function FluidSimulationCanvas({
       invalidateRef.current = null;
       resizeObserver.disconnect();
       loop.dispose();
+      diagnostics?.dispose();
       drawingCanvas.removeEventListener('pointermove', handlePointerMove);
       drawingCanvas.removeEventListener('webglcontextlost', handleContextLost);
       deleteTargets();
@@ -1850,7 +1854,7 @@ function FluidSimulationCanvas({
     };
   });
 
-  return <canvas aria-label='Interactive WebGL fluid material' className='absolute inset-0 size-full' ref={canvasRef} />;
+  return <canvas aria-label='Interactive WebGL fluid material' className='absolute inset-0 size-full' data-live-material-ready='false' ref={canvasRef} />;
 }
 
 type PaperShaderPreset = {
@@ -2099,6 +2103,11 @@ function PaperShaderSurface({
   sourceImage?: string;
 }) {
   const surfaceRef = useRef<PaperShaderElement>(null);
+  const [ready, setReady] = useState(false);
+  useMountEffect(() => {
+    const surface = surfaceRef.current;
+    if (surface) return observePaperShaderReadiness(surface, () => setReady(true));
+  });
   const definition = getPaperLiveMaterialDefinition(materialId);
   const renderer = PAPER_SHADER_RENDERERS[definition.family];
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
@@ -2243,6 +2252,7 @@ function PaperShaderSurface({
       aria-label={`Paper Shaders ${definition.name} material`}
       className='paper-shader-host absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden'
       role='img'
+      data-live-material-ready={ready}
       data-paper-motion={effectiveSpeed === 0 ? 'paused' : 'running'}
       data-paper-frame-rate={cappedFrameRate}
       data-paper-scale={resolvedScale}
@@ -2265,23 +2275,22 @@ function PaperShaderSurface({
 
 function StaticMaterialFallback({
   className,
-  materialId,
-  settings,
+  unavailable,
   sourceImage,
   sourceImageOpacity,
 }: {
   className: string;
-  materialId: LiveMaterialId;
-  settings: LiveMaterialSettings;
+  unavailable: boolean;
   sourceImage?: string;
   sourceImageOpacity: number;
 }) {
   return (
     <div
-      aria-label='Static shader fallback'
+      aria-label={unavailable ? 'Shader preview unavailable' : 'Shader preview loading'}
       className={`absolute inset-0 size-full ${className}`}
-      style={shaderMaterialPreviewStyle(materialId, settings)}
+      data-live-material-ready={unavailable ? 'error' : 'false'}
     >
+      <ShaderSkeleton state={unavailable ? 'unavailable' : 'loading'} />
       <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />
     </div>
   );
@@ -2293,6 +2302,7 @@ function LiveMaterialRenderView({
   captureTimeMs,
   className,
   contextVersion,
+  diagnostics,
   enabled,
   frameRate,
   frameState,
@@ -2319,6 +2329,7 @@ function LiveMaterialRenderView({
   captureTimeMs: number | null;
   className: string;
   contextVersion: number;
+  diagnostics: boolean;
   enabled: boolean;
   frameRate: number;
   frameState?: LiveMaterialFrameState;
@@ -2346,8 +2357,7 @@ function LiveMaterialRenderView({
     return (
       <StaticMaterialFallback
         className={className}
-        materialId={materialId}
-        settings={settings}
+        unavailable={recoveryFailed || (requiresWebGL2 && webGL2Available === false)}
         sourceImage={sourceImage}
         sourceImageOpacity={sourceImageOpacity}
       />
@@ -2356,12 +2366,9 @@ function LiveMaterialRenderView({
 
   if (materialId === 'shadergradient-prismatic-sphere') {
     const providerFallback = (
-      <div
-        aria-label='Static shader fallback'
-        className='absolute inset-0 size-full'
-        data-live-material-ready='error'
-        style={{ background: `linear-gradient(135deg, ${settings.colorA}, ${settings.colorB} 52%, ${settings.colorC})` }}
-      />
+      <div aria-label='Shader preview unavailable' data-live-material-ready='error'>
+        <ShaderSkeleton state='unavailable' />
+      </div>
     );
     return (
       <div className={`absolute inset-0 size-full ${className}`}>
@@ -2398,6 +2405,7 @@ function LiveMaterialRenderView({
           active={active}
           canvasRef={canvasRef}
           captureTimeMs={captureTimeMs}
+          diagnostics={diagnostics}
           frameRate={frameRate}
           maxPixelCount={maxPixelCount}
           patternScale={patternScale}
@@ -2417,6 +2425,7 @@ function LiveMaterialRenderView({
           active={active}
           canvasRef={canvasRef}
           captureTimeMs={captureTimeMs}
+          diagnostics={diagnostics}
           frameRate={frameRate}
           key={`pavel-fluid-${contextVersion}`}
           maxPixelCount={maxPixelCount}
@@ -2462,12 +2471,12 @@ function LiveMaterialRenderView({
   return (
     <div
       className={`absolute inset-0 size-full ${className}`}
-      style={shaderMaterialPreviewStyle(materialId, settings)}
     >
       <OriginalMaterialCanvas
         active={active}
         canvasRef={canvasRef}
         captureTimeMs={captureTimeMs}
+        diagnostics={diagnostics}
         frameRate={frameRate}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[materialId]}`}
         key={`${materialId}-${contextVersion}`}
@@ -2487,6 +2496,7 @@ function LiveMaterialCanvas({
   activeWhileMounted = false,
   className = '',
   captureTimeMs = null,
+  diagnostics = false,
   enabled = true,
   frameRate = 60,
   frameState,
@@ -2764,7 +2774,6 @@ function LiveMaterialCanvas({
       data-live-material-ready={liveMaterialReadinessStatus(requiresWebGL2, webGL2Available, activeRecovery.failed)}
       ref={containerRef}
       style={{
-        ...shaderMaterialPreviewStyle(resolvedMaterialId, resolvedSettings),
         contain: 'strict',
         isolation: 'isolate',
       }}
@@ -2775,6 +2784,7 @@ function LiveMaterialCanvas({
         captureTimeMs={resolvedCaptureTimeMs}
         className=''
         contextVersion={activeRecovery.version}
+        diagnostics={diagnostics}
         enabled={renderEnabled}
         frameRate={frameRate}
         frameState={frameState}
@@ -2796,6 +2806,7 @@ function LiveMaterialCanvas({
         sourceImageOpacity={sourceImageOpacity}
         webGL2Available={webGL2Available}
       />
+      <ShaderSkeleton className='live-material-loading' />
     </div>
   );
 }

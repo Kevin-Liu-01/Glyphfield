@@ -68,7 +68,7 @@ describe('MarketingOpenSourceWorkbench', () => {
 
     const shader = container.querySelector<HTMLElement>('[data-testid="live-shader"]');
     expect(shader?.dataset.colorB).toBe('#FF9B75');
-    expect(shader?.dataset.frameRate).toBe('20');
+    expect(shader?.dataset.frameRate).toBe('60');
     expect(shader?.dataset.maxPixelCount).toBe('180000');
     expect(shader?.dataset.paperSize).toBe('2.6');
     expect(shader?.dataset.renderScale).toBe('0.58');

@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LiveMaterialCanvasProps } from '@/components/LiveMaterialCanvas';
+import { landingRenderQualityStore } from '@/lib/landingRenderQuality';
 
 const activity = vi.hoisted(() => ({ active: false, near: false }));
 const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
@@ -16,12 +17,12 @@ vi.mock('@/hooks/useViewportActivity', () => ({
 }));
 vi.mock('@/hooks/useDeferredRuntime', () => ({ useDeferredRuntime: (enabled: boolean) => enabled }));
 vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
-  default: ({ paused, settings }: LiveMaterialCanvasProps) => {
+  default: ({ frameRate, maxPixelCount, paused, renderScale, settings }: LiveMaterialCanvasProps) => {
     useEffect(() => {
       renderer.create();
       return () => { renderer.release(); };
     }, []);
-    return <canvas data-paused={String(paused)} data-speed={settings.speed} />;
+    return <canvas data-frame-rate={frameRate} data-max-pixel-count={maxPixelCount} data-paused={String(paused)} data-render-scale={renderScale} data-speed={settings.speed} />;
   },
 }));
 vi.mock('next/image', () => ({ default: () => null }));
@@ -206,5 +207,21 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(renderer.create).toHaveBeenCalledTimes(1);
     expect(renderer.release).not.toHaveBeenCalled();
+  });
+
+  it('applies landing quality without resetting control values, animation cadence, or the canvas', () => {
+    activity.near = true;
+    render();
+    const canvas = container.querySelector('canvas');
+    const initial = contract();
+    const speed = canvas?.dataset.speed;
+    act(() => landingRenderQualityStore.setMode('low'));
+    expect(canvas?.dataset.maxPixelCount).toBe('64800');
+    expect(canvas?.dataset.frameRate).toBe('60');
+    expect(canvas?.dataset.speed).toBe(speed);
+    expect(contract()).toBe(initial);
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledTimes(1);
+    act(() => landingRenderQualityStore.setMode('auto'));
   });
 });

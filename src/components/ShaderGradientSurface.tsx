@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { resolveShaderGradientMotionClock, type LiveMaterialSettings } from '@/lib/liveMaterials';
 import { resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
-import AuthenticShaderPreview from './AuthenticShaderPreview';
+import ShaderSkeleton from './ShaderSkeleton';
 
 function ShaderGradientRenderLifecycle({
   maxPixelCount,
@@ -76,7 +76,7 @@ export default function ShaderGradientSurface({
   const motionClock = resolveShaderGradientMotionClock(captureTimeMs, settings.speed, paused);
   return (
     <div className={`absolute inset-0 size-full ${className}`} data-live-material-ready={ready}>
-      {!ready && <AuthenticShaderPreview materialId='shadergradient-prismatic-sphere' settings={settings} />}
+      {!ready && <ShaderSkeleton />}
       <ShaderGradientCanvas
         className='absolute inset-0 size-full'
         fov={45}
@@ -105,6 +105,9 @@ export default function ShaderGradientSurface({
           color2={settings.colorB}
           color3={settings.colorC}
           control='props'
+          // CameraControls otherwise advances a separate damped clock on each
+          // invalidation, even when the shader itself is frozen for capture.
+          enableTransition={false}
           envPreset='city'
           grain={settings.grain > 0 ? 'on' : 'off'}
           lightType='env'

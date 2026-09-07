@@ -76,6 +76,7 @@ import { encodeCanvasMp4 } from '@/lib/canvasExport';
 import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
 import { exportGif } from '@/lib/exportGif';
 import type { LiveMaterialSettings } from '@/lib/liveMaterials';
+import { createLiveMaterialFramePacer } from '@/lib/liveMaterialRenderBudget';
 import {
   canCompositeShaderDirectly,
   hasAnimatedShaderBackgrounds,
@@ -220,30 +221,24 @@ function renderInteractiveAnimationPreview({
   canvas,
   currentSettings,
   currentSources,
+  frameIsDue,
   frameSettings,
-  isPlaying,
   position,
   previewDirty,
-  previousRenderTimestamp,
   previousRenderedSourceId,
-  previewFrameRate,
   previewResolution,
-  timestamp,
 }: {
   attachShaderLayers: (sources: readonly StudioSource[]) => StudioSource[];
   backgroundOverrides: Record<string, boolean>;
   canvas: HTMLCanvasElement | null;
   currentSettings: StudioSettings;
   currentSources: readonly StudioSource[];
+  frameIsDue: boolean;
   frameSettings: Record<string, StudioFrameSettings>;
-  isPlaying: boolean;
   position: ReturnType<typeof resolveTimeline>;
   previewDirty: boolean;
-  previousRenderTimestamp: number;
   previousRenderedSourceId: string;
-  previewFrameRate: number;
   previewResolution: { height: number; width: number };
-  timestamp: number;
 }): { rendered: boolean; sourceId: string } {
   const currentSource = currentSources[position.index];
   const nextSource = currentSources[position.nextIndex];
@@ -261,7 +256,7 @@ function renderInteractiveAnimationPreview({
     compositedBackgroundIsAnimated,
     contentIsAnimated,
     currentSourceId: currentSource?.id,
-    frameIsDue: !isPlaying || timestamp - previousRenderTimestamp >= 1000 / previewFrameRate,
+    frameIsDue,
     pageVisible: true,
     previewDirty,
     previousSourceId: previousRenderedSourceId,
@@ -1385,7 +1380,7 @@ function AnimationStudio({
     let animationFrame: number | null = null;
     let disposed = false;
     let previousTimestamp = performance.now();
-    let previousRenderTimestamp = 0;
+    const framePacer = createLiveMaterialFramePacer();
     let previousRenderedSourceId = '';
 
     function requestTick() {
@@ -1456,18 +1451,18 @@ function AnimationStudio({
         canvas: canvasRef.current,
         currentSettings,
         currentSources,
+        frameIsDue: framePacer.shouldDraw(
+          timestamp,
+          resolvedPreviewFrameRate,
+          !isPlayingRef.current || previewDirtyRef.current || resetClock
+        ),
         frameSettings: frameSettingsRef.current,
-        isPlaying: isPlayingRef.current,
         position,
         previewDirty: previewDirtyRef.current,
-        previousRenderTimestamp,
         previousRenderedSourceId,
-        previewFrameRate: resolvedPreviewFrameRate,
         previewResolution: previewResolutionRef.current,
-        timestamp,
       });
       if (previewRender.rendered) {
-        previousRenderTimestamp = timestamp;
         previousRenderedSourceId = previewRender.sourceId;
         previewDirtyRef.current = false;
       }

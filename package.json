@@ -23,6 +23,8 @@
     "test:coverage": "vitest run --coverage --coverage.all --coverage.include='src/**/*.{ts,tsx}' --coverage.reporter=text-summary --coverage.reporter=json-summary",
     "test:coverage:strict": "vitest run --coverage --coverage.include='src/lib/{portableCanvasAssets,sourceCode}.ts' --coverage.reporter=text --coverage.reporter=json-summary --coverage.thresholds.100 --coverage.thresholds.perFile",
     "test:performance": "node scripts/check-interaction-performance.mjs",
+    "test:shaders": "node scripts/check-shader-pixels.mjs",
+    "test:shader-cadence": "node scripts/check-shader-cadence.mjs",
     "test:watch": "vitest",
     "typecheck": "fumadocs-mdx && tsc6 --noEmit"
   },

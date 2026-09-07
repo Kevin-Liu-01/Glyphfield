@@ -1,12 +1,51 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createLiveMaterialFramePacer,
   liveMaterialFrameIsDue,
   liveMaterialInstancePixelBudget,
   resolveLiveMaterialPixelRatio,
 } from '@/lib/liveMaterialRenderBudget';
 
 describe('live material render budget', () => {
+  it.each([60, 75, 90, 120, 144, 165, 240])('holds a 60fps target on a %sHz display without rounding down', (refreshRate) => {
+    const pacer = createLiveMaterialFramePacer();
+    const frames: number[] = [];
+    for (let index = 0; index < refreshRate * 2; index += 1) {
+      const time = 100 + index * (1_000 / refreshRate);
+      if (pacer.shouldDraw(time, 60)) frames.push(time);
+    }
+    expect(frames.length).toBeGreaterThanOrEqual(119);
+    expect(frames.length).toBeLessThanOrEqual(121);
+    expect(Math.max(...frames.slice(1).map((time, index) => time - frames[index]!)))
+      .toBeLessThanOrEqual(1_000 / 60 + 1_000 / refreshRate + 0.01);
+  });
+
+  it('preserves native fractional vsync and keeps deliberate lower budgets', () => {
+    const native = createLiveMaterialFramePacer();
+    const low = createLiveMaterialFramePacer();
+    let lowFrames = 0;
+    for (let index = 0; index < 120; index += 1) {
+      expect(native.shouldDraw(100 + index * 16.6, 60)).toBe(true);
+      if (low.shouldDraw(100 + index * (1_000 / 120), 30)) lowFrames += 1;
+    }
+    expect(lowFrames).toBe(30);
+  });
+
+  it('renders invalidated captures immediately without catch-up bursts after a stall', () => {
+    const pacer = createLiveMaterialFramePacer();
+    expect(pacer.shouldDraw(100, 60)).toBe(true);
+    expect(pacer.shouldDraw(105, 60)).toBe(false);
+    expect(pacer.shouldDraw(105, 60, true)).toBe(true);
+    expect(pacer.shouldDraw(1005, 60)).toBe(true);
+    expect(pacer.shouldDraw(1005, 60)).toBe(false);
+    expect(pacer.delayUntilNext(1005)).toBeGreaterThan(0);
+    expect(pacer.delayUntilNext(1005)).toBeLessThanOrEqual(1_000 / 60 + 0.001);
+    expect(pacer.shouldDraw(1010, 30)).toBe(true);
+    pacer.reset();
+    expect(pacer.shouldDraw(1011, 30)).toBe(true);
+  });
+
   it('keeps every native 60Hz frame despite fractional vsync timestamps', () => {
     let lastDrawn = 100;
     let drawn = 0;

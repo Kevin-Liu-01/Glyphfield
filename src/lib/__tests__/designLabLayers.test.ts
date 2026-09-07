@@ -377,7 +377,8 @@ describe('Playground optional layers', () => {
 
   it('keeps dock shader previews full-frame without styling them like imported artwork', () => {
     expect(studioStyles).toContain('.shader-lab-v2-dock-preview-select > img {');
-    expect(studioStyles).toContain('.shader-lab-v2-dock-material-frame img {');
+    expect(studioStyles).toContain('.shader-lab-v2-dock-material-frame > img {');
+    expect(studioStyles).toContain('.authentic-shader-preview > .authentic-shader-preview-image {');
     expect(studioStyles).not.toContain('.shader-lab-v2-dock-layer-preview img {');
     expect(studioStyles).not.toContain("content: 'LIVE';");
     expect(designLab).toContain('settings={appliedShader.settings}');

@@ -1,20 +1,34 @@
 'use client';
 
+import { useRef } from 'react';
+
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
+import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 
 import type { LiveMaterialId, LiveMaterialSettings } from '@/lib/liveMaterials';
+import { LANDING_RENDER_FRAME_RATE, landingRenderBudget } from '@/lib/landingRenderQuality';
 
 export default function MarketingShaderMark({ materialId, settings }: { materialId: LiveMaterialId; settings: LiveMaterialSettings }) {
+  const containerRef = useRef<HTMLSpanElement>(null);
   const runtimeReady = useDeferredRuntime(true, 700);
+  const visible = useViewportActivity(containerRef, { rootMargin: '0px' });
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const active = visible && !prefersReducedMotion;
+  const { quality } = useLandingRenderQuality(active && runtimeReady);
+  const renderBudget = landingRenderBudget(quality, 1);
 
   return (
-    <span aria-hidden='true' className='marketing-v5-hero-mark' data-motion-item>
+    <span aria-hidden='true' className='marketing-v5-hero-mark' data-motion-item data-render-quality={quality} ref={containerRef}>
       {runtimeReady ? (
         <LazyLiveMaterialCanvas
-          frameRate={24}
+          frameRate={LANDING_RENDER_FRAME_RATE}
           materialId={materialId}
-          renderScale={1}
+          maxPixelCount={renderBudget.maxPixelCount}
+          paused={!active}
+          renderScale={renderBudget.renderScale}
           settings={settings}
         />
       ) : null}

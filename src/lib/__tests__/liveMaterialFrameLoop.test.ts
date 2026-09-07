@@ -67,4 +67,16 @@ describe('live material demand rendering', () => {
     expect(callbacks.size).toBe(0);
     expect(draw).toHaveBeenCalledTimes(3);
   });
+
+  it.each([60, 90, 120, 144])('submits 60 actual draws per second on a %sHz display', (refreshRate) => {
+    const draw = vi.fn();
+    const loop = createLiveMaterialFrameLoop({ draw, frameRate: () => 60, isAnimating: () => true });
+    loop.invalidate();
+    for (let index = 0; index < refreshRate; index += 1) paint(100 + index * 1_000 / refreshRate);
+    expect(draw.mock.calls.length).toBeGreaterThanOrEqual(59);
+    expect(draw.mock.calls.length).toBeLessThanOrEqual(61);
+    expect(callbacks.size).toBe(1);
+    loop.dispose();
+    expect(callbacks.size).toBe(0);
+  });
 });
