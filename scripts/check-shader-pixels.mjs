@@ -113,7 +113,10 @@ try {
       assertPaused(materialId, result.changedTimePaused, 'scrubbed');
       // Stateful fluids are checked for settled pause/scrub stability, not
       // misrepresented as reconstructible from a timestamp across fresh mounts.
-      if (representative.includes(materialId)) {
+      if (materialId === 'pavel-fluid-energy') {
+        check(result.first.pixels.sha256 === result.changedTime.pixels.sha256,
+          `${materialId}: a timestamp seek mutated state instead of preserving the current simulation`);
+      } else if (representative.includes(materialId)) {
         check(result.first.pixels.sha256 !== result.changedTime.pixels.sha256,
           `${materialId}: changing fixed time from 1600ms to 2300ms did not affect actual pixels`);
       }

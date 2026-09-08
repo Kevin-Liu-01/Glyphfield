@@ -64,13 +64,24 @@ Design Lab supports these element/layer families:
 
 | Kind | Important state |
 | --- | --- |
-| Shader | Material ID, colors, engine settings, frame history, size, motion, transform, opacity, blend |
+| Shader | Material ID, colors, engine settings, native frame state, captured PNG reference, size, motion, transform, opacity, blend |
 | Text | Content, type role, family, weight, size, color, text effect, shader fill, transform |
 | Logo | Brand/custom asset, appearance, sticker finish, shader fill, transform |
 | Image | Embedded or library asset, fit, opacity, transform, optional treatment |
 | Effect | Bayer, ASCII, halftone, or posterize settings; foreground/background colors; opacity |
 
 `page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. Shader layers remain below content during reconciliation.
+
+### Captured shader appearance
+
+Shader applications can carry `frameState` and `frameSnapshot`. They serve different purposes:
+
+- `frameState` is the editable native recipe anchor: provider, floating-point engine time/frame, timeline time, material ID, and any captured provider-specific input. Current records are version 2; legacy Paper version-1 anchors remain readable.
+- `frameSnapshot` is `{ version: 1, assetId, width, height }`, referencing a lossless PNG in `CanvasDocument.assets`. IDs use `shader-frame:<sha256>` so repeated uses share the same bytes. Retain unknown snapshot fields during edits.
+
+Canvas shader records live in element `data`; content-bound shader applications live in `metadata.designLab.layerShaders`. Workspace artboards also preserve their own snapshots. `timeline.timeMs` stores time independently of the legacy `timeline.frame` export-grid index.
+
+Runtime frames use durable local asset references, not ephemeral `blob:` URLs. Portable JSON embeds the PNG bytes; source application validates and imports them before changing the composition. A missing frame must produce an actionable error, not silently reset to the default shader. A PNG guarantees the captured appearance at its recorded resolution, not an editable Fluid simulation checkpoint or identical procedural reconstruction across GPUs.
 
 ## Tool document map
 

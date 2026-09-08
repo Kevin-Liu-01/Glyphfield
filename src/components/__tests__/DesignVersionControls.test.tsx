@@ -72,20 +72,24 @@ describe('DesignVersionControls', () => {
     collectionLabel,
     defaultName,
     draftLabel,
+    identityId = 'gt',
     itemLabel,
     layout,
     onNew,
     onOpen = vi.fn(),
+    prepareSource,
     revision = 'revision-1',
     source = '{"version":3}',
   }: {
     collectionLabel?: string;
     defaultName?: string;
     draftLabel?: string;
+    identityId?: string;
     itemLabel?: string;
     layout?: 'panel' | 'toolbar';
     onNew?: () => Promise<void> | void;
     onOpen?: (source: string) => Promise<void> | void;
+    prepareSource?: () => Promise<string | { source: string; revision: string }>;
     revision?: string;
     source?: string | null;
   } = {}) {
@@ -95,11 +99,12 @@ describe('DesignVersionControls', () => {
           collectionLabel={collectionLabel}
           defaultName={defaultName}
           draftLabel={draftLabel}
-          identityId='gt'
+          identityId={identityId}
           itemLabel={itemLabel}
           layout={layout}
           onNew={onNew}
           onOpen={onOpen}
+          prepareSource={prepareSource}
           revision={revision}
           source={source}
           toolId='design-lab'
@@ -167,6 +172,75 @@ describe('DesignVersionControls', () => {
     designs = await loadSavedDesigns(WORKSPACE_KEY);
     expect(designs.filter(({ origin }) => origin === 'clone')).toHaveLength(1);
     expect(designs.every(({ source }) => source === '{"version":3}')).toBe(true);
+  });
+
+  it('waits for an exact prepared source before saving and blocks duplicate capture requests', async () => {
+    let finishCapture!: (source: string) => void;
+    const capture = new Promise<string>((resolve) => { finishCapture = resolve; });
+    const prepareSource = vi.fn(() => capture);
+    await render({ prepareSource, source: '{"stale":true}' });
+    await click(button('Save design'));
+    expect(prepareSource).toHaveBeenCalledTimes(1);
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toHaveLength(0);
+    expect(button('Fork design').disabled).toBe(true);
+    await click(button('Fork design'));
+    expect(prepareSource).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishCapture('{"capturedFrame":1234.5}');
+      await settle();
+    });
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+      expect.objectContaining({ source: '{"capturedFrame":1234.5}' }),
+    ]);
+  });
+
+  it('does not save an old source when exact frame preparation fails', async () => {
+    const prepareSource = vi.fn(async () => { throw new Error('Shader frame is not ready.'); });
+    await render({ prepareSource, source: '{"stale":true}' });
+    await click(button('Save design'));
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toHaveLength(0);
+    expect(document.body.textContent).toContain('Shader frame is not ready.');
+    expect(button('Save design').disabled).toBe(false);
+  });
+
+  it.each([false, true])('does not activate an old workspace save after switching projects (existing=%s)', async (existing) => {
+    const active = savedDesign({ id: 'old-workspace-design', name: 'Old workspace' });
+    if (existing) {
+      await saveSavedDesign(WORKSPACE_KEY, active);
+      window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    }
+    await render({ revision: 'updated', source: '{"saved":"old workspace"}' });
+    let finishWrite!: () => void;
+    const pending = new Promise<void>((resolve) => { finishWrite = resolve; });
+    const originalSave = savedDesignStore.saveSavedDesign;
+    const saveSpy = vi.spyOn(savedDesignStore, 'saveSavedDesign').mockImplementationOnce(async (...args) => {
+      await pending;
+      return originalSave(...args);
+    });
+    try {
+      await click(button('Save design'));
+      expect(saveSpy).toHaveBeenCalledOnce();
+      await render({ identityId: 'other-project', defaultName: 'New workspace', source: '{"new":true}' });
+      await act(async () => { finishWrite(); await settle(); });
+      window.dispatchEvent(new PageTransitionEvent('pagehide'));
+      expect((await loadSavedDesigns(WORKSPACE_KEY))[0]?.source).toBe('{"saved":"old workspace"}');
+      expect(await loadSavedDesigns(savedDesignStorageKey('other-project', 'design-lab'))).toEqual([]);
+      expect(window.localStorage.getItem(activeSavedDesignStorageKey('other-project', 'design-lab'))).toBeNull();
+      expect(container.textContent).not.toContain('Old workspace');
+      await click(container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!);
+      expect(document.querySelector('[role="region"]')?.textContent).not.toContain('Old workspace');
+    } finally {
+      finishWrite();
+      saveSpy.mockRestore();
+    }
+  });
+
+  it('stores the captured revision instead of the revision from before preparation', async () => {
+    await render({ revision: 'before-capture', prepareSource: async () => ({ source: '{"captured":true}', revision: 'captured-revision' }) });
+    await click(button('Save design'));
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+      expect.objectContaining({ source: '{"captured":true}', revision: 'captured-revision' }),
+    ]);
   });
 
   it('does not restore another checkpoint while a fork is still being persisted', async () => {

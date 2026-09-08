@@ -108,27 +108,36 @@ describe('Studio interaction performance contracts', () => {
       designLab.indexOf('function RangeControl'),
       designLab.indexOf('function ShaderZoomControl')
     );
-    const frameHistory = designLab.slice(
-      designLab.indexOf('function ShaderFrameHistoryControl'),
-      designLab.indexOf('function CanvasSelectionAssemblyOverlay')
-    );
+    const frameHistory = readSource('src/components/ShaderTimeExplorer.tsx');
+    const capture = readSource('src/lib/captureShaderFrames.ts');
 
     expect(rangeControl).toContain('defaultValue={value}');
     expect(rangeControl).toContain("input.style.setProperty('--studio-range-progress'");
     expect(rangeControl).toContain('startTransition(() => onChange(nextValue))');
     expect(rangeControl).not.toContain('setDisplayValue');
-    expect(frameHistory).toContain('syncDisplayFrame(nextFrame)');
-    expect(frameHistory).toContain('defaultValue={boundedFrame}');
+    expect(frameHistory).toContain('syncDisplay(timeRef.current + delta)');
+    expect(frameHistory).toContain('defaultValue={boundedTime(timeMs)}');
+    expect(frameHistory).not.toContain('resolveLoopedMotionFrame');
     expect(frameHistory).not.toContain('setDisplayFrame');
     expect(frameHistory).not.toContain('previewPlaybackTime(nextFrame)');
     expect(liveMaterial).toContain('applyPaperShaderFrame(');
     expect(liveMaterial).toContain('frame: capturedFrameState?.frame ?? presetFrame,');
-    expect(designLab).toContain('captureLiveMaterialFrameState(host, nextFrame.timeMs)');
+    expect(capture).toContain('freezeLiveMaterialFrame(request.root, timelineTimeMs)');
+    expect(capture.indexOf('context.drawImage(frozen.canvas, 0, 0)')).toBeLessThan(capture.indexOf('await canvasToImageBlob'));
     expect(liveMaterial).toContain('const PAPER_PREVIEW_FRAME_RATE = 30;');
     expect(liveMaterial).toContain('data-live-material-surface={resolvedMaterialId}');
     expect(designLab).toContain('activeWhileMounted');
     expect(designLab).toContain('key={instanceKey}');
     expect(designLab).not.toContain('key={`${instanceKey}:${renderedApplication.materialId}`}');
+  });
+
+  it('keeps sequence-preview substitution separate from persisted shader frame capture', () => {
+    const studio = readSource('src/components/ShaderLabStudio.tsx');
+    const capture = studio.slice(studio.indexOf('async function captureCompositionFrame('), studio.indexOf('async function prepareCompositionSource('));
+    expect(capture.includes('if (sequencePreviewingRef.current) throw')).toBe(true);
+    expect(studio.includes('paused && !sequencePreviewing && captureTimeMs === null')).toBe(true);
+    expect(studio.includes('return { ...layer, frameSnapshot: undefined }')).toBe(true);
+    expect(studio.includes('canSeek={compositionCanSeek && compositionHasMotion}')).toBe(true);
   });
 
   it('defers portable animation documents and keeps static previews out of urgent renders', () => {

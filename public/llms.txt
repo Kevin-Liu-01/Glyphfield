@@ -85,6 +85,10 @@ Always call `describe()` before a tool-specific action. Never invent accessible 
 Design Lab exposes:
 
 ```text
+design.frame.capture
+design.frame.play
+design.frame.seek
+design.motion.describe
 design.sequence.describe
 design.sequence.configure
 design.sequence.preview
@@ -97,6 +101,8 @@ design.export.mp4
 design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
 ```
+
+For an exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: capture preserves its appearance, but time-only history replay is unsupported and resuming starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata.
 
 Preferred export call:
 
@@ -153,7 +159,7 @@ A successful request is not sufficient evidence of a finished task.
 
 One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
 
-Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; frame-history scrubbing; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
+Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
 
 The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, categories, controls, palettes, and defaults. Never infer a material ID from its display name.
 

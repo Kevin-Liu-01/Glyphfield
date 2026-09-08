@@ -19,6 +19,7 @@ Glyphfield is local-first, not account-synced. Browser storage makes everyday wo
 | Tool drafts and navigation | Browser `localStorage` | No | Copy source from each important source-enabled tool |
 | Design Lab autosave and named designs | IndexedDB plus a small recovery journal | Not across profiles or origins | Save a named design, then copy the current CanvasDocument from **Code** |
 | Converted Design Lab assets | IndexedDB and CanvasDocument asset records | Yes only when bytes are embedded | Run export preflight and retain any original file that remains external |
+| Captured shader frames | Content-addressed PNG Blobs in IndexedDB | Yes when PNG bytes are embedded in CanvasDocument assets | Capture the intended look and keep the complete portable source, not only its frame timestamp |
 | Uploaded images, fonts, Lottie, and audio | Browser memory, object URLs, or embedded records depending on the tool | Not always | Keep the original authorized files beside the source |
 | PNG, JPG, SVG, GIF, MP4, PDF | Downloaded file | Yes, but not editable | Keep beside source as the approved rendered proof |
 
@@ -76,7 +77,8 @@ if (studio.activeTool() !== 'material') {
 const description = studio.describe();
 if (!description.source.read) throw new Error('Source reading is unavailable.');
 
-const source = studio.readSource();
+// Freeze and persist the actual visible shader appearance before backing it up.
+const source = await studio.invoke('design.frame.capture');
 const document = JSON.parse(source);
 
 if (document.schemaVersion !== 2) {
@@ -88,6 +90,8 @@ if (document.schemaVersion !== 2) {
 ```
 
 Read the source again immediately before backup if a user has continued editing. Do not reconstruct a document from an example or from stale application state.
+
+Captured PNGs preserve the approved still even when the shader provider, GPU, or browser changes. Keep the editable recipe too. Fluid Energy requires prior simulation state to continue identically; its PNG preserves the still, not the fluid's history.
 
 ## Restore a composition
 

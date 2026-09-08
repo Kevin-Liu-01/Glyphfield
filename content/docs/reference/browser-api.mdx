@@ -88,6 +88,10 @@ Application waits for two animation frames after the tool validator resolves. Th
 Design Lab adds:
 
 ```text
+design.frame.capture
+design.frame.play
+design.frame.seek
+design.motion.describe
 design.sequence.describe
 design.sequence.configure
 design.sequence.preview
@@ -100,6 +104,20 @@ design.export.mp4
 design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
 ```
+
+To preserve the exact visible shader look, capture it before backing up source:
+
+```js
+const motion = await studio.invoke('design.motion.describe');
+// Inspect each layer's capabilities before seeking; Fluid Energy cannot replay history.
+const source = await studio.invoke('design.frame.capture');
+const capturedDocument = JSON.parse(source);
+// Retain this complete source, including CanvasDocument.assets, outside the browser.
+```
+
+`design.frame.capture` waits for lossless PNG snapshots to persist and returns a portable CanvasDocument JSON string. The capture is an appearance checkpoint plus editable recipe, not a pre-rendered motion sequence. Storage, missing-renderer, or encoding failures reject the action rather than returning an incomplete save.
+
+`design.frame.play` resumes native motion. `design.frame.seek` accepts `{ timeMs: 1250.5 }`, where time is a non-negative finite number; it addresses seekable shader time, not export-frame indices. Stateful Fluid Energy does not support history replay and starts a new simulation when resumed. `design.motion.describe` reports layer-specific provider, capture, seek, and loop capabilities. A continuous animation clock is not evidence of a finite seamless loop.
 
 Use the unified action for new clients:
 

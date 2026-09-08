@@ -51,6 +51,17 @@ import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/compone
 import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
+import ShaderFrameImage from '@/components/ShaderFrameImage';
+import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
+import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
+import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
+import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
+import { applyEffectFrameCaptures, effectFrameMatches } from '@/lib/effectFrameDocument';
+import { withCapturedShaderImages, type CapturedShaderImage } from '@/lib/withCapturedShaderImages';
+import { importShaderFrameAssets, normalizeShaderFrameSnapshot, type ShaderFrameSnapshot } from '@/lib/shaderFrameAssets';
+import { applyShaderFrameCaptures, prepareShaderFrameDocumentSource } from '@/lib/shaderFrameDocument';
+import { getShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
+import { drawShaderFramePresentation, normalizeShaderFramePresentation, preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
@@ -154,10 +165,8 @@ import {
 } from '@/lib/canvasText';
 import {
   canvasToImageBlob,
-  buildMotionFrames,
   encodeCanvasGif,
   encodeCanvasMp4,
-  resolveLoopedMotionFrame,
   resolveMotionFrame,
   resolveExportDimensions,
   resolveSeamlessLoopOverlapFrames,
@@ -167,8 +176,8 @@ import {
   type MotionFrame,
   type StillImageFormat,
 } from '@/lib/canvasExport';
-import { drawCanvasImageCover, loadCanvasImage } from '@/lib/canvasDrawing';
-import { canvasRevisionFromSignature, isCanvasDocumentEnvelope } from '@/lib/canvasDocument';
+import { loadCanvasImage } from '@/lib/canvasDrawing';
+import { canvasRevisionFromSignature, isCanvasDocumentEnvelope, parseCanvasDocument } from '@/lib/canvasDocument';
 import {
   normalizeStudioArtboardDimensions,
   STUDIO_ARTBOARD_PRESETS,
@@ -178,9 +187,12 @@ import {
 } from '@/lib/artboardSizes';
 import {
   DESIGN_LAB_CLIPBOARD_MIME,
+  hydrateDesignLabClipboardFrames,
   parseDesignLabClipboard,
+  reanchorDesignLabClipboardSnapshot,
   remapDesignLabClipboardSnapshot,
   serializeDesignLabClipboard,
+  writePreparedDesignLabClipboard,
   type DesignLabClipboardPayload,
 } from '@/lib/designLabClipboard';
 import { renderCanvasDocumentPage } from '@/lib/canvasRenderer';
@@ -221,10 +233,12 @@ import {
   previewLiveMaterialPatternScale,
   previewLiveMaterialSettings,
   previewLiveMaterialTime,
+  readLiveMaterialPresentation,
   type LiveMaterialFrameState,
 } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
 import { waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
+import { observePausedCompositionReadiness } from '@/lib/pausedCompositionRedraw';
 import {
   buildImageSvgFilter,
   buildLogoSvgFilter,
@@ -312,6 +326,7 @@ type CompositionLayerGroup = {
 type ShaderApplication = {
   blendMode: ShaderBlendMode;
   frameState?: LiveMaterialFrameState;
+  frameSnapshot?: ShaderFrameSnapshot;
   materialId: LiveMaterialId;
   opacity: number;
   settings: LiveMaterialSettings;
@@ -326,6 +341,7 @@ type CompositionShaderLayer = ShaderApplication & {
 };
 
 type CompositionEffectLayer = {
+  frameSnapshot?: ShaderFrameSnapshot;
   id: EffectLayerId;
   name: string;
   opacity: number;
@@ -456,6 +472,7 @@ type DesignArtboardId = `artboard-${string}`;
 type DesignArtboardTimeline = {
   frame: number;
   paused: boolean;
+  timeMs?: number;
 };
 
 type DesignArtboardSnapshot = {
@@ -555,6 +572,7 @@ function cloneArtboardSnapshot(snapshot: DesignArtboardSnapshot): DesignArtboard
     timeline: {
       frame: Number.isFinite(snapshot.timeline?.frame) ? Math.max(0, Math.round(snapshot.timeline.frame)) : 0,
       paused: snapshot.timeline?.paused ?? true,
+      ...(Number.isFinite(snapshot.timeline?.timeMs) ? { timeMs: Math.max(0, snapshot.timeline.timeMs!) } : {}),
     },
   };
 }
@@ -956,7 +974,7 @@ function DesignExportControls({
               onClick={() => onChange({ gifLoop: 'seamless' })}
               title='Blend and verify the closing frame for a smooth loop.'
               type='button'
-            >Seamless</button>
+            >Blended loop</button>
             <button
               aria-pressed={settings.gifLoop === 'raw'}
               onClick={() => onChange({ gifLoop: 'raw' })}
@@ -965,8 +983,8 @@ function DesignExportControls({
             >Raw motion</button>
           </div>
           <small>{settings.gifLoop === 'seamless'
-            ? `Smooth close · ${loopOverlapFrames}-frame overlap verified after render`
-            : 'Direct repeat · best for shaders that already loop naturally'}</small>
+            ? `Crossfade close · ${loopOverlapFrames}-frame overlap; not a native shader period`
+            : 'Unmodified clip · repeating it may show a visible seam'}</small>
         </div>
       ) : null}
     </div>
@@ -1137,152 +1155,6 @@ function ShaderSequenceControls({
         </button>
       </div>
     </div>
-  );
-}
-
-export function ShaderFrameHistoryControl({
-  durationMs,
-  fps,
-  frame,
-  onFramePreview,
-  onPauseAtFrame,
-  onPlay,
-  onScrub,
-  onScrubPreview,
-  playing,
-}: {
-  durationMs: number;
-  fps: number;
-  frame: number;
-  onFramePreview: (frame: number) => void;
-  onPauseAtFrame: (frame: number) => void;
-  onPlay: () => void;
-  onScrub: (frame: number) => void;
-  onScrubPreview: (frame: number) => void;
-  playing: boolean;
-}) {
-  const frames = buildMotionFrames(durationMs, fps);
-  const frameCount = frames.length;
-  const frameDigits = Math.max(2, String(frameCount).length);
-  const boundedFrame = resolveMotionFrame(durationMs, fps, frame).index;
-  const displayFrameRef = useRef(boundedFrame);
-  const rangeRef = useRef<HTMLInputElement>(null);
-  const secondsRef = useRef<HTMLElement>(null);
-  const frameNumberRef = useRef<HTMLElement>(null);
-  const pendingScrubFrameRef = useRef<number | null>(null);
-  const latestScrubFrameRef = useRef<number | null>(null);
-  const scrubAnimationFrameRef = useRef(0);
-  const previewPlaybackFrame = useEffectEvent(onFramePreview);
-  const playbackStartFrameRef = useCommittedRef(boundedFrame);
-
-  const syncDisplayFrame = useCallback((nextFrame: number) => {
-    const resolved = resolveMotionFrame(durationMs, fps, nextFrame);
-    displayFrameRef.current = resolved.index;
-    const range = rangeRef.current;
-    if (range) {
-      range.value = String(resolved.index);
-      const progress = frameCount <= 1 ? 0 : resolved.index / (frameCount - 1) * 100;
-      range.style.setProperty('--studio-range-progress', `${progress}%`);
-    }
-    if (secondsRef.current) secondsRef.current.textContent = `${(resolved.timeMs / 1_000).toFixed(2)}s`;
-    if (frameNumberRef.current) frameNumberRef.current.textContent = String(resolved.index + 1).padStart(2, '0');
-  }, [durationMs, fps, frameCount]);
-
-  useLayoutEffect(() => {
-    if (!playing) syncDisplayFrame(boundedFrame);
-  }, [boundedFrame, playing, syncDisplayFrame]);
-
-  useEffect(() => {
-    if (!playing) return;
-    const startedAt = performance.now();
-    const startFrame = playbackStartFrameRef.current;
-    let animationFrame = 0;
-    let previousFrame = -1;
-    const tick = (now: number) => {
-      const nextFrame = resolveLoopedMotionFrame({
-        durationMs,
-        elapsedMs: now - startedAt,
-        fps,
-        startFrame,
-      }).index;
-      if (nextFrame !== previousFrame) {
-        previousFrame = nextFrame;
-        previewPlaybackFrame(nextFrame);
-        syncDisplayFrame(nextFrame);
-      }
-      animationFrame = requestAnimationFrame(tick);
-    };
-    animationFrame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [durationMs, fps, playbackStartFrameRef, playing, syncDisplayFrame]);
-
-  useEffect(() => () => cancelAnimationFrame(scrubAnimationFrameRef.current), []);
-
-  function scheduleScrub(nextFrame: number) {
-    if (playing) onPauseAtFrame(displayFrameRef.current);
-    const boundedNextFrame = Math.min(frameCount - 1, Math.max(0, Math.round(nextFrame)));
-    syncDisplayFrame(boundedNextFrame);
-    pendingScrubFrameRef.current = boundedNextFrame;
-    latestScrubFrameRef.current = boundedNextFrame;
-    if (scrubAnimationFrameRef.current) return;
-    scrubAnimationFrameRef.current = requestAnimationFrame(() => {
-      scrubAnimationFrameRef.current = 0;
-      const previewFrame = pendingScrubFrameRef.current;
-      pendingScrubFrameRef.current = null;
-      if (previewFrame === null) return;
-      onFramePreview(previewFrame);
-      onScrubPreview(previewFrame);
-    });
-  }
-
-  function flushScrub() {
-    cancelAnimationFrame(scrubAnimationFrameRef.current);
-    scrubAnimationFrameRef.current = 0;
-    const nextFrame = pendingScrubFrameRef.current ?? latestScrubFrameRef.current;
-    pendingScrubFrameRef.current = null;
-    latestScrubFrameRef.current = null;
-    if (nextFrame === null) return;
-    onFramePreview(nextFrame);
-    onScrubPreview(nextFrame);
-    onScrub(nextFrame);
-  }
-
-  const seconds = resolveMotionFrame(durationMs, fps, boundedFrame).timeMs / 1_000;
-  return (
-    <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve>
-      <button
-        aria-label={playing ? 'Pause at current shader frame' : 'Play shader history'}
-        onClick={() => playing ? onPauseAtFrame(displayFrameRef.current) : onPlay()}
-        title={playing ? 'Pause at this frame' : 'Resume live shader motion'}
-        type='button'
-      >
-        {playing ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
-      </button>
-      <div className='shader-lab-v2-frame-history-copy'>
-        <span><Clock3 aria-hidden='true' /><span>Motion timeline</span></span>
-        <small>{playing ? 'Live' : 'Captured'} · <span ref={secondsRef}>{seconds.toFixed(2)}s</span></small>
-      </div>
-      <StudioRange
-        aria-label='Deterministic motion timeline'
-        defaultValue={boundedFrame}
-        max={frameCount - 1}
-        min={0}
-        onBlur={flushScrub}
-        onInput={(event) => scheduleScrub(Number(event.currentTarget.value))}
-        onPointerCancel={flushScrub}
-        onPointerDown={() => {
-          if (playing) onPauseAtFrame(displayFrameRef.current);
-        }}
-        onPointerUp={flushScrub}
-        ref={rangeRef}
-        step={1}
-      />
-      <output aria-live='off' style={{ '--shader-frame-digits': `${frameDigits}ch` } as CSSProperties}>
-        <strong ref={frameNumberRef}>{String(boundedFrame + 1).padStart(2, '0')}</strong>
-        <span>/</span>
-        <span>{String(frameCount).padStart(2, '0')}</span>
-      </output>
-    </section>
   );
 }
 
@@ -1617,7 +1489,7 @@ type DesignLabCompositionSource = {
   exportSettings?: Partial<DesignExportSettings>;
   ratio?: ShaderRatio;
   shaderSequence?: Partial<DesignShaderSequenceSettings>;
-  timeline?: { frame?: number; paused?: boolean };
+  timeline?: { frame?: number; paused?: boolean; timeMs?: number };
   version?: number;
   workspace?: DesignArtboardWorkspaceSource;
 };
@@ -1665,6 +1537,11 @@ function validateArtboardWorkspace(workspace: DesignArtboardWorkspaceSource | un
   }
 }
 
+function validateShaderTimeline(timeline: DesignLabCompositionSource['timeline']) {
+  if (timeline?.frame !== undefined && (!Number.isFinite(timeline.frame) || timeline.frame < 0)) throw new TypeError('Motion timeline frame is invalid.');
+  if (timeline?.timeMs !== undefined && (!Number.isFinite(timeline.timeMs) || timeline.timeMs < 0)) throw new TypeError('Shader time must be a nonnegative number of milliseconds.');
+}
+
 function validateCompositionMetadata(parsed: DesignLabCompositionSource): void {
   const { composition } = parsed;
   if (parsed.ratio && !isShaderRatio(parsed.ratio)) throw new TypeError('Unknown canvas ratio.');
@@ -1673,7 +1550,7 @@ function validateCompositionMetadata(parsed: DesignLabCompositionSource): void {
     || !Number.isFinite(parsed.canvasDimensions.height)
   )) throw new TypeError('Canvas dimensions are invalid.');
   if (composition.backgroundColor && !/^#[\dA-F]{6}$/i.test(composition.backgroundColor)) throw new TypeError('Canvas background must be a six-digit HEX color.');
-  if (parsed.timeline?.frame !== undefined && (!Number.isFinite(parsed.timeline.frame) || parsed.timeline.frame < 0)) throw new TypeError('Motion timeline frame is invalid.');
+  validateShaderTimeline(parsed.timeline);
   if (parsed.shaderSequence?.pace && !['accelerating', 'even'].includes(parsed.shaderSequence.pace)) throw new TypeError('Shader sequence pacing is invalid.');
   if (parsed.shaderSequence?.sequenceOffset !== undefined && !Number.isFinite(parsed.shaderSequence.sequenceOffset)) throw new TypeError('Shader sequence variation is invalid.');
   if (parsed.shaderSequence?.targetLayerId && !parsed.shaderSequence.targetLayerId.startsWith('shader-')) throw new TypeError('Shader sequence target is invalid.');
@@ -1789,6 +1666,7 @@ function restoredLayerShaders(
     restored[layerId] = application ? {
         ...application,
         frameState: normalizeLiveMaterialFrameState(application.frameState),
+        frameSnapshot: normalizeShaderFrameSnapshot(application.frameSnapshot),
         settings: { ...application.settings },
         shaderSize: clampShaderZoom(application.shaderSize),
       } : application;
@@ -1804,6 +1682,7 @@ function restoredShaderLayers(
   const layers = (savedLayers ?? currentLayers).map((layer) => ({
     ...layer,
     frameState: normalizeLiveMaterialFrameState(layer.frameState),
+    frameSnapshot: normalizeShaderFrameSnapshot(layer.frameSnapshot),
     settings: { ...layer.settings },
     shaderSize: clampShaderZoom(layer.shaderSize),
     transform: normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM),
@@ -1812,6 +1691,14 @@ function restoredShaderLayers(
     throw new TypeError('Shader sequence target layer does not exist.');
   }
   return layers;
+}
+
+function restoredEffectLayers(layers: readonly CompositionEffectLayer[]): CompositionEffectLayer[] {
+  return layers.map((layer) => ({
+    ...layer,
+    frameSnapshot: normalizeShaderFrameSnapshot(layer.frameSnapshot),
+    settings: { ...layer.settings },
+  }));
 }
 
 function restoredShaderSequence(
@@ -2126,20 +2013,6 @@ function monogramDataUrl(identity: Pick<BrandIdentity, 'shortName'>): string {
   const label = escapeXml(identity.shortName.slice(0, 3).toUpperCase());
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320"><text x="320" y="214" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="164" font-weight="700">${label}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function paintFallback(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  settings: LiveMaterialSettings
-) {
-  const gradient = context.createLinearGradient(0, height, width, 0);
-  gradient.addColorStop(0, settings.colorA);
-  gradient.addColorStop(0.52, settings.colorB);
-  gradient.addColorStop(1, settings.colorC);
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, width, height);
 }
 
 function shaderApplicationFor(
@@ -2965,10 +2838,14 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 }
 
 type DesignAutomationHandlers = {
+  prepareCompositionSource: () => Promise<string>;
+  playShaderHistory: () => void;
+  seekShaderTime: (timeMs: number) => void;
+  describeShaderMotion: () => object;
   exportForAutomation: (request: DesignAutomationExportInput) => Promise<ExportPreviewAsset>;
   normalizedShaderSequenceSettings: DesignShaderSequenceSettings;
   previewShaderSequence: () => void;
-  sequencePreviewing: boolean;
+  isSequencePreviewing: () => boolean;
   shaderSequenceDuration: number;
   shaderSequenceTimeline: ReturnType<typeof buildShaderSequenceTimeline>;
   stopShaderSequencePreview: () => void;
@@ -2986,6 +2863,22 @@ const DESIGN_AUTOMATION_EXPORT_REQUESTS: Readonly<Record<string, DesignAutomatio
 
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
   switch (action) {
+    case 'design.frame.capture':
+      return handlers.prepareCompositionSource();
+    case 'design.frame.play':
+      handlers.playShaderHistory();
+      return null;
+    case 'design.frame.seek': {
+      if (!input || typeof input !== 'object' || Array.isArray(input)
+        || Object.keys(input).some((key) => key !== 'timeMs')
+        || typeof (input as { timeMs?: unknown }).timeMs !== 'number') {
+        throw new TypeError('design.frame.seek requires { timeMs }.');
+      }
+      handlers.seekShaderTime((input as { timeMs: number }).timeMs);
+      return null;
+    }
+    case 'design.motion.describe':
+      return handlers.describeShaderMotion();
     case 'design.sequence.describe':
       return {
         durationMs: handlers.shaderSequenceDuration,
@@ -2999,10 +2892,10 @@ async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, 
       handlers.updateShaderSequenceSettings(input as Partial<DesignShaderSequenceSettings>);
       return null;
     case 'design.sequence.preview':
-      if (!handlers.sequencePreviewing) handlers.previewShaderSequence();
+      if (!handlers.isSequencePreviewing()) handlers.previewShaderSequence();
       return null;
     case 'design.sequence.stop':
-      if (handlers.sequencePreviewing) handlers.stopShaderSequencePreview();
+      if (handlers.isSequencePreviewing()) handlers.stopShaderSequencePreview();
       return null;
     case 'design.export':
       return handlers.exportForAutomation(designAutomationExportInput(input));
@@ -3941,7 +3834,7 @@ function DesignLabShaderFrameInspector({
 type DesignLabCanvasSelectionInput = {
   canvasDimensions: StudioArtboardDimensions;
   compositionAssets: CompositionAsset[];
-  duplicateLayer: (id: CompositionLayerId) => CompositionLayerId | null;
+  duplicateLayers: (ids: readonly CompositionLayerId[]) => Promise<CompositionLayerId[]>;
   layerGroups: CompositionLayerGroup[];
   layerGroupByLayerId: ReadonlyMap<CanvasLayerId, CompositionLayerGroup>;
   layerOrder: CompositionLayerId[];
@@ -3963,9 +3856,9 @@ type DesignLabCanvasSelectionInput = {
 };
 
 type DesignLabLayerActionsInput = {
+  captureCompositionFrame: () => Promise<ReturnType<typeof createDesignLabCanvasDocument>>;
   compositionAssets: CompositionAsset[];
   effectLayers: CompositionEffectLayer[];
-  layerShaders: Partial<Record<ContentLayerId, ShaderApplication>>;
   logoLayers: CompositionLogoLayer[];
   removeAsset: (id: AssetLayerId) => void;
   removeEffectLayer: (id: EffectLayerId) => void;
@@ -3974,6 +3867,7 @@ type DesignLabLayerActionsInput = {
   selectedContentLayerId: ContentLayerId | null;
   setCompositionAssets: Dispatch<SetStateAction<CompositionAsset[]>>;
   setEffectLayers: Dispatch<SetStateAction<CompositionEffectLayer[]>>;
+  setExportError: Dispatch<SetStateAction<string | null>>;
   setLayerOrder: Dispatch<SetStateAction<CompositionLayerId[]>>;
   setLayerShaders: Dispatch<SetStateAction<Partial<Record<ContentLayerId, ShaderApplication>>>>;
   setLogoLayers: Dispatch<SetStateAction<CompositionLogoLayer[]>>;
@@ -3986,9 +3880,9 @@ type DesignLabLayerActionsInput = {
 };
 
 function useDesignLabLayerActions({
+  captureCompositionFrame,
   compositionAssets,
   effectLayers,
-  layerShaders,
   logoLayers,
   removeAsset,
   removeEffectLayer,
@@ -3997,6 +3891,7 @@ function useDesignLabLayerActions({
   selectedContentLayerId,
   setCompositionAssets,
   setEffectLayers,
+  setExportError,
   setLayerOrder,
   setLayerShaders,
   setLogoLayers,
@@ -4007,6 +3902,7 @@ function useDesignLabLayerActions({
   textLayers,
   toggleTextLayerVisibility,
 }: DesignLabLayerActionsInput) {
+  const duplicatingRef = useRef(false);
   function placeLayerAfter(sourceId: CompositionLayerId, nextId: CompositionLayerId) {
     setLayerOrder((current) => {
       const sourceIndex = current.indexOf(sourceId);
@@ -4016,25 +3912,29 @@ function useDesignLabLayerActions({
     setSelectedLayerId(nextId);
   }
 
-  function placeDuplicatedContentLayer<LayerId extends ContentLayerId>(sourceId: LayerId, nextId: LayerId): LayerId {
-    const sourceShader = layerShaders[sourceId];
+  function placeDuplicatedContentLayer<LayerId extends ContentLayerId>(
+    sourceId: LayerId,
+    nextId: LayerId,
+    captured: DesignLabCompositionSource['composition']
+  ): LayerId {
+    const sourceShader = captured.layerShaders?.[sourceId];
     if (sourceShader) {
       setLayerShaders((current) => ({
         ...current,
-        [nextId]: { ...sourceShader, settings: { ...sourceShader.settings } },
+        [nextId]: structuredClone(sourceShader),
       }));
     }
     placeLayerAfter(sourceId, nextId);
     return nextId;
   }
 
-  function duplicateShaderLayer(id: ShaderLayerId): ShaderLayerId | null {
-    const source = shaderLayers.find((layer) => layer.id === id);
+  function duplicateShaderLayer(id: ShaderLayerId, captured: DesignLabCompositionSource['composition']): ShaderLayerId | null {
+    const source = captured.shaderLayers?.find((layer) => layer.id === id);
     if (!source) return null;
     const nextId = `shader-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as ShaderLayerId;
     const transform = normalizeCanvasLayerTransform(source.transform, DEFAULT_LAYER_TRANSFORM);
     setShaderLayers((current) => [...current, {
-      ...source,
+      ...structuredClone(source),
       id: nextId,
       name: `${source.name} copy`,
       settings: { ...source.settings },
@@ -4062,8 +3962,8 @@ function useDesignLabLayerActions({
     return nextId;
   }
 
-  function duplicateTextLayer(id: TextLayerId): TextLayerId | null {
-    const source = textLayers.find((layer) => layer.id === id);
+  function duplicateTextLayer(id: TextLayerId, captured: DesignLabCompositionSource['composition']): TextLayerId | null {
+    const source = captured.textLayers?.find((layer) => layer.id === id);
     if (!source) return null;
     const nextId = `text-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as TextLayerId;
     const transform = resolvedTextTransform(source.transform);
@@ -4074,10 +3974,10 @@ function useDesignLabLayerActions({
       textEffect: source.textEffect ? { ...source.textEffect } : undefined,
       transform: { ...transform, x: transform.x + 32, y: transform.y + 32 },
     }]);
-    return placeDuplicatedContentLayer(id, nextId);
+    return placeDuplicatedContentLayer(id, nextId, captured);
   }
 
-  function duplicateLogoLayer(id: LogoLayerId): LogoLayerId | null {
+  function duplicateLogoLayer(id: LogoLayerId, captured: DesignLabCompositionSource['composition']): LogoLayerId | null {
     const source = logoLayers.find((layer) => layer.id === id);
     if (!source) return null;
     const nextId = `logo-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as LogoLayerId;
@@ -4088,10 +3988,10 @@ function useDesignLabLayerActions({
       name: `${source.name} copy`,
       transform: { ...source.transform, x: source.transform.x + 32, y: source.transform.y + 32 },
     }]);
-    return placeDuplicatedContentLayer(id, nextId);
+    return placeDuplicatedContentLayer(id, nextId, captured);
   }
 
-  function duplicateImageLayer(id: AssetLayerId): AssetLayerId | null {
+  function duplicateImageLayer(id: AssetLayerId, captured: DesignLabCompositionSource['composition']): AssetLayerId | null {
     const source = compositionAssets.find((asset) => asset.id === id);
     if (!source) return null;
     const nextId = `asset-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as AssetLayerId;
@@ -4103,15 +4003,39 @@ function useDesignLabLayerActions({
       stickerFinish: source.stickerFinish ? { ...source.stickerFinish } : undefined,
       transform: { ...source.transform, x: source.transform.x + 32, y: source.transform.y + 32 },
     }]);
-    return placeDuplicatedContentLayer(id, nextId);
+    return placeDuplicatedContentLayer(id, nextId, captured);
   }
 
-  function duplicateLayer(id: CompositionLayerId): CompositionLayerId | null {
-    if (isShaderLayerId(id)) return duplicateShaderLayer(id);
+  function duplicateCapturedLayer(id: CompositionLayerId, captured: DesignLabCompositionSource['composition']): CompositionLayerId | null {
+    if (isShaderLayerId(id)) return duplicateShaderLayer(id, captured);
     if (isEffectLayerId(id)) return duplicateEffectLayer(id);
-    if (isTextLayerId(id)) return duplicateTextLayer(id);
-    if (isLogoLayerId(id)) return duplicateLogoLayer(id);
-    return duplicateImageLayer(id);
+    if (isTextLayerId(id)) return duplicateTextLayer(id, captured);
+    if (isLogoLayerId(id)) return duplicateLogoLayer(id, captured);
+    return duplicateImageLayer(id, captured);
+  }
+
+  async function duplicateLayers(ids: readonly CompositionLayerId[]): Promise<CompositionLayerId[]> {
+    if (duplicatingRef.current || ids.length === 0) return [];
+    duplicatingRef.current = true;
+    try {
+      const document = await captureCompositionFrame();
+      const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(document)).composition;
+      const nextIds = [...new Set(ids)].flatMap((id) => {
+        const nextId = duplicateCapturedLayer(id, captured);
+        return nextId ? [nextId] : [];
+      });
+      setExportError(null);
+      return nextIds;
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The selected shader frames could not be duplicated.');
+      return [];
+    } finally {
+      duplicatingRef.current = false;
+    }
+  }
+
+  async function duplicateLayer(id: CompositionLayerId): Promise<CompositionLayerId | null> {
+    return (await duplicateLayers([id]))[0] ?? null;
   }
 
   function removeShaderLayer(id: ShaderLayerId) {
@@ -4172,13 +4096,13 @@ function useDesignLabLayerActions({
     return layerKind(id);
   }
 
-  return { duplicateLayer, layerLabel, removeLayer, removeShaderFromSelectedContent, resolvedLayerKind, toggleLayerVisibility };
+  return { duplicateLayer, duplicateLayers, layerLabel, removeLayer, removeShaderFromSelectedContent, resolvedLayerKind, toggleLayerVisibility };
 }
 
 function useDesignLabCanvasSelection({
   canvasDimensions,
   compositionAssets,
-  duplicateLayer,
+  duplicateLayers,
   layerGroups,
   layerGroupByLayerId,
   layerOrder,
@@ -4394,14 +4318,11 @@ function useDesignLabCanvasSelection({
     deselectCanvasLayers();
   }
 
-  function duplicateCanvasSelection() {
+  async function duplicateCanvasSelection() {
     const sourceIds = layerOrder.filter((layerId): layerId is CanvasLayerId => (
       isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)
     ));
-    const nextIds = sourceIds.flatMap((layerId): CanvasLayerId[] => {
-      const nextId = duplicateLayer(layerId);
-      return nextId && isCanvasLayerId(nextId) ? [nextId] : [];
-    });
+    const nextIds = (await duplicateLayers(sourceIds)).filter(isCanvasLayerId);
     if (nextIds.length === 0) return;
     if (selectedCanvasGroup && nextIds.length > 1) {
       const id = `group-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as CompositionLayerGroupId;
@@ -4650,7 +4571,20 @@ export default function ShaderLabStudio({
   const convertedAssetLibrary = useConvertedAssets();
   const compositionAssetUrlsRef = useRef<string[]>([]);
   const previewFrameRef = useRef(0);
+  const previewTimeRef = useRef(0);
+  const frameCapturePendingRef = useRef(false);
+  const sourceApplySequenceRef = useRef(0);
+  const exportShaderApplicationsRef = useRef(new Map<string, ShaderApplication>());
+  const effectCaptureShaderImagesRef = useRef<ReadonlyMap<string, CapturedShaderImage> | null>(null);
+  const exportJobRef = useRef(false);
+  useEffect(() => () => { sourceApplySequenceRef.current += 1; }, []);
+  useEffect(() => {
+    void preloadShaderFramePresentation({ grainOpacity: 1 }).catch(() => {
+      // Capture/export reports an explicit error if the presentation cannot load.
+    });
+  }, []);
   const sequenceCaptureRef = useRef<ShaderSequenceCapture | null>(null);
+  const sequencePreviewingRef = useRef(false);
   const sequencePreviewAnimationRef = useRef(0);
   const sequencePreviewElapsedRef = useRef(0);
   const sequencePreviewLastTimeRef = useRef(0);
@@ -4751,6 +4685,8 @@ export default function ShaderLabStudio({
   );
   const [paused, setPaused] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(0);
+  const [previewTimeMs, setPreviewTimeMs] = useState(0);
+  const [frameCapturePending, setFrameCapturePending] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
   const [visibleMaterialCount, setVisibleMaterialCount] = useState(SHADER_LIBRARY_INITIAL_CARD_COUNT);
@@ -4888,16 +4824,12 @@ export default function ShaderLabStudio({
     () => normalizeDesignExportSettings(exportSettings),
     [exportSettings]
   );
-  const previewFrames = useMemo(
-    () => buildMotionFrames(normalizedExportSettings.durationMs, normalizedExportSettings.fps),
-    [normalizedExportSettings.durationMs, normalizedExportSettings.fps]
-  );
   const boundedPreviewFrame = resolveMotionFrame(
     normalizedExportSettings.durationMs,
     normalizedExportSettings.fps,
     previewFrame
   ).index;
-  const previewCaptureTimeMs = previewFrames[boundedPreviewFrame]!.timeMs;
+  const previewCaptureTimeMs = previewTimeMs;
   const exportDimensions = resolveExportDimensions({
     aspectHeight: ratioOption.height,
     aspectWidth: ratioOption.width,
@@ -4959,7 +4891,7 @@ export default function ShaderLabStudio({
     shaderLayers,
     shaderSequence: normalizedShaderSequenceSettings,
     textLayers,
-    timeline: { frame: boundedPreviewFrame, paused },
+    timeline: { frame: boundedPreviewFrame, paused, timeMs: previewTimeMs },
   }), [
     canvasBackground,
     canvasDimensions,
@@ -4974,6 +4906,7 @@ export default function ShaderLabStudio({
     shaderLayers,
     textLayers,
     boundedPreviewFrame,
+    previewTimeMs,
     paused,
   ]);
   const currentArtboardSignature = useMemo(
@@ -5038,7 +4971,9 @@ export default function ShaderLabStudio({
     () => savedDesignStorageKey(identity.id, tool.id),
     [identity.id, tool.id]
   );
-  const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;
+  const savedDesignRevisionRef = useCommittedRef(savedDesignRevision);
+  const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:time=${previewTimeMs}:paused=${paused}`;
+  const compositionSignatureRef = useCommittedRef(compositionSignature);
   const designLabDocument = useMemo(() => createDesignLabCanvasDocument({
     assets: compositionAssets,
     backgroundColor: canvasBackground,
@@ -5057,7 +4992,7 @@ export default function ShaderLabStudio({
     shaderLayers,
     shaderSequence: normalizedShaderSequenceSettings,
     textLayers,
-    timeline: { frame: boundedPreviewFrame, paused },
+    timeline: { frame: boundedPreviewFrame, paused, timeMs: previewTimeMs },
     title: `${identity.name} ${tool.name}`,
     updatedAt: compositionDocumentCreatedAt,
     width: canvasDimensions.width,
@@ -5084,6 +5019,7 @@ export default function ShaderLabStudio({
     normalizedExportSettings,
     normalizedShaderSequenceSettings,
     paused,
+    previewTimeMs,
     ratio,
     shaderLayers,
     textLayers,
@@ -5209,15 +5145,16 @@ export default function ShaderLabStudio({
   }, [layerGroups]);
   const {
     duplicateLayer,
+    duplicateLayers,
     layerLabel,
     removeLayer,
     removeShaderFromSelectedContent,
     resolvedLayerKind,
     toggleLayerVisibility,
   } = useDesignLabLayerActions({
+    captureCompositionFrame,
     compositionAssets,
     effectLayers,
-    layerShaders,
     logoLayers,
     removeAsset,
     removeEffectLayer,
@@ -5226,6 +5163,7 @@ export default function ShaderLabStudio({
     selectedContentLayerId,
     setCompositionAssets,
     setEffectLayers,
+    setExportError,
     setLayerOrder,
     setLayerShaders,
     setLogoLayers,
@@ -5258,7 +5196,7 @@ export default function ShaderLabStudio({
   } = useDesignLabCanvasSelection({
     canvasDimensions,
     compositionAssets,
-    duplicateLayer,
+    duplicateLayers,
     layerGroups,
     layerGroupByLayerId,
     layerOrder,
@@ -5294,62 +5232,42 @@ export default function ShaderLabStudio({
     if (previewFrame !== boundedPreviewFrame) setPreviewFrame(boundedPreviewFrame);
   }, [boundedPreviewFrame, previewFrame]);
 
-  const trackPreviewFrame = useCallback((frame: number) => {
-    previewFrameRef.current = frame;
-  }, []);
-
-  function pauseAtPreviewFrame(frame: number) {
-    const nextFrame = resolveMotionFrame(
-      normalizedExportSettings.durationMs,
-      normalizedExportSettings.fps,
-      frame
-    ).index;
-    previewFrameRef.current = nextFrame;
-    setPreviewFrame(nextFrame);
+  function seekShaderTime(timeMs: number) {
+    if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before exploring a shader frame.');
+    if (exportJobRef.current || frameCapturePendingRef.current) throw new Error('Wait for the current shader capture or export before seeking.');
+    if (!Number.isFinite(timeMs) || timeMs < 0) throw new Error('Choose a nonnegative shader time.');
+    if (!compositionCanSeek) throw new Error('Fluid is a stateful simulation. Capture a frame instead of seeking its history.');
+    if (!paused) beginShaderTimeScrub();
+    setShaderLayers((current) => current.map((layer) => ({ ...layer, frameSnapshot: undefined })));
+    setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([id, application]) => [id,
+      application ? { ...application, frameSnapshot: undefined } : application,
+    ])) as Partial<Record<ContentLayerId, ShaderApplication>>);
+    clearLiveMaterialTimePreview('design-lab');
+    previewTimeRef.current = timeMs;
+    setPreviewTimeMs(timeMs);
     setPaused(true);
   }
 
-  function captureAndPauseAtPreviewFrame(frame: number) {
-    const nextFrame = resolveMotionFrame(
-      normalizedExportSettings.durationMs,
-      normalizedExportSettings.fps,
-      frame
-    );
-    const capturedShaderFrames = new Map<ShaderLayerId, LiveMaterialFrameState>();
-    const capturedContentFrames = new Map<ContentLayerId, LiveMaterialFrameState>();
-    shaderLayers.forEach((layer) => {
-      const instanceKey = `canvas-${layer.id}`;
-      const host = stageRef.current?.querySelector<HTMLElement>(
-        `[data-shader-instance="${CSS.escape(instanceKey)}"]`
-      ) ?? null;
-      const frameState = captureLiveMaterialFrameState(host, nextFrame.timeMs);
-      if (frameState) capturedShaderFrames.set(layer.id, frameState);
+  function beginShaderTimeScrub() {
+    const timeMs = paused ? previewTimeMs : previewTimeRef.current;
+    const states = new Map(shaderCaptureRequests(timeMs).map((request) => [
+      request.key, request.existing?.frameState ?? captureLiveMaterialFrameState(request.root, timeMs),
+    ]));
+    flushSync(() => {
+      setShaderLayers((current) => current.map((layer) => ({ ...layer,
+        frameState: states.get(`canvas-${layer.id}`) ?? layer.frameState, frameSnapshot: undefined,
+      })));
+      setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([id, application]) => [id,
+        application ? { ...application, frameState: states.get(`content-${id}`) ?? application.frameState, frameSnapshot: undefined } : application,
+      ])) as Partial<Record<ContentLayerId, ShaderApplication>>);
+      previewTimeRef.current = timeMs;
+      setPreviewTimeMs(timeMs);
+      setPaused(true);
     });
-    Object.keys(layerShaders).forEach((layerId) => {
-      const id = layerId as ContentLayerId;
-      const instanceKey = `content-${id}`;
-      const host = stageRef.current?.querySelector<HTMLElement>(
-        `[data-shader-instance="${CSS.escape(instanceKey)}"]`
-      ) ?? null;
-      const frameState = captureLiveMaterialFrameState(host, nextFrame.timeMs);
-      if (frameState) capturedContentFrames.set(id, frameState);
-    });
-    if (capturedShaderFrames.size > 0) {
-      setShaderLayers((current) => current.map((layer) => {
-        const frameState = capturedShaderFrames.get(layer.id);
-        return frameState ? { ...layer, frameState } : layer;
-      }));
-    }
-    if (capturedContentFrames.size > 0) {
-      setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([layerId, application]) => {
-        const frameState = capturedContentFrames.get(layerId as ContentLayerId);
-        return [layerId, application && frameState ? { ...application, frameState } : application];
-      })) as Partial<Record<ContentLayerId, ShaderApplication>>);
-    }
-    pauseAtPreviewFrame(nextFrame.index);
   }
 
   function playShaderHistory() {
+    if (exportJobRef.current || frameCapturePendingRef.current || sequencePreviewingRef.current) return;
     clearLiveMaterialTimePreview('design-lab');
     setPaused(false);
   }
@@ -5359,7 +5277,7 @@ export default function ShaderLabStudio({
       playShaderHistory();
       return;
     }
-    captureAndPauseAtPreviewFrame(previewFrameRef.current);
+    void saveCurrentShaderFrame();
   }
 
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
@@ -5383,24 +5301,13 @@ export default function ShaderLabStudio({
     setLayerOrder(next.layerOrder);
     previewFrameRef.current = nextFrame;
     setPreviewFrame(nextFrame);
+    const nextTimeMs = next.timeline.timeMs ?? nextFrame * 1_000 / normalizedExportSettings.fps;
+    previewTimeRef.current = nextTimeMs;
+    setPreviewTimeMs(nextTimeMs);
     setPaused(next.timeline.paused);
     setSelectedLayerId(null);
     setSelectedCanvasLayerIds([]);
     setSelectionMenuPosition(null);
-  }
-
-  function snapshotAtCurrentShaderFrame(snapshot: DesignArtboardSnapshot, freeze = false): DesignArtboardSnapshot {
-    return {
-      ...cloneArtboardSnapshot(snapshot),
-      timeline: {
-        frame: resolveMotionFrame(
-          normalizedExportSettings.durationMs,
-          normalizedExportSettings.fps,
-          previewFrameRef.current
-        ).index,
-        paused: freeze || paused,
-      },
-    };
   }
 
   function createDesignHistoryEntry(
@@ -5486,39 +5393,63 @@ export default function ShaderLabStudio({
     announceCanvasClipboard(`Redid ${next.label.toLocaleLowerCase()}`);
   }
 
+  const artboardOperationRef = useRef(false);
+  const activateArtboardRef = useCommittedRef(activateArtboard);
+
   function requestArtboardFocus(id: DesignArtboardId) {
     setArtboardFocusRequest((current) => ({ id, revision: (current?.revision ?? 0) + 1 }));
   }
 
-  function activateArtboard(id: DesignArtboardId, focus = false) {
+  async function captureArtboardBeforeLeaving() {
+    const artboardId = activeArtboardIdRef.current;
+    const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame()));
+    const snapshot = captured.workspace?.artboards?.find((artboard) => artboard.id === artboardId)?.snapshot;
+    if (!snapshot || activeArtboardIdRef.current !== artboardId) {
+      throw new Error('The active artboard changed before its shader frames could be preserved.');
+    }
+    return { artboardId, snapshot: cloneArtboardSnapshot(snapshot) };
+  }
+
+  function applyActiveArtboard(artboard: DesignArtboard, nextArtboards: DesignArtboard[], focus: boolean) {
+    workspaceArtboardsRef.current = nextArtboards;
+    setArtboards(nextArtboards);
+    const snapshot = cloneArtboardSnapshot(artboard.snapshot);
+    pendingArtboardApplyRef.current = { id: artboard.id, signature: artboardSnapshotSignature(snapshot) };
+    activeArtboardIdRef.current = artboard.id;
+    currentArtboardSnapshotRef.current = snapshot;
+    setActiveArtboardId(artboard.id);
+    applyArtboardSnapshot(snapshot);
+    if (focus) requestArtboardFocus(artboard.id);
+  }
+
+  async function activateArtboard(id: DesignArtboardId, focus = false): Promise<boolean> {
     if (id === activeArtboardIdRef.current) {
       if (focus) requestArtboardFocus(id);
-      return;
+      return true;
     }
-    const committedArtboards = workspaceArtboardsRef.current.map((artboard) => (
-      artboard.id === activeArtboardIdRef.current
-        ? { ...artboard, snapshot: snapshotAtCurrentShaderFrame(currentArtboardSnapshotRef.current) }
-        : artboard
-    ));
-    const nextArtboard = committedArtboards.find((artboard) => artboard.id === id);
-    if (!nextArtboard) return;
-    workspaceArtboardsRef.current = committedArtboards;
-    setArtboards(committedArtboards);
-    const nextSnapshot = cloneArtboardSnapshot(nextArtboard.snapshot);
-    pendingArtboardApplyRef.current = {
-      id,
-      signature: artboardSnapshotSignature(nextSnapshot),
-    };
-    activeArtboardIdRef.current = id;
-    currentArtboardSnapshotRef.current = nextSnapshot;
-    setActiveArtboardId(id);
-    applyArtboardSnapshot(nextSnapshot);
-    if (focus) requestArtboardFocus(id);
+    if (artboardOperationRef.current || frameCapturePendingRef.current
+      || !workspaceArtboardsRef.current.some((artboard) => artboard.id === id)) return false;
+    artboardOperationRef.current = true;
+    try {
+      const captured = await captureArtboardBeforeLeaving();
+      const committedArtboards = workspaceArtboardsRef.current.map((artboard) => artboard.id === captured.artboardId
+        ? { ...artboard, snapshot: captured.snapshot } : artboard);
+      const nextArtboard = committedArtboards.find((artboard) => artboard.id === id);
+      if (!nextArtboard) throw new Error('The selected artboard is no longer available.');
+      applyActiveArtboard(nextArtboard, committedArtboards, focus);
+      setExportError(null);
+      return true;
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The artboard shader frames could not be preserved.');
+      return false;
+    } finally {
+      artboardOperationRef.current = false;
+    }
   }
 
   function nextArtboardPosition(nextDimensions: StudioArtboardDimensions) {
-    const column = workspaceArtboards.length % 3;
-    const row = Math.floor(workspaceArtboards.length / 3);
+    const column = workspaceArtboardsRef.current.length % 3;
+    const row = Math.floor(workspaceArtboardsRef.current.length / 3);
     const size = designArtboardDisplaySize(nextDimensions);
     return {
       x: 280 + column * Math.max(816, size.width + 96),
@@ -5526,46 +5457,47 @@ export default function ShaderLabStudio({
     };
   }
 
-  function addArtboard(duplicate = false) {
-    const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
-    const position = nextArtboardPosition(canvasDimensions);
-    const snapshot = duplicate
-      ? snapshotAtCurrentShaderFrame(currentArtboardSnapshot, true)
-      : {
-          assets: [],
-          backgroundColor: canvasBackground,
-          dimensions: canvasDimensions,
-          effectLayers: [],
-          groups: [],
-          layerOrder: [],
-          layerShaders: {},
-          logos: [],
-          ratio,
-          shaderLayers: [],
-          shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
-          textLayers: [],
-          timeline: { frame: 0, paused: true },
-        } satisfies DesignArtboardSnapshot;
-    const nextArtboard: DesignArtboard = {
-      id,
-      name: duplicate ? `${activeArtboard?.name ?? 'Artboard'} copy` : `Artboard ${workspaceArtboards.length + 1}`,
-      snapshot,
-      ...position,
-    };
-    const nextArtboards = [
-      ...workspaceArtboardsRef.current.map((artboard) => artboard.id === activeArtboardIdRef.current
-        ? { ...artboard, snapshot: snapshotAtCurrentShaderFrame(currentArtboardSnapshotRef.current) }
-        : artboard),
-      nextArtboard,
-    ];
-    workspaceArtboardsRef.current = nextArtboards;
-    setArtboards(nextArtboards);
-    pendingArtboardApplyRef.current = { id, signature: artboardSnapshotSignature(snapshot) };
-    activeArtboardIdRef.current = id;
-    currentArtboardSnapshotRef.current = snapshot;
-    setActiveArtboardId(id);
-    applyArtboardSnapshot(snapshot);
-    requestArtboardFocus(id);
+  async function addArtboard(duplicate = false) {
+    if (artboardOperationRef.current || frameCapturePendingRef.current) return;
+    artboardOperationRef.current = true;
+    try {
+      const captured = await captureArtboardBeforeLeaving();
+      const currentArtboards = workspaceArtboardsRef.current;
+      const sourceArtboard = currentArtboards.find((artboard) => artboard.id === captured.artboardId);
+      const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
+      const snapshot = duplicate ? cloneArtboardSnapshot(captured.snapshot) : {
+        assets: [],
+        backgroundColor: captured.snapshot.backgroundColor,
+        dimensions: { ...captured.snapshot.dimensions },
+        effectLayers: [],
+        groups: [],
+        layerOrder: [],
+        layerShaders: {},
+        logos: [],
+        ratio: captured.snapshot.ratio,
+        shaderLayers: [],
+        shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
+        textLayers: [],
+        timeline: { frame: 0, paused: true, timeMs: 0 },
+      } satisfies DesignArtboardSnapshot;
+      const nextArtboard: DesignArtboard = {
+        id,
+        name: duplicate ? `${sourceArtboard?.name ?? 'Artboard'} copy` : `Artboard ${currentArtboards.length + 1}`,
+        snapshot,
+        ...nextArtboardPosition(snapshot.dimensions),
+      };
+      const nextArtboards = [
+        ...currentArtboards.map((artboard) => artboard.id === captured.artboardId
+          ? { ...artboard, snapshot: captured.snapshot } : artboard),
+        nextArtboard,
+      ];
+      applyActiveArtboard(nextArtboard, nextArtboards, true);
+      setExportError(null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The artboard could not be created with its captured shader frames.');
+    } finally {
+      artboardOperationRef.current = false;
+    }
   }
 
   function removeActiveArtboard() {
@@ -5628,15 +5560,12 @@ export default function ShaderLabStudio({
     return nextArtboards.find((artboard) => artboard.id === id) ?? null;
   }
 
-  function nudgeArtboard(event: ReactKeyboardEvent<HTMLButtonElement>, artboard: DesignArtboard) {
+  async function nudgeArtboard(event: ReactKeyboardEvent<HTMLButtonElement>, artboard: DesignArtboard) {
     if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
       event.preventDefault();
       event.stopPropagation();
-      activateArtboard(artboard.id);
-      setArtboardMenu({
-        artboardId: artboard.id,
-        position: contextMenuPositionFromElement(event.currentTarget),
-      });
+      const position = contextMenuPositionFromElement(event.currentTarget);
+      if (await activateArtboard(artboard.id)) setArtboardMenu({ artboardId: artboard.id, position });
       return;
     }
     const direction = {
@@ -5648,19 +5577,19 @@ export default function ShaderLabStudio({
     if (!direction) return;
     event.preventDefault();
     event.stopPropagation();
+    if (frameCapturePendingRef.current) return;
     deselectCanvasLayers();
-    activateArtboard(artboard.id);
     const step = event.shiftKey ? 64 : 16;
+    if (!await activateArtboard(artboard.id)) return;
     const moved = translateArtboard(artboard.id, direction.x * step, direction.y * step);
     if (moved) announceCanvasClipboard(`Moved ${moved.name} to ${moved.x}, ${moved.y}`);
   }
 
   function beginArtboardMove(event: ReactPointerEvent<HTMLElement>, artboard: DesignArtboard) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || frameCapturePendingRef.current) return;
     event.preventDefault();
     event.stopPropagation();
     deselectCanvasLayers();
-    activateArtboard(artboard.id);
     const shell = event.currentTarget.closest<HTMLElement>('.design-artboard-shell');
     if (!shell) return;
     const pointerId = event.pointerId;
@@ -5684,13 +5613,18 @@ export default function ShaderLabStudio({
       delete shell.dataset.moving;
       if (dragHandle.hasPointerCapture(pointerId)) dragHandle.releasePointerCapture(pointerId);
       const minimumVisibleY = Math.max(96, Math.ceil(36 / Math.max(0.01, artboardScale)));
-      const moved = translateArtboard(artboard.id, deltaX, deltaY, minimumVisibleY);
-      if (moved && (Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5)) {
-        announceCanvasClipboard(`Moved ${moved.name} to ${moved.x}, ${moved.y} · autosaving`);
-      }
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
+      // Commit geometry before capturing. The latest committed callback then
+      // captures the same source revision, rather than invalidating its own drag.
+      flushSync(() => {
+        const moved = translateArtboard(artboard.id, deltaX, deltaY, minimumVisibleY);
+        if (moved && (Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5)) {
+          announceCanvasClipboard(`Moved ${moved.name} to ${moved.x}, ${moved.y} · autosaving`);
+        }
+      });
+      void activateArtboardRef.current(artboard.id);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', finish);
@@ -5767,6 +5701,7 @@ export default function ShaderLabStudio({
     const legacySettings = JSON.stringify(legacyDefaultShaderLayer.settings);
     setShaderLayers((current) => current.map((layer) => {
       const untouchedLegacyDefault = layer.id === legacyDefaultShaderLayer.id
+        && !layer.frameSnapshot && !layer.frameState
         && layer.name === legacyDefaultShaderLayer.name
         && layer.visible === legacyDefaultShaderLayer.visible
         && layer.materialId === legacyDefaultShaderLayer.materialId
@@ -5796,9 +5731,11 @@ export default function ShaderLabStudio({
   }, [identity, setTextLayers, textLayers]);
 
   function updateSelectedShader(update: Partial<ShaderApplication>) {
-    const normalizedUpdate = update.shaderSize === undefined
-      ? update
-      : { ...update, shaderSize: clampShaderZoom(update.shaderSize) };
+    const recipeUpdate = update.materialId !== undefined || update.settings !== undefined || update.shaderSize !== undefined
+      ? { ...update, frameSnapshot: undefined, ...(update.materialId !== undefined ? { frameState: undefined } : {}) } : update;
+    const normalizedUpdate = recipeUpdate.shaderSize === undefined
+      ? recipeUpdate
+      : { ...recipeUpdate, shaderSize: clampShaderZoom(recipeUpdate.shaderSize) };
     if (selectedShaderLayer) {
       setShaderLayers((current) => current.map((layer) => (
         layer.id === selectedShaderLayer.id ? { ...layer, ...normalizedUpdate } : layer
@@ -5991,7 +5928,7 @@ export default function ShaderLabStudio({
     layer: CompositionShaderLayer,
     materialId: LiveMaterialId
   ): ShaderApplication {
-    if (layer.materialId === materialId) return layer;
+    if (layer.materialId === materialId) return { ...layer, frameSnapshot: undefined };
     return shaderApplicationFor(materialId, brandPalette.colors, {
       blendMode: layer.blendMode,
       opacity: layer.opacity,
@@ -6015,6 +5952,7 @@ export default function ShaderLabStudio({
   }
 
   function stopShaderSequencePreview() {
+    sequencePreviewingRef.current = false;
     cancelAnimationFrame(sequencePreviewAnimationRef.current);
     sequencePreviewAnimationRef.current = 0;
     sequencePreviewElapsedRef.current = 0;
@@ -6026,11 +5964,18 @@ export default function ShaderLabStudio({
   }
 
   function previewShaderSequence() {
-    if (sequencePreviewing) {
+    if (sequencePreviewingRef.current) {
       stopShaderSequencePreview();
       return;
     }
-    if (!sequenceTargetLayer || shaderSequenceTimeline.length === 0 || exporting) return;
+    if (!sequenceTargetLayer || shaderSequenceTimeline.length === 0 || exportJobRef.current || frameCapturePendingRef.current) return;
+    try {
+      assertMotionIsSeekable('sequence');
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'This shader sequence cannot be time-sampled.');
+      return;
+    }
+    sequencePreviewingRef.current = true;
     sequencePreviewRestorePausedRef.current = paused;
     setPaused(true);
     setSequencePreviewing(true);
@@ -6112,6 +6057,7 @@ export default function ShaderLabStudio({
     id: EffectLayerId,
     update: { opacity?: number; settings?: Partial<CompositionEffectSettings> }
   ) {
+    if (frameCapturePendingRef.current) return;
     const current = effectPreviewOverridesRef.current.get(id);
     effectPreviewOverridesRef.current.set(id, {
       ...current,
@@ -6421,24 +6367,28 @@ export default function ShaderLabStudio({
     return selectedIds ? layerOrder.filter((id) => selectedIds.has(id)) : [];
   }
 
-  function currentDesignLabClipboardSource() {
+  const clipboardOperationRef = useRef(false);
+  const pasteDesignLabClipboardRef = useCommittedRef(pasteDesignLabClipboard);
+
+  async function currentDesignLabClipboardSource() {
     const layerIds = canvasClipboardLayerIds();
+    const artboardId = activeArtboardIdRef.current;
+    const captured = await captureCompositionFrame();
+    const portableSource = await prepareShaderFrameDocumentSource(captured);
+    const portable = parseCanvasDocument(portableSource);
+    const parsed = parseCompositionSource(portableSource);
+    const artboard = parsed.workspace?.artboards?.find((item) => item.id === artboardId);
+    if (!artboard) throw new Error('The copied artboard is no longer available.');
+    const frameAssets = Object.values(portable.assets).filter(({ id }) => id.startsWith('shader-frame:'));
     const source = layerIds.length > 0
       ? serializeDesignLabClipboard({
+          frameAssets,
           kind: 'layers',
           layerIds,
-          snapshot: currentArtboardSnapshotRef.current,
+          snapshot: artboard.snapshot,
         })
-      : activeArtboard
-        ? serializeDesignLabClipboard({
-            artboard: {
-              ...activeArtboard,
-              snapshot: currentArtboardSnapshotRef.current,
-            },
-            kind: 'artboard',
-          })
-        : null;
-    return { layerIds, source };
+      : serializeDesignLabClipboard({ artboard, frameAssets, kind: 'artboard' });
+    return { label: layerIds.length > 0 ? `${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}` : artboard.name, source };
   }
 
   function copyDesignLabSelection(event: ClipboardEvent) {
@@ -6446,30 +6396,30 @@ export default function ShaderLabStudio({
     const browserSelection = window.getSelection();
     if (browserSelection && !browserSelection.isCollapsed && browserSelection.toString()) return;
 
-    const { layerIds, source } = currentDesignLabClipboardSource();
-    if (!source || !event.clipboardData) return;
-
     event.preventDefault();
-    event.clipboardData.setData(DESIGN_LAB_CLIPBOARD_MIME, source);
-    event.clipboardData.setData('text/plain', source);
-    designLabClipboardRef.current = source;
-    announceCanvasClipboard(layerIds.length > 0
-      ? `Copied ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`
-      : `Copied ${activeArtboard?.name ?? 'artboard'}`);
+    void copyDesignLabSelectionFromMenu();
   }
 
   async function copyDesignLabSelectionFromMenu() {
-    const { layerIds, source } = currentDesignLabClipboardSource();
-    if (!source) return;
-    designLabClipboardRef.current = source;
+    if (clipboardOperationRef.current) return;
+    clipboardOperationRef.current = true;
     try {
-      await navigator.clipboard.writeText(source);
-    } catch {
-      // The local clipboard remains available when browser clipboard permission is denied.
+      const prepared = currentDesignLabClipboardSource().then((copy) => {
+        designLabClipboardRef.current = copy.source;
+        return copy;
+      });
+      // Begin the browser write in the original input event, before PNG encoding.
+      const written = writePreparedDesignLabClipboard(prepared.then(({ source }) => source));
+      const [copy, systemClipboard] = await Promise.all([prepared, written]);
+      announceCanvasClipboard(`Copied ${copy.label}${systemClipboard ? '' : ' · use Paste in the canvas menu'}`);
+      setExportError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The selected design could not be copied.';
+      setExportError(message);
+      announceCanvasClipboard(message);
+    } finally {
+      clipboardOperationRef.current = false;
     }
-    announceCanvasClipboard(layerIds.length > 0
-      ? `Copied ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`
-      : `Copied ${activeArtboard?.name ?? 'artboard'}`);
   }
 
   async function pasteDesignLabSelectionFromMenu() {
@@ -6479,12 +6429,13 @@ export default function ShaderLabStudio({
     } catch {
       // Browser clipboard permission is optional; use the last local copy instead.
     }
-    const payload = parseDesignLabClipboard(source);
+    const payload = parseDesignLabClipboard(source) ?? parseDesignLabClipboard(designLabClipboardRef.current ?? '');
     if (!payload) {
       announceCanvasClipboard('Nothing from Glyphfield is ready to paste');
       return;
     }
-    pasteDesignLabClipboard(payload);
+    // Clipboard permission UI can outlive a render; operate on the current editor.
+    await pasteDesignLabClipboardRef.current(payload);
   }
 
   function mergePastedLayers(snapshot: DesignArtboardSnapshot, pastedLayerIds: readonly string[]) {
@@ -6516,27 +6467,18 @@ export default function ShaderLabStudio({
     return `${base} ${suffix}`;
   }
 
-  function pasteDesignLabClipboard(payload: DesignLabClipboardPayload) {
-    if (payload.kind === 'layers') {
-      const remapped = remapDesignLabClipboardSnapshot(payload.snapshot, {
-        layerIds: payload.layerIds,
-        offset: 32,
-        renameLayers: true,
-      });
-      if (remapped.layerIds.length === 0) return;
-      mergePastedLayers(remapped.snapshot as unknown as DesignArtboardSnapshot, remapped.layerIds);
-      return;
-    }
-
-    const remapped = remapDesignLabClipboardSnapshot(payload.artboard.snapshot);
-    const snapshot = remapped.snapshot as unknown as DesignArtboardSnapshot;
+  function pasteCapturedArtboard(
+    artboard: Extract<DesignLabClipboardPayload, { kind: 'artboard' }>['artboard'],
+    snapshot: DesignArtboardSnapshot,
+    captured: { artboardId: DesignArtboardId; snapshot: DesignArtboardSnapshot }
+  ) {
     const existing = workspaceArtboardsRef.current.map((artboard) => (
-      artboard.id === activeArtboardIdRef.current
-        ? { ...artboard, snapshot: cloneArtboardSnapshot(currentArtboardSnapshotRef.current) }
+      artboard.id === captured.artboardId
+        ? { ...artboard, snapshot: captured.snapshot }
         : artboard
     ));
-    let x = Math.max(80, payload.artboard.x + 48);
-    let y = Math.max(96, payload.artboard.y + 48);
+    let x = Math.max(80, artboard.x + 48);
+    let y = Math.max(96, artboard.y + 48);
     while (existing.some((artboard) => Math.abs(artboard.x - x) < 24 && Math.abs(artboard.y - y) < 24)) {
       x += 48;
       y += 48;
@@ -6544,21 +6486,48 @@ export default function ShaderLabStudio({
     const id = `artboard-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as DesignArtboardId;
     const nextArtboard: DesignArtboard = {
       id,
-      name: nextPastedArtboardName(payload.artboard.name),
+      name: nextPastedArtboardName(artboard.name),
       snapshot,
       x,
       y,
     };
-    const nextArtboards = [...existing, nextArtboard];
-    workspaceArtboardsRef.current = nextArtboards;
-    setArtboards(nextArtboards);
-    pendingArtboardApplyRef.current = { id, signature: artboardSnapshotSignature(snapshot) };
-    activeArtboardIdRef.current = id;
-    currentArtboardSnapshotRef.current = snapshot;
-    setActiveArtboardId(id);
-    applyArtboardSnapshot(snapshot);
-    requestArtboardFocus(id);
+    applyActiveArtboard(nextArtboard, [...existing, nextArtboard], true);
     announceCanvasClipboard(`Pasted ${nextArtboard.name} · autosaving`);
+  }
+
+  async function pasteDesignLabClipboard(payload: DesignLabClipboardPayload) {
+    if (clipboardOperationRef.current || artboardOperationRef.current) return;
+    clipboardOperationRef.current = true;
+    artboardOperationRef.current = true;
+    const signature = compositionSignatureRef.current;
+    const sourceSequence = sourceApplySequenceRef.current;
+    const artboardId = activeArtboardIdRef.current;
+    try {
+      await hydrateDesignLabClipboardFrames(payload);
+      if (signature !== compositionSignatureRef.current || sourceSequence !== sourceApplySequenceRef.current
+        || artboardId !== activeArtboardIdRef.current) {
+        throw new Error('The design changed while copied shader frames were loading. Paste again.');
+      }
+      const captured = await captureArtboardBeforeLeaving();
+      const source = payload.kind === 'layers' ? payload.snapshot : payload.artboard.snapshot;
+      const anchored = reanchorDesignLabClipboardSnapshot(source, previewTimeRef.current);
+      const remapped = remapDesignLabClipboardSnapshot(anchored, payload.kind === 'layers'
+        ? { layerIds: payload.layerIds, offset: 32, renameLayers: true } : {});
+      const snapshot = remapped.snapshot as unknown as DesignArtboardSnapshot;
+      if (payload.kind === 'layers') {
+        if (remapped.layerIds.length > 0) mergePastedLayers(snapshot, remapped.layerIds);
+      } else {
+        pasteCapturedArtboard(payload.artboard, snapshot, captured);
+      }
+      setExportError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The copied design could not be pasted.';
+      setExportError(message);
+      announceCanvasClipboard(message);
+    } finally {
+      artboardOperationRef.current = false;
+      clipboardOperationRef.current = false;
+    }
   }
 
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
@@ -6566,10 +6535,11 @@ export default function ShaderLabStudio({
     if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
     const customSource = event.clipboardData?.getData(DESIGN_LAB_CLIPBOARD_MIME) ?? '';
     const textSource = event.clipboardData?.getData('text/plain') ?? '';
-    const payload = parseDesignLabClipboard(customSource || textSource || (!event.clipboardData ? designLabClipboardRef.current ?? '' : ''));
+    const localSource = event.clipboardData?.files.length ? '' : designLabClipboardRef.current ?? '';
+    const payload = parseDesignLabClipboard(customSource || textSource || localSource);
     if (payload) {
       event.preventDefault();
-      pasteDesignLabClipboard(payload);
+      void pasteDesignLabClipboard(payload);
       return;
     }
     const images = Array.from(event.clipboardData?.files ?? []).filter((file) => (
@@ -6654,6 +6624,15 @@ export default function ShaderLabStudio({
     [designLabDocument, listedLayerIds]
   );
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds]);
+  const visibleShaderCapabilities = [
+    ...shaderLayers.filter(({ id }) => visibleLayerIdSet.has(id)),
+    ...Object.entries(layerShaders).flatMap(([id, application]) => application && visibleLayerIdSet.has(id as CompositionLayerId) ? [application] : []),
+  ].map(({ materialId }) => getShaderMotionCapabilities(materialId));
+  const compositionCanSeek = visibleShaderCapabilities.every(({ motionModel }) => motionModel !== 'stateful');
+  const compositionHasMotion = visibleShaderCapabilities.some(({ motionModel }) => motionModel !== 'static');
+  const explorerCapabilities = visibleShaderCapabilities.find(({ motionModel }) => motionModel === 'stateful')
+    ?? visibleShaderCapabilities.find(({ motionModel }) => motionModel !== 'static')
+    ?? visibleShaderCapabilities[0];
   const visibleShaderRendererCount = useMemo(
     () => visibleLayerIds.reduce((count, layerId) => (
       isShaderLayerId(layerId) || (isContentLayerId(layerId) && layerShaders[layerId])
@@ -6673,20 +6652,118 @@ export default function ShaderLabStudio({
     if (!portableDesignLab.document) return null;
     return serializeExistingDesignLabCanvasDocument(withDesignLabTimeline(
       portableDesignLab.document,
-      { frame: boundedPreviewFrame, paused },
+      { frame: boundedPreviewFrame, paused, timeMs: previewTimeMs },
       canvasRevisionFromSignature(compositionSignature)
     ));
   }
 
-  function applyCompositionSource(source: string) {
+  function shaderCaptureRequests(timeMs: number): ShaderFrameCaptureRequest[] {
+    const applications: Array<[string, ShaderApplication]> = shaderLayers
+      .filter((layer) => visibleLayerIdSet.has(layer.id))
+      .map((layer) => [`canvas-${layer.id}`, layer]);
+    Object.entries(layerShaders).forEach(([id, application]) => {
+      if (application && visibleLayerIdSet.has(id as CompositionLayerId)) applications.push([`content-${id}`, application]);
+    });
+    return applications.map(([key, application]) => ({
+      key,
+      recipeKey: shaderFrameRecipeKey(application),
+      root: stageRef.current?.querySelector(`[data-shader-instance="${CSS.escape(key)}"]`) ?? null,
+      ...(paused && application.frameState && shaderFrameMatches(application.frameSnapshot, application)
+        ? { existing: { frameSnapshot: { ...application.frameSnapshot!, timeMs }, frameState: { ...application.frameState, timelineTimeMs: timeMs } } } : {}),
+    }));
+  }
+
+  function applyCapturedShaderFrames(captures: ReadonlyMap<string, CapturedShaderFrame>, timeMs: number) {
+    setShaderLayers((current) => current.map((layer) => ({ ...layer, ...captures.get(`canvas-${layer.id}`) })));
+    setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([id, application]) => [
+      id, application ? { ...application, ...captures.get(`content-${id}`) } : application,
+    ])) as Partial<Record<ContentLayerId, ShaderApplication>>);
+    previewTimeRef.current = timeMs;
+    setPreviewTimeMs(timeMs);
+    setPaused(true);
+  }
+
+  async function captureCompositionFrame({ forExport = false }: { forExport?: boolean } = {}) {
+    if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before saving or capturing the composition.');
+    if (stageRef.current?.querySelector('[data-shader-frame-editing="true"], [data-live-material-editing="true"]')) {
+      throw new Error('Finish editing the shader control before capturing its updated appearance.');
+    }
+    assertCompositionEffectCaptureReady(effectLayers, visibleLayerIdSet, effectPreviewOverridesRef.current);
+    if (exportJobRef.current && !forExport) throw new Error('Wait for the current export before capturing another shader frame.');
+    if (frameCapturePendingRef.current) throw new Error('A shader frame capture is already in progress.');
+    const timeMs = paused ? previewTimeMs : previewTimeRef.current;
+    const sourceDocument = designLabDocument;
+    const signature = compositionSignatureRef.current;
+    const sourceSequence = sourceApplySequenceRef.current;
+    const artboardId = activeArtboardIdRef.current;
+    frameCapturePendingRef.current = true;
+    setFrameCapturePending(true);
+    let resume: (() => void) | undefined;
+    try {
+      const operation = beginShaderFrameCapture(shaderCaptureRequests(timeMs), timeMs, { hold: true, previewGroup: 'design-lab' });
+      resume = operation.resume;
+      const [captures, effectCaptures] = await Promise.all([operation.result, captureCompositionEffectFrames(operation.result)]);
+      if (signature !== compositionSignatureRef.current || sourceSequence !== sourceApplySequenceRef.current
+        || artboardId !== activeArtboardIdRef.current) {
+        throw new Error('The design changed during capture. Capture the updated design again.');
+      }
+      const shaderDocument = applyShaderFrameCaptures(sourceDocument, captures, {
+        activeArtboardId: artboardId,
+        timeline: { frame: boundedPreviewFrame, paused: true, timeMs },
+      });
+      const capturedDocument = applyEffectFrameCaptures(shaderDocument, effectCaptures, artboardId);
+      flushSync(() => {
+        applyCapturedShaderFrames(captures, timeMs);
+        if (effectCaptures.size) setEffectLayers((current) => current.map((layer) => ({
+          ...layer,
+          frameSnapshot: normalizeShaderFrameSnapshot(capturedDocument.elements[layer.id]?.data.frameSnapshot) ?? layer.frameSnapshot,
+        })));
+      });
+      return capturedDocument;
+    } finally {
+      resume?.();
+      frameCapturePendingRef.current = false;
+      setFrameCapturePending(false);
+    }
+  }
+
+  async function prepareCompositionSource(): Promise<string> {
+    return prepareShaderFrameDocumentSource(await captureCompositionFrame());
+  }
+
+  async function prepareDesignVersionSource() {
+    const document = await captureCompositionFrame();
+    const revision = savedDesignRevisionRef.current;
+    return { source: await prepareShaderFrameDocumentSource(document), revision };
+  }
+
+  async function saveCurrentShaderFrame() {
+    try {
+      await captureCompositionFrame();
+      setExportError(null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The shader frame could not be captured.');
+    }
+  }
+
+  function assertShaderWorkspaceIdle() {
+    if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before opening another design.');
+    if (exportJobRef.current || frameCapturePendingRef.current) throw new Error('Wait for the current capture or export before opening another design.');
+  }
+
+  async function applyCompositionSource(source: string) {
+    assertShaderWorkspaceIdle();
+    const sourceSequence = ++sourceApplySequenceRef.current;
     const parsed = parseCompositionSource(source);
+    if (isCanvasDocumentEnvelope(parseSourceObject(source))) await importShaderFrameAssets(parseCanvasDocument(source));
+    if (sourceSequence !== sourceApplySequenceRef.current) throw new Error('A newer design was opened while frame assets were loading.');
 
     const nextShaderLayers = restoredShaderLayers(
       parsed.composition.shaderLayers,
       shaderLayers,
       parsed.shaderSequence?.targetLayerId
     );
-    const nextEffectLayers = (parsed.composition.effectLayers ?? effectLayers).map((layer) => ({ ...layer, settings: { ...layer.settings } }));
+    const nextEffectLayers = restoredEffectLayers(parsed.composition.effectLayers ?? effectLayers);
     const nextTextLayers = (parsed.composition.textLayers ?? textLayers).map((layer) => ({
       ...layer,
       textEffect: layer.textEffect ? { ...layer.textEffect } : layer.textEffect,
@@ -6727,6 +6804,9 @@ export default function ShaderLabStudio({
       nextPreviewFrameCount - 1,
       Math.max(0, Math.round(parsed.timeline?.frame ?? boundedPreviewFrame))
     );
+    const nextTimeMs = Number.isFinite(parsed.timeline?.timeMs)
+      ? Math.max(0, parsed.timeline!.timeMs!)
+      : nextPreviewFrame * 1_000 / nextExportSettings.fps;
     const restoredRatio = parsed.ratio ?? ratio;
     const restoredActiveSnapshot: DesignArtboardSnapshot = {
       assets: nextAssets,
@@ -6744,7 +6824,7 @@ export default function ShaderLabStudio({
       shaderLayers: nextShaderLayers,
       shaderSequence: nextShaderSequence,
       textLayers: nextTextLayers,
-      timeline: { frame: nextPreviewFrame, paused: parsed.timeline?.paused ?? paused },
+      timeline: { frame: nextPreviewFrame, paused: parsed.timeline?.paused ?? paused, timeMs: nextTimeMs },
     };
     const restoredWorkspace = restoreDesignArtboardWorkspace(parsed.workspace, restoredActiveSnapshot);
     const restoredWorkspaceSnapshot = restoredWorkspace.artboards.find(
@@ -6780,15 +6860,16 @@ export default function ShaderLabStudio({
     setLayerOrder(nextOrder);
     previewFrameRef.current = nextPreviewFrame;
     setPreviewFrame(nextPreviewFrame);
+    previewTimeRef.current = nextTimeMs;
+    setPreviewTimeMs(nextTimeMs);
     setPaused(parsed.timeline?.paused ?? paused);
     setSelectedLayerId(null);
     setSelectedCanvasLayerIds([]);
   }
 
   async function copySetup() {
-    const setup = compositionSetupSource();
     try {
-      if (setup === null) throw new Error('Portable composition code is still being prepared.');
+      const setup = await prepareCompositionSource();
       await copyTextToClipboard(setup);
       setCopyError(null);
       setCopied(true);
@@ -6806,17 +6887,25 @@ export default function ShaderLabStudio({
     instanceKey: string,
     application: ShaderApplication
   ) {
-    const liveCanvas = stageRef.current?.querySelector<HTMLElement>(`[data-shader-instance="${instanceKey}"]`)?.querySelector('canvas');
-    if (liveCanvas?.width && liveCanvas.height) {
-      try {
-        drawCanvasImageCover(context, liveCanvas, liveCanvas.width, liveCanvas.height, width, height);
-        return;
-      } catch {
-        paintFallback(context, width, height, application.settings);
-        return;
-      }
+    if (effectCaptureShaderImagesRef.current) {
+      const captured = effectCaptureShaderImagesRef.current.get(instanceKey);
+      if (!captured) throw new Error('A converter is missing its captured shader input.');
+      drawShaderFramePresentation(context, captured.image, captured.presentation, { x: 0, y: 0, width, height });
+      return;
     }
-    paintFallback(context, width, height, application.settings);
+    const host = stageRef.current?.querySelector<HTMLElement>(`[data-shader-instance="${instanceKey}"]`);
+    const frozenImage = host?.querySelector<HTMLImageElement>('[data-shader-frame-ready="true"] [data-shader-frame-image]');
+    const rendered = exportShaderApplicationsRef.current.get(instanceKey) ?? application;
+    if (frozenImage?.complete && frozenImage.naturalWidth) {
+      drawShaderFramePresentation(context, frozenImage, normalizeShaderFramePresentation(rendered.frameSnapshot?.presentation), { x: 0, y: 0, width, height });
+      return;
+    }
+    const liveCanvas = host?.querySelector('canvas');
+    if (liveCanvas?.width && liveCanvas.height) {
+      drawShaderFramePresentation(context, liveCanvas, readLiveMaterialPresentation(host ?? null), { x: 0, y: 0, width, height });
+      return;
+    }
+    if (exportShaderApplicationsRef.current.size) throw new Error('A shader frame is not ready for export.');
   }
 
   function outputLayerBox(
@@ -6888,19 +6977,20 @@ export default function ShaderLabStudio({
   ) {
     const effectLayer = effectLayers.find((layer) => layer.id === layerId);
     if (!effectLayer) return;
-    const preview = effectPreviewOverridesRef.current.get(layerId);
-    const previewSettings = preview?.settings
-      ? { ...effectLayer.settings, ...preview.settings }
-      : effectLayer.settings;
+    const rendered = resolveCompositionEffectPreview(
+      effectLayer,
+      effectPreviewOverridesRef.current.get(layerId),
+      Boolean(effectCaptureShaderImagesRef.current)
+    );
     let scratch = effectScratchRefs.current.get(layerId);
     if (!scratch) {
       scratch = createCompositionEffectScratch() ?? undefined;
       if (scratch) effectScratchRefs.current.set(layerId, scratch);
     }
     applyCompositionEffect(context, width, height, {
-      ...previewSettings,
-      cellSize: previewSettings.cellSize * width / 960,
-    }, preview?.opacity ?? effectLayer.opacity, scratch);
+      ...rendered.settings,
+      cellSize: rendered.settings.cellSize * width / 960,
+    }, rendered.opacity, scratch);
     onEffectPainted?.(layerId, context.canvas);
   }
 
@@ -7055,12 +7145,51 @@ export default function ShaderLabStudio({
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 
-  async function loadCompositionImages() {
+  async function loadCompositionImages(layerIds?: ReadonlySet<string>) {
     const entries: [string, string][] = [
       ...logoLayers.map((layer): [string, string] => [layer.id, layer.url]),
       ...compositionAssets.map((asset): [string, string] => [asset.id, asset.url]),
     ];
-    return new Map(await Promise.all(entries.map(async ([id, source]) => [id, await loadCanvasImage(source)] as const)));
+    return new Map(await Promise.all(entries.filter(([id]) => !layerIds || layerIds.has(id))
+      .map(async ([id, source]) => [id, await loadCanvasImage(source)] as const)));
+  }
+
+  async function captureCompositionEffectFrames(shaderFrames: Promise<Map<string, CapturedShaderFrame>>): Promise<Map<string, ShaderFrameSnapshot>> {
+    const ids = visibleLayerIds.filter(isEffectLayerId);
+    if (!ids.length) return new Map();
+    const prefix = visibleLayerIds.slice(0, visibleLayerIds.lastIndexOf(ids.at(-1)!) + 1);
+    const [images, captures] = await Promise.all([
+      loadCompositionImages(new Set(prefix)),
+      shaderFrames,
+      waitForCompositionFonts(),
+      preloadShaderFramePresentation({ grainOpacity: 1 }),
+    ]);
+    const width = Math.min(640, canvasDimensions.width);
+    const height = Math.max(1, Math.round(width * canvasDimensions.height / canvasDimensions.width));
+    const buffer = document.createElement('canvas');
+    buffer.width = width;
+    buffer.height = height;
+    const context = buffer.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Converter capture is unavailable.');
+    try {
+      let encoding!: Promise<Map<string, ShaderFrameSnapshot>>;
+      await withCapturedShaderImages(captures, (shaderImages) => {
+        effectCaptureShaderImagesRef.current = shaderImages;
+        try {
+          // This callback copies every converter synchronously. The override is
+          // removed before encoding yields, so live previews never consume it.
+          encoding = captureComposedEffectFrames(ids, (copy) => composeFrame(
+            context, width, height, images, prefix, copy
+          ));
+        } finally {
+          effectCaptureShaderImagesRef.current = null;
+        }
+      });
+      return await encoding;
+    } finally {
+      buffer.width = 0;
+      buffer.height = 0;
+    }
   }
 
   const composeFrameRef = useCommittedRef(composeFrame);
@@ -7088,10 +7217,12 @@ export default function ShaderLabStudio({
     let targetFrameRate = 60;
     let renderDurationTotal = 0;
     let renderSamples = 0;
+    let pausedRedraw: ReturnType<typeof observePausedCompositionReadiness> | undefined;
     const observer = typeof IntersectionObserver === 'undefined' || !stageRef.current
       ? null
       : new IntersectionObserver(([entry]) => {
           inViewport = entry?.isIntersecting ?? true;
+          if (inViewport) pausedRedraw?.request();
         }, { rootMargin: '120px' });
     if (observer && stageRef.current) observer.observe(stageRef.current);
 
@@ -7152,7 +7283,11 @@ export default function ShaderLabStudio({
         }
         if (!paused) animationFrame = requestAnimationFrame(tick);
       };
-      animationFrame = requestAnimationFrame(tick);
+      if (paused && stageRef.current) {
+        pausedRedraw = observePausedCompositionReadiness(stageRef.current, tick);
+      } else {
+        animationFrame = requestAnimationFrame(tick);
+      }
     }).catch(() => {
       // Imported image errors should not take down the editable composition.
     });
@@ -7160,6 +7295,7 @@ export default function ShaderLabStudio({
     return () => {
       cancelled = true;
       observer?.disconnect();
+      pausedRedraw?.disconnect();
       cancelAnimationFrame(animationFrame);
     };
   }, [
@@ -7205,24 +7341,24 @@ export default function ShaderLabStudio({
   }
 
   async function exportStill(format: StillImageFormat): Promise<ExportPreviewAsset | null> {
-    if (exporting) return null;
+    if (exportJobRef.current || frameCapturePendingRef.current) return null;
+    exportJobRef.current = true;
     const settingsSignature = currentExportSettingsSignature;
     const resumeAfterExport = !paused;
-    const stillFrame = paused ? boundedPreviewFrame : previewFrameRef.current;
-    flushSync(() => {
-      if (!paused) captureAndPauseAtPreviewFrame(stillFrame);
-      setExporting(format);
-      setCaptureTimeMs(resolveMotionFrame(
-        normalizedExportSettings.durationMs,
-        normalizedExportSettings.fps,
-        stillFrame
-      ).timeMs);
-      setPaused(true);
-    });
+    setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${format.toUpperCase()} preview`);
     try {
       const startedAt = performance.now();
+      const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame({ forExport: true })));
+      const assertFresh = exportFreshnessGuard();
+      const applications = new Map<string, ShaderApplication>();
+      captured.composition.shaderLayers?.forEach((layer) => applications.set(`canvas-${layer.id}`, layer));
+      Object.entries(captured.composition.layerShaders ?? {}).forEach(([id, application]) => {
+        if (application) applications.set(`content-${id}`, application);
+      });
+      exportShaderApplicationsRef.current = applications;
+      await Promise.all([...applications.values()].map((application) => preloadShaderFramePresentation(normalizeShaderFramePresentation(application.frameSnapshot?.presentation))));
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       await waitForLiveMaterialReady(stageRef.current);
       await waitForCompositionFonts();
@@ -7230,6 +7366,7 @@ export default function ShaderLabStudio({
       const context = output.getContext('2d');
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
+      assertFresh();
       composeFrame(context, output.width, output.height, images);
       const quality = normalizedExportSettings.quality === 'fast'
         ? 0.82
@@ -7237,6 +7374,7 @@ export default function ShaderLabStudio({
           ? 0.96
           : 0.9;
       const blob = await canvasToImageBlob(output, format, quality);
+      assertFresh();
       const label = format === 'jpg' ? 'JPG' : 'PNG';
       const fileName = `${identity.id}-design-lab-${output.width}x${output.height}.${format}`;
       const asset: ExportPreviewAsset = {
@@ -7254,6 +7392,8 @@ export default function ShaderLabStudio({
       setExportError(error instanceof Error ? error.message : 'The still image could not be exported.');
       return null;
     } finally {
+      exportShaderApplicationsRef.current.clear();
+      exportJobRef.current = false;
       setCaptureTimeMs(null);
       setExporting(null);
       if (resumeAfterExport) setPaused(false);
@@ -7269,7 +7409,7 @@ export default function ShaderLabStudio({
     sequenceCaptureRef.current = nextSequenceCapture;
     flushSync(() => {
       setSequenceCapture(nextSequenceCapture);
-      setCaptureTimeMs(frame.timeMs);
+      setCaptureTimeMs(nextSequenceCapture ? frame.timeMs : previewTimeRef.current + frame.timeMs);
     });
     await new Promise<void>((resolve) => {
       // Provider renderers stop their live loop before accepting the controlled clock.
@@ -7284,19 +7424,43 @@ export default function ShaderLabStudio({
     await waitForLiveMaterialReady(stageRef.current);
   }
 
+  function exportFreshnessGuard() {
+    const signature = compositionSignatureRef.current;
+    const sourceSequence = sourceApplySequenceRef.current;
+    const artboardId = activeArtboardIdRef.current;
+    return () => {
+      if (signature !== compositionSignatureRef.current || sourceSequence !== sourceApplySequenceRef.current
+        || artboardId !== activeArtboardIdRef.current) throw new Error('The design changed during export. Export the updated design again.');
+    };
+  }
+
+  function assertMotionIsSeekable(motionMode: DesignMotionMode) {
+    if (!compositionCanSeek || (motionMode === 'sequence' && sequenceMaterialIds.some((id) => getShaderMotionCapabilities(id).motionModel === 'stateful'))) {
+      throw new Error('Fluid motion needs a live recording, not timestamp sampling. Capture a PNG frame or hide Fluid before exporting a sampled clip.');
+    }
+  }
+
   async function exportMotion(format: 'gif' | 'mp4', motionMode: DesignMotionMode = 'standard'): Promise<ExportPreviewAsset | null> {
-    if (exporting) return null;
+    if (exportJobRef.current || frameCapturePendingRef.current) return null;
     if (motionMode === 'sequence' && (!sequenceTargetLayer || shaderSequenceTimeline.length === 0)) {
       setExportError('Add a canvas shader before exporting a shader sequence.');
       return null;
     }
-    if (sequencePreviewing) stopShaderSequencePreview();
+    if (sequencePreviewingRef.current) {
+      setExportError('Stop the shader sequence preview before exporting its clip.');
+      return null;
+    }
+    exportJobRef.current = true;
     const settingsSignature = currentExportSettingsSignature;
     setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${motionMode === 'sequence' ? 'shader sequence ' : ''}${format.toUpperCase()} preview`, 0);
     try {
+      assertMotionIsSeekable(motionMode);
       const startedAt = performance.now();
+      await captureCompositionFrame({ forExport: true });
+      const assertFresh = exportFreshnessGuard();
+      await preloadShaderFramePresentation({ grainOpacity: 1 });
       await waitForCompositionFonts();
       const { durationMs, fps, quality } = normalizedExportSettings;
       const resolvedDurationMs = motionMode === 'sequence' ? shaderSequenceDuration : durationMs;
@@ -7316,6 +7480,7 @@ export default function ShaderLabStudio({
             }
           : null;
         await waitForCapturedFrame(frame, nextSequenceCapture);
+        assertFresh();
         composeFrame(context, output.width, output.height, images);
       };
       const sharedOptions = {
@@ -7337,6 +7502,7 @@ export default function ShaderLabStudio({
             protectedColors: gifProtectedCompositionColors(),
           })
         : await encodeCanvasMp4({ ...sharedOptions, fps, quality });
+      assertFresh();
       const label = format.toUpperCase() as 'GIF' | 'MP4';
       const fileName = `${identity.id}-design-lab${motionMode === 'sequence' ? '-shader-sequence' : ''}-${output.width}x${output.height}.${format}`;
       const asset: ExportPreviewAsset = {
@@ -7355,6 +7521,7 @@ export default function ShaderLabStudio({
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
       return null;
     } finally {
+      exportJobRef.current = false;
       sequenceCaptureRef.current = null;
       setSequenceCapture(null);
       setCaptureTimeMs(null);
@@ -7391,10 +7558,23 @@ export default function ShaderLabStudio({
   const designAutomationRef = useCommittedRef({
     applyCompositionSource,
     compositionSetupSource,
+    prepareCompositionSource,
+    playShaderHistory: () => { assertShaderWorkspaceIdle(); playShaderHistory(); },
+    seekShaderTime,
+    describeShaderMotion: () => ({
+      timeMs: paused ? previewTimeMs : previewTimeRef.current,
+      paused,
+      layers: shaderCaptureRequests(paused ? previewTimeMs : previewTimeRef.current).map(({ key }) => {
+        const application = key.startsWith('canvas-')
+          ? shaderLayers.find(({ id }) => `canvas-${id}` === key)
+          : layerShaders[key.slice('content-'.length) as ContentLayerId];
+        return { layerId: key.slice(key.indexOf('-') + 1), ...getShaderMotionCapabilities(application!.materialId) };
+      }),
+    }),
     exportForAutomation,
     normalizedShaderSequenceSettings,
-    previewShaderSequence,
-    sequencePreviewing,
+    previewShaderSequence: () => { assertShaderWorkspaceIdle(); assertMotionIsSeekable('sequence'); previewShaderSequence(); },
+    isSequencePreviewing: () => sequencePreviewingRef.current,
     shaderSequenceDuration,
     shaderSequenceTimeline,
     stopShaderSequencePreview,
@@ -7409,6 +7589,10 @@ export default function ShaderLabStudio({
       'control.activate',
       'control.set',
       'artifact.download',
+      'design.frame.capture',
+      'design.frame.play',
+      'design.frame.seek',
+      'design.motion.describe',
       'design.sequence.describe',
       'design.sequence.configure',
       'design.sequence.preview',
@@ -7454,10 +7638,9 @@ export default function ShaderLabStudio({
     const renderedApplication = sequenceCapture && instanceKey === `canvas-${sequenceCapture.layerId}`
       ? sequenceCapture.application
       : application;
-    if (!livePreviewRuntimeReady && captureTimeMs === null) {
-      return <ShaderSkeleton />;
-    }
-    return (
+    const frozenSnapshot = paused && !sequencePreviewing && captureTimeMs === null && shaderFrameMatches(renderedApplication.frameSnapshot, renderedApplication)
+      ? renderedApplication.frameSnapshot : undefined;
+    const liveCanvas = !livePreviewRuntimeReady && captureTimeMs === null ? <ShaderSkeleton /> : (
       <LiveMaterialCanvas
         activeWhileMounted
         captureTimeMs={controlledTimeMs}
@@ -7466,7 +7649,7 @@ export default function ShaderLabStudio({
         frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
         frameState={renderedApplication.frameState}
         key={instanceKey}
-        loopDurationMs={normalizedExportSettings.durationMs}
+        loopDurationMs={renderedApplication.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
         materialId={renderedApplication.materialId}
         maxPixelCount={captureTimeMs === null
           ? livePreviewPixelBudget
@@ -7479,6 +7662,24 @@ export default function ShaderLabStudio({
         settings={renderedApplication.settings}
       />
     );
+    return <ShaderFrameImage className='absolute inset-0 size-full' previewChannel={instanceKey} snapshot={frozenSnapshot}>{liveCanvas}</ShaderFrameImage>;
+  }
+
+  function renderShaderTimeExplorer() {
+    return <ShaderTimeExplorer
+      timeMs={previewTimeMs}
+      busy={frameCapturePending || Boolean(exporting) || sequencePreviewing}
+      canSeek={compositionCanSeek && compositionHasMotion}
+      capabilities={explorerCapabilities}
+      onLiveTime={(timeMs) => { previewTimeRef.current = timeMs; }}
+      onFreeze={() => void saveCurrentShaderFrame()}
+      onCapture={() => void saveCurrentShaderFrame()}
+      onPlay={playShaderHistory}
+      onTimeChange={seekShaderTime}
+      onScrubStart={beginShaderTimeScrub}
+      onTimePreview={(timeMs) => previewLiveMaterialTime('design-lab', timeMs)}
+      playing={active && !paused && captureTimeMs === null}
+    />;
   }
 
   function renderStudioHeader() {
@@ -7525,6 +7726,7 @@ export default function ShaderLabStudio({
             autosaveState={compositionAutosaveState}
             identityId={identity.id}
             onOpen={applyCompositionSource}
+            prepareSource={prepareDesignVersionSource}
             revision={savedDesignRevision}
             source={compositionSetupSource}
             toolId={tool.id}
@@ -7677,6 +7879,9 @@ export default function ShaderLabStudio({
     instanceKey: string,
     captureTimeMs = previewCaptureTimeMs
   ) {
+    if (shaderFrameMatches(application.frameSnapshot, application)) {
+      return <ShaderFrameImage className='absolute inset-0 size-full' snapshot={application.frameSnapshot!} />;
+    }
     return (
       <LiveMaterialCanvas
         captureTimeMs={captureTimeMs}
@@ -7685,7 +7890,7 @@ export default function ShaderLabStudio({
         frameRate={24}
         frameState={application.frameState}
         key={instanceKey}
-        loopDurationMs={normalizedExportSettings.durationMs}
+        loopDurationMs={application.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
         materialId={application.materialId}
         maxPixelCount={420_000}
         patternScale={clampShaderZoom(application.shaderSize)}
@@ -7698,13 +7903,23 @@ export default function ShaderLabStudio({
 
   function renderInactiveArtboardLayer(artboard: DesignArtboard, layerId: CompositionLayerId, index: number) {
     const { snapshot } = artboard;
-    const artboardCaptureTimeMs = resolveMotionFrame(
+    const artboardCaptureTimeMs = snapshot.timeline.timeMs ?? resolveMotionFrame(
       normalizedExportSettings.durationMs,
       normalizedExportSettings.fps,
       snapshot.timeline.frame
     ).timeMs;
     const zIndex = 4 + index;
-    if (isEffectLayerId(layerId)) return null;
+    if (isEffectLayerId(layerId)) {
+      const layer = snapshot.effectLayers.find(({ id }) => id === layerId);
+      if (!layer?.visible) return null;
+      return (
+        <div className='shader-lab-v2-composition-effect' data-effect-kind={layer.settings.kind} key={layerId} style={{ zIndex }}>
+          {effectFrameMatches(layer.frameSnapshot, snapshot, layerId)
+            ? <ShaderFrameImage snapshot={layer.frameSnapshot} />
+            : <ShaderSkeleton state='unavailable' />}
+        </div>
+      );
+    }
     if (isShaderLayerId(layerId)) {
       const layer = snapshot.shaderLayers.find(({ id }) => id === layerId);
       if (!layer?.visible) return null;
@@ -7836,19 +8051,16 @@ export default function ShaderLabStudio({
         data-canvas-interactive
         data-studio-context-trigger='artboard'
         key={artboard.id}
-        onContextMenu={(event) => {
+        onContextMenu={async (event) => {
           event.preventDefault();
           event.stopPropagation();
-          activateArtboard(artboard.id);
-          setArtboardMenu({
-            artboardId: artboard.id,
-            position: {
-              ...contextMenuPositionFromEvent(event),
-              anchor: event.currentTarget.querySelector<HTMLButtonElement>('.design-artboard-label button'),
-            },
-          });
+          const position = {
+            ...contextMenuPositionFromEvent(event),
+            anchor: event.currentTarget.querySelector<HTMLButtonElement>('.design-artboard-label button'),
+          };
+          if (await activateArtboard(artboard.id)) setArtboardMenu({ artboardId: artboard.id, position });
         }}
-        onPointerDown={() => activateArtboard(artboard.id)}
+        onPointerDown={(event) => { if (event.button === 0) void activateArtboard(artboard.id); }}
         style={{ height: size.height, left: artboard.x, top: artboard.y, width: size.width }}
       >
         <header
@@ -8387,26 +8599,7 @@ export default function ShaderLabStudio({
             position={selectionMenuPosition}
           />
           <div className='design-motion-strip' data-canvas-selection-preserve>
-            <ShaderFrameHistoryControl
-              durationMs={normalizedExportSettings.durationMs}
-              fps={normalizedExportSettings.fps}
-              frame={boundedPreviewFrame}
-              onFramePreview={trackPreviewFrame}
-              onPauseAtFrame={captureAndPauseAtPreviewFrame}
-              onPlay={playShaderHistory}
-              onScrub={pauseAtPreviewFrame}
-              onScrubPreview={(frame) => {
-                previewLiveMaterialTime(
-                  'design-lab',
-                  resolveMotionFrame(
-                    normalizedExportSettings.durationMs,
-                    normalizedExportSettings.fps,
-                    frame
-                  ).timeMs
-                );
-              }}
-              playing={active && !paused && captureTimeMs === null}
-            />
+            {renderShaderTimeExplorer()}
             <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} title='Shader sequence' type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
             <a aria-label='Open Animation Studio' href='/studio?tool=animation' title='Open Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
           </div>

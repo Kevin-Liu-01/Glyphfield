@@ -171,6 +171,7 @@ export default function StudioContextMenu({
     <div
       aria-label={label}
       className='studio-context-menu'
+      data-canvas-selection-preserve
       data-positioned={placement ? 'true' : 'false'}
       onContextMenu={(event) => {
         event.preventDefault();

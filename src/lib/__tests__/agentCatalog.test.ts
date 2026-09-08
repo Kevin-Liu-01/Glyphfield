@@ -18,6 +18,20 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material']);
   });
 
+  it('publishes honest per-provider frame capture, seek and loop capabilities', () => {
+    const fluid = AGENT_SHADER_LIBRARY.materials.find(({ id }) => id === 'pavel-fluid-energy');
+    expect(fluid?.motion).toMatchObject({ motionModel: 'stateful', supportsPngSnapshot: true, supportsEditableSeek: false });
+    const sphere = AGENT_SHADER_LIBRARY.materials.find(({ id }) => id === 'shadergradient-prismatic-sphere');
+    expect(sphere?.motion.loop).toMatchObject({ kind: 'configured', pixelVerified: false });
+    expect(AGENT_SHADER_LIBRARY.materials.every(({ motion }) => motion.supportsPngSnapshot)).toBe(true);
+    expect(AGENT_SHADER_LIBRARY.framePersistence.appearance).toBe('lossless-png-snapshot');
+    expect(AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.shaderFrameCapture).map(({ id }) => id)).toEqual(['material']);
+    expect(Object.keys(AGENT_MANIFEST.studioBrowserApi.toolActions.material)).toEqual([
+      'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
+    ]);
+    expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.frame.seek'].input).toContain('non-negative finite');
+  });
+
   it('derives every lab plugin from the navigable Studio catalog', () => {
     expect(AGENT_LAB_CATALOG.count).toBe(STUDIO_TOOLS.length);
     expect(AGENT_LAB_CATALOG.plugins.map(({ id }) => id)).toEqual(

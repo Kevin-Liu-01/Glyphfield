@@ -9,6 +9,11 @@ import {
 } from '../shaderSequence';
 
 describe('shader sequence', () => {
+  it('keeps stateful simulations out of automatically sampled intro cuts', () => {
+    for (let offset = 0; offset < 12; offset += 1) {
+      expect(shaderSequenceMaterialIds('paper-gem-smoke', 12, undefined, offset)).not.toContain('pavel-fluid-energy');
+    }
+  });
   it('builds a unique ten-cut run that lands on the requested final material', () => {
     const materials = shaderSequenceMaterialIds('paper-gem-smoke', 10);
     expect(materials).toHaveLength(10);

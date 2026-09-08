@@ -39,6 +39,8 @@ Every active Studio tool registers `window.glyphfield.studio` (version 1). The A
 
 Design Lab actions include PNG/JPG stills, GIF, ordinary MP4, sequence GIF/MP4, sequence preview, stop, describe, and configure. `await invoke('design.export', { format, mode?, download? })` is the unified entry point. Export actions resolve to an object containing the generated `Blob`, file name, dimensions, and format; `download: true` also writes the file through the browser.
 
+Frame selection is a browser-native workflow, not a new HTTP generation kind. `design.frame.capture` persists the visible PNG appearance and returns portable source; `design.frame.play` resumes motion; `design.frame.seek` accepts `{ timeMs }` for seekable providers; `design.motion.describe` reports per-layer capabilities. `/api/materials` includes each material's motion model, PNG capture support, editable seek support, and known or unverified loop behavior. Stateful Fluid history is not seekable.
+
 ## Documentation search
 
 | Method | Route | Purpose |

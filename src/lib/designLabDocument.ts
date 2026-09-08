@@ -20,6 +20,7 @@ import {
   type CanvasJsonObject,
   type CanvasJsonValue,
 } from './canvasDocument';
+import { collectShaderFrameSnapshots, shaderFrameCanvasAsset } from './shaderFrameAssets';
 
 const DESIGN_LAB_SOURCE_VERSION = 4;
 const DESIGN_LAB_METADATA_KEY = 'designLab';
@@ -33,6 +34,7 @@ export type DesignLabDocumentInput = {
   createdAt: string;
   effectLayers: readonly object[];
   exportSettings: object;
+  frameAssets?: readonly CanvasAsset[];
   groups: readonly object[];
   id: string;
   layerOrder: readonly string[];
@@ -239,6 +241,15 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
       elementFromLayer(layer, type, input.width, input.height)
     );
   }
+  const suppliedFrames = new Map(input.frameAssets?.map((asset) => [asset.id, asset]));
+  for (const snapshot of collectShaderFrameSnapshots({
+    effectLayers: input.effectLayers,
+    layerShaders: input.layerShaders,
+    shaderLayers: input.shaderLayers,
+    workspace: input.workspace,
+  })) {
+    document = registerCanvasAsset(document, suppliedFrames.get(snapshot.assetId) ?? shaderFrameCanvasAsset(snapshot));
+  }
   const page = document.pages[pageId]!;
   return {
     ...document,
@@ -335,6 +346,13 @@ export function designLabSourceFromCanvasDocument(document: CanvasDocument): Can
     const layer = restoreLayer(document, element);
     sourcesByType[layer.type].push(layer.source);
   });
+  const frameAssets = collectShaderFrameSnapshots({ elements: document.elements, metadata }).map((snapshot) => {
+    const asset = document.assets[snapshot.assetId];
+    if (!asset || asset.kind !== 'image' || asset.mimeType !== 'image/png') {
+      throw new TypeError(`The captured shader frame ${snapshot.assetId} is missing its PNG asset.`);
+    }
+    return jsonValue(asset);
+  });
   return {
     canvasDimensions: { height: page.height, width: page.width },
     composition: {
@@ -349,6 +367,7 @@ export function designLabSourceFromCanvasDocument(document: CanvasDocument): Can
       textLayers: sourcesByType.text,
     },
     exportSettings: objectValue(metadata.exportSettings) ?? {},
+    frameAssets,
     ratio: stringValue(metadata.ratio, 'wide'),
     shaderSequence: objectValue(metadata.shaderSequence) ?? {},
     timeline: objectValue(metadata.timeline) ?? {},

@@ -51,7 +51,7 @@ describe('live materials', () => {
   it('keeps the ShaderGradient clock paused outside controlled capture', () => {
     expect(resolveShaderGradientMotionClock(null, 0.3, true)).toEqual({
       animate: 'off',
-      uSpeed: 0,
+      uSpeed: liveMaterialMotionRate(0.3),
       uTime: 0,
     });
     expect(resolveShaderGradientMotionClock(null, 0.3, false)).toEqual({

@@ -34,7 +34,8 @@ const SHADER_SEQUENCE_CANDIDATE_IDS: readonly LiveMaterialId[] = [
   'glyphfield-glyph-field',
   'paper-grain-gradient',
   'shaders-spectral-bloom',
-  'pavel-fluid-energy',
+  // Stateful Fluid cannot be sampled from timestamps for these exported cuts.
+  'paper-water',
 ];
 
 export function normalizeShaderSequenceSettings(

@@ -10,6 +10,7 @@ import {
 } from '@/lib/canvasDocument';
 import { imageUrlToDataUrl } from '@/lib/download';
 import { createPortableAssetResolverCache } from '@/lib/portableCanvasAssets';
+import { isShaderFrameAssetSource, resolveShaderFrameAssetSource } from '@/lib/shaderFrameAssets';
 
 export type PortableCanvasDocumentSource = {
   document: CanvasDocument | null;
@@ -42,7 +43,9 @@ export function usePortableCanvasDocumentSource(
 ): PortableCanvasDocumentSource {
   const immediate = useMemo(() => serializeImmediateDocument(document), [document]);
   const assetResolver = useMemo(
-    () => createPortableAssetResolverCache(imageUrlToDataUrl),
+    () => createPortableAssetResolverCache((source) => isShaderFrameAssetSource(source)
+      ? resolveShaderFrameAssetSource(source)
+      : imageUrlToDataUrl(source)),
     []
   );
   const [resolved, setResolved] = useState<{

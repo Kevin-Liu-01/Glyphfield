@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyCanvasMutation, parseCanvasDocument } from '../canvasDocument';
+import { shaderFrameCanvasAsset } from '../shaderFrameAssets';
 import {
   createDesignLabCanvasDocument,
   designLabSourceFromCanvasDocument,
@@ -89,6 +90,35 @@ function designLabInput(): DesignLabDocumentInput {
 }
 
 describe('Design Lab canvas document adapter', () => {
+  it('registers one durable frame asset for shared shader, content and inactive artboard snapshots', () => {
+    const frameSnapshot = { assetId: `shader-frame:${'a'.repeat(64)}`, height: 48, version: 1 as const, width: 96, futureField: 'preserved' };
+    const input = designLabInput();
+    input.shaderLayers = input.shaderLayers.map((layer) => ({ ...layer, frameSnapshot }));
+    input.layerShaders = { 'text-title': { materialId: 'paper-gem-smoke', frameSnapshot } };
+    input.workspace = { artboards: [{ id: 'inactive-artboard', snapshot: { shaderLayers: [{ id: 'shader-copy', frameSnapshot }] } }] };
+    const document = createDesignLabCanvasDocument(input);
+    expect(document.assets[frameSnapshot.assetId]).toEqual(shaderFrameCanvasAsset(frameSnapshot));
+    expect(Object.keys(document.assets).filter((id) => id.startsWith('shader-frame:'))).toEqual([frameSnapshot.assetId]);
+    const restored = designLabSourceFromCanvasDocument(document);
+    expect(restored.frameAssets).toEqual([shaderFrameCanvasAsset(frameSnapshot)]);
+    expect((restored.composition as Record<string, object[]>).shaderLayers?.[0]).toMatchObject({ frameSnapshot });
+    expect(restored.workspace).toEqual(input.workspace);
+  });
+
+  it('retains embedded frame assets through portable source roundtrips and rejects missing frames', () => {
+    const frameSnapshot = { assetId: `shader-frame:${'b'.repeat(64)}`, height: 1, version: 1 as const, width: 1 };
+    const input = designLabInput();
+    input.shaderLayers = input.shaderLayers.map((layer) => ({ ...layer, frameSnapshot }));
+    const asset = { ...shaderFrameCanvasAsset(frameSnapshot), byteLength: 4, source: 'data:image/png;base64,aGVybw==' };
+    input.frameAssets = [asset];
+    const source = serializeDesignLabCanvasDocument(input);
+    const restored = parseDesignLabCanvasDocument(source);
+    expect(restored.frameAssets).toEqual([asset]);
+    const broken = parseCanvasDocument(source);
+    delete broken.assets[frameSnapshot.assetId];
+    expect(() => designLabSourceFromCanvasDocument(broken)).toThrow(/missing its PNG asset/);
+  });
+
   it('writes the standard canvas schema with embedded image bytes', () => {
     const source = serializeDesignLabCanvasDocument(designLabInput());
     const document = parseCanvasDocument(source);

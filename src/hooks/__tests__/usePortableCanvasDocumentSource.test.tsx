@@ -7,8 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const download = vi.hoisted(() => ({
   imageUrlToDataUrl: vi.fn(),
 }));
+const shaderFrames = vi.hoisted(() => ({ resolveShaderFrameAssetSource: vi.fn() }));
 
 vi.mock('@/lib/download', () => download);
+vi.mock('@/lib/shaderFrameAssets', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/shaderFrameAssets')>(),
+  ...shaderFrames,
+}));
 
 import {
   usePortableCanvasDocumentSource,
@@ -67,6 +72,7 @@ describe('usePortableCanvasDocumentSource', () => {
   beforeEach(() => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     download.imageUrlToDataUrl.mockReset();
+    shaderFrames.resolveShaderFrameAssetSource.mockReset();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -112,6 +118,26 @@ describe('usePortableCanvasDocumentSource', () => {
     expect(download.imageUrlToDataUrl).toHaveBeenCalledWith('/uploads/artwork.png');
     expect(parseCanvasDocument(values.at(-1)!.source!).assets['resource:artwork']?.source)
       .toBe(embedded);
+  });
+
+  it('embeds durable shader frame sources through local blob storage without network requests', async () => {
+    const source = `glyphfield-shader-frame:${'a'.repeat(64)}`;
+    shaderFrames.resolveShaderFrameAssetSource.mockResolvedValue('data:image/png;base64,ZnJhbWU=');
+    const values = await render(documentWithAsset(source));
+    expect(values[0]?.status).toBe('preparing');
+    expect(values.at(-1)?.status).toBe('ready');
+    expect(shaderFrames.resolveShaderFrameAssetSource).toHaveBeenCalledWith(source);
+    expect(download.imageUrlToDataUrl).not.toHaveBeenCalled();
+    expect(parseCanvasDocument(values.at(-1)!.source!).assets['resource:artwork']?.source).toBe('data:image/png;base64,ZnJhbWU=');
+  });
+
+  it('keeps a document unsaveable when a captured frame has gone missing', async () => {
+    shaderFrames.resolveShaderFrameAssetSource.mockRejectedValue(new Error('Captured shader frame missing'));
+    const values = await render(documentWithAsset(`glyphfield-shader-frame:${'a'.repeat(64)}`));
+    expect(values.at(-1)?.status).toBe('error');
+    expect(values.at(-1)?.source).toBeNull();
+    expect(values.at(-1)?.error?.message).toContain('frame missing');
+    expect(download.imageUrlToDataUrl).not.toHaveBeenCalled();
   });
 
   it('invariant_embedding_failures_surface_an_error_instead_of_saving_partial_source', async () => {

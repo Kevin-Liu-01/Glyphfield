@@ -141,18 +141,18 @@ describe('Playground optional layers', () => {
 
   it('invalidates and refreshes an open preview when composition content changes', () => {
     expect(designLab).toContain('const savedDesignRevision = useMemo(() =>');
-    expect(designLab).toContain('const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:paused=${paused}`;');
+    expect(designLab).toContain('const compositionSignature = `${savedDesignRevision}:frame=${boundedPreviewFrame}:time=${previewTimeMs}:paused=${paused}`;');
     expect(designLab).toContain('refreshKey={currentExportSettingsSignature}');
     expect(exportPreview).toContain("const key = refreshKey ?? 'changed';");
     expect(exportPreview).toContain('onRefreshRef.current?.();');
     expect(exportPreview).not.toContain('Check the final framing and detail here.');
   });
 
-  it('defaults GIF output to a verified seamless temporal overlap', () => {
+  it('distinguishes a blended GIF closure from a native shader period', () => {
     expect(designLab).toContain("gifLoop: 'seamless'");
     expect(designLab).toContain("loopMode: normalizedExportSettings.gifLoop");
     expect(designLab).toContain('onLoopReport: (report) => { loopReport = report; }');
-    expect(designLab).toContain('frame overlap verified after render');
+    expect(designLab.includes('frame overlap; not a native shader period')).toBe(true);
     expect(exportPreview).toContain('Pixel-perfect loop verified');
     expect(studioStyles).toContain('.shader-export-loop-proof {');
   });
@@ -206,16 +206,17 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('assets: compositionAssets,');
     expect(designLab).toContain('logos: logoLayers,');
     expect(designLab).toContain('frame: boundedPreviewFrame,');
-    expect(designLab).toContain('timeline: { frame: boundedPreviewFrame, paused },');
+    expect(designLab).toContain('timeline: { frame: boundedPreviewFrame, paused, timeMs: previewTimeMs },');
     expect(designLab).toContain('setLogoLayers(nextLogoLayers);');
     expect(designLab).toContain('setCompositionAssets(nextAssets);');
     expect(designLab).toContain('setLayerGroups(nextGroups);');
     expect(designLab).toContain('setLayerOrder(nextOrder);');
     expect(designLab).toContain('shaderSequence: normalizedShaderSequenceSettings,');
     expect(designLab).toContain('setShaderSequenceSettings(nextShaderSequence);');
-    expect(designLab).toContain("aria-label='Deterministic motion timeline'");
-    expect(designLab).toContain('timeline: { frame: boundedPreviewFrame, paused },');
-    expect(designLab).toContain('snapshotAtCurrentShaderFrame(currentArtboardSnapshot, true)');
+    expect(designLab).toContain('<ShaderTimeExplorer');
+    expect(designLab).toContain('applyShaderFrameCaptures(sourceDocument, captures,');
+    expect(designLab).toContain('const captured = await captureArtboardBeforeLeaving();');
+    expect(designLab).toContain('prepareSource={prepareDesignVersionSource}');
     expect(designLab).toContain('actionHistory={canvasActionHistory}');
     expect(designLab).toContain('Live playback advances continuously and is not a user action');
     expect(designLab).not.toContain('assets: compositionAssets.map(({ appearance, id, name, opacity, transform })');
@@ -497,8 +498,8 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab).toContain("document.addEventListener('paste', handlePaste)");
     expect(designLab).toContain('serializeDesignLabClipboard({');
     expect(designLab).toContain('parseDesignLabClipboard(');
-    expect(designLab).toContain('remapDesignLabClipboardSnapshot(payload.snapshot, {');
-    expect(designLab).toContain('remapDesignLabClipboardSnapshot(payload.artboard.snapshot)');
+    expect(designLab.includes('remapDesignLabClipboardSnapshot(anchored, payload.kind')).toBe(true);
+    expect(designLab.includes('await hydrateDesignLabClipboardFrames(payload)')).toBe(true);
     expect(designLab).toContain("`Pasted ${nextArtboard.name} · autosaving`");
     expect(designLab).toContain("const workspaceAutosaveLabel = compositionAutosaveState === 'loading'");
     expect(designLab).toContain("? 'Autosave needs attention'");

@@ -14,6 +14,7 @@ import {
 } from './shaderLab';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 import { SURFACE_LAB_SHADER_PRESETS } from './surfaceLab';
+import { getShaderMotionCapabilities } from './shaderMotionCapabilities';
 
 const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
 const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
@@ -34,6 +35,7 @@ const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
             || (kind === 'background' && tool.id === 'opengraph')
           )),
     sharedShaderLibrary: SHARED_SHADER_LIBRARY_TOOLS.has(tool.id),
+    shaderFrameCapture: tool.id === 'material',
     sourceEditing: true,
   },
 }));
@@ -67,7 +69,16 @@ export const AGENT_SHADER_LIBRARY = {
   defaults: SHADER_LIBRARY_DEFAULT_IDS,
   engines: [...materialEngines.entries()].map(([name, count]) => ({ count, name })),
   lookPresets: LIVE_MATERIAL_LOOK_PRESETS,
-  materials: SHARED_SHADER_MATERIALS,
+  materials: SHARED_SHADER_MATERIALS.map((material) => ({
+    ...material,
+    motion: getShaderMotionCapabilities(material.id),
+  })),
+  framePersistence: {
+    appearance: 'lossless-png-snapshot',
+    editableRecipe: 'material settings plus native engine frame state',
+    history: 'Time samples are not recorded live history or a proven material loop.',
+    storage: 'Content-addressed IndexedDB blobs; portable CanvasDocument embeds PNG asset bytes.',
+  },
   palettes: LIVE_MATERIAL_PALETTES,
   schemaVersion: 1,
   sharedBy: ['animation', 'material'] as const,

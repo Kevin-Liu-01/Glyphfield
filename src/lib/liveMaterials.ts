@@ -243,6 +243,7 @@ export type ShaderGradientMotionClock = {
   uTime: number;
 };
 
+/** @deprecated Rendering uses createLiveMaterialClock and ShaderGradientSurface's native uniform bridge. */
 export function resolveShaderGradientMotionClock(
   captureTimeMs: number | null,
   speed: number,
@@ -261,7 +262,8 @@ export function resolveShaderGradientMotionClock(
 
   return {
     animate: paused ? 'off' : 'on',
-    uSpeed: paused ? 0 : liveMaterialMotionRate(speed),
+    // uSpeed is the loop path's radius, not its animation clock.
+    uSpeed: liveMaterialMotionRate(speed),
     uTime: 0,
   };
 }

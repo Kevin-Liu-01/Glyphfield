@@ -356,6 +356,7 @@ export default function DesignVersionControls({
   layout = 'toolbar',
   onNew,
   onOpen,
+  prepareSource,
   revision,
   source,
   toolId,
@@ -370,12 +371,14 @@ export default function DesignVersionControls({
   layout?: 'panel' | 'toolbar';
   onNew?: () => Promise<void> | void;
   onOpen: (source: string) => Promise<void> | void;
+  prepareSource?: () => Promise<string | { source: string; revision: string }>;
   revision?: string;
   source: string | null | (() => string | null);
   toolId: string;
   workspaceLabel: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const savePendingRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -386,6 +389,11 @@ export default function DesignVersionControls({
   const [renaming, setRenaming] = useState(false);
   const renameRequestRef = useRef(0);
   const workspaceStorageKey = savedDesignStorageKey(identityId, toolId);
+  const workspaceKeyRef = useRef(workspaceStorageKey);
+  useLayoutEffect(() => {
+    workspaceKeyRef.current = workspaceStorageKey;
+    return () => { workspaceKeyRef.current = ''; };
+  }, [workspaceStorageKey]);
   const [activeId, setActiveId] = usePersistentState<string | null>(
     activeSavedDesignStorageKey(identityId, toolId),
     null
@@ -439,10 +447,11 @@ export default function DesignVersionControls({
     window.setTimeout(() => setNotice(''), 1_800);
   }
 
-  function readCurrentSource(): string {
-    const value = typeof source === 'function' ? source() : source;
+  async function readCurrentSource(): Promise<{ source: string; revision: string }> {
+    const value = prepareSource ? await prepareSource() : typeof source === 'function' ? source() : source;
+    if (workspaceKeyRef.current !== workspaceStorageKey) throw new Error('The workspace changed before this design could be saved.');
     if (value === null) throw new Error('Portable source is still being prepared.');
-    return value;
+    return typeof value === 'string' ? { source: value, revision: currentRevision } : value;
   }
 
   async function createDesign(
@@ -453,38 +462,35 @@ export default function DesignVersionControls({
     designRevision = currentRevision,
     activate = true
   ): Promise<SavedDesign | null> {
-    let resolvedSource: string;
-    try {
-      resolvedSource = designSource ?? readCurrentSource();
-    } catch (sourceError) {
-      setError(sourceError instanceof Error ? sourceError.message : 'Portable source is not ready.');
-      setOpen(true);
-      return null;
-    }
-    const now = new Date().toISOString();
-    const design = createSavedDesign({
-      designs,
-      id: designId(),
-      name,
-      now,
-      origin,
-      parentId,
-      revision: designRevision,
-      source: resolvedSource,
-    });
+    if (savePendingRef.current) return null;
+    savePendingRef.current = true;
     setSaving(true);
     try {
+      const prepared = designSource === undefined ? await readCurrentSource() : { source: designSource, revision: designRevision };
+      const design = createSavedDesign({
+        designs,
+        id: designId(),
+        name,
+        now: new Date().toISOString(),
+        origin,
+        parentId,
+        revision: prepared.revision,
+        source: prepared.source,
+      });
       await saveSavedDesign(workspaceStorageKey, design);
+      if (workspaceKeyRef.current !== workspaceStorageKey) return null;
       setDesigns((current) => [design, ...current.filter(({ id }) => id !== design.id)]);
       if (activate) setActiveId(design.id);
       setError('');
       announce(origin === 'fork' ? 'Fork created' : origin === 'clone' ? 'Clone created' : 'Design saved');
       return design;
     } catch (saveError) {
+      if (workspaceKeyRef.current !== workspaceStorageKey) return null;
       setError(saveError instanceof Error ? saveError.message : 'This design could not be saved.');
       setOpen(true);
       return null;
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }
@@ -493,37 +499,35 @@ export default function DesignVersionControls({
     if (!activeDesign) {
       return Boolean(await createDesign(defaultName, 'saved'));
     }
-    let latestSource: string;
-    try {
-      latestSource = readCurrentSource();
-    } catch (sourceError) {
-      setError(sourceError instanceof Error ? sourceError.message : 'Portable source is not ready.');
-      setOpen(true);
-      return false;
-    }
-    const now = new Date().toISOString();
-    const savedDesign: SavedDesign = {
-      ...activeDesign,
-      revision: currentRevision,
-      source: latestSource,
-      updatedAt: now,
-    };
+    if (savePendingRef.current) return false;
+    savePendingRef.current = true;
     setSaving(true);
     try {
+      const prepared = await readCurrentSource();
+      const now = new Date().toISOString();
+      const savedDesign: SavedDesign = {
+        ...activeDesign,
+        revision: prepared.revision,
+        source: prepared.source,
+        updatedAt: now,
+      };
       await saveSavedDesign(workspaceStorageKey, savedDesign);
+      if (workspaceKeyRef.current !== workspaceStorageKey) return false;
       setDesigns((current) => updateSavedDesign(current, activeDesign.id, {
-        revision: currentRevision,
-        source: latestSource,
+        revision: prepared.revision,
+        source: prepared.source,
         updatedAt: now,
       }));
       setError('');
       announce('Changes saved');
       return true;
     } catch (saveError) {
+      if (workspaceKeyRef.current !== workspaceStorageKey) return false;
       setError(saveError instanceof Error ? saveError.message : 'These changes could not be saved.');
       setOpen(true);
       return false;
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }

@@ -67,6 +67,7 @@ import {
 import {
   Component,
   createElement,
+  useCallback,
   memo,
   useEffect,
   useMemo,
@@ -99,6 +100,7 @@ import {
   LIVE_MATERIAL_SETTINGS_PREVIEW_EVENT,
   LIVE_MATERIAL_TIME_PREVIEW_EVENT,
   normalizeLiveMaterialFrameState,
+  registerLiveMaterialRuntime,
   type LiveMaterialFrameState,
   type LiveMaterialPatternScalePreview,
   type LiveMaterialSettingsPreview,
@@ -106,7 +108,10 @@ import {
 } from '@/lib/liveMaterialPreview';
 import { resolveLiveMaterialPixelRatio } from '@/lib/liveMaterialRenderBudget';
 import { createLiveMaterialFrameLoop } from '@/lib/liveMaterialFrameLoop';
+import { createLiveMaterialClock, liveMaterialFramePointer, shouldAdvanceLiveFluid } from '@/lib/liveMaterialClock';
+import { createLiveMaterialPreviewSignal, hasUncommittedShaderPreview } from '@/lib/liveMaterialPreview';
 import { createShaderDiagnostics } from '@/lib/shaderDiagnostics';
+import { PAPER_MATERIAL_GRAIN_IMAGE, PAPER_MATERIAL_GRAIN_TILE_SIZE } from '@/lib/shaderFramePresentation';
 import { drawCanvasGlyph } from '@/lib/canvasDrawing';
 import { liveMaterialReadinessStatus, shouldMountLiveMaterial } from '@/lib/liveMaterialReadiness';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
@@ -120,6 +125,17 @@ import {
 const SHADER_ZOOM_RESPONSE_MS = 45;
 const PAPER_PREVIEW_FRAME_RATE = 30;
 const WEBGL_PREVIEW_FRAME_RATE = 60;
+
+function usePaintedLiveMaterialPreview(surface: RefObject<HTMLElement | null>) {
+  const signal = useRef<ReturnType<typeof createLiveMaterialPreviewSignal> | undefined>(undefined);
+  useMountEffect(() => {
+    if (!surface.current) return;
+    const current = createLiveMaterialPreviewSignal(surface.current);
+    signal.current = current;
+    return () => { signal.current = undefined; current.dispose(); };
+  });
+  return useCallback(() => signal.current?.publish(), []);
+}
 
 function useSmoothedShaderZoom(target: number, immediate = false): number {
   const boundedTarget = clampShaderZoom(target);
@@ -210,6 +226,7 @@ type WebglLiveMaterialCanvasProps = {
   captureTimeMs: number | null;
   diagnostics?: boolean;
   frameRate: number;
+  frameState?: LiveMaterialFrameState;
   maxPixelCount?: number;
   onContextLost: () => void;
   patternScale: number;
@@ -219,12 +236,12 @@ type WebglLiveMaterialCanvasProps = {
 };
 
 function useLiveMaterialInvalidation({
-  active, captureTimeMs, frameRate, maxPixelCount, patternScale, paused, renderScale, settings,
+  active, captureTimeMs, frameRate, frameState, maxPixelCount, patternScale, paused, renderScale, settings,
 }: Omit<WebglLiveMaterialCanvasProps, 'canvasRef' | 'onContextLost'>) {
   const invalidateRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     invalidateRef.current?.();
-  }, [active, captureTimeMs, frameRate, maxPixelCount, patternScale, paused, renderScale, settings]);
+  }, [active, captureTimeMs, frameRate, frameState, maxPixelCount, patternScale, paused, renderScale, settings]);
   return invalidateRef;
 }
 
@@ -920,6 +937,7 @@ function GlyphFieldCanvas({
   captureTimeMs,
   diagnostics: diagnosticsEnabled = false,
   frameRate,
+  frameState,
   maxPixelCount,
   patternScale,
   paused,
@@ -931,6 +949,7 @@ function GlyphFieldCanvas({
   captureTimeMs: number | null;
   diagnostics?: boolean;
   frameRate: number;
+  frameState?: LiveMaterialFrameState;
   maxPixelCount?: number;
   patternScale: number;
   paused: boolean;
@@ -938,6 +957,7 @@ function GlyphFieldCanvas({
   settings: LiveMaterialSettings;
 }) {
   const activeRef = useCommittedRef(active);
+  const frameStateRef = useCommittedRef(frameState);
   const captureTimeRef = useCommittedRef(captureTimeMs);
   const frameRateRef = useCommittedRef(frameRate);
   const maxPixelCountRef = useCommittedRef(maxPixelCount);
@@ -946,7 +966,7 @@ function GlyphFieldCanvas({
   const settingsRef = useCommittedRef(settings);
   const renderScaleRef = useCommittedRef(renderScale);
   const invalidateRef = useLiveMaterialInvalidation({
-    active, captureTimeMs, frameRate, maxPixelCount, patternScale, paused, renderScale, settings,
+    active, captureTimeMs, frameRate, frameState, maxPixelCount, patternScale, paused, renderScale, settings,
   });
 
   useMountEffect(() => {
@@ -963,23 +983,15 @@ function GlyphFieldCanvas({
 
     const glyphs = 'GLYPHFIELD';
     let didRender = false;
-    let elapsed = 0;
-    let previous = performance.now();
+    const clock = createLiveMaterialClock('canvas2d', 'glyphfield-glyph-field');
 
     function draw(time: number) {
-      if (!activeRef.current && captureTimeRef.current === null) {
-        previous = time;
-        return;
-      }
+      if (clock.frozen) return;
       const current = settingsRef.current;
-      const controlledTime = captureTimeRef.current;
-      const motionRate = liveMaterialMotionRate(current.speed);
-      const delta = Math.min(64, time - previous);
-      previous = time;
-      if (controlledTime === null && !pausedRef.current) elapsed += delta * motionRate;
-      const renderedTime = (controlledTime === null
-        ? elapsed
-        : liveMaterialMotionTimeMs(controlledTime, current.speed)) / 1000;
+      const renderedTime = clock.draw({ now: time, active: activeRef.current || captureTimeRef.current !== null,
+        paused: pausedRef.current, captureTimeMs: captureTimeRef.current,
+        rate: liveMaterialMotionRate(current.speed), frameState: frameStateRef.current }) / 1000;
+      if (!activeRef.current && captureTimeRef.current === null) return;
       const width = Math.max(1, drawingCanvas.clientWidth);
       const height = Math.max(1, drawingCanvas.clientHeight);
       const pixelRatio = resolveLiveMaterialPixelRatio({
@@ -1087,13 +1099,19 @@ function GlyphFieldCanvas({
     const loop = createLiveMaterialFrameLoop({
       draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
-      isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+      isAnimating: () => !clock.frozen && activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+    });
+    const unregister = registerLiveMaterialRuntime(drawingCanvas, {
+      readFrame: (timeline) => didRender ? clock.read(timeline) : undefined,
+      freeze: clock.freeze,
+      resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
     const resizeObserver = new ResizeObserver(loop.invalidate);
     resizeObserver.observe(drawingCanvas);
     loop.invalidate();
     return () => {
+      unregister();
       invalidateRef.current = null;
       resizeObserver.disconnect();
       loop.dispose();
@@ -1197,7 +1215,11 @@ function ProviderContextGuard({
       window.clearTimeout(recoveryTimer);
       observedCanvases.forEach((canvas) => {
         canvas.removeEventListener('webglcontextlost', handleContextLost);
-        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+        // React's development cleanup can run before a lazy provider creates
+        // its context. Never accidentally create a non-readable default
+        // buffer here: that first getContext call fixes attributes for life.
+        const context = canvas.getContext('webgl2', { preserveDrawingBuffer: true })
+          ?? canvas.getContext('webgl', { preserveDrawingBuffer: true });
         if (context) scheduleWebGLContextRelease(canvas, context);
       });
     };
@@ -1233,7 +1255,9 @@ function OriginalMaterialCanvas({
   captureTimeMs,
   diagnostics: diagnosticsEnabled = false,
   frameRate,
+  frameState,
   fragmentSource,
+  materialId,
   maxPixelCount,
   onContextLost,
   patternScale,
@@ -1242,12 +1266,14 @@ function OriginalMaterialCanvas({
   settings,
 }: WebglLiveMaterialCanvasProps & {
   fragmentSource: string;
+  materialId: LiveMaterialId;
 }) {
   const { activeRef, captureTimeRef, frameRateRef, patternScaleRef, pausedRef, settingsRef } = useWebglLiveMaterialRefs({ active, captureTimeMs, frameRate, patternScale, paused, settings });
   const maxPixelCountRef = useCommittedRef(maxPixelCount);
+  const frameStateRef = useCommittedRef(frameState);
   const renderScaleRef = useCommittedRef(renderScale);
   const invalidateRef = useLiveMaterialInvalidation({
-    active, captureTimeMs, frameRate, maxPixelCount, patternScale, paused, renderScale, settings,
+    active, captureTimeMs, frameRate, frameState, maxPixelCount, patternScale, paused, renderScale, settings,
   });
 
   useMountEffect(() => {
@@ -1340,10 +1366,12 @@ function OriginalMaterialCanvas({
     const rotationLocation = context.getUniformLocation(program, 'u_rotation');
     const scaleLocation = context.getUniformLocation(program, 'u_scale');
 
-    let elapsed = 0;
-    let previous = performance.now();
+    const clock = createLiveMaterialClock('webgl', materialId);
     let disposed = false;
-    const pointer = { x: 0.5, y: 0.5 };
+    let pointerSource = frameStateRef.current;
+    let savedPointer = liveMaterialFramePointer(pointerSource, materialId);
+    const pointer = { x: savedPointer?.x ?? 0.5, y: savedPointer?.y ?? 0.5 };
+    let renderedPointer = { ...pointer };
     let didRender = false;
 
     function handlePointerMove(event: PointerEvent) {
@@ -1369,19 +1397,18 @@ function OriginalMaterialCanvas({
     drawingCanvas.addEventListener('pointerleave', handlePointerLeave);
 
     function draw(time: number) {
-      if (!activeRef.current && captureTimeRef.current === null) {
-        previous = time;
-        return;
-      }
+      if (clock.frozen) return;
       const current = settingsRef.current;
-      const controlledTime = captureTimeRef.current;
-      const motionRate = liveMaterialMotionRate(current.speed);
-      const delta = Math.min(64, time - previous);
-      previous = time;
-      if (controlledTime === null && !pausedRef.current) elapsed += delta * motionRate;
-      const renderedTime = controlledTime === null
-        ? elapsed
-        : liveMaterialMotionTimeMs(controlledTime, current.speed);
+      const renderedTime = clock.draw({ now: time, active: activeRef.current || captureTimeRef.current !== null,
+        paused: pausedRef.current, captureTimeMs: captureTimeRef.current,
+        rate: liveMaterialMotionRate(current.speed), frameState: frameStateRef.current });
+      if (!activeRef.current && captureTimeRef.current === null) return;
+      const pointerAnchorChanged = pointerSource !== frameStateRef.current;
+      if (pointerAnchorChanged) {
+        pointerSource = frameStateRef.current;
+        savedPointer = liveMaterialFramePointer(pointerSource, materialId);
+      }
+      if (savedPointer && (pointerAnchorChanged || captureTimeRef.current !== null)) Object.assign(pointer, savedPointer);
       const cssWidth = Math.max(1, drawingCanvas.clientWidth);
       const cssHeight = Math.max(1, drawingCanvas.clientHeight);
       const pixelRatio = resolveLiveMaterialPixelRatio({
@@ -1415,6 +1442,7 @@ function OriginalMaterialCanvas({
       drawingContext.uniform1f(rotationLocation, current.rotationZ);
       drawingContext.uniform1f(scaleLocation, patternScaleRef.current);
       drawingContext.drawArrays(drawingContext.TRIANGLES, 0, 6);
+      renderedPointer = { ...pointer };
       if (!didRender) {
         didRender = true;
         drawingCanvas.dataset.liveMaterialReady = 'true';
@@ -1425,13 +1453,20 @@ function OriginalMaterialCanvas({
     const loop = createLiveMaterialFrameLoop({
       draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
-      isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+      isAnimating: () => !clock.frozen && activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+    });
+    const unregister = registerLiveMaterialRuntime(drawingCanvas, {
+      readFrame: (timeline) => didRender && !drawingContext.isContextLost()
+        ? { ...clock.read(timeline), pointer: { ...renderedPointer } } : undefined,
+      freeze: clock.freeze,
+      resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
     const resizeObserver = new ResizeObserver(loop.invalidate);
     resizeObserver.observe(drawingCanvas);
     loop.invalidate();
     return () => {
+      unregister();
       disposed = true;
       invalidateRef.current = null;
       resizeObserver.disconnect();
@@ -1457,37 +1492,6 @@ type FluidRenderTarget = {
   texture: WebGLTexture;
   width: number;
 };
-
-function fluidFrameTiming({
-  controlledTimeMs,
-  deltaMs,
-  elapsedMs,
-  motionRate,
-  paused,
-  previousControlledTimeMs,
-  speed,
-}: {
-  controlledTimeMs: number | null;
-  deltaMs: number;
-  elapsedMs: number;
-  motionRate: number;
-  paused: boolean;
-  previousControlledTimeMs: number | null;
-  speed: number;
-}) {
-  const nextElapsedMs = controlledTimeMs === null && !paused
-    ? elapsedMs + deltaMs * motionRate
-    : elapsedMs;
-  const renderedTime = controlledTimeMs === null
-    ? nextElapsedMs / 1000
-    : liveMaterialMotionTimeMs(controlledTimeMs, speed) / 1000;
-  const simulationDeltaMs = controlledTimeMs === null
-    ? deltaMs
-    : previousControlledTimeMs === null
-      ? 0
-      : Math.max(0, Math.min(100, controlledTimeMs - previousControlledTimeMs));
-  return { elapsedMs: nextElapsedMs, renderedTime, simulationDeltaMs };
-}
 
 function resizeFluidCanvas(canvas: HTMLCanvasElement, pixelRatio: number) {
   const width = Math.max(1, Math.round(canvas.clientWidth * pixelRatio));
@@ -1533,6 +1537,7 @@ function FluidSimulationCanvas({
   captureTimeMs,
   diagnostics: diagnosticsEnabled = false,
   frameRate,
+  frameState,
   maxPixelCount,
   onContextLost,
   patternScale,
@@ -1542,9 +1547,10 @@ function FluidSimulationCanvas({
 }: WebglLiveMaterialCanvasProps) {
   const { activeRef, captureTimeRef, frameRateRef, patternScaleRef, pausedRef, settingsRef } = useWebglLiveMaterialRefs({ active, captureTimeMs, frameRate, patternScale, paused, settings });
   const maxPixelCountRef = useCommittedRef(maxPixelCount);
+  const frameStateRef = useCommittedRef(frameState);
   const renderScaleRef = useCommittedRef(renderScale);
   const invalidateRef = useLiveMaterialInvalidation({
-    active, captureTimeMs, frameRate, maxPixelCount, patternScale, paused, renderScale, settings,
+    active, captureTimeMs, frameRate, frameState, maxPixelCount, patternScale, paused, renderScale, settings,
   });
 
   useMountEffect(() => {
@@ -1671,9 +1677,7 @@ function FluidSimulationCanvas({
     let dyeWrite: FluidRenderTarget | null = null;
     let simulationWidth = 0;
     let simulationHeight = 0;
-    let previous = performance.now();
-    let elapsed = 0;
-    let previousControlledTime: number | null = null;
+    const clock = createLiveMaterialClock('fluid', 'pavel-fluid-energy');
     const pointer = { activeUntil: 0, lastX: 0.5, lastY: 0.5, velocityX: 0, velocityY: 0, x: 0.5, y: 0.5 };
     let didRender = false;
 
@@ -1723,26 +1727,16 @@ function FluidSimulationCanvas({
     drawingCanvas.addEventListener('webglcontextlost', handleContextLost);
 
     function draw(time: number) {
-      if (!activeRef.current && captureTimeRef.current === null) {
-        previous = time;
-        return;
-      }
+      if (clock.frozen) return;
       const current = settingsRef.current;
       const controlledTime = captureTimeRef.current;
       const motionRate = liveMaterialMotionRate(current.speed);
-      const deltaMs = Math.min(42, Math.max(1, time - previous));
-      previous = time;
-      const timing = fluidFrameTiming({
-        controlledTimeMs: controlledTime,
-        deltaMs,
-        elapsedMs: elapsed,
-        motionRate,
-        paused: pausedRef.current,
-        previousControlledTimeMs: previousControlledTime,
-        speed: current.speed,
-      });
-      elapsed = timing.elapsedMs;
-      previousControlledTime = controlledTime;
+      const previousFrame = clock.frame;
+      const renderedTime = clock.draw({ now: time, rate: motionRate,
+        active: activeRef.current || controlledTime !== null, paused: pausedRef.current,
+        captureTimeMs: controlledTime, frameState: frameStateRef.current }) / 1000;
+      if (!activeRef.current && controlledTime === null) return;
+      const simulationDeltaMs = Math.max(0, (clock.frame - previousFrame) / Math.max(0.0001, motionRate));
       const pixelRatio = resolveLiveMaterialPixelRatio({
         cssHeight: drawingCanvas.clientHeight,
         cssWidth: drawingCanvas.clientWidth,
@@ -1763,65 +1757,72 @@ function FluidSimulationCanvas({
       const nextSimulationHeight = simulationDimensions.height;
 
       try {
+        // These textures are the in-memory simulation checkpoint. Do not reset
+        // them when the editor resizes or an artboard gains focus.
         if (fluidTargetsNeedInitialization(
           [velocityRead, velocityWrite, dyeRead, dyeWrite],
           simulationWidth,
           simulationHeight,
-          nextSimulationWidth,
-          nextSimulationHeight
+          simulationWidth || nextSimulationWidth,
+          simulationHeight || nextSimulationHeight
         )) {
           initializeTargets(nextSimulationWidth, nextSimulationHeight, current);
         }
         if (!velocityRead || !velocityWrite || !dyeRead || !dyeWrite) return;
         const texelX = 1 / simulationWidth;
         const texelY = 1 / simulationHeight;
-        const dt = Math.min(0.05, timing.simulationDeltaMs / 1000 * (0.72 + motionRate * 0.6));
+        const dt = Math.min(0.05, simulationDeltaMs / 1000 * (0.72 + motionRate * 0.6));
         const pointerActive = time < pointer.activeUntil ? 1 : 0;
 
-        prepareProgram(velocityProgram, velocityWrite, simulationWidth, simulationHeight);
-        bindTexture(velocityProgram, 'u_velocity', velocityRead.texture, 0);
-        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_texel'), texelX, texelY);
-        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer'), pointer.x, pointer.y);
-        gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer_velocity'), pointer.velocityX, pointer.velocityY);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_pointer_active'), pointerActive);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_dt'), dt);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_time'), timing.renderedTime);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_strength'), current.strength);
-        gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        [velocityRead, velocityWrite] = [velocityWrite, velocityRead];
+        // A seek is not a simulation replay. Retain state for captured/paused
+        // frames; zero-dt invalidations must not inject dye or decay velocity.
+        const advanceSimulation = shouldAdvanceLiveFluid(didRender, controlledTime, pausedRef.current, motionRate, dt);
+        if (advanceSimulation) {
+          prepareProgram(velocityProgram, velocityWrite, simulationWidth, simulationHeight);
+          bindTexture(velocityProgram, 'u_velocity', velocityRead.texture, 0);
+          gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_texel'), texelX, texelY);
+          gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer'), pointer.x, pointer.y);
+          gl.uniform2f(gl.getUniformLocation(velocityProgram, 'u_pointer_velocity'), pointer.velocityX, pointer.velocityY);
+          gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_pointer_active'), pointerActive);
+          gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_dt'), dt);
+          gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_time'), renderedTime);
+          gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_strength'), current.strength);
+          gl.uniform1f(gl.getUniformLocation(velocityProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          [velocityRead, velocityWrite] = [velocityWrite, velocityRead];
 
-        prepareProgram(dyeProgram, dyeWrite, simulationWidth, simulationHeight);
-        bindTexture(dyeProgram, 'u_dye', dyeRead.texture, 0);
-        bindTexture(dyeProgram, 'u_velocity', velocityRead.texture, 1);
-        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_a'), hexToRgb(current.colorA));
-        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_b'), hexToRgb(current.colorB));
-        gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_c'), hexToRgb(current.colorC));
-        gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_texel'), texelX, texelY);
-        gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_pointer'), pointer.x, pointer.y);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_pointer_active'), pointerActive);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_dt'), dt);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_time'), timing.renderedTime);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_amplitude'), current.amplitude);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_density'), current.density);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_strength'), current.strength);
-        gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        [dyeRead, dyeWrite] = [dyeWrite, dyeRead];
+          prepareProgram(dyeProgram, dyeWrite, simulationWidth, simulationHeight);
+          bindTexture(dyeProgram, 'u_dye', dyeRead.texture, 0);
+          bindTexture(dyeProgram, 'u_velocity', velocityRead.texture, 1);
+          gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_a'), hexToRgb(current.colorA));
+          gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_b'), hexToRgb(current.colorB));
+          gl.uniform3fv(gl.getUniformLocation(dyeProgram, 'u_color_c'), hexToRgb(current.colorC));
+          gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_texel'), texelX, texelY);
+          gl.uniform2f(gl.getUniformLocation(dyeProgram, 'u_pointer'), pointer.x, pointer.y);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_pointer_active'), pointerActive);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_dt'), dt);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_time'), renderedTime);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_amplitude'), current.amplitude);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_density'), current.density);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_strength'), current.strength);
+          gl.uniform1f(gl.getUniformLocation(dyeProgram, 'u_frequency'), current.frequency / patternScaleRef.current);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          [dyeRead, dyeWrite] = [dyeWrite, dyeRead];
+          pointer.velocityX *= 0.82;
+          pointer.velocityY *= 0.82;
+        }
 
         prepareProgram(displayProgram, null, width, height);
         bindTexture(displayProgram, 'u_dye', dyeRead.texture, 0);
         gl.uniform2f(gl.getUniformLocation(displayProgram, 'u_texel'), texelX, texelY);
         gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_brightness'), current.brightness);
         gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_grain'), current.grain);
-        gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_time'), timing.renderedTime);
+        gl.uniform1f(gl.getUniformLocation(displayProgram, 'u_time'), renderedTime);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       } catch {
         if (!disposed) requestMaterialContextRecovery(drawingCanvas, onContextLost, 0);
         return;
       }
-      pointer.velocityX *= 0.82;
-      pointer.velocityY *= 0.82;
       if (!didRender) {
         didRender = true;
         drawingCanvas.dataset.liveMaterialReady = 'true';
@@ -1832,13 +1833,20 @@ function FluidSimulationCanvas({
     const loop = createLiveMaterialFrameLoop({
       draw: diagnostics ? (time) => diagnostics.measureFrame(() => draw(time), time) : draw,
       frameRate: () => frameRateRef.current,
-      isAnimating: () => activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+      isAnimating: () => !clock.frozen && activeRef.current && !pausedRef.current && captureTimeRef.current === null,
+    });
+    const unregister = registerLiveMaterialRuntime(drawingCanvas, {
+      readFrame: (timeline) => didRender && !gl.isContextLost()
+        ? { ...clock.read(timeline), pointer: { x: pointer.x, y: pointer.y } } : undefined,
+      freeze: clock.freeze,
+      resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
     const resizeObserver = new ResizeObserver(loop.invalidate);
     resizeObserver.observe(drawingCanvas);
     loop.invalidate();
     return () => {
+      unregister();
       disposed = true;
       invalidateRef.current = null;
       resizeObserver.disconnect();
@@ -1881,7 +1889,8 @@ function useCappedPaperShaderClock(
   surfaceRef: RefObject<PaperShaderElement | null>,
   frameRate: number,
   speed: number,
-  enabled: boolean
+  enabled: boolean,
+  held: RefObject<boolean>
 ) {
   useEffect(() => {
     if (!enabled) return;
@@ -1895,6 +1904,11 @@ function useCappedPaperShaderClock(
 
     const draw = (time: number) => {
       if (disposed) return;
+      if (held.current) {
+        startTime = 0;
+        timeout = window.setTimeout(schedule, 16);
+        return;
+      }
       const mount = surfaceRef.current?.paperShaderMount;
       if (!mount) {
         timeout = window.setTimeout(schedule, 16);
@@ -1917,7 +1931,7 @@ function useCappedPaperShaderClock(
       cancelAnimationFrame(animationFrame);
       window.clearTimeout(timeout);
     };
-  }, [enabled, frameRate, speed, surfaceRef]);
+  }, [enabled, frameRate, held, speed, surfaceRef]);
 }
 
 function paperShaderRenderer(component: unknown, presets: readonly unknown[]): PaperShaderRenderer {
@@ -2000,7 +2014,8 @@ function paperShaderFrameAt(
   const motionTimeMs = paperShaderMotionTime(captureTimeMs, preserveGeometry, settings.speed)
     ?? captureTimeMs;
   const normalizedFrameState = normalizeLiveMaterialFrameState(frameState);
-  if (!normalizedFrameState) {
+  if (!normalizedFrameState || normalizedFrameState.engine !== 'paper'
+    || (normalizedFrameState.materialId && normalizedFrameState.materialId !== materialId)) {
     return presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + motionTimeMs * motionSpeed;
   }
   const anchorTimeMs = paperShaderMotionTime(
@@ -2056,7 +2071,7 @@ function PaperMaterialGrain({
     <span
       aria-hidden='true'
       className='paper-material-grain pointer-events-none absolute inset-0'
-      style={{ opacity: Math.min(0.34, settings.grain / 260) }}
+      style={{ opacity: Math.min(0.34, settings.grain / 260), backgroundImage: `url("${PAPER_MATERIAL_GRAIN_IMAGE}")` }}
     />
   );
 }
@@ -2103,6 +2118,7 @@ function PaperShaderSurface({
   sourceImage?: string;
 }) {
   const surfaceRef = useRef<PaperShaderElement>(null);
+  const heldRef = useRef(false);
   const [ready, setReady] = useState(false);
   useMountEffect(() => {
     const surface = surfaceRef.current;
@@ -2114,7 +2130,10 @@ function PaperShaderSurface({
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
   const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
-  const capturedFrameState = normalizeLiveMaterialFrameState(frameState);
+  const capturedFrameState = useMemo(() => {
+    const state = normalizeLiveMaterialFrameState(frameState);
+    return state?.engine === 'paper' && (!state.materialId || state.materialId === materialId) ? state : undefined;
+  }, [frameState, materialId]);
   const preserveGeometry = preservePresetAppearance || preservePresetGeometry;
   const motionMultiplier = preserveGeometry ? 1 : liveMaterialMotionRate(settings.speed);
   const controlledMotionTimeMs = paperShaderMotionTime(
@@ -2127,7 +2146,27 @@ function PaperShaderSurface({
     effectiveSpeed,
     frameRate
   );
-  useCappedPaperShaderClock(surfaceRef, cappedFrameRate, effectiveSpeed, manuallyTimed);
+  useCappedPaperShaderClock(surfaceRef, cappedFrameRate, effectiveSpeed, manuallyTimed, heldRef);
+  const nativeSpeedRef = useCommittedRef(nativeSpeed);
+  const paperSettingsRef = useCommittedRef(settings);
+  const preserveAppearanceRef = useCommittedRef(preserveGeometry);
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    const mount = surface?.paperShaderMount;
+    const canvas = surface?.querySelector('canvas');
+    if (!ready || !mount || !canvas) return;
+    return registerLiveMaterialRuntime(canvas, {
+      readFrame: (timelineTimeMs) => ({ engine: 'paper', version: 2, materialId,
+        frame: mount.getCurrentFrame(), timelineTimeMs: Math.max(0, timelineTimeMs) }),
+      freeze: () => { heldRef.current = true; mount.setSpeed(0); },
+      resume: () => { heldRef.current = false; mount.setSpeed(nativeSpeedRef.current); },
+      presentation: () => ({
+        filter: paperShaderFilter(preserveAppearanceRef.current, paperSettingsRef.current),
+        grainOpacity: preserveAppearanceRef.current ? 0 : Math.min(0.34, paperSettingsRef.current.grain / 260),
+        grainTileSize: PAPER_MATERIAL_GRAIN_TILE_SIZE * canvas.width / Math.max(1, canvas.clientWidth),
+      }),
+    });
+  }, [materialId, nativeSpeedRef, paperSettingsRef, preserveAppearanceRef, ready]);
   const usesImage = PAPER_IMAGE_SHADER_FAMILIES.has(definition.family)
     && !PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
   const rendersBackdrop = usesImage || PAPER_PROCEDURAL_BACKDROP_FAMILIES.has(definition.family);
@@ -2214,6 +2253,7 @@ function PaperShaderSurface({
     let animationFrame = 0;
     let disposed = false;
     const applyFrame = () => {
+      if (heldRef.current) return;
       const mount = surfaceRef.current?.paperShaderMount;
       if (!mount) {
         if (!disposed) animationFrame = requestAnimationFrame(applyFrame);
@@ -2383,6 +2423,7 @@ function LiveMaterialRenderView({
           >
             <ShaderGradientSurface
               captureTimeMs={captureTimeMs}
+              frameState={frameState}
               className=''
               loopDurationMs={loopDurationMs}
               maxPixelCount={maxPixelCount}
@@ -2407,6 +2448,7 @@ function LiveMaterialRenderView({
           captureTimeMs={captureTimeMs}
           diagnostics={diagnostics}
           frameRate={frameRate}
+          frameState={frameState}
           maxPixelCount={maxPixelCount}
           patternScale={patternScale}
           paused={paused || !active}
@@ -2427,6 +2469,7 @@ function LiveMaterialRenderView({
           captureTimeMs={captureTimeMs}
           diagnostics={diagnostics}
           frameRate={frameRate}
+          frameState={frameState}
           key={`pavel-fluid-${contextVersion}`}
           maxPixelCount={maxPixelCount}
           onContextLost={onContextLost}
@@ -2478,6 +2521,8 @@ function LiveMaterialRenderView({
         captureTimeMs={captureTimeMs}
         diagnostics={diagnostics}
         frameRate={frameRate}
+        frameState={frameState}
+        materialId={materialId}
         fragmentSource={`${FRAGMENT_SHARED}${SHADERS_FRAGMENT_BODIES[materialId]}`}
         key={`${materialId}-${contextVersion}`}
         maxPixelCount={maxPixelCount}
@@ -2517,6 +2562,7 @@ function LiveMaterialCanvas({
 }: LiveMaterialCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const publishPaintedPreview = usePaintedLiveMaterialPreview(containerRef);
   const [workspaceActive, setWorkspaceActive] = useState(true);
   useAncestorWorkspaceActivity(containerRef, setWorkspaceActive);
   const captureTimeMsRef = useCommittedRef(captureTimeMs);
@@ -2538,6 +2584,9 @@ function LiveMaterialCanvas({
   const [settingsPreview, setSettingsPreview] = useState<PropBoundPreview<Partial<LiveMaterialSettings>, LiveMaterialSettings> | null>(null);
   const settingsPreviewRef = useCommittedRef(settingsPreview);
   const resolvedSettings = resolveLiveSettingsPreview(settingsPreview, settings);
+  useEffect(() => {
+    if (settingsPreview || patternPreview || timePreview) publishPaintedPreview();
+  }, [settingsPreview, patternPreview, timePreview, publishPaintedPreview]);
   const [webGL2Available, setWebGL2Available] = useState<boolean | null>(null);
   const [renderVisible, setRenderVisible] = useState(true);
   const [documentVisible, setDocumentVisible] = useState(true);
@@ -2620,7 +2669,7 @@ function LiveMaterialCanvas({
       const nextPreview = pendingPreview;
       pendingPreview = null;
       if (isPaperLiveMaterialId(resolvedMaterialId) && paperPreviewActive) {
-        applyPaperShaderFrame(
+        const applied = applyPaperShaderFrame(
           containerRef.current,
           resolvedMaterialId,
           nextPreview.value,
@@ -2628,6 +2677,7 @@ function LiveMaterialCanvas({
           preservePresetAppearance || preservePresetGeometry,
           settingsRef.current
         );
+        if (applied) publishPaintedPreview();
         return;
       }
       paperPreviewActive = isPaperLiveMaterialId(resolvedMaterialId);
@@ -2667,6 +2717,7 @@ function LiveMaterialCanvas({
     preservePresetGeometry,
     previewFrameRate,
     previewGroup,
+    publishPaintedPreview,
     resolvedMaterialId,
     frameState,
     settingsRef,
@@ -2771,6 +2822,7 @@ function LiveMaterialCanvas({
     <div
       className={`absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden ${className}`}
       data-live-material-surface={resolvedMaterialId}
+      data-live-material-editing={hasUncommittedShaderPreview(settingsPreview, settings, patternPreview, patternScale, timePreview, captureTimeMs) ? 'true' : undefined}
       data-live-material-ready={liveMaterialReadinessStatus(requiresWebGL2, webGL2Available, activeRecovery.failed)}
       ref={containerRef}
       style={{

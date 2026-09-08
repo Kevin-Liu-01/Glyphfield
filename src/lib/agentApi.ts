@@ -208,6 +208,27 @@ export const STUDIO_BROWSER_API_CONTRACT = {
     set: 'Set a visible form control by accessible label',
   },
   standardActions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
+  toolActions: {
+    material: {
+      'design.frame.capture': {
+        description: 'Freeze ready native shader pixels and persist lossless PNG checkpoints with editable renderer state.',
+        input: 'No input',
+        output: 'Portable CanvasDocument JSON string with embedded captured-frame assets',
+      },
+      'design.frame.play': {
+        description: 'Resume native shader playback. Stateful fluid restarts; its saved PNG is not a simulation checkpoint.',
+        input: 'No input',
+      },
+      'design.frame.seek': {
+        description: 'Select shader time for editable, seekable materials; reject stateful simulation replay.',
+        input: '{ timeMs: non-negative finite number }',
+      },
+      'design.motion.describe': {
+        description: 'Describe current layer providers, seek/capture support, and known or unverified loop behavior.',
+        input: 'No input',
+      },
+    },
+  },
   version: 1,
 } as const;
 
@@ -241,6 +262,7 @@ export const AGENT_MANIFEST = {
       'Re-read source or controls after every mutation and confirm the requested state.',
       'For a rendered artifact, verify that the returned Blob is non-empty and its MIME type and file name match the requested format.',
       'For visual work, inspect the authentic rendered canvas; for motion, inspect more than the first frame and verify the requested loop behavior.',
+      'For an exact saved shader look, invoke design.frame.capture and retain its portable source. Continuous playback is not proof of a finite seamless loop.',
       'Report browser capability failures explicitly. Never claim an export completed from a successful request alone.',
     ],
     discoveryOrder: [
@@ -396,7 +418,7 @@ export const OPENAPI_DOCUMENT = {
     },
     '/api/materials': {
       get: {
-        responses: { '200': { description: 'Complete shader library, controls, palettes, presets, attribution, and background/logo layer compatibility' } },
+        responses: { '200': { description: 'Complete shader library, controls, palettes, presets, attribution, layer compatibility, per-material motion/seek/loop capabilities, and PNG frame persistence contract' } },
         summary: 'List every shader available for independent background and logo layers',
       },
     },

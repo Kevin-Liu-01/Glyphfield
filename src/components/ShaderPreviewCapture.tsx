@@ -1,8 +1,10 @@
 'use client';
 
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ShaderPreviewDiagnostics from '@/components/ShaderPreviewDiagnostics';
+import ShaderFrameCaptureDiagnostics from '@/components/ShaderFrameCaptureDiagnostics';
+import type { LiveMaterialFrameState } from '@/lib/liveMaterialPreview';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   normalizeLiveMaterialId,
@@ -12,10 +14,17 @@ import { shaderPreviewCaptureSettings } from '@/lib/shaderLab';
 export default function ShaderPreviewCapture({ diagnostics = false, livePlayback = false, materialId: requestedMaterialId }: { diagnostics?: boolean; livePlayback?: boolean; materialId: string }) {
   const rootRef = useRef<HTMLElement>(null);
   const [captureTimeMs, setCaptureTimeMs] = useState(1_600);
+  const [testFrame, setTestFrame] = useState<{ state?: LiveMaterialFrameState; timeMs: number | null; key: number }>({ timeMs: null, key: 0 });
+  const pendingRestore = useRef<(() => void)[]>([]);
+  const restore = useCallback((state: LiveMaterialFrameState, timeMs: number | null, remount: boolean) => new Promise<void>((resolve) => {
+    pendingRestore.current.push(resolve);
+    setTestFrame((previous) => ({ state, timeMs, key: previous.key + Number(remount) }));
+  }), []);
+  useEffect(() => { pendingRestore.current.splice(0).forEach((resolve) => resolve()); }, [testFrame]);
   const materialId = normalizeLiveMaterialId(requestedMaterialId);
   const settings = shaderPreviewCaptureSettings(materialId, DEFAULT_LIVE_MATERIAL_SETTINGS);
   // Explicit benchmark mode only; catalog captures stay deterministic by default.
-  const live = diagnostics && livePlayback;
+  const live = diagnostics && livePlayback && testFrame.timeMs === null;
 
   return (
     <main
@@ -32,7 +41,9 @@ export default function ShaderPreviewCapture({ diagnostics = false, livePlayback
     >
       <LiveMaterialCanvas
         activeWhileMounted
-        captureTimeMs={live ? null : captureTimeMs}
+        captureTimeMs={live ? null : testFrame.timeMs ?? captureTimeMs}
+        frameState={testFrame.state}
+        key={testFrame.key}
         className='absolute inset-0 size-full'
         diagnostics={diagnostics && !live}
         materialId={materialId}
@@ -42,6 +53,7 @@ export default function ShaderPreviewCapture({ diagnostics = false, livePlayback
         settings={settings}
       />
       {diagnostics && !live && <ShaderPreviewDiagnostics captureTimeMs={captureTimeMs} materialId={materialId} rootRef={rootRef} setCaptureTimeMs={setCaptureTimeMs} />}
+      {diagnostics && livePlayback && <ShaderFrameCaptureDiagnostics materialId={materialId} rootRef={rootRef} restore={restore} />}
     </main>
   );
 }

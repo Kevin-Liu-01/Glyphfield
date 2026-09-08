@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react';
+import { act, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import StudioContextMenu from '@/components/ui/StudioContextMenu';
+import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -82,5 +83,40 @@ describe('StudioContextMenu', () => {
     expect(onClose).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(anchor);
     anchor.remove();
+  });
+
+  it('preserves canvas selection through a pointer gesture on its portalled action', () => {
+    const action = vi.fn();
+    const dismissSelection = vi.fn();
+    function CanvasMenu() {
+      const boundary = useRef<HTMLDivElement>(null);
+      const [open, setOpen] = useState(true);
+      useCanvasSelectionDismiss(boundary, () => {
+        dismissSelection();
+        setOpen(false);
+      });
+      return <>
+        <div ref={boundary}>Selected canvas layer</div>
+        <StudioContextMenu
+          label='Selection actions'
+          onClose={() => setOpen(false)}
+          position={open ? { x: 24, y: 24 } : null}
+          sections={[{ items: [{ id: 'copy', label: 'Copy', onSelect: action }] }]}
+        />
+      </>;
+    }
+    act(() => root.render(<CanvasMenu />));
+    const item = document.querySelector<HTMLButtonElement>('[role="menuitem"]')!;
+    act(() => item.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })));
+    expect(dismissSelection).not.toHaveBeenCalled();
+    expect(item.isConnected).toBe(true);
+    act(() => {
+      item.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+      item.click();
+    });
+    expect(action).toHaveBeenCalledOnce();
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    act(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })));
+    expect(dismissSelection).toHaveBeenCalledOnce();
   });
 });

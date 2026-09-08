@@ -59,13 +59,13 @@ After choosing a material, use the adjacent inspector to edit it. Paper presets,
 - **Orientation:** X, Y, and Z rotation
 - **Motion:** playback speed
 - **Scale:** logarithmic shader zoom from `0.1×` to `10×`
-- **Frame:** a deterministic material-time slider that can pause on an exact look
+- **Frame:** capability-aware time selection and a persistent lossless appearance capture in Design Lab
 
 The palette menu includes the active identity plus curated signal, mineral, paper, dither, monochrome, mercury, ultraviolet, copper, arctic, vermilion, and cobalt starting points. Each palette applies a coordinated group of three colors without locking later edits.
 
 Not every underlying shader interprets a control identically. The common settings are mapped into the vocabulary of each renderer so switching materials remains predictable while each family keeps its own character.
 
-Shader time, pause state, size, colors, and every common setting are part of the host document. Saved Design Lab compositions therefore reopen on the authored material frame instead of restarting from an unrelated wall-clock time.
+Shader time, pause state, size, colors, and every common setting are part of the host document. Design Lab also saves a lossless PNG for captured appearances, alongside editable native frame state. Its time explorer is not a recording of every live frame and does not imply that every shader has a finite loop. Fluid Energy can be captured as a still, but its history-dependent simulation cannot be reconstructed from a time value; restarting motion starts a new simulation. Read each catalog record's `motion` capabilities before choosing seek or loop behavior.
 
 ## Converted source assets
 
@@ -104,6 +104,6 @@ The animation canvas also supports direct size editing: drag the right edge to c
 
 Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation composites selected shader backgrounds into GIF or MP4 and keeps material time synchronized with its playhead. Live WebGL output uses the browser renderer and is programmatically available through `window.glyphfield.studio`; deterministic background generation remains available through `POST /api/generate`.
 
-Design Lab's portable source preserves the material ID and settings inside shader elements and metadata, including layer opacity/blend, source assets, frame history, transforms, and sequence timing. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source returned by the current tool as the authoritative schema for round trips.
+Design Lab's portable source preserves the material ID and settings inside shader elements and metadata, including layer opacity/blend, source assets, captured PNG assets, native frame state, transforms, and sequence timing. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source returned by the current tool as the authoritative schema for round trips.
 
 See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.
