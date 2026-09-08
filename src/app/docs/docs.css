@@ -1422,7 +1422,8 @@ body:has(#nd-docs-layout)
 
 @media (min-width: 768px) {
   #nd-docs-layout {
-    --fd-header-height: 80px;
+    /* The desktop controls float independently; there is no header row to offset. */
+    --fd-header-height: 0px;
   }
 
   #nd-docs-layout #nd-subnav {

@@ -33,6 +33,7 @@ describe('documentation responsive shell', () => {
   });
 
   it('switches from desktop rails to mobile navigation without losing search', () => {
+    expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) \{[\s\S]*?--fd-header-height: 0px;/);
     expect(docsRouteStyles).toMatch(/@media \(max-width: 767\.98px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
     expect(docsRouteStyles).toMatch(/@media \(max-width: 767\.98px\) \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) !important;[\s\S]*?'header'[\s\S]*?'toc-popover'[\s\S]*?'main'/);
     expect(docsRouteStyles).toMatch(/#nd-docs-layout #nd-page\.glyphfield-doc-page \{[\s\S]*?width: 100%;[\s\S]*?grid-area: main;/);
