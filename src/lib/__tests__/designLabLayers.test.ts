@@ -535,14 +535,14 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab).not.toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject' ? { borderEnabled: false } : {}");
   });
 
-  it('portals single- and multi-selection chrome above the clipped canvas viewport', () => {
-    expect(editableCanvasLayer).toContain('createPortal(');
-    expect(editableCanvasLayer).toContain('const portalHost = useDocumentBody();');
-    expect(editableCanvasLayer).toContain('portalHost={portalHost}');
+  it('contains single- and multi-selection chrome inside their canvas viewport', () => {
+    expect(editableCanvasLayer).toContain('<CanvasSelectionClip viewport={viewport}>');
+    expect(editableCanvasLayer).not.toContain('useDocumentBody');
+    expect(editableCanvasLayer).toContain('canvasSelectionLocalBounds(');
     expect(designLab).toContain('<CanvasSelectionAssemblyOverlay');
-    expect(designLab).toContain('document.body');
-    expect(studioStyles).toMatch(/\.editable-canvas-layer-selection \{[\s\S]*?position: fixed;[\s\S]*?z-index: 2147483000;/);
-    expect(studioStyles).toMatch(/\.canvas-selection-assembly \{[\s\S]*?position: fixed;[\s\S]*?z-index: 2147483000;/);
+    expect(designLab).toContain('<CanvasSelectionClip viewport={viewport}>');
+    expect(studioStyles).toMatch(/\.editable-canvas-layer-selection \{\s*position: absolute;/);
+    expect(studioStyles).toMatch(/\.canvas-selection-assembly \{\s*position: absolute;/);
   });
 
   it('gives the corner resize arrow a generous invisible hit target', () => {

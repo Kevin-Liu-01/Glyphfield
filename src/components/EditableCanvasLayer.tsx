@@ -4,9 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from '@/components/ui/SolidIcons';
 
-import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
+import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
-import { useDocumentBody } from '@/hooks/useMountEffect';
 import {
   MIN_CANVAS_LAYER_SCALE,
   canvasLayerBounds,
@@ -46,7 +45,7 @@ type SelectionBounds = {
   height: number;
   left: number;
   top: number;
-  viewportClipPath?: string;
+  viewport: HTMLElement;
   width: number;
 };
 
@@ -57,25 +56,27 @@ type BeginPointer = (
 
 const CANVAS_SELECTION_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 
+function findCanvasAssemblyOverlay(layer: Element): HTMLElement | null {
+  return layer.closest('.canvas-viewport')?.querySelector<HTMLElement>('.canvas-selection-assembly') ?? null;
+}
+
 function CanvasLayerSelectionOverlay({
   beginPointer,
   label,
-  portalHost,
   resizeMode,
   selectionBounds,
   selectionOverlayRef,
 }: {
   beginPointer: BeginPointer;
   label: string;
-  portalHost: HTMLElement | null;
   resizeMode: CanvasLayerResizeMode;
   selectionBounds: SelectionBounds | null;
   selectionOverlayRef: RefObject<HTMLDivElement | null>;
 }) {
-  if (!portalHost || !selectionBounds) return null;
-  const { viewportClipPath, ...bounds } = selectionBounds;
-  return createPortal(
-    <CanvasSelectionClip clipPath={viewportClipPath}>
+  if (!selectionBounds) return null;
+  const { viewport, ...bounds } = selectionBounds;
+  return (
+    <CanvasSelectionClip viewport={viewport}>
       <div
         className='editable-canvas-layer-selection'
         data-canvas-selection-preserve
@@ -123,8 +124,7 @@ function CanvasLayerSelectionOverlay({
           <MoveDiagonal2 aria-hidden='true' />
         </button>
       </div>
-    </CanvasSelectionClip>,
-    portalHost
+    </CanvasSelectionClip>
   );
 }
 
@@ -318,13 +318,11 @@ function useCanvasLayerSelectionBounds({
     }
     const bounds = layer?.getBoundingClientRect();
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
-    const viewport = layer?.closest('.canvas-viewport-scroll, .canvas-viewport') ?? null;
+    const viewport = layer?.closest<HTMLElement>('.canvas-viewport');
+    if (!viewport) return;
     const next = {
-      height: bounds.height,
-      left: bounds.left,
-      top: bounds.top,
-      viewportClipPath: canvasSelectionViewportClipPath(viewport),
-      width: bounds.width,
+      ...canvasSelectionLocalBounds(bounds, viewport),
+      viewport,
     };
     const overlay = selectionOverlayRef.current;
     if (overlay) {
@@ -332,14 +330,13 @@ function useCanvasLayerSelectionBounds({
       overlay.style.left = `${next.left}px`;
       overlay.style.top = `${next.top}px`;
       overlay.style.width = `${next.width}px`;
-      if (overlay.parentElement) overlay.parentElement.style.clipPath = next.viewportClipPath ?? '';
     }
     setSelectionBounds((current) => current
       && Math.abs(current.height - next.height) < 0.25
       && Math.abs(current.left - next.left) < 0.25
       && Math.abs(current.top - next.top) < 0.25
       && Math.abs(current.width - next.width) < 0.25
-      && current.viewportClipPath === next.viewportClipPath
+      && current.viewport === next.viewport
       ? current
       : next);
   }, [layerRef, selectionOverlayRef]);
@@ -372,7 +369,7 @@ function useCanvasLayerSelectionBounds({
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(layer);
     if (layer.parentElement) resizeObserver.observe(layer.parentElement);
-    const viewport = layer.closest('.canvas-viewport-scroll, .canvas-viewport');
+    const viewport = layer.closest('.canvas-viewport');
     if (viewport) resizeObserver.observe(viewport);
     const stage = layer.closest('.canvas-viewport-stage');
     const stageObserver = stage ? new MutationObserver(measureImmediately) : null;
@@ -445,7 +442,6 @@ export default function EditableCanvasLayer({
   const sessionRef = useRef<PointerSession | null>(null);
   const pendingPointerRef = useRef<{ clientX: number; clientY: number; pointerId: number } | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
-  const portalHost = useDocumentBody();
   const [smartGuides, setSmartGuides] = useState<CanvasSmartGuides>({ x: null, y: null });
   const resizePreviewTransformRef = useRef<CanvasLayerTransform | null>(null);
   const directPreviewActiveRef = useRef(false);
@@ -477,9 +473,27 @@ export default function EditableCanvasLayer({
     directPreviewCommitPendingRef.current = false;
   }
 
+  function updateSelectionPreview(overlay: HTMLElement, nextTransform: CanvasLayerTransform, session: PointerSession) {
+    const viewport = overlay.closest<HTMLElement>('.canvas-viewport');
+    if (!viewport) return;
+    const next = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
+    const local = canvasSelectionLocalBounds({
+      left: session.parentBounds.left + next.left / canvasWidth * session.parentBounds.width,
+      top: session.parentBounds.top + next.top / canvasHeight * session.parentBounds.height,
+      width: next.width / canvasWidth * session.parentBounds.width,
+      height: next.height / canvasHeight * session.parentBounds.height,
+    }, viewport);
+    overlay.style.left = `${local.left}px`;
+    overlay.style.top = `${local.top}px`;
+    overlay.style.width = `${local.width}px`;
+    overlay.style.height = `${local.height}px`;
+  }
+
   function applyDirectInteractionPreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
     const layer = layerRef.current;
     if (!layer) return;
+    const overlay = selectionOverlayRef.current;
+    if (overlay) updateSelectionPreview(overlay, nextTransform, session);
     const startDimensions = canvasLayerDimensions(session.startTransform, { baseHeight, baseWidth });
     const nextDimensions = canvasLayerDimensions(nextTransform, { baseHeight, baseWidth });
     const translateX = (nextTransform.x - session.startTransform.x) / Math.max(startDimensions.width, 0.001) * 100;
@@ -491,15 +505,6 @@ export default function EditableCanvasLayer({
     layer.dataset.interactionPreview = 'gpu';
     directPreviewElementsRef.current = [layer];
 
-    const overlay = selectionOverlayRef.current;
-    if (overlay) {
-      const nextBounds = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
-      overlay.style.left = `${session.parentBounds.left + nextBounds.left / canvasWidth * session.parentBounds.width}px`;
-      overlay.style.top = `${session.parentBounds.top + nextBounds.top / canvasHeight * session.parentBounds.height}px`;
-      overlay.style.width = `${nextBounds.width / canvasWidth * session.parentBounds.width}px`;
-      overlay.style.height = `${nextBounds.height / canvasHeight * session.parentBounds.height}px`;
-    }
-
     resizePreviewTransformRef.current = nextTransform;
     directPreviewActiveRef.current = true;
   }
@@ -507,6 +512,8 @@ export default function EditableCanvasLayer({
   function applyDirectBoxResizePreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
     const layer = layerRef.current;
     if (!layer) return;
+    const overlay = selectionOverlayRef.current;
+    if (overlay) updateSelectionPreview(overlay, nextTransform, session);
     const nextBounds = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
     layer.style.left = `${nextBounds.left / canvasWidth * 100}%`;
     layer.style.top = `${nextBounds.top / canvasHeight * 100}%`;
@@ -516,14 +523,6 @@ export default function EditableCanvasLayer({
       : `${nextBounds.height / canvasHeight * 100}%`;
     layer.style.willChange = 'left, top, width, height';
     layer.dataset.interactionPreview = 'direct-box';
-
-    const overlay = selectionOverlayRef.current;
-    if (overlay) {
-      overlay.style.left = `${session.parentBounds.left + nextBounds.left / canvasWidth * session.parentBounds.width}px`;
-      overlay.style.top = `${session.parentBounds.top + nextBounds.top / canvasHeight * session.parentBounds.height}px`;
-      overlay.style.width = `${nextBounds.width / canvasWidth * session.parentBounds.width}px`;
-      overlay.style.height = `${nextBounds.height / canvasHeight * session.parentBounds.height}px`;
-    }
 
     directPreviewElementsRef.current = [layer];
     resizePreviewTransformRef.current = nextTransform;
@@ -545,6 +544,11 @@ export default function EditableCanvasLayer({
   function applyDirectGroupMovePreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
     const deltaX = (nextTransform.x - session.startTransform.x) / canvasWidth * session.parentBounds.width;
     const deltaY = (nextTransform.y - session.startTransform.y) / canvasHeight * session.parentBounds.height;
+    const viewport = session.groupOverlay?.closest<HTMLElement>('.canvas-viewport');
+    if (session.groupOverlay && viewport) {
+      const delta = canvasSelectionLocalBounds({ left: 0, top: 0, width: deltaX, height: deltaY }, viewport);
+      session.groupOverlay.style.transform = `translate3d(${delta.width}px, ${delta.height}px, 0)`;
+    }
     session.groupElements.forEach(({ element, height: elementHeight, width: elementWidth }) => {
       const translateX = deltaX / Math.max(elementWidth, 0.001) * 100;
       const translateY = deltaY / Math.max(elementHeight, 0.001) * 100;
@@ -552,9 +556,6 @@ export default function EditableCanvasLayer({
       element.style.willChange = 'transform';
       element.dataset.interactionPreview = 'gpu-group';
     });
-    if (session.groupOverlay) {
-      session.groupOverlay.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
-    }
     directPreviewElementsRef.current = session.groupElements.map(({ element }) => element);
     directPreviewOverlayRef.current = session.groupOverlay;
     resizePreviewTransformRef.current = nextTransform;
@@ -700,7 +701,7 @@ export default function EditableCanvasLayer({
         const siblingBounds = sibling.getBoundingClientRect();
         return [{ element: sibling, height: siblingBounds.height, width: siblingBounds.width }];
       }) : [],
-      groupOverlay: movementBounds ? document.querySelector<HTMLElement>('.canvas-selection-assembly') : null,
+      groupOverlay: movementBounds ? findCanvasAssemblyOverlay(parent) : null,
       moved: false,
       mode,
       parentBounds,
@@ -915,7 +916,6 @@ export default function EditableCanvasLayer({
       <CanvasLayerSelectionOverlay
         beginPointer={beginPointer}
         label={label}
-        portalHost={portalHost}
         resizeMode={resizeMode}
         selectionBounds={interactive && presentation.selectionBounds ? selectionBounds : null}
         selectionOverlayRef={selectionOverlayRef}

@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
+import { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
 
 describe('canvas selection clipping', () => {
   let container: HTMLDivElement;
@@ -23,7 +24,7 @@ describe('canvas selection clipping', () => {
     );
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => window.clearTimeout(id));
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      if (this.classList.contains('canvas-viewport-scroll')) return viewportBounds;
+      if (this.classList.contains('canvas-viewport') || this.classList.contains('canvas-viewport-scroll')) return viewportBounds;
       return layerBounds;
     });
     container = document.createElement('div');
@@ -42,7 +43,8 @@ describe('canvas selection clipping', () => {
   async function render(initializing = false) {
     const onChange = vi.fn();
     await act(() => root.render(
-      <div className='canvas-viewport-scroll'>
+      <div className='canvas-viewport'>
+        <div className='canvas-viewport-scroll'>
         <div
           className='canvas-viewport-stage'
           data-canvas-initializing={initializing ? 'true' : undefined}
@@ -66,6 +68,7 @@ describe('canvas selection clipping', () => {
             Shader artwork
           </EditableCanvasLayer>
         </div>
+        </div>
       </div>
     ));
     return onChange;
@@ -75,27 +78,30 @@ describe('canvas selection clipping', () => {
     await render();
     const overlay = document.querySelector<HTMLElement>('.editable-canvas-layer-selection')!;
     const clip = overlay.parentElement!;
-    expect(clip.parentElement).toBe(document.body);
-    expect(clip.style.clipPath).toBe('inset(100px 400px 200px 200px)');
-    expect(overlay.style.left).toBe('150px');
+    expect(clip.parentElement).toBe(container.querySelector('.canvas-viewport'));
+    expect(clip.closest('.canvas-viewport-stage')).toBeNull();
+    expect(overlay.style.left).toBe('-50px');
+    expect(overlay.style.top).toBe('30px');
     expect(overlay.style.width).toBe('800px');
     expect(overlay.querySelector('button[aria-label="Resize Shader"]')).not.toBeNull();
   });
 
   it('updates the clipping boundary on viewport resize without modifying the design', async () => {
     const onChange = await render();
-    viewportBounds = new DOMRect(200, 100, 400, 450);
+    viewportBounds = new DOMRect(225, 60, 400, 450);
     await act(async () => {
       window.dispatchEvent(new Event('resize'));
       await vi.runOnlyPendingTimersAsync();
     });
     const overlay = document.querySelector<HTMLElement>('.editable-canvas-layer-selection')!;
-    expect(overlay.parentElement?.style.clipPath).toBe('inset(100px 600px 250px 200px)');
+    expect(overlay.parentElement?.parentElement).toBe(container.querySelector('.canvas-viewport'));
+    expect(overlay.style.left).toBe('-75px');
+    expect(overlay.style.top).toBe('70px');
     expect(overlay.style.width).toBe('800px');
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('does not expose a body-portaled selection before the restored view is framed', async () => {
+  it('does not expose a selection before the restored view is framed', async () => {
     let notifyStageMutation = () => {};
     vi.stubGlobal('MutationObserver', class {
       constructor(callback: () => void) { notifyStageMutation = callback; }
@@ -110,5 +116,32 @@ describe('canvas selection clipping', () => {
     expect(document.querySelector('.editable-canvas-layer-selection')).not.toBeNull();
     expect(container.querySelector('.editable-canvas-layer')).toBe(layer);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('normalizes a scaled and bordered viewport without changing artwork dimensions', () => {
+    const viewport = document.createElement('div');
+    viewport.className = 'canvas-viewport';
+    Object.defineProperties(viewport, {
+      offsetWidth: { value: 300 },
+      offsetHeight: { value: 250 },
+      clientLeft: { value: 2 },
+      clientTop: { value: 3 },
+    });
+    expect(canvasSelectionLocalBounds(layerBounds, viewport)).toEqual({
+      left: -27, top: 12, width: 400, height: 150,
+    });
+  });
+
+  it('keeps the overlay mounted as the viewport moves', async () => {
+    await render();
+    const overlay = container.querySelector('.editable-canvas-layer-selection');
+    viewportBounds = new DOMRect(280, 170, 400, 450);
+    await act(async () => {
+      document.dispatchEvent(new Event('scroll'));
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(container.querySelector('.editable-canvas-layer-selection')).toBe(overlay);
+    expect((overlay as HTMLElement).style.left).toBe('-130px');
+    expect((overlay as HTMLElement).style.top).toBe('-40px');
   });
 });

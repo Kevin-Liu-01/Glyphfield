@@ -42,13 +42,13 @@ import {
   ZoomOut,
 } from '@/components/ui/SolidIcons';
 import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
-import { createPortal, flushSync } from 'react-dom';
+import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
 import ArtboardSizeMenu, { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
-import CanvasSelectionClip, { canvasSelectionViewportClipPath } from '@/components/CanvasSelectionClip';
+import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
 import ShaderFrameImage from '@/components/ShaderFrameImage';
@@ -1176,14 +1176,15 @@ function CanvasSelectionAssemblyOverlay({
     height: number;
     left: number;
     top: number;
-    viewportClipPath?: string;
+    viewport: HTMLElement;
     width: number;
   } | null>(null);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const viewport = stage.closest('.canvas-viewport-scroll, .canvas-viewport');
+    const viewport = stage.closest<HTMLElement>('.canvas-viewport');
+    if (!viewport) return;
     let frame = 0;
     const measure = () => {
       if (stage.closest('[data-canvas-initializing="true"]')) {
@@ -1192,18 +1193,20 @@ function CanvasSelectionAssemblyOverlay({
       }
       const stageBounds = stage.getBoundingClientRect();
       const next = {
-        height: bounds.height / canvasHeight * stageBounds.height,
-        left: stageBounds.left + bounds.left / canvasWidth * stageBounds.width,
-        top: stageBounds.top + bounds.top / canvasHeight * stageBounds.height,
-        viewportClipPath: canvasSelectionViewportClipPath(viewport),
-        width: bounds.width / canvasWidth * stageBounds.width,
+        ...canvasSelectionLocalBounds({
+          height: bounds.height / canvasHeight * stageBounds.height,
+          left: stageBounds.left + bounds.left / canvasWidth * stageBounds.width,
+          top: stageBounds.top + bounds.top / canvasHeight * stageBounds.height,
+          width: bounds.width / canvasWidth * stageBounds.width,
+        }, viewport),
+        viewport,
       };
       setScreenBounds((current) => current
         && Math.abs(current.height - next.height) < 0.25
         && Math.abs(current.left - next.left) < 0.25
         && Math.abs(current.top - next.top) < 0.25
         && Math.abs(current.width - next.width) < 0.25
-        && current.viewportClipPath === next.viewportClipPath
+        && current.viewport === next.viewport
         ? current
         : next);
     };
@@ -1231,14 +1234,13 @@ function CanvasSelectionAssemblyOverlay({
   }, [bounds.height, bounds.left, bounds.top, bounds.width, canvasHeight, canvasWidth, stageRef]);
 
   if (!screenBounds) return null;
-  const { viewportClipPath, ...selectionBounds } = screenBounds;
-  return createPortal(
-    <CanvasSelectionClip clipPath={viewportClipPath}>
+  const { viewport, ...selectionBounds } = screenBounds;
+  return (
+    <CanvasSelectionClip viewport={viewport}>
       <div aria-hidden='true' className='canvas-selection-assembly' data-canvas-selection-preserve style={selectionBounds}>
         <span className='canvas-selection-assembly__label'>{label}</span>
       </div>
-    </CanvasSelectionClip>,
-    document.body
+    </CanvasSelectionClip>
   );
 }
 
@@ -2363,9 +2365,10 @@ function selectedCanvasLayerElement(selectedLayerCount: number): HTMLElement | n
 }
 
 function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
-  const overlay = document.querySelector<HTMLElement>('.editable-canvas-layer-selection');
-  if (!overlay) return;
-  const bounds = layer.getBoundingClientRect();
+  const viewport = layer.closest<HTMLElement>('.canvas-viewport');
+  const overlay = viewport?.querySelector<HTMLElement>('.editable-canvas-layer-selection');
+  if (!overlay || !viewport) return;
+  const bounds = canvasSelectionLocalBounds(layer.getBoundingClientRect(), viewport);
   overlay.style.left = `${bounds.left}px`;
   overlay.style.top = `${bounds.top}px`;
   overlay.style.width = `${bounds.width}px`;
