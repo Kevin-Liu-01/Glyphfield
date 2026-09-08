@@ -41,7 +41,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from '@/components/ui/SolidIcons';
-import { memo, startTransition, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
@@ -64,6 +64,7 @@ import { getShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
 import { drawShaderFramePresentation, normalizeShaderFramePresentation, preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import StudioRange from '@/components/ui/StudioRange';
+import RangeControl from '@/components/DesignLabRangeControl';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
 import DesignVersionControls from '@/components/DesignVersionControls';
@@ -1843,6 +1844,19 @@ function CanvasEditableText({
     text.innerText = value;
   }, [value]);
 
+  useLayoutEffect(() => {
+    const text = textRef.current;
+    if (!text || text.closest('.shader-lab-v2')?.querySelector('[data-canvas-preview-pending="true"]')) return;
+    // An interrupted inspector drag can unmount without committing. React may
+    // skip unchanged style props, so the canonical text owner clears that preview.
+    for (const property of ['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing'] as const) {
+      const value = style[property];
+      const cssValue = value == null ? '' : typeof value === 'number' && (property === 'fontSize' || property === 'letterSpacing')
+        ? `${value}px` : String(value);
+      if (text.style[property] !== cssValue) text.style[property] = cssValue;
+    }
+  });
+
   useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
 
   return (
@@ -2038,111 +2052,6 @@ function shaderBlendStyle(blendMode: ShaderBlendMode): CSSProperties['mixBlendMo
   return blendMode === 'normal' ? 'normal' : blendMode;
 }
 
-function RangeControl({
-  formatValue,
-  label,
-  max,
-  min,
-  onChange,
-  onPreview,
-  step,
-  value,
-}: {
-  formatValue?: (value: number) => string;
-  label: string;
-  max: number;
-  min: number;
-  onChange: (value: number) => void;
-  onPreview?: (value: number) => void;
-  step: number;
-  value: number;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const outputRef = useRef<HTMLOutputElement>(null);
-  const pendingValueRef = useRef<number | null>(null);
-  const latestValueRef = useRef<number | null>(null);
-  const previewTimerRef = useRef(0);
-  const scrubbingRef = useRef(false);
-
-  const formatDisplayValue = useCallback((nextValue: number) => (
-    formatValue?.(nextValue) ?? (Number.isInteger(step) ? Math.round(nextValue).toString() : nextValue.toFixed(2))
-  ), [formatValue, step]);
-
-  const syncDisplayValue = useCallback((nextValue: number) => {
-    const input = inputRef.current;
-    if (input) {
-      input.value = String(nextValue);
-      const progress = max <= min ? 0 : Math.min(100, Math.max(0, (nextValue - min) / (max - min) * 100));
-      input.style.setProperty('--studio-range-progress', `${progress}%`);
-    }
-    if (outputRef.current) outputRef.current.textContent = formatDisplayValue(nextValue);
-  }, [formatDisplayValue, max, min]);
-
-  useLayoutEffect(() => {
-    if (!scrubbingRef.current && pendingValueRef.current === null && previewTimerRef.current === 0) {
-      syncDisplayValue(value);
-    }
-  }, [max, min, syncDisplayValue, value]);
-
-  useEffect(() => () => window.clearTimeout(previewTimerRef.current), []);
-
-  function flushValue() {
-    window.clearTimeout(previewTimerRef.current);
-    previewTimerRef.current = 0;
-    const nextValue = pendingValueRef.current ?? latestValueRef.current;
-    pendingValueRef.current = null;
-    latestValueRef.current = null;
-    if (nextValue === null) return;
-    onPreview?.(nextValue);
-    startTransition(() => onChange(nextValue));
-  }
-
-  function scheduleValue(nextValue: number) {
-    syncDisplayValue(nextValue);
-    pendingValueRef.current = nextValue;
-    latestValueRef.current = nextValue;
-    if (previewTimerRef.current) return;
-    previewTimerRef.current = window.setTimeout(() => {
-      previewTimerRef.current = 0;
-      if (pendingValueRef.current === null) return;
-      const previewValue = pendingValueRef.current;
-      pendingValueRef.current = null;
-      if (onPreview) onPreview(previewValue);
-      else startTransition(() => onChange(previewValue));
-    }, 16);
-  }
-
-  return (
-    <label className='shader-lab-v2-range'>
-      <StudioRangeLabel
-        label={label}
-        value={<output ref={outputRef}>{formatDisplayValue(value)}</output>}
-      />
-      <StudioRange
-        aria-label={label}
-        defaultValue={value}
-        max={max}
-        min={min}
-        onBlur={() => {
-          scrubbingRef.current = false;
-          flushValue();
-        }}
-        onInput={(event) => scheduleValue(Number(event.currentTarget.value))}
-        onPointerCancel={() => {
-          scrubbingRef.current = false;
-          flushValue();
-        }}
-        onPointerDown={() => { scrubbingRef.current = true; }}
-        onPointerUp={() => {
-          scrubbingRef.current = false;
-          flushValue();
-        }}
-        ref={inputRef}
-        step={step}
-      />
-    </label>
-  );
-}
 
 function ShaderZoomControl({
   onChange,
@@ -2668,6 +2577,7 @@ function paintDesignLabTextEffectFill({
 function paintDesignLabTextLayer({
   application,
   box,
+  canvasHeight,
   canvasWidth,
   context,
   height,
@@ -2679,6 +2589,7 @@ function paintDesignLabTextLayer({
 }: {
   application?: ShaderApplication;
   box: OutputLayerBox;
+  canvasHeight: number;
   canvasWidth: number;
   context: CanvasRenderingContext2D;
   height: number;
@@ -2700,7 +2611,9 @@ function paintDesignLabTextLayer({
   context.save();
   context.textAlign = 'left';
   context.textBaseline = 'alphabetic';
-  const fontSize = Math.max(18, height * 0.17 * transform.scale);
+  // Match the canvas's cqw sizing in authored coordinates. Output-height rounding
+  // and an export-only minimum must never change the font or its line breaks.
+  const fontSize = canvasHeight * 0.17 * transform.scale * width / canvasWidth;
   const lineHeight = fontSize * layer.lineHeight;
   const spacing = layer.tracking * fontSize;
   const fontWeight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
@@ -6683,7 +6596,14 @@ export default function ShaderLabStudio({
     setPaused(true);
   }
 
+  function assertCanvasEditsCommitted() {
+    if (stageRef.current?.closest('.shader-lab-v2')?.querySelector('[data-canvas-preview-pending="true"]')) {
+      throw new Error('Finish adjusting the canvas control before saving or exporting its updated appearance.');
+    }
+  }
+
   async function captureCompositionFrame({ forExport = false }: { forExport?: boolean } = {}) {
+    assertCanvasEditsCommitted();
     if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before saving or capturing the composition.');
     if (stageRef.current?.querySelector('[data-shader-frame-editing="true"], [data-live-material-editing="true"]')) {
       throw new Error('Finish editing the shader control before capturing its updated appearance.');
@@ -7103,6 +7023,7 @@ export default function ShaderLabStudio({
         return paintDesignLabTextLayer({
           application: layerShaders[layerId],
           box: outputLayerBox(layerId, transform, width, height),
+          canvasHeight: canvasDimensions.height,
           canvasWidth: canvasDimensions.width,
           context,
           height,
@@ -7429,6 +7350,7 @@ export default function ShaderLabStudio({
     const sourceSequence = sourceApplySequenceRef.current;
     const artboardId = activeArtboardIdRef.current;
     return () => {
+      assertCanvasEditsCommitted();
       if (signature !== compositionSignatureRef.current || sourceSequence !== sourceApplySequenceRef.current
         || artboardId !== activeArtboardIdRef.current) throw new Error('The design changed during export. Export the updated design again.');
     };
@@ -8770,6 +8692,7 @@ export default function ShaderLabStudio({
           <OptionalRender value={selectedContentLayerId}>{(selectedContentLayerId) => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={resolvedLayerKind(selectedContentLayerId)} title='Selected layer'>
             <OptionalRender value={selectedTextInspector}>{(selection) => (
               <DesignLabTextLayerInspector
+                key={selection.layer.id}
                 canvasHeight={canvasDimensions.height}
                 canvasWidth={canvasDimensions.width}
                 identity={identity}

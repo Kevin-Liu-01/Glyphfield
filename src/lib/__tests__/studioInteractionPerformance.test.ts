@@ -104,16 +104,14 @@ describe('Studio interaction performance contracts', () => {
   it('keeps Design Lab playhead and inspector previews off the full editor render path', () => {
     const designLab = readSource('src/components/ShaderLabStudio.tsx');
     const liveMaterial = readSource('src/components/LiveMaterialCanvas.tsx');
-    const rangeControl = designLab.slice(
-      designLab.indexOf('function RangeControl'),
-      designLab.indexOf('function ShaderZoomControl')
-    );
+    const rangeControl = readSource('src/components/DesignLabRangeControl.tsx');
     const frameHistory = readSource('src/components/ShaderTimeExplorer.tsx');
     const capture = readSource('src/lib/captureShaderFrames.ts');
 
     expect(rangeControl).toContain('defaultValue={value}');
     expect(rangeControl).toContain("input.style.setProperty('--studio-range-progress'");
-    expect(rangeControl).toContain('startTransition(() => onChange(nextValue))');
+    expect(rangeControl).toContain('if (onPreview) onPreview(previewValue);');
+    expect(rangeControl).toContain('flushSync(() => onChange(nextValue))');
     expect(rangeControl).not.toContain('setDisplayValue');
     expect(frameHistory).toContain('syncDisplay(timeRef.current + delta)');
     expect(frameHistory).toContain('defaultValue={boundedTime(timeMs)}');

@@ -27,6 +27,7 @@
     "test:shader-cadence": "node scripts/check-shader-cadence.mjs",
     "test:shader-frames": "node scripts/check-shader-frames.mjs",
     "test:shader-frame-journey": "node scripts/check-shader-frame-journey.mjs",
+    "test:text-export": "node scripts/check-text-export-parity.mjs",
     "test:watch": "vitest",
     "typecheck": "fumadocs-mdx && tsc6 --noEmit"
   },
