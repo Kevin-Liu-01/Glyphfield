@@ -26,6 +26,8 @@ The canvas itself is the output surface. The surrounding dotted workspace, libra
 
 On entry, the restored active artboard is fitted into view. Use **Fit canvas** to see all artboards, or open **Artboard guide** when you need help. View changes do not reposition your layers.
 
+Open **Artboard setup** for shared presets or custom dimensions. The portrait row adds **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160), alongside the existing Portrait (4:5) and Story (9:16) sizes. The selected dimensions are preserved in source, saved designs, and exports.
+
 ## Add and arrange layers
 
 Use the layer actions to add any number of:
@@ -143,7 +145,7 @@ The draft indicator shows pending changes as **Saving**. Fast tool/project switc
 | GIF | Animated browser capture with global/per-frame palette control and optional seamless closure |
 | MP4 | Browser-native video, with quality selection and H.264 when the browser exposes it |
 
-Output width ranges from 320–3840 pixels and preserves the selected wide, square, or OpenGraph ratio. Motion exports use 12, 15, 24, or 30 FPS and a bounded duration. The export review displays the completed artifact before download.
+Output width ranges from 320–3840 pixels and preserves the active artboard's aspect ratio, including portrait presets and custom dimensions. Motion exports use 12, 15, 24, or 30 FPS and a bounded duration. The export review displays the completed artifact before download.
 
 Export waits for material readiness as well as fonts and images. Prismatic sphere needs its environment lighting to load; a loading silhouette is not accepted as a finished shader frame. If those resources cannot load, export reports a readiness timeout instead of silently treating the placeholder as the result.
 

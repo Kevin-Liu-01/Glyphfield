@@ -15,10 +15,32 @@ describe('shared Studio artboard sizes', () => {
       'banner',
       'portrait',
       'story',
+      'portrait-3-4',
+      'portrait-2-3',
+      'portrait-1-2',
     ]);
     expect(studioArtboardPresetForSize(1200, 630)?.label).toBe('OG Social');
     expect(studioArtboardPresetForSize(1080, 1920)?.label).toBe('Story');
     expect(studioArtboardPresetForSize(1234, 777)).toBeUndefined();
+  });
+
+  it('adds a complete third row of distinct portrait ratios', () => {
+    const portraitRow = STUDIO_ARTBOARD_PRESETS.slice(6);
+    expect(portraitRow.map(({ label, width, height }) => ({ label, width, height }))).toEqual([
+      { label: '3:4', width: 1080, height: 1440 },
+      { label: '2:3', width: 1080, height: 1620 },
+      { label: '1:2', width: 1080, height: 2160 },
+    ]);
+    for (const preset of portraitRow) {
+      expect(preset.height).toBeGreaterThan(preset.width);
+      expect(studioArtboardPresetForSize(preset.width, preset.height)).toBe(preset);
+      expect(normalizeStudioArtboardDimensions(preset)).toEqual({
+        width: preset.width,
+        height: preset.height,
+      });
+    }
+    expect(new Set(STUDIO_ARTBOARD_PRESETS.map(({ width, height }) => width / height)).size)
+      .toBe(STUDIO_ARTBOARD_PRESETS.length);
   });
 
   it('rounds and clamps custom dimensions without coupling width and height', () => {

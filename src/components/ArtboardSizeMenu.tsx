@@ -107,7 +107,14 @@ export function ArtboardSetupFields({
               onClick={() => onDimensionsChange({ height: preset.height, width: preset.width })}
               type='button'
             >
-              <span aria-hidden='true' className='artboard-size-preset-shape' style={{ aspectRatio: `${preset.width} / ${preset.height}` }} />
+              <span
+                aria-hidden='true'
+                className='artboard-size-preset-shape'
+                style={{
+                  aspectRatio: `${preset.width} / ${preset.height}`,
+                  width: Math.min(31, 25 * preset.width / preset.height),
+                }}
+              />
               <span><strong>{preset.label}</strong><small>{preset.width} × {preset.height}</small></span>
               {selected ? <Check aria-hidden='true' /> : null}
             </button>
@@ -167,6 +174,7 @@ export default function ArtboardSizeMenu({
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<PopoverPosition | null>(null);
+  const hasPosition = position !== null;
   const activePreset = studioArtboardPresetForSize(dimensions.width, dimensions.height);
 
   useLayoutEffect(() => {
@@ -179,25 +187,36 @@ export default function ArtboardSizeMenu({
       const width = Math.min(372, window.innerWidth - viewportPadding * 2);
       const preferredLeft = align === 'end' ? bounds.right - width : bounds.left;
       const left = Math.max(viewportPadding, Math.min(preferredLeft, window.innerWidth - width - viewportPadding));
-      const fitsBelow = bounds.bottom + 8 + 428 <= window.innerHeight - viewportPadding;
+      const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
+      const fitsBelow = bounds.bottom + 6 + panelHeight <= window.innerHeight - viewportPadding;
       const top = fitsBelow
         ? bounds.bottom + 6
-        : Math.max(viewportPadding, bounds.top - 6 - 428);
-      setPosition({
+        : Math.max(viewportPadding, bounds.top - 6 - panelHeight);
+      const next: PopoverPosition = {
         left,
         top,
         transformOrigin: `${Math.max(12, Math.min(width - 12, bounds.left + bounds.width / 2 - left))}px ${fitsBelow ? 'top' : 'bottom'}`,
         width,
-      });
+      };
+      setPosition((current) => current
+        && current.left === next.left
+        && current.top === next.top
+        && current.width === next.width
+        && current.transformOrigin === next.transformOrigin
+        ? current
+        : next);
     };
     updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    if (panelRef.current) observer.observe(panelRef.current);
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [align, open]);
+  }, [align, hasPosition, open]);
 
   useEffect(() => {
     if (!open) return;

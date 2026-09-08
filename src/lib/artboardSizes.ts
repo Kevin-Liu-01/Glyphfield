@@ -10,6 +10,9 @@ export const STUDIO_ARTBOARD_PRESETS = [
   { height: 300, id: 'banner', label: 'Banner', width: 1000 },
   { height: 1350, id: 'portrait', label: 'Portrait', width: 1080 },
   { height: 1920, id: 'story', label: 'Story', width: 1080 },
+  { height: 1440, id: 'portrait-3-4', label: '3:4', width: 1080 },
+  { height: 1620, id: 'portrait-2-3', label: '2:3', width: 1080 },
+  { height: 2160, id: 'portrait-1-2', label: '1:2', width: 1080 },
 ] as const;
 
 export type StudioArtboardPreset = (typeof STUDIO_ARTBOARD_PRESETS)[number];

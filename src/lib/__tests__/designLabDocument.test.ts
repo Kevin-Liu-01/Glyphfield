@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyCanvasMutation, parseCanvasDocument } from '../canvasDocument';
+import { studioArtboardPresetForSize } from '../artboardSizes';
 import { shaderFrameCanvasAsset } from '../shaderFrameAssets';
 import {
   createDesignLabCanvasDocument,
@@ -90,6 +91,41 @@ function designLabInput(): DesignLabDocumentInput {
 }
 
 describe('Design Lab canvas document adapter', () => {
+  it.each([
+    { id: 'portrait-3-4', width: 1080, height: 1440 },
+    { id: 'portrait-2-3', width: 1080, height: 1620 },
+    { id: 'portrait-1-2', width: 1080, height: 2160 },
+  ])('round-trips the $id preset, artboard dimensions, and layer geometry', ({ id, width, height }) => {
+    const preset = studioArtboardPresetForSize(width, height);
+    expect(preset?.id).toBe(id);
+    const input = designLabInput();
+    Object.assign(input, { ratio: preset!.id, width, height });
+    input.workspace = {
+      activeArtboardId: 'artboard-main',
+      artboards: [{
+        id: 'artboard-main',
+        name: 'Portrait frame',
+        x: 120,
+        y: 180,
+        snapshot: {
+          dimensions: { width, height },
+          ratio: preset!.id,
+          textLayers: input.textLayers,
+        },
+      }],
+    };
+
+    const source = serializeDesignLabCanvasDocument(input);
+    const document = parseCanvasDocument(source);
+    expect(document.pages[document.pageIds[0]!]).toMatchObject({ width, height });
+    const restored = parseDesignLabCanvasDocument(source);
+    expect(restored.ratio).toBe(id);
+    expect(restored.canvasDimensions).toEqual({ width, height });
+    expect(restored.workspace).toEqual(input.workspace);
+    expect(restored.exportSettings).toEqual(input.exportSettings);
+    expect(restored.composition).toMatchObject({ textLayers: input.textLayers, layerOrder: input.layerOrder });
+  });
+
   it('registers one durable frame asset for shared shader, content and inactive artboard snapshots', () => {
     const frameSnapshot = { assetId: `shader-frame:${'a'.repeat(64)}`, height: 48, version: 1 as const, width: 96, futureField: 'preserved' };
     const input = designLabInput();
