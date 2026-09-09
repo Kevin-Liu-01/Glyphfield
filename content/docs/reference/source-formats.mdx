@@ -81,6 +81,8 @@ Shader applications can carry `frameState` and `frameSnapshot`. They serve diffe
 
 Canvas shader records live in element `data`; content-bound shader applications live in `metadata.designLab.layerShaders`. Workspace artboards also preserve their own snapshots. `timeline.timeMs` stores time independently of the legacy `timeline.frame` export-grid index.
 
+Ordinary Pause can update native `frameState` and timeline data without creating a PNG `frameSnapshot`. Playback, time-range extension, and PNG/JPG/GIF/MP4 export do not add captured-frame assets; explicitly capturing an appearance is a separate persistence operation.
+
 Runtime frames use durable local asset references, not ephemeral `blob:` URLs. Portable JSON embeds the PNG bytes; source application validates and imports them before changing the composition. A missing frame must produce an actionable error, not silently reset to the default shader. A PNG guarantees the captured appearance at its recorded resolution, not an editable Fluid simulation checkpoint or identical procedural reconstruction across GPUs.
 
 ## Tool document map

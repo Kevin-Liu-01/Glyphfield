@@ -1,6 +1,6 @@
 'use client';
 
-import { cloneElement, isValidElement, memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { cloneElement, isValidElement, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 
 import { acquireShaderFrameAssetUrl, type ShaderFrameSnapshot } from '@/lib/shaderFrameAssets';
 import {
@@ -76,6 +76,27 @@ function nativeShaderReady(container: HTMLElement | null): boolean {
 function shaderFrameLabel(captured: boolean, status: LoadedFrame['status']) {
   if (!captured) return 'Live shader';
   return status === 'error' ? 'Captured shader frame unavailable' : 'Captured shader frame';
+}
+
+function useNativeFrameHandoff(
+  nativeHostRef: RefObject<HTMLDivElement | null>,
+  snapshot: ShaderFrameSnapshot | undefined,
+  editing: boolean,
+  ready: boolean,
+  status: LoadedFrame['status'],
+  children: ReactNode
+) {
+  const [nativeMounted, setNativeMounted] = useState(false);
+  // A saved PNG must never start a renderer merely because hydration is slow
+  // or failed. Only retain one that was already mounted before this capture.
+  const showNative = !snapshot || editing || (nativeMounted && !ready && status !== 'error');
+  useLayoutEffect(() => {
+    setNativeMounted(Boolean(nativeHostRef.current?.firstElementChild));
+  }, [children, editing, nativeHostRef, ready, snapshot, status]);
+  const rendered = useMemo(() => snapshot && !editing && isValidElement<LiveMaterialCanvasProps>(children)
+    && children.props.settings ? cloneElement(children, { paused: true }) : children,
+  [children, editing, snapshot]);
+  return { showNative, rendered };
 }
 
 function usePaintedPreviewRevision(hostRef: RefObject<HTMLDivElement | null>, revision?: number) {
@@ -224,6 +245,7 @@ function ShaderFrameImage({
   const preview = useFrozenShaderPreview(snapshot, previewChannel, children);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { activeSnapshot, finishImage, grain, imageRef, key, nativeHostRef, onError, presentation, ready, resuming, status, url } = useShaderFrameImage(snapshot, preview.active);
+  const native = useNativeFrameHandoff(nativeHostRef, snapshot, preview.active, ready, status, preview.rendered);
 
   usePaintedPreviewRevision(wrapperRef, preview.revision);
 
@@ -239,9 +261,9 @@ function ShaderFrameImage({
       style={style}
     >
       <div className='absolute inset-0 size-full' data-shader-frame-live-view='true' ref={nativeHostRef} style={{ opacity: resuming ? 0 : 1 }}>
-        {(!snapshot || !ready || preview.active) && preview.rendered}
+        {native.showNative && native.rendered}
       </div>
-      {activeSnapshot && !ready && children == null && <ShaderSkeleton state={status === 'error' ? 'unavailable' : 'loading'} />}
+      {activeSnapshot && !ready && !native.showNative && <ShaderSkeleton state={status === 'error' ? 'unavailable' : 'loading'} />}
       {activeSnapshot && status === 'error' && <span className='sr-only' role='status'>The captured shader frame could not be loaded.</span>}
       {url && activeSnapshot && (
         <div className='pointer-events-none absolute inset-0 size-full isolate' style={{ filter: presentation.filter, opacity: ready ? 1 : 0 }}>

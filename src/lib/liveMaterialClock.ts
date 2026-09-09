@@ -50,7 +50,10 @@ export function createLiveMaterialClock(engine: LiveMaterialFrameState['engine']
         frame = anchor!.frame;
         appliedAnchor = anchorKey;
       } else if (!paused && captureTimeMs === null) {
-        frame += Math.min(64, delta) * rate;
+        // Time-addressable shaders must agree with native Paper and elapsed
+        // timeline time after a slow frame. Only Fluid needs bounded simulation
+        // steps; its state is deliberately not reconstructible by timestamp.
+        frame += (engine === 'fluid' ? Math.min(64, delta) : delta) * rate;
       }
       return frame;
     },

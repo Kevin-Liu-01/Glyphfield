@@ -4,12 +4,14 @@
 // and deletes only its isolated WebDriver session; no user tabs or storage are
 // accessed. Canvas fixtures use the public Studio API; all inputs are native.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkSafariDisplayBaseline, checkSafariShader } from './lib/safari-shader-check.mjs';
 import { checkSafariProjectRoundTrip, checkSafariTabChrome, checkSafariToolRoundTrip } from './lib/safari-tab-checks.mjs';
 import { nativePointerClick } from './lib/safari-native-click.mjs';
+import { checkSafariFrameExport } from './lib/safari-frame-export-check.mjs';
 
 const baseUrl = process.env.GLYPHFIELD_SAFARI_BASE_URL ?? 'http://localhost:3014';
 const driverUrl = process.env.SAFARI_WEBDRIVER_URL ?? 'http://localhost:4445';
@@ -51,6 +53,9 @@ async function startSession() {
   const handle = await command('GET', '/window');
   await command('POST', '/window', { handle });
   await command('POST', '/window/rect', { x: 0, y: 0, width: 1440, height: 1000 });
+  // Opt-in foreground activation, only after this runner owns an automation
+  // window. This never changes Safari settings or accesses another tab.
+  if (process.env.GLYPHFIELD_SAFARI_ACTIVATE_APP === '1') execFileSync('/usr/bin/open', ['-a', 'Safari']);
   return session.capabilities;
 }
 
@@ -85,6 +90,12 @@ async function waitFor(fn, label, ...args) {
 
 async function click(selector) {
   await waitFor((selector) => Boolean(document.querySelector(selector)), selector, selector);
+  if (process.env.GLYPHFIELD_SAFARI_ACTIVATE_APP === '1' && !await evaluate(() => document.hasFocus())) {
+    const handle = await command('GET', '/window');
+    await command('POST', '/window', { handle });
+    execFileSync('/usr/bin/open', ['-a', 'Safari']);
+    await waitFor(() => document.hasFocus(), 'foreground owned Safari automation window');
+  }
   // Explicit pointer actions cover real user hit-testing. Safari Element Click
   // has intermittently returned without dispatching an input event at all.
   if (pointerClick) {
@@ -459,6 +470,9 @@ try {
 
   const tabHarness = { baseUrl, command, evaluate, evaluateAsync, waitFor, click, rect, actions, mouse, pointerMove,
     pointerDown, pointerUp, keyboard, keys, press, type, drag };
+  for (const mode of ['pause-resume', 'capture', 'live-export', 'frozen-export', 'grain-export', 'motion-export']) {
+    await check(`native shader frame ${mode}`, () => checkSafariFrameExport(tabHarness, mode), false);
+  }
   await check('native tabs chrome and released pointer cleanup', () => checkSafariTabChrome(tabHarness), false);
   await check('native tabs project round trip and visible controls', () => checkSafariProjectRoundTrip(tabHarness));
   await check('native tabs tool round trip and active source', () => checkSafariToolRoundTrip(tabHarness));
@@ -466,8 +480,12 @@ try {
   if (filter?.includes('standalone')) await check('standalone native undo controls', async () => ({ nativeUndoCapability: await probeNativeUndo() }), false);
 
   if (!interrupted) assert(results.length > 0, `No native Safari checks matched ${JSON.stringify(filter)}`);
-  console.log(JSON.stringify({ passed: results.filter((result) => result.passed).length, failed: results.filter((result) => !result.passed).length,
-    unsupportedAssertions: results.filter((result) => result.unsupportedAssertion).length, nativeUndoCapability, results }, null, 2));
+  const summary = { passed: results.filter((result) => result.passed).length, failed: results.filter((result) => !result.passed).length,
+    unsupportedAssertions: results.filter((result) => result.unsupportedAssertion).length, nativeUndoCapability, results };
+  artifactDir ??= await mkdtemp(join(tmpdir(), 'glyphfield-safari-canvas-'));
+  const reportPath = join(artifactDir, 'results.json');
+  await writeFile(reportPath, JSON.stringify(summary, null, 2));
+  console.log(JSON.stringify({ reportPath, ...summary }, null, 2));
 } catch (error) {
   console.error(String(error));
   process.exitCode = 1;

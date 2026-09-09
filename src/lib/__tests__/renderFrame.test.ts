@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '../liveMaterials';
 import { DEFAULT_MATERIAL_FINISH } from '../materialFinish';
+import * as shaderPresentation from '../shaderFramePresentation';
 import {
   canCompositeShaderDirectly,
   hasAnimatedShaderBackgrounds,
@@ -143,6 +144,22 @@ function createRenderContext() {
 }
 
 describe('direct shader compositing', () => {
+  it('uses the same filter and grain presentation for composited override previews as exports', () => {
+    const { context } = createRenderContext();
+    const image = { width: 400, height: 200 } as HTMLCanvasElement;
+    const presentation = { filter: 'brightness(1.35)', grainOpacity: 0.24, grainTileSize: 160 };
+    const draw = vi.spyOn(shaderPresentation, 'drawShaderFramePresentation').mockImplementation(() => {});
+    const current: StudioSource = { ...textSource('override'), background: {
+      ...shaderBackground, image, shaderPresentation: presentation,
+    } };
+    try {
+      renderFrame(context, [current, textSource('hidden')], renderConfig(), {
+        elapsedMs: 0, index: 0, nextIndex: 1, phase: 'hold', progress: 0,
+      });
+      expect(draw).toHaveBeenCalledExactlyOnceWith(context, image, presentation, { x: 0, y: 0, width: 200, height: 100 });
+    } finally { draw.mockRestore(); }
+  });
+
   it('detects shader backgrounds that need continuously sampled hold frames', () => {
     expect(hasAnimatedShaderBackgrounds([textSource('a')])).toBe(true);
     expect(hasAnimatedShaderBackgrounds([{ id: 'plain', kind: 'text', text: 'Plain' }])).toBe(false);

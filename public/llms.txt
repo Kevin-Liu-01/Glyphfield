@@ -85,6 +85,7 @@ Always call `describe()` before a tool-specific action. Never invent accessible 
 Design Lab exposes:
 
 ```text
+design.frame.pause
 design.frame.capture
 design.frame.play
 design.frame.seek
@@ -102,7 +103,7 @@ design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
 ```
 
-For an exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: capture preserves its appearance, but time-only history replay is unsupported and resuming starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata.
+Use `studio.invoke('design.frame.pause')` for an ordinary synchronous pause: it returns null without encoding PNGs or writing captured-frame assets. For a durable exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: ordinary pause retains its mounted simulation, but time-only history replay is unsupported and playing from a saved PNG starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata. The explorer range extends only on request; playback does not automatically grow that range or create stored frames.
 
 Preferred export call:
 
@@ -124,6 +125,8 @@ studio.download(artifact);
 ```
 
 `format` accepts `png`, `jpg`, `gif`, and `mp4`. `mode: "shader-sequence"` is valid for GIF and MP4. Run exports serially because browser canvases and encoders are shared resources.
+
+PNG/JPG freezes the current visible frame before rendering the chosen output dimensions. GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward. Exports do not add captured-frame assets to IndexedDB and do not automatically resume playback. Stateful Fluid supports exact still export, not timestamp-sampled motion export. Missing saved PNGs must remain visibly unavailable instead of becoming a new animated approximation.
 
 ## Source mutation protocol
 

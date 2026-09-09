@@ -84,7 +84,7 @@ function imageAsset(source: Extract<StudioSource, { kind: 'image' }>): CanvasAss
 
 function sourceData(source: StudioSource): CanvasJsonObject {
   const background = source.background
-    ? { ...source.background, image: undefined }
+    ? { ...source.background, image: undefined, shaderPresentation: undefined }
     : undefined;
   if (source.kind === 'text') {
     return jsonObject({ ...source, background, text: undefined }, 'Animation text frame');
@@ -228,10 +228,13 @@ export function createAnimationCanvasDocument(input: AnimationDocumentInput): Ca
   for (const source of input.sources) {
     const pageId = `${input.id}:frame:${source.id}`;
     const background = source.background?.colorA ?? stringValue(settings.background, '#000000');
-    const page = createCanvasPage(pageId, source.kind === 'text' ? source.text : source.name, canvasWidth, canvasHeight, background);
+    const sourceName = source.kind === 'text' ? source.text : source.name;
+    // A blank text hold is valid artwork; only its navigation label needs a name.
+    const name = sourceName.trim() ? sourceName : `Frame ${pageIds.length + 1}`;
+    const page = createCanvasPage(pageId, name, canvasWidth, canvasHeight, background);
     const element = createCanvasElement(
       source.id,
-      source.kind === 'text' ? source.text : source.name,
+      name,
       source.kind,
       sourceBounds(source, canvasWidth, canvasHeight)
     );

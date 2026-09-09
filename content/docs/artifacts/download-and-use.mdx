@@ -29,6 +29,8 @@ studio.download(artifact);
 
 Do not run browser exports concurrently. Wait for one renderer/encoder job and verify it before starting the next.
 
+Design Lab PNG/JPG freezes the current visible shader frame; GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward. These exports do not add captured-frame assets to IndexedDB or restart playback. Use `design.frame.pause` for a storage-free pause and `design.frame.capture` when the editable source should include a durable PNG appearance checkpoint. Missing resources or unsupported timestamp-sampled Fluid motion must be reported, not substituted.
+
 ## Download raw SVG from the API
 
 ```bash

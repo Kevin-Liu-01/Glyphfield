@@ -22,7 +22,31 @@ describe('Animation Studio shader playback', () => {
   it('samples shader motion across holds with an explicit export clock', () => {
     expect(animationStudio).toContain('captureTimeMs={shaderCaptureTimeMs}');
     expect(animationStudio).toContain('sampleHoldFrames: shaderBackgroundsAreActive');
-    expect(animationStudio).toContain('(frame) => waitForShaderCapture(frame.atMs)');
-    expect(animationStudio).toContain('if (resumeAfterExport) changePlaying(true)');
+    expect(animationStudio).toContain('beforeFrame: (frame) => beforeFrame(frame.atMs)');
+    expect(animationStudio).toContain('await shaderExport.refresh()');
+    expect(animationStudio).toContain('setShaderCaptureTimeMs(entryTimeMs)');
+    expect(animationStudio).toContain('setShaderFrameStates(restoredFrameStates)');
+    expect(animationStudio).toContain('if (playbackChanged && resumeAfterExport && isCurrentDocument() && isCurrentWorkspace()) changePlaying(true)');
+    expect(animationStudio).not.toContain('remainingFrames');
+  });
+
+  it('keeps user playback requests out of the export-owned shader clock', () => {
+    expect(animationStudio).toContain('onPlayChange={requestPlaybackChange}');
+    expect(animationStudio).toContain('onSeek={requestPlayheadChange}');
+    expect(animationStudio).toContain('if (!exportJobRef.current) changePlaying(playing)');
+    expect(animationStudio).toContain('if (!exportJobRef.current) seek(timeMs)');
+    expect(animationStudio).toContain('disabled={exportProgress !== null}');
+  });
+
+  it('waits for the once-preloaded grain before clearing a composited preview', () => {
+    const preview = animationStudio.slice(animationStudio.indexOf('function renderInteractiveAnimationPreview('),
+      animationStudio.indexOf('function AnimationShaderLayers('));
+    expect(preview.indexOf('compositedBackgroundIsAnimated && !shaderPresentationReady')).toBeGreaterThan(0);
+    expect(preview.indexOf('compositedBackgroundIsAnimated && !shaderPresentationReady')).toBeLessThan(preview.indexOf('context.clearRect'));
+    const attach = animationStudio.slice(animationStudio.indexOf('const attachShaderLayers = useCallback('),
+      animationStudio.indexOf('useMountEffect(() => {', animationStudio.indexOf('const attachShaderLayers = useCallback(')));
+    expect(attach).toContain('shaderPresentation: readLiveMaterialPresentation');
+    expect(attach).not.toContain('preloadShaderFramePresentation');
+    expect(attach).not.toContain('await');
   });
 });

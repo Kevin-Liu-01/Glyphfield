@@ -18,6 +18,8 @@ Clearing site data can remove projects, drafts, saved designs, and converted ass
 
 Named saves and autosaves are recovery conveniences inside the current browser, not off-device backups. Follow [Backup and restore](/docs/artifacts/backup-and-restore) for a durable source-plus-assets bundle.
 
+Ordinary Design Lab Pause and PNG/JPG/GIF/MP4 exports do not create captured-frame assets. **Capture shader frame** explicitly stores a lossless PNG checkpoint with the editable shader recipe; named saves and portable source can retain these checkpoints. Playback and extending the time explorer do not continually encode or save new shader frames.
+
 ## Agent requests
 
 `POST /api/generate` processes request data in memory and does not persist the submitted identity or asset. The route responds with `Cache-Control: no-store`.

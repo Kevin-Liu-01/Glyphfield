@@ -416,10 +416,13 @@ describe('Playground optional layers', () => {
     expect(studioStyles).toContain('width: min(100cqw, 1180px, calc(100cqh * 1200 / 630));');
   });
 
-  it('freezes the live shader before capturing a still preview', () => {
-    expect(designLab).toContain('const resumeAfterExport = !paused;');
-    expect(designLab).toContain('setPaused(true);');
-    expect(designLab).toContain('if (resumeAfterExport) setPaused(false);');
+  it('keeps still export paused and consumes transient immutable shader images', () => {
+    const still = designLab.slice(designLab.indexOf('  async function exportStill('), designLab.indexOf('  async function waitForCapturedFrame('));
+    expect(still).toContain('pauseShaderHistory()');
+    expect(still).toContain("mode: 'transient'");
+    expect(still).toContain('withCapturedShaderImages(captures');
+    expect(still).not.toContain('captureCompositionFrame(');
+    expect(still).not.toContain('setPaused(false)');
   });
 
   it('restores complete composition and artboard controls before the dedicated layer view', () => {

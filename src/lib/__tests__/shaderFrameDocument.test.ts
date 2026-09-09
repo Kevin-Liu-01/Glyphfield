@@ -74,6 +74,59 @@ describe('captured shader frame document transactions', () => {
     expect(Object.keys(result.assets)).toEqual([embedded.id]);
   });
 
+  it('replaces obsolete frame assets without growing the current document or mutating undo documents', () => {
+    const keys = ['canvas-shader-background', 'content-text-label'];
+    const initial = applyShaderFrameCaptures(sourceDocument(), new Map(keys.map((key) => [key, capture])), options);
+    let current = initial;
+    for (const letter of ['b', 'c', 'd']) {
+      const next = { ...capture, frameSnapshot: { ...frameSnapshot, assetId: `shader-frame:${letter.repeat(64)}` } };
+      current = applyShaderFrameCaptures(current, new Map(keys.map((key) => [key, next])), options);
+      expect(Object.keys(current.assets)).toEqual([next.frameSnapshot.assetId]);
+    }
+    expect(Object.keys(initial.assets)).toEqual([frameSnapshot.assetId]);
+    expect(initial.elements['shader-background']!.data.frameSnapshot).toEqual(frameSnapshot);
+  });
+
+  it('retains frames referenced by inactive artboards and arbitrary future metadata or asset dependencies', () => {
+    const initial = applyShaderFrameCaptures(sourceDocument(), new Map([['canvas-shader-background', capture]]), options);
+    const future = { ...frameSnapshot, assetId: `shader-frame:${'b'.repeat(64)}` };
+    const dependency = { ...frameSnapshot, assetId: `shader-frame:${'c'.repeat(64)}` };
+    const futureAsset = { ...shaderFrameCanvasAsset(future), futureDependency: { source: `glyphfield-${dependency.assetId}` } };
+    initial.assets[future.assetId] = futureAsset;
+    initial.assets[dependency.assetId] = shaderFrameCanvasAsset(dependency);
+    const metadata = initial.metadata.designLab as CanvasJsonObject;
+    const artboards = (metadata.workspace as CanvasJsonObject).artboards as CanvasJsonObject[];
+    (artboards[1]!.snapshot as CanvasJsonObject).futureFrame = { frameSnapshot: { ...frameSnapshot } };
+    initial.metadata.futureAssetMap = { [future.assetId]: { enabled: true } };
+    initial.assets['ordinary-image'] = { id: 'ordinary-image', kind: 'image', mimeType: 'image/png', name: 'Keep unknown assets', source: `data:image/png;base64,${PNG}`, byteLength: 68 };
+    const next = { ...capture, frameSnapshot: { ...frameSnapshot, assetId: `shader-frame:${'d'.repeat(64)}` } };
+    const result = applyShaderFrameCaptures(initial, new Map([['canvas-shader-background', next]]), options);
+    expect(Object.keys(result.assets).sort()).toEqual([...Object.keys(initial.assets), next.frameSnapshot.assetId].sort());
+  });
+
+  it('rejects export-only captures instead of persisting a locator for unsaved pixels', () => {
+    const transient = { ...capture, frameBlob: new Blob(['pixels'], { type: 'image/png' }) };
+    expect(() => applyShaderFrameCaptures(sourceDocument(), new Map([['canvas-shader-background', transient]]), options)).toThrow(/export-only/);
+  });
+
+  it('rejects an untyped transient pixel object with no durable snapshot or asset ID', () => {
+    const transient = { frameState: capture.frameState, width: 1, height: 1,
+      frameBlob: new Blob(['pixels'], { type: 'image/png' }) };
+    // Runtime input can bypass TypeScript; never allow these temporary bytes
+    // to turn into a saved document locator either.
+    expect(() => applyShaderFrameCaptures(sourceDocument(),
+      new Map([['canvas-shader-background', transient as unknown as typeof capture]]), options)).toThrow(/export-only/);
+  });
+
+  it('does not hydrate abandoned legacy captures when preparing portable source', async () => {
+    const input = sourceDocument();
+    input.assets[frameSnapshot.assetId] = shaderFrameCanvasAsset(frameSnapshot);
+    vi.stubGlobal('indexedDB', undefined);
+    const restored = parseCanvasDocument(await prepareShaderFrameDocumentSource(input));
+    expect(restored.assets).toEqual({});
+    expect(input.assets[frameSnapshot.assetId]).toBeDefined();
+  });
+
   it('fails closed if async capture no longer matches the active artboard or shader recipe', () => {
     const document = sourceDocument();
     expect(() => applyShaderFrameCaptures(document, new Map(), { ...options, activeArtboardId: 'inactive' })).toThrow(/artboard changed/);

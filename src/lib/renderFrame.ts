@@ -18,6 +18,7 @@ import {
   type MaterialFinishSettings,
 } from './materialFinish';
 import { capVisibleFontWeight } from './typography';
+import { drawShaderFramePresentation, type ShaderFramePresentation } from './shaderFramePresentation';
 
 export type AnimationPackageId =
   | 'morph-fade'
@@ -44,6 +45,8 @@ export type StudioBackground = {
   colorC: string;
   finish?: MaterialFinishSettings;
   image?: CanvasImageSource;
+  /** Runtime-only treatment for live native canvases; exported buffers are already composed. */
+  shaderPresentation?: ShaderFramePresentation;
   materialId: LiveMaterialId;
   materialSettings: LiveMaterialSettings;
   opacity?: number;
@@ -302,13 +305,12 @@ function drawBackgroundContent(
       const scale = Math.max(config.width / sourceWidth, config.height / sourceHeight);
       const width = sourceWidth * scale;
       const height = sourceHeight * scale;
-      context.drawImage(
-        background.image,
-        (config.width - width) / 2,
-        (config.height - height) / 2,
-        width,
-        height
-      );
+      const bounds = { x: (config.width - width) / 2, y: (config.height - height) / 2, width, height };
+      if (background.shaderPresentation) {
+        drawShaderFramePresentation(context, background.image, background.shaderPresentation, bounds);
+      } else {
+        context.drawImage(background.image, bounds.x, bounds.y, width, height);
+      }
       context.restore();
       return;
     }

@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadCanvasImage } from '../canvasDrawing';
-import type { CapturedShaderFrame } from '../captureShaderFrames';
+import type { CapturedShaderFrame, ShaderFrameImageCapture, TransientShaderFrame } from '../captureShaderFrames';
 import { acquireShaderFrameAssetUrl } from '../shaderFrameAssets';
 import { preloadShaderFramePresentation } from '../shaderFramePresentation';
 import { withCapturedShaderImages } from '../withCapturedShaderImages';
@@ -21,6 +21,12 @@ function captures() {
       presentation: { filter: 'brightness(1.2)', grainOpacity: 0.1, grainTileSize: 160 } },
   });
   return new Map([['canvas-one', frame('a')], ['content-two', frame('b')]]);
+}
+
+function transientCapture(): TransientShaderFrame {
+  return { frameState: { engine: 'paper', frame: 100, timelineTimeMs: 50, version: 2 },
+    frameBlob: new Blob(['pixels'], { type: 'image/png' }), width: 80, height: 40,
+    presentation: { filter: 'brightness(1.2)', grainOpacity: 0.1, grainTileSize: 160 } };
 }
 
 describe('immutable shader image composition lease', () => {
@@ -68,6 +74,35 @@ describe('immutable shader image composition lease', () => {
     expect(compose).not.toHaveBeenCalled();
     expect(releases).toHaveLength(1);
     expect(releases[0]).toHaveBeenCalledOnce();
+  });
+
+  it('hydrates transient PNGs directly and keeps owned URLs alive until composition finishes', async () => {
+    const saved = captures();
+    const source = new Map<string, ShaderFrameImageCapture>(saved);
+    const temporary = transientCapture();
+    const blob = temporary.frameBlob;
+    source.set('canvas-one', temporary);
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:transient');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    await withCapturedShaderImages(source, (images) => {
+      expect(images.get('canvas-one')!.image.src).toBe('blob:transient');
+      expect(images.get('canvas-one')!.presentation).toEqual(temporary.presentation);
+      expect(revoke).not.toHaveBeenCalled();
+    });
+    expect(create).toHaveBeenCalledWith(blob);
+    expect(acquireShaderFrameAssetUrl).toHaveBeenCalledExactlyOnceWith(saved.get('content-two')!.frameSnapshot.assetId);
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:transient');
+    expect(releases[0]).toHaveBeenCalledOnce();
+  });
+
+  it('releases transient URLs when later hydration fails', async () => {
+    const source = new Map<string, ShaderFrameImageCapture>(captures());
+    source.set('canvas-one', transientCapture());
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:transient');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.mocked(acquireShaderFrameAssetUrl).mockRejectedValueOnce(new Error('Storage unavailable'));
+    await expect(withCapturedShaderImages(source, vi.fn())).rejects.toThrow('Storage unavailable');
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:transient');
   });
 
   it('releases image-load, decode and presentation failures without touching the compositor', async () => {

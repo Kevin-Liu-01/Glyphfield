@@ -99,6 +99,7 @@ Application waits for two animation frames after the tool validator resolves. Th
 Design Lab adds:
 
 ```text
+design.frame.pause
 design.frame.capture
 design.frame.play
 design.frame.seek
@@ -126,9 +127,11 @@ const capturedDocument = JSON.parse(source);
 // Retain this complete source, including CanvasDocument.assets, outside the browser.
 ```
 
-`design.frame.capture` waits for lossless PNG snapshots to persist and returns a portable CanvasDocument JSON string. The capture is an appearance checkpoint plus editable recipe, not a pre-rendered motion sequence. Storage, missing-renderer, or encoding failures reject the action rather than returning an incomplete save.
+`design.frame.pause` synchronously freezes the current native frame and returns `null`. It does not encode a PNG or write captured-frame assets. Use it for an ordinary pause; use `design.frame.capture` only when you want a durable appearance checkpoint.
 
-`design.frame.play` resumes native motion. `design.frame.seek` accepts `{ timeMs: 1250.5 }`, where time is a non-negative finite number; it addresses seekable shader time, not export-frame indices. Stateful Fluid Energy does not support history replay and starts a new simulation when resumed. `design.motion.describe` reports layer-specific provider, capture, seek, and loop capabilities. A continuous animation clock is not evidence of a finite seamless loop.
+`design.frame.capture` waits for lossless PNG snapshots to persist and returns a portable CanvasDocument JSON string. The capture is an appearance checkpoint plus editable recipe, not a pre-rendered motion sequence. Storage, missing-renderer, or encoding failures reject the action rather than returning an incomplete save. A saved PNG that cannot be loaded is reported as unavailable; it is not replaced with a newly animated approximation.
+
+`design.frame.play` resumes native motion. `design.frame.seek` accepts `{ timeMs: 1250.5 }`, where time is a non-negative finite number; it addresses seekable shader time, not export-frame indices. Stateful Fluid Energy does not support history replay: ordinary pause retains its mounted simulation, but playing from a saved PNG starts a new simulation. `design.motion.describe` reports layer-specific provider, capture, seek, and loop capabilities. A continuous animation clock is not evidence of a finite seamless loop. The time explorer's range grows only when explicitly extended; elapsed playback time neither adds saved frames nor automatically extends that range.
 
 Use the unified action for new clients:
 
@@ -141,6 +144,8 @@ const artifact = await studio.invoke('design.export', {
 ```
 
 `format` accepts `png`, `jpg`, `gif`, or `mp4`. `mode` accepts `standard` or `shader-sequence`; the latter is valid for GIF and MP4. With `download: false` or omitted, the method returns the Blob without saving it. Call `studio.download(artifact)` later if needed.
+
+PNG/JPG freeze the exact frame visible when export starts, then compose it at the selected output dimensions. GIF/MP4 are explicit motion operations that sample from the current frame anchor and restore that paused pose afterward. Neither export path adds captured-frame assets to IndexedDB or automatically resumes playback. Stateful Fluid supports exact still export, but timestamp-sampled motion export is rejected rather than inventing simulation history. Fonts, images, renderer readiness, and the requested browser encoder must still be available.
 
 ## Completion and verification
 

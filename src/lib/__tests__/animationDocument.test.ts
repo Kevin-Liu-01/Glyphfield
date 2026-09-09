@@ -61,6 +61,31 @@ function input(): AnimationDocumentInput {
 }
 
 describe('Animation Studio canvas document adapter', () => {
+  it.each(['', ' ', '\t', '\n', '\u2003'])('preserves blank frame content %j while giving its page a valid display name', (text) => {
+    const next = input();
+    next.sources = [{ id: 'text-0', kind: 'text', text }];
+    next.state.textFrames = text;
+    next.state.sequenceOrder = ['text-0'];
+    const document = createAnimationCanvasDocument(next);
+    expect(document.pages[document.pageIds[0]!]!.name).toBe('Frame 1');
+    expect(document.elements['text-0']!.name).toBe('Frame 1');
+    expect(document.elements['text-0']!.content).toBe(text);
+    const parsed = parseAnimationCanvasDocument(serializeAnimationCanvasDocument(document));
+    expect(parsed.state.textFrames).toBe(text);
+  });
+
+  it('never serializes runtime canvas images or composed-preview presentation', () => {
+    const next = input();
+    const base = createDefaultFrameSettings(DEFAULT_SETTINGS).background;
+    next.sources = [{ ...next.sources[0]!, background: { ...base, image: {} as CanvasImageSource,
+      shaderPresentation: { filter: 'brightness(1.35)', grainOpacity: 0.24, grainTileSize: 160 } } }];
+    const document = createAnimationCanvasDocument(next);
+    const background = document.elements['text-0']!.data.background;
+    expect(background).not.toHaveProperty('image');
+    expect(background).not.toHaveProperty('shaderPresentation');
+    expect(background).toMatchObject({ materialId: base.materialId, materialSettings: base.materialSettings });
+  });
+
   it('models every animation frame as a canonical page and embeds image bytes', () => {
     const document = createAnimationCanvasDocument(input());
 

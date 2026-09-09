@@ -22,6 +22,8 @@ PNG is a lossless browser still. It preserves transparency where the tool suppor
 
 Design Lab PNG resolves the complete layer stack: background, shaders at the selected frame, converter effects, text effects, assets, marks, stickers, opacity, blend, and transforms.
 
+Design Lab freezes the currently visible native shader frame before composing a PNG or JPG at the selected output dimensions. The export leaves playback paused and does not create stored shader-frame assets. To preserve an editable appearance checkpoint as well as a rendered artifact, explicitly capture the shader frame and retain the portable CanvasDocument source.
+
 ## JPG
 
 JPG is an opaque Design Lab still. Transparent pixels are composited against the selected canvas background before encoding. Use it when file size matters more than transparency or pixel-perfect flat-color edges.
@@ -47,6 +49,8 @@ The GIF loop flag only repeats playback; it does not make the last visual state 
 MP4 is browser-encoded video for higher color fidelity and motion efficiency. Design Lab encodes the standard live composition or shader-cut sequence. Animation can mix overlapping audio clips into the exported video.
 
 Codec availability depends on the browser. If MP4 encoding is unavailable, keep the source and report the limitation; do not silently substitute GIF.
+
+Design Lab GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward, without persisting captured-frame assets. A saved PNG preserves appearance, not simulation history: stateful Fluid supports exact still export, but timestamp-sampled motion export is unavailable.
 
 ## PDF
 

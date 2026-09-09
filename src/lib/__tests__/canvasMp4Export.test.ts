@@ -10,6 +10,8 @@ const mockState = vi.hoisted(() => ({
   qualityLevels: [] as string[],
   started: 0,
   finalized: 0,
+  encodedMetadata: undefined as EncodedVideoChunkMetadata | undefined,
+  muxedMetadata: undefined as EncodedVideoChunkMetadata | undefined,
 }));
 
 vi.mock('mediabunny', () => ({
@@ -24,9 +26,13 @@ vi.mock('mediabunny', () => ({
     buffer = mockState.buffer;
   },
   CanvasSource: class CanvasSource {
-    constructor(_canvas: HTMLCanvasElement, _options: object) {}
+    constructor(_canvas: HTMLCanvasElement, private options: {
+      onEncodedPacket?: (packet: unknown, metadata: EncodedVideoChunkMetadata | undefined) => void;
+    }) {}
 
     async add(time: number, duration: number) {
+      this.options.onEncodedPacket?.({}, mockState.encodedMetadata);
+      mockState.muxedMetadata = structuredClone(mockState.encodedMetadata);
       mockState.addedFrames.push({ duration, time });
     }
   },
@@ -80,6 +86,8 @@ describe('canvas MP4 export', () => {
     mockState.qualityLevels.length = 0;
     mockState.started = 0;
     mockState.finalized = 0;
+    mockState.encodedMetadata = undefined;
+    mockState.muxedMetadata = undefined;
   });
 
   it.each([
@@ -124,6 +132,17 @@ describe('canvas MP4 export', () => {
       renderFrame: () => undefined,
     })).rejects.toThrow(/cannot encode an MP4/i);
     expect(mockState.started).toBe(0);
+  });
+
+  it('reconciles actual encoded AVC range before the MP4 muxer consumes its metadata', async () => {
+    mockState.encodedMetadata = { decoderConfig: { codec: 'avc1.64000d',
+      description: Uint8Array.from(Buffer.from('0164000dffe1000b2764000dac56281419f9d001000428ee3cb0fdf8f800', 'hex')),
+      colorSpace: { fullRange: true, primaries: 'bt709', transfer: 'iec61966-2-1', matrix: 'bt709' } } };
+    await encodeCanvasMp4({ canvas: { height: 180, width: 320 } as HTMLCanvasElement,
+      durationMs: 100, fps: 10, renderFrame: () => undefined });
+    expect(mockState.muxedMetadata!.decoderConfig!.colorSpace).toEqual({
+      fullRange: false, primaries: 'bt709', transfer: 'iec61966-2-1', matrix: 'bt709',
+    });
   });
 
   it('adds a decoded audio buffer to the MP4 when supplied', async () => {

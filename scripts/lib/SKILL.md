@@ -15,6 +15,8 @@ separating product failures from WebDriver input or focus failures.
 `safari-native-click.mjs` measures trusted pointer delivery.
 `safari-tab-checks.mjs` checks project/tool navigation and retained edits.
 `safari-shader-check.mjs` checks shader controls and draw-submission cadence.
+`safari-frame-export-check.mjs` checks pause, exact-frame capture, grain and still exports.
+`safari-frame-motion-check.mjs` decodes native MP4 output and checks its range and paused pose.
 
 ## Patterns to follow / invariants
 <!-- agent-docs:fill:patterns -->

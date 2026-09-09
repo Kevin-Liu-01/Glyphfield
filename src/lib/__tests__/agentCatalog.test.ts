@@ -27,8 +27,14 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.framePersistence.appearance).toBe('lossless-png-snapshot');
     expect(AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.shaderFrameCapture).map(({ id }) => id)).toEqual(['material']);
     expect(Object.keys(AGENT_MANIFEST.studioBrowserApi.toolActions.material)).toEqual([
-      'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
+      'design.frame.pause', 'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
     ]);
+    expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.frame.pause']).toMatchObject({
+      description: expect.stringContaining('without encoding PNGs or writing captured-frame assets'),
+      input: 'No input',
+      output: 'null',
+    });
+    expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.frame.capture'].output).toContain('embedded captured-frame assets');
     expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.frame.seek'].input).toContain('non-negative finite');
   });
 

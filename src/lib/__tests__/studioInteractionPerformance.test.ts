@@ -119,7 +119,10 @@ describe('Studio interaction performance contracts', () => {
     expect(frameHistory).not.toContain('setDisplayFrame');
     expect(frameHistory).not.toContain('previewPlaybackTime(nextFrame)');
     expect(liveMaterial).toContain('applyPaperShaderFrame(');
-    expect(liveMaterial).toContain('frame: capturedFrameState?.frame ?? presetFrame,');
+    // Authored time seeds the async vendor mount only once. Later scrubs stay
+    // imperative, as exercised by PaperShaderInitialization's lifecycle tests.
+    expect(liveMaterial).toContain('frame: initialFrame');
+    expect(liveMaterial).toContain('initialFrame.anchor === anchorFrame ? initialFrame.frame : anchorFrame');
     expect(capture).toContain('freezeLiveMaterialFrame(request.root, timelineTimeMs)');
     expect(capture.indexOf('context.drawImage(frozen.canvas, 0, 0)')).toBeLessThan(capture.indexOf('await canvasToImageBlob'));
     expect(liveMaterial).toContain('const PAPER_PREVIEW_FRAME_RATE = 30;');

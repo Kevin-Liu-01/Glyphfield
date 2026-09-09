@@ -82,6 +82,7 @@ describe('ShaderFrameImage', () => {
   it('retains native paused pixels through URL loading and decoding, then releases that child', async () => {
     const pending = deferred<{ url: string; release: () => void }>();
     vi.mocked(acquireShaderFrameAssetUrl).mockReturnValueOnce(pending.promise);
+    await act(async () => root.render(<ShaderFrameImage><canvas data-native-retained='true' /></ShaderFrameImage>));
     await render(snapshot, true);
     const native = container.querySelector('canvas');
     expect(native).not.toBeNull();
@@ -106,6 +107,21 @@ describe('ShaderFrameImage', () => {
     expect(acquireShaderFrameAssetUrl).not.toHaveBeenCalled();
     await act(async () => { root.render(<ShaderFrameImage snapshot={snapshot}>{live}</ShaderFrameImage>); });
     expect(container.querySelector('canvas')).toBe(native);
+    await load(image());
+    expect(container.querySelector('canvas')).toBeNull();
+  });
+
+  it('invariant_the_retained_native_renderer_is_paused_during_capture_handoff', async () => {
+    function Native({ paused }: Pick<LiveMaterialCanvasProps, 'paused' | 'settings'>) {
+      return <canvas data-paused={String(paused)} />;
+    }
+    const live = <Native paused={false} settings={DEFAULT_LIVE_MATERIAL_SETTINGS} />;
+    await act(async () => root.render(<ShaderFrameImage>{live}</ShaderFrameImage>));
+    const native = container.querySelector('canvas');
+    expect(native?.dataset.paused).toBe('false');
+    await act(async () => root.render(<ShaderFrameImage snapshot={snapshot}>{live}</ShaderFrameImage>));
+    expect(container.querySelector('canvas')).toBe(native);
+    expect(native?.dataset.paused).toBe('true');
     await load(image());
     expect(container.querySelector('canvas')).toBeNull();
   });
@@ -172,13 +188,47 @@ describe('ShaderFrameImage', () => {
     expect(container.querySelector('img')).toBeNull();
   });
 
-  it('keeps native children and a diagnostic on image failure without exposing broken pixels', async () => {
+  it('invariant_a_saved_image_decode_failure_never_mounts_native_children', async () => {
     await render(snapshot, true);
+    expect(container.querySelector('canvas')).toBeNull();
     await act(async () => { image().dispatchEvent(new Event('error')); });
-    expect(container.querySelector('canvas')).not.toBeNull();
-    expect(container.querySelector('[data-shader-skeleton]')).toBeNull();
+    expect(container.querySelector('canvas')).toBeNull();
+    expect(container.querySelector('[data-shader-skeleton="unavailable"]')).not.toBeNull();
     expect(container.querySelector('[role="status"]')?.textContent).toContain('could not be loaded');
     expect(container.querySelector('[data-live-material-ready="error"]')).not.toBeNull();
+  });
+
+  it('invariant_a_saved_asset_storage_failure_does_not_start_a_new_shader', async () => {
+    const mounts = vi.fn();
+    function Native() {
+      mounts();
+      return <canvas />;
+    }
+    vi.mocked(acquireShaderFrameAssetUrl).mockRejectedValueOnce(new Error('Missing stored PNG.'));
+    await act(async () => root.render(<ShaderFrameImage snapshot={snapshot}><Native /></ShaderFrameImage>));
+    expect(mounts).not.toHaveBeenCalled();
+    expect(container.querySelector('canvas')).toBeNull();
+    expect(container.querySelector('[data-shader-skeleton="unavailable"]')).not.toBeNull();
+  });
+
+  it('invariant_a_ready_saved_frame_does_not_remount_native_after_an_image_error', async () => {
+    await render(snapshot, true);
+    const storedImage = image();
+    await load(storedImage);
+    expect(container.querySelector('canvas')).toBeNull();
+    await act(async () => storedImage.dispatchEvent(new Event('error')));
+    expect(container.querySelector('canvas')).toBeNull();
+    expect(container.querySelector('[data-shader-skeleton="unavailable"]')).not.toBeNull();
+  });
+
+  it('invariant_a_failed_live_to_capture_handoff_shows_unavailable_without_restarting_motion', async () => {
+    await act(async () => root.render(<ShaderFrameImage><canvas data-native-retained='true' /></ShaderFrameImage>));
+    await render(snapshot, true);
+    const native = container.querySelector('canvas');
+    expect(native).not.toBeNull();
+    await act(async () => image().dispatchEvent(new Event('error')));
+    expect(container.querySelector('canvas')).toBeNull();
+    expect(container.querySelector('[data-shader-skeleton="unavailable"]')).not.toBeNull();
   });
 
   it('rejects an empty/wrong-sized decoded image instead of marking it ready', async () => {

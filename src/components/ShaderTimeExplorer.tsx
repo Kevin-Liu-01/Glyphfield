@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { Clock3, ImagePlus, Pause, Play, Plus, SkipBack, SkipForward } from '@/components/ui/SolidIcons';
 import StudioRange from '@/components/ui/StudioRange';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
@@ -39,15 +40,21 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
   const pendingRef = useRef<number | null>(null);
   const previewFrameRef = useRef(0);
   const scrubbingRef = useRef(false);
+  const pointerGestureRef = useRef<{ pointerId: number; initialValue: number } | null>(null);
+  const detachGestureListenersRef = useRef<(() => void) | null>(null);
+  const finishGestureRef = useCommittedRef(finishPointerGesture);
+  const nativeChangeRef = useCommittedRef(handleNativeChange);
 
   const syncDisplay = useCallback((value: number) => {
     const next = boundedTime(value);
     timeRef.current = next;
-    if (next > windowRef.current) windowRef.current = windowFor(next);
     if (rangeRef.current) {
+      // Playback never changes the user's exploration range. The elapsed
+      // readout stays unbounded; only the thumb stops at the selected edge.
+      const visibleTime = Math.min(next, windowRef.current);
       rangeRef.current.max = String(windowRef.current);
-      rangeRef.current.value = String(next);
-      rangeRef.current.style.setProperty('--studio-range-progress', `${next / windowRef.current * 100}%`);
+      rangeRef.current.value = String(visibleTime);
+      rangeRef.current.style.setProperty('--studio-range-progress', `${visibleTime / windowRef.current * 100}%`);
     }
     if (secondsRef.current) secondsRef.current.textContent = `${(next / 1000).toFixed(2)}s`;
     if (windowLabelRef.current) windowLabelRef.current.textContent = `${windowRef.current / 1000}s`;
@@ -83,7 +90,16 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
     };
   }, [busy, latest, playing, syncDisplay]);
 
-  useEffect(() => () => cancelAnimationFrame(previewFrameRef.current), []);
+  useEffect(() => {
+    const range = rangeRef.current;
+    const change = () => nativeChangeRef.current();
+    range?.addEventListener('change', change);
+    return () => {
+      cancelAnimationFrame(previewFrameRef.current);
+      detachGestureListenersRef.current?.();
+      range?.removeEventListener('change', change);
+    };
+  }, [nativeChangeRef]);
 
   function startScrub() {
     if (!canSeek || busy || scrubbingRef.current) return;
@@ -96,6 +112,7 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
     startScrub();
     syncDisplay(next);
     pendingRef.current = timeRef.current;
+    if (rangeRef.current) rangeRef.current.dataset.canvasPreviewPending = 'true';
     if (previewFrameRef.current) return;
     previewFrameRef.current = requestAnimationFrame(() => {
       previewFrameRef.current = 0;
@@ -109,9 +126,59 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
     scrubbingRef.current = false;
     const next = pendingRef.current;
     pendingRef.current = null;
+    if (rangeRef.current) delete rangeRef.current.dataset.canvasPreviewPending;
     if (next === null) return;
     latest.current.onTimePreview(next);
-    latest.current.onTimeChange(next);
+    flushSync(() => latest.current.onTimeChange(next));
+  }
+
+  function finishPointerGesture() {
+    const gesture = pointerGestureRef.current;
+    const value = Number(rangeRef.current?.value);
+    if (gesture && Number.isFinite(value) && (pendingRef.current !== null || value !== gesture.initialValue)) preview(value);
+    pointerGestureRef.current = null;
+    detachGestureListenersRef.current?.();
+    detachGestureListenersRef.current = null;
+    commitScrub();
+  }
+
+  function beginPointerGesture(event: ReactPointerEvent<HTMLInputElement>) {
+    if (!canSeek || busy || event.button !== 0 || pointerGestureRef.current) return;
+    pointerGestureRef.current = { pointerId: event.pointerId, initialValue: Number(event.currentTarget.value) };
+    const finishPointer = (event: PointerEvent) => {
+      if (pointerGestureRef.current?.pointerId === event.pointerId) finishGestureRef.current();
+    };
+    const finishBlur = () => finishGestureRef.current();
+    const finishHidden = () => { if (document.hidden) finishGestureRef.current(); };
+    // Do not capture native range pointers: WebKit's native thumb drag needs
+    // its own routing. Gesture-scoped listeners cover releases outside it.
+    window.addEventListener('pointerup', finishPointer);
+    window.addEventListener('pointercancel', finishPointer);
+    window.addEventListener('blur', finishBlur);
+    document.addEventListener('visibilitychange', finishHidden);
+    detachGestureListenersRef.current = () => {
+      window.removeEventListener('pointerup', finishPointer);
+      window.removeEventListener('pointercancel', finishPointer);
+      window.removeEventListener('blur', finishBlur);
+      document.removeEventListener('visibilitychange', finishHidden);
+    };
+    startScrub();
+  }
+
+  function endPointerGesture(event: ReactPointerEvent<HTMLInputElement>) {
+    if (pointerGestureRef.current?.pointerId === event.pointerId) finishPointerGesture();
+  }
+
+  function handleNativeChange() {
+    if (!canSeek || busy) return;
+    const value = Number(rangeRef.current?.value);
+    if (Number.isFinite(value) && value !== Math.min(timeRef.current, windowRef.current)) preview(value);
+    finishPointerGesture();
+  }
+
+  function handleInput(value: number) {
+    preview(value);
+    if (!pointerGestureRef.current) commitScrub();
   }
 
   function step(direction: number) {
@@ -141,8 +208,9 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
       </div>
       <StudioRange aria-label='Explore shader time' aria-description={seekExplanation} disabled={!canSeek || busy}
         defaultValue={boundedTime(timeMs)} min={0} max={windowMs} step={FRAME_STEP_MS} ref={rangeRef}
-        onInput={(event) => preview(Number(event.currentTarget.value))} onPointerDown={startScrub}
-        onPointerUp={commitScrub} onPointerCancel={commitScrub} onBlur={commitScrub} onKeyUp={commitScrub} />
+        onInput={(event) => handleInput(Number(event.currentTarget.value))} onPointerDown={beginPointerGesture}
+        onPointerUp={endPointerGesture} onPointerCancel={endPointerGesture} onLostPointerCapture={endPointerGesture}
+        onBlur={finishPointerGesture} />
       <div className='flex min-w-0 items-center gap-1'>
         <button className={smallButton} aria-label='Previous shader frame (1/60 second)' title='Back 1/60s' disabled={!canSeek || busy}
           onClick={() => step(-1)} type='button'><SkipBack aria-hidden='true' /></button>

@@ -28,6 +28,9 @@ type CaptureOptions = {
 };
 
 function capturedApplication(application: CanvasJsonObject, capture: ShaderFrameCapture): CanvasJsonObject {
+  if ('frameBlob' in capture && capture.frameBlob !== undefined) {
+    throw new TypeError('An export-only shader capture cannot be saved as a document frame. Capture a durable frame first.');
+  }
   const frameState = normalizeLiveMaterialFrameState(capture.frameState);
   const frameSnapshot = normalizeShaderFrameSnapshot(capture.frameSnapshot);
   if (!frameState || !frameSnapshot) throw new TypeError('The shader frame capture is incomplete.');
@@ -36,6 +39,39 @@ function capturedApplication(application: CanvasJsonObject, capture: ShaderFrame
     throw new TypeError('The shader changed before its frame could be captured. Try capturing again.');
   }
   return toCanvasJsonObject({ ...application, frameState, frameSnapshot }, 'Captured shader application');
+}
+
+/**
+ * Only collected shader PNGs are disposable. Scan every scene/metadata field and
+ * retained asset dependency, including unknown fields and inactive artboards.
+ * History retains its own immutable assets; this never deletes durable blobs.
+ */
+function pruneUnreferencedShaderFrames(document: CanvasDocument): CanvasDocument {
+  const candidates = new Set(Object.entries(document.assets).filter(([id, asset]) =>
+    asset.id === id && /^shader-frame:[a-f0-9]{64}$/.test(id)
+    && asset.kind === 'image' && asset.mimeType === 'image/png'
+    && (asset.source === `glyphfield-${id}` || asset.source.startsWith('data:image/png;base64,'))
+  ).map(([id]) => id));
+  if (!candidates.size) return document;
+  const references = new Map([...candidates].flatMap((id) => [[id, id], [`glyphfield-${id}`, id]]));
+  const retained = new Set<string>();
+  const visited = new Set<object>();
+  const visit = (value: unknown): void => {
+    if (typeof value === 'string') {
+      const id = references.get(value);
+      if (id) retained.add(id);
+    } else if (value && typeof value === 'object' && !visited.has(value)) {
+      visited.add(value);
+      for (const [key, child] of Object.entries(value)) { visit(key); visit(child); }
+    }
+  };
+  for (const [key, value] of Object.entries(document)) if (key !== 'assets') visit(value);
+  for (const [id, asset] of Object.entries(document.assets)) if (!candidates.has(id)) visit(asset);
+  // Set iteration also visits dependencies discovered by earlier retained assets.
+  for (const id of retained) visit(document.assets[id]);
+  if (retained.size === candidates.size) return document;
+  return { ...document, assets: Object.fromEntries(Object.entries(document.assets)
+    .filter(([id]) => !candidates.has(id) || retained.has(id))) };
 }
 
 function patchContentApplications(
@@ -122,7 +158,7 @@ export function applyShaderFrameCaptures(
   for (const { frameSnapshot } of captures.values()) {
     assets[frameSnapshot.assetId] ??= shaderFrameCanvasAsset(frameSnapshot);
   }
-  return {
+  return pruneUnreferencedShaderFrames({
     ...document,
     assets,
     elements,
@@ -137,12 +173,12 @@ export function applyShaderFrameCaptures(
     },
     revision: document.revision + 1,
     updatedAt: new Date().toISOString(),
-  };
+  });
 }
 
 /** Embeds IDB-backed captures only at the save/export boundary. */
 export async function prepareShaderFrameDocumentSource(document: CanvasDocument): Promise<string> {
-  const portable = await preparePortableCanvasDocument(document, (source) => isShaderFrameAssetSource(source)
+  const portable = await preparePortableCanvasDocument(pruneUnreferencedShaderFrames(document), (source) => isShaderFrameAssetSource(source)
     ? resolveShaderFrameAssetSource(source)
     : imageUrlToDataUrl(source));
   return serializeCanvasDocument(portable);

@@ -15,6 +15,7 @@
     "build:prod": "next build --turbopack",
     "dev": "next dev --turbopack --port 3012",
     "docs:generate": "fumadocs-mdx",
+    "generate:shader-grain": "node scripts/generate-shader-grain.mjs",
     "lint": "pnpm lint:fast && pnpm lint:cognitive",
     "lint:cognitive": "eslint src --no-warn-ignored",
     "lint:fast": "oxlint src vitest.config.ts next.config.ts",

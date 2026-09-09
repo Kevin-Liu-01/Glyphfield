@@ -42,7 +42,7 @@ export function isSupportedLottieFile(name: string, type: string): boolean {
 export type StudioFrameSettings = {
   alignX: number;
   alignY: number;
-  background: Omit<StudioBackground, 'image'>;
+  background: Omit<StudioBackground, 'image' | 'shaderPresentation'>;
   fit: 'contain' | 'cover';
   finish: MaterialFinishSettings;
   fontSize: number;

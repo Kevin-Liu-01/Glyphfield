@@ -54,8 +54,10 @@ import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
 import ShaderFrameImage from '@/components/ShaderFrameImage';
 import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
+import RestoredLiveMaterialCanvas from '@/components/RestoredLiveMaterialCanvas';
 import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
 import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
+import { pauseShaderFrames } from '@/lib/pauseShaderFrames';
 import { previewSelectedTextStyle, selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
 import { checkpointCanvasHistory, redoCanvasCheckpointHistory, undoCanvasCheckpointHistory } from '@/lib/canvasCheckpointHistory';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
@@ -230,7 +232,6 @@ import {
 } from '@/lib/designLabDocument';
 import { parseSourceObject } from '@/lib/sourceCode';
 import {
-  captureLiveMaterialFrameState,
   clearLiveMaterialTimePreview,
   normalizeLiveMaterialFrameState,
   previewLiveMaterialPatternScale,
@@ -2652,6 +2653,7 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 
 type DesignAutomationHandlers = {
   prepareCompositionSource: () => Promise<string>;
+  pauseShaderHistory: () => void;
   playShaderHistory: () => void;
   seekShaderTime: (timeMs: number) => void;
   describeShaderMotion: () => object;
@@ -2674,20 +2676,27 @@ const DESIGN_AUTOMATION_EXPORT_REQUESTS: Readonly<Record<string, DesignAutomatio
   'design.export.shader-sequence.mp4': { format: 'mp4', mode: 'shader-sequence' },
 };
 
+function designAutomationSeekTime(input: unknown): number {
+  if (!input || typeof input !== 'object' || Array.isArray(input)
+    || Object.keys(input).some((key) => key !== 'timeMs')
+    || typeof (input as { timeMs?: unknown }).timeMs !== 'number') {
+    throw new TypeError('design.frame.seek requires { timeMs }.');
+  }
+  return (input as { timeMs: number }).timeMs;
+}
+
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
   switch (action) {
     case 'design.frame.capture':
       return handlers.prepareCompositionSource();
+    case 'design.frame.pause':
+      handlers.pauseShaderHistory();
+      return null;
     case 'design.frame.play':
       handlers.playShaderHistory();
       return null;
     case 'design.frame.seek': {
-      if (!input || typeof input !== 'object' || Array.isArray(input)
-        || Object.keys(input).some((key) => key !== 'timeMs')
-        || typeof (input as { timeMs?: unknown }).timeMs !== 'number') {
-        throw new TypeError('design.frame.seek requires { timeMs }.');
-      }
-      handlers.seekShaderTime((input as { timeMs: number }).timeMs);
+      handlers.seekShaderTime(designAutomationSeekTime(input));
       return null;
     }
     case 'design.motion.describe':
@@ -4391,9 +4400,9 @@ export default function ShaderLabStudio({
   const previewTimeRef = useRef(0);
   const frameCapturePendingRef = useRef(false);
   const sourceApplySequenceRef = useRef(0);
-  const exportShaderApplicationsRef = useRef(new Map<string, ShaderApplication>());
   const effectCaptureShaderImagesRef = useRef<ReadonlyMap<string, CapturedShaderImage> | null>(null);
   const exportJobRef = useRef(false);
+  const exportFailureRef = useRef<unknown>(null);
   useEffect(() => () => { sourceApplySequenceRef.current += 1; }, []);
   useEffect(() => {
     void preloadShaderFramePresentation({ grainOpacity: 1 }).catch(() => {
@@ -4503,6 +4512,9 @@ export default function ShaderLabStudio({
   const [paused, setPaused] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(0);
   const [previewTimeMs, setPreviewTimeMs] = useState(0);
+  const [shaderTimelineRestore, setShaderTimelineRestore] = useState({
+    revision: 0, timeMs: 0, pendingKeys: [] as string[],
+  });
   const [frameCapturePending, setFrameCapturePending] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
@@ -5051,6 +5063,7 @@ export default function ShaderLabStudio({
   }, [boundedPreviewFrame, previewFrame]);
 
   function seekShaderTime(timeMs: number) {
+    assertShaderTimelineReady();
     if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before exploring a shader frame.');
     if (exportJobRef.current || frameCapturePendingRef.current) throw new Error('Wait for the current shader capture or export before seeking.');
     if (!Number.isFinite(timeMs) || timeMs < 0) throw new Error('Choose a nonnegative shader time.');
@@ -5067,25 +5080,44 @@ export default function ShaderLabStudio({
   }
 
   function beginShaderTimeScrub() {
-    const timeMs = paused ? previewTimeMs : previewTimeRef.current;
-    const states = new Map(shaderCaptureRequests(timeMs).map((request) => [
-      request.key, request.existing?.frameState ?? captureLiveMaterialFrameState(request.root, timeMs),
-    ]));
-    flushSync(() => {
-      setShaderLayers((current) => current.map((layer) => ({ ...layer,
-        frameState: states.get(`canvas-${layer.id}`) ?? layer.frameState, frameSnapshot: undefined,
-      })));
-      setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([id, application]) => [id,
-        application ? { ...application, frameState: states.get(`content-${id}`) ?? application.frameState, frameSnapshot: undefined } : application,
-      ])) as Partial<Record<ContentLayerId, ShaderApplication>>);
-      previewTimeRef.current = timeMs;
-      setPreviewTimeMs(timeMs);
-      setPaused(true);
-    });
+    pauseShaderHistory();
+  }
+
+  function pauseShaderHistory() {
+    assertShaderTimelineReady();
+    if (paused) return previewTimeMs;
+    const timeMs = previewTimeRef.current;
+    const operation = pauseShaderFrames(shaderCaptureRequests(timeMs), timeMs);
+    try {
+      flushSync(() => {
+        setShaderLayers((current) => current.map((layer) => operation.states.has(`canvas-${layer.id}`)
+          ? { ...layer, frameState: operation.states.get(`canvas-${layer.id}`), frameSnapshot: undefined } : layer));
+        setLayerShaders((current) => Object.fromEntries(Object.entries(current).map(([id, application]) => [id,
+          application && operation.states.has(`content-${id}`)
+            ? { ...application, frameState: operation.states.get(`content-${id}`), frameSnapshot: undefined } : application,
+        ])) as Partial<Record<ContentLayerId, ShaderApplication>>);
+        previewTimeRef.current = timeMs;
+        setPreviewTimeMs(timeMs);
+        setPaused(true);
+      });
+    } finally {
+      operation.release();
+    }
+    return timeMs;
+  }
+
+  function freezeCurrentShaderFrame() {
+    if (exportJobRef.current || frameCapturePendingRef.current || sequencePreviewingRef.current) return;
+    try {
+      pauseShaderHistory();
+      setExportError(null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The shader could not be paused.');
+    }
   }
 
   function playShaderHistory() {
-    if (exportJobRef.current || frameCapturePendingRef.current || sequencePreviewingRef.current) return;
+    if (exportJobRef.current || frameCapturePendingRef.current || sequencePreviewingRef.current || shaderTimelineRestoring) return;
     clearLiveMaterialTimePreview('design-lab');
     setPaused(false);
   }
@@ -5095,7 +5127,7 @@ export default function ShaderLabStudio({
       playShaderHistory();
       return;
     }
-    void saveCurrentShaderFrame();
+    freezeCurrentShaderFrame();
   }
 
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
@@ -5120,6 +5152,7 @@ export default function ShaderLabStudio({
     previewFrameRef.current = nextFrame;
     setPreviewFrame(nextFrame);
     const nextTimeMs = next.timeline.timeMs ?? nextFrame * 1_000 / normalizedExportSettings.fps;
+    beginShaderTimelineRestore(nextTimeMs, next.shaderLayers, next.layerShaders);
     previewTimeRef.current = nextTimeMs;
     setPreviewTimeMs(nextTimeMs);
     setPaused(next.timeline.paused);
@@ -6468,6 +6501,36 @@ export default function ShaderLabStudio({
     ), 0),
     [layerShaders, visibleLayerIds]
   );
+  const shaderTimelineRestoring = shaderTimelineRestore.pendingKeys.some((key) => {
+    const id = key.slice(key.indexOf('-') + 1) as CompositionLayerId;
+    if (!visibleLayerIdSet.has(id)) return false;
+    const application = key.startsWith('canvas-')
+      ? shaderLayers.find((layer) => layer.id === id)
+      : layerShaders[id as ContentLayerId];
+    return application && !(paused && shaderFrameMatches(application.frameSnapshot, application));
+  });
+
+  function assertShaderTimelineReady() {
+    if (shaderTimelineRestoring) throw new Error('The restored shader time is still loading. Wait for its preview before capturing or exporting.');
+  }
+
+  function beginShaderTimelineRestore(timeMs: number, layers: readonly CompositionShaderLayer[], applications: Partial<Record<ContentLayerId, ShaderApplication>>) {
+    clearLiveMaterialTimePreview('design-lab');
+    setShaderTimelineRestore((current) => ({
+      revision: current.revision + 1,
+      timeMs,
+      pendingKeys: [
+        ...layers.map(({ id }) => `canvas-${id}`),
+        ...Object.entries(applications).filter(([, application]) => Boolean(application)).map(([id]) => `content-${id}`),
+      ],
+    }));
+  }
+
+  function finishShaderTimelineRestore(key: string, revision: number) {
+    setShaderTimelineRestore((current) => current.revision === revision && current.pendingKeys.includes(key)
+      ? { ...current, pendingKeys: current.pendingKeys.filter((pendingKey) => pendingKey !== key) }
+      : current);
+  }
   const livePreviewPixelBudget = liveMaterialInstancePixelBudget({
     instanceCount: visibleShaderRendererCount,
     maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
@@ -6511,19 +6574,24 @@ export default function ShaderLabStudio({
   }
 
   function assertCanvasEditsCommitted() {
+    assertShaderTimelineReady();
     if (stageRef.current?.closest('.shader-lab-v2')?.querySelector('[data-canvas-preview-pending="true"]')) {
       throw new Error('Finish adjusting the canvas control before saving or exporting its updated appearance.');
     }
   }
 
-  async function captureCompositionFrame({ forExport = false }: { forExport?: boolean } = {}) {
+  function assertShaderEditsCommitted() {
+    if (stageRef.current?.querySelector('[data-shader-frame-editing="true"], [data-live-material-editing="true"]')) {
+      throw new Error('Finish editing the shader control before saving or exporting its updated appearance.');
+    }
+  }
+
+  async function captureCompositionFrame() {
     assertCanvasEditsCommitted();
     if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before saving or capturing the composition.');
-    if (stageRef.current?.querySelector('[data-shader-frame-editing="true"], [data-live-material-editing="true"]')) {
-      throw new Error('Finish editing the shader control before capturing its updated appearance.');
-    }
+    assertShaderEditsCommitted();
     assertCompositionEffectCaptureReady(effectLayers, visibleLayerIdSet, effectPreviewOverridesRef.current);
-    if (exportJobRef.current && !forExport) throw new Error('Wait for the current export before capturing another shader frame.');
+    if (exportJobRef.current) throw new Error('Wait for the current export before capturing another shader frame.');
     if (frameCapturePendingRef.current) throw new Error('A shader frame capture is already in progress.');
     const timeMs = paused ? previewTimeMs : previewTimeRef.current;
     const sourceDocument = designLabDocument;
@@ -6680,6 +6748,7 @@ export default function ShaderLabStudio({
     activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
     currentArtboardSnapshotRef.current = restoredWorkspaceSnapshot;
 
+    beginShaderTimelineRestore(nextTimeMs, nextShaderLayers, nextLayerShaders);
     setRatio(restoredActiveSnapshot.ratio);
     setCanvasDimensions(restoredActiveSnapshot.dimensions);
     setCanvasBackground(restoredActiveSnapshot.backgroundColor);
@@ -6732,9 +6801,10 @@ export default function ShaderLabStudio({
     }
     const host = stageRef.current?.querySelector<HTMLElement>(`[data-shader-instance="${instanceKey}"]`);
     const frozenImage = host?.querySelector<HTMLImageElement>('[data-shader-frame-ready="true"] [data-shader-frame-image]');
-    const rendered = exportShaderApplicationsRef.current.get(instanceKey) ?? application;
-    if (frozenImage?.complete && frozenImage.naturalWidth) {
-      drawShaderFramePresentation(context, frozenImage, normalizeShaderFramePresentation(rendered.frameSnapshot?.presentation), { x: 0, y: 0, width, height });
+    // Still exports provide immutable images above. Sampled motion must read
+    // the native canvas, even while the previous saved PNG is fading out.
+    if (!exportJobRef.current && frozenImage?.complete && frozenImage.naturalWidth) {
+      drawShaderFramePresentation(context, frozenImage, normalizeShaderFramePresentation(application.frameSnapshot?.presentation), { x: 0, y: 0, width, height });
       return;
     }
     const liveCanvas = host?.querySelector('canvas');
@@ -6742,7 +6812,7 @@ export default function ShaderLabStudio({
       drawShaderFramePresentation(context, liveCanvas, readLiveMaterialPresentation(host ?? null), { x: 0, y: 0, width, height });
       return;
     }
-    if (exportShaderApplicationsRef.current.size) throw new Error('A shader frame is not ready for export.');
+    if (exportJobRef.current) throw new Error('A shader frame is not ready for export.');
   }
 
   function outputLayerBox(
@@ -7181,31 +7251,36 @@ export default function ShaderLabStudio({
   async function exportStill(format: StillImageFormat): Promise<ExportPreviewAsset | null> {
     if (exportJobRef.current || frameCapturePendingRef.current) return null;
     exportJobRef.current = true;
-    const settingsSignature = currentExportSettingsSignature;
-    const resumeAfterExport = !paused;
+    exportFailureRef.current = null;
     setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${format.toUpperCase()} preview`);
     try {
       const startedAt = performance.now();
-      const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame({ forExport: true })));
+      assertCanvasEditsCommitted();
+      if (sequencePreviewingRef.current) throw new Error('Stop the shader sequence preview before exporting the current frame.');
+      assertShaderEditsCommitted();
+      assertCompositionEffectCaptureReady(effectLayers, visibleLayerIdSet, effectPreviewOverridesRef.current);
+      const timeMs = pauseShaderHistory();
+      const settingsSignature = compositionSignatureRef.current;
       const assertFresh = exportFreshnessGuard();
-      const applications = new Map<string, ShaderApplication>();
-      captured.composition.shaderLayers?.forEach((layer) => applications.set(`canvas-${layer.id}`, layer));
-      Object.entries(captured.composition.layerShaders ?? {}).forEach(([id, application]) => {
-        if (application) applications.set(`content-${id}`, application);
-      });
-      exportShaderApplicationsRef.current = applications;
-      await Promise.all([...applications.values()].map((application) => preloadShaderFramePresentation(normalizeShaderFramePresentation(application.frameSnapshot?.presentation))));
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      await waitForLiveMaterialReady(stageRef.current);
+      const capture = beginShaderFrameCapture(shaderCaptureRequests(timeMs), timeMs, { mode: 'transient', previewGroup: 'design-lab' });
+      const captures = await capture.result;
+      assertFresh();
       await waitForCompositionFonts();
       const output = createExportCanvas();
       const context = output.getContext('2d');
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
       assertFresh();
-      composeFrame(context, output.width, output.height, images);
+      await withCapturedShaderImages(captures, (shaderImages) => {
+        effectCaptureShaderImagesRef.current = shaderImages;
+        try {
+          composeFrame(context, output.width, output.height, images);
+        } finally {
+          effectCaptureShaderImagesRef.current = null;
+        }
+      });
       const quality = normalizedExportSettings.quality === 'fast'
         ? 0.82
         : normalizedExportSettings.quality === 'best'
@@ -7227,14 +7302,13 @@ export default function ShaderLabStudio({
       setLastExportRequest({ format, settingsSignature });
       return asset;
     } catch (error) {
+      exportFailureRef.current = error;
       setExportError(error instanceof Error ? error.message : 'The still image could not be exported.');
       return null;
     } finally {
-      exportShaderApplicationsRef.current.clear();
       exportJobRef.current = false;
       setCaptureTimeMs(null);
       setExporting(null);
-      if (resumeAfterExport) setPaused(false);
       studioExport.finish();
     }
   }
@@ -7268,6 +7342,8 @@ export default function ShaderLabStudio({
     const artboardId = activeArtboardIdRef.current;
     return () => {
       assertCanvasEditsCommitted();
+      assertShaderEditsCommitted();
+      assertCompositionEffectCaptureReady(effectLayers, visibleLayerIdSet, effectPreviewOverridesRef.current);
       if (signature !== compositionSignatureRef.current || sourceSequence !== sourceApplySequenceRef.current
         || artboardId !== activeArtboardIdRef.current) throw new Error('The design changed during export. Export the updated design again.');
     };
@@ -7281,6 +7357,7 @@ export default function ShaderLabStudio({
 
   async function exportMotion(format: 'gif' | 'mp4', motionMode: DesignMotionMode = 'standard'): Promise<ExportPreviewAsset | null> {
     if (exportJobRef.current || frameCapturePendingRef.current) return null;
+    exportFailureRef.current = null;
     if (motionMode === 'sequence' && (!sequenceTargetLayer || shaderSequenceTimeline.length === 0)) {
       setExportError('Add a canvas shader before exporting a shader sequence.');
       return null;
@@ -7290,14 +7367,17 @@ export default function ShaderLabStudio({
       return null;
     }
     exportJobRef.current = true;
-    const settingsSignature = currentExportSettingsSignature;
     setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${motionMode === 'sequence' ? 'shader sequence ' : ''}${format.toUpperCase()} preview`, 0);
     try {
       assertMotionIsSeekable(motionMode);
       const startedAt = performance.now();
-      await captureCompositionFrame({ forExport: true });
+      assertCanvasEditsCommitted();
+      assertShaderEditsCommitted();
+      assertCompositionEffectCaptureReady(effectLayers, visibleLayerIdSet, effectPreviewOverridesRef.current);
+      pauseShaderHistory();
+      const settingsSignature = compositionSignatureRef.current;
       const assertFresh = exportFreshnessGuard();
       await preloadShaderFramePresentation({ grainOpacity: 1 });
       await waitForCompositionFonts();
@@ -7357,6 +7437,7 @@ export default function ShaderLabStudio({
       setLastExportRequest({ format, motionMode, settingsSignature });
       return asset;
     } catch (error) {
+      exportFailureRef.current = error;
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
       return null;
     } finally {
@@ -7385,11 +7466,12 @@ export default function ShaderLabStudio({
   }
 
   async function exportForAutomation(request: DesignAutomationExportInput): Promise<ExportPreviewAsset> {
+    assertShaderWorkspaceIdle();
     const motionMode: DesignMotionMode = request.mode === 'shader-sequence' ? 'sequence' : 'standard';
     const asset = request.format === 'png' || request.format === 'jpg'
       ? await exportStill(request.format)
       : await exportMotion(request.format, motionMode);
-    if (!asset) throw new Error(`Design Lab could not export ${request.format.toUpperCase()}.`);
+    if (!asset) throw exportFailureRef.current ?? new Error(`Design Lab could not export ${request.format.toUpperCase()}.`);
     if (request.download) downloadStudioArtifact(asset);
     return asset;
   }
@@ -7398,7 +7480,8 @@ export default function ShaderLabStudio({
     applyCompositionSource,
     compositionSetupSource,
     prepareCompositionSource,
-    playShaderHistory: () => { assertShaderWorkspaceIdle(); playShaderHistory(); },
+    pauseShaderHistory: () => { assertShaderWorkspaceIdle(); pauseShaderHistory(); },
+    playShaderHistory: () => { assertShaderWorkspaceIdle(); assertShaderTimelineReady(); playShaderHistory(); },
     seekShaderTime,
     describeShaderMotion: () => ({
       timeMs: paused ? previewTimeMs : previewTimeRef.current,
@@ -7429,6 +7512,7 @@ export default function ShaderLabStudio({
       'control.set',
       'artifact.download',
       'design.frame.capture',
+      'design.frame.pause',
       'design.frame.play',
       'design.frame.seek',
       'design.motion.describe',
@@ -7480,7 +7564,7 @@ export default function ShaderLabStudio({
     const frozenSnapshot = paused && !sequencePreviewing && captureTimeMs === null && shaderFrameMatches(renderedApplication.frameSnapshot, renderedApplication)
       ? renderedApplication.frameSnapshot : undefined;
     const liveCanvas = !livePreviewRuntimeReady && captureTimeMs === null ? <ShaderSkeleton /> : (
-      <LiveMaterialCanvas
+      <RestoredLiveMaterialCanvas
         activeWhileMounted
         captureTimeMs={controlledTimeMs}
         className='absolute inset-0 size-full'
@@ -7498,20 +7582,24 @@ export default function ShaderLabStudio({
         previewChannel={instanceKey}
         previewGroup='design-lab'
         renderScale={1}
+        restoreTimeMs={shaderTimelineRestore.pendingKeys.includes(instanceKey)
+          ? paused ? previewCaptureTimeMs : shaderTimelineRestore.timeMs : undefined}
+        holdRestoredPlayback={shaderTimelineRestoring}
+        onRestoreReady={() => finishShaderTimelineRestore(instanceKey, shaderTimelineRestore.revision)}
         settings={renderedApplication.settings}
       />
     );
-    return <ShaderFrameImage className='absolute inset-0 size-full' previewChannel={instanceKey} snapshot={frozenSnapshot}>{liveCanvas}</ShaderFrameImage>;
+    return <ShaderFrameImage key={`${instanceKey}:restore-${shaderTimelineRestore.revision}`} className='absolute inset-0 size-full' previewChannel={instanceKey} snapshot={frozenSnapshot}>{liveCanvas}</ShaderFrameImage>;
   }
 
   function renderShaderTimeExplorer() {
     return <ShaderTimeExplorer
       timeMs={previewTimeMs}
-      busy={frameCapturePending || Boolean(exporting) || sequencePreviewing}
+      busy={frameCapturePending || Boolean(exporting) || sequencePreviewing || shaderTimelineRestoring}
       canSeek={compositionCanSeek && compositionHasMotion}
       capabilities={explorerCapabilities}
       onLiveTime={(timeMs) => { previewTimeRef.current = timeMs; }}
-      onFreeze={() => void saveCurrentShaderFrame()}
+      onFreeze={freezeCurrentShaderFrame}
       onCapture={() => void saveCurrentShaderFrame()}
       onPlay={playShaderHistory}
       onTimeChange={seekShaderTime}
@@ -7552,7 +7640,7 @@ export default function ShaderLabStudio({
               </Button>
             )}
             {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
-            <Button aria-label={paused ? 'Resume native shader motion' : 'Capture current shader frame'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
+            <Button aria-label={paused ? 'Resume native shader motion' : 'Pause shader motion'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
               {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
             </Button>
           </>

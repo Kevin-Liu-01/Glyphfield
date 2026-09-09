@@ -21,11 +21,31 @@ const pendingReads = new Map<string, Promise<Blob>>();
 let cachedBytes = 0;
 
 type ShaderFrameRecord = {
-  blob: Blob;
+  /** Legacy databases stored Blob directly; new writes avoid Safari Blob serialization. */
+  blob?: Blob;
+  pngBytes?: ArrayBuffer;
   height: number;
   id: string;
   width: number;
 };
+
+class ShaderFrameStorageError extends Error {
+  constructor(cause: unknown) {
+    const name = cause && typeof cause === 'object' && 'name' in cause ? String(cause.name) : 'Error';
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    const message = name === 'SecurityError'
+      ? 'Your browser blocked shader frame storage. Allow site data for Glyphfield, then try saving the frame again.'
+      : name === 'QuotaExceededError'
+        ? 'Shader frame storage is full. Free device space or remove unneeded saved designs, then try saving again.'
+        : `Shader frame storage failed: ${detail}`;
+    super(message, { cause });
+    this.name = name === 'Error' ? 'ShaderFrameStorageError' : name;
+  }
+}
+
+function storageFailure(error: unknown): ShaderFrameStorageError {
+  return error instanceof ShaderFrameStorageError ? error : new ShaderFrameStorageError(error);
+}
 
 function validAssetId(value: unknown): value is string {
   return typeof value === 'string' && /^shader-frame:[a-f0-9]{64}$/.test(value);
@@ -113,7 +133,7 @@ export function clearShaderFrameAssetCache(): void {
 
 function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('Shader frame storage is unavailable.'));
-  return new Promise((resolve, reject) => {
+  return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, 1);
     let blocked = false;
     request.addEventListener('upgradeneeded', () => {
@@ -134,7 +154,7 @@ function openDatabase(): Promise<IDBDatabase> {
       blocked = true;
       reject(new Error('Close older Glyphfield tabs to open shader frame storage.'));
     });
-  });
+  }).catch((error: unknown) => { throw storageFailure(error); });
 }
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
@@ -148,7 +168,9 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.addEventListener('complete', () => resolve());
     transaction.addEventListener('abort', () => reject(transaction.error ?? new Error('Shader frame storage was interrupted.')));
-    transaction.addEventListener('error', () => reject(transaction.error ?? new Error('The shader frame could not be saved.')));
+    transaction.addEventListener('error', (event) => reject(transaction.error
+      ?? (event.target as IDBRequest | null)?.error
+      ?? new Error('The shader frame could not be saved.')));
   });
 }
 
@@ -172,21 +194,51 @@ async function hashAssetId(bytes: ArrayBuffer): Promise<string> {
   return `${ASSET_PREFIX}${Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
-async function persistRecord(record: ShaderFrameRecord): Promise<void> {
+async function persistRecord(record: ShaderFrameRecord & { blob: Blob; pngBytes: ArrayBuffer }): Promise<void> {
   const database = await openDatabase();
   try {
     const transaction = database.transaction(STORE_NAME, 'readwrite');
     const completed = transactionComplete(transaction);
     const store = transaction.objectStore(STORE_NAME);
     const existing = store.getKey(record.id);
+    let writeError: unknown;
     existing.addEventListener('success', () => {
-      if (existing.result === undefined) store.put(record);
+      try {
+        if (existing.result === undefined) store.put({
+          height: record.height, id: record.id, pngBytes: record.pngBytes, width: record.width,
+        } satisfies ShaderFrameRecord);
+      } catch (error) {
+        writeError = error;
+        transaction.abort();
+      }
     });
-    await completed;
+    await completed.catch((error: unknown) => { throw writeError ?? error; });
     rememberFrame(record.id, record.blob);
+  } catch (error) {
+    throw storageFailure(error);
   } finally {
     database.close();
   }
+}
+
+async function inspectShaderFrame(
+  blob: Blob,
+  dimensions: { width: number; height: number }
+): Promise<{ snapshot: ShaderFrameSnapshot; bytes: ArrayBuffer }> {
+  const png = await inspectPng(blob);
+  if (png.width !== dimensions.width || png.height !== dimensions.height) throw new TypeError('The shader frame dimensions do not match its pixels.');
+  const id = await hashAssetId(png.bytes);
+  return { snapshot: { assetId: id, height: png.height, version: 1, width: png.width }, bytes: png.bytes };
+}
+
+/** Temporary exports validate real PNG pixels without hashing or storage. */
+export async function validateShaderFramePng(
+  blob: Blob,
+  dimensions: { width: number; height: number }
+): Promise<{ width: number; height: number }> {
+  const png = await inspectPng(blob);
+  if (png.width !== dimensions.width || png.height !== dimensions.height) throw new TypeError('The shader frame dimensions do not match its pixels.');
+  return { width: png.width, height: png.height };
 }
 
 /** Capture calls this once, never from a live frame tick. Failed writes reject. */
@@ -194,11 +246,9 @@ export async function createShaderFrameAsset(
   blob: Blob,
   dimensions: { width: number; height: number }
 ): Promise<ShaderFrameSnapshot> {
-  const png = await inspectPng(blob);
-  if (png.width !== dimensions.width || png.height !== dimensions.height) throw new TypeError('The shader frame dimensions do not match its pixels.');
-  const id = await hashAssetId(png.bytes);
-  await persistRecord({ blob, height: png.height, id, width: png.width });
-  return { assetId: id, height: png.height, version: 1, width: png.width };
+  const { snapshot, bytes } = await inspectShaderFrame(blob, dimensions);
+  await persistRecord({ blob, pngBytes: bytes, height: snapshot.height, id: snapshot.assetId, width: snapshot.width });
+  return snapshot;
 }
 
 export async function readShaderFrameAsset(assetId: string): Promise<Blob> {
@@ -214,9 +264,12 @@ export async function readShaderFrameAsset(assetId: string): Promise<Blob> {
     const database = await openDatabase();
     try {
       const record = await requestResult(database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(assetId)) as ShaderFrameRecord | undefined;
-      if (!record?.blob || record.blob.type !== 'image/png') throw new Error('The captured shader frame is missing. Import the original saved design to restore it.');
-      rememberFrame(assetId, record.blob);
-      return record.blob;
+      const blob = record?.pngBytes instanceof ArrayBuffer
+        ? new Blob([record.pngBytes], { type: 'image/png' })
+        : record?.blob;
+      if (!blob || blob.type !== 'image/png' || !blob.size) throw new Error('The captured shader frame is missing. Import the original saved design to restore it.');
+      rememberFrame(assetId, blob);
+      return blob;
     } finally {
       database.close();
     }
@@ -306,6 +359,6 @@ export async function importShaderFrameAssets(input: CanvasDocument | readonly C
       throw new TypeError('The shader frame dimensions do not match its saved snapshot.');
     }
     if (await hashAssetId(png.bytes) !== asset.id) throw new TypeError('The shader frame content does not match its saved hash.');
-    await persistRecord({ blob, height: png.height, id: asset.id, width: png.width });
+    await persistRecord({ blob, pngBytes: png.bytes, height: png.height, id: asset.id, width: png.width });
   }
 }

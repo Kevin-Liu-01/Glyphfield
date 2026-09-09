@@ -84,6 +84,7 @@ import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { observePaperShaderReadiness } from '@/lib/paperShaderReadiness';
+import { resolvePaperShaderFrame } from '@/lib/paperShaderTime';
 import {
   getPaperLiveMaterialDefinition,
   isPaperLiveMaterialId,
@@ -299,7 +300,6 @@ function paperMaterialUsesSourceImage(materialId: LiveMaterialId): boolean {
 
 const CONTEXT_RECOVERY_DELAY_MS = 350;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 2_500;
-const PAPER_CONTROLLED_FRAME_EPOCH_MS = 1;
 const WEBGL_SUPPORT_RETRY_MS = 2_500;
 
 const VERTEX_SOURCE = `
@@ -2008,22 +2008,10 @@ function paperShaderFrameAt(
   const definition = getPaperLiveMaterialDefinition(materialId);
   const renderer = PAPER_SHADER_RENDERERS[definition.family];
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
-  const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
-  const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
-  const presetFrame = typeof preset.params.frame === 'number' ? preset.params.frame : 0;
-  const motionTimeMs = paperShaderMotionTime(captureTimeMs, preserveGeometry, settings.speed)
-    ?? captureTimeMs;
-  const normalizedFrameState = normalizeLiveMaterialFrameState(frameState);
-  if (!normalizedFrameState || normalizedFrameState.engine !== 'paper'
-    || (normalizedFrameState.materialId && normalizedFrameState.materialId !== materialId)) {
-    return presetFrame + PAPER_CONTROLLED_FRAME_EPOCH_MS + motionTimeMs * motionSpeed;
-  }
-  const anchorTimeMs = paperShaderMotionTime(
-    normalizedFrameState.timelineTimeMs,
-    preserveGeometry,
-    settings.speed
-  ) ?? normalizedFrameState.timelineTimeMs;
-  return normalizedFrameState.frame + (motionTimeMs - anchorTimeMs) * motionSpeed;
+  return resolvePaperShaderFrame({
+    materialId, timeMs: captureTimeMs, frameState, preserveGeometry,
+    speed: settings.speed, preset: preset.params,
+  });
 }
 
 function applyPaperShaderFrame(
@@ -2119,11 +2107,8 @@ function PaperShaderSurface({
 }) {
   const surfaceRef = useRef<PaperShaderElement>(null);
   const heldRef = useRef(false);
-  const [ready, setReady] = useState(false);
-  useMountEffect(() => {
-    const surface = surfaceRef.current;
-    if (surface) return observePaperShaderReadiness(surface, () => setReady(true));
-  });
+  const [initialFrame, setInitialFrame] = useState<{ frame: number; anchor: number } | null>(null);
+  const ready = initialFrame !== null;
   const definition = getPaperLiveMaterialDefinition(materialId);
   const renderer = PAPER_SHADER_RENDERERS[definition.family];
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
@@ -2141,6 +2126,25 @@ function PaperShaderSurface({
     preserveGeometry,
     settings.speed
   );
+  const anchorFrame = capturedFrameState?.frame ?? presetFrame;
+  const requestedInitialFrame = captureTimeMs === null ? anchorFrame : paperShaderFrameAt(
+    materialId, captureTimeMs, capturedFrameState, preserveGeometry, settings
+  );
+  const initialFrameRef = useCommittedRef({
+    frame: requestedInitialFrame, anchor: anchorFrame, controlled: captureTimeMs !== null,
+  });
+  useMountEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    return observePaperShaderReadiness(surface, () => {
+      const initial = initialFrameRef.current;
+      // Paper's async isInitialized effect reapplies its frame prop. Recommit
+      // the latest controlled draw before exposing readiness/capture, and keep
+      // that same prop after initialization so a delayed effect cannot undo it.
+      if (initial.controlled) surface.paperShaderMount?.setFrame(initial.frame);
+      setInitialFrame({ frame: initial.frame, anchor: initial.anchor });
+    });
+  });
   const effectiveSpeed = paused || captureTimeMs !== null ? 0 : motionSpeed * motionMultiplier;
   const { cappedFrameRate, manuallyTimed, nativeSpeed } = resolvePaperShaderTiming(
     effectiveSpeed,
@@ -2272,7 +2276,7 @@ function PaperShaderSurface({
       disposed = true;
       cancelAnimationFrame(animationFrame);
     };
-  }, [captureTimeMs, capturedFrameState, controlledMotionTimeMs, materialId, preserveGeometry, settings, surfaceRef]);
+  }, [captureTimeMs, capturedFrameState, controlledMotionTimeMs, materialId, preserveGeometry, ready, settings, surfaceRef]);
 
   const surface = createElement(renderer.component, {
     ...surfaceProps,
@@ -2280,10 +2284,13 @@ function PaperShaderSurface({
     ...backdropParams,
     ...(usesImage ? { image: sourceImage ?? '/shader-source-art.svg' } : {}),
     ...proceduralBackdropParams,
-    // Controlled frames are applied imperatively above. Keeping this prop stable
-    // prevents Paper's React wrapper from rebuilding every uniform (and decoding
-    // image uniforms) for every playhead tick.
-    frame: capturedFrameState?.frame ?? presetFrame,
+    // Seed both Paper's async constructor and its isInitialized frame reset with
+    // the controlled time. Once ready, scrubs remain imperative so they do not
+    // rebuild uniforms/decode images on every playhead tick. A new native anchor
+    // still restores through the vendor prop as it did before.
+    frame: initialFrame
+      ? (initialFrame.anchor === anchorFrame ? initialFrame.frame : anchorFrame)
+      : requestedInitialFrame,
     speed: nativeSpeed,
   });
 

@@ -8,6 +8,7 @@ import {
   type GifPaletteFormat,
 } from './gifPalette';
 import type { CanvasDocument } from './canvasDocument';
+import { reconcileAvcColorRange } from './avcColorRange';
 import {
   renderCanvasDocumentPage,
   type CanvasRenderLayer,
@@ -455,6 +456,7 @@ export async function encodeCanvasMp4({
   const source = new CanvasSource(canvas, {
     codec,
     keyFrameInterval: 2,
+    onEncodedPacket: (_packet, metadata) => reconcileAvcColorRange(metadata),
     quality,
   });
   output.addVideoTrack(source);

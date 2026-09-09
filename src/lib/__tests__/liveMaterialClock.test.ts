@@ -3,6 +3,28 @@ import { createLiveMaterialClock, liveMaterialFramePointer, shouldAdvanceLiveFlu
 
 describe('native shader frame anchors', () => {
   const running = { active: true, paused: false, captureTimeMs: null, rate: 2 };
+  it('seeds an imported absolute timestamp once before releasing unanchored native playback', () => {
+    const clock = createLiveMaterialClock('webgl', 'shaders-drift');
+    expect(clock.draw({ ...running, now: 0, captureTimeMs: 1250, paused: true })).toBe(2500);
+    expect(clock.draw({ ...running, now: 300, captureTimeMs: 1250, paused: true })).toBe(2500);
+    expect(clock.draw({ ...running, now: 1000 })).toBe(2500);
+    expect(clock.draw({ ...running, now: 1016 })).toBe(2532);
+  });
+  it.each(['webgl', 'canvas2d', 'shadergradient'] as const)('invariant_%s_time_does_not_slow_down_when_a_frame_is_dropped', (engine) => {
+    const clock = createLiveMaterialClock(engine);
+    clock.draw({ ...running, now: 0 });
+    expect(clock.draw({ ...running, now: 200 })).toBe(400);
+    expect(clock.draw({ ...running, now: 216.25 })).toBe(432.5);
+    clock.draw({ ...running, now: 217, active: false });
+    expect(clock.draw({ ...running, now: 10_000 })).toBe(432.5);
+    expect(clock.draw({ ...running, now: 10_200 })).toBe(832.5);
+  });
+  it('invariant_fluid_keeps_a_bounded_simulation_delta_without_claiming_seekability', () => {
+    const clock = createLiveMaterialClock('fluid');
+    clock.draw({ ...running, now: 0 });
+    expect(clock.draw({ ...running, now: 200 })).toBe(128);
+    expect(clock.draw({ ...running, now: 400, captureTimeMs: 10_000 })).toBe(128);
+  });
   it('restores precise engine time, seeks relative to the anchor, and resumes without restarting', () => {
     const clock = createLiveMaterialClock('webgl', 'holo-cloth-silk');
     const frameState = { engine: 'webgl' as const, version: 2 as const, frame: 923.125, timelineTimeMs: 500 };

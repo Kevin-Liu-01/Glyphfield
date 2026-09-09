@@ -55,6 +55,7 @@ import {
   parseAnimationCanvasDocument,
   type AnimationDocumentState,
 } from '@/lib/animationDocument';
+import { createAnimationShaderExport } from '@/lib/animationShaderExport';
 import {
   animationAudioClipEndMs,
   audioPeaks,
@@ -76,7 +77,9 @@ import { encodeCanvasMp4 } from '@/lib/canvasExport';
 import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
 import { exportGif } from '@/lib/exportGif';
 import type { LiveMaterialSettings } from '@/lib/liveMaterials';
+import { readLiveMaterialPresentation, type LiveMaterialFrameState } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer } from '@/lib/liveMaterialRenderBudget';
+import { preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
 import {
   canCompositeShaderDirectly,
   hasAnimatedShaderBackgrounds,
@@ -227,6 +230,7 @@ function renderInteractiveAnimationPreview({
   previewDirty,
   previousRenderedSourceId,
   previewResolution,
+  shaderPresentationReady,
 }: {
   attachShaderLayers: (sources: readonly StudioSource[]) => StudioSource[];
   backgroundOverrides: Record<string, boolean>;
@@ -239,6 +243,7 @@ function renderInteractiveAnimationPreview({
   previewDirty: boolean;
   previousRenderedSourceId: string;
   previewResolution: { height: number; width: number };
+  shaderPresentationReady: boolean;
 }): { rendered: boolean; sourceId: string } {
   const currentSource = currentSources[position.index];
   const nextSource = currentSources[position.nextIndex];
@@ -262,6 +267,11 @@ function renderInteractiveAnimationPreview({
     previousSourceId: previousRenderedSourceId,
   });
   if (!canvas || !shouldRender) {
+    return { rendered: false, sourceId: previousRenderedSourceId };
+  }
+  // Keep the previous complete frame while the shared grain tile decodes.
+  // Direct GPU compositing does not need the 2D presentation resource.
+  if (compositedBackgroundIsAnimated && !shaderPresentationReady) {
     return { rendered: false, sourceId: previousRenderedSourceId };
   }
   const logicalWidth = Math.max(120, currentSettings.width);
@@ -311,6 +321,7 @@ function AnimationShaderLayers({
   sequenceShaderOpacity,
   sequenceShaderSettings,
   shaderCaptureTimeMs,
+  shaderFrameStates,
   shaderLayerRefs,
   showSequenceShader,
   sources,
@@ -331,6 +342,7 @@ function AnimationShaderLayers({
   sequenceShaderOpacity: number;
   sequenceShaderSettings: StudioSettings['shaderSettings'];
   shaderCaptureTimeMs: number | null;
+  shaderFrameStates: ReadonlyMap<string, LiveMaterialFrameState>;
   shaderLayerRefs: RefObject<Map<string, HTMLDivElement>>;
   showSequenceShader: boolean;
   sources: readonly StudioSource[];
@@ -351,6 +363,7 @@ function AnimationShaderLayers({
             captureTimeMs={shaderCaptureTimeMs}
             enabled={active || exportProgress !== null}
             frameRate={previewFrameRate}
+            frameState={shaderFrameStates.get('sequence')}
             materialId={sequenceBackground.materialId}
             maxPixelCount={previewMaxPixelCount}
             patternScale={sequenceBackground.patternScale ?? 1}
@@ -375,6 +388,7 @@ function AnimationShaderLayers({
               captureTimeMs={shaderCaptureTimeMs}
               enabled={exportProgress !== null || (active && activeShaderSourceIds.has(source.id))}
               frameRate={previewFrameRate}
+              frameState={shaderFrameStates.get(`source-${source.id}`)}
               materialId={source.background.materialId}
               maxPixelCount={previewMaxPixelCount}
               patternScale={source.background.patternScale ?? 1}
@@ -768,6 +782,11 @@ function AnimationStudio({
   const [audioBufferRevision, setAudioBufferRevision] = useState(0);
   const [activeTimeline, setActiveTimeline] = useState({ index: 0, nextIndex: 0 });
   const [shaderCaptureTimeMs, setShaderCaptureTimeMs] = useState<number | null>(null);
+  const [shaderFrameStates, setShaderFrameStates] = useState<ReadonlyMap<string, LiveMaterialFrameState>>(() => new Map());
+  const [shaderPresentationReady, setShaderPresentationReady] = useState(false);
+  const shaderPresentationReadyRef = useCommittedRef(shaderPresentationReady);
+  const exportJobRef = useRef(false);
+  const activeRef = useCommittedRef(active);
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -913,6 +932,7 @@ function AnimationStudio({
     sources: resolvedSources,
     state: animationState,
   }), [animationState, resolvedSources]);
+  const animationDocumentInputRef = useCommittedRef(animationDocumentInput);
   const settledAnimationDocumentInput = useSettledValue(animationDocumentInput, 180);
   const animationDocument = useMemo(() => {
     const draft = createAnimationCanvasDocument({
@@ -1357,6 +1377,7 @@ function AnimationStudio({
   }, [brandLogoSource, gt]);
 
   const attachShaderLayers = useCallback((currentSources: readonly StudioSource[]): StudioSource[] => {
+    if (!shaderPresentationReadyRef.current) return [...currentSources];
     return currentSources.map((source) => {
       if (source.background?.style !== 'shader') return source;
       const wrapper = backgroundOverridesRef.current[source.id]
@@ -1366,10 +1387,24 @@ function AnimationStudio({
       if (!image) return source;
       return {
         ...source,
-        background: { ...source.background, image },
+        background: { ...source.background, image, shaderPresentation: readLiveMaterialPresentation(wrapper ?? null) },
       };
     });
   }, []);
+
+  useMountEffect(() => {
+    let disposed = false;
+    // One deduplicated decode for this workspace, never async work in a tick.
+    void preloadShaderFramePresentation({ grainOpacity: 1 }).then(() => {
+      if (disposed) return;
+      setShaderPresentationReady(true);
+      previewDirtyRef.current = true;
+      requestPreviewFrameRef.current();
+    }).catch((error: unknown) => {
+      if (!disposed) setError(error instanceof Error ? error.message : 'The shader presentation could not be loaded.');
+    });
+    return () => { disposed = true; };
+  });
 
   useMountEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1461,6 +1496,7 @@ function AnimationStudio({
         previewDirty: previewDirtyRef.current,
         previousRenderedSourceId,
         previewResolution: previewResolutionRef.current,
+        shaderPresentationReady: shaderPresentationReadyRef.current,
       });
       if (previewRender.rendered) {
         previousRenderedSourceId = previewRender.sourceId;
@@ -1492,6 +1528,8 @@ function AnimationStudio({
   }
 
   function applyArtboardSnapshot(snapshot: AnimationArtboardSnapshot) {
+    setShaderFrameStates(new Map());
+    setShaderCaptureTimeMs(null);
     const next = cloneAnimationArtboardSnapshot(snapshot);
     setAudioState(normalizeAnimationAudioState(
       next.audio ?? createEmptyAnimationAudioState(),
@@ -1925,6 +1963,7 @@ function AnimationStudio({
       transitionMs: settingsRef.current.transitionMs,
     });
     const next = Math.min(Math.max(0, timeMs), duration);
+    if (!isPlayingRef.current && shaderFrameStates.size) setShaderCaptureTimeMs(next);
     playheadRef.current = next;
     previewDirtyRef.current = true;
     publishPlayhead(next);
@@ -1952,6 +1991,7 @@ function AnimationStudio({
   function changePlaying(playing: boolean) {
     if (playing && totalMs > 0 && playheadRef.current >= totalMs) seek(0);
     if (playing) {
+      setShaderCaptureTimeMs(null);
       setSelectedSourceId(null);
       setSelectedTransitionIndex(null);
       setBackgroundEditScope('sequence');
@@ -1965,46 +2005,100 @@ function AnimationStudio({
     requestPreviewFrameRef.current();
   }
 
-  async function waitForShaderCapture(timeMs: number, initial = false) {
+  async function waitForShaderCapture(timeMs: number, shaderExport: ReturnType<typeof createAnimationShaderExport>) {
     flushSync(() => setShaderCaptureTimeMs(timeMs));
-    await new Promise<void>((resolve) => {
-      let remainingFrames = initial ? 10 : 3;
-      const settleFrame = () => {
-        remainingFrames -= 1;
-        if (remainingFrames === 0) resolve();
-        else requestAnimationFrame(settleFrame);
-      };
-      requestAnimationFrame(settleFrame);
-    });
+    await shaderExport.refresh();
+  }
+
+  function requestPlaybackChange(playing: boolean) {
+    if (!exportJobRef.current) changePlaying(playing);
+  }
+
+  function requestPlayheadChange(timeMs: number) {
+    if (!exportJobRef.current) seek(timeMs);
   }
 
   async function handleExport(format: 'gif' | 'mp4') {
+    if (exportJobRef.current) return;
     if (sources.length === 0) {
       setError(gt('Add at least one frame before exporting.'));
       return;
     }
 
+    exportJobRef.current = true;
     setError(null);
     studioExport.start(format === 'mp4' ? 'Rendering MP4 preview' : 'Rendering GIF preview', 0);
     const resumeAfterExport = isPlayingRef.current;
-    changePlaying(false);
+    const entryTimeMs = playheadRef.current;
+    const entryDocument = animationDocumentInputRef.current;
+    const isCurrentDocument = () => animationDocumentInputRef.current === entryDocument;
+    const isCurrentWorkspace = () => activeRef.current && projectWorkspaceActiveRef.current && Boolean(workspaceRef.current?.isConnected);
+    const assertCurrentDocument = () => {
+      if (!isCurrentDocument() || !isCurrentWorkspace()) throw new Error('The animation changed during export. Reopen it and export again.');
+    };
     const shaderBackgroundsAreActive = hasAnimatedShaderBackgrounds(sources);
+    let shaderExport: ReturnType<typeof createAnimationShaderExport> | undefined;
+    let entryPose: ReturnType<ReturnType<typeof createAnimationShaderExport>['captureEntryPose']> | undefined;
+    let restoredFrameStates = shaderFrameStates;
+    let playbackChanged = false;
+    const restorePreview = async () => {
+      entryPose?.release();
+      try {
+        if (playbackChanged && shaderExport && shaderBackgroundsAreActive && isCurrentDocument()) {
+          // Restore the native entry anchor before disabling export-only
+          // renderers, rather than leaving a paused canvas at the final sample.
+          flushSync(() => {
+            setShaderFrameStates(restoredFrameStates);
+            setShaderCaptureTimeMs(entryTimeMs);
+          });
+          // A retained, hidden workspace cannot draw. Keep its correct anchor
+          // ready for return without waiting on a renderer that is now disabled.
+          if (isCurrentWorkspace()) await shaderExport.refresh();
+        } else if (playbackChanged && !isCurrentDocument()) {
+          setShaderCaptureTimeMs(null);
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'The paused shader preview could not be restored.');
+      } finally {
+        shaderExport?.dispose();
+        setExportProgress(null);
+        exportJobRef.current = false;
+        if (playbackChanged && resumeAfterExport && isCurrentDocument() && isCurrentWorkspace()) changePlaying(true);
+        previewDirtyRef.current = true;
+        requestPreviewFrameRef.current();
+        studioExport.finish();
+      }
+    };
     try {
+      assertCurrentDocument();
+      shaderExport = createAnimationShaderExport(sources, (source) => backgroundOverrides[source.id]
+        ? { key: `source-${source.id}`, root: () => shaderLayerRefs.current.get(source.id) ?? null }
+        : { key: 'sequence', root: () => sequenceShaderLayerRef.current });
+      entryPose = shaderExport.captureEntryPose(entryTimeMs);
+      restoredFrameStates = new Map([...shaderFrameStates, ...entryPose.states]);
       flushSync(() => {
+        changePlaying(false);
+        playbackChanged = true;
+        setShaderFrameStates(restoredFrameStates);
         setExportProgress(0);
-        if (shaderBackgroundsAreActive) setShaderCaptureTimeMs(0);
+        if (shaderBackgroundsAreActive) setShaderCaptureTimeMs(entryTimeMs);
       });
-      if (shaderBackgroundsAreActive) await waitForShaderCapture(0, true);
-      const exportSources = attachShaderLayers(sources);
+      entryPose.release();
+      if (shaderBackgroundsAreActive) await waitForShaderCapture(0, shaderExport);
+      assertCurrentDocument();
+      const exportSources = shaderExport.sources;
+      const beforeFrame = async (timeMs: number) => {
+        assertCurrentDocument();
+        if (shaderBackgroundsAreActive) await waitForShaderCapture(timeMs, shaderExport!);
+        assertCurrentDocument();
+      };
       const onProgress = (progress: number) => {
         setExportProgress(progress);
         studioExport.update(progress);
       };
       const blob = format === 'gif'
         ? await exportGif({
-            beforeFrame: shaderBackgroundsAreActive
-              ? (frame) => waitForShaderCapture(frame.atMs)
-              : undefined,
+            beforeFrame: (frame) => beforeFrame(frame.atMs),
             config: settings,
             onProgress,
             resolveRenderConfig: (frame) => ({
@@ -2032,7 +2126,7 @@ function AnimationStudio({
               onProgress,
               quality: 'balanced',
               renderFrame: async (frame) => {
-                if (shaderBackgroundsAreActive) await waitForShaderCapture(frame.timeMs);
+                await beforeFrame(frame.timeMs);
                 context.clearRect(0, 0, canvas.width, canvas.height);
                 const position = resolveTimeline(frame.timeMs, {
                   holdMs: settings.holdMs,
@@ -2054,6 +2148,7 @@ function AnimationStudio({
             });
           })();
       const fileName = `studio-${settings.packageId}.${format}`;
+      assertCurrentDocument();
       setLastExport({
         blob,
         fileName,
@@ -2061,19 +2156,18 @@ function AnimationStudio({
         height: settings.height,
         width: settings.width,
       });
-    } catch {
-      setError(format === 'mp4'
+    } catch (error) {
+      setError(error instanceof Error ? error.message : format === 'mp4'
         ? gt('The MP4 could not be encoded. Try a smaller canvas or another browser.')
         : gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.'));
     } finally {
-      setShaderCaptureTimeMs(null);
-      setExportProgress(null);
-      if (resumeAfterExport) changePlaying(true);
-      studioExport.finish();
+      await restorePreview();
     }
   }
 
   function resetStudio() {
+    setShaderFrameStates(new Map());
+    setShaderCaptureTimeMs(null);
     const resetBackground = createDefaultFrameSettings(identitySettings).background;
     const resetSnapshot: AnimationArtboardSnapshot = {
       audio: createEmptyAnimationAudioState(),
@@ -2116,6 +2210,8 @@ function AnimationStudio({
   }
 
   function startNewAnimation() {
+    setShaderFrameStates(new Map());
+    setShaderCaptureTimeMs(null);
     const scratchSnapshot = cloneAnimationArtboardSnapshot({
       audio: createEmptyAnimationAudioState(),
       backgroundOverrides: {},
@@ -2182,6 +2278,9 @@ function AnimationStudio({
       artboards: next.artboards,
     }, restoredSnapshot);
 
+    setShaderFrameStates(new Map());
+    setShaderCaptureTimeMs(null);
+
     setMode(nextMode as SourceMode);
     setTextFrames(next.textFrames);
     setIncludeBrandLogo(next.includeBrandLogo);
@@ -2233,6 +2332,7 @@ function AnimationStudio({
   }
 
   function selectSource(id: string) {
+    if (exportJobRef.current) return;
     setSelectedTransitionIndex(null);
     setSelectedSourceId(id);
     setSelectedEffectTarget('content');
@@ -2242,6 +2342,7 @@ function AnimationStudio({
   }
 
   function selectSourceBackground(id: string) {
+    if (exportJobRef.current) return;
     setSelectedTransitionIndex(null);
     setSelectedSourceId(id);
     setSelectedEffectTarget('background');
@@ -2252,6 +2353,7 @@ function AnimationStudio({
   }
 
   function selectTransition(index: number) {
+    if (exportJobRef.current) return;
     if (sources.length < 2) return;
     const resolvedIndex = Math.min(Math.max(0, index), sources.length - 1);
     setSelectedSourceId(null);
@@ -2298,6 +2400,7 @@ function AnimationStudio({
   }
 
   function selectSequenceBackground() {
+    if (exportJobRef.current) return;
     setSelectedSourceId(null);
     setSelectedTransitionIndex(null);
     setSelectedEffectTarget('background');
@@ -2307,7 +2410,7 @@ function AnimationStudio({
 
   const previewSources = useMemo(
     () => attachShaderLayers(sources),
-    [attachShaderLayers, sources]
+    [attachShaderLayers, shaderPresentationReady, sources]
   );
   const studioControlProps = {
     backgroundOverrideCount: sources.filter((source) => backgroundOverrides[source.id]).length,
@@ -2489,6 +2592,7 @@ function AnimationStudio({
                   sequenceShaderOpacity={sequenceShaderOpacity}
                   sequenceShaderSettings={sequenceShaderSettings}
                   shaderCaptureTimeMs={shaderCaptureTimeMs}
+                  shaderFrameStates={shaderFrameStates}
                   shaderLayerRefs={shaderLayerRefs}
                   showSequenceShader={hasSequenceShaderSources}
                   sources={sources}
@@ -2560,6 +2664,7 @@ function AnimationStudio({
           <TimelinePanel
             audio={audioState}
             currentMsRef={playheadRef}
+            disabled={exportProgress !== null}
             isPlaying={isPlaying}
             onAudioClipChange={updateAudioClip}
             onAudioFiles={(files) => void importAudioFiles(files)}
@@ -2568,12 +2673,12 @@ function AnimationStudio({
             onAudioSelectedClipChange={setSelectedAudioClipId}
             onAudioSplitClip={splitAudioClip}
             onAudioVolumeChange={(volume) => setAudioState((current) => ({ ...current, volume }))}
-            onPlayChange={changePlaying}
+            onPlayChange={requestPlaybackChange}
             onRateChange={(rate) => {
               playbackRateRef.current = rate;
               setPlaybackRate(rate);
             }}
-            onSeek={seek}
+            onSeek={requestPlayheadChange}
             onSelectSource={selectSource}
             onSelectTransition={selectTransition}
             playbackRate={playbackRate}

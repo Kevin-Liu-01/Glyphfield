@@ -27,6 +27,7 @@ import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useCachedGT } from '@/hooks/useCachedGT';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
 import type { StudioSource } from '@/lib/renderFrame';
 import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
@@ -45,6 +46,7 @@ type PlayheadDragSession = {
 type TimelinePanelProps = {
   audio: AnimationAudioState;
   currentMsRef: { current: number };
+  disabled?: boolean;
   isPlaying: boolean;
   onAudioClipChange: (clipId: string, patch: Partial<AnimationAudioClip>) => void;
   onAudioFiles: (files: FileList) => void;
@@ -82,6 +84,7 @@ function sourceLabel(source: StudioSource): string {
 export default function TimelinePanel({
   audio,
   currentMsRef,
+  disabled = false,
   isPlaying,
   onAudioClipChange,
   onAudioFiles,
@@ -108,6 +111,7 @@ export default function TimelinePanel({
   transitionSettings,
 }: TimelinePanelProps) {
   const gt = useCachedGT();
+  const disabledRef = useCommittedRef(disabled);
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLOutputElement>(null);
   const audioPlayheadRef = useRef<HTMLDivElement>(null);
@@ -146,6 +150,7 @@ export default function TimelinePanel({
   useEffect(() => subscribeToPlayhead(syncPlayheadUi), [subscribeToPlayhead, syncPlayheadUi]);
 
   function seekAndSync(timeMs: number) {
+    if (disabledRef.current) return;
     onSeek(timeMs);
     syncPlayheadUi(timeMs);
   }
@@ -156,7 +161,7 @@ export default function TimelinePanel({
   }
 
   function beginPlayheadDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 || playheadDragRef.current) return;
+    if (disabledRef.current || event.button !== 0 || playheadDragRef.current) return;
     const surface = event.currentTarget.closest<HTMLElement>('[data-timeline-scrub-surface]');
     if (!surface) return;
     const bounds = surface.getBoundingClientRect();
@@ -201,6 +206,7 @@ export default function TimelinePanel({
   }
 
   function handlePlayheadKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (disabledRef.current) return;
     let nextTime: number | null = null;
     if (event.key === 'Home') nextTime = 0;
     if (event.key === 'End') nextTime = totalMs;
@@ -212,15 +218,15 @@ export default function TimelinePanel({
   }
 
   return (
-    <section className='animation-timeline' data-animation-storyboard data-scrubbing={isScrubbing ? 'true' : 'false'}>
+    <section aria-busy={disabled} className='animation-timeline' data-animation-storyboard data-scrubbing={isScrubbing ? 'true' : 'false'} inert={disabled}>
       <header className='animation-timeline-toolbar'>
         <div className='animation-timeline-transport'>
-          <Button aria-label={isPlaying ? gt('Pause preview') : gt('Play preview')} onClick={() => onPlayChange(!isPlaying)} size='icon-sm' type='button' variant='outline'>
+          <Button aria-label={isPlaying ? gt('Pause preview') : gt('Play preview')} disabled={disabled} onClick={() => onPlayChange(!isPlaying)} size='icon-sm' type='button' variant='outline'>
             {isPlaying ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
           </Button>
-          <Button aria-label={gt('Restart preview')} onClick={() => seekAndSync(0)} size='icon-sm' type='button' variant='outline'><RotateCcw aria-hidden='true' /></Button>
-          <Button aria-label={gt('Previous frame')} onClick={() => seekAndSync(Math.max(0, currentMsRef.current - frameDuration))} size='icon-sm' type='button' variant='outline'><SkipBack aria-hidden='true' /></Button>
-          <Button aria-label={gt('Next frame')} onClick={() => seekAndSync(Math.min(totalMs, currentMsRef.current + frameDuration))} size='icon-sm' type='button' variant='outline'><SkipForward aria-hidden='true' /></Button>
+          <Button aria-label={gt('Restart preview')} disabled={disabled} onClick={() => seekAndSync(0)} size='icon-sm' type='button' variant='outline'><RotateCcw aria-hidden='true' /></Button>
+          <Button aria-label={gt('Previous frame')} disabled={disabled} onClick={() => seekAndSync(Math.max(0, currentMsRef.current - frameDuration))} size='icon-sm' type='button' variant='outline'><SkipBack aria-hidden='true' /></Button>
+          <Button aria-label={gt('Next frame')} disabled={disabled} onClick={() => seekAndSync(Math.min(totalMs, currentMsRef.current + frameDuration))} size='icon-sm' type='button' variant='outline'><SkipForward aria-hidden='true' /></Button>
         </div>
 
         <div className='animation-timeline-storyboard-control'>
@@ -231,6 +237,7 @@ export default function TimelinePanel({
             <StudioRange
               aria-label={gt('Timeline playhead')}
               defaultValue={Math.min(currentMsRef.current, Math.max(1, totalMs))}
+              disabled={disabled}
               max={Math.max(1, totalMs)}
               min='0'
               onChange={(event) => seekAndSync(Number(event.currentTarget.value))}
@@ -247,6 +254,7 @@ export default function TimelinePanel({
             <StudioSelect
               ariaLabel={gt('Playback rate')}
               className='h-8 w-20 font-mono text-xs'
+              disabled={disabled}
               onValueChange={(value) => onRateChange(Number(value))}
               options={[0.1, 0.25, 0.5, 1, 2, 4].map((rate) => ({ label: `${rate}×`, value: String(rate) }))}
               value={String(playbackRate)}
@@ -261,6 +269,7 @@ export default function TimelinePanel({
             <div className='animation-timeline-playhead' ref={storyboardPlayheadRef}>
               <div
                 aria-label={gt('Storyboard playhead')}
+                aria-disabled={disabled}
                 aria-orientation='horizontal'
                 aria-valuemax={Math.round(totalMs)}
                 aria-valuemin={0}
@@ -274,7 +283,7 @@ export default function TimelinePanel({
                 onPointerMove={movePlayheadDrag}
                 onPointerUp={endPlayheadDrag}
                 role='slider'
-                tabIndex={0}
+                tabIndex={disabled ? -1 : 0}
               >
                 <span /><i />
               </div>

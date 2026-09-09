@@ -210,13 +210,18 @@ export const STUDIO_BROWSER_API_CONTRACT = {
   standardActions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
   toolActions: {
     material: {
+      'design.frame.pause': {
+        description: 'Synchronously pause the visible native shader frame without encoding PNGs or writing captured-frame assets.',
+        input: 'No input',
+        output: 'null',
+      },
       'design.frame.capture': {
         description: 'Freeze ready native shader pixels and persist lossless PNG checkpoints with editable renderer state.',
         input: 'No input',
         output: 'Portable CanvasDocument JSON string with embedded captured-frame assets',
       },
       'design.frame.play': {
-        description: 'Resume native shader playback. Stateful fluid restarts; its saved PNG is not a simulation checkpoint.',
+        description: 'Resume native shader playback. Reopening a captured Fluid PNG starts a new simulation; ordinary pause retains the mounted simulation.',
         input: 'No input',
       },
       'design.frame.seek': {
@@ -263,6 +268,7 @@ export const AGENT_MANIFEST = {
       'For a rendered artifact, verify that the returned Blob is non-empty and its MIME type and file name match the requested format.',
       'For visual work, inspect the authentic rendered canvas; for motion, inspect more than the first frame and verify the requested loop behavior.',
       'For an exact saved shader look, invoke design.frame.capture and retain its portable source. Continuous playback is not proof of a finite seamless loop.',
+      'Use design.frame.pause to pause without creating captured-frame assets. PNG/JPG export freezes the current visible frame; GIF/MP4 explicitly sample motion from its anchor. Exports leave the canvas paused and do not persist new frame assets.',
       'Report browser capability failures explicitly. Never claim an export completed from a successful request alone.',
     ],
     discoveryOrder: [
