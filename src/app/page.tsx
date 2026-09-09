@@ -553,7 +553,7 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
   return (
     <section className='marketing-v5-logo-rail marketing-v7-corner-frame' aria-labelledby='example-identities'>
       <FrameTriangles />
-      <Link className='marketing-v5-logo-rail-heading' href='/studio?folder=examples'>
+      <Link className='marketing-v5-logo-rail-heading' href='/studio?folder=examples' prefetch={false}>
         <span id='example-identities'><T>View brands in the Studio</T></span>
         <ArrowRight aria-hidden='true' />
       </Link>
@@ -565,6 +565,7 @@ function LogoRail({ gt }: { gt: Awaited<ReturnType<typeof getGT>> }) {
               data-brand-id={id}
               data-testid={`brand-launch-${id}`}
               href={`/studio?project=${id}`}
+              prefetch={false}
               title={gt(`Open ${name} in the Studio`)}
             >
               <span className='marketing-v5-logo-rail-mark' data-brand-id={id}>

@@ -1,6 +1,80 @@
 # Shader preview and rendering reliability
 
-Updated: 2026-09-07
+Updated: 2026-09-09
+
+## Landing and Animation Studio lifecycle
+
+The hero uses the real Animation Studio. Its eager idle delay is now 600ms,
+not 3600ms; held pointer gestures still defer the initial mount. Once ready,
+one editor remains mounted for the page visit, preserving edits and play/pause
+intent. Its prepared native shader pauses outside the viewport rather than
+recompiling or resetting phase on return. Other distant landing fields retain
+their bounded prewarm/release policy. The hero no longer overrides the native
+60fps preview target with a 30fps stepper.
+
+The brand rail no longer speculatively prefetches every example project and
+folder route during hero startup. A recorded WebKit trace showed 23 overlapping
+Studio/docs RSC requests. The primary Open Studio link still prepares its editor
+on pointer/focus intent; example links retain their original navigation targets.
+
+Animation Studio gates its clock and audio on tool, project, viewport, and
+document visibility. Resume resets elapsed time, so an offscreen interval cannot
+jump the playhead. Explicit tool deactivation still stops playback. Gallery
+previews unsubscribe from their shared clock while their workspace is hidden.
+
+Blue manipulation controls only describe the selected paused scene's hold.
+They disappear during playback, transitions, other scenes, and inactive views;
+selection remains available when the user returns. Only the small selection
+boundary subscribes to playhead changes, not the complete editor.
+
+Inspector shader thumbnails request a rendering slot only near the viewport.
+They wait for actual renderer readiness and composite the same filter/grain
+presentation as export before encoding once. Leaving the workspace cancels
+pending captures; cached thumbnails are bounded to 32 variants per page visit.
+
+Repeatable checks (use a local production server):
+
+```sh
+GLYPHFIELD_BROWSER_BASE_URL=http://localhost:3018 pnpm test:browsers e2e/landing-animation-performance.spec.ts e2e/animation-selection.spec.ts e2e/landing-prefetch.spec.ts
+GLYPHFIELD_PERF_BASE_URL=http://localhost:3018 pnpm test:performance --landing-only
+```
+
+The scroll benchmark now waits for the loaded editor, and `--landing-only` also
+checks real shader pixels before viewport entry. Browser regression attachments
+record navigation-to-editor readiness and native clock updates per display
+opportunity. Neither callback timing nor clock advancement proves GPU completion
+or monitor presentation FPS.
+
+### 2026-09-09 local production-build verification
+
+- All 1,384 unit tests in 183 files, full lint, the production build/type check,
+  and the agent-docs doctor pass. Thirty final landing, selection, and prefetch
+  browser checks pass across Chromium, WebKit, and Firefox. Fifteen real
+  GIF/MP4 export and unsupported-Fluid checks also pass across those engines;
+  downloaded motion was decoded and checked against the paused presentation.
+- Final navigation-to-editor **DOM mount** samples were 1,237ms in Chromium,
+  1,281ms in WebKit, and 1,139ms in Firefox. These are not complete GPU-load or
+  internet download measurements. The settled startup network checks recorded
+  seven RSC requests, with no speculative example-project/folder requests,
+  compared with 23 overlapping requests in the earlier WebKit trace.
+- A separate untraced foreground Chromium probe observed **60 actual shader
+  draw frames/second** over 4,016.6ms at 554×166/DPR 1, with a 17.4ms p95 draw
+  gap and the same retained native canvas. This instruments native drawing
+  calls, not just the animation clock; it still does not measure GPU completion.
+- The final loaded-editor landing scroll run passes the unchanged budgets:
+  p95 17ms, p99 17.7ms, maximum 25.1ms, no dropped frames, long tasks, long
+  animation frames, or layout shift. Returning to the top retains the same
+  canvas/node counts (19/1,788). The offscreen shader painted in 504ms,
+  with 25 sampled colors, before entry and without replacing its nearby canvas.
+
+Keep the limitations visible: an earlier WebKit mount sample was 4,250ms;
+three isolated repeats passed at 1,646–1,944ms before the final prefetch change.
+An earlier scroll probe also saw a 67.3ms maximum gap. Other browser/test jobs
+were running on the shared machine, but those failures are not attributed to
+them without proof. No timing budget was relaxed. The broader interaction run
+still found a separate cold **Design Lab** entry spike (114ms task/140.3ms long
+animation frame) and a project-switching cadence failure. This change does not
+declare those unrelated startup paths or every device lag-free.
 
 ## Experience contract
 

@@ -92,10 +92,11 @@ describe('Studio interaction performance contracts', () => {
     expect(studio).toContain('useState<AnimationAudioState>(createEmptyAnimationAudioState)');
     expect(studio).not.toContain('void hydrateAudioBuffers(audioState.assets).catch');
     expect(studio).toContain('if (!audioPlaybackRequestedRef.current || !isPlayingRef.current) return;');
-    expect(marketingDemo).toContain('previewFrameRate={30}');
+    expect(marketingDemo).not.toContain('previewFrameRate=');
+    expect(marketingDemo).toContain('viewportVisible={viewportVisible}');
     expect(marketingLoader).toContain('deferWhileInteracting: true');
-    expect(marketingLoader).toContain('resetWhenDisabled: true');
-    expect(marketingLoader).toContain('runtimeReady && inRange');
+    expect(marketingLoader).not.toContain('resetWhenDisabled: true');
+    expect(marketingLoader).toContain('runtimeReady ? <MarketingAnimationStudioLive viewportVisible={visible}');
     expect(deferredRuntime).toContain("addEventListener('mousedown', beginMouse, true)");
     expect(deferredRuntime).toContain("addEventListener('touchstart', updateTouches");
     expect(deferredRuntime).toContain("addEventListener('wheel', rescheduleAfterInteraction");

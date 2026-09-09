@@ -3,9 +3,13 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 import { resolveTimeline } from '@/lib/animation';
 import type { LiveMaterialId } from '@/lib/liveMaterials';
+import { readLiveMaterialPresentation } from '@/lib/liveMaterialPreview';
 import { renderFrame, type StudioSource } from '@/lib/renderFrame';
+import { drawShaderFramePresentation, preloadShaderFramePresentation, type ShaderFramePresentation } from '@/lib/shaderFramePresentation';
 import { shaderPreviewAssetPath } from '@/lib/shaderLab';
 import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
 import type { StudioSettings } from '@/lib/studio';
@@ -14,6 +18,7 @@ const MAX_STATIC_SHADER_EDGE = 400;
 const shaderPreviewImages = new Map<LiveMaterialId, HTMLImageElement>();
 const shaderPreviewRequests = new Map<LiveMaterialId, Promise<HTMLImageElement>>();
 const capturedAnimationShaderPreviews = new Map<string, string>();
+const MAX_CAPTURED_SHADER_PREVIEWS = 32;
 
 function requestShaderPreviewImage(materialId: LiveMaterialId): Promise<HTMLImageElement> {
   const cached = shaderPreviewImages.get(materialId);
@@ -90,6 +95,31 @@ function freezeShaderBackgrounds(
   });
 }
 
+async function capturePresentedShaderPreview(
+  canvas: HTMLCanvasElement,
+  presentation: ShaderFramePresentation | undefined,
+  isCurrent: () => boolean
+): Promise<string | undefined> {
+  await preloadShaderFramePresentation(presentation);
+  if (!isCurrent()) return;
+  const snapshot = document.createElement('canvas');
+  snapshot.width = canvas.width;
+  snapshot.height = canvas.height;
+  try {
+    const context = snapshot.getContext('2d');
+    if (!context) throw new Error('The shader thumbnail canvas is unavailable.');
+    // Paper grain and color filters live outside its native canvas. Resolve the
+    // same isolated group used by export before replacing it with one bitmap.
+    drawShaderFramePresentation(context, canvas, presentation, {
+      x: 0, y: 0, width: snapshot.width, height: snapshot.height,
+    });
+    return snapshot.toDataURL('image/webp', 0.86);
+  } finally {
+    snapshot.width = 0;
+    snapshot.height = 0;
+  }
+}
+
 function StaticAnimationShaderPreview({
   captureKey,
   materialId,
@@ -104,9 +134,13 @@ function StaticAnimationShaderPreview({
   const hostRef = useRef<HTMLSpanElement>(null);
   const [preview, setPreview] = useState(() => capturedAnimationShaderPreviews.get(captureKey));
   const [rendering, setRendering] = useState(false);
+  const [workspaceActive, setWorkspaceActive] = useState(true);
+  useAncestorWorkspaceActivity(hostRef, setWorkspaceActive);
+  const visible = useViewportActivity(hostRef, { rootMargin: '80px' });
+  const active = workspaceActive && visible;
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !active) return;
     let released = false;
     const releaseSlot = requestShaderPreviewSlot(() => {
       if (!released) setRendering(true);
@@ -114,48 +148,85 @@ function StaticAnimationShaderPreview({
     return () => {
       released = true;
       releaseSlot();
+      setRendering(false);
     };
-  }, [preview]);
+  }, [active, preview]);
 
   useEffect(() => {
-    if (!rendering || preview) return;
+    const host = hostRef.current;
+    if (!host || !active || !rendering || preview) return;
     let disposed = false;
-    let attempts = 0;
-    let timer = 0;
+    let capturing = false;
+    let settled = false;
+    let frame = 0;
+    let registrationTimer = 0;
+    const fallback = () => {
+      if (disposed || settled) return;
+      settled = true;
+      setPreview(shaderPreviewAssetPath(materialId));
+    };
     const capture = () => {
-      if (disposed) return;
-      const canvas = hostRef.current?.querySelector('canvas');
-      if (canvas?.width && canvas.height) {
-        try {
-          const dataUrl = canvas.toDataURL('image/webp', 0.86);
-          capturedAnimationShaderPreviews.set(captureKey, dataUrl);
-          setPreview(dataUrl);
-          setRendering(false);
-          return;
-        } catch {
-          // The deterministic material thumbnail remains visible if capture is unavailable.
-        }
+      frame = 0;
+      window.clearTimeout(registrationTimer);
+      registrationTimer = 0;
+      if (disposed || settled || capturing) return;
+      if (host.querySelector('[data-live-material-ready="error"]')) {
+        fallback();
+        return;
       }
-      attempts += 1;
-      if (attempts < 14) timer = window.setTimeout(capture, 90);
-      else {
-        setPreview(shaderPreviewAssetPath(materialId));
-        setRendering(false);
+      // Allocated buffers can be blank while provider textures compile/decode.
+      if (host.querySelector('[data-live-material-ready="false"]')) return;
+      const canvas = host.querySelector('canvas');
+      if (canvas?.width && canvas.height) {
+        const presentation = readLiveMaterialPresentation(host);
+        if (!presentation && host.querySelector('.paper-shader-host')) {
+          // The ready DOM commit can precede the provider's passive runtime
+          // registration. Wait for its metadata; never cache unfiltered pixels.
+          registrationTimer = window.setTimeout(schedule, 50);
+          return;
+        }
+        capturing = true;
+        const isCurrent = () => !disposed && !settled && host.contains(canvas)
+          && !host.querySelector('[data-live-material-ready="false"], [data-live-material-ready="error"]');
+        void capturePresentedShaderPreview(canvas, presentation, isCurrent).then((dataUrl) => {
+          capturing = false;
+          if (!dataUrl || !isCurrent()) return;
+          if (!dataUrl.startsWith('data:image/')) { fallback(); return; }
+          // Editing a color/size can create many distinct previews. Keep the
+          // session cache bounded, without changing an already displayed image.
+          while (capturedAnimationShaderPreviews.size >= MAX_CAPTURED_SHADER_PREVIEWS) {
+            const oldest = capturedAnimationShaderPreviews.keys().next().value;
+            if (oldest === undefined) break;
+            capturedAnimationShaderPreviews.delete(oldest);
+          }
+          capturedAnimationShaderPreviews.set(captureKey, dataUrl);
+          settled = true;
+          setPreview(dataUrl);
+        }).catch(fallback);
       }
     };
-    timer = window.setTimeout(capture, 180);
+    function schedule() {
+      if (!disposed && !settled && !frame && !capturing) frame = requestAnimationFrame(capture);
+    }
+    const observer = new MutationObserver(schedule);
+    observer.observe(host, { attributes: true, attributeFilter: ['data-live-material-ready'], childList: true, subtree: true });
+    const timer = window.setTimeout(fallback, 15_000);
+    schedule();
     return () => {
       disposed = true;
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      window.clearTimeout(registrationTimer);
       window.clearTimeout(timer);
     };
-  }, [captureKey, materialId, preview, rendering]);
+  }, [active, captureKey, materialId, preview, rendering]);
 
   return (
     <span
       aria-hidden='true'
       className='animation-timeline-preview-shader'
       ref={hostRef}
-      style={!preview && !rendering
+      style={!preview && !(active && rendering)
         ? { backgroundImage: `url("${shaderPreviewAssetPath(materialId)}")` }
         : undefined}
     >
@@ -164,7 +235,7 @@ function StaticAnimationShaderPreview({
           className='animation-timeline-preview-shader-image'
           style={{ backgroundImage: `url("${preview}")` }}
         />
-      ) : rendering ? (
+      ) : active && rendering ? (
         <LazyLiveMaterialCanvas
           activeWhileMounted
           captureTimeMs={1_600}

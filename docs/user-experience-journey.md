@@ -126,7 +126,9 @@ Run `pnpm test:performance` against a production server for landing scroll,
 Studio entry, continuous shader zoom drag, project switching, project-tab drag,
 and horizontal rails. The landing lifecycle check separately verifies real dither
 pixels 300px below the viewport, nearby canvas retention, and distant release.
-Use `--landing-only` for the scroll probe; set `GLYPHFIELD_PERF_TRACE_PATH` to an
+Use `--landing-only` for loaded-editor scrolling and shader prewarming; the scroll
+probe waits for the real hero editor rather than measuring its placeholder.
+Set `GLYPHFIELD_PERF_TRACE_PATH` to an
 absolute JSON path to collect a diagnostic Chrome trace (tracing adds overhead).
 The test uses public UI navigation instead of mutating internal localStorage.
 Studio readiness waits for the restored canvas framing, not just library cards.

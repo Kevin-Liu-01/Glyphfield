@@ -89,6 +89,7 @@ export const AnimationPackagePreview = memo(function AnimationPackagePreview({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewActiveRef = useRef(false);
   const [visible, setVisible] = useState(false);
 
   const sources = useMemo<readonly StudioSource[]>(() => [
@@ -132,10 +133,17 @@ export const AnimationPackagePreview = memo(function AnimationPackagePreview({
   useMountEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const workspace = container.closest<HTMLElement>('.studio-workspace-panel');
+    const workspaces = [
+      container.closest<HTMLElement>('.studio-workspace-panel'),
+      container.closest<HTMLElement>('.studio-workspace-layer'),
+      container.closest<HTMLElement>('.studio-project-workspace-layer'),
+    ].filter((workspace): workspace is HTMLElement => workspace !== null);
     let intersecting = false;
     const syncVisibility = () => {
-      const nextVisible = intersecting && !workspace?.hidden;
+      const nextVisible = intersecting
+        && document.visibilityState !== 'hidden'
+        && workspaces.every((workspace) => !workspace.hidden && workspace.dataset.active !== 'false');
+      previewActiveRef.current = nextVisible;
       setVisible((current) => current === nextVisible ? current : nextVisible);
     };
     const observer = new IntersectionObserver(([entry]) => {
@@ -143,15 +151,18 @@ export const AnimationPackagePreview = memo(function AnimationPackagePreview({
       syncVisibility();
     }, { rootMargin: '120px' });
     observer.observe(container);
-    const workspaceObserver = workspace
+    const workspaceObserver = workspaces.length > 0
       ? new MutationObserver(syncVisibility)
       : null;
-    if (workspace && workspaceObserver) {
-      workspaceObserver.observe(workspace, { attributeFilter: ['hidden'], attributes: true });
-    }
+    workspaces.forEach((workspace) => workspaceObserver?.observe(workspace, {
+      attributeFilter: ['data-active', 'hidden'], attributes: true,
+    }));
+    document.addEventListener('visibilitychange', syncVisibility);
     return () => {
+      previewActiveRef.current = false;
       observer.disconnect();
       workspaceObserver?.disconnect();
+      document.removeEventListener('visibilitychange', syncVisibility);
     };
   });
 
@@ -163,12 +174,7 @@ export const AnimationPackagePreview = memo(function AnimationPackagePreview({
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const draw = (timestamp: number) => {
-      const container = containerRef.current;
-      if (
-        document.visibilityState === 'hidden'
-        || !container
-        || container.closest<HTMLElement>('.studio-workspace-panel')?.hidden
-      ) return;
+      if (!previewActiveRef.current) return;
       context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
       renderFrame(
         context,

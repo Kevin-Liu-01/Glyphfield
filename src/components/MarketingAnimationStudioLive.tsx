@@ -10,13 +10,14 @@ const MARKETING_ANIMATION_IDENTITY = {
   id: 'marketing-animation-demo-dithering-swirl-v2',
 };
 
-export default function MarketingAnimationStudioLive() {
+export default function MarketingAnimationStudioLive({ viewportVisible = true }: { viewportVisible?: boolean }) {
   const { materialId, settings } = SHADER_LIBRARY_SCENES.heroAnimation;
   return (
     <AnimationStudio
       autoPlay
       compactControls
       embedded
+      viewportVisible={viewportVisible}
       identity={MARKETING_ANIMATION_IDENTITY}
       initialFontWeight={350}
       initialSequenceBackground={{
@@ -28,7 +29,6 @@ export default function MarketingAnimationStudioLive() {
         opacity: 0.88,
         style: 'shader',
       }}
-      previewFrameRate={30}
       presentationMode
     />
   );

@@ -23,15 +23,16 @@ function AnimationStudioPlaceholder() {
 export default function MarketingAnimationDemo({ eager = false }: { eager?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inRange = useViewportActivity(containerRef, { initialActive: eager, rootMargin: '420px' });
-  const runtimeReady = useDeferredRuntime(inRange, eager ? 3_600 : 300, {
+  const visible = useViewportActivity(containerRef, { rootMargin: '0px' });
+  const runtimeReady = useDeferredRuntime(inRange, eager ? 600 : 300, {
     deferWhileInteracting: true,
-    resetWhenDisabled: true,
   });
-  const runtimeMounted = runtimeReady && inRange;
 
   return (
     <div className='marketing-animation-lazy-shell' ref={containerRef}>
-      {runtimeMounted ? <MarketingAnimationStudioLive /> : <AnimationStudioPlaceholder />}
+      {/* Retain this one editor's state after loading; visibility suspends work,
+          not the user's edits or their chosen play/pause state. */}
+      {runtimeReady ? <MarketingAnimationStudioLive viewportVisible={visible} /> : <AnimationStudioPlaceholder />}
     </div>
   );
 }

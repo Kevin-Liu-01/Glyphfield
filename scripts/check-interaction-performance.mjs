@@ -278,6 +278,10 @@ async function measureLandingScroll() {
     page.close();
   }
   browser(['wait', '1400']);
+  // Measure the actual interactive hero, not the earlier loading placeholder.
+  // The old 3.6s editor delay let this entire scroll probe miss its workload.
+  browser(['wait', '.marketing-animation-lazy-shell .animation-studio']);
+  browser(['wait', '250']);
   const before = evaluate(`(() => {
     window.__glyphfieldLandingNodes = new WeakSet(document.querySelectorAll('*'));
     return {
@@ -751,13 +755,12 @@ async function main() {
       designControlDrag: null,
       horizontalRail: null,
       landingScroll: await measureLandingScroll(),
-      landingShaderLifecycle: null,
+      landingShaderLifecycle: await measureLandingShaderLifecycle(),
       projectSwitches: null,
       studioEntry: null,
       tabDrag: null,
     };
     if (!landingOnly) {
-      report.landingShaderLifecycle = await measureLandingShaderLifecycle();
       report.studioEntry = await measureStudioEntry();
       report.designControlDrag = await measureDesignControlDrag();
       report.projectSwitches = await measureProjectSwitches();

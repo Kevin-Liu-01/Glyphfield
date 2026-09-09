@@ -7,6 +7,7 @@ import { Clapperboard, Copy, Download, PanelsTopLeft, Plus, RotateCcw, Trash2 } 
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
+import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
 import ArtboardSizeMenu from '@/components/ArtboardSizeMenu';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
 import DesignVersionControls from '@/components/DesignVersionControls';
@@ -310,9 +311,11 @@ function AnimationShaderLayers({
   activeShaderSourceIds,
   backgroundOverrides,
   directShaderComposite,
+  embedded,
   exportProgress,
   isPlaying,
   overrideShaderSettings,
+  presentationMode,
   previewFrameRate,
   previewMaxPixelCount,
   sequenceBackground,
@@ -326,14 +329,17 @@ function AnimationShaderLayers({
   showSequenceShader,
   sources,
   studioShaderSettings,
+  viewportVisible,
 }: {
   active: boolean;
   activeShaderSourceIds: Set<string>;
   backgroundOverrides: Record<string, boolean>;
   directShaderComposite: boolean;
+  embedded: boolean;
   exportProgress: number | null;
   isPlaying: boolean;
   overrideShaderSettings: Map<string, StudioSettings['shaderSettings']>;
+  presentationMode: boolean;
   previewFrameRate: number;
   previewMaxPixelCount: number;
   sequenceBackground: StudioBackgroundSettings;
@@ -347,7 +353,11 @@ function AnimationShaderLayers({
   showSequenceShader: boolean;
   sources: readonly StudioSource[];
   studioShaderSettings: StudioSettings['shaderSettings'];
+  viewportVisible: boolean;
 }) {
+  const retainOffscreenContext = embedded && presentationMode;
+  const enabled = active && (viewportVisible || retainOffscreenContext);
+  const previewPaused = !active || !viewportVisible || !isPlaying;
   return (
     <>
       {showSequenceShader ? (
@@ -360,14 +370,15 @@ function AnimationShaderLayers({
           style={{ opacity: directShaderComposite ? sequenceShaderOpacity : 0 }}
         >
           <LiveMaterialCanvas
+            activeWhileMounted={retainOffscreenContext}
             captureTimeMs={shaderCaptureTimeMs}
-            enabled={active || exportProgress !== null}
+            enabled={enabled || exportProgress !== null}
             frameRate={previewFrameRate}
             frameState={shaderFrameStates.get('sequence')}
             materialId={sequenceBackground.materialId}
             maxPixelCount={previewMaxPixelCount}
             patternScale={sequenceBackground.patternScale ?? 1}
-            paused={exportProgress === null && (!active || !isPlaying || !sequenceShaderIsActive)}
+            paused={exportProgress === null && (previewPaused || !sequenceShaderIsActive)}
             settings={sequenceShaderSettings}
           />
         </div>
@@ -385,14 +396,15 @@ function AnimationShaderLayers({
             }}
           >
             <LiveMaterialCanvas
+              activeWhileMounted={retainOffscreenContext}
               captureTimeMs={shaderCaptureTimeMs}
-              enabled={exportProgress !== null || (active && activeShaderSourceIds.has(source.id))}
+              enabled={exportProgress !== null || (enabled && activeShaderSourceIds.has(source.id))}
               frameRate={previewFrameRate}
               frameState={shaderFrameStates.get(`source-${source.id}`)}
               materialId={source.background.materialId}
               maxPixelCount={previewMaxPixelCount}
               patternScale={source.background.patternScale ?? 1}
-              paused={exportProgress === null && (!active || !isPlaying)}
+              paused={exportProgress === null && previewPaused}
               settings={overrideShaderSettings.get(source.id) ?? studioShaderSettings}
             />
           </div>
@@ -654,6 +666,7 @@ function AnimationStudio({
   initialSequenceBackground,
   previewFrameRate = INTERACTIVE_PREVIEW_FPS,
   presentationMode = false,
+  viewportVisible = true,
 }: {
   active?: boolean;
   autoPlay?: boolean;
@@ -664,6 +677,7 @@ function AnimationStudio({
   initialSequenceBackground?: Partial<StudioBackgroundSettings>;
   previewFrameRate?: number;
   presentationMode?: boolean;
+  viewportVisible?: boolean;
 }) {
   const gt = useCachedGT();
   const identitySettings = useMemo(() => ({
@@ -794,7 +808,7 @@ function AnimationStudio({
   const [documentCreatedAt] = useState(() => new Date().toISOString());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const workspaceVisibleRef = useRef(active);
+  const workspaceVisibleRef = useRef(false);
   const workspaceIntersectingRef = useRef(true);
   const canvasSelectionRef = useRef<HTMLDivElement>(null);
   const sequenceShaderLayerRef = useRef<HTMLDivElement>(null);
@@ -1080,6 +1094,7 @@ function AnimationStudio({
   const frameSettingsRef = useCommittedRef(frameSettings);
   const imagesRef = useCommittedRef(images);
   const workspaceActiveRef = useCommittedRef(active);
+  const viewportVisibleRef = useCommittedRef(viewportVisible);
   const isPlayingRef = useCommittedRef(isPlaying);
   const playbackRateRef = useCommittedRef(playbackRate);
   const audioStateRef = useCommittedRef(audioState);
@@ -1162,13 +1177,13 @@ function AnimationStudio({
 
   const scheduleAudioPlayback = useCallback(async (timeMs: number) => {
     stopAudioPlayback();
-    if (!audioPlaybackRequestedRef.current || !isPlayingRef.current) return;
+    if (!audioPlaybackRequestedRef.current || !isPlayingRef.current || !workspaceVisibleRef.current) return;
     const scheduleRevision = audioScheduleRevisionRef.current;
     const state = audioStateRef.current;
     if (state.muted || state.volume <= 0 || state.clips.length === 0) return;
     try {
       await hydrateAudioBuffers(state.assets);
-      if (!isPlayingRef.current || audioScheduleRevisionRef.current !== scheduleRevision) return;
+      if (!isPlayingRef.current || !workspaceVisibleRef.current || audioScheduleRevisionRef.current !== scheduleRevision) return;
       const context = getAudioContext();
       try {
         await context.resume();
@@ -1176,7 +1191,7 @@ function AnimationStudio({
         // Browsers may defer audible playback until the first user gesture.
         return;
       }
-      if (context.state !== 'running') return;
+      if (context.state !== 'running' || !workspaceVisibleRef.current || audioScheduleRevisionRef.current !== scheduleRevision) return;
       const rate = playbackRateRef.current;
       const now = context.currentTime;
       const nextNodes: AudioBufferSourceNode[] = [];
@@ -1204,10 +1219,12 @@ function AnimationStudio({
     }
   }, [audioStateRef, getAudioContext, gt, hydrateAudioBuffers, isPlayingRef, playbackRateRef, stopAudioPlayback]);
 
-  const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(workspaceRef, (projectActive) => {
+  const syncWorkspaceVisibility = useCallback((projectActive: boolean) => {
     const visible = projectActive
       && workspaceActiveRef.current
-      && workspaceIntersectingRef.current;
+      && viewportVisibleRef.current
+      && workspaceIntersectingRef.current
+      && document.visibilityState !== 'hidden';
     workspaceVisibleRef.current = visible;
     previewClockResetRef.current = true;
     if (!visible) {
@@ -1219,7 +1236,9 @@ function AnimationStudio({
       audioPlaybackRequestedRef.current = true;
       void scheduleAudioPlayback(playheadRef.current);
     }
-  });
+  }, [isPlayingRef, scheduleAudioPlayback, stopAudioPlayback, viewportVisibleRef, workspaceActiveRef]);
+
+  const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(workspaceRef, syncWorkspaceVisibility);
 
   useEffect(() => {
     setAudioState((current) => normalizeAnimationAudioState(current, totalMs));
@@ -1273,10 +1292,7 @@ function AnimationStudio({
     if (!workspace) return;
     const observer = new IntersectionObserver(([entry]) => {
       workspaceIntersectingRef.current = entry?.isIntersecting ?? true;
-      workspaceVisibleRef.current = workspaceActiveRef.current
-        && projectWorkspaceActiveRef.current
-        && workspaceIntersectingRef.current;
-      if (workspaceVisibleRef.current) requestPreviewFrameRef.current();
+      syncWorkspaceVisibility(projectWorkspaceActiveRef.current);
     });
     observer.observe(workspace);
     return () => observer.disconnect();
@@ -1344,19 +1360,13 @@ function AnimationStudio({
   });
 
   useEffect(() => {
-    workspaceVisibleRef.current = active
-      && projectWorkspaceActiveRef.current
-      && workspaceIntersectingRef.current;
-    previewClockResetRef.current = true;
-    if (active) {
-      requestPreviewFrameRef.current();
-      return;
+    if (!active) {
+      audioPlaybackRequestedRef.current = false;
+      isPlayingRef.current = false;
+      setIsPlaying(false);
     }
-    audioPlaybackRequestedRef.current = false;
-    isPlayingRef.current = false;
-    setIsPlaying(false);
-    stopAudioPlayback();
-  }, [active, isPlayingRef, projectWorkspaceActiveRef, stopAudioPlayback]);
+    syncWorkspaceVisibility(projectWorkspaceActiveRef.current);
+  }, [active, isPlayingRef, projectWorkspaceActiveRef, syncWorkspaceVisibility, viewportVisible]);
 
   const brandLogoSource = animationBrandLogoSource(brandLogo);
   useEffect(() => {
@@ -1506,10 +1516,7 @@ function AnimationStudio({
     }
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'hidden') {
-        previewClockResetRef.current = true;
-        requestTick();
-      }
+      syncWorkspaceVisibility(projectWorkspaceActiveRef.current);
     };
     requestPreviewFrameRef.current = requestTick;
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -2581,9 +2588,11 @@ function AnimationStudio({
                   activeShaderSourceIds={activeShaderSourceIds}
                   backgroundOverrides={backgroundOverrides}
                   directShaderComposite={directShaderComposite}
+                  embedded={embedded}
                   exportProgress={exportProgress}
                   isPlaying={isPlaying}
                   overrideShaderSettings={overrideShaderSettings}
+                  presentationMode={presentationMode}
                   previewFrameRate={resolvedPreviewFrameRate}
                   previewMaxPixelCount={previewMaxPixelCount}
                   sequenceBackground={sequenceBackground}
@@ -2597,6 +2606,7 @@ function AnimationStudio({
                   showSequenceShader={hasSequenceShaderSources}
                   sources={sources}
                   studioShaderSettings={settings.shaderSettings}
+                  viewportVisible={viewportVisible}
                 />
                 <canvas
                   aria-label={gt('Animation preview canvas')}
@@ -2606,38 +2616,50 @@ function AnimationStudio({
                   width={1}
                 />
                 {selectedSource && selectedFrameSettings ? (
-                  <EditableCanvasLayer
-                    baseHeight={selectedBounds.height}
-                    baseWidth={selectedBounds.width}
-                    baseX={(canvasWidth - selectedBounds.width) / 2}
-                    baseY={(canvasHeight - selectedBounds.height) / 2}
-                    canvasHeight={canvasHeight}
-                    canvasWidth={canvasWidth}
-                    label={selectedSource.kind === 'text' ? selectedSource.text : selectedSource.name}
-                    onChange={(transform) => updateSelectedFrame({
-                      alignX: Math.min(1, Math.max(-1, (transform.x / canvasWidth) * 2)),
-                      alignY: Math.min(1, Math.max(-1, (transform.y / canvasHeight) * 2)),
-                      scale: transform.scale,
-                    })}
-                    onDeselect={() => {
-                      setSelectedSourceId(null);
-                      setSelectedTransitionIndex(null);
-                      setSelectedEffectTarget('content');
-                    }}
-                    onSelect={() => {
-                      setSelectedTransitionIndex(null);
-                      setSelectedSourceId(selectedSource.id);
-                    }}
-                    selected
-                    transform={{
-                      scale: selectedFrameSettings.scale,
-                      x: (selectedFrameSettings.alignX * canvasWidth) / 2,
-                      y: (selectedFrameSettings.alignY * canvasHeight) / 2,
-                    }}
-                    zIndex={30}
+                  <AnimationCanvasSelection
+                    active={active}
+                    currentMsRef={playheadRef}
+                    holdMs={settings.holdMs}
+                    isPlaying={isPlaying}
+                    itemCount={sources.length}
+                    selectedIndex={sources.findIndex((source) => source.id === selectedSource.id)}
+                    subscribeToPlayhead={subscribeToPlayhead}
+                    transitionMs={settings.transitionMs}
+                    viewportVisible={viewportVisible}
                   >
-                    <span />
-                  </EditableCanvasLayer>
+                    <EditableCanvasLayer
+                      baseHeight={selectedBounds.height}
+                      baseWidth={selectedBounds.width}
+                      baseX={(canvasWidth - selectedBounds.width) / 2}
+                      baseY={(canvasHeight - selectedBounds.height) / 2}
+                      canvasHeight={canvasHeight}
+                      canvasWidth={canvasWidth}
+                      label={selectedSource.kind === 'text' ? selectedSource.text : selectedSource.name}
+                      onChange={(transform) => updateSelectedFrame({
+                        alignX: Math.min(1, Math.max(-1, (transform.x / canvasWidth) * 2)),
+                        alignY: Math.min(1, Math.max(-1, (transform.y / canvasHeight) * 2)),
+                        scale: transform.scale,
+                      })}
+                      onDeselect={() => {
+                        setSelectedSourceId(null);
+                        setSelectedTransitionIndex(null);
+                        setSelectedEffectTarget('content');
+                      }}
+                      onSelect={() => {
+                        setSelectedTransitionIndex(null);
+                        setSelectedSourceId(selectedSource.id);
+                      }}
+                      selected
+                      transform={{
+                        scale: selectedFrameSettings.scale,
+                        x: (selectedFrameSettings.alignX * canvasWidth) / 2,
+                        y: (selectedFrameSettings.alignY * canvasHeight) / 2,
+                      }}
+                      zIndex={30}
+                    >
+                      <span />
+                    </EditableCanvasLayer>
+                  </AnimationCanvasSelection>
                 ) : null}
                 <div
                   aria-hidden='true'

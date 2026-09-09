@@ -257,10 +257,13 @@ describe('shared Studio control layout', () => {
     expect(timelinePreview).toContain('freezeShaderBackgrounds');
     expect(timelinePreview).toContain('requestShaderPreviewImage');
     expect(timelinePreview).toContain('requestShaderPreviewSlot');
-    expect(timelinePreview).toContain("canvas.toDataURL('image/webp', 0.86)");
+    expect(timelinePreview).toContain("snapshot.toDataURL('image/webp', 0.86)");
+    expect(timelinePreview).toContain('drawShaderFramePresentation(context, canvas, presentation');
     expect(timelinePreview).toContain('capturedAnimationShaderPreviews');
     expect(timelinePreview).toContain('shaderPreviewAssetPath(materialId)');
-    expect(timelinePreview).not.toContain('requestAnimationFrame');
+    expect(timelinePreview).toContain('new MutationObserver(schedule)');
+    expect(timelinePreview).toContain('cancelAnimationFrame(frame)');
+    expect(timelinePreview).not.toContain('requestAnimationFrame(tick)');
     expect(designLab).toContain("aria-label='Shader cut sequence'");
     expect(designLab).toContain('<LayerDockTooltipPreview');
     expect(designLab).toContain('src={shaderPreviewAssetPath(appliedShader.materialId)}');
