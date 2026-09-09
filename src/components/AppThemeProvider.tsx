@@ -1,32 +1,45 @@
 'use client';
 
-import { ThemeProvider } from 'next-themes';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useMemo, useSyncExternalStore } from 'react';
+
+import { APP_THEME_CONFIG, initializeAppTheme, type ResolvedTheme, type ThemePreference } from '@/lib/appTheme';
 
 import type { ReactNode } from 'react';
 
-type ThemeOverride = 'dark' | 'light' | undefined;
+type AppThemeValue = {
+  theme: ThemePreference;
+  resolvedTheme: ResolvedTheme | undefined;
+  setTheme: (theme: ThemePreference) => void;
+  toggleTheme: () => void;
+};
 
-const ThemeOverrideContext = createContext<(theme: ThemeOverride) => void>(() => undefined);
+const AppThemeContext = createContext<AppThemeValue | null>(null);
 
-export function useThemeOverride() {
-  return useContext(ThemeOverrideContext);
+export function useAppTheme(): AppThemeValue {
+  const context = useContext(AppThemeContext);
+  if (!context) throw new Error('useAppTheme requires AppThemeProvider');
+  return context;
 }
 
-export default function AppThemeProvider({ children }: { children: ReactNode }) {
-  const [forcedTheme, setForcedTheme] = useState<ThemeOverride>();
+const controller = () => initializeAppTheme(window, APP_THEME_CONFIG);
+const subscribe = (listener: () => void) => controller().subscribe(listener);
+const getSnapshot = () => window.__glyphfieldTheme?.getSnapshot() ?? 'system:pending';
+// SSR cannot know the OS. CSS reads the bootstrap's root class; React hydrates
+// neutral markup, then subscribes without ever writing a default light theme.
+const getServerSnapshot = () => 'system:pending';
+const setTheme = (theme: ThemePreference) => controller().setTheme(theme);
+const toggleTheme = () => controller().toggleTheme();
 
-  return (
-    <ThemeOverrideContext.Provider value={setForcedTheme}>
-      <ThemeProvider
-        attribute='class'
-        defaultTheme='system'
-        disableTransitionOnChange
-        enableSystem
-        forcedTheme={forcedTheme}
-      >
-        {children}
-      </ThemeProvider>
-    </ThemeOverrideContext.Provider>
-  );
+export default function AppThemeProvider({ children }: { children: ReactNode }) {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const value = useMemo<AppThemeValue>(() => {
+    const [preference, resolved] = snapshot.split(':');
+    return {
+      theme: preference === 'light' || preference === 'dark' ? preference : 'system',
+      resolvedTheme: resolved === 'light' || resolved === 'dark' ? resolved : undefined,
+      setTheme,
+      toggleTheme,
+    };
+  }, [snapshot]);
+  return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
 }

@@ -14,6 +14,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { appThemeBootstrapScript } from '@/lib/appTheme';
 import {
   HOME_DESCRIPTION,
   HOME_TITLE,
@@ -99,10 +100,6 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
-  themeColor: [
-    { color: '#f8f8f5', media: '(prefers-color-scheme: light)' },
-    { color: '#121212', media: '(prefers-color-scheme: dark)' },
-  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -113,6 +110,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
+        <script id='glyphfield-theme-init' dangerouslySetInnerHTML={{ __html: appThemeBootstrapScript() }} />
         <script
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteJsonLd()) }}
           type='application/ld+json'

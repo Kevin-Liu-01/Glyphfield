@@ -11,6 +11,7 @@ const docsControls = readFileSync('src/components/DocsControls.tsx', 'utf8');
 const docsMdx = readFileSync('src/components/DocsMdx.tsx', 'utf8');
 const docsSource = readFileSync('src/lib/docsSource.ts', 'utf8');
 const docsThemeButton = readFileSync('src/components/DocsThemeButton.tsx', 'utf8');
+const docsBaseOptions = readFileSync('src/lib/docsLayout.tsx', 'utf8');
 const docsPage = readFileSync('src/app/docs/[[...slug]]/page.tsx', 'utf8');
 const docsPageActions = readFileSync('src/components/DocsPageActions.tsx', 'utf8');
 const docsMarkdownRoute = readFileSync('src/app/api/docs/[[...slug]]/route.ts', 'utf8');
@@ -20,6 +21,14 @@ const nextConfig = readFileSync('next.config.ts', 'utf8');
 const sourceConfig = readFileSync('source.config.ts', 'utf8');
 
 describe('documentation responsive shell', () => {
+  it('uses the shared theme control on desktop and mobile without a competing vendor switch', () => {
+    expect(docsBaseOptions).toContain('themeSwitch: { enabled: false }');
+    expect(docsThemeButton).toContain('useAppTheme');
+    expect(docsThemeButton).not.toContain("from 'next-themes'");
+    expect(docsLayout).toContain('theme={{ enabled: false }}');
+    expect(readFileSync('src/components/DocsSidebarFooter.tsx', 'utf8')).toContain('<DocsThemeButton />');
+  });
+
   it('loads the precompiled Fumadocs layout contract', () => {
     expect(docsRouteStyles).toContain("@import 'fumadocs-ui/style.css';");
     expect(docsRouteStyles).not.toContain("@import 'fumadocs-ui/css/preset.css';");

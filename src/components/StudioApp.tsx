@@ -13,7 +13,6 @@ import {
   useState,
 } from 'react';
 import { T, useGT } from 'gt-next';
-import { useTheme } from 'next-themes';
 import {
   BookOpen,
   Check,
@@ -39,7 +38,7 @@ import {
   X,
 } from '@/components/ui/SolidIcons';
 
-import { useThemeOverride } from '@/components/AppThemeProvider';
+import { useAppTheme } from '@/components/AppThemeProvider';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
@@ -55,7 +54,7 @@ import StudioContextMenu, {
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { useHydrated, useMountEffect } from '@/hooks/useMountEffect';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
@@ -157,26 +156,18 @@ type StudioAppearance = {
   theme: 'light' | 'dark' | 'system';
 };
 
-const DEFAULT_APPEARANCE: StudioAppearance = {
+type StoredStudioAppearance = Omit<StudioAppearance, 'theme'>;
+
+const DEFAULT_APPEARANCE: StoredStudioAppearance = {
   accent: 'neutral',
   canvas: 'dots',
   corners: 'rounded',
   density: 'comfortable',
   font: 'switzer',
   motion: 'full',
-  theme: 'system',
 };
 
 type ResolvedTheme = 'light' | 'dark';
-
-function resolveStudioTheme(
-  requestedTheme: StudioAppearance['theme'],
-  systemTheme: string | undefined,
-  themeReady: boolean
-): ResolvedTheme {
-  if (requestedTheme !== 'system') return requestedTheme;
-  return themeReady && systemTheme === 'dark' ? 'dark' : 'light';
-}
 
 const PROJECT_FOLDERS: readonly { id: ProjectFolderId; label: string }[] = [
   { id: 'all', label: 'All projects' },
@@ -432,7 +423,7 @@ function AppearanceMenu({
           <section className='appearance-section'>
             <div>
               <strong><T>Theme</T></strong>
-              <small><T>Studio chrome and controls</T></small>
+              <small><T>Shared across the landing page, Studio, and docs</T></small>
             </div>
             <div className='appearance-segments appearance-segments--three'>
               {(['light', 'dark', 'system'] as const).map((theme) => (
@@ -834,7 +825,7 @@ function StudioAppHeader({
   appearance,
   onAppearanceChange,
   onCommandOpen,
-  onThemeChange,
+  onThemeToggle,
   onToolSelect,
   resolvedTheme,
 }: {
@@ -842,13 +833,15 @@ function StudioAppHeader({
   appearance: StudioAppearance;
   onAppearanceChange: (patch: Partial<StudioAppearance>) => void;
   onCommandOpen: () => void;
-  onThemeChange: (theme: ResolvedTheme) => void;
+  onThemeToggle: () => void;
   onToolSelect: (toolId: StudioToolId) => void;
-  resolvedTheme: ResolvedTheme;
+  resolvedTheme: ResolvedTheme | undefined;
 }) {
   const gt = useGT();
-  const alternateTheme = resolvedTheme === 'light' ? 'dark' : 'light';
-  const alternateThemeLabel = resolvedTheme === 'light' ? gt('Dark mode') : gt('Light mode');
+  const alternateTheme = resolvedTheme ? (resolvedTheme === 'light' ? 'dark' : 'light') : undefined;
+  const alternateThemeLabel = alternateTheme
+    ? gt('Switch to {theme} mode', { theme: alternateTheme })
+    : gt('Toggle color theme');
 
   return (
     <header className='app-navbar studio-app-header border-b border-border bg-background'>
@@ -895,14 +888,15 @@ function StudioAppHeader({
           </Button>
           <AppearanceMenu appearance={appearance} onChange={onAppearanceChange} />
           <Button
-            aria-label={gt('Switch to {theme} mode', { theme: alternateTheme })}
-            onClick={() => onThemeChange(alternateTheme)}
+            aria-label={alternateThemeLabel}
+            onClick={onThemeToggle}
             size='icon-sm'
             title={alternateThemeLabel}
             type='button'
             variant='outline'
           >
-            {alternateTheme === 'dark' ? <Moon aria-hidden='true' /> : <Sun aria-hidden='true' />}
+            <Moon aria-hidden='true' className='app-theme-icon--light' />
+            <Sun aria-hidden='true' className='app-theme-icon--dark' />
           </Button>
         </div>
       </div>
@@ -912,11 +906,7 @@ function StudioAppHeader({
 
 export default function StudioApp() {
   const gt = useGT();
-  const setThemeOverride = useThemeOverride();
-  const {
-    setTheme: setProviderTheme,
-    systemTheme,
-  } = useTheme();
+  const { theme, resolvedTheme, setTheme, toggleTheme } = useAppTheme();
   const [activeToolId, setActiveToolId] = useState<StudioToolId>('identity');
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
@@ -941,24 +931,11 @@ export default function StudioApp() {
     [STARTER_BRAND_IDENTITY.id, GT_BRAND_IDENTITY.id]
   );
   const [warmIdentityIds, setWarmIdentityIds] = useState<string[]>([]);
-  const [appearance, setAppearance] = usePersistentState<StudioAppearance>(
+  const [appearance, setAppearance] = usePersistentState<StoredStudioAppearance>(
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
   );
-  const themeReady = useHydrated();
-  const resolvedAppearance = { ...DEFAULT_APPEARANCE, ...appearance };
-  const resolvedTheme = resolveStudioTheme(
-    resolvedAppearance.theme,
-    systemTheme,
-    themeReady
-  );
-
-  useEffect(() => {
-    setProviderTheme(resolvedAppearance.theme);
-    setThemeOverride(resolvedTheme);
-
-    return () => setThemeOverride(undefined);
-  }, [resolvedAppearance.theme, resolvedTheme, setProviderTheme, setThemeOverride]);
+  const resolvedAppearance: StudioAppearance = { ...DEFAULT_APPEARANCE, ...appearance, theme };
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
   const resolvedIdentities = useMemo(
@@ -1534,25 +1511,19 @@ export default function StudioApp() {
         activeToolId={activeToolId}
         appearance={resolvedAppearance}
         onAppearanceChange={(patch) => {
-          if (patch.theme) setProviderTheme(patch.theme);
-          setAppearance((current) => ({
-            ...DEFAULT_APPEARANCE,
-            ...current,
-            ...patch,
-          }));
+          const { theme: nextTheme, ...appearancePatch } = patch;
+          if (nextTheme) setTheme(nextTheme);
+          if (Object.keys(appearancePatch).length === 0) return;
+          setAppearance((current) => {
+            const { theme: _legacyTheme, ...currentAppearance } = current as Partial<StudioAppearance>;
+            return { ...DEFAULT_APPEARANCE, ...currentAppearance, ...appearancePatch };
+          });
         }}
         onCommandOpen={() => {
           setQuery('');
           setCommandOpen(true);
         }}
-        onThemeChange={(theme) => {
-          setProviderTheme(theme);
-          setAppearance((current) => ({
-            ...DEFAULT_APPEARANCE,
-            ...current,
-            theme,
-          }));
-        }}
+        onThemeToggle={toggleTheme}
         onToolSelect={selectTool}
         resolvedTheme={resolvedTheme}
       />

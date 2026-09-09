@@ -3966,6 +3966,29 @@ html {
   color-scheme: light;
 }
 
+/* A theme switch is atomic; hover/layout transitions resume after its paint. */
+html[data-theme-changing],
+html[data-theme-changing] *,
+html[data-theme-changing] *::before,
+html[data-theme-changing] *::after {
+  transition: none !important;
+}
+
+/* Both theme glyphs are server-rendered; the resolved root chooses one before
+   paint without changing the toggle's dimensions during hydration. */
+.app-theme-icon--light,
+.app-theme-icon--dark {
+  display: none;
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+
+html.light .app-theme-icon--light,
+html.dark .app-theme-icon--dark {
+  display: block;
+}
+
 html:has(.studio-app),
 body:has(.studio-app) {
   width: 100%;
@@ -5712,19 +5735,19 @@ body {
   display: block;
 }
 
-[data-resolved-theme='dark']
+html.dark
   .theme-aware-brand-mark[data-logo-treatment='contrast-variant'][data-surface='auto']:not([data-inverse='true'])
   .theme-aware-brand-mark-dark,
-[data-resolved-theme='light']
+html.light
   .theme-aware-brand-mark[data-logo-treatment='contrast-variant'][data-surface='auto'][data-inverse='true']
   .theme-aware-brand-mark-dark {
   display: none;
 }
 
-[data-resolved-theme='dark']
+html.dark
   .theme-aware-brand-mark[data-logo-treatment='contrast-variant'][data-surface='auto']:not([data-inverse='true'])
   .theme-aware-brand-mark-light,
-[data-resolved-theme='light']
+html.light
   .theme-aware-brand-mark[data-logo-treatment='contrast-variant'][data-surface='auto'][data-inverse='true']
   .theme-aware-brand-mark-light {
   display: block;
@@ -6546,7 +6569,7 @@ body {
 }
 
 .marketing-v14-control-panel--dark,
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v14-control-panel:not(.marketing-v14-control-panel--dark) {
+html.dark .marketing-page-v5 .marketing-v14-control-panel:not(.marketing-v14-control-panel--dark) {
   --marketing-v14-control-bg: #151515;
   --marketing-v14-control-fg: #f2f2ef;
   --marketing-v14-control-line: #3e3e3b;
@@ -7116,7 +7139,7 @@ body {
   background: #1a1a1a;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-mini-identity-body > nav button[aria-current='page'] {
+html.dark .marketing-page-v5 .marketing-mini-identity-body > nav button[aria-current='page'] {
   color: #151515;
   background: #f0f0ec;
 }
@@ -7172,7 +7195,7 @@ body {
   height: auto;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] :is(.marketing-mini-identity-brand, .marketing-mini-book-body > nav) img {
+html.dark .marketing-page-v5 :is(.marketing-mini-identity-brand, .marketing-mini-book-body > nav) img {
   filter: invert(1);
 }
 
@@ -7481,7 +7504,7 @@ body {
 .marketing-mini-motion-workspace[data-curve='Snappy'] { --motion-ease: cubic-bezier(0.2, 0.85, 0.3, 1); }
 .marketing-mini-motion-workspace[data-curve='Soft'] { --motion-ease: cubic-bezier(0.22, 1, 0.36, 1); }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-mini-motion-workspace {
+html.dark .marketing-page-v5 .marketing-mini-motion-workspace {
   --live-demo-ink: #f1f1ed;
   --live-demo-line: #3c3c39;
   --live-demo-muted: #999994;
@@ -13024,8 +13047,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   accent-color: hsl(var(--primary));
 }
 
-:root.dark,
-.studio-app[data-resolved-theme='dark'] {
+html.dark {
   --background: 0 0% 7%;
   --foreground: 0 0% 92%;
   --card: 0 0% 10%;
@@ -13056,45 +13078,8 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   color-scheme: dark;
 }
 
-.studio-app[data-resolved-theme='dark'] .studio-app-header > a img {
+html.dark .studio-app .studio-app-header > a img {
   filter: invert(1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .studio-app[data-theme='system'] {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 92%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 92%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 92%;
-    --primary: 0 0% 92%;
-    --primary-foreground: 0 0% 8%;
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 0 0% 92%;
-    --muted: 0 0% 13%;
-    --muted-foreground: 0 0% 66%;
-    --accent: 0 0% 17%;
-    --accent-foreground: 0 0% 96%;
-    --border: 0 0% 24%;
-    --input: 0 0% 34%;
-    --ring: 0 0% 84%;
-    --emphasis: 0 0% 92%;
-    --status-error: 0 82% 67%;
-    --status-error-background: 0 82% 60% / 0.14;
-    --status-error-border: 0 82% 64% / 0.34;
-    --status-success: 142 68% 54%;
-    --status-success-background: 142 68% 48% / 0.13;
-    --status-success-border: 142 68% 54% / 0.32;
-    --canvas-background: 0 0% 4.5%;
-    --raised-background: 0 0% 11%;
-    --shadow-color: 0 0% 0%;
-    color-scheme: dark;
-  }
-
-  .studio-app[data-theme='system'] .studio-app-header > a img {
-    filter: invert(1);
-  }
 }
 
 .studio-app[data-studio-accent='violet'] {
@@ -22626,11 +22611,11 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   display: none;
 }
 
-.studio-app[data-theme='dark'] .brand-art-evidence-theme--light {
+html.dark .studio-app .brand-art-evidence-theme--light {
   display: none;
 }
 
-.studio-app[data-theme='dark'] .brand-art-evidence-theme--dark {
+html.dark .studio-app .brand-art-evidence-theme--dark {
   display: block;
 }
 
@@ -28081,7 +28066,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 
 /* Marketing v5 refinement */
 
-.marketing-page-v5[data-marketing-theme='dark'] {
+html.dark .marketing-page-v5 {
   --marketing-v5-ink: #f0f0ed;
   --marketing-v5-line: #383836;
   --marketing-v5-muted: #a5a5a0;
@@ -28171,48 +28156,48 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   transition: transform 150ms ease;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-brand img {
+html.dark .marketing-page-v5 .marketing-v5-brand img {
   filter: invert(1);
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-nav a:hover,
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-secondary-link {
+html.dark .marketing-page-v5 .marketing-v5-nav a:hover,
+html.dark .marketing-page-v5 .marketing-v5-secondary-link {
   background: #191919;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link:not(.marketing-v5-primary-link--inverse) {
+html.dark .marketing-page-v5 .marketing-v5-primary-link:not(.marketing-v5-primary-link--inverse) {
   border-color: #efefec;
   color: #111;
   background: #efefec;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link:not(.marketing-v5-primary-link--inverse):hover {
+html.dark .marketing-page-v5 .marketing-v5-primary-link:not(.marketing-v5-primary-link--inverse):hover {
   background: #d7d7d2;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-output-rail,
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-product-card {
+html.dark .marketing-page-v5 .marketing-v5-output-rail,
+html.dark .marketing-page-v5 .marketing-v5-product-card {
   background: #151515;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-logo-rail-mark-light-surface {
+html.dark .marketing-page-v5 .marketing-v5-logo-rail-mark-light-surface {
   visibility: hidden;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-logo-rail-mark-dark-surface {
+html.dark .marketing-page-v5 .marketing-v5-logo-rail-mark-dark-surface {
   visibility: visible;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-capability-grid article {
+html.dark .marketing-page-v5 .marketing-v5-capability-grid article {
   background: #141414;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-capability-grid article:hover {
+html.dark .marketing-page-v5 .marketing-v5-capability-grid article:hover {
   color: #111;
   background: #f0f0ed;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-capability-grid article:hover::after {
+html.dark .marketing-page-v5 .marketing-v5-capability-grid article:hover::after {
   background: #111;
 }
 
@@ -28325,11 +28310,11 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   display: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-theme-shot--light {
+html.dark .marketing-page-v5 .marketing-v5-theme-shot--light {
   display: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-theme-shot--dark {
+html.dark .marketing-page-v5 .marketing-v5-theme-shot--dark {
   display: block;
 }
 
@@ -28341,19 +28326,19 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   display: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-studio-frame--adaptive .marketing-v5-studio-shot--light {
+html.dark .marketing-page-v5 .marketing-v5-studio-frame--adaptive .marketing-v5-studio-shot--light {
   display: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-studio-frame--adaptive .marketing-v5-studio-shot--dark {
+html.dark .marketing-page-v5 .marketing-v5-studio-frame--adaptive .marketing-v5-studio-shot--dark {
   display: block;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-studio-frame--adaptive .marketing-v5-studio-label--light {
+html.dark .marketing-page-v5 .marketing-v5-studio-frame--adaptive .marketing-v5-studio-label--light {
   display: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-studio-frame--adaptive .marketing-v5-studio-label--dark {
+html.dark .marketing-page-v5 .marketing-v5-studio-frame--adaptive .marketing-v5-studio-label--dark {
   display: block;
 }
 
@@ -30710,8 +30695,8 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
     0 0 22px rgb(75 48 181 / 0.42);
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link--iridescent,
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link--iridescent:hover {
+html.dark .marketing-page-v5 .marketing-v5-primary-link--iridescent,
+html.dark .marketing-page-v5 .marketing-v5-primary-link--iridescent:hover {
   color: #111;
   background:
     linear-gradient(#f4f4f1, #f4f4f1) padding-box,
@@ -30857,8 +30842,8 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   box-shadow: none;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link--iridescent,
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-primary-link--iridescent:hover {
+html.dark .marketing-page-v5 .marketing-v5-primary-link--iridescent,
+html.dark .marketing-page-v5 .marketing-v5-primary-link--iridescent:hover {
   border-color: #efefec;
   color: #111;
   background: #efefec;
@@ -31244,14 +31229,14 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   }
 }
 
-html[data-marketing-theme='light'],
-html[data-marketing-theme='light'] body {
+html.light:has(.marketing-page-v5),
+html.light:has(.marketing-page-v5) body {
   background: #fbfbf9;
   color-scheme: light;
 }
 
-html[data-marketing-theme='dark'],
-html[data-marketing-theme='dark'] body {
+html.dark:has(.marketing-page-v5),
+html.dark:has(.marketing-page-v5) body {
   background: #111;
   color-scheme: dark;
 }
@@ -31604,12 +31589,12 @@ html[data-marketing-theme='dark'] body {
   }
 }
 
-.marketing-page-v5[data-marketing-theme='light'] {
+html.light .marketing-page-v5 {
   border-inline-color: #deded9;
   outline-color: #deded9;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] {
+html.dark .marketing-page-v5 {
   border-inline-color: #383836;
   outline-color: #383836;
 }
@@ -32518,7 +32503,7 @@ html[data-marketing-theme='dark'] body {
   --selection-surface: white;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v13-product-selection--light {
+html.dark .marketing-page-v5 .marketing-v13-product-selection--light {
   --selection-surface: #151515;
 }
 
@@ -33096,7 +33081,7 @@ html[data-marketing-theme='dark'] body {
   --marketing-header-control-key: color-mix(in srgb, var(--marketing-v5-paper) 82%, var(--marketing-v5-ink));
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] {
+html.dark .marketing-page-v5 {
   --marketing-header-control-hover: #20201e;
   --marketing-header-control-key: #1b1b1a;
 }
@@ -33191,15 +33176,15 @@ html[data-marketing-theme='dark'] body {
   white-space: nowrap;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-theme-gallery-grid > div:first-child {
+html.dark .marketing-page-v5 .marketing-v5-theme-gallery-grid > div:first-child {
   background: #181817;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-theme-gallery-grid > div:last-child {
+html.dark .marketing-page-v5 .marketing-v5-theme-gallery-grid > div:last-child {
   background: #0d0d0d;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-v5-studio-frame {
+html.dark .marketing-page-v5 .marketing-v5-studio-frame {
   border-color: #41413e;
   background: #141414;
 }
@@ -33955,12 +33940,12 @@ html[data-marketing-theme='dark'] body {
 
 /* Keep the motion story inside the light composition instead of making it read
    like a dark-theme island. The embedded workbench can retain its own canvas. */
-.marketing-page-v5[data-marketing-theme='light'] .marketing-v5-product-card--dark {
+html.light .marketing-page-v5 .marketing-v5-product-card--dark {
   color: var(--marketing-v5-ink);
   background: color-mix(in srgb, var(--marketing-v5-paper) 94%, var(--marketing-v5-ink));
 }
 
-.marketing-page-v5[data-marketing-theme='light'] .marketing-v5-product-card--dark .marketing-v5-product-card-image {
+html.light .marketing-page-v5 .marketing-v5-product-card--dark .marketing-v5-product-card-image {
   border-color: var(--marketing-v5-line);
   background: color-mix(in srgb, var(--marketing-v5-paper) 90%, var(--marketing-v5-ink));
 }
@@ -33986,7 +33971,7 @@ html[data-marketing-theme='dark'] body {
   box-shadow: 0 16px 42px rgb(15 15 14 / 0.08);
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-live-demo {
+html.dark .marketing-page-v5 .marketing-live-demo {
   --live-demo-ink: #f1f1ed;
   --live-demo-line: #3b3b38;
   --live-demo-muted: #999994;
@@ -34193,7 +34178,7 @@ html[data-marketing-theme='dark'] body {
   height: auto;
 }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-live-selection-box img {
+html.dark .marketing-page-v5 .marketing-live-selection-box img {
   filter: invert(1);
 }
 
@@ -34543,7 +34528,7 @@ html[data-marketing-theme='dark'] body {
 
 .marketing-live-surface--email img { width: 34px; height: auto; }
 
-.marketing-page-v5[data-marketing-theme='dark'] .marketing-live-surface--email img { filter: invert(1); }
+html.dark .marketing-page-v5 .marketing-live-surface--email img { filter: invert(1); }
 
 .marketing-live-surface--email > main {
   min-height: 152px;

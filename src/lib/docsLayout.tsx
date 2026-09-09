@@ -7,6 +7,9 @@ import { PRODUCT_BRAND } from '@/lib/productBrand';
 export function docsBaseOptions(): BaseLayoutProps {
   return {
     links: [],
+    // DocsControls/DocsSidebarFooter already expose the shared app theme.
+    // Fumadocs' default mobile switch requires its separate next-themes owner.
+    themeSwitch: { enabled: false },
     nav: {
       title: (
         <span className='docs-brand-title flex items-center gap-2 font-semibold'>
