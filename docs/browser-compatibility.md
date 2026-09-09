@@ -7,6 +7,10 @@
   Design Lab uses gesture-scoped window release/cancel/blur listeners instead.
 - Keyboard and assistive range changes commit immediately; pointer previews stay
   lightweight and the final visible native value is the committed value.
+  Completing a primary pointer gesture focuses the shared range without scrolling
+  or canceling native dragging. Installed Safari removes early pointerdown focus
+  during its mousedown default action, so focus belongs at completion; keyboard
+  tests must not hide the gap with an explicit test focus.
 - Canvas shortcuts must respect inherited editors, including
   `contenteditable="plaintext-only"`. A focused editor owns Shift-click, native
   undo, and its text context menu. Layer selection/drag handles remain separate.
@@ -24,6 +28,16 @@
 - Retained editors keep their document state but do not own the active Studio API
   or control lookup. Project/tool round trips must resolve source and controls
   from the visible workspace, regardless of the order editors were mounted.
+- Color pickers retain HSV coordinates while editing white, gray, or black;
+  converting through HEX must not reset the hue or saturation the user selected.
+  Text fields retain their DOM identity, Enter/blur commits valid drafts, and
+  Escape cancels the focused draft without dismissing its containing picker.
+- Popover dismissal flushes pending edits before unmounting fields. A nested
+  dropdown that consumes Escape must not also dismiss its parent menu.
+- Tool-header actions such as Pause, Save, and Export preserve the selected layer
+  and inspector. Leaving the editor still dismisses its canvas selection.
+- Numeric shader zoom uses the same native-range ownership and final-commit
+  contract as other Studio sliders. Escape cancels the draft before blur runs.
 
 ## Repeatable engine checks
 
@@ -55,6 +69,12 @@ same antialiasing threshold; continuous TextMetrics bounds can differ from the
 painted ink in WebKit. Shader interaction checks retain the native canvas and
 record browser callback cadence separately from GPU rendering.
 
+`e2e/control-interactions.spec.ts` additionally checks first-click color pickers,
+achromatic hue changes, HEX-to-picker and picker-to-select transitions, checkbox
+keyboard input, slider commits, numeric Escape, and a typed artboard size followed
+immediately by another action. These checks assert the public source as well as
+the displayed controls; a visual-only preview does not count as a committed edit.
+
 The September 8 verification used the webpack production build because the
 default Turbopack command stalled in this environment. The default build script
 was not changed. Document-wide print selectors were moved out of the locally
@@ -75,6 +95,9 @@ pnpm test:safari
 selects the driver endpoint. The script reports the actual Safari/macOS version,
 uses an isolated automation session, and deletes that session on completion.
 Stop the driver process you started after testing.
+Set `GLYPHFIELD_SAFARI_ONLY='native shared controls first-click'` for the focused
+native color/select/range/numeric journey. It uses the same isolated text fixture
+and trusted pointer delivery checks as the canvas suite.
 Keep its Safari window in the foreground during cadence measurements. A focus
 or visibility interruption invalidates that sample and is reported as a failure,
 not as Glyphfield shader performance.
@@ -93,6 +116,40 @@ Browser callback cadence is not GPU-completion or presentation FPS. The broad
 input-stall assertion catches regressions; it is not a promise of 60 FPS on every
 Mac, artwork, or display. Use `pnpm test:shader-cadence` for actual draw submission
 cadence and `pnpm test:performance` for the existing interaction budgets.
+
+## Artboard navigation and portable export checks
+
+The navigation regression covers surface drag/selection, double-click entry,
+Space/middle-button panning over content, canceled gestures, pending text at a
+board switch, map dragging, same-zoom centering, and resize anchoring. The map
+renders geometry only; it must not create preview images or shader contexts.
+Below 300px canvas height the map starts collapsed, with a visible toggle.
+Explicit user toggles override automatic resizing; a manually expanded compact
+map has a smaller drawing area. Artboard capture handlers must leave portaled
+layer move/resize handles alone, even when React events bubble through a board.
+
+Still export follows the painted content, not the selection rectangle. The
+overflow regression compares decoded PNG ink against the actual canvas screenshot
+for tiny-height and tiny-width text, gradient text, SVG images, and fitted logos.
+It excludes navigation chrome from the screenshot and retains the same authored
+pixel tolerance across engines. SVG viewport fitting and raster-buffer rounding
+must not stretch the artwork; selection bounds remain editable and unchanged.
+
+Project-file tests verify real JSON downloads and file choosers, embedded fonts
+and inactive-board images after the original blob URL is revoked, reloads,
+malformed-file rejection without mutation, and typography-only Undo/Redo.
+Imported font faces remain local to the Design Lab workspace. Source/history and
+the shared brand asset writer must not leak those private families to other tools.
+
+```sh
+GLYPHFIELD_BROWSER_BASE_URL=http://localhost:3016 pnpm test:browsers \
+  e2e/artboard-navigation.spec.ts e2e/design-lab-overflow-export.spec.ts \
+  e2e/project-files.spec.ts e2e/project-typography-history.spec.ts
+
+# With the owned Safari driver already running:
+GLYPHFIELD_SAFARI_BASE_URL=http://localhost:3016 \
+  GLYPHFIELD_SAFARI_ONLY='native artboard project export' pnpm test:safari
+```
 
 ## September 8, 2026 verification
 
@@ -154,3 +211,56 @@ Desktop engine coverage does not establish coverage for every historical
 browser, iPhone/iPad, extension, or GPU. Keep explicit device/version evidence
 with each verification run, and do not add user-agent-specific workarounds when
 the shared native interaction contract can be fixed.
+
+### Shared-control first-click follow-up
+
+The focused regressions reproduced achromatic hue resets, a compact HEX draft
+being overwritten by the previous hue on its first saturation click, discarded
+artboard-size drafts, nested Escape dismissing its parent, numeric zoom committing
+on Escape, and Pause clearing the layer inspector. The fixes preserve native
+range capture and keep pointer previews separate from final source commits.
+
+Installed Safari 26.4 additionally exposed a focus gap hidden by explicit focus
+in the engine harness: its mousedown default action removed pointerdown focus.
+The shared range now assigns focus at gesture completion instead, avoiding a
+premature blur/commit during the drag. The regression asserts that an arrow key
+actually changes the source immediately after the real pointer interaction.
+
+All 1,236 unit tests across 168 files passed, along with source lint, TypeScript,
+the webpack production build, and the documentation doctor. The final production
+candidate passed all 72 engine checks across Chromium, WebKit, and Firefox without
+retries, including the existing canvas, export, native-range, and project-tab
+regressions. Native Safari 26.4
+passed the full focused journey with trusted pointer/keyboard input: neutral hue
+selection, color persistence, dropdown choice, native dragging followed by arrow
+keys without test-added focus, and a typed artboard size immediately followed by
+Add text. This is control-interaction coverage, not a new whole-app performance
+benchmark or a guarantee for untested devices.
+
+### Artboard navigation and editable-project follow-up
+
+The focused export repros exposed intrinsic grid/text overflow, gradient bounds,
+SVG viewport fitting, and fractional raster-buffer rounding. The fixes preserve
+the live paint geometry without changing the authored selection rectangles.
+Direct exports also flush the focused text editor before taking their source
+snapshot; the regression invokes export in the final input event's microtask,
+before the existing 140ms debounce can run.
+
+All 1,303 unit tests across 175 files, source lint, TypeScript, the webpack
+production build, and documentation checks passed. The import regressions reject
+remote assets hidden outside the asset registry, non-image payloads masquerading
+as image layers, and malformed font enums before changing the active workspace.
+The final production candidate passed all 129 browser checks across Chromium,
+WebKit, and Firefox without retries. This includes seven canvas-to-PNG overflow
+and asset-fitting cases per engine, existing PNG/JPG font checks, immediate-input
+export, layer handles, navigation, control/tab interactions, actual project
+downloads and file choosers, reloads, and typography-only Undo/Redo.
+
+Installed Safari 26.4 passed trusted surface/map dragging, click-to-center,
+same-zoom centering, tiny-text and SVG PNG paint comparisons, embedded-font and
+inactive-image project round trips, and the existing native live-shader export
+check. At 640×360, all four tested ink edges were within one pixel of the native
+preview. The SVG/text outputs were decoded and read back successfully; the
+project retained both artboards after the original object URL was revoked.
+These are local correctness checks, not a production deployment or a new
+whole-app frame-rate benchmark.

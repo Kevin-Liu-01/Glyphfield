@@ -199,3 +199,74 @@ describe('restored canvas entry framing', () => {
     expect(geometryRead).not.toHaveBeenCalled();
   });
 });
+
+describe('canvas map and forced pan integration', () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  let width = 800;
+  let height = 600;
+  let resizeCallbacks: Set<ResizeObserverCallback>;
+  let frames: Map<number, FrameRequestCallback>;
+  const childPointer = vi.fn((event: { stopPropagation(): void }) => event.stopPropagation());
+  const stage = () => host.querySelector<HTMLElement>('.canvas-viewport-stage')!;
+  const scroll = () => host.querySelector<HTMLElement>('.canvas-viewport-scroll')!;
+  const flush = async () => act(() => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(16)); });
+  const pointer = async (type: string, target: Element, x: number, y: number, button = 0) => {
+    await act(() => target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button, clientX: x, clientY: y })));
+  };
+
+  beforeEach(async () => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    frames = new Map(); let frameId = 0; width = 800; height = 600;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+    resizeCallbacks = new Set();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private callback: ResizeObserverCallback) { resizeCallbacks.add(callback); }
+      observe() {}
+      disconnect() { resizeCallbacks.delete(this.callback); }
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => width);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => height);
+    vi.spyOn(HTMLElement.prototype, 'setPointerCapture').mockImplementation(() => {});
+    vi.spyOn(HTMLElement.prototype, 'hasPointerCapture').mockReturnValue(false);
+    host = document.body.appendChild(document.createElement('div'));
+    root = createRoot(host);
+    await act(() => root.render(<CanvasViewport identityId='navigation-test' toolId='material' initialZoom={50}
+      navigationItems={[{ id: 'one', label: 'Selected', x: 2000, y: 500, width: 300, height: 400, active: true }]}>
+      <div className='editable-canvas-layer' onPointerDown={childPointer}>Editable contents</div>
+    </CanvasViewport>));
+    await flush();
+  });
+  afterEach(async () => { await act(() => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+
+  it('centers the selected artboard at the same zoom, retaining that world center on resize', async () => {
+    await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!.click());
+    expect(stage().style.transform).toBe('translate(-675px, -50px) scale(0.5)');
+    expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('50%');
+    width = 1000; height = 800;
+    await act(() => [...resizeCallbacks].forEach((callback) => callback([], {} as ResizeObserver)));
+    expect(stage().style.transform).toBe('translate(-575px, 50px) scale(0.5)');
+    expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('50%');
+  });
+
+  it.each(['space', 'middle'])('starts %s panning before editable children can swallow it', async (mode) => {
+    const child = host.querySelector('.editable-canvas-layer')!;
+    scroll().focus();
+    if (mode === 'space') await act(() => scroll().dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true })));
+    await pointer('pointerdown', child, 100, 100, mode === 'middle' ? 1 : 0);
+    expect(childPointer).not.toHaveBeenCalled();
+    expect(scroll().getAttribute('data-panning')).toBe('true');
+    await pointer('pointermove', scroll(), 140, 120);
+    await flush();
+    expect(stage().style.transform).toBe('translate(240px, 170px) scale(0.5)');
+    await pointer('pointerup', scroll(), 140, 120);
+    expect(scroll().hasAttribute('data-panning')).toBe(false);
+  });
+
+  it('leaves ordinary editable-layer pointer interaction intact', async () => {
+    await pointer('pointerdown', host.querySelector('.editable-canvas-layer')!, 100, 100);
+    expect(childPointer).toHaveBeenCalledOnce();
+    expect(scroll().hasAttribute('data-panning')).toBe(false);
+  });
+});

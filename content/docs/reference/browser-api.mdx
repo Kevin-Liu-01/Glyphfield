@@ -109,6 +109,7 @@ design.sequence.configure
 design.sequence.preview
 design.sequence.stop
 design.export
+design.export.project
 design.export.png
 design.export.jpg
 design.export.gif
@@ -146,6 +147,24 @@ const artifact = await studio.invoke('design.export', {
 `format` accepts `png`, `jpg`, `gif`, or `mp4`. `mode` accepts `standard` or `shader-sequence`; the latter is valid for GIF and MP4. With `download: false` or omitted, the method returns the Blob without saving it. Call `studio.download(artifact)` later if needed.
 
 PNG/JPG freeze the exact frame visible when export starts, then compose it at the selected output dimensions. GIF/MP4 are explicit motion operations that sample from the current frame anchor and restore that paused pose afterward. Neither export path adds captured-frame assets to IndexedDB or automatically resumes playback. Stateful Fluid supports exact still export, but timestamp-sampled motion export is rejected rather than inventing simulation history. Fonts, images, renderer readiness, and the requested browser encoder must still be available.
+
+For an editable multi-artboard project file, use the separate no-input action:
+
+```js
+const project = await studio.invoke('design.export.project');
+if (!(project.blob instanceof Blob) || project.blob.size === 0
+  || project.blob.type !== 'application/json'
+  || !project.fileName.endsWith('.glyphfield.json')) {
+  throw new Error('Invalid project artifact');
+}
+await studio.download(project);
+// To reopen these same authorized bytes through the file picker:
+await studio.set('Choose project file', new File([project.blob], project.fileName, {
+  type: 'application/json',
+}));
+```
+
+`design.export.project` returns an `ExportPreviewAsset` with `format: 'JSON'` and `previewKind: 'file'`. It does not download automatically or render a composite PNG first. It captures the active artboard's current native shader appearance, retains inactive artboards' saved snapshots without rendering them, and embeds local images, saved frames, and brand typography/font bytes into the existing CanvasDocument. Missing assets and failed captures reject the action. Opening uses the same source validator and keeps imported typography local to Design Lab; it does not replace unrelated brand settings. Setting a file control dispatches selection but does not await its asynchronous import: wait for the **Opened** status or an error, then re-read source. See [Project files](/docs/studio/project-files).
 
 ## Completion and verification
 

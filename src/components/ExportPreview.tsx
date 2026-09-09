@@ -8,9 +8,11 @@ import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import { downloadBlob } from '@/lib/download';
 import type { MotionLoopReport } from '@/lib/canvasExport';
+import ProjectFileControls, { type ProjectFileControlsProps } from '@/components/ProjectFileControls';
 
 export type ExportPreviewAsset = {
   blob: Blob;
+  description?: string;
   elapsedMs?: number;
   fileName: string;
   format: 'AVIF' | 'BMP' | 'FILE' | 'GIF' | 'JPG' | 'JSON' | 'LOTTIE' | 'MP4' | 'PNG' | 'SVG' | 'WEBP';
@@ -58,7 +60,7 @@ function ExportPreviewMedia({
       <div>
         <p className='text-sm font-medium'>{downloadFileName}</p>
         <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-          This binary file is ready. Review its name, format, and size before saving it.
+          {asset.description ?? 'This file is ready. Review its name, format, and size before saving it.'}
         </p>
       </div>
     </div>
@@ -145,6 +147,10 @@ function ExportPreviewConfiguration({ children }: { children?: ReactNode }) {
   );
 }
 
+function ExportProjectFileControls({ projectFile, refreshing }: { projectFile?: ProjectFileControlsProps; refreshing: boolean }) {
+  return projectFile ? <ProjectFileControls {...projectFile} disabled={projectFile.disabled || refreshing} /> : null;
+}
+
 function useExportPreviewRefresh({
   autoRefresh,
   needsRefresh,
@@ -190,6 +196,7 @@ export default function ExportPreview({
   configuration,
   needsRefresh = false,
   onRefresh,
+  projectFile,
   refreshKey,
   refreshing = false,
   showTrigger = true,
@@ -201,6 +208,7 @@ export default function ExportPreview({
   configuration?: ReactNode;
   needsRefresh?: boolean;
   onRefresh?: () => void;
+  projectFile?: ProjectFileControlsProps;
   refreshKey?: string;
   refreshing?: boolean;
   showTrigger?: boolean;
@@ -315,6 +323,7 @@ export default function ExportPreview({
 
               <aside className='shader-export-sidebar studio-scroll-area'>
                 <ExportPreviewConfiguration>{configuration}</ExportPreviewConfiguration>
+                <ExportProjectFileControls projectFile={projectFile} refreshing={refreshing} />
 
                 <section className='shader-export-name'>
                   <div className='shader-export-section-heading'>

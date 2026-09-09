@@ -3,8 +3,10 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
+  type ComponentProps,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -21,6 +23,7 @@ import {
   parseOklch,
 } from '@/lib/color';
 import StudioRange from '@/components/ui/StudioRange';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 type ColorControlProps = {
   ariaLabel: string;
@@ -38,6 +41,113 @@ type PropBoundPreview<T, Base = T> = {
   base: Base;
   value: T;
 };
+
+// Native ranges own their thumb capture in WebKit. Only track the gesture here;
+// window listeners finish releases outside the input without replacing it.
+function ColorRange({
+  onCommit,
+  onValue,
+  value,
+  ...props
+}: Omit<ComponentProps<typeof StudioRange>, 'onInput' | 'onChange' | 'value'> & {
+  onCommit: () => void;
+  onValue: (value: number) => void;
+  value: number;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pointerRef = useRef<number | null>(null);
+  const nativeValueRef = useRef(value);
+  const detachRef = useRef<(() => void) | null>(null);
+  const finishRef = useCommittedRef(finish);
+
+  useLayoutEffect(() => {
+    if (pointerRef.current === null) nativeValueRef.current = value;
+  }, [value]);
+  useEffect(() => () => detachRef.current?.(), []);
+
+  function finish() {
+    pointerRef.current = null;
+    detachRef.current?.();
+    detachRef.current = null;
+    const next = Number(inputRef.current?.value);
+    if (Number.isFinite(next) && next !== nativeValueRef.current) {
+      nativeValueRef.current = next;
+      onValue(next);
+    }
+    onCommit();
+  }
+
+  function finishPointer(event: { pointerId: number }) {
+    if (event.pointerId === pointerRef.current) finish();
+  }
+
+  function begin(event: PointerEvent<HTMLInputElement>) {
+    if (event.button !== 0 || event.isPrimary === false || pointerRef.current !== null) return;
+    pointerRef.current = event.pointerId;
+    const onEnd = (event: globalThis.PointerEvent) => {
+      if (event.pointerId === pointerRef.current) finishRef.current();
+    };
+    const onBlur = () => finishRef.current();
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    window.addEventListener('blur', onBlur);
+    detachRef.current = () => {
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      window.removeEventListener('blur', onBlur);
+    };
+  }
+
+  return <StudioRange
+    {...props}
+    onBlur={finish}
+    onChange={(event) => { if (event.nativeEvent.type === 'change') finish(); }}
+    onInput={(event) => {
+      nativeValueRef.current = Number(event.currentTarget.value);
+      onValue(nativeValueRef.current);
+      // Keyboard and assistive edits have no pointer release to commit them.
+      if (pointerRef.current === null) onCommit();
+    }}
+    onLostPointerCapture={finishPointer}
+    onPointerCancel={finishPointer}
+    onPointerDown={begin}
+    onPointerUp={finishPointer}
+    ref={inputRef}
+    value={value}
+  />;
+}
+
+function ColorTextInput({
+  onCommit,
+  value,
+  ...props
+}: { 'aria-label': string; className: string; onCommit: (value: string) => void; value: string }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+  return <input
+    {...props}
+    onBlur={(event) => {
+      if (!cancelRef.current && event.currentTarget.value !== value) onCommit(event.currentTarget.value);
+      cancelRef.current = false;
+      setDraft(null);
+      event.currentTarget.value = value;
+    }}
+    onChange={(event) => setDraft(event.currentTarget.value)}
+    onKeyDown={(event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.currentTarget.blur();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelRef.current = true;
+        setDraft(null);
+        event.currentTarget.blur();
+      }
+    }}
+    value={draft ?? value}
+  />;
+}
 
 export default function ColorControl({
   ariaLabel,
@@ -68,7 +178,14 @@ export default function ColorControl({
   const hex = previewHex ?? committedHex;
   const displayedOpacity = previewOpacity ?? opacity;
   const oklch = formatOklch(hex);
-  const hsv = hexToHsv(hex);
+  // HEX cannot represent hue on gray, saturation on black, or the 360° endpoint.
+  // Keep the user's exact coordinates while they still describe this color.
+  const [pickerColor, setPickerColor] = useState<{ hex: string; hsv: ReturnType<typeof hexToHsv> } | null>(null);
+  const hsv = pickerColor?.hex === hex ? pickerColor.hsv : hexToHsv(hex);
+  const hsvRef = useRef(hsv);
+  const pickerPointerRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => { hsvRef.current = hsv; }, [hsv]);
 
   useEffect(() => () => cancelAnimationFrame(previewFrameRef.current), []);
 
@@ -78,22 +195,21 @@ export default function ColorControl({
     setHexPreview({ base: committedHex, value: nextHex });
   }
 
-  function flushPreview(commit: boolean) {
+  function flushPreview() {
     cancelAnimationFrame(previewFrameRef.current);
     previewFrameRef.current = 0;
     const nextHex = pendingHexRef.current ?? latestHexRef.current;
     pendingHexRef.current = null;
+    latestHexRef.current = null;
     if (!nextHex) return;
     showHexPreview(nextHex);
     onPreview?.(nextHex);
-    if (commit) {
-      latestHexRef.current = null;
-      onChange(nextHex);
-    }
+    onChange(nextHex);
   }
 
   function schedulePreview(nextValue: string) {
     const nextHex = normalizeHexOrFallback(nextValue, hex);
+    showHexPreview(nextHex);
     pendingHexRef.current = nextHex;
     latestHexRef.current = nextHex;
     if (previewFrameRef.current) return;
@@ -107,9 +223,28 @@ export default function ColorControl({
     });
   }
 
+  function scheduleHsv(nextHsv: ReturnType<typeof hexToHsv>) {
+    const clamped = {
+      hue: nextHsv.hue,
+      saturation: Math.max(0, Math.min(1, nextHsv.saturation)),
+      value: Math.max(0, Math.min(1, nextHsv.value)),
+    };
+    const nextHex = hsvToHex(clamped.hue, clamped.saturation, clamped.value);
+    hsvRef.current = clamped;
+    setPickerColor({ hex: nextHex, hsv: clamped });
+    schedulePreview(nextHex);
+  }
+
+  function commitTextColor(nextHex: string) {
+    hsvRef.current = hexToHsv(nextHex);
+    setPickerColor(null);
+    schedulePreview(nextHex);
+    flushPreview();
+  }
+
   function commitHex(nextValue: string) {
     try {
-      onChange(normalizeHex(nextValue));
+      commitTextColor(normalizeHex(nextValue));
     } catch {
       return;
     }
@@ -117,7 +252,7 @@ export default function ColorControl({
 
   function commitOklch(nextValue: string) {
     const parsed = parseOklch(nextValue);
-    if (parsed) onChange(oklchToHex(parsed));
+    if (parsed) commitTextColor(oklchToHex(parsed));
   }
 
   function scheduleOpacityPreview(nextOpacity: number) {
@@ -157,33 +292,47 @@ export default function ColorControl({
     ) return;
     const saturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
     const nextValue = Math.max(0, Math.min(1, 1 - (clientY - bounds.top) / bounds.height));
-    schedulePreview(hsvToHex(hsv.hue, saturation, nextValue));
+    scheduleHsv({ hue: hsvRef.current.hue, saturation, value: nextValue });
   }
 
   function handlePickerPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || event.isPrimary === false || pickerPointerRef.current !== null) return;
+    pickerPointerRef.current = event.pointerId;
+    event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     updateSaturationAndValue(event.clientX, event.clientY, event.currentTarget);
   }
 
   function handlePickerPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    if (event.pointerId !== pickerPointerRef.current) return;
     updateSaturationAndValue(event.clientX, event.clientY, event.currentTarget);
+  }
+
+  function finishPickerPointer(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerId !== pickerPointerRef.current) return;
+    if (event.type === 'pointerup') {
+      updateSaturationAndValue(event.clientX, event.clientY, event.currentTarget);
+    }
+    pickerPointerRef.current = null;
+    flushPreview();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   function handlePickerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const step = event.shiftKey ? 0.1 : 0.01;
-    let saturation = hsv.saturation;
-    let nextValue = hsv.value;
+    let saturation = hsvRef.current.saturation;
+    let nextValue = hsvRef.current.value;
     if (event.key === 'ArrowLeft') saturation -= step;
     else if (event.key === 'ArrowRight') saturation += step;
     else if (event.key === 'ArrowUp') nextValue += step;
     else if (event.key === 'ArrowDown') nextValue -= step;
     else return;
     event.preventDefault();
-    const nextHex = hsvToHex(hsv.hue, saturation, nextValue);
-    showHexPreview(nextHex);
-    onPreview?.(nextHex);
-    onChange(nextHex);
+    event.stopPropagation();
+    scheduleHsv({ hue: hsvRef.current.hue, saturation, value: nextValue });
+    flushPreview();
   }
 
   function positionPicker(event: MouseEvent<HTMLButtonElement>) {
@@ -249,15 +398,11 @@ export default function ColorControl({
           </button>
           <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
             <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
-            <input
+            <ColorTextInput
               aria-label={`${ariaLabel} HEX`}
               className='h-9 min-w-0 bg-transparent pr-2 font-mono text-xs uppercase outline-none'
-              defaultValue={hex}
-              key={hex}
-              onBlur={(event) => commitHex(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur();
-              }}
+              onCommit={commitHex}
+              value={hex}
             />
           </label>
         </div>
@@ -266,6 +411,13 @@ export default function ColorControl({
         aria-label={`${ariaLabel} color picker`}
         className='color-picker-popover flex w-[260px] flex-col gap-3 rounded-md bg-background p-3 text-foreground smooth-shadow-ring-xl'
         id={pickerId}
+        onBeforeToggle={(event) => {
+          if (event.newState !== 'closed') return;
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && event.currentTarget.contains(active)) active.blur();
+          pickerPointerRef.current = null;
+          flushPreview();
+        }}
         popover='auto'
         role='dialog'
         style={pickerPosition}
@@ -277,15 +429,12 @@ export default function ColorControl({
           aria-valuenow={Math.round(hsv.saturation * 100)}
           className='relative aspect-[16/9] w-full cursor-crosshair touch-none overflow-hidden rounded-sm border border-foreground/10 outline-none focus-visible:ring-2 focus-visible:ring-ring'
           onKeyDown={handlePickerKeyDown}
+          onBlur={() => { pickerPointerRef.current = null; flushPreview(); }}
+          onLostPointerCapture={finishPickerPointer}
           onPointerDown={handlePickerPointerDown}
           onPointerMove={handlePickerPointerMove}
-          onPointerUp={(event) => {
-            flushPreview(true);
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId);
-            }
-          }}
-          onPointerCancel={() => flushPreview(true)}
+          onPointerUp={finishPickerPointer}
+          onPointerCancel={finishPickerPointer}
           role='slider'
           style={{
             backgroundColor: `hsl(${hsv.hue} 100% 50%)`,
@@ -304,15 +453,13 @@ export default function ColorControl({
         </div>
         <label className='flex items-center gap-3'>
           <span className='size-5 shrink-0 rounded-full border border-border' style={{ backgroundColor: hex }} />
-          <StudioRange
+          <ColorRange
             aria-label={`${ariaLabel} hue`}
             className='color-hue-range min-w-0 flex-1'
             max={360}
             min={0}
-            onBlur={() => flushPreview(true)}
-            onInput={(event) => schedulePreview(hsvToHex(Number(event.currentTarget.value), hsv.saturation, hsv.value))}
-            onPointerCancel={() => flushPreview(true)}
-            onPointerUp={() => flushPreview(true)}
+            onCommit={flushPreview}
+            onValue={(hue) => scheduleHsv({ ...hsvRef.current, hue })}
             value={Math.round(hsv.hue)}
           />
         </label>
@@ -324,55 +471,41 @@ export default function ColorControl({
         {compact ? <>
           <label className='studio-color-control-field studio-color-control-hex-field grid grid-cols-[42px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
             <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>HEX</span>
-            <input
+            <ColorTextInput
               aria-label={`${ariaLabel} HEX`}
               className='h-9 min-w-0 bg-transparent pr-2 font-mono text-xs uppercase outline-none'
-              defaultValue={hex}
-              key={hex}
-              onBlur={(event) => commitHex(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur();
-              }}
+              onCommit={commitHex}
+              value={hex}
             />
           </label>
           <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
             <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>OKLCH</span>
-            <input
+            <ColorTextInput
               aria-label={`${ariaLabel} OKLCH`}
               className='h-9 min-w-0 bg-transparent pr-2 font-mono text-[10px] outline-none'
-              defaultValue={oklch}
-              key={oklch}
-              onBlur={(event) => commitOklch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur();
-              }}
+              onCommit={commitOklch}
+              value={oklch}
             />
           </label>
         </> : null}
       </div>
       {compact ? null : <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>
         <span className='pl-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground'>OKLCH</span>
-        <input
+        <ColorTextInput
           aria-label={`${ariaLabel} OKLCH`}
           className='h-9 min-w-0 bg-transparent pr-2 font-mono text-[10px] outline-none'
-          defaultValue={oklch}
-          key={oklch}
-          onBlur={(event) => commitOklch(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-          }}
+          onCommit={commitOklch}
+          value={oklch}
         />
       </label>}
       {compact || opacity === undefined || !onOpacityChange ? null : (
-        <StudioRange
+        <ColorRange
           aria-label={`${ariaLabel} opacity`}
           max={100}
           min={0}
-          onBlur={commitOpacityPreview}
-          onInput={(event) => scheduleOpacityPreview(Number(event.currentTarget.value))}
-          onPointerCancel={commitOpacityPreview}
-          onPointerUp={commitOpacityPreview}
-          value={displayedOpacity}
+          onCommit={commitOpacityPreview}
+          onValue={scheduleOpacityPreview}
+          value={displayedOpacity!}
         />
       )}
     </div>

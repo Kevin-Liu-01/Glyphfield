@@ -64,6 +64,8 @@ Do not:
 
 Design Lab source contains the complete composition: pages, elements, embedded/library assets, exact order, groups, layer shaders, text/converter effects, background color, output settings, shader frame history, and sequence timeline. Named saves and autosave use the same portable source.
 
+For file-based sharing, download **Project file** from the export controls and reopen it with **Open project**. The `.glyphfield.json` file uses this same CanvasDocument envelope, with local images and saved frame assets embedded. See [Project files](/docs/studio/project-files).
+
 Use a `design-sequence` HTTP response when an agent needs to create a new exact composition. Use `readSource()` for an existing one. Both are applied through the active Design Lab adapter, whose public tool ID is `material`.
 
 ## Source versus generation request

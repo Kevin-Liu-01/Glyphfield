@@ -34,6 +34,38 @@ describe('shared artboard portrait presets', () => {
     }} />;
   }
 
+  it.each(['outside pointer', 'trigger click'])(
+    'commits the focused custom size before closing on %s',
+    (dismissal) => {
+      act(() => root.render(<ArtboardSizeMenu
+        dimensions={{ width: 1600, height: 900 }}
+        onDimensionsChange={changes}
+      />));
+      const trigger = container.querySelector<HTMLButtonElement>('button')!;
+      act(() => trigger.click());
+      const width = document.querySelector<HTMLInputElement>('.artboard-size-popover input[type="number"]')!;
+      act(() => width.focus());
+      act(() => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(width, '1234');
+        width.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      expect(changes).not.toHaveBeenCalled();
+
+      act(() => {
+        // Outside pointerdown precedes the native blur. Safari also does not
+        // focus a clicked button, so closing via the trigger need not blur.
+        if (dismissal === 'outside pointer') {
+          document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+        } else {
+          trigger.click();
+        }
+      });
+
+      expect(document.querySelector('.artboard-size-popover')).toBeNull();
+      expect(changes).toHaveBeenCalledExactlyOnceWith({ width: 1234, height: 900 });
+    }
+  );
+
   it('opens every shared preset and commits presets, names, and custom dimensions', () => {
     const onDimensionsChange = vi.fn();
     const onArtboardNameChange = vi.fn();

@@ -17,7 +17,7 @@ export function useDismissibleMenu(
     }
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') onDismissRef.current();
+      if (event.key === 'Escape' && !event.defaultPrevented) onDismissRef.current();
     }
 
     document.addEventListener('pointerdown', closeOutside);

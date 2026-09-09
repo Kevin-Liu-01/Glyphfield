@@ -210,6 +210,11 @@ export const STUDIO_BROWSER_API_CONTRACT = {
   standardActions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
   toolActions: {
     material: {
+      'design.export.project': {
+        description: 'Capture the active artboard appearance and package every editable artboard, local image, saved shader frame, and rendering-only brand typography in the existing CanvasDocument format.',
+        input: 'No input',
+        output: 'ExportPreviewAsset: non-empty application/json Blob, .glyphfield.json fileName, format JSON, previewKind file; use studio.download(artifact) to save',
+      },
       'design.frame.pause': {
         description: 'Synchronously pause the visible native shader frame without encoding PNGs or writing captured-frame assets.',
         input: 'No input',

@@ -27,8 +27,12 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.framePersistence.appearance).toBe('lossless-png-snapshot');
     expect(AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.shaderFrameCapture).map(({ id }) => id)).toEqual(['material']);
     expect(Object.keys(AGENT_MANIFEST.studioBrowserApi.toolActions.material)).toEqual([
-      'design.frame.pause', 'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
+      'design.export.project', 'design.frame.pause', 'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
     ]);
+    expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.export.project']).toMatchObject({
+      input: 'No input',
+      output: expect.stringContaining('non-empty application/json Blob, .glyphfield.json fileName, format JSON, previewKind file'),
+    });
     expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.frame.pause']).toMatchObject({
       description: expect.stringContaining('without encoding PNGs or writing captured-frame assets'),
       input: 'No input',

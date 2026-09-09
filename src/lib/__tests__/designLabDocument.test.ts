@@ -91,6 +91,12 @@ function designLabInput(): DesignLabDocumentInput {
 }
 
 describe('Design Lab canvas document adapter', () => {
+  it('keeps an optional project-local typography snapshot through source serialization', () => {
+    const identity = { id: 'gt', name: 'Shared brand', fonts: [{ id: 'custom', path: 'data:font/woff2;base64,d29mMg==' }], typography: [] };
+    const document = createDesignLabCanvasDocument({ ...designLabInput(), identity });
+    expect(parseCanvasDocument(JSON.stringify(document)).metadata.designLab).toMatchObject({ identity });
+    expect(createDesignLabCanvasDocument(designLabInput()).metadata.designLab).not.toHaveProperty('identity');
+  });
   it.each([
     { id: 'portrait-3-4', width: 1080, height: 1440 },
     { id: 'portrait-2-3', width: 1080, height: 1620 },

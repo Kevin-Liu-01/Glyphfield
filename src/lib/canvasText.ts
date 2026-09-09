@@ -100,3 +100,40 @@ export function canvasTextLineX(
   if (align === 'right') return boxX + boxWidth - lineWidth;
   return boxX + (boxWidth - lineWidth) / 2;
 }
+
+/** Mirrors Design Lab's centered grid cell and its anonymous flex text item. */
+export function layoutCanvasTextBlock({
+  boxHeight,
+  boxWidth,
+  fontSize,
+  letterSpacing,
+  lineHeight,
+  measureLine,
+  measureText,
+  value,
+  wrap,
+}: {
+  boxHeight: number;
+  boxWidth: number;
+  fontSize: number;
+  letterSpacing: number;
+  lineHeight: number;
+  measureLine?: MeasureText;
+  measureText: MeasureText;
+  value: string;
+  wrap: CanvasTextWrap;
+}) {
+  const measure = measureLine ?? ((line: string) => trackedTextWidth(line, measureText, letterSpacing));
+  // overflow-wrap:anywhere permits grapheme breaks, but the flex item's
+  // automatic min-content width still cannot be narrower than one grapheme.
+  const minimumWidth = wrap === 'wrap'
+    ? canvasTextCharacters(value.replace(/[\r\n]/g, '')).reduce((maximum, character) => Math.max(maximum, measure(character)), 0)
+    : 0;
+  const lines = layoutCanvasText(value, Math.max(boxWidth, minimumWidth), measureText, letterSpacing, wrap, measureLine);
+  const linesHeight = lines.length * lineHeight;
+  const height = Math.max(fontSize, linesHeight);
+  // The grid track honors the span's min-height:1em even when the authored
+  // selection is shorter. Its intrinsic multi-line content can overflow it.
+  const offsetY = (Math.max(boxHeight, fontSize) - height) / 2;
+  return { height, lineOffsetY: (height - linesHeight) / 2, lines, offsetY };
+}

@@ -61,7 +61,7 @@ export default function StudioToolHeader({
         {navigation ? <nav aria-label={navigationLabel} className={styles.navigation} data-slot='navigation'>{navigation}</nav> : null}
       </div>
 
-      <div className={styles.trailing} data-slot='trailing'>
+      <div className={styles.trailing} data-slot='trailing' data-canvas-selection-preserve>
         {status ? <div className={styles.status} data-slot='status'>{status}</div> : null}
         {actions ? <div className={styles.actions} data-slot='actions'>{actions}</div> : null}
       </div>

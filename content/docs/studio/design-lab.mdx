@@ -28,6 +28,12 @@ On entry, the restored active artboard is fitted into view. Use **Fit canvas** t
 
 Open **Artboard setup** for shared presets or custom dimensions. The portrait row adds **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160), alongside the existing Portrait (4:5) and Story (9:16) sizes. The selected dimensions are preserved in source, saved designs, and exports.
 
+### Navigate multiple artboards
+
+Click an inactive artboard's surface to select it, or drag that surface to reposition the board. On the active artboard, the first content click selects or edits its layer. The artboard header always provides a drag handle; double-clicking an inactive board enters it directly. Hold Space or use the middle mouse button to pan, including over content.
+
+Click or drag the **Canvas map** to pan without moving artboards. **Center selected artboard** keeps the current zoom; **Fit canvas** shows all artboards. Selecting a board does not unexpectedly reframe the workspace.
+
 ## Add and arrange layers
 
 Use the layer actions to add any number of:
@@ -61,6 +67,8 @@ Text can be rendered as:
 - A shadowed or outlined display layer without changing the original font asset.
 
 Converter foreground and background colors are explicit. This prevents the converted glyph field from becoming accidentally transparent against the artboard.
+
+Text and image selection boxes do not silently auto-fit their contents. Preview and export preserve visible overflow, including text in very narrow or short boxes, so the downloaded composition agrees with the canvas.
 
 ## Composition converters
 
@@ -146,10 +154,15 @@ The draft indicator shows pending changes as **Saving**. Fast tool/project switc
 | JPG | Smaller opaque still using the selected background color |
 | GIF | Animated browser capture with global/per-frame palette control and optional seamless closure |
 | MP4 | Browser-native video, with quality selection and H.264 when the browser exposes it |
+| Project file | Editable `.glyphfield.json` containing all artboards, embedded assets, and saved shader frames |
+
+Choose **Project file** to share an editable workspace, then use **Open project** in Design Lab to reopen it. This uses the existing CanvasDocument format and does not require a PNG render. See [Project files](/docs/studio/project-files) for included data and portability limits.
 
 Output width ranges from 320–3840 pixels and preserves the active artboard's aspect ratio, including portrait presets and custom dimensions. Motion exports use 12, 15, 24, or 30 FPS and a bounded duration. The export review displays the completed artifact before download.
 
 Export waits for material readiness as well as fonts and images. Prismatic sphere needs its environment lighting to load; a loading silhouette is not accepted as a finished shader frame. If those resources cannot load, export reports a readiness timeout instead of silently treating the placeholder as the result.
+
+Pending inline text edits are committed before export captures the composition; you do not need an extra blur click to include the words you just typed.
 
 PNG/JPG freezes the frame you are viewing before rendering the complete composition at the selected output dimensions. GIF/MP4 explicitly samples motion from the current frame anchor and restores that paused pose afterward. Exports leave the canvas paused and do not add captured-frame assets to IndexedDB; use **Play** when you want motion again, or **Capture shader frame** when you want a durable appearance checkpoint in source.
 

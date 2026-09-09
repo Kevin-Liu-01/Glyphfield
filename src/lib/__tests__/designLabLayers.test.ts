@@ -254,7 +254,10 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('function translateArtboard(');
     expect(designLab).toContain('translateCanvasFrame(artboard, { deltaX, deltaY, minX: 80, minY })');
     expect(designLab).toContain('Math.ceil(36 / Math.max(0.01, artboardScale))');
-    expect(designLab).toContain('onPointerDown={(event) => beginArtboardMove(event, artboard)}');
+    expect(designLab).toContain('onPointerDownCapture={(event) => {');
+    expect(designLab).toContain('beginArtboardMove(event, artboard);');
+    expect(designLab).toContain("window.addEventListener('pointercancel', cancelPointer)");
+    expect(designLab).toContain('navigationItems={workspaceArtboards.map');
     expect(designLab).toContain('onKeyDown={(event) => nudgeArtboard(event, artboard)}');
     expect(designLab).toContain('dragHandle.setPointerCapture(pointerId);');
     expect(studioStyles).toMatch(/\.design-artboard-label\s*\{[\s\S]*?height: calc\(34px \* var\(--canvas-zoom-inverse, 1\)\);[\s\S]*?touch-action: none;/);

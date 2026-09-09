@@ -1,0 +1,45 @@
+---
+title: Project files
+description: Share and reopen an editable Design Lab workspace with its artboards, local images, fonts, and saved shader frames.
+icon: FileJson
+---
+
+Use **Project file** when someone needs to keep editing your Design Lab composition. PNG, JPG, GIF, and MP4 are rendered outputs; a `.glyphfield.json` file preserves the editable workspace.
+
+## Download an editable project
+
+Choose **Project file** from the export controls. Glyphfield captures the active artboard's current shader appearance and prepares one JSON download. You do not need to render a PNG first.
+
+The file contains:
+
+- All artboards, their names, positions, dimensions, and active-artboard selection.
+- Editable layers, stable IDs, ordering, transforms, groups, text, colors, effects, and shader recipes.
+- Embedded image and logo bytes, including images used only by inactive artboards.
+- Existing saved shader PNGs and native frame state from every artboard.
+- Timeline, export settings, brand ID, and the document's metadata.
+- Embedded brand font files, typography roles, variable font weights, and text metrics.
+
+Inactive artboards retain their saved state; downloading does not run their renderers or fabricate missing appearance captures. A saved PNG preserves the captured pixels, not a restartable Fluid simulation or a guarantee of identical procedural rendering on every GPU.
+
+The file is the existing **CanvasDocument schema 2**, with **Design Lab source metadata 4**. It does not introduce a separate project schema. The MIME type is `application/json`.
+
+## Open a project file
+
+1. Open Design Lab.
+2. Select **Open project** and choose the `.glyphfield.json` file.
+3. Wait for validation and saved-frame import to finish.
+4. Inspect the artboards and continue editing.
+
+Opening replaces the current Design Lab workspace. Save a named version or download the current workspace first if you want an independent copy. Named versions already stored in your browser remain available.
+
+Import reads the selected local file. It does not fetch remote image URLs from project JSON. Missing embedded assets, invalid canvas data, and missing or corrupt saved shader frames produce an error instead of a successful-open message. Project files are limited to 128 MB.
+
+Imported typography applies to this Design Lab workspace only. Font families are isolated from other open tools, and the receiving brand keeps its original identity and unrelated settings. The typography snapshot is retained with the Design Lab document so it survives reloads and subsequent project downloads. If a typography role has no available font file, export asks you to add that file instead of creating an incomplete portable project.
+
+Agents can prepare the same file with `await window.glyphfield.studio.invoke('design.export.project')`, then verify its non-empty JSON Blob and call `studio.download(artifact)`. The action takes no input; see the [Browser API](/docs/reference/browser-api).
+
+## What a project file is not
+
+A project file is a portable Design Lab workspace, not a backup of every brand, tool, saved-version history, or browser setting. It includes the font files and typography needed by the design, not the entire brand library or unrelated brand assets. Older CanvasDocument files without a typography snapshot continue to use the receiving workspace's typography.
+
+For precise structural changes, the same JSON can also be inspected through **Code** and the [source editing workflow](/docs/studio/source-editing). See the [source format reference](/docs/reference/source-formats) for saved-frame and asset contracts.

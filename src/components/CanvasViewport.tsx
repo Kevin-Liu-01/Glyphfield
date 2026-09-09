@@ -4,10 +4,13 @@ import {
   useEffect,
   useEffectEvent,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type ComponentProps,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { T, useGT } from 'gt-next';
@@ -25,6 +28,18 @@ import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { isCanvasTextEditingTarget } from '@/lib/canvasInteraction';
+import CanvasMinimap, { type CanvasMinimapHandle } from './CanvasMinimap';
+import { canvasNavigationBounds, centerCanvasNavigation, fitCanvasNavigation, resizeCanvasNavigationPan,
+  type CanvasNavigationItem } from '@/lib/canvasNavigation';
+export type { CanvasNavigationItem } from '@/lib/canvasNavigation';
+
+function hasNavigationItems(items: readonly CanvasNavigationItem[] | undefined) {
+  return Boolean(items?.length);
+}
+
+function OptionalCanvasMinimap(props: Omit<ComponentProps<typeof CanvasMinimap>, 'items'> & { items?: readonly CanvasNavigationItem[] }) {
+  return props.items?.length ? <CanvasMinimap {...props} items={props.items} /> : null;
+}
 import {
   clampCanvasZoom,
   resolveCanvasGridStep,
@@ -74,6 +89,7 @@ export default function CanvasViewport({
   initialZoom = 100,
   maxZoom = 200,
   minZoom = 40,
+  navigationItems,
   onDeselect,
   stageClassName = '',
   toolId,
@@ -94,6 +110,7 @@ export default function CanvasViewport({
   initialZoom?: number;
   maxZoom?: number;
   minZoom?: number;
+  navigationItems?: readonly CanvasNavigationItem[];
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
@@ -102,6 +119,9 @@ export default function CanvasViewport({
   const viewportRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const minimapRef = useRef<CanvasMinimapHandle>(null);
+  const navigationSizeRef = useRef({ width: 0, height: 0 });
+  const [navigationSize, setNavigationSize] = useState(navigationSizeRef.current);
   const wheelDeltaRef = useRef(0);
   const canvasHoveredRef = useRef(false);
   const fitKeyRef = useRef(fitKey);
@@ -123,6 +143,9 @@ export default function CanvasViewport({
   const viewInitializedRef = useCommittedRef(viewInitialized);
   const viewInitializing = !initialViewReady || !viewInitialized;
   const panOffsetRef = useCommittedRef(panOffset);
+  const navigationView = useMemo(() => ({ pan: panOffset, zoom: constrainedZoom, ...navigationSize }),
+    [constrainedZoom, navigationSize, panOffset]);
+  const navigationEnabled = hasNavigationItems(navigationItems);
   const [spacePressed, setSpacePressed] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const actionHistoryRef = useCommittedRef(actionHistory);
@@ -135,6 +158,31 @@ export default function CanvasViewport({
     scrollRef.current?.style.setProperty('--canvas-grid-x', `${x}px`);
     scrollRef.current?.style.setProperty('--canvas-grid-y', `${y}px`);
     scrollRef.current?.style.setProperty('--canvas-grid-step', `${resolveCanvasGridStep(zoomRef.current)}px`);
+    minimapRef.current?.updateView({ pan: { x, y }, zoom: zoomRef.current, ...navigationSizeRef.current });
+  }
+
+  function navigateCanvas(pan: { x: number; y: number }, commit: boolean) {
+    applyStageTransform(pan.x, pan.y);
+    if (!commit) return;
+    panOffsetRef.current = pan;
+    setPanOffset(pan);
+  }
+
+  function fitAllArtboards() {
+    if (!navigationItems?.length) return;
+    const next = fitCanvasNavigation(navigationItems, { ...navigationView, zoom: zoomRef.current }, minZoom, maxZoom);
+    zoomRef.current = next.zoom;
+    setZoom(next.zoom);
+    navigateCanvas(next.pan, true);
+  }
+
+  function centerSelectedArtboard() {
+    const selected = navigationItems?.filter((item) => item.active);
+    if (!selected?.length) return;
+    const bounds = canvasNavigationBounds(selected);
+    navigateCanvas(centerCanvasNavigation({ ...navigationView, zoom: zoomRef.current }, {
+      x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2,
+    }), true);
   }
 
   function cancelPanFrame() {
@@ -251,7 +299,7 @@ export default function CanvasViewport({
     }
 
     syncView();
-    if (!autoFit || !scrollElement || !('ResizeObserver' in window)) {
+    if (!autoFit || navigationEnabled || !scrollElement || !('ResizeObserver' in window)) {
       return () => window.cancelAnimationFrame(animationFrame);
     }
 
@@ -262,6 +310,25 @@ export default function CanvasViewport({
       window.cancelAnimationFrame(animationFrame);
     };
   });
+
+  useLayoutEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (!navigationEnabled || !scrollElement) return;
+    const resize = () => {
+      const size = { width: scrollElement.clientWidth, height: scrollElement.clientHeight };
+      const previous = navigationSizeRef.current;
+      if (!size.width || !size.height || (size.width === previous.width && size.height === previous.height)) return;
+      navigationSizeRef.current = size;
+      setNavigationSize(size);
+      if (previous.width && previous.height && viewInitializedRef.current) {
+        navigateCanvas(resizeCanvasNavigationPan({ ...previous, pan: panOffsetRef.current, zoom: zoomRef.current }, size), true);
+      }
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(scrollElement);
+    return () => observer.disconnect();
+  }, [navigationEnabled]);
 
   useEffect(() => () => cancelPanFrame(), []);
 
@@ -372,11 +439,25 @@ export default function CanvasViewport({
     setViewMenuPosition(contextMenuPositionFromEvent(event));
   }
 
+  function beginPan(event: ReactPointerEvent<HTMLDivElement>, forcePan = false) {
+    if (panRef.current || (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 1)) return;
+    const target = event.target;
+    if (!forcePan && (isCanvasTextEditingTarget(target) || (target instanceof Element
+      && target.closest('button, a, .editable-canvas-layer, [data-canvas-interactive]')))) return;
+    const currentPan = panOffsetRef.current;
+    panRef.current = { currentX: currentPan.x, currentY: currentPan.y, pointerId: event.pointerId,
+      startPanX: currentPan.x, startPanY: currentPan.y, startX: event.clientX, startY: event.clientY };
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setAttribute('data-panning', 'true');
+  }
+
   return (
     <div
       aria-busy={viewInitializing || undefined}
       className={`canvas-viewport ${className}`}
       onPointerDownCapture={(event) => {
+        if (event.button === 1 || spacePressed) return;
         const target = event.target;
         if (
           onDeselect &&
@@ -426,6 +507,8 @@ export default function CanvasViewport({
           </>
         ) : null}
       </div>
+      <OptionalCanvasMinimap ref={minimapRef} items={navigationItems} view={navigationView}
+        onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} />
       {actionHistory && historyOpen ? (
         <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve role='dialog'>
           <header>
@@ -470,28 +553,12 @@ export default function CanvasViewport({
           event.currentTarget.removeAttribute('data-panning');
         }}
         onPointerDown={(event) => {
-          if (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 1) return;
-          const target = event.target;
-          const forcePan = event.button === 1 || spacePressed;
-          if (
-            !forcePan
-            && (isCanvasTextEditingTarget(target)
-            || (target instanceof Element
-            && target.closest('button, a, .editable-canvas-layer, [data-canvas-interactive]')))
-          ) return;
-          const currentPan = panOffsetRef.current;
-          panRef.current = {
-            currentX: currentPan.x,
-            currentY: currentPan.y,
-            pointerId: event.pointerId,
-            startPanX: currentPan.x,
-            startPanY: currentPan.y,
-            startX: event.clientX,
-            startY: event.clientY,
-          };
-          event.preventDefault();
-          event.currentTarget.setPointerCapture(event.pointerId);
-          event.currentTarget.setAttribute('data-panning', 'true');
+          beginPan(event);
+        }}
+        onPointerDownCapture={(event) => {
+          if (event.button !== 1 && !spacePressed) return;
+          beginPan(event, true);
+          event.stopPropagation();
         }}
         onPointerMove={(event) => {
           const pan = panRef.current;

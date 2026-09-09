@@ -37,6 +37,7 @@ export type DesignLabDocumentInput = {
   frameAssets?: readonly CanvasAsset[];
   groups: readonly object[];
   id: string;
+  identity?: object;
   layerOrder: readonly string[];
   layerShaders: object;
   logos: readonly object[];
@@ -256,6 +257,7 @@ export function createDesignLabCanvasDocument(input: DesignLabDocumentInput): Ca
     createdAt: input.createdAt,
     metadata: {
       [DESIGN_LAB_METADATA_KEY]: {
+        ...(input.identity ? { identity: jsonValue(input.identity) } : {}),
         exportSettings: jsonValue(input.exportSettings),
         groups: input.groups.map((group) => jsonValue(group)),
         layerShaders: jsonValue(input.layerShaders),

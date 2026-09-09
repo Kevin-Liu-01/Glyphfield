@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canvasTextLineX,
   layoutCanvasText,
+  layoutCanvasTextBlock,
   trackedTextWidth,
 } from '../canvasText';
 
@@ -65,5 +66,26 @@ describe('canvasTextLineX', () => {
     expect(canvasTextLineX('left', 20, 200, 80)).toBe(20);
     expect(canvasTextLineX('center', 20, 200, 80)).toBe(80);
     expect(canvasTextLineX('right', 20, 200, 80)).toBe(140);
+  });
+});
+
+describe('Design Lab intrinsic text block', () => {
+  const measureLine = (value: string) => Array.from(value).reduce((sum, character) => sum + (character === 'W' ? 40 : character === 'M' ? 35 : 9), 0);
+
+  it('wraps a tiny flex item at its widest grapheme, not the selection width', () => {
+    const layout = layoutCanvasTextBlock({
+      value: 'MWiiiiii', boxWidth: 5, boxHeight: 2, fontSize: 40, lineHeight: 48,
+      letterSpacing: 0, measureLine, measureText: measureLine, wrap: 'wrap',
+    });
+    expect(layout.lines).toEqual(['M', 'W', 'iiii', 'ii']);
+    expect(layout).toMatchObject({ height: 192, offsetY: -76, lineOffsetY: 0 });
+  });
+
+  it('keeps the one-em grid minimum separate from intrinsic multi-line height', () => {
+    const layout = layoutCanvasTextBlock({
+      value: 'AB\nCD', boxWidth: 5, boxHeight: 2, fontSize: 40, lineHeight: 48,
+      letterSpacing: 0, measureLine, measureText: measureLine, wrap: 'nowrap',
+    });
+    expect(layout).toEqual({ lines: ['AB', 'CD'], height: 96, offsetY: -28, lineOffsetY: 0 });
   });
 });

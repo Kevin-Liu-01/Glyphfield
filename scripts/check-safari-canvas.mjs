@@ -12,6 +12,8 @@ import { checkSafariDisplayBaseline, checkSafariShader } from './lib/safari-shad
 import { checkSafariProjectRoundTrip, checkSafariTabChrome, checkSafariToolRoundTrip } from './lib/safari-tab-checks.mjs';
 import { nativePointerClick } from './lib/safari-native-click.mjs';
 import { checkSafariFrameExport } from './lib/safari-frame-export-check.mjs';
+import { checkSafariControls } from './lib/safari-control-check.mjs';
+import { checkSafariArtboardExport } from './lib/safari-artboard-export-check.mjs';
 
 const baseUrl = process.env.GLYPHFIELD_SAFARI_BASE_URL ?? 'http://localhost:3014';
 const driverUrl = process.env.SAFARI_WEBDRIVER_URL ?? 'http://localhost:4445';
@@ -470,6 +472,8 @@ try {
 
   const tabHarness = { baseUrl, command, evaluate, evaluateAsync, waitFor, click, rect, actions, mouse, pointerMove,
     pointerDown, pointerUp, keyboard, keys, press, type, drag };
+  await check('native shared controls first-click', () => checkSafariControls(tabHarness));
+  await check('native artboard project export', () => checkSafariArtboardExport(tabHarness));
   for (const mode of ['pause-resume', 'capture', 'live-export', 'frozen-export', 'grain-export', 'motion-export']) {
     await check(`native shader frame ${mode}`, () => checkSafariFrameExport(tabHarness, mode), false);
   }

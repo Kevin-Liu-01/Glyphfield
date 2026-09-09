@@ -5,6 +5,8 @@ import {
   type CSSProperties,
   type InputHTMLAttributes,
   type InputEvent,
+  type MouseEvent,
+  type PointerEvent,
 } from 'react';
 
 type StudioRangeProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>;
@@ -36,7 +38,9 @@ const StudioRange = forwardRef<HTMLInputElement, StudioRangeProps>(function Stud
   defaultValue,
   max = 100,
   min = 0,
+  onClick,
   onInput,
+  onPointerUp,
   style,
   value,
   ...props
@@ -54,6 +58,20 @@ const StudioRange = forwardRef<HTMLInputElement, StudioRangeProps>(function Stud
     onInput?.(event);
   }
 
+  function handlePointerUp(event: PointerEvent<HTMLInputElement>) {
+    onPointerUp?.(event);
+    if (event.defaultPrevented || event.currentTarget.disabled || event.button !== 0 || event.isPrimary === false) return;
+    // Safari's mousedown default action blurs pointerdown focus. Wait until the
+    // gesture ends so native dragging finishes before assigning keyboard focus.
+    event.currentTarget.focus({ preventScroll: true });
+  }
+
+  function handleClick(event: MouseEvent<HTMLInputElement>) {
+    onClick?.(event);
+    if (event.defaultPrevented || event.currentTarget.disabled || event.button !== 0) return;
+    event.currentTarget.focus({ preventScroll: true });
+  }
+
   return (
     <input
       {...props}
@@ -62,7 +80,9 @@ const StudioRange = forwardRef<HTMLInputElement, StudioRangeProps>(function Stud
       defaultValue={defaultValue}
       max={max}
       min={min}
+      onClick={handleClick}
       onInput={handleInput}
+      onPointerUp={handlePointerUp}
       ref={ref}
       style={rangeStyle}
       type='range'

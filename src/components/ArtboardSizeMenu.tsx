@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -176,6 +177,14 @@ export default function ArtboardSizeMenu({
   const [position, setPosition] = useState<PopoverPosition | null>(null);
   const hasPosition = position !== null;
   const activePreset = studioArtboardPresetForSize(dimensions.width, dimensions.height);
+  const closePanel = useCallback(() => {
+    // Outside pointerdown can unmount the fields before the browser blurs them.
+    // Commit their focused draft before removing the panel, including when a
+    // Safari button click does not move focus on its own.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && panelRef.current?.contains(focused)) focused.blur();
+    setOpen(false);
+  }, []);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -223,11 +232,11 @@ export default function ArtboardSizeMenu({
     function dismissOnPointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
-      setOpen(false);
+      closePanel();
     }
     function dismissOnEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return;
-      setOpen(false);
+      closePanel();
       triggerRef.current?.focus();
     }
     document.addEventListener('pointerdown', dismissOnPointerDown);
@@ -236,7 +245,7 @@ export default function ArtboardSizeMenu({
       document.removeEventListener('pointerdown', dismissOnPointerDown);
       document.removeEventListener('keydown', dismissOnEscape);
     };
-  }, [open]);
+  }, [closePanel, open]);
 
   const panel = open && position ? (
     <div
@@ -280,7 +289,7 @@ export default function ArtboardSizeMenu({
         aria-haspopup='dialog'
         aria-label={`Set artboard size. Current size ${dimensions.width} by ${dimensions.height}`}
         className={joinClassNames('artboard-size-trigger', className)}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => open ? closePanel() : setOpen(true)}
         ref={triggerRef}
         type='button'
       >

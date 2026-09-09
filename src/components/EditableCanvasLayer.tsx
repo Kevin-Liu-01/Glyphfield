@@ -401,6 +401,7 @@ export default function EditableCanvasLayer({
   fitContentHeight = false,
   interactive = true,
   label,
+  layerId,
   movementBounds = null,
   onChange,
   onContextMenu,
@@ -425,6 +426,7 @@ export default function EditableCanvasLayer({
   fitContentHeight?: boolean;
   interactive?: boolean;
   label: string;
+  layerId?: string;
   movementBounds?: CanvasLayerBounds | null;
   onChange: (transform: CanvasLayerTransform) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -898,6 +900,7 @@ export default function EditableCanvasLayer({
         aria-pressed={elementInteractivity.ariaPressed}
         className={`editable-canvas-layer ${className}`}
         data-assembly-move={presentation.assemblyMove}
+        data-canvas-layer-id={layerId}
         data-canvas-selection-member={presentation.selectionMember}
         data-content-interactive={presentation.contentInteractive}
         data-fit-content-height={presentation.fitContent}
