@@ -73,7 +73,76 @@ function controlLabel(element: HTMLElement): string {
 function interactiveControls(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(
     'button, input, textarea, select, [role="button"], [role="textbox"]'
-  )).filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+  )).filter((element) => !element.hasAttribute('disabled') && automationOwnerIsActive(element));
+}
+
+const INACTIVE_AUTOMATION_ANCESTOR = '[inert], [hidden], [aria-hidden="true"], .studio-workspace-layer[data-active="false"], .studio-project-workspace-layer[data-active="false"]';
+
+function automationOwnerIsActive(owner: HTMLElement | null | undefined): boolean {
+  if (owner === undefined) return true;
+  return Boolean(owner?.isConnected && !owner.closest(INACTIVE_AUTOMATION_ANCESTOR));
+}
+
+type StudioAutomationRegistration = {
+  owner: HTMLElement | null | undefined;
+  studio: GlyphfieldStudioAutomation;
+};
+
+type StudioAutomationRegistry = {
+  entries: StudioAutomationRegistration[];
+  glyphfield: NonNullable<Window['glyphfield']>;
+  previous: Window['glyphfield'];
+  announced?: StudioAutomationRegistration;
+  observer?: MutationObserver;
+};
+
+const studioAutomationRegistries = new WeakMap<Window, StudioAutomationRegistry>();
+
+function activeStudioRegistration(registry: StudioAutomationRegistry) {
+  return registry.entries.findLast(({ owner }) => automationOwnerIsActive(owner));
+}
+
+function announceActiveStudio(registry: StudioAutomationRegistry) {
+  const active = activeStudioRegistration(registry);
+  if (registry.announced === active) return;
+  registry.announced = active;
+  if (active) window.dispatchEvent(new CustomEvent('glyphfield:studio-api-ready', { detail: active.studio.describe() }));
+}
+
+function getStudioRegistry(): StudioAutomationRegistry {
+  const existing = studioAutomationRegistries.get(window);
+  if (existing) return existing;
+  const registry: StudioAutomationRegistry = {
+    entries: [],
+    glyphfield: { ...window.glyphfield } as NonNullable<Window['glyphfield']>,
+    previous: window.glyphfield,
+  };
+  // Resolve current DOM ownership without waiting for an effect. Returned
+  // handles stay bound to that owner, so delayed writes cannot target a new tab.
+  Object.defineProperty(registry.glyphfield, 'studio', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      const active = activeStudioRegistration(registry);
+      if (!active) throw new Error('No active Studio workspace is ready for automation.');
+      return active.studio;
+    },
+  });
+  studioAutomationRegistries.set(window, registry);
+  return registry;
+}
+
+function automationWorkspace(owner: HTMLElement) {
+  return owner.closest('.studio-workspace-layer') ?? owner.closest('.tool-shell') ?? owner;
+}
+
+/** Resolve drawer delegation within its own editor, including a retained one. */
+export function studioAutomationForOwner(owner: HTMLElement | null): GlyphfieldStudioAutomation | undefined {
+  if (!owner || typeof window === 'undefined') return undefined;
+  const scope = automationWorkspace(owner);
+  return studioAutomationRegistries.get(window)?.entries.findLast((entry) => (
+    entry.owner?.isConnected && automationWorkspace(entry.owner) === scope
+  ))?.studio;
 }
 
 function matchingControl(label: string): HTMLElement {
@@ -150,15 +219,24 @@ export function downloadStudioArtifact(artifact: StudioAutomationArtifact): void
   downloadBlob(validated.blob, validated.fileName);
 }
 
-export function registerStudioAutomation(adapter: StudioAutomationAdapter): () => void {
+export function registerStudioAutomation(
+  adapter: StudioAutomationAdapter,
+  owner?: HTMLElement | null
+): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  const previousGlyphfield = window.glyphfield;
+  const registry = getStudioRegistry();
+  let disposed = false;
+  function assertOwnerActive() {
+    if (disposed || !automationOwnerIsActive(owner)) throw new Error('This Studio workspace is no longer active. Read the active Studio API again.');
+  }
   const studio: GlyphfieldStudioAutomation = {
     activate(label) {
+      assertOwnerActive();
       matchingControl(label).click();
     },
     activeTool: () => adapter.toolId,
     async applySource(source) {
+      assertOwnerActive();
       if (!adapter.applySource) throw new TypeError(`The active ${adapter.toolId} tool does not expose source application.`);
       await adapter.applySource(typeof source === 'string' ? source : JSON.stringify(source, null, 2));
       await waitForStudioCommit();
@@ -172,6 +250,7 @@ export function registerStudioAutomation(adapter: StudioAutomationAdapter): () =
     }),
     download: downloadStudioArtifact,
     async invoke(action, input) {
+      assertOwnerActive();
       if (action === 'source.read') return studio.readSource();
       if (action === 'source.apply') {
         if (typeof input !== 'string' && (!input || typeof input !== 'object')) {
@@ -209,20 +288,43 @@ export function registerStudioAutomation(adapter: StudioAutomationAdapter): () =
       throw new RangeError(`The active ${adapter.toolId} tool does not expose the “${action}” action.`);
     },
     readSource() {
+      assertOwnerActive();
       if (!adapter.getSource) throw new TypeError(`The active ${adapter.toolId} tool does not expose source reading.`);
       return adapter.getSource();
     },
     set(label, value) {
+      assertOwnerActive();
       setNativeValue(matchingControl(label), value);
     },
     version: 1,
   };
-  const glyphfield = { ...window.glyphfield, studio };
-  window.glyphfield = glyphfield;
-  window.dispatchEvent(new CustomEvent('glyphfield:studio-api-ready', { detail: studio.describe() }));
+  const entry = { owner, studio };
+  registry.entries.push(entry);
+  window.glyphfield = registry.glyphfield;
+  if (owner && !registry.observer && typeof MutationObserver !== 'undefined') {
+    registry.observer = new MutationObserver(() => announceActiveStudio(registry));
+    // Only ownership attributes; never subscribe to canvas styles or per-frame
+    // drawing changes. API calls resolve synchronously even before this event.
+    registry.observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['data-active', 'inert', 'hidden', 'aria-hidden'],
+      subtree: true,
+    });
+  }
+  announceActiveStudio(registry);
   return () => {
-    if (window.glyphfield?.studio !== studio) return;
-    if (previousGlyphfield) window.glyphfield = previousGlyphfield;
+    disposed = true;
+    const index = registry.entries.indexOf(entry);
+    if (index < 0) return;
+    registry.entries.splice(index, 1);
+    if (registry.entries.length > 0) {
+      announceActiveStudio(registry);
+      return;
+    }
+    registry.observer?.disconnect();
+    studioAutomationRegistries.delete(window);
+    if (window.glyphfield !== registry.glyphfield) return;
+    if (registry.previous) window.glyphfield = registry.previous;
     else delete window.glyphfield;
   };
 }

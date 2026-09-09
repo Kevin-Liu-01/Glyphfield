@@ -66,7 +66,7 @@ describe repository contribution.
 
 ## Commands
 <!-- agent-docs:auto:commands start -->
-- Package scripts detected: 20. Use `package.json` as the exhaustive source.
+- Package scripts detected: 28. Use `package.json` as the exhaustive source.
 - `pnpm run dev` - next dev --turbopack --port 3012
 - `pnpm run build` - next build --turbopack
 - `pnpm run test` - vitest run
@@ -80,7 +80,9 @@ describe repository contribution.
 <!-- agent-docs:auto:dirmap start -->
 | Directory | Skill | Purpose |
 |---|---|---|
+| `e2e/` | [`e2e/SKILL.md`](e2e/SKILL.md) | Isolated Chromium, WebKit, and Firefox Studio regression tests. |
 | `scripts/` | [`scripts/SKILL.md`](scripts/SKILL.md) | Repository diagnostics and the canonical agent-docs forwarding shim. |
+| `scripts/lib/` | [`scripts/lib/SKILL.md`](scripts/lib/SKILL.md) | Native Safari regression helpers and input-delivery diagnostics. |
 | `src/app/` | [`src/app/SKILL.md`](src/app/SKILL.md) | Next routes, documentation shell, machine endpoints, and global styles. |
 | `src/components/` | [`src/components/SKILL.md`](src/components/SKILL.md) | Studio editors, shared UI systems, and authentic browser renderers. |
 | `src/hooks/` | [`src/hooks/SKILL.md`](src/hooks/SKILL.md) | Persistent, portable, and performance-sensitive React state lifecycles. |

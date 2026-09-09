@@ -24,6 +24,7 @@ import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { isCanvasTextEditingTarget } from '@/lib/canvasInteraction';
 import {
   clampCanvasZoom,
   resolveCanvasGridStep,
@@ -275,7 +276,7 @@ export default function CanvasViewport({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented || viewportRef.current?.closest('[inert]')) return;
       const target = event.target;
-      const editing = target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+      const editing = isCanvasTextEditingTarget(target);
       const canvasFocused = viewportRef.current?.contains(document.activeElement) ?? false;
       if (editing || (!canvasHoveredRef.current && !canvasFocused)) return;
       if (handleHistoryShortcut(event, actionHistoryRef.current)) return;
@@ -363,8 +364,9 @@ export default function CanvasViewport({
   function openViewMenu(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target;
     if (
-      target instanceof Element
-      && target.closest('button, input, textarea, select, a, [contenteditable="true"], [data-canvas-interactive], [data-studio-context-trigger]')
+      isCanvasTextEditingTarget(target)
+      || (target instanceof Element
+      && target.closest('button, a, [data-canvas-interactive], [data-studio-context-trigger]'))
     ) return;
     event.preventDefault();
     setViewMenuPosition(contextMenuPositionFromEvent(event));
@@ -473,9 +475,9 @@ export default function CanvasViewport({
           const forcePan = event.button === 1 || spacePressed;
           if (
             !forcePan
-            &&
-            target instanceof Element
-            && target.closest('button, input, textarea, select, a, [contenteditable="true"], .editable-canvas-layer, [data-canvas-interactive]')
+            && (isCanvasTextEditingTarget(target)
+            || (target instanceof Element
+            && target.closest('button, a, .editable-canvas-layer, [data-canvas-interactive]')))
           ) return;
           const currentPan = panOffsetRef.current;
           panRef.current = {

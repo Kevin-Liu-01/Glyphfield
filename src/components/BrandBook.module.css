@@ -3589,19 +3589,11 @@
 }
 
 @media print {
-  :global(.studio-app-header),
-  :global(.project-tabs-shell),
-  :global(.studio-nav),
-  :global([data-studio-tool-header]),
   .navigator,
   .thumbnailCaption {
     display: none !important;
   }
 
-  :global(.studio-app),
-  :global(.studio-app-body),
-  :global(.studio-workspace),
-  :global(.studio-workspace-view),
   .root,
   .body,
   .canvas,

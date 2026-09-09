@@ -7,6 +7,6 @@ export default {
     },
   },
   test: {
-    exclude: ['**/.stryker-tmp/**', '**/node_modules/**'],
+    exclude: ['**/.stryker-tmp/**', '**/node_modules/**', '**/e2e/**'],
   },
 };

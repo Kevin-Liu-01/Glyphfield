@@ -66,6 +66,17 @@ export function isAdditiveCanvasSelection(modifiers: CanvasSelectionModifiers): 
   return modifiers.metaKey || modifiers.ctrlKey || modifiers.shiftKey;
 }
 
+/** Preserve native editing, including plaintext-only and inherited edit hosts. */
+export function isCanvasTextEditingTarget(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
+  if (target.closest('input, textarea, select')) return true;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  // The nearest valid value owns editability; a nested false island must not
+  // inherit an outer editor. This also supports DOMs without isContentEditable.
+  const host = target.closest('[contenteditable=""], [contenteditable="true" i], [contenteditable="plaintext-only" i], [contenteditable="false" i]');
+  return host !== null && host.getAttribute('contenteditable')?.toLowerCase() !== 'false';
+}
+
 export function nextCanvasLayerSelection<T extends string>(
   current: readonly T[],
   targetIds: readonly T[],

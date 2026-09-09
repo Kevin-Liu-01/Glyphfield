@@ -29,7 +29,7 @@ describe('Studio context-menu system', () => {
     const menu = source('src/components/ui/StudioContextMenu.tsx');
 
     expect(canvas).toContain("aria-keyshortcuts='Shift+F10'");
-    expect(canvas).toContain("target.closest('button, input, textarea, select, a, [contenteditable=\"true\"]");
+    expect(canvas).toContain('isCanvasTextEditingTarget(target)');
     expect(menu).toContain("event.key === 'Escape'");
     expect(menu).toContain("event.key === 'ArrowDown'");
     expect(menu).toContain("event.key === 'Tab'");

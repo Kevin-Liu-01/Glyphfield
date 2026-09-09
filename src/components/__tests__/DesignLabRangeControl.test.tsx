@@ -60,6 +60,10 @@ describe('Design Lab range edit transactions', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function nativeValue(input: HTMLInputElement, value: number) {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, String(value));
+  }
+
   function pointer(input: HTMLInputElement, type: string, coordinates = { clientX: 10, clientY: 10 }) {
     input.dispatchEvent(new PointerEvent(type, {
       bubbles: true,
@@ -112,7 +116,70 @@ describe('Design Lab range edit transactions', () => {
     expect(commits.mock.calls.map(([value]) => value)).toEqual([0.95, 0.9, 0.85]);
   });
 
-  it('invariant_drag_previews_are_throttled_and_captured_release_commits_exactly_once', async () => {
+  it('invariant_native_change_only_input_commits_the_visible_value', async () => {
+    const input = await render();
+    await act(() => {
+      nativeValue(input, 0.7);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(sourceValue()).toBe(0.7);
+    });
+    expect(commits).toHaveBeenCalledExactlyOnceWith(0.7);
+    expect(input.style.getPropertyValue('--studio-range-progress')).toBe(`${(0.7 - 0.2) / (3 - 0.2) * 100}%`);
+    expect(input.dataset.canvasPreviewPending).not.toBe('true');
+  });
+
+  it('invariant_pointer_release_commits_the_final_native_value_not_an_earlier_preview', async () => {
+    const input = await render();
+    installPointerCapture(input);
+    await act(() => {
+      pointer(input, 'pointerdown');
+      inputValue(input, 0.75);
+      vi.advanceTimersByTime(16);
+    });
+    expect(previews).toHaveBeenLastCalledWith(0.75);
+    await act(() => {
+      nativeValue(input, 0.65);
+      pointer(input, 'pointerup');
+      expect(sourceValue()).toBe(0.65);
+    });
+    expect(commits).toHaveBeenCalledExactlyOnceWith(0.65);
+    expect(previews).toHaveBeenLastCalledWith(0.65);
+    expect(input.dataset.canvasPreviewPending).not.toBe('true');
+  });
+
+  it.each([
+    ['change', 'pointerup'],
+    ['pointerup', 'change'],
+  ])('invariant_native_%s_then_%s_commits_once_without_bypassing_drag_throttling', async (first, second) => {
+    const input = await render();
+    installPointerCapture(input);
+    await act(() => {
+      pointer(input, 'pointerdown');
+      // Use the native setter so React receives both its input and change
+      // handlers, as it does for real range movement rather than script writes.
+      for (const value of [0.9, 0.8, 0.75]) {
+        nativeValue(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    expect(commits).not.toHaveBeenCalled();
+    expect(previews).not.toHaveBeenCalled();
+    expect(input.dataset.canvasPreviewPending).toBe('true');
+    await act(() => {
+      nativeValue(input, 0.65);
+      for (const type of [first, second]) {
+        if (type === 'change') input.dispatchEvent(new Event('change', { bubbles: true }));
+        else pointer(input, type);
+        expect(sourceValue()).toBe(0.65);
+      }
+    });
+    await act(() => vi.advanceTimersByTime(100));
+    expect(commits).toHaveBeenCalledExactlyOnceWith(0.65);
+    expect(previews).toHaveBeenCalledExactlyOnceWith(0.65);
+    expect(input.dataset.canvasPreviewPending).not.toBe('true');
+  });
+
+  it('invariant_native_drag_previews_are_throttled_and_release_commits_exactly_once', async () => {
     const input = await render();
     const capture = installPointerCapture(input);
     await act(() => {
@@ -121,7 +188,8 @@ describe('Design Lab range edit transactions', () => {
       inputValue(input, 0.7);
       inputValue(input, 0.6);
     });
-    expect(capture.set).toHaveBeenCalledWith(7);
+    // Capturing the range input hijacks WebKit's native thumb drag.
+    expect(capture.set).not.toHaveBeenCalled();
     expect(input.dataset.canvasPreviewPending).toBe('true');
     expect(sourceValue()).toBe(1);
     expect(commits).not.toHaveBeenCalled();
@@ -134,7 +202,7 @@ describe('Design Lab range edit transactions', () => {
 
     await act(() => {
       inputValue(input, 0.5);
-      // Native capture retargets an outside release to the original input.
+      // A release on the input and the window fallback must not double-commit.
       pointer(input, 'pointerup', { clientX: 2_000, clientY: -200 });
       expect(sourceValue()).toBe(0.5);
       expect(input.dataset.canvasPreviewPending).not.toBe('true');
@@ -146,6 +214,38 @@ describe('Design Lab range edit transactions', () => {
     await act(() => vi.advanceTimersByTime(100));
     expect(commits).toHaveBeenCalledTimes(1);
     expect(previews).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['pointerup', 'pointercancel', 'blur'])(
+    'invariant_window_%s_finishes_a_native_drag_without_pointer_capture',
+    async (type) => {
+      const input = await render();
+      installPointerCapture(input);
+      await act(() => {
+        pointer(input, 'pointerdown');
+        inputValue(input, 0.65);
+        if (type === 'blur') window.dispatchEvent(new Event(type));
+        else window.dispatchEvent(new PointerEvent(type, { pointerId: 7 }));
+        expect(sourceValue()).toBe(0.65);
+        expect(input.dataset.canvasPreviewPending).not.toBe('true');
+      });
+      await act(() => vi.advanceTimersByTime(100));
+      expect(commits).toHaveBeenCalledExactlyOnceWith(0.65);
+    }
+  );
+
+  it('invariant_another_pointer_cannot_finish_an_active_range_drag', async () => {
+    const input = await render();
+    installPointerCapture(input);
+    await act(() => {
+      pointer(input, 'pointerdown');
+      inputValue(input, 0.65);
+      input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 8 }));
+    });
+    expect(commits).not.toHaveBeenCalled();
+    expect(input.dataset.canvasPreviewPending).toBe('true');
+    await act(() => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 })));
+    expect(commits).toHaveBeenCalledExactlyOnceWith(0.65);
   });
 
   it('invariant_release_before_the_preview_timer_commits_the_latest_input', async () => {
@@ -209,6 +309,7 @@ describe('Design Lab range edit transactions', () => {
       root = null;
     });
     await act(() => vi.advanceTimersByTime(100));
+    await act(() => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 })));
     expect(previews).not.toHaveBeenCalled();
     expect(commits).not.toHaveBeenCalled();
   });

@@ -77,7 +77,7 @@ try {
 }
 ```
 
-After changing tools, wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`. A stale adapter can expose actions from the previous tool.
+After changing projects or tools, wait for `glyphfield:studio-api-ready` and re-read `window.glyphfield.studio`. A cached adapter rejects source/control operations when its original editor is no longer active; reacquire the API instead of retrying the stale handle.
 
 ## Diagnose still export
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { startTransition, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { flushSync } from 'react-dom';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 export default function DesignLabRangeControl({
   formatValue,
@@ -30,6 +31,8 @@ export default function DesignLabRangeControl({
   const latestValueRef = useRef<number | null>(null);
   const previewTimerRef = useRef(0);
   const pointerIdRef = useRef<number | null>(null);
+  const detachGestureListenersRef = useRef<(() => void) | null>(null);
+  const finishGestureRef = useCommittedRef(finishGesture);
 
   const formatDisplayValue = useCallback((nextValue: number) => (
     formatValue?.(nextValue) ?? (Number.isInteger(step) ? Math.round(nextValue).toString() : nextValue.toFixed(2))
@@ -51,7 +54,10 @@ export default function DesignLabRangeControl({
     }
   }, [max, min, syncDisplayValue, value]);
 
-  useEffect(() => () => window.clearTimeout(previewTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(previewTimerRef.current);
+    detachGestureListenersRef.current?.();
+  }, []);
 
   function flushValue() {
     window.clearTimeout(previewTimerRef.current);
@@ -69,11 +75,43 @@ export default function DesignLabRangeControl({
   }
 
   function finishGesture() {
-    const pointerId = pointerIdRef.current;
     pointerIdRef.current = null;
-    flushValue();
+    detachGestureListenersRef.current?.();
+    detachGestureListenersRef.current = null;
     const input = inputRef.current;
-    if (pointerId !== null && input?.hasPointerCapture(pointerId)) input.releasePointerCapture(pointerId);
+    // A native range may report its final value at change/release, after the
+    // last input preview. The visible control, not that earlier preview, wins.
+    const nativeValue = input ? Number(input.value) : null;
+    if (nativeValue !== null && Number.isFinite(nativeValue) && nativeValue !== (latestValueRef.current ?? value)) {
+      syncDisplayValue(nativeValue);
+      pendingValueRef.current = nativeValue;
+      latestValueRef.current = nativeValue;
+    }
+    flushValue();
+  }
+
+  function finishPointerGesture(event: { pointerId: number }) {
+    if (event.pointerId === pointerIdRef.current) finishGesture();
+  }
+
+  function beginGesture(event: ReactPointerEvent<HTMLInputElement>) {
+    if (event.button !== 0 || pointerIdRef.current !== null) return;
+    pointerIdRef.current = event.pointerId;
+    // Let the native thumb own capture. Capturing its input prevents WebKit
+    // from updating the range value at all. Window listeners cover releases
+    // outside the input without replacing the browser's drag implementation.
+    const finishPointer = (event: PointerEvent) => {
+      if (event.pointerId === pointerIdRef.current) finishGestureRef.current();
+    };
+    const finishBlur = () => finishGestureRef.current();
+    window.addEventListener('pointerup', finishPointer);
+    window.addEventListener('pointercancel', finishPointer);
+    window.addEventListener('blur', finishBlur);
+    detachGestureListenersRef.current = () => {
+      window.removeEventListener('pointerup', finishPointer);
+      window.removeEventListener('pointercancel', finishPointer);
+      window.removeEventListener('blur', finishBlur);
+    };
   }
 
   function scheduleValue(nextValue: number) {
@@ -110,15 +148,16 @@ export default function DesignLabRangeControl({
         max={max}
         min={min}
         onBlur={finishGesture}
-        onInput={(event) => scheduleValue(Number(event.currentTarget.value))}
-        onLostPointerCapture={finishGesture}
-        onPointerCancel={finishGesture}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          pointerIdRef.current = event.pointerId;
-          event.currentTarget.setPointerCapture(event.pointerId);
+        onChange={(event) => {
+          // React also synthesizes onChange for input events, which already use
+          // the throttled preview path. Only a native change needs this fallback.
+          if (event.nativeEvent.type === 'change') finishGesture();
         }}
-        onPointerUp={finishGesture}
+        onInput={(event) => scheduleValue(Number(event.currentTarget.value))}
+        onLostPointerCapture={finishPointerGesture}
+        onPointerCancel={finishPointerGesture}
+        onPointerDown={beginGesture}
+        onPointerUp={finishPointerGesture}
         ref={inputRef}
         step={step}
       />

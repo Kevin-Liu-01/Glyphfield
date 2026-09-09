@@ -8,16 +8,27 @@ The active Studio tool registers `window.glyphfield.studio`. This API is the pro
 
 ## Lifecycle
 
-The global is replaced whenever the active tool changes. Glyphfield dispatches `glyphfield:studio-api-ready` with `studio.describe()` as event detail after each adapter is registered.
+`window.glyphfield.studio` resolves the visible project and tool, including editors retained across tab switches. Glyphfield dispatches `glyphfield:studio-api-ready` with `studio.describe()` as event detail when the active adapter changes. While a newly selected editor loads, reading the API can report that no active workspace is ready.
 
 ```js
-await new Promise((resolve) => {
-  if (window.glyphfield?.studio) resolve();
-  else window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+await new Promise((resolve, reject) => {
+  const ready = () => {
+    window.removeEventListener('glyphfield:studio-api-ready', ready);
+    resolve();
+  };
+  window.addEventListener('glyphfield:studio-api-ready', ready);
+  try {
+    if (window.glyphfield?.studio) ready();
+  } catch (error) {
+    if (error.message !== 'No active Studio workspace is ready for automation.') {
+      window.removeEventListener('glyphfield:studio-api-ready', ready);
+      reject(error);
+    }
+  }
 });
 ```
 
-When automation activates another tool, subscribe before the click, wait for the event, then read `window.glyphfield.studio` again.
+When automation activates another project or tool, subscribe before the click, wait for the event, then read `window.glyphfield.studio` again. Cached handles belong to their original editor and reject source/control operations after that editor becomes inactive or its adapter is disposed. They never silently redirect a pending edit into another project.
 
 ## Core methods
 
@@ -59,7 +70,7 @@ artifact.download
 5. Wrapping `<label>` text
 6. Element text
 
-Matching is whitespace-normalized and case-insensitive but otherwise exact. If two visible controls share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
+Hidden or inert retained workspaces are excluded. Matching is whitespace-normalized and case-insensitive but otherwise exact. If two visible controls share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
 
 ## Values and files
 

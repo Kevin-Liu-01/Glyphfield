@@ -39,6 +39,8 @@
     ".source/**/*.ts",
     ".next/types/**/*.ts",
     "vitest.config.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [

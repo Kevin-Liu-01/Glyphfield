@@ -3,10 +3,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const studioApp = readFileSync(
-  join(process.cwd(), 'src/components/StudioApp.tsx'),
-  'utf8'
-);
+const studioApp = [
+  'src/components/StudioApp.tsx',
+  'src/hooks/useProjectTabInteraction.ts',
+].map((file) => readFileSync(join(process.cwd(), file), 'utf8')).join('\n');
 const studioStyles = readFileSync(
   join(process.cwd(), 'src/app/globals.css'),
   'utf8'
@@ -35,7 +35,7 @@ describe('project tab interaction', () => {
 
   it('keeps click, close, keyboard, and pointer alternatives independent', () => {
     expect(studioApp).toContain("aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10'");
-    expect(studioApp).toContain("target.closest('.project-tab-close')");
+    expect(studioApp).toContain("target.closest('.project-tab-close, input, textarea, select, [contenteditable]')");
     expect(studioApp).toContain('onContextMenu={(event) => {');
     expect(studioApp).toContain("className='project-tab-close'");
     expect(studioApp).toContain('<StudioContextMenu');

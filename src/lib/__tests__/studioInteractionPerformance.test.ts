@@ -96,8 +96,8 @@ describe('Studio interaction performance contracts', () => {
     expect(marketingLoader).toContain('deferWhileInteracting: true');
     expect(marketingLoader).toContain('resetWhenDisabled: true');
     expect(marketingLoader).toContain('runtimeReady && inRange');
-    expect(deferredRuntime).toContain("addEventListener('mousedown', rescheduleAfterInteraction, true)");
-    expect(deferredRuntime).toContain("addEventListener('touchstart', rescheduleAfterInteraction");
+    expect(deferredRuntime).toContain("addEventListener('mousedown', beginMouse, true)");
+    expect(deferredRuntime).toContain("addEventListener('touchstart', updateTouches");
     expect(deferredRuntime).toContain("addEventListener('wheel', rescheduleAfterInteraction");
   });
 
@@ -214,7 +214,7 @@ describe('Studio interaction performance contracts', () => {
   });
 
   it('lets dragged project tabs occupy either clamped edge slot', () => {
-    const source = readSource('src/components/StudioApp.tsx');
+    const source = readSource('src/hooks/useProjectTabInteraction.ts');
 
     expect(source).toContain('const movingRight = pointerOffsetX > 0;');
     expect(source).toContain('movingRight ? center <= draggedCenter : center < draggedCenter');

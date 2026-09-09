@@ -249,7 +249,7 @@ function useCustomFont() {
   return { font, restore, select };
 }
 
-function ToolShell({
+export function ToolShell({
   actions,
   children,
   inspector,
@@ -270,6 +270,8 @@ function ToolShell({
   tool: StudioTool;
 }) {
   const gt = useGT();
+  const shellRef = useRef<HTMLDivElement>(null);
+  const sourceCodeRef = useCommittedRef(sourceCode);
   const [sourceOpen, setSourceOpen] = useState(false);
 
   const sourceReady = sourceCode?.source !== null && sourceCode?.source !== undefined;
@@ -278,13 +280,15 @@ function ToolShell({
     actions: sourceReady
       ? ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set']
       : ['controls.list', 'control.activate', 'control.set'],
-    applySource: sourceReady ? sourceCode?.onApply : undefined,
-    getSource: sourceReady ? () => sourceCode!.source! : undefined,
+    // Drawers delegate to this owner. Source updates must refresh its data, not
+    // dispose an otherwise active adapter every time the parent renders.
+    applySource: sourceReady ? (source) => sourceCodeRef.current!.onApply(source) : undefined,
+    getSource: sourceReady ? () => sourceCodeRef.current!.source! : undefined,
     toolId: tool.id,
-  }), [sourceCode, sourceReady, tool.id]);
+  }, shellRef.current), [sourceCodeRef, sourceReady, tool.id]);
 
   return (
-    <div className='tool-shell h-full min-h-0'>
+    <div className='tool-shell h-full min-h-0' ref={shellRef}>
       <StudioToolHeader
         actions={actions || sourceCode ? (
           <>

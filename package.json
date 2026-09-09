@@ -28,6 +28,8 @@
     "test:shader-frames": "node scripts/check-shader-frames.mjs",
     "test:shader-frame-journey": "node scripts/check-shader-frame-journey.mjs",
     "test:text-export": "node scripts/check-text-export-parity.mjs",
+    "test:browsers": "playwright test --config playwright.config.ts",
+    "test:safari": "node scripts/check-safari-canvas.mjs",
     "test:watch": "vitest",
     "typecheck": "fumadocs-mdx && tsc6 --noEmit"
   },
@@ -55,6 +57,7 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@tailwindcss/postcss": "^4.3.2",

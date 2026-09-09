@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import type { StudioToolId } from '@/lib/studioCatalog';
@@ -35,6 +35,7 @@ export default function StudioToolHeader({
   title,
   toolId,
 }: StudioToolHeaderProps) {
+  const headerRef = useRef<HTMLElement>(null);
   const ToolIcon = toolId ? STUDIO_TOOL_ICONS[toolId] : null;
   const resolvedIcon = icon ?? (ToolIcon ? <ToolIcon aria-hidden='true' /> : null);
   const Heading = headingLevel === 2 ? 'h2' : 'h1';
@@ -44,11 +45,11 @@ export default function StudioToolHeader({
     return registerStudioAutomation({
       actions: ['controls.list', 'control.activate', 'control.set'],
       toolId,
-    });
+    }, headerRef.current);
   }, [toolId]);
 
   return (
-    <header aria-label={ariaLabel} className={styles.root} data-studio-tool-header>
+    <header aria-label={ariaLabel} className={styles.root} data-studio-tool-header ref={headerRef}>
       <div className={styles.identity} data-slot='identity'>
         {resolvedIcon ? <span className={styles.icon}>{resolvedIcon}</span> : null}
         <Heading>{title}</Heading>

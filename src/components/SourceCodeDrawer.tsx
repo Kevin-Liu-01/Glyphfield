@@ -43,7 +43,7 @@ import {
   sourceEditorShortcut,
   sourceEditorSkipClosing,
 } from '@/lib/sourceEditor';
-import { registerStudioAutomation } from '@/lib/studioAutomation';
+import { registerStudioAutomation, studioAutomationForOwner } from '@/lib/studioAutomation';
 
 const DEFAULT_DRAWER_WIDTH = 560;
 const MIN_DRAWER_WIDTH = 360;
@@ -312,7 +312,7 @@ export default function SourceCodeDrawer({
   });
 
   useEffect(() => {
-    const previousStudio = window.glyphfield?.studio;
+    const previousStudio = studioAutomationForOwner(textareaRef.current);
     const toolId = previousStudio?.activeTool();
     if (!previousStudio || !toolId) return;
     return registerStudioAutomation({
@@ -321,7 +321,7 @@ export default function SourceCodeDrawer({
       getSource: () => source,
       invoke: previousStudio.invoke,
       toolId,
-    });
+    }, textareaRef.current);
   }, [onApply, source]);
 
   useMountEffect(() => {

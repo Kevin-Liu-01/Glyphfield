@@ -32,6 +32,9 @@ describe('canvas keyboard history', () => {
         toolId='material'
       >
         <input aria-label='Canvas text' />
+        <span contentEditable='plaintext-only' data-testid='plain-text-editor' suppressContentEditableWarning tabIndex={0}>
+          <span data-testid='plain-text-content'>Edit this text</span>
+        </span>
       </CanvasViewport>
     ));
   });
@@ -76,6 +79,29 @@ describe('canvas keyboard history', () => {
     container.setAttribute('inert', '');
     await key(canvas);
     expect(onUndo).not.toHaveBeenCalled();
+  });
+
+  it('keeps native undo and spaces in plaintext-only canvas editors', async () => {
+    const editor = container.querySelector<HTMLElement>('[data-testid="plain-text-editor"]')!;
+    const content = container.querySelector<HTMLElement>('[data-testid="plain-text-content"]')!;
+    editor.focus();
+    expect((await key(content)).defaultPrevented).toBe(false);
+    expect((await key(content, { key: ' ', code: 'Space', metaKey: false })).defaultPrevented).toBe(false);
+    expect(onUndo).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-space-pressed="true"]')).toBeNull();
+  });
+
+  it('leaves native selection menus and pointer selection in plaintext-only editors', async () => {
+    const content = container.querySelector<HTMLElement>('[data-testid="plain-text-content"]')!;
+    const contextMenu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    const pointerDown = new PointerEvent('pointerdown', {
+      bubbles: true, cancelable: true, button: 0, pointerType: 'mouse', pointerId: 1,
+    });
+    await act(() => content.dispatchEvent(contextMenu));
+    await act(() => content.dispatchEvent(pointerDown));
+    expect(contextMenu.defaultPrevented).toBe(false);
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(container.querySelector('[data-panning="true"]')).toBeNull();
   });
 });
 

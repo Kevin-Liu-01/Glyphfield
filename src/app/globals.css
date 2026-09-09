@@ -35743,3 +35743,25 @@ html[data-marketing-theme='dark'] body {
   min-height: 1em;
   font-size: 0.6rem;
 }
+
+/* Document-wide print chrome cannot live in BrandBook's locally scoped module. */
+@media print {
+  .studio-app-header,
+  .project-tabs-shell,
+  .studio-nav,
+  [data-studio-tool-header] {
+    display: none !important;
+  }
+
+  .studio-app,
+  .studio-app-body,
+  .studio-workspace,
+  .studio-workspace-view {
+    width: auto !important;
+    height: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+}

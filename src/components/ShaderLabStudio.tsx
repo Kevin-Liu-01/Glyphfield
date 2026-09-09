@@ -45,6 +45,7 @@ import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo,
 import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
+import CanvasEditableText from '@/components/CanvasEditableText';
 import ArtboardSizeMenu, { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
@@ -55,6 +56,8 @@ import ShaderFrameImage from '@/components/ShaderFrameImage';
 import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
 import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
 import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
+import { previewSelectedTextStyle, selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
+import { checkpointCanvasHistory, redoCanvasCheckpointHistory, undoCanvasCheckpointHistory } from '@/lib/canvasCheckpointHistory';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
 import { applyEffectFrameCaptures, effectFrameMatches } from '@/lib/effectFrameDocument';
 import { withCapturedShaderImages, type CapturedShaderImage } from '@/lib/withCapturedShaderImages';
@@ -73,7 +76,7 @@ import {
   alignCanvasSelection,
   canvasLayerDimensions,
   canvasSelectionBounds,
-  isAdditiveCanvasSelection,
+  isCanvasTextEditingTarget,
   MIN_CANVAS_LAYER_SCALE,
   nextCanvasLayerSelection,
   normalizeCanvasLayerTransform,
@@ -115,8 +118,7 @@ function canvasSelectionAnnouncement(count: number, groupName?: string): string 
 }
 
 function isCanvasClipboardEditingTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement
-    && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+  return isCanvasTextEditingTarget(target);
 }
 
 function designLabInspectorDescription({
@@ -626,7 +628,7 @@ function presentCanvasActionHistory(
 ): CanvasActionHistory {
   const entries = [...history.past.slice(-7), ...(history.present ? [history.present] : [])];
   return {
-    canRedo: history.future.length > 0,
+    canRedo: history.future.length > 0 && history.present?.signature === signature,
     canUndo: canUndoDesignCanvasHistory(history, signature),
     entries: entries.map((entry) => ({
       current: entry === history.present,
@@ -1806,95 +1808,6 @@ function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
   return `${settings.shadowOffsetX}px ${settings.shadowOffsetY}px ${settings.shadowBlur}px ${colorWithOpacity(settings.shadowColor, settings.shadowOpacity / 100)}`;
 }
 
-function CanvasEditableText({
-  className,
-  label,
-  onChange,
-  onFocus,
-  style,
-  value,
-}: {
-  className: string;
-  label: string;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  style: CSSProperties;
-  value: string;
-}) {
-  const textRef = useRef<HTMLSpanElement>(null);
-  const onChangeRef = useCommittedRef(onChange);
-  const pendingValueRef = useRef<string | null>(null);
-  const commitTimerRef = useRef(0);
-
-  function flushTextChange() {
-    window.clearTimeout(commitTimerRef.current);
-    commitTimerRef.current = 0;
-    const nextValue = pendingValueRef.current;
-    pendingValueRef.current = null;
-    if (nextValue !== null) onChangeRef.current(nextValue);
-  }
-
-  function scheduleTextChange(nextValue: string) {
-    pendingValueRef.current = nextValue;
-    window.clearTimeout(commitTimerRef.current);
-    commitTimerRef.current = window.setTimeout(flushTextChange, 140);
-  }
-
-  useLayoutEffect(() => {
-    const text = textRef.current;
-    if (!text || document.activeElement === text || text.innerText === value) return;
-    text.innerText = value;
-  }, [value]);
-
-  useLayoutEffect(() => {
-    const text = textRef.current;
-    if (!text || text.closest('.shader-lab-v2')?.querySelector('[data-canvas-preview-pending="true"]')) return;
-    // An interrupted inspector drag can unmount without committing. React may
-    // skip unchanged style props, so the canonical text owner clears that preview.
-    for (const property of ['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing'] as const) {
-      const value = style[property];
-      const cssValue = value == null ? '' : typeof value === 'number' && (property === 'fontSize' || property === 'letterSpacing')
-        ? `${value}px` : String(value);
-      if (text.style[property] !== cssValue) text.style[property] = cssValue;
-    }
-  });
-
-  useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
-
-  return (
-    <span
-      aria-label={label}
-      aria-multiline='true'
-      className={className}
-      contentEditable='plaintext-only'
-      data-canvas-editable='true'
-      onBlur={(event) => {
-        pendingValueRef.current = event.currentTarget.innerText.replace(/\r\n/g, '\n');
-        flushTextChange();
-      }}
-      onFocus={onFocus}
-      onInput={(event) => scheduleTextChange(event.currentTarget.innerText.replace(/\r\n/g, '\n'))}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === 'Escape') event.currentTarget.blur();
-      }}
-      onPointerDown={(event) => {
-        if (isAdditiveCanvasSelection(event)) {
-          event.preventDefault();
-          return;
-        }
-        event.stopPropagation();
-      }}
-      ref={textRef}
-      role='textbox'
-      spellCheck
-      style={style}
-      suppressContentEditableWarning
-      tabIndex={0}
-    />
-  );
-}
-
 function InspectorTextArea({
   ariaLabel,
   onChange,
@@ -2359,11 +2272,6 @@ const ShaderMaterialCard = memo(function ShaderMaterialCard({
   );
 });
 
-function selectedCanvasLayerElement(selectedLayerCount: number): HTMLElement | null {
-  if (selectedLayerCount !== 1) return null;
-  return document.querySelector<HTMLElement>('.editable-canvas-layer[aria-pressed="true"]');
-}
-
 function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
   const viewport = layer.closest<HTMLElement>('.canvas-viewport');
   const overlay = viewport?.querySelector<HTMLElement>('.editable-canvas-layer-selection');
@@ -2373,17 +2281,6 @@ function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
   overlay.style.top = `${bounds.top}px`;
   overlay.style.width = `${bounds.width}px`;
   overlay.style.height = `${bounds.height}px`;
-}
-
-function previewSelectedTextStyle(
-  selectedLayerCount: number,
-  property: keyof CSSStyleDeclaration,
-  value: string
-) {
-  const layer = selectedCanvasLayerElement(selectedLayerCount);
-  const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
-  if (!text) return;
-  Reflect.set(text.style, property, value);
 }
 
 function dataTransferHasFiles(dataTransfer: DataTransfer): boolean {
@@ -3267,6 +3164,7 @@ function DesignLabTextLayerInspector({
   previewSelectedTextWidth,
   selectedCanvasLayerCount,
   selection,
+  stageRef,
   textRenderedWeight,
   textWeightRange,
   updateTextLayer,
@@ -3279,6 +3177,7 @@ function DesignLabTextLayerInspector({
   previewSelectedTextWidth: (value: number) => void;
   selectedCanvasLayerCount: number;
   selection: SelectedTextInspector;
+  stageRef: RefObject<HTMLDivElement | null>;
   textRenderedWeight: number;
   textWeightRange: { max: number; min: number };
   updateTextLayer: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
@@ -3295,7 +3194,7 @@ function DesignLabTextLayerInspector({
         ariaLabel={`${selectedTextLayer.name} content`}
         onChange={(value) => updateTextLayer(selectedTextLayer.id, { value })}
         onPreview={(value) => {
-          const text = selectedCanvasLayerElement(selectedCanvasLayerCount)
+          const text = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerCount)
             ?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
           if (text) text.innerText = value;
         }}
@@ -3371,6 +3270,7 @@ function DesignLabTextLayerInspector({
           transform: { ...selectedTextTransform, scale },
         })}
         onPreview={(scale) => previewSelectedTextStyle(
+          stageRef.current,
           selectedCanvasLayerCount,
           'fontSize',
           `${canvasHeight / canvasWidth * 17 * scale}cqw`
@@ -3406,7 +3306,7 @@ function DesignLabTextLayerInspector({
         max={1.8}
         min={0.7}
         onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
-        onPreview={(lineHeight) => previewSelectedTextStyle(selectedCanvasLayerCount, 'lineHeight', String(lineHeight))}
+        onPreview={(lineHeight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight))}
         step={0.05}
         value={selectedTextLayer.lineHeight}
       />
@@ -3418,7 +3318,7 @@ function DesignLabTextLayerInspector({
         onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
           weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
         })}
-        onPreview={(weight) => previewSelectedTextStyle(selectedCanvasLayerCount, 'fontWeight', String(weight))}
+        onPreview={(weight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(weight))}
         step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
         value={textRenderedWeight}
       />
@@ -3428,7 +3328,7 @@ function DesignLabTextLayerInspector({
         max={0.2}
         min={-0.12}
         onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
-        onPreview={(tracking) => previewSelectedTextStyle(selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`)}
+        onPreview={(tracking) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`)}
         step={0.01}
         value={selectedTextLayer.tracking}
       />
@@ -4466,6 +4366,7 @@ export default function ShaderLabStudio({
     visible: true,
   }), [brandPalette.colors]);
   const stageRef = useRef<HTMLDivElement>(null);
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(stageRef);
   const defaultShaderMigrationRef = useRef('');
   const effectCanvasRefs = useRef<Map<EffectLayerId, HTMLCanvasElement>>(new Map());
@@ -4856,6 +4757,7 @@ export default function ShaderLabStudio({
     () => designCanvasHistorySignature(workspaceArtboards),
     [workspaceArtboards]
   );
+  const designHistorySignatureRef = useCommittedRef(designHistorySignature);
   const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
   const activeArtboardRawName = activeArtboard?.name ?? '';
   const activeArtboardName = resolvedDesignArtboardName(activeArtboard?.name);
@@ -5228,7 +5130,8 @@ export default function ShaderLabStudio({
 
   function createDesignHistoryEntry(
     nextArtboards: readonly DesignArtboard[],
-    label: string
+    label: string,
+    signature?: string
   ): DesignCanvasHistoryEntry {
     const clonedArtboards = cloneDesignArtboards(nextArtboards);
     designHistorySequenceRef.current += 1;
@@ -5237,8 +5140,50 @@ export default function ShaderLabStudio({
       detail: `${clonedArtboards.length} artboard${clonedArtboards.length === 1 ? '' : 's'}`,
       id: `canvas-action-${designHistorySequenceRef.current}`,
       label,
-      signature: designCanvasHistorySignature(clonedArtboards),
+      signature: signature ?? designCanvasHistorySignature(clonedArtboards),
     };
+  }
+
+  function checkpointDesignCanvasHistory(
+    nextArtboards = workspaceArtboardsRef.current,
+    signature = designHistorySignatureRef.current,
+    label?: string
+  ) {
+    window.clearTimeout(designHistoryTimerRef.current);
+    designHistoryTimerRef.current = 0;
+    const history = designHistoryRef.current;
+    // Pointer/key selection events are common. Use the already computed revision
+    // before cloning any artboard or serializing its captured shader assets.
+    if (history.present?.signature === signature) return;
+    const next = createDesignHistoryEntry(nextArtboards, label ?? (history.present
+      ? describeDesignCanvasChange(history.present.artboards, nextArtboards)
+      : 'Opened canvas'), signature);
+    designHistoryRef.current = checkpointCanvasHistory(history, next);
+    setDesignHistoryRevision((revision) => revision + 1);
+  }
+
+  function checkpointAppliedDesignSource(nextArtboards: DesignArtboard[]) {
+    // A source replacement is one complete action. Preserve an earlier pending
+    // edit, then close the normalized source action before the next gesture.
+    if (draftHydrated) checkpointDesignCanvasHistory();
+    const signature = designCanvasHistorySignature(nextArtboards);
+    checkpointDesignCanvasHistory(nextArtboards, signature, draftHydrated ? 'Applied source' : 'Opened canvas');
+    return signature;
+  }
+
+  function beginCanvasHistoryPointer(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !draftHydrated || !activeArtboardSnapshotReady) return;
+    if (event.target instanceof Element
+      && event.target.closest('.canvas-action-history, .canvas-viewport-toolbar')) return;
+    checkpointDesignCanvasHistory();
+  }
+
+  function beginCanvasHistoryKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.repeat || !draftHydrated || !activeArtboardSnapshotReady || isCanvasTextEditingTarget(event.target)) return;
+    if ((event.metaKey || event.ctrlKey) && ['z', 'y'].includes(event.key.toLowerCase())) return;
+    if (event.target instanceof Element
+      && event.target.closest('.canvas-action-history, .canvas-viewport-toolbar')) return;
+    checkpointDesignCanvasHistory();
   }
 
   function restoreDesignHistoryEntry(entry: DesignCanvasHistoryEntry) {
@@ -5256,6 +5201,7 @@ export default function ShaderLabStudio({
       signature: artboardSnapshotSignature(activeEntry.snapshot),
     };
     workspaceArtboardsRef.current = nextArtboards;
+    designHistorySignatureRef.current = entry.signature;
     activeArtboardIdRef.current = activeId;
     currentArtboardSnapshotRef.current = activeEntry.snapshot;
     setArtboards(nextArtboards);
@@ -5268,45 +5214,30 @@ export default function ShaderLabStudio({
     if (!history.present) return;
     window.clearTimeout(designHistoryTimerRef.current);
     designHistoryTimerRef.current = 0;
-    const liveArtboards = cloneDesignArtboards(workspaceArtboardsRef.current);
-    const liveSignature = designCanvasHistorySignature(liveArtboards);
-    if (liveSignature !== history.present.signature) {
-      const liveEntry = createDesignHistoryEntry(
-        liveArtboards,
-        describeDesignCanvasChange(history.present.artboards, liveArtboards)
-      );
-      designHistoryRef.current = { ...history, future: [liveEntry, ...history.future] };
-      restoreDesignHistoryEntry(history.present);
-      setDesignHistoryRevision((revision) => revision + 1);
-      announceCanvasClipboard(`Undid ${liveEntry.label.toLocaleLowerCase()}`);
-      return;
-    }
-    const previous = history.past.at(-1);
-    if (!previous) return;
-    designHistoryRef.current = {
-      future: [history.present, ...history.future],
-      past: history.past.slice(0, -1),
-      present: previous,
-    };
-    restoreDesignHistoryEntry(previous);
+    const liveSignature = designHistorySignatureRef.current;
+    const liveEntry = history.present.signature === liveSignature ? history.present : createDesignHistoryEntry(
+      workspaceArtboardsRef.current,
+      describeDesignCanvasChange(history.present.artboards, workspaceArtboardsRef.current),
+      liveSignature
+    );
+    const transition = undoCanvasCheckpointHistory(history, liveEntry);
+    if (!transition) return;
+    designHistoryRef.current = transition.history;
+    restoreDesignHistoryEntry(transition.restored);
     setDesignHistoryRevision((revision) => revision + 1);
-    announceCanvasClipboard(`Undid ${history.present.label.toLocaleLowerCase()}`);
+    announceCanvasClipboard(`Undid ${transition.undone.label.toLocaleLowerCase()}`);
   }
 
   function redoDesignCanvas() {
     const history = designHistoryRef.current;
-    const next = history.future[0];
-    if (!history.present || !next) return;
+    const transition = redoCanvasCheckpointHistory(history, designHistorySignatureRef.current);
+    if (!transition) return;
     window.clearTimeout(designHistoryTimerRef.current);
     designHistoryTimerRef.current = 0;
-    designHistoryRef.current = {
-      future: history.future.slice(1),
-      past: [...history.past, history.present].slice(-39),
-      present: next,
-    };
-    restoreDesignHistoryEntry(next);
+    designHistoryRef.current = transition.history;
+    restoreDesignHistoryEntry(transition.restored);
     setDesignHistoryRevision((revision) => revision + 1);
-    announceCanvasClipboard(`Redid ${next.label.toLocaleLowerCase()}`);
+    announceCanvasClipboard(`Redid ${transition.restored.label.toLocaleLowerCase()}`);
   }
 
   const artboardOperationRef = useRef(false);
@@ -5576,33 +5507,13 @@ export default function ShaderLabStudio({
     }
     const history = designHistoryRef.current;
     if (!history.present) {
-      designHistoryRef.current = {
-        future: [],
-        past: [],
-        present: createDesignHistoryEntry(workspaceArtboards, 'Opened canvas'),
-      };
-      setDesignHistoryRevision((revision) => revision + 1);
+      checkpointDesignCanvasHistory(workspaceArtboards, designHistorySignature, 'Opened canvas');
       return;
     }
     if (history.present.signature === designHistorySignature) return;
     window.clearTimeout(designHistoryTimerRef.current);
     designHistoryTimerRef.current = window.setTimeout(() => {
-      designHistoryTimerRef.current = 0;
-      const latestArtboards = cloneDesignArtboards(workspaceArtboardsRef.current);
-      const current = designHistoryRef.current;
-      if (!current.present) return;
-      const signature = designCanvasHistorySignature(latestArtboards);
-      if (signature === current.present.signature) return;
-      const next = createDesignHistoryEntry(
-        latestArtboards,
-        describeDesignCanvasChange(current.present.artboards, latestArtboards)
-      );
-      designHistoryRef.current = {
-        future: [],
-        past: [...current.past, current.present].slice(-39),
-        present: next,
-      };
-      setDesignHistoryRevision((revision) => revision + 1);
+      checkpointDesignCanvasHistory();
     }, 220);
     return () => window.clearTimeout(designHistoryTimerRef.current);
   }, [activeArtboardId, currentArtboardSignature, designHistorySignature, draftHydrated, workspaceArtboards, workspaceArtboardsRef]);
@@ -5700,7 +5611,7 @@ export default function ShaderLabStudio({
     }
   ) {
     if (!selectedTextAppearance) return;
-    const layer = selectedCanvasLayerElement(selectedCanvasLayerIds.length);
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
     if (!text) return;
     const nextAppearance: TextAppearanceSettings = {
@@ -5730,7 +5641,7 @@ export default function ShaderLabStudio({
 
   function previewSelectedTextWidth(widthScale: number) {
     if (!selectedTextLayer || !selectedTextTransform) return;
-    const layer = selectedCanvasLayerElement(selectedCanvasLayerIds.length);
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     if (!layer) return;
     const geometry = layerGeometry(selectedTextLayer.id, canvasDimensions);
     const width = geometry.baseWidth * widthScale;
@@ -5741,7 +5652,7 @@ export default function ShaderLabStudio({
   }
 
   function previewSelectedContentOpacity(value: number) {
-    const layer = selectedCanvasLayerElement(selectedCanvasLayerIds.length);
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     if (!layer) return;
     const shaderOpacity = selectedLayerShader?.opacity ?? 1;
     if (selectedTextLayer) {
@@ -5758,7 +5669,7 @@ export default function ShaderLabStudio({
     logoColor = selectedLogoLayer?.color ?? '#FFFFFF'
   ) {
     if (!selectedLogoAppearance && !selectedAssetAppearance) return;
-    const layer = selectedCanvasLayerElement(selectedCanvasLayerIds.length);
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     if (!layer) return;
     const currentAppearance = selectedLogoAppearance ?? selectedAssetAppearance;
     if (!currentAppearance) return;
@@ -5799,7 +5710,7 @@ export default function ShaderLabStudio({
 
   function previewSelectedStickerFinish(patch: Partial<StickerFinishSettings>) {
     if (selectedAsset?.kind !== 'sticker') return;
-    const layer = selectedCanvasLayerElement(selectedCanvasLayerIds.length);
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     const overlay = layer?.querySelector<HTMLElement>('.shader-lab-v2-sticker-finish-overlay');
     if (!overlay) return;
     const finish = normalizeStickerFinish({ ...selectedAsset.stickerFinish, ...patch });
@@ -6754,6 +6665,8 @@ export default function ShaderLabStudio({
       ({ id }) => id === restoredWorkspace.activeArtboardId
     )?.snapshot ?? restoredActiveSnapshot;
 
+    const restoredHistorySignature = checkpointAppliedDesignSource(restoredWorkspace.artboards);
+
     // Opening source updates a set of independently persisted fields. Keep the
     // exact saved artboard authoritative until every live field has reached the
     // same snapshot; otherwise an intermediate render can publish the previous
@@ -6763,6 +6676,7 @@ export default function ShaderLabStudio({
       signature: artboardSnapshotSignature(restoredWorkspaceSnapshot),
     };
     workspaceArtboardsRef.current = restoredWorkspace.artboards;
+    designHistorySignatureRef.current = restoredHistorySignature;
     activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
     currentArtboardSnapshotRef.current = restoredWorkspaceSnapshot;
 
@@ -7538,7 +7452,7 @@ export default function ShaderLabStudio({
     },
     invoke: (action, input) => invokeDesignAutomationAction(designAutomationRef.current, action, input),
     toolId: automationToolId ?? tool.id,
-  }), [automationToolId, designAutomationRef, tool.id]);
+  }, studioRootRef.current), [automationToolId, designAutomationRef, tool.id]);
 
   function refreshExportPreview() {
     if (!lastExportRequest || exporting) return;
@@ -8407,7 +8321,12 @@ export default function ShaderLabStudio({
 
   function renderStudio() {
     return (
-    <div className='shader-lab-v2 tool-shell h-full min-h-0'>
+    <div
+      className='shader-lab-v2 tool-shell h-full min-h-0'
+      onKeyDownCapture={beginCanvasHistoryKey}
+      onPointerDownCapture={beginCanvasHistoryPointer}
+      ref={studioRootRef}
+    >
       {renderStudioHeader()}
 
       <div className='shader-lab-v2-layout studio-scroll-area'>
@@ -8704,6 +8623,7 @@ export default function ShaderLabStudio({
                 previewSelectedTextWidth={previewSelectedTextWidth}
                 selectedCanvasLayerCount={selectedCanvasLayerIds.length}
                 selection={selection}
+                stageRef={stageRef}
                 textRenderedWeight={selectedTextRenderedWeight}
                 textWeightRange={selectedTextWeightRange}
                 updateTextLayer={updateTextLayer}

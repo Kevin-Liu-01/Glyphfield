@@ -11,7 +11,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { T, useGT } from 'gt-next';
 import { useTheme } from 'next-themes';
@@ -59,6 +58,7 @@ import StudioSelect from '@/components/ui/StudioSelect';
 import { useHydrated, useMountEffect } from '@/hooks/useMountEffect';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
 import {
   createBrandIdentity,
   duplicateBrandIdentity,
@@ -141,15 +141,6 @@ const LEGACY_SURFACE_TOOL_MODES = {
   logo: 'logo',
 } as const;
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
-
-type ProjectTabDragState = {
-  originOrder: string[];
-  placement: ProjectTabPlacement;
-  pointerOffsetX: number;
-  previewOrder: string[];
-  sourceId: string;
-  targetId: string;
-};
 
 type ProjectTabMenuState = {
   identityId: string;
@@ -936,22 +927,6 @@ export default function StudioApp() {
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
-  const projectTabDragRef = useRef<ProjectTabDragState | null>(null);
-  const projectTabFrameRef = useRef<number | null>(null);
-  const projectTabSelectionRef = useRef<HTMLSpanElement>(null);
-  const projectTabPointerDragRef = useRef<{
-    centers: number[];
-    moved: boolean;
-    originOrder: string[];
-    pendingClientX: number;
-    pointerId: number;
-    sourceIndex: number;
-    sourceId: string;
-    startX: number;
-    startY: number;
-    tabs: HTMLElement[];
-  } | null>(null);
-  const suppressProjectTabClickRef = useRef<string | null>(null);
   const [projectTabMenu, setProjectTabMenu] = useState<ProjectTabMenuState | null>(null);
   const [tabOrderAnnouncement, setTabOrderAnnouncement] = useState('');
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
@@ -1023,6 +998,24 @@ export default function StudioApp() {
   const activeProjectTabIndex = visibleIdentities.findIndex(
     ({ id }) => id === activeIdentity?.id
   );
+  const {
+    projectTabSelectionRef,
+    handleProjectTabPointerDown,
+    handleProjectTabPointerMove,
+    handleProjectTabPointerEnd,
+    handleProjectTabPointerCancel,
+    handleProjectTabClickCapture,
+    handleProjectTabClick,
+  } = useProjectTabInteraction({
+    activeIdentityId: activeIdentity?.id,
+    activeProjectTabIndex,
+    onDragStart: () => setProjectTabMenu(null),
+    onReorder: commitProjectTabReorder,
+    onSelect: (identityId) => {
+      setProjectTabMenu(null);
+      selectIdentity(identityId);
+    },
+  });
   const openIdentityIdSet = useMemo(() => new Set(openIdentityIds), [openIdentityIds]);
   const activeIdentityIsOpen = openIdentityIdSet.has(activeIdentity?.id ?? '');
   const projectTabMenuIdentity = projectTabMenu
@@ -1416,210 +1409,6 @@ export default function StudioApp() {
     );
   }
 
-  function handleProjectTabPointerDown(
-    event: ReactPointerEvent<HTMLDivElement>,
-    identityId: string
-  ) {
-    if (event.button !== 0) return;
-    const target = event.target;
-    if (
-      target instanceof HTMLElement &&
-      target.closest('.project-tab-close')
-    ) {
-      return;
-    }
-    projectTabPointerDragRef.current = {
-      centers: [],
-      moved: false,
-      originOrder: [],
-      pendingClientX: event.clientX,
-      pointerId: event.pointerId,
-      sourceIndex: -1,
-      sourceId: identityId,
-      startX: event.clientX,
-      startY: event.clientY,
-      tabs: [],
-    };
-  }
-
-  function clearProjectTabDrag() {
-    if (projectTabFrameRef.current !== null) {
-      window.cancelAnimationFrame(projectTabFrameRef.current);
-      projectTabFrameRef.current = null;
-    }
-    const pointerDrag = projectTabPointerDragRef.current;
-    pointerDrag?.tabs.forEach((tab) => {
-      delete tab.dataset.dragging;
-      delete tab.dataset.shifting;
-      tab.style.removeProperty('transform');
-    });
-    const selection = projectTabSelectionRef.current;
-    if (selection) {
-      selection.style.transform = `translate3d(calc(${activeProjectTabIndex} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`;
-    }
-    projectTabDragRef.current = null;
-    projectTabPointerDragRef.current = null;
-  }
-
-  function applyProjectTabDragFrame(
-    pointerDrag: NonNullable<typeof projectTabPointerDragRef.current>
-  ) {
-    projectTabFrameRef.current = null;
-    if (projectTabPointerDragRef.current !== pointerDrag || !pointerDrag.moved) return;
-    const clientX = pointerDrag.pendingClientX;
-    const firstCenter = pointerDrag.centers[0] ?? clientX;
-    const lastCenter = pointerDrag.centers.at(-1) ?? clientX;
-    const minimumOffset = firstCenter - pointerDrag.centers[pointerDrag.sourceIndex];
-    const maximumOffset = lastCenter - pointerDrag.centers[pointerDrag.sourceIndex];
-    const pointerOffsetX = Math.min(
-      maximumOffset,
-      Math.max(minimumOffset, clientX - pointerDrag.startX)
-    );
-    const draggedCenter =
-      pointerDrag.centers[pointerDrag.sourceIndex] + pointerOffsetX;
-    const remainingTabs = pointerDrag.originOrder.reduce<Array<{ center: number; id: string }>>(
-      (tabs, id, index) => {
-        if (id !== pointerDrag.sourceId) tabs.push({ center: pointerDrag.centers[index] ?? 0, id });
-        return tabs;
-      },
-      []
-    );
-    const movingRight = pointerOffsetX > 0;
-    const previewIndex = remainingTabs.filter(({ center }) => (
-      movingRight ? center <= draggedCenter : center < draggedCenter
-    )).length;
-    const previewOrder = remainingTabs.map(({ id }) => id);
-    previewOrder.splice(previewIndex, 0, pointerDrag.sourceId);
-
-    const orderChanged = previewIndex !== pointerDrag.sourceIndex;
-    const targetId = orderChanged
-      ? previewIndex < pointerDrag.sourceIndex
-        ? remainingTabs[previewIndex]?.id ?? pointerDrag.sourceId
-        : remainingTabs[previewIndex - 1]?.id ?? pointerDrag.sourceId
-      : pointerDrag.sourceId;
-    const placement: ProjectTabPlacement =
-      previewIndex < pointerDrag.sourceIndex ? 'before' : 'after';
-    const nextDrag: ProjectTabDragState = {
-      originOrder: pointerDrag.originOrder,
-      placement,
-      pointerOffsetX,
-      previewOrder,
-      sourceId: pointerDrag.sourceId,
-      targetId,
-    };
-    projectTabDragRef.current = nextDrag;
-
-    pointerDrag.tabs.forEach((tab, originIndex) => {
-      const identityId = pointerDrag.originOrder[originIndex];
-      if (identityId === pointerDrag.sourceId) {
-        tab.dataset.dragging = 'true';
-        delete tab.dataset.shifting;
-        tab.style.transform = `translate3d(${pointerOffsetX}px, 0, 0)`;
-        return;
-      }
-      const destinationIndex = previewOrder.indexOf(identityId);
-      const slotOffset = destinationIndex - originIndex;
-      if (slotOffset === 0) {
-        delete tab.dataset.shifting;
-        tab.style.removeProperty('transform');
-        return;
-      }
-      tab.dataset.shifting = 'true';
-      tab.style.transform = `translate3d(calc(${slotOffset} * (var(--project-tab-width) + var(--project-tab-gap))), 0, 0)`;
-    });
-
-    const selection = projectTabSelectionRef.current;
-    if (selection) {
-      const selectedIdentityId = activeIdentity?.id ?? '';
-      const activeIndex = pointerDrag.originOrder.indexOf(selectedIdentityId);
-      const selectionIndex = selectedIdentityId === pointerDrag.sourceId
-        ? activeIndex
-        : previewOrder.indexOf(selectedIdentityId);
-      const selectionOffset = selectedIdentityId === pointerDrag.sourceId
-        ? ` + ${pointerOffsetX}px`
-        : '';
-      selection.style.transform = `translate3d(calc(${selectionIndex} * (var(--project-tab-width) + var(--project-tab-gap))${selectionOffset}), 0, 0)`;
-    }
-  }
-
-  function handleProjectTabPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const pointerDrag = projectTabPointerDragRef.current;
-    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-    if (!pointerDrag.moved) {
-      const distance = Math.hypot(
-        event.clientX - pointerDrag.startX,
-        event.clientY - pointerDrag.startY
-      );
-      if (distance <= 5) return;
-      const tabs = Array.from(event.currentTarget.parentElement?.children ?? []).filter(
-        (element): element is HTMLElement =>
-          element instanceof HTMLElement && Boolean(element.dataset.projectId)
-      );
-      const sourceIndex = tabs.findIndex(
-        ({ dataset }) => dataset.projectId === pointerDrag.sourceId
-      );
-      const bounds = tabs.map((tab) => tab.getBoundingClientRect());
-      if (sourceIndex < 0 || !bounds[sourceIndex]) {
-        clearProjectTabDrag();
-        return;
-      }
-      pointerDrag.centers = bounds.map(({ left, width }) => left + width / 2);
-      pointerDrag.moved = true;
-      pointerDrag.originOrder = tabs.map(({ dataset }) => dataset.projectId ?? '');
-      pointerDrag.sourceIndex = sourceIndex;
-      pointerDrag.tabs = tabs;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setProjectTabMenu(null);
-    }
-    event.preventDefault();
-    pointerDrag.pendingClientX = event.clientX;
-    if (projectTabFrameRef.current === null) {
-      projectTabFrameRef.current = window.requestAnimationFrame(() => {
-        applyProjectTabDragFrame(pointerDrag);
-      });
-    }
-  }
-
-  function handleProjectTabPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
-    const pointerDrag = projectTabPointerDragRef.current;
-    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-    if (projectTabFrameRef.current !== null) {
-      window.cancelAnimationFrame(projectTabFrameRef.current);
-      projectTabFrameRef.current = null;
-      pointerDrag.pendingClientX = event.clientX;
-      applyProjectTabDragFrame(pointerDrag);
-    }
-    const currentDrag = projectTabDragRef.current;
-    if (pointerDrag.moved) {
-      suppressProjectTabClickRef.current = pointerDrag.sourceId;
-      window.setTimeout(() => {
-        if (suppressProjectTabClickRef.current === pointerDrag.sourceId) {
-          suppressProjectTabClickRef.current = null;
-        }
-      }, 80);
-    }
-    clearProjectTabDrag();
-    if (
-      pointerDrag.moved &&
-      currentDrag &&
-      currentDrag.sourceId !== currentDrag.targetId
-    ) {
-      commitProjectTabReorder(
-        currentDrag.sourceId,
-        currentDrag.targetId,
-        currentDrag.placement
-      );
-    }
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  function handleProjectTabPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
-    const pointerDrag = projectTabPointerDragRef.current;
-    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
-    clearProjectTabDrag();
-  }
 
   function openProjectTabContext(
     identityId: string,
@@ -1648,12 +1437,8 @@ export default function StudioApp() {
         data-selected={selected ? 'true' : 'false'}
         data-studio-context-trigger='project-tab'
         key={identity.id}
-        onClickCapture={(event) => {
-          if (suppressProjectTabClickRef.current !== identity.id) return;
-          event.preventDefault();
-          event.stopPropagation();
-          suppressProjectTabClickRef.current = null;
-        }}
+        onClick={(event) => handleProjectTabClick(event, identity.id)}
+        onClickCapture={(event) => handleProjectTabClickCapture(event, identity.id)}
         onContextMenu={(event) => {
           event.preventDefault();
           openProjectTabContext(identity.id, contextMenuPositionFromEvent(event));
@@ -1670,11 +1455,7 @@ export default function StudioApp() {
             openProjectTabContext(identity.id, contextMenuPositionFromElement(event.currentTarget));
           }
         }}
-        onLostPointerCapture={(event) => {
-          if (projectTabPointerDragRef.current?.pointerId === event.pointerId) {
-            clearProjectTabDrag();
-          }
-        }}
+        onLostPointerCapture={handleProjectTabPointerCancel}
         onPointerCancel={handleProjectTabPointerCancel}
         onPointerDown={(event) => handleProjectTabPointerDown(event, identity.id)}
         onPointerEnter={() => warmProjectWorkspace(identity.id)}
