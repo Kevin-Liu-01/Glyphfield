@@ -4,13 +4,20 @@ Updated: 2026-09-09
 
 ## Landing and Animation Studio lifecycle
 
-The hero uses the real Animation Studio. Its eager idle delay is now 600ms,
-not 3600ms; held pointer gestures still defer the initial mount. Once ready,
-one editor remains mounted for the page visit, preserving edits and play/pause
-intent. Its prepared native shader pauses outside the viewport rather than
-recompiling or resetting phase on return. Other distant landing fields retain
+The hero uses the real Animation Studio, rendered directly into the initial
+page HTML. Its primary controls do not wait for a client-only import, streamed
+loading boundary, idle timer, or the end of a held pointer gesture. Optional
+offscreen demos still defer their mount. One editor remains mounted for the page
+visit, preserving edits and play/pause intent. Its prepared native shader pauses
+outside the viewport rather than recompiling or resetting phase on return. Other distant landing fields retain
 their bounded prewarm/release policy. The hero no longer overrides the native
 60fps preview target with a 30fps stepper.
+
+Presentation mode keeps live editing and playback but does not build/hash a
+portable document, embed logo bytes, serialize source, or read/write portable
+autosaves. The hidden file/export header is not mounted. Normal Studio still
+uses those persistence and sharing paths. The shared source trigger is a small
+leaf component; the code drawer and export implementations load on demand.
 
 The brand rail no longer speculatively prefetches every example project and
 folder route during hero startup. A recorded WebKit trace showed 23 overlapping
@@ -41,11 +48,161 @@ GLYPHFIELD_PERF_BASE_URL=http://localhost:3018 pnpm test:performance --landing-o
 
 The scroll benchmark now waits for the loaded editor, and `--landing-only` also
 checks real shader pixels before viewport entry. Browser regression attachments
-record navigation-to-editor readiness and native clock updates per display
-opportunity. Neither callback timing nor clock advancement proves GPU completion
+record initial editor markup, first-control response, authentic shader readiness,
+script requests, and native clock updates per display opportunity. Neither
+callback timing nor clock advancement proves GPU completion
 or monitor presentation FPS.
 
 ### 2026-09-09 local production-build verification
+
+#### Strict 250ms startup follow-up (target not met)
+
+The dedicated `pnpm test:landing-startup` command enforces **250ms from
+navigation** for real editor markup, hydration, and all three native hero shader
+surfaces. It is deliberately separate from the older 2.8s functional regression
+guard. Skeletons, posters, hidden SSR subtrees, and a merely allocated canvas do
+not satisfy readiness. Cold timing uses passive mutation observations; the first
+Pause action is tested afterward so accessibility queries and input do not
+compete with the startup interval. Input acknowledgement is measured separately
+from browser automation round-trip time.
+
+This follow-up removes the hero mark's 700ms timer, the eager background's 420ms
+idle admission, and their unnecessary client chunk waterfall. Nearby optional
+shaders may still prewarm quietly, but entering their viewport margin bypasses
+idle scheduling so continuous scrolling cannot postpone the visible renderer.
+The explicit interaction hold for optional full editors is not bypassed.
+
+The initial dependency graph now includes only Paper Dithering and Grain
+Gradient; the other 27 families load on demand. A delayed family retains the
+latest requested frame and only starts its GPU watchdog after the renderer
+arrives. Icon weight maps are individually tree-shakeable leaves. The landing
+GT identity imports its canonical leaf data instead of evaluating every brand
+preset. A pinned `@generaltranslation/format` patch returns an already-validated,
+normalized exact locale candidate before expensive dialect ranking; aliases,
+invalid inputs, non-exact matching, and translation behavior remain covered in
+both the installed ESM and CJS entry points.
+
+The fourth build's deduplicated page-plus-hero application JavaScript is
+341,890 gzip bytes across 19 chunks, down from 474,267 bytes before this
+follow-up (27.9%). This excludes shared framework runtime, styles, and fonts;
+it is not the page's total transferred bytes.
+
+Other reductions include stable initial editor settings, no duplicate persistent
+fallback evaluation, content containment below the hero, batched marketing
+layout reads, and pausing offscreen decorative motion. Timeline cards share one
+immutable, bounded native shader snapshot per source canvas/appearance/size:
+the component regression reduces eight identical GPU copies to one. Pending,
+failed, zero-size, and recovered buffers cannot reuse an invalid snapshot.
+Authored state, native playback, exact paused frames, and export are unchanged.
+
+The fourth local production build's untraced, cold page samples at 1440×1000
+still **fail the 250ms gate in all three engines**:
+
+| Milestone (ms) | Chromium | WebKit | Firefox |
+| --- | ---: | ---: | ---: |
+| Visible real editor markup | 204 | 126 | 139 |
+| Editor hydrated | 557 | 532 | 609 |
+| Studio shader ready | 1,090 | 713 | 784 |
+| All three hero shaders ready | 1,132 | 746 | 805 |
+| First Pause input acknowledged | 39 | 29 | 37 |
+
+These are local samples, not production-network guarantees or proven screen
+presentation timings. Earlier headed Chromium samples also missed 250ms. An
+opt-in GPU trace identified 339ms and 412ms synchronous `ReadPixels` waits during
+compositor layer updates; fast JavaScript shader initialization calls do not
+rule out lazy GPU/driver work. The trace alone does not isolate compositor work
+from native-buffer copies or prove a specific GPU speedup from the snapshot
+cache. Keep the strict gate red until actual cold readiness meets it.
+
+All 60 functional landing, selection, prefetch, optional-renderer and decoded
+GIF/MP4 checks pass across Chromium, WebKit, and Firefox. This includes cold
+section links/reloads and keyboard focus inside contained offscreen content.
+The full unit suite passes 1,532 tests across 195 files; production build/type
+checking, full lint, and the agent-docs doctor also pass. Those successful
+functional checks do **not** make the separate 250ms gate pass.
+
+A later untraced strict repeat still failed in all three engines: editor
+hydration was 323/529/606ms and all hero shaders were ready at 964/742/823ms
+(Chromium/WebKit/Firefox). First-input acknowledgement was 39/30/44ms. The
+post-cache diagnostic trace measured all JavaScript `drawImage` calls below
+0.5ms and shader compilation/status calls below 5ms, but compositor `ReadPixels`
+waits still reached 176ms. Do not conflate fast submission with a displayed GPU
+frame or attribute all remaining stalls to the thumbnail-copy count.
+
+The final foreground landing-scroll probe passed the unchanged limits: p95
+17.4ms, p99 17.7ms, maximum 41.7ms, no long tasks, no long-frame blocking,
+and CLS 0. The same 19 canvases and 1,817 DOM nodes remain after returning to
+the top. The below-fold shader painted 25 sampled colors before entry in 492ms
+and retained its canvas nearby. Two earlier samples failed with 65/80ms tasks;
+a traced sample passed. An unrelated GPU-rendering job was observed on the
+shared machine, but these failures are retained rather than attributed to it
+without controlled evidence. Startup and scroll performance are not declared
+universally solved.
+
+The diagnostic now records the actual GPU renderer, vendor, drawing-buffer size,
+and DPR. Default headless Chromium reported SwiftShader (software Vulkan).
+The opt-in `GLYPHFIELD_BROWSER_NATIVE_GPU=1` sets Chromium's documented
+`--enable-gpu` flag without changing the default test environment or bypassing
+driver blocklists. It reported ANGLE Metal on Apple M5 Max. Its first profiled
+launch spent 5.87s inside the support probe's `getContext` call; this is retained
+as a slow cold-driver sample. Three later untraced native-GPU launches still
+missed 250ms: editor hydration 571/634/651ms, all hero shaders
+861/913/925ms, and input acknowledgement 62/60/68ms. Hardware rendering alone
+does not make the startup target pass. These are shared-host measurements, not
+isolated-device guarantees.
+
+Chromium documents GPU admission for headless testing in
+[Using GPU Hardware in Headless Chrome](https://chromium.googlesource.com/chromium/src.git/+/HEAD/docs/gpu/using-gpu-hardware-in-headless-chrome.md).
+
+#### Immediate hero startup follow-up
+
+Three isolated cold Chromium page contexts at 1440×1000 produced these local
+production-server samples (milliseconds from navigation):
+
+| Milestone | Before | After |
+| --- | --- | --- |
+| Real editor markup | 2,058 / 1,735 / 1,475 | 94 / 95 / 174 |
+| Authentic shader ready | 3,145 / 2,574 / 2,118 | 929 / 1,181 / 1,001 |
+| First Pause click acknowledged | Not separately measured | 1,026 / 1,376 / 1,085 |
+
+The shader-ready median fell from 2,574ms to 1,001ms (61%). The final test clicks
+Pause before waiting for shader readiness, confirms Play is available, and
+checks for hydration/page errors. A separate JavaScript-disabled browser test
+requires the real artboard controls and storyboard slider in visible initial
+HTML—not a hidden streamed subtree or loading placeholder. The presentation
+body must fill at least 90% of the editor height. This caught a headerless-grid
+regression that squeezed the body into the old 53px header track: a canvas can
+exist and report ready while still clipped. The single-row layout fix also
+resolved Firefox's correctly paused, non-intersecting shader. Three isolated
+Firefox cadence repeats passed afterward without changing the native clock.
+These are local startup measurements, not production-network or GPU-throughput
+guarantees.
+
+Deduplicated page-plus-hero application JavaScript decreased from 504,821 to
+474,267 gzip bytes (6.05%), excluding the shared main runtime, global CSS, and
+fonts. Those chunks are now discovered together rather than after the hero's
+timer. Source editing, syntax grammars, export implementations/codecs, and the
+project-file parser stay outside that critical set. The Paper shader registry
+and icon weight maps remain significant dependencies; this is not a claim that
+the entire editor has become a tiny bundle.
+
+All 51 final landing, selection, prefetch, and decoded GIF/MP4 export checks pass
+across Chromium, WebKit, and Firefox. In that broader run, shader readiness was
+1,595ms, 1,729ms, and 922ms respectively; the isolated samples above are not a
+worst-case guarantee. All 1,440 unit tests across 186 files, the production
+build/type check, full lint, and agent-docs checks also pass.
+
+The final foreground landing-scroll probe passes the unchanged timing and
+retention limits: p95 17.5ms, p99 32.6ms, maximum 41.6ms, four missed-interval
+samples out of 204 (2%), and zero long tasks, long animation frames, or layout
+shift. Returning to the top retains 19 canvases and 1,815 DOM nodes. The offscreen
+shader painted 25 sampled colors in 561ms before entry and retained its canvas.
+DOM snapshots now wait for a text-frame inspector both before and after the
+probe; comparing the previous image inspector with a text inspector had falsely
+reported 43 additional nodes. These waits occur outside timing measurement,
+do not pause playback, and do not relax any budget.
+
+#### Earlier lifecycle baseline
 
 - All 1,384 unit tests in 183 files, full lint, the production build/type check,
   and the agent-docs doctor pass. Thirty final landing, selection, and prefetch

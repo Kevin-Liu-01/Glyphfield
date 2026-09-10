@@ -39,7 +39,7 @@ async function checkNavigation(harness) {
   const read = () => evaluate(() => JSON.parse(window.glyphfield.studio.readSource()).metadata.designLab.workspace);
   const view = () => evaluate((selector) => document.querySelector(selector).style.transform, viewportStage);
   const original = await read();
-  await click('.design-artboard-toolbar-sidebar button[title="Add blank artboard"]');
+  await click('.design-lab-artboard-bar button[aria-label="Add blank artboard"]');
   await waitFor(() => document.querySelectorAll('.design-artboard-shell').length === 2, 'second artboard');
   await click('button[aria-label="Fit canvas"]');
   const before = await read();

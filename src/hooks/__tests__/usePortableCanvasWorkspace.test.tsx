@@ -46,17 +46,19 @@ function workspaceDocument(revision = 7) {
 
 function WorkspaceHarness({
   applySource,
+  enabled = true,
   onWorkspace,
   suspendAutosave = false,
 }: {
   applySource: (source: string) => void;
+  enabled?: boolean;
   onWorkspace: (workspace: PortableCanvasWorkspace) => void;
   suspendAutosave?: boolean;
 }) {
   const document = useMemo(() => workspaceDocument(), []);
   const workspace = usePortableCanvasWorkspace({
     applySource,
-    document,
+    document: enabled ? document : null,
     suspendAutosave,
     workspaceKey: 'gt:test-tool',
   });
@@ -97,6 +99,22 @@ describe('usePortableCanvasWorkspace', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     document.body.replaceChildren();
+  });
+
+  it('does no source preparation or autosave work for a presentation with no document', async () => {
+    const applySource = vi.fn();
+    const workspaces: PortableCanvasWorkspace[] = [];
+    await act(async () => {
+      root.render(<WorkspaceHarness applySource={applySource} enabled={false} onWorkspace={(workspace) => workspaces.push(workspace)} />);
+      await settle();
+      vi.advanceTimersByTime(1_000);
+      await settle();
+    });
+
+    expect(workspaces.at(-1)).toEqual({ autosaveState: 'saved', document: null, error: null, source: null, status: 'ready' });
+    expect(storage.loadAutosavedDesign).not.toHaveBeenCalled();
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    expect(applySource).not.toHaveBeenCalled();
   });
 
   it('invariant_autosave_persists_the_exact_portable_document_source', async () => {

@@ -58,26 +58,29 @@ describe('shared Studio control layout', () => {
 
   it('gives Animation Studio a responsive output-artboard workflow', () => {
     const animation = source('src/components/AnimationStudio.tsx');
+    const artboardBar = source('src/components/StudioArtboardBar.tsx');
     const controls = source('src/components/StudioControls.tsx');
     const sizeMenu = source('src/components/ArtboardSizeMenu.tsx');
     const styles = source('src/app/globals.css');
 
-    expect(animation).toContain("aria-label='Animation artboards'");
-    expect(animation).toContain("ariaLabel='Active animation artboard'");
-    expect(animation).toContain("aria-label='Add animation artboard'");
-    expect(animation).toContain("aria-label='Duplicate animation artboard'");
-    expect(animation).toContain("aria-label='Delete animation artboard'");
-    expect(animation).toContain('<ArtboardSizeMenu');
+    expect(animation).toContain("ariaLabel='Animation artboards'");
+    expect(animation).toContain("selectLabel='Active animation artboard'");
+    expect(animation).toContain("addLabel='Add animation artboard'");
+    expect(animation).toContain("duplicateLabel='Duplicate animation artboard'");
+    expect(animation).toContain("removeLabel='Delete animation artboard'");
+    expect(animation).toContain('<StudioArtboardBar');
+    expect(artboardBar).toContain('<ArtboardSizeMenu');
     expect(sizeMenu).toContain("aria-label='Artboard size presets'");
     expect(sizeMenu).toContain("<legend>Custom size</legend>");
     expect(controls).not.toContain("title={<T>Active artboard</T>}");
     expect(controls).toContain("title={<T>Output</T>}");
-    expect(animation).toContain("className='animation-artboard-file-controls'");
+    expect(artboardBar).toContain('studio-artboard-file-controls');
     expect(animation).toContain('workspaceControls={animationWorkspaceControls}');
-    expect(animation).toContain("label: artboard.name.trim() || 'Untitled animation'");
-    expect(animation).not.toContain("label: `${artboard.name.trim() || 'Untitled animation'} · ${artboard.snapshot.settings.width}×${artboard.snapshot.settings.height}`");
-    expect(styles).toContain(".animation-artboard-bar[data-has-file-controls='true']");
-    expect(styles).toMatch(/\.animation-artboard-bar\s*\{[\s\S]*?grid-template-columns:/);
+    expect(animation).toContain("untitledName='Untitled animation'");
+    expect(styles).toContain(".studio-artboard-bar[data-has-file-controls='true']");
+    expect(styles).toMatch(/\.studio-artboard-bar\s*\{[^}]*display: flex;/);
+    expect(artboardBar).toContain("data-slot='artboard-start'");
+    expect(artboardBar).toContain("data-slot='artboard-end'");
     expect(styles).toContain(".artboard-size-preset-grid > button[aria-pressed='true']");
   });
 
@@ -85,13 +88,16 @@ describe('shared Studio control layout', () => {
     const designLab = source('src/components/ShaderLabStudio.tsx');
     const styles = source('src/app/globals.css');
 
-    expect(designLab).toContain("className='design-artboard-size-trigger'");
-    expect(designLab).toContain("renderArtboardToolbar('sidebar')");
-    expect(designLab).toContain("renderArtboardToolbar('canvas')");
+    expect(designLab).toContain('<StudioArtboardBar');
+    expect(designLab).toContain("className='design-lab-artboard-bar'");
+    expect(designLab).not.toContain("renderArtboardToolbar('sidebar')");
     expect(designLab).toContain("if (ratio === 'square') return { height: 1200, width: 1200 };");
     expect(designLab).toContain('shader-lab-v1-canvas-dimensions');
     expect(designLab).toContain('onDimensionsChange={updateActiveArtboardDimensions}');
-    expect(styles).toMatch(/@container tool-shell \(max-width: 1560px\)\s*\{[\s\S]*?\.design-artboard-toolbar-canvas\s*\{[\s\S]*?display: none;[\s\S]*?\.design-artboard-toolbar-sidebar\s*\{[\s\S]*?display: grid;/);
+    expect(styles).toContain('@container (max-width: 700px)');
+    expect(designLab).toContain('workspaceControls={<DesignVersionFileActions />}');
+    expect(designLab).toContain('versionHistory={<DesignVersionHistory />}');
+    expect(designLab).toContain('<DesignVersionProvider');
   });
 
   it('keeps the Design Lab shader search attached to its header without a divider', () => {
@@ -295,6 +301,18 @@ describe('shared Studio control layout', () => {
     expect(controls).not.toContain('<T>Your animations</T>');
     expect(versions).toContain('async function startNewDesign()');
     expect(styles).toContain(".root[data-layout='panel']");
+  });
+
+  it('gives the header-free Animation presentation one full-height grid row without changing normal Studio', () => {
+    const animation = source('src/components/AnimationStudio.tsx');
+    const styles = source('src/app/globals.css');
+    const studioRows = styles.match(/\.animation-studio\s*\{[^}]*grid-template-rows:\s*([^;]+);[^}]*\}/);
+    const presentationRows = styles.match(/\.animation-studio-presentation\s*\{[^}]*grid-template-rows:\s*([^;]+);[^}]*\}/);
+
+    expect(animation).toContain('{presentationMode ? null : <StudioToolHeader');
+    expect(studioRows?.[1]).toBe('var(--studio-toolbar-height) minmax(0, 1fr)');
+    expect(presentationRows?.[1]).toBe('minmax(0, 1fr)');
+    expect(presentationRows?.index).toBeGreaterThan(studioRows?.index ?? -1);
   });
 
   it('keeps the marketing hero focused on the live animation workflow', () => {

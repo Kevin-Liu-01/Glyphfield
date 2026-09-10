@@ -12,9 +12,10 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { T, useGT } from 'gt-next';
-import { History, Maximize2, Minus, Plus, RotateCcw, RotateCw } from '@/components/ui/SolidIcons';
+import { History, Maximize2, Minus, Plus, RotateCcw, RotateCw, ScanLine } from '@/components/ui/SolidIcons';
 
 import { Button } from '@/components/ui/Button';
 import StudioContextMenu, {
@@ -39,6 +40,10 @@ function hasNavigationItems(items: readonly CanvasNavigationItem[] | undefined) 
 
 function OptionalCanvasMinimap(props: Omit<ComponentProps<typeof CanvasMinimap>, 'items'> & { items?: readonly CanvasNavigationItem[] }) {
   return props.items?.length ? <CanvasMinimap {...props} items={props.items} /> : null;
+}
+
+function OptionalCanvasVersionHistory({ children }: { children?: ReactNode }) {
+  return children ? <><span className='canvas-toolbar-divider' />{children}</> : null;
 }
 import {
   clampCanvasZoom,
@@ -72,6 +77,53 @@ function handleHistoryShortcut(event: KeyboardEvent, history?: CanvasActionHisto
   return true;
 }
 
+function historyOwnerActive(trigger: HTMLButtonElement | null): boolean {
+  return Boolean(trigger?.isConnected && !trigger.closest('[inert], [hidden], .studio-workspace-layer[data-active="false"], .studio-project-workspace-layer[data-active="false"]'));
+}
+
+function useCanvasHistoryDismiss(
+  open: boolean,
+  triggerRef: RefObject<HTMLButtonElement | null>,
+  surfaceRef: RefObject<HTMLElement | null>,
+  onDismiss: () => void
+) {
+  const dismissRef = useCommittedRef(onDismiss);
+  useEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && (trigger?.contains(event.target) || surfaceRef.current?.contains(event.target))) return;
+      dismissRef.current();
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      dismissRef.current();
+      // Another workspace may have taken focus before its observer is delivered.
+      if (!historyOwnerActive(trigger)) return;
+      event.preventDefault();
+      trigger?.focus({ preventScroll: true });
+    };
+    const owners = [
+      trigger?.closest<HTMLElement>('.studio-workspace-layer'),
+      trigger?.closest<HTMLElement>('.studio-project-workspace-layer'),
+    ].filter((owner): owner is HTMLElement => Boolean(owner));
+    const dismissInactive = () => {
+      if (!historyOwnerActive(trigger)) dismissRef.current();
+    };
+    // Observe just the owning retained layers, never the whole page.
+    const observer = new MutationObserver(dismissInactive);
+    owners.forEach((owner) => observer.observe(owner, { attributes: true, attributeFilter: ['data-active', 'inert', 'hidden'] }));
+    dismissInactive();
+    document.addEventListener('pointerdown', dismissOutside, true);
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('pointerdown', dismissOutside, true);
+      document.removeEventListener('keydown', dismissOnEscape);
+    };
+  }, [dismissRef, open, surfaceRef, triggerRef]);
+}
+
 export default function CanvasViewport({
   actionHistory,
   autoFit = false,
@@ -93,6 +145,7 @@ export default function CanvasViewport({
   onDeselect,
   stageClassName = '',
   toolId,
+  versionHistory,
 }: {
   actionHistory?: CanvasActionHistory;
   autoFit?: boolean;
@@ -114,6 +167,7 @@ export default function CanvasViewport({
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
+  versionHistory?: ReactNode;
 }) {
   const gt = useGT();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -148,6 +202,9 @@ export default function CanvasViewport({
   const navigationEnabled = hasNavigationItems(navigationItems);
   const [spacePressed, setSpacePressed] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const historyTriggerRef = useRef<HTMLButtonElement>(null);
+  const historySurfaceRef = useRef<HTMLElement>(null);
+  useCanvasHistoryDismiss(historyOpen, historyTriggerRef, historySurfaceRef, () => setHistoryOpen(false));
   const actionHistoryRef = useCommittedRef(actionHistory);
   const [viewMenuPosition, setViewMenuPosition] = useState<StudioContextMenuPosition | null>(null);
   useCanvasSelectionDismiss(viewportRef, onDeselect);
@@ -484,7 +541,7 @@ export default function CanvasViewport({
         </Button>
         <span className='canvas-toolbar-divider' />
         <Button aria-label={gt('Reset view')} onClick={resetView} size='icon-sm' title={gt('Reset view')} type='button' variant='ghost'>
-          <RotateCcw aria-hidden='true' />
+          <ScanLine aria-hidden='true' />
         </Button>
         <Button aria-label={gt('Fit canvas')} onClick={fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
           <Maximize2 aria-hidden='true' />
@@ -492,11 +549,18 @@ export default function CanvasViewport({
         {actionHistory ? (
           <>
             <span className='canvas-toolbar-divider' />
+            <Button aria-keyshortcuts='Meta+Z Control+Z' aria-label={gt('Undo')} disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo} size='icon-sm' title={gt('Undo')} type='button' variant='ghost'>
+              <RotateCcw aria-hidden='true' />
+            </Button>
+            <Button aria-keyshortcuts='Meta+Shift+Z Control+Shift+Z' aria-label={gt('Redo')} disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo} size='icon-sm' title={gt('Redo')} type='button' variant='ghost'>
+              <RotateCw aria-hidden='true' />
+            </Button>
             <Button
               aria-expanded={historyOpen}
               aria-haspopup='dialog'
               aria-label={gt('Action history')}
               onClick={() => setHistoryOpen((open) => !open)}
+              ref={historyTriggerRef}
               size='icon-sm'
               title={gt('Action history')}
               type='button'
@@ -506,21 +570,14 @@ export default function CanvasViewport({
             </Button>
           </>
         ) : null}
+        <OptionalCanvasVersionHistory>{versionHistory}</OptionalCanvasVersionHistory>
       </div>
       <OptionalCanvasMinimap ref={minimapRef} items={navigationItems} view={navigationView}
         onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} />
       {actionHistory && historyOpen ? (
-        <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve role='dialog'>
+        <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve ref={historySurfaceRef} role='dialog'>
           <header>
             <span><History aria-hidden='true' /><strong><T>Action history</T></strong></span>
-            <div aria-label={gt('History actions')} role='group'>
-              <Button aria-keyshortcuts='Meta+Z Control+Z' aria-label={gt('Undo')} disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo} size='icon-sm' title={gt('Undo')} type='button' variant='ghost'>
-                <RotateCcw aria-hidden='true' />
-              </Button>
-              <Button aria-keyshortcuts='Meta+Shift+Z Control+Shift+Z' aria-label={gt('Redo')} disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo} size='icon-sm' title={gt('Redo')} type='button' variant='ghost'>
-                <RotateCw aria-hidden='true' />
-              </Button>
-            </div>
           </header>
           <ol className='studio-scroll-area'>
             {actionHistory.entries.length > 0 ? actionHistory.entries.map((entry) => (
@@ -623,7 +680,7 @@ export default function CanvasViewport({
           {
             items: [
               { icon: <Maximize2 aria-hidden='true' />, id: 'fit', label: gt('Fit canvas'), onSelect: fitCanvas, shortcut: 'F' },
-              { icon: <RotateCcw aria-hidden='true' />, id: 'reset', label: gt('Reset view'), onSelect: resetView },
+              { icon: <ScanLine aria-hidden='true' />, id: 'reset', label: gt('Reset view'), onSelect: resetView },
             ],
           },
           {

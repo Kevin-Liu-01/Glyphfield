@@ -268,6 +268,17 @@ async function collectGarbage() {
   }
 }
 
+// The live inspector now follows the displayed scene. Compare text with text:
+// image and text inspectors legitimately contain different numbers of controls.
+// This only waits outside the timing probe; playback and all budgets stay intact.
+const waitForLandingTextInspector = `async () => {
+  const deadline = performance.now() + 12_000;
+  while (!document.querySelector('.marketing-animation-lazy-shell .animation-layer-text-field')) {
+    if (performance.now() > deadline) throw new Error('Landing did not display a text scene for comparable DOM sampling');
+    await new Promise((resolve) => setTimeout(resolve, 16));
+  }
+}`;
+
 async function measureLandingScroll() {
   browser(['open', `${baseUrl}/`]);
   browser(['set', 'viewport', '1440', '900']);
@@ -282,9 +293,11 @@ async function measureLandingScroll() {
   // The old 3.6s editor delay let this entire scroll probe miss its workload.
   browser(['wait', '.marketing-animation-lazy-shell .animation-studio']);
   browser(['wait', '250']);
-  const before = evaluate(`(() => {
+  const before = evaluate(`(async () => {
+    await (${waitForLandingTextInspector})();
     window.__glyphfieldLandingNodes = new WeakSet(document.querySelectorAll('*'));
     return {
+      inspectorKind: 'text',
       canvases: document.querySelectorAll('canvas').length,
       nodes: document.getElementsByTagName('*').length,
       scrollHeight: document.documentElement.scrollHeight,
@@ -303,7 +316,8 @@ async function measureLandingScroll() {
   }
   browser(['wait', '650']);
   const metrics = evaluate(finishProbe);
-  const after = evaluate(`(() => {
+  const after = evaluate(`(async () => {
+    await (${waitForLandingTextInspector})();
     const initialNodes = window.__glyphfieldLandingNodes;
     const added = Array.from(document.querySelectorAll('*')).filter((node) => !initialNodes.has(node));
     const describe = (node) => ({
@@ -316,6 +330,7 @@ async function measureLandingScroll() {
     });
     delete window.__glyphfieldLandingNodes;
     return {
+      inspectorKind: 'text',
       addedRoots: added.filter((node) => initialNodes.has(node.parentElement)).map(describe),
       canvases: document.querySelectorAll('canvas').length,
       nodes: document.getElementsByTagName('*').length,

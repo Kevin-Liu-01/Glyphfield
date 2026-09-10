@@ -25,9 +25,15 @@ Start with the brand logo when the motion should establish identity before langu
 
 Select a state to edit its content, hold duration, transition duration, easing, position, scale, rotation, opacity, crop, and background. Dragging and resizing on the canvas update the same frame document used by the inspector.
 
+During playback, the scene highlights and inspector follow the current scene. Pause or scrub to a hold to edit that displayed scene; pause or scrub inside a transition to inspect the transition instead. Canvas selection boxes stay hidden during playback and transitions. Selecting a scene background or the base background keeps that explicit editing target.
+
+The bottom storyboard scrolls horizontally with playback, keeping the playhead and upcoming frames in view. It follows back to the start when playback loops. Manual scrolling and timeline drags temporarily suspend following; it resumes after 1.5 seconds of inactivity or when you press Play again. Paused browsing stays put, while an explicit seek reveals the requested time. This behavior is shared by the landing demo and the full Studio.
+
 The stage exposes edge and corner handles for output width and height. This changes the exported composition itself; the zoom toolbar changes only the view.
 
 **Artboard setup** shares its presets with Design Lab, including a portrait row for **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160). Choose a preset or enter custom dimensions; source, saved artboards, and export use the same width and height.
+
+New, Save, Fork, and Clone sit beside the artboard picker and size settings on the left of the artboard bar; add, duplicate, and delete are grouped on the right. Open saved animations from the version-history control beside the canvas view controls. The top header groups source and reset on the left, with export actions on the right.
 
 ### Background inheritance
 

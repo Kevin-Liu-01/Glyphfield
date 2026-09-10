@@ -1,0 +1,26 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 165369137cc7aa86b455b90359d6010d2c15da27..38ae802997a26f21b4c05633f789b65180d31bae 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -802,6 +802,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
+ 	approvedLocales = standardizeValidLocales(approvedLocales, customMapping);
+ 	for (const locale of locales) {
+ 		const candidates = new Set(approvedLocales.filter((approvedLocale) => _isSameLanguage(locale, approvedLocale)));
++		// Exact normalized matches do not need display-name or dialect metadata.
++		if (candidates.has(locale)) return locale;
+ 		const properties = _getLocaleProperties(locale);
+ 		const matchingCode = getMatchingCode(locale, properties, candidates) || getMatchingCode(properties.languageCode, _getLocaleProperties(properties.languageCode), candidates);
+ 		if (matchingCode) return matchingCode;
+diff --git a/dist/index.mjs b/dist/index.mjs
+index ac7bb5b7b5b544f082a29fa2f4d2647b92cd3db9..7bef4aa36fccce26bbd861ab3140a3a85e318393 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -801,6 +801,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
+ 	approvedLocales = standardizeValidLocales(approvedLocales, customMapping);
+ 	for (const locale of locales) {
+ 		const candidates = new Set(approvedLocales.filter((approvedLocale) => _isSameLanguage(locale, approvedLocale)));
++		// Exact normalized matches do not need display-name or dialect metadata.
++		if (candidates.has(locale)) return locale;
+ 		const properties = _getLocaleProperties(locale);
+ 		const matchingCode = getMatchingCode(locale, properties, candidates) || getMatchingCode(properties.languageCode, _getLocaleProperties(properties.languageCode), candidates);
+ 		if (matchingCode) return matchingCode;

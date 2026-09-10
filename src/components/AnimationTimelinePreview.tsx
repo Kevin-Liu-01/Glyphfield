@@ -19,6 +19,10 @@ const shaderPreviewImages = new Map<LiveMaterialId, HTMLImageElement>();
 const shaderPreviewRequests = new Map<LiveMaterialId, Promise<HTMLImageElement>>();
 const capturedAnimationShaderPreviews = new Map<string, string>();
 const MAX_CAPTURED_SHADER_PREVIEWS = 32;
+// One immutable current variant per native canvas. The weak owner lets closed
+// workspaces release their buffers without retaining every edited appearance.
+const frozenShaderPreviews = new WeakMap<HTMLCanvasElement, { key: string; canvas: HTMLCanvasElement }>();
+const UNREADY_SHADER = '[data-live-material-ready="false"], [data-live-material-ready="error"]';
 
 function requestShaderPreviewImage(materialId: LiveMaterialId): Promise<HTMLImageElement> {
   const cached = shaderPreviewImages.get(materialId);
@@ -43,26 +47,33 @@ function requestShaderPreviewImage(materialId: LiveMaterialId): Promise<HTMLImag
   return request;
 }
 
-function shaderBackgroundSignature(sources: readonly StudioSource[]): string {
-  return JSON.stringify(sources.map((source) => {
-    const background = source.background;
-    if (background?.style !== 'shader') return null;
-    return {
-      colorA: background.colorA,
-      colorB: background.colorB,
-      colorC: background.colorC,
-      materialId: background.materialId,
-      materialSettings: background.materialSettings,
-      opacity: background.opacity,
-      patternScale: background.patternScale,
-    };
-  }));
+function snapshotShaderCanvas(image: HTMLCanvasElement, key: string): HTMLCanvasElement | undefined {
+  if (image.width < 1 || image.height < 1 || image.closest(UNREADY_SHADER)) {
+    frozenShaderPreviews.delete(image);
+    return;
+  }
+  const cached = frozenShaderPreviews.get(image);
+  if (cached?.key === key) return cached.canvas;
+  frozenShaderPreviews.delete(image);
+  const scale = Math.min(1, MAX_STATIC_SHADER_EDGE / image.width, MAX_STATIC_SHADER_EDGE / image.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  try {
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  } catch {
+    // An unavailable native buffer must not poison every card's shared image.
+    canvas.width = 0;
+    canvas.height = 0;
+    return;
+  }
+  frozenShaderPreviews.set(image, { key, canvas });
+  return canvas;
 }
 
-function freezeShaderBackgrounds(
-  sources: readonly StudioSource[],
-  cache: Map<string, HTMLCanvasElement>
-): readonly StudioSource[] {
+function freezeShaderBackgrounds(sources: readonly StudioSource[]): readonly StudioSource[] {
   return sources.map((source) => {
     const background = source.background;
     const image = background?.image;
@@ -80,19 +91,32 @@ function freezeShaderBackgrounds(
       materialSettings: background.materialSettings,
       opacity: background.opacity,
       patternScale: background.patternScale,
+      presentation: background.shaderPresentation,
+      width: image.width,
+      height: image.height,
     });
-    let snapshot = cache.get(key);
-    if (!snapshot && image.width > 0 && image.height > 0) {
-      const scale = Math.min(1, MAX_STATIC_SHADER_EDGE / image.width, MAX_STATIC_SHADER_EDGE / image.height);
-      snapshot = document.createElement('canvas');
-      snapshot.width = Math.max(1, Math.round(image.width * scale));
-      snapshot.height = Math.max(1, Math.round(image.height * scale));
-      snapshot.getContext('2d')?.drawImage(image, 0, 0, snapshot.width, snapshot.height);
-      cache.set(key, snapshot);
-    }
-    if (!snapshot) return source;
+    const snapshot = snapshotShaderCanvas(image, key);
+    // Keep the existing authored gradient while the real native buffer is
+    // pending/failed. Never permanently freeze or repeatedly copy blank pixels.
     return { ...source, background: { ...background, image: snapshot } };
   });
+}
+
+function observeShaderPreviewSources(sources: readonly StudioSource[], redraw: () => void): MutationObserver | null {
+  const roots = new Set<Element>();
+  for (const source of sources) {
+    const image = source.background?.image;
+    if (source.background?.style !== 'shader' || !(image instanceof HTMLCanvasElement)) continue;
+    roots.add(image.closest('[data-live-material-surface]') ?? image.closest(UNREADY_SHADER) ?? image);
+  }
+  if (!roots.size) return null;
+  const observer = new MutationObserver(redraw);
+  // The host may attach a native canvas before its first paint. Retry only on
+  // native readiness/size changes, never on the shader's moving frame clock.
+  roots.forEach((root) => observer.observe(root, {
+    attributes: true, attributeFilter: ['data-live-material-ready', 'width', 'height'], subtree: true,
+  }));
+  return observer;
 }
 
 async function capturePresentedShaderPreview(
@@ -270,8 +294,6 @@ function AnimationTimelinePreview({
   sources,
 }: AnimationTimelinePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const shaderSnapshotsRef = useRef(new Map<string, HTMLCanvasElement>());
-  const shaderSignatureRef = useRef('');
   const selectedBackground = sources[index % Math.max(1, sources.length)]?.background;
   const showAuthenticShader = authenticShader && selectedBackground?.style === 'shader';
   const selectedShaderSettings = useMemo(() => (
@@ -303,18 +325,13 @@ function AnimationTimelinePreview({
     const previewSources = kind === 'transition' && nextSource
       ? [currentSource, nextSource]
       : [currentSource];
-    const shaderSignature = shaderBackgroundSignature(previewSources);
-    if (shaderSignatureRef.current !== shaderSignature) {
-      shaderSnapshotsRef.current.clear();
-      shaderSignatureRef.current = shaderSignature;
-    }
     const tooltipLayout = layout === 'tooltip';
     const fallbackWidth = tooltipLayout ? 300 : kind === 'frame' ? 220 : 84;
     const fallbackHeight = tooltipLayout
       ? Math.max(1, Math.round(fallbackWidth * logicalHeight / logicalWidth))
       : 80;
     const drawPreview = () => {
-      const staticSources = freezeShaderBackgrounds(previewSources, shaderSnapshotsRef.current);
+      const staticSources = freezeShaderBackgrounds(previewSources);
       const previewWidth = Math.max(1, Math.round(canvas.clientWidth || fallbackWidth));
       const previewHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
       const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
@@ -351,9 +368,13 @@ function AnimationTimelinePreview({
       );
       context.restore();
     };
+    let shaderObserver: MutationObserver | null = null;
     const activate = () => {
       if (disposed) return;
       activated = true;
+      shaderObserver ??= observeShaderPreviewSources(previewSources, () => {
+        if (!disposed) drawPreview();
+      });
       drawPreview();
       const materialIds = new Set(previewSources.flatMap((source) => (
         source.background?.style === 'shader' && !source.background.image
@@ -390,6 +411,7 @@ function AnimationTimelinePreview({
       disposed = true;
       intersectionObserver?.disconnect();
       resizeObserver?.disconnect();
+      shaderObserver?.disconnect();
     };
   }, [index, kind, layout, settings, showAuthenticShader, sources]);
 

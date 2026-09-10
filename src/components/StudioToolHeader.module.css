@@ -72,6 +72,27 @@
   gap: 8px;
 }
 
+.root[data-layout='balanced'] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.root[data-layout='balanced'] .middle {
+  justify-content: flex-start;
+}
+
+.actionGroup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionGroup + .actionGroup {
+  margin-inline-start: 2px;
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid hsl(var(--border));
+}
+
 .trailing {
   justify-content: flex-end;
   gap: 8px;

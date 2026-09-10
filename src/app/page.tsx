@@ -288,6 +288,7 @@ export default async function HomePage() {
           <div className='marketing-v5-hero-field' data-motion-reveal>
             <MarketingArcField
               className='marketing-v5-hero-grain-gradient'
+              eager
               materialId={SHADER_LIBRARY_SCENES.heroField.materialId}
               maxPixelCount={900_000}
               persistAfterReady

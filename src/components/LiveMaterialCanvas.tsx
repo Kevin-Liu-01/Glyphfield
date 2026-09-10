@@ -2,68 +2,10 @@
 
 import dynamic from 'next/dynamic';
 
-import {
-  ColorPanels,
-  Dithering,
-  DotGrid,
-  DotOrbit,
-  FlutedGlass,
-  GemSmoke,
-  GodRays,
-  GrainGradient,
-  HalftoneCmyk,
-  HalftoneDots,
-  Heatmap,
-  ImageDithering,
-  LiquidMetal,
-  MeshGradient,
-  Metaballs,
-  NeuroNoise,
-  PaperTexture,
-  PerlinNoise,
-  PulsingBorder,
-  SimplexNoise,
-  SmokeRing,
-  Spiral,
-  StaticMeshGradient,
-  StaticRadialGradient,
-  Swirl,
-  Voronoi,
-  Warp,
-  Water,
-  Waves,
-  colorPanelsPresets,
-  ditheringPresets,
-  dotGridPresets,
-  dotOrbitPresets,
-  flutedGlassPresets,
-  gemSmokePresets,
-  godRaysPresets,
-  grainGradientPresets,
-  halftoneCmykPresets,
-  halftoneDotsPresets,
-  heatmapPresets,
-  imageDitheringPresets,
-  liquidMetalPresets,
-  meshGradientPresets,
-  metaballsPresets,
-  neuroNoisePresets,
-  paperTexturePresets,
-  perlinNoisePresets,
-  pulsingBorderPresets,
-  simplexNoisePresets,
-  smokeRingPresets,
-  spiralPresets,
-  staticMeshGradientPresets,
-  staticRadialGradientPresets,
-  swirlPresets,
-  voronoiPresets,
-  warpPresets,
-  waterPresets,
-  wavesPresets,
-  type PaperShaderElement,
-  type ShaderComponentProps,
-} from '@paper-design/shaders-react';
+import type { PaperShaderElement, ShaderComponentProps } from '@paper-design/shaders-react';
+import PaperShaderRendererBoundary from '@/components/PaperShaderRendererBoundary';
+import { readPaperShaderRenderer } from '@/components/paperShaderRegistry';
+import type { PaperShaderRenderer } from '@/components/paperShaderRenderer';
 import {
   Component,
   createElement,
@@ -73,7 +15,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentType,
   type ErrorInfo,
   type ReactNode,
 } from 'react';
@@ -1865,16 +1806,6 @@ function FluidSimulationCanvas({
   return <canvas aria-label='Interactive WebGL fluid material' className='absolute inset-0 size-full' data-live-material-ready='false' ref={canvasRef} />;
 }
 
-type PaperShaderPreset = {
-  name: string;
-  params: Record<string, unknown>;
-};
-
-type PaperShaderRenderer = {
-  component: ComponentType<ShaderComponentProps & Record<string, unknown>>;
-  presets: readonly PaperShaderPreset[];
-};
-
 function resolvePaperShaderTiming(speed: number, frameRate: number) {
   const cappedFrameRate = Math.min(60, Math.max(1, frameRate));
   const manuallyTimed = speed !== 0 && cappedFrameRate < 55;
@@ -1934,45 +1865,6 @@ function useCappedPaperShaderClock(
   }, [enabled, frameRate, held, speed, surfaceRef]);
 }
 
-function paperShaderRenderer(component: unknown, presets: readonly unknown[]): PaperShaderRenderer {
-  return {
-    component: component as PaperShaderRenderer['component'],
-    presets: presets as readonly PaperShaderPreset[],
-  };
-}
-
-const PAPER_SHADER_RENDERERS: Record<PaperShaderFamilyId, PaperShaderRenderer> = {
-  'color-panels': paperShaderRenderer(ColorPanels, colorPanelsPresets),
-  'dithering': paperShaderRenderer(Dithering, ditheringPresets),
-  'dot-grid': paperShaderRenderer(DotGrid, dotGridPresets),
-  'dot-orbit': paperShaderRenderer(DotOrbit, dotOrbitPresets),
-  'fluted-glass': paperShaderRenderer(FlutedGlass, flutedGlassPresets),
-  'gem-smoke': paperShaderRenderer(GemSmoke, gemSmokePresets),
-  'god-rays': paperShaderRenderer(GodRays, godRaysPresets),
-  'grain-gradient': paperShaderRenderer(GrainGradient, grainGradientPresets),
-  'halftone-cmyk': paperShaderRenderer(HalftoneCmyk, halftoneCmykPresets),
-  'halftone-dots': paperShaderRenderer(HalftoneDots, halftoneDotsPresets),
-  'heatmap': paperShaderRenderer(Heatmap, heatmapPresets),
-  'image-dithering': paperShaderRenderer(ImageDithering, imageDitheringPresets),
-  'liquid-metal': paperShaderRenderer(LiquidMetal, liquidMetalPresets),
-  'mesh-gradient': paperShaderRenderer(MeshGradient, meshGradientPresets),
-  'metaballs': paperShaderRenderer(Metaballs, metaballsPresets),
-  'neuro-noise': paperShaderRenderer(NeuroNoise, neuroNoisePresets),
-  'paper-texture': paperShaderRenderer(PaperTexture, paperTexturePresets),
-  'perlin-noise': paperShaderRenderer(PerlinNoise, perlinNoisePresets),
-  'pulsing-border': paperShaderRenderer(PulsingBorder, pulsingBorderPresets),
-  'simplex-noise': paperShaderRenderer(SimplexNoise, simplexNoisePresets),
-  'smoke-ring': paperShaderRenderer(SmokeRing, smokeRingPresets),
-  'spiral': paperShaderRenderer(Spiral, spiralPresets),
-  'static-mesh-gradient': paperShaderRenderer(StaticMeshGradient, staticMeshGradientPresets),
-  'static-radial-gradient': paperShaderRenderer(StaticRadialGradient, staticRadialGradientPresets),
-  'swirl': paperShaderRenderer(Swirl, swirlPresets),
-  'voronoi': paperShaderRenderer(Voronoi, voronoiPresets),
-  'warp': paperShaderRenderer(Warp, warpPresets),
-  'water': paperShaderRenderer(Water, waterPresets),
-  'waves': paperShaderRenderer(Waves, wavesPresets),
-};
-
 const PAPER_IMAGE_SHADER_FAMILIES = new Set<PaperShaderFamilyId>([
   'fluted-glass',
   'gem-smoke',
@@ -2006,7 +1898,8 @@ function paperShaderFrameAt(
   settings: LiveMaterialSettings
 ): number {
   const definition = getPaperLiveMaterialDefinition(materialId);
-  const renderer = PAPER_SHADER_RENDERERS[definition.family];
+  const renderer = readPaperShaderRenderer(definition.family);
+  if (!renderer) throw new Error(`Paper shader ${definition.family} is not ready.`);
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
   return resolvePaperShaderFrame({
     materialId, timeMs: captureTimeMs, frameState, preserveGeometry,
@@ -2024,7 +1917,7 @@ function applyPaperShaderFrame(
 ): boolean {
   const surface = container?.querySelector<PaperShaderElement>('[data-paper-shader]');
   const mount = surface?.paperShaderMount;
-  if (!mount) return false;
+  if (!mount || !readPaperShaderRenderer(getPaperLiveMaterialDefinition(materialId).family)) return false;
   mount.setFrame(paperShaderFrameAt(
     materialId,
     captureTimeMs,
@@ -2088,6 +1981,7 @@ function PaperShaderSurface({
   preservePresetAppearance,
   preservePresetGeometry,
   renderScale,
+  renderer,
   settings,
   sourceImage,
 }: {
@@ -2102,6 +1996,7 @@ function PaperShaderSurface({
   preservePresetAppearance: boolean;
   preservePresetGeometry: boolean;
   renderScale: number;
+  renderer: PaperShaderRenderer;
   settings: LiveMaterialSettings;
   sourceImage?: string;
 }) {
@@ -2110,7 +2005,6 @@ function PaperShaderSurface({
   const [initialFrame, setInitialFrame] = useState<{ frame: number; anchor: number } | null>(null);
   const ready = initialFrame !== null;
   const definition = getPaperLiveMaterialDefinition(materialId);
-  const renderer = PAPER_SHADER_RENDERERS[definition.family];
   const preset = renderer.presets[definition.presetIndex] ?? renderer.presets[0]!;
   const presetSpeed = typeof preset.params.speed === 'number' ? preset.params.speed : 1;
   const motionSpeed = presetSpeed > 0 ? presetSpeed : 0.35;
@@ -2493,10 +2387,11 @@ function LiveMaterialRenderView({
   if (isPaperLiveMaterialId(materialId)) {
     return (
       <div className={`absolute inset-0 size-full ${className}`}>
-        <ProviderContextGuard
-          key={`paper-${materialId}-${contextVersion}`}
-          onContextLost={onProviderFailure}
-        >
+        <PaperShaderRendererBoundary family={getPaperLiveMaterialDefinition(materialId).family}>
+          {(renderer) => <ProviderContextGuard
+            key={`paper-${materialId}-${contextVersion}`}
+            onContextLost={onProviderFailure}
+          >
           <PaperShaderSurface
             captureTimeMs={captureTimeMs}
             frameRate={frameRate}
@@ -2509,10 +2404,12 @@ function LiveMaterialRenderView({
             preservePresetAppearance={preservePresetAppearance}
             preservePresetGeometry={preservePresetGeometry}
             renderScale={renderScale}
+            renderer={renderer}
             settings={settings}
             sourceImage={sourceImage}
           />
-        </ProviderContextGuard>
+          </ProviderContextGuard>}
+        </PaperShaderRendererBoundary>
         {paperUsesSourceImage ? null : <SourceAssetOverlay opacity={sourceImageOpacity} source={sourceImage} />}
       </div>
     );
@@ -2684,8 +2581,10 @@ function LiveMaterialCanvas({
           preservePresetAppearance || preservePresetGeometry,
           settingsRef.current
         );
-        if (applied) publishPaintedPreview();
-        return;
+        if (applied) {
+          publishPaintedPreview();
+          return;
+        }
       }
       paperPreviewActive = isPaperLiveMaterialId(resolvedMaterialId);
       setTimePreview(nextPreview);

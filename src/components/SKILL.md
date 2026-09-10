@@ -18,7 +18,11 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - `AnimationStudio.tsx`, `TimelinePanel.tsx`, and audio components own motion.
 - `CanvasViewport`, `EditableCanvasLayer`, layer panels, `ColorControl`,
   `StudioSelect`, and range controls are reusable editor primitives.
+- `StudioArtboardBar` shares Animation's artboard controls with Design Lab.
+  `DesignVersionProvider` owns one saved-design state; split history/file-action
+  consumers can sit in different bars without duplicating persistence.
 - `SourceCodeDrawer` is the human surface for tool serializers/validators.
+  Import its lightweight `SourceCodeButton` leaf when the drawer loads on demand.
 - `LiveMaterialCanvas` and adapters own authentic shader rendering.
 - `DocsMdx.tsx` owns reusable rich documentation components.
 
@@ -32,6 +36,9 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - Use shared color, select, range, button, scrollbar, header, and panel systems.
 - Long-running exports expose progress and a stable Browser API action.
 - Pause hidden/offscreen animation and honor reduced motion where applicable.
+- The landing hero renders the real editor in initial HTML; do not put its
+  primary UI behind idle/admission timers. Presentation mode skips portable
+  source/autosave work, not editing or authentic rendering.
 
 ## Common tasks → first action
 

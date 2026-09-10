@@ -30,12 +30,14 @@ export function canvasDocumentAutosaveSnapshotMatches(
 export function useCanvasDocumentAutosave({
   applySource,
   delayMs = 180,
+  enabled = true,
   revision,
   source,
   workspaceKey,
 }: {
   applySource: (source: string) => Promise<void> | void;
   delayMs?: number;
+  enabled?: boolean;
   revision: string;
   source: string | null;
   workspaceKey: string;
@@ -95,6 +97,7 @@ export function useCanvasDocumentAutosave({
     retryTimerRef.current = null;
     hydratedWorkspaceRef.current = null;
     savedSnapshotsRef.current.delete(workspaceKey);
+    if (!enabled) return;
     setHydrated(false);
     setState('loading');
     void (workspaceWriteQueues.get(workspaceKey) ?? Promise.resolve())
@@ -130,10 +133,10 @@ export function useCanvasDocumentAutosave({
       active = false;
       if (hydratedWorkspaceRef.current === workspaceKey) hydratedWorkspaceRef.current = null;
     };
-  }, [applySourceRef, hydrationRetrySignal, workspaceKey]);
+  }, [applySourceRef, enabled, hydrationRetrySignal, workspaceKey]);
 
   useEffect(() => {
-    if (!hydrated || hydratedWorkspaceRef.current !== workspaceKey) return;
+    if (!enabled || !hydrated || hydratedWorkspaceRef.current !== workspaceKey) return;
     const snapshot = snapshotsRef.current.get(workspaceKey);
     if (!snapshot) return;
     const snapshotSource = snapshot.source;
@@ -152,10 +155,10 @@ export function useCanvasDocumentAutosave({
       source: snapshotSource,
     }), delayMs);
     return () => window.clearTimeout(timer);
-  }, [delayMs, hydrated, queue, retrySignal, revision, source, workspaceKey]);
+  }, [delayMs, enabled, hydrated, queue, retrySignal, revision, source, workspaceKey]);
 
   useEffect(() => {
-    if (!hydrated || hydratedWorkspaceRef.current !== workspaceKey) return;
+    if (!enabled || !hydrated || hydratedWorkspaceRef.current !== workspaceKey) return;
     function flush(recoverSynchronously = false) {
       const snapshot = snapshotsRef.current.get(workspaceKey);
       if (!snapshot) return;
@@ -181,11 +184,11 @@ export function useCanvasDocumentAutosave({
       document.removeEventListener('visibilitychange', flushWhenHidden);
       flush();
     };
-  }, [hydrated, queue, workspaceKey]);
+  }, [enabled, hydrated, queue, workspaceKey]);
 
   useEffect(() => () => {
     if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current);
   }, []);
 
-  return state;
+  return enabled ? state : 'saved';
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import AnimationStudio from '@/components/AnimationStudio';
-import { GT_BRAND_IDENTITY } from '@/lib/brandIdentity';
+import { GT_BRAND_IDENTITY } from '@/lib/gtBrandIdentity';
 import { SHADER_LIBRARY_SCENES } from '@/lib/shaderLab';
 
 const MARKETING_ANIMATION_IDENTITY = {
@@ -10,8 +10,18 @@ const MARKETING_ANIMATION_IDENTITY = {
   id: 'marketing-animation-demo-dithering-swirl-v2',
 };
 
+const HERO_SHADER = SHADER_LIBRARY_SCENES.heroAnimation;
+const HERO_BACKGROUND = {
+  colorA: HERO_SHADER.settings.colorA,
+  colorB: HERO_SHADER.settings.colorB,
+  colorC: HERO_SHADER.settings.colorC,
+  materialId: HERO_SHADER.materialId,
+  materialSettings: HERO_SHADER.settings,
+  opacity: 0.88,
+  style: 'shader' as const,
+};
+
 export default function MarketingAnimationStudioLive({ viewportVisible = true }: { viewportVisible?: boolean }) {
-  const { materialId, settings } = SHADER_LIBRARY_SCENES.heroAnimation;
   return (
     <AnimationStudio
       autoPlay
@@ -20,15 +30,7 @@ export default function MarketingAnimationStudioLive({ viewportVisible = true }:
       viewportVisible={viewportVisible}
       identity={MARKETING_ANIMATION_IDENTITY}
       initialFontWeight={350}
-      initialSequenceBackground={{
-        colorA: settings.colorA,
-        colorB: settings.colorB,
-        colorC: settings.colorC,
-        materialId,
-        materialSettings: settings,
-        opacity: 0.88,
-        style: 'shader',
-      }}
+      initialSequenceBackground={HERO_BACKGROUND}
       presentationMode
     />
   );

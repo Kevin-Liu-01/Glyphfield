@@ -1,4 +1,8 @@
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+'use client';
+
+import dynamic from 'next/dynamic';
+
+const SourceCodeDrawer = dynamic(() => import('@/components/SourceCodeDrawer'), { ssr: false });
 
 export function AnimationError({ error }: { error: string | null }) {
   if (!error) return null;

@@ -12,6 +12,8 @@ type ShaderFixture = { id: string; data: { materialId: string; frameState?: unkn
 async function prepareShader(page: Page, options: { materialId?: string; timeMs?: number; grain?: number; paused?: boolean } = {}) {
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Open export settings', exact: true }).waitFor();
+  // The toolbar can be interactive before portable assets finish hydrating.
+  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
   const fixture = await page.evaluate(async ({ materialId, timeMs, grain, paused }) => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource());

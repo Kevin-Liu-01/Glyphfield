@@ -382,10 +382,12 @@ export default function MarketingAgentControlLab() {
   const visible = useViewportActivity(labRef, { rootMargin: '0px' });
   const prefersReducedMotion = usePrefersReducedMotion();
   const motionActive = active && !prefersReducedMotion;
-  const runtimeReady = useDeferredRuntime(nearViewport, 420, { resetWhenDisabled: true });
-  const { quality } = useLandingRenderQuality(visible && motionActive && runtimeReady && nearViewport);
+  const inRenderRange = nearViewport || active;
+  const runtimeReady = useDeferredRuntime(inRenderRange, 420, { resetWhenDisabled: true, urgent: active });
+  const { quality } = useLandingRenderQuality(visible && motionActive && runtimeReady && inRenderRange);
   const renderBudget = landingRenderBudget(quality, 0.6);
   const previewScanRef = useRef<HTMLDivElement>(null);
+  const previewScanAnimationRef = useRef<Animation | null>(null);
   const autonomousStepRef = useRef(0);
   const automationPausedUntilRef = useRef(0);
   const valuesRef = useRef(values);
@@ -548,7 +550,12 @@ export default function MarketingAgentControlLab() {
   }, [values]);
 
   useEffect(() => {
-    const animation = previewScanRef.current?.getAnimations()[0];
+    // getAnimations() can force below-fold style/layout. CSS starts paused;
+    // discover the native handle only when needed, then retain its phase.
+    if (!previewScanAnimationRef.current && motionActive) {
+      previewScanAnimationRef.current = previewScanRef.current?.getAnimations()[0] ?? null;
+    }
+    const animation = previewScanAnimationRef.current;
     if (!animation) return;
     animation.updatePlaybackRate(1.6 / Math.max(0.1, values.duration));
     if (motionActive) animation.play();
@@ -777,7 +784,7 @@ export default function MarketingAgentControlLab() {
         data-shader-scale={round(shaderResponse.shaderScale, 2)}
         data-shader-speed={round(shaderResponse.motionSpeed, 2)}
       >
-        {nearViewport && runtimeReady ? (
+        {inRenderRange && runtimeReady ? (
           <LazyLiveMaterialCanvas
             activeWhileMounted
             frameRate={LANDING_RENDER_FRAME_RATE}

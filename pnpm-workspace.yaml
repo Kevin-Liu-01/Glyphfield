@@ -29,4 +29,6 @@ minimumReleaseAgeExclude:
   - fumadocs-core@16.12.0
   - fumadocs-ui@16.12.0
   - knip@6.34.0
+patchedDependencies:
+  '@generaltranslation/format@0.1.2-odysseus.1': patches/@generaltranslation__format@0.1.2-odysseus.1.patch
 trustPolicy: no-downgrade

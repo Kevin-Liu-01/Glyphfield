@@ -17,7 +17,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } } },
+    { name: 'chromium', use: {
+      ...devices['Desktop Chrome'],
+      viewport: { width: 1440, height: 1000 },
+      // Opt-in local hardware measurements; the default regression environment
+      // stays unchanged. Record the real renderer in the startup profile rather
+      // than assuming a hardware flag actually enabled the GPU.
+      launchOptions: process.env.GLYPHFIELD_BROWSER_NATIVE_GPU === '1'
+        ? { args: ['--enable-gpu'] }
+        : undefined,
+    } },
     { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 1000 } } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 1000 } } },
   ],

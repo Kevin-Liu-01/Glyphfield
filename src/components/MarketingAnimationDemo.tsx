@@ -1,15 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import MarketingAnimationStudioLive from '@/components/MarketingAnimationStudioLive';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
-
-const MarketingAnimationStudioLive = dynamic(() => import('@/components/MarketingAnimationStudioLive'), {
-  loading: () => <AnimationStudioPlaceholder />,
-  ssr: false,
-});
 
 function AnimationStudioPlaceholder() {
   return (
@@ -22,14 +17,19 @@ function AnimationStudioPlaceholder() {
 
 export default function MarketingAnimationDemo({ eager = false }: { eager?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hydrated, setHydrated] = useState(false);
   const inRange = useViewportActivity(containerRef, { initialActive: eager, rootMargin: '420px' });
   const visible = useViewportActivity(containerRef, { rootMargin: '0px' });
-  const runtimeReady = useDeferredRuntime(inRange, eager ? 600 : 300, {
+  const deferredReady = useDeferredRuntime(!eager && inRange, 300, {
     deferWhileInteracting: true,
   });
+  // The hero is primary content: render its real controls into the initial HTML
+  // without a streamed loading boundary. Only optional offscreen demos idle.
+  const runtimeReady = eager || deferredReady;
+  useEffect(() => { setHydrated(true); }, []);
 
   return (
-    <div className='marketing-animation-lazy-shell' ref={containerRef}>
+    <div className='marketing-animation-lazy-shell' data-studio-interactive={hydrated && runtimeReady} ref={containerRef}>
       {/* Retain this one editor's state after loading; visibility suspends work,
           not the user's edits or their chosen play/pause state. */}
       {runtimeReady ? <MarketingAnimationStudioLive viewportVisible={visible} /> : <AnimationStudioPlaceholder />}

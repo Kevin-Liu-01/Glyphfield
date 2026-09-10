@@ -7,8 +7,11 @@ import { gemSmokePresets } from '@paper-design/shaders-react';
 
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, getPaperLiveMaterialDefinition } from '@/lib/liveMaterials';
-import { freezeLiveMaterialFrame } from '@/lib/liveMaterialPreview';
+import { freezeLiveMaterialFrame, previewLiveMaterialTime } from '@/lib/liveMaterialPreview';
 import { resolvePaperShaderFrame } from '@/lib/paperShaderTime';
+import { loadPaperShaderRenderer } from '@/components/paperShaderRegistry';
+import * as paperRegistry from '@/components/paperShaderRegistry';
+import type { PaperShaderRenderer } from '@/components/paperShaderRenderer';
 
 const native = vi.hoisted(() => ({
   frame: 0,
@@ -65,6 +68,7 @@ describe('Paper controlled first-frame initialization', () => {
   const render = async (timeMs: number | null, paused = true) => {
     await act(async () => root.render(<LiveMaterialCanvas materialId={materialId}
       settings={DEFAULT_LIVE_MATERIAL_SETTINGS} captureTimeMs={timeMs} paused={paused} activeWhileMounted />));
+    await act(async () => { await loadPaperShaderRenderer('gem-smoke'); });
   };
 
   beforeEach(() => {
@@ -80,7 +84,9 @@ describe('Paper controlled first-frame initialization', () => {
     await act(async () => root.unmount());
     host.remove();
     native.setFrame.mockReset();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('seeds the native constructor and its delayed isInitialized reset with authored time, not preset zero', async () => {
@@ -105,6 +111,44 @@ describe('Paper controlled first-frame initialization', () => {
     expect(host.querySelector('.paper-shader-host')?.getAttribute('data-live-material-ready')).toBe('true');
     expect(capture?.state.frame).toBeCloseTo(expected(2500));
     capture?.resume();
+  });
+
+  it('retains every imperative seek while a non-landing family is still downloading', async () => {
+    const renderer = await loadPaperShaderRenderer('gem-smoke');
+    const read = vi.spyOn(paperRegistry, 'readPaperShaderRenderer').mockReturnValue(undefined);
+    let finish!: (value: PaperShaderRenderer) => void;
+    vi.spyOn(paperRegistry, 'loadPaperShaderRenderer').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    await act(async () => root.render(<LiveMaterialCanvas materialId={materialId}
+      settings={DEFAULT_LIVE_MATERIAL_SETTINGS} previewGroup='loading-family' activeWhileMounted />));
+    for (const timeMs of [1250, 2500]) {
+      await act(async () => {
+        previewLiveMaterialTime('loading-family', timeMs);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+    }
+    expect(host.querySelector('canvas')).toBeNull();
+    await act(async () => { read.mockRestore(); finish(renderer); });
+    expect(native.props.frame).toBeCloseTo(expected(2500));
+  });
+
+  it('starts the provider watchdog only after a slow family download and preserves the latest seek', async () => {
+    const renderer = await loadPaperShaderRenderer('gem-smoke');
+    vi.useFakeTimers();
+    const read = vi.spyOn(paperRegistry, 'readPaperShaderRenderer').mockReturnValue(undefined);
+    let finish!: (value: PaperShaderRenderer) => void;
+    const load = vi.spyOn(paperRegistry, 'loadPaperShaderRenderer').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    await act(async () => root.render(<LiveMaterialCanvas materialId={materialId}
+      settings={DEFAULT_LIVE_MATERIAL_SETTINGS} previewGroup='slow-family' activeWhileMounted />));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+    expect(load).toHaveBeenCalledOnce();
+    expect(host.querySelector('[data-live-material-ready="error"]')).toBeNull();
+    await act(async () => {
+      previewLiveMaterialTime('slow-family', 2500);
+      await vi.advanceTimersByTimeAsync(40);
+    });
+    await act(async () => { read.mockRestore(); finish(renderer); });
+    expect(native.props.frame).toBeCloseTo(expected(2500));
+    expect(host.querySelector('canvas')).not.toBeNull();
   });
 
   it('keeps the vendor frame prop stable during subsequent scrubs and native release', async () => {

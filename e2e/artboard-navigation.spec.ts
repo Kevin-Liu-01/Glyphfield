@@ -1,5 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test('first-load artboard fit waits for the toolbar and canvas layout', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/studio?tool=material&project=starter');
+  await expect(page.getByRole('region', { name: 'Artboard workspace controls', exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>('.shader-lab-v2-composer-viewport .canvas-viewport-scroll');
+    const artboard = document.querySelector<HTMLElement>('[data-canvas-focus-target="true"]');
+    const zoom = document.querySelector('.shader-lab-v2-composer-viewport .canvas-zoom-value')?.textContent;
+    if (!viewport || !artboard || !zoom) return false;
+    const expected = Math.min(100, (viewport.clientWidth - 96) / artboard.offsetWidth * 100,
+      (viewport.clientHeight - 96) / artboard.offsetHeight * 100);
+    return Math.abs(parseFloat(zoom) - Math.max(10, Math.round(expected / 5) * 5)) <= 5;
+  })).toBe(true);
+});
+
 async function prepareBoards(page: Page) {
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
@@ -34,6 +49,101 @@ async function prepareBoards(page: Page) {
 async function workspace(page: Page) {
   return page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.workspace);
 }
+
+test('Design Lab shares the artboard bar and keeps saved versions with canvas undo', async ({ page }) => {
+  await prepareBoards(page);
+  const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
+  const viewControls = page.getByRole('group', { name: 'Canvas zoom', exact: true });
+  await expect(bar).toHaveCount(1);
+  const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
+  await expect(header).toHaveAttribute('data-layout', 'balanced');
+  await expect(header.locator('[data-slot="context"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export design', exact: true })).toBeVisible();
+  await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toBeVisible();
+  await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toBeVisible();
+  await expect(bar.locator('button[title="Open saved designs"]')).toHaveCount(0);
+  await expect(viewControls.locator('button[title="Open saved designs"]')).toBeVisible();
+  await bar.getByRole('button', { name: /Set artboard size/ }).click();
+  const setup = page.getByRole('dialog', { name: 'Artboard setup', exact: true });
+  const name = setup.getByRole('textbox', { name: 'Artboard name', exact: true });
+  await name.fill('');
+  await name.pressSequentially('Toolbar board');
+  await expect(name).toHaveValue('Toolbar board');
+  await page.keyboard.press('Escape');
+  await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toContainText('Toolbar board');
+  await bar.getByRole('button', { name: 'Save design', exact: true }).click();
+  await expect(bar.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+  await viewControls.locator('button[title="Open saved designs"]').click();
+  const versions = page.getByRole('region', { name: 'Design Lab saved designs', exact: true });
+  await expect(versions).toBeVisible();
+  await versions.getByRole('textbox', { name: 'Current design name', exact: true }).fill('Toolbar checkpoint');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Escape');
+  await expect(versions).toHaveCount(0);
+  await expect(bar.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+
+  await bar.getByRole('button', { name: 'Add blank artboard', exact: true }).click();
+  await expect(page.locator('.design-artboard-shell')).toHaveCount(3);
+  await viewControls.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.locator('.design-artboard-shell')).toHaveCount(2);
+  await viewControls.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.locator('.design-artboard-shell')).toHaveCount(3);
+  await bar.getByRole('combobox', { name: 'Active design artboard', exact: true }).click();
+  await page.getByRole('option', { name: 'Toolbar board', exact: true }).click();
+  await expect.poll(async () => {
+    const state = await workspace(page);
+    return state.artboards.find((board: { id: string }) => board.id === state.activeArtboardId)?.name;
+  }).toBe('Toolbar board');
+
+  await viewControls.locator('button[title="Open saved designs"]').click();
+  await expect(versions.getByRole('textbox', { name: 'Current design name', exact: true })).toHaveValue('Toolbar checkpoint');
+  await page.keyboard.press('Escape');
+  for (const width of [1440, 1100, 780]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(bar).toBeVisible();
+    const bounds = (await bar.boundingBox())!;
+    const actions = (await bar.locator('[data-slot="artboard-end"]').boundingBox())!;
+    expect(bounds.x + bounds.width - (actions.x + actions.width)).toBeLessThan(12);
+    for (const label of ['Add blank artboard', 'Duplicate active artboard', 'Delete active artboard', 'Tidy and fit artboards', 'Artboard tutorial']) {
+      const button = bar.getByRole('button', { name: label, exact: true });
+      await expect(button).toBeVisible();
+      const box = (await button.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+      expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
+    }
+    const viewBox = (await viewControls.boundingBox())!;
+    expect(viewBox.x).toBeGreaterThanOrEqual(0);
+    expect(viewBox.x + viewBox.width).toBeLessThanOrEqual(width);
+    const headerBounds = (await header.boundingBox())!;
+    const context = (await header.locator('[data-slot="context"]').boundingBox())!;
+    const trailing = (await header.locator('[data-slot="trailing"]').boundingBox())!;
+    expect(context.x + context.width).toBeLessThanOrEqual(trailing.x);
+    expect(trailing.x + trailing.width).toBeLessThanOrEqual(headerBounds.x + headerBounds.width);
+    expect(headerBounds.x + headerBounds.width).toBeLessThanOrEqual(width + 1);
+  }
+});
+
+test('Design Lab toolbar menus close when their tool is left or another history is opened', async ({ page }) => {
+  await prepareBoards(page);
+  const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
+  await bar.press('Shift+F10');
+  await expect(page.locator('.studio-context-menu')).toBeVisible();
+  await page.locator('.studio-nav').getByRole('button', { name: 'Brand identity', exact: true }).press('Enter');
+  await expect(page).toHaveURL(/tool=identity/);
+  await expect(page.locator('.studio-context-menu')).toHaveCount(0);
+  await page.locator('.studio-nav').getByRole('button', { name: 'Design Lab', exact: true }).press('Enter');
+  const viewControls = page.getByRole('group', { name: 'Canvas zoom', exact: true });
+  await viewControls.getByRole('button', { name: 'Action history', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Action history', exact: true })).toBeVisible();
+  await viewControls.locator('button[title="Open saved designs"]').click();
+  await expect(page.locator('.canvas-action-history')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Design Lab saved designs', exact: true })).toBeVisible();
+  await page.locator('.studio-nav').getByRole('button', { name: 'Brand identity', exact: true }).press('Enter');
+  await expect(page.getByRole('region', { name: 'Design Lab saved designs', exact: true })).toHaveCount(0);
+  await page.locator('.studio-nav').getByRole('button', { name: 'Design Lab', exact: true }).press('Enter');
+  await expect(viewControls.getByRole('button', { name: 'Action history', exact: true })).toHaveAttribute('aria-expanded', 'false');
+});
 
 test('inactive artboard drags from its surface, then a first content click edits without reframing', async ({ page }) => {
   await prepareBoards(page);

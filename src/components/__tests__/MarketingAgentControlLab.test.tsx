@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from 'node:fs';
+import postcss from 'postcss';
 import { act, useEffect, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +41,8 @@ Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
 describe('MarketingAgentControlLab viewport lifecycle', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
-  let scan: { pause: ReturnType<typeof vi.fn>; play: ReturnType<typeof vi.fn>; updatePlaybackRate: ReturnType<typeof vi.fn> };
+  let scan: { currentTime: number; pause: ReturnType<typeof vi.fn>; play: ReturnType<typeof vi.fn>; updatePlaybackRate: ReturnType<typeof vi.fn> };
+  let getAnimations: ReturnType<typeof vi.fn>;
   let originalGetAnimations: PropertyDescriptor | undefined;
   let motionPreference: MediaQueryList;
 
@@ -56,7 +59,8 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     vi.clearAllMocks();
     activity.active = false;
     activity.near = false;
-    scan = { pause: vi.fn(), play: vi.fn(), updatePlaybackRate: vi.fn() };
+    scan = { currentTime: 480, pause: vi.fn(), play: vi.fn(), updatePlaybackRate: vi.fn() };
+    getAnimations = vi.fn(() => [scan as unknown as Animation]);
     motionPreference = Object.assign(new EventTarget(), {
       matches: false,
       media: '(prefers-reduced-motion: reduce)',
@@ -67,7 +71,7 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     originalGetAnimations = Object.getOwnPropertyDescriptor(Element.prototype, 'getAnimations');
     Object.defineProperty(Element.prototype, 'getAnimations', {
       configurable: true,
-      value: () => [scan as unknown as Animation],
+      value: getAnimations,
     });
     container = document.createElement('div');
     document.body.append(container);
@@ -91,7 +95,8 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     act(() => vi.advanceTimersByTime(10_000));
     expect(contract()).toBe(initial);
     expect(vi.getTimerCount()).toBe(0);
-    expect(scan.pause).toHaveBeenCalled();
+    expect(getAnimations).not.toHaveBeenCalled();
+    expect(scan.pause).not.toHaveBeenCalled();
 
     activity.near = true;
     render();
@@ -99,12 +104,14 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     expect(canvas?.dataset.paused).toBe('true');
     expect(renderer.create).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
+    expect(getAnimations).not.toHaveBeenCalled();
 
     activity.active = true;
     render();
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(canvas?.dataset.paused).toBe('false');
     expect(scan.play).toHaveBeenCalled();
+    expect(getAnimations).toHaveBeenCalledOnce();
     act(() => vi.advanceTimersByTime(3_000));
     expect(contract()).not.toBe(initial);
   });
@@ -142,6 +149,18 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     expect(renderer.release).toHaveBeenCalledTimes(1);
     expect(contract()).toBe(beforeRelease);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('admits an about-visible shader even when its wider prewarm observer has not delivered yet', () => {
+    activity.active = true;
+    render();
+    expect(container.querySelector('canvas')?.dataset.paused).toBe('false');
+    expect(renderer.create).toHaveBeenCalledOnce();
+    const canvas = container.querySelector('canvas');
+    activity.near = true;
+    render();
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledOnce();
   });
 
   it('removes inactive connector DOM and restores the connections without resetting controls or the nearby canvas', () => {
@@ -184,12 +203,14 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0);
     act(() => vi.advanceTimersByTime(10_000));
     expect(contract()).toBe(initial);
+    expect(getAnimations).not.toHaveBeenCalled();
 
     act(() => {
       Reflect.set(motionPreference, 'matches', false);
       motionPreference.dispatchEvent(new Event('change'));
     });
     expect(canvas?.dataset.paused).toBe('false');
+    expect(getAnimations).toHaveBeenCalledOnce();
     act(() => vi.advanceTimersByTime(2_400));
     expect(contract()).not.toBe(initial);
     expect(container.querySelector('[data-phase="dragging"]')).not.toBeNull();
@@ -207,6 +228,56 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(renderer.create).toHaveBeenCalledTimes(1);
     expect(renderer.release).not.toHaveBeenCalled();
+    expect(scan.pause).toHaveBeenCalled();
+    expect(getAnimations).toHaveBeenCalledOnce();
+    act(() => {
+      Reflect.set(motionPreference, 'matches', false);
+      motionPreference.dispatchEvent(new Event('change'));
+    });
+    expect(getAnimations).toHaveBeenCalledOnce();
+    expect(scan.currentTime).toBe(480);
+  });
+
+  it('reuses the first active animation for pause, rate changes, and resume without moving its phase', () => {
+    activity.active = true;
+    render();
+    expect(getAnimations).toHaveBeenCalledOnce();
+    expect(scan.updatePlaybackRate).toHaveBeenLastCalledWith(1);
+
+    const duration = container.querySelector<HTMLInputElement>('[aria-label="Duration"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(duration, '2.4');
+      duration.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(scan.updatePlaybackRate).toHaveBeenLastCalledWith(1.6 / 2.4);
+    expect(getAnimations).toHaveBeenCalledOnce();
+    expect(scan.currentTime).toBe(480);
+
+    activity.active = false;
+    render();
+    expect(scan.pause).toHaveBeenCalledOnce();
+    expect(getAnimations).toHaveBeenCalledOnce();
+    activity.active = true;
+    render();
+    expect(scan.play).toHaveBeenCalledTimes(3);
+    expect(scan.updatePlaybackRate).toHaveBeenLastCalledWith(1.6 / 2.4);
+    expect(getAnimations).toHaveBeenCalledOnce();
+    expect(scan.currentTime).toBe(480);
+  });
+
+  it('keeps the native scan paused in CSS before activation and retains it under reduced motion', () => {
+    const css = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const scans: string[][] = [];
+    css.walkRules('.marketing-agent-preview-scan', (rule) => {
+      const declarations: string[] = [];
+      rule.walkDecls((declaration) => { declarations.push(`${declaration.prop}:${declaration.value}`); });
+      scans.push(declarations);
+    });
+    expect(scans.length).toBeGreaterThanOrEqual(2);
+    for (const declarations of scans) {
+      expect(declarations).toContain('animation-play-state:paused');
+      expect(declarations).not.toContain('animation:none');
+    }
   });
 
   it('applies landing quality without resetting control values, animation cadence, or the canvas', () => {

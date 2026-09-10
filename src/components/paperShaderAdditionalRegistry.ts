@@ -1,0 +1,47 @@
+import {
+  ColorPanels, DotGrid, DotOrbit, FlutedGlass, GemSmoke, GodRays,
+  HalftoneCmyk, HalftoneDots, Heatmap, ImageDithering, LiquidMetal,
+  MeshGradient, Metaballs, NeuroNoise, PaperTexture, PerlinNoise, PulsingBorder,
+  SimplexNoise, SmokeRing, Spiral, StaticMeshGradient, StaticRadialGradient,
+  Swirl, Voronoi, Warp, Water, Waves,
+  colorPanelsPresets, dotGridPresets, dotOrbitPresets, flutedGlassPresets,
+  gemSmokePresets, godRaysPresets, halftoneCmykPresets, halftoneDotsPresets,
+  heatmapPresets, imageDitheringPresets, liquidMetalPresets, meshGradientPresets,
+  metaballsPresets, neuroNoisePresets, paperTexturePresets, perlinNoisePresets,
+  pulsingBorderPresets, simplexNoisePresets, smokeRingPresets, spiralPresets,
+  staticMeshGradientPresets, staticRadialGradientPresets, swirlPresets,
+  voronoiPresets, warpPresets, waterPresets, wavesPresets,
+} from '@paper-design/shaders-react';
+
+import { paperShaderRenderer, type PaperShaderRenderer } from '@/components/paperShaderRenderer';
+import type { PaperShaderFamilyId } from '@/lib/liveMaterials';
+
+export const PAPER_ADDITIONAL_SHADER_RENDERERS: Record<Exclude<PaperShaderFamilyId, 'dithering' | 'grain-gradient'>, PaperShaderRenderer> = {
+  'color-panels': paperShaderRenderer(ColorPanels, colorPanelsPresets),
+  'dot-grid': paperShaderRenderer(DotGrid, dotGridPresets),
+  'dot-orbit': paperShaderRenderer(DotOrbit, dotOrbitPresets),
+  'fluted-glass': paperShaderRenderer(FlutedGlass, flutedGlassPresets),
+  'gem-smoke': paperShaderRenderer(GemSmoke, gemSmokePresets),
+  'god-rays': paperShaderRenderer(GodRays, godRaysPresets),
+  'halftone-cmyk': paperShaderRenderer(HalftoneCmyk, halftoneCmykPresets),
+  'halftone-dots': paperShaderRenderer(HalftoneDots, halftoneDotsPresets),
+  'heatmap': paperShaderRenderer(Heatmap, heatmapPresets),
+  'image-dithering': paperShaderRenderer(ImageDithering, imageDitheringPresets),
+  'liquid-metal': paperShaderRenderer(LiquidMetal, liquidMetalPresets),
+  'mesh-gradient': paperShaderRenderer(MeshGradient, meshGradientPresets),
+  'metaballs': paperShaderRenderer(Metaballs, metaballsPresets),
+  'neuro-noise': paperShaderRenderer(NeuroNoise, neuroNoisePresets),
+  'paper-texture': paperShaderRenderer(PaperTexture, paperTexturePresets),
+  'perlin-noise': paperShaderRenderer(PerlinNoise, perlinNoisePresets),
+  'pulsing-border': paperShaderRenderer(PulsingBorder, pulsingBorderPresets),
+  'simplex-noise': paperShaderRenderer(SimplexNoise, simplexNoisePresets),
+  'smoke-ring': paperShaderRenderer(SmokeRing, smokeRingPresets),
+  'spiral': paperShaderRenderer(Spiral, spiralPresets),
+  'static-mesh-gradient': paperShaderRenderer(StaticMeshGradient, staticMeshGradientPresets),
+  'static-radial-gradient': paperShaderRenderer(StaticRadialGradient, staticRadialGradientPresets),
+  'swirl': paperShaderRenderer(Swirl, swirlPresets),
+  'voronoi': paperShaderRenderer(Voronoi, voronoiPresets),
+  'warp': paperShaderRenderer(Warp, warpPresets),
+  'water': paperShaderRenderer(Water, waterPresets),
+  'waves': paperShaderRenderer(Waves, wavesPresets),
+};

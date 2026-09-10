@@ -28,6 +28,7 @@ import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { useTimelineFollow } from '@/hooks/useTimelineFollow';
 import type { AnimationAudioClip, AnimationAudioState } from '@/lib/animationAudio';
 import type { StudioSource } from '@/lib/renderFrame';
 import type { StudioSettings, StudioTransitionSettings } from '@/lib/studio';
@@ -123,6 +124,9 @@ export default function TimelinePanel({
     kind: 'frame' | 'transition';
     position: StudioContextMenuPosition;
   } | null>(null);
+  const { contentRef, follow, scrollRef } = useTimelineFollow({
+    currentMsRef, disabled: disabled || timelineMenu !== null, isPlaying, totalMs,
+  });
   const frameDuration = 1000 / settings.fps;
   const effectiveTransitionMs = sources.length > 1 ? settings.transitionMs : 0;
   const timelineWidth = useMemo(() => Math.max(1, sources.length * 224 + 20), [sources.length]);
@@ -130,6 +134,7 @@ export default function TimelinePanel({
     ? `minmax(0, ${settings.holdMs}fr) minmax(0, ${effectiveTransitionMs}fr)`
     : 'minmax(0, 1fr)';
   const syncPlayheadUi = useCallback((timeMs = currentMsRef.current) => {
+    follow(timeMs);
     const currentMs = Math.min(timeMs, totalMs);
     const progress = totalMs === 0 ? 0 : currentMs / totalMs * 100;
     for (const playhead of [storyboardPlayheadRef.current, audioPlayheadRef.current]) {
@@ -145,13 +150,14 @@ export default function TimelinePanel({
       const rangeProgress = totalMs === 0 ? 0 : Number(inputRef.current.value) / totalMs * 100;
       inputRef.current.style.setProperty('--studio-range-progress', `${rangeProgress}%`);
     }
-  }, [currentMsRef, totalMs]);
+  }, [currentMsRef, follow, totalMs]);
 
   useEffect(() => subscribeToPlayhead(syncPlayheadUi), [subscribeToPlayhead, syncPlayheadUi]);
 
   function seekAndSync(timeMs: number) {
     if (disabledRef.current) return;
     onSeek(timeMs);
+    follow(timeMs, true);
     syncPlayheadUi(timeMs);
   }
 
@@ -263,8 +269,8 @@ export default function TimelinePanel({
         </div>
       </header>
 
-      <div className='animation-timeline-scroll'>
-        <div className='animation-timeline-content' style={{ width: `${timelineWidth}px` }}>
+      <div className='animation-timeline-scroll' ref={scrollRef}>
+        <div className='animation-timeline-content' ref={contentRef} style={{ width: `${timelineWidth}px` }}>
           <div className='animation-storyboard-track' data-timeline-axis-inset='10' data-timeline-scrub-surface>
             <div className='animation-timeline-playhead' ref={storyboardPlayheadRef}>
               <div

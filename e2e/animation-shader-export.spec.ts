@@ -154,6 +154,23 @@ for (const { format, override } of [
   });
 }
 
+test('a cold optional Paper family renders and preserves a paused native frame after its renderer loads', async ({ page }) => {
+  const workspace = await prepareAnimation(page, 'paper-warp-live-ink');
+  await workspace.getByRole('button', { name: 'Play preview', exact: true }).click();
+  const playhead = workspace.getByRole('slider', { name: 'Timeline playhead', exact: true });
+  await expect.poll(async () => Number(await playhead.inputValue())).toBeGreaterThan(200);
+  await workspace.getByRole('button', { name: 'Pause preview', exact: true }).click();
+  const storyboard = workspace.getByRole('slider', { name: 'Storyboard playhead', exact: true });
+  await storyboard.press('Home');
+  for (let index = 0; index < 5; index += 1) await storyboard.press('ArrowRight');
+  await expect(playhead).toHaveValue('500');
+  const entry = await pose(page);
+  expect(entry.colors).toBeGreaterThan(1);
+  await page.waitForTimeout(200);
+  expect(await pose(page)).toEqual(entry);
+  await expect(shader(page).locator('[data-live-material-ready="error"]')).toHaveCount(0);
+});
+
 test('Animation rejects timestamp-sampled Fluid GIF and MP4 instead of exporting invented motion', async ({ page }) => {
   test.setTimeout(90_000);
   const workspace = await prepareAnimation(page, 'pavel-fluid-energy');

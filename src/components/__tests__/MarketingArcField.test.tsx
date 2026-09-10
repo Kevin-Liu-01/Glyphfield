@@ -10,7 +10,7 @@ import { landingRenderQualityStore } from '@/lib/landingRenderQuality';
 
 const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
 
-vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
+vi.mock('@/components/LiveMaterialCanvas', () => ({
   default: ({ enabled = true, frameRate, maxPixelCount, paused, renderScale }: LiveMaterialCanvasProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     useEffect(() => {
@@ -94,13 +94,130 @@ describe('MarketingArcField renderer prewarming', () => {
     vi.useRealTimers();
   });
 
-  function render(persistAfterReady = false) {
+  function render(persistAfterReady = false, eager = false) {
     act(() => root.render(<MarketingArcField
+      eager={eager}
       materialId='paper-dithering-warp'
       persistAfterReady={persistAfterReady}
       settings={DEFAULT_LIVE_MATERIAL_SETTINGS}
     />));
   }
+
+  it('admits a fast-arriving shader while scrolling keeps postponing idle prewarm', () => {
+    render();
+    intersect('960px 0px', true);
+    for (let index = 0; index < 3; index += 1) {
+      act(() => { vi.advanceTimersByTime(200); window.dispatchEvent(new Event('scroll')); });
+    }
+    expect(container.querySelector('canvas')).toBeNull();
+    intersect('96px 0px', true);
+    expect(container.querySelector('canvas')?.dataset.paused).toBe('false');
+    expect(renderer.create).toHaveBeenCalledOnce();
+    expect(idleCallbacks.size).toBe(0);
+  });
+
+  it('retains the urgently mounted canvas through active-edge exits while idle never runs', () => {
+    render();
+    intersect('960px 0px', true);
+    act(() => vi.advanceTimersByTime(420));
+    expect(idleCallbacks.size).toBe(1);
+    intersect('96px 0px', true);
+    const canvas = container.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+    expect(idleCallbacks.size).toBe(0);
+    intersect('96px 0px', false);
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(canvas?.dataset.paused).toBe('true');
+    intersect('96px 0px', true);
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledOnce();
+    expect(renderer.release).not.toHaveBeenCalled();
+  });
+
+  it('handles active-edge observer delivery before the wider prewarm observer', () => {
+    render();
+    intersect('96px 0px', true);
+    const canvas = container.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+    intersect('960px 0px', true);
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledOnce();
+  });
+
+  it('urgently loads a static reduced-motion frame without waiting for idle', () => {
+    Reflect.set(motionPreference, 'matches', true);
+    render();
+    intersect('960px 0px', true);
+    intersect('96px 0px', true);
+    expect(container.querySelector('canvas')?.dataset.paused).toBe('true');
+    expect(renderer.create).toHaveBeenCalledOnce();
+    expect(idleCallbacks.size).toBe(0);
+  });
+
+  it('does not urgently mount in a hidden tab but admits immediately on visibility return', () => {
+    visibility = 'hidden';
+    render();
+    intersect('960px 0px', true);
+    intersect('96px 0px', true);
+    expect(container.querySelector('canvas')).toBeNull();
+    act(() => { visibility = 'visible'; document.dispatchEvent(new Event('visibilitychange')); });
+    expect(container.querySelector('canvas')?.dataset.paused).toBe('false');
+    expect(renderer.create).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])('respects persistAfterReady=%s after urgent admission leaves the full range', (persist) => {
+    render(persist);
+    intersect('960px 0px', true);
+    intersect('96px 0px', true);
+    const canvas = container.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+    intersect('96px 0px', false);
+    intersect('960px 0px', false);
+    expect(container.querySelector('canvas')).toBe(persist ? canvas : null);
+    expect(renderer.release).toHaveBeenCalledTimes(persist ? 0 : 1);
+  });
+
+  it('mounts an eager hero renderer before any delay or idle callback and retains it offscreen', () => {
+    render(true, true);
+    const canvas = container.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+    expect(renderer.create).toHaveBeenCalledOnce();
+    expect(canvas?.dataset.paused).toBe('true');
+    intersect('96px 0px', true);
+    expect(canvas?.dataset.paused).toBe('false');
+    intersect('96px 0px', false);
+    intersect('960px 0px', false);
+    act(() => vi.advanceTimersByTime(500));
+    expect(idleCallbacks.size).toBe(0);
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(canvas?.dataset.paused).toBe('true');
+    expect(renderer.release).not.toHaveBeenCalled();
+    intersect('960px 0px', true);
+    intersect('96px 0px', true);
+    expect(canvas?.dataset.paused).toBe('false');
+    expect(renderer.create).toHaveBeenCalledOnce();
+  });
+
+  it('starts an eager reduced-motion hero paused and resumes the same renderer when allowed', () => {
+    Reflect.set(motionPreference, 'matches', true);
+    render(true, true);
+    intersect('96px 0px', true);
+    const canvas = container.querySelector('canvas');
+    expect(canvas?.dataset.paused).toBe('true');
+    expect(renderer.create).toHaveBeenCalledOnce();
+    act(() => {
+      Reflect.set(motionPreference, 'matches', false);
+      motionPreference.dispatchEvent(new Event('change'));
+    });
+    expect(canvas?.dataset.paused).toBe('false');
+    act(() => {
+      visibility = 'hidden';
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(canvas?.dataset.paused).toBe('true');
+    expect(container.querySelector('canvas')).toBe(canvas);
+    expect(renderer.create).toHaveBeenCalledOnce();
+  });
 
   it('prepares an idle paused renderer ahead of visibility and resumes the same canvas on reentry', () => {
     render();
@@ -175,8 +292,8 @@ describe('MarketingArcField renderer prewarming', () => {
     Reflect.set(motionPreference, 'matches', true);
     render();
     intersect('960px 0px', true);
-    intersect('96px 0px', true);
     completeIdlePrewarm();
+    intersect('96px 0px', true);
     const canvas = container.querySelector('canvas');
     expect(canvas?.dataset.paused).toBe('true');
     expect(container.firstElementChild?.getAttribute('data-shader-active')).toBe('false');
@@ -201,8 +318,8 @@ describe('MarketingArcField renderer prewarming', () => {
     Reflect.set(motionPreference, 'matches', true);
     render();
     intersect('960px 0px', true);
-    intersect('96px 0px', true);
     completeIdlePrewarm();
+    intersect('96px 0px', true);
     const canvas = container.querySelector('canvas');
     act(() => landingRenderQualityStore.setMode('low'));
     expect(canvas?.dataset.maxPixelCount).toBe('45000');

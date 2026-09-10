@@ -1,5 +1,7 @@
+import { GT_BRAND_IDENTITY } from './gtBrandIdentity';
+import { application, asset, originalLibraryAssets, REVISION } from './identityPresetHelpers';
+
 import type {
-  BrandApplication,
   BrandAsset,
   BrandFontAsset,
   BrandIdentity,
@@ -7,7 +9,6 @@ import type {
 import {
   BASEMENT_SYSTEM,
   CLOUDFLARE_SYSTEM,
-  GT_SYSTEM,
   MINTLIFY_SYSTEM,
   RAMP_SYSTEM,
   STARTER_SYSTEM,
@@ -16,28 +17,7 @@ import {
   VITEPLUS_SYSTEM,
 } from './brandDossiers';
 
-const REVISION = 22;
-
-function asset(
-  id: string,
-  label: string,
-  path: string,
-  surface: BrandAsset['surface'],
-  type: BrandAsset['type'] = 'logo',
-  usage?: string
-): BrandAsset {
-  return {
-    alt: label,
-    id,
-    label,
-    path,
-    redistribution: type === 'proof' || type === 'reference' ? 'research-only' : 'bundled',
-    surface,
-    tags: id === 'identity-field' ? [type, 'brand-diagram'] : [type],
-    type,
-    usage,
-  };
-}
+export { GT_BRAND_IDENTITY } from './gtBrandIdentity';
 
 type LibraryAssetSource = Pick<
   BrandAsset,
@@ -259,115 +239,6 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
   }),
 };
 
-function originalLibraryAssets(
-  brandId: 'gt' | 'starter',
-  sourceOwner: string,
-  basePath: string
-): BrandAsset[] {
-  const paths = brandId === 'gt'
-    ? [
-        '/brands/gt/library/overview.svg',
-        '/brands/gt/library/editorial.svg',
-        '/brands/gt/library/detail.svg',
-        '/brands/gt/library/atmosphere.svg',
-        '/brands/gt/library/campaign.svg',
-        '/brands/gt/library/interface.svg',
-        '/brands/gt/library/motion.svg',
-        '/brands/gt/library/hero.svg',
-        '/brands/gt/library/workflow.svg',
-        '/brands/gt/library/system.svg',
-        '/brands/gt/library/material.svg',
-        '/brands/gt/library/signal.svg',
-      ]
-    : [
-        `${basePath}/library/overview.png`,
-        `${basePath}/library/editorial.png`,
-        `${basePath}/library/detail.png`,
-        `${basePath}/library/atmosphere.png`,
-        `${basePath}/library/campaign.png`,
-        `${basePath}/library/interface.png`,
-        `${basePath}/library/motion.png`,
-        `${basePath}/library/hero.svg`,
-        `${basePath}/library/workflow.svg`,
-        `${basePath}/library/system.svg`,
-        `${basePath}/library/material.svg`,
-        `${basePath}/library/signal.svg`,
-      ];
-  const labels = brandId === 'gt'
-    ? ['Monochrome identity field', 'Parallel scripts', 'Matte edge detail', 'Black field', 'Soft light study', 'Locale register', 'Language motion study', 'Gradient light field', 'Source alignment', 'Matte surface study', 'Grayscale range', 'Dithered light field']
-    : ['Visual overview', 'Editorial crop', 'Product detail', 'Atmosphere strip', 'Campaign field', 'Interface evidence', 'Motion frame', 'Research hero', 'Evidence workflow', 'Identity system', 'Material field', 'Focus signal'];
-  const types: BrandAsset['type'][] = ['image', 'image', 'texture', 'background', 'image', 'product', 'motion', 'image', 'image', 'image', 'texture', 'background'];
-  const slots = ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion', 'hero', 'workflow', 'system', 'material', 'signal'];
-
-  const assets: BrandAsset[] = paths.map((path, index) => {
-    const isOriginalGtAsset = brandId === 'gt';
-    const isNativeGtAsset = brandId === 'gt' && !isOriginalGtAsset;
-
-    return {
-      alt: `${sourceOwner} ${labels[index]}`,
-      attribution: isNativeGtAsset
-        ? 'Native General Translation multilingual and onboarding artwork.'
-        : brandId === 'gt'
-          ? 'Original Glyphfield monochrome surface study for General Translation; not official GT artwork.'
-          : 'Original Glyphfield Starter artwork.',
-      id: `library-${slots[index]}`,
-      label: brandId === 'gt' ? labels[index] : `${sourceOwner} ${labels[index]}`,
-      license: isNativeGtAsset ? 'General Translation source terms apply' : 'Glyphfield original',
-      path,
-      focalPoint: types[index] === 'product' ? { x: 0.5, y: 0.5 } : undefined,
-      redistribution: isNativeGtAsset ? 'research-only' : 'original',
-      sourceOwner: isNativeGtAsset ? 'General Translation' : 'Glyphfield',
-      sourceUrl: brandId === 'gt' ? 'https://generaltranslation.com/en-US/' : 'https://glyphfield.app',
-      surface: 'any',
-      tags: [
-        types[index],
-        ...(isNativeGtAsset ? ['source-native', 'official-site'] : ['brand-diagram', 'original-system']),
-        'people-free',
-        ...(types[index] === 'product' ? ['centered-product'] : []),
-        ...(types[index] === 'background' || types[index] === 'texture' ? ['background-safe'] : []),
-      ],
-      type: types[index],
-      usage: brandId === 'gt'
-        ? isNativeGtAsset
-          ? 'Native multilingual or onboarding artwork for GT identity studies and motion direction.'
-          : 'Original monochrome light, dither, and matte-surface study for expressing language without literal workflow diagrams.'
-        : 'Original evidence for Starter previews, moodboards, and identity applications.',
-    };
-  });
-
-  return assets;
-}
-
-function gtStudioCaptureAssets(): BrandAsset[] {
-  const captures = [
-    ['identity', 'Brand identity'],
-    ['moodboard', 'Moodboard'],
-    ['brand-book', 'Brand book'],
-    ['brand-elements', 'Brand elements'],
-    ['animation', 'Animation Studio'],
-    ['design-lab', 'Design Lab'],
-    ['playground', 'Playground'],
-    ['components', 'Component library'],
-    ['opengraph', 'OpenGraph'],
-  ] as const;
-
-  return captures.flatMap(([id, label]) => (['light', 'dark'] as const).map((surface) => ({
-    alt: `General Translation ${label} in Glyphfield Studio ${surface} mode`,
-    attribution: 'Current first-party Glyphfield Studio capture.',
-    id: `studio-${id}-${surface}`,
-    label: `${label} · ${surface === 'light' ? 'Light' : 'Dark'}`,
-    license: 'Glyphfield original',
-    path: `/screenshots/studio-gt-${id}-${surface}-2026.png`,
-    redistribution: 'original' as const,
-    sourceOwner: 'Glyphfield',
-    sourceUrl: 'https://glyphfield.app/studio',
-    surface,
-    tags: ['image', 'studio-capture', 'current-ui', 'people-free'],
-    type: 'image' as const,
-    usage: 'Current product evidence for General Translation previews, application showcases, documentation, and marketing.',
-  })));
-}
-
 function researchLibraryAssets(
   brandId: string,
   sourceOwner: string,
@@ -399,63 +270,6 @@ function researchLibraryAssets(
     };
   });
 }
-
-function application(
-  id: string,
-  name: string,
-  category: BrandApplication['category'],
-  format: string,
-  description: string
-): BrandApplication {
-  return { category, description, format, id, name };
-}
-
-const GT_FONT_ASSETS: BrandFontAsset[] = [
-  {
-    family: 'Switzer',
-    fileName: 'Switzer-Regular.ttf',
-    format: 'truetype',
-    id: 'switzer-400',
-    label: 'Switzer Regular',
-    path: '/fonts/switzer-400.ttf',
-    style: 'normal',
-    weight: 400,
-  },
-  {
-    family: 'Switzer',
-    fileName: 'Switzer-Medium.ttf',
-    format: 'truetype',
-    id: 'switzer-500',
-    label: 'Switzer Medium',
-    path: '/fonts/switzer-500.ttf',
-    style: 'normal',
-    weight: 500,
-  },
-  {
-    family: 'Rasmus Inter',
-    fileName: 'Inter-Variable.ttf',
-    format: 'truetype',
-    id: 'inter-variable',
-    label: 'Rasmus Inter Variable',
-    path: '/fonts/inter-variable.ttf',
-    style: 'normal',
-    weight: 400,
-    weightMax: 900,
-    weightMin: 100,
-  },
-  {
-    family: 'Geist Mono',
-    fileName: 'GeistMono-Variable.ttf',
-    format: 'truetype',
-    id: 'geist-mono-variable',
-    label: 'Geist Mono Variable',
-    path: '/fonts/geist-mono-variable.ttf',
-    style: 'normal',
-    weight: 400,
-    weightMax: 900,
-    weightMin: 100,
-  },
-];
 
 const STARTER_FONT_ASSETS: BrandFontAsset[] = [
   {
@@ -749,120 +563,6 @@ const STRIPE_FONT_ASSETS: BrandFontAsset[] = [
     weight: 500,
   },
 ];
-
-export const GT_BRAND_IDENTITY: BrandIdentity = {
-  ...GT_SYSTEM,
-  applications: [
-    application('identity', 'Identity thesis', 'foundation', '1600 × 1000', 'The GT mark, multilingual promise, and source-of-truth idea in one opening composition.'),
-    application('logo-family', 'Logo family', 'foundation', 'Responsive system', 'The GT mark, live-set company name, product lockups, and strict black-or-white surface behavior.'),
-    application('language-motion', 'Language morph', 'marketing', 'GIF / video', 'Centered greetings move between writing systems with a short cubic-bezier morph fade.'),
-    application('welcome-email', 'Welcome email', 'marketing', '640 px / responsive', 'A spare onboarding email that introduces the platform through language, product paths, and community.'),
-    application('onboarding-sequence', 'Onboarding email sequence', 'marketing', 'Day 1 / 3 / 5 / 6', 'A milestone-aware program that adapts the next action to API-key, translation, and activation state.'),
-    application('utility-email', 'Utility email family', 'product', 'Magic link / invitation', 'Straightforward authentication and invitation messages with one trusted action and concise recovery guidance.'),
-    application('billing-alerts', 'Billing alert family', 'product', 'Balance / payment / limits', 'Operational threshold alerts that make urgency, account state, and the recovery action immediately legible.'),
-    application('email-system-sheet', 'Email system contact sheet', 'foundation', '12+ templates', 'The complete lifecycle, utility, transactional, and billing program arranged for side-by-side system review.'),
-    application('cli', 'Developer CLI', 'developer', '80 columns', 'Commands, locale state, diffs, and Locadex handoff rendered as a credible developer surface.'),
-    application('product', 'Localization workspace', 'product', '1440 × 1024', 'Repository context, translation status, review state, and delivery are treated as one system.'),
-    application('editorial', 'Engineering story', 'editorial', '1600 × 900', 'A high-contrast editorial cover pairing multilingual type with code-level detail.'),
-    application('event', 'Global product pass', 'event', 'CR80 / lanyard', 'A monochrome attendee system whose variable field is language rather than decoration.'),
-    application('social', 'Launch sequence', 'social', '1:1 / 16:9', 'Repeatable announcements built from locale metadata, open space, and centered language transitions.'),
-    application('docs', 'Documentation header', 'developer', '1440 × 480', 'A technical masthead connecting framework packages, commands, and implementation guides.'),
-  ],
-  assets: [
-    asset('mark-dark', 'Black GT mark', '/brands/gt/logos/mark-black.svg', 'light'),
-    asset('mark-light', 'White GT mark', '/brands/gt/logos/mark-white.svg', 'dark'),
-    asset('identity-field', 'GT monochrome light field', '/brands/gt/assets/aura-spectrum.svg', 'any', 'background'),
-    {
-      ...asset('library-advance', 'GT multilingual advance field', '/brands/gt/library/advance.png', 'dark', 'image', 'High-contrast multilingual glyph field for visual-system, editorial, launch, and motion compositions.'),
-      attribution: 'User-supplied GT artwork.',
-      license: 'Project-provided original asset',
-      redistribution: 'original',
-      sourceOwner: 'General Translation',
-      tags: ['image', 'brand-diagram', 'original-system', 'people-free'],
-    },
-    {
-      ...asset('library-constellation', 'GT language constellation', '/brands/gt/library/language-constellation.svg', 'dark', 'image', 'Primary multilingual greeting constellation for identity, moodboard, brand-book, and launch compositions.'),
-      attribution: 'Glyphfield-authored asset derived from the GT identity preview.',
-      license: 'Glyphfield original',
-      redistribution: 'original',
-      sourceOwner: 'Glyphfield',
-      tags: ['image', 'brand-diagram', 'original-system', 'people-free'],
-    },
-    ...gtStudioCaptureAssets(),
-    ...researchLibraryAssets('gt', 'General Translation', 'https://generaltranslation.com'),
-  ],
-  audiences: ['Product engineers', 'Localization teams', 'Developer-first companies', 'AI-native product teams'],
-  builtIn: true,
-  colors: [
-    { hex: '#181818', id: 'ink', name: 'Ink', role: 'Primary type, marks, and dark surfaces' },
-    { hex: '#FFFFFF', id: 'paper', name: 'Paper', role: 'Primary light surface and reversed type' },
-    { hex: '#F4F4F4', id: 'muted', name: 'Mist', role: 'Quiet product and editorial surfaces' },
-    { hex: '#E4E4E4', id: 'emphasis', name: 'Silver', role: 'Selection, focus, dividers, and metadata' },
-    { hex: '#D4D4D4', id: 'success', name: 'Cloud', role: 'Completed and healthy states' },
-    { hex: '#A3A3A3', id: 'warning', name: 'Slate', role: 'Attention, secondary type, and disabled states' },
-    { hex: '#525252', id: 'progress', name: 'Graphite', role: 'Active work and in-progress states' },
-    { hex: '#262626', id: 'error', name: 'Charcoal', role: 'Destructive actions without introducing chroma' },
-  ],
-  contactEmail: 'hello@generaltranslation.com',
-  description: 'A premium black-and-white identity where soft light, fine dither, exact type, and quiet matte surfaces make one source resolving across every language feel modern and unmistakably technical.',
-  greetings: ['Welcome', '你好', '환영합니다', 'ようこそ', 'أهلاً وسهلاً', 'Bienvenidos'],
-  fonts: GT_FONT_ASSETS,
-  graphicSystem: {
-    composition: 'One decisive statement sits beside one restrained monochrome light field, with enough negative space for both to feel deliberate.',
-    description: 'Soft gradients, fine dither, and matte glass give invisible language infrastructure a quiet physical presence without becoming ornamental.',
-    device: 'The monochrome light field',
-    imageDirection: 'Exact black and white, soft grayscale light, fine dither, matte planes, restrained product evidence, and real interface detail. No rings, organic waves, chromatic noise, generic globe imagery, flags, or flowcharts.',
-    pattern: 'none',
-    rules: ['Black and white through and through', 'Use clean geometry and no more than 8px corner radius', 'Use one quiet light or dither field per composition', 'Compose the GT mark by itself', 'Set display copy in Switzer and secondary copy in Rasmus Inter', 'Keep headlines within two lines', 'Never connect content with diagram boxes or lines'],
-  },
-  id: 'gt',
-  kind: 'example',
-  mission: 'Make every product feel native in every language without disconnecting content from code.',
-  motion: [
-    { curve: 'cubic-bezier(0.4, 0, 0.2, 1)', description: 'Fast centered language morph with a one-second word hold.', durationMs: 1000, id: 'morph-1000', name: 'Morph / 1.00 s', previewPath: '/examples/gt-morph-one-second.gif' },
-    { curve: 'cubic-bezier(0.4, 0, 0.2, 1)', description: 'The default centered morph cadence for brand introductions.', durationMs: 1250, id: 'morph-1250', name: 'Morph / 1.25 s', previewPath: '/examples/gt-morph.gif' },
-    { curve: 'cubic-bezier(0.4, 0, 0.2, 1)', description: 'A more spacious morph for hero and presentation surfaces.', durationMs: 1500, id: 'morph-1500', name: 'Morph / 1.50 s', previewPath: '/examples/gt-morph-fast.gif' },
-    { curve: 'cubic-bezier(0.4, 0, 0.2, 1)', description: 'Letter-by-letter typing and deletion without a cursor.', durationMs: 1750, id: 'type-delete', name: 'Type + delete', previewPath: '/examples/gt-type-delete.gif' },
-  ],
-  name: 'General Translation',
-  positioning: 'GT is the internationalization infrastructure for teams that want product language to move with their code—from authoring and context to review, automation, and delivery.',
-  products: ['Internationalization', 'Translation', 'Locadex', 'CDN delivery'],
-  proof: ['Cursor', 'Cognition', 'Windsurf', 'Ramp', 'Mintlify', 'ClickHouse'],
-  proofAssets: [
-    asset('cursor', 'Cursor', '/brands/gt/proof/cursor.svg', 'light', 'proof'),
-    asset('ramp', 'Ramp', '/brands/gt/proof/ramp.svg', 'light', 'proof'),
-    asset('mintlify', 'Mintlify', '/brands/gt/proof/mintlify.svg', 'light', 'proof'),
-    asset('clickhouse', 'ClickHouse', '/brands/gt/proof/clickhouse.svg', 'light', 'proof'),
-    asset('windsurf', 'Windsurf', '/brands/gt/proof/windsurf.svg', 'light', 'proof'),
-  ],
-  revision: REVISION + 4,
-  shortName: 'GT',
-  socialHandle: '@generaltranslation',
-  sourceNotes: ['Official GT mark and current product language', 'Twelve original Glyphfield monochrome surface studies', 'GT package, CLI, and onboarding language', 'Black-and-white interface tokens and component behavior', 'Multilingual email motion studies created in Glyphfield'],
-  strategy: {
-    challenge: 'Localization is usually fragmented across string files, vendors, spreadsheets, product surfaces, and late review—separating language from the code and context that give it meaning.',
-    concept: 'One source becomes many native expressions through one quiet monochrome field.',
-    outcome: 'A premium technical identity with precise language motion, subtle optical depth, and a calm product-led hierarchy.',
-    personality: ['Exact', 'Global', 'Progressive', 'Quietly magnetic'],
-    pillars: ['Language stays connected to code', 'Context travels with every string', 'Automation remains reviewable', 'Every locale is a first-class product surface'],
-    promise: 'Ship every language with the same confidence as the source language.',
-  },
-  style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
-  tagline: 'Every language. One source.',
-  typography: [
-    { family: 'Switzer', fontId: 'switzer-500', letterSpacing: -0.7, lineHeight: 0.98, role: 'Display', usage: 'Large identity statements, campaign headlines, and decisive product moments', weight: 500 },
-    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0.05, lineHeight: 1.58, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
-    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0.15, lineHeight: 1.34, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 400 },
-    { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0.25, lineHeight: 1.5, role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata', weight: 400 },
-  ],
-  values: ['Source of truth', 'Context over strings', 'Developer agency', 'Global by default'],
-  voice: {
-    avoid: ['Abstract global-growth clichés', 'Unverifiable speed claims', 'Translation language detached from developer workflow'],
-    phrases: ['Code is the source of truth.', 'Language moves with the product.', 'Let Locadex open the PR.'],
-    principles: ['Developer-first', 'Direct and concrete', 'Technically credible', 'Globally aware'],
-  },
-  website: 'generaltranslation.com',
-};
 
 const TEMPLATE_BRAND_IDENTITY: BrandIdentity = {
   ...STARTER_SYSTEM,

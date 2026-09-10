@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, ChevronDown, Copy, GitFork, History, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from '@/components/ui/Button';
@@ -346,22 +346,7 @@ function DesignVersionActions({
   );
 }
 
-export default function DesignVersionControls({
-  autosaveState = 'saved',
-  collectionLabel = 'Saved designs',
-  defaultName = 'Untitled design',
-  draftLabel = 'Autosaved draft',
-  identityId,
-  itemLabel = 'design',
-  layout = 'toolbar',
-  onNew,
-  onOpen,
-  prepareSource,
-  revision,
-  source,
-  toolId,
-  workspaceLabel,
-}: {
+export type DesignVersionControlsProps = {
   autosaveState?: CanvasDocumentAutosaveState;
   collectionLabel?: string;
   defaultName?: string;
@@ -376,7 +361,45 @@ export default function DesignVersionControls({
   source: string | null | (() => string | null);
   toolId: string;
   workspaceLabel: string;
-}) {
+};
+
+type DesignVersionState = {
+  actions: ComponentProps<typeof DesignVersionActions>;
+  layout: 'panel' | 'toolbar';
+  notice: string;
+  onDismiss: () => void;
+  open: boolean;
+  popover: ComponentProps<typeof DesignVersionsPopover>;
+  rootRef: RefObject<HTMLDivElement | null>;
+  trigger: ComponentProps<typeof DesignVersionTrigger>;
+};
+
+const DesignVersionContext = createContext<DesignVersionState | null>(null);
+
+function useDesignVersionState(): DesignVersionState {
+  const state = useContext(DesignVersionContext);
+  if (!state) throw new Error('Design version controls require a DesignVersionProvider.');
+  return state;
+}
+
+/** One checkpoint owner may place history and file actions in separate toolbars. */
+export function DesignVersionProvider({
+  autosaveState = 'saved',
+  children,
+  collectionLabel = 'Saved designs',
+  defaultName = 'Untitled design',
+  draftLabel = 'Autosaved draft',
+  identityId,
+  itemLabel = 'design',
+  layout = 'toolbar',
+  onNew,
+  onOpen,
+  prepareSource,
+  revision,
+  source,
+  toolId,
+  workspaceLabel,
+}: DesignVersionControlsProps & { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const savePendingRef = useRef(false);
   const [open, setOpen] = useState(false);
@@ -659,53 +682,82 @@ export default function DesignVersionControls({
     }
   }
 
+  const state: DesignVersionState = {
+    actions: {
+      dirty, disabled: loading || busy || !sourceReady,
+      onClone: () => { void cloneDesign(); },
+      onFork: () => { void forkDesign(); },
+      onNew: onNew ? () => { void startNewDesign(); } : undefined,
+      onSave: () => { void saveDesign(); },
+      saving, itemLabel,
+    },
+    layout, notice, open, rootRef,
+    onDismiss: () => setOpen(false),
+    popover: {
+      activeDesign, activeId, designs, error, loading,
+      onClone: (design) => { void cloneStoredDesign(design); },
+      onDelete: (design) => { void deleteDesign(design); },
+      onNormalizeName: (design) => { void normalizeDesignName(design); },
+      onOpen: openDesign, onRename: renameDesign, saving: busy, sortedDesigns,
+      collectionLabel, defaultName, itemLabel, workspaceLabel,
+    },
+    trigger: {
+      activeDesign, autosaveState, dirty, onToggle: () => setOpen((current) => !current),
+      open, visibleState, collectionLabel, draftLabel,
+    },
+  };
+  // Context updates only subscribed controls. Stable workspace children do not
+  // rerender when a checkpoint opens, is renamed, or finishes saving.
+  return <DesignVersionContext.Provider value={state}>{children}</DesignVersionContext.Provider>;
+}
+
+function DesignVersionHistoryContent({ children, layout, state }: {
+  children?: ReactNode;
+  layout: 'panel' | 'toolbar';
+  state: DesignVersionState;
+}) {
+  return <>
+    <DesignVersionTrigger {...state.trigger} />
+    {children}
+    {state.open ? (
+      <DesignVersionsSurface anchorRef={state.rootRef} layout={layout} onDismiss={state.onDismiss}>
+        <DesignVersionsPopover {...state.popover} />
+      </DesignVersionsSurface>
+    ) : null}
+    <span aria-live='polite' className='sr-only'>{state.notice}</span>
+  </>;
+}
+
+export function DesignVersionHistory({ className = '', layout }: {
+  className?: string;
+  layout?: 'panel' | 'toolbar';
+}) {
+  const state = useDesignVersionState();
+  const resolvedLayout = layout ?? state.layout;
   return (
-    <div className={styles.root} data-layout={layout} ref={rootRef} data-design-version-controls>
-      <DesignVersionTrigger
-        activeDesign={activeDesign}
-        autosaveState={autosaveState}
-        dirty={dirty}
-        onToggle={() => setOpen((current) => !current)}
-        open={open}
-        visibleState={visibleState}
-        collectionLabel={collectionLabel}
-        draftLabel={draftLabel}
-      />
-
-      <DesignVersionActions
-        dirty={dirty}
-        disabled={loading || busy || !sourceReady}
-        onClone={() => { void cloneDesign(); }}
-        onFork={() => { void forkDesign(); }}
-        onNew={onNew ? () => { void startNewDesign(); } : undefined}
-        onSave={() => { void saveDesign(); }}
-        saving={saving}
-        itemLabel={itemLabel}
-      />
-
-      {open ? (
-        <DesignVersionsSurface anchorRef={rootRef} layout={layout} onDismiss={() => setOpen(false)}>
-          <DesignVersionsPopover
-          activeDesign={activeDesign}
-          activeId={activeId}
-          designs={designs}
-          error={error}
-          loading={loading}
-          onClone={(design) => { void cloneStoredDesign(design); }}
-          onDelete={(design) => { void deleteDesign(design); }}
-          onNormalizeName={(design) => { void normalizeDesignName(design); }}
-          onOpen={openDesign}
-          onRename={renameDesign}
-          saving={busy}
-          sortedDesigns={sortedDesigns}
-          collectionLabel={collectionLabel}
-          defaultName={defaultName}
-          itemLabel={itemLabel}
-          workspaceLabel={workspaceLabel}
-          />
-        </DesignVersionsSurface>
-      ) : null}
-      <span aria-live='polite' className='sr-only'>{notice}</span>
+    <div className={`${styles.root} ${className}`.trim()} data-layout={resolvedLayout}
+      ref={state.rootRef} data-design-version-controls data-design-version-history>
+      <DesignVersionHistoryContent layout={resolvedLayout} state={state} />
     </div>
   );
+}
+
+export function DesignVersionFileActions() {
+  const state = useDesignVersionState();
+  return <DesignVersionActions {...state.actions} />;
+}
+
+function CombinedDesignVersionControls() {
+  const state = useDesignVersionState();
+  return (
+    <div className={styles.root} data-layout={state.layout} ref={state.rootRef} data-design-version-controls>
+      <DesignVersionHistoryContent layout={state.layout} state={state}>
+        <DesignVersionFileActions />
+      </DesignVersionHistoryContent>
+    </div>
+  );
+}
+
+export default function DesignVersionControls(props: DesignVersionControlsProps) {
+  return <DesignVersionProvider {...props}><CombinedDesignVersionControls /></DesignVersionProvider>;
 }

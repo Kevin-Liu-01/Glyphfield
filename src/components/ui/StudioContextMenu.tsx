@@ -56,6 +56,28 @@ export function contextMenuPositionFromElement(element: HTMLElement): StudioCont
   };
 }
 
+function contextMenuAnchorIsActive(anchor: HTMLElement): boolean {
+  return anchor.isConnected && !anchor.closest(
+    '.studio-workspace-layer[data-active="false"], .studio-project-workspace-layer[data-active="false"], [inert]'
+  );
+}
+
+function readContextMenuScrollOffset(target: EventTarget): readonly [number, number] {
+  return target instanceof Element
+    ? [target.scrollLeft, target.scrollTop]
+    : [window.scrollX, window.scrollY];
+}
+
+function captureContextMenuScrollOffsets(anchor: HTMLElement) {
+  const offsets = new Map<EventTarget, readonly [number, number]>();
+  for (let element: HTMLElement | null = anchor; element; element = element.parentElement) {
+    offsets.set(element, readContextMenuScrollOffset(element));
+  }
+  offsets.set(document, readContextMenuScrollOffset(document));
+  offsets.set(window, readContextMenuScrollOffset(window));
+  return offsets;
+}
+
 export default function StudioContextMenu({
   detail,
   label,
@@ -95,6 +117,7 @@ export default function StudioContextMenu({
       top,
     } as CSSProperties);
     const focusFrame = window.requestAnimationFrame(() => {
+      if (position.anchor && !contextMenuAnchorIsActive(position.anchor)) return;
       menu.querySelector<HTMLButtonElement>('button[role^="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(focusFrame);
@@ -106,10 +129,15 @@ export default function StudioContextMenu({
       return;
     }
     const menu = menuRef.current;
+    const initialScrollOffsets = position.anchor ? captureContextMenuScrollOffsets(position.anchor) : null;
     const close = (restoreFocus = false) => {
       closeRef.current();
       if (restoreFocus) {
-        window.requestAnimationFrame(() => position.anchor?.focus({ preventScroll: true }));
+        window.requestAnimationFrame(() => {
+          if (position.anchor && contextMenuAnchorIsActive(position.anchor)) {
+            position.anchor.focus({ preventScroll: true });
+          }
+        });
       }
     };
     const handlePointerDown = (event: PointerEvent) => {
@@ -124,13 +152,36 @@ export default function StudioContextMenu({
     };
     const handleViewportChange = (event: Event) => {
       if (event.target instanceof Node && menu?.contains(event.target)) return;
+      if (event.type === 'scroll' && initialScrollOffsets) {
+        const target = event.target ?? window;
+        const initial = initialScrollOffsets.get(target);
+        if (!initial) return;
+        const current = readContextMenuScrollOffset(target);
+        // Focus scrolling can complete before opening, with WebKit delivering
+        // its queued event afterward. Only a new, relevant scroll invalidates
+        // the menu's position; another pane's scroll cannot move its anchor.
+        if (current[0] === initial[0] && current[1] === initial[1]) return;
+      }
       close();
     };
+    // The body portal must follow the retained tool/project that owns its
+    // anchor, even when navigation happens without an outside pointer press.
+    const owners = [
+      position.anchor?.closest<HTMLElement>('.studio-workspace-layer'),
+      position.anchor?.closest<HTMLElement>('.studio-project-workspace-layer'),
+    ].filter((owner): owner is HTMLElement => Boolean(owner));
+    const dismissInactiveOwner = () => {
+      if (owners.some((owner) => owner.dataset.active === 'false')) close();
+    };
+    const activityObserver = new MutationObserver(dismissInactiveOwner);
+    owners.forEach((owner) => activityObserver.observe(owner, { attributeFilter: ['data-active'], attributes: true }));
+    dismissInactiveOwner();
     window.addEventListener('pointerdown', handlePointerDown, true);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('scroll', handleViewportChange, true);
     return () => {
+      activityObserver.disconnect();
       window.removeEventListener('pointerdown', handlePointerDown, true);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleViewportChange);

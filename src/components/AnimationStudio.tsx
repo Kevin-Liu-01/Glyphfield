@@ -1,31 +1,26 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { T as GTText } from 'gt-next';
-import { Clapperboard, Copy, Download, PanelsTopLeft, Plus, RotateCcw, Trash2 } from '@/components/ui/SolidIcons';
+import { Clapperboard, Download, RotateCcw } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
-import ArtboardSizeMenu from '@/components/ArtboardSizeMenu';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
-import DesignVersionControls from '@/components/DesignVersionControls';
+import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
-import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
+import type { ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
-import { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeButton from '@/components/SourceCodeButton';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioControls from '@/components/StudioControls';
-import StudioToolHeader from '@/components/StudioToolHeader';
+import StudioArtboardBar from '@/components/StudioArtboardBar';
+import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
-import StudioContextMenu, {
-  contextMenuPositionFromElement,
-  contextMenuPositionFromEvent,
-  type StudioContextMenuPosition,
-} from '@/components/ui/StudioContextMenu';
-import StudioSelect from '@/components/ui/StudioSelect';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useCachedGT } from '@/hooks/useCachedGT';
@@ -56,7 +51,7 @@ import {
   parseAnimationCanvasDocument,
   type AnimationDocumentState,
 } from '@/lib/animationDocument';
-import { createAnimationShaderExport } from '@/lib/animationShaderExport';
+import type { createAnimationShaderExport } from '@/lib/animationShaderExport';
 import {
   animationAudioClipEndMs,
   audioPeaks,
@@ -74,9 +69,7 @@ import {
   canvasDocumentContentRevision,
   isCanvasDocumentEnvelope,
 } from '@/lib/canvasDocument';
-import { encodeCanvasMp4 } from '@/lib/canvasExport';
 import { blobToDataUrl, imageUrlToDataUrl } from '@/lib/download';
-import { exportGif } from '@/lib/exportGif';
 import type { LiveMaterialSettings } from '@/lib/liveMaterials';
 import { readLiveMaterialPresentation, type LiveMaterialFrameState } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer } from '@/lib/liveMaterialRenderBudget';
@@ -116,6 +109,8 @@ import {
 
 const T = memo(GTText);
 T.displayName = 'AnimationStudioTranslation';
+
+const ExportPreview = dynamic(() => import('@/components/ExportPreview'), { ssr: false });
 
 const INTERACTIVE_PREVIEW_FPS = 60;
 
@@ -478,84 +473,30 @@ function AnimationArtboardBar({
   width: number;
   workspaceControls?: ReactNode;
 }) {
-  const active = artboards.find(({ id }) => id === activeArtboardId) ?? artboards[0];
-  const [menuPosition, setMenuPosition] = useState<StudioContextMenuPosition | null>(null);
   return (
-    <section
-      aria-keyshortcuts='Shift+F10'
-      aria-label='Animation artboards'
-      className='animation-artboard-bar'
-      data-canvas-selection-preserve
-      data-has-file-controls={workspaceControls ? 'true' : 'false'}
-      data-studio-context-trigger='animation-artboard'
-      onContextMenu={(event) => {
-        event.preventDefault();
-        setMenuPosition(contextMenuPositionFromEvent(event));
-      }}
-      onKeyDown={(event) => {
-        if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
-        event.preventDefault();
-        setMenuPosition(contextMenuPositionFromElement(event.currentTarget));
-      }}
-      tabIndex={0}
-    >
-      {workspaceControls ? (
-        <div className='animation-artboard-file-controls'>{workspaceControls}</div>
-      ) : null}
-      <div className='animation-artboard-bar-picker'>
-        <PanelsTopLeft aria-hidden='true' />
-        <StudioSelect
-          ariaLabel='Active animation artboard'
-          className='animation-artboard-select'
-          onValueChange={(id) => onSelect(id as AnimationArtboardId)}
-          options={artboards.map((artboard) => ({
-            label: artboard.name.trim() || 'Untitled animation',
-            value: artboard.id,
-          }))}
-          value={active?.id}
-        />
-      </div>
-      <ArtboardSizeMenu
-        artboardName={active?.name ?? 'Untitled animation'}
-        className='animation-artboard-dimensions'
-        dimensions={{ height, width }}
-        onArtboardNameChange={onRename}
-        onDimensionsChange={onDimensionsChange}
-      />
-      <span className='animation-artboard-summary'>
+    <StudioArtboardBar
+      activeArtboardId={activeArtboardId}
+      addLabel='Add animation artboard'
+      ariaLabel='Animation artboards'
+      artboards={artboards}
+      contextMenuLabel='Animation artboard'
+      contextTrigger='animation-artboard'
+      dimensions={{ height, width }}
+      duplicateLabel='Duplicate animation artboard'
+      onAdd={onAdd}
+      onDimensionsChange={onDimensionsChange}
+      onDuplicate={onDuplicate}
+      onRemove={onRemove}
+      onRename={onRename}
+      onSelect={(id) => onSelect(id as AnimationArtboardId)}
+      removeLabel='Delete animation artboard'
+      selectLabel='Active animation artboard'
+      summary={<>
         {frameCount} frame{frameCount === 1 ? '' : 's'} · {(totalMs / 1000).toFixed(2)}s · {animationPackageLabel(packageId)}
-      </span>
-      <div className='animation-artboard-actions'>
-        <Button aria-label='Add animation artboard' onClick={onAdd} size='sm' type='button' variant='outline'>
-          <Plus aria-hidden='true' /><span>Add</span>
-        </Button>
-        <Button aria-label='Duplicate animation artboard' onClick={onDuplicate} size='icon-sm' title='Duplicate artboard' type='button' variant='outline'>
-          <Copy aria-hidden='true' />
-        </Button>
-        <Button aria-label='Delete animation artboard' disabled={artboards.length <= 1} onClick={onRemove} size='icon-sm' title='Delete artboard' type='button' variant='outline'>
-          <Trash2 aria-hidden='true' />
-        </Button>
-      </div>
-      <StudioContextMenu
-        detail={active ? `${active.snapshot.settings.width} × ${active.snapshot.settings.height}` : undefined}
-        label={active?.name ?? 'Animation artboard'}
-        onClose={() => setMenuPosition(null)}
-        position={menuPosition}
-        sections={[
-          {
-            items: [
-              { icon: <Copy aria-hidden='true' />, id: 'duplicate-animation-artboard', label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
-              { icon: <Plus aria-hidden='true' />, id: 'new-animation-artboard', label: 'New artboard', onSelect: onAdd },
-            ],
-          },
-          {
-            items: [
-              { danger: true, disabled: artboards.length <= 1, icon: <Trash2 aria-hidden='true' />, id: 'delete-animation-artboard', label: 'Delete artboard', onSelect: onRemove },
-            ],
-          },
-        ]}
-      />
-    </section>
+      </>}
+      untitledName='Untitled animation'
+      workspaceControls={workspaceControls}
+    />
   );
 }
 
@@ -582,6 +523,22 @@ function presentationWorkspaceControls(
 ): ReactNode | undefined {
   if (presentationMode) return undefined;
   return controls;
+}
+
+function AnimationVersionWorkspace({ children, presentationMode, ...versionProps }: DesignVersionControlsProps & {
+  children: ReactNode;
+  presentationMode: boolean;
+}) {
+  if (presentationMode) return children;
+  return <DesignVersionProvider {...versionProps}>{children}</DesignVersionProvider>;
+}
+
+function animationWorkspaceInput<T>(presentationMode: boolean, input: T): T | null {
+  return presentationMode ? null : input;
+}
+
+function animationDocumentRevision(document: { revision: number } | null): string {
+  return document ? String(document.revision) : '';
 }
 
 function useSettledValue<T>(value: T, delayMs: number): { pending: boolean; value: T } {
@@ -682,9 +639,10 @@ function AnimationStudio({
   const gt = useCachedGT();
   const identitySettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
+    fontWeight: initialFontWeight ?? DEFAULT_SETTINGS.fontWeight,
     background: identity?.colors.find(({ id }) => id === 'ink')?.hex ?? DEFAULT_SETTINGS.background,
     foreground: identity?.colors.find(({ id }) => id === 'paper')?.hex ?? DEFAULT_SETTINGS.foreground,
-  }), [identity]);
+  }), [identity, initialFontWeight]);
   const identityTextFrames = identity?.greetings.join('\n') || DEFAULT_TEXT_FRAMES;
   const identityId = identity?.id ?? 'default';
   const studioExport = useStudioExportProgress(`${identityId}:animation`);
@@ -947,8 +905,9 @@ function AnimationStudio({
     state: animationState,
   }), [animationState, resolvedSources]);
   const animationDocumentInputRef = useCommittedRef(animationDocumentInput);
-  const settledAnimationDocumentInput = useSettledValue(animationDocumentInput, 180);
+  const settledAnimationDocumentInput = useSettledValue(animationWorkspaceInput(presentationMode, animationDocumentInput), 180);
   const animationDocument = useMemo(() => {
+    if (presentationMode || !settledAnimationDocumentInput.value) return null;
     const draft = createAnimationCanvasDocument({
       brandId: identityId,
       createdAt: documentCreatedAt,
@@ -963,7 +922,7 @@ function AnimationStudio({
       ...draft,
       revision: canvasDocumentContentRevision(draft, { omitMetadataKeys: ['peaks'] }),
     };
-  }, [documentCreatedAt, identity?.name, identityId, settledAnimationDocumentInput.value]);
+  }, [documentCreatedAt, identity?.name, identityId, presentationMode, settledAnimationDocumentInput.value]);
   const sources = resolvedSources;
   useEffect(() => {
     if (initialSelectionAppliedRef.current || sources.length === 0) return;
@@ -1091,6 +1050,7 @@ function AnimationStudio({
 
   const settingsRef = useCommittedRef(settings);
   const sourcesRef = useCommittedRef(sources);
+  const selectedSourceIdRef = useCommittedRef(selectedSourceId);
   const frameSettingsRef = useCommittedRef(frameSettings);
   const imagesRef = useCommittedRef(images);
   const workspaceActiveRef = useCommittedRef(active);
@@ -1101,6 +1061,13 @@ function AnimationStudio({
   const activeTimelineRef = useCommittedRef(activeTimeline);
   const backgroundOverridesRef = useCommittedRef(backgroundOverrides);
   const timelineRequiresShaderSyncRef = useCommittedRef(timelineRequiresShaderSync);
+
+  const selectDisplayedSource = useCallback((index: number) => {
+    const sourceId = sourcesRef.current[index]?.id ?? null;
+    if (selectedSourceIdRef.current === sourceId) return;
+    selectedSourceIdRef.current = sourceId;
+    setSelectedSourceId(sourceId);
+  }, [selectedSourceIdRef, sourcesRef]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -1241,7 +1208,9 @@ function AnimationStudio({
   const projectWorkspaceActiveRef = useAncestorWorkspaceActivity(workspaceRef, syncWorkspaceVisibility);
 
   useEffect(() => {
-    setAudioState((current) => normalizeAnimationAudioState(current, totalMs));
+    setAudioState((current) => current.clips.length === 0
+      ? current
+      : normalizeAnimationAudioState(current, totalMs));
   }, [totalMs]);
 
   useEffect(() => {
@@ -1371,7 +1340,7 @@ function AnimationStudio({
   const brandLogoSource = animationBrandLogoSource(brandLogo);
   useEffect(() => {
     const source = brandLogoSource;
-    if (!source || /^data:[^;,]+;base64,/i.test(source)) return;
+    if (presentationMode || !source || /^data:[^;,]+;base64,/i.test(source)) return;
     let active = true;
     void imageUrlToDataUrl(source).then((embeddedSource) => {
       if (!active) return;
@@ -1384,7 +1353,7 @@ function AnimationStudio({
     return () => {
       active = false;
     };
-  }, [brandLogoSource, gt]);
+  }, [brandLogoSource, gt, presentationMode]);
 
   const attachShaderLayers = useCallback((currentSources: readonly StudioSource[]): StudioSource[] => {
     if (!shaderPresentationReadyRef.current) return [...currentSources];
@@ -1448,6 +1417,7 @@ function AnimationStudio({
       previousTimestamp = timestamp;
       const currentSettings = settingsRef.current;
       const currentSources = sourcesRef.current;
+      const playbackWasRunning = isPlayingRef.current;
       const duration = cycleDurationMs({
         holdMs: currentSettings.holdMs,
         itemCount: currentSources.length,
@@ -1480,6 +1450,7 @@ function AnimationStudio({
         itemCount: Math.max(1, currentSources.length),
         transitionMs: currentSettings.transitionMs,
       });
+      if (playbackWasRunning) selectDisplayedSource(position.index);
       const previousActiveTimeline = activeTimelineRef.current;
       if (
         timelineRequiresShaderSyncRef.current
@@ -1999,7 +1970,11 @@ function AnimationStudio({
     if (playing && totalMs > 0 && playheadRef.current >= totalMs) seek(0);
     if (playing) {
       setShaderCaptureTimeMs(null);
-      setSelectedSourceId(null);
+      selectDisplayedSource(resolveTimeline(playheadRef.current, {
+        holdMs: settingsRef.current.holdMs,
+        itemCount: sourcesRef.current.length,
+        transitionMs: settingsRef.current.transitionMs,
+      }).index);
       setSelectedTransitionIndex(null);
       setBackgroundEditScope('sequence');
       setSelectedEffectTarget('content');
@@ -2018,11 +1993,32 @@ function AnimationStudio({
   }
 
   function requestPlaybackChange(playing: boolean) {
-    if (!exportJobRef.current) changePlaying(playing);
+    if (exportJobRef.current) return;
+    changePlaying(playing);
+    if (!playing) inspectPlayhead();
+  }
+
+  function inspectPlayhead() {
+    const position = resolveTimeline(playheadRef.current, {
+      holdMs: settingsRef.current.holdMs,
+      itemCount: sourcesRef.current.length,
+      transitionMs: settingsRef.current.transitionMs,
+    });
+    if (!isPlayingRef.current && position.phase === 'transition') {
+      setSelectedSourceId(null);
+      setSelectedTransitionIndex(position.index);
+    } else {
+      selectDisplayedSource(position.index);
+      setSelectedTransitionIndex(null);
+    }
+    setSelectedEffectTarget('content');
+    setBackgroundEditScope('sequence');
   }
 
   function requestPlayheadChange(timeMs: number) {
-    if (!exportJobRef.current) seek(timeMs);
+    if (exportJobRef.current) return;
+    seek(timeMs);
+    inspectPlayhead();
   }
 
   async function handleExport(format: 'gif' | 'mp4') {
@@ -2035,8 +2031,8 @@ function AnimationStudio({
     exportJobRef.current = true;
     setError(null);
     studioExport.start(format === 'mp4' ? 'Rendering MP4 preview' : 'Rendering GIF preview', 0);
-    const resumeAfterExport = isPlayingRef.current;
-    const entryTimeMs = playheadRef.current;
+    let resumeAfterExport = isPlayingRef.current;
+    let entryTimeMs = playheadRef.current;
     const entryDocument = animationDocumentInputRef.current;
     const isCurrentDocument = () => animationDocumentInputRef.current === entryDocument;
     const isCurrentWorkspace = () => activeRef.current && projectWorkspaceActiveRef.current && Boolean(workspaceRef.current?.isConnected);
@@ -2077,7 +2073,12 @@ function AnimationStudio({
       }
     };
     try {
+      const { createAnimationShaderExport } = await import('@/lib/animationShaderExport');
       assertCurrentDocument();
+      // Playback can advance while the first export chunk loads. Anchor the
+      // captured native pose to its current playhead, not the earlier click.
+      resumeAfterExport = isPlayingRef.current;
+      entryTimeMs = playheadRef.current;
       shaderExport = createAnimationShaderExport(sources, (source) => backgroundOverrides[source.id]
         ? { key: `source-${source.id}`, root: () => shaderLayerRefs.current.get(source.id) ?? null }
         : { key: 'sequence', root: () => sequenceShaderLayerRef.current });
@@ -2104,7 +2105,7 @@ function AnimationStudio({
         studioExport.update(progress);
       };
       const blob = format === 'gif'
-        ? await exportGif({
+        ? await (await import('@/lib/exportGif')).exportGif({
             beforeFrame: (frame) => beforeFrame(frame.atMs),
             config: settings,
             onProgress,
@@ -2116,6 +2117,7 @@ function AnimationStudio({
             sources: exportSources,
           })
         : await (async () => {
+            const { encodeCanvasMp4 } = await import('@/lib/canvasExport');
             await hydrateAudioBuffers(audioState.assets);
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(120, settings.width);
@@ -2472,21 +2474,7 @@ function AnimationStudio({
     transitionSettings,
   };
   const animationWorkspaceControls = presentationWorkspaceControls(presentationMode,
-    <DesignVersionControls
-      autosaveState={autosaveState}
-      collectionLabel='Saved animations'
-      defaultName='Untitled animation'
-      draftLabel='Autosaved animation'
-      identityId={identityId}
-      itemLabel='animation'
-      layout='toolbar'
-      onNew={startNewAnimation}
-      onOpen={applyStudioSource}
-      revision={String(animationDocument.revision)}
-      source={() => animationSource}
-      toolId='animation'
-      workspaceLabel='Animation Studio'
-    />
+    <DesignVersionFileActions />
   );
 
   function renderWorkspace() {
@@ -2495,45 +2483,50 @@ function AnimationStudio({
       className={animationStudioClassName({ compactControls, embedded, presentationMode })}
       ref={workspaceRef}
     >
-      <StudioToolHeader
+      {presentationMode ? null : <StudioToolHeader
+        layout='balanced'
+        context={(
+          <StudioToolbarGroup label='Animation document'>
+            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
+            <Button
+              aria-label={gt('Reset studio')}
+              className='studio-reset'
+              onClick={resetStudio}
+              size='icon'
+              type='button'
+              variant='outline'
+            >
+              <RotateCcw aria-hidden='true' />
+            </Button>
+          </StudioToolbarGroup>
+        )}
         actions={(
-          <>
-          <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
-          <ExportPreview asset={lastExport} className='hidden xl:inline-flex' />
-          <Button
-            aria-label={gt('Reset studio')}
-            className='studio-reset'
-            onClick={resetStudio}
-            size='icon'
-            type='button'
-            variant='outline'
-          >
-            <RotateCcw aria-hidden='true' />
-          </Button>
-          <Button
-            disabled={exportProgress !== null}
-            onClick={() => void handleExport('gif')}
-            type='button'
-            variant='outline'
-          >
-            <Download aria-hidden='true' />
-            <T>GIF</T>
-          </Button>
-          <Button
-            className='px-4'
-            disabled={exportProgress !== null}
-            onClick={() => void handleExport('mp4')}
-            type='button'
-          >
-            <Clapperboard aria-hidden='true' />
-            <T>Export MP4</T>
-          </Button>
-          </>
+          <StudioToolbarGroup label='Export animation'>
+            {lastExport ? <ExportPreview asset={lastExport} className='hidden xl:inline-flex' /> : null}
+            <Button
+              disabled={exportProgress !== null}
+              onClick={() => void handleExport('gif')}
+              type='button'
+              variant='outline'
+            >
+              <Download aria-hidden='true' />
+              <T>GIF</T>
+            </Button>
+            <Button
+              className='px-4'
+              disabled={exportProgress !== null}
+              onClick={() => void handleExport('mp4')}
+              type='button'
+            >
+              <Clapperboard aria-hidden='true' />
+              <T>Export MP4</T>
+            </Button>
+          </StudioToolbarGroup>
         )}
         metadata={embedded ? undefined : <T>Studio / Motion</T>}
         title={<T>Animation</T>}
         toolId='animation'
-      />
+      />}
 
       <div className={embedded ? 'animation-body lab-workspace' : 'studio-body animation-body lab-workspace'}>
         <StudioControls {...studioControlProps} panel='source' />
@@ -2571,6 +2564,7 @@ function AnimationStudio({
               }}
               stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
               toolId='animation'
+              versionHistory={presentationWorkspaceControls(presentationMode, <DesignVersionHistory />)}
             >
               <div
                 className='relative w-full max-w-5xl bg-black smooth-shadow-ring-xl smooth-ring-foreground/20'
@@ -2729,7 +2723,26 @@ function AnimationStudio({
     );
   }
 
-  return renderWorkspace();
+  return (
+    <AnimationVersionWorkspace
+      autosaveState={autosaveState}
+      collectionLabel='Saved animations'
+      defaultName='Untitled animation'
+      draftLabel='Autosaved animation'
+      identityId={identityId}
+      itemLabel='animation'
+      layout='toolbar'
+      onNew={startNewAnimation}
+      onOpen={applyStudioSource}
+      presentationMode={presentationMode}
+      revision={animationDocumentRevision(animationDocument)}
+      source={() => animationSource}
+      toolId='animation'
+      workspaceLabel='Animation Studio'
+    >
+      {renderWorkspace()}
+    </AnimationVersionWorkspace>
+  );
 }
 
 export default memo(AnimationStudio);

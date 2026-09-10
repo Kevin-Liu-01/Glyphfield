@@ -46,7 +46,7 @@ import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
 import CanvasEditableText from '@/components/CanvasEditableText';
-import ArtboardSizeMenu, { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
+import { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
@@ -72,7 +72,8 @@ import StudioRange from '@/components/ui/StudioRange';
 import RangeControl from '@/components/DesignLabRangeControl';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
-import DesignVersionControls from '@/components/DesignVersionControls';
+import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions } from '@/components/DesignVersionControls';
+import StudioArtboardBar from '@/components/StudioArtboardBar';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import {
   alignCanvasSelection,
@@ -101,7 +102,7 @@ import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
 import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
-import StudioToolHeader from '@/components/StudioToolHeader';
+import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
 import TextEffectThumbnail from '@/components/TextEffectThumbnail';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -149,7 +150,6 @@ function designLabInspectorDescription({
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
-import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
@@ -4679,7 +4679,6 @@ export default function ShaderLabStudio({
   );
   const [workspaceTourStep, setWorkspaceTourStep] = useState(0);
   const [motionWorkspaceOpen, setMotionWorkspaceOpen] = useState(false);
-  const [artboardPickerOpen, setArtboardPickerOpen] = useState(false);
   const [artboardFocusRequest, setArtboardFocusRequest] = useState<{ id: DesignArtboardId; revision: number } | null>(null);
   const initialArtboardFocusedRef = useRef(false);
   const [workspaceFitRevision, setWorkspaceFitRevision] = useState(0);
@@ -4690,13 +4689,6 @@ export default function ShaderLabStudio({
   const designLabClipboardRef = useRef<string | null>(null);
   const imagePlacementModeRef = useRef<ImageAssetPlacementMode>('image');
   const canvasClipboardStatusTimerRef = useRef<number | null>(null);
-  const artboardPickerRef = useRef<HTMLDivElement>(null);
-
-  useDismissibleMenu(
-    artboardPickerRef,
-    () => setArtboardPickerOpen(false),
-    '.design-artboard-picker'
-  );
 
   useEffect(() => {
     const candidates = [
@@ -4859,7 +4851,6 @@ export default function ShaderLabStudio({
   const designHistorySignatureRef = useCommittedRef(designHistorySignature);
   const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
   const activeArtboardRawName = activeArtboard?.name ?? '';
-  const activeArtboardName = resolvedDesignArtboardName(activeArtboard?.name);
   const workspaceSize = useMemo(
     () => designArtboardWorkspaceSize(workspaceArtboards),
     [workspaceArtboards]
@@ -5545,7 +5536,6 @@ export default function ShaderLabStudio({
   }
 
   function selectArtboardFromPicker(id: DesignArtboardId) {
-    setArtboardPickerOpen(false);
     deselectCanvasLayers();
     activateArtboard(id, true);
   }
@@ -7811,11 +7801,17 @@ export default function ShaderLabStudio({
   function renderStudioHeader() {
     return (
       <StudioToolHeader
-        actions={(
-          <>
+        layout='balanced'
+        context={(
+          <StudioToolbarGroup label='Project files and source'>
             <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
             <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
             <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
+          </StudioToolbarGroup>
+        )}
+        actions={(
+          <>
+            <StudioToolbarGroup label='Export design'>
             {lastExport ? (
               <ExportPreview
                 asset={lastExport}
@@ -7842,100 +7838,56 @@ export default function ShaderLabStudio({
               </Button>
             )}
             {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
+            </StudioToolbarGroup>
+            <StudioToolbarGroup label='Shader playback'>
             <Button aria-label={paused ? 'Resume native shader motion' : 'Pause shader motion'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
               {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
             </Button>
+            </StudioToolbarGroup>
           </>
         )}
         navigation={navigation}
         navigationLabel='Design Lab view'
         metadata='Compose graphics across artboards'
-        status={(
-          <DesignVersionControls
-            autosaveState={compositionAutosaveState}
-            identityId={identity.id}
-            onOpen={applyCompositionSource}
-            prepareSource={prepareDesignVersionSource}
-            revision={savedDesignRevision}
-            source={compositionSetupSource}
-            toolId={tool.id}
-            workspaceLabel='Design Lab'
-          />
-        )}
         title={tool.name}
         toolId={tool.id}
       />
     );
   }
 
-  function renderArtboardToolbar(placement: 'canvas' | 'sidebar') {
+  function renderArtboardToolbar() {
     return (
-      <div
-        aria-label='Artboard workspace controls'
-        className={`design-artboard-toolbar design-artboard-toolbar-${placement}`}
-        data-canvas-selection-preserve
-      >
-        <div className='design-artboard-picker' ref={artboardPickerRef}>
-          <button
-            aria-expanded={artboardPickerOpen}
-            aria-haspopup='menu'
-            className='design-artboard-picker-trigger'
-            onClick={() => setArtboardPickerOpen((open) => !open)}
-            type='button'
-          >
-            <LayoutGrid aria-hidden='true' />
-            <strong>{activeArtboardName}</strong>
-            <ChevronDown aria-hidden='true' />
-          </button>
-          {artboardPickerOpen ? (
-            <div aria-label='Choose an artboard' className='design-artboard-picker-menu' role='menu'>
-              {workspaceArtboards.map((artboard) => {
-                const option = studioArtboardPresetForSize(
-                  artboard.snapshot.dimensions.width,
-                  artboard.snapshot.dimensions.height
-                );
-                const selected = artboard.id === activeArtboardId;
-                return (
-                  <button
-                    aria-checked={selected}
-                    key={artboard.id}
-                    onClick={() => selectArtboardFromPicker(artboard.id)}
-                    role='menuitemradio'
-                    type='button'
-                  >
-                    <Frame aria-hidden='true' />
-                    <strong>{resolvedDesignArtboardName(artboard.name)}</strong>
-                    <small>{option?.label ?? 'Custom'} · {artboard.snapshot.dimensions.width}×{artboard.snapshot.dimensions.height}</small>
-                    {selected ? <Check aria-hidden='true' /> : <span aria-hidden='true' />}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-        <ArtboardSizeMenu
-          artboardName={activeArtboardRawName}
-          className='design-artboard-size-trigger'
-          dimensions={canvasDimensions}
-          onArtboardNameChange={renameActiveArtboard}
-          onDimensionsChange={updateActiveArtboardDimensions}
-        />
-        <span aria-live='polite' className='sr-only'>{canvasClipboardStatus ?? workspaceAutosaveLabel}</span>
-        <div aria-label='Artboard actions' role='group'>
-          <button onClick={() => addArtboard(false)} title='Add blank artboard' type='button'><Plus aria-hidden='true' /><span>Add</span></button>
-          <button onClick={() => addArtboard(true)} title='Duplicate active artboard' type='button'><Copy aria-hidden='true' /><span>Duplicate</span></button>
-          <button onClick={arrangeArtboards} title='Tidy and fit artboards' type='button'><LayoutGrid aria-hidden='true' /><span>Arrange</span></button>
-          <button disabled={workspaceArtboards.length <= 1} onClick={removeActiveArtboard} title='Delete active artboard' type='button'><Trash2 aria-hidden='true' /></button>
-          <button aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} title='Artboard tutorial' type='button'><span>?</span></button>
-        </div>
-      </div>
+      <StudioArtboardBar
+        activeArtboardId={activeArtboardId}
+        addLabel='Add blank artboard'
+        ariaLabel='Artboard workspace controls'
+        artboards={workspaceArtboards}
+        className='design-lab-artboard-bar'
+        dimensions={canvasDimensions}
+        duplicateLabel='Duplicate active artboard'
+        extraActions={(
+          <>
+            <Button aria-label='Tidy and fit artboards' onClick={arrangeArtboards} size='icon-sm' title='Tidy and fit artboards' type='button' variant='outline'><LayoutGrid aria-hidden='true' /></Button>
+            <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'>?</Button>
+          </>
+        )}
+        onAdd={() => addArtboard(false)}
+        onDimensionsChange={updateActiveArtboardDimensions}
+        onDuplicate={() => addArtboard(true)}
+        onRemove={removeActiveArtboard}
+        onRename={renameActiveArtboard}
+        onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
+        removeLabel='Delete active artboard'
+        selectLabel='Active design artboard'
+        summary={<span aria-live='polite'>{canvasClipboardStatus ?? workspaceAutosaveLabel}</span>}
+        workspaceControls={<DesignVersionFileActions />}
+      />
     );
   }
 
   function renderShaderLibrary() {
     return (
       <aside className='shader-lab-v2-library studio-sidebar lab-sidebar lab-sidebar-left studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve ref={materialLibraryRef}>
-        {renderArtboardToolbar('sidebar')}
         <LabPanelHeading
           action={<button aria-label='Choose a random shader' onClick={selectRandomMaterial} title='Random shader' type='button'><Sparkles aria-hidden='true' /></button>}
           className='shader-lab-v2-panel-heading'
@@ -8681,7 +8633,7 @@ export default function ShaderLabStudio({
               <small>They will be centered, fitted, and kept at their original aspect ratio.</small>
             </div>
           ) : null}
-          {renderArtboardToolbar('canvas')}
+          {renderArtboardToolbar()}
           {workspaceTourOpen ? (
             <DesignArtboardTour
               onClose={() => setWorkspaceTourOpen(false)}
@@ -8693,6 +8645,7 @@ export default function ShaderLabStudio({
           ) : null}
           <CanvasViewport
             actionHistory={canvasActionHistory}
+            versionHistory={<DesignVersionHistory />}
             className='shader-lab-v2-composer-viewport'
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}
@@ -9076,5 +9029,18 @@ export default function ShaderLabStudio({
     );
   }
 
-  return renderStudio();
+  return (
+    <DesignVersionProvider
+      autosaveState={compositionAutosaveState}
+      identityId={identity.id}
+      onOpen={applyCompositionSource}
+      prepareSource={prepareDesignVersionSource}
+      revision={savedDesignRevision}
+      source={compositionSetupSource}
+      toolId={tool.id}
+      workspaceLabel='Design Lab'
+    >
+      {renderStudio()}
+    </DesignVersionProvider>
+  );
 }

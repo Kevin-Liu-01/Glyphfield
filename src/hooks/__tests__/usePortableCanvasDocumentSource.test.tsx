@@ -49,7 +49,7 @@ function PortableHarness({
   document,
   onValue,
 }: {
-  document: CanvasDocument;
+  document: CanvasDocument | null;
   onValue: (value: PortableCanvasDocumentSource) => void;
 }) {
   const value = usePortableCanvasDocumentSource(document);
@@ -89,7 +89,7 @@ describe('usePortableCanvasDocumentSource', () => {
     document.body.replaceChildren();
   });
 
-  async function render(document: CanvasDocument) {
+  async function render(document: CanvasDocument | null) {
     const values: PortableCanvasDocumentSource[] = [];
     await act(async () => {
       root.render(<PortableHarness document={document} onValue={(value) => values.push(value)} />);
@@ -97,6 +97,27 @@ describe('usePortableCanvasDocumentSource', () => {
     });
     return values;
   }
+
+  it('keeps a disabled presentation source idle without resolving assets', async () => {
+    const values = await render(null);
+
+    expect(values.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready' });
+    expect(download.imageUrlToDataUrl).not.toHaveBeenCalled();
+    expect(shaderFrames.resolveShaderFrameAssetSource).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a pending embedded document after its lifecycle is disabled', async () => {
+    let finishEmbedding: (source: string) => void = () => undefined;
+    download.imageUrlToDataUrl.mockReturnValue(new Promise<string>((resolve) => { finishEmbedding = resolve; }));
+    await render(documentWithAsset('/uploads/slow.png'));
+    const disabled = await render(null);
+    await act(async () => {
+      finishEmbedding('data:image/png;base64,aGVsbG8=');
+      await settle();
+    });
+    expect(disabled.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready' });
+    expect(download.imageUrlToDataUrl).toHaveBeenCalledOnce();
+  });
 
   it('invariant_embedded_documents_are_available_synchronously_without_refetching', async () => {
     const embedded = 'data:image/png;base64,aGVsbG8=';

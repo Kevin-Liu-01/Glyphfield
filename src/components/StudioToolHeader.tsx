@@ -14,6 +14,7 @@ export type StudioToolHeaderProps = {
   context?: ReactNode;
   headingLevel?: 1 | 2;
   icon?: ReactNode;
+  layout?: 'default' | 'balanced';
   metadata?: ReactNode;
   navigation?: ReactNode;
   navigationLabel?: string;
@@ -28,6 +29,7 @@ export default function StudioToolHeader({
   context,
   headingLevel = 1,
   icon,
+  layout = 'default',
   metadata,
   navigation,
   navigationLabel,
@@ -49,7 +51,7 @@ export default function StudioToolHeader({
   }, [toolId]);
 
   return (
-    <header aria-label={ariaLabel} className={styles.root} data-studio-tool-header ref={headerRef}>
+    <header aria-label={ariaLabel} className={styles.root} data-layout={layout} data-studio-tool-header ref={headerRef}>
       <div className={styles.identity} data-slot='identity'>
         {resolvedIcon ? <span className={styles.icon}>{resolvedIcon}</span> : null}
         <Heading>{title}</Heading>
@@ -57,7 +59,7 @@ export default function StudioToolHeader({
       </div>
 
       <div className={styles.middle} data-slot='middle'>
-        {context ? <div className={styles.context} data-slot='context'>{context}</div> : null}
+        {context ? <div className={styles.context} data-slot='context' data-canvas-selection-preserve>{context}</div> : null}
         {navigation ? <nav aria-label={navigationLabel} className={styles.navigation} data-slot='navigation'>{navigation}</nav> : null}
       </div>
 
@@ -67,4 +69,8 @@ export default function StudioToolHeader({
       </div>
     </header>
   );
+}
+
+export function StudioToolbarGroup({ children, label }: { children: ReactNode; label: string }) {
+  return <div aria-label={label} className={styles.actionGroup} role='group'>{children}</div>;
 }

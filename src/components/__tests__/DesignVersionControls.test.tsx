@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import DesignVersionControls from '@/components/DesignVersionControls';
+import DesignVersionControls, { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider } from '@/components/DesignVersionControls';
 import { createCanvasDocument, serializeCanvasDocument } from '@/lib/canvasDocument';
 import * as savedDesignStore from '@/lib/savedDesigns';
 import {
@@ -149,6 +149,88 @@ describe('DesignVersionControls', () => {
       ...overrides,
     };
   }
+
+  it('shares one checkpoint owner across split history and file actions without rerendering workspace children', async () => {
+    expect(DesignVersionProvider).toBeTypeOf('function');
+    let finishCapture!: (source: { source: string; revision: string }) => void;
+    const prepareSource = vi.fn(() => new Promise<{ source: string; revision: string }>((resolve) => { finishCapture = resolve; }));
+    const loadSpy = vi.spyOn(savedDesignStore, 'loadSavedDesigns');
+    const workspaceRender = vi.fn();
+    function Workspace() {
+      workspaceRender();
+      return <main data-testid='workspace'>Canvas workspace</main>;
+    }
+    try {
+      await act(() => {
+        root.render(<DesignVersionProvider identityId='gt' onOpen={vi.fn()} prepareSource={prepareSource}
+          revision='before-capture' source='{"before":true}' toolId='design-lab' workspaceLabel='Design Lab'>
+          <header data-testid='file-actions'><DesignVersionFileActions /></header>
+          <Workspace />
+          <aside data-testid='version-history'><DesignVersionHistory /></aside>
+        </DesignVersionProvider>);
+      });
+      await act(async () => { await settle(); });
+      expect(loadSpy).toHaveBeenCalledExactlyOnceWith(WORKSPACE_KEY);
+      expect(button('Save design').disabled).toBe(false);
+      await click(button('Save design'));
+      expect(prepareSource).toHaveBeenCalledOnce();
+      expect(button('Fork design').disabled).toBe(true);
+      expect(container.querySelector('[data-testid="version-history"] [aria-label="Saving"]')).not.toBeNull();
+      await click(container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!);
+      expect(document.querySelector('[role="region"]')?.textContent).toContain('Saved designs');
+      await act(async () => {
+        finishCapture({ source: '{"captured":true}', revision: 'before-capture' });
+        await settle();
+      });
+      expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+        expect.objectContaining({ source: '{"captured":true}', revision: 'before-capture' }),
+      ]);
+      expect(button('Design saved').disabled).toBe(true);
+      expect(container.querySelector('[data-testid="version-history"]')?.textContent).toContain('Untitled design');
+      expect(workspaceRender).toHaveBeenCalledOnce();
+    } finally {
+      loadSpy.mockRestore();
+    }
+  });
+
+  it('opens, forks, and clones through split controls using the same active checkpoint and focus anchor', async () => {
+    expect(DesignVersionProvider).toBeTypeOf('function');
+    const stored = savedDesign();
+    await saveSavedDesign(WORKSPACE_KEY, stored);
+    const onOpen = vi.fn();
+    await act(() => {
+      root.render(<DesignVersionProvider identityId='gt' onOpen={onOpen} revision={stored.revision}
+        source={stored.source} toolId='design-lab' workspaceLabel='Design Lab'>
+        <header><DesignVersionFileActions /></header>
+        <aside><DesignVersionHistory /></aside>
+      </DesignVersionProvider>);
+    });
+    await act(async () => { await settle(); });
+    const trigger = container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!;
+    await click(trigger);
+    const open = [...document.querySelectorAll<HTMLButtonElement>('[role="region"] button')]
+      .find((candidate) => candidate.textContent?.includes(stored.name))!;
+    await click(open);
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(stored.source);
+    expect(button('Design saved').disabled).toBe(true);
+    await click(button('Fork design'));
+    let designs = await loadSavedDesigns(WORKSPACE_KEY);
+    const fork = designs.find(({ origin }) => origin === 'fork')!;
+    expect(fork.parentId).toBe(stored.id);
+    expect(trigger.textContent).toContain(fork.name);
+    await click(button('Clone design'));
+    designs = await loadSavedDesigns(WORKSPACE_KEY);
+    const clone = designs.find(({ origin }) => origin === 'clone')!;
+    expect(clone.parentId).toBeUndefined();
+    expect(clone.source).toBe(stored.source);
+    expect(trigger.textContent).toContain(clone.name);
+    await click(trigger);
+    const region = document.querySelector<HTMLElement>('[role="region"]')!;
+    expect(container.contains(region)).toBe(false);
+    await act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(document.querySelector('[role="region"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
 
   it('saves, forks, and clones complete portable source without overwriting lineage', async () => {
     await render();

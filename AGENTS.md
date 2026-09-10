@@ -66,7 +66,7 @@ describe repository contribution.
 
 ## Commands
 <!-- agent-docs:auto:commands start -->
-- Package scripts detected: 28. Use `package.json` as the exhaustive source.
+- Package scripts detected: 30. Use `package.json` as the exhaustive source.
 - `pnpm run dev` - next dev --turbopack --port 3012
 - `pnpm run build` - next build --turbopack
 - `pnpm run test` - vitest run

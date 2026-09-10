@@ -1,9 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import StudioRange from '@/components/ui/StudioRange';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useViewportActivity } from '@/hooks/useViewportActivity';
 import {
   Braces,
   Clock3,
@@ -244,24 +246,30 @@ export function MarketingApplicationsDemo() {
 }
 
 export function MarketingMotionDemo() {
+  const containerRef = useRef<HTMLElement>(null);
+  const visible = useViewportActivity(containerRef, { rootMargin: '0px' });
+  const reducedMotion = usePrefersReducedMotion();
   const [curve, setCurve] = useState<MotionCurve>('Material');
   const [frame, setFrame] = useState(0);
   const [hold, setHold] = useState(1.25);
   const [playing, setPlaying] = useState(true);
   const [transition, setTransition] = useState(0.24);
+  const active = playing && visible && !reducedMotion;
 
   useEffect(() => {
-    if (!playing || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!active) return;
     const timer = window.setTimeout(() => setFrame((current) => (current + 1) % MOTION_FRAMES.length), (hold + transition) * 1000);
     return () => window.clearTimeout(timer);
-  }, [frame, hold, playing, transition]);
+  }, [active, frame, hold, transition]);
 
   return (
     <section
       className='marketing-live-demo marketing-mini-motion-workspace'
+      data-active={active ? 'true' : 'false'}
       data-curve={curve}
       data-frame={frame}
       data-playing={playing ? 'true' : 'false'}
+      ref={containerRef}
       style={{
         '--motion-step-duration': `${hold + transition}s`,
         '--motion-transition-duration': `${transition}s`,

@@ -4,7 +4,8 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer, { SourceCodeButton as LegacySourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeButton from '@/components/SourceCodeButton';
 
 vi.mock('gt-next', () => ({
   T: ({ children }: { children: ReactNode }) => children,
@@ -58,6 +59,20 @@ describe('SourceCodeDrawer', () => {
     });
     return onApply;
   }
+
+  it('keeps the extracted lightweight trigger compatible with existing imports and labels', async () => {
+    expect(LegacySourceCodeButton).toBe(SourceCodeButton);
+    const onClick = vi.fn();
+    await act(() => root.render(<SourceCodeButton disabled onClick={onClick} />));
+    const button = container.querySelector('button')!;
+    expect(button.getAttribute('aria-label')).toBe('Edit source code');
+    expect(button.title).toBe('Preparing portable source');
+    expect(button.disabled).toBe(true);
+    await act(() => root.render(<SourceCodeButton onClick={onClick} />));
+    await act(() => button.click());
+    expect(button.title).toBe('Edit source code');
+    expect(onClick).toHaveBeenCalledOnce();
+  });
 
   it('cleans rich-text spacing on paste and keeps validation actionable', async () => {
     const onApply = await render('{"original":true}');

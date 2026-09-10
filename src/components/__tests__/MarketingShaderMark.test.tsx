@@ -7,20 +7,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveMaterialCanvasProps } from '@/components/LiveMaterialCanvas';
 import { landingRenderQualityStore } from '@/lib/landingRenderQuality';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS } from '@/lib/liveMaterials';
+import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 
 const activity = vi.hoisted(() => ({ ready: true, reducedMotion: false, visible: true }));
 const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
 
-vi.mock('@/hooks/useDeferredRuntime', () => ({ useDeferredRuntime: () => activity.ready }));
+vi.mock('@/hooks/useDeferredRuntime', () => ({ useDeferredRuntime: vi.fn(() => activity.ready) }));
 vi.mock('@/hooks/useViewportActivity', () => ({ useViewportActivity: () => activity.visible }));
 vi.mock('@/hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => activity.reducedMotion }));
-vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
-  default: ({ frameRate, maxPixelCount, paused, renderScale, settings }: LiveMaterialCanvasProps) => {
+vi.mock('@/components/LiveMaterialCanvas', () => ({
+  default: ({ activeWhileMounted, frameRate, maxPixelCount, paused, renderScale, settings }: LiveMaterialCanvasProps) => {
     useEffect(() => {
       renderer.create();
       return () => { renderer.release(); };
     }, []);
-    return <canvas data-frame-rate={frameRate} data-max-pixel-count={maxPixelCount} data-paused={String(paused)} data-render-scale={renderScale} data-speed={settings.speed} />;
+    return <canvas data-frame-rate={frameRate} data-max-pixel-count={maxPixelCount} data-paused={String(paused)} data-render-scale={renderScale} data-retained={String(activeWhileMounted)} data-speed={settings.speed} />;
   },
 }));
 
@@ -73,6 +74,7 @@ describe('MarketingShaderMark render cadence', () => {
     render();
     act(() => landingRenderQualityStore.setMode('high'));
     expect(canvas?.dataset.paused).toBe('true');
+    expect(canvas?.dataset.retained).toBe('true');
     expect(canvas?.dataset.frameRate).toBe('60');
     expect(container.querySelector('canvas')).toBe(canvas);
     expect(renderer.release).not.toHaveBeenCalled();
@@ -82,13 +84,11 @@ describe('MarketingShaderMark render cadence', () => {
     expect(container.querySelector('canvas')).toBe(canvas);
   });
 
-  it('does not mount a renderer until its deferred runtime is ready', () => {
+  it('mounts the above-the-fold renderer immediately without scheduling a deferred runtime', () => {
     activity.ready = false;
     render();
-    expect(container.querySelector('canvas')).toBeNull();
-    expect(renderer.create).not.toHaveBeenCalled();
-    activity.ready = true;
-    render();
     expect(container.querySelector('canvas')?.dataset.frameRate).toBe('60');
+    expect(renderer.create).toHaveBeenCalledOnce();
+    expect(useDeferredRuntime).not.toHaveBeenCalled();
   });
 });

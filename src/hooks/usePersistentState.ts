@@ -66,7 +66,6 @@ export function usePersistentState<T>(
   storageKey: string,
   initialValue: T | (() => T)
 ): [T, Dispatch<SetStateAction<T>>] {
-  const initialValueRef = useCommittedRef(initialValue);
   const [snapshot, setSnapshot] = useState<{ storageKey: string; value: T }>(() => ({
     storageKey,
     value: resolveInitialValue(initialValue),
@@ -79,11 +78,13 @@ export function usePersistentState<T>(
   useEffect(() => {
     const nextValue = readPersistentValue(
       storageKey,
-      resolveInitialValue(initialValueRef.current)
+      valueRef.current
     );
     valueRef.current = nextValue;
-    setSnapshot({ storageKey, value: nextValue });
-  }, [initialValueRef, storageKey, valueRef]);
+    setSnapshot((current) => current.storageKey === storageKey && Object.is(current.value, nextValue)
+      ? current
+      : { storageKey, value: nextValue });
+  }, [storageKey, valueRef]);
 
   const setPersistentValue = useCallback<Dispatch<SetStateAction<T>>>(
     (nextValue) => {
@@ -91,6 +92,7 @@ export function usePersistentState<T>(
         typeof nextValue === 'function'
           ? (nextValue as (current: T) => T)(valueRef.current)
           : nextValue;
+      if (Object.is(valueRef.current, resolvedValue)) return;
       valueRef.current = resolvedValue;
       setSnapshot({ storageKey, value: resolvedValue });
       schedulePersistentWrite(storageKey, resolvedValue);

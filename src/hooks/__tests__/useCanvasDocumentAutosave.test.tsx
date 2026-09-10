@@ -20,6 +20,7 @@ import {
 type HarnessProps = {
   applySource: (source: string) => Promise<void> | void;
   delayMs?: number;
+  enabled?: boolean;
   onState: (state: CanvasDocumentAutosaveState) => void;
   revision: string;
   source: string | null;
@@ -29,6 +30,7 @@ type HarnessProps = {
 function AutosaveHarness({
   applySource,
   delayMs = 180,
+  enabled = true,
   onState,
   revision,
   source,
@@ -37,6 +39,7 @@ function AutosaveHarness({
   const state = useCanvasDocumentAutosave({
     applySource,
     delayMs,
+    enabled,
     revision,
     source,
     workspaceKey,
@@ -88,6 +91,28 @@ describe('useCanvasDocumentAutosave', () => {
       await settle();
     });
   }
+
+  it('does not read, apply, or write autosaves while disabled, then hydrates when enabled', async () => {
+    const applySource = vi.fn();
+    const source = '{"stored":true}';
+    storage.loadAutosavedDesign.mockResolvedValue({ revision: 'stored', source });
+    await render({ applySource, enabled: false, revision: 'stored', source });
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      window.dispatchEvent(new Event('pagehide'));
+      await settle();
+    });
+    expect(states.at(-1)).toBe('saved');
+    expect(storage.loadAutosavedDesign).not.toHaveBeenCalled();
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    expect(storage.writeAutosaveRecovery).not.toHaveBeenCalled();
+    expect(applySource).not.toHaveBeenCalled();
+
+    await render({ applySource, enabled: true, revision: 'stored', source });
+    expect(storage.loadAutosavedDesign).toHaveBeenCalledOnce();
+    expect(applySource).toHaveBeenCalledWith(source);
+    expect(states.at(-1)).toBe('saved');
+  });
 
   it('hydrates a stored portable source before reporting the draft as saved', async () => {
     const applySource = vi.fn().mockResolvedValue(undefined);

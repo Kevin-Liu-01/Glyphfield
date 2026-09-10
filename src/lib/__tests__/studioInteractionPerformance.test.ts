@@ -146,7 +146,12 @@ describe('Studio interaction performance contracts', () => {
     const studio = readSource('src/components/AnimationStudio.tsx');
     const preview = readSource('src/components/AnimationTimelinePreview.tsx');
 
-    expect(studio).toContain('useSettledValue(animationDocumentInput, 180)');
+    expect(studio).toContain('useSettledValue(animationWorkspaceInput(presentationMode, animationDocumentInput), 180)');
+    const documentMemo = studio.slice(studio.indexOf('const animationDocument = useMemo'), studio.indexOf('const sources = resolvedSources;'));
+    const presentationGuard = 'if (presentationMode || !settledAnimationDocumentInput.value) return null;';
+    expect(documentMemo).toContain(presentationGuard);
+    expect(documentMemo.indexOf(presentationGuard)).toBeLessThan(documentMemo.indexOf('createAnimationCanvasDocument('));
+    expect(documentMemo.indexOf(presentationGuard)).toBeLessThan(documentMemo.indexOf('canvasDocumentContentRevision('));
     expect(studio).toContain('const sources = resolvedSources;');
     expect(studio).toContain("? 'preparing' as const");
     expect(preview).toContain("const previewSources = kind === 'transition'");

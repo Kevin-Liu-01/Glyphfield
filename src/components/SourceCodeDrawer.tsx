@@ -45,6 +45,8 @@ import {
 } from '@/lib/sourceEditor';
 import { registerStudioAutomation, studioAutomationForOwner } from '@/lib/studioAutomation';
 
+export { default as SourceCodeButton } from '@/components/SourceCodeButton';
+
 const DEFAULT_DRAWER_WIDTH = 560;
 const MIN_DRAWER_WIDTH = 360;
 const MAX_DRAWER_WIDTH = 880;
@@ -219,30 +221,6 @@ function SourceCodeFooter({
         <kbd>⌘↵</kbd>
       </Button>
     </footer>
-  );
-}
-
-export function SourceCodeButton({
-  disabled = false,
-  onClick,
-}: {
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  const gt = useGT();
-
-  return (
-    <Button
-      aria-label={gt('Edit source code')}
-      disabled={disabled}
-      onClick={onClick}
-      title={gt(disabled ? 'Preparing portable source' : 'Edit source code')}
-      type='button'
-      variant='outline'
-    >
-      <Code2 aria-hidden='true' />
-      <span className='responsive-toolbar-label'><T>Code</T></span>
-    </Button>
   );
 }
 

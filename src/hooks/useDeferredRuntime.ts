@@ -6,12 +6,16 @@ type DeferredRuntimeOptions = {
   deferWhileInteracting?: boolean;
   deferWhileScrolling?: boolean;
   resetWhenDisabled?: boolean;
+  /** Admit an about-visible decorative renderer now; never overrides interaction deferral. */
+  urgent?: boolean;
   useIdleCallback?: boolean;
 };
 
 /**
  * Keeps optional editors and GPU runtimes out of the critical rendering path.
- * The delay guarantees the browser gets an initial paint before idle work begins.
+ * Optional work waits for a quiet paint/idle window. Decorative renderers may
+ * opt into urgent admission at the viewport edge; full editors that defer
+ * interaction keep the gesture-safe path even when urgency is requested.
  */
 export function useDeferredRuntime(
   enabled: boolean,
@@ -20,10 +24,12 @@ export function useDeferredRuntime(
     deferWhileInteracting = false,
     deferWhileScrolling = true,
     resetWhenDisabled = false,
+    urgent = false,
     useIdleCallback = true,
   }: DeferredRuntimeOptions = {}
 ) {
   const [ready, setReady] = useState(false);
+  const urgentAdmission = enabled && urgent && !deferWhileInteracting;
 
   useEffect(() => {
     if (!enabled) {
@@ -31,6 +37,12 @@ export function useDeferredRuntime(
       return;
     }
     if (ready) return;
+    if (urgentAdmission) {
+      // Retain the same mounted provider after it leaves the active edge. The
+      // normal disabled/reset policy still releases optional distant runtimes.
+      setReady(true);
+      return;
+    }
 
     let delayId = 0;
     let idleId: number | undefined;
@@ -137,8 +149,9 @@ export function useDeferredRuntime(
     enabled,
     ready,
     resetWhenDisabled,
+    urgentAdmission,
     useIdleCallback,
   ]);
 
-  return ready;
+  return ready || urgentAdmission;
 }

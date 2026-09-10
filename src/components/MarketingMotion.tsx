@@ -52,11 +52,15 @@ export default function MarketingMotion() {
       { rootMargin: '0px 0px -8% 0px', threshold: 0.04 }
     );
 
+    // Read the section bounds together before writing reveal styles. Interleaved
+    // reads/writes force layout repeatedly across the entire landing page.
+    const initiallyVisible = new Set(sections.filter(section =>
+      section.getBoundingClientRect().top < window.innerHeight * 0.92));
     sections.forEach((section) => {
       section.querySelectorAll<HTMLElement>('[data-motion-item]').forEach((item, index) => {
         item.style.setProperty('--marketing-motion-delay', `${Math.min(index, 5) * 45}ms`);
       });
-      if (section.getBoundingClientRect().top < window.innerHeight * 0.92) reveal(section);
+      if (initiallyVisible.has(section)) reveal(section);
       else {
         section.dataset.motionState = 'waiting';
         observer.observe(section);

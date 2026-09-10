@@ -1,12 +1,17 @@
 // @vitest-environment happy-dom
 
-import { act, useEffect, useRef, useState, type ReactNode } from 'react';
+import { act, createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AnimationStudio from '@/components/AnimationStudio';
-import type { AnimationAudioState } from '@/lib/animationAudio';
-import { renderFrame } from '@/lib/renderFrame';
+import { normalizeAnimationAudioState, type AnimationAudioState } from '@/lib/animationAudio';
+import { renderFrame, type StudioSource } from '@/lib/renderFrame';
+import StudioControls from '@/components/StudioControls';
+import { DEFAULT_SETTINGS } from '@/lib/studio';
+import { createAnimationCanvasDocument } from '@/lib/animationDocument';
+import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
+import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
 
 vi.mock('gt-next', () => ({ T: ({ children }: { children: ReactNode }) => children }));
 vi.mock('@/hooks/useCachedGT', () => {
@@ -17,19 +22,65 @@ vi.mock('@/hooks/usePersistentState', () => ({
   useStudioDraft: (_identity: string, _tool: string, _key: string, initial: unknown) => useState(initial),
 }));
 vi.mock('@/hooks/usePortableCanvasWorkspace', () => ({
-  usePortableCanvasWorkspace: () => ({ autosaveState: 'saved', source: null }),
+  usePortableCanvasWorkspace: vi.fn(() => ({ autosaveState: 'saved', source: null })),
 }));
+vi.mock('@/lib/animationDocument', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/animationDocument')>();
+  return { ...original, createAnimationCanvasDocument: vi.fn(original.createAnimationCanvasDocument) };
+});
+vi.mock('@/lib/animationAudio', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/animationAudio')>();
+  return { ...original, normalizeAnimationAudioState: vi.fn(original.normalizeAnimationAudioState) };
+});
 vi.mock('@/components/StudioExportProgress', () => ({ useStudioExportProgress: () => ({ start() {}, update() {}, finish() {} }) }));
-vi.mock('@/components/CanvasViewport', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('@/components/CanvasViewport', () => ({ default: ({ children, versionHistory }: { children: ReactNode; versionHistory?: ReactNode }) => <div data-canvas-viewport><div data-canvas-history>{versionHistory}</div>{children}</div> }));
 vi.mock('@/components/CanvasDimensionHandles', () => ({ default: () => null }));
 vi.mock('@/components/ArtboardSizeMenu', () => ({ default: () => null }));
 vi.mock('@/components/AnimationStudioFeedback', () => ({ AnimationError: () => null, AnimationSourceDrawer: () => null }));
-vi.mock('@/components/DesignVersionControls', () => ({ default: () => null }));
-vi.mock('@/components/EditableCanvasLayer', () => ({ default: () => null }));
+vi.mock('@/components/DesignVersionControls', () => {
+  const Context = createContext(false);
+  const Provider = vi.fn(({ children }: DesignVersionControlsProps & { children: ReactNode }) => <Context.Provider value><div data-version-provider>{children}</div></Context.Provider>);
+  const FileActions = vi.fn(() => {
+    if (!useContext(Context)) throw new Error('Missing saved-version provider');
+    return <div data-version-file-actions />;
+  });
+  const History = vi.fn(() => {
+    if (!useContext(Context)) throw new Error('Missing saved-version provider');
+    return <div data-version-history />;
+  });
+  return {
+    default: (props: DesignVersionControlsProps) => <Provider {...props}><FileActions /><History /></Provider>,
+    DesignVersionFileActions: FileActions,
+    DesignVersionHistory: History,
+    DesignVersionProvider: Provider,
+  };
+});
+vi.mock('@/components/EditableCanvasLayer', () => ({ default: ({ label }: { label: string }) => <div data-editable-target={label} /> }));
 vi.mock('@/components/ExportPreview', () => ({ default: () => null }));
 vi.mock('@/components/SourceCodeDrawer', () => ({ SourceCodeButton: () => null }));
-vi.mock('@/components/StudioControls', () => ({ default: () => null }));
-vi.mock('@/components/StudioToolHeader', () => ({ default: () => null }));
+vi.mock('@/components/StudioControls', () => ({
+  default: vi.fn(({ onFrameSettingsChange, onSelectSequenceBackground, onSelectSourceBackground, onSelectTransition, onSettingsChange, panel, selectedEffectTarget, selectedSource, selectedTransitionIndex, sources }: {
+    onFrameSettingsChange: (patch: { fontSize: number }) => void;
+    onSelectSequenceBackground: () => void;
+    onSelectSourceBackground: (id: string) => void;
+    onSelectTransition: (index: number) => void;
+    onSettingsChange: (patch: { loop: boolean }) => void;
+    panel: string;
+    selectedEffectTarget: string;
+    selectedSource: StudioSource | null;
+    selectedTransitionIndex: number | null;
+    sources: StudioSource[];
+  }) => <div data-effect-target={selectedEffectTarget} data-selection-panel={panel} data-selected-source={selectedSource?.id ?? ''} data-selected-transition={selectedTransitionIndex ?? ''} data-source-fonts={JSON.stringify(sources.map(({ id, fontSize }) => ({ id, fontSize })))}>
+    {panel === 'properties' ? <>
+      <button data-edit-current onClick={() => onFrameSettingsChange({ fontSize: 84 })}>Edit displayed scene</button>
+      <button data-select-background onClick={() => onSelectSourceBackground('text-1')}>Select scene background</button>
+      <button data-select-transition onClick={() => onSelectTransition(0)}>Select transition</button>
+      <button data-select-sequence onClick={onSelectSequenceBackground}>Select sequence background</button>
+      <button data-stop-loop onClick={() => onSettingsChange({ loop: false })}>Disable looping</button>
+    </> : null}
+  </div>),
+}));
+vi.mock('@/components/StudioToolHeader', () => ({ default: () => <header data-studio-header />, StudioToolbarGroup: ({ children }: { children: ReactNode }) => children }));
 vi.mock('@/components/ui/StudioContextMenu', () => ({ default: () => null }));
 vi.mock('@/components/ui/StudioSelect', () => ({ default: () => null }));
 vi.mock('@/components/LiveMaterialCanvas', () => ({
@@ -38,11 +89,14 @@ vi.mock('@/components/LiveMaterialCanvas', () => ({
   ),
 }));
 vi.mock('@/components/TimelinePanel', () => ({
-  default: ({ audio, isPlaying, onAudioFiles, onPlayChange, subscribeToPlayhead }: {
+  default: ({ audio, isPlaying, onAudioFiles, onPlayChange, onSeek, onSelectTransition, selectedSourceId, subscribeToPlayhead }: {
     audio: AnimationAudioState;
     isPlaying: boolean;
     onAudioFiles: (files: FileList) => void;
     onPlayChange: (playing: boolean) => void;
+    onSeek: (timeMs: number) => void;
+    onSelectTransition: (index: number) => void;
+    selectedSourceId: string | null;
     subscribeToPlayhead: (listener: (timeMs: number) => void) => () => void;
   }) => {
     const output = useRef<HTMLOutputElement>(null);
@@ -52,7 +106,12 @@ vi.mock('@/components/TimelinePanel', () => ({
     return <>
       <button data-playing={String(isPlaying)} onClick={() => onPlayChange(!isPlaying)}>Play or pause</button>
       <input aria-label='Audio file' onChange={(event) => { if (event.target.files) onAudioFiles(event.target.files); }} type='file' />
-      <output data-clip-count={audio.clips.length} ref={output} />
+      <input aria-label='Seek preview' onChange={(event) => onSeek(Number(event.target.value))} type='range' max='20000' />
+      <button data-timeline-transition onClick={() => {
+        onSelectTransition(0);
+        onSeek(DEFAULT_SETTINGS.holdMs + DEFAULT_SETTINGS.transitionMs / 2);
+      }}>Inspect timeline transition</button>
+      <output data-clip-count={audio.clips.length} data-timeline-selection={selectedSourceId ?? ''} ref={output} />
     </>;
   },
 }));
@@ -130,6 +189,19 @@ describe('Animation Studio viewport playback lifecycle', () => {
     act(() => container.querySelector<HTMLButtonElement>('button[data-playing]')!.click());
   }
 
+  function selectedScene(panel = 'properties') {
+    return container.querySelector(`[data-selection-panel=${panel}]`)!.getAttribute('data-selected-source');
+  }
+
+  function scrubTo(timeMs: number) {
+    const input = container.querySelector<HTMLInputElement>('[aria-label="Seek preview"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, String(timeMs));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
   function mockAudioContext() {
     const nodes: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> }[] = [];
     const gain = { connect: vi.fn(), gain: { value: 1 } };
@@ -185,6 +257,138 @@ describe('Animation Studio viewport playback lifecycle', () => {
     advanceFrame();
     expect(time()).toBe(beforeHide + 50);
     expect(playing()).toBe('true');
+  });
+
+  it('shares one saved-version owner between top-bar file actions and canvas history', async () => {
+    await render(true);
+    expect(container.querySelectorAll('[data-version-provider]')).toHaveLength(1);
+    expect(container.querySelector('[data-canvas-history] [data-version-history]')).not.toBeNull();
+    const actions = container.querySelector('[data-version-file-actions]')!;
+    expect(actions.closest('[data-canvas-viewport]')).toBeNull();
+    expect(actions.parentElement?.querySelector('[data-version-history]')).toBeNull();
+    const props = vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0];
+    expect(props).toMatchObject({
+      collectionLabel: 'Saved animations', defaultName: 'Untitled animation',
+      draftLabel: 'Autosaved animation', identityId: 'default', itemLabel: 'animation',
+      layout: 'toolbar', toolId: 'animation', workspaceLabel: 'Animation Studio',
+    });
+    expect(props.autosaveState).toBeDefined();
+    expect(props.onNew).toBeTypeOf('function');
+    expect(props.onOpen).toBeTypeOf('function');
+    expect(props.source).toBeTypeOf('function');
+    expect(createAnimationCanvasDocument).toHaveBeenCalled();
+    expect(vi.mocked(usePortableCanvasWorkspace).mock.calls.at(-1)?.[0].document).not.toBeNull();
+    expect(container.querySelector('[data-studio-header]')).not.toBeNull();
+  });
+
+  it('uses the authored initial font weight before the first control render', async () => {
+    await act(async () => root.render(<AnimationStudio autoPlay embedded initialFontWeight={350} presentationMode />));
+    expect(vi.mocked(StudioControls).mock.calls[0]?.[0].settings.fontWeight).toBe(350);
+  });
+
+  it('does not clone empty audio state at startup or when a silent timeline changes duration', async () => {
+    await render(true, true, true, true);
+    expect(normalizeAnimationAudioState).not.toHaveBeenCalled();
+    await act(async () => vi.mocked(StudioControls).mock.calls.at(-1)![0].onSettingsChange({ holdMs: 2_000 }));
+    expect(normalizeAnimationAudioState).not.toHaveBeenCalled();
+    expect(container.querySelector('output')?.getAttribute('data-clip-count')).toBe('0');
+  });
+
+  it('keeps the landing presentation outside saved-version state and UI while autoplay remains live', async () => {
+    await render(true, true, true, true);
+    expect(DesignVersionProvider).not.toHaveBeenCalled();
+    expect(DesignVersionFileActions).not.toHaveBeenCalled();
+    expect(DesignVersionHistory).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-version-provider]')).toBeNull();
+    expect(container.querySelector('[data-studio-header]')).toBeNull();
+    expect(createAnimationCanvasDocument).not.toHaveBeenCalled();
+    expect(vi.mocked(usePortableCanvasWorkspace).mock.calls.at(-1)?.[0].document).toBeNull();
+    advanceFrame();
+    advanceFrame();
+    expect(playing()).toBe('true');
+    expect(time()).toBeGreaterThan(0);
+    act(() => container.querySelector<HTMLButtonElement>('[data-playing]')!.click());
+    act(() => container.querySelector<HTMLButtonElement>('[data-edit-current]')!.click());
+    expect(container.querySelector('[data-selection-panel="properties"]')?.getAttribute('data-source-fonts')).toContain('"fontSize":84');
+    expect(createAnimationCanvasDocument).not.toHaveBeenCalled();
+  });
+
+  it('still honors reduced motion in the source-free landing presentation', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    await render(true, true, true, true);
+    advanceFrame();
+    advanceFrame();
+    expect(playing()).toBe('false');
+    expect(time()).toBe(0);
+    expect(container.querySelector('[data-renderer-paused]')?.getAttribute('data-renderer-paused')).toBe('true');
+    expect(createAnimationCanvasDocument).not.toHaveBeenCalled();
+  });
+
+  it('tracks the displayed scene in the inspector and both scene lists during autoplay without per-frame parent renders', async () => {
+    await render(true);
+    advanceFrame();
+    expect(selectedScene()).toBe('text-0');
+    const holdRenderCount = vi.mocked(StudioControls).mock.calls.length;
+    for (let index = 0; index < 5; index += 1) advanceFrame();
+    expect(vi.mocked(StudioControls).mock.calls.length).toBe(holdRenderCount);
+    for (let index = 0; index < 25; index += 1) advanceFrame();
+    const rendered = vi.mocked(renderFrame).mock.calls.at(-1)!;
+    expect(rendered[1][rendered[3].index].id).toBe('text-1');
+    expect(selectedScene()).toBe('text-1');
+    expect(selectedScene('source')).toBe('text-1');
+    expect(container.querySelector('output')?.getAttribute('data-timeline-selection')).toBe('text-1');
+    togglePlayback();
+    expect(selectedScene()).toBe('text-1');
+    expect(container.querySelector('[data-editable-target]')?.getAttribute('data-editable-target')).toBe('Bienvenidos');
+  });
+
+  it('makes a paused scrub select and edit the displayed hold instead of the prior scene', async () => {
+    await render(true);
+    advanceFrame();
+    togglePlayback();
+    scrubTo(DEFAULT_SETTINGS.holdMs + DEFAULT_SETTINGS.transitionMs);
+    advanceFrame();
+    expect(selectedScene()).toBe('text-1');
+    expect(container.querySelector('[data-editable-target]')?.getAttribute('data-editable-target')).toBe('Bienvenidos');
+    act(() => container.querySelector<HTMLButtonElement>('[data-edit-current]')!.click());
+    const fonts = JSON.parse(container.querySelector('[data-selection-panel=properties]')!.getAttribute('data-source-fonts')!) as { id: string; fontSize: number }[];
+    expect(fonts.find(({ id }) => id === 'text-1')?.fontSize).toBe(84);
+    expect(fonts.find(({ id }) => id === 'text-0')?.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
+    scrubTo(DEFAULT_SETTINGS.holdMs + DEFAULT_SETTINGS.transitionMs / 2);
+    advanceFrame();
+    expect(container.querySelector('[data-editable-target]')).toBeNull();
+    expect(selectedScene()).toBe('');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-selected-transition')).toBe('0');
+    act(() => container.querySelector<HTMLButtonElement>('[data-timeline-transition]')!.click());
+    expect(selectedScene()).toBe('');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-selected-transition')).toBe('0');
+  });
+
+  it('preserves explicit scene-background, transition and sequence-background inspection', async () => {
+    await render(true);
+    act(() => container.querySelector<HTMLButtonElement>('[data-select-background]')!.click());
+    expect(playing()).toBe('false');
+    expect(selectedScene()).toBe('text-1');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-effect-target')).toBe('background');
+    act(() => container.querySelector<HTMLButtonElement>('[data-select-transition]')!.click());
+    expect(selectedScene()).toBe('');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-selected-transition')).toBe('0');
+    act(() => container.querySelector<HTMLButtonElement>('[data-select-sequence]')!.click());
+    expect(selectedScene()).toBe('');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-selected-transition')).toBe('');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-effect-target')).toBe('background');
+    togglePlayback();
+    expect(selectedScene()).toBe('text-0');
+    expect(container.querySelector('[data-selection-panel=properties]')?.getAttribute('data-effect-target')).toBe('content');
+  });
+
+  it('keeps selection aligned with the final rendered frame when playback stops without looping', async () => {
+    await render(true);
+    act(() => container.querySelector<HTMLButtonElement>('[data-stop-loop]')!.click());
+    for (let index = 0; index < 130; index += 1) advanceFrame(100);
+    expect(playing()).toBe('false');
+    const rendered = vi.mocked(renderFrame).mock.calls.at(-1)!;
+    expect(selectedScene()).toBe(rendered[1][rendered[3].index].id);
   });
 
   it('does no initial preview work offscreen, but preserves explicit user pause across later visibility changes', async () => {

@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@generaltranslation/format@0.1.2-odysseus.1': b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1
+
 importers:
 
   .:
@@ -5446,13 +5449,13 @@ snapshots:
       '@babel/parser': 7.29.7
       '@babel/traverse': 7.29.7(supports-color@7.2.0)
       '@babel/types': 7.29.7
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       generaltranslation: 9.0.0-odysseus.5
       unplugin: 2.3.11
     transitivePeerDependencies:
       - supports-color
 
-  '@generaltranslation/format@0.1.2-odysseus.1':
+  '@generaltranslation/format@0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)':
     dependencies:
       intl-messageformat: 10.7.18
 
@@ -5464,7 +5467,7 @@ snapshots:
 
   '@generaltranslation/react-core@11.0.0-odysseus.15(react@19.2.7)':
     dependencies:
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       '@generaltranslation/supported-locales': 2.1.2-odysseus.5
       generaltranslation: 9.0.0-odysseus.5
       gt-i18n: 1.0.0-odysseus.8
@@ -7801,7 +7804,7 @@ snapshots:
   generaltranslation@9.0.0-odysseus.5:
     dependencies:
       '@formatjs/icu-messageformat-parser': 2.11.4
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       '@noble/hashes': 2.2.0
 
   gensync@1.0.0-beta.2: {}
@@ -7860,14 +7863,14 @@ snapshots:
 
   gt-i18n@1.0.0-odysseus.8:
     dependencies:
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       '@generaltranslation/supported-locales': 2.1.2-odysseus.5
       generaltranslation: 9.0.0-odysseus.5
 
   gt-next@11.0.0-odysseus.15(next@16.2.11(@babel/core@8.0.1)(@playwright/test@1.62.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@7.2.0):
     dependencies:
       '@generaltranslation/compiler': 1.3.25-odysseus.7(supports-color@7.2.0)
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       '@generaltranslation/next-internal': 0.1.3-odysseus.0(next@16.2.11(@babel/core@8.0.1)(@playwright/test@1.62.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@generaltranslation/react-core': 11.0.0-odysseus.15(react@19.2.7)
       '@generaltranslation/supported-locales': 2.1.2-odysseus.5
@@ -7882,7 +7885,7 @@ snapshots:
 
   gt-react@11.0.0-odysseus.15(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
-      '@generaltranslation/format': 0.1.2-odysseus.1
+      '@generaltranslation/format': 0.1.2-odysseus.1(patch_hash=b12926cbb7882c95f5f034a9acfd6a7df5322dd3b8dd104c33c51a730d1ac4f1)
       '@generaltranslation/react-core': 11.0.0-odysseus.15(react@19.2.7)
       '@generaltranslation/supported-locales': 2.1.2-odysseus.5
       generaltranslation: 9.0.0-odysseus.5

@@ -30,6 +30,7 @@ describe('canvas keyboard history', () => {
         actionHistory={{ canRedo: true, canUndo: true, entries: [], onRedo, onUndo }}
         identityId='keyboard-test'
         toolId='material'
+        versionHistory={<button type='button'>Saved designs</button>}
       >
         <input aria-label='Canvas text' />
         <span contentEditable='plaintext-only' data-testid='plain-text-editor' suppressContentEditableWarning tabIndex={0}>
@@ -59,6 +60,105 @@ describe('canvas keyboard history', () => {
     await key(canvas, { shiftKey: true });
     expect(onUndo).toHaveBeenCalledOnce();
     expect(onRedo).toHaveBeenCalledOnce();
+  });
+
+  it('exposes direct Undo and Redo beside separate action and saved-design histories', async () => {
+    const toolbar = container.querySelector<HTMLElement>('.canvas-viewport-toolbar')!;
+    expect(toolbar.textContent).toContain('Saved designs');
+    const undo = toolbar.querySelector<HTMLButtonElement>('[aria-label="Undo"]');
+    const redo = toolbar.querySelector<HTMLButtonElement>('[aria-label="Redo"]');
+    expect(undo).not.toBeNull();
+    expect(redo).not.toBeNull();
+    expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
+    await act(() => undo!.click());
+    await act(() => redo!.click());
+    expect(onUndo).toHaveBeenCalledOnce();
+    expect(onRedo).toHaveBeenCalledOnce();
+    await act(() => toolbar.querySelector<HTMLButtonElement>('[aria-label="Action history"]')!.click());
+    expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).not.toBeNull();
+    expect(container.querySelectorAll('[aria-label="Undo"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[aria-label="Redo"]')).toHaveLength(1);
+  });
+
+  it('disables unavailable canvas actions and keeps Reset view independent of Undo', async () => {
+    await act(() => root.render(<CanvasViewport
+      actionHistory={{ canRedo: false, canUndo: false, entries: [], onRedo, onUndo }}
+      identityId='keyboard-test' toolId='material'
+    ><span>Canvas content</span></CanvasViewport>));
+    const undo = container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!;
+    const redo = container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!;
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(true);
+    await act(() => { undo.click(); redo.click(); });
+    await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Zoom out"]')!.click());
+    expect(container.querySelector('.canvas-zoom-value')?.textContent).toBe('90%');
+    await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Reset view"]')!.click());
+    expect(container.querySelector('.canvas-zoom-value')?.textContent).toBe('100%');
+    expect(onUndo).not.toHaveBeenCalled();
+    expect(onRedo).not.toHaveBeenCalled();
+  });
+
+  it('renders saved-design history without requiring action history', async () => {
+    await act(() => root.render(<CanvasViewport identityId='keyboard-test' toolId='material'
+      versionHistory={<button type='button'>Saved designs</button>}
+    ><span>Canvas content</span></CanvasViewport>));
+    const toolbar = container.querySelector('.canvas-viewport-toolbar')!;
+    expect(toolbar.textContent).toContain('Saved designs');
+    expect(toolbar.querySelector('[aria-label="Undo"]')).toBeNull();
+    expect(toolbar.querySelector('[aria-label="Action history"]')).toBeNull();
+  });
+
+  it('dismisses action history on other controls without consuming their clicks', async () => {
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Action history"]')!;
+    const versions = [...container.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Saved designs')!;
+    const clicked = vi.fn();
+    versions.addEventListener('click', clicked);
+    await act(() => trigger.click());
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-label="Action history"]')!;
+    await act(() => dialog.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+    expect(dialog.isConnected).toBe(true);
+    await act(() => {
+      versions.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      versions.click();
+    });
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
+    await act(() => trigger.click());
+    await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Zoom in"]')!
+      .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+    expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
+  });
+
+  it('closes action history on Escape and restores its exact trigger, not a neighboring history control', async () => {
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Action history"]')!;
+    await act(() => trigger.click());
+    trigger.blur();
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    await act(() => document.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(true);
+    expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it.each(['studio-workspace-layer', 'studio-project-workspace-layer'])('closes history in an inactive %s without stealing focus', async (ownerClass) => {
+    container.className = ownerClass;
+    container.dataset.active = 'true';
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Action history"]')!;
+    const nextWorkspaceControl = document.body.appendChild(document.createElement('button'));
+    try {
+      await act(() => trigger.click());
+      await act(async () => {
+        container.dataset.active = 'false';
+        nextWorkspaceControl.focus();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
+      expect(document.activeElement).toBe(nextWorkspaceControl);
+      await act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      expect(document.activeElement).toBe(nextWorkspaceControl);
+    } finally {
+      nextWorkspaceControl.remove();
+    }
   });
 
   it('leaves native text editing and outside shortcuts alone', async () => {
@@ -189,6 +289,7 @@ describe('restored canvas entry framing', () => {
     expect(stage.style.transform).toBe(userTransform);
     expect(stage.style.visibility).toBe('');
   });
+
 
   it('releases a pending first-layout observation if the editor leaves before framing', async () => {
     await render(false);

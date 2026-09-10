@@ -9,13 +9,17 @@ import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 function RuntimeHarness({
   deferWhileInteracting = true,
   enabled = true,
+  resetWhenDisabled = false,
+  urgent = false,
   useIdleCallback = false,
 }: {
   deferWhileInteracting?: boolean;
   enabled?: boolean;
+  resetWhenDisabled?: boolean;
+  urgent?: boolean;
   useIdleCallback?: boolean;
 }) {
-  const ready = useDeferredRuntime(enabled, 150, { deferWhileInteracting, useIdleCallback });
+  const ready = useDeferredRuntime(enabled, 150, { deferWhileInteracting, resetWhenDisabled, urgent, useIdleCallback });
   return <output>{ready ? 'ready' : 'waiting'}</output>;
 }
 
@@ -50,6 +54,63 @@ describe('useDeferredRuntime', () => {
   function pointer(type: string, pointerId = 1) {
     act(() => window.dispatchEvent(new PointerEvent(type, { pointerId })));
   }
+
+  it('admits an urgent decorative runtime immediately and latches it after urgency ends', () => {
+    const idle = vi.fn();
+    vi.stubGlobal('requestIdleCallback', idle);
+    render({ deferWhileInteracting: false, urgent: true, useIdleCallback: true });
+    expect(container.textContent).toBe('ready');
+    expect(vi.getTimerCount()).toBe(0);
+    render({ deferWhileInteracting: false, urgent: false, useIdleCallback: true });
+    expect(container.textContent).toBe('ready');
+    expect(idle).not.toHaveBeenCalled();
+  });
+
+  it('cancels queued idle admission when a renderer becomes urgent', () => {
+    const callbacks: Array<() => void> = [];
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => callbacks.push(callback));
+    const cancel = vi.fn();
+    vi.stubGlobal('cancelIdleCallback', cancel);
+    render({ deferWhileInteracting: false, useIdleCallback: true });
+    advance(150);
+    expect(callbacks).toHaveLength(1);
+    render({ deferWhileInteracting: false, urgent: true, useIdleCallback: true });
+    expect(container.textContent).toBe('ready');
+    expect(cancel).toHaveBeenCalledWith(1);
+    render({ deferWhileInteracting: false, enabled: false, resetWhenDisabled: true });
+    act(() => callbacks[0]());
+    expect(container.textContent).toBe('waiting');
+  });
+
+  it('does not let urgency enable a disabled runtime and resets nonpersistent admission', () => {
+    render({ deferWhileInteracting: false, enabled: false, urgent: true, resetWhenDisabled: true });
+    expect(container.textContent).toBe('waiting');
+    render({ deferWhileInteracting: false, urgent: true, resetWhenDisabled: true });
+    expect(container.textContent).toBe('ready');
+    render({ deferWhileInteracting: false, enabled: false, urgent: true, resetWhenDisabled: true });
+    expect(container.textContent).toBe('waiting');
+    render({ deferWhileInteracting: false, resetWhenDisabled: true });
+    expect(container.textContent).toBe('waiting');
+    advance(150);
+    expect(container.textContent).toBe('ready');
+  });
+
+  it('preserves retained readiness while disabled if resetting was not requested', () => {
+    render({ deferWhileInteracting: false, urgent: true });
+    render({ deferWhileInteracting: false, enabled: false });
+    expect(container.textContent).toBe('ready');
+  });
+
+  it('never lets urgency bypass an optional editor held-pointer deferral', () => {
+    render({ urgent: true });
+    expect(container.textContent).toBe('waiting');
+    pointer('pointerdown');
+    advance(1_000);
+    expect(container.textContent).toBe('waiting');
+    pointer('pointerup');
+    advance(150);
+    expect(container.textContent).toBe('ready');
+  });
 
   it('does not start an optional GPU runtime in the middle of a held pointer drag', () => {
     vi.stubGlobal('requestIdleCallback', undefined);

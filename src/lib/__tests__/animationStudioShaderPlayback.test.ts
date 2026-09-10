@@ -33,8 +33,16 @@ describe('Animation Studio shader playback', () => {
   it('keeps user playback requests out of the export-owned shader clock', () => {
     expect(animationStudio).toContain('onPlayChange={requestPlaybackChange}');
     expect(animationStudio).toContain('onSeek={requestPlayheadChange}');
-    expect(animationStudio).toContain('if (!exportJobRef.current) changePlaying(playing)');
-    expect(animationStudio).toContain('if (!exportJobRef.current) seek(timeMs)');
+    const playbackRequest = animationStudio.slice(
+      animationStudio.indexOf('function requestPlaybackChange('),
+      animationStudio.indexOf('function inspectPlayhead(')
+    );
+    const seekRequest = animationStudio.slice(
+      animationStudio.indexOf('function requestPlayheadChange('),
+      animationStudio.indexOf('async function handleExport(')
+    );
+    expect(playbackRequest).toMatch(/\{\s*if \(exportJobRef\.current\) return;\s*changePlaying\(playing\);/);
+    expect(seekRequest).toMatch(/\{\s*if \(exportJobRef\.current\) return;\s*seek\(timeMs\);/);
     expect(animationStudio).toContain('disabled={exportProgress !== null}');
   });
 

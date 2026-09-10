@@ -90,7 +90,7 @@ describe('Playground optional layers', () => {
   });
 
   it('reserves enough height for the complete Design Lab layer dock', () => {
-    expect(studioStyles).toMatch(/\.shader-lab-v2-workspace\s*\{[\s\S]*?grid-template-rows: minmax\(0, 1fr\) 44px 160px;/);
+    expect(studioStyles).toMatch(/\.shader-lab-v2-workspace\s*\{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) 44px 160px;/);
     expect(studioStyles).toMatch(/\.shader-lab-v2-dock-layer\s*\{[\s\S]*?height: 134px;/);
   });
 
@@ -182,14 +182,14 @@ describe('Playground optional layers', () => {
   });
 
   it('uses one reusable tool header without vertical dividers', () => {
-    expect(designLab).toContain("import StudioToolHeader from '@/components/StudioToolHeader'");
+    expect(designLab).toContain("import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader'");
     expect(designLab).toContain('<StudioToolHeader');
     expect(studioStyles).not.toContain('.tool-header');
     expect(animationStudio).not.toContain('items-center border-r border-border');
   });
 
   it('shares browser-persisted save, fork, and clone controls across both creative tools', () => {
-    expect(designLab).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
+    expect(designLab).toContain("import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions } from '@/components/DesignVersionControls'");
     expect(designLab).toContain("workspaceLabel='Design Lab'");
     expect(designLab).toContain('onOpen={applyCompositionSource}');
     expect(playground).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
@@ -232,12 +232,11 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('arrangeCanvasFrames(');
     expect(designLab).toContain('New artboard');
     expect(designLab).toContain('Arrange all');
-    expect(designLab).toContain("aria-label='Choose an artboard'");
-    expect(designLab).toContain("className='design-artboard-picker-trigger'");
-    expect(designLab).toContain('onClick={() => selectArtboardFromPicker(artboard.id)}');
+    expect(designLab).toContain("selectLabel='Active design artboard'");
+    expect(designLab).toContain('<StudioArtboardBar');
+    expect(designLab).toContain('onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}');
     expect(designLab).toContain('activateArtboard(id, true);');
-    expect(studioStyles).toContain('.design-artboard-picker-menu {');
-    expect(studioStyles).toContain('grid-template-columns: 16px minmax(0, 1fr) auto 12px;');
+    expect(studioStyles).toContain('.studio-artboard-bar-picker {');
   });
 
   it('keeps a saved off-center mark authoritative for the entire source restore', () => {
@@ -436,7 +435,7 @@ describe('Playground optional layers', () => {
     expect(designLab).not.toContain('shader-lab-v2-stage-toolbar');
     expect(studioStyles).not.toContain('.shader-lab-v2-stage-toolbar');
     expect(designLab).toContain("className='shader-lab-v2-dock-add'");
-    expect(designLab).toContain('<ArtboardSizeMenu');
+    expect(designLab).toContain('<StudioArtboardBar');
     expect(designLab).toContain('<ArtboardSetupFields');
     expect(designLab).not.toContain("className='shader-lab-v2-composition-ratios'");
     expect(designLab).toContain("className='design-layer-inspector-list'");

@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const source = readFileSync(join(process.cwd(), 'scripts/check-interaction-performance.mjs'), 'utf8');
 const beginProbe = source.match(/const beginProbe = `([\s\S]*?)`;/)?.[1];
+const waitForLandingTextInspector = source.match(/const waitForLandingTextInspector = `([\s\S]*?)`;/)?.[1];
 const entryTypes = ['longtask', 'long-animation-frame', 'layout-shift', 'event'] as const;
 
 type Entry = {
@@ -56,6 +57,52 @@ function createProbe() {
 function entry(startTime: number, duration: number): Entry {
   return { duration, hadRecentInput: false, name: 'click', processingStart: startTime + 5, startTime, value: 0.125 };
 }
+
+function createInspectorWait(textAtMs: number) {
+  if (!waitForLandingTextInspector) throw new Error('The landing text-inspector wait expression was not found.');
+  let elapsedMs = 0;
+  const mutate = vi.fn(() => { throw new Error('The sampling wait must not mutate the live editor.'); });
+  const editorState = new Proxy({ isPlaying: true, selectedScene: 'image' }, { set: mutate });
+  const textField = new Proxy({ click: mutate, focus: mutate, value: 'Displayed text' }, { set: mutate });
+  const querySelector = vi.fn((selector: string) => {
+    expect(selector).toBe('.marketing-animation-lazy-shell .animation-layer-text-field');
+    return elapsedMs >= textAtMs ? textField : null;
+  });
+  const timer = vi.fn((callback: () => void, delay: number) => {
+    elapsedMs += delay;
+    callback();
+  });
+  const completion = runInNewContext(`(${waitForLandingTextInspector})()`, {
+    document: new Proxy({ querySelector }, { set: mutate }),
+    performance: { now: () => elapsedMs },
+    setTimeout: timer,
+    window: { editorState, glyphfield: { studio: { applySource: mutate, runAction: mutate } } },
+  }) as Promise<void>;
+  return { completion, editorState, elapsed: () => elapsedMs, mutate, querySelector, timer };
+}
+
+describe('landing benchmark inspector sampling', () => {
+  it('waits for the naturally displayed text inspector without changing playback or selection', async () => {
+    const wait = createInspectorWait(48);
+    await wait.completion;
+
+    expect(wait.elapsed()).toBe(48);
+    expect(wait.querySelector).toHaveBeenCalledTimes(4);
+    expect(wait.timer.mock.calls.map(([, delay]) => delay)).toEqual([16, 16, 16]);
+    expect(wait.editorState).toEqual({ isPlaying: true, selectedScene: 'image' });
+    expect(wait.mutate).not.toHaveBeenCalled();
+  });
+
+  it('fails within the bounded deadline when a text inspector never appears', async () => {
+    const wait = createInspectorWait(Infinity);
+    await expect(wait.completion).rejects.toThrow('Landing did not display a text scene for comparable DOM sampling');
+
+    expect(wait.elapsed()).toBeGreaterThan(12_000);
+    expect(wait.elapsed()).toBeLessThanOrEqual(12_016);
+    expect(wait.timer).toHaveBeenCalledTimes(751);
+    expect(wait.mutate).not.toHaveBeenCalled();
+  });
+});
 
 describe('benchmark observer interval attribution', () => {
   it.each([

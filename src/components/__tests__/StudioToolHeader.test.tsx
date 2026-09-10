@@ -1,9 +1,25 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import StudioToolHeader from '@/components/StudioToolHeader';
+import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
 
 describe('StudioToolHeader', () => {
+  it('separates related document and output controls in the balanced editor layout', () => {
+    const markup = renderToStaticMarkup(<StudioToolHeader
+      title='Design Lab'
+      layout='balanced'
+      context={<StudioToolbarGroup label='Document'><button type='button'>Code</button></StudioToolbarGroup>}
+      actions={<><StudioToolbarGroup label='Export'><button type='button'>PNG</button></StudioToolbarGroup>
+        <StudioToolbarGroup label='Playback'><button type='button'>Pause</button></StudioToolbarGroup></>}
+    />);
+    expect(markup).toContain('data-layout="balanced"');
+    for (const label of ['Document', 'Export', 'Playback']) {
+      expect(markup).toMatch(new RegExp(`aria-label="${label}"[^>]+role="group"`));
+    }
+    expect(markup.indexOf('aria-label="Document"')).toBeLessThan(markup.indexOf('data-slot="trailing"'));
+    expect(markup.indexOf('data-slot="trailing"')).toBeLessThan(markup.indexOf('aria-label="Export"'));
+  });
+
   it('renders named sections in a stable order', () => {
     const markup = renderToStaticMarkup(
       <StudioToolHeader

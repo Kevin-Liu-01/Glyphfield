@@ -39,9 +39,9 @@ function serializeImmediateDocument(document: CanvasDocument): PortableCanvasDoc
 }
 
 export function usePortableCanvasDocumentSource(
-  document: CanvasDocument
+  document: CanvasDocument | null
 ): PortableCanvasDocumentSource {
-  const immediate = useMemo(() => serializeImmediateDocument(document), [document]);
+  const immediate = useMemo(() => document ? serializeImmediateDocument(document) : null, [document]);
   const assetResolver = useMemo(
     () => createPortableAssetResolverCache((source) => isShaderFrameAssetSource(source)
       ? resolveShaderFrameAssetSource(source)
@@ -54,6 +54,10 @@ export function usePortableCanvasDocumentSource(
   } | null>(null);
 
   useEffect(() => {
+    if (!document) {
+      assetResolver.clear();
+      return;
+    }
     assetResolver.retain(Object.values(document.assets).map(({ source }) => source));
     if (immediate) return;
     let active = true;
@@ -89,6 +93,7 @@ export function usePortableCanvasDocumentSource(
 
   useEffect(() => () => assetResolver.clear(), [assetResolver]);
 
+  if (!document) return { document: null, error: null, source: null, status: 'ready' };
   if (immediate) return immediate;
   if (resolved?.input === document) return resolved.result;
   return { document: null, error: null, source: null, status: 'preparing' };

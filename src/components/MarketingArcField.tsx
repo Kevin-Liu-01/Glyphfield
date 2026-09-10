@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 
-import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
+import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
@@ -19,6 +19,7 @@ const SHADER_ACTIVE_MARGIN = '96px 0px';
 
 export default function MarketingArcField({
   className = '',
+  eager = false,
   frameRate = LANDING_RENDER_FRAME_RATE,
   materialId,
   maxPixelCount,
@@ -28,6 +29,7 @@ export default function MarketingArcField({
   settings,
 }: {
   className?: string;
+  eager?: boolean;
   frameRate?: number;
   materialId: LiveMaterialId;
   maxPixelCount?: number;
@@ -38,6 +40,7 @@ export default function MarketingArcField({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const nearViewport = useViewportActivity(containerRef, {
+    initialActive: eager,
     respectDocumentVisibility: false,
     rootMargin: SHADER_PREWARM_MARGIN,
   });
@@ -46,12 +49,16 @@ export default function MarketingArcField({
   const prefersReducedMotion = usePrefersReducedMotion();
   const active = viewportActive && !prefersReducedMotion;
   const isPaperShader = materialId.startsWith('paper-');
-  const runtimeReady = useDeferredRuntime(nearViewport, 420, {
+  // Separate observers may deliver their first entries in either order.
+  const withinPreparationRange = nearViewport || viewportActive;
+  const deferredReady = useDeferredRuntime(!eager && withinPreparationRange, 420, {
     deferWhileScrolling: true,
     resetWhenDisabled: !persistAfterReady,
+    urgent: viewportActive,
     useIdleCallback: true,
   });
-  const runtimeMounted = runtimeReady && (nearViewport || persistAfterReady);
+  const runtimeReady = eager || deferredReady;
+  const runtimeMounted = runtimeReady && (withinPreparationRange || persistAfterReady);
   const { quality } = useLandingRenderQuality(visible && active && runtimeMounted);
   const renderBudget = landingRenderBudget(quality, renderScale, maxPixelCount);
 
@@ -67,7 +74,7 @@ export default function MarketingArcField({
       <ShaderSkeleton />
       {runtimeMounted ? (
         <div className='marketing-v5-field-runtime'>
-          <LazyLiveMaterialCanvas
+          <LiveMaterialCanvas
             activeWhileMounted
             // Keep the prepared context and native phase while nearby. Disabling
             // the renderer here would defer GPU compilation until the active edge.

@@ -1,9 +1,13 @@
 // @vitest-environment happy-dom
 import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const lifecycle = vi.hoisted(() => ({ mount: vi.fn(), release: vi.fn() }));
+const lifecycle = vi.hoisted(() => ({
+  mount: vi.fn(),
+  release: vi.fn(),
+}));
 
 vi.mock('@/components/AnimationStudio', () => ({
   default: ({ autoPlay = false, previewFrameRate = 60, viewportVisible = true }: {
@@ -20,11 +24,6 @@ vi.mock('@/components/AnimationStudio', () => ({
     </section>;
   },
 }));
-
-vi.mock('next/dynamic', async () => {
-  const { default: Live } = await import('../MarketingAnimationStudioLive');
-  return { default: () => Live };
-});
 
 import MarketingAnimationDemo from '../MarketingAnimationDemo';
 import MarketingAnimationStudioLive from '../MarketingAnimationStudioLive';
@@ -88,26 +87,63 @@ describe('landing Animation editor loading and visibility', () => {
     act(() => { visibility = next; document.dispatchEvent(new Event('visibilitychange')); });
   }
 
-  it('mounts the eager hero after its 600ms paint delay and idle opportunity, not a 3.6s gate', () => {
+  it('mounts the eager hero immediately without waiting for a timer or idle opportunity', () => {
     render();
-    expect(editor()).toBeNull();
-    act(() => vi.advanceTimersByTime(599));
-    runIdle();
-    expect(editor()).toBeNull();
-    act(() => vi.advanceTimersByTime(1));
-    runIdle();
     expect(editor()).not.toBeNull();
     expect(lifecycle.mount).toHaveBeenCalledOnce();
+    expect(idle.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(host.querySelector('[data-studio-interactive="true"]')).not.toBeNull();
   });
 
-  it('does not mount the editor in the middle of a held pointer gesture', () => {
+  it('includes the eager live editor in server HTML without a streamed or client-only placeholder', () => {
+    const html = renderToString(<MarketingAnimationDemo eager />);
+    expect(html).toContain('data-editor');
+    expect(html).toContain('Toggle playback');
+    expect(html).not.toContain('Loading live Animation Studio');
+    expect(html).toContain('data-studio-interactive="false"');
+    expect(lifecycle.mount).not.toHaveBeenCalled();
+  });
+
+  it('keeps an uneager editor out of server HTML until its near-viewport admission', () => {
+    const html = renderToString(<MarketingAnimationDemo />);
+    expect(html).toContain('Loading live Animation Studio');
+    expect(html).not.toContain('data-editor');
+    expect(lifecycle.mount).not.toHaveBeenCalled();
+  });
+
+  it('cannot starve or replace the eager editor during scrolling or a held pointer gesture', () => {
     render();
+    const original = editor();
+    expect(original).not.toBeNull();
+    act(() => window.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 12 })));
+    for (let index = 0; index < 4; index += 1) {
+      act(() => {
+        window.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new WheelEvent('wheel', { deltaY: 50 }));
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        vi.advanceTimersByTime(100);
+      });
+      expect(editor()).toBe(original);
+    }
+    expect(lifecycle.mount).toHaveBeenCalledOnce();
+    expect(lifecycle.release).not.toHaveBeenCalled();
+    expect(idle.size).toBe(0);
+    act(() => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 12 })));
+  });
+
+  it('does not mount a nearby lazy editor in the middle of a held pointer gesture', () => {
+    render(false);
+    intersect('420px', true);
     act(() => window.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 12 })));
     warm();
     expect(editor()).toBeNull();
     expect(idle.size).toBe(0);
     act(() => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 12 })));
-    act(() => vi.advanceTimersByTime(600));
+    act(() => vi.advanceTimersByTime(299));
+    runIdle();
+    expect(editor()).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
     runIdle();
     expect(editor()).not.toBeNull();
   });

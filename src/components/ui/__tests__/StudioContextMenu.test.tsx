@@ -119,4 +119,67 @@ describe('StudioContextMenu', () => {
     act(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })));
     expect(dismissSelection).toHaveBeenCalledOnce();
   });
+
+  it('ignores a queued ancestor scroll already applied before opening but dismisses a new scroll', () => {
+    const onClose = vi.fn();
+    const workspace = document.createElement('section');
+    const anchor = document.createElement('button');
+    workspace.append(anchor);
+    document.body.append(workspace);
+    // WebKit focus scrolls the workspace synchronously, then delivers its
+    // scroll event after Shift+F10 has opened the menu.
+    workspace.scrollTop = 1;
+    anchor.focus();
+    workspace.scrollTop = 0;
+    act(() => root.render(
+      <StudioContextMenu label='Artboard actions' onClose={onClose}
+        position={{ anchor, x: 24, y: 24 }}
+        sections={[{ items: [{ id: 'duplicate', label: 'Duplicate', onSelect: vi.fn() }] }]} />
+    ));
+    act(() => workspace.dispatchEvent(new Event('scroll')));
+    expect(onClose).not.toHaveBeenCalled();
+
+    workspace.scrollTop = 20;
+    act(() => workspace.dispatchEvent(new Event('scroll')));
+    expect(onClose).toHaveBeenCalledOnce();
+    workspace.remove();
+  });
+
+  it('ignores unrelated pane and menu scrolling but dismisses scrolling inside its own anchor', () => {
+    const onClose = vi.fn();
+    const anchor = document.createElement('div');
+    const otherPane = document.createElement('div');
+    document.body.append(anchor, otherPane);
+    act(() => root.render(
+      <StudioContextMenu label='Canvas actions' onClose={onClose}
+        position={{ anchor, x: 24, y: 24 }}
+        sections={[{ items: [{ id: 'fit', label: 'Fit', onSelect: vi.fn() }] }]} />
+    ));
+    otherPane.scrollTop = 40;
+    act(() => {
+      otherPane.dispatchEvent(new Event('scroll'));
+      document.querySelector('.studio-context-menu')!.dispatchEvent(new Event('scroll'));
+    });
+    expect(onClose).not.toHaveBeenCalled();
+
+    anchor.scrollLeft = 10;
+    act(() => anchor.dispatchEvent(new Event('scroll')));
+    expect(onClose).toHaveBeenCalledOnce();
+    anchor.remove();
+    otherPane.remove();
+  });
+
+  it('still dismisses on viewport resize and scroll when no anchor was supplied', () => {
+    const onClose = vi.fn();
+    act(() => root.render(
+      <StudioContextMenu label='Actions' onClose={onClose}
+        position={{ x: 24, y: 24 }}
+        sections={[{ items: [{ id: 'fit', label: 'Fit', onSelect: vi.fn() }] }]} />
+    ));
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(onClose).toHaveBeenCalledOnce();
+    onClose.mockClear();
+    act(() => document.dispatchEvent(new Event('scroll')));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });

@@ -14,6 +14,7 @@ export type PortableCanvasWorkspace = PortableCanvasDocumentSource & {
 /**
  * One source lifecycle for every canvas-backed Studio surface: embed assets,
  * serialize the portable document, hydrate its autosave, and persist changes.
+ * A null document leaves presentation-only editors outside this lifecycle.
  */
 export function usePortableCanvasWorkspace({
   applySource,
@@ -22,14 +23,15 @@ export function usePortableCanvasWorkspace({
   workspaceKey,
 }: {
   applySource: (source: string) => Promise<void> | void;
-  document: CanvasDocument;
+  document: CanvasDocument | null;
   suspendAutosave?: boolean;
   workspaceKey: string;
 }): PortableCanvasWorkspace {
   const portable = usePortableCanvasDocumentSource(document);
   const autosaveState = useCanvasDocumentAutosave({
     applySource,
-    revision: String(document.revision),
+    enabled: document !== null,
+    revision: String(document?.revision ?? ''),
     source: suspendAutosave ? null : portable.source,
     workspaceKey,
   });
