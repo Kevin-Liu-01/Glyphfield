@@ -4,13 +4,15 @@ import dynamic from 'next/dynamic';
 import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { T as GTText } from 'gt-next';
-import { Clapperboard, Download, RotateCcw } from '@/components/ui/SolidIcons';
+import { Clapperboard, Download } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
-import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
+import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, DesignVersionStatus, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
+import { DownloadProjectFileButton, OpenProjectFileButton } from '@/components/ProjectFileControls';
+import BrandFontFaces from '@/components/BrandFontFaces';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import type { ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
@@ -22,6 +24,7 @@ import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHea
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
+import { useAnimationActionHistory } from '@/hooks/useAnimationActionHistory';
 import { useCanvasSelectionDismiss } from '@/hooks/useCanvasSelectionDismiss';
 import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
@@ -64,7 +67,8 @@ import {
   type AnimationAudioAsset,
   type AnimationAudioState,
 } from '@/lib/animationAudio';
-import type { BrandIdentity } from '@/lib/brandIdentity';
+import { brandTypographyFamily, type BrandFontAsset, type BrandIdentity } from '@/lib/brandIdentity';
+import type { DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import {
   canvasDocumentContentRevision,
   isCanvasDocumentEnvelope,
@@ -90,6 +94,7 @@ import {
   sourceStringArray,
 } from '@/lib/sourceCode';
 import { savedDesignStorageKey } from '@/lib/savedDesigns';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 import {
   applyFrameSettings,
   createDefaultFrameSettings,
@@ -113,6 +118,30 @@ T.displayName = 'AnimationStudioTranslation';
 const ExportPreview = dynamic(() => import('@/components/ExportPreview'), { ssr: false });
 
 const INTERACTIVE_PREVIEW_FPS = 60;
+
+async function readAnimationProjectFile(file: File) {
+  return (await import('@/lib/animationProjectFile')).readAnimationProjectFile(file);
+}
+
+async function validateAnimationFontFiles(fonts: readonly BrandFontAsset[]) {
+  if (fonts.length === 0) return;
+  if (typeof FontFace === 'undefined') throw new Error('This browser cannot validate the project font files.');
+  await Promise.all(fonts.map((font) => {
+    const weight = font.weightMin !== undefined && font.weightMax !== undefined
+      ? `${font.weightMin} ${font.weightMax}` : String(font.weight);
+    return new FontFace(JSON.stringify(font.family),
+      `url(${JSON.stringify(font.path)}) format(${JSON.stringify(font.format)})`,
+      { style: font.style, weight }).load();
+  }));
+}
+
+async function waitForAnimationFonts(sources: readonly StudioSource[]) {
+  if (!document.fonts) return;
+  const fonts = new Set(sources.filter((source) => source.kind === 'text').map((source) => (
+    `${source.fontWeight ?? 500} 64px ${JSON.stringify(source.fontFamily ?? 'Switzer')}`
+  )));
+  await Promise.all([...fonts].map((font) => document.fonts.load(font)));
+}
 
 async function loadImportedImage(file: File): Promise<ImportedImage> {
   const url = await blobToDataUrl(file);
@@ -541,6 +570,18 @@ function animationDocumentRevision(document: { revision: number } | null): strin
   return document ? String(document.revision) : '';
 }
 
+function resolveAnimationFontFamily(identity: BrandIdentity | undefined): string {
+  return identity ? brandTypographyFamily(identity, 'Display') : 'Switzer';
+}
+
+function animationHistoryEnabled(presentationMode: boolean, autosaveState: string): boolean {
+  return !presentationMode && autosaveState !== 'loading';
+}
+
+function animationHistorySelection(selectedId: string | null, sourceIds: readonly string[]): string | null {
+  return selectedId && sourceIds.includes(selectedId) ? selectedId : sourceIds[0] ?? null;
+}
+
 function useSettledValue<T>(value: T, delayMs: number): { pending: boolean; value: T } {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
@@ -618,7 +659,7 @@ function AnimationStudio({
   autoPlay = false,
   compactControls = false,
   embedded = false,
-  identity,
+  identity: brandIdentity,
   initialFontWeight,
   initialSequenceBackground,
   previewFrameRate = INTERACTIVE_PREVIEW_FPS,
@@ -637,6 +678,11 @@ function AnimationStudio({
   viewportVisible?: boolean;
 }) {
   const gt = useCachedGT();
+  const [projectIdentity, setProjectIdentity] = useState<DesignLabProjectIdentity | null>(null);
+  const identity = useMemo(() => brandIdentity && projectIdentity
+    ? { ...brandIdentity, fonts: projectIdentity.fonts, typography: projectIdentity.typography }
+    : brandIdentity, [brandIdentity, projectIdentity]);
+  const animationFontFamily = resolveAnimationFontFamily(identity);
   const identitySettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
     fontWeight: initialFontWeight ?? DEFAULT_SETTINGS.fontWeight,
@@ -668,14 +714,14 @@ function AnimationStudio({
     ...identitySettings.shaderSettings,
     ...storedSettings.shaderSettings,
   }), [identitySettings.shaderSettings, storedSettings.shaderSettings]);
-  const settings = useMemo<StudioSettings>(() => {
-    return mergeAnimationSettings(
+  const settings = useMemo<StudioSettings & { fontFamily: string }>(() => {
+    return { ...mergeAnimationSettings(
       identitySettings,
       storedSettings,
       mergedShaderSettings,
       compactControls
-    );
-  }, [compactControls, identitySettings, mergedShaderSettings, storedSettings]);
+    ), fontFamily: animationFontFamily };
+  }, [animationFontFamily, compactControls, identitySettings, mergedShaderSettings, storedSettings]);
   const frameResolutionSettings = useFrameResolutionSettings(settings);
   const [mode, setMode] = useState<SourceMode>('sequence');
   const [textFrames, setTextFrames] = useStudioDraft(
@@ -758,6 +804,7 @@ function AnimationStudio({
   const [shaderPresentationReady, setShaderPresentationReady] = useState(false);
   const shaderPresentationReadyRef = useCommittedRef(shaderPresentationReady);
   const exportJobRef = useRef(false);
+  const sourceApplySequenceRef = useRef(0);
   const activeRef = useCommittedRef(active);
   const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
@@ -773,6 +820,7 @@ function AnimationStudio({
   const shaderLayerRefs = useRef(new Map<string, HTMLDivElement>());
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBuffersRef = useRef(new Map<string, AudioBuffer>());
+  const audioHydrationGenerationRef = useRef(0);
   const audioPlaybackNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const audioPlaybackRequestedRef = useRef(false);
   const audioScheduleRevisionRef = useRef(0);
@@ -802,8 +850,8 @@ function AnimationStudio({
     () =>
       textFrames
         .split('\n')
-        .map((text, index) => ({ id: `text-${index}`, kind: 'text' as const, text: text || 'New frame' })),
-    [textFrames]
+        .map((text, index) => ({ fontFamily: animationFontFamily, id: `text-${index}`, kind: 'text' as const, text: text || 'New frame' })),
+    [animationFontFamily, textFrames]
   );
   const imageSources = useMemo<StudioSource[]>(
     () =>
@@ -874,6 +922,7 @@ function AnimationStudio({
   const currentArtboardSnapshotRef = useCommittedRef(currentArtboardSnapshot);
   const activeArtboard = resolveActiveAnimationArtboard(workspaceArtboards, activeArtboardId);
   const animationState = useMemo<AnimationDocumentState>(() => ({
+    ...(projectIdentity ? { identity: projectIdentity } : {}),
     activeArtboardId,
     artboards: workspaceArtboards,
     audio: audioState,
@@ -895,6 +944,7 @@ function AnimationStudio({
     includeBrandLogo,
     mode,
     playbackRate,
+    projectIdentity,
     sequenceBackground,
     sequenceOrder,
     settings,
@@ -924,6 +974,20 @@ function AnimationStudio({
     };
   }, [documentCreatedAt, identity?.name, identityId, presentationMode, settledAnimationDocumentInput.value]);
   const sources = resolvedSources;
+  const fontSourcesRef = useCommittedRef(sources);
+  const animationFonts = sources.filter((source) => source.kind === 'text')
+    .map((source) => `${source.fontFamily}:${source.fontWeight}`).join('|');
+  useEffect(() => {
+    let cancelled = false;
+    void waitForAnimationFonts(fontSourcesRef.current).then(() => {
+      if (cancelled) return;
+      previewDirtyRef.current = true;
+      requestPreviewFrameRef.current();
+    }).catch(() => {
+      if (!cancelled) setError('The animation font could not be loaded.');
+    });
+    return () => { cancelled = true; };
+  }, [animationFonts, fontSourcesRef]);
   useEffect(() => {
     if (initialSelectionAppliedRef.current || sources.length === 0) return;
     if (selectedSourceId === 'brand-logo' && includeBrandLogo && !brandLogo) return;
@@ -959,6 +1023,31 @@ function AnimationStudio({
     settledAnimationDocumentInput.pending,
     portableAnimation.autosaveState
   );
+  const animationAutomationRef = useCommittedRef({ applySource: applyStudioSource, source: animationSource });
+  useEffect(() => {
+    if (presentationMode) return;
+    return registerStudioAutomation({
+      actions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
+      applySource: (source) => animationAutomationRef.current.applySource(source),
+      getSource: () => {
+        const source = animationAutomationRef.current.source;
+        if (source === null) throw new Error('The portable animation source is still preparing.');
+        return source;
+      },
+      toolId: 'animation',
+    }, workspaceRef.current);
+  }, [animationAutomationRef, presentationMode]);
+  const historySnapshot = useMemo(() => ({
+    state: animationState, images, brandLogo, sourceIds: sources.map(({ id }) => id),
+  }), [animationState, brandLogo, images, sources]);
+  const actionHistory = useAnimationActionHistory({
+    disabled: exportProgress !== null,
+    enabled: animationHistoryEnabled(presentationMode, portableAnimation.autosaveState),
+    onRestore: restoreAnimationHistory,
+    scope: animationWorkspaceKey,
+    value: historySnapshot,
+    workspaceRef,
+  });
   useEffect(() => {
     if (autosaveState === 'loading' || artboards.some(({ id }) => id === activeArtboardId)) return;
     const fallback = artboards[0];
@@ -1111,15 +1200,25 @@ function AnimationStudio({
     audioPlaybackNodesRef.current = [];
   }, []);
 
+  const clearAudioBuffers = useCallback(() => {
+    audioHydrationGenerationRef.current += 1;
+    audioBuffersRef.current.clear();
+  }, []);
+
   const hydrateAudioBuffers = useCallback(async (assets: readonly AnimationAudioAsset[]) => {
     if (assets.length === 0) return;
+    const generation = audioHydrationGenerationRef.current;
+    const isCurrentAsset = (asset: AnimationAudioAsset) => generation === audioHydrationGenerationRef.current
+      && audioStateRef.current.assets.some((current) => current.id === asset.id && current.source === asset.source);
     const context = getAudioContext();
     let changed = false;
-    const hydrated = new Map<string, Pick<AnimationAudioAsset, 'durationMs' | 'peaks'>>();
+    const hydrated = new Map<string, Pick<AnimationAudioAsset, 'durationMs' | 'peaks' | 'source'>>();
     for (const asset of assets) {
+      if (!isCurrentAsset(asset)) return;
       let buffer = audioBuffersRef.current.get(asset.id);
       if (!buffer) {
         buffer = await decodeAudioSource(context, asset.source);
+        if (!isCurrentAsset(asset)) return;
         audioBuffersRef.current.set(asset.id, buffer);
         changed = true;
       }
@@ -1127,20 +1226,22 @@ function AnimationStudio({
         hydrated.set(asset.id, {
           durationMs: Math.round(buffer.duration * 1_000),
           peaks: audioPeaks(buffer),
+          source: asset.source,
         });
       }
     }
     if (hydrated.size > 0) {
-      setAudioState((current) => ({
-        ...current,
-        assets: current.assets.map((asset) => {
+      setAudioState((current) => {
+        if (generation !== audioHydrationGenerationRef.current) return current;
+        const assets = current.assets.map((asset) => {
           const patch = hydrated.get(asset.id);
-          return patch ? { ...asset, ...patch } : asset;
-        }),
-      }));
+          return patch?.source === asset.source ? { ...asset, ...patch } : asset;
+        });
+        return assets.every((asset, index) => asset === current.assets[index]) ? current : { ...current, assets };
+      });
     }
     if (changed) setAudioBufferRevision((revision) => revision + 1);
-  }, [getAudioContext]);
+  }, [audioStateRef, getAudioContext]);
 
   const scheduleAudioPlayback = useCallback(async (timeMs: number) => {
     stopAudioPlayback();
@@ -1245,11 +1346,12 @@ function AnimationStudio({
   }, [audioState.clips.length, getAudioContext, isPlayingRef, scheduleAudioPlayback]);
 
   useEffect(() => () => {
+    clearAudioBuffers();
     stopAudioPlayback();
     const context = audioContextRef.current;
     audioContextRef.current = null;
     void closeBrowserAudioContext(context);
-  }, [stopAudioPlayback]);
+  }, [clearAudioBuffers, stopAudioPlayback]);
 
   useEffect(() => {
     previewDirtyRef.current = true;
@@ -1307,6 +1409,7 @@ function AnimationStudio({
   });
 
   useMountEffect(() => {
+    const sourceSequence = sourceApplySequenceRef.current;
     const logoAsset =
       identity?.assets.find(
         (asset) => asset.type === 'logo' && asset.surface === 'dark' && asset.id.includes('mark')
@@ -1315,7 +1418,7 @@ function AnimationStudio({
     let cancelled = false;
     void loadImageSource(logoAsset.path, logoAsset.label)
       .then((source) => {
-        if (!cancelled) setBrandLogo(source);
+        if (!cancelled && sourceSequence === sourceApplySequenceRef.current) setBrandLogo(source);
       })
       .catch(() => {
         if (!cancelled) {
@@ -1506,6 +1609,7 @@ function AnimationStudio({
   }
 
   function applyArtboardSnapshot(snapshot: AnimationArtboardSnapshot) {
+    clearAudioBuffers();
     setShaderFrameStates(new Map());
     setShaderCaptureTimeMs(null);
     const next = cloneAnimationArtboardSnapshot(snapshot);
@@ -2073,7 +2177,9 @@ function AnimationStudio({
       }
     };
     try {
-      const { createAnimationShaderExport } = await import('@/lib/animationShaderExport');
+      const [{ createAnimationShaderExport }] = await Promise.all([
+        import('@/lib/animationShaderExport'), waitForAnimationFonts(sources),
+      ]);
       assertCurrentDocument();
       // Playback can advance while the first export chunk loads. Anchor the
       // captured native pose to its current playhead, not the earlier click.
@@ -2174,51 +2280,8 @@ function AnimationStudio({
     }
   }
 
-  function resetStudio() {
-    setShaderFrameStates(new Map());
-    setShaderCaptureTimeMs(null);
-    const resetBackground = createDefaultFrameSettings(identitySettings).background;
-    const resetSnapshot: AnimationArtboardSnapshot = {
-      audio: createEmptyAnimationAudioState(),
-      backgroundOverrides: {},
-      frameSettings: {},
-      sequenceBackground: resetBackground,
-      sequenceOrder: [],
-      settings: identitySettings,
-    };
-    const resetArtboards: AnimationArtboard[] = [{
-      id: DEFAULT_ANIMATION_ARTBOARD_ID,
-      name: `${animationArtboardPresetForSize(identitySettings.width, identitySettings.height)?.label ?? 'Custom'} animation`,
-      snapshot: cloneAnimationArtboardSnapshot(resetSnapshot),
-    }];
-    workspaceArtboardsRef.current = resetArtboards;
-    activeArtboardIdRef.current = DEFAULT_ANIMATION_ARTBOARD_ID;
-    currentArtboardSnapshotRef.current = resetSnapshot;
-    setArtboards(resetArtboards);
-    setActiveArtboardId(DEFAULT_ANIMATION_ARTBOARD_ID);
-    setStoredSettings(identitySettings);
-    setStoredSequenceBackground(resetBackground);
-    setTextFrames(identityTextFrames);
-    setMode('sequence');
-    setIncludeBrandLogo(Boolean(identity));
-    setSequenceOrder([]);
-    setFrameSettings({});
-    setBackgroundOverrides({});
-    setBackgroundEditScope('sequence');
-    setSelectedSourceId(brandLogo ? 'brand-logo' : 'text-0');
-    setSelectedTransitionIndex(null);
-    setSelectedEffectTarget('content');
-    setError(null);
-    setPlaybackRate(1);
-    setAudioState(createEmptyAnimationAudioState());
-    setSelectedAudioClipId(null);
-    audioBuffersRef.current.clear();
-    setLastExport(null);
-    changePlaying(true);
-    seek(0);
-  }
-
   function startNewAnimation() {
+    setProjectIdentity(null);
     setShaderFrameStates(new Map());
     setShaderCaptureTimeMs(null);
     const scratchSnapshot = cloneAnimationArtboardSnapshot({
@@ -2257,7 +2320,7 @@ function AnimationStudio({
     setPlaybackRate(1);
     setAudioState(scratchSnapshot.audio ?? createEmptyAnimationAudioState());
     setSelectedAudioClipId(null);
-    audioBuffersRef.current.clear();
+    clearAudioBuffers();
     setAudioBufferRevision((revision) => revision + 1);
     setLastExport(null);
     changePlaying(false);
@@ -2287,6 +2350,7 @@ function AnimationStudio({
       artboards: next.artboards,
     }, restoredSnapshot);
 
+    setProjectIdentity(next.identity ?? null);
     setShaderFrameStates(new Map());
     setShaderCaptureTimeMs(null);
 
@@ -2301,7 +2365,7 @@ function AnimationStudio({
     setPlaybackRate(nextPlaybackRate);
     setAudioState(restoredSnapshot.audio ?? createEmptyAnimationAudioState());
     setSelectedAudioClipId(null);
-    audioBuffersRef.current.clear();
+    clearAudioBuffers();
     workspaceArtboardsRef.current = restoredWorkspace.artboards;
     activeArtboardIdRef.current = restoredWorkspace.activeArtboardId;
     currentArtboardSnapshotRef.current = restoredSnapshot;
@@ -2315,14 +2379,32 @@ function AnimationStudio({
   }
 
   async function applyStudioSource(source: string) {
+    if (exportJobRef.current) throw new Error('Wait for the current export before opening another animation.');
+    const request = ++sourceApplySequenceRef.current;
+    const originalInput = animationDocumentInputRef.current;
     const parsed = parseSourceObject(source);
     if (isCanvasDocumentEnvelope(parsed)) {
+      const { animationProjectIdentity, namespaceAnimationProjectIdentity, validateAnimationProjectDocument } = await import('@/lib/animationProjectFile');
       const restored = parseAnimationCanvasDocument(source);
-      applyAnimationState(restored.state);
-      const storedImages = await Promise.all(restored.assets.map(loadStoredImage));
+      validateAnimationProjectDocument(restored.document);
+      const importedIdentity = animationProjectIdentity(restored.document);
+      const localIdentity = importedIdentity ? namespaceAnimationProjectIdentity(importedIdentity, identityId) : undefined;
+      const [storedImages] = await Promise.all([
+        Promise.all(restored.assets.map(loadStoredImage)),
+        validateAnimationFontFiles(localIdentity?.fonts ?? []),
+      ]);
+      if (request !== sourceApplySequenceRef.current || originalInput !== animationDocumentInputRef.current) {
+        throw new Error('The animation changed while the project was opening. Open it again to replace the latest edits.');
+      }
+      if (exportJobRef.current) throw new Error('Wait for the current export before opening another animation.');
       const restoredLogo = storedImages.find(({ id }) => id === 'brand-logo');
-      if (restoredLogo) setBrandLogo({ ...restoredLogo, kind: 'image' });
-      setImages(storedImages.filter(({ id }) => id !== 'brand-logo'));
+      flushSync(() => {
+        applyAnimationState({ ...restored.state, identity: localIdentity });
+        if (restoredLogo) setBrandLogo({ ...restoredLogo, kind: 'image' });
+        setImages(storedImages.filter(({ id }) => id !== 'brand-logo'));
+        changePlaying(false);
+        setLastExport(null);
+      });
       return;
     }
 
@@ -2338,6 +2420,31 @@ function AnimationStudio({
       settings: sourceObject(parsed, 'settings') ?? settings,
       textFrames: sourceString(parsed, 'textFrames', textFrames),
     });
+  }
+
+  function restoreAnimationHistory(snapshot: typeof historySnapshot) {
+    const timeMs = playheadRef.current;
+    const selectedId = selectedSourceId;
+    applyAnimationState(snapshot.state);
+    setImages(snapshot.images);
+    setBrandLogo(snapshot.brandLogo);
+    setSelectedSourceId(animationHistorySelection(selectedId, snapshot.sourceIds));
+    changePlaying(false);
+    setLastExport(null);
+    seek(timeMs);
+  }
+
+  async function prepareProjectFile() {
+    if (exportJobRef.current) throw new Error('Wait for the current export before downloading a project.');
+    const input = animationDocumentInputRef.current;
+    const document = createAnimationCanvasDocument({
+      brandId: identityId, createdAt: documentCreatedAt, id: `${identityId}:animation:scene`, revision: 1,
+      sources: input.sources, state: input.state, title: `${identity?.name ?? 'Glyphfield'} Animation`, updatedAt: new Date().toISOString(),
+    });
+    const { prepareAnimationProjectFile } = await import('@/lib/animationProjectFile');
+    const file = await prepareAnimationProjectFile(document, document.title, undefined, identity);
+    if (input !== animationDocumentInputRef.current) throw new Error('The animation changed while preparing the project file. Download it again.');
+    return file;
   }
 
   function selectSource(id: string) {
@@ -2473,34 +2580,24 @@ function AnimationStudio({
     sources,
     transitionSettings,
   };
-  const animationWorkspaceControls = presentationWorkspaceControls(presentationMode,
-    <DesignVersionFileActions />
-  );
-
+  const animationWorkspaceControls = presentationWorkspaceControls(presentationMode, <DesignVersionFileActions />);
   function renderWorkspace() {
     return (
       <div
       className={animationStudioClassName({ compactControls, embedded, presentationMode })}
       ref={workspaceRef}
     >
+      {projectIdentity && identity ? <BrandFontFaces identity={identity} /> : null}
       {presentationMode ? null : <StudioToolHeader
         layout='balanced'
-        context={(
-          <StudioToolbarGroup label='Animation document'>
-            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
-            <Button
-              aria-label={gt('Reset studio')}
-              className='studio-reset'
-              onClick={resetStudio}
-              size='icon'
-              type='button'
-              variant='outline'
-            >
-              <RotateCcw aria-hidden='true' />
-            </Button>
-          </StudioToolbarGroup>
-        )}
         actions={(
+          <>
+          <StudioToolbarGroup label='Project files and source'>
+            <OpenProjectFileButton disabled={exportProgress !== null} onOpen={applyStudioSource} read={readAnimationProjectFile} workspaceLabel='Animation Studio' />
+            <DownloadProjectFileButton disabled={exportProgress !== null || animationSource === null} prepare={prepareProjectFile} />
+            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
+          </StudioToolbarGroup>
+          <DesignVersionStatus />
           <StudioToolbarGroup label='Export animation'>
             {lastExport ? <ExportPreview asset={lastExport} className='hidden xl:inline-flex' /> : null}
             <Button
@@ -2522,6 +2619,7 @@ function AnimationStudio({
               <T>Export MP4</T>
             </Button>
           </StudioToolbarGroup>
+          </>
         )}
         metadata={embedded ? undefined : <T>Studio / Motion</T>}
         title={<T>Animation</T>}
@@ -2551,6 +2649,7 @@ function AnimationStudio({
             />
 
             <CanvasViewport
+              actionHistory={presentationMode ? undefined : actionHistory}
               autoFit={compactControls}
               className='min-h-[420px] flex-1'
               draftKey={compactControls ? 'compact-canvas-fit-v1' : 'canvas-zoom'}
@@ -2564,7 +2663,7 @@ function AnimationStudio({
               }}
               stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
               toolId='animation'
-              versionHistory={presentationWorkspaceControls(presentationMode, <DesignVersionHistory />)}
+              versionHistory={presentationWorkspaceControls(presentationMode, <DesignVersionHistory compact />)}
             >
               <div
                 className='relative w-full max-w-5xl bg-black smooth-shadow-ring-xl smooth-ring-foreground/20'

@@ -69,6 +69,14 @@ same antialiasing threshold; continuous TextMetrics bounds can differ from the
 painted ink in WebKit. Shader interaction checks retain the native canvas and
 record browser callback cadence separately from GPU rendering.
 
+`e2e/animation-toolbar-files-history.spec.ts` covers Animation's canvas-dock
+Undo/Redo and compact saved-history control, header save status, and real project
+downloads and file choosers. Its portable-file round trip compares paused frame
+pixels and authored timing across projects, verifies embedded fonts are privately
+namespaced on import, and rejects malformed files without changing the open
+animation. These cases run through the same Chromium, WebKit, and Firefox matrix;
+they do not replace installed Safari verification.
+
 `e2e/control-interactions.spec.ts` additionally checks first-click color pickers,
 achromatic hue changes, HEX-to-picker and picker-to-select transitions, checkbox
 keyboard input, slider commits, numeric Escape, and a typed artboard size followed

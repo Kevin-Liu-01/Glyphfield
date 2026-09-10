@@ -57,7 +57,7 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
   await expect(bar).toHaveCount(1);
   const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
-  await expect(header.locator('[data-slot="context"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export design', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toBeVisible();
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toBeVisible();
@@ -103,9 +103,17 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
     await expect(bar).toBeVisible();
     const bounds = (await bar.boundingBox())!;
     const actions = (await bar.locator('[data-slot="artboard-end"]').boundingBox())!;
-    expect(bounds.x + bounds.width - (actions.x + actions.width)).toBeLessThan(12);
+    const scrollable = await bar.evaluate((element) => element.scrollWidth > element.clientWidth);
+    if (scrollable) {
+      await expect(bar).toHaveCSS('overflow-x', 'auto');
+      expect(bounds.height).toBeLessThanOrEqual(48);
+    } else {
+      expect(bounds.x + bounds.width - (actions.x + actions.width)).toBeLessThan(12);
+    }
     for (const label of ['Add blank artboard', 'Duplicate active artboard', 'Delete active artboard', 'Tidy and fit artboards', 'Artboard tutorial']) {
       const button = bar.getByRole('button', { name: label, exact: true });
+      // Phone-width canvases keep one row; every command remains reachable.
+      if (scrollable) await button.scrollIntoViewIfNeeded();
       await expect(button).toBeVisible();
       const box = (await button.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(bounds.x);
@@ -116,9 +124,9 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
     expect(viewBox.x).toBeGreaterThanOrEqual(0);
     expect(viewBox.x + viewBox.width).toBeLessThanOrEqual(width);
     const headerBounds = (await header.boundingBox())!;
-    const context = (await header.locator('[data-slot="context"]').boundingBox())!;
+    const identity = (await header.locator('[data-slot="identity"]').boundingBox())!;
     const trailing = (await header.locator('[data-slot="trailing"]').boundingBox())!;
-    expect(context.x + context.width).toBeLessThanOrEqual(trailing.x);
+    expect(identity.x + identity.width).toBeLessThanOrEqual(trailing.x);
     expect(trailing.x + trailing.width).toBeLessThanOrEqual(headerBounds.x + headerBounds.width);
     expect(headerBounds.x + headerBounds.width).toBeLessThanOrEqual(width + 1);
   }

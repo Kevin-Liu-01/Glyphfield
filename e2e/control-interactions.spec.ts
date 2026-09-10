@@ -8,7 +8,7 @@ async function readyShader(page: Page) {
 
 async function prepare(page: Page, text = false) {
   await page.goto('/studio?tool=material');
-  await expect(page.getByRole('button', { name: 'Pause shader motion', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Freeze current shader frame', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Shader base color', exact: true })).toBeVisible();
   await readyShader(page);
   // Freeze through the public API, keeping input tests independent of transport.
@@ -100,8 +100,8 @@ test('Pause preserves the selected layer and its inspector on the first click', 
   await page.goto('/studio?tool=material');
   await expect(page.getByRole('button', { name: 'Shader base color', exact: true })).toBeVisible();
   await readyShader(page);
-  await page.getByRole('button', { name: 'Pause shader motion', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Resume native shader motion', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Freeze current shader frame', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Resume live shader motion', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Shader base color', exact: true })).toBeVisible();
 });
 

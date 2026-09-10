@@ -263,6 +263,7 @@ function DesignVersionsPopover({
 function DesignVersionTrigger({
   activeDesign,
   autosaveState,
+  compact = false,
   dirty,
   onToggle,
   open,
@@ -272,6 +273,7 @@ function DesignVersionTrigger({
 }: {
   activeDesign: SavedDesign | null;
   autosaveState: CanvasDocumentAutosaveState;
+  compact?: boolean;
   dirty: boolean;
   onToggle: () => void;
   open: boolean;
@@ -282,16 +284,20 @@ function DesignVersionTrigger({
   const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
   return (
     <button
+      aria-label={compact ? collectionLabel : undefined}
       aria-expanded={open}
       className={styles.trigger}
+      data-compact={compact || undefined}
       onClick={onToggle}
       title={`Open ${collectionLabel.toLocaleLowerCase()}`}
       type='button'
     >
       <History aria-hidden='true' />
-      <span className={styles.currentName}>{activeDesign?.name ?? draftLabel}</span>
-      <span aria-label={visibleState} className={styles.stateDot} data-dirty={String(stateIsDirty)} />
-      <ChevronDown aria-hidden='true' />
+      {compact ? null : <>
+        <span className={styles.currentName}>{activeDesign?.name ?? draftLabel}</span>
+        <span aria-label={visibleState} className={styles.stateDot} data-dirty={String(stateIsDirty)} />
+        <ChevronDown aria-hidden='true' />
+      </>}
     </button>
   );
 }
@@ -711,13 +717,14 @@ export function DesignVersionProvider({
   return <DesignVersionContext.Provider value={state}>{children}</DesignVersionContext.Provider>;
 }
 
-function DesignVersionHistoryContent({ children, layout, state }: {
+function DesignVersionHistoryContent({ children, compact, layout, state }: {
   children?: ReactNode;
+  compact?: boolean;
   layout: 'panel' | 'toolbar';
   state: DesignVersionState;
 }) {
   return <>
-    <DesignVersionTrigger {...state.trigger} />
+    <DesignVersionTrigger {...state.trigger} compact={compact} />
     {children}
     {state.open ? (
       <DesignVersionsSurface anchorRef={state.rootRef} layout={layout} onDismiss={state.onDismiss}>
@@ -728,8 +735,9 @@ function DesignVersionHistoryContent({ children, layout, state }: {
   </>;
 }
 
-export function DesignVersionHistory({ className = '', layout }: {
+export function DesignVersionHistory({ className = '', compact = false, layout }: {
   className?: string;
+  compact?: boolean;
   layout?: 'panel' | 'toolbar';
 }) {
   const state = useDesignVersionState();
@@ -737,7 +745,7 @@ export function DesignVersionHistory({ className = '', layout }: {
   return (
     <div className={`${styles.root} ${className}`.trim()} data-layout={resolvedLayout}
       ref={state.rootRef} data-design-version-controls data-design-version-history>
-      <DesignVersionHistoryContent layout={resolvedLayout} state={state} />
+      <DesignVersionHistoryContent compact={compact} layout={resolvedLayout} state={state} />
     </div>
   );
 }
@@ -745,6 +753,24 @@ export function DesignVersionHistory({ className = '', layout }: {
 export function DesignVersionFileActions() {
   const state = useDesignVersionState();
   return <DesignVersionActions {...state.actions} />;
+}
+
+/** Read-only header status; saved-version interactions remain in the canvas dock. */
+export function DesignVersionStatus({ className = '' }: { className?: string }) {
+  const state = useDesignVersionState();
+  const { activeDesign, autosaveState, dirty, draftLabel } = state.trigger;
+  const name = activeDesign?.name ?? draftLabel;
+  const error = state.popover.error;
+  const label = error ? 'Save failed' : state.trigger.visibleState;
+  const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
+  const showLabel = activeDesign || label !== 'Autosaved';
+  return <span aria-label={`${name}: ${label}`} className={`${styles.status} ${className}`.trim()}
+    data-design-version-status data-error={Boolean(error) || state.trigger.autosaveState === 'error' || undefined}
+    role='status' title={error || `${name}: ${label}`}>
+    <span className={styles.currentName}>{name}</span>
+    <span aria-hidden='true' className={styles.stateDot} data-dirty={String(stateIsDirty)} />
+    {showLabel ? <small>{label}</small> : null}
+  </span>;
 }
 
 function CombinedDesignVersionControls() {

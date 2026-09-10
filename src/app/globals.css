@@ -3616,6 +3616,7 @@ body:has([data-testid='shader-preview-capture']) nextjs-portal {
   --studio-toolbar-control-height: 36px;
   --studio-toolbar-icon-size: 18px;
   --studio-toolbar-title-size: 0.9rem;
+  --studio-toolbar-label-size: 0.75rem;
   --studio-toolbar-meta-size: 0.72rem;
   --studio-panel-heading-min-height: 72px;
   --studio-panel-padding: 16px;
@@ -17098,11 +17099,11 @@ html.dark .studio-app .studio-app-header > a img {
   z-index: 6;
   top: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   min-width: 0;
   min-height: 46px;
   align-items: center;
-  gap: 8px 12px;
+  gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid hsl(var(--border));
   background:
@@ -17120,11 +17121,11 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .studio-artboard-start {
-  flex: 0 1 auto;
+  flex: 1 1 380px;
 }
 
 .studio-artboard-settings {
-  flex: 1 1 300px;
+  flex: 1 1 220px;
 }
 
 .studio-artboard-file-controls {
@@ -17132,7 +17133,7 @@ html.dark .studio-app .studio-app-header > a img {
   flex: 0 0 auto;
   min-width: 0;
   align-items: center;
-  padding-right: 10px;
+  padding-right: 8px;
   border-right: 1px solid hsl(var(--border));
 }
 
@@ -17142,7 +17143,7 @@ html.dark .studio-app .studio-app-header > a img {
 
 .studio-artboard-bar-picker {
   display: flex;
-  flex: 1 1 190px;
+  flex: 1 1 160px;
   min-width: 0;
   max-width: 210px;
   align-items: center;
@@ -17164,21 +17165,35 @@ html.dark .studio-app .studio-app-header > a img {
   height: 32px !important;
   padding-inline: 10px !important;
   border-radius: var(--studio-corner-sm);
-  font-weight: 590;
+  font-weight: 500;
+}
+
+/* One type scale across file actions, names, dimensions and artboard actions. */
+.studio-artboard-bar button {
+  flex-shrink: 0;
+  font-size: var(--studio-toolbar-label-size);
+  line-height: 1;
+}
+
+.studio-artboard-bar .studio-artboard-select {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 44px;
+  font-size: var(--studio-toolbar-label-size);
 }
 
 .studio-artboard-dimensions,
 .studio-artboard-summary {
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--studio-control-meta-size);
+  font-size: var(--studio-toolbar-meta-size);
   font-variant-numeric: tabular-nums;
 }
 
 .studio-artboard-dimensions {
   display: inline-flex;
   flex: 0 0 auto;
-  height: 28px;
+  height: 32px;
   align-items: center;
   padding-inline: 9px;
   border: 1px solid hsl(var(--border));
@@ -17188,7 +17203,7 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .studio-artboard-summary {
-  flex: 1 1 80px;
+  flex: 0 1 220px;
   min-width: 0;
   overflow: hidden;
   text-align: right;
@@ -17209,7 +17224,7 @@ html.dark .studio-app .studio-app-header > a img {
   flex: 0 0 auto;
   margin-left: auto;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 6px;
 }
 
 .studio-artboard-primary-actions,
@@ -17218,7 +17233,7 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .studio-artboard-extra-actions {
-  padding-left: 10px;
+  padding-left: 6px;
   border-left: 1px solid hsl(var(--border));
 }
 
@@ -17249,17 +17264,7 @@ html.dark .studio-app .studio-app-header > a img {
   }
 }
 
-@container (max-width: 700px) {
-  .studio-artboard-bar[data-has-file-controls='true'] .studio-artboard-start {
-    flex-basis: 100%;
-  }
-
-  .studio-artboard-start {
-    flex-grow: 1;
-  }
-}
-
-@container (max-width: 460px) {
+@container (max-width: 620px) {
   .studio-artboard-start,
   .studio-artboard-settings {
     gap: 6px;
@@ -17284,6 +17289,41 @@ html.dark .studio-app .studio-app-header > a img {
   .studio-artboard-dimensions {
     padding-inline: 6px;
   }
+}
+
+/* At phone-sized canvas widths retain every command in a single scrollable row. */
+@container (max-width: 440px) {
+  .studio-artboard-bar {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .studio-artboard-start {
+    flex: 1 0 286px;
+  }
+}
+
+.studio-control-tooltip {
+  position: fixed;
+  z-index: 280;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 7px 10px;
+  border: 1px solid hsl(var(--foreground) / 0.2);
+  border-radius: 6px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 5px 18px hsl(var(--shadow-color) / 0.16);
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}
+
+.studio-control-tooltip[data-positioned='false'] {
+  visibility: hidden;
 }
 
 .animation-timeline {

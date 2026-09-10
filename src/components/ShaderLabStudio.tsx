@@ -80,7 +80,7 @@ import {
 } from '@/lib/designLabTypography';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
-import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions } from '@/components/DesignVersionControls';
+import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions, DesignVersionStatus } from '@/components/DesignVersionControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import {
@@ -5227,14 +5227,6 @@ export default function ShaderLabStudio({
     setPaused(false);
   }
 
-  function toggleShaderHistory() {
-    if (paused) {
-      playShaderHistory();
-      return;
-    }
-    freezeCurrentShaderFrame();
-  }
-
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
     const next = cloneArtboardSnapshot(snapshot);
     const nextFrame = resolveMotionFrame(
@@ -7822,16 +7814,30 @@ export default function ShaderLabStudio({
     return (
       <StudioToolHeader
         layout='balanced'
-        context={(
-          <StudioToolbarGroup label='Project files and source'>
-            <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
-            <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
-            <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
-          </StudioToolbarGroup>
-        )}
         actions={(
           <>
+            <StudioToolbarGroup label='Project files and source'>
+              <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
+              <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
+              <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
+            </StudioToolbarGroup>
+            <DesignVersionStatus />
             <StudioToolbarGroup label='Export design'>
+            <StudioSelect
+              ariaLabel='Export size preset'
+              className='studio-export-preset'
+              disabled={Boolean(exporting) || frameCapturePending}
+              onValueChange={(value) => updateExportSettings({ width: Number(value) })}
+              options={[
+                ...EXPORT_WIDTH_PRESETS.map(({ label, width }) => ({
+                  label: `${label} · ${width}px`, value: String(width),
+                })),
+                ...(!EXPORT_WIDTH_PRESETS.some(({ width }) => width === normalizedExportSettings.width)
+                  ? [{ label: `Custom · ${normalizedExportSettings.width}px`, value: String(normalizedExportSettings.width) }]
+                  : []),
+              ]}
+              value={String(normalizedExportSettings.width)}
+            />
             {lastExport ? (
               <ExportPreview
                 asset={lastExport}
@@ -7859,16 +7865,10 @@ export default function ShaderLabStudio({
             )}
             {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
             </StudioToolbarGroup>
-            <StudioToolbarGroup label='Shader playback'>
-            <Button aria-label={paused ? 'Resume native shader motion' : 'Pause shader motion'} onClick={toggleShaderHistory} size='icon' type='button' variant='outline'>
-              {paused ? <Play aria-hidden='true' /> : <Pause aria-hidden='true' />}
-            </Button>
-            </StudioToolbarGroup>
           </>
         )}
         navigation={navigation}
         navigationLabel='Design Lab view'
-        metadata='Compose graphics across artboards'
         title={tool.name}
         toolId={tool.id}
       />
@@ -8666,7 +8666,7 @@ export default function ShaderLabStudio({
           ) : null}
           <CanvasViewport
             actionHistory={canvasActionHistory}
-            versionHistory={<DesignVersionHistory />}
+            versionHistory={<DesignVersionHistory compact />}
             className='shader-lab-v2-composer-viewport'
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}

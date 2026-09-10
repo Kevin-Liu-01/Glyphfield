@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { observeTooltipAnchor, tooltipAnchorIsAvailable } from './studioTooltipLifecycle';
 
 const HOVER_OPEN_DELAY_MS = 420;
 const HOVER_CLOSE_DELAY_MS = 110;
@@ -28,6 +29,7 @@ type PreviewTriggerProps = {
   onBlurCapture?: FocusEventHandler<HTMLElement>;
   onFocusCapture?: FocusEventHandler<HTMLElement>;
   onKeyDownCapture?: KeyboardEventHandler<HTMLElement>;
+  onPointerDownCapture?: PointerEventHandler<HTMLElement>;
   onPointerEnter?: PointerEventHandler<HTMLElement>;
   onPointerLeave?: PointerEventHandler<HTMLElement>;
 };
@@ -86,6 +88,7 @@ export default function StudioPreviewTooltip({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const openTimerRef = useRef(0);
   const closeTimerRef = useRef(0);
+  const pointerFocusRef = useRef(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [keyboardOpened, setKeyboardOpened] = useState(false);
   const [layout, setLayout] = useState<TooltipLayout | null>(null);
@@ -100,6 +103,7 @@ export default function StudioPreviewTooltip({
   function show(nextAnchor: HTMLElement, keyboard: boolean) {
     clearTimers();
     const reveal = () => {
+      if (!tooltipAnchorIsAvailable(nextAnchor)) return;
       tooltipWarmUntil = Date.now() + 900;
       setAnchor(nextAnchor);
       setKeyboardOpened(keyboard);
@@ -126,22 +130,32 @@ export default function StudioPreviewTooltip({
   }, [anchor, open]);
 
   useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
+    if (!open || !anchor) return;
+    const close = () => {
+      clearTimers();
+      setOpen(false);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      event.preventDefault();
       close();
     };
+    const stopObserving = observeTooltipAnchor(anchor, () => {
+      if (!tooltipAnchorIsAvailable(anchor)) close();
+    });
     window.addEventListener('resize', close);
     window.addEventListener('scroll', close, true);
+    window.addEventListener('blur', close);
+    document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
+      stopObserving();
       window.removeEventListener('resize', close);
       window.removeEventListener('scroll', close, true);
+      window.removeEventListener('blur', close);
+      document.removeEventListener('pointerdown', close, true);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [anchor, open]);
 
   useEffect(() => () => {
     window.clearTimeout(openTimerRef.current);
@@ -157,22 +171,30 @@ export default function StudioPreviewTooltip({
     onBlurCapture: (event) => {
       triggerProps.onBlurCapture?.(event);
       if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+      pointerFocusRef.current = false;
       hideSoon();
     },
     onFocusCapture: (event) => {
       triggerProps.onFocusCapture?.(event);
-      if (!event.defaultPrevented) show(event.currentTarget, true);
+      if (!event.defaultPrevented && !pointerFocusRef.current) show(event.currentTarget, true);
     },
     onKeyDownCapture: (event) => {
       triggerProps.onKeyDownCapture?.(event);
+      pointerFocusRef.current = false;
       if (event.key === 'Escape') {
         window.clearTimeout(openTimerRef.current);
         setOpen(false);
       }
     },
+    onPointerDownCapture: (event) => {
+      triggerProps.onPointerDownCapture?.(event);
+      pointerFocusRef.current = true;
+      clearTimers();
+      setOpen(false);
+    },
     onPointerEnter: (event) => {
       triggerProps.onPointerEnter?.(event);
-      if (!event.defaultPrevented && event.pointerType !== 'touch') show(event.currentTarget, false);
+      if (!event.defaultPrevented && event.pointerType !== 'touch' && !event.buttons && !window.matchMedia('(hover: none)').matches) show(event.currentTarget, false);
     },
     onPointerLeave: (event) => {
       triggerProps.onPointerLeave?.(event);

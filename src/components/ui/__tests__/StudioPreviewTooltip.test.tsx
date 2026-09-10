@@ -58,4 +58,46 @@ describe('StudioPreviewTooltip', () => {
     act(() => vi.advanceTimersByTime(420));
     expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('Shows the complete frame.');
   });
+
+  it('cancels a pending hover preview and does not reopen on click focus', () => {
+    const trigger = renderTooltip();
+    act(() => trigger.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })));
+    act(() => {
+      trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+      trigger.focus();
+      vi.advanceTimersByTime(500);
+    });
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
+  it('dismisses an open rich preview without consuming the triggering click', () => {
+    const clicked = vi.fn();
+    act(() => root.render(<StudioPreviewTooltip title='Layer preview'><button onClick={clicked}>Layer</button></StudioPreviewTooltip>));
+    const trigger = container.querySelector('button')!;
+    act(() => trigger.focus());
+    expect(document.querySelector('[role="tooltip"]')).not.toBeNull();
+    act(() => {
+      trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      trigger.click();
+    });
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
+  it('does not leave its portal over a retained inactive tool', async () => {
+    act(() => root.render(
+      <div className='studio-workspace-layer' data-active='true'>
+        <StudioPreviewTooltip title='Layer preview'><button>Layer</button></StudioPreviewTooltip>
+      </div>
+    ));
+    const trigger = container.querySelector('button')!;
+    act(() => trigger.focus());
+    expect(document.querySelector('[role="tooltip"]')).not.toBeNull();
+    await act(async () => {
+      container.firstElementChild!.setAttribute('data-active', 'false');
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
 });

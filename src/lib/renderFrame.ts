@@ -66,6 +66,7 @@ type StudioSourceBase = {
   background?: StudioBackground;
   fit?: 'contain' | 'cover';
   finish?: MaterialFinishSettings;
+  fontFamily?: string;
   fontSize?: number;
   fontWeight?: number;
   foreground?: string;
@@ -120,6 +121,7 @@ export type RenderConfig = {
   bezier: CubicBezier;
   blur: number;
   fit: 'contain' | 'cover';
+  fontFamily?: string;
   fontSize: number;
   fontWeight: number;
   foreground: string;
@@ -152,6 +154,10 @@ function graphemes(text: string): string[] {
   return Array.from(RENDER_GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
 }
 
+function canvasFontFamily(family: string | undefined): string {
+  return family ? `${JSON.stringify(family)}, Arial, sans-serif` : 'Switzer, Arial, sans-serif';
+}
+
 function drawTextContent(
   context: CanvasRenderingContext2D,
   source: Extract<StudioSource, { kind: 'text' }>,
@@ -163,7 +169,7 @@ function drawTextContent(
   const text = textOverride ?? source.text;
   const fontSize = source.fontSize ?? config.fontSize;
   context.fillStyle = source.foreground ?? config.foreground;
-  context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${fontSize}px Switzer, Arial, sans-serif`;
+  context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${fontSize}px ${canvasFontFamily(source.fontFamily ?? config.fontFamily)}`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   const measuredWidth = context.measureText(text).width;
@@ -686,7 +692,7 @@ function drawEmptyFrame(context: CanvasRenderingContext2D, config: RenderConfig)
   context.save();
   context.fillStyle = config.foreground;
   context.globalAlpha = 0.34;
-  context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px Switzer, Arial, sans-serif`;
+  context.font = `600 ${Math.max(18, config.fontSize * 0.24)}px ${canvasFontFamily(config.fontFamily)}`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText('IMPORT IMAGES TO BEGIN', config.width / 2, config.height / 2);

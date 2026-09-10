@@ -14,18 +14,12 @@ import { isShaderFrameAssetSource, resolveShaderFrameAssetSource } from './shade
 import type { PortableAssetLoader } from './portableCanvasAssets';
 import { brandFontAssets, type BrandFontAsset, type BrandIdentity, type BrandTypography } from './brandIdentity';
 
-export const DESIGN_LAB_PROJECT_FILE_ACCEPT = '.glyphfield.json,.json,application/json';
-export const DESIGN_LAB_PROJECT_FILE_MAX_BYTES = 128 * 1024 * 1024;
+import { STUDIO_PROJECT_FILE_MAX_BYTES as DESIGN_LAB_PROJECT_FILE_MAX_BYTES, type StudioProjectFile } from './projectFile';
+export { STUDIO_PROJECT_FILE_ACCEPT as DESIGN_LAB_PROJECT_FILE_ACCEPT, STUDIO_PROJECT_FILE_MAX_BYTES as DESIGN_LAB_PROJECT_FILE_MAX_BYTES } from './projectFile';
 const PROJECT_FONT_FORMATS = new Set<unknown>(['opentype', 'truetype', 'woff', 'woff2']);
 const PROJECT_FONT_STYLES = new Set<unknown>(['normal', 'italic']);
 
-export type DesignLabProjectFile = {
-  blob: Blob;
-  description: string;
-  fileName: string;
-  format: 'JSON';
-  previewKind: 'file';
-};
+export type DesignLabProjectFile = StudioProjectFile;
 
 export type DesignLabProjectIdentity = {
   id: string;
@@ -88,8 +82,13 @@ function validateProjectTypography(value: unknown, fonts: readonly BrandFontAsse
 
 /** Rendering-only identity snapshot; importing it must not overwrite another brand. */
 export function designLabProjectIdentity(input: CanvasDocument | string): DesignLabProjectIdentity | null {
+  return canvasProjectIdentity(input, 'designLab');
+}
+
+/** Shared rendering-identity validator for portable Studio project files. */
+export function canvasProjectIdentity(input: CanvasDocument | string, metadataKey: string): DesignLabProjectIdentity | null {
   const document = typeof input === 'string' ? parseCanvasDocument(input) : input;
-  const value = asCanvasJsonObject(document.metadata.designLab)?.identity;
+  const value = asCanvasJsonObject(document.metadata[metadataKey])?.identity;
   if (value === undefined) return null;
   const identity = asCanvasJsonObject(value);
   if (!identity) throw new TypeError('Project identity must be an object.');

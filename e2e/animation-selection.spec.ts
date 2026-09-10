@@ -56,7 +56,7 @@ test('Animation groups document controls on the left, artboard actions on the ri
   const bar = studio.getByRole('region', { name: 'Animation artboards', exact: true });
   const header = studio.locator('[data-studio-tool-header]');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
-  await expect(header.locator('[data-slot="context"]').getByRole('group', { name: 'Animation document', exact: true })).toBeVisible();
+  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export animation', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save animation', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('combobox', { name: 'Active animation artboard', exact: true })).toBeVisible();
@@ -77,7 +77,7 @@ test('Animation groups document controls on the left, artboard actions on the ri
       expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
     }
     const headerBounds = (await header.boundingBox())!;
-    const context = (await header.locator('[data-slot="context"]').boundingBox())!;
+    const context = (await header.locator('[data-slot="identity"]').boundingBox())!;
     const trailing = (await header.locator('[data-slot="trailing"]').boundingBox())!;
     expect(context.x + context.width).toBeLessThanOrEqual(trailing.x);
     expect(trailing.x + trailing.width).toBeLessThanOrEqual(headerBounds.x + headerBounds.width);

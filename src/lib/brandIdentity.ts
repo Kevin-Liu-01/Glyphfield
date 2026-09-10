@@ -4,6 +4,7 @@ import {
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
 } from './identityPresets';
+import { migrateGtTypography } from './gtTypographyMigration';
 import { normalizeHexOrFallback } from './color';
 import { capVisibleFontWeight } from './typography';
 
@@ -746,7 +747,9 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
     ({ id }) => !builtInIds.has(id) && !retiredBuiltInIds.has(id)
   );
   const builtInIdentities = BUILT_IN_BRAND_IDENTITIES.map((preset) => {
-    const storedIdentity = storedIdentities.find(({ id }) => id === preset.id);
+    const storedIdentity = migrateGtTypography(
+      storedIdentities.find(({ id }) => id === preset.id), preset, DEFAULT_BRAND_FONT_ASSETS
+    );
     const storedDisplay = storedIdentity?.typography.find(({ role }) => role === 'Display');
     const presetDisplay = preset.typography.find(({ role }) => role === 'Display');
     const migratedStoredIdentity =

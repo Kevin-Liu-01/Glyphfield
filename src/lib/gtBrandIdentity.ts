@@ -34,26 +34,6 @@ function gtStudioCaptureAssets(): BrandAsset[] {
 
 const GT_FONT_ASSETS: BrandFontAsset[] = [
   {
-    family: 'Switzer',
-    fileName: 'Switzer-Regular.ttf',
-    format: 'truetype',
-    id: 'switzer-400',
-    label: 'Switzer Regular',
-    path: '/fonts/switzer-400.ttf',
-    style: 'normal',
-    weight: 400,
-  },
-  {
-    family: 'Switzer',
-    fileName: 'Switzer-Medium.ttf',
-    format: 'truetype',
-    id: 'switzer-500',
-    label: 'Switzer Medium',
-    path: '/fonts/switzer-500.ttf',
-    style: 'normal',
-    weight: 500,
-  },
-  {
     family: 'Rasmus Inter',
     fileName: 'Inter-Variable.ttf',
     format: 'truetype',
@@ -142,7 +122,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     device: 'The monochrome light field',
     imageDirection: 'Exact black and white, soft grayscale light, fine dither, matte planes, restrained product evidence, and real interface detail. No rings, organic waves, chromatic noise, generic globe imagery, flags, or flowcharts.',
     pattern: 'none',
-    rules: ['Black and white through and through', 'Use clean geometry and no more than 8px corner radius', 'Use one quiet light or dither field per composition', 'Compose the GT mark by itself', 'Set display copy in Switzer and secondary copy in Rasmus Inter', 'Keep headlines within two lines', 'Never connect content with diagram boxes or lines'],
+    rules: ['Black and white through and through', 'Use clean geometry and no more than 8px corner radius', 'Use one quiet light or dither field per composition', 'Compose the GT mark by itself', 'Set display and supporting copy in Rasmus Inter', 'Keep headlines within two lines', 'Never connect content with diagram boxes or lines'],
   },
   id: 'gt',
   kind: 'example',
@@ -164,7 +144,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     asset('clickhouse', 'ClickHouse', '/brands/gt/proof/clickhouse.svg', 'light', 'proof'),
     asset('windsurf', 'Windsurf', '/brands/gt/proof/windsurf.svg', 'light', 'proof'),
   ],
-  revision: REVISION + 4,
+  revision: REVISION + 5,
   shortName: 'GT',
   socialHandle: '@generaltranslation',
   sourceNotes: ['Official GT mark and current product language', 'Twelve original Glyphfield monochrome surface studies', 'GT package, CLI, and onboarding language', 'Black-and-white interface tokens and component behavior', 'Multilingual email motion studies created in Glyphfield'],
@@ -179,7 +159,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   style: { borderRadius: 0, density: 'comfortable', grid: 'none', imageTreatment: 'monochrome', logoScale: 100 },
   tagline: 'Every language. One source.',
   typography: [
-    { family: 'Switzer', fontId: 'switzer-500', letterSpacing: -0.7, lineHeight: 0.98, role: 'Display', usage: 'Large identity statements, campaign headlines, and decisive product moments', weight: 500 },
+    { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: -0.7, lineHeight: 0.98, role: 'Display', usage: 'Large identity statements, campaign headlines, and decisive product moments', weight: 500 },
     { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0.05, lineHeight: 1.58, role: 'Body', usage: 'Interface copy, documentation, email, and long-form explanation', weight: 400 },
     { family: 'Rasmus Inter', fontId: 'inter-variable', letterSpacing: 0.15, lineHeight: 1.34, role: 'Accent', usage: 'Multilingual specimens with optical centering by writing system', weight: 400 },
     { family: 'Geist Mono', fontId: 'geist-mono-variable', letterSpacing: 0.25, lineHeight: 1.5, role: 'Code', usage: 'Commands, locale codes, tokens, diffs, and technical metadata', weight: 400 },

@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import DesignVersionControls, { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider } from '@/components/DesignVersionControls';
+import DesignVersionControls, { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, DesignVersionStatus } from '@/components/DesignVersionControls';
 import { createCanvasDocument, serializeCanvasDocument } from '@/lib/canvasDocument';
 import * as savedDesignStore from '@/lib/savedDesigns';
 import {
@@ -149,6 +149,34 @@ describe('DesignVersionControls', () => {
       ...overrides,
     };
   }
+
+  it('shares a truthful header status with an icon-only saved-history trigger', async () => {
+    const renderStatus = async (autosaveState: 'saved' | 'saving' | 'error') => {
+      await act(async () => {
+        root.render(<DesignVersionProvider autosaveState={autosaveState} collectionLabel='Saved animations'
+          draftLabel='Autosaved animation' identityId='gt' onOpen={vi.fn()} source='{}' toolId='animation' workspaceLabel='Animation Studio'>
+          <header><DesignVersionStatus /></header>
+          <DesignVersionHistory compact />
+        </DesignVersionProvider>);
+        await settle();
+      });
+    };
+    await renderStatus('saved');
+    expect(container.querySelector('header [role="status"]')?.textContent).toBe('Autosaved animation');
+    expect(container.querySelector('header [role="status"]')?.getAttribute('aria-label')).toBe('Autosaved animation: Autosaved');
+    expect(container.querySelector('header [data-dirty]')?.getAttribute('data-dirty')).toBe('false');
+    const history = button('Saved animations');
+    expect(history.textContent).toBe('');
+    expect(history.querySelector('svg')).not.toBeNull();
+    await click(history);
+    expect(document.querySelector('[role="region"]')).not.toBeNull();
+    await renderStatus('saving');
+    expect(container.querySelector('header [role="status"]')?.textContent).toContain('Autosaving');
+    await renderStatus('error');
+    expect(container.querySelector('header [role="status"]')?.textContent).toContain('Autosave failed');
+    expect(container.querySelector('[data-design-version-status]')?.getAttribute('data-error')).toBe('true');
+    expect(container.querySelector('header [data-dirty]')?.getAttribute('data-dirty')).toBe('true');
+  });
 
   it('shares one checkpoint owner across split history and file actions without rerendering workspace children', async () => {
     expect(DesignVersionProvider).toBeTypeOf('function');

@@ -189,7 +189,10 @@ describe('Playground optional layers', () => {
   });
 
   it('shares browser-persisted save, fork, and clone controls across both creative tools', () => {
-    expect(designLab).toContain("import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions } from '@/components/DesignVersionControls'");
+    expect(designLab).toContain("from '@/components/DesignVersionControls'");
+    for (const component of ['DesignVersionProvider', 'DesignVersionHistory', 'DesignVersionFileActions', 'DesignVersionStatus']) {
+      expect(designLab).toContain(component);
+    }
     expect(designLab).toContain("workspaceLabel='Design Lab'");
     expect(designLab).toContain('onOpen={applyCompositionSource}');
     expect(playground).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
@@ -270,7 +273,8 @@ describe('Playground optional layers', () => {
     expect(playground).toContain("className='design-lab-dock-tabs'");
     expect(playground).not.toContain('playground-workflow-tabs');
     expect(playground).toContain("metadata='Build from material to finish'");
-    expect(designLab).toContain("metadata='Compose graphics across artboards'");
+    expect(designLab).toContain("label='Project files and source'");
+    expect(designLab).toContain("ariaLabel='Export size preset'");
     expect(designLab).not.toContain('Type · marks · images · live materials');
     expect(playground).toContain("label: 'Finish'");
   });

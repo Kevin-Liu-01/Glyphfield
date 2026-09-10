@@ -33,7 +33,9 @@ The stage exposes edge and corner handles for output width and height. This chan
 
 **Artboard setup** shares its presets with Design Lab, including a portrait row for **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160). Choose a preset or enter custom dimensions; source, saved artboards, and export use the same width and height.
 
-New, Save, Fork, and Clone sit beside the artboard picker and size settings on the left of the artboard bar; add, duplicate, and delete are grouped on the right. Open saved animations from the version-history control beside the canvas view controls. The top header groups source and reset on the left, with export actions on the right.
+New, Save, Fork, and Clone sit beside the artboard picker and size settings on the left of the artboard bar; add, duplicate, and delete are grouped on the right. Undo, Redo, Action history, and the compact Saved animations control sit together in the canvas dock. The header shows the autosaved draft or saved animation name immediately before exports, with Open project file, Download project file, and source code alongside them.
+
+Canvas Undo and Redo restore sequence edits, frame settings, images, and artboards. Saved animations are separate named checkpoints: save a version, rename it in Saved animations, or reopen an earlier checkpoint without treating every edit as a new saved file. Text follows the active brand's Display font; General Translation uses Inter by default.
 
 ### Background inheritance
 
@@ -65,6 +67,8 @@ Shader size uses the same `0.1×–10×` logarithmic zoom as Design Lab. Frame o
 - **MP4** uses the browser's available video codec and includes mixed audio when present.
 - **Source JSON** preserves sequence order, per-frame configuration, background inheritance, audio state, and output settings.
 
+Use **Download project file** for a portable, editable `.glyphfield.json` document. It includes artboards, frame timing, backgrounds, and embedded image, audio, and brand-font assets. **Open project file** validates the document and loads its assets before replacing the current animation. Imported font faces stay local to that animation workspace, so reopening a project under another brand does not rewrite the shared brand's typography. Project files preserve editable motion settings; GIF and MP4 are rendered outputs.
+
 Choose the final dimensions and frame rate before export. Larger dimensions, more frames, live materials, converters, and global palette analysis all increase capture time.
 
 <DocsMediaGrid>
@@ -79,7 +83,7 @@ Animation is browser-rendered. An agent should open `/studio`, activate Animatio
 ```js
 const studio = window.glyphfield.studio;
 const source = JSON.parse(studio.readSource());
-source.playbackRate = 1;
+source.metadata.animation.playbackRate = 1;
 await studio.applySource(source);
 console.log(studio.describe());
 ```

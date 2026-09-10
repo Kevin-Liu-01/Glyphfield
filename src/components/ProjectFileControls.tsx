@@ -5,15 +5,21 @@ import { Download, FileJson, Upload } from '@/components/ui/SolidIcons';
 import { Button } from '@/components/ui/Button';
 import { downloadBlob } from '@/lib/download';
 import {
-  DESIGN_LAB_PROJECT_FILE_ACCEPT,
-  readDesignLabProjectFile,
-  type DesignLabProjectFile,
-} from '@/lib/designLabProjectFile';
+  STUDIO_PROJECT_FILE_ACCEPT,
+  type StudioProjectFile,
+} from '@/lib/projectFile';
+
+async function readDefaultProjectFile(file: File): Promise<string> {
+  const { readDesignLabProjectFile } = await import('@/lib/designLabProjectFile');
+  return readDesignLabProjectFile(file);
+}
 
 export type ProjectFileControlsProps = {
   disabled?: boolean;
   open: (source: string) => Promise<void> | void;
-  prepare: () => Promise<DesignLabProjectFile>;
+  prepare: () => Promise<StudioProjectFile>;
+  read?: (file: File) => Promise<string>;
+  workspaceLabel?: string;
 };
 
 export function DownloadProjectFileButton({
@@ -46,7 +52,7 @@ export function DownloadProjectFileButton({
   }
   return <span className='inline-flex min-w-0 flex-col gap-1'>
     <Button aria-label='Download project file' disabled={disabled} loading={pending} onClick={() => void save()} size='sm' type='button' variant='outline'>
-      <Download aria-hidden='true' />Project file
+      <Download aria-hidden='true' /><span className='studio-toolbar-action-label'>Project file</span>
     </Button>
     {error ? <span className='max-w-64 text-xs text-status-error' role='alert'>{error}</span> : null}
     {message ? <span className='sr-only' role='status'>{message}</span> : null}
@@ -56,7 +62,9 @@ export function DownloadProjectFileButton({
 export function OpenProjectFileButton({
   disabled = false,
   onOpen,
-}: { disabled?: boolean; onOpen: ProjectFileControlsProps['open'] }) {
+  read = readDefaultProjectFile,
+  workspaceLabel = 'Design Lab',
+}: Pick<ProjectFileControlsProps, 'disabled' | 'read' | 'workspaceLabel'> & { onOpen: ProjectFileControlsProps['open'] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef(false);
   const [pending, setPending] = useState(false);
@@ -69,7 +77,7 @@ export function OpenProjectFileButton({
     setMessage(null);
     setError(null);
     try {
-      const source = await readDesignLabProjectFile(file);
+      const source = await read(file);
       await onOpen(source);
       setMessage(`Opened ${file.name}.`);
     } catch (caught) {
@@ -80,11 +88,11 @@ export function OpenProjectFileButton({
     }
   }
   return <span className='inline-flex min-w-0 flex-col gap-1'>
-    <Button aria-label='Open project file' disabled={disabled} loading={pending} onClick={() => inputRef.current?.click()} size='sm' title='Open an editable Design Lab project file in this workspace' type='button' variant='outline'>
-      <Upload aria-hidden='true' />Open project
+    <Button aria-label='Open project file' disabled={disabled} loading={pending} onClick={() => inputRef.current?.click()} size='sm' title={`Open an editable ${workspaceLabel} project file in this workspace`} type='button' variant='outline'>
+      <Upload aria-hidden='true' /><span className='studio-toolbar-action-label'>Open project</span>
     </Button>
     <input
-      accept={DESIGN_LAB_PROJECT_FILE_ACCEPT}
+      accept={STUDIO_PROJECT_FILE_ACCEPT}
       aria-label='Choose project file'
       className='sr-only'
       disabled={disabled || pending}
@@ -102,14 +110,14 @@ export function OpenProjectFileButton({
   </span>;
 }
 
-export default function ProjectFileControls({ disabled, open, prepare }: ProjectFileControlsProps) {
+export default function ProjectFileControls({ disabled, open, prepare, read, workspaceLabel = 'Design Lab' }: ProjectFileControlsProps) {
   return <section aria-label='Editable project file' className='flex flex-col gap-2 rounded-md border border-border p-3'>
     <strong className='flex items-center gap-2 text-sm'><FileJson aria-hidden='true' className='size-4' />Editable project</strong>
     <p className='text-xs leading-5 text-muted-foreground'>Share all artboards, editable layers, embedded assets, and saved shader frames as a .glyphfield.json file.</p>
     <div className='flex flex-wrap gap-2'>
       <DownloadProjectFileButton disabled={disabled} prepare={prepare} />
-      <OpenProjectFileButton disabled={disabled} onOpen={open} />
+      <OpenProjectFileButton disabled={disabled} onOpen={open} read={read} workspaceLabel={workspaceLabel} />
     </div>
-    <p className='text-xs leading-5 text-muted-foreground'>Opening replaces this Design Lab workspace. Saved versions remain available.</p>
+    <p className='text-xs leading-5 text-muted-foreground'>Opening replaces this {workspaceLabel} workspace. Saved versions remain available.</p>
   </section>;
 }

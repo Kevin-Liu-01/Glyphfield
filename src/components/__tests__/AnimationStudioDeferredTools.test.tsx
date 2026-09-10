@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const deferred = vi.hoisted(() => ({
   loaded: [] as string[],
+  source: '{"version":1}',
   gif: vi.fn(),
   mp4: vi.fn(),
   shader: vi.fn(),
@@ -17,18 +18,18 @@ vi.mock('@/hooks/useCachedGT', () => {
   return { useCachedGT: () => translate };
 });
 vi.mock('@/hooks/usePersistentState', () => ({ useStudioDraft: (_identity: string, _tool: string, _key: string, initial: unknown) => useState(initial) }));
-vi.mock('@/hooks/usePortableCanvasWorkspace', () => ({ usePortableCanvasWorkspace: () => ({ autosaveState: 'saved', source: '{"version":1}' }) }));
+vi.mock('@/hooks/usePortableCanvasWorkspace', () => ({ usePortableCanvasWorkspace: () => ({ autosaveState: 'saved', source: deferred.source }) }));
 vi.mock('@/components/StudioExportProgress', () => ({ useStudioExportProgress: () => ({ start() {}, update() {}, finish() {} }) }));
 vi.mock('@/components/CanvasViewport', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/components/CanvasDimensionHandles', () => ({ default: () => null }));
 vi.mock('@/components/AnimationCanvasSelection', () => ({ default: () => null }));
 vi.mock('@/components/StudioArtboardBar', () => ({ default: () => null }));
 vi.mock('@/components/DesignVersionControls', () => ({
-  DesignVersionFileActions: () => null, DesignVersionHistory: () => null,
+  DesignVersionFileActions: () => null, DesignVersionHistory: () => null, DesignVersionStatus: () => null,
   DesignVersionProvider: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock('@/components/EditableCanvasLayer', () => ({ default: () => null }));
-vi.mock('@/components/StudioControls', () => ({ default: () => null }));
+vi.mock('@/components/StudioControls', () => ({ default: ({ sources }: { sources: { text?: string }[] }) => <output data-scenes>{sources.map(({ text }) => text).join('|')}</output> }));
 vi.mock('@/components/StudioToolHeader', () => ({
   default: ({ actions, context }: { actions: ReactNode; context: ReactNode }) => <header>{context}{actions}</header>,
   StudioToolbarGroup: ({ children }: { children: ReactNode }) => children,
@@ -69,6 +70,7 @@ describe('Animation Studio on-demand source and export tools', () => {
   beforeEach(async () => {
     vi.resetModules();
     deferred.loaded.length = 0;
+    deferred.source = '{"version":1}';
     vi.clearAllMocks();
     deferred.gif.mockResolvedValue(new Blob(['GIF89a'], { type: 'image/gif' }));
     deferred.mp4.mockResolvedValue(new Blob(['ftypmp42'], { type: 'video/mp4' }));
@@ -132,6 +134,27 @@ describe('Animation Studio on-demand source and export tools', () => {
 
   it('does not evaluate source, preview, or export implementations when mounting the editor', async () => {
     await mount();
+    expect(deferred.loaded).toEqual([]);
+  });
+
+  it('keeps the public source adapter available and current without loading the Code drawer', async () => {
+    await mount();
+    expect(window.glyphfield?.studio.describe().source).toEqual({ apply: true, read: true });
+    expect(window.glyphfield?.studio.readSource()).toBe('{"version":1}');
+    deferred.source = '{"version":2}';
+    await act(async () => root.render(<AnimationStudio embedded viewportVisible={false} />));
+    expect(window.glyphfield?.studio.readSource()).toBe('{"version":2}');
+    const commitFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => commitFrames.push(callback));
+    await act(async () => {
+      const applied = window.glyphfield!.studio.applySource({ textFrames: 'Fresh source' });
+      await Promise.resolve();
+      commitFrames.shift()!(performance.now());
+      commitFrames.shift()!(performance.now());
+      await applied;
+    });
+    expect(container.querySelector('[data-scenes]')?.textContent).toContain('Fresh source');
+    expect(() => window.glyphfield!.studio.readSource()).toThrow('preparing');
     expect(deferred.loaded).toEqual([]);
   });
 

@@ -3,6 +3,7 @@ import './globals.css';
 import { GTProvider } from 'gt-next';
 
 import AppThemeProvider from '@/components/AppThemeProvider';
+import StudioTooltipProvider from '@/components/ui/StudioTooltipProvider';
 import {
   Be_Vietnam_Pro,
   Geist_Mono,
@@ -120,7 +121,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className='flex min-h-screen flex-col'>
         <AppThemeProvider>
-          <GTProvider>{children}</GTProvider>
+          <GTProvider><StudioTooltipProvider>{children}</StudioTooltipProvider></GTProvider>
         </AppThemeProvider>
       </body>
     </html>

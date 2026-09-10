@@ -143,6 +143,36 @@ function createRenderContext() {
   return { context, gradient };
 }
 
+describe('animation font families', () => {
+  const position = { elapsedMs: 0, index: 0, nextIndex: 0, phase: 'hold' as const, progress: 0 };
+
+  it.each(['Rasmus Inter', 'Custom Serif'])('renders the source family %s instead of an unrelated default font', (fontFamily) => {
+    const { context } = createRenderContext();
+    const source = { id: 'text', kind: 'text' as const, text: 'Welcome', fontFamily };
+    renderFrame(context, [source], renderConfig({ backgroundStyle: 'solid' }), position);
+    expect(context.font).toBe(`550 24px ${JSON.stringify(fontFamily)}, Arial, sans-serif`);
+    expect(context.fillText).toHaveBeenCalledWith('Welcome', 0, 0);
+  });
+
+  it('uses the project family for unassigned text and its empty state', () => {
+    const { context } = createRenderContext();
+    const config = renderConfig({ backgroundStyle: 'solid', fontFamily: 'Rasmus Inter' });
+    renderFrame(context, [{ id: 'text', kind: 'text', text: 'Welcome' }], config, position);
+    expect(context.font).toBe('550 24px "Rasmus Inter", Arial, sans-serif');
+    renderFrame(context, [], config, position);
+    expect(context.font).toBe('600 18px "Rasmus Inter", Arial, sans-serif');
+  });
+
+  it('keeps explicit source fonts ahead of project defaults and standalone callers unchanged', () => {
+    const { context } = createRenderContext();
+    const source = { id: 'text', kind: 'text' as const, text: 'Welcome', fontFamily: 'Custom Serif' };
+    renderFrame(context, [source], renderConfig({ backgroundStyle: 'solid', fontFamily: 'Rasmus Inter' }), position);
+    expect(context.font).toBe('550 24px "Custom Serif", Arial, sans-serif');
+    renderFrame(context, [{ id: 'text', kind: 'text', text: 'Welcome' }], renderConfig({ backgroundStyle: 'solid' }), position);
+    expect(context.font).toBe('550 24px Switzer, Arial, sans-serif');
+  });
+});
+
 describe('direct shader compositing', () => {
   it('uses the same filter and grain presentation for composited override previews as exports', () => {
     const { context } = createRenderContext();

@@ -8,6 +8,13 @@ function source(path: string) {
 }
 
 describe('shared Studio control layout', () => {
+  it('reserves a stable autosave slot so loading and saving do not move file controls', () => {
+    const styles = source('src/components/DesignVersionControls.module.css');
+
+    expect(styles).toMatch(/\.status\s*\{[^}]*flex: 0 0 180px;/);
+    expect(styles).toMatch(/@media \(max-width: 1150px\)\s*\{\s*\.status\s*\{[^}]*flex-basis: 140px;/);
+  });
+
   it('flashes semantic solid icons only while the shared sidebar signal panel is hovered', () => {
     const panel = source('src/components/SidebarDitherPanel.tsx');
     const studio = source('src/components/StudioApp.tsx');
@@ -77,7 +84,7 @@ describe('shared Studio control layout', () => {
     expect(artboardBar).toContain('studio-artboard-file-controls');
     expect(animation).toContain('workspaceControls={animationWorkspaceControls}');
     expect(animation).toContain("untitledName='Untitled animation'");
-    expect(styles).toContain(".studio-artboard-bar[data-has-file-controls='true']");
+    expect(styles).toMatch(/\.studio-artboard-bar\s*\{[^}]*flex-wrap: nowrap;/);
     expect(styles).toMatch(/\.studio-artboard-bar\s*\{[^}]*display: flex;/);
     expect(artboardBar).toContain("data-slot='artboard-start'");
     expect(artboardBar).toContain("data-slot='artboard-end'");
@@ -94,9 +101,11 @@ describe('shared Studio control layout', () => {
     expect(designLab).toContain("if (ratio === 'square') return { height: 1200, width: 1200 };");
     expect(designLab).toContain('shader-lab-v1-canvas-dimensions');
     expect(designLab).toContain('onDimensionsChange={updateActiveArtboardDimensions}');
-    expect(styles).toContain('@container (max-width: 700px)');
+    expect(styles).toContain('@container (max-width: 620px)');
+    expect(styles).toContain('@container (max-width: 440px)');
+    expect(styles).not.toMatch(/\.studio-artboard-start\s*\{\s*flex-basis: 100%;/);
     expect(designLab).toContain('workspaceControls={<DesignVersionFileActions />}');
-    expect(designLab).toContain('versionHistory={<DesignVersionHistory />}');
+    expect(designLab).toContain('versionHistory={<DesignVersionHistory compact />}');
     expect(designLab).toContain('<DesignVersionProvider');
   });
 

@@ -24,7 +24,7 @@ export default function SourceCodeButton({
       variant='outline'
     >
       <Code2 aria-hidden='true' />
-      <span className='responsive-toolbar-label'><T>Code</T></span>
+      <span className='responsive-toolbar-label studio-toolbar-action-label'><T>Code</T></span>
     </Button>
   );
 }

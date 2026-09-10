@@ -11,9 +11,11 @@ import StudioControls from '@/components/StudioControls';
 import { DEFAULT_SETTINGS } from '@/lib/studio';
 import { createAnimationCanvasDocument } from '@/lib/animationDocument';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
+import type { CanvasActionHistory } from '@/components/CanvasViewport';
+import { serializeCanvasDocument } from '@/lib/canvasDocument';
 import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
 
-vi.mock('gt-next', () => ({ T: ({ children }: { children: ReactNode }) => children }));
+vi.mock('gt-next', () => ({ T: ({ children }: { children: ReactNode }) => children, useGT: () => (text: string) => text }));
 vi.mock('@/hooks/useCachedGT', () => {
   const translate = (text: string) => text;
   return { useCachedGT: () => translate };
@@ -33,7 +35,12 @@ vi.mock('@/lib/animationAudio', async (importOriginal) => {
   return { ...original, normalizeAnimationAudioState: vi.fn(original.normalizeAnimationAudioState) };
 });
 vi.mock('@/components/StudioExportProgress', () => ({ useStudioExportProgress: () => ({ start() {}, update() {}, finish() {} }) }));
-vi.mock('@/components/CanvasViewport', () => ({ default: ({ children, versionHistory }: { children: ReactNode; versionHistory?: ReactNode }) => <div data-canvas-viewport><div data-canvas-history>{versionHistory}</div>{children}</div> }));
+vi.mock('@/components/CanvasViewport', () => ({ default: ({ actionHistory, children, versionHistory }: {
+  actionHistory?: CanvasActionHistory; children: ReactNode; versionHistory?: ReactNode;
+}) => <div data-canvas-viewport><div data-canvas-history>{actionHistory ? <>
+  <button aria-label='Undo' disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo}>Undo</button>
+  <button aria-label='Redo' disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo}>Redo</button>
+</> : null}{versionHistory}</div>{children}</div> }));
 vi.mock('@/components/CanvasDimensionHandles', () => ({ default: () => null }));
 vi.mock('@/components/ArtboardSizeMenu', () => ({ default: () => null }));
 vi.mock('@/components/AnimationStudioFeedback', () => ({ AnimationError: () => null, AnimationSourceDrawer: () => null }));
@@ -53,6 +60,7 @@ vi.mock('@/components/DesignVersionControls', () => {
     DesignVersionFileActions: FileActions,
     DesignVersionHistory: History,
     DesignVersionProvider: Provider,
+    DesignVersionStatus: () => <span data-version-status />,
   };
 });
 vi.mock('@/components/EditableCanvasLayer', () => ({ default: ({ label }: { label: string }) => <div data-editable-target={label} /> }));
@@ -80,7 +88,7 @@ vi.mock('@/components/StudioControls', () => ({
     </> : null}
   </div>),
 }));
-vi.mock('@/components/StudioToolHeader', () => ({ default: () => <header data-studio-header />, StudioToolbarGroup: ({ children }: { children: ReactNode }) => children }));
+vi.mock('@/components/StudioToolHeader', () => ({ default: ({ actions }: { actions: ReactNode }) => <header data-studio-header>{actions}</header>, StudioToolbarGroup: ({ children }: { children: ReactNode }) => children }));
 vi.mock('@/components/ui/StudioContextMenu', () => ({ default: () => null }));
 vi.mock('@/components/ui/StudioSelect', () => ({ default: () => null }));
 vi.mock('@/components/LiveMaterialCanvas', () => ({
@@ -111,7 +119,7 @@ vi.mock('@/components/TimelinePanel', () => ({
         onSelectTransition(0);
         onSeek(DEFAULT_SETTINGS.holdMs + DEFAULT_SETTINGS.transitionMs / 2);
       }}>Inspect timeline transition</button>
-      <output data-clip-count={audio.clips.length} data-timeline-selection={selectedSourceId ?? ''} ref={output} />
+      <output data-audio-assets={JSON.stringify(audio.assets)} data-clip-count={audio.clips.length} data-timeline-selection={selectedSourceId ?? ''} ref={output} />
     </>;
   },
 }));
@@ -134,6 +142,9 @@ describe('Animation Studio viewport playback lifecycle', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(usePortableCanvasWorkspace).mockReturnValue({
+      autosaveState: 'saved', document: null, error: null, source: null, status: 'ready',
+    });
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     visibility = 'visible';
@@ -224,7 +235,7 @@ describe('Animation Studio viewport playback lifecycle', () => {
   }
 
   async function importAudio() {
-    const input = container.querySelector<HTMLInputElement>('input[type=file]')!;
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="Audio file"]')!;
     const transfer = new DataTransfer();
     transfer.items.add(new File([new Uint8Array([82, 73, 70, 70])], 'score.wav', { type: 'audio/wav' }));
     await act(async () => {
@@ -279,6 +290,99 @@ describe('Animation Studio viewport playback lifecycle', () => {
     expect(createAnimationCanvasDocument).toHaveBeenCalled();
     expect(vi.mocked(usePortableCanvasWorkspace).mock.calls.at(-1)?.[0].document).not.toBeNull();
     expect(container.querySelector('[data-studio-header]')).not.toBeNull();
+    expect(container.querySelector('[data-studio-header] [data-version-status]')).not.toBeNull();
+    expect(actions.closest('[data-studio-header]')).toBeNull();
+  });
+
+  it('undoes and redoes a real scene edit without resetting the animation', async () => {
+    await render(true);
+    togglePlayback();
+    const readFonts = () => container.querySelector('[data-selection-panel=properties]')!.getAttribute('data-source-fonts');
+    const before = readFonts();
+    act(() => container.querySelector<HTMLButtonElement>('[data-edit-current]')!.click());
+    const edited = readFonts();
+    expect(edited).not.toBe(before);
+    const undo = container.querySelector<HTMLButtonElement>('[aria-label=Undo]')!;
+    expect(undo.disabled).toBe(false);
+    act(() => undo.click());
+    expect(readFonts()).toBe(before);
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label=Redo]')!.click());
+    expect(readFonts()).toBe(edited);
+    expect(playing()).toBe('false');
+  });
+
+  it('does not record pre-hydration changes when source preparation overlaps autosave loading', async () => {
+    vi.mocked(usePortableCanvasWorkspace).mockReturnValue({
+      autosaveState: 'loading', document: null, error: null, source: null, status: 'preparing',
+    });
+    await render(true);
+    togglePlayback();
+    act(() => vi.mocked(StudioControls).mock.calls.at(-1)![0].onFrameSettingsChange({ fontSize: 84 }));
+    act(() => vi.mocked(StudioControls).mock.calls.at(-1)![0].onFrameSettingsChange({ fontSize: 96 }));
+    expect(vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0].autosaveState).toBe('preparing');
+    expect(container.querySelector<HTMLButtonElement>('[aria-label=Undo]')!.disabled).toBe(true);
+
+    vi.mocked(usePortableCanvasWorkspace).mockReturnValue({
+      autosaveState: 'saved', document: null, error: null, source: null, status: 'ready',
+    });
+    await render(false);
+    expect(container.querySelector<HTMLButtonElement>('[aria-label=Undo]')!.disabled).toBe(true);
+    act(() => vi.mocked(StudioControls).mock.calls.at(-1)![0].onFrameSettingsChange({ fontSize: 108 }));
+    expect(container.querySelector<HTMLButtonElement>('[aria-label=Undo]')!.disabled).toBe(false);
+  });
+
+  it('keeps the inspector on a restored scene when undo removes the newly selected scene', async () => {
+    await render(true);
+    togglePlayback();
+    const before = vi.mocked(StudioControls).mock.calls.at(-1)![0].sources;
+    act(() => vi.mocked(StudioControls).mock.calls.at(-1)![0].onAddText());
+    const addedId = selectedScene();
+    expect(before.some(({ id }) => id === addedId)).toBe(false);
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label=Undo]')!.click());
+    expect(selectedScene()).toBe(before[0].id);
+    expect(vi.mocked(StudioControls).mock.calls.at(-1)![0].sources).toHaveLength(before.length);
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label=Redo]')!.click());
+    expect(selectedScene()).toBe(before[0].id);
+    expect(vi.mocked(StudioControls).mock.calls.at(-1)![0].sources).toHaveLength(before.length + 1);
+  });
+
+  it('leaves the current animation untouched when an imported image fails to decode', async () => {
+    await render(true);
+    const input = vi.mocked(createAnimationCanvasDocument).mock.calls.at(-1)![0];
+    const before = vi.mocked(StudioControls).mock.calls.at(-1)![0].sources;
+    const document = createAnimationCanvasDocument({ ...input,
+      state: { ...input.state, textFrames: 'Should not apply' },
+      sources: [...input.sources, { kind: 'image', id: 'broken-image', name: 'Broken', width: 1, height: 1,
+        image: window.document.createElement('img'), url: 'data:image/png;base64,AQ==' }],
+    });
+    vi.stubGlobal('Image', class { src = ''; decode = () => Promise.reject(new Error('Image decode failed')); });
+    const onOpen = vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0].onOpen;
+    await act(async () => {
+      await expect(onOpen(serializeCanvasDocument(document))).rejects.toThrow('Image decode failed');
+    });
+    expect(vi.mocked(StudioControls).mock.calls.at(-1)![0].sources).toEqual(before);
+  });
+
+  it('leaves the current animation untouched when an imported font fails to decode', async () => {
+    await render(true);
+    const input = vi.mocked(createAnimationCanvasDocument).mock.calls.at(-1)![0];
+    const before = vi.mocked(StudioControls).mock.calls.at(-1)![0].sources;
+    const project = createAnimationCanvasDocument({ ...input,
+      state: { ...input.state, textFrames: 'Should not apply', identity: {
+        id: input.brandId, name: 'Imported project',
+        fonts: [{ family: 'Broken Font', fileName: 'broken.woff2', format: 'woff2', id: 'broken-font',
+          label: 'Broken font', path: 'data:font/woff2;base64,AQ==', style: 'normal', weight: 400 }],
+        typography: [{ family: 'Broken Font', fontId: 'broken-font', role: 'Display', usage: 'Headings' }],
+      } },
+    });
+    const load = vi.fn(() => Promise.reject(new Error('Font decode failed')));
+    vi.stubGlobal('FontFace', class { load = load; });
+    const onOpen = vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0].onOpen;
+    await act(async () => {
+      await expect(onOpen(serializeCanvasDocument(project))).rejects.toThrow('Font decode failed');
+    });
+    expect(load).toHaveBeenCalledOnce();
+    expect(vi.mocked(StudioControls).mock.calls.at(-1)![0].sources).toEqual(before);
   });
 
   it('uses the authored initial font weight before the first control render', async () => {
@@ -511,5 +615,44 @@ describe('Animation Studio viewport playback lifecycle', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
     expect(nodes).toHaveLength(1);
+  });
+
+  it('discards an old audio decode after opening a project that reuses the asset id', async () => {
+    const { context } = mockAudioContext();
+    type Buffer = Awaited<ReturnType<typeof context.decodeAudioData>>;
+    let finishOldDecode!: (buffer: Buffer) => void;
+    const oldDecode = new Promise<Buffer>((resolve) => { finishOldDecode = resolve; });
+    const buffer = (duration: number): Buffer => ({
+      duration, getChannelData: () => new Float32Array(96), length: 96, numberOfChannels: 1,
+    });
+    context.decodeAudioData.mockImplementationOnce(() => oldDecode).mockResolvedValue(buffer(2));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) })));
+    await render(true);
+    const input = vi.mocked(createAnimationCanvasDocument).mock.calls.at(-1)![0];
+    const makeProject = (source: string) => serializeCanvasDocument(createAnimationCanvasDocument({ ...input,
+      state: { ...input.state, audio: {
+        assets: [{ id: 'shared-audio', durationMs: 2000, mimeType: 'audio/wav', name: 'Score', peaks: [0.2], source }],
+        clips: [{ id: 'clip', assetId: 'shared-audio', timelineStartMs: 0, trimStartMs: 0, trimEndMs: 1000, volume: 1 }],
+        muted: false, volume: 1,
+      } },
+    }));
+    const openProject = async (source: string) => {
+      await act(async () => vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0].onOpen(source));
+    };
+    await openProject(makeProject('data:audio/wav;base64,AQ=='));
+    togglePlayback();
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledOnce());
+    await openProject(makeProject('data:audio/wav;base64,Ag=='));
+    const readAudio = () => container.querySelector('output')!.getAttribute('data-audio-assets');
+    const replacement = readAudio();
+    await act(async () => { finishOldDecode(buffer(5)); await oldDecode; });
+    expect(readAudio()).toBe(replacement);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[data-playing]')!.click());
+    await vi.waitFor(async () => {
+      await act(async () => undefined);
+      expect(fetch).toHaveBeenCalledWith('data:audio/wav;base64,Ag==');
+      expect(context.decodeAudioData.mock.calls.length).toBeGreaterThan(1);
+    });
+    expect(readAudio()).toBe(replacement);
   });
 });

@@ -87,7 +87,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isSnapshot(value: unknown): value is AnimationArtboardSnapshot {
+export function isAnimationArtboardSnapshot(value: unknown): value is AnimationArtboardSnapshot {
   if (!isObject(value)) return false;
   if (value.audio !== undefined) {
     if (!isObject(value.audio) || !Array.isArray(value.audio.assets) || !Array.isArray(value.audio.clips)) {
@@ -128,7 +128,7 @@ function isArtboard(value: unknown): value is AnimationArtboard {
     && typeof value.id === 'string'
     && value.id.startsWith('animation-artboard-')
     && typeof value.name === 'string'
-    && isSnapshot(value.snapshot);
+    && isAnimationArtboardSnapshot(value.snapshot);
 }
 
 export function restoreAnimationArtboardWorkspace(

@@ -46,13 +46,13 @@ const IDENTITY_CONTRACTS: Record<IdentitySection, object> = {
   Overview: {
     assets: 40,
     colors: 8,
-    fonts: 4,
+    fonts: 2,
     identity: 'General Translation',
   },
   Typography: {
     accent: 'Rasmus Inter',
     body: 'Rasmus Inter',
-    display: 'Switzer',
+    display: 'Rasmus Inter',
     localeCoverage: 26,
   },
 };
@@ -153,7 +153,7 @@ export function MarketingIdentityDemo() {
               <aside><span>Welcome</span><b>你好</b><span>환영합니다</span><span>ようこそ</span></aside>
             </div>
             <div className='marketing-mini-identity-panel marketing-mini-identity-panel--type'>
-              <span>Typography</span><strong>Switzer</strong><small>Display</small><b>Rasmus Inter</b><small>Body / Accent</small>
+              <span>Typography</span><strong>Rasmus Inter</strong><small>Display</small><b>Rasmus Inter</b><small>Body / Accent</small>
             </div>
             <div className='marketing-mini-identity-panel marketing-mini-identity-panel--color'>
               <span>Color system</span><div><i /><i /><i /><i /></div><strong>Core roles stay synchronized across every tool.</strong>

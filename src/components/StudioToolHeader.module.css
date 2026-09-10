@@ -1,5 +1,4 @@
 .root {
-  --studio-toolbar-label-size: 0.75rem;
   position: relative;
   z-index: 20;
   min-width: 0;
@@ -73,7 +72,7 @@
 }
 
 .root[data-layout='balanced'] {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(100px, auto) minmax(0, 1fr) auto;
 }
 
 .root[data-layout='balanced'] .middle {
@@ -84,6 +83,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 6px;
 }
 
@@ -110,10 +110,38 @@
 .status :global(button),
 .actions :global(button),
 .actions :global(a) {
+  flex-shrink: 0;
   min-height: var(--studio-toolbar-control-height);
   max-height: var(--studio-toolbar-control-height);
   font-size: var(--studio-toolbar-label-size);
   white-space: nowrap;
+}
+
+.actions :global(.studio-export-preset) {
+  width: 156px;
+  min-width: 108px;
+  flex: 0 1 156px;
+}
+
+.root[data-layout='balanced'] .metadata {
+  max-width: 180px;
+}
+
+@media (max-width: 1440px) {
+  .root[data-layout='balanced'] .metadata {
+    display: none;
+  }
+}
+
+@media (max-width: 1150px) {
+  .actions :global(.studio-toolbar-action-label) {
+    display: none;
+  }
+
+  .actions :global(button:has(.studio-toolbar-action-label)) {
+    width: var(--studio-toolbar-control-height);
+    padding-inline: 0;
+  }
 }
 
 .actions :global(svg) {

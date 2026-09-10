@@ -8,7 +8,7 @@
   </defs>
   <rect width="1200" height="1000" fill="#050606"/>
   <rect x="24" y="24" width="1152" height="952" fill="url(#dot-field)"/>
-  <g font-family="Switzer, Inter, Arial, sans-serif" font-weight="500" text-anchor="middle">
+  <g font-family="Rasmus Inter, Inter, Arial, sans-serif" font-weight="500" text-anchor="middle">
     <text x="320" y="205" fill="#B8B8B8" font-size="76">Welcome</text>
     <text x="895" y="205" fill="#E8E8E8" font-size="94">你好</text>
     <text x="325" y="510" fill="#A7A7A7" font-size="70">환영합니다</text>

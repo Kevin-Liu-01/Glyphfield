@@ -24,10 +24,12 @@ import {
 } from './animationAudio';
 import type { StudioSource } from './renderFrame';
 import type { AnimationArtboard } from './animationArtboards';
+import type { DesignLabProjectIdentity } from './designLabProjectFile';
 
 const ANIMATION_METADATA_KEY = 'animation';
 
 export type AnimationDocumentState = {
+  identity?: DesignLabProjectIdentity;
   activeArtboardId?: string;
   artboards?: readonly AnimationArtboard[];
   audio?: AnimationAudioState;
@@ -302,6 +304,7 @@ export function animationStateFromCanvasDocument(document: CanvasDocument): Anim
       })
     : undefined;
   return {
+    ...(objectValue(metadata.identity) ? { identity: metadata.identity as unknown as DesignLabProjectIdentity } : {}),
     activeArtboardId: typeof metadata.activeArtboardId === 'string'
       ? metadata.activeArtboardId
       : undefined,

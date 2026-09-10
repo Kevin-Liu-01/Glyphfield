@@ -26,6 +26,46 @@
   background: hsl(var(--muted));
 }
 
+.trigger[data-compact='true'] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  /* Autosave copy changes asynchronously; never move adjacent hit targets. */
+  flex: 0 0 180px;
+  width: 180px;
+  min-width: 0;
+  max-width: 180px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.status small {
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+}
+
+@media (max-width: 1150px) {
+  .status {
+    flex-basis: 140px;
+    width: 140px;
+  }
+}
+
+.status[data-error='true'] {
+  color: hsl(var(--destructive));
+}
+
 .trigger > svg {
   width: 14px;
   height: 14px;

@@ -95,6 +95,20 @@ describe('project-file controls', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Missing frame PNG');
   });
 
+  it('uses the supplied Animation validator and workspace copy without calling the Design Lab reader', async () => {
+    const designRead = vi.spyOn(projectFiles, 'readDesignLabProjectFile');
+    const read = vi.fn(async () => 'validated animation');
+    const onOpen = vi.fn();
+    await act(() => root.render(<OpenProjectFileButton onOpen={onOpen} read={read} workspaceLabel='Animation Studio' />));
+    const file = new File(['{}'], 'animation.glyphfield.json');
+    await act(async () => { choose(file); });
+    expect(read).toHaveBeenCalledExactlyOnceWith(file);
+    expect(designRead).not.toHaveBeenCalled();
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith('validated animation');
+    expect(container.querySelector('button')?.title).toContain('Animation Studio');
+    expect(container.querySelector('.studio-toolbar-action-label')?.textContent).toBe('Open project');
+  });
+
   it('does not claim success when the host refuses an import', async () => {
     vi.spyOn(projectFiles, 'readDesignLabProjectFile').mockResolvedValue('validated source');
     await act(() => root.render(<OpenProjectFileButton onOpen={async () => { throw new Error('Capture in progress'); }} />));
