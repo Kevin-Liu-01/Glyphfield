@@ -144,7 +144,7 @@
 }
 
 .root[data-layout='panel'] .popoverHeader {
-  min-height: 54px;
+  min-height: 42px;
 }
 
 .root[data-layout='panel'] .list {
@@ -182,19 +182,16 @@
 
 .popoverHeader {
   flex: 0 0 auto;
-  min-height: 62px;
-  padding: 12px 14px;
+  min-height: 42px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
   border-bottom: 1px solid hsl(var(--border));
 }
 
-.popoverHeader > div,
-.nameField,
-.unsavedCallout span,
-.openDesign span {
+.unsavedCallout > span {
   min-width: 0;
   display: grid;
   gap: 3px;
@@ -211,30 +208,25 @@
 }
 
 .popoverHeader span,
-.openDesign small,
-.unsavedCallout small,
-.nameField > span {
+.unsavedCallout small {
   color: hsl(var(--muted-foreground));
   font-size: 0.62rem;
 }
 
-.workspace {
-  flex: 0 0 auto;
-  font-family: var(--font-mono), monospace;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.count {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: hsl(var(--muted));
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-.nameField {
-  flex: 0 0 auto;
-  padding: 12px 14px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.nameField input {
+.nameInput {
+  min-width: 0;
   width: 100%;
   height: 34px;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 1px solid hsl(var(--border));
   border-radius: 5px;
   color: hsl(var(--foreground));
@@ -243,26 +235,44 @@
   outline: none;
 }
 
-.nameField input:focus {
+.nameInput:focus {
   border-color: #7058ff;
   box-shadow: 0 0 0 2px rgb(112 88 255 / 0.16);
 }
 
 .unsavedCallout {
-  margin: 12px;
-  padding: 10px;
+  flex: 0 0 auto;
+  padding: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  background: hsl(var(--muted) / 0.52);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
-.unsavedCallout > svg {
-  width: 16px;
-  height: 16px;
-  color: #7058ff;
+.unsavedCallout > button,
+.popoverFooter > button,
+.deleteConfirmation > button {
+  min-height: 28px;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.5);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.unsavedCallout > button svg,
+.popoverFooter > button svg {
+  width: 12px;
+  height: 12px;
 }
 
 .list {
@@ -270,24 +280,38 @@
   max-height: 310px;
   overflow-y: auto;
   padding: 6px;
+  display: grid;
+  gap: 3px;
 }
 
 .designRow {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px 30px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
   border: 1px solid transparent;
   border-radius: 5px;
 }
 
-.designRow:hover,
-.designRow[data-active='true'] {
+.designRow:hover {
   border-color: hsl(var(--border));
   background: hsl(var(--muted) / 0.58);
 }
 
-.designRow > button {
+.designRow[data-active='true'] {
+  border-color: rgb(112 88 255 / 0.26);
+  background: rgb(112 88 255 / 0.08);
+}
+
+.designRow[data-mode='rename'] {
+  min-height: 54px;
+  padding: 6px;
+}
+
+.openDesign,
+.rowActions > button {
   min-width: 0;
   border: 0;
   color: inherit;
@@ -295,29 +319,108 @@
   cursor: pointer;
 }
 
-.designRow > button:not(.openDesign) {
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.rowActions > button {
+  width: 28px;
+  height: 30px;
   display: grid;
   place-items: center;
+  border-radius: 4px;
   color: hsl(var(--muted-foreground));
 }
 
-.designRow > button:not(.openDesign):hover {
+.popover button:hover:not(:disabled) {
   color: hsl(var(--foreground));
+  background: hsl(var(--muted));
 }
 
-.designRow > button:not(.openDesign) svg,
-.openDesign > svg {
+.popover button:focus-visible {
+  outline: 2px solid #7058ff;
+  outline-offset: -2px;
+}
+
+.popover button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.rowActions svg {
   width: 13px;
   height: 13px;
 }
 
 .openDesign {
-  padding: 9px 8px;
+  min-height: 54px;
+  padding: 8px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.rowMetadata {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.62rem;
+}
+
+.currentBadge {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.currentBadge::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  margin-right: 4px;
+  display: inline-block;
+  vertical-align: 2px;
+  border-radius: 50%;
+  background: #8c75ff;
+}
+
+.deleteConfirmation {
+  grid-column: 1 / -1;
+  padding: 0 4px 8px 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.deleteConfirmation > span {
+  flex: 1 1 auto;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+
+.deleteConfirmation > .deleteButton {
+  color: hsl(var(--status-error, 0 72% 50%));
+  border-color: hsl(var(--status-error, 0 72% 50%) / 0.35);
+}
+
+.popoverFooter {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  text-align: left;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.62rem;
 }
 
 .empty,

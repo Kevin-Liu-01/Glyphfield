@@ -152,6 +152,8 @@ Autosave preserves your working draft while editing. **Save** updates the select
 
 **Unsaved changes** means the working draft differs from the selected named checkpoint; draft recovery can still be up to date. Renaming changes only the checkpoint name, not its stored artwork. You can rename and then click **Save** to commit both the name and current composition.
 
+The **Saved designs** picker marks the **Current** checkpoint. Clicking that row closes the picker without replacing your latest edits. Choose its **Rename** action to edit the name, then press Enter or click **Save name**; Escape or **Cancel rename** discards the name edit. Leaving the row also saves its name. Each row has Clone and Delete actions; Delete asks for confirmation. An autosaved draft can become a named checkpoint using **Save checkpoint**, while **Save changes** updates the current checkpoint. Checkpoints are stored in this browser; export a project file to share or back them up.
+
 The draft indicator shows pending changes as **Saving**. Fast tool/project switches retain queued edits. If loading fails, saving stays suspended while recovery retries so the initial canvas cannot overwrite your previous design. A local recovery journal can retain work while IndexedDB is temporarily unavailable; clearing browser site data still removes local work, so export portable source for an independent backup.
 
 ## Export

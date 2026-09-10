@@ -60,6 +60,38 @@ async function openCanvasMap(page: Page) {
   return map;
 }
 
+async function expectCompactCanvasMap(page: Page, width: number) {
+  const map = await openCanvasMap(page);
+  await expect(map).toHaveCSS('width', `${width}px`);
+  const actions = map.getByRole('group', { name: 'Artboard map actions', exact: true });
+  await expect(actions.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toBeVisible();
+  await expect(actions.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveText('Tidy');
+  const mapButtons = await actions.getByRole('button').evaluateAll((buttons) => buttons.map((button) => ({
+    bounds: button.getBoundingClientRect().toJSON(),
+    icon: button.querySelector('svg')!.getBoundingClientRect().toJSON(),
+    label: button.querySelector('span')!.getBoundingClientRect().toJSON(),
+  })));
+  expect(mapButtons).toHaveLength(3);
+  const actionsBounds = (await actions.boundingBox())!;
+  for (const [index, { bounds, icon, label }] of mapButtons.entries()) {
+    expect(bounds.height).toBeGreaterThanOrEqual(28);
+    expect(bounds.height).toBeLessThanOrEqual(32);
+    expect(Math.abs(bounds.y - mapButtons[0].bounds.y)).toBeLessThan(1);
+    expect(Math.abs(bounds.width - actionsBounds.width / 3)).toBeLessThan(1);
+    expect(Math.abs(bounds.x - actionsBounds.x - index * actionsBounds.width / 3)).toBeLessThan(1);
+    expect(icon.right).toBeLessThanOrEqual(label.left);
+    expect(Math.abs(icon.y + icon.height / 2 - label.y - label.height / 2)).toBeLessThan(1);
+    for (const content of [icon, label]) {
+      expect(content.width).toBeGreaterThan(0);
+      expect(content.height).toBeGreaterThan(0);
+      expect(content.left).toBeGreaterThanOrEqual(bounds.left);
+      expect(content.right).toBeLessThanOrEqual(bounds.right);
+      expect(content.top).toBeGreaterThanOrEqual(bounds.top);
+      expect(content.bottom).toBeLessThanOrEqual(bounds.bottom);
+    }
+  }
+}
+
 async function expectArtboardsInView(page: Page) {
   await expect.poll(() => page.getByRole('region', { name: 'Canvas viewport', exact: true }).evaluate((viewport) => {
     const view = viewport.getBoundingClientRect();
@@ -129,8 +161,33 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   await versionsGroup.locator('button[title="Open saved designs"]').click();
   const versions = page.getByRole('region', { name: 'Design Lab saved designs', exact: true });
   await expect(versions).toBeVisible();
-  await versions.getByRole('textbox', { name: 'Current design name', exact: true }).fill('Toolbar checkpoint');
-  await page.keyboard.press('Tab');
+  const currentDesign = versions.locator('[data-active="true"]');
+  await expect(currentDesign).toHaveCount(1);
+  await expect(currentDesign.getByText('Current', { exact: true })).toBeVisible();
+  await expect(currentDesign.getByRole('button').first()).toHaveAttribute('aria-current', 'true');
+  await expect(currentDesign.getByRole('button').first()).toBeFocused();
+  const designName = versions.getByRole('textbox', { name: 'Current design name', exact: true });
+  await expect(designName).toHaveCount(0);
+  const beforeRename = await workspace(page);
+  await currentDesign.getByRole('button', { name: 'Rename Untitled design', exact: true }).click();
+  await expect(designName).toBeFocused();
+  await designName.fill('Toolbar checkpoint');
+  await designName.press('Enter');
+  await expect(designName).toHaveCount(0);
+  await expect(currentDesign.getByRole('button').first()).toContainText('Toolbar checkpoint');
+  expect(await workspace(page)).toEqual(beforeRename);
+
+  await currentDesign.getByRole('button', { name: 'Rename Toolbar checkpoint', exact: true }).click();
+  await designName.fill('Discard this rename');
+  await designName.press('Escape');
+  await expect(versions).toBeVisible();
+  await expect(designName).toHaveCount(0);
+  await expect(currentDesign.getByRole('button').first()).toContainText('Toolbar checkpoint');
+  await currentDesign.getByRole('button', { name: 'Delete Toolbar checkpoint', exact: true }).click();
+  await expect(currentDesign.getByRole('button', { name: 'Confirm delete Toolbar checkpoint', exact: true })).toBeVisible();
+  await currentDesign.getByRole('button', { name: 'Cancel deletion', exact: true }).click();
+  await expect(currentDesign.getByRole('button', { name: 'Confirm delete Toolbar checkpoint', exact: true })).toHaveCount(0);
+  await expect(currentDesign.getByRole('button').first()).toContainText('Toolbar checkpoint');
   await page.keyboard.press('Escape');
   await expect(versions).toHaveCount(0);
   await expect(versionsGroup.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
@@ -149,9 +206,15 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
     return state.artboards.find((board: { id: string }) => board.id === state.activeArtboardId)?.name;
   }).toBe('Toolbar board');
 
+  const editedWorkspace = await workspace(page);
   await versionsGroup.locator('button[title="Open saved designs"]').click();
-  await expect(versions.getByRole('textbox', { name: 'Current design name', exact: true })).toHaveValue('Toolbar checkpoint');
-  await page.keyboard.press('Escape');
+  await expect(currentDesign.getByRole('button').first()).toContainText('Toolbar checkpoint');
+  await expect(designName).toHaveCount(0);
+  await currentDesign.getByRole('button').first().click();
+  await expect(versions).toHaveCount(0);
+  // Re-selecting the current checkpoint must not restore its older two-board source.
+  expect(await workspace(page)).toEqual(editedWorkspace);
+  await expect(page.locator('.design-artboard-shell')).toHaveCount(3);
   for (const width of [1440, 1100, 780]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(bar).toBeVisible();
@@ -177,17 +240,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
       expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
     }
     await expect(bar.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(0);
-    const map = await openCanvasMap(page);
-    await expect(map.getByRole('group', { name: 'Artboard map actions', exact: true })
-      .getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toBeVisible();
-    await expect(map.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveText('Tidy');
-    const mapButtons = await map.getByRole('group', { name: 'Artboard map actions', exact: true })
-      .getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON()));
-    expect(mapButtons).toHaveLength(3);
-    for (const button of mapButtons) {
-      expect(Math.abs(button.y - mapButtons[0].y)).toBeLessThan(1);
-      expect(Math.abs(button.width - mapButtons[0].width)).toBeLessThan(1);
-    }
+    await expectCompactCanvasMap(page, 200);
     await expect(page.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(1);
     const viewBox = (await viewControls.boundingBox())!;
     expect(viewBox.x).toBeGreaterThanOrEqual(0);
@@ -199,6 +252,18 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
     expect(trailing.x + trailing.width).toBeLessThanOrEqual(headerBounds.x + headerBounds.width);
     expect(headerBounds.x + headerBounds.width).toBeLessThanOrEqual(width + 1);
   }
+  await page.setViewportSize({ width: 600, height: 1000 });
+  await expectCompactCanvasMap(page, 172);
+  await history.click();
+  await expect(currentDesign.getByRole('button').first()).toContainText('Toolbar checkpoint');
+  const compactPicker = await versions.evaluate((element) => ({
+    bounds: element.getBoundingClientRect().toJSON(),
+    overflow: element.scrollWidth - element.clientWidth,
+  }));
+  expect(compactPicker.overflow).toBeLessThanOrEqual(1);
+  expect(compactPicker.bounds.left).toBeGreaterThanOrEqual(0);
+  expect(compactPicker.bounds.right).toBeLessThanOrEqual(600);
+  await page.keyboard.press('Escape');
 });
 
 test('Design Lab toolbar menus close when their tool is left or another history is opened', async ({ page }) => {

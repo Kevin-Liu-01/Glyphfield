@@ -40,6 +40,13 @@ function button(label: string): HTMLButtonElement {
   return candidate;
 }
 
+function savedDesignRow(name: string): HTMLButtonElement {
+  const candidate = [...document.querySelectorAll<HTMLButtonElement>('[role="region"] button')]
+    .find((row) => row.querySelector('strong')?.textContent === name);
+  if (!candidate) throw new Error(`Missing saved design row: ${name}`);
+  return candidate;
+}
+
 describe('DesignVersionControls', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -133,6 +140,13 @@ describe('DesignVersionControls', () => {
       valueSetter?.call(target, value);
       target.dispatchEvent(new InputEvent('input', { bubbles: true, data: value }));
       target.dispatchEvent(new Event('change', { bubbles: true }));
+      await settle();
+    });
+  }
+
+  async function pressKey(target: HTMLElement, key: string) {
+    await act(async () => {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
       await settle();
     });
   }
@@ -549,6 +563,8 @@ describe('DesignVersionControls', () => {
 
     await click(trigger);
     await click(button('Delete Stored design · Copy'));
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual(clonedDesigns);
+    await click(button('Confirm delete Stored design · Copy'));
     expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([stored]);
     expect(trigger.textContent).toContain('Autosaved draft');
   });
@@ -575,6 +591,231 @@ describe('DesignVersionControls', () => {
     expect(designs.find(({ id }) => id === active.id)).toEqual(active);
   });
 
+  it('focuses the current saved row without exposing a name field or restoring its source', async () => {
+    const active = savedDesign({ id: 'active-design', name: 'Alpha' });
+    const newer = savedDesign({ id: 'newer-design', name: 'Beta', updatedAt: '2026-09-02T12:00:00.000Z' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    await saveSavedDesign(WORKSPACE_KEY, newer);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const onOpen = vi.fn();
+    const editedSource = '{"canvas":"unsaved Alpha"}';
+    await render({ onOpen, revision: 'edited-alpha', source: editedSource });
+
+    const trigger = button('Saved designs: Alpha');
+    await click(trigger);
+    const currentRow = savedDesignRow('Alpha');
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect(document.activeElement).toBe(currentRow);
+    expect(currentRow.textContent).toContain('Current');
+    expect(onOpen).not.toHaveBeenCalled();
+    expect((await loadSavedDesigns(WORKSPACE_KEY)).find(({ id }) => id === active.id)).toEqual(active);
+
+    await click(currentRow);
+    expect(document.querySelector('[role="region"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(button('Save design').disabled).toBe(false);
+    await click(button('Save design'));
+    expect((await loadSavedDesigns(WORKSPACE_KEY)).find(({ id }) => id === active.id)).toMatchObject({
+      revision: 'edited-alpha',
+      source: editedSource,
+    });
+  });
+
+  it.each(['Escape', 'Cancel rename'])('cancels a local rename with %s without changing the saved checkpoint', async (cancelAction) => {
+    const active = savedDesign({ name: 'Alpha' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const onOpen = vi.fn();
+    await render({ onOpen, revision: active.revision, source: active.source });
+    const trigger = button('Saved designs: Alpha');
+    await click(trigger);
+    await click(button('Rename Alpha'));
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]')!;
+    expect(document.activeElement).toBe(input);
+    await changeInput(input, 'Discard this name');
+    expect(trigger.textContent).toContain('Alpha');
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+
+    if (cancelAction === 'Escape') {
+      await pressKey(input, 'Escape');
+    } else {
+      // Moving focus to a button inside the rename row must not commit its draft.
+      await act(() => button('Cancel rename').focus());
+      expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+      await click(button('Cancel rename'));
+    }
+
+    expect(document.querySelector('[role="region"]')).not.toBeNull();
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect(savedDesignRow('Alpha')).toBeTruthy();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(button('Design saved').disabled).toBe(true);
+    await click(button('Rename Alpha'));
+    expect(document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]')?.value).toBe('Alpha');
+  });
+
+  it.each([true, false])('commits a normalized name with Enter without changing source (current=%s)', async (current) => {
+    const target = savedDesign({ id: 'target-design', name: 'Alpha' });
+    const sibling = savedDesign({ id: 'sibling-design', name: 'Beta', source: '{"canvas":"Beta"}' });
+    await saveSavedDesign(WORKSPACE_KEY, target);
+    await saveSavedDesign(WORKSPACE_KEY, sibling);
+    const active = current ? target : sibling;
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const onOpen = vi.fn();
+    await render({ onOpen, revision: active.revision, source: active.source });
+    await click(button(`Saved designs: ${active.name}`));
+    await click(button('Rename Alpha'));
+    const label = current ? 'Current design name' : 'Saved design name';
+    const input = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    await changeInput(input, '  Beta  ');
+    expect((await loadSavedDesigns(WORKSPACE_KEY)).find(({ id }) => id === target.id)).toEqual(target);
+    await pressKey(input, 'Enter');
+
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect((await loadSavedDesigns(WORKSPACE_KEY)).find(({ id }) => id === target.id)).toEqual({ ...target, name: 'Beta 2' });
+    expect((await loadSavedDesigns(WORKSPACE_KEY)).find(({ id }) => id === sibling.id)).toEqual(sibling);
+    expect(button(`Saved designs: ${current ? 'Beta 2' : 'Beta'}`)).toBeTruthy();
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(button('Design saved').disabled).toBe(true);
+  });
+
+  it.each([
+    { composition: 'native composition', isComposing: true, keyCode: 13 },
+    { composition: 'legacy IME key code', isComposing: false, keyCode: 229 },
+  ])('does not commit a rename on Enter during $composition', async ({ isComposing, keyCode }) => {
+    const active = savedDesign({ name: 'Alpha' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    await render({ revision: active.revision, source: active.source });
+    await click(button('Saved designs: Alpha'));
+    await click(button('Rename Alpha'));
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]')!;
+    await changeInput(input, '最終デザイン');
+    const composingEnter = new KeyboardEvent('keydown', { key: 'Enter', isComposing, bubbles: true, cancelable: true });
+    Object.defineProperty(composingEnter, 'keyCode', { value: keyCode });
+    await act(async () => {
+      input.dispatchEvent(composingEnter);
+      await settle();
+    });
+
+    expect(composingEnter.defaultPrevented).toBe(false);
+    expect(document.querySelector('input[aria-label="Current design name"]')).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('最終デザイン');
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    await pressKey(input, 'Enter');
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([{ ...active, name: '最終デザイン' }]);
+  });
+
+  it.each(['Save name', 'Cancel rename'])('retains input focus on %s pointerdown until the explicit action runs', async (actionLabel) => {
+    const active = savedDesign({ name: 'Alpha' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    await render({ revision: active.revision, source: active.source });
+    await click(button('Saved designs: Alpha'));
+    await click(button('Rename Alpha'));
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]')!;
+    await changeInput(input, 'Edited name');
+    const action = button(actionLabel);
+    const pointerDown = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+    await act(async () => {
+      action.dispatchEvent(pointerDown);
+      await settle();
+    });
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(input);
+    expect(document.querySelector('input[aria-label="Current design name"]')).toBe(input);
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    await click(action);
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+      { ...active, name: actionLabel === 'Save name' ? 'Edited name' : active.name },
+    ]);
+  });
+
+  it('saves an animation name explicitly without applying its stored source', async () => {
+    const active = savedDesign({ name: 'Alpha animation' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const onOpen = vi.fn();
+    await render({ collectionLabel: 'Saved animations', itemLabel: 'animation', onOpen, revision: active.revision, source: active.source });
+    await click(button('Saved animations: Alpha animation'));
+    await click(button('Rename Alpha animation'));
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Current animation name"]')!;
+    await changeInput(input, '  Final animation  ');
+    await act(() => button('Save name').focus());
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    await click(button('Save name'));
+
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([{ ...active, name: 'Final animation' }]);
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    expect(button('Saved animations: Final animation')).toBeTruthy();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('requires deletion confirmation and lets cancellation preserve the current checkpoint', async () => {
+    const active = savedDesign({ name: 'Alpha' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const onOpen = vi.fn();
+    await render({ onOpen, revision: active.revision, source: active.source });
+    await click(button('Saved designs: Alpha'));
+    await click(button('Delete Alpha'));
+    expect(button('Confirm delete Alpha')).toBeTruthy();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    await click(button('Cancel deletion'));
+    expect(document.querySelector('button[aria-label="Confirm delete Alpha"]')).toBeNull();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([active]);
+    expect(button('Saved designs: Alpha')).toBeTruthy();
+
+    await click(button('Delete Alpha'));
+    await click(button('Confirm delete Alpha'));
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([]);
+    expect(button('Saved designs: Autosaved draft')).toBeTruthy();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it.each(['design', 'animation'])('saves an autosaved %s directly from its dropdown', async (itemLabel) => {
+    const collectionLabel = `Saved ${itemLabel}s`;
+    const defaultName = `Untitled ${itemLabel}`;
+    const prepareSource = vi.fn(async () => ({ source: '{"captured":true}', revision: 'captured-revision' }));
+    const onOpen = vi.fn();
+    await render({ collectionLabel, defaultName, itemLabel, onOpen, prepareSource });
+    await click(button(`${collectionLabel}: Autosaved draft`));
+    expect(document.querySelector('[role="region"] input')).toBeNull();
+    const save = button(`Save ${itemLabel} checkpoint`);
+    expect(document.querySelector('[role="region"]')?.contains(save)).toBe(true);
+    await click(save);
+
+    expect(prepareSource).toHaveBeenCalledOnce();
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([
+      expect.objectContaining({ name: defaultName, origin: 'saved', source: '{"captured":true}', revision: 'captured-revision' }),
+    ]);
+    expect(button(`${collectionLabel}: ${defaultName}`)).toBeTruthy();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('saves current unsaved changes from the dropdown footer', async () => {
+    const active = savedDesign({ name: 'Alpha' });
+    await saveSavedDesign(WORKSPACE_KEY, active);
+    window.localStorage.setItem(activeSavedDesignStorageKey('gt', 'design-lab'), JSON.stringify(active.id));
+    const editedSource = '{"canvas":"edited Alpha"}';
+    const onOpen = vi.fn();
+    await render({ onOpen, revision: 'edited-alpha', source: editedSource });
+    await click(button('Saved designs: Alpha'));
+    const save = button('Save design changes');
+    expect(document.querySelector('[role="region"]')?.contains(save)).toBe(true);
+    await click(save);
+
+    expect((await loadSavedDesigns(WORKSPACE_KEY))[0]).toMatchObject({ id: active.id, revision: 'edited-alpha', source: editedSource });
+    expect(button('Design saved').disabled).toBe(true);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it('updates active source and normalizes duplicate names before persisting them', async () => {
     const active = savedDesign({ id: 'active-design', name: 'Alpha' });
     const sibling = savedDesign({ id: 'sibling-design', name: 'Beta' });
@@ -596,6 +837,7 @@ describe('DesignVersionControls', () => {
     const trigger = document.querySelector<HTMLButtonElement>('button[title="Open saved designs"]');
     if (!trigger) throw new Error('Missing saved designs trigger');
     await click(trigger);
+    await click(button('Rename Alpha'));
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]');
     if (!input) throw new Error('Missing current design name input');
     await changeInput(input, 'Beta');
@@ -638,6 +880,7 @@ describe('DesignVersionControls', () => {
     const trigger = document.querySelector<HTMLButtonElement>('button[title="Open saved designs"]');
     if (!trigger) throw new Error('Missing saved designs trigger');
     await click(trigger);
+    await click(button('Rename Alpha'));
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Current design name"]');
     if (!input) throw new Error('Missing current design name input');
     await changeInput(input, 'Beta');
@@ -667,6 +910,10 @@ describe('DesignVersionControls', () => {
     expect(button('Save design').disabled).toBe(true);
     expect(button('Fork design').disabled).toBe(true);
     expect(button('Clone design').disabled).toBe(true);
+    await click(button('Saved designs: Autosaved draft'));
+    expect(button('Save design checkpoint').disabled).toBe(true);
+    await click(button('Save design checkpoint'));
+    expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([]);
   });
 
   it('portals toolbar checkpoints above the editor and preserves naming, focus, and scroll anchoring', async () => {
@@ -686,6 +933,9 @@ describe('DesignVersionControls', () => {
     expect(container.contains(region)).toBe(false);
     expect(region.parentElement?.style.left).toBe('340px');
     expect(region.parentElement?.style.top).toBe('142px');
+    expect(region.querySelector('input')).toBeNull();
+    expect(document.activeElement).toBe(savedDesignRow('Alpha'));
+    await click(button('Rename Alpha'));
     const input = region.querySelector<HTMLInputElement>('input')!;
     expect(document.activeElement).toBe(input);
     await act(() => {
@@ -694,16 +944,14 @@ describe('DesignVersionControls', () => {
     });
     expect(document.querySelector('[role="region"]')).toBe(region);
     await changeInput(input, 'Renamed checkpoint');
-    await act(async () => {
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      await settle();
-    });
+    await pressKey(input, 'Enter');
+    await pressKey(savedDesignRow('Renamed checkpoint'), 'Escape');
     expect(document.querySelector('[role="region"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect((await loadSavedDesigns(WORKSPACE_KEY))[0]?.name).toBe('Renamed checkpoint');
 
     await click(trigger);
-    const firstRow = document.querySelector<HTMLButtonElement>('[role="region"] button')!;
+    const firstRow = savedDesignRow('Renamed checkpoint');
     await act(() => firstRow.focus());
     bounds = { ...bounds, left: 460, right: 660, top: 80, bottom: 112 };
     await act(() => window.dispatchEvent(new Event('scroll')));
@@ -711,6 +959,7 @@ describe('DesignVersionControls', () => {
     const movedRegion = document.querySelector<HTMLElement>('[role="region"]')!;
     expect(movedRegion.parentElement?.style.left).toBe('300px');
     expect(movedRegion.parentElement?.style.top).toBe('122px');
+    await click(button('Rename Renamed checkpoint'));
     const renamedInput = movedRegion.querySelector<HTMLInputElement>('input')!;
     await changeInput(renamedInput, 'Outside committed');
     await act(async () => {
@@ -729,15 +978,15 @@ describe('DesignVersionControls', () => {
     expect(container.querySelector('[role="region"]')).not.toBeNull();
   });
 
-  it('focuses the first saved checkpoint when opening from an unnamed draft and returns on Escape', async () => {
+  it('focuses the checkpoint action when opening from an unnamed draft and returns on Escape', async () => {
     await saveSavedDesign(WORKSPACE_KEY, savedDesign());
     await render();
     const trigger = container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!;
     await act(() => trigger.focus());
     await click(trigger);
-    const firstRow = document.querySelector<HTMLButtonElement>('[role="region"] button')!;
-    expect(document.activeElement).toBe(firstRow);
-    await act(() => firstRow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    const checkpointAction = button('Save design checkpoint');
+    expect(document.activeElement).toBe(checkpointAction);
+    await pressKey(checkpointAction, 'Escape');
     expect(document.activeElement).toBe(trigger);
     expect(document.querySelector('[role="region"]')).toBeNull();
   });
@@ -761,6 +1010,7 @@ describe('DesignVersionControls', () => {
     await render();
     const trigger = container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!;
     await click(trigger);
+    await click(button('Rename Before navigation'));
     const input = document.querySelector<HTMLInputElement>('[role="region"] input')!;
     expect(document.activeElement).toBe(input);
     await changeInput(input, 'Named before switching');

@@ -1,6 +1,6 @@
 'use client';
 
-import { Books, Check, ChevronDown, CloudArrowUp, CloudCheck, CloudWarning, Copy, GitFork, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
+import { Books, Check, ChevronDown, CloudArrowUp, CloudCheck, CloudWarning, Copy, FilePenLine, GitFork, Plus, Save, Trash2, X } from '@/components/ui/SolidIcons';
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -120,7 +120,8 @@ function DesignVersionsSurface({
   useLayoutEffect(() => {
     if (!placement || enteredRef.current) return;
     enteredRef.current = true;
-    const firstControl = surfaceRef.current?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled)');
+    const firstControl = surfaceRef.current?.querySelector<HTMLElement>('button[aria-current="true"]:not(:disabled)')
+      ?? surfaceRef.current?.querySelector<HTMLElement>('[data-design-version-open]:not(:disabled), button:not(:disabled)');
     const target = firstControl ?? surfaceRef.current?.querySelector<HTMLElement>('[role="region"]');
     target?.focus({ preventScroll: true });
   }, [placement]);
@@ -183,17 +184,131 @@ function DesignVersionsSurface({
   return layout === 'panel' ? surface : createPortal(surface, document.body);
 }
 
+function SavedDesignRow({
+  active, defaultName, design, itemLabel, onClone, onDelete, onOpen, onRename, saving,
+}: {
+  active: boolean;
+  defaultName: string;
+  design: SavedDesign;
+  itemLabel: string;
+  onClone: (design: SavedDesign) => void;
+  onDelete: (design: SavedDesign) => void;
+  onOpen: (design: SavedDesign) => void;
+  onRename: (design: SavedDesign, name: string) => void;
+  saving: boolean;
+}) {
+  const [mode, setMode] = useState<'browse' | 'rename' | 'delete'>('browse');
+  const [draft, setDraft] = useState(design.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const renameRef = useRef<HTMLButtonElement>(null);
+  const deleteRef = useRef<HTMLButtonElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const editingRef = useRef(false);
+  const returnFocusRef = useRef<'rename' | 'delete' | null>(null);
+
+  useLayoutEffect(() => {
+    if (mode === 'rename') {
+      inputRef.current?.focus({ preventScroll: true });
+      inputRef.current?.select();
+    } else if (mode === 'delete') {
+      cancelDeleteRef.current?.focus({ preventScroll: true });
+    } else if (returnFocusRef.current) {
+      const target = returnFocusRef.current === 'rename' ? renameRef : deleteRef;
+      target.current?.focus({ preventScroll: true });
+      returnFocusRef.current = null;
+    }
+  }, [mode]);
+
+  function finishRename(commit: boolean, restoreFocus = true) {
+    if (!editingRef.current) return;
+    editingRef.current = false;
+    returnFocusRef.current = restoreFocus ? 'rename' : null;
+    setMode('browse');
+    if (commit && draft !== design.name) onRename(design, draft);
+  }
+
+  function cancelDelete() {
+    returnFocusRef.current = 'delete';
+    setMode('browse');
+  }
+
+  return (
+    <div
+      className={styles.designRow}
+      data-active={String(active)}
+      data-mode={mode}
+      onBlur={(event) => {
+        if (mode === 'rename' && !event.currentTarget.contains(event.relatedTarget as Node | null)) finishRename(true, false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || mode === 'browse') return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (mode === 'rename') finishRename(false);
+        else cancelDelete();
+      }}
+    >
+      {mode === 'rename' ? (
+        <>
+          <input
+            aria-label={`${active ? 'Current' : 'Saved'} ${itemLabel} name`}
+            className={styles.nameInput}
+            disabled={saving}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.keyCode === 229) return;
+              event.preventDefault();
+              event.stopPropagation();
+              finishRename(true);
+            }}
+            ref={inputRef}
+            value={draft}
+          />
+          <div className={styles.rowActions}>
+            {/* Safari does not focus clicked buttons: keep input focus until
+                the explicit action decides whether to commit or cancel. */}
+            <button aria-label='Save name' disabled={saving} onClick={() => finishRename(true)} onPointerDown={(event) => event.preventDefault()} title='Save name' type='button'><Check aria-hidden='true' /></button>
+            <button aria-label='Cancel rename' onClick={() => finishRename(false)} onPointerDown={(event) => event.preventDefault()} title='Cancel rename' type='button'><X aria-hidden='true' /></button>
+          </div>
+        </>
+      ) : (
+        <>
+          <button aria-current={active ? 'true' : undefined} className={styles.openDesign} data-design-version-open disabled={saving || mode === 'delete'} onClick={() => onOpen(design)} type='button'>
+            <strong>{design.name || defaultName}</strong>
+            <span className={styles.rowMetadata}>
+              {active ? <span className={styles.currentBadge}>Current</span> : null}
+              <span>{designDate(design.updatedAt)}</span>
+            </span>
+          </button>
+          {mode === 'browse' ? <div className={styles.rowActions}>
+            <button aria-label={`Rename ${design.name}`} disabled={saving} onClick={() => { setDraft(design.name); editingRef.current = true; setMode('rename'); }} ref={renameRef} title='Rename' type='button'><FilePenLine aria-hidden='true' /></button>
+            <button aria-label={`Clone ${design.name}`} disabled={saving} onClick={() => onClone(design)} title={`Clone ${itemLabel}`} type='button'><Copy aria-hidden='true' /></button>
+            <button aria-label={`Delete ${design.name}`} disabled={saving} onClick={() => setMode('delete')} ref={deleteRef} title={`Delete saved ${itemLabel}`} type='button'><Trash2 aria-hidden='true' /></button>
+          </div> : <div className={styles.deleteConfirmation}>
+            <span>Delete this checkpoint?</span>
+            <button aria-label='Cancel deletion' disabled={saving} onClick={cancelDelete} ref={cancelDeleteRef} type='button'>Cancel</button>
+            <button aria-label={`Confirm delete ${design.name}`} className={styles.deleteButton} disabled={saving} onClick={() => onDelete(design)} type='button'>Delete</button>
+          </div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function DesignVersionsPopover({
   activeDesign,
   activeId,
   designs,
+  dirty,
   error,
   loading,
   onClone,
   onDelete,
-  onNormalizeName,
+  onDismiss,
   onOpen,
   onRename,
+  onSave,
+  saveDisabled,
   saving,
   sortedDesigns,
   collectionLabel,
@@ -204,13 +319,16 @@ function DesignVersionsPopover({
   activeDesign: SavedDesign | null;
   activeId: string | null;
   designs: readonly SavedDesign[];
+  dirty: boolean;
   error: string;
   loading: boolean;
   onClone: (design: SavedDesign) => void;
   onDelete: (design: SavedDesign) => void;
-  onNormalizeName: (design: SavedDesign) => void;
+  onDismiss: () => void;
   onOpen: (design: SavedDesign) => Promise<void>;
   onRename: (design: SavedDesign, name: string) => void;
+  onSave: () => void;
+  saveDisabled: boolean;
   saving: boolean;
   sortedDesigns: readonly SavedDesign[];
   collectionLabel: string;
@@ -221,40 +339,37 @@ function DesignVersionsPopover({
   return (
     <div aria-label={`${workspaceLabel} ${collectionLabel.toLocaleLowerCase()}`} className={styles.popover} role='region' tabIndex={-1}>
       <header className={styles.popoverHeader}>
-        <div><strong>{collectionLabel}</strong><span>{designs.length} stored in this browser</span></div>
-        <span className={styles.workspace}>{workspaceLabel}</span>
+        <strong>{collectionLabel}</strong>
+        <span className={styles.count}>{designs.length}</span>
       </header>
 
-      {activeDesign ? (
-        <label className={styles.nameField}>
-          <span>Current {itemLabel} name</span>
-          <input
-            aria-label={`Current ${itemLabel} name`}
-            disabled={saving}
-            onBlur={() => onNormalizeName(activeDesign)}
-            onChange={(event) => onRename(activeDesign, event.target.value)}
-            value={activeDesign.name}
-          />
-        </label>
-      ) : (
+      {!activeDesign && !loading ? (
         <div className={styles.unsavedCallout}>
-          <Save aria-hidden='true' />
-          <span><strong>Current {itemLabel} is autosaved</strong><small>Save it as a named {itemLabel} whenever you want a checkpoint.</small></span>
+          <span><strong>Autosaved draft</strong><small>Keep a named checkpoint.</small></span>
+          <button aria-label={`Save ${itemLabel} checkpoint`} disabled={saveDisabled} onClick={onSave} type='button'><Plus aria-hidden='true' />Save checkpoint</button>
         </div>
-      )}
+      ) : null}
 
-      <div className={styles.list}>
+      <div className={`${styles.list} studio-scroll-area`}>
         {loading ? <p className={styles.empty}>Loading {collectionLabel.toLocaleLowerCase()}…</p> : sortedDesigns.length ? sortedDesigns.map((design) => (
-          <div className={styles.designRow} data-active={design.id === activeId ? 'true' : 'false'} key={design.id}>
-            <button className={styles.openDesign} disabled={saving} onClick={() => void onOpen(design)} type='button'>
-              <span><strong>{design.name || defaultName}</strong><small>{design.origin} · {designDate(design.updatedAt)}</small></span>
-              {design.id === activeId ? <Check aria-label={`Current ${itemLabel}`} /> : null}
-            </button>
-            <button aria-label={`Clone ${design.name}`} disabled={saving} onClick={() => onClone(design)} title='Clone this design' type='button'><Copy aria-hidden='true' /></button>
-            <button aria-label={`Delete ${design.name}`} disabled={saving} onClick={() => onDelete(design)} title='Delete saved design' type='button'><Trash2 aria-hidden='true' /></button>
-          </div>
+          <SavedDesignRow
+            active={design.id === activeId}
+            defaultName={defaultName}
+            design={design}
+            itemLabel={itemLabel}
+            key={design.id}
+            onClone={onClone}
+            onDelete={onDelete}
+            onOpen={(selected) => { if (selected.id === activeId) onDismiss(); else void onOpen(selected); }}
+            onRename={onRename}
+            saving={saving}
+          />
         )) : <p className={styles.empty}>{collectionLabel} will appear here.</p>}
       </div>
+      <footer className={styles.popoverFooter}>
+        <span>Saved in this browser</span>
+        {activeDesign && dirty ? <button aria-label={`Save ${itemLabel} changes`} disabled={saveDisabled} onClick={onSave} type='button'><Save aria-hidden='true' />Save changes</button> : null}
+      </footer>
       {error ? <p className={styles.error} role='alert'>{error}</p> : null}
     </div>
   );
@@ -452,6 +567,7 @@ export function DesignVersionProvider({
     ? !revisionsMatch && !sameCanvasContent
     : true;
   const { busy, label: visibleState } = designVersionStatus(activeDesign, dirty, autosaveState, saving, renaming, opening);
+  const controlsDisabled = loading || busy || !sourceReady;
   const sortedDesigns = useMemo(
     () => [...designs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [designs]
@@ -651,10 +767,6 @@ export function DesignVersionProvider({
     }
   }
 
-  function renameDesign(design: SavedDesign, name: string) {
-    setDesigns(updateSavedDesign(designs, design.id, { name }));
-  }
-
   async function normalizeDesignName(design: SavedDesign) {
     const otherDesigns = designs.filter(({ id }) => id !== design.id);
     const name = uniqueDesignName(otherDesigns, design.name);
@@ -694,7 +806,7 @@ export function DesignVersionProvider({
 
   const state: DesignVersionState = {
     actions: {
-      dirty, disabled: loading || busy || !sourceReady,
+      dirty, disabled: controlsDisabled,
       onClone: () => { void cloneDesign(); },
       onFork: () => { void forkDesign(); },
       onNew: onNew ? () => { void startNewDesign(); } : undefined,
@@ -704,11 +816,18 @@ export function DesignVersionProvider({
     layout, notice, open, rootRef,
     onDismiss: () => setOpen(false),
     popover: {
-      activeDesign, activeId, designs, error, loading,
+      activeDesign, activeId, designs, dirty, error, loading,
       onClone: (design) => { void cloneStoredDesign(design); },
       onDelete: (design) => { void deleteDesign(design); },
-      onNormalizeName: (design) => { void normalizeDesignName(design); },
-      onOpen: openDesign, onRename: renameDesign, saving: busy, sortedDesigns,
+      onDismiss: () => {
+        setOpen(false);
+        rootRef.current?.querySelector<HTMLButtonElement>('button[aria-expanded]')?.focus({ preventScroll: true });
+      },
+      onOpen: openDesign,
+      onRename: (design, name) => { void normalizeDesignName({ ...design, name }); },
+      onSave: () => { void saveDesign(); },
+      saveDisabled: controlsDisabled,
+      saving: busy, sortedDesigns,
       collectionLabel, defaultName, itemLabel, workspaceLabel,
     },
     trigger: {

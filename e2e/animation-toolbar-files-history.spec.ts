@@ -169,15 +169,59 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   await expect(page.getByRole('dialog', { name: 'Action history', exact: true })).toHaveCount(0);
   const versions = page.getByRole('region', { name: 'Animation Studio saved animations', exact: true });
   await expect(versions).toBeVisible();
+  const currentAnimation = versions.locator('[data-active="true"]');
+  await expect(currentAnimation).toHaveCount(1);
+  await expect(currentAnimation.getByText('Current', { exact: true })).toBeVisible();
+  await expect(currentAnimation.getByRole('button').first()).toHaveAttribute('aria-current', 'true');
+  await expect(currentAnimation.getByRole('button').first()).toBeFocused();
   const name = versions.getByRole('textbox', { name: 'Current animation name', exact: true });
+  await expect(name).toHaveCount(0);
+  const beforeRename = await semanticSource(page);
+  await currentAnimation.getByRole('button', { name: 'Rename Untitled animation', exact: true }).click();
+  await expect(name).toBeFocused();
   await name.fill('Motion checkpoint');
-  await name.press('Tab');
+  await name.press('Enter');
+  await expect(name).toHaveCount(0);
+  await expect(currentAnimation.getByRole('button').first()).toContainText('Motion checkpoint');
+  expect(await semanticSource(page)).toEqual(beforeRename);
+  await currentAnimation.getByRole('button', { name: 'Rename Motion checkpoint', exact: true }).click();
+  await name.fill('Discard this rename');
+  await currentAnimation.getByRole('button', { name: 'Cancel rename', exact: true }).click();
+  await expect(name).toHaveCount(0);
+  await expect(currentAnimation.getByRole('button').first()).toContainText('Motion checkpoint');
+  await currentAnimation.getByRole('button', { name: 'Delete Motion checkpoint', exact: true }).click();
+  await expect(currentAnimation.getByRole('button', { name: 'Confirm delete Motion checkpoint', exact: true })).toBeVisible();
+  await currentAnimation.getByRole('button', { name: 'Cancel deletion', exact: true }).click();
+  await expect(currentAnimation.getByRole('button', { name: 'Confirm delete Motion checkpoint', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(versions).toHaveCount(0);
   await expect(status).toContainText('Saved');
   await expect(history).toContainText('Motion checkpoint');
   await expect(history).toHaveAccessibleDescription(/Motion checkpoint: Saved/);
   await expect(status).toHaveCSS('width', '24px');
+
+  await selectFrame(page, studio, 1, 'OMEGA');
+  await text.fill('LATEST');
+  await text.press('Tab');
+  await expect.poll(async () => (await readState(page)).textFrames).toBe('LATEST\nBETA');
+  const editedSource = await semanticSource(page);
+  await page.setViewportSize({ width: 600, height: 960 });
+  await history.click();
+  await expect(currentAnimation.getByRole('button').first()).toBeFocused();
+  await expect(currentAnimation.getByRole('button').first()).toContainText('Motion checkpoint');
+  await expect(name).toHaveCount(0);
+  const compactPicker = await versions.evaluate((element) => ({
+    bounds: element.getBoundingClientRect().toJSON(),
+    overflow: element.scrollWidth - element.clientWidth,
+  }));
+  expect(compactPicker.overflow).toBeLessThanOrEqual(1);
+  expect(compactPicker.bounds.left).toBeGreaterThanOrEqual(0);
+  expect(compactPicker.bounds.right).toBeLessThanOrEqual(600);
+  await currentAnimation.getByRole('button').first().click();
+  await expect(versions).toHaveCount(0);
+  // The saved checkpoint contains OMEGA; selecting Current retains the live edit.
+  expect(await semanticSource(page)).toEqual(editedSource);
+  await expect(status).toContainText('Unsaved changes');
 });
 
 test('Animation downloads and reopens a real portable project with identical frame pixels, timing and private fonts in another project', async ({ page }) => {

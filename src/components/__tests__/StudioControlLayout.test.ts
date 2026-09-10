@@ -8,6 +8,13 @@ function source(path: string) {
 }
 
 describe('shared Studio control layout', () => {
+  it('keeps artboard map actions in three compact single-line columns', () => {
+    const styles = source('src/components/CanvasMinimap.module.css');
+    expect(styles).toMatch(/\.actions\s*\{[^}]*grid-auto-columns: minmax\(0, 1fr\);/);
+    expect(styles).toMatch(/\.actions button\s*\{[^}]*flex-direction: row;[^}]*min-height: 30px;[^}]*white-space: nowrap;/);
+    expect(styles).not.toMatch(/\.actions button span\s*\{[^}]*min-height:/);
+  });
+
   it('keeps the header autosave indicator compact and stable across saving states', () => {
     const styles = source('src/components/DesignVersionControls.module.css');
 
