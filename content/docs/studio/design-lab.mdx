@@ -60,6 +60,8 @@ Every layer carries its own opacity. Shader layers also expose `normal`, `screen
 
 Text is a first-class canvas element, not a single caption slot. Add up to 32 text layers through an agent-generated sequence and as many as the interactive composition can reasonably render.
 
+New text starts at **48 px**. Use **Text size in pixels** for an exact size from 1–2048 artboard pixels, the **Text size** slider for quick adjustments, and **Italic text** to toggle italics. Setting a size preserves the text box's position and dimensions and resets its separate scale to 1. Explicit pixel sizes stay consistent across artboard ratios; older designs without a pixel size retain their original height-relative sizing until you edit it. Size, scale, and italic styling are preserved in source, saved designs, duplicates, and exports.
+
 Text can be rendered as:
 
 - A solid identity color.

@@ -7,7 +7,8 @@ import { createBrandIdentity } from '@/lib/brandIdentity';
 import { DEFAULT_TEXT_EFFECT } from '@/lib/textEffects';
 
 describe('Design Lab export text geometry', () => {
-  function paint(boxHeight: number, gradient = false) {
+  function paint(boxHeight: number, gradient = false, typography: { fontSize?: number; fontStyle?: 'normal' | 'italic' } = {},
+    dimensions = { canvasHeight: 900, canvasWidth: 1600, width: 1600 }) {
     const context = {
       clearRect: vi.fn(),
       createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
@@ -27,8 +28,8 @@ describe('Design Lab export text geometry', () => {
     } as unknown as CanvasRenderingContext2D;
     paintDesignLabTextLayer({
       box: { x: 500, y: 300, width: 40, height: boxHeight },
-      canvasHeight: 900,
-      canvasWidth: 1600,
+      canvasHeight: dimensions.canvasHeight,
+      canvasWidth: dimensions.canvasWidth,
       context,
       height: 900,
       identity: createBrandIdentity('Export test'),
@@ -36,6 +37,7 @@ describe('Design Lab export text geometry', () => {
         id: 'text-parity', name: 'Overflowing text', value: 'AB\nCD', visible: true,
         align: 'center', lineHeight: 1.2, tracking: 0, weight: 500, wrap: 'nowrap',
         transform: { x: 0, y: 0, scale: 0.6 },
+        ...typography,
         ...(gradient ? { textEffect: { ...DEFAULT_TEXT_EFFECT, kind: 'gradient', backgroundColor: '#FFFFFF' } } : {}),
       },
       paintShaderApplication: vi.fn(),
@@ -44,7 +46,7 @@ describe('Design Lab export text geometry', () => {
         mask: { getContext: () => context } as unknown as HTMLCanvasElement,
         shadow: { getContext: () => context } as unknown as HTMLCanvasElement,
       },
-      width: 1600,
+      width: dimensions.width,
     });
     return context;
   }
@@ -65,5 +67,18 @@ describe('Design Lab export text geometry', () => {
     const textHeight = fontSize * 1.2 * 2;
     expect(context.fillRect).toHaveBeenCalledWith(500, 300 + (fontSize - textHeight) / 2, 40, textHeight);
     expect(context.fillRect).not.toHaveBeenCalledWith(500, 300, 40, 10);
+  });
+
+  it.each([300, 900, 1920])('keeps explicit small italic text at the same artboard size on a %spx-tall board', (canvasHeight) => {
+    const context = paint(10, false, { fontSize: 20, fontStyle: 'italic' }, { canvasHeight, canvasWidth: 1000, width: 1000 });
+    expect(context.font).toMatch(/^italic 500 12px /);
+    expect(context.fillText).toHaveBeenCalled();
+    expect(context.scale).not.toHaveBeenCalled();
+  });
+
+  it('scales the explicit italic font with export resolution, not the selection box', () => {
+    const context = paint(1, true, { fontSize: 20, fontStyle: 'italic' }, { canvasHeight: 1920, canvasWidth: 1000, width: 500 });
+    expect(context.font).toMatch(/^italic 500 6px /);
+    expect(context.fillText).toHaveBeenCalled();
   });
 });

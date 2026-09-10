@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { CanvasElement } from '../src/lib/canvasDocument';
 
-type FixtureText = CanvasElement & { content: string; data: { transform: { scale: number } } };
+type FixtureText = CanvasElement & { content: string; data: { fontSize: number; transform: { scale: number } } };
 type FixtureShader = CanvasElement & { data: { materialId: string; settings: { speed: number; strength: number } } };
 
 test.beforeEach(async ({ browser }, testInfo) => {
@@ -24,7 +24,7 @@ async function prepareText(page: Page) {
     text.hidden = false;
     text.bounds = { ...text.bounds, x: 0, y: 0, width: 1, height: 1 };
     Object.assign(text.data, { name: 'Browser text', value: text.content, color: '#FFFFFF', align: 'center',
-      weight: 500, lineHeight: 1.2, tracking: 0, wrap: 'wrap', outlineEnabled: false, shadowEnabled: false,
+      fontSize: 153, fontStyle: 'normal', weight: 500, lineHeight: 1.2, tracking: 0, wrap: 'wrap', outlineEnabled: false, shadowEnabled: false,
       transform: { x: 0, y: 0, scale: 0.6, widthScale: 1, heightScale: 1 } });
     source.elements = { [text.id]: text };
     const design = source.metadata.designLab;
@@ -51,7 +51,7 @@ async function textSource(page: Page) {
   return page.evaluate(() => {
     const source = JSON.parse(window.glyphfield!.studio.readSource() as string);
     const text = (Object.values(source.elements) as CanvasElement[]).find((entry) => entry.kind === 'text') as FixtureText;
-    return { text: text.content, scale: text.data.transform.scale, bounds: text.bounds,
+    return { text: text.content, fontSize: text.data.fontSize, scale: text.data.transform.scale, bounds: text.bounds,
       count: Object.keys(source.elements).length };
   });
 }
@@ -74,19 +74,28 @@ async function dragRange(page: Page, range: Locator, fraction: number) {
   return value;
 }
 
+async function dragTextSize(page: Page, pixels: number) {
+  const range = page.getByRole('slider', { name: 'Text size', exact: true });
+  const fraction = await range.evaluate((input: HTMLInputElement, value) =>
+    (value - Number(input.min)) / (Number(input.max) - Number(input.min)), pixels);
+  return dragRange(page, range, fraction);
+}
+
 test('native range drag changes text smoothly and commits the final visible size', async ({ page }) => {
   const text = await prepareText(page);
   const range = page.getByRole('slider', { name: 'Text size', exact: true });
   const initial = await text.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
-  const value = await dragRange(page, range, 0.4);
-  expect(value).toBeGreaterThan(0.8);
-  await expect.poll(async () => (await textSource(page)).scale).toBeCloseTo(value, 2);
+  const initialPixels = Number(await range.inputValue());
+  const value = await dragTextSize(page, 160);
+  expect(value).toBeGreaterThan(initialPixels);
+  await expect.poll(async () => (await textSource(page)).fontSize).toBe(value);
+  expect((await textSource(page)).scale).toBe(1);
   await expect(range).not.toHaveAttribute('data-canvas-preview-pending', 'true');
   const final = await text.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
-  expect(final / initial).toBeCloseTo(value / 0.6, 1);
+  expect(final / initial).toBeCloseTo(value / initialPixels, 1);
   await range.focus();
   await range.press('ArrowLeft');
-  await expect.poll(async () => (await textSource(page)).scale).toBeCloseTo(value - 0.05, 2);
+  await expect.poll(async () => (await textSource(page)).fontSize).toBe(value - 1);
 });
 
 test('text selection, spaces, deletion and native undo stay in the text editor', async ({ page }) => {
@@ -168,7 +177,7 @@ test('resized text exports as matching PNG and JPG pixels', async ({ page }, tes
   await text.press(`${modifier}+a`);
   await page.keyboard.insertText('testing');
   await text.press('Escape');
-  await dragRange(page, page.getByRole('slider', { name: 'Text size', exact: true }), 0.25);
+  await dragTextSize(page, 120);
   for (const format of ['png', 'jpg'] as const) {
     const result = await page.evaluate(async (format) => {
       const asset = await window.glyphfield!.studio.invoke('design.export', { format, download: false }) as { blob: Blob };
@@ -320,7 +329,7 @@ test('live shader controls retain the GPU canvas and report input cadence', asyn
 
 test('editing after slider interaction selects the text again and persists across reload', async ({ page }) => {
   const text = await prepareText(page);
-  await dragRange(page, page.getByRole('slider', { name: 'Text size', exact: true }), 0.25);
+  await dragTextSize(page, 120);
   await text.click();
   await expect(text).toBeFocused();
   const modifier = await page.evaluate(() => /Mac/.test(navigator.platform) ? 'Meta' : 'Control');
@@ -385,12 +394,14 @@ test('project round trips preserve edits and target the visible canvas controls'
   await expect.poll(async () => (await textSource(page)).text).toBe('Starter keeps this edit');
   await active.locator('[data-canvas-editable]').first().click();
   const size = page.getByRole('slider', { name: 'Text size', exact: true });
+  const previousSize = Number(await size.inputValue());
   await size.focus();
   await size.press('ArrowRight');
-  await expect.poll(async () => (await textSource(page)).scale).toBeCloseTo(0.65, 2);
-  await page.evaluate(() => window.glyphfield!.studio.set('Text size', 0.8));
-  await expect(size).toHaveValue('0.8');
-  await expect.poll(async () => (await textSource(page)).scale).toBeCloseTo(0.8, 2);
+  await expect.poll(async () => (await textSource(page)).fontSize).toBe(previousSize + 1);
+  expect((await textSource(page)).scale).toBe(1);
+  await page.evaluate(() => window.glyphfield!.studio.set('Text size', 120));
+  await expect(size).toHaveValue('120');
+  await expect.poll(async () => (await textSource(page)).fontSize).toBe(120);
 
   await page.getByRole('button', { name: 'Open General Translation project', exact: true }).click();
   await expect(active.locator('[data-canvas-editable]').first()).toHaveText('GT stays separate');

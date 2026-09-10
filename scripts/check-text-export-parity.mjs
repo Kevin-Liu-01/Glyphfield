@@ -43,6 +43,8 @@ async function configure() {
   Object.assign(text.data, { value: 'testing', color: '#FFFFFF', align: 'center', weight: 500,
     lineHeight: 0.95, tracking: -0.06, wrap: 'wrap', outlineEnabled: false, shadowEnabled: false,
     transform: { x: 0, y: -220, scale: 1, widthScale: 1, heightScale: 1 } });
+  // This fixture deliberately starts as a legacy document, without pixel sizing.
+  delete text.data.fontSize;
   source.metadata.designLab.ratio = 'story';
   source.metadata.designLab.timeline.paused = true;
   source.metadata.designLab.exportSettings.width = 960;
@@ -64,7 +66,8 @@ function textMetrics() {
   const range = document.createRange();
   range.selectNodeContents(text);
   const stage = text.closest('.shader-lab-v2-stage');
-  return { scale: data.transform.scale, lines: range.getClientRects().length,
+  return { scale: data.transform.scale, fontSize: data.fontSize, fontStyle: getComputedStyle(text).fontStyle,
+    lines: range.getClientRects().length,
     fontRatio: parseFloat(getComputedStyle(text).fontSize) / parseFloat(getComputedStyle(stage).width),
     text: text.textContent };
 }
@@ -101,7 +104,7 @@ async function exportPixels(format = 'png') {
   const text = document.querySelector('[data-testid="shader-lab-live-stage"] [data-canvas-editable]');
   const style = getComputedStyle(text);
   const scale = canvas.width / text.closest('.shader-lab-v2-stage').clientWidth;
-  context.font = `${style.fontWeight} ${parseFloat(style.fontSize) * scale}px ${style.fontFamily}`;
+  context.font = `${style.fontStyle} ${style.fontWeight} ${parseFloat(style.fontSize) * scale}px ${style.fontFamily}`;
   context.letterSpacing = `${parseFloat(style.letterSpacing) * scale}px`;
   const ink = context.measureText(text.textContent);
   const expectedInk = { width: ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight,
@@ -121,6 +124,7 @@ async function resizeExport(width, artboardWidth = 1080, artboardHeight = 1920, 
   const page = source.pages[source.pageIds[0]];
   Object.assign(page, { width: artboardWidth, height: artboardHeight });
   const text = Object.values(source.elements).find((element) => element.kind === 'text');
+  text.data.fontSize = artboardHeight * 0.17;
   text.data.transform.scale = scale;
   text.data.transform.y = -220 / 1920 * artboardHeight;
   text.bounds.y = text.data.transform.y;
@@ -148,7 +152,7 @@ function checkPointerCommit() {
   });
   const xFor = (value) => Math.round(box.x + 7 + (value - box.min) / (box.max - box.min) * (box.width - 14));
   const y = Math.round(box.y + box.height / 2);
-  browser(['batch', '--bail', `mouse move ${xFor(box.value)} ${y}`, 'mouse down left', `mouse move ${xFor(0.8)} ${y}`]);
+  browser(['batch', '--bail', `mouse move ${xFor(box.value)} ${y}`, 'mouse down left', `mouse move ${xFor(200)} ${y}`]);
   browser(['wait', '[data-canvas-preview-pending="true"]']);
   const pending = evaluate(async () => {
     try {
@@ -157,9 +161,9 @@ function checkPointerCommit() {
     } catch { return Boolean(document.querySelector('[data-canvas-preview-pending="true"]')); }
   });
   check(pending, 'export cannot silently capture stale source during a held drag');
-  browser(['batch', '--bail', `mouse move ${xFor(0.8)} ${y - 90}`, 'mouse up left']);
+  browser(['batch', '--bail', `mouse move ${xFor(200)} ${y - 90}`, 'mouse up left']);
   const final = evaluate(() => ({ source: Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements)
-    .find((element) => element.kind === 'text').data.transform.scale,
+    .find((element) => element.kind === 'text').data.fontSize,
   input: Number(document.querySelector('input[aria-label="Text size"]').value),
   pending: Boolean(document.querySelector('[data-canvas-preview-pending="true"]')) }));
   check(!final.pending && final.source === final.input && final.source !== box.value,
@@ -191,6 +195,7 @@ try {
   evaluate(configure);
   browser(['wait', '[data-testid="shader-lab-live-stage"] [data-canvas-editable]']);
   browser(['batch', '--bail', `click '[data-testid="shader-lab-live-stage"] [data-canvas-editable]'`,
+    `fill 'input[aria-label="Text size in pixels"]' 234`, 'press Enter',
     `focus 'input[aria-label="Text size"]'`, ...Array.from({ length: 6 }, () => 'press ArrowLeft')]);
   browser(['wait', '--fn', 'parseFloat(getComputedStyle(document.querySelector("[data-testid=shader-lab-live-stage] [data-canvas-editable]")).fontSize) < 70']);
   report.dom = evaluate(textMetrics);
@@ -201,7 +206,7 @@ try {
   browser(['screenshot', join(output, 'canvas.png')]);
   check(report.dom.lines === 1, 'the edited canvas shows testing on one line');
   check(exported.bands.length === report.dom.lines, 'decoded PNG preserves the visible line count without blurring the control');
-  check(Math.abs(report.dom.scale - 0.7) < 0.001, 'keyboard text size is committed to portable source immediately');
+  check(report.dom.fontSize === 228 && report.dom.scale === 1, 'keyboard pixel size is committed to portable source immediately');
   check(exported.width === 960 && exported.height === 1706, 'PNG has the requested portrait dimensions');
   check(exported.mime === 'image/png', 'PNG bytes have the correct MIME type');
   verifyInk(exported, 'standard PNG');
@@ -229,6 +234,21 @@ try {
   delete small.dataUrl;
   report.small = small;
   verifyInk(small, 'small banner type');
+  // Exercise the real controls, including synthetic italic faces, at a small
+  // authored size. Export must not inflate text to fit its selection rectangle.
+  evaluate(resizeExport, 1000, 1000, 300, 1);
+  browser(['batch', '--bail', `click '.shader-export-dialog button[aria-label="Close export preview"]'`,
+    `click '[data-testid="shader-lab-live-stage"] [data-canvas-editable]'`,
+    `fill 'input[aria-label="Text size in pixels"]' 12`, 'press Enter',
+    `click 'button[aria-label="Italic text"]'`]);
+  report.italicDom = evaluate(textMetrics);
+  check(report.italicDom.fontSize === 12 && report.italicDom.fontStyle === 'italic', '12px italic text is visible and committed');
+  const italic = evaluate(exportPixels);
+  writeFileSync(join(output, 'small-italic.png'), Buffer.from(italic.dataUrl.split(',')[1], 'base64'));
+  delete italic.dataUrl;
+  report.italic = italic;
+  check(italic.bands.length === 1, 'small italic PNG preserves one line');
+  verifyInk(italic, '12px italic PNG');
 } catch (error) {
   report.error = error.message;
   try { report.snapshot = browser(['snapshot', '-i']); browser(['screenshot', join(output, 'failure.png')]); } catch { /* Keep the original diagnostic. */ }

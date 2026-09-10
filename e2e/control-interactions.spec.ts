@@ -20,7 +20,7 @@ async function readValues(page: Page) {
   return page.evaluate(() => {
     const source = JSON.parse(window.glyphfield!.studio.readSource() as string);
     const elements = Object.values(source.elements) as Array<{
-      kind: string; data: { color: string; fontRole: string; transform: { scale: number }; shaderSize: number };
+      kind: string; data: { color: string; fontRole: string; fontSize?: number; transform: { scale: number }; shaderSize: number };
     }>;
     return {
       text: elements.find((entry) => entry.kind === 'text')?.data,
@@ -80,7 +80,8 @@ test('text size first click, continuous drag, and keyboard commit agree with the
   const size = page.getByRole('slider', { name: 'Text size', exact: true });
   await clickFraction(page, size, 0.55);
   const clicked = Number(await size.inputValue());
-  await expect.poll(async () => (await readValues(page)).text!.transform.scale).toBeCloseTo(clicked, 2);
+  await expect.poll(async () => (await readValues(page)).text!.fontSize).toBe(clicked);
+  expect((await readValues(page)).text!.transform.scale).toBe(1);
   const bounds = (await size.boundingBox())!;
   await page.mouse.move(bounds.x + bounds.width * 0.55, bounds.y + bounds.height / 2);
   await page.mouse.down();
@@ -88,10 +89,11 @@ test('text size first click, continuous drag, and keyboard commit agree with the
   await page.mouse.up();
   const dragged = Number(await size.inputValue());
   expect(dragged).toBeGreaterThan(clicked);
-  await expect.poll(async () => (await readValues(page)).text!.transform.scale).toBeCloseTo(dragged, 2);
+  await expect.poll(async () => (await readValues(page)).text!.fontSize).toBe(dragged);
+  expect((await readValues(page)).text!.transform.scale).toBe(1);
   await expect(size).toBeFocused();
   await page.keyboard.press('ArrowLeft');
-  await expect.poll(async () => (await readValues(page)).text!.transform.scale).toBeCloseTo(dragged - 0.05, 2);
+  await expect.poll(async () => (await readValues(page)).text!.fontSize).toBe(dragged - 1);
 });
 
 test('Pause preserves the selected layer and its inspector on the first click', async ({ page }) => {

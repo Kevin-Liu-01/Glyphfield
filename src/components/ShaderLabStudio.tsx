@@ -70,6 +70,14 @@ import { drawShaderFramePresentation, normalizeShaderFramePresentation, preloadS
 import AssetConversionLibrary from '@/components/AssetConversionLibrary';
 import StudioRange from '@/components/ui/StudioRange';
 import RangeControl from '@/components/DesignLabRangeControl';
+import StudioFontSizeControl from '@/components/StudioFontSizeControl';
+import {
+  DEFAULT_DESIGN_LAB_FONT_SIZE,
+  designLabFontSizeUpdate,
+  resolveDesignLabFontSize,
+  resolveDesignLabFontSizeCqw,
+  validateDesignLabTextTypography,
+} from '@/lib/designLabTypography';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
 import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions } from '@/components/DesignVersionControls';
@@ -387,6 +395,8 @@ type CompositionTextLayer = {
   align: CanvasTextAlign;
   color?: string;
   fontRole?: BrandTypography['role'];
+  fontSize?: number;
+  fontStyle?: 'normal' | 'italic';
   id: TextLayerId;
   kind?: 'sticker' | 'text';
   lineHeight: number;
@@ -1474,6 +1484,7 @@ function LayerDockTooltipPreview({
           style={{
             color: textAppearance.color,
             fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
+            fontStyle: textLayer.fontStyle ?? 'normal',
             fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
             letterSpacing: `${textLayer.tracking}em`,
             opacity: textAppearance.opacity,
@@ -1518,6 +1529,7 @@ function validateCompositionLayers(composition: DesignLabCompositionSource['comp
   assertOptionalArray(composition.shaderLayers, 'Shader layers', (layer) => !layer.id?.startsWith('shader-'));
   assertOptionalArray(composition.effectLayers, 'Converter layers', (layer) => !layer.id?.startsWith('effect-'));
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
+  composition.textLayers?.forEach(validateDesignLabTextTypography);
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
   assertOptionalArray(composition.assets, 'Image layers', (layer) => !layer.id?.startsWith('asset-'));
   assertOptionalArray(composition.groups, 'Layer groups', (group) => !group.id?.startsWith('group-') || !Array.isArray(group.layerIds));
@@ -1546,6 +1558,7 @@ function validateArtboardWorkspace(workspace: DesignArtboardWorkspaceSource | un
   if (!Array.isArray(workspace.artboards) || workspace.artboards.some(isInvalidWorkspaceArtboard)) {
     throw new TypeError('Artboard workspace is invalid.');
   }
+  workspace.artboards.forEach(({ snapshot }) => validateCompositionLayers(snapshot));
 }
 
 function validateShaderTimeline(timeline: DesignLabCompositionSource['timeline']) {
@@ -2575,19 +2588,18 @@ export function paintDesignLabTextLayer({
   width: number;
 }) {
   if (!layer.value) return;
-  const transform = resolvedTextTransform(layer.transform);
   const appearance = resolvedTextAppearance(layer);
   context.save();
   context.textAlign = 'left';
   context.textBaseline = 'alphabetic';
   // Match the canvas's cqw sizing in authored coordinates. Output-height rounding
   // and an export-only minimum must never change the font or its line breaks.
-  const fontSize = canvasHeight * 0.17 * transform.scale * width / canvasWidth;
+  const fontSize = resolveDesignLabFontSize(layer, canvasHeight) * width / canvasWidth;
   const lineHeight = fontSize * layer.lineHeight;
   const spacing = layer.tracking * fontSize;
   const fontWeight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
   const fontFamily = `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`;
-  context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  context.font = `${layer.fontStyle ?? 'normal'} ${fontWeight} ${fontSize}px ${fontFamily}`;
   context.fontKerning = 'normal';
   const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
   if (supportsNativeLetterSpacing) context.letterSpacing = `${spacing}px`;
@@ -2987,6 +2999,7 @@ function CanvasTextLayerContent({
           color: appearance.color,
           fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`,
           fontSize: `${fontSizeCqw}cqw`,
+          fontStyle: layer.fontStyle ?? 'normal',
           fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
           justifyContent: layer.align === 'left' ? 'flex-start' : layer.align === 'right' ? 'flex-end' : 'center',
           letterSpacing: `${layer.tracking}em`,
@@ -3345,22 +3358,26 @@ function DesignLabTextLayerInspector({
           ))}
         </div>
       </div>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Text size'
-        max={3}
-        min={0.2}
-        onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
-          transform: { ...selectedTextTransform, scale },
-        })}
-        onPreview={(scale) => previewSelectedTextStyle(
+      <div className='shader-lab-v2-text-options'>
+        <span>Style</span>
+        <div>
+          <button aria-label='Normal text' aria-pressed={selectedTextLayer.fontStyle !== 'italic'}
+            onClick={() => updateTextLayer(selectedTextLayer.id, { fontStyle: 'normal' })} type='button'>Regular</button>
+          <button aria-label='Italic text' aria-pressed={selectedTextLayer.fontStyle === 'italic'}
+            onClick={() => updateTextLayer(selectedTextLayer.id, { fontStyle: selectedTextLayer.fontStyle === 'italic' ? 'normal' : 'italic' })}
+            type='button'><i>Italic</i></button>
+        </div>
+      </div>
+      <StudioFontSizeControl
+        key={selectedTextLayer.id}
+        onChange={(size) => updateTextLayer(selectedTextLayer.id, designLabFontSizeUpdate(selectedTextLayer, size))}
+        onPreview={(size) => previewSelectedTextStyle(
           stageRef.current,
           selectedCanvasLayerCount,
           'fontSize',
-          `${canvasHeight / canvasWidth * 17 * scale}cqw`
+          `${size / canvasWidth * 100}cqw`
         )}
-        step={0.05}
-        value={selectedTextTransform.scale}
+        value={resolveDesignLabFontSize(selectedTextLayer, canvasHeight)}
       />
       <RangeControl
         formatValue={(value) => `${Math.round(value * 100)}%`}
@@ -6152,6 +6169,8 @@ export default function ShaderLabStudio({
       align: 'center',
       ...DEFAULT_TEXT_APPEARANCE,
       ...(sticker ? STICKER_TEXT_APPEARANCE : {}),
+      fontSize: DEFAULT_DESIGN_LAB_FONT_SIZE,
+      fontStyle: 'normal',
       id,
       kind,
       lineHeight: 0.95,
@@ -7210,12 +7229,13 @@ export default function ShaderLabStudio({
       const appearance = resolvedTextAppearance(layer);
       const family = brandTypographyFamily(identity, appearance.fontRole);
       const weight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
+      const style = layer.fontStyle ?? 'normal';
       const faces = await document.fonts.load(
-        `${weight} 64px ${JSON.stringify(family)}`,
+        `${style} ${weight} 64px ${JSON.stringify(family)}`,
         layer.value || 'Ag'
       );
       const isBundledBrandFont = brandFontAssets(identity).some((font) => (
-        font.family === family && font.style === 'normal'
+        font.family === family && (font.style === style || font.style === 'normal')
       ));
       if (isBundledBrandFont && faces.length === 0) {
         throw new Error(`${family} ${weight} could not be loaded for export.`);
@@ -8054,7 +8074,7 @@ export default function ShaderLabStudio({
         >
           <CanvasTextLayerContent
             application={snapshot.layerShaders[layerId]}
-            fontSizeCqw={snapshot.dimensions.height / snapshot.dimensions.width * 17 * transform.scale}
+            fontSizeCqw={resolveDesignLabFontSizeCqw(layer, snapshot.dimensions)}
             identity={identity}
             key='content'
             layer={layer}
@@ -8317,7 +8337,7 @@ export default function ShaderLabStudio({
       if (!textLayer) return null;
       const application = layerShaders[layerId];
       const transform = resolvedTextTransform(textLayer.transform);
-      const textFontSizeCqw = canvasDimensions.height / canvasDimensions.width * 17 * transform.scale;
+      const textFontSizeCqw = resolveDesignLabFontSizeCqw(textLayer, canvasDimensions);
       return (
         <EditableCanvasLayer
           {...geometry}
@@ -8487,6 +8507,7 @@ export default function ShaderLabStudio({
               style={{
                 color: textAppearance.color,
                 fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
+                fontStyle: textLayer.fontStyle ?? 'normal',
                 fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
                 letterSpacing: `${textLayer.tracking}em`,
                 opacity: textAppearance.opacity,

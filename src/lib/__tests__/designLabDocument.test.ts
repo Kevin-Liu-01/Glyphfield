@@ -389,4 +389,40 @@ describe('Design Lab canvas document adapter', () => {
     expect(createDesignLabCanvasDocument(unsupportedBlend).elements['shader-background']?.style.blendMode)
       .toBe('normal');
   });
+
+  it('round-trips explicit pixel size and italic text across artboards without flattening scale or upgrading legacy text', () => {
+    const input = designLabInput();
+    const legacy = { ...input.textLayers[0]!, id: 'text-legacy', name: 'Legacy title' };
+    const explicit = { ...input.textLayers[0]!, fontSize: 12, fontStyle: 'italic' };
+    const scaled = {
+      ...explicit,
+      id: 'text-scaled',
+      fontSize: 24,
+      fontStyle: 'normal',
+      transform: { x: 123, y: -34, scale: 0.5, widthScale: 0.61, heightScale: 0.43 },
+    };
+    input.textLayers = [explicit, legacy];
+    input.layerOrder = [...input.layerOrder, 'text-legacy'];
+    input.workspace = {
+      activeArtboardId: 'artboard-main',
+      artboards: [
+        { id: 'artboard-main', name: 'Wide type', x: 120, y: 180,
+          snapshot: { dimensions: { width: 960, height: 540 }, ratio: 'wide', textLayers: input.textLayers } },
+        { id: 'artboard-portrait', name: 'Portrait type', x: 1200, y: 180,
+          snapshot: { dimensions: { width: 1080, height: 1440 }, ratio: 'portrait-3-4', textLayers: [scaled] } },
+      ],
+    };
+
+    const source = serializeDesignLabCanvasDocument(input);
+    const document = parseCanvasDocument(source);
+    expect(document.elements['text-title']?.data).toMatchObject(explicit);
+    expect(document.elements['text-legacy']?.data).not.toHaveProperty('fontSize');
+    expect(document.elements['text-legacy']?.data).not.toHaveProperty('fontStyle');
+    const restored = parseDesignLabCanvasDocument(source);
+    const composition = restored.composition as { textLayers: object[] };
+    expect(composition.textLayers[0]).toMatchObject(explicit);
+    expect(composition.textLayers[1]).not.toHaveProperty('fontSize');
+    expect(composition.textLayers[1]).not.toHaveProperty('fontStyle');
+    expect(restored.workspace).toEqual(input.workspace);
+  });
 });
