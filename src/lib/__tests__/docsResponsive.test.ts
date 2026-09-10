@@ -34,6 +34,16 @@ describe('documentation responsive shell', () => {
     expect(docsRouteStyles).not.toContain("@import 'fumadocs-ui/css/preset.css';");
   });
 
+  it('reuses the hero MIT mark in the sidebar with an accessible license label', () => {
+    const sidebarFooter = readFileSync('src/components/DocsSidebarFooter.tsx', 'utf8');
+    expect(sidebarFooter).toContain("import MitLogo from '@/components/MitLogo'");
+    expect(sidebarFooter).toContain('<MitLogo />');
+    expect(sidebarFooter).toContain("<span className='sr-only'>MIT licensed</span>");
+    expect(sidebarFooter).not.toContain('Open source · MIT');
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-sidebar-footer__license \{[^}]*align-items: center;[^}]*white-space: nowrap;/);
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-sidebar-footer__license > svg \{[^}]*width: 24px;[^}]*height: auto;[^}]*flex: none;/);
+  });
+
   it('uses the full viewport without a cyclic percentage track', () => {
     expect(docsRouteStyles).toContain('--fd-layout-width: 100vw;');
     expect(docsRouteStyles).not.toContain('--fd-layout-width: min(100vw, 100rem);');
@@ -106,8 +116,23 @@ describe('documentation responsive shell', () => {
     expect(docsRouteStyles).toContain('--docs-accent: #7058ff;');
     expect(docsRouteStyles).toContain('--docs-accent-soft: #c8c0ff;');
     expect(docsRouteStyles).toContain('--docs-signal: #7bffd9;');
-    expect(docsRouteStyles).toContain('linear-gradient(to bottom, var(--docs-accent), var(--docs-signal))');
     expect(docsRouteStyles).not.toContain('#5b7cff');
+  });
+
+  it('keeps selected, hovered, focused and pending sidebar highlights flat purple', () => {
+    for (const selector of [
+      "#nd-sidebar .docs-sb-hover[data-tone='accent']",
+      '#nd-sidebar .docs-sb-current[data-landing]',
+      '#nd-sidebar .docs-sb-thumb',
+      '#nd-sidebar .docs-sb-thumb-hover',
+    ]) {
+      const rule = docsRouteStyles.split(`${selector} {`).slice(1)
+        .map((block) => block.split('}')[0]).find((block) => block.includes('background:'));
+      expect(rule, selector).toBeDefined();
+      expect(rule, selector).toContain('var(--docs-accent)');
+      expect(rule, selector).not.toContain('gradient(');
+      expect(rule, selector).not.toContain('var(--docs-signal)');
+    }
   });
 
   it('keeps overview and adjacent-page content unboxed', () => {

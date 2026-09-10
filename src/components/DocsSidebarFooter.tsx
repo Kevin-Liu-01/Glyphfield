@@ -4,6 +4,7 @@ import { House } from '@phosphor-icons/react';
 import Link from 'next/link';
 
 import DocsThemeButton from '@/components/DocsThemeButton';
+import MitLogo from '@/components/MitLogo';
 import { BookOpenText, Braces, Github } from '@/components/ui/SolidIcons';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
 
@@ -29,7 +30,11 @@ export default function DocsSidebarFooter() {
         </a>
       </nav>
       <div className='glyphfield-docs-sidebar-footer__meta'>
-        <span>Open source · MIT</span>
+        <span className='glyphfield-docs-sidebar-footer__license'>
+          <span>Open source ·</span>
+          <MitLogo />
+          <span className='sr-only'>MIT licensed</span>
+        </span>
         <DocsThemeButton />
       </div>
     </div>
