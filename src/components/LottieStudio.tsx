@@ -84,10 +84,10 @@ const DEFAULT_SOURCE: LottieSource = {
   category: LOTTIE_EXAMPLES[0]?.category ?? 'Product',
   data: LOTTIE_EXAMPLES[0]?.data ?? {},
   description: LOTTIE_EXAMPLES[0]?.description ?? '',
-  fileName: 'dashboard-launch.json',
+  fileName: `${LOTTIE_EXAMPLES[0]?.id ?? 'signal-relay'}.json`,
   format: 'json',
-  id: LOTTIE_EXAMPLES[0]?.id ?? 'dashboard-launch',
-  name: LOTTIE_EXAMPLES[0]?.name ?? 'Dashboard launch',
+  id: LOTTIE_EXAMPLES[0]?.id ?? 'signal-relay',
+  name: LOTTIE_EXAMPLES[0]?.name ?? 'Signal relay',
   provenance: 'Glyphfield example',
 };
 

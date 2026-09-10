@@ -67,7 +67,7 @@ describe('Lottie product presets', () => {
     expect(new Set(LOTTIE_EXAMPLES.map(({ data }) => JSON.stringify(data))).size).toBe(7);
 
     for (const example of LOTTIE_EXAMPLES) {
-      expect(example.data).toMatchObject({ fr: 60, h: 720, op: 240, w: 960 });
+      expect(example.data).toMatchObject({ fr: 60, h: 720, op: 300, w: 960 });
       expect(Array.isArray(example.data.layers)).toBe(true);
       expect((example.data.layers as unknown[]).length).toBeGreaterThan(4);
 
@@ -91,7 +91,7 @@ describe('Lottie product presets', () => {
         expect(times).toEqual([...times].sort((left, right) => left - right));
         expect(new Set(times).size).toBe(times.length);
         expect(times[0]).toBeGreaterThanOrEqual(0);
-        expect(times.at(-1)).toBeLessThanOrEqual(240);
+        expect(times.at(-1)).toBeLessThanOrEqual(300);
 
         for (const keyframe of keyframes) {
           const values = numericValues(keyframe.s);
@@ -130,7 +130,12 @@ describe('Lottie product presets', () => {
   it('keeps every easing handle valid and intentional', () => {
     for (const example of LOTTIE_EXAMPLES) {
       const easingHandles = collectRecords(example.data).filter(
-        (record) => record.i && record.o,
+        (record) => {
+          const incoming = record.i as Record<string, unknown> | undefined;
+          const outgoing = record.o as Record<string, unknown> | undefined;
+          return Array.isArray(incoming?.x) && Array.isArray(incoming?.y)
+            && Array.isArray(outgoing?.x) && Array.isArray(outgoing?.y);
+        },
       );
       expect(easingHandles.length).toBeGreaterThan(4);
 
@@ -150,7 +155,14 @@ describe('Lottie product presets', () => {
       const rectangles = collectRecords(example.data).filter(
         (record) => record.ty === 'rc',
       );
-      expect(rectangles.length).toBeGreaterThan(0);
+      const ellipses = collectRecords(example.data).filter(
+        (record) => record.ty === 'el',
+      );
+      const paths = collectRecords(example.data).filter(
+        (record) => record.ty === 'sh',
+      );
+      expect(rectangles.length + ellipses.length + paths.length).toBeGreaterThan(3);
+      expect(paths.length, `${example.id} path count`).toBeGreaterThan(0);
 
       for (const rectangle of rectangles) {
         const size = rectangle.s as Record<string, unknown> | undefined;
@@ -174,17 +186,25 @@ describe('Lottie product presets', () => {
     }
   });
 
-  it('uses one coordinated editorial stage without generic dashboard chrome', () => {
+  it('uses seven distinct explanatory silhouettes without the old dashboard studies', () => {
+    const retiredIds = new Set([
+      'dashboard-launch',
+      'api-exchange',
+      'locale-matrix',
+      'release-stack',
+      'content-sync',
+      'conversion-flow',
+      'agent-queue',
+    ]);
+
     for (const example of LOTTIE_EXAMPLES) {
       const layers = example.data.layers as Record<string, unknown>[];
       const records = collectRecords(example.data);
       const strokes = records.filter((record) => record.ty === 'st');
-      const stageBase = records.find(({ nm, ty }) => nm === 'Stage wash base' && ty === 'rc');
-      const stageSize = stageBase?.s as Record<string, unknown> | undefined;
-      const rectangles = records.filter(({ ty }) => ty === 'rc');
-      const kicker = layers.find(({ nm }) => nm === 'Palette 3 Text | Scene kicker');
+      const paths = records.filter((record) => record.ty === 'sh');
+      const kicker = layers.find(({ nm }) => nm === 'Palette 3 Text | Scene eyebrow');
       const title = layers.find(({ nm }) => nm === 'Palette 1 Text | Scene title');
-      const meta = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene meta');
+      const meta = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene number');
       const titleTransform = title?.ks as Record<string, unknown> | undefined;
       const titlePosition = titleTransform?.p as Record<string, unknown> | undefined;
       const titleText = title?.t as Record<string, unknown> | undefined;
@@ -192,36 +212,32 @@ describe('Lottie product presets', () => {
       const titleKeyframes = Array.isArray(titleDocument?.k) ? titleDocument.k : [];
       const titleStyle = (titleKeyframes[0] as Record<string, unknown> | undefined)?.s as Record<string, unknown> | undefined;
 
-      expect(layers.length).toBeLessThanOrEqual(22);
-      expect(records.some(({ nm }) => (
-        typeof nm === 'string' && /(card|panel|tile|workspace|halo)/i.test(nm)
-      ))).toBe(false);
-      expect(
-        strokes.every((stroke) => {
-          const opacity = stroke.o as Record<string, unknown> | undefined;
-          return typeof opacity?.k === 'number' && opacity.k <= 35;
-        }),
-      ).toBe(true);
-      expect(numericValues(stageSize?.k)).toEqual([896, 656]);
-      expect(rectangles.every((rectangle) => {
-        const radius = rectangle.r as Record<string, unknown> | undefined;
-        return typeof radius?.k === 'number' && radius.k <= 12;
+      expect(retiredIds.has(example.id)).toBe(false);
+      expect(layers.length).toBeLessThanOrEqual(24);
+      expect(paths.length).toBeGreaterThan(0);
+      expect(strokes.length).toBeGreaterThan(0);
+      expect(strokes.some((stroke) => {
+        const opacity = stroke.o as Record<string, unknown> | undefined;
+        return typeof opacity?.k === 'number' && opacity.k >= 70;
       })).toBe(true);
       expect(kicker).toBeDefined();
       expect(meta).toBeDefined();
-      expect(titlePosition?.k).toEqual([208, 120, 0]);
-      expect(titleStyle?.s).toBe(32);
+      expect(titlePosition?.k).toEqual([76, 116, 0]);
+      expect(titleStyle?.s).toBe(28);
       expect(titleStyle?.j).toBe(0);
     }
   });
 
   it('applies three brand colors and shared geometry controls', () => {
-    const customized = customizeLottieDocument(LOTTIE_EXAMPLES[0]?.data ?? {}, {
+    const customized = customizeLottieDocument(
+      LOTTIE_EXAMPLES.find(({ id }) => id === 'endpoint-delivery')?.data ?? {},
+      {
       colors: ['#FF0000', '#00FF00', '#0000FF'],
       cornerRadius: 33,
       fontFamily: 'Test Brand Sans',
       strokeWidth: 9,
-    });
+      },
+    );
     const records = collectRecords(customized);
     const paletteColors = records
       .filter((record) => record.ty === 'fl' || record.ty === 'st')
@@ -238,7 +254,7 @@ describe('Lottie product presets', () => {
           const colorProperty = gradient?.k as Record<string, unknown> | undefined;
           return colorProperty?.k;
         }),
-    ).toContainEqual([0, 0, 1, 0, 1, 0, 0, 1]);
+    ).toContainEqual([0, 0, 0, 1, 1, 1, 0, 0]);
     expect(
       records
         .filter((record) => record.ty === 'rc')
@@ -276,7 +292,7 @@ describe('Lottie product presets', () => {
 
   it('embeds the active brand mark in a reserved animated safe area', () => {
     const customized = customizeLottieDocument(
-      LOTTIE_EXAMPLES.find(({ id }) => id === 'release-stack')?.data ?? {},
+      LOTTIE_EXAMPLES.find(({ id }) => id === 'layer-assembly')?.data ?? {},
       {
       brandLogo: {
         dataUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
@@ -302,9 +318,9 @@ describe('Lottie product presets', () => {
 
     const transform = logoLayers[0]?.ks as Record<string, unknown>;
     const positions = (transform.p as Record<string, unknown>).k as Record<string, unknown>[];
-    const finalPosition = positions.find(({ t }) => t === 42)?.s as number[];
-    expect(finalPosition[0]).toBeGreaterThanOrEqual(88);
-    expect(finalPosition[1]).toBeLessThan(112);
+    const finalPosition = positions.find(({ t }) => t === 38)?.s as number[];
+    expect(finalPosition[0]).toBeGreaterThanOrEqual(76);
+    expect(finalPosition[1]).toBeLessThan(100);
 
     const customizedAgain = customizeLottieDocument(customized, {
       brandLogo: {
