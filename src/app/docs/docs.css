@@ -89,7 +89,7 @@ body:has(#nd-docs-layout) [data-radix-popper-content-wrapper] ::selection {
   display: none;
   align-items: center;
   gap: 6px;
-  border: 1px solid color-mix(in oklab, var(--docs-line) 60%, transparent);
+  border: 0;
   border-radius: 6px;
   color: var(--docs-muted);
   background: color-mix(in oklab, var(--docs-bg) 70%, transparent);
@@ -783,29 +783,43 @@ body:has(#nd-docs-layout) [data-radix-popper-content-wrapper] ::selection {
   color: var(--docs-muted);
 }
 
-.glyphfield-doc-page-meta > span {
+.glyphfield-doc-page-updated {
   font-size: 12px;
+  font-style: italic;
   white-space: nowrap;
 }
 
 .docs-page-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--docs-line);
+  border-radius: 6px;
 }
 
 .docs-page-actions > button {
-  height: 36px;
+  height: 30px;
   padding: 0 12px;
   gap: 8px;
-  border: 1px solid var(--docs-line);
-  border-radius: 6px;
+  border: 0;
+  border-radius: 0;
   color: var(--docs-muted);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
   box-shadow: none;
   transition: color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+}
+
+.docs-page-actions > button + button {
+  border-inline-start: 1px solid var(--docs-line);
+}
+
+.docs-page-actions > .docs-page-actions__options {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
 }
 
 .docs-page-actions > button:hover,
@@ -1455,6 +1469,14 @@ body:has(#nd-docs-layout)
 }
 
 @media (min-width: 768px) and (max-width: 1279.98px) {
+  #nd-docs-layout {
+    --fd-header-height: 64px;
+  }
+
+  #nd-docs-layout [data-layout-main] {
+    padding-top: var(--fd-header-height);
+  }
+
   #nd-docs-layout #nd-page.glyphfield-doc-page {
     padding-top: 20px;
   }

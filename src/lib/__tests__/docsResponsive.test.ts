@@ -43,6 +43,7 @@ describe('documentation responsive shell', () => {
 
   it('switches from desktop rails to mobile navigation without losing search', () => {
     expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) \{[\s\S]*?--fd-header-height: 0px;/);
+    expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) and \(max-width: 1279\.98px\) \{[\s\S]*?--fd-header-height: 64px;[\s\S]*?\[data-layout-main\] \{[\s\S]*?padding-top: var\(--fd-header-height\);/);
     expect(docsRouteStyles).toMatch(/@media \(max-width: 767\.98px\) \{[\s\S]*?--fd-sidebar-width: 0px !important;/);
     expect(docsRouteStyles).toMatch(/@media \(max-width: 767\.98px\) \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) !important;[\s\S]*?'header'[\s\S]*?'toc-popover'[\s\S]*?'main'/);
     expect(docsRouteStyles).toMatch(/#nd-docs-layout #nd-page\.glyphfield-doc-page \{[\s\S]*?width: 100%;[\s\S]*?grid-area: main;/);
@@ -67,6 +68,7 @@ describe('documentation responsive shell', () => {
     expect(docsControls).toContain("className='glyphfield-docs-controls__studio'");
     expect(docsRouteStyles).toContain('top: 12px;');
     expect(docsRouteStyles).toContain('min-height: 46px;');
+    expect(docsRouteStyles).toMatch(/\.glyphfield-docs-controls \{[\s\S]*?border: 0;/);
     expect(docsRouteStyles).toMatch(/@media \(min-width: 768px\) \{[\s\S]*?\.glyphfield-docs-controls \{[\s\S]*?display: flex;/);
   });
 
@@ -76,6 +78,10 @@ describe('documentation responsive shell', () => {
     expect(docsRouteStyles).toMatch(/\.glyphfield-doc-title \{[\s\S]*?font-size: 32px;[\s\S]*?font-weight: 600;/);
     expect(docsRouteStyles).toMatch(/\.glyphfield-doc-description \{[\s\S]*?font-size: 16px;/);
     expect(docsRouteStyles).toMatch(/\.glyphfield-doc-page-meta \{[\s\S]*?border-bottom: 1px solid var\(--docs-line\);/);
+    expect(docsPage.indexOf("className='glyphfield-doc-page-updated'")).toBeLessThan(docsPage.indexOf('<DocsPageActions'));
+    expect(docsPageActions).toContain('<T>Copy page</T>');
+    expect(docsPageActions).toContain("aria-label={gt('More ways to use this page')}");
+    expect(docsRouteStyles).toMatch(/\.docs-page-actions \{[\s\S]*?gap: 0;[\s\S]*?overflow: hidden;[\s\S]*?border: 1px solid var\(--docs-line\);/);
     expect(docsRouteStyles).toContain('--fd-toc-width: 360px;');
   });
 

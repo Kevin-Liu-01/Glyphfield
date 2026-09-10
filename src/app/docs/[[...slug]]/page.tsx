@@ -114,11 +114,13 @@ export default async function DocumentationPage({ params }: DocumentationPagePro
           <DocsTitle className='glyphfield-doc-title'>{page.data.title}</DocsTitle>
           <DocsDescription className='glyphfield-doc-description'>{page.data.description}</DocsDescription>
           <div className='glyphfield-doc-page-meta'>
+            <span className='glyphfield-doc-page-updated'>
+              {lastUpdatedLabel ? `Last updated ${lastUpdatedLabel}` : 'Maintained with source'}
+            </span>
             <DocsPageActions
               markdownUrl={markdownUrl}
               sourceUrl={sourceUrl}
             />
-            <span>{lastUpdatedLabel ? `Last updated ${lastUpdatedLabel}` : 'Maintained with source'}</span>
           </div>
         </header>
         <DocsBody className='glyphfield-docs-body'>
