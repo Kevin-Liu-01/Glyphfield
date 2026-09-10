@@ -1,9 +1,11 @@
 .panel {
+  --map-inset: 16px;
   position: absolute;
-  right: 16px;
-  bottom: 16px;
+  right: var(--map-inset);
+  bottom: var(--map-inset);
   z-index: 25;
   width: 200px;
+  max-width: calc(100% - var(--map-inset) * 2);
   overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: 10px;
@@ -11,19 +13,25 @@
   color: hsl(var(--foreground));
   user-select: none;
 }
+.panel[data-dock='left'] { right: auto; left: var(--map-inset); }
+.panel[data-dragging='true'] { will-change: transform; }
 .panel[data-collapsed='true'] { width: auto; }
-.panel[data-collapsed='true'] .toggle { gap: 12px; padding: 8px 10px; }
-.toggle {
+.header { display: flex; align-items: stretch; }
+.dragHandle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 9px 11px;
   font-size: 11px;
   font-weight: 550;
   text-align: left;
+  cursor: grab;
+  touch-action: none;
 }
+.dragHandle span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.panel[data-dragging='true'] .dragHandle { cursor: grabbing; }
+.toggle { display: grid; place-items: center; width: 32px; min-height: 32px; flex: none; }
 .toggle svg { width: 13px; height: 13px; }
 .map {
   display: block;
@@ -59,6 +67,6 @@
 .actions button svg { width: 14px; height: 14px; flex: none; }
 .actions button + button { border-left: 1px solid hsl(var(--border)); }
 .actions button:disabled { opacity: 0.4; cursor: default; }
-.toggle:hover, .actions button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 6%, transparent); }
+.dragHandle:hover, .toggle:hover, .actions button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 6%, transparent); }
 .panel button:focus-visible, .map:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
-@media (max-width: 600px) { .panel { right: 10px; bottom: 10px; width: 172px; } .map { height: 96px; } }
+@media (max-width: 600px) { .panel { --map-inset: 10px; width: 172px; } .map { height: 96px; } }

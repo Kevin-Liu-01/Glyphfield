@@ -438,6 +438,132 @@ test('minimap dragging keeps fixed map bounds and does not mutate zoom or source
   await expect(surface).toBeVisible();
 });
 
+test('artboard map header docks by pointer or keyboard without changing the canvas', async ({ page, browserName }) => {
+  await prepareBoards(page);
+  const before = await stableWorkspace(page);
+  const map = await openCanvasMap(page);
+  const handle = map.getByRole('button', { name: 'Move artboard map', exact: true });
+  const surface = map.getByRole('slider', { name: 'Navigate canvas map', exact: true });
+  const viewport = page.getByRole('region', { name: 'Canvas viewport', exact: true });
+  const stage = page.locator('.canvas-viewport-stage.design-artboard-viewport-stage');
+  const initialTransform = await stage.evaluate((element) => element.style.transform);
+  const zoom = await canvasZoom(page);
+
+  const margins = async () => {
+    const panel = (await map.boundingBox())!;
+    const view = (await viewport.boundingBox())!;
+    return { left: panel.x - view.x, top: panel.y - view.y,
+      right: view.x + view.width - panel.x - panel.width,
+      bottom: view.y + view.height - panel.y - panel.height };
+  };
+  const expectWithinViewport = async () => {
+    await expect.poll(async () => Object.values(await margins()).every((gap) => gap >= -1)).toBe(true);
+  };
+  const expectDock = async (side: 'left' | 'right') => {
+    await expect(map).toHaveAttribute('data-dock', side);
+    await expectWithinViewport();
+    await expect.poll(async () => {
+      const gap = await margins();
+      return gap[side] <= 20 && gap.bottom <= 20;
+    }).toBe(true);
+  };
+  const startDrag = async () => {
+    const grip = (await handle.boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+  };
+
+  await expectDock('right');
+  await startDrag();
+  // Going beyond the canvas clamps the whole panel, not just its drag handle.
+  await page.mouse.move(0, 0, { steps: 12 });
+  await expectWithinViewport();
+  await expect.poll(async () => {
+    const gap = await margins();
+    return gap.left <= 20 && gap.top <= 20;
+  }).toBe(true);
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(initialTransform);
+  await page.mouse.up();
+  await expectDock('left');
+  await expect(surface).toBeVisible();
+  await expect(map).not.toHaveAttribute('data-collapsed', 'true');
+  expect(await stableWorkspace(page)).toEqual(before);
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(initialTransform);
+
+  await map.getByRole('button', { name: 'Hide artboard map', exact: true }).click();
+  await expect(surface).toHaveCount(0);
+  await expectDock('left');
+  const centerBeforeResize = await viewportWorldCenter(page);
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await expect.poll(async () => {
+    const center = await viewportWorldCenter(page);
+    return center.width !== centerBeforeResize.width || center.height !== centerBeforeResize.height;
+  }).toBe(true);
+  await expect.poll(async () => {
+    const center = await viewportWorldCenter(page);
+    return Math.max(Math.abs(center.x - centerBeforeResize.x), Math.abs(center.y - centerBeforeResize.y));
+  }).toBeLessThan(2);
+  await expectDock('left');
+  await map.getByRole('button', { name: 'Show artboard map', exact: true }).click();
+  await expect(surface).toBeVisible();
+  await expectDock('left');
+  const resizedTransform = await stage.evaluate((element) => element.style.transform);
+
+  await startDrag();
+  await page.mouse.move(1099, 759, { steps: 12 });
+  await expectWithinViewport();
+  await page.mouse.up();
+  await expectDock('right');
+  await expect(surface).toBeVisible();
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(resizedTransform);
+
+  // Cancelling a real drag returns to the previous dock without a collapse click.
+  await startDrag();
+  await page.mouse.move(0, 0, { steps: 12 });
+  await expect.poll(async () => (await margins()).left).toBeLessThanOrEqual(20);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expectDock('right');
+  await expect(surface).toBeVisible();
+
+  // Folding by keyboard while the pointer is captured cancels stale drag bounds.
+  await startDrag();
+  await page.mouse.move(0, 0, { steps: 12 });
+  await expect(map).toHaveAttribute('data-dragging', 'true');
+  await expect.poll(async () => (await margins()).left).toBeLessThanOrEqual(20);
+  await expect(handle).toBeFocused();
+  // Mac WebKit uses Option-Tab to include buttons in keyboard navigation.
+  await page.keyboard.press(browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
+  await expect(map.getByRole('button', { name: 'Hide artboard map', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(surface).toHaveCount(0);
+  await expect(map).not.toHaveAttribute('data-dragging', 'true');
+  await expectDock('right');
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(resizedTransform);
+  await page.mouse.up();
+  await expectDock('right');
+  await expect(surface).toHaveCount(0);
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(resizedTransform);
+  expect(await stableWorkspace(page)).toEqual(before);
+  await map.getByRole('button', { name: 'Show artboard map', exact: true }).click();
+  await expect(surface).toBeVisible();
+  await expectDock('right');
+
+  await map.getByRole('button', { name: 'Hide artboard map', exact: true }).click();
+  await expectDock('right');
+  await handle.press('ArrowLeft');
+  await expectDock('left');
+  await expect(surface).toHaveCount(0);
+  await handle.press('ArrowRight');
+  await expectDock('right');
+  await map.getByRole('button', { name: 'Show artboard map', exact: true }).click();
+  await expect(surface).toBeVisible();
+  await expectDock('right');
+  expect(await canvasZoom(page)).toBe(zoom);
+  expect(await stage.evaluate((element) => element.style.transform)).toBe(resizedTransform);
+  expect(await stableWorkspace(page)).toEqual(before);
+});
+
 test('switching artboards flushes the current canvas text edit and retains it on return', async ({ page }) => {
   await prepareBoards(page);
   const boards = page.locator('.design-artboard-shell');

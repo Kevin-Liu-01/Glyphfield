@@ -19,8 +19,9 @@ describe('lightweight canvas minimap', () => {
   const items = [{ id: 'one', label: 'Portrait', x: 20, y: 40, width: 300, height: 600, active: true },
     { id: 'two', label: 'Landscape', x: 1400, y: 40, width: 800, height: 400 }];
   const map = () => host.querySelector<SVGSVGElement>('[aria-label="Navigate canvas map"]')!;
-  const pointer = async (type: string, target: EventTarget, x: number, y: number, pointerId = 1) => {
-    await act(() => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId, button: 0, clientX: x, clientY: y })));
+  const pointer = async (type: string, target: EventTarget, x: number, y: number, pointerId = 1, init: PointerEventInit = {}) => {
+    await act(() => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId, button: 0,
+      isPrimary: true, pointerType: 'mouse', clientX: x, clientY: y, ...init })));
   };
   const flush = async () => act(() => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((cb) => cb(16)); });
 
@@ -47,7 +48,7 @@ describe('lightweight canvas minimap', () => {
     await resize(220);
     expect(map()).toBeNull();
     const toggle = host.querySelector<HTMLButtonElement>('[aria-label="Show artboard map"]')!;
-    expect(toggle.textContent).toContain('Artboard map');
+    expect(host.querySelector('[aria-label="Move artboard map"]')!.textContent).toContain('Artboard map');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
@@ -95,7 +96,7 @@ describe('lightweight canvas minimap', () => {
     const center = host.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!;
     const tidy = host.querySelector<HTMLButtonElement>('[aria-label="Tidy and fit artboards"]')!;
     expect(fit.textContent).toContain('Fit all');
-    expect(center.textContent).toContain('Center selected');
+    expect(center.textContent).toBe('Center');
     expect(tidy.textContent).toBe('Tidy');
     const originalItems = JSON.stringify(items);
     await act(() => fit.click());
@@ -186,5 +187,235 @@ describe('lightweight canvas minimap', () => {
     await pointer('pointerup', window, 140, 60);
     expect(onPan).toHaveBeenCalledTimes(before);
     expect(frames.size).toBe(0);
+  });
+
+  describe('artboard map docking', () => {
+    const panel = () => host.querySelector<HTMLElement>('[role="region"][aria-label="Canvas map"]')!;
+    const handle = () => host.querySelector<HTMLButtonElement>('[aria-label="Move artboard map"]')!;
+    const key = async (value: string) => {
+      const event = new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true });
+      await act(() => handle().dispatchEvent(event));
+      return event;
+    };
+    const expectNoCanvasAction = () => {
+      expect(onPan).not.toHaveBeenCalled();
+      expect(onFitAll).not.toHaveBeenCalled();
+      expect(onCenterSelected).not.toHaveBeenCalled();
+      expect(onArrange).not.toHaveBeenCalled();
+    };
+
+    beforeEach(async () => {
+      await act(() => root.render(<CanvasMinimap items={items} view={view} onPan={onPan}
+        onFitAll={onFitAll} onCenterSelected={onCenterSelected} onArrange={onArrange} ref={ref} />));
+      host.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0,
+        right: 800, bottom: 600, width: 800, height: 600, toJSON() {} });
+      panel().getBoundingClientRect = () => {
+        const left = panel().dataset.dock === 'left' ? 16 : 584;
+        return { x: left, y: 384, left, top: 384, right: left + 200,
+          bottom: 584, width: 200, height: 200, toJSON() {} };
+      };
+    });
+
+    it('keeps movement separate from collapse and starts docked on the right', async () => {
+      const initialMap = map();
+      const toggle = host.querySelector<HTMLButtonElement>('[aria-label="Hide artboard map"]')!;
+      expect(panel().dataset.dock).toBe('right');
+      expect(handle()).not.toBe(toggle);
+      expect(handle().type).toBe('button');
+      expect(handle().tabIndex).toBe(0);
+      expect(handle().textContent).toContain('Artboard map');
+      await act(() => handle().click());
+      expect(map()).toBe(initialMap);
+      await act(() => toggle.click());
+      expect(map()).toBeNull();
+      expect(handle()).not.toBeNull();
+      await act(() => handle().click());
+      expect(map()).toBeNull();
+      expect(host.querySelector('[aria-label="Show artboard map"]')).not.toBeNull();
+      expectNoCanvasAction();
+    });
+
+    it('docks with horizontal arrow keys without panning and retains the choice across collapse and resize', async () => {
+      const initialMap = map();
+      expect((await key('ArrowLeft')).defaultPrevented).toBe(true);
+      expect(panel().dataset.dock).toBe('left');
+      for (const value of ['ArrowUp', 'ArrowDown']) {
+        expect((await key(value)).defaultPrevented).toBe(false);
+        expect(panel().dataset.dock).toBe('left');
+      }
+      expect(map()).toBe(initialMap);
+      await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Hide artboard map"]')!.click());
+      await resize(220);
+      expect(panel().dataset.dock).toBe('left');
+      expect(map()).toBeNull();
+      expect((await key('ArrowRight')).defaultPrevented).toBe(true);
+      expect(panel().dataset.dock).toBe('right');
+      expect(map()).toBeNull();
+      await resize(600);
+      expect(panel().dataset.dock).toBe('right');
+      expectNoCanvasAction();
+    });
+
+    it.each([[3, false], [4, true]] as const)('activates dragging only at the 4px threshold (%spx)', async (distance, active) => {
+      const initialMap = map();
+      await pointer('pointerdown', handle(), 680, 400);
+      await pointer('pointermove', handle(), 680 - distance, 400);
+      await flush();
+      if (active) expect(panel().style.transform).toMatch(/-4px/);
+      else expect(panel().style.transform).toBe('');
+      await pointer('pointerup', window, 680 - distance, 400);
+      await act(() => handle().click());
+      expect(panel().dataset.dock).toBe('right');
+      expect(panel().style.transform).toBe('');
+      expect(map()).toBe(initialMap);
+      expect(frames.size).toBe(0);
+      expectNoCanvasAction();
+    });
+
+    it.each([[450, 'left'], [490, 'right']] as const)(
+      'follows the pointer and snaps by panel center on outside release at x=%s', async (releaseX, dock) => {
+        const initialMap = map();
+        await pointer('pointerdown', handle(), 760, 400);
+        await pointer('pointermove', handle(), 560, 340);
+        await flush();
+        expect(panel().style.transform).toMatch(/-200px.*-60px/);
+        expect(panel().dataset.dock).toBe('right');
+        expect(map()).toBe(initialMap);
+        // Both pointers remain right of the midpoint; only the panel center crosses it.
+        await pointer('pointerup', window, releaseX, 260);
+        expect(panel().dataset.dock).toBe(dock);
+        expect(panel().style.transform).toBe('');
+        expect(frames.size).toBe(0);
+        await act(() => handle().click());
+        expect(map()).toBe(initialMap);
+        expectNoCanvasAction();
+      },
+    );
+
+    it('can drag back from the left dock without changing canvas navigation', async () => {
+      await key('ArrowLeft');
+      await pointer('pointerdown', handle(), 100, 400);
+      await pointer('pointermove', handle(), 600, 300);
+      await flush();
+      expect(panel().style.transform).toMatch(/500px.*-100px/);
+      await pointer('pointerup', window, 600, 300);
+      expect(panel().dataset.dock).toBe('right');
+      expect(panel().style.transform).toBe('');
+      expect(map()).not.toBeNull();
+      expectNoCanvasAction();
+    });
+
+    it.each([
+      ['Escape', 'left'], ['Escape', 'right'],
+      ['pointercancel', 'left'], ['pointercancel', 'right'],
+      ['blur', 'left'], ['blur', 'right'],
+    ] as const)('restores the original dock and clears pending movement on %s from %s', async (cancel, dock) => {
+      if (dock === 'left') await key('ArrowLeft');
+      const startX = dock === 'left' ? 100 : 680;
+      const moveX = dock === 'left' ? 600 : 180;
+      const initialMap = map();
+      await pointer('pointerdown', handle(), startX, 400);
+      await pointer('pointermove', handle(), moveX, 300);
+      await flush();
+      expect(panel().style.transform).not.toBe('');
+      await pointer('pointermove', handle(), moveX + 10, 280);
+      expect(frames.size).toBe(1);
+      if (cancel === 'Escape') await key('Escape');
+      else if (cancel === 'pointercancel') await pointer('pointercancel', window, moveX, 280);
+      else await act(() => window.dispatchEvent(new Event('blur')));
+      expect(panel().dataset.dock).toBe(dock);
+      expect(panel().style.transform).toBe('');
+      expect(frames.size).toBe(0);
+      await flush();
+      await pointer('pointerup', window, moveX, 280);
+      expect(panel().dataset.dock).toBe(dock);
+      expect(map()).toBe(initialMap);
+      expectNoCanvasAction();
+    });
+
+    it.each([
+      ['collapse', 'left'], ['collapse', 'right'],
+      ['expand', 'left'], ['expand', 'right'],
+    ] as const)('cancels active docking when choosing to %s from the %s dock', async (action, dock) => {
+      if (dock === 'left') await key('ArrowLeft');
+      if (action === 'expand') {
+        await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Hide artboard map"]')!.click());
+      }
+      panel().getBoundingClientRect = () => {
+        const left = panel().dataset.dock === 'left' ? 16 : 584;
+        const height = map() ? 200 : 32;
+        return { x: left, y: 584 - height, left, top: 584 - height,
+          right: left + 200, bottom: 584, width: 200, height, toJSON() {} };
+      };
+      const startX = dock === 'left' ? 100 : 680;
+      const moveX = dock === 'left' ? 600 : 180;
+      await pointer('pointerdown', handle(), startX, action === 'expand' ? 568 : 400);
+      await pointer('pointermove', handle(), moveX, 300);
+      await flush();
+      expect(panel().style.transform).not.toBe('');
+      await pointer('pointermove', handle(), moveX + 10, 280);
+      expect(frames.size).toBe(1);
+      const label = action === 'collapse' ? 'Hide artboard map' : 'Show artboard map';
+      await act(() => host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
+      expect(panel().dataset.dock).toBe(dock);
+      expect(panel().style.transform).toBe('');
+      expect(panel().hasAttribute('data-dragging')).toBe(false);
+      expect(frames.size).toBe(0);
+      expect(map() === null).toBe(action === 'collapse');
+      await flush();
+      await pointer('pointermove', handle(), moveX, 260);
+      await pointer('pointerup', window, moveX, 260);
+      expect(panel().dataset.dock).toBe(dock);
+      expect(panel().style.transform).toBe('');
+      expect(frames.size).toBe(0);
+      expectNoCanvasAction();
+    });
+
+    it('ignores secondary pointers without replacing or ending the active drag', async () => {
+      await pointer('pointerdown', handle(), 680, 400);
+      await pointer('pointerdown', handle(), 120, 400, 2, { isPrimary: false, pointerType: 'touch' });
+      await pointer('pointermove', handle(), 80, 300, 2);
+      await flush();
+      expect(panel().style.transform).toBe('');
+      await pointer('pointermove', handle(), 180, 300);
+      await flush();
+      const transform = panel().style.transform;
+      expect(transform).not.toBe('');
+      await pointer('pointerup', window, 760, 300, 2);
+      await pointer('pointercancel', window, 0, 0, 2);
+      expect(panel().dataset.dock).toBe('right');
+      expect(panel().style.transform).toBe(transform);
+      await pointer('pointerup', window, 180, 300);
+      expect(panel().dataset.dock).toBe('left');
+      expect(panel().style.transform).toBe('');
+      expectNoCanvasAction();
+    });
+
+    it.each([
+      ['secondary-button', { button: 2 }],
+      ['non-primary-pointer', { isPrimary: false, pointerType: 'touch' }],
+    ] as const)('does not start docking from a %s press', async (_, init) => {
+      await pointer('pointerdown', handle(), 680, 400, 1, init);
+      await pointer('pointermove', handle(), 180, 300);
+      await pointer('pointerup', window, 180, 300);
+      expect(panel().dataset.dock).toBe('right');
+      expect(panel().style.transform).toBe('');
+      expect(frames.size).toBe(0);
+      expectNoCanvasAction();
+    });
+
+    it('clears pending movement and listeners for an unfinished gesture on unmount', async () => {
+      await pointer('pointerdown', handle(), 680, 400);
+      await pointer('pointermove', handle(), 180, 300);
+      expect(frames.size).toBe(1);
+      await act(() => root.render(null));
+      expect(frames.size).toBe(0);
+      await flush();
+      await pointer('pointermove', window, 100, 200);
+      await pointer('pointerup', window, 100, 200);
+      await act(() => window.dispatchEvent(new Event('blur')));
+      expect(host.childElementCount).toBe(0);
+      expectNoCanvasAction();
+    });
   });
 });

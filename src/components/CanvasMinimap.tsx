@@ -4,6 +4,7 @@ import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, ty
 import { useGT } from 'gt-next';
 import { LayoutGrid, Maximize2, Minus, PanelsTopLeft, Target } from '@/components/ui/SolidIcons';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { useCanvasMapDock } from '@/hooks/useCanvasMapDock';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { canvasMinimapBounds, canvasMinimapPoint, canvasVisibleRect, centerCanvasNavigation,
   validCanvasNavigationRect, type CanvasNavigationItem, type CanvasNavigationRect, type CanvasNavigationView } from '@/lib/canvasNavigation';
@@ -27,6 +28,7 @@ export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSe
   const [openOverride, setOpenOverride] = useState<boolean | null>(null);
   const compact = view.height < 300;
   const open = openOverride ?? !compact;
+  const { dock, panelRef, handleRef, handleProps } = useCanvasMapDock(view.width, view.height, open);
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportRef = useRef<SVGRectElement>(null);
   const itemsRef = useCommittedRef(items);
@@ -100,12 +102,21 @@ export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSe
   });
 
   return <aside role='region' aria-label={gt('Canvas map')} className={styles.panel} data-canvas-selection-preserve
+    ref={panelRef} data-dock={dock}
     data-compact={compact ? 'true' : undefined} data-collapsed={!open ? 'true' : undefined}>
-    <button className={styles.toggle} type='button' aria-expanded={open}
-      aria-label={gt(open ? 'Hide artboard map' : 'Show artboard map')}
-      onClick={() => { finish(); setOpenOverride(!open); }}>
-      <span>{gt('Artboard map')}</span>{open ? <Minus aria-hidden='true' /> : <PanelsTopLeft aria-hidden='true' />}
-    </button>
+    <div className={styles.header}>
+      <button className={styles.dragHandle} ref={handleRef} type='button' aria-label={gt('Move artboard map')}
+        aria-description={gt('Drag to the nearest bottom corner, or use the left and right arrow keys.')}
+        aria-keyshortcuts='ArrowLeft ArrowRight'
+        title={gt('Drag to reposition. Left and right arrow keys dock the map.')} {...handleProps}>
+        <span>{gt('Artboard map')}</span>
+      </button>
+      <button className={styles.toggle} type='button' aria-expanded={open}
+        aria-label={gt(open ? 'Hide artboard map' : 'Show artboard map')}
+        onClick={() => { finish(); setOpenOverride(!open); }}>
+        {open ? <Minus aria-hidden='true' /> : <PanelsTopLeft aria-hidden='true' />}
+      </button>
+    </div>
     {open && <>
       <svg className={styles.map} ref={svgRef} tabIndex={0} role='slider' aria-label={gt('Navigate canvas map')}
         aria-description={gt('Click or drag to pan the canvas. Arrow keys move the visible area.')}
@@ -161,7 +172,7 @@ export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSe
         </button>
         <button type='button' aria-label={gt('Center selected artboard')} title={gt('Center selected artboard without changing zoom')}
           disabled={!items.some((item) => item.active)} onClick={onCenterSelected}>
-          <Target aria-hidden='true' /><span>{gt('Center selected')}</span>
+          <Target aria-hidden='true' /><span>{gt('Center')}</span>
         </button>
         {onArrange && <button type='button' aria-label={gt('Tidy and fit artboards')}
           title={gt('Arrange artboards in a grid and fit them in view')} onClick={onArrange}>
