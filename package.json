@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "license": "MIT",
+  "packageManager": "pnpm@11.15.1",
   "scripts": {
     "agent-docs": "npx tsx scripts/run-agent-docs.ts",
     "analyze:dead-code": "knip",

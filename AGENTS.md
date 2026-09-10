@@ -111,6 +111,10 @@ describe repository contribution.
 - Public Studio identity comes from `STUDIO_TOOLS`. Legacy draft IDs such as
   `logo-shader` may remain internal but must not leak from public adapters.
 - Preview, source, persistence, and export must resolve from the same state.
+- Use the root `packageManager` pin for installs. Vercel projects need
+  `ENABLE_EXPERIMENTAL_COREPACK=1`; pnpm 10 cannot frozen-install the pnpm 11
+  patched-dependency lockfile. Verify the production build and public domain,
+  not just the Git push, before reporting a public release.
 - Read the active source before editing it, preserve unknown fields and stable IDs,
   apply through the tool validator, then re-read and visually verify.
 - Design Lab source is CanvasDocument schema 2 with Design Lab metadata source 4.
