@@ -5,6 +5,7 @@ import {
   MAX_DESIGN_LAB_FONT_SIZE,
   MIN_DESIGN_LAB_FONT_SIZE,
   designLabFontSizeUpdate,
+  designLabTextDecorationLine,
   resolveDesignLabFontSize,
   resolveDesignLabFontSizeCqw,
   validateDesignLabTextTypography,
@@ -96,7 +97,7 @@ describe('Design Lab font size edits', () => {
 });
 
 describe('Design Lab typography source validation', () => {
-  it.each([{}, { fontSize: undefined, fontStyle: undefined }, { fontSize: 1 }, { fontSize: 4096 }, { fontStyle: 'normal' }, { fontStyle: 'italic' }])('accepts optional legacy or valid typography %j', (value) => {
+  it.each([{}, { fontSize: undefined, fontStyle: undefined }, { fontSize: 1 }, { fontSize: 4096 }, { fontStyle: 'normal' }, { fontStyle: 'italic' }, { underline: true }, { strikethrough: false }])('accepts optional legacy or valid typography %j', (value) => {
     expect(() => validateDesignLabTextTypography(value)).not.toThrow();
   });
 
@@ -108,7 +109,26 @@ describe('Design Lab typography source validation', () => {
     expect(() => validateDesignLabTextTypography({ fontStyle })).toThrow(/fontStyle/);
   });
 
+  it.each(['underline', 'true', 1, null, [], {}])('rejects malformed underline %s', (underline) => {
+    expect(() => validateDesignLabTextTypography({ underline })).toThrow(/underline/);
+  });
+
+  it.each(['line-through', 'true', 1, null, [], {}])('rejects malformed strikethrough %s', (strikethrough) => {
+    expect(() => validateDesignLabTextTypography({ strikethrough })).toThrow(/strikethrough/);
+  });
+
   it.each([null, undefined, [], 'text', 1, true])('rejects a non-object layer %s', (value) => {
     expect(() => validateDesignLabTextTypography(value)).toThrow(/object/);
+  });
+});
+
+describe('Design Lab text decoration', () => {
+  it.each([
+    [{}, 'none'],
+    [{ underline: true }, 'underline'],
+    [{ strikethrough: true }, 'line-through'],
+    [{ strikethrough: true, underline: true }, 'underline line-through'],
+  ] as const)('resolves independent decorations from %j', (typography, expected) => {
+    expect(designLabTextDecorationLine(typography)).toBe(expected);
   });
 });

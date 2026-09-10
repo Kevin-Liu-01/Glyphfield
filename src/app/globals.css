@@ -3257,10 +3257,31 @@
 }
 
 .shader-lab-v2-text-options button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   min-height: 23px;
   border-radius: 3px;
   color: hsl(var(--muted-foreground));
   font-size: 9px;
+  transition: color 140ms ease-out, background-color 140ms ease-out, transform 140ms ease-out;
+}
+
+.shader-lab-v2-text-options button:active {
+  transform: scale(.97);
+}
+
+.shader-lab-v2-text-options button svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.shader-lab-v2-text-options button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shader-lab-v2-text-options button[aria-pressed='true'] {

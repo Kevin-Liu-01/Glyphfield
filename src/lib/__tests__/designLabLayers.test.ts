@@ -327,6 +327,14 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain("kind={sticker ? 'sticker' : 'image'}");
     expect(designLab).toContain("<AssetConversionLibrary");
     expect(designLab).toContain('SVG conversion & mark library');
+    expect(designLab).toContain("label='Font weight'");
+    expect(designLab).toContain("aria-label='Italic text'");
+    expect(designLab).toContain("aria-label='Underline text'");
+    expect(designLab).toContain("aria-label='Strikethrough text'");
+    expect(designLab).toContain("<AlignLeft aria-hidden='true' />");
+    expect(designLab).toContain("<TextItalic aria-hidden='true' />");
+    expect(designLab).toContain("<TextUnderline aria-hidden='true' />");
+    expect(designLab).toContain("<TextStrikethrough aria-hidden='true' />");
   });
 
   it('uses the shared studio color component for text color', () => {

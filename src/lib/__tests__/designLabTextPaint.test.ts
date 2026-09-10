@@ -7,7 +7,12 @@ import { createBrandIdentity } from '@/lib/brandIdentity';
 import { DEFAULT_TEXT_EFFECT } from '@/lib/textEffects';
 
 describe('Design Lab export text geometry', () => {
-  function paint(boxHeight: number, gradient = false, typography: { fontSize?: number; fontStyle?: 'normal' | 'italic' } = {},
+  function paint(boxHeight: number, gradient = false, typography: {
+    fontSize?: number;
+    fontStyle?: 'normal' | 'italic';
+    strikethrough?: boolean;
+    underline?: boolean;
+  } = {},
     dimensions = { canvasHeight: 900, canvasWidth: 1600, width: 1600 }) {
     const context = {
       clearRect: vi.fn(),
@@ -80,5 +85,15 @@ describe('Design Lab export text geometry', () => {
     const context = paint(1, true, { fontSize: 20, fontStyle: 'italic' }, { canvasHeight: 1920, canvasWidth: 1000, width: 500 });
     expect(context.font).toMatch(/^italic 500 6px /);
     expect(context.fillText).toHaveBeenCalled();
+  });
+
+  it('paints underline and strikethrough into every exported text line', () => {
+    const context = paint(400, false, { fontSize: 20, strikethrough: true, underline: true });
+    expect(context.fillRect).toHaveBeenCalledTimes(4);
+    for (const call of vi.mocked(context.fillRect).mock.calls) {
+      expect(call[0]).toBe(465);
+      expect(call[2]).toBe(110);
+      expect(call[3]).toBe(1);
+    }
   });
 });

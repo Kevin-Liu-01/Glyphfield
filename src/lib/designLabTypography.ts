@@ -7,7 +7,11 @@ export type DesignLabTextTypography = {
   /** Base artboard pixels, before transform.scale; omitted by legacy documents. */
   fontSize?: number;
   fontStyle?: 'normal' | 'italic';
+  strikethrough?: boolean;
+  underline?: boolean;
 };
+
+export type DesignLabTextDecorationLine = 'line-through' | 'none' | 'underline' | 'underline line-through';
 
 export type DesignLabTypographyTransform = {
   heightScale?: number;
@@ -55,6 +59,15 @@ export function designLabFontSizeUpdate(layer: DesignLabTypographyLayer, size: n
   };
 }
 
+export function designLabTextDecorationLine(
+  typography: Pick<DesignLabTextTypography, 'strikethrough' | 'underline'>
+): DesignLabTextDecorationLine {
+  if (typography.underline && typography.strikethrough) return 'underline line-through';
+  if (typography.underline) return 'underline';
+  if (typography.strikethrough) return 'line-through';
+  return 'none';
+}
+
 /** Validates optional typography without migrating or clamping legacy documents. */
 export function validateDesignLabTextTypography(value: unknown): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Text typography must be an object.');
@@ -64,5 +77,11 @@ export function validateDesignLabTextTypography(value: unknown): void {
   }
   if (typography.fontStyle !== undefined && typography.fontStyle !== 'normal' && typography.fontStyle !== 'italic') {
     throw new TypeError('Text fontStyle must be normal or italic.');
+  }
+  if (typography.underline !== undefined && typeof typography.underline !== 'boolean') {
+    throw new TypeError('Text underline must be Boolean.');
+  }
+  if (typography.strikethrough !== undefined && typeof typography.strikethrough !== 'boolean') {
+    throw new TypeError('Text strikethrough must be Boolean.');
   }
 }

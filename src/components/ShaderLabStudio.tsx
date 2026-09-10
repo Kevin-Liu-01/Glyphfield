@@ -1,7 +1,11 @@
 'use client';
 
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   Check,
   ChevronDown,
@@ -33,9 +37,13 @@ import {
   Search,
   Sparkles,
   Sticker,
+  TextItalic,
+  TextStrikethrough,
+  TextUnderline,
   Trash2,
   Type,
   WandSparkles,
+  WrapText,
   X,
   Zap,
   ZoomIn,
@@ -73,6 +81,7 @@ import RangeControl from '@/components/DesignLabRangeControl';
 import StudioFontSizeControl from '@/components/StudioFontSizeControl';
 import {
   DEFAULT_DESIGN_LAB_FONT_SIZE,
+  designLabTextDecorationLine,
   designLabFontSizeUpdate,
   resolveDesignLabFontSize,
   resolveDesignLabFontSizeCqw,
@@ -411,9 +420,11 @@ type CompositionTextLayer = {
   shadowOffsetX?: number;
   shadowOffsetY?: number;
   shadowOpacity?: number;
+  strikethrough?: boolean;
   textEffect?: TextEffectSettings;
   tracking: number;
   transform: CanvasLayerTransform;
+  underline?: boolean;
   value: string;
   visible: boolean;
   weight: number;
@@ -1488,6 +1499,10 @@ function LayerDockTooltipPreview({
             fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
             letterSpacing: `${textLayer.tracking}em`,
             opacity: textAppearance.opacity,
+            textDecorationColor: textAppearance.color,
+            textDecorationLine: designLabTextDecorationLine(textLayer),
+            textDecorationThickness: 'from-font',
+            textUnderlineOffset: '0.12em',
           }}
         >{textLayer.value || 'Empty text layer'}</span>
       ) : null}
@@ -2659,6 +2674,24 @@ export function paintDesignLabTextLayer({
     target.lineWidth = context.lineWidth;
     target.strokeStyle = appearance.outlineColor;
   };
+  const decorationLine = designLabTextDecorationLine(layer);
+  const decorationThickness = Math.max(1, fontSize * 0.055);
+  const paintDecorations = (
+    target: CanvasRenderingContext2D,
+    lineX: number,
+    baseline: number,
+    lineWidth: number
+  ) => {
+    if (lineWidth <= 0 || decorationLine === 'none') return;
+    if (decorationLine.includes('underline')) {
+      const underlineCenter = baseline + Math.max(decorationThickness, descent * 0.36);
+      target.fillRect(lineX, underlineCenter - decorationThickness / 2, lineWidth, decorationThickness);
+    }
+    if (decorationLine.includes('line-through')) {
+      const strikethroughCenter = baseline - ascent * 0.32;
+      target.fillRect(lineX, strikethroughCenter - decorationThickness / 2, lineWidth, decorationThickness);
+    }
+  };
   const paintTextLines = (target: CanvasRenderingContext2D, mode: 'fill' | 'stroke') => {
     configureTextContext(target);
     lines.forEach((line, lineIndex) => {
@@ -2667,7 +2700,10 @@ export function paintDesignLabTextLayer({
         const lineWidth = measureText(line);
         const lineX = canvasTextLineX(layer.align, box.x, box.width, lineWidth);
         if (mode === 'stroke') target.strokeText(line, lineX, baseline);
-        else target.fillText(line, lineX, baseline);
+        else {
+          target.fillText(line, lineX, baseline);
+          paintDecorations(target, lineX, baseline, lineWidth);
+        }
         return;
       }
       const characters = canvasTextCharacters(line);
@@ -2678,6 +2714,9 @@ export function paintDesignLabTextLayer({
         else target.fillText(character, cursor, baseline);
         cursor += measureText(character) + spacing;
       });
+      if (mode === 'fill') {
+        paintDecorations(target, canvasTextLineX(layer.align, box.x, box.width, lineWidth), baseline, lineWidth);
+      }
     });
   };
 
@@ -3008,7 +3047,11 @@ function CanvasTextLayerContent({
           opacity: appearance.opacity * (application?.opacity ?? 1),
           overflowWrap: layer.wrap === 'wrap' ? 'anywhere' : 'normal',
           textAlign: layer.align,
+          textDecorationColor: appearance.color,
+          textDecorationLine: designLabTextDecorationLine(layer),
+          textDecorationThickness: 'from-font',
           textShadow: textShadowStyle(appearance),
+          textUnderlineOffset: '0.12em',
           WebkitTextStroke: appearance.outlineEnabled
             ? `${appearance.outlineWidth}px ${appearance.outlineColor}`
             : undefined,
@@ -3336,9 +3379,11 @@ function DesignLabTextLayerInspector({
               aria-pressed={selectedTextLayer.wrap === value}
               key={value}
               onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: value })}
+              title={value === 'wrap' ? 'Wrap text' : 'Keep text on one line'}
               type='button'
             >
-              {value === 'wrap' ? 'On' : 'Off'}
+              {value === 'wrap' ? <WrapText aria-hidden='true' /> : <ArrowRight aria-hidden='true' />}
+              <span>{value === 'wrap' ? 'Wrap' : 'Single line'}</span>
             </button>
           ))}
         </div>
@@ -3348,12 +3393,14 @@ function DesignLabTextLayerInspector({
         <div>
           {(['left', 'center', 'right'] as const).map((value) => (
             <button
+              aria-label={`${value[0]!.toUpperCase()}${value.slice(1)} align text`}
               aria-pressed={selectedTextLayer.align === value}
               key={value}
               onClick={() => updateTextLayer(selectedTextLayer.id, { align: value })}
+              title={`${value[0]!.toUpperCase()}${value.slice(1)} align`}
               type='button'
             >
-              {value[0]!.toUpperCase()}
+              {value === 'left' ? <AlignLeft aria-hidden='true' /> : value === 'right' ? <AlignRight aria-hidden='true' /> : <AlignCenter aria-hidden='true' />}
             </button>
           ))}
         </div>
@@ -3361,11 +3408,15 @@ function DesignLabTextLayerInspector({
       <div className='shader-lab-v2-text-options'>
         <span>Style</span>
         <div>
-          <button aria-label='Normal text' aria-pressed={selectedTextLayer.fontStyle !== 'italic'}
-            onClick={() => updateTextLayer(selectedTextLayer.id, { fontStyle: 'normal' })} type='button'>Regular</button>
           <button aria-label='Italic text' aria-pressed={selectedTextLayer.fontStyle === 'italic'}
             onClick={() => updateTextLayer(selectedTextLayer.id, { fontStyle: selectedTextLayer.fontStyle === 'italic' ? 'normal' : 'italic' })}
-            type='button'><i>Italic</i></button>
+            title='Italic' type='button'><TextItalic aria-hidden='true' /></button>
+          <button aria-label='Underline text' aria-pressed={selectedTextLayer.underline === true}
+            onClick={() => updateTextLayer(selectedTextLayer.id, { underline: !selectedTextLayer.underline })}
+            title='Underline' type='button'><TextUnderline aria-hidden='true' /></button>
+          <button aria-label='Strikethrough text' aria-pressed={selectedTextLayer.strikethrough === true}
+            onClick={() => updateTextLayer(selectedTextLayer.id, { strikethrough: !selectedTextLayer.strikethrough })}
+            title='Strikethrough' type='button'><TextStrikethrough aria-hidden='true' /></button>
         </div>
       </div>
       <StudioFontSizeControl
@@ -3378,6 +3429,18 @@ function DesignLabTextLayerInspector({
           `${size / canvasWidth * 100}cqw`
         )}
         value={resolveDesignLabFontSize(selectedTextLayer, canvasHeight)}
+      />
+      <RangeControl
+        formatValue={(value) => String(Math.round(value))}
+        label='Font weight'
+        max={textWeightRange.max}
+        min={textWeightRange.min}
+        onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
+          weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
+        })}
+        onPreview={(weight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(weight))}
+        step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
+        value={textRenderedWeight}
       />
       <RangeControl
         formatValue={(value) => `${Math.round(value * 100)}%`}
@@ -3410,18 +3473,6 @@ function DesignLabTextLayerInspector({
         onPreview={(lineHeight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight))}
         step={0.05}
         value={selectedTextLayer.lineHeight}
-      />
-      <RangeControl
-        formatValue={(value) => String(Math.round(value))}
-        label='Font weight'
-        max={textWeightRange.max}
-        min={textWeightRange.min}
-        onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
-          weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
-        })}
-        onPreview={(weight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(weight))}
-        step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
-        value={textRenderedWeight}
       />
       <RangeControl
         formatValue={(value) => `${value.toFixed(2)}em`}
@@ -6167,8 +6218,10 @@ export default function ShaderLabStudio({
       kind,
       lineHeight: 0.95,
       name: sticker ? `Text sticker ${nextNumber}` : `Text ${nextNumber}`,
+      strikethrough: false,
       tracking: -0.06,
       transform: { ...DEFAULT_TEXT_LAYER_TRANSFORM, ...placement },
+      underline: false,
       value: sticker
         ? nextNumber === 1 ? identity.shortName : `Sticker ${nextNumber}`
         : nextNumber === 1 ? identity.name : `Text ${nextNumber}`,
@@ -8511,6 +8564,10 @@ export default function ShaderLabStudio({
                 fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
                 letterSpacing: `${textLayer.tracking}em`,
                 opacity: textAppearance.opacity,
+                textDecorationColor: textAppearance.color,
+                textDecorationLine: designLabTextDecorationLine(textLayer),
+                textDecorationThickness: 'from-font',
+                textUnderlineOffset: '0.12em',
               }}
               type='text'
               value={textLayer.value}

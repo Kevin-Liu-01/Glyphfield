@@ -393,7 +393,13 @@ describe('Design Lab canvas document adapter', () => {
   it('round-trips explicit pixel size and italic text across artboards without flattening scale or upgrading legacy text', () => {
     const input = designLabInput();
     const legacy = { ...input.textLayers[0]!, id: 'text-legacy', name: 'Legacy title' };
-    const explicit = { ...input.textLayers[0]!, fontSize: 12, fontStyle: 'italic' };
+    const explicit = {
+      ...input.textLayers[0]!,
+      fontSize: 12,
+      fontStyle: 'italic',
+      strikethrough: true,
+      underline: true,
+    };
     const scaled = {
       ...explicit,
       id: 'text-scaled',
@@ -418,11 +424,15 @@ describe('Design Lab canvas document adapter', () => {
     expect(document.elements['text-title']?.data).toMatchObject(explicit);
     expect(document.elements['text-legacy']?.data).not.toHaveProperty('fontSize');
     expect(document.elements['text-legacy']?.data).not.toHaveProperty('fontStyle');
+    expect(document.elements['text-legacy']?.data).not.toHaveProperty('underline');
+    expect(document.elements['text-legacy']?.data).not.toHaveProperty('strikethrough');
     const restored = parseDesignLabCanvasDocument(source);
     const composition = restored.composition as { textLayers: object[] };
     expect(composition.textLayers[0]).toMatchObject(explicit);
     expect(composition.textLayers[1]).not.toHaveProperty('fontSize');
     expect(composition.textLayers[1]).not.toHaveProperty('fontStyle');
+    expect(composition.textLayers[1]).not.toHaveProperty('underline');
+    expect(composition.textLayers[1]).not.toHaveProperty('strikethrough');
     expect(restored.workspace).toEqual(input.workspace);
   });
 });
