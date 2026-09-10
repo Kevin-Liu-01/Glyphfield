@@ -7933,7 +7933,6 @@ export default function ShaderLabStudio({
         duplicateLabel='Duplicate active artboard'
         extraActions={(
           <>
-            <Button aria-label='Tidy and fit artboards' onClick={arrangeArtboards} size='icon-sm' title='Tidy and fit artboards' type='button' variant='outline'><LayoutGrid aria-hidden='true' /></Button>
             <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'>?</Button>
           </>
         )}
@@ -8734,6 +8733,7 @@ export default function ShaderLabStudio({
               ...designArtboardDisplaySize(artboard.snapshot.dimensions),
               active: artboard.id === activeArtboardId,
             }))}
+            onArrangeArtboards={arrangeArtboards}
             onDeselect={deselectCanvasLayers}
             stageClassName='design-artboard-viewport-stage'
             toolId={tool.id}

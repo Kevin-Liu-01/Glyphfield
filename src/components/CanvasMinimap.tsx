@@ -2,7 +2,7 @@
 
 import { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { useGT } from 'gt-next';
-import { Minus, PanelsTopLeft } from '@/components/ui/SolidIcons';
+import { LayoutGrid, Maximize2, Minus, PanelsTopLeft, Target } from '@/components/ui/SolidIcons';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { canvasMinimapBounds, canvasMinimapPoint, canvasVisibleRect, centerCanvasNavigation,
@@ -14,12 +14,13 @@ type Drag = { pointerId: number; bounds: CanvasNavigationRect; screen: CanvasNav
   offset: { x: number; y: number }; point?: { x: number; y: number } };
 
 /** Geometry only: no cloned artboards, shader canvases, image decoding or polling. */
-export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSelected, ref }: {
+export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSelected, onArrange, ref }: {
   items: readonly CanvasNavigationItem[];
   view: CanvasNavigationView;
   onPan: (pan: { x: number; y: number }, commit: boolean) => void;
   onFitAll: () => void;
   onCenterSelected: () => void;
+  onArrange?: () => void;
   ref?: Ref<CanvasMinimapHandle>;
 }) {
   const gt = useGT();
@@ -154,9 +155,18 @@ export default function CanvasMinimap({ items, view, onPan, onFitAll, onCenterSe
           <title>{gt('Current viewport')}</title>
         </rect>
       </svg>
-      <div className={styles.actions}>
-        <button type='button' onClick={onFitAll}>{gt('Fit all')}</button>
-        <button type='button' aria-label={gt('Center selected artboard')} disabled={!items.some((item) => item.active)} onClick={onCenterSelected}>{gt('Center selected')}</button>
+      <div className={styles.actions} role='group' aria-label={gt('Artboard map actions')}>
+        <button type='button' aria-label={gt('Fit all')} title={gt('Fit all artboards in view')} onClick={onFitAll}>
+          <Maximize2 aria-hidden='true' /><span>{gt('Fit all')}</span>
+        </button>
+        <button type='button' aria-label={gt('Center selected artboard')} title={gt('Center selected artboard without changing zoom')}
+          disabled={!items.some((item) => item.active)} onClick={onCenterSelected}>
+          <Target aria-hidden='true' /><span>{gt('Center selected')}</span>
+        </button>
+        {onArrange && <button type='button' aria-label={gt('Tidy and fit artboards')}
+          title={gt('Arrange artboards in a grid and fit them in view')} onClick={onArrange}>
+          <LayoutGrid aria-hidden='true' /><span>{gt('Tidy')}</span>
+        </button>}
       </div>
     </>}
   </aside>;

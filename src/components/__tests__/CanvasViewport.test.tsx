@@ -349,6 +349,35 @@ describe('canvas map and forced pan integration', () => {
     expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('50%');
   });
 
+  it('forwards optional Tidy into the map and keeps Fit and Center view-only', async () => {
+    expect(host.querySelector('[aria-label="Tidy and fit artboards"]')).toBeNull();
+    const onArrangeArtboards = vi.fn();
+    const onDeselect = vi.fn();
+    const items = [{ id: 'one', label: 'Selected', x: 2000, y: 500, width: 300, height: 400, active: true }];
+    const originalItems = JSON.stringify(items);
+    await act(() => root.render(<CanvasViewport identityId='navigation-test' toolId='material' initialZoom={50}
+      navigationItems={items} onArrangeArtboards={onArrangeArtboards} onDeselect={onDeselect}>
+      <div className='editable-canvas-layer'>Editable contents</div>
+    </CanvasViewport>));
+    const map = host.querySelector<HTMLElement>('[role="region"][aria-label="Canvas map"]')!;
+    const tidy = map.querySelector<HTMLButtonElement>('[aria-label="Tidy and fit artboards"]')!;
+    expect(tidy).not.toBeNull();
+    expect(host.querySelector('.canvas-viewport-toolbar [aria-label="Tidy and fit artboards"]')).toBeNull();
+    await act(() => map.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!.click());
+    expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('50%');
+    await act(() => map.querySelector<HTMLButtonElement>('[aria-label="Fit all"]')!.click());
+    expect(host.querySelector('.canvas-zoom-value')?.textContent).not.toBe('50%');
+    expect(onArrangeArtboards).not.toHaveBeenCalled();
+    expect(JSON.stringify(items)).toBe(originalItems);
+    const viewBeforeTidy = stage().style.transform;
+    await pointer('pointerdown', tidy, 20, 20);
+    await act(() => tidy.click());
+    expect(onArrangeArtboards).toHaveBeenCalledOnce();
+    expect(onDeselect).not.toHaveBeenCalled();
+    expect(stage().style.transform).toBe(viewBeforeTidy);
+    expect(scroll().hasAttribute('data-panning')).toBe(false);
+  });
+
   it.each(['space', 'middle'])('starts %s panning before editable children can swallow it', async (mode) => {
     const child = host.querySelector('.editable-canvas-layer')!;
     scroll().focus();

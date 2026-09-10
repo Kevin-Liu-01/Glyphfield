@@ -8,11 +8,11 @@ function source(path: string) {
 }
 
 describe('shared Studio control layout', () => {
-  it('reserves a compact autosave slot so state changes do not move header controls', () => {
+  it('keeps the header autosave indicator compact and stable across saving states', () => {
     const styles = source('src/components/DesignVersionControls.module.css');
 
-    expect(styles).toMatch(/\.status\s*\{[^}]*flex: 0 0 112px;/);
-    expect(styles).toMatch(/@media \(max-width: 900px\)\s*\{[\s\S]*?\.headerControls \.status\s*\{[^}]*flex-basis: 32px;/);
+    expect(styles).toMatch(/\.status\[data-compact='true'\]\s*\{[^}]*flex: 0 0 24px;[^}]*width: 24px;[^}]*height: 32px;/);
+    expect(styles).not.toMatch(/\.headerControls \.status small\s*\{[^}]*display: none;/);
   });
 
   it('flashes semantic solid icons only while the shared sidebar signal panel is hovered', () => {

@@ -54,6 +54,14 @@
   flex: 0 0 auto;
 }
 
+.status[data-compact='true'] {
+  flex: 0 0 24px;
+  width: 24px;
+  max-width: 24px;
+  height: 32px;
+  justify-content: center;
+}
+
 .status[data-pending='true'] > svg {
   color: #7058ff;
 }
@@ -343,18 +351,6 @@
 
   .headerControls .trigger .currentName,
   .headerControls .trigger > svg:last-child {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .headerControls .status {
-    flex-basis: 32px;
-    width: 32px;
-    justify-content: center;
-  }
-
-  .headerControls .status small {
     display: none;
   }
 }

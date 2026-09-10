@@ -139,6 +139,7 @@ export default function CanvasViewport({
   maxZoom = 200,
   minZoom = 40,
   navigationItems,
+  onArrangeArtboards,
   onDeselect,
   stageClassName = '',
   toolId,
@@ -160,6 +161,7 @@ export default function CanvasViewport({
   maxZoom?: number;
   minZoom?: number;
   navigationItems?: readonly CanvasNavigationItem[];
+  onArrangeArtboards?: () => void;
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
@@ -567,7 +569,7 @@ export default function CanvasViewport({
         ) : null}
       </div>
       <OptionalCanvasMinimap ref={minimapRef} items={navigationItems} view={navigationView}
-        onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} />
+        onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} onArrange={onArrangeArtboards} />
       {actionHistory && historyOpen ? (
         <aside aria-label={gt('Action history')} className='canvas-action-history' data-canvas-selection-preserve ref={historySurfaceRef} role='dialog'>
           <header>

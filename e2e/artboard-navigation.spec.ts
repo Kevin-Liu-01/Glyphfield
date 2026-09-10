@@ -50,6 +50,29 @@ async function workspace(page: Page) {
   return page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.workspace);
 }
 
+async function openCanvasMap(page: Page) {
+  const map = page.getByRole('region', { name: 'Canvas map', exact: true });
+  await expect(map).toBeVisible();
+  if (await map.getAttribute('data-collapsed') === 'true') {
+    await map.getByRole('button', { name: 'Show artboard map', exact: true }).click();
+  }
+  await expect(map.getByRole('group', { name: 'Artboard map actions', exact: true })).toBeVisible();
+  return map;
+}
+
+async function expectArtboardsInView(page: Page) {
+  await expect.poll(() => page.getByRole('region', { name: 'Canvas viewport', exact: true }).evaluate((viewport) => {
+    const view = viewport.getBoundingClientRect();
+    const boards = Array.from(viewport.querySelectorAll('.design-artboard-shell'));
+    return boards.length > 0 && boards.every((board) => {
+      const bounds = board.getBoundingClientRect();
+      return bounds.width > 0 && bounds.height > 0
+        && bounds.left >= view.left - 1 && bounds.right <= view.right + 1
+        && bounds.top >= view.top - 1 && bounds.bottom <= view.bottom + 1;
+    });
+  })).toBe(true);
+}
+
 test('Design Lab keeps saved versions in the header and canvas editing controls local', async ({ page }) => {
   await prepareBoards(page);
   const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
@@ -60,6 +83,29 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
   const versionsGroup = header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Design saving and versions', exact: true });
   await expect(versionsGroup).toBeVisible();
+  const status = versionsGroup.locator('[data-design-version-status]');
+  const history = versionsGroup.locator('button[title="Open saved designs"]');
+  await expect(status).toHaveCount(1);
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toHaveAttribute('data-compact', 'true');
+  await expect(status).toHaveCSS('width', '24px');
+  await expect(status).toHaveCSS('height', '32px');
+  await expect(status.locator('small')).toHaveClass('sr-only');
+  await expect(status).toHaveText('Autosaved');
+  await expect(history).toHaveAccessibleDescription('Autosaved draft: Autosaved');
+  const compactStatus = await status.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const previous = element.previousElementSibling!;
+    const picker = previous.getBoundingClientRect();
+    return { followsPicker: previous.getAttribute('aria-describedby') === element.id,
+      gap: bounds.left - picker.right, trailingGap: element.parentElement!.getBoundingClientRect().right - bounds.right };
+  });
+  expect(compactStatus.followsPicker).toBe(true);
+  expect(compactStatus.gap).toBeGreaterThanOrEqual(0);
+  expect(compactStatus.gap).toBeLessThanOrEqual(8);
+  expect(compactStatus.trailingGap).toBeLessThanOrEqual(1);
+  const sourceButton = header.getByRole('button', { name: 'Edit source code', exact: true });
+  const sourceButtonBeforeEdit = (await sourceButton.boundingBox())!;
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export design', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toHaveCount(0);
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toBeVisible();
@@ -74,6 +120,10 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   await expect(name).toHaveValue('Toolbar board');
   await page.keyboard.press('Escape');
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toContainText('Toolbar board');
+  await expect(status).toHaveText('Autosaved');
+  const sourceButtonAfterEdit = (await sourceButton.boundingBox())!;
+  expect(Math.abs(sourceButtonAfterEdit.x - sourceButtonBeforeEdit.x)).toBeLessThan(1);
+  expect(Math.abs(sourceButtonAfterEdit.y - sourceButtonBeforeEdit.y)).toBeLessThan(1);
   await versionsGroup.getByRole('button', { name: 'Save design', exact: true }).click();
   await expect(versionsGroup.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
   await versionsGroup.locator('button[title="Open saved designs"]').click();
@@ -84,6 +134,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   await page.keyboard.press('Escape');
   await expect(versions).toHaveCount(0);
   await expect(versionsGroup.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+  await expect(history).toHaveAccessibleDescription(/Toolbar checkpoint: Saved/);
 
   await bar.getByRole('button', { name: 'Add blank artboard', exact: true }).click();
   await expect(page.locator('.design-artboard-shell')).toHaveCount(3);
@@ -104,6 +155,8 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   for (const width of [1440, 1100, 780]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(bar).toBeVisible();
+    await expect(status).toHaveCSS('width', '24px');
+    await expect(status).toHaveCSS('height', '32px');
     const bounds = (await bar.boundingBox())!;
     const actions = (await bar.locator('[data-slot="artboard-end"]').boundingBox())!;
     const scrollable = await bar.evaluate((element) => element.scrollWidth > element.clientWidth);
@@ -113,7 +166,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
     } else {
       expect(bounds.x + bounds.width - (actions.x + actions.width)).toBeLessThan(12);
     }
-    for (const label of ['Add blank artboard', 'Duplicate active artboard', 'Delete active artboard', 'Tidy and fit artboards', 'Artboard tutorial']) {
+    for (const label of ['Add blank artboard', 'Duplicate active artboard', 'Delete active artboard', 'Artboard tutorial']) {
       const button = bar.getByRole('button', { name: label, exact: true });
       // Phone-width canvases keep one row; every command remains reachable.
       if (scrollable) await button.scrollIntoViewIfNeeded();
@@ -123,6 +176,19 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
       expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
       expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
     }
+    await expect(bar.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(0);
+    const map = await openCanvasMap(page);
+    await expect(map.getByRole('group', { name: 'Artboard map actions', exact: true })
+      .getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toBeVisible();
+    await expect(map.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveText('Tidy');
+    const mapButtons = await map.getByRole('group', { name: 'Artboard map actions', exact: true })
+      .getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON()));
+    expect(mapButtons).toHaveLength(3);
+    for (const button of mapButtons) {
+      expect(Math.abs(button.y - mapButtons[0].y)).toBeLessThan(1);
+      expect(Math.abs(button.width - mapButtons[0].width)).toBeLessThan(1);
+    }
+    await expect(page.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(1);
     const viewBox = (await viewControls.boundingBox())!;
     expect(viewBox.x).toBeGreaterThanOrEqual(0);
     expect(viewBox.x + viewBox.width).toBeLessThanOrEqual(width);
@@ -183,8 +249,7 @@ test('inactive artboard drags from its surface, then a first content click edits
 test('minimap navigation pans the view without moving artboards and centers the active board', async ({ page }) => {
   await prepareBoards(page);
   const before = await workspace(page);
-  const map = page.getByRole('region', { name: 'Canvas map', exact: true });
-  await expect(map).toBeVisible();
+  await openCanvasMap(page);
   const surface = page.getByRole('slider', { name: 'Navigate canvas map', exact: true });
   const view = page.locator('.canvas-viewport-stage.design-artboard-viewport-stage');
   const initial = await view.evaluate((element) => element.style.transform);
@@ -198,6 +263,67 @@ test('minimap navigation pans the view without moving artboards and centers the 
   const viewport = (await page.getByRole('region', { name: 'Canvas viewport', exact: true }).boundingBox())!;
   expect(Math.abs(board.x + board.width / 2 - viewport.x - viewport.width / 2)).toBeLessThan(3);
   expect(Math.abs(board.y + board.height / 2 - viewport.y - viewport.height / 2)).toBeLessThan(3);
+});
+
+test('Canvas map Fit all and Center selected are view-only while Tidy rearranges, fits, and undoes board geometry', async ({ page }) => {
+  await prepareBoards(page);
+  await page.evaluate(async () => {
+    const studio = window.glyphfield!.studio;
+    const source = JSON.parse(studio.readSource() as string);
+    const boards = source.metadata.designLab.workspace.artboards;
+    Object.assign(boards[0], { x: 500, y: 200 });
+    Object.assign(boards[1], { x: 1950, y: 1150 });
+    await studio.applySource(source);
+  });
+  const before = await stableWorkspace(page);
+  const map = await openCanvasMap(page);
+  const actions = map.getByRole('group', { name: 'Artboard map actions', exact: true });
+  const viewControls = page.getByRole('group', { name: 'Canvas zoom', exact: true });
+  const stage = page.locator('.canvas-viewport-stage.design-artboard-viewport-stage');
+  const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
+  await expect(bar.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Tidy and fit artboards', exact: true })).toHaveCount(1);
+
+  // Start zoomed in so Fit all must visibly change the viewport, not just no-op.
+  await viewControls.locator('button.canvas-zoom-value').click();
+  await expect.poll(() => canvasZoom(page)).toBe(1);
+  await actions.getByRole('button', { name: 'Fit all', exact: true }).click();
+  await expectArtboardsInView(page);
+  expect(await canvasZoom(page)).toBeLessThan(1);
+  expect(await stableWorkspace(page)).toEqual(before);
+
+  const fittedZoom = await canvasZoom(page);
+  const fittedTransform = await stage.evaluate((element) => element.style.transform);
+  await actions.getByRole('button', { name: 'Center selected artboard', exact: true }).click();
+  await expect.poll(() => stage.evaluate((element) => element.style.transform)).not.toBe(fittedTransform);
+  await expect.poll(async () => {
+    const board = (await page.locator('.design-artboard-shell[data-active="true"]').boundingBox())!;
+    const view = (await page.getByRole('region', { name: 'Canvas viewport', exact: true }).boundingBox())!;
+    return Math.max(Math.abs(board.x + board.width / 2 - view.x - view.width / 2),
+      Math.abs(board.y + board.height / 2 - view.y - view.height / 2));
+  }).toBeLessThan(3);
+  expect(await canvasZoom(page)).toBe(fittedZoom);
+  expect(await stableWorkspace(page)).toEqual(before);
+
+  // Tidy is the one document action in this group: it changes board positions,
+  // preserves their contents, and fits the newly arranged bounds automatically.
+  await viewControls.locator('button.canvas-zoom-value').click();
+  await actions.getByRole('button', { name: 'Tidy and fit artboards', exact: true }).click();
+  await expect.poll(async () => {
+    const state = await stableWorkspace(page);
+    return state.artboards.map(({ x, y }: { x: number; y: number }) => ({ x, y }));
+  }).not.toEqual(before.artboards.map(({ x, y }: { x: number; y: number }) => ({ x, y })));
+  const arranged = await stableWorkspace(page);
+  expect(arranged.activeArtboardId).toBe(before.activeArtboardId);
+  expect(arranged.artboards[0].y).toBe(arranged.artboards[1].y);
+  expect(arranged.artboards[1].x).toBeGreaterThan(arranged.artboards[0].x);
+  expect(arranged.artboards.map(({ x: _x, y: _y, ...board }: { x: number; y: number }) => board))
+    .toEqual(before.artboards.map(({ x: _x, y: _y, ...board }: { x: number; y: number }) => board));
+  await expectArtboardsInView(page);
+  expect(await canvasZoom(page)).toBeLessThan(1);
+
+  await viewControls.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(() => stableWorkspace(page)).toEqual(before);
 });
 
 async function stableWorkspace(page: Page) {
@@ -288,8 +414,8 @@ test('double-clicking inactive artboard content activates and selects that text 
 test('minimap dragging keeps fixed map bounds and does not mutate zoom or source', async ({ page }) => {
   await prepareBoards(page);
   const before = await stableWorkspace(page);
+  const map = await openCanvasMap(page);
   const surface = page.getByRole('slider', { name: 'Navigate canvas map', exact: true });
-  const map = page.getByRole('region', { name: 'Canvas map', exact: true });
   const stage = page.locator('.canvas-viewport-stage.design-artboard-viewport-stage');
   const initial = await stage.evaluate((element) => element.style.transform);
   const zoom = await canvasZoom(page);

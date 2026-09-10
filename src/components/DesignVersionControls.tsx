@@ -1,7 +1,7 @@
 'use client';
 
 import { Books, Check, ChevronDown, CloudArrowUp, CloudCheck, CloudWarning, Copy, GitFork, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from '@/components/ui/Button';
@@ -270,6 +270,7 @@ function DesignVersionTrigger({
   visibleState,
   collectionLabel,
   draftLabel,
+  descriptionId,
 }: {
   activeDesign: SavedDesign | null;
   autosaveState: CanvasDocumentAutosaveState;
@@ -280,11 +281,13 @@ function DesignVersionTrigger({
   visibleState: string;
   collectionLabel: string;
   draftLabel: string;
+  descriptionId?: string;
 }) {
   const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
   return (
     <button
       aria-label={compact ? collectionLabel : `${collectionLabel}: ${activeDesign?.name ?? draftLabel}`}
+      aria-describedby={descriptionId}
       aria-expanded={open}
       className={styles.trigger}
       data-compact={compact || undefined}
@@ -764,7 +767,7 @@ export function DesignVersionFileActions() {
 }
 
 /** Read-only save state for the shared header-owned design file controls. */
-export function DesignVersionStatus({ className = '' }: { className?: string }) {
+export function DesignVersionStatus({ className = '', compact = false, id }: { className?: string; compact?: boolean; id?: string }) {
   const state = useDesignVersionState();
   const { activeDesign, autosaveState, draftLabel, visibleState } = state.trigger;
   const name = activeDesign?.name ?? draftLabel;
@@ -777,23 +780,25 @@ export function DesignVersionStatus({ className = '' }: { className?: string }) 
       ? CloudArrowUp
       : CloudCheck;
   return <span aria-label={`${name}: ${label}`} className={`${styles.status} ${className}`.trim()}
+    id={id} data-compact={compact || undefined}
     data-design-version-status data-error={Boolean(error) || autosaveState === 'error' || undefined}
     data-pending={pending || undefined}
     role='status' title={error || `${name}: ${label}`}>
     <StatusIcon aria-hidden='true' />
-    <small>{label}</small>
+    <small className={compact ? 'sr-only' : undefined}>{label}</small>
   </span>;
 }
 
 /** Autosave, checkpoint actions, and the saved-design library share one header cluster. */
 export function DesignVersionHeaderControls() {
   const state = useDesignVersionState();
+  const statusId = useId();
   return (
     <div className={`${styles.root} ${styles.headerControls}`} data-design-version-controls
       data-design-version-header-controls data-design-version-history data-layout='toolbar' ref={state.rootRef}>
-      <DesignVersionStatus />
       <DesignVersionActions {...state.actions} />
-      <DesignVersionTrigger {...state.trigger} />
+      <DesignVersionTrigger {...state.trigger} descriptionId={statusId} />
+      <DesignVersionStatus compact id={statusId} />
       <DesignVersionOverlay layout='toolbar' state={state} />
     </div>
   );

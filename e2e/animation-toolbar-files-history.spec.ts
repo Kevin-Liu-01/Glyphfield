@@ -111,6 +111,24 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   await expect(status).toContainText('Autosaved');
   const history = versionsGroup.locator('button[title="Open saved animations"]');
   await expect(history).toContainText('Autosaved animation');
+  await expect(status).toHaveCount(1);
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toHaveAttribute('data-compact', 'true');
+  await expect(status).toHaveCSS('width', '24px');
+  await expect(status).toHaveCSS('height', '32px');
+  await expect(status.locator('small')).toHaveClass('sr-only');
+  await expect(history).toHaveAccessibleDescription('Autosaved animation: Autosaved');
+  const compactStatus = await status.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const previous = element.previousElementSibling!;
+    const picker = previous.getBoundingClientRect();
+    return { followsPicker: previous.getAttribute('aria-describedby') === element.id,
+      gap: bounds.left - picker.right, trailingGap: element.parentElement!.getBoundingClientRect().right - bounds.right };
+  });
+  expect(compactStatus.followsPicker).toBe(true);
+  expect(compactStatus.gap).toBeGreaterThanOrEqual(0);
+  expect(compactStatus.gap).toBeLessThanOrEqual(8);
+  expect(compactStatus.trailingGap).toBeLessThanOrEqual(1);
   for (const name of ['Save animation', 'Fork animation', 'Clone animation']) {
     await expect(versionsGroup.getByRole('button', { name, exact: true })).toBeVisible();
   }
@@ -122,11 +140,17 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   const dock = studio.locator('.canvas-viewport-toolbar');
   await expect(dock.locator('button[title="Open saved animations"]')).toHaveCount(0);
   const original = await selectFrame(page, studio, 1, 'ALPHA');
+  const sourceButton = files.getByRole('button', { name: 'Edit source code', exact: true });
+  const sourceButtonBeforeEdit = (await sourceButton.boundingBox())!;
   const text = studio.getByRole('textbox', { name: 'Selected layer text', exact: true });
   await text.fill('OMEGA');
   await text.press('Tab');
   await expect.poll(async () => (await readState(page)).textFrames).toBe('OMEGA\nBETA');
   await expect.poll(async () => (await pixels(studio)).hash).not.toBe(original.hash);
+  await expect(status).toHaveText('Autosaved');
+  const sourceButtonAfterEdit = (await sourceButton.boundingBox())!;
+  expect(Math.abs(sourceButtonAfterEdit.x - sourceButtonBeforeEdit.x)).toBeLessThan(1);
+  expect(Math.abs(sourceButtonAfterEdit.y - sourceButtonBeforeEdit.y)).toBeLessThan(1);
   const edited = await pixels(studio);
   await dock.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await readState(page)).textFrames).toBe('ALPHA\nBETA');
@@ -152,6 +176,8 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   await expect(versions).toHaveCount(0);
   await expect(status).toContainText('Saved');
   await expect(history).toContainText('Motion checkpoint');
+  await expect(history).toHaveAccessibleDescription(/Motion checkpoint: Saved/);
+  await expect(status).toHaveCSS('width', '24px');
 });
 
 test('Animation downloads and reopens a real portable project with identical frame pixels, timing and private fonts in another project', async ({ page }) => {

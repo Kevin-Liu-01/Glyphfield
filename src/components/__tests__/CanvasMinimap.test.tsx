@@ -13,6 +13,7 @@ describe('lightweight canvas minimap', () => {
   const onPan = vi.fn();
   const onFitAll = vi.fn();
   const onCenterSelected = vi.fn();
+  const onArrange = vi.fn();
   const ref = createRef<CanvasMinimapHandle>();
   const view = { width: 800, height: 600, zoom: 100, pan: { x: 0, y: 0 } };
   const items = [{ id: 'one', label: 'Portrait', x: 20, y: 40, width: 300, height: 600, active: true },
@@ -84,6 +85,59 @@ describe('lightweight canvas minimap', () => {
     expect(map()).not.toBeNull();
     await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!.click());
     expect(onCenterSelected).toHaveBeenCalledOnce();
+  });
+
+  it('only exposes Tidy when supplied and routes each named action independently', async () => {
+    expect(host.querySelector('[aria-label="Tidy and fit artboards"]')).toBeNull();
+    await act(() => root.render(<CanvasMinimap items={items} view={view} onPan={onPan}
+      onFitAll={onFitAll} onCenterSelected={onCenterSelected} onArrange={onArrange} />));
+    const fit = host.querySelector<HTMLButtonElement>('[aria-label="Fit all"]')!;
+    const center = host.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!;
+    const tidy = host.querySelector<HTMLButtonElement>('[aria-label="Tidy and fit artboards"]')!;
+    expect(fit.textContent).toContain('Fit all');
+    expect(center.textContent).toContain('Center selected');
+    expect(tidy.textContent).toBe('Tidy');
+    const originalItems = JSON.stringify(items);
+    await act(() => fit.click());
+    expect(onFitAll).toHaveBeenCalledOnce();
+    expect(onCenterSelected).not.toHaveBeenCalled();
+    expect(onArrange).not.toHaveBeenCalled();
+    await act(() => center.click());
+    expect(onCenterSelected).toHaveBeenCalledOnce();
+    expect(onArrange).not.toHaveBeenCalled();
+    expect(JSON.stringify(items)).toBe(originalItems);
+    await act(() => tidy.click());
+    expect(onArrange).toHaveBeenCalledOnce();
+    expect(onFitAll).toHaveBeenCalledOnce();
+    expect(onCenterSelected).toHaveBeenCalledOnce();
+    expect(onPan).not.toHaveBeenCalled();
+  });
+
+  it('uses distinct decorative icons without replacing action names or adding tab stops', async () => {
+    await act(() => root.render(<CanvasMinimap items={items} view={view} onPan={onPan}
+      onFitAll={onFitAll} onCenterSelected={onCenterSelected} onArrange={onArrange} />));
+    const artwork = ['Fit all', 'Center selected artboard', 'Tidy and fit artboards'].map((label) => {
+      const button = host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+      expect(button.type).toBe('button');
+      expect(button.tabIndex).toBe(0);
+      const icon = button.querySelector('svg')!;
+      expect(icon).not.toBeNull();
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(icon.hasAttribute('tabindex')).toBe(false);
+      return icon.innerHTML;
+    });
+    expect(new Set(artwork).size).toBe(3);
+  });
+
+  it('disables Center without an active artboard while Fit all and optional Tidy remain independent', async () => {
+    await act(() => root.render(<CanvasMinimap items={items.map((item) => ({ ...item, active: false }))}
+      view={view} onPan={onPan} onFitAll={onFitAll} onCenterSelected={onCenterSelected} onArrange={onArrange} />));
+    const center = host.querySelector<HTMLButtonElement>('[aria-label="Center selected artboard"]')!;
+    expect(center.disabled).toBe(true);
+    await act(() => center.click());
+    expect(onCenterSelected).not.toHaveBeenCalled();
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Fit all"]')!.disabled).toBe(false);
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Tidy and fit artboards"]')!.disabled).toBe(false);
   });
 
   it('updates its viewport rectangle imperatively, retaining every artboard node', () => {

@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import DesignVersionControls, { DesignVersionFileActions, DesignVersionHeaderControls, DesignVersionHistory, DesignVersionProvider } from '@/components/DesignVersionControls';
+import DesignVersionControls, { DesignVersionFileActions, DesignVersionHeaderControls, DesignVersionHistory, DesignVersionProvider, DesignVersionStatus } from '@/components/DesignVersionControls';
 import { createCanvasDocument, serializeCanvasDocument } from '@/lib/canvasDocument';
 import * as savedDesignStore from '@/lib/savedDesigns';
 import {
@@ -150,7 +150,7 @@ describe('DesignVersionControls', () => {
     };
   }
 
-  it('groups truthful cloud save state, file actions, and a distinct saved-design library in the header', async () => {
+  it('places compact cloud save state after actions and the saved-design library with a stable accessible description', async () => {
     const renderStatus = async (autosaveState: 'saved' | 'saving' | 'error') => {
       await act(async () => {
         root.render(<DesignVersionProvider autosaveState={autosaveState} collectionLabel='Saved animations'
@@ -164,21 +164,70 @@ describe('DesignVersionControls', () => {
     const status = container.querySelector<HTMLElement>('header [role="status"]')!;
     expect(status.textContent).toBe('Autosaved');
     expect(status.getAttribute('aria-label')).toBe('Autosaved animation: Autosaved');
+    expect(status.title).toBe('Autosaved animation: Autosaved');
+    expect(status.getAttribute('data-compact')).toBe('true');
+    expect(status.querySelector('small')?.classList.contains('sr-only')).toBe(true);
+    expect(status.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(status.tabIndex).toBe(-1);
+    expect(status.hasAttribute('aria-hidden')).toBe(false);
+    expect(status.hasAttribute('data-pending')).toBe(false);
+    expect(status.hasAttribute('data-error')).toBe(false);
+    const savedIcon = status.querySelector('svg')?.innerHTML;
     const history = button('Saved animations: Autosaved animation');
     expect(history.textContent).toContain('Autosaved animation');
     expect(status.querySelector('svg')?.innerHTML).not.toBe(history.querySelector('svg')?.innerHTML);
     expect(container.querySelector('[data-design-version-header-controls]')).not.toBeNull();
-    expect(button('Save design')).not.toBeNull();
-    expect(button('Fork design')).not.toBeNull();
-    expect(button('Clone design')).not.toBeNull();
+    const actions = history.previousElementSibling;
+    expect(actions?.contains(button('Save design'))).toBe(true);
+    expect(actions?.contains(button('Fork design'))).toBe(true);
+    expect(actions?.contains(button('Clone design'))).toBe(true);
+    expect(actions?.previousElementSibling).toBeNull();
+    expect(history.nextElementSibling).toBe(status);
+    const descriptionId = history.getAttribute('aria-describedby');
+    expect(descriptionId).toBeTruthy();
+    expect(document.getElementById(descriptionId!)).toBe(status);
     await click(history);
     expect(document.querySelector('[role="region"]')).not.toBeNull();
     await renderStatus('saving');
-    expect(container.querySelector('header [role="status"]')?.textContent).toContain('Autosaving');
+    expect(container.querySelector('header [role="status"]')).toBe(status);
+    expect(history.getAttribute('aria-describedby')).toBe(descriptionId);
+    expect(document.getElementById(descriptionId!)?.textContent).toBe('Autosaving');
+    expect(status.getAttribute('aria-label')).toBe('Autosaved animation: Autosaving');
+    expect(status.title).toBe('Autosaved animation: Autosaving');
+    expect(status.getAttribute('data-pending')).toBe('true');
+    expect(status.querySelector('svg')?.innerHTML).not.toBe(savedIcon);
+    const savingIcon = status.querySelector('svg')?.innerHTML;
     await renderStatus('error');
-    expect(container.querySelector('header [role="status"]')?.textContent).toContain('Autosave failed');
-    expect(container.querySelector('[data-design-version-status]')?.getAttribute('data-error')).toBe('true');
+    expect(history.getAttribute('aria-describedby')).toBe(descriptionId);
+    expect(document.getElementById(descriptionId!)?.textContent).toBe('Autosave failed');
+    expect(status.getAttribute('aria-label')).toBe('Autosaved animation: Autosave failed');
+    expect(status.title).toBe('Autosaved animation: Autosave failed');
+    expect(status.getAttribute('data-error')).toBe('true');
+    expect(status.hasAttribute('data-pending')).toBe(false);
+    expect(status.querySelector('svg')?.innerHTML).not.toBe(savedIcon);
+    expect(status.querySelector('svg')?.innerHTML).not.toBe(savingIcon);
     expect(container.querySelector('header button[data-dirty]')?.getAttribute('data-dirty')).toBe('true');
+    await renderStatus('saved');
+    expect(history.getAttribute('aria-describedby')).toBe(descriptionId);
+    expect(document.getElementById(descriptionId!)?.textContent).toBe('Autosaved');
+    expect(status.hasAttribute('data-error')).toBe(false);
+    expect(status.hasAttribute('data-pending')).toBe(false);
+    expect(status.querySelector('svg')?.innerHTML).toBe(savedIcon);
+  });
+
+  it('keeps standalone save-state copy visible by default', async () => {
+    await act(async () => {
+      root.render(<DesignVersionProvider autosaveState='saved' draftLabel='Autosaved draft'
+        identityId='gt' onOpen={vi.fn()} source='{}' toolId='design-lab' workspaceLabel='Design Lab'>
+        <DesignVersionStatus />
+      </DesignVersionProvider>);
+      await settle();
+    });
+    const status = container.querySelector<HTMLElement>('[role="status"]')!;
+    expect(status.textContent).toBe('Autosaved');
+    expect(status.getAttribute('aria-label')).toBe('Autosaved draft: Autosaved');
+    expect(status.hasAttribute('data-compact')).toBe(false);
+    expect(status.querySelector('small')?.classList.contains('sr-only')).toBe(false);
   });
 
   it('shares one checkpoint owner across split history and file actions without rerendering workspace children', async () => {
