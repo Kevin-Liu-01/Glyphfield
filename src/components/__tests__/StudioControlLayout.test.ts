@@ -49,6 +49,23 @@ describe('shared Studio control layout', () => {
     expect(select).toContain("text-xs whitespace-nowrap");
   });
 
+  it('uses one compact typography and interaction contract across both Studio header rows', () => {
+    const button = source('src/components/ui/Button.tsx');
+    const designLab = source('src/components/ShaderLabStudio.tsx');
+    const studio = source('src/components/StudioApp.tsx');
+    const styles = source('src/app/globals.css');
+
+    expect(button).toContain("toolbar: \"h-9 gap-1.5 px-2.5 text-xs");
+    expect(button).toContain("'icon-toolbar': \"size-9 text-xs");
+    expect(button).toContain('font-[inherit]');
+    expect(studio).toContain("font: 'helvetica'");
+    expect(studio).toContain("size='toolbar'");
+    expect(studio).toContain("size='icon-toolbar'");
+    expect(styles).toMatch(/\.project-tabs\s*\{[\s\S]*?font-size: var\(--studio-toolbar-label-size\);/);
+    expect(designLab).toContain("leadingIcon={<Frame aria-hidden='true' />}");
+    expect(designLab).not.toContain('`${label} · ${width}px`');
+  });
+
   it('uses one shared label and value scale for range controls', () => {
     const label = source('src/components/StudioRangeLabel.tsx');
     const styles = source('src/app/globals.css');

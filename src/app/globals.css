@@ -3793,7 +3793,7 @@ body:has(.studio-app) {
 
 .app-navbar :is(button, a, kbd, [role='tab']),
 .brand-identity-nav button {
-  border-radius: var(--studio-corner-sm) !important;
+  border-radius: var(--radius) !important;
 }
 
 .app-navbar :is(.project-folder-popover, .appearance-popover),
@@ -5013,6 +5013,9 @@ body {
   overflow: visible;
   background: hsl(var(--background));
   isolation: isolate;
+  font-family: var(--font-sans);
+  font-size: var(--studio-toolbar-label-size);
+  line-height: 1;
 }
 
 .project-tabs::before {
@@ -5653,10 +5656,6 @@ html.light
 .project-tabs-actions {
   padding-right: 0.1rem;
   background: linear-gradient(90deg, transparent, hsl(var(--background)) 14%);
-}
-
-.project-tab-add {
-  height: 30px;
 }
 
 .project-action-button {

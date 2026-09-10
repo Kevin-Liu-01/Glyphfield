@@ -13,6 +13,7 @@
   padding-inline: 18px;
   background: hsl(var(--background) / 0.96);
   backdrop-filter: blur(16px);
+  font-family: inherit;
 }
 
 .identity,
@@ -113,7 +114,9 @@
   flex-shrink: 0;
   min-height: var(--studio-toolbar-control-height);
   max-height: var(--studio-toolbar-control-height);
+  font-family: inherit;
   font-size: var(--studio-toolbar-label-size);
+  line-height: 1;
   white-space: nowrap;
 }
 

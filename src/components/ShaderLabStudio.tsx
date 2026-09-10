@@ -24,6 +24,7 @@ import {
   Grid3X3,
   ImageDown,
   ImagePlus,
+  Info,
   Layers3,
   LayoutGrid,
   MonitorUp,
@@ -7873,13 +7874,14 @@ export default function ShaderLabStudio({
               ariaLabel='Export size preset'
               className='studio-export-preset'
               disabled={Boolean(exporting) || frameCapturePending}
+              leadingIcon={<Frame aria-hidden='true' />}
               onValueChange={(value) => updateExportSettings({ width: Number(value) })}
               options={[
                 ...EXPORT_WIDTH_PRESETS.map(({ label, width }) => ({
-                  label: `${label} · ${width}px`, value: String(width),
+                  label, value: String(width),
                 })),
                 ...(!EXPORT_WIDTH_PRESETS.some(({ width }) => width === normalizedExportSettings.width)
-                  ? [{ label: `Custom · ${normalizedExportSettings.width}px`, value: String(normalizedExportSettings.width) }]
+                  ? [{ label: 'Custom', value: String(normalizedExportSettings.width) }]
                   : []),
               ]}
               value={String(normalizedExportSettings.width)}
@@ -7933,7 +7935,7 @@ export default function ShaderLabStudio({
         duplicateLabel='Duplicate active artboard'
         extraActions={(
           <>
-            <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'>?</Button>
+            <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
           </>
         )}
         onAdd={() => addArtboard(false)}

@@ -15,6 +15,7 @@ import {
 import { T, useGT } from 'gt-next';
 import {
   BookOpen,
+  BriefcaseBusiness,
   Check,
   Copy,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
   Film,
   Folder,
   Grid3X3,
+  LayoutGrid,
   Monitor,
   Moon,
   Palette,
@@ -32,6 +34,7 @@ import {
   Save,
   Search,
   Settings2,
+  Sparkles,
   Sticker,
   Sun,
   Trash2,
@@ -151,7 +154,7 @@ type StudioAppearance = {
   canvas: 'dots' | 'grid' | 'plain';
   corners: 'rounded' | 'square';
   density: 'compact' | 'comfortable';
-  font: 'switzer' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
+  font: 'helvetica' | 'be-vietnam-pro' | 'schibsted-grotesk' | 'rethink-sans';
   motion: 'full' | 'reduced';
   theme: 'light' | 'dark' | 'system';
 };
@@ -163,18 +166,25 @@ const DEFAULT_APPEARANCE: StoredStudioAppearance = {
   canvas: 'dots',
   corners: 'rounded',
   density: 'comfortable',
-  font: 'switzer',
+  font: 'helvetica',
   motion: 'full',
 };
 
 type ResolvedTheme = 'light' | 'dark';
 
-const PROJECT_FOLDERS: readonly { id: ProjectFolderId; label: string }[] = [
-  { id: 'all', label: 'All projects' },
-  { id: 'templates', label: 'Templates' },
-  { id: 'local', label: 'My brands' },
-  { id: 'examples', label: 'Examples' },
+const PROJECT_FOLDERS: readonly { icon: typeof Grid3X3; id: ProjectFolderId; label: string }[] = [
+  { icon: Grid3X3, id: 'all', label: 'All projects' },
+  { icon: LayoutGrid, id: 'templates', label: 'Templates' },
+  { icon: BriefcaseBusiness, id: 'local', label: 'My brands' },
+  { icon: Sparkles, id: 'examples', label: 'Examples' },
 ];
+
+function normalizeStudioFont(value: unknown): StudioAppearance['font'] {
+  if (value === 'be-vietnam-pro' || value === 'schibsted-grotesk' || value === 'rethink-sans') {
+    return value;
+  }
+  return 'helvetica';
+}
 
 function identityBelongsToFolder(identity: BrandIdentity, folderId: ProjectFolderId): boolean {
   if (folderId === 'templates') return identity.kind === 'template';
@@ -289,6 +299,7 @@ function ProjectFolderMenu({
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeFolder = PROJECT_FOLDERS.find(({ id }) => id === activeFolderId)!;
+  const ActiveFolderIcon = activeFolder.icon;
   const folderProjects = identities.filter((identity) =>
     identityBelongsToFolder(identity, activeFolderId)
   );
@@ -301,12 +312,13 @@ function ProjectFolderMenu({
       <Button
         aria-expanded={open}
         aria-haspopup='menu'
-        className='project-folder-trigger h-8 gap-2 px-2.5'
+        className='project-folder-trigger'
         onClick={() => setOpen((current) => !current)}
+        size='toolbar'
         type='button'
         variant='outline'
       >
-        <Folder aria-hidden='true' />
+        <ActiveFolderIcon aria-hidden='true' />
         <span>{gt(activeFolder.label)}</span>
         <span className='project-folder-count'>{folderCounts[activeFolder.id]}</span>
         <ChevronDown aria-hidden='true' className={open ? 'rotate-180' : ''} />
@@ -317,27 +329,30 @@ function ProjectFolderMenu({
             <span><T>Project folders</T></span>
             <span>{folderCounts.all} <T>total</T></span>
           </div>
-          {PROJECT_FOLDERS.map((folder) => (
-            <button
-              aria-checked={activeFolderId === folder.id}
-              className='project-folder-option'
-              key={folder.id}
-              onClick={() => {
-                onSelect(folder.id);
-              }}
-              role='menuitemradio'
-              type='button'
-            >
-              <span className='project-folder-option-icon'>
-                {folder.id === 'all' ? <Grid3X3 aria-hidden='true' /> : <Folder aria-hidden='true' />}
-              </span>
-              <span>
-                <strong>{gt(folder.label)}</strong>
-                <small>{folderCounts[folder.id]} {folderCounts[folder.id] === 1 ? gt('brand') : gt('brands')}</small>
-              </span>
-              {activeFolderId === folder.id ? <Check aria-hidden='true' /> : null}
-            </button>
-          ))}
+          {PROJECT_FOLDERS.map((folder) => {
+            const FolderIcon = folder.icon;
+            return (
+              <button
+                aria-checked={activeFolderId === folder.id}
+                className='project-folder-option'
+                key={folder.id}
+                onClick={() => {
+                  onSelect(folder.id);
+                }}
+                role='menuitemradio'
+                type='button'
+              >
+                <span className='project-folder-option-icon'>
+                  <FolderIcon aria-hidden='true' />
+                </span>
+                <span>
+                  <strong>{gt(folder.label)}</strong>
+                  <small>{folderCounts[folder.id]} {folderCounts[folder.id] === 1 ? gt('brand') : gt('brands')}</small>
+                </span>
+                {activeFolderId === folder.id ? <Check aria-hidden='true' /> : null}
+              </button>
+            );
+          })}
           <div className='project-folder-popover-heading project-folder-projects-heading'>
             <span><T>Projects</T></span>
             <span><T>Click to open</T></span>
@@ -516,7 +531,7 @@ function AppearanceMenu({
                 onChange({ font: font as StudioAppearance['font'] })
               }
               options={[
-                { label: 'Helvetica Neue', value: 'switzer' },
+                { label: 'Helvetica Neue', value: 'helvetica' },
                 { label: 'Be Vietnam Pro', value: 'be-vietnam-pro' },
                 { label: 'Schibsted Grotesk', value: 'schibsted-grotesk' },
                 { label: 'Rethink Sans', value: 'rethink-sans' },
@@ -935,7 +950,12 @@ export default function StudioApp() {
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
   );
-  const resolvedAppearance: StudioAppearance = { ...DEFAULT_APPEARANCE, ...appearance, theme };
+  const resolvedAppearance: StudioAppearance = {
+    ...DEFAULT_APPEARANCE,
+    ...appearance,
+    font: normalizeStudioFont(appearance.font),
+    theme,
+  };
   const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
   const resolvedIdentities = useMemo(
@@ -1405,7 +1425,7 @@ export default function StudioApp() {
     return (
       <div
         aria-label={identity.name}
-        className={`project-tab relative flex items-center gap-2 border border-b-0 py-0 pr-1.5 pl-3 text-sm ${
+        className={`project-tab relative flex items-center gap-2 border border-b-0 py-0 pr-1.5 pl-3 text-xs ${
           selected
             ? 'border-border bg-background text-foreground'
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -1573,7 +1593,7 @@ export default function StudioApp() {
                   <T>No brands in this folder</T>
                 </span>
               ) : null}
-              <Button aria-label={gt('Add brand project')} className='project-tab-add mb-1.5 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-sm' type='button' variant='outline'>
+              <Button aria-label={gt('Add brand project')} className='project-tab-add mb-1.5 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-toolbar' type='button' variant='outline'>
                 <Plus aria-hidden='true' />
               </Button>
             </div>
@@ -1588,17 +1608,17 @@ export default function StudioApp() {
               <ChevronRight aria-hidden='true' />
             </button>
           </div>
-          <div className='project-tabs-actions ml-auto flex h-8 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
-            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='sm' title={gt('Duplicate project')} type='button' variant='outline'>
+          <div className='project-tabs-actions ml-auto flex h-9 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
+            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='toolbar' title={gt('Duplicate project')} type='button' variant='outline'>
               <Copy aria-hidden='true' />
               <span className='project-action-label'><T>Duplicate</T></span>
             </Button>
-            <Button aria-label={gt('Close other project tabs')} className='project-action-button' disabled={openIdentityIds.length <= 1} onClick={closeOtherIdentities} size='sm' title={gt('Close other tabs')} type='button' variant='outline'>
+            <Button aria-label={gt('Close other project tabs')} className='project-action-button' disabled={openIdentityIds.length <= 1} onClick={closeOtherIdentities} size='toolbar' title={gt('Close other tabs')} type='button' variant='outline'>
               <PanelTopClose aria-hidden='true' />
               <span className='project-action-label'><T>Close others</T></span>
             </Button>
             {!activeIdentity.builtIn ? (
-              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-sm' title={gt('Delete project')} type='button' variant='ghost'>
+              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-toolbar' title={gt('Delete project')} type='button' variant='ghost'>
                 <Trash2 aria-hidden='true' />
               </Button>
             ) : null}

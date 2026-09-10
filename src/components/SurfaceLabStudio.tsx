@@ -14,6 +14,7 @@ import {
   Grid3X3,
   ImageDown,
   ImagePlus,
+  Info,
   Layers3,
   RectangleHorizontal,
   RectangleVertical,
@@ -1730,7 +1731,7 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
           <Button aria-label='Export Playground PNG' disabled={exporting} onClick={exportPng} type='button'>
             <Download aria-hidden='true' /><span className='responsive-toolbar-label'><T>Export</T></span>
           </Button>
-          <Button aria-label='Open Playground tutorial' aria-pressed={playgroundTourOpen} onClick={() => setPlaygroundTourOpen((value) => !value)} size='icon' title='Playground tutorial' type='button' variant='outline'>?</Button>
+          <Button aria-label='Open Playground tutorial' aria-pressed={playgroundTourOpen} onClick={() => setPlaygroundTourOpen((value) => !value)} size='icon' title='Playground tutorial' type='button' variant='outline'><Info aria-hidden='true' /></Button>
           </>
         )}
         metadata='Build from material to finish'

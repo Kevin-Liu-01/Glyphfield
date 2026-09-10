@@ -45,7 +45,7 @@ export default function StudioSelect({
     >
       <Select.Trigger
         aria-label={ariaLabel}
-        className={`group flex h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-md border border-input bg-background px-3 text-left text-xs whitespace-nowrap text-foreground outline-none transition-colors hover:border-foreground/45 focus:border-foreground disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
+        className={`group flex h-9 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-md border border-input bg-background px-3 text-left font-[inherit] leading-none text-xs whitespace-nowrap text-foreground outline-none transition-[border-color,background-color,color,transform] hover:border-foreground/45 focus:border-foreground active:scale-[0.99] motion-reduce:active:transform-none disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
         data-studio-select='true'
         title={title}
       >
