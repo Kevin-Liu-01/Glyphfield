@@ -134,9 +134,11 @@ test('saved pixel typography survives reload, artboard duplication, ratio change
   await setTwelvePixelItalic(page);
   const before = (await typographySource(page)).text[0]!;
   const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
-  await bar.getByRole('button', { name: 'Save design', exact: true }).click();
-  await expect(bar.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
-  await expect(bar.locator('[aria-live="polite"]')).toContainText('autosaved');
+  const saving = page.getByRole('group', { name: 'Design saving and versions', exact: true });
+  await saving.getByRole('button', { name: 'Save design', exact: true }).click();
+  await expect(saving.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+  await expect(saving.locator('[data-design-version-status]')).toContainText('Saved');
+  await expect(bar.locator('[aria-live="polite"]')).toContainText('layer');
   await page.reload();
   await expect(page.locator('[data-testid="shader-lab-live-stage"] [data-canvas-editable]'))
     .toHaveText('Pixel typography');

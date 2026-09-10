@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Copy, GitFork, History, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
+import { Books, Check, ChevronDown, CloudArrowUp, CloudCheck, CloudWarning, Copy, GitFork, Plus, Save, Trash2 } from '@/components/ui/SolidIcons';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -284,18 +284,19 @@ function DesignVersionTrigger({
   const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
   return (
     <button
-      aria-label={compact ? collectionLabel : undefined}
+      aria-label={compact ? collectionLabel : `${collectionLabel}: ${activeDesign?.name ?? draftLabel}`}
       aria-expanded={open}
       className={styles.trigger}
       data-compact={compact || undefined}
+      data-dirty={String(stateIsDirty)}
+      data-state={visibleState}
       onClick={onToggle}
       title={`Open ${collectionLabel.toLocaleLowerCase()}`}
       type='button'
     >
-      <History aria-hidden='true' />
+      <Books aria-hidden='true' />
       {compact ? null : <>
         <span className={styles.currentName}>{activeDesign?.name ?? draftLabel}</span>
-        <span aria-label={visibleState} className={styles.stateDot} data-dirty={String(stateIsDirty)} />
         <ChevronDown aria-hidden='true' />
       </>}
     </button>
@@ -717,21 +718,28 @@ export function DesignVersionProvider({
   return <DesignVersionContext.Provider value={state}>{children}</DesignVersionContext.Provider>;
 }
 
-function DesignVersionHistoryContent({ children, compact, layout, state }: {
-  children?: ReactNode;
-  compact?: boolean;
+function DesignVersionOverlay({ layout, state }: {
   layout: 'panel' | 'toolbar';
   state: DesignVersionState;
 }) {
   return <>
-    <DesignVersionTrigger {...state.trigger} compact={compact} />
-    {children}
     {state.open ? (
       <DesignVersionsSurface anchorRef={state.rootRef} layout={layout} onDismiss={state.onDismiss}>
         <DesignVersionsPopover {...state.popover} />
       </DesignVersionsSurface>
     ) : null}
     <span aria-live='polite' className='sr-only'>{state.notice}</span>
+  </>;
+}
+
+function DesignVersionHistoryContent({ compact, layout, state }: {
+  compact?: boolean;
+  layout: 'panel' | 'toolbar';
+  state: DesignVersionState;
+}) {
+  return <>
+    <DesignVersionTrigger {...state.trigger} compact={compact} />
+    <DesignVersionOverlay layout={layout} state={state} />
   </>;
 }
 
@@ -755,31 +763,49 @@ export function DesignVersionFileActions() {
   return <DesignVersionActions {...state.actions} />;
 }
 
-/** Read-only header status; saved-version interactions remain in the canvas dock. */
+/** Read-only save state for the shared header-owned design file controls. */
 export function DesignVersionStatus({ className = '' }: { className?: string }) {
   const state = useDesignVersionState();
-  const { activeDesign, autosaveState, dirty, draftLabel } = state.trigger;
+  const { activeDesign, autosaveState, draftLabel, visibleState } = state.trigger;
   const name = activeDesign?.name ?? draftLabel;
   const error = state.popover.error;
-  const label = error ? 'Save failed' : state.trigger.visibleState;
-  const stateIsDirty = activeDesign ? dirty : autosaveState === 'error';
-  const showLabel = activeDesign || label !== 'Autosaved';
+  const label = error ? 'Save failed' : visibleState;
+  const pending = !error && autosaveState !== 'error' && label !== 'Autosaved' && label !== 'Saved';
+  const StatusIcon = error || autosaveState === 'error'
+    ? CloudWarning
+    : pending
+      ? CloudArrowUp
+      : CloudCheck;
   return <span aria-label={`${name}: ${label}`} className={`${styles.status} ${className}`.trim()}
-    data-design-version-status data-error={Boolean(error) || state.trigger.autosaveState === 'error' || undefined}
+    data-design-version-status data-error={Boolean(error) || autosaveState === 'error' || undefined}
+    data-pending={pending || undefined}
     role='status' title={error || `${name}: ${label}`}>
-    <span className={styles.currentName}>{name}</span>
-    <span aria-hidden='true' className={styles.stateDot} data-dirty={String(stateIsDirty)} />
-    {showLabel ? <small>{label}</small> : null}
+    <StatusIcon aria-hidden='true' />
+    <small>{label}</small>
   </span>;
+}
+
+/** Autosave, checkpoint actions, and the saved-design library share one header cluster. */
+export function DesignVersionHeaderControls() {
+  const state = useDesignVersionState();
+  return (
+    <div className={`${styles.root} ${styles.headerControls}`} data-design-version-controls
+      data-design-version-header-controls data-design-version-history data-layout='toolbar' ref={state.rootRef}>
+      <DesignVersionStatus />
+      <DesignVersionActions {...state.actions} />
+      <DesignVersionTrigger {...state.trigger} />
+      <DesignVersionOverlay layout='toolbar' state={state} />
+    </div>
+  );
 }
 
 function CombinedDesignVersionControls() {
   const state = useDesignVersionState();
   return (
     <div className={styles.root} data-layout={state.layout} ref={state.rootRef} data-design-version-controls>
-      <DesignVersionHistoryContent layout={state.layout} state={state}>
-        <DesignVersionFileActions />
-      </DesignVersionHistoryContent>
+      <DesignVersionTrigger {...state.trigger} />
+      <DesignVersionFileActions />
+      <DesignVersionOverlay layout={state.layout} state={state} />
     </div>
   );
 }

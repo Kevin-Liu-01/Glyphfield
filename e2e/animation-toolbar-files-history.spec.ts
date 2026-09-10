@@ -98,7 +98,7 @@ async function selectFrame(page: Page, studio: Locator, index: number, text: str
   return result;
 }
 
-test('Animation keeps file actions and status in the header, with real Undo, Redo and compact saved history in the canvas dock', async ({ page }) => {
+test('Animation keeps saving and versions together in the header, with canvas edit history in the dock', async ({ page }) => {
   const studio = await prepareAnimation(page);
   const header = studio.locator('[data-studio-tool-header]');
   const actions = header.locator('[data-slot="actions"]');
@@ -106,17 +106,21 @@ test('Animation keeps file actions and status in the header, with real Undo, Red
   for (const name of ['Open project file', 'Download project file', 'Edit source code']) {
     await expect(files.getByRole('button', { name, exact: true })).toBeVisible();
   }
-  const status = actions.locator('[data-design-version-status]');
-  await expect(status).toContainText('Autosaved animation');
+  const versionsGroup = actions.getByRole('group', { name: 'Animation saving and versions', exact: true });
+  const status = versionsGroup.locator('[data-design-version-status]');
+  await expect(status).toContainText('Autosaved');
+  const history = versionsGroup.locator('button[title="Open saved animations"]');
+  await expect(history).toContainText('Autosaved animation');
+  for (const name of ['Save animation', 'Fork animation', 'Clone animation']) {
+    await expect(versionsGroup.getByRole('button', { name, exact: true })).toBeVisible();
+  }
   const output = actions.getByRole('group', { name: 'Export animation', exact: true });
   const statusBox = (await status.boundingBox())!;
   const exportBox = (await output.boundingBox())!;
   expect(statusBox.x + statusBox.width).toBeLessThanOrEqual(exportBox.x + 1);
 
   const dock = studio.locator('.canvas-viewport-toolbar');
-  const history = dock.getByRole('button', { name: 'Saved animations', exact: true });
-  await expect(history).toHaveAttribute('data-compact', 'true');
-  await expect(header.getByRole('button', { name: 'Saved animations', exact: true })).toHaveCount(0);
+  await expect(dock.locator('button[title="Open saved animations"]')).toHaveCount(0);
   const original = await selectFrame(page, studio, 1, 'ALPHA');
   const text = studio.getByRole('textbox', { name: 'Selected layer text', exact: true });
   await text.fill('OMEGA');
@@ -132,8 +136,9 @@ test('Animation keeps file actions and status in the header, with real Undo, Red
   await expect.poll(() => pixels(studio)).toEqual(edited);
 
   const artboards = studio.getByRole('region', { name: 'Animation artboards', exact: true });
-  await artboards.getByRole('button', { name: 'Save animation', exact: true }).click();
-  await expect(artboards.getByRole('button', { name: 'Animation saved', exact: true })).toBeDisabled();
+  await expect(artboards.getByRole('button', { name: 'Save animation', exact: true })).toHaveCount(0);
+  await versionsGroup.getByRole('button', { name: 'Save animation', exact: true }).click();
+  await expect(versionsGroup.getByRole('button', { name: 'Animation saved', exact: true })).toBeDisabled();
   await dock.getByRole('button', { name: 'Action history', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Action history', exact: true })).toBeVisible();
   await history.click();
@@ -145,8 +150,8 @@ test('Animation keeps file actions and status in the header, with real Undo, Red
   await name.press('Tab');
   await page.keyboard.press('Escape');
   await expect(versions).toHaveCount(0);
-  await expect(status).toContainText('Motion checkpoint');
-  await expect(history).toHaveAttribute('data-compact', 'true');
+  await expect(status).toContainText('Saved');
+  await expect(history).toContainText('Motion checkpoint');
 });
 
 test('Animation downloads and reopens a real portable project with identical frame pixels, timing and private fonts in another project', async ({ page }) => {

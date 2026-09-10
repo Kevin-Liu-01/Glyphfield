@@ -85,7 +85,7 @@ test('project download and real file chooser preserve editable artboards, embedd
   expect(restored.metadata.designLab.identity.fonts[0].family).toMatch(/^Glyphfield Project /);
   expect(restored.metadata.designLab.identity.fonts[0].path).toBe(portable.metadata.designLab.identity.fonts[0].path);
   await expect(page.locator('.design-artboard-shell[data-active="true"] [data-canvas-editable]')).toHaveText('Shared editable text');
-  await page.getByRole('button', { name: /^Autosaved draft/ }).waitFor();
+  await page.locator('[data-design-version-status]').filter({ hasText: 'Autosaved' }).waitFor();
   await page.reload();
   await expect(page.locator('.design-artboard-shell')).toHaveCount(2);
   await expect.poll(async () => page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.identity?.fonts[0]?.family))

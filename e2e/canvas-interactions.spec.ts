@@ -337,7 +337,7 @@ test('editing after slider interaction selects the text again and persists acros
   await page.keyboard.insertText('Saved in this browser');
   await text.press('Escape');
   await expect.poll(async () => (await textSource(page)).text).toBe('Saved in this browser');
-  await page.getByRole('button', { name: /^Autosaved draft/ }).waitFor();
+  await page.locator('[data-design-version-status]').filter({ hasText: 'Autosaved' }).waitFor();
   await page.waitForTimeout(600);
   await page.reload();
   await expect(page.locator('[data-testid="shader-lab-live-stage"] [data-canvas-editable]').first())

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAnimationCanvasDocument, parseAnimationCanvasDocument } from '../animationDocument';
 import { createBrandIdentity } from '../brandIdentity';
-import { asCanvasJsonObject, createCanvasDocument, parseCanvasDocument, toCanvasJsonObject } from '../canvasDocument';
+import { asCanvasJsonObject, createCanvasDocument, parseCanvasDocument, toCanvasJsonObject, type CanvasJsonValue } from '../canvasDocument';
 import { animationProjectIdentity, namespaceAnimationProjectIdentity, prepareAnimationProjectFile, readAnimationProjectFile, validateAnimationProjectDocument } from '../animationProjectFile';
 import { createDefaultFrameSettings, DEFAULT_SETTINGS } from '../studio';
 
@@ -122,9 +122,9 @@ describe('Animation project files', () => {
     for (const inactive of [false, true]) {
       const document = fixture();
       const state = asCanvasJsonObject(document.metadata.animation)!;
-      const board = asCanvasJsonObject((state.artboards as unknown[])[1])!;
+      const board = asCanvasJsonObject((state.artboards as CanvasJsonValue[])[1])!;
       const owner = inactive ? asCanvasJsonObject(board.snapshot)! : state;
-      asCanvasJsonObject(owner.settings)![key as string] = value;
+      asCanvasJsonObject(owner.settings)![key as string] = value as string | number;
       expect(() => validateAnimationProjectDocument(document)).toThrow(String(key));
     }
   });

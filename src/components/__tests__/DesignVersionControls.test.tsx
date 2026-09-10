@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import DesignVersionControls, { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, DesignVersionStatus } from '@/components/DesignVersionControls';
+import DesignVersionControls, { DesignVersionFileActions, DesignVersionHeaderControls, DesignVersionHistory, DesignVersionProvider } from '@/components/DesignVersionControls';
 import { createCanvasDocument, serializeCanvasDocument } from '@/lib/canvasDocument';
 import * as savedDesignStore from '@/lib/savedDesigns';
 import {
@@ -150,24 +150,27 @@ describe('DesignVersionControls', () => {
     };
   }
 
-  it('shares a truthful header status with an icon-only saved-history trigger', async () => {
+  it('groups truthful cloud save state, file actions, and a distinct saved-design library in the header', async () => {
     const renderStatus = async (autosaveState: 'saved' | 'saving' | 'error') => {
       await act(async () => {
         root.render(<DesignVersionProvider autosaveState={autosaveState} collectionLabel='Saved animations'
           draftLabel='Autosaved animation' identityId='gt' onOpen={vi.fn()} source='{}' toolId='animation' workspaceLabel='Animation Studio'>
-          <header><DesignVersionStatus /></header>
-          <DesignVersionHistory compact />
+          <header><DesignVersionHeaderControls /></header>
         </DesignVersionProvider>);
         await settle();
       });
     };
     await renderStatus('saved');
-    expect(container.querySelector('header [role="status"]')?.textContent).toBe('Autosaved animation');
-    expect(container.querySelector('header [role="status"]')?.getAttribute('aria-label')).toBe('Autosaved animation: Autosaved');
-    expect(container.querySelector('header [data-dirty]')?.getAttribute('data-dirty')).toBe('false');
-    const history = button('Saved animations');
-    expect(history.textContent).toBe('');
-    expect(history.querySelector('svg')).not.toBeNull();
+    const status = container.querySelector<HTMLElement>('header [role="status"]')!;
+    expect(status.textContent).toBe('Autosaved');
+    expect(status.getAttribute('aria-label')).toBe('Autosaved animation: Autosaved');
+    const history = button('Saved animations: Autosaved animation');
+    expect(history.textContent).toContain('Autosaved animation');
+    expect(status.querySelector('svg')?.innerHTML).not.toBe(history.querySelector('svg')?.innerHTML);
+    expect(container.querySelector('[data-design-version-header-controls]')).not.toBeNull();
+    expect(button('Save design')).not.toBeNull();
+    expect(button('Fork design')).not.toBeNull();
+    expect(button('Clone design')).not.toBeNull();
     await click(history);
     expect(document.querySelector('[role="region"]')).not.toBeNull();
     await renderStatus('saving');
@@ -175,7 +178,7 @@ describe('DesignVersionControls', () => {
     await renderStatus('error');
     expect(container.querySelector('header [role="status"]')?.textContent).toContain('Autosave failed');
     expect(container.querySelector('[data-design-version-status]')?.getAttribute('data-error')).toBe('true');
-    expect(container.querySelector('header [data-dirty]')?.getAttribute('data-dirty')).toBe('true');
+    expect(container.querySelector('header button[data-dirty]')?.getAttribute('data-dirty')).toBe('true');
   });
 
   it('shares one checkpoint owner across split history and file actions without rerendering workspace children', async () => {
@@ -203,7 +206,7 @@ describe('DesignVersionControls', () => {
       await click(button('Save design'));
       expect(prepareSource).toHaveBeenCalledOnce();
       expect(button('Fork design').disabled).toBe(true);
-      expect(container.querySelector('[data-testid="version-history"] [aria-label="Saving"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="version-history"] button[data-state="Saving"]')).not.toBeNull();
       await click(container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!);
       expect(document.querySelector('[role="region"]')?.textContent).toContain('Saved designs');
       await act(async () => {
@@ -450,7 +453,7 @@ describe('DesignVersionControls', () => {
     const openFirst = rows.find((candidate) => candidate.textContent?.includes('Alpha'))!;
     const openSecond = rows.find((candidate) => candidate.textContent?.includes('Beta'))!;
     await click(openFirst);
-    expect(document.querySelector('[aria-label="Opening"]')).not.toBeNull();
+    expect(container.querySelector('button[data-state="Opening"]')).not.toBeNull();
     expect(button('Save design').disabled).toBe(true);
     expect(button('Fork design').disabled).toBe(true);
     expect(button('Clone design').disabled).toBe(true);

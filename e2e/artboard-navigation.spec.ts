@@ -50,7 +50,7 @@ async function workspace(page: Page) {
   return page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource() as string).metadata.designLab.workspace);
 }
 
-test('Design Lab shares the artboard bar and keeps saved versions with canvas undo', async ({ page }) => {
+test('Design Lab keeps saved versions in the header and canvas editing controls local', async ({ page }) => {
   await prepareBoards(page);
   const bar = page.getByRole('region', { name: 'Artboard workspace controls', exact: true });
   const viewControls = page.getByRole('group', { name: 'Canvas zoom', exact: true });
@@ -58,11 +58,14 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
   const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  const versionsGroup = header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Design saving and versions', exact: true });
+  await expect(versionsGroup).toBeVisible();
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export design', exact: true })).toBeVisible();
-  await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toBeVisible();
+  await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toHaveCount(0);
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toBeVisible();
   await expect(bar.locator('button[title="Open saved designs"]')).toHaveCount(0);
-  await expect(viewControls.locator('button[title="Open saved designs"]')).toBeVisible();
+  await expect(viewControls.locator('button[title="Open saved designs"]')).toHaveCount(0);
+  await expect(versionsGroup.locator('button[title="Open saved designs"]')).toBeVisible();
   await bar.getByRole('button', { name: /Set artboard size/ }).click();
   const setup = page.getByRole('dialog', { name: 'Artboard setup', exact: true });
   const name = setup.getByRole('textbox', { name: 'Artboard name', exact: true });
@@ -71,16 +74,16 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
   await expect(name).toHaveValue('Toolbar board');
   await page.keyboard.press('Escape');
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toContainText('Toolbar board');
-  await bar.getByRole('button', { name: 'Save design', exact: true }).click();
-  await expect(bar.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
-  await viewControls.locator('button[title="Open saved designs"]').click();
+  await versionsGroup.getByRole('button', { name: 'Save design', exact: true }).click();
+  await expect(versionsGroup.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+  await versionsGroup.locator('button[title="Open saved designs"]').click();
   const versions = page.getByRole('region', { name: 'Design Lab saved designs', exact: true });
   await expect(versions).toBeVisible();
   await versions.getByRole('textbox', { name: 'Current design name', exact: true }).fill('Toolbar checkpoint');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Escape');
   await expect(versions).toHaveCount(0);
-  await expect(bar.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
+  await expect(versionsGroup.getByRole('button', { name: 'Design saved', exact: true })).toBeDisabled();
 
   await bar.getByRole('button', { name: 'Add blank artboard', exact: true }).click();
   await expect(page.locator('.design-artboard-shell')).toHaveCount(3);
@@ -95,7 +98,7 @@ test('Design Lab shares the artboard bar and keeps saved versions with canvas un
     return state.artboards.find((board: { id: string }) => board.id === state.activeArtboardId)?.name;
   }).toBe('Toolbar board');
 
-  await viewControls.locator('button[title="Open saved designs"]').click();
+  await versionsGroup.locator('button[title="Open saved designs"]').click();
   await expect(versions.getByRole('textbox', { name: 'Current design name', exact: true })).toHaveValue('Toolbar checkpoint');
   await page.keyboard.press('Escape');
   for (const width of [1440, 1100, 780]) {
@@ -144,7 +147,9 @@ test('Design Lab toolbar menus close when their tool is left or another history 
   const viewControls = page.getByRole('group', { name: 'Canvas zoom', exact: true });
   await viewControls.getByRole('button', { name: 'Action history', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Action history', exact: true })).toBeVisible();
-  await viewControls.locator('button[title="Open saved designs"]').click();
+  const saving = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible')
+    .getByRole('group', { name: 'Design saving and versions', exact: true });
+  await saving.locator('button[title="Open saved designs"]').click();
   await expect(page.locator('.canvas-action-history')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Design Lab saved designs', exact: true })).toBeVisible();
   await page.locator('.studio-nav').getByRole('button', { name: 'Brand identity', exact: true }).press('Enter');

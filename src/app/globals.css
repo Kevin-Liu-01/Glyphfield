@@ -3568,14 +3568,6 @@
     display: none;
   }
 
-  .shader-lab-v2-composer-viewport [data-design-version-history] > button > span:first-of-type {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 }
 
 @container design-lab-workspace (max-width: 480px) {
@@ -17142,24 +17134,11 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .studio-artboard-start {
-  flex: 1 1 380px;
+  flex: 1 1 250px;
 }
 
 .studio-artboard-settings {
   flex: 1 1 220px;
-}
-
-.studio-artboard-file-controls {
-  display: flex;
-  flex: 0 0 auto;
-  min-width: 0;
-  align-items: center;
-  padding-right: 8px;
-  border-right: 1px solid hsl(var(--border));
-}
-
-.studio-artboard-file-controls > * {
-  min-width: 0;
 }
 
 .studio-artboard-bar-picker {
@@ -17292,19 +17271,13 @@ html.dark .studio-app .studio-app-header > a img {
   }
 
   .studio-artboard-bar-picker > svg,
-  .studio-artboard-file-controls button span,
   .studio-artboard-primary-actions button span {
     display: none;
   }
 
-  .studio-artboard-file-controls button,
   .studio-artboard-primary-actions button {
     width: 32px;
     padding-inline: 0;
-  }
-
-  .studio-artboard-file-controls {
-    padding-right: 6px;
   }
 
   .studio-artboard-dimensions {

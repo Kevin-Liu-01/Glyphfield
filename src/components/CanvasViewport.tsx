@@ -42,9 +42,6 @@ function OptionalCanvasMinimap(props: Omit<ComponentProps<typeof CanvasMinimap>,
   return props.items?.length ? <CanvasMinimap {...props} items={props.items} /> : null;
 }
 
-function OptionalCanvasVersionHistory({ children }: { children?: ReactNode }) {
-  return children ? <><span className='canvas-toolbar-divider' />{children}</> : null;
-}
 import {
   clampCanvasZoom,
   resolveCanvasGridStep,
@@ -145,7 +142,6 @@ export default function CanvasViewport({
   onDeselect,
   stageClassName = '',
   toolId,
-  versionHistory,
 }: {
   actionHistory?: CanvasActionHistory;
   autoFit?: boolean;
@@ -167,7 +163,6 @@ export default function CanvasViewport({
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
-  versionHistory?: ReactNode;
 }) {
   const gt = useGT();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -570,7 +565,6 @@ export default function CanvasViewport({
             </Button>
           </>
         ) : null}
-        <OptionalCanvasVersionHistory>{versionHistory}</OptionalCanvasVersionHistory>
       </div>
       <OptionalCanvasMinimap ref={minimapRef} items={navigationItems} view={navigationView}
         onPan={navigateCanvas} onFitAll={fitAllArtboards} onCenterSelected={centerSelectedArtboard} />

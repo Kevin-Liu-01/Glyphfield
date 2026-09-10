@@ -8,11 +8,11 @@ function source(path: string) {
 }
 
 describe('shared Studio control layout', () => {
-  it('reserves a stable autosave slot so loading and saving do not move file controls', () => {
+  it('reserves a compact autosave slot so state changes do not move header controls', () => {
     const styles = source('src/components/DesignVersionControls.module.css');
 
-    expect(styles).toMatch(/\.status\s*\{[^}]*flex: 0 0 180px;/);
-    expect(styles).toMatch(/@media \(max-width: 1150px\)\s*\{\s*\.status\s*\{[^}]*flex-basis: 140px;/);
+    expect(styles).toMatch(/\.status\s*\{[^}]*flex: 0 0 112px;/);
+    expect(styles).toMatch(/@media \(max-width: 900px\)\s*\{[\s\S]*?\.headerControls \.status\s*\{[^}]*flex-basis: 32px;/);
   });
 
   it('flashes semantic solid icons only while the shared sidebar signal panel is hovered', () => {
@@ -81,8 +81,9 @@ describe('shared Studio control layout', () => {
     expect(sizeMenu).toContain("<legend>Custom size</legend>");
     expect(controls).not.toContain("title={<T>Active artboard</T>}");
     expect(controls).toContain("title={<T>Output</T>}");
-    expect(artboardBar).toContain('studio-artboard-file-controls');
-    expect(animation).toContain('workspaceControls={animationWorkspaceControls}');
+    expect(artboardBar).not.toContain('studio-artboard-file-controls');
+    expect(animation).not.toContain('workspaceControls=');
+    expect(animation).toContain('<DesignVersionHeaderControls />');
     expect(animation).toContain("untitledName='Untitled animation'");
     expect(styles).toMatch(/\.studio-artboard-bar\s*\{[^}]*flex-wrap: nowrap;/);
     expect(styles).toMatch(/\.studio-artboard-bar\s*\{[^}]*display: flex;/);
@@ -104,8 +105,9 @@ describe('shared Studio control layout', () => {
     expect(styles).toContain('@container (max-width: 620px)');
     expect(styles).toContain('@container (max-width: 440px)');
     expect(styles).not.toMatch(/\.studio-artboard-start\s*\{\s*flex-basis: 100%;/);
-    expect(designLab).toContain('workspaceControls={<DesignVersionFileActions />}');
-    expect(designLab).toContain('versionHistory={<DesignVersionHistory compact />}');
+    expect(designLab).not.toContain('workspaceControls=');
+    expect(designLab).not.toContain('versionHistory=');
+    expect(designLab).toContain('<DesignVersionHeaderControls />');
     expect(designLab).toContain('<DesignVersionProvider');
   });
 
@@ -292,7 +294,7 @@ describe('shared Studio control layout', () => {
     expect(styles).toMatch(/\.studio-preview-tooltip__visual \.animation-timeline-preview-canvas\s*\{[\s\S]*?object-fit: contain;/);
   });
 
-  it('keeps new and saved animation controls in the canvas toolbar', () => {
+  it('keeps new and saved animation controls together in the global header', () => {
     const animation = source('src/components/AnimationStudio.tsx');
     const controls = source('src/components/StudioControls.tsx');
     const versions = source('src/components/DesignVersionControls.tsx');
@@ -303,9 +305,11 @@ describe('shared Studio control layout', () => {
     expect(animation).toContain('onNew={startNewAnimation}');
     expect(animation).toContain("setTextFrames('New frame')");
     expect(animation).toContain("setIncludeBrandLogo(false)");
-    expect(animation).toContain('const animationWorkspaceControls = presentationWorkspaceControls(presentationMode,');
     expect(animation).toContain("layout='toolbar'");
-    expect(animation).toContain('workspaceControls={animationWorkspaceControls}');
+    expect(animation).toContain("label='Animation saving and versions'");
+    expect(animation).toContain('<DesignVersionHeaderControls />');
+    expect(animation).not.toContain('workspaceControls=');
+    expect(animation).not.toContain('versionHistory=');
     expect(controls).not.toContain("aria-label='Animation files'");
     expect(controls).not.toContain('<T>Your animations</T>');
     expect(versions).toContain('async function startNewDesign()');
@@ -334,7 +338,8 @@ describe('shared Studio control layout', () => {
     expect(marketingDemo).toContain('<AnimationStudio\n      autoPlay');
     expect(marketingDemo).toContain("id: 'marketing-animation-demo-dithering-swirl-v2'");
     expect(marketingDemo).toContain('opacity: 0.88');
-    expect(animation).toContain('const animationWorkspaceControls = presentationWorkspaceControls(presentationMode');
+    expect(animation).toContain('{presentationMode ? null : <StudioToolHeader');
+    expect(animation).toContain('<DesignVersionHeaderControls />');
     expect(animation).toContain("presentationMode ? 'animation-studio-presentation' : ''");
     expect(animation).toContain('className={animationStudioClassName({ compactControls, embedded, presentationMode })}');
     expect(animation).toContain('presentationMode={presentationMode}');

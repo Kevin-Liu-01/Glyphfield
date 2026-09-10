@@ -80,21 +80,20 @@ describe('shared Studio artboard bar', () => {
     expect(bar.classList.contains('studio-artboard-bar')).toBe(true);
     expect(bar.classList.contains('animation-artboard-bar')).toBe(true);
     expect(bar.hasAttribute('data-canvas-selection-preserve')).toBe(true);
-    expect(bar.getAttribute('data-has-file-controls')).toBe('false');
+    expect(bar.hasAttribute('data-has-file-controls')).toBe(false);
     expect(button('Active animation artboard').textContent).toContain('Banner animation');
     expect(button('Set artboard size. Current size 1000 by 300')).not.toBeNull();
     expect(button(props.addLabel).title).toBe(props.addLabel);
     expect(container.querySelector('.studio-artboard-summary')?.textContent).toBe(props.summary);
   });
 
-  it('groups file and artboard settings on the left, with related commands grouped separately on the right', async () => {
+  it('keeps artboard settings on the left, with related commands grouped separately on the right', async () => {
     await render({
-      workspaceControls: <button type='button'>Save design</button>,
       extraActions: <button type='button'>Arrange</button>,
     });
     const start = container.querySelector('[data-slot="artboard-start"]')!;
     const end = container.querySelector('[data-slot="artboard-end"]')!;
-    expect(start.querySelector('[role="group"][aria-label="Document actions"]')?.textContent).toBe('Save design');
+    expect(start.querySelector('[role="group"][aria-label="Document actions"]')).toBeNull();
     const settings = start.querySelector('[role="group"][aria-label="Artboard settings"]')!;
     expect(settings.contains(button(props.selectLabel))).toBe(true);
     expect(settings.contains(button('Set artboard size. Current size 1000 by 300'))).toBe(true);
@@ -109,7 +108,7 @@ describe('shared Studio artboard bar', () => {
     expect(start.nextElementSibling?.nextElementSibling).toBe(end);
   });
 
-  it('keeps the presentation bar compact without empty file or secondary action groups', async () => {
+  it('keeps the bar compact without empty file or secondary action groups', async () => {
     await render();
     expect(container.querySelector('[data-slot="artboard-start"]')).not.toBeNull();
     expect(container.querySelector('[data-slot="artboard-file-actions"]')).toBeNull();
@@ -253,13 +252,12 @@ describe('shared Studio artboard bar', () => {
       ariaLabel: 'Design Lab artboards', selectLabel: 'Active design artboard',
       addLabel: 'Add design artboard', duplicateLabel: 'Duplicate design artboard', removeLabel: 'Delete design artboard',
       className: 'design-lab-artboard-bar', summary: <span>4 layers</span>,
-      workspaceControls: <button type='button'>Versions</button>,
       extraActions: <button type='button'>Arrange</button>,
     });
     const bar = container.querySelector('section')!;
     expect(bar.classList.contains('design-lab-artboard-bar')).toBe(true);
-    expect(bar.getAttribute('data-has-file-controls')).toBe('true');
-    expect(container.querySelector('.studio-artboard-file-controls')?.textContent).toBe('Versions');
+    expect(bar.hasAttribute('data-has-file-controls')).toBe(false);
+    expect(container.querySelector('.studio-artboard-file-controls')).toBeNull();
     expect(container.querySelector('.studio-artboard-actions')?.textContent).toContain('Arrange');
     expect(button('Active design artboard').textContent).toContain('Launch');
     expect(button('Add design artboard')).not.toBeNull();

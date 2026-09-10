@@ -33,7 +33,6 @@ export type StudioArtboardBarProps = {
   selectLabel: string;
   summary: ReactNode;
   untitledName?: string;
-  workspaceControls?: ReactNode;
 };
 
 export default function StudioArtboardBar({
@@ -57,7 +56,6 @@ export default function StudioArtboardBar({
   selectLabel,
   summary,
   untitledName = 'Untitled artboard',
-  workspaceControls,
 }: StudioArtboardBarProps) {
   const active = artboards.find(({ id }) => id === activeArtboardId) ?? artboards[0];
   const [menuPosition, setMenuPosition] = useState<StudioContextMenuPosition | null>(null);
@@ -67,7 +65,6 @@ export default function StudioArtboardBar({
       aria-label={ariaLabel}
       className={`studio-artboard-bar animation-artboard-bar ${className}`.trim()}
       data-canvas-selection-preserve
-      data-has-file-controls={workspaceControls ? 'true' : 'false'}
       data-studio-context-trigger={contextTrigger}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -81,12 +78,6 @@ export default function StudioArtboardBar({
       tabIndex={0}
     >
       <div className='studio-artboard-start' data-slot='artboard-start'>
-        {workspaceControls ? (
-          <div aria-label='Document actions' className='studio-artboard-file-controls animation-artboard-file-controls'
-            data-slot='artboard-file-actions' role='group'>
-            {workspaceControls}
-          </div>
-        ) : null}
         <div aria-label='Artboard settings' className='studio-artboard-settings' data-slot='artboard-settings' role='group'>
           <div className='studio-artboard-bar-picker animation-artboard-bar-picker'>
             <PanelsTopLeft aria-hidden='true' />

@@ -190,9 +190,12 @@ describe('Playground optional layers', () => {
 
   it('shares browser-persisted save, fork, and clone controls across both creative tools', () => {
     expect(designLab).toContain("from '@/components/DesignVersionControls'");
-    for (const component of ['DesignVersionProvider', 'DesignVersionHistory', 'DesignVersionFileActions', 'DesignVersionStatus']) {
+    for (const component of ['DesignVersionProvider', 'DesignVersionHeaderControls']) {
       expect(designLab).toContain(component);
     }
+    expect(designLab).toContain("label='Design saving and versions'");
+    expect(designLab).not.toContain('versionHistory=');
+    expect(designLab).not.toContain('workspaceControls=');
     expect(designLab).toContain("workspaceLabel='Design Lab'");
     expect(designLab).toContain('onOpen={applyCompositionSource}');
     expect(playground).toContain("import DesignVersionControls from '@/components/DesignVersionControls'");
@@ -520,9 +523,8 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab.includes('remapDesignLabClipboardSnapshot(anchored, payload.kind')).toBe(true);
     expect(designLab.includes('await hydrateDesignLabClipboardFrames(payload)')).toBe(true);
     expect(designLab).toContain("`Pasted ${nextArtboard.name} · autosaving`");
-    expect(designLab).toContain("const workspaceAutosaveLabel = compositionAutosaveState === 'loading'");
-    expect(designLab).toContain("? 'Autosave needs attention'");
-    expect(designLab).toContain('{canvasClipboardStatus ?? workspaceAutosaveLabel}');
+    expect(designLab).toContain("{canvasClipboardStatus ?? `${layerOrder.length} layer");
+    expect(designLab).not.toContain('workspaceAutosaveLabel');
   });
 
   it('supports browse, drop, and paste imports with intrinsic image placement', () => {

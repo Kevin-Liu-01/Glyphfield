@@ -13,7 +13,7 @@ import { createAnimationCanvasDocument } from '@/lib/animationDocument';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import type { CanvasActionHistory } from '@/components/CanvasViewport';
 import { serializeCanvasDocument } from '@/lib/canvasDocument';
-import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
+import { DesignVersionFileActions, DesignVersionHeaderControls, DesignVersionHistory, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
 
 vi.mock('gt-next', () => ({ T: ({ children }: { children: ReactNode }) => children, useGT: () => (text: string) => text }));
 vi.mock('@/hooks/useCachedGT', () => {
@@ -35,12 +35,12 @@ vi.mock('@/lib/animationAudio', async (importOriginal) => {
   return { ...original, normalizeAnimationAudioState: vi.fn(original.normalizeAnimationAudioState) };
 });
 vi.mock('@/components/StudioExportProgress', () => ({ useStudioExportProgress: () => ({ start() {}, update() {}, finish() {} }) }));
-vi.mock('@/components/CanvasViewport', () => ({ default: ({ actionHistory, children, versionHistory }: {
-  actionHistory?: CanvasActionHistory; children: ReactNode; versionHistory?: ReactNode;
+vi.mock('@/components/CanvasViewport', () => ({ default: ({ actionHistory, children }: {
+  actionHistory?: CanvasActionHistory; children: ReactNode;
 }) => <div data-canvas-viewport><div data-canvas-history>{actionHistory ? <>
   <button aria-label='Undo' disabled={!actionHistory.canUndo} onClick={actionHistory.onUndo}>Undo</button>
   <button aria-label='Redo' disabled={!actionHistory.canRedo} onClick={actionHistory.onRedo}>Redo</button>
-</> : null}{versionHistory}</div>{children}</div> }));
+</> : null}</div>{children}</div> }));
 vi.mock('@/components/CanvasDimensionHandles', () => ({ default: () => null }));
 vi.mock('@/components/ArtboardSizeMenu', () => ({ default: () => null }));
 vi.mock('@/components/AnimationStudioFeedback', () => ({ AnimationError: () => null, AnimationSourceDrawer: () => null }));
@@ -55,9 +55,18 @@ vi.mock('@/components/DesignVersionControls', () => {
     if (!useContext(Context)) throw new Error('Missing saved-version provider');
     return <div data-version-history />;
   });
+  const HeaderControls = vi.fn(() => {
+    if (!useContext(Context)) throw new Error('Missing saved-version provider');
+    return <div data-version-header-controls>
+      <span data-version-status />
+      <div data-version-file-actions />
+      <div data-version-history />
+    </div>;
+  });
   return {
     default: (props: DesignVersionControlsProps) => <Provider {...props}><FileActions /><History /></Provider>,
     DesignVersionFileActions: FileActions,
+    DesignVersionHeaderControls: HeaderControls,
     DesignVersionHistory: History,
     DesignVersionProvider: Provider,
     DesignVersionStatus: () => <span data-version-status />,
@@ -270,13 +279,15 @@ describe('Animation Studio viewport playback lifecycle', () => {
     expect(playing()).toBe('true');
   });
 
-  it('shares one saved-version owner between top-bar file actions and canvas history', async () => {
+  it('shares one saved-version owner for the complete header file cluster', async () => {
     await render(true);
     expect(container.querySelectorAll('[data-version-provider]')).toHaveLength(1);
-    expect(container.querySelector('[data-canvas-history] [data-version-history]')).not.toBeNull();
-    const actions = container.querySelector('[data-version-file-actions]')!;
-    expect(actions.closest('[data-canvas-viewport]')).toBeNull();
-    expect(actions.parentElement?.querySelector('[data-version-history]')).toBeNull();
+    expect(container.querySelector('[data-canvas-history] [data-version-history]')).toBeNull();
+    const headerControls = container.querySelector('[data-version-header-controls]')!;
+    expect(headerControls.closest('[data-studio-header]')).not.toBeNull();
+    expect(headerControls.querySelector('[data-version-status]')).not.toBeNull();
+    expect(headerControls.querySelector('[data-version-file-actions]')).not.toBeNull();
+    expect(headerControls.querySelector('[data-version-history]')).not.toBeNull();
     const props = vi.mocked(DesignVersionProvider).mock.calls.at(-1)![0];
     expect(props).toMatchObject({
       collectionLabel: 'Saved animations', defaultName: 'Untitled animation',
@@ -290,8 +301,7 @@ describe('Animation Studio viewport playback lifecycle', () => {
     expect(createAnimationCanvasDocument).toHaveBeenCalled();
     expect(vi.mocked(usePortableCanvasWorkspace).mock.calls.at(-1)?.[0].document).not.toBeNull();
     expect(container.querySelector('[data-studio-header]')).not.toBeNull();
-    expect(container.querySelector('[data-studio-header] [data-version-status]')).not.toBeNull();
-    expect(actions.closest('[data-studio-header]')).toBeNull();
+    expect(DesignVersionHeaderControls).toHaveBeenCalled();
   });
 
   it('undoes and redoes a real scene edit without resetting the animation', async () => {
@@ -402,6 +412,7 @@ describe('Animation Studio viewport playback lifecycle', () => {
     await render(true, true, true, true);
     expect(DesignVersionProvider).not.toHaveBeenCalled();
     expect(DesignVersionFileActions).not.toHaveBeenCalled();
+    expect(DesignVersionHeaderControls).not.toHaveBeenCalled();
     expect(DesignVersionHistory).not.toHaveBeenCalled();
     expect(container.querySelector('[data-version-provider]')).toBeNull();
     expect(container.querySelector('[data-studio-header]')).toBeNull();

@@ -89,7 +89,7 @@ import {
 } from '@/lib/designLabTypography';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
-import { DesignVersionProvider, DesignVersionHistory, DesignVersionFileActions, DesignVersionStatus } from '@/components/DesignVersionControls';
+import { DesignVersionHeaderControls, DesignVersionProvider } from '@/components/DesignVersionControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import {
@@ -5012,15 +5012,6 @@ export default function ShaderLabStudio({
     workspaceKey: savedDesignWorkspaceKey,
   });
   const compositionAutosaveState = portableDesignLab.autosaveState;
-  const workspaceAutosaveLabel = compositionAutosaveState === 'loading'
-    ? 'Restoring autosaved workspace…'
-    : compositionAutosaveState === 'preparing'
-      ? 'Preparing autosave…'
-      : compositionAutosaveState === 'saving'
-        ? 'Autosaving…'
-        : compositionAutosaveState === 'error'
-          ? 'Autosave needs attention'
-          : `${workspaceArtboards.length} artboard${workspaceArtboards.length === 1 ? '' : 's'} · autosaved`;
   useEffect(() => {
     if (compositionAutosaveState !== 'loading') setDraftHydrated(true);
   }, [compositionAutosaveState]);
@@ -7874,7 +7865,9 @@ export default function ShaderLabStudio({
               <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
               <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
             </StudioToolbarGroup>
-            <DesignVersionStatus />
+            <StudioToolbarGroup label='Design saving and versions'>
+              <DesignVersionHeaderControls />
+            </StudioToolbarGroup>
             <StudioToolbarGroup label='Export design'>
             <StudioSelect
               ariaLabel='Export size preset'
@@ -7952,8 +7945,7 @@ export default function ShaderLabStudio({
         onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
         removeLabel='Delete active artboard'
         selectLabel='Active design artboard'
-        summary={<span aria-live='polite'>{canvasClipboardStatus ?? workspaceAutosaveLabel}</span>}
-        workspaceControls={<DesignVersionFileActions />}
+        summary={<span aria-live='polite'>{canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${workspaceArtboards.length} artboard${workspaceArtboards.length === 1 ? '' : 's'}`}</span>}
       />
     );
   }
@@ -8723,7 +8715,6 @@ export default function ShaderLabStudio({
           ) : null}
           <CanvasViewport
             actionHistory={canvasActionHistory}
-            versionHistory={<DesignVersionHistory compact />}
             className='shader-lab-v2-composer-viewport'
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}

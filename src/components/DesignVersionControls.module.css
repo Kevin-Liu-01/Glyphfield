@@ -27,39 +27,42 @@
 }
 
 .trigger[data-compact='true'] {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   justify-content: center;
-  border-color: transparent;
-  background: transparent;
 }
 
 .status {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   /* Autosave copy changes asynchronously; never move adjacent hit targets. */
-  flex: 0 0 180px;
-  width: 180px;
+  flex: 0 0 112px;
+  width: 112px;
   min-width: 0;
-  max-width: 180px;
+  max-width: 112px;
   color: hsl(var(--muted-foreground));
   font-size: 0.72rem;
   white-space: nowrap;
 }
 
-.status small {
+.status > svg {
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
-  font-size: 0.65rem;
 }
 
-@media (max-width: 1150px) {
-  .status {
-    flex-basis: 140px;
-    width: 140px;
-  }
+.status[data-pending='true'] > svg {
+  color: #7058ff;
+}
+
+.status small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.65rem;
 }
 
 .status[data-error='true'] {
@@ -80,23 +83,18 @@
   white-space: nowrap;
 }
 
-.stateDot {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: hsl(var(--muted-foreground));
-}
-
-.stateDot[data-dirty='true'] {
-  background: #7058ff;
-  box-shadow: 0 0 0 3px rgb(112 88 255 / 0.15);
-}
-
 .actions {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.headerControls {
+  flex-wrap: nowrap;
+}
+
+.headerControls .trigger {
+  max-width: 154px;
 }
 
 .root[data-layout='panel'] {
@@ -336,11 +334,33 @@
   .root[data-layout='panel'] .actionLabel {
     display: inline;
   }
+
+  .headerControls .trigger {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .headerControls .trigger .currentName,
+  .headerControls .trigger > svg:last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .headerControls .status {
+    flex-basis: 32px;
+    width: 32px;
+    justify-content: center;
+  }
+
+  .headerControls .status small {
+    display: none;
+  }
 }
 
 @media (max-width: 760px) {
   .currentName,
-  .stateDot,
   .trigger > svg:last-child {
     display: none;
   }

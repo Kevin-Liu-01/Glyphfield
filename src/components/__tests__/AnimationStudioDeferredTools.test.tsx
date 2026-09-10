@@ -25,7 +25,7 @@ vi.mock('@/components/CanvasDimensionHandles', () => ({ default: () => null }));
 vi.mock('@/components/AnimationCanvasSelection', () => ({ default: () => null }));
 vi.mock('@/components/StudioArtboardBar', () => ({ default: () => null }));
 vi.mock('@/components/DesignVersionControls', () => ({
-  DesignVersionFileActions: () => null, DesignVersionHistory: () => null, DesignVersionStatus: () => null,
+  DesignVersionFileActions: () => null, DesignVersionHeaderControls: () => null, DesignVersionHistory: () => null, DesignVersionStatus: () => null,
   DesignVersionProvider: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock('@/components/EditableCanvasLayer', () => ({ default: () => null }));

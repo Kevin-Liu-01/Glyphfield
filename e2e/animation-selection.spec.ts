@@ -51,18 +51,21 @@ async function prepareSelection(page: Page) {
   return { selection, studio };
 }
 
-test('Animation groups document controls on the left, artboard actions on the right, and history with canvas controls', async ({ page }) => {
+test('Animation keeps file versions in the header and artboard actions around the current canvas', async ({ page }) => {
   const { studio } = await prepareSelection(page);
   const bar = studio.getByRole('region', { name: 'Animation artboards', exact: true });
   const header = studio.locator('[data-studio-tool-header]');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  const versions = header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Animation saving and versions', exact: true });
+  await expect(versions).toBeVisible();
   await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export animation', exact: true })).toBeVisible();
-  await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save animation', exact: true })).toBeVisible();
+  await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save animation', exact: true })).toHaveCount(0);
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('combobox', { name: 'Active animation artboard', exact: true })).toBeVisible();
   await expect(bar.locator('button[title="Open saved animations"]')).toHaveCount(0);
   const viewControls = studio.getByRole('group', { name: 'Canvas zoom', exact: true });
-  await viewControls.locator('button[title="Open saved animations"]').click();
+  await expect(viewControls.locator('button[title="Open saved animations"]')).toHaveCount(0);
+  await versions.locator('button[title="Open saved animations"]').click();
   await expect(page.getByRole('region', { name: 'Animation Studio saved animations', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   for (const width of [1440, 1100, 780]) {

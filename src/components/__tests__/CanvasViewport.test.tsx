@@ -30,7 +30,6 @@ describe('canvas keyboard history', () => {
         actionHistory={{ canRedo: true, canUndo: true, entries: [], onRedo, onUndo }}
         identityId='keyboard-test'
         toolId='material'
-        versionHistory={<button type='button'>Saved designs</button>}
       >
         <input aria-label='Canvas text' />
         <span contentEditable='plaintext-only' data-testid='plain-text-editor' suppressContentEditableWarning tabIndex={0}>
@@ -62,9 +61,9 @@ describe('canvas keyboard history', () => {
     expect(onRedo).toHaveBeenCalledOnce();
   });
 
-  it('exposes direct Undo and Redo beside separate action and saved-design histories', async () => {
+  it('exposes direct Undo and Redo beside action history without file-version controls', async () => {
     const toolbar = container.querySelector<HTMLElement>('.canvas-viewport-toolbar')!;
-    expect(toolbar.textContent).toContain('Saved designs');
+    expect(toolbar.textContent).not.toContain('Saved designs');
     const undo = toolbar.querySelector<HTMLButtonElement>('[aria-label="Undo"]');
     const redo = toolbar.querySelector<HTMLButtonElement>('[aria-label="Redo"]');
     expect(undo).not.toBeNull();
@@ -98,28 +97,27 @@ describe('canvas keyboard history', () => {
     expect(onRedo).not.toHaveBeenCalled();
   });
 
-  it('renders saved-design history without requiring action history', async () => {
-    await act(() => root.render(<CanvasViewport identityId='keyboard-test' toolId='material'
-      versionHistory={<button type='button'>Saved designs</button>}
-    ><span>Canvas content</span></CanvasViewport>));
+  it('renders no history controls when canvas action history is unavailable', async () => {
+    await act(() => root.render(<CanvasViewport identityId='keyboard-test' toolId='material'>
+      <span>Canvas content</span>
+    </CanvasViewport>));
     const toolbar = container.querySelector('.canvas-viewport-toolbar')!;
-    expect(toolbar.textContent).toContain('Saved designs');
     expect(toolbar.querySelector('[aria-label="Undo"]')).toBeNull();
     expect(toolbar.querySelector('[aria-label="Action history"]')).toBeNull();
   });
 
   it('dismisses action history on other controls without consuming their clicks', async () => {
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Action history"]')!;
-    const versions = [...container.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Saved designs')!;
+    const otherControl = container.querySelector<HTMLButtonElement>('button[aria-label="Zoom in"]')!;
     const clicked = vi.fn();
-    versions.addEventListener('click', clicked);
+    otherControl.addEventListener('click', clicked);
     await act(() => trigger.click());
     const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-label="Action history"]')!;
     await act(() => dialog.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
     expect(dialog.isConnected).toBe(true);
     await act(() => {
-      versions.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-      versions.click();
+      otherControl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      otherControl.click();
     });
     expect(clicked).toHaveBeenCalledOnce();
     expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
@@ -129,7 +127,7 @@ describe('canvas keyboard history', () => {
     expect(container.querySelector('[role="dialog"][aria-label="Action history"]')).toBeNull();
   });
 
-  it('closes action history on Escape and restores its exact trigger, not a neighboring history control', async () => {
+  it('closes action history on Escape and restores its exact trigger', async () => {
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Action history"]')!;
     await act(() => trigger.click());
     trigger.blur();

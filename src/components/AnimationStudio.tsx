@@ -10,7 +10,7 @@ import CanvasViewport from '@/components/CanvasViewport';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
-import { DesignVersionFileActions, DesignVersionHistory, DesignVersionProvider, DesignVersionStatus, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
+import { DesignVersionHeaderControls, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
 import { DownloadProjectFileButton, OpenProjectFileButton } from '@/components/ProjectFileControls';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
@@ -485,7 +485,6 @@ function AnimationArtboardBar({
   packageId,
   totalMs,
   width,
-  workspaceControls,
 }: {
   activeArtboardId: AnimationArtboardId;
   artboards: readonly AnimationArtboard[];
@@ -500,7 +499,6 @@ function AnimationArtboardBar({
   packageId: string;
   totalMs: number;
   width: number;
-  workspaceControls?: ReactNode;
 }) {
   return (
     <StudioArtboardBar
@@ -524,7 +522,6 @@ function AnimationArtboardBar({
         {frameCount} frame{frameCount === 1 ? '' : 's'} · {(totalMs / 1000).toFixed(2)}s · {animationPackageLabel(packageId)}
       </>}
       untitledName='Untitled animation'
-      workspaceControls={workspaceControls}
     />
   );
 }
@@ -544,14 +541,6 @@ function animationStudioClassName({
     compactControls ? 'animation-studio-compact-controls' : '',
     presentationMode ? 'animation-studio-presentation' : '',
   ].filter(Boolean).join(' ');
-}
-
-function presentationWorkspaceControls(
-  presentationMode: boolean,
-  controls: ReactNode
-): ReactNode | undefined {
-  if (presentationMode) return undefined;
-  return controls;
 }
 
 function AnimationVersionWorkspace({ children, presentationMode, ...versionProps }: DesignVersionControlsProps & {
@@ -2580,7 +2569,6 @@ function AnimationStudio({
     sources,
     transitionSettings,
   };
-  const animationWorkspaceControls = presentationWorkspaceControls(presentationMode, <DesignVersionFileActions />);
   function renderWorkspace() {
     return (
       <div
@@ -2597,7 +2585,9 @@ function AnimationStudio({
             <DownloadProjectFileButton disabled={exportProgress !== null || animationSource === null} prepare={prepareProjectFile} />
             <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
           </StudioToolbarGroup>
-          <DesignVersionStatus />
+          <StudioToolbarGroup label='Animation saving and versions'>
+            <DesignVersionHeaderControls />
+          </StudioToolbarGroup>
           <StudioToolbarGroup label='Export animation'>
             {lastExport ? <ExportPreview asset={lastExport} className='hidden xl:inline-flex' /> : null}
             <Button
@@ -2645,7 +2635,6 @@ function AnimationStudio({
               packageId={settings.packageId}
               totalMs={totalMs}
               width={settings.width}
-              workspaceControls={animationWorkspaceControls}
             />
 
             <CanvasViewport
@@ -2663,7 +2652,6 @@ function AnimationStudio({
               }}
               stageClassName='studio-stage flex min-h-full items-center justify-center p-8'
               toolId='animation'
-              versionHistory={presentationWorkspaceControls(presentationMode, <DesignVersionHistory compact />)}
             >
               <div
                 className='relative w-full max-w-5xl bg-black smooth-shadow-ring-xl smooth-ring-foreground/20'
