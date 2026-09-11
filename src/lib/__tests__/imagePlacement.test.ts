@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_IMAGE_CROP,
   fitImageLayerToCanvas,
+  imageCropAfterDrag,
+  imageCropRenderedBounds,
   imageCropSourceBounds,
   imageLayerName,
   normalizeImageCropSettings,
@@ -91,5 +93,30 @@ describe('Design Lab image placement', () => {
       zoom: 20,
     })).toEqual({ enabled: true, focalPointX: 0, focalPointY: 1, zoom: 4 });
     expect(normalizeImageCropSettings()).toEqual(DEFAULT_IMAGE_CROP);
+  });
+
+  it('reveals the complete source around the authored crop frame', () => {
+    expect(imageCropRenderedBounds({
+      boxHeight: 100,
+      boxWidth: 100,
+      crop: { enabled: true, focalPointX: 0.5, focalPointY: 0.5, zoom: 1 },
+      imageHeight: 100,
+      imageWidth: 200,
+    })).toEqual({ height: 100, left: -50, top: 0, width: 200 });
+  });
+
+  it('moves the source inside the frame without moving the frame itself', () => {
+    const next = imageCropAfterDrag({
+      boxHeight: 100,
+      boxWidth: 100,
+      crop: { enabled: true, focalPointX: 0.5, focalPointY: 0.5, zoom: 1 },
+      deltaX: 25,
+      deltaY: 40,
+      imageHeight: 100,
+      imageWidth: 200,
+    });
+
+    expect(next.focalPointX).toBeCloseTo(0.25);
+    expect(next.focalPointY).toBe(0.5);
   });
 });

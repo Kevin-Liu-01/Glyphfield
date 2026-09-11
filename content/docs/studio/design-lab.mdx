@@ -52,7 +52,11 @@ Use the layer actions to add any number of:
 
 Select a layer on the canvas or in the bottom dock. Drag it to move, pull the resize handle to scale, use arrow keys to nudge, and use Shift + arrow for larger steps. The inspector controls exact position, size, rotation, opacity, visibility, material, appearance, and type settings.
 
-For an image or image-based sticker, enable **Crop to frame** in the selected-layer inspector. The canvas handles then resize the frame independently while the source keeps its aspect ratio. Use **Crop zoom**, **Horizontal focus**, and **Vertical focus** to choose the visible region; **Reset crop** recenters the non-destructive crop. Crop settings survive duplicate, undo, autosave, saved designs, project files, source round trips, and still or motion export.
+For an image or image-based sticker, double-click the image or choose **Crop image** from its right-click menu. Crop mode keeps the blue frame in place while revealing the dimmed parts of the source outside it. Drag the source to reposition it, hold Shift to lock the drag to one axis, and drag any edge or corner of the blue frame to change the crop area. Double-click again, press Enter or Escape, or choose **Done** to finish.
+
+The selected-layer inspector adds **Fill frame**, **Fit image**, **Original ratio**, common aspect ratios, crop zoom, and horizontal and vertical focus. **Reset crop** returns to a centered, non-destructive crop. Crop settings survive duplicate, undo, autosave, saved designs, project files, source round trips, and still or motion export.
+
+Right-click a canvas layer for its relevant edit, clipboard, grouping, ordering, alignment, visibility, and delete actions. Right-click an empty artboard area for artboard actions. These menus are also available from the keyboard with Shift+F10.
 
 The image and sticker pickers also expose a delete action on every saved brand asset. Deletion requires confirmation and removes only the reusable library copy; image or sticker layers already placed on an artboard keep their embedded source. If browser storage is full, delete unused assets there and retry the import.
 

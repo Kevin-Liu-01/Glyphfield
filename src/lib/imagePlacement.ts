@@ -20,6 +20,13 @@ export type ImageCropSourceBounds = {
   y: number;
 };
 
+export type ImageCropRenderedBounds = {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+};
+
 export const DEFAULT_IMAGE_CROP: ImageCropSettings = {
   enabled: false,
   focalPointX: 0.5,
@@ -102,6 +109,76 @@ export function imageCropSourceBounds({
     width,
     x: (safeImageWidth - width) * crop.focalPointX,
     y: (safeImageHeight - height) * crop.focalPointY,
+  };
+}
+
+/**
+ * Places the complete source image around a crop frame. This is the inverse of
+ * `imageCropSourceBounds`: the returned rectangle shows where the uncropped
+ * image sits when the crop frame is treated as the viewport.
+ */
+export function imageCropRenderedBounds({
+  boxHeight,
+  boxWidth,
+  crop,
+  imageHeight,
+  imageWidth,
+}: {
+  boxHeight: number;
+  boxWidth: number;
+  crop?: Partial<ImageCropSettings> | null;
+  imageHeight: number;
+  imageWidth: number;
+}): ImageCropRenderedBounds {
+  const safeBoxWidth = positive(boxWidth, 1);
+  const safeBoxHeight = positive(boxHeight, 1);
+  const safeImageWidth = positive(imageWidth, 1);
+  const safeImageHeight = positive(imageHeight, 1);
+  const source = imageCropSourceBounds({
+    boxHeight: safeBoxHeight,
+    boxWidth: safeBoxWidth,
+    crop,
+    imageHeight: safeImageHeight,
+    imageWidth: safeImageWidth,
+  });
+  const scaleX = safeBoxWidth / source.width;
+  const scaleY = safeBoxHeight / source.height;
+  const left = -source.x * scaleX;
+  const top = -source.y * scaleY;
+  return {
+    height: safeImageHeight * scaleY,
+    left: left === 0 ? 0 : left,
+    top: top === 0 ? 0 : top,
+    width: safeImageWidth * scaleX,
+  };
+}
+
+/** Resolve a drag of the visible source image into normalized crop focus. */
+export function imageCropAfterDrag({
+  boxHeight,
+  boxWidth,
+  crop: cropInput,
+  deltaX,
+  deltaY,
+  imageHeight,
+  imageWidth,
+}: {
+  boxHeight: number;
+  boxWidth: number;
+  crop?: Partial<ImageCropSettings> | null;
+  deltaX: number;
+  deltaY: number;
+  imageHeight: number;
+  imageWidth: number;
+}): ImageCropSettings {
+  const crop = normalizeImageCropSettings(cropInput);
+  const rendered = imageCropRenderedBounds({ boxHeight, boxWidth, crop, imageHeight, imageWidth });
+  const overflowX = Math.max(0, rendered.width - positive(boxWidth, 1));
+  const overflowY = Math.max(0, rendered.height - positive(boxHeight, 1));
+  return {
+    ...crop,
+    focalPointX: overflowX > 0 ? clamp(crop.focalPointX - deltaX / overflowX, 0, 1) : 0.5,
+    focalPointY: overflowY > 0 ? clamp(crop.focalPointY - deltaY / overflowY, 0, 1) : 0.5,
   };
 }
 

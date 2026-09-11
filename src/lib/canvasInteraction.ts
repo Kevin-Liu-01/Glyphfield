@@ -7,7 +7,16 @@ export type CanvasLayerTransform = {
 };
 
 export type CanvasLayerResizeMode = 'box' | 'scale';
-export type CanvasPointerMode = 'move' | 'resize' | 'resize-bottom' | 'resize-left' | 'resize-right' | 'resize-top';
+export type CanvasPointerMode =
+  | 'move'
+  | 'resize'
+  | 'resize-bottom'
+  | 'resize-bottom-left'
+  | 'resize-left'
+  | 'resize-right'
+  | 'resize-top'
+  | 'resize-top-left'
+  | 'resize-top-right';
 export type CanvasLayerAlignment =
   | 'left'
   | 'horizontal-center'

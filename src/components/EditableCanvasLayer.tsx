@@ -55,6 +55,10 @@ type BeginPointer = (
 ) => void;
 
 const CANVAS_SELECTION_SIDES = ['top', 'right', 'bottom', 'left'] as const;
+const RESIZE_FROM_RIGHT = new Set<CanvasPointerMode>(['resize', 'resize-right', 'resize-top-right']);
+const RESIZE_FROM_LEFT = new Set<CanvasPointerMode>(['resize-left', 'resize-top-left', 'resize-bottom-left']);
+const RESIZE_FROM_BOTTOM = new Set<CanvasPointerMode>(['resize', 'resize-bottom', 'resize-bottom-left']);
+const RESIZE_FROM_TOP = new Set<CanvasPointerMode>(['resize-top', 'resize-top-left', 'resize-top-right']);
 
 function findCanvasAssemblyOverlay(layer: Element): HTMLElement | null {
   return layer.closest('.canvas-viewport')?.querySelector<HTMLElement>('.canvas-selection-assembly') ?? null;
@@ -64,12 +68,14 @@ function CanvasLayerSelectionOverlay({
   beginPointer,
   label,
   resizeMode,
+  selectionMode,
   selectionBounds,
   selectionOverlayRef,
 }: {
   beginPointer: BeginPointer;
   label: string;
   resizeMode: CanvasLayerResizeMode;
+  selectionMode: 'crop' | 'default';
   selectionBounds: SelectionBounds | null;
   selectionOverlayRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -80,6 +86,7 @@ function CanvasLayerSelectionOverlay({
       <div
         className='editable-canvas-layer-selection'
         data-canvas-selection-preserve
+        data-selection-mode={selectionMode}
         ref={selectionOverlayRef}
         style={bounds}
       >
@@ -114,15 +121,48 @@ function CanvasLayerSelectionOverlay({
             type='button'
           />
         )) : null}
-        <button
-          aria-label={`Resize ${label}`}
-          className='editable-canvas-layer-resize'
-          onPointerDown={(event) => beginPointer(event, 'resize')}
-          tabIndex={-1}
-          type='button'
-        >
-          <MoveDiagonal2 aria-hidden='true' />
-        </button>
+        {resizeMode === 'box' ? (
+          <>
+            <button
+              aria-label={`Resize ${label} from top left`}
+              className='editable-canvas-layer-corner editable-canvas-layer-corner--top-left'
+              onPointerDown={(event) => beginPointer(event, 'resize-top-left')}
+              tabIndex={-1}
+              type='button'
+            />
+            <button
+              aria-label={`Resize ${label} from top right`}
+              className='editable-canvas-layer-corner editable-canvas-layer-corner--top-right'
+              onPointerDown={(event) => beginPointer(event, 'resize-top-right')}
+              tabIndex={-1}
+              type='button'
+            />
+            <button
+              aria-label={`Resize ${label} from bottom left`}
+              className='editable-canvas-layer-corner editable-canvas-layer-corner--bottom-left'
+              onPointerDown={(event) => beginPointer(event, 'resize-bottom-left')}
+              tabIndex={-1}
+              type='button'
+            />
+            <button
+              aria-label={`Resize ${label} from bottom right`}
+              className='editable-canvas-layer-corner editable-canvas-layer-corner--bottom-right'
+              onPointerDown={(event) => beginPointer(event, 'resize')}
+              tabIndex={-1}
+              type='button'
+            />
+          </>
+        ) : (
+          <button
+            aria-label={`Resize ${label}`}
+            className='editable-canvas-layer-resize'
+            onPointerDown={(event) => beginPointer(event, 'resize')}
+            tabIndex={-1}
+            type='button'
+          >
+            <MoveDiagonal2 aria-hidden='true' />
+          </button>
+        )}
       </div>
     </CanvasSelectionClip>
   );
@@ -193,6 +233,7 @@ function canvasLayerElementInteractivity({
   handleKeyDown,
   interactive,
   onContextMenu,
+  onDoubleClick,
   presentation,
   selected,
 }: {
@@ -200,6 +241,7 @@ function canvasLayerElementInteractivity({
   handleKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   interactive: boolean;
   onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   presentation: ReturnType<typeof canvasLayerPresentation>;
   selected: boolean;
 }) {
@@ -208,6 +250,7 @@ function canvasLayerElementInteractivity({
       ariaKeyShortcuts: undefined,
       ariaPressed: undefined,
       onContextMenu: undefined,
+      onDoubleClick: undefined,
       onKeyDown: undefined,
       onPointerDown: undefined,
       pointerEvents: 'none' as const,
@@ -217,8 +260,9 @@ function canvasLayerElementInteractivity({
   }
   return {
     ariaKeyShortcuts: onContextMenu ? 'Shift+F10' : undefined,
-    ariaPressed: selected,
+    ariaPressed: presentation.role === 'button' ? selected : undefined,
     onContextMenu,
+    onDoubleClick,
     onKeyDown: handleKeyDown,
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => beginPointer(event, 'move'),
     pointerEvents: undefined,
@@ -400,11 +444,13 @@ export default function EditableCanvasLayer({
   allowContentInteraction = false,
   fitContentHeight = false,
   interactive = true,
+  cropEditing = false,
   label,
   layerId,
   movementBounds = null,
   onChange,
   onContextMenu,
+  onDoubleClick,
   onDeselect,
   onSelect,
   resizeMode = 'scale',
@@ -425,11 +471,13 @@ export default function EditableCanvasLayer({
   allowContentInteraction?: boolean;
   fitContentHeight?: boolean;
   interactive?: boolean;
+  cropEditing?: boolean;
   label: string;
   layerId?: string;
   movementBounds?: CanvasLayerBounds | null;
   onChange: (transform: CanvasLayerTransform) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDeselect: () => void;
   onSelect: (additive?: boolean) => void;
   resizeMode?: CanvasLayerResizeMode;
@@ -745,19 +793,19 @@ export default function EditableCanvasLayer({
       let widthScale = session.startWidthScale;
       let x = session.startX;
       let y = session.startY;
-      if (session.mode === 'resize' || session.mode === 'resize-right') {
+      if (RESIZE_FROM_RIGHT.has(session.mode)) {
         widthScale = Math.max(session.startWidthScale + deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
         x += baseWidth * (widthScale - session.startWidthScale) / 2;
       }
-      if (session.mode === 'resize-left') {
+      if (RESIZE_FROM_LEFT.has(session.mode)) {
         widthScale = Math.max(session.startWidthScale - deltaX / baseWidth, MIN_CANVAS_LAYER_SCALE);
         x -= baseWidth * (widthScale - session.startWidthScale) / 2;
       }
-      if (session.mode === 'resize' || session.mode === 'resize-bottom') {
+      if (RESIZE_FROM_BOTTOM.has(session.mode)) {
         heightScale = Math.max(session.startHeightScale + deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
         y += baseHeight * (heightScale - session.startHeightScale) / 2;
       }
-      if (session.mode === 'resize-top') {
+      if (RESIZE_FROM_TOP.has(session.mode)) {
         heightScale = Math.max(session.startHeightScale - deltaY / baseHeight, MIN_CANVAS_LAYER_SCALE);
         y -= baseHeight * (heightScale - session.startHeightScale) / 2;
       }
@@ -887,6 +935,7 @@ export default function EditableCanvasLayer({
     handleKeyDown,
     interactive,
     onContextMenu,
+    onDoubleClick,
     presentation,
     selected,
   });
@@ -903,11 +952,13 @@ export default function EditableCanvasLayer({
         data-canvas-layer-id={layerId}
         data-canvas-selection-member={presentation.selectionMember}
         data-content-interactive={presentation.contentInteractive}
+        data-crop-editing={cropEditing ? 'true' : undefined}
         data-fit-content-height={presentation.fitContent}
         data-multi-selection={presentation.multiSelection}
         inert={!interactive}
         onKeyDown={elementInteractivity.onKeyDown}
         onContextMenu={elementInteractivity.onContextMenu}
+        onDoubleClick={elementInteractivity.onDoubleClick}
         onPointerDown={elementInteractivity.onPointerDown}
         ref={layerRef}
         role={elementInteractivity.role}
@@ -920,6 +971,7 @@ export default function EditableCanvasLayer({
         beginPointer={beginPointer}
         label={label}
         resizeMode={resizeMode}
+        selectionMode={cropEditing ? 'crop' : 'default'}
         selectionBounds={interactive && presentation.selectionBounds ? selectionBounds : null}
         selectionOverlayRef={selectionOverlayRef}
       />

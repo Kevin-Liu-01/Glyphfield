@@ -61,6 +61,7 @@ describe('canvas selection clipping', () => {
             onChange={onChange}
             onDeselect={vi.fn()}
             onSelect={vi.fn()}
+            resizeMode='box'
             selected
             transform={{ scale: 1, x: 0, y: 0 }}
             zIndex={1}
@@ -83,7 +84,10 @@ describe('canvas selection clipping', () => {
     expect(overlay.style.left).toBe('-50px');
     expect(overlay.style.top).toBe('30px');
     expect(overlay.style.width).toBe('800px');
-    expect(overlay.querySelector('button[aria-label="Resize Shader"]')).not.toBeNull();
+    expect(overlay.querySelector('button[aria-label="Resize Shader from top left"]')).not.toBeNull();
+    expect(overlay.querySelector('button[aria-label="Resize Shader from top right"]')).not.toBeNull();
+    expect(overlay.querySelector('button[aria-label="Resize Shader from bottom left"]')).not.toBeNull();
+    expect(overlay.querySelector('button[aria-label="Resize Shader from bottom right"]')).not.toBeNull();
   });
 
   it('updates the clipping boundary on viewport resize without modifying the design', async () => {

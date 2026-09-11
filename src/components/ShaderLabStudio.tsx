@@ -20,6 +20,7 @@ import {
   EyeOff,
   ExternalLink,
   FileImage,
+  Files,
   Film,
   Frame,
   Grid3X3,
@@ -36,6 +37,7 @@ import {
   Repeat2,
   RotateCcw,
   Ruler,
+  Scissors,
   Search,
   Sparkles,
   Sticker,
@@ -104,6 +106,7 @@ import {
   normalizeCanvasLayerTransform,
   type CanvasLayerAlignment,
   type CanvasLayerBounds,
+  type CanvasLayerGeometry,
   type CanvasSelectionItem,
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
@@ -112,6 +115,7 @@ import { DownloadProjectFileButton, OpenProjectFileButton } from '@/components/P
 import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDesignLabProjectFile, type DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
+import ImageCropEditorOverlay from '@/components/ImageCropEditorOverlay';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
@@ -3336,9 +3340,31 @@ type TextAppearancePreviewPatch = Partial<Omit<TextAppearanceSettings, 'textEffe
   textEffect?: Partial<TextEffectSettings>;
 };
 
+const IMAGE_CROP_ASPECT_OPTIONS = [
+  { label: 'Freeform', value: 'freeform' },
+  { label: 'Square · 1:1', value: '1' },
+  { label: 'Landscape · 4:3', value: '1.333333' },
+  { label: 'Widescreen · 16:9', value: '1.777778' },
+  { label: 'Portrait · 3:4', value: '0.75' },
+  { label: 'Story · 9:16', value: '0.5625' },
+] as const;
+
+function imageCropAspectValue(transform: CanvasLayerTransform, geometry: CanvasLayerGeometry): string {
+  const { height, width } = canvasLayerDimensions(transform, geometry);
+  const ratio = width / Math.max(height, 0.001);
+  return IMAGE_CROP_ASPECT_OPTIONS.find(({ value }) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && Math.abs(ratio - numeric) < 0.012;
+  })?.value ?? 'freeform';
+}
+
 function DesignLabAssetLayerInspector({
   appearance,
   asset,
+  cropAspect,
+  cropEditing,
+  onCropAspectChange,
+  onCropEditingChange,
   previewAppearance,
   previewImageCrop,
   previewOpacity,
@@ -3347,6 +3373,10 @@ function DesignLabAssetLayerInspector({
 }: {
   appearance: LogoAppearanceSettings;
   asset: CompositionAsset;
+  cropAspect: string;
+  cropEditing: boolean;
+  onCropAspectChange: (value: string) => void;
+  onCropEditingChange: (editing: boolean) => void;
   previewAppearance: (patch: Partial<LogoAppearanceSettings>) => void;
   previewImageCrop: (patch: Partial<ImageCropSettings>) => void;
   previewOpacity: (value: number) => void;
@@ -3386,12 +3416,39 @@ function DesignLabAssetLayerInspector({
           <StudioCheckbox
             aria-label='Crop image to frame'
             checked={crop.enabled}
-            onChange={(event) => updateAsset({ imageCrop: { ...crop, enabled: event.target.checked } })}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              if (!enabled) onCropEditingChange(false);
+              updateAsset({ imageCrop: { ...crop, enabled } });
+            }}
             variant='switch'
           />
         </label>
         {crop.enabled ? (
           <div className='shader-lab-v2-image-crop-controls'>
+            <div className='shader-lab-v2-image-crop-actions'>
+              <Button onClick={() => onCropEditingChange(!cropEditing)} size='sm' type='button' variant={cropEditing ? 'secondary' : 'outline'}>
+                {cropEditing ? <Check aria-hidden='true' /> : <Crop aria-hidden='true' />}{cropEditing ? 'Finish cropping' : 'Edit crop on canvas'}
+              </Button>
+              <Button onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })} size='sm' type='button' variant='ghost'>
+                <Frame aria-hidden='true' />Fill frame
+              </Button>
+              <Button onClick={() => { onCropEditingChange(false); updateAsset({ imageCrop: { ...crop, enabled: false } }); }} size='sm' type='button' variant='ghost'>
+                <ImageDown aria-hidden='true' />Fit image
+              </Button>
+              <Button onClick={() => onCropAspectChange('original')} size='sm' type='button' variant='ghost'>
+                <FileImage aria-hidden='true' />Original ratio
+              </Button>
+            </div>
+            <label className='shader-lab-v2-field'>
+              <span>Crop aspect</span>
+              <StudioSelect
+                ariaLabel='Crop aspect ratio'
+                onValueChange={onCropAspectChange}
+                options={[...IMAGE_CROP_ASPECT_OPTIONS]}
+                value={cropAspect}
+              />
+            </label>
             <RangeControl
               formatValue={(value) => `${Math.round(value * 100)}%`}
               label='Crop zoom'
@@ -4235,6 +4292,15 @@ function useDesignLabLayerActions({
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, visible: !asset.visible } : asset));
   }
 
+  function setLayersVisibility(ids: readonly CompositionLayerId[], visible: boolean) {
+    const targets = new Set(ids);
+    setShaderLayers((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
+    setEffectLayers((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
+    setLogoLayers((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
+    setTextLayers((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
+    setCompositionAssets((current) => current.map((layer) => targets.has(layer.id) ? { ...layer, visible } : layer));
+  }
+
   function removeShaderFromSelectedContent() {
     if (!selectedContentLayerId) return;
     setLayerShaders((current) => {
@@ -4258,7 +4324,7 @@ function useDesignLabLayerActions({
     return layerKind(id);
   }
 
-  return { duplicateLayer, duplicateLayers, layerLabel, removeLayer, removeShaderFromSelectedContent, resolvedLayerKind, toggleLayerVisibility };
+  return { duplicateLayer, duplicateLayers, layerLabel, removeLayer, removeShaderFromSelectedContent, resolvedLayerKind, setLayersVisibility, toggleLayerVisibility };
 }
 
 function useDesignLabCanvasSelection({
@@ -4470,6 +4536,22 @@ function useDesignLabCanvasSelection({
     });
   }
 
+  function moveCanvasSelectionToEdge(edge: 'back' | 'front') {
+    const selected = new Set<CompositionLayerId>(selectedCanvasLayerIds);
+    setLayerOrder((current) => {
+      const selectedIds = current.filter((id) => selected.has(id));
+      const remaining = current.filter((id) => !selected.has(id));
+      return edge === 'front' ? [...remaining, ...selectedIds] : [...selectedIds, ...remaining];
+    });
+  }
+
+  function selectAllCanvasLayers() {
+    const ids = layerOrder.filter((id): id is CanvasLayerId => isCanvasLayerId(id) && layerVisible(id));
+    setSelectedCanvasLayerIds(ids);
+    setSelectedLayerId(ids.at(-1) ?? null);
+    setSelectionMenuPosition(null);
+  }
+
   function removeCanvasSelection() {
     if (selectedCanvasLayerIds.length === 0) return;
     const idSet = new Set(selectedCanvasLayerIds);
@@ -4530,9 +4612,11 @@ function useDesignLabCanvasSelection({
     handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
+    moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
     selectCanvasAssembly,
+    selectAllCanvasLayers,
     selectedCanvasBounds,
     selectedCanvasGroup,
     selectedCanvasLayerIdSet,
@@ -4559,20 +4643,24 @@ function DesignArtboardContextMenu({
   menu,
   onArrange,
   onClose,
+  onCopy,
   onDelete,
   onDuplicate,
   onFocus,
   onNew,
+  onPaste,
 }: {
   activeArtboardId: DesignArtboardId;
   artboards: readonly DesignArtboard[];
   menu: DesignArtboardMenuState | null;
   onArrange: () => void;
   onClose: () => void;
+  onCopy: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onFocus: (id: DesignArtboardId) => void;
   onNew: () => void;
+  onPaste: () => void;
 }) {
   const artboard = menu ? artboards.find(({ id }) => id === menu.artboardId) ?? null : null;
   return (
@@ -4591,7 +4679,9 @@ function DesignArtboardContextMenu({
               label: 'Focus artboard',
               onSelect: () => onFocus(artboard.id),
             },
-            { icon: <Copy aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
+            { icon: <Copy aria-hidden='true' />, id: 'copy-artboard', label: 'Copy artboard', onSelect: onCopy, shortcut: '⌘C' },
+            { icon: <Files aria-hidden='true' />, id: 'paste-artboard', label: 'Paste', onSelect: onPaste, shortcut: '⌘V' },
+            { icon: <Files aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
             { icon: <Plus aria-hidden='true' />, id: 'new-artboard', label: 'New artboard', onSelect: onNew },
           ],
         },
@@ -4618,9 +4708,13 @@ function LayerDockContextMenu({
   layerVisible,
   menu,
   onClose,
+  onCopy,
+  onCut,
   onDelete,
   onDuplicate,
   onMove,
+  onMoveToEdge,
+  onPaste,
   onToggleVisibility,
 }: {
   layerKind: (id: CompositionLayerId) => string;
@@ -4629,9 +4723,13 @@ function LayerDockContextMenu({
   layerVisible: (id: CompositionLayerId) => boolean;
   menu: LayerDockMenuState | null;
   onClose: () => void;
+  onCopy: (id: CompositionLayerId) => void;
+  onCut: (id: CompositionLayerId) => void;
   onDelete: (id: CompositionLayerId) => void;
   onDuplicate: (id: CompositionLayerId) => void;
   onMove: (id: CompositionLayerId, direction: -1 | 1) => void;
+  onMoveToEdge: (id: CompositionLayerId, edge: 'back' | 'front') => void;
+  onPaste: () => void;
   onToggleVisibility: (id: CompositionLayerId) => void;
 }) {
   const layerId = menu && layerOrder.includes(menu.layerId) ? menu.layerId : null;
@@ -4646,7 +4744,15 @@ function LayerDockContextMenu({
       sections={layerId ? [
         {
           items: [
-            { icon: <Copy aria-hidden='true' />, id: 'duplicate-layer', label: 'Duplicate layer', onSelect: () => onDuplicate(layerId), shortcut: '⌘D' },
+            { icon: <Copy aria-hidden='true' />, id: 'copy-layer', label: 'Copy layer', onSelect: () => onCopy(layerId), shortcut: '⌘C' },
+            { icon: <Scissors aria-hidden='true' />, id: 'cut-layer', label: 'Cut layer', onSelect: () => onCut(layerId), shortcut: '⌘X' },
+            { icon: <Copy aria-hidden='true' />, id: 'paste-layer', label: 'Paste', onSelect: onPaste, shortcut: '⌘V' },
+            { icon: <Files aria-hidden='true' />, id: 'duplicate-layer', label: 'Duplicate layer', onSelect: () => onDuplicate(layerId), shortcut: '⌘D' },
+          ],
+        },
+        {
+          label: 'Visibility',
+          items: [
             {
               checked: visible,
               icon: visible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />,
@@ -4659,8 +4765,10 @@ function LayerDockContextMenu({
         {
           label: 'Layer order',
           items: [
-            { disabled: orderIndex === layerOrder.length - 1, icon: <ArrowUp aria-hidden='true' />, id: 'move-layer-forward', label: 'Bring forward', onSelect: () => onMove(layerId, 1) },
-            { disabled: orderIndex === 0, icon: <ArrowDown aria-hidden='true' />, id: 'move-layer-backward', label: 'Send backward', onSelect: () => onMove(layerId, -1) },
+            { disabled: orderIndex === layerOrder.length - 1, icon: <ArrowUp aria-hidden='true' />, id: 'move-layer-forward', label: 'Bring forward', onSelect: () => onMove(layerId, 1), shortcut: '⌘]' },
+            { disabled: orderIndex === layerOrder.length - 1, icon: <ArrowUp aria-hidden='true' />, id: 'move-layer-front', label: 'Bring to front', onSelect: () => onMoveToEdge(layerId, 'front'), shortcut: '⇧⌘]' },
+            { disabled: orderIndex === 0, icon: <ArrowDown aria-hidden='true' />, id: 'move-layer-backward', label: 'Send backward', onSelect: () => onMove(layerId, -1), shortcut: '⌘[' },
+            { disabled: orderIndex === 0, icon: <ArrowDown aria-hidden='true' />, id: 'move-layer-back', label: 'Send to back', onSelect: () => onMoveToEdge(layerId, 'back'), shortcut: '⇧⌘[' },
           ],
         },
         {
@@ -4886,6 +4994,7 @@ export default function ShaderLabStudio({
     [DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID]
   );
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
+  const [cropEditingLayerId, setCropEditingLayerId] = useState<AssetLayerId | null>(null);
   const [artboardMenu, setArtboardMenu] = useState<DesignArtboardMenuState | null>(null);
   const [layerDockMenu, setLayerDockMenu] = useState<LayerDockMenuState | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -5300,6 +5409,13 @@ export default function ShaderLabStudio({
     selectedLayerId,
     textLayers,
   });
+  useEffect(() => {
+    if (!cropEditingLayerId) return;
+    const cropTargetExists = compositionAssets.some(({ id }) => id === cropEditingLayerId);
+    if (!cropTargetExists || selectedLayerId !== cropEditingLayerId || selectedCanvasLayerIds.length !== 1) {
+      setCropEditingLayerId(null);
+    }
+  }, [compositionAssets, cropEditingLayerId, selectedCanvasLayerIds.length, selectedLayerId]);
   const layerGroupByLayerId = useMemo(() => {
     const groups = new Map<CanvasLayerId, CompositionLayerGroup>();
     for (const group of layerGroups) {
@@ -5314,6 +5430,7 @@ export default function ShaderLabStudio({
     removeLayer,
     removeShaderFromSelectedContent,
     resolvedLayerKind,
+    setLayersVisibility,
     toggleLayerVisibility,
   } = useDesignLabLayerActions({
     captureCompositionFrame,
@@ -5347,8 +5464,10 @@ export default function ShaderLabStudio({
     handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
+    moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
+    selectAllCanvasLayers,
     selectCanvasAssembly,
     selectedCanvasBounds,
     selectedCanvasGroup,
@@ -6635,8 +6754,15 @@ export default function ShaderLabStudio({
   const clipboardOperationRef = useRef(false);
   const pasteDesignLabClipboardRef = useCommittedRef(pasteDesignLabClipboard);
 
-  async function currentDesignLabClipboardSource() {
-    const layerIds = canvasClipboardLayerIds();
+  async function currentDesignLabClipboardSource(
+    forceArtboard = false,
+    explicitLayerIds?: readonly CompositionLayerId[]
+  ) {
+    const layerIds = forceArtboard
+      ? []
+      : explicitLayerIds
+        ? layerOrder.filter((id) => explicitLayerIds.includes(id))
+        : canvasClipboardLayerIds();
     const artboardId = activeArtboardIdRef.current;
     const captured = await captureCompositionFrame();
     const portableSource = await prepareShaderFrameDocumentSource(captured);
@@ -6665,11 +6791,14 @@ export default function ShaderLabStudio({
     void copyDesignLabSelectionFromMenu();
   }
 
-  async function copyDesignLabSelectionFromMenu() {
-    if (clipboardOperationRef.current) return;
+  async function copyDesignLabSelectionFromMenu(
+    forceArtboard = false,
+    explicitLayerIds?: readonly CompositionLayerId[]
+  ) {
+    if (clipboardOperationRef.current) return false;
     clipboardOperationRef.current = true;
     try {
-      const prepared = currentDesignLabClipboardSource().then((copy) => {
+      const prepared = currentDesignLabClipboardSource(forceArtboard, explicitLayerIds).then((copy) => {
         designLabClipboardRef.current = copy.source;
         return copy;
       });
@@ -6678,12 +6807,24 @@ export default function ShaderLabStudio({
       const [copy, systemClipboard] = await Promise.all([prepared, written]);
       announceCanvasClipboard(`Copied ${copy.label}${systemClipboard ? '' : ' · use Paste in the canvas menu'}`);
       setExportError(null);
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The selected design could not be copied.';
       setExportError(message);
       announceCanvasClipboard(message);
+      return false;
     } finally {
       clipboardOperationRef.current = false;
+    }
+  }
+
+  async function cutDesignLabSelectionFromMenu(
+    remove: () => void,
+    explicitLayerIds?: readonly CompositionLayerId[]
+  ) {
+    if (await copyDesignLabSelectionFromMenu(false, explicitLayerIds)) {
+      remove();
+      announceCanvasClipboard('Cut selection · ready to paste');
     }
   }
 
@@ -6870,12 +7011,78 @@ export default function ShaderLabStudio({
     });
   }
 
+  function moveLayerToEdge(id: CompositionLayerId, edge: 'back' | 'front') {
+    setLayerOrder((current) => {
+      if (!current.includes(id)) return current;
+      const remaining = current.filter((layerId) => layerId !== id);
+      return edge === 'front' ? [...remaining, id] : [id, ...remaining];
+    });
+  }
+
   function updateAssetTransform(id: AssetLayerId, transform: CanvasLayerTransform) {
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, transform } : asset));
   }
 
   function updateAssetLayer(id: AssetLayerId, update: Partial<Omit<CompositionAsset, 'id'>>) {
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, ...update } : asset));
+  }
+
+  function setImageCropEditing(id: AssetLayerId, editing: boolean) {
+    const asset = compositionAssets.find((candidate) => candidate.id === id);
+    if (!asset) return;
+    if (editing) {
+      const crop = normalizeImageCropSettings(asset.imageCrop);
+      if (!crop.enabled) updateAssetLayer(id, { imageCrop: { ...crop, enabled: true } });
+      selectCanvasAssembly(id);
+      setCropEditingLayerId(id);
+      setSelectionMenuPosition(null);
+      announceCanvasClipboard(`Editing crop for ${asset.name} · drag the image inside the blue frame`);
+      window.requestAnimationFrame(() => {
+        stageRef.current?.querySelector<HTMLElement>('.image-crop-editor-overlay')?.focus({ preventScroll: true });
+      });
+      return;
+    }
+    setCropEditingLayerId((current) => current === id ? null : current);
+  }
+
+  function resetImageCrop(id: AssetLayerId) {
+    updateAssetLayer(id, { imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } });
+    announceCanvasClipboard('Crop reset to a centered fill');
+  }
+
+  async function setImageCropAspect(id: AssetLayerId, value: string) {
+    if (value === 'freeform') return;
+    const asset = compositionAssets.find((candidate) => candidate.id === id);
+    if (!asset) return;
+    let aspect = Number(value);
+    if (value === 'original') {
+      try {
+        const image = await loadCanvasImage(asset.url);
+        aspect = (image.naturalWidth || 1) / (image.naturalHeight || 1);
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'The image ratio could not be read.');
+        return;
+      }
+    }
+    if (!Number.isFinite(aspect) || aspect <= 0) return;
+    const geometry = layerGeometry(id, canvasDimensions);
+    const current = canvasLayerDimensions(asset.transform, geometry);
+    let width = current.width;
+    let height = width / aspect;
+    const maximumHeight = canvasDimensions.height * 1.5;
+    if (height > maximumHeight) {
+      height = maximumHeight;
+      width = height * aspect;
+    }
+    updateAssetLayer(id, {
+      imageCrop: { ...normalizeImageCropSettings(asset.imageCrop), enabled: true },
+      transform: {
+        ...asset.transform,
+        heightScale: Math.max(MIN_CANVAS_LAYER_SCALE, height / geometry.baseHeight),
+        widthScale: Math.max(MIN_CANVAS_LAYER_SCALE, width / geometry.baseWidth),
+      },
+    });
+    setImageCropEditing(id, true);
   }
 
   function layerVisible(id: CompositionLayerId) {
@@ -8485,7 +8692,9 @@ export default function ShaderLabStudio({
           data-material-id={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
           data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
           onKeyDown={selectedReady ? handleCanvasAssemblyKeyDown : undefined}
-          onPointerDown={selectedReady ? deselectCanvasLayers : undefined}
+          onPointerDown={selectedReady ? (event) => {
+            if (event.button === 0) deselectCanvasLayers();
+          } : undefined}
           ref={selectedReady ? stageRef : undefined}
           style={{
             aspectRatio: `${ratioPresentation.width} / ${ratioPresentation.height}`,
@@ -8647,18 +8856,26 @@ export default function ShaderLabStudio({
     const asset = compositionAssets.find(({ id }) => id === layerId);
     if (!asset) return null;
     const application = layerShaders[layerId];
+    const cropEditing = cropEditingLayerId === layerId;
     return (
       <EditableCanvasLayer
         {...geometry}
+        allowContentInteraction={cropEditing}
         canvasHeight={canvasDimensions.height}
         canvasWidth={canvasDimensions.width}
         className='shader-lab-v2-composition-layer'
+        cropEditing={cropEditing}
         key={layerId}
         label={asset.name}
         layerId={layerId}
         movementBounds={movementBoundsFor(layerId)}
         onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
         onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setImageCropEditing(layerId, true);
+        }}
         onDeselect={deselectCanvasLayers}
         onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
         resizeMode={normalizeImageCropSettings(asset.imageCrop).enabled ? 'box' : 'scale'}
@@ -8682,6 +8899,20 @@ export default function ShaderLabStudio({
           url={asset.url}
         />
         {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} imageCrop={asset.imageCrop} key='finish' url={asset.url} /> : null}
+        {cropEditing ? (
+          <ImageCropEditorOverlay
+            crop={normalizeImageCropSettings(asset.imageCrop)}
+            key='crop-editor'
+            label={asset.name}
+            onChange={(imageCrop) => updateAssetLayer(layerId, { imageCrop })}
+            onDone={() => setImageCropEditing(layerId, false)}
+            onPreview={(imageCrop) => {
+              const layer = stageRef.current?.querySelector<HTMLElement>(`[data-canvas-layer-id="${CSS.escape(layerId)}"]`);
+              if (layer) applyImageCropPreviewStyles(layer, imageCrop);
+            }}
+            url={asset.url}
+          />
+        ) : null}
       </EditableCanvasLayer>
     );
   }
@@ -8893,6 +9124,43 @@ export default function ShaderLabStudio({
     );
   }
 
+  function renderCanvasSelectionMenu() {
+    const selectedAssetId = selectedAsset?.id;
+    const cropEditing = Boolean(selectedAssetId && cropEditingLayerId === selectedAssetId);
+    return (
+      <CanvasSelectionMenu
+        canCrop={selectedCanvasLayerIds.length === 1 && Boolean(selectedAssetId)}
+        canGroup={selectedCanvasLayerIds.length > 1 && !selectedCanvasGroup}
+        canUngroup={selectedGroupedAssemblies.length > 0}
+        count={selectedCanvasLayerIds.length}
+        cropEditing={cropEditing}
+        groupName={selectedCanvasGroup?.name}
+        onAlign={alignCanvasAssembly}
+        onBringForward={() => moveCanvasSelection(1)}
+        onBringToFront={() => moveCanvasSelectionToEdge('front')}
+        onClose={() => setSelectionMenuPosition(null)}
+        onCopy={() => void copyDesignLabSelectionFromMenu()}
+        onCrop={selectedAssetId ? () => setImageCropEditing(selectedAssetId, !cropEditing) : undefined}
+        onCut={() => void cutDesignLabSelectionFromMenu(removeCanvasSelection)}
+        onDelete={removeCanvasSelection}
+        onDuplicate={duplicateCanvasSelection}
+        onGroup={groupCanvasSelection}
+        onPaste={() => void pasteDesignLabSelectionFromMenu()}
+        onResetCrop={selectedAssetId ? () => resetImageCrop(selectedAssetId) : undefined}
+        onSelectAll={selectAllCanvasLayers}
+        onSendBackward={() => moveCanvasSelection(-1)}
+        onSendToBack={() => moveCanvasSelectionToEdge('back')}
+        onToggleVisibility={() => {
+          const visible = selectedCanvasLayerIds.every(layerVisible);
+          setLayersVisibility(selectedCanvasLayerIds, !visible);
+        }}
+        onUngroup={ungroupCanvasSelection}
+        position={selectionMenuPosition}
+        selectionVisible={selectedCanvasLayerIds.every(layerVisible)}
+      />
+    );
+  }
+
   function renderStudio() {
     return (
     <div
@@ -8983,10 +9251,15 @@ export default function ShaderLabStudio({
             menu={artboardMenu}
             onArrange={arrangeArtboards}
             onClose={() => setArtboardMenu(null)}
+            onCopy={() => {
+              deselectCanvasLayers();
+              void copyDesignLabSelectionFromMenu(true);
+            }}
             onDelete={removeActiveArtboard}
             onDuplicate={() => addArtboard(true)}
             onFocus={(id) => activateArtboard(id, true)}
             onNew={() => addArtboard(false)}
+            onPaste={() => void pasteDesignLabSelectionFromMenu()}
           />
           <LayerDockContextMenu
             layerKind={resolvedLayerKind}
@@ -8995,9 +9268,19 @@ export default function ShaderLabStudio({
             layerVisible={layerVisible}
             menu={layerDockMenu}
             onClose={() => setLayerDockMenu(null)}
+            onCopy={(id) => {
+              selectLayerFromStack(id);
+              void copyDesignLabSelectionFromMenu(false, [id]);
+            }}
+            onCut={(id) => {
+              selectLayerFromStack(id);
+              void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
+            }}
             onDelete={removeLayer}
             onDuplicate={duplicateLayer}
             onMove={moveLayer}
+            onMoveToEdge={moveLayerToEdge}
+            onPaste={() => void pasteDesignLabSelectionFromMenu()}
             onToggleVisibility={toggleLayerVisibility}
           />
           {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
@@ -9009,23 +9292,7 @@ export default function ShaderLabStudio({
               stageRef={stageRef}
             />
           ) : null}
-          <CanvasSelectionMenu
-            canGroup={selectedCanvasLayerIds.length > 1 && !selectedCanvasGroup}
-            canUngroup={selectedGroupedAssemblies.length > 0}
-            count={selectedCanvasLayerIds.length}
-            groupName={selectedCanvasGroup?.name}
-            onAlign={alignCanvasAssembly}
-            onBringForward={() => moveCanvasSelection(1)}
-            onClose={() => setSelectionMenuPosition(null)}
-            onCopy={() => void copyDesignLabSelectionFromMenu()}
-            onDelete={removeCanvasSelection}
-            onDuplicate={duplicateCanvasSelection}
-            onGroup={groupCanvasSelection}
-            onPaste={() => void pasteDesignLabSelectionFromMenu()}
-            onSendBackward={() => moveCanvasSelection(-1)}
-            onUngroup={ungroupCanvasSelection}
-            position={selectionMenuPosition}
-          />
+          {renderCanvasSelectionMenu()}
           <div className='design-motion-strip' data-canvas-selection-preserve>
             {renderShaderTimeExplorer()}
             <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} title='Shader sequence' type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
@@ -9256,6 +9523,10 @@ export default function ShaderLabStudio({
               <DesignLabAssetLayerInspector
                 appearance={selectedAssetAppearance}
                 asset={selectedAsset}
+                cropAspect={imageCropAspectValue(selectedAsset.transform, layerGeometry(selectedAsset.id, canvasDimensions))}
+                cropEditing={cropEditingLayerId === selectedAsset.id}
+                onCropAspectChange={(value) => void setImageCropAspect(selectedAsset.id, value)}
+                onCropEditingChange={(editing) => setImageCropEditing(selectedAsset.id, editing)}
                 previewAppearance={previewSelectedLogoAppearance}
                 previewImageCrop={previewSelectedImageCrop}
                 previewOpacity={previewSelectedContentOpacity}

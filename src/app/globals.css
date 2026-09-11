@@ -1180,6 +1180,130 @@
   height: 100%;
 }
 
+.image-crop-editor-overlay {
+  position: absolute;
+  z-index: 18;
+  inset: 0;
+  outline: 0;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.image-crop-editor-overlay[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+.image-crop-editor-overlay__source {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  max-width: none;
+  max-height: none;
+  opacity: .32;
+  filter: saturate(.72) contrast(.88);
+  pointer-events: none;
+  user-select: none;
+}
+
+.image-crop-editor-overlay__frame {
+  position: absolute;
+  inset: -4px;
+  border: 2px dashed rgb(255 255 255 / .92);
+  box-shadow: 0 0 0 1px #5b7cff, 0 0 0 9999px rgb(3 5 10 / .2);
+  content: '';
+  pointer-events: none;
+}
+
+.image-crop-editor-overlay__hint,
+.image-crop-editor-overlay__done {
+  position: absolute;
+  z-index: 24;
+  top: calc(100% + 10px);
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / .22);
+  border-radius: 5px;
+  color: white;
+  background: rgb(12 13 16 / .92);
+  box-shadow: 0 10px 28px rgb(0 0 0 / .32);
+  backdrop-filter: blur(12px);
+}
+
+.image-crop-editor-overlay__hint {
+  left: 0;
+  gap: 7px;
+  padding: 5px 8px;
+  pointer-events: none;
+}
+
+.image-crop-editor-overlay__hint > svg {
+  width: 13px;
+  height: 13px;
+  color: #8fa5ff;
+}
+
+.image-crop-editor-overlay__hint > span {
+  display: grid;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.image-crop-editor-overlay__hint strong {
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.image-crop-editor-overlay__hint small {
+  color: rgb(255 255 255 / .62);
+  font-size: 7px;
+}
+
+.image-crop-editor-overlay__done {
+  right: 0;
+  gap: 5px;
+  padding: 0 9px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+  transition: border-color 140ms ease-out, background-color 140ms ease-out, transform 140ms ease-out;
+}
+
+.image-crop-editor-overlay__done:hover,
+.image-crop-editor-overlay__done:focus-visible {
+  border-color: rgb(255 255 255 / .5);
+  background: rgb(32 34 42 / .96);
+}
+
+.image-crop-editor-overlay__done:focus-visible {
+  outline: 2px solid #5b7cff;
+  outline-offset: 2px;
+}
+
+.image-crop-editor-overlay__done:active {
+  transform: scale(.97);
+}
+
+.image-crop-editor-overlay__done svg {
+  width: 11px;
+  height: 11px;
+}
+
+.editable-canvas-layer[data-crop-editing='true'] {
+  cursor: default;
+}
+
+.editable-canvas-layer-selection[data-selection-mode='crop']::after {
+  border-style: dashed;
+  border-color: #5b7cff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .88), 0 0 18px rgb(64 96 255 / .22);
+}
+
+.editable-canvas-layer-selection[data-selection-mode='crop'] .editable-canvas-layer-name {
+  background: #405fff;
+}
+
 .shader-lab-v2-layer-logo-mask,
 .shader-lab-v2-layer-image {
   width: 100%;
@@ -3092,6 +3216,24 @@
   border: 1px solid hsl(var(--border));
   border-radius: 5px;
   background: hsl(var(--background) / 0.38);
+}
+
+.shader-lab-v2-image-crop-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.shader-lab-v2-image-crop-actions > :first-child {
+  grid-column: 1 / -1;
+}
+
+.shader-lab-v2-image-crop-actions > :last-child {
+  grid-column: 1 / -1;
+}
+
+.shader-lab-v2-image-crop-actions button {
+  width: 100%;
 }
 
 .shader-lab-v2-appearance-controls {
@@ -15069,6 +15211,7 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .editable-canvas-layer-selection :is(
+  .editable-canvas-layer-corner,
   .editable-canvas-layer-edge,
   .editable-canvas-layer-move,
   .editable-canvas-layer-move-edge,
@@ -15798,6 +15941,41 @@ html.dark .studio-app .studio-app-header > a img {
 
 .editable-canvas-layer-edge--bottom {
   bottom: -8px;
+}
+
+.editable-canvas-layer-corner {
+  position: absolute;
+  z-index: 29;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 2px solid white;
+  background: #5b7cff;
+  touch-action: none;
+}
+
+.editable-canvas-layer-corner--top-left {
+  top: -7px;
+  left: -7px;
+  cursor: nwse-resize;
+}
+
+.editable-canvas-layer-corner--top-right {
+  top: -7px;
+  right: -7px;
+  cursor: nesw-resize;
+}
+
+.editable-canvas-layer-corner--bottom-left {
+  bottom: -7px;
+  left: -7px;
+  cursor: nesw-resize;
+}
+
+.editable-canvas-layer-corner--bottom-right {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
 }
 
 .editable-canvas-layer-resize {
