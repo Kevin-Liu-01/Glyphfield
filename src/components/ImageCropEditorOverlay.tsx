@@ -53,6 +53,8 @@ export default function ImageCropEditorOverlay({
   url: string;
 }) {
   const crop = normalizeImageCropSettings(cropInput);
+  const committedCropRef = useRef(crop);
+  const draftRef = useRef(crop);
   const hostRef = useRef<HTMLDivElement>(null);
   const pointerSessionRef = useRef<CropPointerSession | null>(null);
   const [draft, setDraft] = useState(crop);
@@ -61,7 +63,10 @@ export default function ImageCropEditorOverlay({
   const [dragging, setDragging] = useState(false);
 
   useLayoutEffect(() => {
-    if (!pointerSessionRef.current) setDraft((current) => sameCrop(current, crop) ? current : crop);
+    if (pointerSessionRef.current) return;
+    committedCropRef.current = crop;
+    draftRef.current = crop;
+    setDraft((current) => sameCrop(current, crop) ? current : crop);
   }, [crop.enabled, crop.focalPointX, crop.focalPointY, crop.zoom]);
 
   useLayoutEffect(() => {
@@ -88,6 +93,26 @@ export default function ImageCropEditorOverlay({
     imageHeight: imageSize.height,
     imageWidth: imageSize.width,
   });
+
+  function previewCrop(next: ImageCropSettings) {
+    draftRef.current = next;
+    setDraft(next);
+    onPreview(next);
+  }
+
+  function commitCrop(next: ImageCropSettings) {
+    previewCrop(next);
+    if (sameCrop(committedCropRef.current, next)) return;
+    committedCropRef.current = next;
+    onChange(next);
+  }
+
+  function finishEditing() {
+    pointerSessionRef.current = null;
+    setDragging(false);
+    commitCrop(draftRef.current);
+    onDone();
+  }
 
   function cropFromPointer(event: Pick<ReactPointerEvent<HTMLDivElement>, 'clientX' | 'clientY' | 'shiftKey'>) {
     const session = pointerSessionRef.current;
@@ -132,21 +157,25 @@ export default function ImageCropEditorOverlay({
     if (pointerSessionRef.current?.pointerId !== event.pointerId) return;
     const next = cropFromPointer(event);
     if (!next) return;
-    setDraft(next);
-    onPreview(next);
+    previewCrop(next);
   }
 
   function finishDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (pointerSessionRef.current?.pointerId !== event.pointerId) return;
-    const next = cropFromPointer(event) ?? draft;
+    const next = cropFromPointer(event) ?? draftRef.current;
     pointerSessionRef.current = null;
     setDragging(false);
-    setDraft(next);
-    onPreview(next);
-    onChange(next);
+    commitCrop(next);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+  }
+
+  function finishLostPointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    if (pointerSessionRef.current?.pointerId !== event.pointerId) return;
+    pointerSessionRef.current = null;
+    setDragging(false);
+    commitCrop(draftRef.current);
   }
 
   function cancelDrag(event: ReactPointerEvent<HTMLDivElement>) {
@@ -154,15 +183,14 @@ export default function ImageCropEditorOverlay({
     if (session?.pointerId !== event.pointerId) return;
     pointerSessionRef.current = null;
     setDragging(false);
-    setDraft(session.crop);
-    onPreview(session.crop);
+    previewCrop(session.crop);
   }
 
   function nudgeCrop(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Enter' || event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      onDone();
+      finishEditing();
       return;
     }
     const step = event.shiftKey ? 0.05 : 0.01;
@@ -176,13 +204,11 @@ export default function ImageCropEditorOverlay({
     event.preventDefault();
     event.stopPropagation();
     const next = normalizeImageCropSettings({
-      ...draft,
-      focalPointX: draft.focalPointX + offset.x,
-      focalPointY: draft.focalPointY + offset.y,
+      ...draftRef.current,
+      focalPointX: draftRef.current.focalPointX + offset.x,
+      focalPointY: draftRef.current.focalPointY + offset.y,
     });
-    setDraft(next);
-    onPreview(next);
-    onChange(next);
+    commitCrop(next);
   }
 
   return (
@@ -191,8 +217,9 @@ export default function ImageCropEditorOverlay({
       className='image-crop-editor-overlay'
       data-canvas-interactive
       data-dragging={dragging ? 'true' : 'false'}
-      onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); onDone(); }}
+      onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); finishEditing(); }}
       onKeyDown={nudgeCrop}
+      onLostPointerCapture={finishLostPointerCapture}
       onPointerCancel={cancelDrag}
       onPointerDown={beginDrag}
       onPointerMove={moveDrag}
@@ -232,7 +259,7 @@ export default function ImageCropEditorOverlay({
       </span>
       <button
         className='image-crop-editor-overlay__done'
-        onClick={(event) => { event.stopPropagation(); onDone(); }}
+        onClick={(event) => { event.stopPropagation(); finishEditing(); }}
         onPointerDown={(event) => event.stopPropagation()}
         type='button'
       >

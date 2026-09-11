@@ -118,4 +118,61 @@ describe('ImageCropEditorOverlay', () => {
     })));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ focalPointX: 0.25 }));
   });
+
+  it('commits the visible crop when pointer capture ends before pointer up', async () => {
+    const onChange = vi.fn();
+    const onDone = vi.fn();
+    const onPreview = vi.fn();
+    await act(() => root.render(
+      <ImageCropEditorOverlay
+        crop={{ enabled: true, focalPointX: 0.5, focalPointY: 0.5, zoom: 2 }}
+        label='Campaign photo'
+        onChange={onChange}
+        onDone={onDone}
+        onPreview={onPreview}
+        url='data:image/png;base64,AA=='
+      />
+    ));
+
+    const editor = container.querySelector<HTMLElement>('[role="application"]')!;
+    const measure = container.querySelector<HTMLImageElement>('.image-crop-editor-overlay__measure')!;
+    Object.defineProperties(editor, {
+      hasPointerCapture: { configurable: true, value: vi.fn(() => false) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+      setPointerCapture: { configurable: true, value: vi.fn() },
+    });
+    Object.defineProperties(measure, {
+      naturalHeight: { configurable: true, value: 800 },
+      naturalWidth: { configurable: true, value: 1_600 },
+    });
+    await act(() => measure.dispatchEvent(new Event('load')));
+
+    await act(() => editor.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      clientX: 100,
+      clientY: 50,
+      isPrimary: true,
+      pointerId: 9,
+    })));
+    await act(() => editor.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      clientX: 150,
+      clientY: 50,
+      isPrimary: true,
+      pointerId: 9,
+    })));
+    expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({ focalPointX: 0.25 }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    await act(() => editor.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      isPrimary: true,
+      pointerId: 9,
+    })));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ focalPointX: 0.25 }));
+
+    await act(() => editor.querySelector<HTMLButtonElement>('.image-crop-editor-overlay__done')!.click());
+    expect(onDone).toHaveBeenCalledOnce();
+  });
 });
