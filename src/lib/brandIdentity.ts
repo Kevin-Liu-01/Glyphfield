@@ -810,7 +810,42 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   ];
 }
 
-export function duplicateBrandIdentity(identity: BrandIdentity, id = crypto.randomUUID()): BrandIdentity {
+export function nextBrandIdentityCopyName(
+  name: string,
+  existingNames: readonly string[]
+): string {
+  const trimmedName = name.trim() || 'Untitled brand';
+  const baseName = trimmedName.replace(/\s+copy(?:\s+\d+)?$/i, '').trim() || trimmedName;
+  const occupiedNames = new Set(existingNames.map((candidate) => candidate.trim().toLocaleLowerCase()));
+  let copyNumber = 1;
+  while (occupiedNames.has(`${baseName} copy ${copyNumber}`.toLocaleLowerCase())) copyNumber += 1;
+  return `${baseName} copy ${copyNumber}`;
+}
+
+export function renameBrandIdentity(identity: BrandIdentity, name: string): BrandIdentity {
+  const trimmedName = name.trim();
+  if (!trimmedName || trimmedName === identity.name) return identity;
+  const shortName = trimmedName
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 3)
+    .toLocaleUpperCase();
+  return {
+    ...identity,
+    assets: hasGeneratedPixelAssets(identity)
+      ? updateGeneratedPixelAssets(identity.assets, shortName || identity.shortName, identity.id)
+      : identity.assets,
+    name: trimmedName,
+    shortName: shortName || identity.shortName,
+  };
+}
+
+export function duplicateBrandIdentity(
+  identity: BrandIdentity,
+  id = crypto.randomUUID(),
+  existingNames: readonly string[] = []
+): BrandIdentity {
   const clonedIdentity = cloneBrandIdentity(identity);
   return {
     ...clonedIdentity,
@@ -820,7 +855,7 @@ export function duplicateBrandIdentity(identity: BrandIdentity, id = crypto.rand
     builtIn: false,
     id,
     kind: 'custom',
-    name: `${identity.name} copy`,
+    name: nextBrandIdentityCopyName(identity.name, existingNames),
   };
 }
 

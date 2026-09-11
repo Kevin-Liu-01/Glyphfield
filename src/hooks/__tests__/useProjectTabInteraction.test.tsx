@@ -38,6 +38,7 @@ describe('project tab pointer transactions', () => {
       >
         <button data-open onClick={() => select(id)}>{id}</button>
         <input aria-label={`${id} name`} defaultValue={id} />
+        <button className='project-tab-rename'><svg><path /></svg></button>
         <button className='project-tab-close' onClick={() => close(id)}><svg><path /></svg></button>
       </div>)}
     </nav>;
@@ -144,7 +145,7 @@ describe('project tab pointer transactions', () => {
     expect(select).toHaveBeenCalledWith('alpha');
   });
 
-  it.each(['.project-tab-close path', 'input'])('invariant_%s_interactions_do_not_arm_tab_dragging', (selector) => {
+  it.each(['.project-tab-close path', '.project-tab-rename path', 'input'])('invariant_%s_interactions_do_not_arm_tab_dragging', (selector) => {
     pointer(tab().querySelector(selector)!, 'pointerdown', 40);
     pointer(tab(), 'pointermove', 190);
     frame();

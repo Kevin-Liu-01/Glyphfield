@@ -13,6 +13,8 @@ import {
   BUILT_IN_BRAND_IDENTITIES,
   createBrandIdentity,
   duplicateBrandIdentity,
+  nextBrandIdentityCopyName,
+  renameBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
   resolveBrandTypographyWeight,
@@ -277,6 +279,25 @@ describe('createBrandIdentity', () => {
       source.assets.find(({ id }) => id === 'mark-dark')!.path
     );
     expect(duplicate.assets.find(({ id }) => id === 'wordmark')?.path).toBe('/wordmark.svg');
+  });
+
+  it('numbers copies from the original project name without collisions', () => {
+    const names = ['General Translation', 'General Translation copy 1', 'general translation COPY 2'];
+
+    expect(nextBrandIdentityCopyName('General Translation', names)).toBe('General Translation copy 3');
+    expect(nextBrandIdentityCopyName('General Translation copy 1', names)).toBe('General Translation copy 3');
+    expect(duplicateBrandIdentity(GT_BRAND_IDENTITY, 'gt-copy-3', names).name)
+      .toBe('General Translation copy 3');
+  });
+
+  it('trims a renamed project and refreshes its generated mark initials', () => {
+    const identity = createBrandIdentity('Old name', 'rename-project');
+    const renamed = renameBrandIdentity(identity, '  New Project Name  ');
+
+    expect(renamed.name).toBe('New Project Name');
+    expect(renamed.shortName).toBe('NPN');
+    expect(renamed.assets.find(({ id }) => id === 'mark-dark')?.path)
+      .not.toBe(identity.assets.find(({ id }) => id === 'mark-dark')?.path);
   });
 });
 

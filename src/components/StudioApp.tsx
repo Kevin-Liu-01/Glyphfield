@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Film,
+  FilePenLine,
   Folder,
   Grid3X3,
   LayoutGrid,
@@ -66,8 +67,8 @@ import {
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
+  renameBrandIdentity,
   STARTER_BRAND_IDENTITY,
-  updateGeneratedPixelAssets,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -580,6 +581,7 @@ function ProjectTabContextMenu({
   onDuplicate,
   onMove,
   onOpen,
+  onRename,
   openCount,
   tabCount,
   tabIndex,
@@ -593,6 +595,7 @@ function ProjectTabContextMenu({
   onDuplicate: (identityId: string) => void;
   onMove: (identityId: string, direction: -1 | 1) => void;
   onOpen: (identityId: string) => void;
+  onRename: (identityId: string) => void;
   openCount: number;
   tabCount: number;
   tabIndex: number;
@@ -614,6 +617,13 @@ function ProjectTabContextMenu({
               label: gt('Open project'),
               onSelect: () => onOpen(identity.id),
             },
+            ...(identity.kind === 'custom' ? [{
+              icon: <FilePenLine aria-hidden='true' />,
+              id: 'rename-project',
+              label: gt('Rename project'),
+              onSelect: () => onRename(identity.id),
+              shortcut: 'F2',
+            }] : []),
             {
               icon: <Copy aria-hidden='true' />,
               id: 'duplicate-project',
@@ -933,8 +943,11 @@ export default function StudioApp() {
   const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
   const [projectTabMenu, setProjectTabMenu] = useState<ProjectTabMenuState | null>(null);
+  const [renamingIdentityId, setRenamingIdentityId] = useState<string | null>(null);
+  const [projectNameDraft, setProjectNameDraft] = useState('');
   const [tabOrderAnnouncement, setTabOrderAnnouncement] = useState('');
   const projectTabsScrollRef = useRef<HTMLDivElement>(null);
+  const projectNameInputRef = useRef<HTMLInputElement>(null);
   const [tabScrollState, setTabScrollState] = useState({
     availableWidth: 0,
     canScrollLeft: false,
@@ -1021,6 +1034,14 @@ export default function StudioApp() {
   const projectTabMenuIndex = projectTabMenuIdentity
     ? visibleIdentities.findIndex(({ id }) => id === projectTabMenuIdentity.id)
     : -1;
+  useEffect(() => {
+    if (!renamingIdentityId) return;
+    const animationFrame = window.requestAnimationFrame(() => {
+      projectNameInputRef.current?.focus();
+      projectNameInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [renamingIdentityId]);
   const folderCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -1261,7 +1282,11 @@ export default function StudioApp() {
   function copyIdentityById(identityId: string) {
     const identity = identityById.get(identityId);
     if (!identity) return;
-    activateCreatedIdentity(duplicateBrandIdentity(identity));
+    activateCreatedIdentity(duplicateBrandIdentity(
+      identity,
+      undefined,
+      resolvedIdentities.map(({ name }) => name)
+    ));
   }
 
   function copyIdentity() {
@@ -1283,29 +1308,37 @@ export default function StudioApp() {
     if (nextIdentity) selectIdentity(nextIdentity.id);
   }
 
-  function renameIdentity(identityId: string, name: string) {
-    const currentIdentity = resolvedIdentities.find((identity) => identity.id === identityId);
-    if (!currentIdentity) return;
-    const trimmedWords = name.trim().split(/\s+/).filter(Boolean);
-    const shortName = trimmedWords
-      .map((word) => word[0])
-      .join('')
-      .slice(0, 3)
-      .toLocaleUpperCase();
-    updateIdentity({
-      ...currentIdentity,
-      assets: currentIdentity.assets.some(({ label }) =>
-        label.startsWith('Generated pixel mark')
-      )
-        ? updateGeneratedPixelAssets(
-            currentIdentity.assets,
-            shortName || currentIdentity.shortName,
-            currentIdentity.id
-          )
-        : currentIdentity.assets,
-      name,
-      shortName: shortName || currentIdentity.shortName,
+  function beginProjectRename(identityId: string) {
+    const identity = identityById.get(identityId);
+    if (!identity || identity.kind !== 'custom') return;
+    setProjectTabMenu(null);
+    selectIdentity(identityId);
+    setProjectNameDraft(identity.name);
+    setRenamingIdentityId(identityId);
+  }
+
+  function commitIdentityName(identityId: string, name: string) {
+    const identity = identities.find((candidate) => candidate.id === identityId);
+    if (!identity || identity.kind !== 'custom') return;
+    const renamedIdentity = renameBrandIdentity(identity, name);
+    if (renamedIdentity === identity) return;
+    commitIdentities(identities.map((candidate) =>
+      candidate.id === identityId ? renamedIdentity : candidate
+    ));
+    setPendingIdentities((current) => {
+      const pendingIdentity = current[identityId];
+      if (!pendingIdentity) return current;
+      return {
+        ...current,
+        [identityId]: renameBrandIdentity(pendingIdentity, name),
+      };
     });
+  }
+
+  function finishProjectRename(identityId: string, save: boolean) {
+    if (save && projectNameDraft.trim()) commitIdentityName(identityId, projectNameDraft);
+    setRenamingIdentityId(null);
+    setProjectNameDraft('');
   }
 
   const updateIdentity = useCallback((nextIdentity: BrandIdentity) => {
@@ -1431,17 +1464,22 @@ export default function StudioApp() {
             : 'border-border/65 bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         data-project-id={identity.id}
+        data-renaming={renamingIdentityId === identity.id ? 'true' : undefined}
         data-selected={selected ? 'true' : 'false'}
         data-studio-context-trigger='project-tab'
         key={identity.id}
         onClick={(event) => handleProjectTabClick(event, identity.id)}
         onClickCapture={(event) => handleProjectTabClickCapture(event, identity.id)}
         onContextMenu={(event) => {
+          if (event.target instanceof Element && event.target.closest('input, textarea, [contenteditable]')) return;
           event.preventDefault();
           openProjectTabContext(identity.id, contextMenuPositionFromEvent(event));
         }}
         onKeyDown={(event) => {
-          if (event.altKey && event.key === 'ArrowLeft') {
+          if (event.key === 'F2' && identity.kind === 'custom') {
+            event.preventDefault();
+            beginProjectRename(identity.id);
+          } else if (event.altKey && event.key === 'ArrowLeft') {
             event.preventDefault();
             moveProjectTab(identity.id, -1);
           } else if (event.altKey && event.key === 'ArrowRight') {
@@ -1462,28 +1500,50 @@ export default function StudioApp() {
         role='group'
         title={identity.name}
       >
-        {selected && identity.kind === 'custom' ? (
+        {renamingIdentityId === identity.id && identity.kind === 'custom' ? (
           <div className='project-tab-editor flex min-w-0 flex-1 items-center gap-2'>
             <ProjectTabMark identity={identity} selected={selected} />
             <span className='project-tab-separator font-mono text-muted-foreground' aria-hidden='true'>/</span>
             <input
-              aria-label={gt('Project name')}
+              aria-label={gt('Rename {name}', { name: identity.name })}
               className='project-tab-name min-w-0 flex-1 bg-transparent font-medium outline-none'
               id={`project-tab-trigger-${identity.id}`}
-              onChange={(event) => renameIdentity(identity.id, event.target.value)}
-              value={identity.name}
+              onBlur={() => finishProjectRename(identity.id, true)}
+              onChange={(event) => setProjectNameDraft(event.target.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  finishProjectRename(identity.id, true);
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  finishProjectRename(identity.id, false);
+                }
+              }}
+              ref={projectNameInputRef}
+              spellCheck={false}
+              title={gt('Press Enter to save or Escape to cancel')}
+              value={projectNameDraft}
             />
           </div>
         ) : (
           <button
             aria-current={selected ? 'page' : undefined}
             aria-label={gt('Open {name} project', { name: identity.name })}
-            aria-keyshortcuts='Alt+ArrowLeft Alt+ArrowRight Shift+F10'
+            aria-keyshortcuts={identity.kind === 'custom'
+              ? 'Alt+ArrowLeft Alt+ArrowRight Shift+F10 F2'
+              : 'Alt+ArrowLeft Alt+ArrowRight Shift+F10'}
             className='flex min-w-0 flex-1 items-center gap-2 text-left'
             id={`project-tab-trigger-${identity.id}`}
             onClick={() => {
               setProjectTabMenu(null);
               selectIdentity(identity.id);
+            }}
+            onDoubleClick={(event) => {
+              if (identity.kind !== 'custom') return;
+              event.preventDefault();
+              event.stopPropagation();
+              beginProjectRename(identity.id);
             }}
             type='button'
           >
@@ -1494,6 +1554,17 @@ export default function StudioApp() {
             </span>
           </button>
         )}
+        {selected && identity.kind === 'custom' && renamingIdentityId !== identity.id ? (
+          <button
+            aria-label={gt('Rename {name}', { name: identity.name })}
+            className='project-tab-rename'
+            onClick={() => beginProjectRename(identity.id)}
+            title={gt('Rename project')}
+            type='button'
+          >
+            <FilePenLine aria-hidden='true' />
+          </button>
+        ) : null}
         <button
           aria-label={gt('Close {name} tab', { name: identity.name })}
           className='project-tab-close'
@@ -1648,6 +1719,7 @@ export default function StudioApp() {
         onDuplicate={copyIdentityById}
         onMove={moveProjectTab}
         onOpen={selectIdentity}
+        onRename={beginProjectRename}
         openCount={openIdentityIds.length}
         tabCount={visibleIdentities.length}
         tabIndex={projectTabMenuIndex}

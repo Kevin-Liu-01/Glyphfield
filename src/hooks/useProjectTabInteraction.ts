@@ -66,7 +66,7 @@ export function useProjectTabInteraction({
     window.clearTimeout(suppressClickTimerRef.current ?? undefined);
     suppressClickTimerRef.current = null;
     const target = event.target;
-    if (target instanceof Element && target.closest('.project-tab-close, input, textarea, select, [contenteditable]')) return;
+    if (target instanceof Element && target.closest('.project-tab-close, .project-tab-rename, input, textarea, select, [contenteditable]')) return;
     projectTabPointerDragRef.current = {
       centers: [],
       element: event.currentTarget,
@@ -267,7 +267,7 @@ export function useProjectTabInteraction({
   function handleProjectTabClick(event: ReactMouseEvent<HTMLDivElement>, identityId: string) {
     if (event.defaultPrevented) return;
     const target = event.target;
-    // The semantic open button, close button, and name input own their actions.
+    // The semantic open, close, rename, and name-input controls own their actions.
     if (target instanceof Element && target.closest('button, input, textarea, select, a, [contenteditable]')) return;
     onSelect(identityId);
   }
