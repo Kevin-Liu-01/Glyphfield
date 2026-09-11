@@ -1045,6 +1045,7 @@ function GlyphFieldCanvas({
     const unregister = registerLiveMaterialRuntime(drawingCanvas, {
       readFrame: (timeline) => didRender ? clock.read(timeline) : undefined,
       freeze: clock.freeze,
+      redraw: loop.invalidate,
       resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
@@ -1400,6 +1401,7 @@ function OriginalMaterialCanvas({
       readFrame: (timeline) => didRender && !drawingContext.isContextLost()
         ? { ...clock.read(timeline), pointer: { ...renderedPointer } } : undefined,
       freeze: clock.freeze,
+      redraw: loop.invalidate,
       resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
@@ -1780,6 +1782,7 @@ function FluidSimulationCanvas({
       readFrame: (timeline) => didRender && !gl.isContextLost()
         ? { ...clock.read(timeline), pointer: { x: pointer.x, y: pointer.y } } : undefined,
       freeze: clock.freeze,
+      redraw: loop.invalidate,
       resume: () => { clock.resume(); loop.invalidate(); },
     });
     invalidateRef.current = loop.invalidate;
@@ -2057,6 +2060,7 @@ function PaperShaderSurface({
       readFrame: (timelineTimeMs) => ({ engine: 'paper', version: 2, materialId,
         frame: mount.getCurrentFrame(), timelineTimeMs: Math.max(0, timelineTimeMs) }),
       freeze: () => { heldRef.current = true; mount.setSpeed(0); },
+      redraw: () => mount.setFrame(mount.getCurrentFrame()),
       resume: () => { heldRef.current = false; mount.setSpeed(nativeSpeedRef.current); },
       presentation: () => ({
         filter: paperShaderFilter(preserveAppearanceRef.current, paperSettingsRef.current),

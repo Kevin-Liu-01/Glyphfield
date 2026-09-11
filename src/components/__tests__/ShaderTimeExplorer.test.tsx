@@ -95,6 +95,32 @@ describe('native shader time exploration', () => {
     expect(props.onTimePreview).toHaveBeenCalledTimes(1);
     expect(props.onTimeChange).toHaveBeenLastCalledWith(2500);
   });
+  it('debounces a held drag to painted frames without repeating the final preview', async () => {
+    await render();
+    const range = container.querySelector('input')!;
+    await act(() => {
+      range.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7, button: 0 }));
+      for (const value of ['800', '1200', '1800']) {
+        range.value = value;
+        range.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      vi.advanceTimersToNextTimer();
+    });
+    expect(props.onTimePreview).toHaveBeenCalledExactlyOnceWith(1800);
+    expect(props.onTimeChange).not.toHaveBeenCalled();
+    await act(() => {
+      for (const value of ['2200', '2600']) {
+        range.value = value;
+        range.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      vi.advanceTimersToNextTimer();
+    });
+    expect(props.onTimePreview).toHaveBeenCalledTimes(2);
+    expect(props.onTimePreview).toHaveBeenLastCalledWith(2600);
+    await act(() => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 })));
+    expect(props.onTimePreview).toHaveBeenCalledTimes(2);
+    expect(props.onTimeChange).toHaveBeenCalledExactlyOnceWith(2600);
+  });
   it('invariant_non_pointer_input_commits_before_a_following_capture_or_source_read', async () => {
     await render();
     const range = container.querySelector('input')!;

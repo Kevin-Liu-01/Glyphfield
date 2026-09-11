@@ -72,6 +72,7 @@ export type LiveMaterialPresentation = { filter?: string; grainOpacity?: number;
 export type LiveMaterialRuntime = {
   readFrame: (timelineTimeMs: number) => LiveMaterialFrameState | undefined;
   freeze: () => void;
+  redraw?: () => void;
   resume: () => void;
   presentation?: () => LiveMaterialPresentation;
 };
@@ -107,7 +108,12 @@ export function createLiveMaterialPreviewSignal(surface: HTMLElement, attribute:
 
 export function registerLiveMaterialRuntime(canvas: HTMLCanvasElement, runtime: LiveMaterialRuntime): () => void {
   liveMaterialRuntimes.set(canvas, runtime);
-  return () => { if (liveMaterialRuntimes.get(canvas) === runtime) liveMaterialRuntimes.delete(canvas); };
+  if (canvas.dataset) canvas.dataset.liveMaterialRuntimeReady = 'true';
+  return () => {
+    if (liveMaterialRuntimes.get(canvas) !== runtime) return;
+    liveMaterialRuntimes.delete(canvas);
+    if (canvas.dataset) delete canvas.dataset.liveMaterialRuntimeReady;
+  };
 }
 
 function runtimeCanvases(root: ParentNode): HTMLCanvasElement[] {
@@ -122,6 +128,22 @@ export function readLiveMaterialPresentation(root: ParentNode | null): LiveMater
     if (presentation) return presentation;
   }
   return undefined;
+}
+
+/** Ask mounted native renderers to republish their current pixels without
+ * advancing time. This is required before Safari copies a paused WebGL canvas
+ * into a composition effect: its display buffer may already have been cleared.
+ */
+export function requestLiveMaterialRedraw(root: ParentNode | null): boolean {
+  if (!root) return false;
+  let requested = false;
+  for (const canvas of runtimeCanvases(root)) {
+    const redraw = liveMaterialRuntimes.get(canvas)?.redraw;
+    if (!redraw) continue;
+    redraw();
+    requested = true;
+  }
+  return requested;
 }
 
 /** Freeze existing rendered pixels synchronously; never advances a simulation to capture. */

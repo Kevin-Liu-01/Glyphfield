@@ -539,6 +539,9 @@ test('Paper initial live import captures the authored native frame instead of it
 test('shader-backed layer effects render without an SVG foreignObject dependency', async ({ page }) => {
   const { shaderId } = await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
   await page.getByRole('button', { name: 'Add brand mark', exact: true }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    try { window.glyphfield!.studio.readSource(); return true; } catch { return false; }
+  })).toBe(true);
   const fixture = await page.evaluate(async (shaderId) => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource());
@@ -590,7 +593,9 @@ test('shader-backed layer effects render without an SVG foreignObject dependency
     active.snapshot.logos = active.snapshot.logos.map((entry: { id: string }) => entry.id === logoId ? logo.data : entry);
     await studio.applySource(source);
   }, fixture.id);
-  await expect(appearance.locator('[data-appearance-dither-mask="true"]')).toHaveCSS('-webkit-mask-image', /data:image\/svg\+xml/);
+  const appearanceMask = appearance.locator('[data-appearance-dither-mask="true"]');
+  await expect(appearanceMask).toHaveCSS('-webkit-mask-image', /data:image\/svg\+xml/);
+  await expect(appearanceMask).toHaveAttribute('data-appearance-dither-revision', /\d+/);
   const dithered = await screenshotPixels(page, appearance);
   expect(dithered.visiblePixels).toBeGreaterThan(0);
   expect(dithered.hash).not.toBe(baseline.hash);
@@ -621,6 +626,65 @@ test('shader-backed layer effects render without an SVG foreignObject dependency
   const finished = await screenshotPixels(page, appearance);
   expect(finished.hash).not.toBe(dithered.hash);
 });
+
+test('paused composition dither repaints during a control gesture without duplicating the artboard', async ({ page }) => {
+  await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
+  await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
+  const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+  await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+  await page.waitForTimeout(100);
+  const baseline = await effectPixels(effectCanvas);
+  if (!baseline) throw new Error('The initial paused converter did not paint');
+
+  const cellSize = page.getByRole('slider', { name: 'Cell size', exact: true });
+  await cellSize.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 17,
+    }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '18');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect.poll(async () => (await effectPixels(effectCanvas))?.hash).not.toBe(baseline.hash);
+
+  await cellSize.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 17,
+    }));
+  });
+});
+
+for (const materialId of ['paper-dithering', 'holo-cloth-silk', 'shadergradient-prismatic-sphere'] as const) {
+  test(`paused ${materialId} shader time scrubbing repaints the shader and stacked effect before release`, async ({ page }) => {
+    const { shaderId } = await prepareShader(page, { materialId, paused: true, timeMs: 1250 });
+    await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
+    const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+    await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+    const initialShader = await pixels(page, shaderId);
+    const initialEffect = await effectPixels(effectCanvas);
+    if (!initialEffect) throw new Error('The initial paused converter did not paint');
+
+    const time = page.getByRole('slider', { name: 'Explore shader time', exact: true });
+    const slider = await time.boundingBox();
+    if (!slider) throw new Error('The shader time slider is not visible');
+    await page.mouse.move(slider.x + slider.width * 1250 / 30000, slider.y + slider.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(slider.x + slider.width * 0.8, slider.y + slider.height / 2, { steps: 8 });
+
+    await expect.poll(async () => (await pixels(page, shaderId)).hash).not.toBe(initialShader.hash);
+    await expect.poll(async () => (await effectPixels(effectCanvas))?.hash).not.toBe(initialEffect.hash);
+    expect((await state(page, shaderId)).motion.timeMs).toBe(1250);
+
+    const finalPreviewTime = Number(await time.inputValue());
+    await page.mouse.up();
+    await expect.poll(async () => (await state(page, shaderId)).motion.timeMs).toBeCloseTo(finalPreviewTime, 4);
+  });
+}
 
 test('Paper grain and composition effects remain origin-clean during capture and export', async ({ page }, testInfo) => {
   const { shaderId } = await prepareShader(page, { materialId: 'paper-dithering', grain: 60 });
@@ -676,6 +740,7 @@ test('Paper grain and composition effects remain origin-clean during capture and
     effectHashes.add(pixels!.hash);
     await testInfo.attach(`${kind}-live-effect`, { body: JSON.stringify(pixels), contentType: 'application/json' });
   }
+  await expect(page.locator('[data-testid="shader-lab-live-stage"] [data-shader-time-restoring="true"]')).toHaveCount(0);
   await page.evaluate(async () => { await window.glyphfield!.studio.invoke('design.frame.capture'); });
   const captured = await state(page, shaderId);
   expect(captured.asset).toMatch(/^data:image\/png;base64,/);

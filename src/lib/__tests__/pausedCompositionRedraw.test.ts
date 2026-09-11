@@ -29,6 +29,11 @@ describe('paused shader composition readiness redraw', () => {
     callbacks.clear();
     queued.forEach((callback) => callback(100));
   }
+  function flushSettlingFrames() {
+    let remaining = 10;
+    while (callbacks.size > 0 && remaining-- > 0) flushFrame();
+    expect(remaining).toBeGreaterThan(0);
+  }
   async function flushMutations() { await new Promise((resolve) => setTimeout(resolve, 0)); }
   function observe(draw = vi.fn()) {
     const watcher = observePausedCompositionReadiness(root, draw);
@@ -49,8 +54,8 @@ describe('paused shader composition readiness redraw', () => {
     root.firstElementChild!.setAttribute('data-shader-frame-ready', 'true');
     await flushMutations();
     expect(callbacks.size).toBe(1);
-    flushFrame();
-    expect(draw).toHaveBeenCalledTimes(1);
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(3);
     expect(callbacks.size).toBe(0);
   });
 
@@ -61,8 +66,15 @@ describe('paused shader composition readiness redraw', () => {
     expect(draw).not.toHaveBeenCalled();
     root.innerHTML = '<div data-live-material-ready="true"><canvas></canvas></div>';
     await flushMutations();
-    flushFrame();
-    expect(draw).toHaveBeenCalledTimes(1);
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(3);
+  });
+
+  it('ignores the ready renderer\'s retained loading overlay', () => {
+    root.innerHTML = '<div><div data-live-material-ready="true"><canvas></canvas></div><span data-shader-skeleton="loading"></span></div>';
+    const { draw } = observe();
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(3);
   });
 
   it('coalesces native and image readiness bursts and ignores unrelated canvas mutations', async () => {
@@ -72,12 +84,12 @@ describe('paused shader composition readiness redraw', () => {
     root.querySelector('img')!.dispatchEvent(new Event('load'));
     document.dispatchEvent(new Event('visibilitychange'));
     expect(callbacks.size).toBe(1);
-    flushFrame();
+    flushSettlingFrames();
     root.querySelector('canvas')!.width = 640;
     root.querySelector('canvas')!.style.opacity = '0.5';
     await flushMutations();
     expect(callbacks.size).toBe(0);
-    expect(draw).toHaveBeenCalledTimes(1);
+    expect(draw).toHaveBeenCalledTimes(3);
   });
 
   it('retains the last complete effect while one of multiple shader sources reloads', async () => {
@@ -91,32 +103,42 @@ describe('paused shader composition readiness redraw', () => {
     expect(draw).not.toHaveBeenCalled();
     root.children[1]!.setAttribute('data-live-material-ready', 'true');
     await flushMutations();
-    flushFrame();
-    expect(draw).toHaveBeenCalledTimes(1);
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(3);
   });
 
   it('redraws after a captured shader publishes a painted control preview', async () => {
     root.innerHTML = '<div data-live-material-ready="true" data-shader-frame-preview-revision="0"></div>';
     const { draw } = observe();
-    flushFrame();
+    flushSettlingFrames();
     root.firstElementChild!.setAttribute('data-shader-frame-preview-revision', '1');
     await flushMutations();
-    flushFrame();
-    expect(draw).toHaveBeenCalledTimes(2);
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(6);
     expect(callbacks.size).toBe(0);
   });
 
   it('redraws direct native paused previews after the provider publishes painted pixels', async () => {
     root.innerHTML = '<div data-live-material-ready="true"><canvas data-live-material-preview-revision="0"></canvas></div>';
     const { draw } = observe();
-    flushFrame();
+    flushSettlingFrames();
     root.querySelector('canvas')!.setAttribute('data-live-material-preview-revision', '1');
     root.querySelector('canvas')!.setAttribute('data-live-material-preview-revision', '2');
     await flushMutations();
     expect(callbacks.size).toBe(1);
-    flushFrame();
-    expect(draw).toHaveBeenCalledTimes(2);
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(6);
     expect(callbacks.size).toBe(0);
+  });
+
+  it('redraws when a ready shader publishes its runtime after the composition observer mounts', async () => {
+    root.innerHTML = '<canvas data-live-material-ready="true"></canvas>';
+    const { draw } = observe();
+    flushSettlingFrames();
+    root.firstElementChild!.setAttribute('data-live-material-runtime-ready', 'true');
+    await flushMutations();
+    flushSettlingFrames();
+    expect(draw).toHaveBeenCalledTimes(6);
   });
 
   it('cancels queued work and all readiness subscriptions when leaving the paused design', async () => {

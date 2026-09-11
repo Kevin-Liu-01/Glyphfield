@@ -38,6 +38,7 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
   const [windowMs, setWindowMs] = useState(() => windowFor(timeMs));
   const windowRef = useRef(windowMs);
   const pendingRef = useRef<number | null>(null);
+  const lastPreviewedRef = useRef<number | null>(null);
   const previewFrameRef = useRef(0);
   const scrubbingRef = useRef(false);
   const pointerGestureRef = useRef<{ pointerId: number; initialValue: number } | null>(null);
@@ -116,7 +117,9 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
     if (previewFrameRef.current) return;
     previewFrameRef.current = requestAnimationFrame(() => {
       previewFrameRef.current = 0;
-      if (pendingRef.current !== null) latest.current.onTimePreview(pendingRef.current);
+      if (pendingRef.current === null) return;
+      lastPreviewedRef.current = pendingRef.current;
+      latest.current.onTimePreview(pendingRef.current);
     });
   }
 
@@ -128,7 +131,8 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
     pendingRef.current = null;
     if (rangeRef.current) delete rangeRef.current.dataset.canvasPreviewPending;
     if (next === null) return;
-    latest.current.onTimePreview(next);
+    if (lastPreviewedRef.current !== next) latest.current.onTimePreview(next);
+    lastPreviewedRef.current = null;
     flushSync(() => latest.current.onTimeChange(next));
   }
 

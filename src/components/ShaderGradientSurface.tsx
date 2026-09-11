@@ -42,6 +42,7 @@ function ShaderGradientRenderLifecycle({
       readFrame: (timeline) => latest.current.ready && didRender.current
         ? { ...clock.read(timeline), loopDurationMs: latest.current.loopDurationMs } : undefined,
       freeze: () => { clock.freeze(); setFrameloop('never'); },
+      redraw: invalidate,
       resume: () => {
         clock.resume();
         setFrameloop(latest.current.paused && latest.current.ready ? 'demand' : 'always');

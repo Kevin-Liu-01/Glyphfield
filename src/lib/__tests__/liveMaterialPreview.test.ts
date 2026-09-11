@@ -13,6 +13,7 @@ import {
   registerLiveMaterialRuntime,
   freezeLiveMaterialFrame,
   readLiveMaterialPresentation,
+  requestLiveMaterialRedraw,
   createLiveMaterialPreviewSignal,
   hasUncommittedShaderPreview,
   type LiveMaterialPatternScalePreview,
@@ -120,6 +121,26 @@ describe('live material local previews', () => {
     expect(freezeLiveMaterialFrame(canvas, 0)?.presentation).toEqual(presentation);
     unregister();
     expect(readLiveMaterialPresentation(canvas)).toBeUndefined();
+  });
+  it('requests fresh paused pixels without advancing or freezing a registered renderer', () => {
+    const canvas = { dataset: {}, width: 640, height: 360, querySelectorAll: () => [] } as unknown as HTMLCanvasElement;
+    const redraw = vi.fn();
+    const freeze = vi.fn();
+    const resume = vi.fn();
+    const unregister = registerLiveMaterialRuntime(canvas, {
+      readFrame: () => ({ engine: 'canvas2d', frame: 100, timelineTimeMs: 0, version: 2 }),
+      freeze,
+      redraw,
+      resume,
+    });
+    expect(canvas.dataset.liveMaterialRuntimeReady).toBe('true');
+    expect(requestLiveMaterialRedraw(canvas)).toBe(true);
+    expect(redraw).toHaveBeenCalledExactlyOnceWith();
+    expect(freeze).not.toHaveBeenCalled();
+    expect(resume).not.toHaveBeenCalled();
+    unregister();
+    expect(canvas.dataset.liveMaterialRuntimeReady).toBeUndefined();
+    expect(requestLiveMaterialRedraw(canvas)).toBe(false);
   });
   it('publishes painted preview revisions without starving during continuous drag events', () => {
     const pending = new Map<number, FrameRequestCallback>();

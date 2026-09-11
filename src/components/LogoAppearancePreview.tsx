@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 
 import {
   hasLogoAppearanceEffects,
@@ -38,6 +38,75 @@ function sourceMaskStyle(url: string, fillFrame: boolean): CSSProperties {
   };
 }
 
+function DitherMask({
+  children,
+  className = 'relative size-full',
+  settings,
+}: {
+  children: ReactNode;
+  className?: string;
+  settings: LogoAppearanceSettings;
+}) {
+  const mask = logoAppearanceDitherMask(settings);
+  const maskImage = mask?.image;
+  const maskRef = useRef<HTMLDivElement>(null);
+  const style = mask ? appearanceDitherStyle(settings) : undefined;
+
+  useLayoutEffect(() => {
+    const node = maskRef.current;
+    if (!node || !maskImage) return;
+    let disposed = false;
+    let frame = 0;
+    let revision = 0;
+    const repaint = () => {
+      if (disposed || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (disposed) return;
+        // WebKit can retain the pre-mask layer until a later remount when a
+        // descendant canvas publishes pixels. Reassigning after a layout read
+        // invalidates only this compositor layer, not the expensive renderer.
+        node.style.webkitMaskImage = 'none';
+        node.style.maskImage = 'none';
+        void node.offsetWidth;
+        node.style.webkitMaskImage = maskImage;
+        node.style.maskImage = maskImage;
+        node.dataset.appearanceDitherRevision = String(++revision);
+      });
+    };
+    const observer = new MutationObserver(repaint);
+    observer.observe(node, {
+      attributes: true,
+      attributeFilter: [
+        'data-live-material-ready',
+        'data-live-material-runtime-ready',
+        'data-shader-frame-ready',
+        'data-shader-frame-preview-revision',
+        'data-live-material-preview-revision',
+      ],
+      childList: true,
+      subtree: true,
+    });
+    node.addEventListener('load', repaint, true);
+    repaint();
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      node.removeEventListener('load', repaint, true);
+      cancelAnimationFrame(frame);
+    };
+  }, [maskImage]);
+
+  return (
+    <div
+      className={className}
+      data-appearance-dither-mask='true'
+      ref={maskRef}
+      style={style}
+    >{children}</div>
+  );
+}
+
 export function AppearanceFilteredContent({
   ariaLabel,
   children,
@@ -53,8 +122,6 @@ export function AppearanceFilteredContent({
   settings: LogoAppearanceSettings;
   style?: CSSProperties;
 }) {
-  const ditherStyle = appearanceDitherStyle(settings);
-
   if (!hasLogoAppearanceEffects(settings)) {
     return (
       <div
@@ -64,7 +131,7 @@ export function AppearanceFilteredContent({
         role='img'
         style={{ ...style, opacity }}
       >
-        <div className='relative size-full' data-appearance-dither-mask='true'>{children}</div>
+        <DitherMask settings={settings}>{children}</DitherMask>
       </div>
     );
   }
@@ -77,11 +144,7 @@ export function AppearanceFilteredContent({
       role='img'
       style={{ ...style, filter: logoAppearanceCssFilter(settings), opacity }}
     >
-      <div
-        className='relative size-full'
-        data-appearance-dither-mask='true'
-        style={ditherStyle}
-      >{children}</div>
+      <DitherMask settings={settings}>{children}</DitherMask>
     </div>
   );
 }
@@ -107,8 +170,6 @@ export default function LogoAppearancePreview({
   preserveColors?: boolean;
   settings: LogoAppearanceSettings;
 }) {
-  const ditherStyle = appearanceDitherStyle(settings);
-
   if (!logoPath) {
     return (
       <div
@@ -118,9 +179,9 @@ export default function LogoAppearancePreview({
         role='img'
         style={{ color, filter: logoAppearanceCssFilter(settings), opacity }}
       >
-        <div className='grid size-full place-items-center' data-appearance-dither-mask='true' style={ditherStyle}>
+        <DitherMask className='grid size-full place-items-center' settings={settings}>
           {fallback}
-        </div>
+        </DitherMask>
       </div>
     );
   }
@@ -133,7 +194,7 @@ export default function LogoAppearancePreview({
       role='img'
       style={{ color, filter: logoAppearanceCssFilter(settings), opacity }}
     >
-      <div className='relative size-full' data-appearance-dither-mask='true' style={ditherStyle}>
+      <DitherMask settings={settings}>
         {preserveColors ? (
           <img
             alt=''
@@ -145,7 +206,7 @@ export default function LogoAppearancePreview({
         ) : (
           <span aria-hidden='true' className='block size-full' style={sourceMaskStyle(logoPath, fillFrame)} />
         )}
-      </div>
+      </DitherMask>
     </div>
   );
 }

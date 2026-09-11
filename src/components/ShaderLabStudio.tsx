@@ -265,6 +265,7 @@ import {
   previewLiveMaterialSettings,
   previewLiveMaterialTime,
   readLiveMaterialPresentation,
+  requestLiveMaterialRedraw,
   type LiveMaterialFrameState,
 } from '@/lib/liveMaterialPreview';
 import { createLiveMaterialFramePacer, liveMaterialInstancePixelBudget } from '@/lib/liveMaterialRenderBudget';
@@ -4846,6 +4847,7 @@ export default function ShaderLabStudio({
     opacity?: number;
     settings?: Partial<CompositionEffectSettings>;
   }>>(new Map());
+  const effectPreviewRedrawRef = useRef<(() => void) | null>(null);
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const materialLibraryRef = useRef<HTMLElement>(null);
@@ -6431,6 +6433,7 @@ export default function ShaderLabStudio({
       ...update,
       settings: update.settings ? { ...current?.settings, ...update.settings } : current?.settings,
     });
+    effectPreviewRedrawRef.current?.();
   }
 
   function selectEffectPreset(layer: CompositionEffectLayer, kind: CompositionEffectKind) {
@@ -7792,6 +7795,19 @@ export default function ShaderLabStudio({
     let renderDurationTotal = 0;
     let renderSamples = 0;
     let pausedRedraw: ReturnType<typeof observePausedCompositionReadiness> | undefined;
+    let sourceRedrawPending = paused;
+    const requestPausedRedraw = () => {
+      sourceRedrawPending = true;
+      pausedRedraw?.request();
+    };
+    const redrawPausedSource = () => {
+      if (!paused || !sourceRedrawPending) return;
+      // Paper redraws synchronously, so copy it in this same task before
+      // Safari clears the default WebGL buffer. Scheduled renderers are picked
+      // up by the remaining settling frames below.
+      sourceRedrawPending = !requestLiveMaterialRedraw(stageRef.current);
+    };
+    if (paused) effectPreviewRedrawRef.current = requestPausedRedraw;
     const observer = typeof IntersectionObserver === 'undefined' || !stageRef.current
       ? null
       : new IntersectionObserver(([entry]) => {
@@ -7832,6 +7848,7 @@ export default function ShaderLabStudio({
       if (cancelled) return;
       const tick = (now: number) => {
         if (cancelled) return;
+        redrawPausedSource();
         const shouldRender = workspaceActiveRef.current
           && projectWorkspaceActiveRef.current
           && inViewport
@@ -7880,6 +7897,7 @@ export default function ShaderLabStudio({
       cancelled = true;
       observer?.disconnect();
       pausedRedraw?.disconnect();
+      if (effectPreviewRedrawRef.current === requestPausedRedraw) effectPreviewRedrawRef.current = null;
       cancelAnimationFrame(animationFrame);
     };
   }, [
@@ -8264,7 +8282,10 @@ export default function ShaderLabStudio({
       onPlay={playShaderHistory}
       onTimeChange={seekShaderTime}
       onScrubStart={beginShaderTimeScrub}
-      onTimePreview={(timeMs) => previewLiveMaterialTime('design-lab', timeMs)}
+      onTimePreview={(timeMs) => {
+        previewLiveMaterialTime('design-lab', timeMs);
+        effectPreviewRedrawRef.current?.();
+      }}
       playing={active && !paused && captureTimeMs === null}
     />;
   }
