@@ -8,7 +8,7 @@ Examples assume `BASE_URL` is the authorized Glyphfield origin.
 curl -fsS "$BASE_URL/api/agent" | jq '{version, schemaVersion, resources, interfaces}'
 curl -fsS "$BASE_URL/api/labs" | jq '.plugins[] | {id, name, capabilities}'
 curl -fsS "$BASE_URL/api/materials" | jq '{count, defaults, sharedBy}'
-curl -fsS "$BASE_URL/api/generate" | jq '{schemaVersion, kinds}'
+curl -fsS "$BASE_URL/api/generate" | jq '{schemaVersion, kinds, requestSchema}'
 ```
 
 ## Raw template SVG
@@ -50,6 +50,8 @@ Verify the response is `image/svg+xml` before trusting the `.svg` extension.
 ```
 
 Read the current surface and control enums from the GET contract rather than copying this example unchanged.
+
+`GET /api/generate` and `/openapi.json` publish the same discriminated request schema. Validate against it for exact top-level fields, enum values, numeric ranges, text limits, and supported image data URLs before POSTing.
 
 ## Element brief
 

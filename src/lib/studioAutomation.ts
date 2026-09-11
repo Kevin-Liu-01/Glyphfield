@@ -1,5 +1,11 @@
 import type { StudioToolId } from './studioCatalog';
 import { downloadBlob } from './download';
+import {
+  STUDIO_STANDARD_ACTION_CONTRACTS,
+  studioAgentCapability,
+  studioToolActionContracts,
+  type StudioActionContract,
+} from './studioAgentCapabilities';
 
 type StudioAutomationControl = {
   kind: 'button' | 'checkbox' | 'input' | 'select' | 'textarea' | 'textbox';
@@ -29,6 +35,8 @@ type GlyphfieldStudioAutomation = {
   controls: () => StudioAutomationControl[];
   describe: () => {
     actions: readonly string[];
+    actionContracts: Record<string, StudioActionContract>;
+    capabilities: ReturnType<typeof studioAgentCapability>;
     source: { apply: boolean; read: boolean };
     toolId: StudioToolId;
     version: 1;
@@ -70,8 +78,9 @@ function controlLabel(element: HTMLElement): string {
   return (wrappingLabel?.textContent ?? element.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function interactiveControls(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>(
+function interactiveControls(owner?: HTMLElement | null): HTMLElement[] {
+  const scope: ParentNode = owner ? automationWorkspace(owner) : document;
+  return Array.from(scope.querySelectorAll<HTMLElement>(
     'button, input, textarea, select, [role="button"], [role="textbox"]'
   )).filter((element) => !element.hasAttribute('disabled') && automationOwnerIsActive(element));
 }
@@ -145,9 +154,9 @@ export function studioAutomationForOwner(owner: HTMLElement | null): GlyphfieldS
   ))?.studio;
 }
 
-function matchingControl(label: string): HTMLElement {
+function matchingControl(label: string, owner?: HTMLElement | null): HTMLElement {
   const requested = normalizedLabel(label);
-  const match = interactiveControls().find((element) => normalizedLabel(controlLabel(element)) === requested);
+  const match = interactiveControls(owner).find((element) => normalizedLabel(controlLabel(element)) === requested);
   if (!match) throw new RangeError(`No active Studio control is labelled “${label}”.`);
   return match;
 }
@@ -182,8 +191,8 @@ function setNativeValue(element: HTMLElement, value: StudioAutomationValue) {
   throw new TypeError(`The “${controlLabel(element)}” control does not accept a direct value.`);
 }
 
-function controls(): StudioAutomationControl[] {
-  return interactiveControls().flatMap((element): StudioAutomationControl[] => {
+function controls(owner?: HTMLElement | null): StudioAutomationControl[] {
+  return interactiveControls(owner).flatMap((element): StudioAutomationControl[] => {
     const label = controlLabel(element);
     if (!label) return [];
     if (element instanceof HTMLInputElement && element.type === 'checkbox') {
@@ -229,10 +238,30 @@ export function registerStudioAutomation(
   function assertOwnerActive() {
     if (disposed || !automationOwnerIsActive(owner)) throw new Error('This Studio workspace is no longer active. Read the active Studio API again.');
   }
+  const actions = Array.from(new Set([
+    'controls.list',
+    'control.activate',
+    'control.set',
+    'artifact.download',
+    ...(adapter.getSource ? ['source.read'] : []),
+    ...(adapter.applySource ? ['source.apply'] : []),
+    ...(adapter.actions ?? []),
+  ]));
+  const declaredContracts: Record<string, StudioActionContract> = {
+    ...STUDIO_STANDARD_ACTION_CONTRACTS,
+    ...studioToolActionContracts(adapter.toolId),
+  };
+  const actionContracts = Object.fromEntries(
+    actions.map((action) => [action, declaredContracts[action] ?? {
+      description: `Invoke the ${action} action exposed by the active ${adapter.toolId} tool.`,
+      input: 'Tool-defined input',
+      output: 'Tool-defined output',
+    }])
+  );
   const studio: GlyphfieldStudioAutomation = {
     activate(label) {
       assertOwnerActive();
-      matchingControl(label).click();
+      matchingControl(label, owner).click();
     },
     activeTool: () => adapter.toolId,
     async applySource(source) {
@@ -241,9 +270,11 @@ export function registerStudioAutomation(
       await adapter.applySource(typeof source === 'string' ? source : JSON.stringify(source, null, 2));
       await waitForStudioCommit();
     },
-    controls,
+    controls: () => controls(owner),
     describe: () => ({
-      actions: adapter.actions ?? [],
+      actions,
+      actionContracts,
+      capabilities: studioAgentCapability(adapter.toolId),
       source: { apply: Boolean(adapter.applySource), read: Boolean(adapter.getSource) },
       toolId: adapter.toolId,
       version: 1,
@@ -294,7 +325,7 @@ export function registerStudioAutomation(
     },
     set(label, value) {
       assertOwnerActive();
-      setNativeValue(matchingControl(label), value);
+      setNativeValue(matchingControl(label, owner), value);
     },
     version: 1,
   };

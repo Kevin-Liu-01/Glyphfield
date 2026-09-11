@@ -15,7 +15,7 @@ An agent should follow this sequence for every new deployment origin:
 5. Fetch `/api/materials` when selecting a shader or editing shared material controls.
 6. Fetch `/api/identities` when using any built-in preset.
 7. Fetch `/api/elements` when choosing a brand application.
-8. Fetch `GET /api/generate` immediately before constructing a request.
+8. Fetch `GET /api/generate` immediately before constructing a request and validate against its `requestSchema` when possible.
 9. `POST application/json` to `/api/generate`.
 10. Save the returned artifact, or apply a returned Design Lab document through `window.glyphfield.studio` for browser-native Canvas/WebGL export.
 
@@ -31,7 +31,7 @@ curl -fsS "$BASE_URL/api/agent" | jq '{ version, schemaVersion, resources, inter
 curl -fsS "$BASE_URL/api/labs" | jq '{ count, plugins: [.plugins[].id] }'
 curl -fsS "$BASE_URL/api/catalog" | jq '{ surfaces: .surfaceLibrary.count, surfaceControls: (.surfaceLibrary.controls | keys) }'
 curl -fsS "$BASE_URL/api/materials" | jq '{ count, engines, sharedBy }'
-curl -fsS "$BASE_URL/api/generate" | jq '.kinds | keys'
+curl -fsS "$BASE_URL/api/generate" | jq '{kinds: (.kinds | keys), requestSchema}'
 ```
 
 For a deployed instance, replace `BASE_URL` with its origin.
@@ -111,7 +111,7 @@ const artifact = await studio.invoke('design.export', {
 });
 ```
 
-Use `studio.describe()` before invoking tool-specific actions. `studio.controls()` and the accessible-label `activate`/`set` methods make every visible UI operation programmatically available, including tools without a headless renderer. Export with PNG, JPG, GIF, or MP4; omit `download` when the caller wants only the returned Blob, or call `studio.download(artifact)` later.
+Use `studio.describe()` before invoking tool-specific actions. Its action contracts specify exact inputs and outputs, while its capability record distinguishes direct Browser actions, visible Browser controls, and deterministic HTTP generation. `studio.controls()` and the accessible-label `activate`/`set` methods make every visible UI operation programmatically available, including tools without a headless renderer. Export with PNG, JPG, GIF, or MP4; omit `download` when the caller wants only the returned Blob, or call `studio.download(artifact)` later.
 
 ## Prompting an agent
 
@@ -130,6 +130,6 @@ For broad implementation work, replace `/llms.txt` with `/llms-full.txt`. For a 
 
 ## Browser source workflow
 
-When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and use `window.glyphfield.studio`. Prefer `readSource`/`applySource` for exact documents and `controls`/`activate`/`set` for visible operations. The Code drawer remains the human-facing version of the same source workflow.
+When a task requires an artifact that the public generation API cannot fully express, open the matching Studio tool and use `window.glyphfield.studio`. Prefer `readSource`/`applySource` for exact documents and `controls`/`activate`/`set` for visible operations. Source remains available while the tool is active, whether or not the Code drawer is open; the drawer is the human-facing version of the same workflow.
 
 Do not paste an arbitrary Studio source document into `POST /api/generate`. The drawer is the browser-local document for an open tool; the generation route is a separate versioned HTTP contract. `design-sequence` explicitly returns an apply-ready `document`. See [Browser workflow](/docs/agents/browser-workflow), [Source code editing](/docs/studio/source-editing), and [Source formats](/docs/reference/source-formats).

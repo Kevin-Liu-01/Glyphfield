@@ -32,9 +32,13 @@ describe('ToolShell source adapter lifetime', () => {
     vi.unstubAllGlobals();
   });
 
-  async function render(source: string, onApply: (source: string) => void) {
+  async function render(
+    source: string,
+    onApply: (source: string) => void,
+    automation?: { actions: readonly string[]; invoke: (action: string, input?: unknown) => unknown }
+  ) {
     await act(() => root.render(
-      <ToolShell inspector={null} sourceCode={{ format: 'JSON', source, onApply }} tool={tool}>
+      <ToolShell automation={automation} inspector={null} sourceCode={{ format: 'JSON', source, onApply }} tool={tool}>
         <p>Canvas</p>
       </ToolShell>
     ));
@@ -68,5 +72,21 @@ describe('ToolShell source adapter lifetime', () => {
     await parent.applySource('{"color":"third"}');
     expect(nextApply).toHaveBeenCalledExactlyOnceWith('{"color":"third"}');
     expect(oldApply).not.toHaveBeenCalled();
+  });
+
+  it('keeps tool-specific action implementations current without replacing the adapter', async () => {
+    const apply = vi.fn();
+    const firstInvoke = vi.fn(() => 'first');
+    const secondInvoke = vi.fn(() => 'second');
+    await render('{"color":"first"}', apply, { actions: ['colors.tokens.read'], invoke: firstInvoke });
+    const studio = window.glyphfield!.studio;
+    expect(studio.describe().actions).toContain('colors.tokens.read');
+    await expect(studio.invoke('colors.tokens.read')).resolves.toBe('first');
+
+    await render('{"color":"second"}', apply, { actions: ['colors.tokens.read'], invoke: secondInvoke });
+    expect(window.glyphfield!.studio).toBe(studio);
+    await expect(studio.invoke('colors.tokens.read')).resolves.toBe('second');
+    expect(firstInvoke).toHaveBeenCalledOnce();
+    expect(secondInvoke).toHaveBeenCalledOnce();
   });
 });

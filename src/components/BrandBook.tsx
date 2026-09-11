@@ -25,6 +25,7 @@ import { T, useGT } from 'gt-next';
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -38,6 +39,9 @@ import {
 } from '@/lib/brandIdentity';
 import { mixHexColors } from '@/lib/color';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 import ThemeAwareBrandMark from './ThemeAwareBrandMark';
 import StudioToolHeader from './StudioToolHeader';
@@ -947,6 +951,7 @@ function buildBrandBookPages(identity: BrandIdentity): BookPageSpec[] {
 
 export default function BrandBook({ identity, tool }: { identity: BrandIdentity; tool: StudioTool }) {
   const gt = useGT();
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<BookMode>('overview');
   const [currentPage, setCurrentPage] = useState(0);
   const [thumbnailWidth, setThumbnailWidth] = useState(272);
@@ -1028,8 +1033,19 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
     }));
   }
 
+  const printBookRef = useCommittedRef(printBook);
+  useEffect(() => registerStudioAutomation({
+    actions: studioToolActionNames('brand-book'),
+    invoke: (action) => {
+      if (action !== 'brand-book.print') throw new RangeError(`Unknown Brand book action: ${action}.`);
+      printBookRef.current();
+      return null;
+    },
+    toolId: 'brand-book',
+  }, studioRootRef.current), [printBookRef]);
+
   return (
-    <div className={styles.root} data-brand={identity.id} data-flavor={identity.artDirection.preview} data-mode={mode} style={rootStyle}>
+    <div className={styles.root} data-brand={identity.id} data-flavor={identity.artDirection.preview} data-mode={mode} ref={studioRootRef} style={rootStyle}>
       <StudioToolHeader
         actions={<button className={styles.exportButton} onClick={printBook} type='button'><Download aria-hidden='true' /><span><T>Export PDF</T></span></button>}
         context={mode === 'overview' ? (

@@ -14,7 +14,7 @@ Resolve the Glyphfield origin from the user or environment. Use `http://localhos
 1. Read `/api/agent` for interfaces, policies, resources, and generation kinds.
 2. Read `/api/labs` for the current tool catalog. Do not hard-code its count.
 3. Read the relevant `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog` data.
-4. Read `GET /api/generate` immediately before building a POST body.
+4. Read `GET /api/generate` immediately before building a POST body. Its `requestSchema` is the same discriminated schema published in `/openapi.json`.
 5. Use `/openapi.json`, `/llms.txt`, or `/llms-full.txt` when the task needs the full machine contract.
 
 Read [references/http-generation.md](references/http-generation.md) for request patterns and the Design Lab bridge.
@@ -31,7 +31,7 @@ Use `output: "raw"` for direct SVG bytes where supported. Otherwise parse the JS
 ## Contract rules
 
 - Send `Content-Type: application/json`.
-- Unknown top-level fields are rejected; use only values from current discovery.
+- Unknown top-level fields are rejected; use only values from current discovery. Validate against `requestSchema` before sending when your client supports JSON Schema.
 - Do not invent shader, identity, element, surface, or tool IDs.
 - Do not send remote URLs. Use supported data URLs or an authorized browser `File` when a local asset is needed.
 - Treat `400`, `413`, `415`, and `429` bodies as actionable structured errors. Do not retry unchanged invalid input.

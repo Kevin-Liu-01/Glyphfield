@@ -39,6 +39,8 @@ for (const format of requested) {
 
 Do not run this loop concurrently.
 
+Animation uses `animation.export` with `{ format: 'gif' | 'mp4', download?: boolean }`; MP4 includes configured timeline audio. Lottie uses `lottie.export` with `{ format: 'png' | 'source', download?: boolean }`. Identity, selected brand-element briefs, and Moodboard also return verifiable artifacts through their declared direct actions. Read `describe().actionContracts` rather than inferring the output from the visible button label.
+
 ## Still checks
 
 - The pixel dimensions match the selected output, not the viewport zoom.

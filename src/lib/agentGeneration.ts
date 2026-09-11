@@ -161,7 +161,7 @@ export type AgentGenerationPlan =
   | AgentElementBriefPlan
   | AgentTemplatePlan;
 
-const AGENT_GENERATION_REQUEST_FIELDS = {
+export const AGENT_GENERATION_REQUEST_FIELDS = {
   background: ['identity', 'kind', 'output', 'settings'],
   'design-sequence': [
     'backgroundColor',

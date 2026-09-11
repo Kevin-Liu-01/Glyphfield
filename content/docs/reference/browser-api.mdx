@@ -35,7 +35,7 @@ When automation activates another project or tool, subscribe before the click, w
 | Method | Result | Use |
 | --- | --- | --- |
 | `activeTool()` | Studio tool ID | Confirm the adapter matches the intended tool |
-| `describe()` | Version, tool ID, source support, action list | Discover before invoking |
+| `describe()` | Version, tool ID, source support, capability record, action list, and per-action input/output contracts | Discover before invoking |
 | `controls()` | Visible control labels, kinds, and values | Inspect the actual UI contract |
 | `activate(label)` | `void` | Click a visible button, tab, or role button by exact accessible label |
 | `set(label, value)` | `void` | Change an input, textarea, select, checkbox, contenteditable, or file input |
@@ -61,7 +61,7 @@ artifact.download
 
 ## Accessible control contract
 
-`controls()` discovers enabled `button`, `input`, `textarea`, `select`, `[role="button"]`, and `[role="textbox"]` elements. Labels resolve in this order:
+`controls()` discovers enabled `button`, `input`, `textarea`, `select`, `[role="button"]`, and `[role="textbox"]` elements inside the active adapter's workspace. It never searches another retained project or tool, even when that workspace contains an identical accessible label. Labels resolve in this order:
 
 1. `aria-label`
 2. `title`
@@ -70,7 +70,7 @@ artifact.download
 5. Wrapping `<label>` text
 6. Element text
 
-Hidden or inert retained workspaces are excluded. Matching is whitespace-normalized and case-insensitive but otherwise exact. If two visible controls share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
+Hidden or inert retained workspaces are excluded. Matching is whitespace-normalized and case-insensitive but otherwise exact. If two controls inside the same active workspace share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
 
 ## Values and files
 
@@ -165,6 +165,29 @@ await studio.set('Choose project file', new File([project.blob], project.fileNam
 ```
 
 `design.export.project` returns an `ExportPreviewAsset` with `format: 'JSON'` and `previewKind: 'file'`. It does not download automatically or render a composite PNG first. It captures the active artboard's current native shader appearance, retains inactive artboards' saved snapshots without rendering them, and embeds local images, saved frames, and brand typography/font bytes into the existing CanvasDocument. Missing assets and failed captures reject the action. Opening uses the same source validator and keeps imported typography local to Design Lab; it does not replace unrelated brand settings. Setting a file control dispatches selection but does not await its asynchronous import: wait for the **Opened** status or an error, then re-read source. See [Project files](/docs/studio/project-files).
+
+## Other tool actions
+
+The manifest and `describe().actionContracts` are authoritative. These editors also expose direct operations instead of requiring an agent to click an export button and infer completion:
+
+| Tool | Direct actions |
+| --- | --- |
+| Brand identity | `identity.export.json` |
+| Brand elements | `brand-element.export.brief` |
+| Moodboard | `moodboard.export.png`, `moodboard.export.identity` |
+| Brand book | `brand-book.print` |
+| Color tokens | `colors.tokens.read`, `colors.tokens.copy` |
+| Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.project` |
+| Lottie | `lottie.export`, `lottie.export.frame.png`, `lottie.export.source` |
+| OpenGraph | `opengraph.export.png` |
+| Terminal card | `terminal.export.png` |
+| Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png` |
+
+`animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
+
+Every other visible feature remains reachable through workspace-scoped `controls()`, `activate()`, and `set()`. Tool capability records distinguish a direct Browser action, an interactive Browser control, and deterministic HTTP generation so an agent does not mistake a clickable flow for a returned value.
+
+Editable source remains registered for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Component library whether or not the Code drawer is open. Brand book is intentionally derived from the active identity and reports `source: false`.
 
 ## Completion and verification
 

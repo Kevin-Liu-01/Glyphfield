@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T } from 'gt-next';
 import { Download, FileJson, Layers3 } from '@/components/ui/SolidIcons';
 
@@ -14,6 +14,7 @@ import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import {
   brandAssetPath,
   brandFontAssets,
@@ -37,6 +38,8 @@ import {
   stringifySource,
 } from '@/lib/sourceCode';
 import type { StudioTool } from '@/lib/studioCatalog';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 function finiteInputValue(input: HTMLInputElement, fallback: number): number {
   return Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : fallback;
@@ -82,6 +85,7 @@ export default function DesignBoard({
   identity: BrandIdentity;
   tool: StudioTool;
 }) {
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:moodboard`);
   const [exporting, setExporting] = useState(false);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
@@ -175,13 +179,15 @@ export default function DesignBoard({
         exportDimensions.width,
         exportDimensions.height
       );
-      setLastExport({
+      const asset: ExportPreviewAsset = {
         blob,
         fileName,
         format: 'PNG',
         height: raster.height,
         width: raster.width,
-      });
+      };
+      setLastExport(asset);
+      return asset;
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -203,13 +209,37 @@ export default function DesignBoard({
     setCustomWidth(Math.min(4800, Math.max(800, sourceNumber(next, 'customWidth', customWidth))));
   }
 
+  function exportIdentity() {
+    const asset = identityExport(identity);
+    setLastExport(asset);
+    return asset;
+  }
+
+  const automationRef = useCommittedRef({
+    applySource,
+    exportBoard,
+    exportIdentity,
+    source: stringifySource({ composition, customWidth, exportPresetId }),
+  });
+  useEffect(() => registerStudioAutomation({
+    actions: studioToolActionNames('design-board'),
+    applySource: (source) => automationRef.current.applySource(source),
+    getSource: () => automationRef.current.source,
+    invoke: (action) => {
+      if (action === 'moodboard.export.png') return automationRef.current.exportBoard();
+      if (action === 'moodboard.export.identity') return automationRef.current.exportIdentity();
+      throw new RangeError(`Unknown Moodboard action: ${action}.`);
+    },
+    toolId: 'design-board',
+  }, studioRootRef.current), [automationRef]);
+
   return (
-    <div className='tool-shell h-full min-h-0'>
+    <div className='tool-shell h-full min-h-0' ref={studioRootRef}>
       <StudioToolHeader
         actions={(
           <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <Button onClick={() => setLastExport(identityExport(identity))} type='button' variant='outline'>
+          <Button onClick={exportIdentity} type='button' variant='outline'>
             <FileJson aria-hidden='true' />
             <T>Identity JSON</T>
           </Button>

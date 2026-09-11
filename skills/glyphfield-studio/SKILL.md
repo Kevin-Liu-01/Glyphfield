@@ -11,7 +11,7 @@ Use the supported `window.glyphfield.studio` adapter instead of private componen
 
 1. Open the authorized Glyphfield origin at `/studio`.
 2. Wait for `window.glyphfield.studio` or the `glyphfield:studio-api-ready` event.
-3. Call `describe()` and `controls()` before using tool-specific actions or labels.
+3. Call `describe()` and `controls()` before using tool-specific actions or labels. The descriptor includes capability metadata and per-action input/output contracts.
 4. Re-read the global after changing tools; every tool installs its own adapter.
 
 Read [references/browser-api.md](references/browser-api.md) for exact control, source, file, and action recipes.
@@ -24,13 +24,15 @@ Read [references/browser-api.md](references/browser-api.md) for exact control, s
 - Use `invoke(action, input)` for exports, sequences, and other stable long-running actions.
 - Use `download(artifact)` only after verifying a returned artifact.
 
-Accessible labels are the automation contract. Do not invent them, and do not assume a label from another tool exists in the active adapter.
+Accessible labels are the automation contract. Operations are scoped to the active workspace, so a duplicate label in another retained project cannot receive the action. Do not invent labels, and do not assume a label from another tool exists in the active adapter.
 
 ## Source protocol
 
 Read the current source, preserve unknown fields and stable IDs, make the smallest intended change, apply through the validator, then re-read. A resolved apply is a React commit boundary; wait longer when WebGL, fonts, image decode, or encoding still has work.
 
 Design Lab's public ID is `material`. Never expect the legacy internal draft scope `logo-shader` from integrations.
+
+All navigable tools except Brand book keep their source adapter registered even when the Code drawer is closed. Brand book is derived from Brand identity and truthfully reports no source boundary.
 
 ## Local data and privacy
 

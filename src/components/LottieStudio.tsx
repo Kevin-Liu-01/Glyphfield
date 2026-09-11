@@ -62,6 +62,8 @@ import {
 } from '@/lib/lottieExamples';
 import { isSupportedLottieFile } from '@/lib/studio';
 import { savedDesignStorageKey } from '@/lib/savedDesigns';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { downloadStudioArtifact, registerStudioAutomation } from '@/lib/studioAutomation';
 import {
   createStudioCanvasDocument,
 } from '@/lib/studioCanvasDocument';
@@ -370,6 +372,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [documentCreatedAt] = useState(() => new Date().toISOString());
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const shaderLayerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<DotLottie | null>(null);
   const sourceRef = useCommittedRef(source);
@@ -959,14 +962,16 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   function downloadSource() {
+    let asset: ExportPreviewAsset;
     if (source.format === 'dotlottie') {
-      setLastExport({
+      asset = {
         blob: new Blob([source.data as ArrayBuffer], { type: 'application/zip+dotlottie' }),
         fileName: source.fileName,
         format: 'LOTTIE',
         previewKind: 'file',
-      });
-      return;
+      };
+      setLastExport(asset);
+      return asset;
     }
     const data = resolveSourceData(
       source,
@@ -977,18 +982,20 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       brandLogoRef.current,
     ) as LottieDocument;
     const previewText = JSON.stringify(data, null, 2);
-    setLastExport({
+    asset = {
       blob: new Blob([previewText], { type: 'application/json' }),
       fileName: source.fileName,
       format: 'JSON',
       previewText,
-    });
+    };
+    setLastExport(asset);
+    return asset;
   }
 
   async function downloadPng() {
     const lottieCanvas = canvasRef.current;
     const portableDocument = portableLottie.document;
-    if (!lottieCanvas || !portableDocument) return;
+    if (!lottieCanvas || !portableDocument) throw new Error('The portable Lottie composition is still preparing.');
     studioExport.start('Rendering Lottie frame preview');
     const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
     try {
@@ -1035,17 +1042,64 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
         },
         width: canvas.width,
       });
-      setLastExport({
+      const asset: ExportPreviewAsset = {
         blob: exported.blob,
         fileName,
         format: 'PNG',
         height: exported.height,
         width: exported.width,
-      });
+      };
+      setLastExport(asset);
+      return asset;
     } finally {
       studioExport.finish();
     }
   }
+
+  const lottieAutomationRef = useCommittedRef({
+    applySource: applyWorkspaceSource,
+    downloadPng,
+    downloadSource,
+    source: portableLottie.source,
+  });
+  useEffect(() => registerStudioAutomation({
+    actions: studioToolActionNames('lottie'),
+    applySource: (source) => lottieAutomationRef.current.applySource(source),
+    getSource: () => {
+      const source = lottieAutomationRef.current.source;
+      if (source === null) throw new Error('The portable Lottie source is still preparing.');
+      return source;
+    },
+    invoke: async (action, input) => {
+      let asset: ExportPreviewAsset;
+      let download = false;
+      if (action === 'lottie.export') {
+        if (!input || typeof input !== 'object' || Array.isArray(input)) {
+          throw new TypeError("lottie.export requires { format: 'png' | 'source', download? }.");
+        }
+        const request = input as { download?: unknown; format?: unknown };
+        if (request.format !== 'png' && request.format !== 'source') {
+          throw new TypeError('lottie.export format must be png or source.');
+        }
+        if (request.download !== undefined && typeof request.download !== 'boolean') {
+          throw new TypeError('lottie.export download must be Boolean.');
+        }
+        download = request.download === true;
+        asset = request.format === 'png'
+          ? await lottieAutomationRef.current.downloadPng()
+          : lottieAutomationRef.current.downloadSource();
+      } else if (action === 'lottie.export.frame.png') {
+        asset = await lottieAutomationRef.current.downloadPng();
+      } else if (action === 'lottie.export.source') {
+        asset = lottieAutomationRef.current.downloadSource();
+      } else {
+        throw new RangeError(`Unknown Lottie action: ${action}.`);
+      }
+      if (download) downloadStudioArtifact(asset);
+      return asset;
+    },
+    toolId: 'lottie',
+  }, studioRootRef.current), [lottieAutomationRef]);
 
   function resetEditor() {
     setBackground(DEFAULT_LOTTIE_BACKGROUND);
@@ -1313,7 +1367,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   return (
-    <div className='source-code-host flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground'>
+    <div className='source-code-host tool-shell flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground' ref={studioRootRef}>
       {renderHeader()}
       <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
         {renderSourceLibrary()}

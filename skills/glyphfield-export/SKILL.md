@@ -14,6 +14,7 @@ Produce the requested format from the renderer that owns the artifact, then veri
 - Use Animation for authored motion sequences and audio-aware MP4 output.
 - Use Lottie for edited JSON or `.lottie` bundles.
 - Use the browser print workflow for Brand Book PDF.
+- Prefer the direct artifact actions published by `describe()` for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Blog, Partnership, and Slides. Use visible control automation only when the capability record marks an export as `browser-control`.
 
 Read [references/export-verification.md](references/export-verification.md) before motion export or when correctness matters more than a quick preview.
 

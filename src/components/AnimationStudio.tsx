@@ -94,7 +94,8 @@ import {
   sourceStringArray,
 } from '@/lib/sourceCode';
 import { savedDesignStorageKey } from '@/lib/savedDesigns';
-import { registerStudioAutomation } from '@/lib/studioAutomation';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { downloadStudioArtifact, registerStudioAutomation } from '@/lib/studioAutomation';
 import {
   applyFrameSettings,
   createDefaultFrameSettings,
@@ -1012,16 +1013,54 @@ function AnimationStudio({
     settledAnimationDocumentInput.pending,
     portableAnimation.autosaveState
   );
-  const animationAutomationRef = useCommittedRef({ applySource: applyStudioSource, source: animationSource });
+  const animationAutomationRef = useCommittedRef({
+    applySource: applyStudioSource,
+    exportAnimation: handleExport,
+    prepareProjectFile,
+    source: animationSource,
+  });
   useEffect(() => {
     if (presentationMode) return;
     return registerStudioAutomation({
-      actions: ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set', 'artifact.download'],
+      actions: studioToolActionNames('animation'),
       applySource: (source) => animationAutomationRef.current.applySource(source),
       getSource: () => {
         const source = animationAutomationRef.current.source;
         if (source === null) throw new Error('The portable animation source is still preparing.');
         return source;
+      },
+      invoke: async (action, input) => {
+        if (action === 'animation.export.project') {
+          const asset = await animationAutomationRef.current.prepareProjectFile();
+          setLastExport(asset);
+          return asset;
+        }
+        let format: 'gif' | 'mp4';
+        let download = false;
+        if (action === 'animation.export') {
+          if (!input || typeof input !== 'object' || Array.isArray(input)) {
+            throw new TypeError("animation.export requires { format: 'gif' | 'mp4', download? }.");
+          }
+          const request = input as { download?: unknown; format?: unknown };
+          if (request.format !== 'gif' && request.format !== 'mp4') {
+            throw new TypeError('animation.export format must be gif or mp4.');
+          }
+          if (request.download !== undefined && typeof request.download !== 'boolean') {
+            throw new TypeError('animation.export download must be Boolean.');
+          }
+          format = request.format;
+          download = request.download === true;
+        } else if (action === 'animation.export.gif') {
+          format = 'gif';
+        } else if (action === 'animation.export.mp4') {
+          format = 'mp4';
+        } else {
+          throw new RangeError(`Unknown Animation action: ${action}.`);
+        }
+        const asset = await animationAutomationRef.current.exportAnimation(format, true);
+        if (!asset) throw new Error(`Animation could not export ${format.toUpperCase()}.`);
+        if (download) downloadStudioArtifact(asset);
+        return asset;
       },
       toolId: 'animation',
     }, workspaceRef.current);
@@ -2114,10 +2153,15 @@ function AnimationStudio({
     inspectPlayhead();
   }
 
-  async function handleExport(format: 'gif' | 'mp4') {
-    if (exportJobRef.current) return;
+  async function handleExport(format: 'gif' | 'mp4', throwOnError = false): Promise<ExportPreviewAsset | undefined> {
+    if (exportJobRef.current) {
+      if (throwOnError) throw new Error('Wait for the current export before starting another one.');
+      return;
+    }
     if (sources.length === 0) {
-      setError(gt('Add at least one frame before exporting.'));
+      const message = gt('Add at least one frame before exporting.');
+      setError(message);
+      if (throwOnError) throw new Error(message);
       return;
     }
 
@@ -2253,17 +2297,21 @@ function AnimationStudio({
           })();
       const fileName = `studio-${settings.packageId}.${format}`;
       assertCurrentDocument();
-      setLastExport({
+      const asset: ExportPreviewAsset = {
         blob,
         fileName,
         format: format === 'mp4' ? 'MP4' : 'GIF',
         height: settings.height,
         width: settings.width,
-      });
+      };
+      setLastExport(asset);
+      return asset;
     } catch (error) {
-      setError(error instanceof Error ? error.message : format === 'mp4'
+      const message = error instanceof Error ? error.message : format === 'mp4'
         ? gt('The MP4 could not be encoded. Try a smaller canvas or another browser.')
-        : gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.'));
+        : gt('The GIF could not be encoded. Try a smaller canvas or lower frame rate.');
+      setError(message);
+      if (throwOnError) throw error instanceof Error ? error : new Error(message);
     } finally {
       await restorePreview();
     }

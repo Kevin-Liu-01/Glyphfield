@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Badge,
@@ -29,6 +29,7 @@ import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import {
   BRAND_ELEMENT_CATEGORIES,
   BRAND_ELEMENTS,
@@ -55,6 +56,8 @@ import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppe
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 const CATEGORY_ICONS: Record<BrandElementCategory, typeof Mail> = {
   Developer: TerminalSquare,
@@ -1290,6 +1293,7 @@ export default function BrandElementsStudio({
   identity: BrandIdentity;
   tool: StudioTool;
 }) {
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const gt = useGT();
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -1362,14 +1366,32 @@ export default function BrandElementsStudio({
     }));
   }
 
+  function exportBrief() {
+    const asset = elementBriefExport(identity, selectedElement, selectedSettings);
+    setLastExport(asset);
+    return asset;
+  }
+
+  const automationRef = useCommittedRef({ applySource, exportBrief, selectedSettings });
+  useEffect(() => registerStudioAutomation({
+    actions: studioToolActionNames('brand-elements'),
+    applySource: (source) => automationRef.current.applySource(source),
+    getSource: () => stringifySource(automationRef.current.selectedSettings),
+    invoke: (action) => {
+      if (action === 'brand-element.export.brief') return automationRef.current.exportBrief();
+      throw new RangeError(`Unknown Brand elements action: ${action}.`);
+    },
+    toolId: 'brand-elements',
+  }, studioRootRef.current), [automationRef]);
+
   return (
-    <div className='tool-shell h-full min-h-0'>
+    <div className='tool-shell h-full min-h-0' ref={studioRootRef}>
       <StudioToolHeader
         actions={(
           <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
-          <Button onClick={() => setLastExport(elementBriefExport(identity, selectedElement, selectedSettings))} type='button' variant='outline'>
+          <Button onClick={exportBrief} type='button' variant='outline'>
             <Download aria-hidden='true' />
             <T>Element brief</T>
           </Button>

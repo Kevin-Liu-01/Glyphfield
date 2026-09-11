@@ -4,6 +4,8 @@ import { globSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { STUDIO_TOOLS } from '../studioCatalog';
+import { STUDIO_TOOL_ACTION_CONTRACTS } from '../studioAgentCapabilities';
+import { OPENAPI_DOCUMENT } from '../agentApi';
 
 const documentationFiles = globSync('content/docs/**/*.mdx');
 const documentation = documentationFiles
@@ -47,6 +49,16 @@ describe('documentation and agent coverage', () => {
       '/llms.txt',
       '/openapi.json',
     ]) expect(endpointReference).toContain(route);
+  });
+
+  it('publishes every API route in OpenAPI', () => {
+    const routePaths = globSync('src/app/api/**/route.{ts,tsx}').map((file) => file
+      .replace(/^src\/app/, '')
+      .replace(/\/route\.tsx?$/, '')
+      .replace(/\[\[\.\.\.([^\]]+)\]\]/g, '{$1}')
+      .replace(/\[\.\.\.([^\]]+)\]/g, '{$1}')
+      .replace(/\[([^\]]+)\]/g, '{$1}'));
+    for (const route of routePaths) expect(OPENAPI_DOCUMENT.paths).toHaveProperty(route);
   });
 
   it('keeps formats, current source versions, and visual examples discoverable', () => {
@@ -104,5 +116,11 @@ describe('documentation and agent coverage', () => {
     expect(directorySkills).toContain('version-3 compatibility');
     expect(directorySkills).not.toContain('agent-docs:fill');
     expect(directorySkills).not.toContain('_purpose_');
+  });
+
+  it('documents every stable tool-specific Browser action', () => {
+    for (const action of Object.values(STUDIO_TOOL_ACTION_CONTRACTS).flatMap((contracts) => Object.keys(contracts))) {
+      expect(documentation).toContain(action);
+    }
   });
 });

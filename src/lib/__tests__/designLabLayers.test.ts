@@ -480,13 +480,18 @@ describe('Playground optional layers', () => {
   });
 
   it('pins static and shader-filled artwork to the editable layer bounds', () => {
-    expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(3);
+    expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(4);
     expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(3);
     expect(designLab).toContain("className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'");
     expect(designLab).toContain("className='shader-lab-v2-layer-image'");
     expect(studioStyles).toContain('.shader-lab-v2-appearance-preview {');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-preview \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
     expect(designLab).toContain('<AppearanceFilteredContent');
+    expect(designLab).toContain('instanceKey={`crop-source-${layerId}`}');
+    expect(designLab).toContain("if (frame.closest('[data-image-crop-source]')) return;");
+    expect(designLab).toContain("if (image.closest('[data-image-crop-source]')) return;");
+    expect(designLab).toContain("if (mask.closest('[data-image-crop-source]')) return;");
+    expect(designLab).toContain("if (material.closest('[data-image-crop-source]')) return;");
     expect(designLab).toContain('settings={appearance}');
     expect(designLab).not.toContain('showSource={false}');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-stack-layer \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);

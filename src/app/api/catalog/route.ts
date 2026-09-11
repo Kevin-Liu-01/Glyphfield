@@ -1,4 +1,4 @@
-import { AGENT_CORS_HEADERS, GLYPHFIELD_AGENT_SKILLS, STUDIO_BROWSER_API_CONTRACT } from '@/lib/agentApi';
+import { AGENT_CORS_HEADERS, GLYPHFIELD_AGENT_API_VERSION, GLYPHFIELD_AGENT_SKILLS, STUDIO_BROWSER_API_CONTRACT } from '@/lib/agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '@/lib/agentCatalog';
 import { STUDIO_CATEGORIES, STUDIO_TOOLS } from '@/lib/studioCatalog';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -46,7 +46,7 @@ export function GET() {
       skills: GLYPHFIELD_AGENT_SKILLS,
       surfaceLibrary: AGENT_SURFACE_LIBRARY,
       tools: STUDIO_TOOLS,
-      version: '0.2.0',
+      version: GLYPHFIELD_AGENT_API_VERSION,
     },
     { headers: AGENT_CORS_HEADERS }
   );

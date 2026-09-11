@@ -374,6 +374,9 @@ describe('shared Studio control layout', () => {
     expect(timeline).toMatch(/presentationMode \? null : \(\s*<AnimationAudioTrack/);
     expect(timeline).not.toContain('animation-timeline-footer');
     expect(styles).toMatch(/\.marketing-v5-hero-studio\s*\{[\s\S]*?border: 1px solid rgb\(255 255 255 \/ 0\.13\);/);
+    const heroStudioRule = styles.match(/\.marketing-v5-hero-studio\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(heroStudioRule).toContain('height: clamp(465px, 48vw, 645px);');
+    expect(heroStudioRule).not.toMatch(/\b(?:dvh|lvh|svh|vh)\b/);
   });
 
   it('gives the hero canvas and curve handles supported accessible roles', () => {

@@ -15,30 +15,31 @@ import {
 import { STUDIO_CATEGORIES, STUDIO_TOOLS, type StudioToolId } from './studioCatalog';
 import { SURFACE_LAB_SHADER_PRESETS } from './surfaceLab';
 import { getShaderMotionCapabilities } from './shaderMotionCapabilities';
+import { studioAgentCapability, studioToolActionNames } from './studioAgentCapabilities';
 
 const SHARED_SHADER_LIBRARY_TOOLS = new Set<StudioToolId>(['animation', 'material']);
 const SHARED_SHADER_MATERIALS = shaderLabMaterials('', 'all');
 
-const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => ({
-  ...tool,
-  agentAccess: 'http-contract-and-browser-api',
-  browserWorkspace: '/studio',
-  capabilities: {
-    browserApi: true,
-    controlAutomation: true,
-    directHttpGeneration: tool.id === 'material'
-      ? ['design-sequence']
-      : tool.id === 'brand-elements'
-        ? ['element-brief']
-        : ['template', 'background'].filter((kind) => (
-            (kind === 'template' && ['blog', 'opengraph', 'partnership', 'slides'].includes(tool.id))
-            || (kind === 'background' && tool.id === 'opengraph')
-          )),
-    sharedShaderLibrary: SHARED_SHADER_LIBRARY_TOOLS.has(tool.id),
-    shaderFrameCapture: tool.id === 'material',
-    sourceEditing: true,
-  },
-}));
+const AGENT_LAB_PLUGINS = STUDIO_TOOLS.map((tool) => {
+  const agent = studioAgentCapability(tool.id);
+  if (!agent) throw new Error(`Missing agent capability contract for Studio tool “${tool.id}”.`);
+  return {
+    ...tool,
+    agentAccess: 'browser-api-with-declared-http-generation',
+    browserWorkspace: '/studio',
+    capabilities: {
+      browserActions: studioToolActionNames(tool.id),
+      browserApi: true,
+      controlAutomation: true,
+      directHttpGeneration: agent.directHttpGeneration,
+      exports: agent.exports,
+      sharedShaderLibrary: SHARED_SHADER_LIBRARY_TOOLS.has(tool.id),
+      shaderFrameCapture: tool.id === 'material',
+      source: agent.source,
+      sourceEditing: agent.source !== false,
+    },
+  };
+});
 
 const materialEngines = new Map<string, number>();
 SHARED_SHADER_MATERIALS.forEach(({ engine }) => {
@@ -138,5 +139,5 @@ export const AGENT_LAB_CATALOG = {
   categories: STUDIO_CATEGORIES,
   count: AGENT_LAB_PLUGINS.length,
   plugins: AGENT_LAB_PLUGINS,
-  schemaVersion: 1,
+  schemaVersion: 2,
 } as const;

@@ -11,7 +11,7 @@ icon: TableProperties
 | Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults | Complete `BrandIdentity` | `/api/identities`; identity object in generation requests; Browser API |
 | Brand elements | Application previews and JSON brief | Selected application override | `/api/elements`, `element-brief`, Browser API |
 | Moodboard | Application showcase or full system board; PNG | Composition and export state | Browser API |
-| Brand book | Navigable standards document; print/PDF workflow | Derived from identity | Browser API controls; identity source is authoritative |
+| Brand book | Navigable standards document; print/PDF workflow | None; derived from identity | `brand-book.print`; identity source is authoritative |
 | Animation | Text/logo/image sequences, live materials, audio; GIF/MP4 | Frames, timing, material, output, audio clips | Browser API |
 | Lottie | Vector playback, recolor, trim, live background; PNG/JSON/`.lottie` | Raw Lottie JSON when available | Browser API |
 | Shader Library | Quality-sorted authentic materials shared by Design Lab and Animation | Stored in host documents by material ID and settings | `/api/materials`, Browser API |
@@ -66,4 +66,4 @@ icon: TableProperties
 - Combine them when HTTP should author exact Design Lab source and the browser should render it.
 - Use human Studio controls when visual judgment is the task; the resulting source remains available to an agent afterward.
 
-Every navigable Studio tool publishes Browser API control automation. Source and tool-specific actions vary, so call `describe()` before operation. See [Choose an interface](/docs/agents/choose-interface) and [Studio Browser API](/docs/reference/browser-api).
+Every navigable Studio tool publishes Browser API control automation scoped to its own active workspace. Every tool except Brand book publishes persistent read/apply source support; opening the Code drawer is not required. Direct artifact actions exist for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Blog, Partnership, and Slides, while `describe().capabilities.exports` identifies any output that remains a Browser control or deterministic HTTP result. Call `describe()` before operation. See [Choose an interface](/docs/agents/choose-interface) and [Studio Browser API](/docs/reference/browser-api).

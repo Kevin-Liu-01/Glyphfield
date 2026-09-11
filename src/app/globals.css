@@ -1197,17 +1197,37 @@
 .image-crop-editor-overlay__source {
   position: absolute;
   z-index: 1;
-  display: block;
+  display: grid;
   max-width: none;
   max-height: none;
-  opacity: .32;
-  filter: saturate(.72) contrast(.88);
+  place-items: stretch;
   pointer-events: none;
   user-select: none;
 }
 
+.image-crop-editor-overlay__source > * {
+  width: 100%;
+  height: 100%;
+}
+
+.image-crop-editor-overlay__source > img {
+  display: block;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+}
+
+.image-crop-editor-overlay__measure {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .image-crop-editor-overlay__frame {
   position: absolute;
+  z-index: 2;
   inset: -4px;
   border: 2px dashed rgb(255 255 255 / .92);
   box-shadow: 0 0 0 1px #5b7cff, 0 0 0 9999px rgb(3 5 10 / .2);
@@ -30954,8 +30974,7 @@ html.dark .marketing-page-v5 .marketing-v5-primary-link--iridescent:hover {
 
 .marketing-v5-hero-studio {
   width: min(100%, 1320px);
-  height: min(clamp(465px, 48vw, 645px), calc(75svh - 60px));
-  min-height: min(420px, calc(75svh - 60px));
+  height: clamp(465px, 48vw, 645px);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.13);
   border-radius: 8px;

@@ -3,11 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_MANIFEST, GLYPHFIELD_AGENT_SKILLS, OPENAPI_DOCUMENT } from '../agentApi';
 import { AGENT_LAB_CATALOG, AGENT_SHADER_LIBRARY, AGENT_SURFACE_LIBRARY } from '../agentCatalog';
 import { BACKGROUND_PRESETS, DEFAULT_BACKGROUND_SETTINGS } from '../backgroundSvg';
+import { AGENT_GENERATION_REQUEST_FIELDS } from '../agentGeneration';
 import { DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
 import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_PRESETS } from '../openSurfaceLibrary';
 import { STICKER_FINISH_PRESETS } from '../surfaceSticker';
 import { STUDIO_TOOLS } from '../studioCatalog';
 import { shaderLabMaterials } from '../shaderLab';
+import {
+  STUDIO_AGENT_CAPABILITIES,
+  STUDIO_STANDARD_ACTION_CONTRACTS,
+  STUDIO_TOOL_ACTION_CONTRACTS,
+} from '../studioAgentCapabilities';
 
 describe('agent discovery catalogs', () => {
   it('derives every agent-visible shader from the shared Studio material library', () => {
@@ -26,9 +32,10 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_SHADER_LIBRARY.materials.every(({ motion }) => motion.supportsPngSnapshot)).toBe(true);
     expect(AGENT_SHADER_LIBRARY.framePersistence.appearance).toBe('lossless-png-snapshot');
     expect(AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.shaderFrameCapture).map(({ id }) => id)).toEqual(['material']);
-    expect(Object.keys(AGENT_MANIFEST.studioBrowserApi.toolActions.material)).toEqual([
-      'design.export.project', 'design.frame.pause', 'design.frame.capture', 'design.frame.play', 'design.frame.seek', 'design.motion.describe',
-    ]);
+    expect(AGENT_MANIFEST.studioBrowserApi.toolActions).toBe(STUDIO_TOOL_ACTION_CONTRACTS);
+    expect(Object.keys(AGENT_MANIFEST.studioBrowserApi.toolActions.material)).toEqual(
+      Object.keys(STUDIO_TOOL_ACTION_CONTRACTS.material)
+    );
     expect(AGENT_MANIFEST.studioBrowserApi.toolActions.material['design.export.project']).toMatchObject({
       input: 'No input',
       output: expect.stringContaining('non-empty application/json Blob, .glyphfield.json fileName, format JSON, previewKind file'),
@@ -54,6 +61,11 @@ describe('agent discovery catalogs', () => {
     ).toEqual(['animation', 'material']);
     expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.browserApi)).toBe(true);
     expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.controlAutomation)).toBe(true);
+    expect(
+      AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.sourceEditing).map(({ id }) => id)
+    ).toEqual(STUDIO_TOOLS.filter(({ id }) => id !== 'brand-book').map(({ id }) => id));
+    expect(AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'brand-book')?.capabilities.source).toBe(false);
+    expect(Object.keys(STUDIO_AGENT_CAPABILITIES)).toEqual(expect.arrayContaining(STUDIO_TOOLS.map(({ id }) => id)));
     expect(
       AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'material')?.capabilities.directHttpGeneration
     ).toContain('design-sequence');
@@ -107,11 +119,24 @@ describe('agent discovery catalogs', () => {
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/llms-full.txt');
     expect(AGENT_MANIFEST.studioBrowserApi.global).toBe('window.glyphfield.studio');
     expect(AGENT_MANIFEST.studioBrowserApi.operations.download).toContain('Blob');
-    expect(AGENT_MANIFEST.studioBrowserApi.standardActions).toContain('artifact.download');
+    expect(AGENT_MANIFEST.studioBrowserApi.standardActions).toEqual(Object.keys(STUDIO_STANDARD_ACTION_CONTRACTS));
+    expect(AGENT_MANIFEST.studioBrowserApi.standardActionContracts['source.apply'].input).toContain('JSON');
     expect(AGENT_MANIFEST.generation.kinds).toHaveProperty('design-sequence');
     expect(AGENT_MANIFEST.interfaces.browser.global).toBe('window.glyphfield.studio');
     expect(AGENT_MANIFEST.execution.never).toContain(
       'Do not invent catalog IDs, accessible labels, source fields, or enum values.'
     );
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/search');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/github-stars');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/openapi.json');
+    expect(OPENAPI_DOCUMENT.components.schemas.AgentGenerationRequest.oneOf).toHaveLength(4);
+    expect(OPENAPI_DOCUMENT.paths['/api/generate'].post.requestBody.content['application/json'].schema).toEqual({
+      $ref: '#/components/schemas/AgentGenerationRequest',
+    });
+    for (const variant of OPENAPI_DOCUMENT.components.schemas.AgentGenerationRequest.oneOf) {
+      const kind = variant.properties.kind.const as keyof typeof AGENT_GENERATION_REQUEST_FIELDS;
+      expect(Object.keys(variant.properties).sort()).toEqual([...AGENT_GENERATION_REQUEST_FIELDS[kind]].sort());
+      expect(variant.additionalProperties).toBe(false);
+    }
   });
 });

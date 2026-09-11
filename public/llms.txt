@@ -67,7 +67,7 @@ The active Studio tool registers `window.glyphfield.studio` and dispatches `glyp
 Core methods:
 
 - `activeTool()` returns the public Studio tool ID. Design Lab is `material`; `logo-shader` is an internal legacy draft scope and must not be expected by integrations.
-- `describe()` returns version, tool ID, source support, and exact action names.
+- `describe()` returns version, tool ID, source support, the tool capability record, exact action names, and per-action input/output contracts.
 - `controls()` lists accessible control labels, control kinds, and current values.
 - `activate(label)` clicks a control by its exact accessible label.
 - `set(label, value)` changes a supported input, select, checkbox, contenteditable, or file input.
@@ -79,6 +79,10 @@ Core methods:
 Standard `invoke` actions are `source.read`, `source.apply`, `controls.list`, `control.activate`, `control.set`, and `artifact.download`.
 
 Always call `describe()` before a tool-specific action. Never invent accessible labels or action names.
+
+Control discovery and activation are scoped to the active adapter workspace. Identical labels in another retained project or tool cannot receive the operation.
+
+Persistent source is available for every navigable tool except the identity-derived Brand book, regardless of whether its Code drawer is open. Direct actions include `identity.export.json`, `brand-element.export.brief`, `moodboard.export.png`, `moodboard.export.identity`, `brand-book.print`, `colors.tokens.read`, `colors.tokens.copy`, Animation GIF/MP4/project exports, Lottie frame/source exports, `opengraph.export.png`, `terminal.export.png`, `blog.export.png`, `partnership.export.png`, `slides.export.png`, and the Design Lab actions below. Read the exact current names and contracts from `describe()` or `/api/agent`.
 
 ### Design Lab actions
 
@@ -101,6 +105,7 @@ design.export.gif
 design.export.mp4
 design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
+design.export.project
 ```
 
 Use `studio.invoke('design.frame.pause')` for an ordinary synchronous pause: it returns null without encoding PNGs or writing captured-frame assets. For a durable exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: ordinary pause retains its mounted simulation, but time-only history replay is unsupported and playing from a saved PNG starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata. The explorer range extends only on request; playback does not automatically grow that range or create stored frames.

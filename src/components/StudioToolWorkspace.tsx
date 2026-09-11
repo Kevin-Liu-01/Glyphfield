@@ -80,7 +80,8 @@ import {
   svgToPngBlob,
 } from '@/lib/download';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
-import { registerStudioAutomation } from '@/lib/studioAutomation';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { registerStudioAutomation, type StudioAutomationAdapter } from '@/lib/studioAutomation';
 import { savedDesignStorageKey } from '@/lib/savedDesigns';
 import {
   createStudioCanvasDocument,
@@ -251,6 +252,7 @@ function useCustomFont() {
 
 export function ToolShell({
   actions,
+  automation,
   children,
   inspector,
   library,
@@ -258,6 +260,7 @@ export function ToolShell({
   tool,
 }: {
   actions?: ReactNode;
+  automation?: Pick<StudioAutomationAdapter, 'actions' | 'invoke'>;
   children: ReactNode;
   inspector: ReactNode;
   library?: ReactNode;
@@ -272,20 +275,22 @@ export function ToolShell({
   const gt = useGT();
   const shellRef = useRef<HTMLDivElement>(null);
   const sourceCodeRef = useCommittedRef(sourceCode);
+  const automationRef = useCommittedRef(automation);
   const [sourceOpen, setSourceOpen] = useState(false);
 
   const sourceReady = sourceCode?.source !== null && sourceCode?.source !== undefined;
+  const automationActionKey = automation?.actions?.join('\u0000') ?? '';
+  const automationInvokable = Boolean(automation?.invoke);
 
   useEffect(() => registerStudioAutomation({
-    actions: sourceReady
-      ? ['source.read', 'source.apply', 'controls.list', 'control.activate', 'control.set']
-      : ['controls.list', 'control.activate', 'control.set'],
+    actions: automationRef.current?.actions,
     // Drawers delegate to this owner. Source updates must refresh its data, not
     // dispose an otherwise active adapter every time the parent renders.
     applySource: sourceReady ? (source) => sourceCodeRef.current!.onApply(source) : undefined,
     getSource: sourceReady ? () => sourceCodeRef.current!.source! : undefined,
+    invoke: automationInvokable ? (action, input) => automationRef.current!.invoke!(action, input) : undefined,
     toolId: tool.id,
-  }, shellRef.current), [sourceCodeRef, sourceReady, tool.id]);
+  }, shellRef.current), [automationActionKey, automationInvokable, automationRef, sourceCodeRef, sourceReady, tool.id]);
 
   return (
     <div className='tool-shell h-full min-h-0' ref={shellRef}>
@@ -1110,7 +1115,9 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
     try {
       const raster = resolveSvgRasterDimensions(1200, 630);
       const blob = await svgToPngBlob(previewSvg, 1200, 630);
-      setLastExport({ blob, fileName: 'studio-opengraph.png', format: 'PNG', height: raster.height, width: raster.width });
+      const asset: ExportPreviewAsset = { blob, fileName: 'studio-opengraph.png', format: 'PNG', height: raster.height, width: raster.width };
+      setLastExport(asset);
+      return asset;
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -1198,6 +1205,13 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
 
   return (
     <ToolShell
+      automation={{
+        actions: studioToolActionNames('opengraph'),
+        invoke: (action) => {
+          if (action === 'opengraph.export.png') return exportOpenGraph();
+          throw new RangeError(`Unknown OpenGraph action: ${action}.`);
+        },
+      }}
       actions={
         <>
           <DesignVersionControls
@@ -1478,13 +1492,17 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     })));
   }
 
-  async function copyTokens() {
-    const value = colors
+  function colorTokensCss() {
+    return colors
       .map(
         (color) =>
           `--color-${color.name.toLocaleLowerCase().replaceAll(' ', '-')}: ${formatOklch(color.hex).replace(')', ` / ${color.opacity ?? 100}%)`)}; /* ${normalizeHex(color.hex)} */`
       )
       .join('\n');
+  }
+
+  async function copyTokens(throwOnError = false) {
+    const value = colorTokensCss();
     try {
       await copyTextToClipboard(value);
       setCopyError(false);
@@ -1493,7 +1511,9 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
     } catch {
       setCopied(false);
       setCopyError(true);
+      if (throwOnError) throw new Error('Clipboard access was denied.');
     }
+    return value;
   }
 
   const library = (
@@ -1562,6 +1582,14 @@ function ColorTool({ identity, tool }: { identity: BrandIdentity; tool: StudioTo
 
   return (
     <ToolShell
+      automation={{
+        actions: studioToolActionNames('colors'),
+        invoke: (action) => {
+          if (action === 'colors.tokens.read') return colorTokensCss();
+          if (action === 'colors.tokens.copy') return copyTokens(true);
+          throw new RangeError(`Unknown Color tokens action: ${action}.`);
+        },
+      }}
       actions={
         <>
           <Button disabled={undoDepth === 0} onClick={undoLastColorChange} title={undoDepth === 0 ? gt('Change a color to enable undo.') : gt('Restore the previous color value.')} type='button' variant='outline'>
@@ -2371,7 +2399,9 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
     try {
       const raster = resolveSvgRasterDimensions(1200, 630);
       const blob = await svgToPngBlob(previewSvg, 1200, 630);
-      setLastExport({ blob, fileName: 'studio-terminal.png', format: 'PNG', height: raster.height, width: raster.width });
+      const asset: ExportPreviewAsset = { blob, fileName: 'studio-terminal.png', format: 'PNG', height: raster.height, width: raster.width };
+      setLastExport(asset);
+      return asset;
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -2410,6 +2440,13 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
 
   return (
     <ToolShell
+      automation={{
+        actions: studioToolActionNames('terminal'),
+        invoke: (action) => {
+          if (action === 'terminal.export.png') return exportTerminal();
+          throw new RangeError(`Unknown Terminal action: ${action}.`);
+        },
+      }}
       actions={
         <>
           <DesignVersionControls
@@ -3233,7 +3270,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
     try {
       const raster = resolveSvgRasterDimensions(width, height);
       const blob = await svgToPngBlob(previewSvg, width, height);
-      setLastExport({ blob, fileName: `studio-${kind}.png`, format: 'PNG', height: raster.height, width: raster.width });
+      const asset: ExportPreviewAsset = { blob, fileName: `studio-${kind}.png`, format: 'PNG', height: raster.height, width: raster.width };
+      setLastExport(asset);
+      return asset;
     } finally {
       setExporting(false);
       studioExport.finish();
@@ -3444,6 +3483,13 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
 
   return (
     <ToolShell
+      automation={{
+        actions: studioToolActionNames(tool.id),
+        invoke: (action) => {
+          if (action === `${kind}.export.png`) return exportTemplate();
+          throw new RangeError(`Unknown ${tool.name} action: ${action}.`);
+        },
+      }}
       actions={
         <>
           <DesignVersionControls

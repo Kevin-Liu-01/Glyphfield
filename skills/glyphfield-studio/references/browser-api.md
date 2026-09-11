@@ -44,6 +44,8 @@ const after = JSON.parse(studio.readSource());
 
 Do not assume every tool uses CanvasDocument. Each active adapter owns its validator and source shape.
 
+Source support does not depend on the Code drawer being open. Every navigable tool except the identity-derived Brand book has a persistent read/apply boundary.
+
 ## Controls
 
 ```js
@@ -77,7 +79,9 @@ control.set
 artifact.download
 ```
 
-Design Lab additionally exposes sequence and PNG/JPG/GIF/MP4 export actions. Always use `describe().actions` as the live list. Run motion exports serially.
+Design Lab additionally exposes sequence and PNG/JPG/GIF/MP4 export actions. Brand identity, Brand elements, Moodboard, Animation, Lottie, OpenGraph, Terminal card, Blog, Partnership, and Slides expose direct artifact-returning export actions; Brand book exposes its print flow. Inspect `describe().actionContracts` for exact input and output, and use `describe().capabilities.exports` to distinguish direct actions, visible controls, and HTTP output. Always use `describe().actions` as the live list. Run motion exports serially.
+
+Control enumeration, matching, and activation stay inside this adapter's active workspace. A same-named control in another retained project or tool is never a fallback target.
 
 ## Failure recovery
 

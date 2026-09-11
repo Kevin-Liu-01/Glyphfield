@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   BookOpenText,
@@ -49,6 +49,9 @@ import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { registerStudioAutomation } from '@/lib/studioAutomation';
 
 const INPUT_CLASS =
   'h-10 w-full border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-foreground';
@@ -201,6 +204,7 @@ export default function BrandSettingsStudio({
 }) {
   const gt = useGT();
   const convertedAssetLibrary = useConvertedAssets();
+  const studioRootRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<IdentitySection>('overview');
   const [assetType, setAssetType] = useState<BrandAsset['type']>('image');
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -251,6 +255,24 @@ export default function BrandSettingsStudio({
       }),
     });
   }
+
+  function exportIdentity() {
+    const asset = identityExport(identity);
+    setLastExport(asset);
+    return asset;
+  }
+
+  const automationRef = useCommittedRef({ applySource, exportIdentity, identity });
+  useEffect(() => registerStudioAutomation({
+    actions: studioToolActionNames('identity'),
+    applySource: (source) => automationRef.current.applySource(source),
+    getSource: () => stringifySource(automationRef.current.identity),
+    invoke: (action) => {
+      if (action === 'identity.export.json') return automationRef.current.exportIdentity();
+      throw new RangeError(`Unknown Brand identity action: ${action}.`);
+    },
+    toolId: 'identity',
+  }, studioRootRef.current), [automationRef]);
 
   function updateTypography(role: BrandTypography['role'], patch: Partial<BrandTypography>) {
     const hasRole = identity.typography.some((font) => font.role === role);
@@ -340,13 +362,13 @@ export default function BrandSettingsStudio({
   }
 
   return (
-    <div className='tool-shell brand-identity-shell h-full min-h-0'>
+    <div className='tool-shell brand-identity-shell h-full min-h-0' ref={studioRootRef}>
       <StudioToolHeader
         actions={(
           <>
           <SourceCodeButton onClick={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
-          <Button onClick={() => setLastExport(identityExport(identity))} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
+          <Button onClick={exportIdentity} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
           </>
         )}
         metadata={identity.name}

@@ -330,6 +330,7 @@ import {
   type StickerFinishSettings,
 } from '@/lib/surfaceSticker';
 import { downloadStudioArtifact, registerStudioAutomation } from '@/lib/studioAutomation';
+import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
 import {
   applyTextEffectMask,
@@ -2947,9 +2948,13 @@ function applyImageCropPreviewStyles(layer: HTMLElement, cropInput?: Partial<Ima
   const crop = normalizeImageCropSettings(cropInput);
   const position = imageCropPosition(crop);
   layer.querySelectorAll<HTMLElement>('[data-image-crop-enabled]')
-    .forEach((frame) => { frame.dataset.imageCropEnabled = String(crop.enabled); });
+    .forEach((frame) => {
+      if (frame.closest('[data-image-crop-source]')) return;
+      frame.dataset.imageCropEnabled = String(crop.enabled);
+    });
   layer.querySelectorAll<HTMLElement>('[data-image-crop-media="image"]')
     .forEach((image) => {
+      if (image.closest('[data-image-crop-source]')) return;
       image.style.objectFit = crop.enabled ? 'cover' : '';
       image.style.objectPosition = crop.enabled ? position : '';
       image.style.transform = crop.enabled ? `scale(${crop.zoom})` : '';
@@ -2957,6 +2962,7 @@ function applyImageCropPreviewStyles(layer: HTMLElement, cropInput?: Partial<Ima
     });
   layer.querySelectorAll<HTMLElement>('[data-image-crop-media="mask"], [data-image-crop-media="sticker"]')
     .forEach((mask) => {
+      if (mask.closest('[data-image-crop-source]')) return;
       const size = crop.enabled ? 'cover' : '100% 100%';
       mask.style.maskPosition = crop.enabled ? position : 'center';
       mask.style.maskSize = size;
@@ -2967,6 +2973,7 @@ function applyImageCropPreviewStyles(layer: HTMLElement, cropInput?: Partial<Ima
     });
   layer.querySelectorAll<HTMLElement>('[data-image-crop-material]')
     .forEach((material) => {
+      if (material.closest('[data-image-crop-source]')) return;
       material.style.transform = crop.enabled ? `scale(${1 / crop.zoom})` : '';
       material.style.transformOrigin = crop.enabled ? position : '';
     });
@@ -8180,31 +8187,7 @@ export default function ShaderLabStudio({
   });
 
   useEffect(() => registerStudioAutomation({
-    actions: [
-      'source.read',
-      'source.apply',
-      'controls.list',
-      'control.activate',
-      'control.set',
-      'artifact.download',
-      'design.frame.capture',
-      'design.frame.pause',
-      'design.frame.play',
-      'design.frame.seek',
-      'design.motion.describe',
-      'design.sequence.describe',
-      'design.sequence.configure',
-      'design.sequence.preview',
-      'design.sequence.stop',
-      'design.export',
-      'design.export.project',
-      'design.export.png',
-      'design.export.jpg',
-      'design.export.gif',
-      'design.export.mp4',
-      'design.export.shader-sequence.gif',
-      'design.export.shader-sequence.mp4',
-    ],
+    actions: studioToolActionNames('material'),
     applySource: (source) => designAutomationRef.current.applyCompositionSource(source),
     getSource: () => {
       const source = designAutomationRef.current.compositionSetupSource();
@@ -8910,6 +8893,22 @@ export default function ShaderLabStudio({
               const layer = stageRef.current?.querySelector<HTMLElement>(`[data-canvas-layer-id="${CSS.escape(layerId)}"]`);
               if (layer) applyImageCropPreviewStyles(layer, imageCrop);
             }}
+            sourcePreview={(
+              <>
+                <ShaderMaskedMediaContent
+                  application={application}
+                  appearance={asset.appearance}
+                  fallbackColor='#FFFFFF'
+                  instanceKey={`crop-source-${layerId}`}
+                  label={`${asset.name} crop source`}
+                  opacity={asset.opacity ?? 1}
+                  preserveColors
+                  renderMaterial={renderLiveMaterial}
+                  url={asset.url}
+                />
+                {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} url={asset.url} /> : null}
+              </>
+            )}
             url={asset.url}
           />
         ) : null}

@@ -52,6 +52,8 @@ describe repository contribution.
 - `src/lib/agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts` — public agent
   manifest, catalogs, validation, generation, and examples.
 - `src/lib/studioAutomation.ts` — `window.glyphfield.studio` runtime contract.
+- `src/lib/studioAgentCapabilities.ts` — canonical per-tool source, export, HTTP,
+  and Browser action capability map shared by runtime discovery and docs.
 - `content/docs/**` + `src/components/DocsMdx.tsx` — human and machine docs source.
 - `public/llms.txt` — concise agent router; `src/app/llms-full.txt/route.ts` emits the
   complete processed docs corpus.

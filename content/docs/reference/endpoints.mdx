@@ -21,6 +21,9 @@ icon: Braces
 | GET | `/api/generate` | Current generation contract and examples |
 | GET | `/api/search` | Self-hosted documentation search index/query response |
 | GET | `/api/surface-textures/{assetId}/{map}` | Allowlisted CC0 surface map with provider/license headers |
+| GET | `/api/og` | Parameterized 1200 × 630 OpenGraph PNG |
+| GET | `/api/og-home` | Canonical home-page OpenGraph PNG |
+| GET | `/og/docs/{slug}/image.png` | Canonical documentation OpenGraph PNG |
 
 ## Generation
 
@@ -57,7 +60,9 @@ Search is used by the documentation UI and is separate from Studio tool search.
 
 `GET /api/github-stars` supplies the current repository-star count to product chrome. It is an optional UI utility rather than a generation dependency; consumers must tolerate `503` and `stars: null`.
 
-OpenGraph routes `/api/og-home`, `/api/og`, and `/og/docs/{slug}/image.png` are covered in [Social previews](/docs/reference/social-previews).
+OpenGraph route inputs and rendering behavior are covered in [Social previews](/docs/reference/social-previews).
+
+`/openapi.json` uses the same discriminated generation request schema returned by `GET /api/generate`, including exact top-level fields, enums, ranges, string limits, and data-URL constraints. The OpenAPI path inventory includes every public machine route above plus the optional `/api/github-stars` product-chrome utility.
 
 ## Caching
 

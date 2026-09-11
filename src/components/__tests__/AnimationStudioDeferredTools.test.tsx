@@ -140,6 +140,12 @@ describe('Animation Studio on-demand source and export tools', () => {
   it('keeps the public source adapter available and current without loading the Code drawer', async () => {
     await mount();
     expect(window.glyphfield?.studio.describe().source).toEqual({ apply: true, read: true });
+    expect(window.glyphfield?.studio.describe().actions).toEqual(expect.arrayContaining([
+      'animation.export',
+      'animation.export.gif',
+      'animation.export.mp4',
+      'animation.export.project',
+    ]));
     expect(window.glyphfield?.studio.readSource()).toBe('{"version":1}');
     deferred.source = '{"version":2}';
     await act(async () => root.render(<AnimationStudio embedded viewportVisible={false} />));
@@ -180,5 +186,22 @@ describe('Animation Studio on-demand source and export tools', () => {
     expect(deferred.shader).toHaveBeenCalledOnce();
     expect(mp4 ? deferred.mp4 : deferred.gif).toHaveBeenCalledOnce();
     expect(mp4 ? deferred.gif : deferred.mp4).not.toHaveBeenCalled();
+  });
+
+  it('returns a verifiable artifact from the direct animation export action', async () => {
+    await mount();
+    let asset: unknown;
+    await act(async () => {
+      asset = await window.glyphfield!.studio.invoke('animation.export', { format: 'gif' });
+      await vi.dynamicImportSettled();
+    });
+    expect(asset).toMatchObject({
+      blob: expect.any(Blob),
+      fileName: expect.stringMatching(/\.gif$/),
+      format: 'GIF',
+    });
+    expect((asset as { blob: Blob }).blob.size).toBeGreaterThan(0);
+    expect(deferred.gif).toHaveBeenCalledOnce();
+    expect(deferred.mp4).not.toHaveBeenCalled();
   });
 });

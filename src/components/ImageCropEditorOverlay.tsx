@@ -6,6 +6,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 
 import { Check, Crop } from '@/components/ui/SolidIcons';
@@ -20,6 +21,8 @@ type CropPointerSession = {
   boxHeight: number;
   boxWidth: number;
   crop: ImageCropSettings;
+  clientToLocalX: number;
+  clientToLocalY: number;
   pointerId: number;
   startX: number;
   startY: number;
@@ -38,6 +41,7 @@ export default function ImageCropEditorOverlay({
   onChange,
   onDone,
   onPreview,
+  sourcePreview,
   url,
 }: {
   crop: ImageCropSettings;
@@ -45,6 +49,7 @@ export default function ImageCropEditorOverlay({
   onChange: (crop: ImageCropSettings) => void;
   onDone: () => void;
   onPreview: (crop: ImageCropSettings) => void;
+  sourcePreview?: ReactNode;
   url: string;
 }) {
   const crop = normalizeImageCropSettings(cropInput);
@@ -64,9 +69,11 @@ export default function ImageCropEditorOverlay({
     if (!host) return;
     const measure = () => {
       const bounds = host.getBoundingClientRect();
-      setFrameSize((current) => current.width === bounds.width && current.height === bounds.height
+      const width = host.offsetWidth || host.clientWidth || bounds.width;
+      const height = host.offsetHeight || host.clientHeight || bounds.height;
+      setFrameSize((current) => current.width === width && current.height === height
         ? current
-        : { height: Math.max(1, bounds.height), width: Math.max(1, bounds.width) });
+        : { height: Math.max(1, height), width: Math.max(1, width) });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -85,8 +92,8 @@ export default function ImageCropEditorOverlay({
   function cropFromPointer(event: Pick<ReactPointerEvent<HTMLDivElement>, 'clientX' | 'clientY' | 'shiftKey'>) {
     const session = pointerSessionRef.current;
     if (!session) return null;
-    let deltaX = event.clientX - session.startX;
-    let deltaY = event.clientY - session.startY;
+    let deltaX = (event.clientX - session.startX) * session.clientToLocalX;
+    let deltaY = (event.clientY - session.startY) * session.clientToLocalY;
     if (event.shiftKey) {
       if (Math.abs(deltaX) >= Math.abs(deltaY)) deltaY = 0;
       else deltaX = 0;
@@ -108,8 +115,10 @@ export default function ImageCropEditorOverlay({
     event.stopPropagation();
     const bounds = event.currentTarget.getBoundingClientRect();
     pointerSessionRef.current = {
-      boxHeight: Math.max(1, bounds.height),
-      boxWidth: Math.max(1, bounds.width),
+      boxHeight: frameSize.height,
+      boxWidth: frameSize.width,
+      clientToLocalX: frameSize.width / Math.max(1, bounds.width),
+      clientToLocalY: frameSize.height / Math.max(1, bounds.height),
       crop: draft,
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -192,22 +201,29 @@ export default function ImageCropEditorOverlay({
       role='application'
       tabIndex={0}
     >
-      <img
-        alt=''
+      <div
         aria-hidden='true'
         className='image-crop-editor-overlay__source'
-        draggable={false}
-        onLoad={(event) => setImageSize({
-          height: Math.max(1, event.currentTarget.naturalHeight),
-          width: Math.max(1, event.currentTarget.naturalWidth),
-        })}
-        src={url}
+        data-image-crop-source
         style={{
           height: rendered.height,
           left: rendered.left,
           top: rendered.top,
           width: rendered.width,
         }}
+      >
+        {sourcePreview ?? <img alt='' draggable={false} src={url} />}
+      </div>
+      <img
+        alt=''
+        aria-hidden='true'
+        className='image-crop-editor-overlay__measure'
+        draggable={false}
+        onLoad={(event) => setImageSize({
+          height: Math.max(1, event.currentTarget.naturalHeight),
+          width: Math.max(1, event.currentTarget.naturalWidth),
+        })}
+        src={url}
       />
       <span aria-hidden='true' className='image-crop-editor-overlay__frame' />
       <span className='image-crop-editor-overlay__hint'>
