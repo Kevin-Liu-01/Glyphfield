@@ -3559,6 +3559,7 @@ function DesignLabTextLayerInspector({
   identity,
   previewSelectedContentOpacity,
   previewSelectedTextAppearance,
+  previewSelectedTextLayer,
   previewSelectedTextWidth,
   selectedCanvasLayerCount,
   selection,
@@ -3572,6 +3573,7 @@ function DesignLabTextLayerInspector({
   identity: BrandIdentity;
   previewSelectedContentOpacity: (value: number) => void;
   previewSelectedTextAppearance: (patch: TextAppearancePreviewPatch) => void;
+  previewSelectedTextLayer: (update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
   previewSelectedTextWidth: (value: number) => void;
   selectedCanvasLayerCount: number;
   selection: SelectedTextInspector;
@@ -3595,6 +3597,7 @@ function DesignLabTextLayerInspector({
           const text = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerCount)
             ?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
           if (text) text.innerText = value;
+          previewSelectedTextLayer({ value });
         }}
         value={selectedTextLayer.value}
       />
@@ -3680,12 +3683,15 @@ function DesignLabTextLayerInspector({
       <StudioFontSizeControl
         key={selectedTextLayer.id}
         onChange={(size) => updateTextLayer(selectedTextLayer.id, designLabFontSizeUpdate(selectedTextLayer, size))}
-        onPreview={(size) => previewSelectedTextStyle(
-          stageRef.current,
-          selectedCanvasLayerCount,
-          'fontSize',
-          `${size / canvasWidth * 100}cqw`
-        )}
+        onPreview={(size) => {
+          previewSelectedTextStyle(
+            stageRef.current,
+            selectedCanvasLayerCount,
+            'fontSize',
+            `${size / canvasWidth * 100}cqw`
+          );
+          previewSelectedTextLayer(designLabFontSizeUpdate(selectedTextLayer, size));
+        }}
         value={resolveDesignLabFontSize(selectedTextLayer, canvasHeight)}
       />
       <RangeControl
@@ -3696,7 +3702,11 @@ function DesignLabTextLayerInspector({
         onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
           weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
         })}
-        onPreview={(weight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(weight))}
+        onPreview={(weight) => {
+          const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight);
+          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(resolvedWeight));
+          previewSelectedTextLayer({ weight: resolvedWeight });
+        }}
         step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
         value={textRenderedWeight}
       />
@@ -3728,7 +3738,10 @@ function DesignLabTextLayerInspector({
         max={1.8}
         min={0.7}
         onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
-        onPreview={(lineHeight) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight))}
+        onPreview={(lineHeight) => {
+          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight));
+          previewSelectedTextLayer({ lineHeight });
+        }}
         step={0.05}
         value={selectedTextLayer.lineHeight}
       />
@@ -3738,7 +3751,10 @@ function DesignLabTextLayerInspector({
         max={0.2}
         min={-0.12}
         onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
-        onPreview={(tracking) => previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`)}
+        onPreview={(tracking) => {
+          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`);
+          previewSelectedTextLayer({ tracking });
+        }}
         step={0.01}
         value={selectedTextLayer.tracking}
       />
@@ -3850,8 +3866,8 @@ function DesignLabShaderInspector({
   editingShader,
   initialSettings,
   material,
-  previewChannel,
   previewSelectedShaderOpacity,
+  previewSelectedShaderSize,
   previewSelectedShaderSetting,
   settings,
   shaderSize,
@@ -3862,9 +3878,9 @@ function DesignLabShaderInspector({
   editingShader: ShaderApplication;
   initialSettings: LiveMaterialSettings;
   material: LiveMaterialOption;
-  previewChannel: string | null;
   previewSelectedShaderOpacity: (value: number) => void;
-  previewSelectedShaderSetting: (key: keyof LiveMaterialSettings, value: number) => void;
+  previewSelectedShaderSize: (value: number) => void;
+  previewSelectedShaderSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
   settings: LiveMaterialSettings;
   shaderSize: number;
   updateSelectedShader: (update: Partial<ShaderApplication>) => void;
@@ -3883,9 +3899,7 @@ function DesignLabShaderInspector({
             key={key}
             label={label}
             onChange={(color) => updateSetting(key, color)}
-            onPreview={(color) => {
-              if (previewChannel) previewLiveMaterialSettings(previewChannel, { [key]: color });
-            }}
+            onPreview={(color) => previewSelectedShaderSetting(key, color)}
             value={settings[key]}
           />
         ))}
@@ -3928,9 +3942,7 @@ function DesignLabShaderInspector({
       <div className='shader-lab-v2-ranges'>
         <ShaderZoomControl
           onChange={(value) => updateSelectedShader({ shaderSize: value })}
-          onPreview={(value) => {
-            if (previewChannel) previewLiveMaterialPatternScale(previewChannel, value);
-          }}
+          onPreview={previewSelectedShaderSize}
           value={shaderSize}
         />
         <RangeControl
@@ -4847,6 +4859,11 @@ export default function ShaderLabStudio({
     opacity?: number;
     settings?: Partial<CompositionEffectSettings>;
   }>>(new Map());
+  const shaderApplicationPreviewOverridesRef = useRef<Map<ShaderLayerId | ContentLayerId, ShaderApplication>>(new Map());
+  const textLayerPreviewOverridesRef = useRef<Map<TextLayerId, CompositionTextLayer>>(new Map());
+  const logoLayerPreviewOverridesRef = useRef<Map<LogoLayerId, CompositionLogoLayer>>(new Map());
+  const assetLayerPreviewOverridesRef = useRef<Map<AssetLayerId, CompositionAsset>>(new Map());
+  const canvasBackgroundPreviewOverrideRef = useRef<string | null>(null);
   const effectPreviewRedrawRef = useRef<(() => void) | null>(null);
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -5591,7 +5608,17 @@ export default function ShaderLabStudio({
     setPaused(false);
   }
 
+  function clearTransientCompositionPreviews() {
+    effectPreviewOverridesRef.current.clear();
+    shaderApplicationPreviewOverridesRef.current.clear();
+    textLayerPreviewOverridesRef.current.clear();
+    logoLayerPreviewOverridesRef.current.clear();
+    assetLayerPreviewOverridesRef.current.clear();
+    canvasBackgroundPreviewOverrideRef.current = null;
+  }
+
   function applyArtboardSnapshot(snapshot: DesignArtboardSnapshot) {
+    clearTransientCompositionPreviews();
     const next = cloneArtboardSnapshot(snapshot);
     const nextFrame = resolveMotionFrame(
       normalizedExportSettings.durationMs,
@@ -6114,12 +6141,14 @@ export default function ShaderLabStudio({
       ? recipeUpdate
       : { ...recipeUpdate, shaderSize: clampShaderZoom(recipeUpdate.shaderSize) };
     if (selectedShaderLayer) {
+      shaderApplicationPreviewOverridesRef.current.delete(selectedShaderLayer.id);
       setShaderLayers((current) => current.map((layer) => (
         layer.id === selectedShaderLayer.id ? { ...layer, ...normalizedUpdate } : layer
       )));
       return;
     }
     if (!selectedContentLayerId) return;
+    shaderApplicationPreviewOverridesRef.current.delete(selectedContentLayerId);
     setLayerShaders((current) => ({
       ...current,
       [selectedContentLayerId]: {
@@ -6129,13 +6158,47 @@ export default function ShaderLabStudio({
     }));
   }
 
-  function previewSelectedShaderSetting(key: keyof LiveMaterialSettings, value: number) {
+  function updateCanvasBackground(color: string) {
+    canvasBackgroundPreviewOverrideRef.current = null;
+    setCanvasBackground(color);
+  }
+
+  function previewCanvasBackground(color: string) {
+    if (frameCapturePendingRef.current) return;
+    canvasBackgroundPreviewOverrideRef.current = color;
+    if (stageRef.current) stageRef.current.style.backgroundColor = color;
+    effectPreviewRedrawRef.current?.();
+  }
+
+  function previewSelectedShaderUpdate(update: Partial<ShaderApplication>) {
+    if (frameCapturePendingRef.current || !editingShader) return;
+    const id = selectedShaderLayer?.id ?? selectedContentLayerId;
+    if (!id) return;
+    const current = shaderApplicationPreviewOverridesRef.current.get(id) ?? editingShader;
+    shaderApplicationPreviewOverridesRef.current.set(id, {
+      ...current,
+      ...update,
+      settings: update.settings ? { ...current.settings, ...update.settings } : current.settings,
+      shaderSize: update.shaderSize === undefined ? current.shaderSize : clampShaderZoom(update.shaderSize),
+    });
+    effectPreviewRedrawRef.current?.();
+  }
+
+  function previewSelectedShaderSetting<Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) {
     if (!selectedShaderPreviewChannel) return;
     previewLiveMaterialSettings(selectedShaderPreviewChannel, { [key]: value });
+    previewSelectedShaderUpdate({ settings: { ...settings, [key]: value } });
+  }
+
+  function previewSelectedShaderSize(value: number) {
+    if (!selectedShaderPreviewChannel) return;
+    previewLiveMaterialPatternScale(selectedShaderPreviewChannel, value);
+    previewSelectedShaderUpdate({ shaderSize: value });
   }
 
   function previewSelectedShaderOpacity(value: number) {
     if (!selectedShaderPreviewChannel) return;
+    previewSelectedShaderUpdate({ opacity: value });
     const host = document.querySelector<HTMLElement>(
       `[data-shader-instance="${CSS.escape(selectedShaderPreviewChannel)}"]`
     );
@@ -6160,10 +6223,7 @@ export default function ShaderLabStudio({
       textEffect?: Partial<TextEffectSettings>;
     }
   ) {
-    if (!selectedTextAppearance) return;
-    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
-    const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
-    if (!text) return;
+    if (!selectedTextLayer || !selectedTextAppearance) return;
     const nextAppearance: TextAppearanceSettings = {
       ...selectedTextAppearance,
       ...patch,
@@ -6171,6 +6231,10 @@ export default function ShaderLabStudio({
         ? { ...selectedTextAppearance.textEffect, ...patch.textEffect }
         : selectedTextAppearance.textEffect,
     };
+    previewSelectedTextLayer({ ...nextAppearance, textEffect: nextAppearance.textEffect });
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
+    const text = layer?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
+    if (!text) return;
     const materialBackgroundImage = selectedLayerShader
       ? `url("${shaderPreviewAssetPath(selectedLayerShader.materialId)}")`
       : undefined;
@@ -6189,19 +6253,37 @@ export default function ShaderLabStudio({
     });
   }
 
+  function previewSelectedTextLayer(update: Partial<Omit<CompositionTextLayer, 'id'>>) {
+    if (frameCapturePendingRef.current || !selectedTextLayer) return;
+    const current = textLayerPreviewOverridesRef.current.get(selectedTextLayer.id) ?? selectedTextLayer;
+    textLayerPreviewOverridesRef.current.set(selectedTextLayer.id, {
+      ...current,
+      ...update,
+      textEffect: update.textEffect
+        ? { ...resolveTextEffectSettings(current.textEffect), ...update.textEffect }
+        : current.textEffect,
+      transform: update.transform ? { ...current.transform, ...update.transform } : current.transform,
+    });
+    effectPreviewRedrawRef.current?.();
+  }
+
   function previewSelectedTextWidth(widthScale: number) {
     if (!selectedTextLayer || !selectedTextTransform) return;
-    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
-    if (!layer) return;
     const geometry = layerGeometry(selectedTextLayer.id, canvasDimensions);
     const width = geometry.baseWidth * widthScale;
     const centerX = geometry.baseX + geometry.baseWidth / 2 + selectedTextTransform.x;
+    previewSelectedTextLayer({ transform: { ...selectedTextTransform, widthScale } });
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
+    if (!layer) return;
     layer.style.left = `${(centerX - width / 2) / canvasDimensions.width * 100}%`;
     layer.style.width = `${width / canvasDimensions.width * 100}%`;
     syncSelectedCanvasLayerOverlay(layer);
   }
 
   function previewSelectedContentOpacity(value: number) {
+    if (selectedTextLayer) previewSelectedTextLayer({ opacity: value });
+    if (selectedLogoLayer) previewSelectedLogoLayer({ opacity: value });
+    if (selectedAsset) previewSelectedAssetLayer({ opacity: value });
     const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     if (!layer) return;
     const shaderOpacity = selectedLayerShader?.opacity ?? 1;
@@ -6216,9 +6298,45 @@ export default function ShaderLabStudio({
 
   function previewSelectedImageCrop(patch: Partial<ImageCropSettings>) {
     if (!selectedAsset) return;
+    const imageCrop = normalizeImageCropSettings({ ...selectedAsset.imageCrop, ...patch });
+    previewSelectedAssetLayer({ imageCrop });
     const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     if (!layer) return;
-    applyImageCropPreviewStyles(layer, normalizeImageCropSettings({ ...selectedAsset.imageCrop, ...patch }));
+    applyImageCropPreviewStyles(layer, imageCrop);
+  }
+
+  function previewSelectedLogoLayer(update: Partial<Omit<CompositionLogoLayer, 'id'>>) {
+    if (frameCapturePendingRef.current || !selectedLogoLayer) return;
+    const current = logoLayerPreviewOverridesRef.current.get(selectedLogoLayer.id) ?? selectedLogoLayer;
+    logoLayerPreviewOverridesRef.current.set(selectedLogoLayer.id, {
+      ...current,
+      ...update,
+      appearance: update.appearance
+        ? { ...resolvedLogoAppearance(current.appearance), ...update.appearance }
+        : current.appearance,
+      transform: update.transform ? { ...current.transform, ...update.transform } : current.transform,
+    });
+    effectPreviewRedrawRef.current?.();
+  }
+
+  function previewSelectedAssetLayer(update: Partial<Omit<CompositionAsset, 'id'>>) {
+    if (frameCapturePendingRef.current || !selectedAsset) return;
+    const current = assetLayerPreviewOverridesRef.current.get(selectedAsset.id) ?? selectedAsset;
+    assetLayerPreviewOverridesRef.current.set(selectedAsset.id, {
+      ...current,
+      ...update,
+      appearance: update.appearance
+        ? { ...resolvedLogoAppearance(current.appearance), ...update.appearance }
+        : current.appearance,
+      imageCrop: update.imageCrop
+        ? normalizeImageCropSettings({ ...current.imageCrop, ...update.imageCrop })
+        : current.imageCrop,
+      stickerFinish: update.stickerFinish
+        ? normalizeStickerFinish({ ...current.stickerFinish, ...update.stickerFinish })
+        : current.stickerFinish,
+      transform: update.transform ? { ...current.transform, ...update.transform } : current.transform,
+    });
+    effectPreviewRedrawRef.current?.();
   }
 
   function previewSelectedLogoAppearance(
@@ -6226,11 +6344,13 @@ export default function ShaderLabStudio({
     logoColor = selectedLogoLayer?.color ?? '#FFFFFF'
   ) {
     if (!selectedLogoAppearance && !selectedAssetAppearance) return;
-    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
-    if (!layer) return;
     const currentAppearance = selectedLogoAppearance ?? selectedAssetAppearance;
     if (!currentAppearance) return;
     const nextAppearance = { ...currentAppearance, ...patch };
+    if (selectedLogoLayer) previewSelectedLogoLayer({ appearance: nextAppearance, color: logoColor });
+    if (selectedAsset) previewSelectedAssetLayer({ appearance: nextAppearance });
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
+    if (!layer) return;
     layer.querySelectorAll<HTMLElement>('[data-appearance-content="true"]')
       .forEach((content) => {
         content.style.color = logoColor;
@@ -6252,10 +6372,11 @@ export default function ShaderLabStudio({
 
   function previewSelectedStickerFinish(patch: Partial<StickerFinishSettings>) {
     if (selectedAsset?.kind !== 'sticker') return;
+    const finish = normalizeStickerFinish({ ...selectedAsset.stickerFinish, ...patch });
+    previewSelectedAssetLayer({ stickerFinish: finish });
     const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
     const overlay = layer?.querySelector<HTMLElement>('.shader-lab-v2-sticker-finish-overlay');
     if (!overlay) return;
-    const finish = normalizeStickerFinish({ ...selectedAsset.stickerFinish, ...patch });
     Object.entries(stickerFinishCssVariables(finish)).forEach(([property, value]) => {
       overlay.style.setProperty(property, value);
     });
@@ -6272,12 +6393,14 @@ export default function ShaderLabStudio({
       shaderSize: editingShader?.shaderSize,
     });
     if (selectedShaderLayer) {
+      shaderApplicationPreviewOverridesRef.current.delete(selectedShaderLayer.id);
       setShaderLayers((current) => current.map((layer) => (
         layer.id === selectedShaderLayer.id ? { ...layer, ...nextApplication } : layer
       )));
       return;
     }
     if (selectedContentLayerId) {
+      shaderApplicationPreviewOverridesRef.current.delete(selectedContentLayerId);
       setLayerShaders((current) => ({ ...current, [selectedContentLayerId]: nextApplication }));
       return;
     }
@@ -6445,6 +6568,7 @@ export default function ShaderLabStudio({
   }
 
   function removeEffectLayer(id: EffectLayerId) {
+    effectPreviewOverridesRef.current.delete(id);
     setEffectLayers((current) => current.filter((layer) => layer.id !== id));
     setLayerOrder((current) => current.filter((layerId) => layerId !== id));
     setSelectedLayerId((current) => current === id ? null : current);
@@ -6549,6 +6673,7 @@ export default function ShaderLabStudio({
     id: TextLayerId,
     update: Partial<Omit<CompositionTextLayer, 'id'>>
   ) {
+    textLayerPreviewOverridesRef.current.delete(id);
     setTextLayers((current) => current.map((layer) =>
       layer.id === id ? { ...layer, ...update } : layer
     ));
@@ -6556,6 +6681,8 @@ export default function ShaderLabStudio({
 
   function removeTextLayer(id: TextLayerId) {
     textEffectScratchRefs.current.delete(id);
+    textLayerPreviewOverridesRef.current.delete(id);
+    shaderApplicationPreviewOverridesRef.current.delete(id);
     setTextLayers((current) => current.filter((layer) => layer.id !== id));
     setLayerShaders((current) => {
       const next = { ...current };
@@ -6576,6 +6703,7 @@ export default function ShaderLabStudio({
   }
 
   function updateLogoLayer(id: LogoLayerId, update: Partial<Omit<CompositionLogoLayer, 'id'>>) {
+    logoLayerPreviewOverridesRef.current.delete(id);
     setLogoLayers((current) => current.map((layer) => layer.id === id ? { ...layer, ...update } : layer));
   }
 
@@ -6599,6 +6727,8 @@ export default function ShaderLabStudio({
       URL.revokeObjectURL(removed.url);
       compositionAssetUrlsRef.current = compositionAssetUrlsRef.current.filter((url) => url !== removed.url);
     }
+    logoLayerPreviewOverridesRef.current.delete(id);
+    shaderApplicationPreviewOverridesRef.current.delete(id);
     setLogoLayers((current) => current.filter((layer) => layer.id !== id));
     setLayerShaders((current) => {
       const next = { ...current };
@@ -7000,6 +7130,8 @@ export default function ShaderLabStudio({
       URL.revokeObjectURL(removed.url);
       compositionAssetUrlsRef.current = compositionAssetUrlsRef.current.filter((url) => url !== removed.url);
     }
+    assetLayerPreviewOverridesRef.current.delete(id);
+    shaderApplicationPreviewOverridesRef.current.delete(id);
     setCompositionAssets((current) => current.filter((asset) => asset.id !== id));
     setLayerShaders((current) => {
       const next = { ...current };
@@ -7034,6 +7166,7 @@ export default function ShaderLabStudio({
   }
 
   function updateAssetLayer(id: AssetLayerId, update: Partial<Omit<CompositionAsset, 'id'>>) {
+    assetLayerPreviewOverridesRef.current.delete(id);
     setCompositionAssets((current) => current.map((asset) => asset.id === id ? { ...asset, ...update } : asset));
   }
 
@@ -7301,6 +7434,7 @@ export default function ShaderLabStudio({
 
   async function applyCompositionSource(source: string) {
     assertShaderWorkspaceIdle();
+    clearTransientCompositionPreviews();
     const sourceSequence = ++sourceApplySequenceRef.current;
     const parsed = parseCompositionSource(source);
     const importedTypography = await prepareImportedProjectTypography(source);
@@ -7494,6 +7628,31 @@ export default function ShaderLabStudio({
     return scratch;
   }
 
+  function transientCompositionPreviewEnabled() {
+    return !frameCapturePendingRef.current
+      && !exportJobRef.current
+      && !effectCaptureShaderImagesRef.current;
+  }
+
+  function renderedShaderApplication(
+    id: ShaderLayerId | ContentLayerId,
+    application: ShaderApplication | undefined
+  ) {
+    if (!application || !transientCompositionPreviewEnabled()) return application;
+    return shaderApplicationPreviewOverridesRef.current.get(id) ?? application;
+  }
+
+  function renderedCompositionMediaLayer(layerId: LogoLayerId | AssetLayerId) {
+    if (isLogoLayerId(layerId)) {
+      const layer = logoLayers.find((candidate) => candidate.id === layerId);
+      if (!layer || !transientCompositionPreviewEnabled()) return layer;
+      return logoLayerPreviewOverridesRef.current.get(layerId) ?? layer;
+    }
+    const layer = compositionAssets.find((candidate) => candidate.id === layerId);
+    if (!layer || !transientCompositionPreviewEnabled()) return layer;
+    return assetLayerPreviewOverridesRef.current.get(layerId) ?? layer;
+  }
+
   function paintCompositionShader(
     context: CanvasRenderingContext2D,
     layerId: ShaderLayerId,
@@ -7505,7 +7664,7 @@ export default function ShaderLabStudio({
     const capturedSequence = sequenceCaptureRef.current;
     const renderedShader = capturedSequence?.layerId === layerId
       ? capturedSequence.application
-      : shaderLayer;
+      : renderedShaderApplication(layerId, shaderLayer) ?? shaderLayer;
     const box = outputLayerBox(
       layerId,
       normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM),
@@ -7556,13 +7715,11 @@ export default function ShaderLabStudio({
     images: ReadonlyMap<string, HTMLImageElement>
   ) {
     const isLogo = isLogoLayerId(layerId);
-    const layer = isLogo
-      ? logoLayers.find((candidate) => candidate.id === layerId)
-      : compositionAssets.find((candidate) => candidate.id === layerId);
+    const layer = renderedCompositionMediaLayer(layerId);
     const image = layer ? images.get(layer.id) : null;
     if (!layer || !image) return;
     const box = outputLayerBox(layer.id, layer.transform, width, height);
-    const application = layerShaders[layer.id];
+    const application = renderedShaderApplication(layer.id, layerShaders[layer.id]);
     const appearance = resolvedLogoAppearance(layer.appearance);
     const layerOpacity = layer.opacity ?? 1;
     const stickerFinish = !isLogo && (layer as CompositionAsset).kind === 'sticker'
@@ -7644,9 +7801,21 @@ export default function ShaderLabStudio({
     frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds,
     onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
   ) {
+    const backgroundPreview = transientCompositionPreviewEnabled()
+      ? canvasBackgroundPreviewOverrideRef.current
+      : null;
+    const renderedDocument = backgroundPreview
+      ? {
+          ...designLabDocument,
+          pages: {
+            ...designLabDocument.pages,
+            [designLabPage.id]: { ...designLabPage, background: backgroundPreview },
+          },
+        }
+      : designLabDocument;
     return renderCanvasDocumentPage({
       context,
-      document: designLabDocument,
+      document: renderedDocument,
       elementIds: frameLayerIds,
       height,
       manageCompositing: false,
@@ -7660,11 +7829,14 @@ export default function ShaderLabStudio({
         }
 
       if (isTextLayerId(layerId)) {
-        const textLayer = textLayers.find((layer) => layer.id === layerId);
+        const committedTextLayer = textLayers.find((layer) => layer.id === layerId);
+        const textLayer = committedTextLayer && transientCompositionPreviewEnabled()
+          ? textLayerPreviewOverridesRef.current.get(layerId) ?? committedTextLayer
+          : committedTextLayer;
         if (!textLayer || !textLayer.value) return;
         const transform = resolvedTextTransform(textLayer.transform);
         return paintDesignLabTextLayer({
-          application: layerShaders[layerId],
+          application: renderedShaderApplication(layerId, layerShaders[layerId]),
           box: outputLayerBox(layerId, transform, width, height),
           canvasHeight: canvasDimensions.height,
           canvasWidth: canvasDimensions.width,
@@ -8913,6 +9085,7 @@ export default function ShaderLabStudio({
             onPreview={(imageCrop) => {
               const layer = stageRef.current?.querySelector<HTMLElement>(`[data-canvas-layer-id="${CSS.escape(layerId)}"]`);
               if (layer) applyImageCropPreviewStyles(layer, imageCrop);
+              previewSelectedAssetLayer({ imageCrop });
             }}
             sourcePreview={(
               <>
@@ -9396,10 +9569,8 @@ export default function ShaderLabStudio({
                 <ColorControl
                   ariaLabel='Artboard background color'
                   label='Background color'
-                  onChange={setCanvasBackground}
-                  onPreview={(color) => {
-                    if (stageRef.current) stageRef.current.style.backgroundColor = color;
-                  }}
+                  onChange={updateCanvasBackground}
+                  onPreview={previewCanvasBackground}
                   value={canvasBackground}
                 />
               </div>
@@ -9465,8 +9636,8 @@ export default function ShaderLabStudio({
               editingShader={editingShader}
               initialSettings={initialSettings}
               material={material}
-              previewChannel={selectedShaderPreviewChannel}
               previewSelectedShaderOpacity={previewSelectedShaderOpacity}
+              previewSelectedShaderSize={previewSelectedShaderSize}
               previewSelectedShaderSetting={previewSelectedShaderSetting}
               settings={settings}
               shaderSize={shaderSize}
@@ -9491,6 +9662,7 @@ export default function ShaderLabStudio({
                 identity={identity}
                 previewSelectedContentOpacity={previewSelectedContentOpacity}
                 previewSelectedTextAppearance={previewSelectedTextAppearance}
+                previewSelectedTextLayer={previewSelectedTextLayer}
                 previewSelectedTextWidth={previewSelectedTextWidth}
                 selectedCanvasLayerCount={selectedCanvasLayerIds.length}
                 selection={selection}

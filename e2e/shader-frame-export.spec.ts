@@ -659,6 +659,160 @@ test('paused composition dither repaints during a control gesture without duplic
   });
 });
 
+test('paused stacked effects repaint from an uncommitted text-layer preview', async ({ page }) => {
+  await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
+  await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
+  await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
+  const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+  await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+  await page.getByTitle('Select Text 1').click();
+  await page.waitForTimeout(300);
+  const baseline = await effectPixels(effectCanvas);
+  if (!baseline) throw new Error('The initial paused converter did not paint');
+
+  const textSize = page.getByRole('slider', { name: 'Text size', exact: true });
+  await expect(textSize).toHaveCount(1);
+  const committedBefore = await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const text = (Object.values(source.elements) as Array<{ data: { fontSize?: number }; kind: string }>).find(({ kind }) => kind === 'text');
+    return text?.data.fontSize ?? 48;
+  });
+  await textSize.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 23,
+    }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '320');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  await expect.poll(async () => (await effectPixels(effectCanvas))?.hash).not.toBe(baseline.hash);
+  expect(await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const text = (Object.values(source.elements) as Array<{ data: { fontSize?: number }; kind: string }>).find(({ kind }) => kind === 'text');
+    return text?.data.fontSize ?? 48;
+  })).toBe(committedBefore);
+
+  await textSize.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 23,
+    }));
+  });
+  await expect.poll(async () => page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const text = (Object.values(source.elements) as Array<{ data: { fontSize?: number }; kind: string }>).find(({ kind }) => kind === 'text');
+    return text?.data.fontSize ?? 48;
+  })).toBeCloseTo(320, 4);
+});
+
+test('paused stacked effects repaint from an uncommitted shader setting preview', async ({ page }) => {
+  await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
+  await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
+  const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+  await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+  await page.getByTitle('Select Canvas shader 1').click();
+  const baseline = await effectPixels(effectCanvas);
+  if (!baseline) throw new Error('The initial paused converter did not paint');
+
+  const centerX = page.getByRole('slider', { name: 'Center X', exact: true });
+  const committedBefore = await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const shader = (Object.values(source.elements) as Array<{ data: { settings: { centerX?: number } }; kind: string }>).find(({ kind }) => kind === 'shader');
+    return shader?.data.settings.centerX ?? 0.5;
+  });
+  await centerX.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 29,
+    }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '0.88');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  await expect.poll(async () => (await effectPixels(effectCanvas))?.hash).not.toBe(baseline.hash);
+  expect(await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const shader = (Object.values(source.elements) as Array<{ data: { settings: { centerX?: number } }; kind: string }>).find(({ kind }) => kind === 'shader');
+    return shader?.data.settings.centerX ?? 0.5;
+  })).toBe(committedBefore);
+
+  await centerX.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 29,
+    }));
+  });
+  await expect.poll(async () => page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const shader = (Object.values(source.elements) as Array<{ data: { settings: { centerX?: number } }; kind: string }>).find(({ kind }) => kind === 'shader');
+    return shader?.data.settings.centerX ?? 0.5;
+  })).toBeCloseTo(0.88, 4);
+});
+
+test('paused stacked effects repaint from an uncommitted image-crop preview', async ({ page }) => {
+  await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
+  await page.getByRole('button', { name: 'Add image layer', exact: true }).click();
+  await page.getByLabel('Choose new images').setInputFiles('public/brands/gt/library/material.png');
+  await page.getByRole('button', { name: /Import & save 1/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Add image assets' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
+  const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+  await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+  await page.locator('.shader-lab-v2-dock-layer[data-kind="image"] .shader-lab-v2-dock-layer-select').click();
+  const cropToggle = page.getByRole('checkbox', { name: 'Crop image to frame', exact: true });
+  if (!await cropToggle.isChecked()) await cropToggle.click();
+  await page.waitForTimeout(300);
+  const baseline = await effectPixels(effectCanvas);
+  if (!baseline) throw new Error('The initial paused converter did not paint');
+
+  const cropZoom = page.getByRole('slider', { name: 'Crop zoom', exact: true });
+  const committedBefore = await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const image = (Object.values(source.elements) as Array<{ data: { imageCrop?: { zoom?: number } }; kind: string }>).find(({ kind }) => kind === 'image');
+    return image?.data.imageCrop?.zoom ?? 1;
+  });
+  await cropZoom.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 31,
+    }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '3.5');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  await expect.poll(async () => (await effectPixels(effectCanvas))?.hash).not.toBe(baseline.hash);
+  expect(await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const image = (Object.values(source.elements) as Array<{ data: { imageCrop?: { zoom?: number } }; kind: string }>).find(({ kind }) => kind === 'image');
+    return image?.data.imageCrop?.zoom ?? 1;
+  })).toBe(committedBefore);
+
+  await cropZoom.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      isPrimary: true,
+      pointerId: 31,
+    }));
+  });
+  await expect.poll(async () => page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource());
+    const image = (Object.values(source.elements) as Array<{ data: { imageCrop?: { zoom?: number } }; kind: string }>).find(({ kind }) => kind === 'image');
+    return image?.data.imageCrop?.zoom ?? 1;
+  })).toBeCloseTo(3.5, 4);
+});
+
 for (const materialId of ['paper-dithering', 'holo-cloth-silk', 'shadergradient-prismatic-sphere'] as const) {
   test(`paused ${materialId} shader time scrubbing repaints the shader and stacked effect before release`, async ({ page }) => {
     const { shaderId } = await prepareShader(page, { materialId, paused: true, timeMs: 1250 });
