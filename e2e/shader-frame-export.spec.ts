@@ -1,9 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { gemSmokePresets } from '@paper-design/shaders-react';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { getPaperLiveMaterialDefinition, liveMaterialMotionRate } from '../src/lib/liveMaterials';
 import { resolvePaperShaderFrame } from '../src/lib/paperShaderTime';
+import { defaultCompositionEffectSettings, type CompositionEffectKind } from '../src/lib/compositionEffects';
 
 type ShaderFixture = { id: string; data: { materialId: string; frameState?: unknown; frameSnapshot?: { assetId: string } } };
 
@@ -72,6 +73,52 @@ async function pixels(page: Page, id: string) {
     }
     return { width, height, hash: hash >>> 0, colors: colors.size, frozenImage: input instanceof HTMLImageElement };
   }, id);
+}
+
+async function screenshotPixels(page: Page, locator: Locator) {
+  const png = await locator.screenshot();
+  return page.evaluate(async (source) => {
+    const image = new Image();
+    image.src = source;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true })!;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let hash = 2166136261;
+    let visiblePixels = 0;
+    for (let index = 0; index < pixels.length; index += 1) hash = Math.imul(hash ^ pixels[index]!, 16777619);
+    for (let index = 3; index < pixels.length; index += 4) {
+      if (pixels[index]! > 8) visiblePixels += 1;
+    }
+    return { hash: hash >>> 0, height: canvas.height, visiblePixels, width: canvas.width };
+  }, `data:image/png;base64,${png.toString('base64')}`);
+}
+
+async function effectPixels(locator: Locator) {
+  return locator.evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context || !canvas.width || !canvas.height) return null;
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const colors = new Set<string>();
+    let hash = 2166136261;
+    let opaquePixels = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index + 3] === 255) opaquePixels += 1;
+      if (colors.size <= 256) colors.add(`${pixels[index]},${pixels[index + 1]},${pixels[index + 2]},${pixels[index + 3]}`);
+      hash = Math.imul(hash ^ pixels[index]!, 16777619);
+      hash = Math.imul(hash ^ pixels[index + 1]!, 16777619);
+      hash = Math.imul(hash ^ pixels[index + 2]!, 16777619);
+      hash = Math.imul(hash ^ pixels[index + 3]!, 16777619);
+    }
+    return {
+      colorCount: colors.size,
+      hash: hash >>> 0,
+      opaqueRatio: opaquePixels / (canvas.width * canvas.height),
+    };
+  });
 }
 
 async function state(page: Page, id: string) {
@@ -489,6 +536,92 @@ test('Paper initial live import captures the authored native frame instead of it
   expect(timingErrorMs).toBeLessThanOrEqual(100);
 });
 
+test('shader-backed layer effects render without an SVG foreignObject dependency', async ({ page }) => {
+  const { shaderId } = await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
+  await page.getByRole('button', { name: 'Add brand mark', exact: true }).click();
+  const fixture = await page.evaluate(async (shaderId) => {
+    const studio = window.glyphfield!.studio;
+    const source = JSON.parse(studio.readSource());
+    const shader = source.elements[shaderId];
+    const logo = Object.values(source.elements).find((element) => (element as { kind?: string }).kind === 'logo') as {
+      data: { appearance: Record<string, unknown> };
+      id: string;
+      name: string;
+    } | undefined;
+    if (!shader || !logo) throw new Error('Shader and brand mark fixtures are required');
+    const application = {
+      blendMode: 'normal',
+      materialId: shader.data.materialId,
+      opacity: 1,
+      settings: { ...shader.data.settings },
+      shaderSize: 1,
+    };
+    logo.data.appearance = {
+      ...logo.data.appearance,
+      borderEnabled: false,
+      ditherAmount: 100,
+      ditherAngle: 24,
+      ditherEnabled: false,
+      ditherScale: 6,
+      invert: false,
+      shadowEnabled: false,
+    };
+    const design = source.metadata.designLab;
+    design.layerShaders = { [logo.id]: application };
+    const active = design.workspace.artboards.find((entry: { id: string }) => entry.id === design.workspace.activeArtboardId);
+    active.snapshot.layerShaders = design.layerShaders;
+    active.snapshot.logos = [logo.data];
+    await studio.applySource(source);
+    return { id: logo.id, name: logo.name };
+  }, shaderId);
+  const appearance = page.locator(`[data-canvas-layer-id="${fixture.id}"] [data-appearance-content="true"]`);
+  await expect(page.locator(`[data-shader-instance="content-${fixture.id}"] [data-live-material-ready="true"]`)).toHaveCount(1);
+  await expect(appearance).toHaveCount(1);
+  expect(await appearance.locator('foreignObject').count()).toBe(0);
+  const baseline = await screenshotPixels(page, appearance);
+
+  await page.evaluate(async (logoId) => {
+    const studio = window.glyphfield!.studio;
+    const source = JSON.parse(studio.readSource());
+    const logo = source.elements[logoId];
+    Object.assign(logo.data.appearance, { ditherEnabled: true });
+    const design = source.metadata.designLab;
+    const active = design.workspace.artboards.find((entry: { id: string }) => entry.id === design.workspace.activeArtboardId);
+    active.snapshot.logos = active.snapshot.logos.map((entry: { id: string }) => entry.id === logoId ? logo.data : entry);
+    await studio.applySource(source);
+  }, fixture.id);
+  await expect(appearance.locator('[data-appearance-dither-mask="true"]')).toHaveCSS('-webkit-mask-image', /data:image\/svg\+xml/);
+  const dithered = await screenshotPixels(page, appearance);
+  expect(dithered.visiblePixels).toBeGreaterThan(0);
+  expect(dithered.hash).not.toBe(baseline.hash);
+
+  await page.evaluate(async (logoId) => {
+    const studio = window.glyphfield!.studio;
+    const source = JSON.parse(studio.readSource());
+    const logo = source.elements[logoId];
+    Object.assign(logo.data.appearance, {
+      borderColor: '#FF2F66',
+      borderEnabled: true,
+      borderOpacity: 100,
+      borderWidth: 4,
+      invert: true,
+      shadowBlur: 8,
+      shadowColor: '#00EEFF',
+      shadowEnabled: true,
+      shadowOffsetX: 3,
+      shadowOffsetY: 4,
+      shadowOpacity: 100,
+    });
+    const design = source.metadata.designLab;
+    const active = design.workspace.artboards.find((entry: { id: string }) => entry.id === design.workspace.activeArtboardId);
+    active.snapshot.logos = active.snapshot.logos.map((entry: { id: string }) => entry.id === logoId ? logo.data : entry);
+    await studio.applySource(source);
+  }, fixture.id);
+  await expect(appearance).toHaveCSS('filter', /invert\(1\).*drop-shadow/);
+  const finished = await screenshotPixels(page, appearance);
+  expect(finished.hash).not.toBe(dithered.hash);
+});
+
 test('Paper grain and composition effects remain origin-clean during capture and export', async ({ page }, testInfo) => {
   const { shaderId } = await prepareShader(page, { materialId: 'paper-dithering', grain: 60 });
   // Isolate the exact authored CSS grain source before IndexedDB/save touches it.
@@ -511,7 +644,38 @@ test('Paper grain and composition effects remain origin-clean during capture and
   expect(grain.png).toBe('data:image/png;base64,');
   await page.getByRole('button', { name: 'Add brand mark', exact: true }).click();
   await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();
-  await expect(page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]')).toBeVisible();
+  const effectCanvas = page.locator('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+  await expect(effectCanvas).toBeVisible();
+  await expect.poll(async () => effectPixels(effectCanvas)).toMatchObject({ colorCount: 2, opaqueRatio: 1 });
+  const effectHashes = new Set<number>();
+  for (const kind of ['bayer', 'ascii', 'halftone', 'posterize'] as const satisfies readonly CompositionEffectKind[]) {
+    const settings = defaultCompositionEffectSettings(kind);
+    await page.evaluate(async ({ kind, settings }) => {
+      const studio = window.glyphfield!.studio;
+      const source = JSON.parse(studio.readSource());
+      const effect = Object.values(source.elements).find((element) => (element as { kind?: string }).kind === 'effect') as {
+        data: { settings: typeof settings };
+        id: string;
+      } | undefined;
+      if (!effect) throw new Error('Composition effect fixture is missing');
+      effect.data.settings = settings;
+      const design = source.metadata.designLab;
+      const active = design.workspace.artboards.find((entry: { id: string }) => entry.id === design.workspace.activeArtboardId);
+      active.snapshot.effectLayers = active.snapshot.effectLayers.map((entry: { id: string }) => (
+        entry.id === effect.id ? { ...entry, settings } : entry
+      ));
+      await studio.applySource(source);
+    }, { kind, settings });
+    const rendered = page.locator(`[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="${kind}"]`);
+    await expect(rendered).toBeVisible();
+    await expect.poll(async () => effectPixels(rendered)).not.toBeNull();
+    const pixels = await effectPixels(rendered);
+    expect(pixels?.opaqueRatio).toBe(1);
+    expect(pixels?.colorCount).toBeGreaterThan(1);
+    expect(effectHashes.has(pixels!.hash)).toBe(false);
+    effectHashes.add(pixels!.hash);
+    await testInfo.attach(`${kind}-live-effect`, { body: JSON.stringify(pixels), contentType: 'application/json' });
+  }
   await page.evaluate(async () => { await window.glyphfield!.studio.invoke('design.frame.capture'); });
   const captured = await state(page, shaderId);
   expect(captured.asset).toMatch(/^data:image\/png;base64,/);

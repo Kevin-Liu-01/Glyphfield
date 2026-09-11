@@ -6,6 +6,27 @@ export type ImageLayerPlacement = {
   y: number;
 };
 
+export type ImageCropSettings = {
+  enabled: boolean;
+  focalPointX: number;
+  focalPointY: number;
+  zoom: number;
+};
+
+export type ImageCropSourceBounds = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
+export const DEFAULT_IMAGE_CROP: ImageCropSettings = {
+  enabled: false,
+  focalPointX: 0.5,
+  focalPointY: 0.5,
+  zoom: 1,
+};
+
 export type PreviewContainedImageBounds = {
   boxHeight: number;
   boxWidth: number;
@@ -20,17 +41,76 @@ function positive(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+export function isImageCropSettings(value: unknown): value is ImageCropSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const crop = value as Partial<ImageCropSettings>;
+  return typeof crop.enabled === 'boolean'
+    && typeof crop.focalPointX === 'number' && Number.isFinite(crop.focalPointX)
+    && typeof crop.focalPointY === 'number' && Number.isFinite(crop.focalPointY)
+    && typeof crop.zoom === 'number' && Number.isFinite(crop.zoom);
+}
+
+export function normalizeImageCropSettings(value?: Partial<ImageCropSettings> | null): ImageCropSettings {
+  return {
+    enabled: value?.enabled === true,
+    focalPointX: clamp(Number.isFinite(value?.focalPointX) ? value!.focalPointX! : DEFAULT_IMAGE_CROP.focalPointX, 0, 1),
+    focalPointY: clamp(Number.isFinite(value?.focalPointY) ? value!.focalPointY! : DEFAULT_IMAGE_CROP.focalPointY, 0, 1),
+    zoom: clamp(Number.isFinite(value?.zoom) ? value!.zoom! : DEFAULT_IMAGE_CROP.zoom, 1, 4),
+  };
+}
+
+/**
+ * Resolves the exact source rectangle used to crop an image into an authored
+ * layer frame. The same rectangle is consumed by still and motion export;
+ * live CSS uses the matching cover, focal-point, and zoom values.
+ */
+export function imageCropSourceBounds({
+  boxHeight,
+  boxWidth,
+  crop: cropInput,
+  imageHeight,
+  imageWidth,
+}: {
+  boxHeight: number;
+  boxWidth: number;
+  crop?: Partial<ImageCropSettings> | null;
+  imageHeight: number;
+  imageWidth: number;
+}): ImageCropSourceBounds {
+  const crop = normalizeImageCropSettings(cropInput);
+  const safeBoxWidth = positive(boxWidth, 1);
+  const safeBoxHeight = positive(boxHeight, 1);
+  const safeImageWidth = positive(imageWidth, 1);
+  const safeImageHeight = positive(imageHeight, 1);
+  if (!crop.enabled) {
+    return { height: safeImageHeight, width: safeImageWidth, x: 0, y: 0 };
+  }
+
+  const targetAspect = safeBoxWidth / safeBoxHeight;
+  const imageAspect = safeImageWidth / safeImageHeight;
+  const coverWidth = imageAspect > targetAspect ? safeImageHeight * targetAspect : safeImageWidth;
+  const coverHeight = imageAspect > targetAspect ? safeImageHeight : safeImageWidth / targetAspect;
+  const width = coverWidth / crop.zoom;
+  const height = coverHeight / crop.zoom;
+
+  return {
+    height,
+    width,
+    x: (safeImageWidth - width) * crop.focalPointX,
+    y: (safeImageHeight - height) * crop.focalPointY,
+  };
+}
+
 export function imageLayerName(fileName: string, fallback = 'Image'): string {
   const withoutExtension = fileName.replace(/\.[^.]+$/, '').trim();
   return withoutExtension || fallback;
 }
 
-/**
- * Mirrors LogoAppearancePreview's square SVG viewBox inside a rectangular
- * canvas layer. The outer SVG first centers a square viewport, then its image
- * is contained inside that square. Export must use the same two-stage contain
- * geometry or wide and tall assets render at a different size than the canvas.
- */
+/** Mirrors the rectangular CSS contain geometry used by live mark previews. */
 export function previewContainedImageBounds({
   boxHeight,
   boxWidth,
@@ -47,7 +127,7 @@ export function previewContainedImageBounds({
   const safeImageWidth = positive(imageWidth, 1);
   const safeImageHeight = positive(imageHeight, 1);
   const viewportSize = Math.min(safeBoxWidth, safeBoxHeight);
-  const scale = Math.min(viewportSize / safeImageWidth, viewportSize / safeImageHeight);
+  const scale = Math.min(safeBoxWidth / safeImageWidth, safeBoxHeight / safeImageHeight);
   const width = safeImageWidth * scale;
   const height = safeImageHeight * scale;
 

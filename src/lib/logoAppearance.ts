@@ -172,6 +172,37 @@ const BAYER_4 = [
   15, 7, 13, 5,
 ] as const;
 
+export type LogoAppearanceDitherMask = {
+  image: string;
+  size: string;
+};
+
+/**
+ * Build a deterministic CSS mask for live HTML/canvas previews. WebKit does
+ * not reliably apply SVG filters to foreignObject content, so shader-backed
+ * layers use this ordinary image mask instead of an feTurbulence filter.
+ */
+export function logoAppearanceDitherMask(
+  settings: LogoAppearanceSettings
+): LogoAppearanceDitherMask | null {
+  if (!settings.ditherEnabled || settings.ditherAmount <= 0) return null;
+  const cellSize = Math.max(1, settings.ditherScale || DEFAULT_LOGO_APPEARANCE.ditherScale);
+  const tileSize = cellSize * 4;
+  const coverage = 1 - Math.max(0, Math.min(1, settings.ditherAmount / 100)) * 0.7;
+  const cells = BAYER_4.flatMap((threshold, index) => {
+    if ((threshold + 0.5) / 16 > coverage) return [];
+    const x = index % 4 * cellSize;
+    const y = Math.floor(index / 4) * cellSize;
+    return [`<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="white"/>`];
+  }).join('');
+  const angle = Number.isFinite(settings.ditherAngle) ? settings.ditherAngle : 0;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileSize}" height="${tileSize}" viewBox="0 0 ${tileSize} ${tileSize}"><g transform="rotate(${angle} ${tileSize / 2} ${tileSize / 2})">${cells}</g></svg>`;
+  return {
+    image: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+    size: `${tileSize}px ${tileSize}px`,
+  };
+}
+
 function applyOrderedDither(
   context: CanvasRenderingContext2D,
   bounds: { height: number; width: number; x: number; y: number },

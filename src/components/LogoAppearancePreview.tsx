@@ -1,77 +1,41 @@
 'use client';
 
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 
 import {
   hasLogoAppearanceEffects,
+  logoAppearanceDitherMask,
   logoAppearanceCssFilter,
-  resolveLogoSvgFilterModel,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
 
-function renderAppearanceFilter({
-  color,
-  filterId,
-  preserveColors,
-  settings,
-  showSource,
-}: {
-  color?: string;
-  filterId: string;
-  preserveColors: boolean;
-  settings: LogoAppearanceSettings;
-  showSource: boolean;
-}) {
-  const model = resolveLogoSvgFilterModel(settings, preserveColors);
-  const includeSource = preserveColors || showSource;
-  const shadowInput = includeSource ? model.outputSource : 'SourceAlpha';
-  return (
-    <filter colorInterpolationFilters='sRGB' height='220%' id={filterId} width='220%' x='-60%' y='-60%'>
-      {!preserveColors ? <>
-        <feFlood floodColor={color} result='logo-color' />
-        <feComposite in='logo-color' in2='SourceAlpha' operator='in' result='colored' />
-      </> : null}
-      {settings.invert ? (
-        <feComponentTransfer in={model.source} result='inverted'>
-          <feFuncR tableValues='1 0' type='table' />
-          <feFuncG tableValues='1 0' type='table' />
-          <feFuncB tableValues='1 0' type='table' />
-        </feComponentTransfer>
-      ) : null}
-      {model.ditherEnabled ? <>
-        <feTurbulence
-          baseFrequency={`${model.ditherFrequencyX.toFixed(4)} ${model.ditherFrequencyY.toFixed(4)}`}
-          numOctaves={1}
-          result='dither-noise'
-          seed={23}
-          stitchTiles='stitch'
-          type='fractalNoise'
-        />
-        <feColorMatrix in='dither-noise' result='dither-alpha' type='luminanceToAlpha' />
-        <feComponentTransfer in='dither-alpha' result='dither-threshold'>
-          <feFuncA tableValues={model.ditherTable} type='discrete' />
-        </feComponentTransfer>
-        <feComposite in={model.filteredSource} in2='dither-threshold' operator='in' result='dithered' />
-      </> : null}
-      {settings.borderEnabled && settings.borderWidth > 0 ? <>
-        <feMorphology in='SourceAlpha' operator='dilate' radius={settings.borderWidth} result='expanded' />
-        <feComposite in='expanded' in2='SourceAlpha' operator='out' result='outline-alpha' />
-        <feFlood floodColor={settings.borderColor} floodOpacity={settings.borderOpacity / 100} result='outline-color' />
-        <feComposite in='outline-color' in2='outline-alpha' operator='in' result='outline' />
-      </> : null}
-      {settings.shadowEnabled ? <>
-        <feGaussianBlur in={shadowInput} result='shadow-blur' stdDeviation={settings.shadowBlur / 2} />
-        <feOffset dx={settings.shadowOffsetX} dy={settings.shadowOffsetY} in='shadow-blur' result='shadow-offset' />
-        <feFlood floodColor={settings.shadowColor} floodOpacity={settings.shadowOpacity / 100} result='shadow-color' />
-        <feComposite in='shadow-color' in2='shadow-offset' operator='in' result='shadow' />
-      </> : null}
-      <feMerge>
-        {settings.shadowEnabled ? <feMergeNode in='shadow' /> : null}
-        {settings.borderEnabled && settings.borderWidth > 0 ? <feMergeNode in='outline' /> : null}
-        {includeSource ? <feMergeNode in={model.outputSource} /> : null}
-      </feMerge>
-    </filter>
-  );
+function appearanceDitherStyle(settings: LogoAppearanceSettings): CSSProperties | undefined {
+  const ditherMask = logoAppearanceDitherMask(settings);
+  return ditherMask ? {
+    maskImage: ditherMask.image,
+    maskPosition: '0 0',
+    maskRepeat: 'repeat',
+    maskSize: ditherMask.size,
+    WebkitMaskImage: ditherMask.image,
+    WebkitMaskPosition: '0 0',
+    WebkitMaskRepeat: 'repeat',
+    WebkitMaskSize: ditherMask.size,
+  } : undefined;
+}
+
+function sourceMaskStyle(url: string, fillFrame: boolean): CSSProperties {
+  const size = fillFrame ? '100% 100%' : 'contain';
+  return {
+    backgroundColor: 'currentColor',
+    maskImage: `url("${url}")`,
+    maskPosition: 'center',
+    maskRepeat: 'no-repeat',
+    maskSize: size,
+    WebkitMaskImage: `url("${url}")`,
+    WebkitMaskPosition: 'center',
+    WebkitMaskRepeat: 'no-repeat',
+    WebkitMaskSize: size,
+  };
 }
 
 export function AppearanceFilteredContent({
@@ -89,33 +53,36 @@ export function AppearanceFilteredContent({
   settings: LogoAppearanceSettings;
   style?: CSSProperties;
 }) {
-  const filterId = `content-appearance-${useId().replaceAll(':', '')}`;
+  const ditherStyle = appearanceDitherStyle(settings);
 
   if (!hasLogoAppearanceEffects(settings)) {
     return (
       <div
         aria-label={ariaLabel}
         className={`block size-full overflow-visible ${className}`}
+        data-appearance-content='true'
         role='img'
         style={{ ...style, opacity }}
       >
-        <div className='relative size-full'>{children}</div>
+        <div className='relative size-full' data-appearance-dither-mask='true'>{children}</div>
       </div>
     );
   }
 
   return (
-    <svg
+    <div
       aria-label={ariaLabel}
       className={`block size-full overflow-visible ${className}`}
+      data-appearance-content='true'
       role='img'
-      style={{ ...style, opacity }}
+      style={{ ...style, filter: logoAppearanceCssFilter(settings), opacity }}
     >
-      <defs>{renderAppearanceFilter({ filterId, preserveColors: true, settings, showSource: true })}</defs>
-      <foreignObject filter={`url(#${filterId})`} height='100%' width='100%' x='0' y='0'>
-        <div className='relative size-full'>{children}</div>
-      </foreignObject>
-    </svg>
+      <div
+        className='relative size-full'
+        data-appearance-dither-mask='true'
+        style={ditherStyle}
+      >{children}</div>
+    </div>
   );
 }
 
@@ -129,7 +96,6 @@ export default function LogoAppearancePreview({
   opacity = 1,
   preserveColors = false,
   settings,
-  showSource = true,
 }: {
   ariaLabel: string;
   className?: string;
@@ -140,39 +106,46 @@ export default function LogoAppearancePreview({
   opacity?: number;
   preserveColors?: boolean;
   settings: LogoAppearanceSettings;
-  showSource?: boolean;
 }) {
-  const filterId = `logo-appearance-${useId().replaceAll(':', '')}`;
+  const ditherStyle = appearanceDitherStyle(settings);
 
   if (!logoPath) {
     return (
       <div
         aria-label={ariaLabel}
-        className='grid size-full place-items-center'
+        className={`grid size-full place-items-center overflow-visible ${className}`}
+        data-appearance-content='true'
+        role='img'
         style={{ color, filter: logoAppearanceCssFilter(settings), opacity }}
       >
-        {fallback}
+        <div className='grid size-full place-items-center' data-appearance-dither-mask='true' style={ditherStyle}>
+          {fallback}
+        </div>
       </div>
     );
   }
 
   return (
-    <svg
+    <div
       aria-label={ariaLabel}
       className={`block size-full overflow-visible ${className}`}
-      preserveAspectRatio={fillFrame ? 'none' : 'xMidYMid meet'}
+      data-appearance-content='true'
       role='img'
-      viewBox='0 0 100 100'
+      style={{ color, filter: logoAppearanceCssFilter(settings), opacity }}
     >
-      <defs>{renderAppearanceFilter({ color, filterId, preserveColors, settings, showSource })}</defs>
-      <image
-        filter={`url(#${filterId})`}
-        height='100'
-        href={logoPath}
-        opacity={opacity}
-        preserveAspectRatio={fillFrame ? 'none' : 'xMidYMid meet'}
-        width='100'
-      />
-    </svg>
+      <div className='relative size-full' data-appearance-dither-mask='true' style={ditherStyle}>
+        {preserveColors ? (
+          <img
+            alt=''
+            className='block size-full'
+            draggable={false}
+            src={logoPath}
+            style={{ objectFit: fillFrame ? 'fill' : 'contain' }}
+          />
+        ) : (
+          <span aria-hidden='true' className='block size-full' style={sourceMaskStyle(logoPath, fillFrame)} />
+        )}
+      </div>
+    </div>
   );
 }

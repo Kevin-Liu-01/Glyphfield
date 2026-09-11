@@ -5,23 +5,25 @@ import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/L
 import { DEFAULT_LOGO_APPEARANCE } from '@/lib/logoAppearance';
 
 describe('AppearanceFilteredContent', () => {
-  it('filters shader content in the rendered layer viewport instead of a square viewBox', () => {
+  it('filters shader content without the WebKit-unsafe foreignObject path', () => {
     const markup = renderToStaticMarkup(
       <AppearanceFilteredContent
         ariaLabel='Shader-filled mark'
-        settings={{ ...DEFAULT_LOGO_APPEARANCE, invert: true }}
+        settings={{ ...DEFAULT_LOGO_APPEARANCE, ditherEnabled: true, invert: true }}
       >
         <canvas />
       </AppearanceFilteredContent>
     );
 
-    expect(markup).toContain('<foreignObject');
-    expect(markup).toContain('width="100%"');
-    expect(markup).toContain('height="100%"');
-    expect(markup).not.toContain('viewBox="0 0 100 100"');
+    expect(markup).toContain('data-appearance-content="true"');
+    expect(markup).toContain('data-appearance-dither-mask="true"');
+    expect(markup).toContain('mask-image:url(&quot;data:image/svg+xml,');
+    expect(markup).toContain('filter:invert(1)');
+    expect(markup).not.toContain('<foreignObject');
+    expect(markup).not.toContain('<feTurbulence');
   });
 
-  it('renders the filter graph as SVG elements without injecting markup', () => {
+  it('renders logo effects through Safari-safe CSS masks without injecting markup', () => {
     const markup = renderToStaticMarkup(
       <LogoAppearancePreview
         ariaLabel='Logo'
@@ -37,10 +39,12 @@ describe('AppearanceFilteredContent', () => {
       />
     );
 
-    expect(markup).toContain('<feTurbulence');
-    expect(markup).toContain('<feMorphology');
-    expect(markup).toContain('<feGaussianBlur');
-    expect(markup).toContain('<feMergeNode in="dithered"');
+    expect(markup).toContain('data-appearance-content="true"');
+    expect(markup).toContain('data-appearance-dither-mask="true"');
+    expect(markup).toContain('mask-image:url(&quot;data:image/svg+xml,');
+    expect(markup).toContain('drop-shadow');
+    expect(markup).not.toContain('<foreignObject');
+    expect(markup).not.toContain('<feTurbulence');
     expect(markup).not.toContain('dangerouslySetInnerHTML');
   });
 
@@ -51,11 +55,12 @@ describe('AppearanceFilteredContent', () => {
         color='#FFFFFF'
         fillFrame
         logoPath='data:image/png;base64,aGVybw=='
+        preserveColors
         settings={DEFAULT_LOGO_APPEARANCE}
       />
     );
 
-    expect(markup).toContain('preserveAspectRatio="none"');
-    expect(markup).not.toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(markup).toContain('object-fit:fill');
+    expect(markup).not.toContain('preserveAspectRatio');
   });
 });

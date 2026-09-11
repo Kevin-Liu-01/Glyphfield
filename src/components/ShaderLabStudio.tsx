@@ -14,6 +14,7 @@ import {
   Clock3,
   Code2,
   Copy,
+  Crop,
   Download,
   Eye,
   EyeOff,
@@ -266,17 +267,22 @@ import { createLiveMaterialFramePacer, liveMaterialInstancePixelBudget } from '@
 import { waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
 import { observePausedCompositionReadiness } from '@/lib/pausedCompositionRedraw';
 import {
-  buildImageSvgFilter,
-  buildLogoSvgFilter,
   DEFAULT_LOGO_APPEARANCE,
   drawLogoAppearanceLayer,
+  logoAppearanceCssFilter,
+  logoAppearanceDitherMask,
   type LogoAppearanceSettings,
 } from '@/lib/logoAppearance';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { imageUrlToDataUrl } from '@/lib/download';
 import {
+  DEFAULT_IMAGE_CROP,
   fitImageLayerToCanvas,
+  imageCropSourceBounds,
+  isImageCropSettings,
+  normalizeImageCropSettings,
   previewContainedImageBounds,
+  type ImageCropSettings,
 } from '@/lib/imagePlacement';
 import { createImportedBrandAsset, readEmbeddedImageFile } from '@/lib/imageAssets';
 import {
@@ -391,6 +397,7 @@ type CompositionLogoLayer = {
 type CompositionAsset = {
   appearance?: LogoAppearanceSettings;
   id: AssetLayerId;
+  imageCrop?: ImageCropSettings;
   kind?: ImageAssetPlacementMode;
   libraryAssetId?: string;
   name: string;
@@ -566,6 +573,7 @@ function cloneArtboardSnapshot(snapshot: DesignArtboardSnapshot): DesignArtboard
     assets: snapshot.assets.map((asset) => ({
       ...asset,
       appearance: asset.appearance ? { ...asset.appearance } : undefined,
+      imageCrop: asset.imageCrop ? { ...asset.imageCrop } : undefined,
       stickerFinish: asset.stickerFinish ? { ...asset.stickerFinish } : undefined,
       transform: { ...asset.transform },
     })),
@@ -1422,18 +1430,20 @@ function resolveLayerDockShader(
 
 function LayerDockStaticPreview({
   effectLayer,
+  imageCrop,
   label,
   onSelect,
   previewUrl,
 }: {
   effectLayer: CompositionEffectLayer | null;
+  imageCrop?: ImageCropSettings;
   label: string;
   onSelect: () => void;
   previewUrl?: string;
 }) {
   let preview: ReactNode = <span aria-hidden='true' />;
   if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />;
-  else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} />;
+  else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} />;
   return (
     <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${label} preview`} onClick={onSelect} type='button'>
       {preview}
@@ -1468,6 +1478,7 @@ function LayerDockTooltipPreview({
   appliedShader,
   effectLayer,
   identity,
+  imageCrop,
   previewUrl,
   textAppearance,
   textLayer,
@@ -1475,6 +1486,7 @@ function LayerDockTooltipPreview({
   appliedShader: ShaderApplication | null;
   effectLayer: CompositionEffectLayer | null;
   identity: BrandIdentity;
+  imageCrop?: ImageCropSettings;
   previewUrl?: string;
   textAppearance: TextAppearanceSettings | null;
   textLayer: CompositionTextLayer | null;
@@ -1490,7 +1502,7 @@ function LayerDockTooltipPreview({
         />
       ) : null}
       {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} /> : null}
-      {previewUrl ? <img alt='' draggable={false} src={previewUrl} /> : null}
+      {previewUrl ? <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} /> : null}
       {textLayer && textAppearance ? (
         <span
           style={{
@@ -1547,7 +1559,10 @@ function validateCompositionLayers(composition: DesignLabCompositionSource['comp
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
   composition.textLayers?.forEach(validateDesignLabTextTypography);
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
-  assertOptionalArray(composition.assets, 'Image layers', (layer) => !layer.id?.startsWith('asset-'));
+  assertOptionalArray(composition.assets, 'Image layers', (layer) => (
+    !layer.id?.startsWith('asset-')
+    || (layer.imageCrop !== undefined && !isImageCropSettings(layer.imageCrop))
+  ));
   assertOptionalArray(composition.groups, 'Layer groups', (group) => !group.id?.startsWith('group-') || !Array.isArray(group.layerIds));
   assertOptionalArray(composition.layerOrder, 'Layer order', (id) => typeof id !== 'string');
 }
@@ -1647,6 +1662,7 @@ function restoredImageLayers(
     return currentAssets.map((asset) => ({
       ...asset,
       appearance: asset.appearance ? { ...asset.appearance } : undefined,
+      imageCrop: asset.imageCrop ? { ...asset.imageCrop } : undefined,
       transform: { ...asset.transform },
     }));
   }
@@ -1659,6 +1675,7 @@ function restoredImageLayers(
     return [{
       appearance: restoredImageLayerAppearance(savedAsset, current),
       id: savedAsset.id,
+      imageCrop: normalizeImageCropSettings(savedAsset.imageCrop ?? current?.imageCrop),
       kind,
       libraryAssetId: savedAsset.libraryAssetId ?? current?.libraryAssetId,
       name: savedAsset.name ?? current?.name ?? 'Image',
@@ -2411,12 +2428,40 @@ function drawContained(
   );
 }
 
+function drawImageCrop(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  crop?: Partial<ImageCropSettings>
+) {
+  const source = imageCropSourceBounds({
+    boxHeight: height,
+    boxWidth: width,
+    crop,
+    imageHeight: image.naturalHeight || 1,
+    imageWidth: image.naturalWidth || 1,
+  });
+  context.drawImage(
+    image,
+    source.x,
+    source.y,
+    source.width,
+    source.height,
+    0,
+    0,
+    width,
+    height
+  );
+}
+
 export function createContainedLayer(
   image: HTMLImageElement,
   width: number,
   height: number,
   color?: string,
-  fillFrame = false
+  fillFrame = false,
+  imageCrop?: Partial<ImageCropSettings>
 ) {
   const layer = document.createElement('canvas');
   layer.width = Math.max(1, Math.round(width));
@@ -2427,7 +2472,9 @@ export function createContainedLayer(
   // compositor maps this buffer back to width/height; fitting before that map
   // distorts intrinsic image proportions, especially for very small layers.
   layerContext.scale(layer.width / width, layer.height / height);
-  if (fillFrame) {
+  if (fillFrame && normalizeImageCropSettings(imageCrop).enabled) {
+    drawImageCrop(layerContext, image, width, height, imageCrop);
+  } else if (fillFrame) {
     layerContext.drawImage(image, 0, 0, width, height);
   } else {
     const bounds = previewContainedImageBounds({
@@ -2858,18 +2905,88 @@ async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, 
 
 type RenderLiveMaterial = (application: ShaderApplication, instanceKey: string) => ReactNode;
 
-function canvasMediaMaskStyle(url: string, fillFrame = false): CSSProperties {
-  const maskSize = fillFrame ? '100% 100%' : 'contain';
+function imageCropPosition(cropInput?: Partial<ImageCropSettings>): string {
+  const crop = normalizeImageCropSettings(cropInput);
+  return `${crop.focalPointX * 100}% ${crop.focalPointY * 100}%`;
+}
+
+function imageCropTransformStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
+  const crop = normalizeImageCropSettings(cropInput);
+  if (!crop.enabled) return {};
+  const transformOrigin = imageCropPosition(crop);
+  return {
+    transform: `scale(${crop.zoom})`,
+    transformOrigin,
+  };
+}
+
+function imageCropMaterialStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
+  const crop = normalizeImageCropSettings(cropInput);
+  if (!crop.enabled) return {};
+  return {
+    transform: `scale(${1 / crop.zoom})`,
+    transformOrigin: imageCropPosition(crop),
+  };
+}
+
+function imageCropElementStyle(cropInput?: Partial<ImageCropSettings>): CSSProperties {
+  const crop = normalizeImageCropSettings(cropInput);
+  if (!crop.enabled) return {};
+  return {
+    objectFit: 'cover',
+    objectPosition: imageCropPosition(crop),
+    ...imageCropTransformStyle(crop),
+  };
+}
+
+function applyImageCropPreviewStyles(layer: HTMLElement, cropInput?: Partial<ImageCropSettings>) {
+  const crop = normalizeImageCropSettings(cropInput);
+  const position = imageCropPosition(crop);
+  layer.querySelectorAll<HTMLElement>('[data-image-crop-enabled]')
+    .forEach((frame) => { frame.dataset.imageCropEnabled = String(crop.enabled); });
+  layer.querySelectorAll<HTMLElement>('[data-image-crop-media="image"]')
+    .forEach((image) => {
+      image.style.objectFit = crop.enabled ? 'cover' : '';
+      image.style.objectPosition = crop.enabled ? position : '';
+      image.style.transform = crop.enabled ? `scale(${crop.zoom})` : '';
+      image.style.transformOrigin = crop.enabled ? position : '';
+    });
+  layer.querySelectorAll<HTMLElement>('[data-image-crop-media="mask"], [data-image-crop-media="sticker"]')
+    .forEach((mask) => {
+      const size = crop.enabled ? 'cover' : '100% 100%';
+      mask.style.maskPosition = crop.enabled ? position : 'center';
+      mask.style.maskSize = size;
+      mask.style.webkitMaskPosition = crop.enabled ? position : 'center';
+      mask.style.webkitMaskSize = size;
+      mask.style.transform = crop.enabled ? `scale(${crop.zoom})` : '';
+      mask.style.transformOrigin = crop.enabled ? position : '';
+    });
+  layer.querySelectorAll<HTMLElement>('[data-image-crop-material]')
+    .forEach((material) => {
+      material.style.transform = crop.enabled ? `scale(${1 / crop.zoom})` : '';
+      material.style.transformOrigin = crop.enabled ? position : '';
+    });
+}
+
+function canvasMediaMaskStyle(
+  url: string,
+  fillFrame = false,
+  cropInput?: Partial<ImageCropSettings>
+): CSSProperties {
+  const crop = normalizeImageCropSettings(cropInput);
+  const maskSize = crop.enabled ? 'cover' : fillFrame ? '100% 100%' : 'contain';
+  const maskPosition = crop.enabled ? imageCropPosition(crop) : 'center';
   return {
     WebkitMaskImage: `url("${url}")`,
-    WebkitMaskPosition: 'center',
+    WebkitMaskPosition: maskPosition,
     WebkitMaskRepeat: 'no-repeat',
     WebkitMaskSize: maskSize,
     maskImage: `url("${url}")`,
     maskMode: 'alpha',
-    maskPosition: 'center',
+    maskPosition,
     maskRepeat: 'no-repeat',
     maskSize,
+    ...imageCropTransformStyle(crop),
   };
 }
 
@@ -2877,6 +2994,7 @@ function ShaderMaskedMediaContent({
   application,
   appearance: appearanceSettings,
   fallbackColor,
+  imageCrop,
   instanceKey,
   label,
   opacity,
@@ -2887,6 +3005,7 @@ function ShaderMaskedMediaContent({
   application?: ShaderApplication;
   appearance?: LogoAppearanceSettings;
   fallbackColor: string;
+  imageCrop?: ImageCropSettings;
   instanceKey: string;
   label: string;
   opacity: number;
@@ -2903,8 +3022,16 @@ function ShaderMaskedMediaContent({
         opacity={opacity}
         settings={appearance}
       >
-        {/* The canvas frame already carries the imported image's aspect ratio. */}
-        <img alt='' className='shader-lab-v2-layer-image' draggable={false} src={url} />
+        <div className='shader-lab-v2-image-crop-frame' data-image-crop-enabled={normalizeImageCropSettings(imageCrop).enabled}>
+          <img
+            alt=''
+            className='shader-lab-v2-layer-image'
+            data-image-crop-media='image'
+            draggable={false}
+            src={url}
+            style={imageCropElementStyle(imageCrop)}
+          />
+        </div>
       </AppearanceFilteredContent>
     );
   }
@@ -2929,33 +3056,22 @@ function ShaderMaskedMediaContent({
         opacity: opacity * application.opacity,
       }}
     >
-      {appearance.borderEnabled ? (
-        <LogoAppearancePreview
-          ariaLabel={`${label} silhouette effects`}
-          className='shader-lab-v2-appearance-stack-layer'
-          color={appearance.borderColor}
-          fillFrame={preserveColors}
-          logoPath={url}
-          settings={{
-            ...appearance,
-            ditherEnabled: false,
-            invert: false,
-            shadowEnabled: false,
-          }}
-          showSource={false}
-        />
-      ) : null}
       <AppearanceFilteredContent
         ariaLabel={`${label} material`}
         className='shader-lab-v2-appearance-stack-layer'
-        settings={{ ...appearance, borderEnabled: false }}
+        settings={appearance}
       >
-        <div
-          className='shader-lab-v2-layer-logo-mask'
-          data-shader-instance={instanceKey}
-          style={canvasMediaMaskStyle(url, preserveColors)}
-        >
-          {renderMaterial(application, instanceKey)}
+        <div className='shader-lab-v2-image-crop-frame' data-image-crop-enabled={normalizeImageCropSettings(imageCrop).enabled}>
+          <div
+            className='shader-lab-v2-layer-logo-mask'
+            data-image-crop-media='mask'
+            data-shader-instance={instanceKey}
+            style={canvasMediaMaskStyle(url, preserveColors, imageCrop)}
+          >
+            <div className='shader-lab-v2-image-crop-material' data-image-crop-material style={imageCropMaterialStyle(imageCrop)}>
+              {renderMaterial(application, instanceKey)}
+            </div>
+          </div>
         </div>
       </AppearanceFilteredContent>
     </div>
@@ -2977,24 +3093,40 @@ function stickerFinishCssVariables(value?: Partial<StickerFinishSettings>): Reco
 
 function StickerFinishOverlay({
   finish,
+  imageCrop,
   url,
 }: {
   finish?: Partial<StickerFinishSettings>;
+  imageCrop?: ImageCropSettings;
   url: string;
 }) {
   const normalized = normalizeStickerFinish(finish);
   const maskImage = `url("${url.replaceAll('"', '%22')}")`;
+  const crop = normalizeImageCropSettings(imageCrop);
+  const maskPosition = crop.enabled ? imageCropPosition(crop) : 'center';
   return (
     <span
       aria-hidden='true'
       className='shader-lab-v2-sticker-finish-overlay'
       data-sticker-finish={normalized.presetId}
-      style={{
-        ...stickerFinishCssVariables(normalized),
-        maskImage,
-        WebkitMaskImage: maskImage,
-      } as CSSProperties}
-    />
+      style={stickerFinishCssVariables(normalized) as CSSProperties}
+    >
+      <span
+        className='shader-lab-v2-sticker-finish-media'
+        data-image-crop-media='sticker'
+        style={{
+          maskImage,
+          maskPosition,
+          maskRepeat: 'no-repeat',
+          maskSize: crop.enabled ? 'cover' : '100% 100%',
+          WebkitMaskImage: maskImage,
+          WebkitMaskPosition: maskPosition,
+          WebkitMaskRepeat: 'no-repeat',
+          WebkitMaskSize: crop.enabled ? 'cover' : '100% 100%',
+          ...imageCropTransformStyle(crop),
+        }}
+      />
+    </span>
   );
 }
 
@@ -3208,6 +3340,7 @@ function DesignLabAssetLayerInspector({
   appearance,
   asset,
   previewAppearance,
+  previewImageCrop,
   previewOpacity,
   previewStickerFinish,
   updateAsset,
@@ -3215,11 +3348,13 @@ function DesignLabAssetLayerInspector({
   appearance: LogoAppearanceSettings;
   asset: CompositionAsset;
   previewAppearance: (patch: Partial<LogoAppearanceSettings>) => void;
+  previewImageCrop: (patch: Partial<ImageCropSettings>) => void;
   previewOpacity: (value: number) => void;
   previewStickerFinish: (patch: Partial<StickerFinishSettings>) => void;
   updateAsset: (update: Partial<Omit<CompositionAsset, 'id'>>) => void;
 }) {
   const sticker = asset.kind === 'sticker';
+  const crop = normalizeImageCropSettings(asset.imageCrop);
   const finish = normalizeStickerFinish(asset.stickerFinish);
   const updateFinish = (patch: Partial<StickerFinishSettings>) => updateAsset({
     stickerFinish: normalizeStickerFinish({ ...finish, ...patch }),
@@ -3241,6 +3376,63 @@ function DesignLabAssetLayerInspector({
         step={0.01}
         value={asset.opacity ?? 1}
       />
+
+      <div className='shader-lab-v2-image-crop-panel'>
+        <label className='shader-lab-v2-effect-toggle'>
+          <span>
+            <strong><Crop aria-hidden='true' />Crop to frame</strong>
+            <small>Resize the layer frame without squeezing the image.</small>
+          </span>
+          <StudioCheckbox
+            aria-label='Crop image to frame'
+            checked={crop.enabled}
+            onChange={(event) => updateAsset({ imageCrop: { ...crop, enabled: event.target.checked } })}
+            variant='switch'
+          />
+        </label>
+        {crop.enabled ? (
+          <div className='shader-lab-v2-image-crop-controls'>
+            <RangeControl
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+              label='Crop zoom'
+              max={4}
+              min={1}
+              onChange={(zoom) => updateAsset({ imageCrop: { ...crop, zoom } })}
+              onPreview={(zoom) => previewImageCrop({ zoom })}
+              step={0.01}
+              value={crop.zoom}
+            />
+            <RangeControl
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+              label='Horizontal focus'
+              max={1}
+              min={0}
+              onChange={(focalPointX) => updateAsset({ imageCrop: { ...crop, focalPointX } })}
+              onPreview={(focalPointX) => previewImageCrop({ focalPointX })}
+              step={0.01}
+              value={crop.focalPointX}
+            />
+            <RangeControl
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+              label='Vertical focus'
+              max={1}
+              min={0}
+              onChange={(focalPointY) => updateAsset({ imageCrop: { ...crop, focalPointY } })}
+              onPreview={(focalPointY) => previewImageCrop({ focalPointY })}
+              step={0.01}
+              value={crop.focalPointY}
+            />
+            <Button
+              onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })}
+              size='sm'
+              type='button'
+              variant='ghost'
+            >
+              <RotateCcw aria-hidden='true' />Reset crop
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {sticker ? (
         <div className='shader-lab-v2-sticker-finish-panel'>
@@ -3968,6 +4160,7 @@ function useDesignLabLayerActions({
       ...source,
       appearance: source.appearance ? { ...source.appearance } : undefined,
       id: nextId,
+      imageCrop: source.imageCrop ? { ...source.imageCrop } : undefined,
       name: `${source.name} copy`,
       stickerFinish: source.stickerFinish ? { ...source.stickerFinish } : undefined,
       transform: { ...source.transform, x: source.transform.x + 32, y: source.transform.y + 32 },
@@ -5893,6 +6086,13 @@ export default function ShaderLabStudio({
     if (appearance) appearance.style.opacity = String(value * shaderOpacity);
   }
 
+  function previewSelectedImageCrop(patch: Partial<ImageCropSettings>) {
+    if (!selectedAsset) return;
+    const layer = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerIds.length);
+    if (!layer) return;
+    applyImageCropPreviewStyles(layer, normalizeImageCropSettings({ ...selectedAsset.imageCrop, ...patch }));
+  }
+
   function previewSelectedLogoAppearance(
     patch: Partial<LogoAppearanceSettings>,
     logoColor = selectedLogoLayer?.color ?? '#FFFFFF'
@@ -5903,37 +6103,22 @@ export default function ShaderLabStudio({
     const currentAppearance = selectedLogoAppearance ?? selectedAssetAppearance;
     if (!currentAppearance) return;
     const nextAppearance = { ...currentAppearance, ...patch };
-    layer.querySelectorAll<SVGSVGElement>('.shader-lab-v2-appearance-preview svg, svg.shader-lab-v2-appearance-preview')
-      .forEach((svg) => {
-        const filterTarget = svg.querySelector<SVGElement>('image[filter], foreignObject[filter]');
-        const filterReference = filterTarget?.getAttribute('filter');
-        const filterId = filterReference?.match(/^url\(#(.+)\)$/)?.[1];
-        const definitions = svg.querySelector<SVGDefsElement>('defs');
-        if (!filterId || !definitions) return;
-        const isSilhouette = svg.getAttribute('aria-label')?.includes('silhouette effects') ?? false;
-        if (isSilhouette) {
-          definitions.innerHTML = buildLogoSvgFilter({
-            ...nextAppearance,
-            ditherEnabled: false,
-            invert: false,
-            shadowEnabled: false,
-          }, nextAppearance.borderColor, filterId, false);
-          return;
-        }
-        if (filterTarget?.tagName.toLowerCase() === 'foreignobject' || selectedAsset) {
-          definitions.innerHTML = buildImageSvgFilter({
-            ...nextAppearance,
-            ...(filterTarget?.tagName.toLowerCase() === 'foreignobject' && selectedLayerShader
-              ? { borderEnabled: false }
-              : {}),
-          }, filterId);
-          return;
-        }
-        definitions.innerHTML = buildLogoSvgFilter(
-          nextAppearance,
-          logoColor,
-          filterId
-        );
+    layer.querySelectorAll<HTMLElement>('[data-appearance-content="true"]')
+      .forEach((content) => {
+        content.style.color = logoColor;
+        content.style.filter = logoAppearanceCssFilter(nextAppearance);
+      });
+    const ditherMask = logoAppearanceDitherMask(nextAppearance);
+    layer.querySelectorAll<HTMLElement>('[data-appearance-dither-mask="true"]')
+      .forEach((content) => {
+        content.style.maskImage = ditherMask?.image ?? 'none';
+        content.style.maskPosition = ditherMask ? '0 0' : '';
+        content.style.maskRepeat = ditherMask ? 'repeat' : '';
+        content.style.maskSize = ditherMask?.size ?? '';
+        content.style.webkitMaskImage = ditherMask?.image ?? 'none';
+        content.style.webkitMaskPosition = ditherMask ? '0 0' : '';
+        content.style.webkitMaskRepeat = ditherMask ? 'repeat' : '';
+        content.style.webkitMaskSize = ditherMask?.size ?? '';
       });
   }
 
@@ -7146,13 +7331,15 @@ export default function ShaderLabStudio({
     const stickerFinish = !isLogo && (layer as CompositionAsset).kind === 'sticker'
       ? normalizeStickerFinish((layer as CompositionAsset).stickerFinish)
       : null;
+    const imageCrop = !isLogo ? (layer as CompositionAsset).imageCrop : undefined;
     if (!application) {
       const contained = createContainedLayer(
         image,
         box.width,
         box.height,
         isLogo ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : undefined,
-        !isLogo
+        !isLogo,
+        imageCrop
       );
       drawLogoAppearanceLayer(context, contained, box.x, box.y, box.width, box.height, appearance, layerOpacity);
       if (stickerFinish) drawStickerFinishOverlay(context, contained, box, stickerFinish, layerOpacity);
@@ -7186,7 +7373,11 @@ export default function ShaderLabStudio({
         box.height
       );
     } else {
-      materialContext.drawImage(image, 0, 0, box.width, box.height);
+      if (normalizeImageCropSettings(imageCrop).enabled) {
+        drawImageCrop(materialContext, image, box.width, box.height, imageCrop);
+      } else {
+        materialContext.drawImage(image, 0, 0, box.width, box.height);
+      }
     }
     materialContext.restore();
     context.save();
@@ -7285,7 +7476,10 @@ export default function ShaderLabStudio({
   async function loadCompositionImages(layerIds?: ReadonlySet<string>) {
     const entries = [
       ...logoLayers.map((layer) => ({ layer, svgViewport: false })),
-      ...compositionAssets.map((layer) => ({ layer, svgViewport: true })),
+      ...compositionAssets.map((layer) => ({
+        layer,
+        svgViewport: !normalizeImageCropSettings(layer.imageCrop).enabled,
+      })),
     ];
     return new Map(await Promise.all(entries.filter(({ layer }) => !layerIds || layerIds.has(layer.id))
       .map(async ({ layer, svgViewport }) => {
@@ -7343,9 +7537,9 @@ export default function ShaderLabStudio({
     : visibleLayerIds.slice(0, lastPreviewEffectIndex + 1).join('|');
   const compositionImageSignature = [
     ...logoLayers.map(({ id, url }) => `${id}:${url}`),
-    ...compositionAssets.map(({ id, url, transform }) => {
+    ...compositionAssets.map(({ id, imageCrop, url, transform }) => {
       const box = outputLayerBox(id, transform, canvasDimensions.width, canvasDimensions.height);
-      return `${id}:${canvasImageViewportKey(url, box.width, box.height)}`;
+      return `${id}:${canvasImageViewportKey(url, box.width, box.height)}:${JSON.stringify(normalizeImageCropSettings(imageCrop))}`;
     }),
   ].join('|');
   const pausedEffectPreviewSignature = paused ? compositionSignature : '';
@@ -7372,6 +7566,34 @@ export default function ShaderLabStudio({
         }, { rootMargin: '120px' });
     if (observer && stageRef.current) observer.observe(stageRef.current);
 
+    const paintEffectPreview = (images: Map<string, HTMLImageElement>) => {
+      const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
+      const buffer = effectPreviewBufferRef.current ?? document.createElement('canvas');
+      effectPreviewBufferRef.current = buffer;
+      if (buffer.width !== previewWidth) buffer.width = previewWidth;
+      if (buffer.height !== previewHeight) buffer.height = previewHeight;
+      const context = buffer.getContext('2d', { willReadFrequently: true });
+      if (!context) return;
+      const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
+      composeFrameRef.current(
+        context,
+        previewWidth,
+        previewHeight,
+        images,
+        visibleLayerIds.slice(0, lastEffectIndex + 1),
+        (effectId, source) => {
+          const canvas = effectCanvasRefs.current.get(effectId);
+          if (!canvas) return;
+          if (canvas.width !== previewWidth) canvas.width = previewWidth;
+          if (canvas.height !== previewHeight) canvas.height = previewHeight;
+          const visibleContext = canvas.getContext('2d');
+          if (!visibleContext) return;
+          visibleContext.clearRect(0, 0, previewWidth, previewHeight);
+          visibleContext.drawImage(source, 0, 0);
+        }
+      );
+    };
+
     void loadCompositionImagesRef.current().then((images) => {
       if (cancelled) return;
       const tick = (now: number) => {
@@ -7385,31 +7607,13 @@ export default function ShaderLabStudio({
         if (shouldRender) {
           rendering = true;
           const renderStartedAt = performance.now();
-          const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
-          const buffer = effectPreviewBufferRef.current ?? document.createElement('canvas');
-          effectPreviewBufferRef.current = buffer;
-          if (buffer.width !== previewWidth) buffer.width = previewWidth;
-          if (buffer.height !== previewHeight) buffer.height = previewHeight;
-          const context = buffer.getContext('2d', { willReadFrequently: true });
-          const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
-          if (context) {
-            composeFrameRef.current(
-              context,
-              previewWidth,
-              previewHeight,
-              images,
-              visibleLayerIds.slice(0, lastEffectIndex + 1),
-              (effectId, source) => {
-                const canvas = effectCanvasRefs.current.get(effectId);
-                if (!canvas) return;
-                if (canvas.width !== previewWidth) canvas.width = previewWidth;
-                if (canvas.height !== previewHeight) canvas.height = previewHeight;
-                const visibleContext = canvas.getContext('2d');
-                if (!visibleContext) return;
-                visibleContext.clearRect(0, 0, previewWidth, previewHeight);
-                visibleContext.drawImage(source, 0, 0);
-              }
-            );
+          try {
+            paintEffectPreview(images);
+          } catch {
+            // Safari can expose a shader canvas one paint before it becomes
+            // readable. Keep the last good converter frame and retry instead
+            // of leaving the preview loop permanently locked.
+            if (paused) pausedRedraw?.request();
           }
           renderDurationTotal = renderDurationTotal + performance.now() - renderStartedAt;
           renderSamples = renderSamples + 1;
@@ -8156,6 +8360,7 @@ export default function ShaderLabStudio({
           application={snapshot.layerShaders[layerId as ContentLayerId]}
           appearance={layer.appearance}
           fallbackColor={isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : '#FFFFFF'}
+          imageCrop={isAssetLayerId(layerId) ? (layer as CompositionAsset).imageCrop : undefined}
           instanceKey={`content-${layerId}`}
           key='content'
           label={layer.name}
@@ -8164,7 +8369,7 @@ export default function ShaderLabStudio({
           renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
           url={layer.url}
         />
-        {'kind' in layer && layer.kind === 'sticker' ? <StickerFinishOverlay finish={layer.stickerFinish} key='finish' url={layer.url} /> : null}
+        {'kind' in layer && layer.kind === 'sticker' ? <StickerFinishOverlay finish={layer.stickerFinish} imageCrop={layer.imageCrop} key='finish' url={layer.url} /> : null}
       </EditableCanvasLayer>
     );
   }
@@ -8436,6 +8641,7 @@ export default function ShaderLabStudio({
         onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
         onDeselect={deselectCanvasLayers}
         onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
+        resizeMode={normalizeImageCropSettings(asset.imageCrop).enabled ? 'box' : 'scale'}
         selected={selectedCanvasLayerIdSet.has(layerId)}
         selectionMember={selectedCanvasLayerIdSet.has(layerId)}
         showSelectionControls={selectedCanvasLayerIds.length <= 1}
@@ -8446,6 +8652,7 @@ export default function ShaderLabStudio({
           application={application}
           appearance={asset.appearance}
           fallbackColor='#FFFFFF'
+          imageCrop={asset.imageCrop}
           instanceKey={`content-${layerId}`}
           key='content'
           label={asset.name}
@@ -8454,7 +8661,7 @@ export default function ShaderLabStudio({
           renderMaterial={renderLiveMaterial}
           url={asset.url}
         />
-        {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} key='finish' url={asset.url} /> : null}
+        {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} imageCrop={asset.imageCrop} key='finish' url={asset.url} /> : null}
       </EditableCanvasLayer>
     );
   }
@@ -8470,6 +8677,7 @@ export default function ShaderLabStudio({
     const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
     const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
     const previewUrl = logoLayer?.url ?? assetLayer?.url;
+    const imageCrop = assetLayer?.imageCrop;
     const stickerLayer = isStickerLayer(assetLayer, textLayer);
     const selected = selectedLayerId === layerId
       || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
@@ -8484,6 +8692,7 @@ export default function ShaderLabStudio({
             appliedShader={appliedShader}
             effectLayer={effectLayer}
             identity={identity}
+            imageCrop={imageCrop}
             previewUrl={previewUrl}
             textAppearance={textAppearance}
             textLayer={textLayer}
@@ -8566,7 +8775,7 @@ export default function ShaderLabStudio({
               value={textLayer.value}
             />
           ) : (
-            <LayerDockStaticPreview effectLayer={effectLayer} label={layerLabel(layerId)} onSelect={() => selectLayerFromStack(layerId)} previewUrl={previewUrl} />
+            <LayerDockStaticPreview effectLayer={effectLayer} imageCrop={imageCrop} label={layerLabel(layerId)} onSelect={() => selectLayerFromStack(layerId)} previewUrl={previewUrl} />
           )}
         </div>
         <div className='shader-lab-v2-dock-layer-actions'>
@@ -8615,6 +8824,7 @@ export default function ShaderLabStudio({
             appliedShader={appliedShader}
             effectLayer={effectLayer}
             identity={identity}
+            imageCrop={assetLayer?.imageCrop}
             previewUrl={previewUrl}
             textAppearance={textAppearance}
             textLayer={textLayer}
@@ -9027,6 +9237,7 @@ export default function ShaderLabStudio({
                 appearance={selectedAssetAppearance}
                 asset={selectedAsset}
                 previewAppearance={previewSelectedLogoAppearance}
+                previewImageCrop={previewSelectedImageCrop}
                 previewOpacity={previewSelectedContentOpacity}
                 previewStickerFinish={previewSelectedStickerFinish}
                 updateAsset={(update) => updateAssetLayer(selectedAsset.id, update)}

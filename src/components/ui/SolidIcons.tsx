@@ -49,6 +49,7 @@ export { Code2 } from './icons/Code2';
 export { Command } from './icons/Command';
 export { Component } from './icons/Component';
 export { Copy } from './icons/Copy';
+export { Crop } from './icons/Crop';
 export { CreditCard } from './icons/CreditCard';
 export { CurrencyDollar } from './icons/CurrencyDollar';
 export { CursorClick } from './icons/CursorClick';

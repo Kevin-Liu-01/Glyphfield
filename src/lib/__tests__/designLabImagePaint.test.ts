@@ -35,4 +35,25 @@ describe('Design Lab image export geometry', () => {
       for (const key of ['x', 'y', 'width', 'height'] as const) expect(final[key]).toBeCloseTo(expected[key], 8);
     }
   );
+
+  it('paints a crop source rectangle into the full layer frame', () => {
+    let painted: number[] = [];
+    const context = {
+      scale: vi.fn(),
+      drawImage: (...args: unknown[]) => { painted = args.slice(1) as number[]; },
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D);
+    const image = { naturalWidth: 200, naturalHeight: 100 } as HTMLImageElement;
+
+    createContainedLayer(
+      image,
+      100,
+      100,
+      undefined,
+      true,
+      { enabled: true, focalPointX: 1, focalPointY: 0.5, zoom: 2 }
+    );
+
+    expect(painted).toEqual([150, 25, 50, 50, 0, 0, 100, 100]);
+  });
 });

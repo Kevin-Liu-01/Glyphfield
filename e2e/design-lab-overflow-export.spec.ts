@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { CanvasElement } from '../src/lib/canvasDocument';
 
-type FixtureKind = 'tiny-height' | 'tiny-width' | 'effect-overflow' | 'image' | 'image-no-viewbox' | 'image-explicit-stretch' | 'logo';
+type FixtureKind = 'tiny-height' | 'tiny-width' | 'effect-overflow' | 'image' | 'image-crop' | 'image-no-viewbox' | 'image-explicit-stretch' | 'logo';
 
 async function prepareOverflowFixture(page: Page, kind: FixtureKind) {
   await page.goto('/studio?tool=material');
@@ -16,13 +16,15 @@ async function prepareOverflowFixture(page: Page, kind: FixtureKind) {
     const value = kind === 'tiny-width' ? 'MWiiiiii' : 'AB\nCD';
     const transform = text
       ? { x: 0, y: 0, scale: 0.4, widthScale: kind === 'tiny-width' ? 0.01 : 0.035, heightScale: 0.01 }
-      : { x: 0, y: 0, scale: 1, widthScale: kind === 'logo' ? 0.13 : 0.27, heightScale: kind === 'logo' ? 0.04 : 0.4 };
+      : { x: 0, y: 0, scale: 1, widthScale: kind === 'logo' ? 0.13 : kind === 'image-crop' ? 0.25 : 0.27, heightScale: kind === 'logo' ? 0.04 : 0.4 };
     const svgViewport = kind === 'image-no-viewbox' ? '' : ` viewBox="0 0 160 80"${kind === 'image-explicit-stretch' ? ' preserveAspectRatio="none"' : ''}`;
     // Inset absolute artwork exposes changes to SVG user-space coordinates;
     // a full-viewport rectangle could conceal clipping or translation errors.
     const svgPath = kind === 'image-no-viewbox' || kind === 'image-explicit-stretch'
       ? 'M24 12h96v48H24z' : 'M0 0h160v80H0z';
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"${svgViewport}><path fill="white" d="${svgPath}"/></svg>`;
+    const svg = kind === 'image-crop'
+      ? `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"${svgViewport}><path fill="#ff0000" d="M0 0h80v80H0z"/><path fill="#0000ff" d="M80 0h80v80H80z"/></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"${svgViewport}><path fill="white" d="${svgPath}"/></svg>`;
     const url = `data:image/svg+xml;base64,${btoa(svg)}`;
     const data = text ? {
       ...template.data, id, name: 'Overflow parity', value, color: '#FFFFFF', align: 'center',
@@ -31,7 +33,8 @@ async function prepareOverflowFixture(page: Page, kind: FixtureKind) {
       textEffect: kind === 'effect-overflow' ? { kind: 'gradient', backgroundColor: '#FFFFFF' } : { kind: 'solid' },
       transform, visible: true,
     } : { id, name: 'Intrinsic image parity', layerType: kind === 'logo' ? 'logo' : 'asset', url,
-      color: '#FFFFFF', transform, visible: true, opacity: 1 };
+      color: '#FFFFFF', transform, visible: true, opacity: 1,
+      ...(kind === 'image-crop' ? { imageCrop: { enabled: true, focalPointX: 1, focalPointY: 0.5, zoom: 1.5 } } : {}) };
     const element = { ...template, id, name: data.name, kind: text ? 'text' : kind === 'logo' ? 'logo' : 'image',
       hidden: false, data, bounds: { ...template.bounds, x: 0, y: 0, width: transform.widthScale, height: transform.heightScale },
       ...(text ? { content: value } : { content: undefined, assetId: `resource:${id}` }) };
@@ -61,6 +64,52 @@ async function prepareOverflowFixture(page: Page, kind: FixtureKind) {
   if (await hideArtboardMap.isVisible()) await hideArtboardMap.click();
   return stage;
 }
+
+test('image crop keeps the chosen focal region in the live canvas and exported pixels', async ({ page }, testInfo) => {
+  const stage = await prepareOverflowFixture(page, 'image-crop');
+  await stage.locator('.editable-canvas-layer').click();
+  await expect(page.getByRole('checkbox', { name: 'Crop image to frame', exact: true })).toBeChecked();
+  await expect(page.getByRole('slider', { name: 'Crop zoom', exact: true })).toHaveValue('1.5');
+  await expect(stage.locator('[data-image-crop-media="image"]')).toHaveCSS('object-fit', 'cover');
+  await expect(stage.locator('[data-image-crop-media="image"]')).toHaveCSS('object-position', '100% 50%');
+
+  const screenshot = await stage.screenshot({ animations: 'disabled' });
+  const pixels = await page.evaluate(async (previewBase64) => {
+    const exported = await window.glyphfield!.studio.invoke('design.export', { format: 'png', download: false }) as { blob: Blob };
+    const inspect = async (blob: Blob) => {
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext('2d', { willReadFrequently: true })!;
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let blue = 0;
+      let red = 0;
+      for (let offset = 0; offset < data.length; offset += 4) {
+        if (data[offset] > 180 && data[offset + 2] < 80) red += 1;
+        if (data[offset + 2] > 180 && data[offset] < 80) blue += 1;
+      }
+      return { blue, red };
+    };
+    return {
+      exported: await inspect(exported.blob),
+      live: await inspect(await (await fetch(`data:image/png;base64,${previewBase64}`)).blob()),
+    };
+  }, screenshot.toString('base64'));
+  await testInfo.attach('image-crop-pixels', { body: JSON.stringify(pixels, null, 2), contentType: 'application/json' });
+  expect(pixels.live.blue).toBeGreaterThan(100);
+  expect(pixels.exported.blue).toBeGreaterThan(1_000);
+  expect(pixels.live.red).toBe(0);
+  expect(pixels.exported.red).toBe(0);
+
+  const sourceCrop = await page.evaluate(() => {
+    const source = JSON.parse(window.glyphfield!.studio.readSource() as string);
+    return source.elements['asset-parity'].imageTreatment;
+  });
+  expect(sourceCrop).toMatchObject({ objectFit: 'cover', focalPoint: { x: 1, y: 0.5 } });
+});
 
 for (const kind of ['tiny-height', 'tiny-width', 'effect-overflow', 'image', 'image-no-viewbox', 'image-explicit-stretch', 'logo'] as const) {
   test(`export preserves live ${kind} ink outside or inside its selection box`, async ({ page }, testInfo) => {
@@ -212,8 +261,8 @@ test('direct export commits the final focused text before its debounce fires', a
   expect(result.focusedAfter).toBe(false);
   expect(result.immediate.width).toBe(1600);
   expect(result.immediate.height).toBe(900);
-  // The stale two-line AB/CD fixture is only ~80px wide; the final eight Ms
-  // overflow this tiny selection by hundreds of pixels.
-  expect(result.immediate.inkWidth).toBeGreaterThan(300);
+  // The stale two-line AB/CD fixture is only ~80px wide at the current 48px
+  // text default; the final eight Ms must still be measurably wider.
+  expect(result.immediate.inkWidth).toBeGreaterThan(100);
   expect(result.immediate).toEqual(result.committed);
 });

@@ -17,6 +17,7 @@ import {
   type CanvasDocument,
   type CanvasElement,
   type CanvasElementKind,
+  type CanvasImageTreatment,
   type CanvasJsonObject,
   type CanvasJsonValue,
 } from './canvasDocument';
@@ -152,6 +153,39 @@ function layerAssetId(type: DesignLabLayerType, layer: CanvasJsonObject): string
   return libraryAssetId ? `brand-asset:${libraryAssetId}` : `resource:${id}`;
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function imageTreatmentFromLayer(layer: CanvasJsonObject, type: DesignLabLayerType): CanvasImageTreatment | undefined {
+  if (type !== 'asset') return undefined;
+  const imageCrop = objectValue(layer.imageCrop);
+  if (!imageCrop) return undefined;
+  const enabled = booleanValue(imageCrop.enabled, false);
+  const focalPoint = {
+    x: clamp(numberValue(imageCrop.focalPointX, 0.5), 0, 1),
+    y: clamp(numberValue(imageCrop.focalPointY, 0.5), 0, 1),
+  };
+  const zoom = clamp(numberValue(imageCrop.zoom, 1), 1, 4);
+  const cropSize = 1 / zoom;
+  return {
+    blur: 0,
+    crop: {
+      height: cropSize,
+      width: cropSize,
+      x: (1 - cropSize) * focalPoint.x,
+      y: (1 - cropSize) * focalPoint.y,
+    },
+    dither: 0,
+    focalPoint,
+    grain: 0,
+    halation: 0,
+    objectFit: enabled ? 'cover' : 'fill',
+    posterize: 0,
+    saturation: 1,
+  };
+}
+
 function assetFromLayer(layer: CanvasJsonObject, type: DesignLabLayerType): CanvasAsset | null {
   const id = stringValue(layer.id, '');
   const source = stringValue(layer.url, '');
@@ -195,6 +229,7 @@ function elementFromLayer(
     content: type === 'text' ? stringValue(layer.value, '') : undefined,
     data: { ...layer, layerType: type },
     hidden: !booleanValue(layer.visible, true),
+    imageTreatment: imageTreatmentFromLayer(layer, type),
     style: {
       ...element.style,
       blendMode: ['multiply', 'normal', 'overlay', 'screen'].includes(blendMode)
@@ -320,6 +355,15 @@ function restoreLayer(document: CanvasDocument, element: CanvasElement): {
   if (layerType === 'text') layer.value = element.content ?? '';
   if (layerType === 'asset' || layerType === 'logo' || layerType === 'shader' || layerType === 'text') {
     layer.transform = restoredTransform(element);
+  }
+  if (layerType === 'asset' && element.imageTreatment) {
+    const treatment = element.imageTreatment;
+    layer.imageCrop = {
+      enabled: treatment.objectFit === 'cover',
+      focalPointX: treatment.focalPoint.x,
+      focalPointY: treatment.focalPoint.y,
+      zoom: clamp(1 / Math.max(0.25, Math.min(treatment.crop.width, treatment.crop.height)), 1, 4),
+    };
   }
   if (element.assetId && document.assets[element.assetId]) {
     layer.url = document.assets[element.assetId]!.source;

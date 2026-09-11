@@ -162,7 +162,7 @@ A successful request is not sufficient evidence of a finished task.
 
 One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
 
-Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
+Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
 
 The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, categories, controls, palettes, and defaults. Never infer a material ID from its display name.
 

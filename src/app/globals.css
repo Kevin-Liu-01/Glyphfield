@@ -1125,6 +1125,12 @@
   z-index: 3;
   inset: 0;
   overflow: hidden;
+  pointer-events: none;
+}
+
+.shader-lab-v2-sticker-finish-media {
+  position: absolute;
+  inset: 0;
   background: var(--design-sticker-finish);
   background-position: center;
   background-size: 180% 180%;
@@ -1134,36 +1140,44 @@
   mask-size: 100% 100%;
   mix-blend-mode: screen;
   opacity: var(--design-sticker-finish-opacity, 0.55);
-  pointer-events: none;
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
 }
 
-.shader-lab-v2-sticker-finish-overlay::before,
-.shader-lab-v2-sticker-finish-overlay::after {
+.shader-lab-v2-sticker-finish-media::before,
+.shader-lab-v2-sticker-finish-media::after {
   position: absolute;
   inset: 0;
   content: '';
   pointer-events: none;
 }
 
-.shader-lab-v2-sticker-finish-overlay::before {
+.shader-lab-v2-sticker-finish-media::before {
   background: linear-gradient(var(--design-sticker-finish-glint, 45deg), transparent 30%, rgb(255 255 255 / 0.94) 49%, transparent 68%);
   mix-blend-mode: screen;
   opacity: var(--design-sticker-finish-glint-opacity, 0.45);
 }
 
-.shader-lab-v2-sticker-finish-overlay::after {
+.shader-lab-v2-sticker-finish-media::after {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' seed='19' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
   background-size: 32px 32px;
   mix-blend-mode: screen;
   opacity: var(--design-sticker-finish-texture, 0.1);
 }
 
-.shader-lab-v2-sticker-finish-overlay[data-sticker-finish='soft-touch'],
-.shader-lab-v2-sticker-finish-overlay[data-sticker-finish='clear-frost'] {
+.shader-lab-v2-sticker-finish-overlay[data-sticker-finish='soft-touch'] .shader-lab-v2-sticker-finish-media,
+.shader-lab-v2-sticker-finish-overlay[data-sticker-finish='clear-frost'] .shader-lab-v2-sticker-finish-media {
   mix-blend-mode: soft-light;
+}
+
+.shader-lab-v2-image-crop-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.shader-lab-v2-image-crop-material,
+.shader-lab-v2-image-crop-material > * {
+  width: 100%;
+  height: 100%;
 }
 
 .shader-lab-v2-layer-logo-mask,
@@ -3050,6 +3064,34 @@
   font-size: 8px;
   letter-spacing: .06em;
   text-transform: uppercase;
+}
+
+.shader-lab-v2-image-crop-panel {
+  display: grid;
+  gap: 10px;
+  padding-block: 11px;
+  border-block: 1px solid hsl(var(--border));
+}
+
+.shader-lab-v2-image-crop-panel .shader-lab-v2-effect-toggle strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shader-lab-v2-image-crop-panel .shader-lab-v2-effect-toggle strong svg {
+  width: 12px;
+  height: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.shader-lab-v2-image-crop-controls {
+  display: grid;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--background) / 0.38);
 }
 
 .shader-lab-v2-appearance-controls {

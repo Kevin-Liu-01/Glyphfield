@@ -527,6 +527,7 @@ export function DesignVersionProvider({
 }: DesignVersionControlsProps & { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const savePendingRef = useRef(false);
+  const noticeTimerRef = useRef<number | null>(null);
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -591,9 +592,17 @@ export function DesignVersionProvider({
     };
   }, [workspaceStorageKey]);
 
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+  }, []);
+
   function announce(message: string) {
     setNotice(message);
-    window.setTimeout(() => setNotice(''), 1_800);
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      noticeTimerRef.current = null;
+      setNotice('');
+    }, 1_800);
   }
 
   async function readCurrentSource(): Promise<{ source: string; revision: string }> {

@@ -20,6 +20,7 @@ function designLabInput(): DesignLabDocumentInput {
   return {
     assets: [{
       id: 'asset-photo',
+      imageCrop: { enabled: true, focalPointX: 0.7, focalPointY: 0.35, zoom: 2 },
       kind: 'sticker',
       libraryAssetId: 'asset-library-photo',
       name: 'Photo',
@@ -184,6 +185,11 @@ describe('Design Lab canvas document adapter', () => {
       y: -18,
     });
     expect(document.elements['text-title']?.content).toBe('Open Source');
+    expect(document.elements['asset-photo']?.imageTreatment).toMatchObject({
+      crop: { height: 0.5, width: 0.5, x: 0.35, y: 0.175 },
+      focalPoint: { x: 0.7, y: 0.35 },
+      objectFit: 'cover',
+    });
   });
 
   it('reuses one embedded library asset across duplicated canvas placements', () => {
@@ -217,6 +223,7 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.canvasDimensions).toEqual({ height: 540, width: 960 });
     expect(composition.assets?.[0]).toMatchObject({
       id: 'asset-photo',
+      imageCrop: { enabled: true, focalPointX: 0.7, focalPointY: 0.35, zoom: 2 },
       kind: 'sticker',
       libraryAssetId: 'asset-library-photo',
       transform: { heightScale: 2, scale: 0.6, widthScale: 3, x: 12, y: -8 },

@@ -7,6 +7,7 @@ import {
   drawLogoAppearanceLayer,
   hasLogoAppearanceEffects,
   logoAppearanceCssFilter,
+  logoAppearanceDitherMask,
   resolveLogoSvgFilterModel,
 } from '../logoAppearance';
 
@@ -106,6 +107,22 @@ describe('logo appearance', () => {
     expect(filter).toContain('result="dithered"');
     expect(filter).toContain('<feGaussianBlur in="dithered"');
     expect(filter).toContain('tableValues="0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1"');
+  });
+
+  it('builds an ordered CSS mask for Safari-safe HTML and shader previews', () => {
+    const mask = logoAppearanceDitherMask({
+      ...DEFAULT_LOGO_APPEARANCE,
+      ditherAmount: 80,
+      ditherAngle: 45,
+      ditherEnabled: true,
+      ditherScale: 8,
+    });
+
+    expect(mask?.size).toBe('32px 32px');
+    expect(decodeURIComponent(mask?.image ?? '')).toContain('<svg');
+    expect(decodeURIComponent(mask?.image ?? '')).toContain('rotate(45 16 16)');
+    expect(decodeURIComponent(mask?.image ?? '')).not.toContain('feTurbulence');
+    expect(logoAppearanceDitherMask(DEFAULT_LOGO_APPEARANCE)).toBeNull();
   });
 
   it('filters live shader and image content without replacing its colors', () => {

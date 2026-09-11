@@ -184,7 +184,7 @@ type CanvasTextStyle = {
   tokenBound: boolean;
 };
 
-type CanvasImageTreatment = {
+export type CanvasImageTreatment = {
   blur: number;
   crop: { height: number; width: number; x: number; y: number };
   dither: number;

@@ -67,7 +67,7 @@ Design Lab supports these element/layer families:
 | Shader | Material ID, colors, engine settings, native frame state, captured PNG reference, size, motion, transform, opacity, blend |
 | Text | Content, type role, family, weight, size, color, text effect, shader fill, transform |
 | Logo | Brand/custom asset, appearance, sticker finish, shader fill, transform |
-| Image | Embedded or library asset, fit, opacity, transform, optional treatment |
+| Image | Embedded or library asset, non-destructive crop, focal point, zoom, fit, opacity, transform, optional treatment |
 | Effect | Bayer, ASCII, halftone, or posterize settings; foreground/background colors; opacity |
 
 `page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. Shader layers remain below content during reconciliation.

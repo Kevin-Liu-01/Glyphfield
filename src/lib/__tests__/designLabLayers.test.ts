@@ -483,18 +483,21 @@ describe('Playground optional layers', () => {
     expect(designLab.match(/<ShaderMaskedMediaContent/g)).toHaveLength(3);
     expect(designLab.match(/className='shader-lab-v2-appearance-preview/g)).toHaveLength(3);
     expect(designLab).toContain("className='shader-lab-v2-appearance-preview shader-lab-v2-asset-preview'");
-    expect(designLab).toContain("<img alt='' className='shader-lab-v2-layer-image' draggable={false} src={url} />");
+    expect(designLab).toContain("className='shader-lab-v2-layer-image'");
     expect(studioStyles).toContain('.shader-lab-v2-appearance-preview {');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-preview \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
-    expect(designLab.match(/showSource=\{false\}/g)).toHaveLength(1);
+    expect(designLab).toContain('<AppearanceFilteredContent');
+    expect(designLab).toContain('settings={appearance}');
+    expect(designLab).not.toContain('showSource={false}');
     expect(studioStyles).toMatch(/\.shader-lab-v2-appearance-stack-layer \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/);
   });
 
-  it('applies shadows with the shaded mark instead of an overlay silhouette', () => {
-    expect(designLab).toContain('settings={{ ...appearance, borderEnabled: false }}');
-    expect(designLab.match(/ditherEnabled: false,\s+invert: false,\s+shadowEnabled: false,/g)).toHaveLength(2);
-    expect(designLab.match(/appearance\.borderEnabled \?/g)).toHaveLength(1);
-    expect(designLab).not.toContain('appearance.borderEnabled || appearance.shadowEnabled');
+  it('applies the complete effect stack directly to shaded artwork', () => {
+    expect(designLab).toContain('settings={appearance}');
+    expect(designLab).toContain('logoAppearanceCssFilter(nextAppearance)');
+    expect(designLab).toContain('logoAppearanceDitherMask(nextAppearance)');
+    expect(designLab).not.toContain('silhouette effects');
+    expect(designLab).not.toContain('settings={{ ...appearance, borderEnabled: false }}');
   });
 });
 
@@ -546,14 +549,26 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab).toContain('<Sticker aria-hidden=\'true\' />Make sticker');
   });
 
+  it('crops image layers non-destructively in live previews, source, and export', () => {
+    expect(designLab).toContain('imageCrop?: ImageCropSettings;');
+    expect(designLab).toContain("aria-label='Crop image to frame'");
+    expect(designLab).toContain("resizeMode={normalizeImageCropSettings(asset.imageCrop).enabled ? 'box' : 'scale'}");
+    expect(designLab).toContain("data-image-crop-media='image'");
+    expect(designLab).toContain("data-image-crop-media='mask'");
+    expect(designLab).toContain('drawImageCrop(materialContext, image, box.width, box.height, imageCrop)');
+    expect(designLab).toContain('previewImageCrop={previewSelectedImageCrop}');
+    expect(studioStyles).toContain('.shader-lab-v2-image-crop-frame {');
+  });
+
   it('renders and exports persistent sticker finishes while keeping outline scrubbing live', () => {
     expect(designLab).toContain('stickerFinish?: StickerFinishSettings;');
     expect(designLab).toContain("asset.kind === 'sticker' ? <StickerFinishOverlay");
     expect(designLab).toContain('drawStickerFinishOverlay(context, contained, box, stickerFinish, layerOpacity)');
     expect(designLab).toContain("<LogoAppearanceControls\n        kind={sticker ? 'sticker' : 'image'}");
     expect(designLab).toContain('STICKER_FINISH_PRESETS.map((preset) => (');
-    expect(designLab).toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject' && selectedLayerShader");
-    expect(designLab).not.toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject' ? { borderEnabled: false } : {}");
+    expect(designLab).toContain("content.style.webkitMaskImage = ditherMask?.image ?? 'none'");
+    expect(designLab).toContain('previewStickerFinish={previewSelectedStickerFinish}');
+    expect(designLab).not.toContain("filterTarget?.tagName.toLowerCase() === 'foreignobject'");
   });
 
   it('contains single- and multi-selection chrome inside their canvas viewport', () => {

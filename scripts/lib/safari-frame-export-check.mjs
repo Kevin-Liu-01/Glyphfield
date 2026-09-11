@@ -22,6 +22,7 @@ export async function checkSafariFrameExport(harness, mode) {
       throw error;
     }
   }, 'readable Design Lab source');
+  await click('[data-testid="shader-lab-live-stage"]');
   const fixture = await evaluateAsync(async (mode) => {
     const studio = window.glyphfield.studio;
     const source = JSON.parse(studio.readSource());
@@ -53,6 +54,36 @@ export async function checkSafariFrameExport(harness, mode) {
   if (mode === 'grain-export') {
     await click('button[aria-label="Add effect layer"]');
     await waitFor(() => Boolean(document.querySelector('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]')?.width), 'grain composition converter');
+    const effectPreview = await waitFor((shaderId) => {
+      const canvas = document.querySelector('[data-testid="shader-lab-live-stage"] canvas[data-effect-kind="bayer"]');
+      if (!canvas?.width || !canvas.height) return false;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) return false;
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const native = document.querySelector(`[data-shader-instance="canvas-${CSS.escape(shaderId)}"] canvas`);
+      if (!native?.width || !native.height) return false;
+      const scratch = document.createElement('canvas');
+      scratch.width = canvas.width;
+      scratch.height = canvas.height;
+      const scratchContext = scratch.getContext('2d', { willReadFrequently: true });
+      if (!scratchContext) return false;
+      scratchContext.drawImage(native, 0, 0, canvas.width, canvas.height);
+      const source = scratchContext.getImageData(0, 0, canvas.width, canvas.height).data;
+      const colors = new Set();
+      let changedPixels = 0;
+      let opaquePixels = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index + 3] > 0) opaquePixels += 1;
+        colors.add(`${pixels[index]},${pixels[index + 1]},${pixels[index + 2]},${pixels[index + 3]}`);
+        if (pixels[index] !== source[index] || pixels[index + 1] !== source[index + 1]
+          || pixels[index + 2] !== source[index + 2]) changedPixels += 1;
+      }
+      const pixelCount = canvas.width * canvas.height;
+      return opaquePixels > pixelCount * 0.9 && colors.size === 2 && changedPixels > pixelCount * 0.5
+        ? { changedPixels, colorCount: colors.size, height: canvas.height, opaquePixels, width: canvas.width }
+        : false;
+    }, 'visibly transformed native Bayer preview', fixture.shaderId);
+    assert(effectPreview.colorCount === 2, `Native Safari Bayer preview is blank or untransformed: ${JSON.stringify(effectPreview)}`);
   }
   const environment = await evaluate(() => ({ origin: location.origin, secureContext: isSecureContext,
     visibility: document.visibilityState, focused: document.hasFocus(), userAgent: navigator.userAgent,
