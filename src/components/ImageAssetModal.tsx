@@ -1,12 +1,13 @@
 'use client';
 
-import { Check, ImagePlus, Sticker, Type, Upload, X } from '@/components/ui/SolidIcons';
+import { Check, ImagePlus, Sticker, Trash2, Type, Upload, X } from '@/components/ui/SolidIcons';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
 import type { BrandAsset } from '@/lib/brandIdentity';
+import { embeddedImageSourceBytes } from '@/lib/imageAssets';
 import { imageLayerName } from '@/lib/imagePlacement';
 
 export type PendingImageImport = {
@@ -73,6 +74,7 @@ export default function ImageAssetModal({
   error,
   onClose,
   onCreateTextSticker,
+  onDelete,
   onImport,
   onPlace,
   open,
@@ -84,6 +86,7 @@ export default function ImageAssetModal({
   error: string | null;
   onClose: () => void;
   onCreateTextSticker?: () => void;
+  onDelete: (asset: BrandAsset) => Promise<void> | void;
   onImport: (items: readonly PendingImageImport[]) => Promise<void> | void;
   onPlace: (asset: BrandAsset) => Promise<void> | void;
   open: boolean;
@@ -91,16 +94,24 @@ export default function ImageAssetModal({
   request: ImageImportRequest | null;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingImageImport[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestId = request?.id ?? 0;
   const reusableAssets = useMemo(() => assets.filter(isReusableImageAsset), [assets]);
+  const reusableEmbeddedBytes = useMemo(() => reusableAssets.reduce(
+    (total, asset) => total + (embeddedImageSourceBytes(asset.path) ?? 0),
+    0
+  ), [reusableAssets]);
   const addingSticker = placementMode === 'sticker';
   const modeCopy = IMAGE_ASSET_MODE_COPY[placementMode];
 
   useEffect(() => {
     if (!open) {
       setDragging(false);
+      setDeleteCandidateId(null);
+      setDeletingId(null);
       setPending([]);
       return;
     }
@@ -129,6 +140,16 @@ export default function ImageAssetModal({
     event.preventDefault();
     setDragging(false);
     addFiles(event.dataTransfer.files);
+  }
+
+  async function deleteSavedAsset(asset: BrandAsset) {
+    setDeletingId(asset.id);
+    try {
+      await onDelete(asset);
+      setDeleteCandidateId(null);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return createPortal(
@@ -203,17 +224,46 @@ export default function ImageAssetModal({
           <section className='image-asset-library'>
             <div className='image-asset-section-heading'>
               <div><h3>{modeCopy.libraryTitle}</h3><p>{modeCopy.libraryDescription}</p></div>
-              <span>{reusableAssets.length} saved</span>
+              <span>{reusableAssets.length} saved{reusableEmbeddedBytes > 0 ? ` · ${fileSize(reusableEmbeddedBytes)} embedded` : ''}</span>
             </div>
             {reusableAssets.length > 0 ? (
               <div aria-label='Reusable brand assets' className='image-asset-library-grid' role='group'>
-                {reusableAssets.map((asset) => (
-                  <button disabled={busy} key={asset.id} onClick={() => void onPlace(asset)} type='button'>
-                    <span><img alt='' draggable={false} src={asset.path} /></span>
-                    <strong>{asset.label}</strong>
-                    <small>{asset.type}</small>
-                  </button>
-                ))}
+                {reusableAssets.map((asset) => {
+                  const embeddedBytes = embeddedImageSourceBytes(asset.path);
+                  return <article key={asset.id}>
+                    <button
+                      aria-label={`Place ${asset.label}`}
+                      className='image-asset-library-place'
+                      disabled={busy || deletingId === asset.id}
+                      onClick={() => void onPlace(asset)}
+                      type='button'
+                    >
+                      <span><img alt='' draggable={false} src={asset.path} /></span>
+                      <strong>{asset.label}</strong>
+                      <small>{asset.type}{embeddedBytes !== null ? ` · ${fileSize(embeddedBytes)}` : ''}</small>
+                    </button>
+                    {deleteCandidateId === asset.id ? (
+                      <div className='image-asset-library-confirmation'>
+                        <span>Delete from library?</span>
+                        <Button aria-label={`Cancel delete ${asset.label}`} disabled={deletingId === asset.id} onClick={() => setDeleteCandidateId(null)} size='sm' type='button' variant='ghost'>Cancel</Button>
+                        <Button aria-label={`Confirm delete ${asset.label}`} loading={deletingId === asset.id} onClick={() => void deleteSavedAsset(asset)} size='sm' type='button' variant='destructive'>Delete</Button>
+                      </div>
+                    ) : (
+                      <Button
+                        aria-label={`Delete ${asset.label} from brand library`}
+                        className='image-asset-library-delete'
+                        disabled={busy}
+                        onClick={() => setDeleteCandidateId(asset.id)}
+                        size='icon-xs'
+                        title='Delete from brand library'
+                        type='button'
+                        variant='outline'
+                      >
+                        <Trash2 aria-hidden='true' />
+                      </Button>
+                    )}
+                  </article>;
+                })}
               </div>
             ) : (
               <div className='image-asset-library-empty'>Your first upload will appear here for reuse.</div>

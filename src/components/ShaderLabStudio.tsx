@@ -284,7 +284,7 @@ import {
   previewContainedImageBounds,
   type ImageCropSettings,
 } from '@/lib/imagePlacement';
-import { createImportedBrandAsset, readEmbeddedImageFile } from '@/lib/imageAssets';
+import { createImportedBrandAsset, imageLibraryErrorMessage, readEmbeddedImageFile } from '@/lib/imageAssets';
 import {
   SHADER_LAB_CATEGORIES,
   shaderLabCategoryCount,
@@ -6572,11 +6572,31 @@ export default function ShaderLabStudio({
         status: failedCount > 0 ? 'error' : 'success',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'The image could not be saved.';
+      const message = imageLibraryErrorMessage(error);
       setImageImportError(message);
       setImageImportState({ message, status: 'error' });
     }
   }, [brandIdentity, onIdentitySave, placeBrandAssets]);
+
+  const deleteSavedAsset = useCallback((asset: BrandAsset) => {
+    try {
+      if (!onIdentitySave) throw new Error('This project cannot update shared assets yet.');
+      onIdentitySave({
+        ...brandIdentity,
+        assets: brandIdentity.assets.filter((candidate) => candidate.id !== asset.id),
+        proofAssets: brandIdentity.proofAssets.filter((candidate) => candidate.id !== asset.id),
+      });
+      setImageImportError(null);
+      setImageImportState({
+        message: `Deleted ${asset.label} from Assets. Existing canvas layers were kept.`,
+        status: 'success',
+      });
+    } catch (error) {
+      const message = imageLibraryErrorMessage(error);
+      setImageImportError(message);
+      setImageImportState({ message, status: 'error' });
+    }
+  }, [brandIdentity, onIdentitySave]);
 
   const placeSavedAsset = useCallback(async (asset: BrandAsset) => {
     setImageImportError(null);
@@ -9301,6 +9321,7 @@ export default function ShaderLabStudio({
           setImageImportRequest(null);
           setImageImportState({ message: 'Added an editable text sticker.', status: 'success' });
         }}
+        onDelete={deleteSavedAsset}
         onImport={importAndSaveImages}
         onPlace={placeSavedAsset}
         open={imageImportOpen}

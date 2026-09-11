@@ -57,6 +57,7 @@ describe('ImageAssetModal', () => {
     assets = [SAVED_ASSET],
     files = [new File(['image'], 'homepage.png', { type: 'image/png' })],
     onCreateTextSticker,
+    onDelete = vi.fn(),
     onImport = vi.fn(),
     onPlace = vi.fn(),
     placementMode = 'image',
@@ -64,6 +65,7 @@ describe('ImageAssetModal', () => {
     assets?: readonly BrandAsset[];
     files?: readonly File[];
     onCreateTextSticker?: () => void;
+    onDelete?: (asset: BrandAsset) => Promise<void> | void;
     onImport?: (items: readonly PendingImageImport[]) => Promise<void> | void;
     onPlace?: (asset: BrandAsset) => Promise<void> | void;
     placementMode?: ImageAssetPlacementMode;
@@ -76,6 +78,7 @@ describe('ImageAssetModal', () => {
           error={null}
           onClose={vi.fn()}
           onCreateTextSticker={onCreateTextSticker}
+          onDelete={onDelete}
           onImport={onImport}
           onPlace={onPlace}
           open
@@ -84,7 +87,7 @@ describe('ImageAssetModal', () => {
         />
       );
     });
-    return { onImport, onPlace };
+    return { onDelete, onImport, onPlace };
   }
 
   it('lets users name queued uploads before one explicit import-and-save action', async () => {
@@ -113,6 +116,21 @@ describe('ImageAssetModal', () => {
     expect(onPlace).toHaveBeenCalledWith(SAVED_ASSET);
     expect(onImport).not.toHaveBeenCalled();
     expect(buttonWithText('Import & save').disabled).toBe(true);
+  });
+
+  it('confirms before deleting a saved asset from the shared library', async () => {
+    const { onDelete, onPlace } = await render({ files: [] });
+
+    await act(() => document.querySelector<HTMLButtonElement>('[aria-label="Delete Campaign image from brand library"]')?.click());
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Delete from library?');
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="Confirm delete Campaign image"]')?.click();
+      await Promise.resolve();
+    });
+    expect(onDelete).toHaveBeenCalledExactlyOnceWith(SAVED_ASSET);
+    expect(onPlace).not.toHaveBeenCalled();
   });
 
   it('can remove a queued file before it reaches the asset library', async () => {

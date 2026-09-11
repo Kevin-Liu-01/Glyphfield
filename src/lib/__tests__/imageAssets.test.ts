@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createImportedBrandAsset,
   detectImageMimeType,
+  embeddedImageSourceBytes,
+  imageLibraryErrorMessage,
   readEmbeddedImageFile,
 } from '../imageAssets';
 
@@ -55,5 +57,17 @@ describe('shared image asset ingestion', () => {
       .rejects.toThrow('not a supported');
     await expect(readEmbeddedImageFile(new File(['12345'], 'large.png'), 4))
       .rejects.toThrow('under 4 bytes');
+  });
+
+  it('turns browser quota failures into an actionable library cleanup message', () => {
+    expect(imageLibraryErrorMessage(new DOMException('The quota has been exceeded.', 'QuotaExceededError')))
+      .toBe('Browser storage is full. Delete unused assets from the library below, then retry.');
+    expect(imageLibraryErrorMessage(new Error('decode failed'))).toBe('decode failed');
+  });
+
+  it('measures embedded sources so cleanup can prioritize larger assets', () => {
+    expect(embeddedImageSourceBytes('data:image/png;base64,iVBORw0KGgo=')).toBe(8);
+    expect(embeddedImageSourceBytes('data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E')).toBe(11);
+    expect(embeddedImageSourceBytes('/assets/brand-mark.svg')).toBeNull();
   });
 });

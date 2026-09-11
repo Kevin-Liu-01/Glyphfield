@@ -11,6 +11,38 @@ export type EmbeddedImageFile = {
   source: string;
 };
 
+const IMAGE_LIBRARY_QUOTA_MESSAGE = 'Browser storage is full. Delete unused assets from the library below, then retry.';
+
+export function imageLibraryErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : '';
+  const message = error instanceof Error ? error.message : '';
+  if (
+    name === 'QuotaExceededError'
+    || name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    || /quota (?:has been )?exceeded|exceeded.*quota/i.test(message)
+  ) {
+    return IMAGE_LIBRARY_QUOTA_MESSAGE;
+  }
+  return message || 'The image library could not be updated.';
+}
+
+export function embeddedImageSourceBytes(source: string): number | null {
+  if (!source.startsWith('data:')) return null;
+  const commaIndex = source.indexOf(',');
+  if (commaIndex < 0) return null;
+  const metadata = source.slice(0, commaIndex);
+  const payload = source.slice(commaIndex + 1);
+  if (/;base64$/i.test(metadata)) {
+    const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor(payload.length * 3 / 4) - padding);
+  }
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).byteLength;
+  } catch {
+    return null;
+  }
+}
+
 function formatByteLimit(bytes: number): string {
   if (bytes >= 1_000_000) return `${Number((bytes / 1_000_000).toFixed(1))} MB`;
   if (bytes >= 1_000) return `${Number((bytes / 1_000).toFixed(1))} KB`;
