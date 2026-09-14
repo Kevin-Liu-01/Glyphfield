@@ -38,11 +38,11 @@ describe('Paper shader preview controls', () => {
     );
 
     expect(overrides.colorBack).toBe(DEFAULT_LIVE_MATERIAL_SETTINGS.colorA);
-    expect(overrides.colorFront).toBe(DEFAULT_LIVE_MATERIAL_SETTINGS.colorB);
+    expect(overrides.colorFront).toBe('#C6916C');
     expect(overrides.colors).toEqual([
+      DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorB,
       DEFAULT_LIVE_MATERIAL_SETTINGS.colorC,
-      DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
     ]);
   });
 
@@ -51,7 +51,7 @@ describe('Paper shader preview controls', () => {
 
     expect(overrides).toMatchObject({
       colorBack: DEFAULT_LIVE_MATERIAL_SETTINGS.colorA,
-      colorFront: DEFAULT_LIVE_MATERIAL_SETTINGS.colorB,
+      colorFront: '#C6916C',
     });
     expect(overrides).not.toHaveProperty('scale');
   });

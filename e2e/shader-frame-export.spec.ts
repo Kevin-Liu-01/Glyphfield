@@ -758,6 +758,32 @@ test('paused stacked effects repaint from an uncommitted shader setting preview'
   })).toBeCloseTo(0.88, 4);
 });
 
+test('all three authored colors repaint a collapsed Paper ramp while paused', async ({ page }) => {
+  const { shaderId } = await prepareShader(page, { materialId: 'paper-dithering', paused: true });
+  await page.getByTitle('Select Canvas shader 1').click();
+
+  for (const [role, color] of [
+    ['base', '#112233'],
+    ['mid', '#44AA66'],
+    ['light', '#FFCC55'],
+  ] as const) {
+    const baseline = await pixels(page, shaderId);
+    const input = page.getByRole('textbox', { name: `Shader ${role} color HEX`, exact: true });
+    await input.fill(color);
+    await input.press('Tab');
+    await expect.poll(async () => page.evaluate(({ role, color }) => {
+      const source = JSON.parse(window.glyphfield!.studio.readSource());
+      const shader = (Object.values(source.elements) as Array<{
+        data: { settings: Record<string, string> };
+        kind: string;
+      }>).find(({ kind }) => kind === 'shader');
+      const key = role === 'base' ? 'colorA' : role === 'mid' ? 'colorB' : 'colorC';
+      return shader?.data.settings[key] === color;
+    }, { role, color })).toBe(true);
+    await expect.poll(async () => (await pixels(page, shaderId)).hash).not.toBe(baseline.hash);
+  }
+});
+
 test('paused stacked effects repaint from an uncommitted image-crop preview', async ({ page }) => {
   await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
   await page.getByRole('button', { name: 'Add image layer', exact: true }).click();

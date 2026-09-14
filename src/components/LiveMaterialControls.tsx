@@ -204,11 +204,15 @@ export default function LiveMaterialControls({
           onSelect={([colorA, colorB, colorC]) => update({ colorA, colorB, colorC })}
           value={[resolvedSettings.colorA, resolvedSettings.colorB, resolvedSettings.colorC]}
         />
-        {(['colorA', 'colorB', 'colorC'] as const).map((key, index) => (
+        {([
+          { key: 'colorA', label: 'Base' },
+          { key: 'colorB', label: 'Mid' },
+          { key: 'colorC', label: 'Light' },
+        ] as const).map(({ key, label }) => (
           <ColorControl
-            ariaLabel={gt('Material color {number}', { number: index + 1 })}
+            ariaLabel={gt('Material {role} color', { role: label.toLocaleLowerCase() })}
             key={key}
-            label={gt('Color {number}', { number: index + 1 })}
+            label={gt('{role} color', { role: label })}
             onChange={(value) => update({ [key]: value })}
             value={resolvedSettings[key]}
           />

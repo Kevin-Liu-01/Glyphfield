@@ -1,3 +1,4 @@
+import { mixHexColors } from '@/lib/color';
 import { liveMaterialCenterOffset, type LiveMaterialSettings } from '@/lib/liveMaterials';
 import { clampShaderZoom } from '@/lib/shaderZoom';
 
@@ -23,6 +24,25 @@ function controlFactor(value: number, defaultValue: number, minimum: number, max
   return Math.min(maximum, Math.max(minimum, 0.4 + (value / defaultValue) * 0.6));
 }
 
+export function paperShaderFilter(
+  preservePresetAppearance: boolean,
+  settings: LiveMaterialSettings
+): string | undefined {
+  if (preservePresetAppearance) return undefined;
+  return [
+    `brightness(${settings.brightness})`,
+    `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
+    `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
+  ].join(' ');
+}
+
+export function paperShaderGrainOpacity(
+  preservePresetAppearance: boolean,
+  settings: Pick<LiveMaterialSettings, 'grain'>
+): number {
+  return preservePresetAppearance ? 0 : Math.min(0.34, Math.max(0, settings.grain) / 260);
+}
+
 export function paperPaletteOverrides(
   params: Record<string, unknown>,
   settings: LiveMaterialSettings
@@ -31,15 +51,20 @@ export function paperPaletteOverrides(
   const setIfPresent = (key: string, value: unknown) => {
     if (Object.prototype.hasOwnProperty.call(params, key)) overrides[key] = value;
   };
-  const palette = [settings.colorB, settings.colorC, settings.colorA];
+  const palette = [settings.colorA, settings.colorB, settings.colorC];
   if (Array.isArray(params.colors)) {
-    overrides.colors = params.colors.map((_, index) => palette[index % palette.length]);
+    // Paper presets are allowed to collapse their native ramp to one or two
+    // colors. The Studio palette is always a three-stop authored system, so
+    // restore those stops instead of silently dropping Base, Mid, or Light.
+    overrides.colors = Array.from(
+      { length: Math.max(palette.length, params.colors.length) },
+      (_, index) => palette[index % palette.length]
+    );
   }
   setIfPresent('colorBack', settings.colorA);
   setIfPresent('colorGap', settings.colorA);
-  setIfPresent('colorShadow', settings.colorA);
+  setIfPresent('colorShadow', settings.colorB);
   setIfPresent('colorFill', settings.colorB);
-  setIfPresent('colorFront', settings.colorB);
   setIfPresent('colorInner', settings.colorB);
   setIfPresent('colorMid', settings.colorB);
   setIfPresent('colorBloom', settings.colorC);
@@ -49,8 +74,35 @@ export function paperPaletteOverrides(
   setIfPresent('colorTint', settings.colorC);
   setIfPresent('colorC', settings.colorB);
   setIfPresent('colorM', settings.colorC);
-  setIfPresent('colorY', settings.colorB);
+  setIfPresent('colorY', mixHexColors(settings.colorB, settings.colorC, 0.5));
   setIfPresent('colorK', settings.colorA);
+
+  if (Object.prototype.hasOwnProperty.call(params, 'colorFront')) {
+    const hasSeparateMid = Object.prototype.hasOwnProperty.call(params, 'colorMid');
+    const hasSeparateLight = Object.prototype.hasOwnProperty.call(params, 'colorHighlight')
+      || Object.prototype.hasOwnProperty.call(params, 'colorGlow')
+      || Object.prototype.hasOwnProperty.call(params, 'colorStroke');
+    overrides.colorFront = hasSeparateMid
+      ? settings.colorC
+      : hasSeparateLight
+        ? settings.colorB
+        : mixHexColors(settings.colorB, settings.colorC, 0.5);
+  }
+
+  // A few two-channel effects expose only a highlight/tint beside their base.
+  // Blend the authored Mid and Light stops so both remain meaningful.
+  const hasColorRamp = Array.isArray(params.colors)
+    || Object.prototype.hasOwnProperty.call(params, 'colorFront')
+    || Object.prototype.hasOwnProperty.call(params, 'colorMid')
+    || Object.prototype.hasOwnProperty.call(params, 'colorFill')
+    || Object.prototype.hasOwnProperty.call(params, 'colorInner')
+    || Object.prototype.hasOwnProperty.call(params, 'colorM');
+  if (!hasColorRamp && Object.prototype.hasOwnProperty.call(params, 'colorHighlight')) {
+    overrides.colorHighlight = mixHexColors(settings.colorB, settings.colorC, 0.5);
+  }
+  if (!hasColorRamp && Object.prototype.hasOwnProperty.call(params, 'colorTint')) {
+    overrides.colorTint = mixHexColors(settings.colorB, settings.colorC, 0.5);
+  }
   return overrides;
 }
 

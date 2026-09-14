@@ -57,7 +57,13 @@ import { PAPER_MATERIAL_GRAIN_IMAGE, PAPER_MATERIAL_GRAIN_TILE_SIZE } from '@/li
 import { drawCanvasGlyph } from '@/lib/canvasDrawing';
 import { liveMaterialReadinessStatus, shouldMountLiveMaterial } from '@/lib/liveMaterialReadiness';
 import { clampShaderZoom, interpolateShaderZoom } from '@/lib/shaderZoom';
-import { paperControlOverrides, paperPaletteOverrides, resolvePaperShaderScale } from '@/lib/paperShaderControls';
+import {
+  paperControlOverrides,
+  paperPaletteOverrides,
+  paperShaderFilter,
+  paperShaderGrainOpacity,
+  resolvePaperShaderScale,
+} from '@/lib/paperShaderControls';
 import {
   browserSupportsWebGL2,
   cancelWebGLContextRelease,
@@ -1931,18 +1937,6 @@ function applyPaperShaderFrame(
   return true;
 }
 
-function paperShaderFilter(
-  preservePresetAppearance: boolean,
-  settings: LiveMaterialSettings
-): string | undefined {
-  if (preservePresetAppearance) return undefined;
-  return [
-    `brightness(${settings.brightness})`,
-    `contrast(${Math.max(0.5, 1 + (settings.strength - 0.3) * 0.24)})`,
-    `saturate(${Math.max(0.35, 1 + (settings.density - 0.8) * 0.3)})`,
-  ].join(' ');
-}
-
 function PaperMaterialGrain({
   preservePresetAppearance,
   settings,
@@ -1950,12 +1944,13 @@ function PaperMaterialGrain({
   preservePresetAppearance: boolean;
   settings: LiveMaterialSettings;
 }) {
-  if (preservePresetAppearance || settings.grain <= 0) return null;
+  const opacity = paperShaderGrainOpacity(preservePresetAppearance, settings);
+  if (opacity <= 0) return null;
   return (
     <span
       aria-hidden='true'
       className='paper-material-grain pointer-events-none absolute inset-0'
-      style={{ opacity: Math.min(0.34, settings.grain / 260), backgroundImage: `url("${PAPER_MATERIAL_GRAIN_IMAGE}")` }}
+      style={{ opacity, backgroundImage: `url("${PAPER_MATERIAL_GRAIN_IMAGE}")` }}
     />
   );
 }
@@ -2064,7 +2059,7 @@ function PaperShaderSurface({
       resume: () => { heldRef.current = false; mount.setSpeed(nativeSpeedRef.current); },
       presentation: () => ({
         filter: paperShaderFilter(preserveAppearanceRef.current, paperSettingsRef.current),
-        grainOpacity: preserveAppearanceRef.current ? 0 : Math.min(0.34, paperSettingsRef.current.grain / 260),
+        grainOpacity: paperShaderGrainOpacity(preserveAppearanceRef.current, paperSettingsRef.current),
         grainTileSize: PAPER_MATERIAL_GRAIN_TILE_SIZE * canvas.width / Math.max(1, canvas.clientWidth),
       }),
     });
