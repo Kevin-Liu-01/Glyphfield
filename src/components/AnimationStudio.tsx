@@ -838,8 +838,7 @@ function AnimationStudio({
 
   const textSources = useMemo<StudioSource[]>(
     () =>
-      textFrames
-        .split('\n')
+      (textFrames === '' ? [] : textFrames.split('\n'))
         .map((text, index) => ({ fontFamily: animationFontFamily, id: `text-${index}`, kind: 'text' as const, text: text || 'New frame' })),
     [animationFontFamily, textFrames]
   );
@@ -1474,7 +1473,7 @@ function AnimationStudio({
     if (presentationMode || !source || /^data:[^;,]+;base64,/i.test(source)) return;
     let active = true;
     void imageUrlToDataUrl(source).then((embeddedSource) => {
-      if (!active) return;
+      if (!active || embeddedSource === source) return;
       setBrandLogo((current) => current?.kind === 'image' && current.url === source
         ? { ...current, url: embeddedSource }
         : current);

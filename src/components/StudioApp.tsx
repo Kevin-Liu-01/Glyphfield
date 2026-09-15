@@ -47,6 +47,7 @@ import BrandFontFaces from '@/components/BrandFontFaces';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import StudioCommandPalette from '@/components/StudioCommandPalette';
+import StudioCreateProjectMenu from '@/components/StudioCreateProjectMenu';
 import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -63,7 +64,6 @@ import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
 import {
-  createBrandIdentity,
   duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
@@ -1274,11 +1274,6 @@ export default function StudioApp() {
     selectIdentity(identity.id);
   }
 
-  function addIdentity() {
-    const customCount = identities.filter(({ kind }) => kind === 'custom').length;
-    activateCreatedIdentity(createBrandIdentity(`Brand ${customCount + 1}`));
-  }
-
   function copyIdentityById(identityId: string) {
     const identity = identityById.get(identityId);
     if (!identity) return;
@@ -1664,9 +1659,14 @@ export default function StudioApp() {
                   <T>No brands in this folder</T>
                 </span>
               ) : null}
-              <Button aria-label={gt('Add brand project')} className='project-tab-add mb-1.5 shrink-0' disabled={!identitiesReady} onClick={addIdentity} size='icon-toolbar' type='button' variant='outline'>
-                <Plus aria-hidden='true' />
-              </Button>
+              <StudioCreateProjectMenu
+                disabled={!identitiesReady}
+                identities={resolvedIdentities}
+                onCreated={({ identity, toolId }) => {
+                  activateCreatedIdentity(identity);
+                  selectTool(toolId);
+                }}
+              />
             </div>
             <button
               aria-label={gt('Scroll project tabs right')}
