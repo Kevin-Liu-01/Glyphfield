@@ -120,6 +120,36 @@ by both runners.
 
 ## Measurement limits
 
+Canvas/export changes also have focused regression coverage for the open workspace
+and native text layout. Run both themes and the loose-layer journeys in WebKit,
+then use the native runner to check installed Safari independently:
+
+```sh
+GLYPHFIELD_BROWSER_BASE_URL=http://localhost:3014 pnpm test:browsers \
+  e2e/infinite-canvas.spec.ts e2e/text-export-parity.spec.ts --project=webkit
+
+# With an owned Safari driver and user-enabled Remote Automation:
+GLYPHFIELD_SAFARI_BASE_URL=http://localhost:3014 \
+  GLYPHFIELD_SAFARI_ONLY='native canvas compatibility' pnpm test:safari
+```
+
+The native cases verify trusted drag input, undo, preserved layer geometry,
+framing, project round trips and reload, offscreen renderer removal, matching
+browser/export text lines, light/dark preview contrast, and editable shader
+capture/export after reparenting. Successful native preview screenshots are
+saved alongside the report. Neither an engine-only pass nor a resolved export
+promise alone establishes installed Safari compatibility.
+
+Light and dark export previews share the muted theme surface, a 16px dot grid,
+and an external edge/shadow. Only the artifact carries the transparency
+checkerboard; preview chrome never changes the exported pixels or dimensions.
+
+Safari 26.4 can return two rectangles for the first character after a soft wrap:
+a zero-width caret on the previous line and the painted glyph on the next line.
+Text export uses the painted fragment, not their bounding union. The native
+quote case and a recorded-geometry unit test cover this behavior so wrapped
+words cannot silently split between exported lines.
+
 Browser callback cadence is not GPU-completion or presentation FPS. The broad
 input-stall assertion catches regressions; it is not a promise of 60 FPS on every
 Mac, artwork, or display. Use `pnpm test:shader-cadence` for actual draw submission

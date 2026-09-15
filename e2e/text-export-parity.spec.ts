@@ -73,7 +73,7 @@ async function exportAndCompare(page: Page, screenshot: Buffer) {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       for (let index = 0; index < node.textContent!.length; index += 1) {
         range.setStart(node, index); range.setEnd(node, index + 1);
-        const rect = range.getBoundingClientRect();
+        const rect = [...range.getClientRects()].find((rect) => rect.width > 0 && rect.height > 0) ?? range.getBoundingClientRect();
         if (rect.height) {
           domLines.set(rect.top, (domLines.get(rect.top) ?? '') + node.textContent![index]);
         }
@@ -120,10 +120,13 @@ async function exportAndCompare(page: Page, screenshot: Buffer) {
   }, `data:image/png;base64,${screenshot.toString('base64')}`);
 }
 
-test('portrait quote preserves native text layout, clean canvas, and artifact-sized export preview', async ({ page }) => {
+for (const theme of ['light', 'dark'] as const) test(`${theme} portrait quote preserves native text layout, clean canvas, and artifact-sized export preview`, async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1800, height: 1400 });
   await prepareQuote(page);
+  const themeToggle = page.getByRole('button', { name: `Switch to ${theme} mode`, exact: true });
+  if (await themeToggle.isVisible()) await themeToggle.click();
+  await expect(page.getByRole('button', { name: `Switch to ${theme === 'light' ? 'dark' : 'light'} mode`, exact: true })).toBeVisible();
   const stage = page.locator('[data-testid="shader-lab-live-stage"]');
   for (const width of [960, 1920, 640]) {
     await page.evaluate(async (width) => {
@@ -156,12 +159,18 @@ test('portrait quote preserves native text layout, clean canvas, and artifact-si
       const rect = image.getBoundingClientRect();
       const stage = image.parentElement!;
       return { ratio: rect.width / rect.height, natural: image.naturalWidth / image.naturalHeight,
-        surround: getComputedStyle(stage).backgroundColor, stage: stage.getBoundingClientRect().toJSON(), rect: rect.toJSON() };
+        surround: getComputedStyle(stage).backgroundColor, pattern: getComputedStyle(stage).backgroundImage,
+        patternSize: getComputedStyle(stage).backgroundSize,
+        shadow: getComputedStyle(image).boxShadow, stage: stage.getBoundingClientRect().toJSON(), rect: rect.toJSON() };
     });
     expect(geometry.ratio).toBeCloseTo(geometry.natural, 2);
-    expect(geometry.surround).toBe('rgb(119, 119, 119)');
+    expect(geometry.surround).toBe(theme === 'light' ? 'rgb(242, 242, 242)' : 'rgb(33, 33, 33)');
+    expect(geometry.pattern).toContain('radial-gradient');
+    expect(geometry.patternSize).toBe('16px 16px');
+    expect(geometry.shadow).not.toBe('none');
     expect(geometry.rect.left).toBeGreaterThan(geometry.stage.left);
     expect(geometry.rect.right).toBeLessThan(geometry.stage.right);
+    if (width === 960) await test.info().attach(`${theme}-export-preview`, { body: await page.screenshot(), contentType: 'image/png' });
     await page.locator('.shader-export-dialog').getByRole('button', { name: 'Close export preview', exact: true }).click();
   }
   await page.evaluate(() => window.glyphfield!.studio.invoke('design.export', { format: 'png', download: false }).then(() => undefined));

@@ -14,6 +14,7 @@ import { nativePointerClick } from './lib/safari-native-click.mjs';
 import { checkSafariFrameExport } from './lib/safari-frame-export-check.mjs';
 import { checkSafariControls } from './lib/safari-control-check.mjs';
 import { checkSafariArtboardExport } from './lib/safari-artboard-export-check.mjs';
+import { checkSafariCanvasWorkspace, checkSafariTextPreview, checkSafariLooseShader } from './lib/safari-canvas-workspace-check.mjs';
 
 const baseUrl = process.env.GLYPHFIELD_SAFARI_BASE_URL ?? 'http://localhost:3014';
 const driverUrl = process.env.SAFARI_WEBDRIVER_URL ?? 'http://localhost:4445';
@@ -283,6 +284,19 @@ async function cleanup() {
   if (ownedSession) await request('DELETE', `/session/${ownedSession}`).catch((error) => console.error(`Safari session cleanup: ${error}`));
 }
 
+async function captureScreenshot(name) {
+  // Native WebDriver can return the previous compositor frame immediately after
+  // a React commit. Capture settled UI, not a stale canvas behind the dialog.
+  await evaluateAsync(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  artifactDir ??= await mkdtemp(join(tmpdir(), 'glyphfield-safari-canvas-'));
+  const path = join(artifactDir, `${name.replace(/[^a-z0-9]+/gi, '-')}.png`);
+  await writeFile(path, Buffer.from(await command('GET', '/screenshot'), 'base64'));
+  return path;
+}
+
 async function probeNativeUndo() {
   const controls = [];
   for (const kind of ['plaintext-only', 'textarea']) {
@@ -471,7 +485,10 @@ try {
   }));
 
   const tabHarness = { baseUrl, command, evaluate, evaluateAsync, waitFor, click, rect, actions, mouse, pointerMove,
-    pointerDown, pointerUp, keyboard, keys, press, type, drag };
+    pointerDown, pointerUp, keyboard, keys, press, type, drag, captureScreenshot };
+  await check('native canvas compatibility workspace', () => checkSafariCanvasWorkspace(tabHarness));
+  await check('native canvas compatibility text preview', () => checkSafariTextPreview(tabHarness));
+  await check('native canvas compatibility loose shader', () => checkSafariLooseShader(tabHarness), false);
   await check('native shared controls first-click', () => checkSafariControls(tabHarness));
   await check('native artboard project export', () => checkSafariArtboardExport(tabHarness));
   for (const mode of ['pause-resume', 'capture', 'live-export', 'frozen-export', 'grain-export', 'motion-export']) {

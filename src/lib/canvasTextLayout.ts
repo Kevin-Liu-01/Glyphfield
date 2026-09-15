@@ -40,6 +40,17 @@ export type NativeCanvasTextLayout = {
 const layouts = new Map<string, NativeCanvasTextLayout>();
 let observedFonts: FontFaceSet | undefined;
 
+/** Select the painted fragment, not Safari's extra caret at the previous line. */
+export function canvasTextRangeRect(range: Pick<Range, 'getClientRects' | 'getBoundingClientRect'>): DOMRect {
+  const rects = range.getClientRects();
+  for (let index = 0; index < rects.length; index += 1) {
+    const rect = rects[index]!;
+    if (rect.width > 0 && rect.height > 0) return rect;
+  }
+  // Preserve zero-width whitespace/newline geometry when there is no ink.
+  return range.getBoundingClientRect();
+}
+
 function textLines(text: HTMLElement, origin: DOMRect, ascent: number): NativeTextLine[] {
   const lines: NativeTextLine[] = [];
   const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
@@ -51,7 +62,7 @@ function textLines(text: HTMLElement, origin: DOMRect, ascent: number): NativeTe
     for (let index = 0; index < value.length; index += 1) {
       range.setStart(node, index);
       range.setEnd(node, index + 1);
-      const rect = range.getBoundingClientRect();
+      const rect = canvasTextRangeRect(range);
       if (!rect.height) continue;
       const baseline = rect.top - origin.top + ascent;
       const x = rect.left - origin.left;

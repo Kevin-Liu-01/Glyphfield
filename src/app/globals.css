@@ -6417,8 +6417,10 @@ html.light
 }
 
 .shader-export-stage:is([data-preview-kind='image'], [data-preview-kind='video']) {
-  /* A neutral surround contrasts both white and black artwork in either theme. */
-  background: #777;
+  /* One themed work surface, distinct from the artifact's checkerboard. */
+  background-color: hsl(var(--muted));
+  background-image: radial-gradient(circle, hsl(var(--foreground) / .075) .65px, transparent .85px);
+  background-size: 16px 16px;
 }
 
 .shader-export-media {
@@ -6430,7 +6432,11 @@ html.light
   object-fit: contain;
   /* Transparency is visible only inside the artifact's actual bounds. */
   background: repeating-conic-gradient(#ddd 0% 25%, #eee 0% 50%) 0 / 16px 16px;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / .18), 0 8px 28px rgb(0 0 0 / .2);
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / .12), 0 4px 16px rgb(0 0 0 / .08);
+}
+
+html.dark .shader-export-media {
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / .12), 0 4px 16px rgb(0 0 0 / .24);
 }
 
 .shader-export-settings,

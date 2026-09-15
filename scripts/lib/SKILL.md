@@ -19,6 +19,7 @@ separating product failures from WebDriver input or focus failures.
 `safari-frame-motion-check.mjs` decodes native MP4 output and checks its range and paused pose.
 `safari-control-check.mjs` checks first-click color, select, range, and numeric-field interactions.
 `safari-artboard-export-check.mjs` checks native artboard/map dragging, origin-clean text/SVG paint exports, and portable project/font round trips.
+`safari-canvas-workspace-check.mjs` checks loose layers, framing, reload, offscreen culling, native text layout, themed export previews, and loose shader capture/export.
 
 ## Patterns to follow / invariants
 <!-- agent-docs:fill:patterns -->

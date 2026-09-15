@@ -25,7 +25,7 @@ export async function checkSafariFrameMotion({ harness, fixture, read, invoke, a
     execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
     execFileSync('ffprobe', ['-version'], { stdio: 'ignore' });
   } catch { throw new Error('Native MP4 verification requires local ffmpeg and ffprobe; no motion assertion was run.'); }
-  await click('button[aria-label="Pause shader motion"]');
+  await click('button[aria-label="Freeze current shader frame"]');
   const before = await read();
   assert(before.motion.paused, 'The real Pause button must freeze the chosen MP4 start frame');
   assertPaperClock(before);

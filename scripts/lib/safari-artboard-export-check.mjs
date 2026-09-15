@@ -4,7 +4,7 @@ import { nativePointerClick } from './safari-native-click.mjs';
 const liveStage = '[data-testid="shader-lab-live-stage"]';
 const viewportStage = '.canvas-viewport-stage.design-artboard-viewport-stage';
 
-async function nativeDrag(harness, selector, fraction, delta) {
+export async function nativeDrag(harness, selector, fraction, delta) {
   const { evaluate, rect, actions, mouse, pointerMove, pointerDown, pointerUp } = harness;
   const box = await rect(selector);
   const point = { x: box.x + box.width * fraction.x, y: box.y + box.height * fraction.y };
@@ -82,7 +82,8 @@ async function preparePaint(harness, kind) {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80" viewBox="0 0 160 80"><path fill="white" d="M0 0h160v80H0z"/></svg>';
     const url = isText ? null : URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     const data = isText ? { ...template.data, id, name: 'Native tiny text', value: 'AB\nCD', color: '#FFFFFF',
-      align: 'center', weight: 500, lineHeight: 1.2, tracking: 0, wrap: 'nowrap', outlineEnabled: false,
+      // Pin the legacy 900px-artboard size instead of inheriting today's 48px new-layer default.
+      fontSize: 153, align: 'center', weight: 500, lineHeight: 1.2, tracking: 0, wrap: 'nowrap', outlineEnabled: false,
       shadowEnabled: false, textEffect: { kind: 'solid' }, transform, visible: true }
       : { id, name: 'Native SVG image', layerType: 'asset', url, transform, visible: true, opacity: 1 };
     const element = { ...template, id, name: data.name, kind: isText ? 'text' : 'image', hidden: false, data,

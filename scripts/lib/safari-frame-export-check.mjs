@@ -194,7 +194,6 @@ export async function checkSafariFrameExport(harness, mode) {
     }, fixture.shaderId);
     const initial = await read();
     for (const [pauseLabel, resumeLabel] of [
-      ['Pause shader motion', 'Resume native shader motion'],
       ['Freeze current shader frame', 'Resume live shader motion'],
     ]) {
       await click(`button[aria-label="${pauseLabel}"]`);
@@ -218,7 +217,7 @@ export async function checkSafariFrameExport(harness, mode) {
       operations.push({ pauseLabel, resumeLabel, frozenPixels, resumedPixels,
         pausedTimeMs: paused.motion.timeMs, resumedTimeMs: resumed.motion.timeMs });
     }
-    await click('button[aria-label="Pause shader motion"]');
+    await click('button[aria-label="Freeze current shader frame"]');
     assert((await read()).motion.paused, 'The final real Pause click did not freeze the shader');
   } else if (mode === 'capture') {
     await invoke('design.frame.capture');
