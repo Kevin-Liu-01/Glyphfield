@@ -17,6 +17,45 @@ function sameBox(before, after) {
     `Surface transfer changed ${key}: ${JSON.stringify({ before, after })}`);
 }
 
+export async function checkSafariInsertionColors(harness) {
+  const { baseUrl, click, command, evaluate, waitFor } = harness;
+  // Insertion does not need the native text-editing/selection fixture.
+  await command('POST', '/url', { url: `${baseUrl}/studio?tool=material` });
+  await waitFor(() => Boolean(window.glyphfield?.studio && document.querySelector('[aria-label="Edit source code"]:not(:disabled)')), 'ready insertion workspace');
+  await waitFor(() => Boolean(document.querySelector('[data-testid="shader-lab-live-stage"] [data-live-material-ready="true"]'))
+    && !document.querySelector('[data-testid="shader-lab-live-stage"] [data-shader-time-restoring="true"]'), 'preservable starter shader before leaving its artboard');
+  const readySource = () => waitFor(() => {
+    try { return JSON.parse(window.glyphfield.studio.readSource()); }
+    catch (error) {
+      if (error.message === 'Portable composition code is still being prepared.') return null;
+      throw error;
+    }
+  }, 'portable inserted assets');
+  const artboardColors = (document) => document.metadata.designLab.workspace.artboards
+    .flatMap((board) => [...board.snapshot.textLayers, ...board.snapshot.logos].map(({ id, color }) => ({ id, color })));
+  const artboardContent = artboardColors(await readySource());
+  await invoke(harness, 'design.workspace.activate', { target: 'canvas' });
+  const colors = async () => Object.fromEntries(Object.entries((await readySource()).elements)
+    .map(([id, layer]) => [id, layer.data.color]));
+  let previous = await colors();
+  for (const [theme, color] of [['light', '#000000'], ['dark', '#FFFFFF']]) {
+    const toggle = `button[aria-label="Switch to ${theme} mode"]`;
+    if (await evaluate((selector) => Boolean(document.querySelector(selector)), toggle)) await click(toggle);
+    assert.deepEqual(await colors(), previous, 'Theme change recolored existing loose layers');
+    await click('button[aria-label="Add text layer"]');
+    await click('button[aria-label="Add brand mark"]');
+    const current = await colors();
+    const added = Object.entries(current).filter(([id]) => !(id in previous));
+    assert.equal(added.length, 2);
+    for (const [, actual] of added) assert.equal(actual, color);
+    for (const id of Object.keys(previous)) assert.equal(current[id], previous[id]);
+    previous = current;
+  }
+  const preservedArtboardContent = artboardColors(await readySource());
+  assert.deepEqual(preservedArtboardContent, artboardContent, 'Insertion defaults changed an existing artboard');
+  return { looseLayerColors: previous, preservedArtboardContent };
+}
+
 export async function checkSafariCanvasWorkspace(harness) {
   const { click, rect, waitFor, evaluateAsync, evaluate, command } = harness;
   const initial = await source(harness);

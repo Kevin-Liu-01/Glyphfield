@@ -14,7 +14,7 @@ import { nativePointerClick } from './lib/safari-native-click.mjs';
 import { checkSafariFrameExport } from './lib/safari-frame-export-check.mjs';
 import { checkSafariControls } from './lib/safari-control-check.mjs';
 import { checkSafariArtboardExport } from './lib/safari-artboard-export-check.mjs';
-import { checkSafariCanvasWorkspace, checkSafariTextPreview, checkSafariLooseShader } from './lib/safari-canvas-workspace-check.mjs';
+import { checkSafariCanvasWorkspace, checkSafariTextPreview, checkSafariLooseShader, checkSafariInsertionColors } from './lib/safari-canvas-workspace-check.mjs';
 
 const baseUrl = process.env.GLYPHFIELD_SAFARI_BASE_URL ?? 'http://localhost:3014';
 const driverUrl = process.env.SAFARI_WEBDRIVER_URL ?? 'http://localhost:4445';
@@ -487,6 +487,7 @@ try {
   const tabHarness = { baseUrl, command, evaluate, evaluateAsync, waitFor, click, rect, actions, mouse, pointerMove,
     pointerDown, pointerUp, keyboard, keys, press, type, drag, captureScreenshot };
   await check('native canvas compatibility workspace', () => checkSafariCanvasWorkspace(tabHarness));
+  await check('native canvas insertion colors', () => checkSafariInsertionColors(tabHarness), false);
   await check('native canvas compatibility text preview', () => checkSafariTextPreview(tabHarness));
   await check('native canvas compatibility loose shader', () => checkSafariLooseShader(tabHarness), false);
   await check('native shared controls first-click', () => checkSafariControls(tabHarness));

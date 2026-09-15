@@ -60,6 +60,7 @@ import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasVie
 import CanvasEditableText from '@/components/CanvasEditableText';
 import { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
+import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
@@ -6716,7 +6717,7 @@ export default function ShaderLabStudio({
     const offset = (logoLayers.length % 8) * 28;
     const layer: CompositionLogoLayer = {
       appearance: { ...DEFAULT_LOGO_APPEARANCE },
-      color: '#FFFFFF',
+      color: canvasInsertionColors().color,
       id,
       name: number === 1 ? 'Brand mark' : `Brand mark ${number}`,
       opacity: 1,
@@ -6733,12 +6734,13 @@ export default function ShaderLabStudio({
   async function addLogoFiles(files: FileList | null) {
     const images = Array.from(files ?? []);
     if (images.length === 0) return;
+    const { color } = canvasInsertionColors();
     try {
       const converted = await convertedAssetLibrary.importFiles(images, 2048);
       const nextLayers = converted.map((asset, index): CompositionLogoLayer => {
       return {
         appearance: { ...DEFAULT_LOGO_APPEARANCE },
-        color: '#FFFFFF',
+        color,
         convertedAssetId: asset.id,
         id: `logo-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${index}`}`,
         name: asset.originalName,
@@ -6778,6 +6780,7 @@ export default function ShaderLabStudio({
       align: 'center',
       ...DEFAULT_TEXT_APPEARANCE,
       ...(sticker ? STICKER_TEXT_APPEARANCE : {}),
+      ...canvasInsertionColors(),
       fontSize: DEFAULT_DESIGN_LAB_FONT_SIZE,
       fontStyle: 'normal',
       id,

@@ -7,6 +7,7 @@ import { T as GTText } from 'gt-next';
 import { Clapperboard, Download } from '@/components/ui/SolidIcons';
 
 import CanvasViewport from '@/components/CanvasViewport';
+import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
@@ -1760,6 +1761,11 @@ function AnimationStudio({
       label = `New frame ${number}`;
     }
     const id = `text-${lines.length}`;
+    const { color } = canvasInsertionColors();
+    setFrameSettings((current) => ({
+      ...current,
+      [id]: { ...createDefaultFrameSettings(frameResolutionSettings), foreground: color },
+    }));
     setTextFrames([...lines, label].join('\n'));
     setMode('sequence');
     setSelectedTransitionIndex(null);
