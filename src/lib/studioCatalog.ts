@@ -111,10 +111,13 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
   },
   {
     category: 'Foundations',
-    description: 'Compose type, marks, images, stickers, effects, and live shaders across export-ready artboards.',
+    description: 'Explore with loose layers on an open canvas, then frame type, images, stickers, effects, and shaders into export-ready artboards.',
     id: 'material',
     keywords: [
       'design lab',
+      'infinite canvas',
+      'loose layers',
+      'frame selection',
       'composition',
       'playground',
       'typography',

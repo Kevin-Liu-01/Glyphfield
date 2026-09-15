@@ -49,6 +49,7 @@ describe repository contribution.
 - `src/components/AnimationStudio.tsx` — frame/timing/audio motion workspace.
 - `src/lib/canvasDocument.ts` — portable scene graph and mutation/history model.
 - `src/lib/designLabDocument.ts` — Design Lab ↔ CanvasDocument adapter.
+- `src/lib/designWorkspace.ts` + `CONTEXT.md` — open canvas ownership, world-space placement, and artboard/output vocabulary.
 - `src/lib/agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts` — public agent
   manifest, catalogs, validation, generation, and examples.
 - `src/lib/studioAutomation.ts` — `window.glyphfield.studio` runtime contract.

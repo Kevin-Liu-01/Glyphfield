@@ -1,0 +1,128 @@
+import type { CanvasTextAlign, CanvasTextWrap } from './canvasText';
+
+type TextTypography = {
+  align: CanvasTextAlign;
+  fontFamily: string;
+  fontSize: string;
+  fontStyle: 'normal' | 'italic';
+  fontWeight: number;
+  lineHeight: number;
+  tracking: number;
+  wrap: CanvasTextWrap;
+};
+
+/** One typography contract for the editable canvas and browser-native layout. */
+export function canvasTextTypography(options: TextTypography) {
+  return {
+    fontFamily: options.fontFamily,
+    fontSize: options.fontSize,
+    fontStyle: options.fontStyle,
+    fontWeight: String(options.fontWeight),
+    fontKerning: 'normal' as const,
+    // View/export scale must not select a different variable-font optical size.
+    fontOpticalSizing: 'none' as const,
+    justifyContent: options.align === 'left' ? 'flex-start' : options.align === 'right' ? 'flex-end' : 'center',
+    letterSpacing: `${options.tracking}em`,
+    lineHeight: String(options.lineHeight),
+    overflowWrap: options.wrap === 'wrap' ? 'anywhere' as const : 'normal' as const,
+    textAlign: options.align,
+    whiteSpace: options.wrap === 'wrap' ? 'pre-wrap' as const : 'pre' as const,
+  };
+}
+
+type NativeTextLine = { value: string; x: number; baseline: number };
+export type NativeCanvasTextLayout = {
+  lines: NativeTextLine[];
+  height: number;
+  offsetY: number;
+};
+
+const layouts = new Map<string, NativeCanvasTextLayout>();
+let observedFonts: FontFaceSet | undefined;
+
+function textLines(text: HTMLElement, origin: DOMRect, ascent: number): NativeTextLine[] {
+  const lines: NativeTextLine[] = [];
+  const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    // Read where the browser placed the text, including hyphen/CJK/NBSP breaks,
+    // blank lines, and hanging whitespace. Never re-wrap or rewrite paragraphs.
+    const value = node.textContent!;
+    for (let index = 0; index < value.length; index += 1) {
+      range.setStart(node, index);
+      range.setEnd(node, index + 1);
+      const rect = range.getBoundingClientRect();
+      if (!rect.height) continue;
+      const baseline = rect.top - origin.top + ascent;
+      const x = rect.left - origin.left;
+      const previous = lines.at(-1);
+      if (previous && Math.abs(previous.baseline - baseline) < 0.5) {
+        previous.value += value[index];
+        previous.x = Math.min(previous.x, x);
+      } else {
+        lines.push({ value: value[index], x, baseline });
+      }
+    }
+  }
+  return lines;
+}
+
+function nativeTextAscent(host: HTMLElement, typography: ReturnType<typeof canvasTextTypography>): number {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'all:initial;position:absolute;left:0;top:0;white-space:pre;';
+  Object.assign(probe.style, typography);
+  probe.style.whiteSpace = 'pre';
+  const sample = document.createTextNode('Mg');
+  const baseline = document.createElement('i');
+  baseline.style.cssText = 'all:initial;display:inline-block;width:0;height:0;vertical-align:baseline;';
+  probe.append(sample, baseline);
+  host.append(probe);
+  const range = document.createRange();
+  range.selectNode(sample);
+  // Unlike Canvas TextMetrics, the inline marker exposes the browser's actual
+  // fractional baseline, without resolution-dependent ascent rounding.
+  return baseline.getBoundingClientRect().top - range.getBoundingClientRect().top;
+}
+
+/** Browser renderer boundary. Measure in authored pixels, never export pixels. */
+export function layoutNativeCanvasText(options: Omit<TextTypography, 'fontSize'> & {
+  boxHeight: number;
+  boxWidth: number;
+  fontSize: number;
+  value: string;
+}): NativeCanvasTextLayout {
+  if (observedFonts !== document.fonts) {
+    observedFonts = document.fonts;
+    layouts.clear();
+    observedFonts?.addEventListener('loadingdone', () => layouts.clear());
+    observedFonts?.addEventListener('loadingerror', () => layouts.clear());
+  }
+  const key = JSON.stringify(options);
+  const cached = layouts.get(key);
+  if (cached) return cached;
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  host.style.cssText = 'all:initial;position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;display:grid;place-items:center;contain:layout style;';
+  host.style.width = `${options.boxWidth}px`;
+  host.style.height = `${options.boxHeight}px`;
+  const text = document.createElement('span');
+  text.style.cssText = 'all:initial;display:flex;width:100%;min-width:0;min-height:1em;align-items:center;overflow:visible;word-break:normal;';
+  const typography = canvasTextTypography({ ...options, fontSize: `${options.fontSize}px` });
+  Object.assign(text.style, typography);
+  // Same native insertion as CanvasEditableText, including trailing newlines.
+  text.innerText = options.value;
+  host.append(text);
+  document.body.append(host);
+  try {
+    const origin = host.getBoundingClientRect();
+    const bounds = text.getBoundingClientRect();
+    const ascent = nativeTextAscent(host, typography);
+    const layout = { lines: textLines(text, origin, ascent), height: bounds.height, offsetY: bounds.top - origin.top };
+    // Motion/effect frames reuse layout; loaded/replaced fonts invalidate it.
+    if (layouts.size >= 128) layouts.delete(layouts.keys().next().value!);
+    layouts.set(key, layout);
+    return layout;
+  } finally {
+    host.remove();
+  }
+}

@@ -188,12 +188,11 @@ import {
 } from '@/lib/brandIdentity';
 import {
   canvasTextCharacters,
-  canvasTextLineX,
-  layoutCanvasTextBlock,
   trackedTextWidth,
   type CanvasTextAlign,
   type CanvasTextWrap,
 } from '@/lib/canvasText';
+import { canvasTextTypography, layoutNativeCanvasText } from '@/lib/canvasTextLayout';
 import {
   canvasToImageBlob,
   encodeCanvasGif,
@@ -342,6 +341,9 @@ import {
   TEXT_EFFECT_PRESETS,
   type TextEffectSettings,
 } from '@/lib/textEffects';
+
+import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerGeometry, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
+import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
 
 type ShaderRatio = StudioArtboardPresetId | 'custom';
 type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
@@ -535,6 +537,7 @@ type DesignArtboardSnapshot = {
 };
 
 type DesignArtboard = {
+  displayScale?: number;
   id: DesignArtboardId;
   name: string;
   snapshot: DesignArtboardSnapshot;
@@ -544,8 +547,23 @@ type DesignArtboard = {
 
 type DesignArtboardWorkspaceSource = {
   activeArtboardId?: DesignArtboardId;
+  activeSurfaceId?: string;
   artboards?: DesignArtboard[];
+  canvas?: DesignArtboard;
 };
+
+function emptyDesignCanvas(): DesignArtboard {
+  return {
+    id: DESIGN_CANVAS_ID, name: 'Canvas', x: 0, y: 0,
+    snapshot: {
+      assets: [], backgroundColor: '#FFFFFF', dimensions: { ...DESIGN_CANVAS_DIMENSIONS },
+      effectLayers: [], groups: [], layerOrder: [], layerShaders: {}, logos: [],
+      ratio: 'wide', shaderLayers: [], textLayers: [],
+      shaderSequence: { ...DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS, targetLayerId: null },
+      timeline: { frame: 0, paused: true, timeMs: 0 },
+    },
+  };
+}
 
 type DesignCanvasHistoryEntry = {
   artboards: DesignArtboard[];
@@ -563,8 +581,6 @@ type DesignCanvasHistoryState = {
 };
 
 const DEFAULT_DESIGN_ARTBOARD_ID = 'artboard-main' as DesignArtboardId;
-const DESIGN_WORKSPACE_WIDTH = 2_800;
-const DESIGN_WORKSPACE_HEIGHT = 1_800;
 
 function resolvedDesignArtboardName(name: string | undefined): string {
   return name?.trim() || 'Untitled artboard';
@@ -719,22 +735,8 @@ function studioDimensionsForRatio(ratio: ShaderRatio): StudioArtboardDimensions 
   return preset ?? STUDIO_ARTBOARD_PRESETS[0];
 }
 
-function designArtboardDisplaySize(dimensions: StudioArtboardDimensions): StudioArtboardDimensions {
-  const scale = Math.min(720 / dimensions.width, 520 / dimensions.height);
-  return {
-    height: Math.round(dimensions.height * scale),
-    width: Math.round(dimensions.width * scale),
-  };
-}
-
-function designArtboardWorkspaceSize(artboards: readonly DesignArtboard[]): { height: number; width: number } {
-  return artboards.reduce((workspace, artboard) => {
-    const size = designArtboardDisplaySize(artboard.snapshot.dimensions);
-    return {
-      height: Math.max(workspace.height, artboard.y + size.height + 360),
-      width: Math.max(workspace.width, artboard.x + size.width + 360),
-    };
-  }, { height: DESIGN_WORKSPACE_HEIGHT, width: DESIGN_WORKSPACE_WIDTH });
+function designArtboardDisplaySize(dimensions: StudioArtboardDimensions, displayScale?: number): StudioArtboardDimensions {
+  return designSurfaceSize(dimensions, displayScale);
 }
 
 function restoreDesignArtboardWorkspace(
@@ -749,8 +751,8 @@ function restoreDesignArtboardWorkspace(
       ...artboard,
       name: resolvedDesignArtboardName(artboard.name),
       snapshot: cloneArtboardSnapshot(artboard.snapshot),
-      x: Math.max(80, artboard.x),
-      y: Math.max(96, artboard.y),
+      x: artboard.x,
+      y: artboard.y,
     }];
   });
   const activeArtboardId = incomingArtboards.some(({ id }) => id === workspace?.activeArtboardId)
@@ -767,6 +769,7 @@ function restoreDesignArtboardWorkspace(
         x: 280,
         y: 240,
       } satisfies DesignArtboard];
+  if (!artboards.some(({ id }) => id === DESIGN_CANVAS_ID)) artboards.push(emptyDesignCanvas());
   return { activeArtboardId, artboards };
 }
 
@@ -782,7 +785,7 @@ const DESIGN_ARTBOARD_TOUR_STEPS = [
     title: 'Arrange the workspace',
   },
   {
-    description: 'Layers can sit beyond an artboard edge while you explore. Only the portion inside the active artboard is included when you export.',
+    description: 'Click empty canvas to add loose ideas. Drag layers out of an artboard or back into one. Frame selection turns loose layers into an output; project files save everything.',
     Icon: Frame,
     title: 'Work beyond the frame',
   },
@@ -1575,6 +1578,7 @@ function validateCompositionLayers(composition: DesignLabCompositionSource['comp
 
 function isInvalidWorkspaceArtboard(artboard: DesignArtboard): boolean {
   return !artboard?.id?.startsWith('artboard-')
+    || (artboard.displayScale !== undefined && (!Number.isFinite(artboard.displayScale) || artboard.displayScale <= 0))
     || typeof artboard.name !== 'string'
     || !Number.isFinite(artboard.x)
     || !Number.isFinite(artboard.y)
@@ -1625,6 +1629,17 @@ function parseCompositionSource(source: string): DesignLabCompositionSource {
       ? parseDesignLabCanvasDocument(source)
       : sourceRoot
   ) as DesignLabCompositionSource;
+  if (parsed.workspace) {
+    const canvas = parsed.workspace.canvas;
+    if (canvas && (canvas.id !== DESIGN_CANVAS_ID || canvas.x !== 0 || canvas.y !== 0
+      || canvas.snapshot?.dimensions.width !== DESIGN_CANVAS_DIMENSIONS.width
+      || canvas.snapshot?.dimensions.height !== DESIGN_CANVAS_DIMENSIONS.height || canvas.displayScale !== undefined)) {
+      throw new TypeError('The canvas coordinate space is fixed; move its layers instead.');
+    }
+    parsed.workspace = unpackDesignWorkspace(parsed.workspace) as DesignArtboardWorkspaceSource;
+    delete parsed.workspace.canvas;
+    delete parsed.workspace.activeSurfaceId;
+  }
   if (!parsed?.composition) throw new TypeError('A composition object is required.');
   validateCompositionLayers(parsed.composition);
   validateCompositionMetadata(parsed);
@@ -1921,42 +1936,7 @@ function InspectorTextArea({
 }
 
 function layerGeometry(layerId: CanvasLayerId, canvas: StudioArtboardDimensions): LayerGeometry {
-  if (isShaderLayerId(layerId)) {
-    return {
-      baseHeight: canvas.height,
-      baseWidth: canvas.width,
-      baseX: 0,
-      baseY: 0,
-    };
-  }
-  if (isTextLayerId(layerId)) {
-    const baseWidth = canvas.width * 0.72;
-    const baseHeight = canvas.height * 0.25;
-    return {
-      baseHeight,
-      baseWidth,
-      baseX: (canvas.width - baseWidth) / 2,
-      baseY: (canvas.height - baseHeight) / 2,
-    };
-  }
-  if (isLogoLayerId(layerId)) {
-    const baseWidth = canvas.width * 0.42;
-    const baseHeight = canvas.height * 0.32;
-    return {
-      baseHeight,
-      baseWidth,
-      baseX: (canvas.width - baseWidth) / 2,
-      baseY: (canvas.height - baseHeight) / 2,
-    };
-  }
-  const baseWidth = canvas.width * 0.34;
-  const baseHeight = canvas.height * 0.38;
-  return {
-    baseHeight,
-    baseWidth,
-    baseX: (canvas.width - baseWidth) / 2,
-    baseY: (canvas.height - baseHeight) / 2,
-  };
+  return designLayerGeometry(layerId, canvas);
 }
 
 const PRIMARY_CONTROLS: readonly {
@@ -2664,7 +2644,6 @@ export function paintDesignLabTextLayer({
   // Match the canvas's cqw sizing in authored coordinates. Output-height rounding
   // and an export-only minimum must never change the font or its line breaks.
   const fontSize = resolveDesignLabFontSize(layer, canvasHeight) * width / canvasWidth;
-  const lineHeight = fontSize * layer.lineHeight;
   const spacing = layer.tracking * fontSize;
   const fontWeight = resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight);
   const fontFamily = `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`;
@@ -2673,24 +2652,25 @@ export function paintDesignLabTextLayer({
   const supportsNativeLetterSpacing = typeof context.letterSpacing === 'string';
   if (supportsNativeLetterSpacing) context.letterSpacing = `${spacing}px`;
   const measureText = (text: string) => context.measureText(text).width;
-  const textLayout = layoutCanvasTextBlock({
-    boxHeight: box.height,
-    boxWidth: box.width,
-    fontSize,
-    letterSpacing: spacing,
-    lineHeight,
-    measureLine: supportsNativeLetterSpacing ? measureText : undefined,
-    measureText,
+  const outputScale = width / canvasWidth;
+  const textLayout = layoutNativeCanvasText({
+    align: layer.align,
+    boxHeight: box.height / outputScale,
+    boxWidth: box.width / outputScale,
+    fontFamily,
+    fontSize: resolveDesignLabFontSize(layer, canvasHeight),
+    fontStyle: layer.fontStyle ?? 'normal',
+    fontWeight,
+    lineHeight: layer.lineHeight,
+    tracking: layer.tracking,
     value: layer.value,
     wrap: layer.wrap,
   });
   const { lines } = textLayout;
-  const textBox = { ...box, height: textLayout.height, y: box.y + textLayout.offsetY };
+  const textBox = { ...box, height: textLayout.height * outputScale, y: box.y + textLayout.offsetY * outputScale };
   const metrics = context.measureText('Mg');
   const ascent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent || fontSize * 0.8;
   const descent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent || fontSize * 0.2;
-  const lineBoxBaseline = (lineHeight - ascent - descent) / 2 + ascent;
-  const firstBaseline = textBox.y + textLayout.lineOffsetY + lineBoxBaseline;
   let materialLayer: HTMLCanvasElement | null = null;
   let pattern: CanvasPattern | null = null;
   if (application) {
@@ -2748,11 +2728,11 @@ export function paintDesignLabTextLayer({
   };
   const paintTextLines = (target: CanvasRenderingContext2D, mode: 'fill' | 'stroke') => {
     configureTextContext(target);
-    lines.forEach((line, lineIndex) => {
-      const baseline = firstBaseline + lineIndex * lineHeight;
+    lines.forEach(({ value: line, x, baseline: nativeBaseline }) => {
+      const baseline = box.y + nativeBaseline * outputScale;
+      const lineX = box.x + x * outputScale;
       if (supportsNativeLetterSpacing) {
         const lineWidth = measureText(line);
-        const lineX = canvasTextLineX(layer.align, box.x, box.width, lineWidth);
         if (mode === 'stroke') target.strokeText(line, lineX, baseline);
         else {
           target.fillText(line, lineX, baseline);
@@ -2762,14 +2742,14 @@ export function paintDesignLabTextLayer({
       }
       const characters = canvasTextCharacters(line);
       const lineWidth = trackedTextWidth(line, measureText, spacing);
-      let cursor = canvasTextLineX(layer.align, box.x, box.width, lineWidth);
+      let cursor = lineX;
       characters.forEach((character) => {
         if (mode === 'stroke') target.strokeText(character, cursor, baseline);
         else target.fillText(character, cursor, baseline);
         cursor += measureText(character) + spacing;
       });
       if (mode === 'fill') {
-        paintDecorations(target, canvasTextLineX(layer.align, box.x, box.width, lineWidth), baseline, lineWidth);
+        paintDecorations(target, lineX, baseline, lineWidth);
       }
     });
   };
@@ -2829,6 +2809,7 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 }
 
 type DesignAutomationHandlers = {
+  workspaceAction: (action: string, input: unknown) => Promise<unknown>;
   prepareCompositionSource: () => Promise<string>;
   prepareProjectFile: () => Promise<ExportPreviewAsset>;
   pauseShaderHistory: () => void;
@@ -2863,7 +2844,15 @@ function designAutomationSeekTime(input: unknown): number {
   return (input as { timeMs: number }).timeMs;
 }
 
+function designWorkspaceActionInput(input: unknown) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Workspace actions require an input object.');
+  const request = input as { target?: unknown; layerIds?: unknown; placement?: unknown };
+  if (Object.keys(request).some((key) => !['target', 'layerIds', 'placement'].includes(key))) throw new TypeError('Unknown workspace action field.');
+  return request;
+}
+
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
+  if (action.startsWith('design.workspace.')) return handlers.workspaceAction(action, input);
   switch (action) {
     case 'design.frame.capture':
       return handlers.prepareCompositionSource();
@@ -3181,17 +3170,18 @@ function CanvasTextLayerContent({
         style={{
           caretColor: appearance.color,
           color: appearance.color,
-          fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`,
-          fontSize: `${fontSizeCqw}cqw`,
-          fontStyle: layer.fontStyle ?? 'normal',
-          fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
-          justifyContent: layer.align === 'left' ? 'flex-start' : layer.align === 'right' ? 'flex-end' : 'center',
-          letterSpacing: `${layer.tracking}em`,
-          lineHeight: layer.lineHeight,
+          ...canvasTextTypography({
+            align: layer.align,
+            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, Arial, sans-serif`,
+            fontSize: `${fontSizeCqw}cqw`,
+            fontStyle: layer.fontStyle ?? 'normal',
+            fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
+            lineHeight: layer.lineHeight,
+            tracking: layer.tracking,
+            wrap: layer.wrap,
+          }),
           mixBlendMode: application ? shaderBlendStyle(application.blendMode) : undefined,
           opacity: appearance.opacity * (application?.opacity ?? 1),
-          overflowWrap: layer.wrap === 'wrap' ? 'anywhere' : 'normal',
-          textAlign: layer.align,
           textDecorationColor: appearance.color,
           textDecorationLine: designLabTextDecorationLine(layer),
           textDecorationThickness: 'from-font',
@@ -3200,7 +3190,6 @@ function CanvasTextLayerContent({
           WebkitTextStroke: appearance.outlineEnabled
             ? `${appearance.outlineWidth}px ${appearance.outlineColor}`
             : undefined,
-          whiteSpace: layer.wrap === 'wrap' ? 'pre-wrap' : 'pre',
           ...textEffectCssStyle(appearance.textEffect, appearance.color, materialImage),
         }}
         value={layer.value}
@@ -5034,6 +5023,8 @@ export default function ShaderLabStudio({
   const [exporting, setExporting] = useState<'gif' | 'jpg' | 'mp4' | 'png' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [imageDropActive, setImageDropActive] = useState(false);
+  const [pendingLayerDrop, setPendingLayerDrop] = useState<{ targetId: DesignArtboardId; layerId: CanvasLayerId } | null>(null);
+  const canvasInsertionPointRef = useRef<{ x: number; y: number } | null>(null);
   const [imageImportState, setImageImportState] = useState<ImageImportState>({ message: '', status: 'idle' });
   const [imageImportOpen, setImageImportOpen] = useState(false);
   const [imagePlacementMode, setImagePlacementMode] = useState<ImageAssetPlacementMode>('image');
@@ -5067,7 +5058,7 @@ export default function ShaderLabStudio({
     },
     x: 280,
     y: 240,
-  }]);
+  }, emptyDesignCanvas()]);
   const [workspaceTourOpen, setWorkspaceTourOpen] = useStudioDraft(
     identity.id,
     tool.id,
@@ -5247,10 +5238,12 @@ export default function ShaderLabStudio({
   );
   const designHistorySignatureRef = useCommittedRef(designHistorySignature);
   const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
+  const editingCanvas = activeArtboardId === DESIGN_CANVAS_ID;
+  const outputArtboards = workspaceArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID);
   const activeArtboardRawName = activeArtboard?.name ?? '';
   const workspaceSize = useMemo(
-    () => designArtboardWorkspaceSize(workspaceArtboards),
-    [workspaceArtboards]
+    () => ({ width: 1, height: 1 }),
+    []
   );
   const selectedCanvasLayerIds = useMemo(
     () => storedSelectedCanvasLayerIds.filter((id) => canvasLayerIdSet.has(id)),
@@ -5303,10 +5296,7 @@ export default function ShaderLabStudio({
     title: `${identity.name} ${tool.name}`,
     updatedAt: compositionDocumentCreatedAt,
     width: canvasDimensions.width,
-    workspace: {
-      activeArtboardId,
-      artboards: workspaceArtboards,
-    },
+    workspace: packDesignWorkspace(workspaceArtboards, activeArtboardId),
   }), [
     activeArtboardId,
     canvasBackground,
@@ -5776,6 +5766,146 @@ export default function ShaderLabStudio({
     setArtboardFocusRequest((current) => ({ id, revision: (current?.revision ?? 0) + 1 }));
   }
 
+  function canvasInsertionTransform() {
+    if (!editingCanvas) return { x: 0, y: 0 };
+    if (canvasInsertionPointRef.current) return canvasInsertionPointRef.current;
+    const viewport = stageRef.current?.closest('.canvas-viewport-scroll')?.getBoundingClientRect();
+    const stage = stageRef.current?.getBoundingClientRect();
+    if (!viewport || !stage || !stage.width) return { x: 0, y: 0 };
+    return {
+      x: (viewport.left + viewport.width / 2 - stage.left) / stage.width * canvasDimensions.width - canvasDimensions.width / 2,
+      y: (viewport.top + viewport.height / 2 - stage.top) / stage.height * canvasDimensions.height - canvasDimensions.height / 2,
+    };
+  }
+
+  function activateCanvasAtPoint(point: { x: number; y: number }) {
+    const workspace = studioRootRef.current?.querySelector('.design-artboard-workspace');
+    const rect = workspace?.getBoundingClientRect();
+    if (workspace instanceof HTMLElement && rect) {
+      const scale = rect.width / workspace.offsetWidth;
+      const unitScale = designSurfaceSize(DESIGN_CANVAS_DIMENSIONS).width / DESIGN_CANVAS_DIMENSIONS.width;
+      canvasInsertionPointRef.current = {
+        x: (point.x - rect.left) / scale / unitScale - DESIGN_CANVAS_DIMENSIONS.width / 2,
+        y: (point.y - rect.top) / scale / unitScale - DESIGN_CANVAS_DIMENSIONS.height / 2,
+      };
+    }
+    deselectCanvasLayers();
+    return activateArtboard(DESIGN_CANVAS_ID);
+  }
+
+  async function moveLayersToSurface(targetId: DesignArtboardId, ids = selectedCanvasLayerIds, placeBeside = false, newArtboard?: DesignArtboard) {
+    if (!ids.length || targetId === activeArtboardIdRef.current || artboardOperationRef.current) return false;
+    artboardOperationRef.current = true;
+    try {
+      const captured = await captureArtboardBeforeLeaving();
+      const surfaces = newArtboard ? [...workspaceArtboardsRef.current, newArtboard] : workspaceArtboardsRef.current;
+      const from = surfaces.find(({ id }) => id === captured.artboardId)!;
+      const to = surfaces.find(({ id }) => id === targetId);
+      if (!to) throw new Error('That destination is no longer available.');
+      const moving = new Set(ids);
+      const snapshot = captured.snapshot;
+      const anchored = reanchorDesignLabClipboardSnapshot(snapshot,
+        to.snapshot.timeline.timeMs ?? to.snapshot.timeline.frame * 1000 / normalizedExportSettings.fps) as unknown as DesignArtboardSnapshot;
+      const offset = placeBeside && targetId === DESIGN_CANVAS_ID
+        ? { x: designArtboardDisplaySize(snapshot.dimensions, from.displayScale).width + 64, y: 0 } : { x: 0, y: 0 };
+      const occupied = new Set(to.snapshot.layerOrder);
+      const idMap = new Map(ids.map((id) => [id, occupied.has(id)
+        ? `${id.split('-')[0]}-${globalThis.crypto.randomUUID()}` as CanvasLayerId : id]));
+      const transfer = <T extends { id: CanvasLayerId; transform: CanvasLayerTransform }>(layers: T[]): T[] => layers
+        .filter(({ id }) => moving.has(id))
+        .map((layer) => ({ ...reparentDesignLayer(layer, from, to, offset), id: idMap.get(layer.id)! as T['id'] }));
+      const kept = <T extends { id: string }>(layers: T[]) => layers.filter(({ id }) => !moving.has(id as CanvasLayerId));
+      const source: DesignArtboardSnapshot = {
+        ...snapshot, assets: kept(snapshot.assets), logos: kept(snapshot.logos),
+        shaderLayers: kept(snapshot.shaderLayers), textLayers: kept(snapshot.textLayers),
+        layerOrder: kept(snapshot.layerOrder.map((id) => ({ id }))).map(({ id }) => id),
+        layerShaders: Object.fromEntries(Object.entries(snapshot.layerShaders).filter(([id]) => !moving.has(id as CanvasLayerId))),
+        groups: snapshot.groups.map((group) => ({ ...group, layerIds: group.layerIds.filter((id) => !moving.has(id)) })).filter(({ layerIds }) => layerIds.length > 1),
+        shaderSequence: { ...snapshot.shaderSequence,
+          targetLayerId: snapshot.shaderSequence.targetLayerId && moving.has(snapshot.shaderSequence.targetLayerId)
+            ? null : snapshot.shaderSequence.targetLayerId },
+      };
+      const destination: DesignArtboardSnapshot = {
+        ...to.snapshot,
+        assets: [...to.snapshot.assets, ...transfer(snapshot.assets)],
+        logos: [...to.snapshot.logos, ...transfer(snapshot.logos)],
+        shaderLayers: [...to.snapshot.shaderLayers, ...transfer(anchored.shaderLayers)],
+        textLayers: [...to.snapshot.textLayers, ...transfer(snapshot.textLayers)],
+        layerOrder: [...to.snapshot.layerOrder, ...snapshot.layerOrder.filter((id) => moving.has(id as CanvasLayerId)).map((id) => idMap.get(id as CanvasLayerId)!)],
+        layerShaders: { ...to.snapshot.layerShaders, ...Object.fromEntries(Object.entries(anchored.layerShaders)
+          .filter(([id]) => moving.has(id as CanvasLayerId)).map(([id, value]) => [idMap.get(id as CanvasLayerId), value])) },
+        groups: [...to.snapshot.groups, ...snapshot.groups.filter((group) => group.layerIds.every((id) => moving.has(id)))
+          .map((group) => ({ ...group, id: `group-${globalThis.crypto.randomUUID()}` as CompositionLayerGroupId, layerIds: group.layerIds.map((id) => idMap.get(id)!) }))],
+      };
+      // Ownership changes can remove or introduce the sequence's target. Use
+      // the editor's resolver before taking the hydration checkpoint, otherwise
+      // the normalized live state never matches and remains an inert preview.
+      for (const surface of [source, destination]) {
+        surface.shaderSequence = resolveShaderSequencePresentation(
+          surface.shaderLayers, surface.shaderSequence, normalizeShaderSequenceSettings(surface.shaderSequence)
+        ).settings;
+      }
+      // Converter caches belong to an exact stack, not to the destination surface.
+      source.effectLayers = source.effectLayers.map((layer) => ({ ...layer, frameSnapshot: undefined }));
+      destination.effectLayers = destination.effectLayers.map((layer) => ({ ...layer, frameSnapshot: undefined }));
+      const next = surfaces.map((surface) => surface.id === from.id ? { ...surface, snapshot: source }
+        : surface.id === to.id ? { ...surface, snapshot: destination } : surface);
+      applyActiveArtboard({ ...to, snapshot: destination }, next, false);
+      const nextIds = [...idMap.values()];
+      setSelectedCanvasLayerIds(nextIds);
+      setSelectedLayerId(nextIds.at(-1) ?? null);
+      announceCanvasClipboard(`Moved ${ids.length} layer${ids.length === 1 ? '' : 's'} to ${to.name}`);
+      setExportError(null);
+      return true;
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The layers could not be moved.');
+      return false;
+    } finally {
+      artboardOperationRef.current = false;
+    }
+  }
+
+  function finishLayerMove(layerId: CanvasLayerId, point: { x: number; y: number }) {
+    const target = [...outputArtboards].reverse().find((surface) => {
+      const rect = studioRootRef.current?.querySelector(`[data-artboard-id="${CSS.escape(surface.id)}"]`)?.getBoundingClientRect();
+      return rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+    });
+    const targetId = target?.id ?? DESIGN_CANVAS_ID;
+    if (targetId !== activeArtboardId) setPendingLayerDrop({ targetId, layerId });
+  }
+
+  async function frameCanvasSelection() {
+    if (!editingCanvas || !selectedCanvasBounds || !selectedCanvasLayerIds.length) return false;
+    const padding = 48;
+    const dimensions = normalizeStudioArtboardDimensions({
+      width: Math.ceil(selectedCanvasBounds.width + padding * 2),
+      height: Math.ceil(selectedCanvasBounds.height + padding * 2),
+    });
+    if (dimensions.width < selectedCanvasBounds.width + padding * 2 || dimensions.height < selectedCanvasBounds.height + padding * 2) {
+      setExportError('This selection exceeds the maximum artboard size. Frame a smaller group of layers.');
+      return false;
+    }
+    const surface: DesignArtboard = {
+      ...emptyDesignCanvas(), id: `artboard-${globalThis.crypto.randomUUID()}`,
+      name: `Artboard ${outputArtboards.length + 1}`, displayScale: .45,
+      x: (selectedCanvasBounds.left - padding) * .45,
+      y: (selectedCanvasBounds.top - padding) * .45,
+      snapshot: { ...emptyDesignCanvas().snapshot, dimensions, ratio: 'custom', backgroundColor: DEFAULT_CANVAS_BACKGROUND },
+    };
+    return moveLayersToSurface(surface.id, selectedCanvasLayerIds, false, surface);
+  }
+
+  useEffect(() => {
+    if (!pendingLayerDrop) return;
+    // Commit the direct-manipulation preview before capturing the source stack.
+    const frame = requestAnimationFrame(() => {
+      setPendingLayerDrop(null);
+      const ids = selectedCanvasLayerIds.includes(pendingLayerDrop.layerId) ? selectedCanvasLayerIds : [pendingLayerDrop.layerId];
+      void moveLayersToSurface(pendingLayerDrop.targetId, ids);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingLayerDrop]);
+
   async function captureArtboardBeforeLeaving() {
     const artboardId = activeArtboardIdRef.current;
     const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame()));
@@ -5838,8 +5968,9 @@ export default function ShaderLabStudio({
   }
 
   function nextArtboardPosition(nextDimensions: StudioArtboardDimensions) {
-    const column = workspaceArtboardsRef.current.length % 3;
-    const row = Math.floor(workspaceArtboardsRef.current.length / 3);
+    const count = workspaceArtboardsRef.current.filter(({ id }) => id !== DESIGN_CANVAS_ID).length;
+    const column = count % 3;
+    const row = Math.floor(count / 3);
     const size = designArtboardDisplaySize(nextDimensions);
     return {
       x: 280 + column * Math.max(816, size.width + 96),
@@ -5872,7 +6003,8 @@ export default function ShaderLabStudio({
       } satisfies DesignArtboardSnapshot;
       const nextArtboard: DesignArtboard = {
         id,
-        name: duplicate ? `${sourceArtboard?.name ?? 'Artboard'} copy` : `Artboard ${currentArtboards.length + 1}`,
+        displayScale: duplicate ? sourceArtboard?.displayScale : undefined,
+        name: duplicate ? `${sourceArtboard?.name ?? 'Artboard'} copy` : `Artboard ${currentArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID).length + 1}`,
         snapshot,
         ...nextArtboardPosition(snapshot.dimensions),
       };
@@ -5891,6 +6023,7 @@ export default function ShaderLabStudio({
   }
 
   function removeActiveArtboard() {
+    if (activeArtboardIdRef.current === DESIGN_CANVAS_ID) return;
     const currentArtboards = workspaceArtboardsRef.current;
     if (currentArtboards.length <= 1) return;
     const currentIndex = currentArtboards.findIndex(({ id }) => id === activeArtboardIdRef.current);
@@ -5909,6 +6042,7 @@ export default function ShaderLabStudio({
   }
 
   function renameActiveArtboard(name: string) {
+    if (activeArtboardIdRef.current === DESIGN_CANVAS_ID) return;
     const nextName = name.trimStart().slice(0, 48);
     const nextArtboards = workspaceArtboardsRef.current.map((artboard) => (
       artboard.id === activeArtboardIdRef.current ? { ...artboard, name: nextName } : artboard
@@ -5918,6 +6052,7 @@ export default function ShaderLabStudio({
   }
 
   function updateActiveArtboardDimensions(dimensions: StudioArtboardDimensions) {
+    if (activeArtboardIdRef.current === DESIGN_CANVAS_ID) return;
     const next = normalizeStudioArtboardDimensions(dimensions, canvasDimensions);
     const preset = studioArtboardPresetForSize(next.width, next.height);
     setCanvasDimensions(next);
@@ -5925,11 +6060,12 @@ export default function ShaderLabStudio({
   }
 
   function arrangeArtboards() {
-    const layout = arrangeCanvasFrames(workspaceArtboardsRef.current.map((artboard) => ({
+    const layout = arrangeCanvasFrames(workspaceArtboardsRef.current.filter(({ id }) => id !== DESIGN_CANVAS_ID).map((artboard) => ({
       artboard,
-      ...designArtboardDisplaySize(artboard.snapshot.dimensions),
+      ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
     })));
-    const nextArtboards = layout.map(({ artboard, x, y }) => ({ ...artboard, x, y }));
+    const nextArtboards = [...layout.map(({ artboard, x, y }) => ({ ...artboard, x, y })),
+      ...workspaceArtboardsRef.current.filter(({ id }) => id === DESIGN_CANVAS_ID)];
     workspaceArtboardsRef.current = nextArtboards;
     setArtboards(nextArtboards);
     setWorkspaceFitRevision((revision) => revision + 1);
@@ -5940,9 +6076,9 @@ export default function ShaderLabStudio({
     activateArtboard(id, true);
   }
 
-  function translateArtboard(id: DesignArtboardId, deltaX: number, deltaY: number, minY = 96) {
+  function translateArtboard(id: DesignArtboardId, deltaX: number, deltaY: number, minY = -Infinity) {
     const nextArtboards = workspaceArtboardsRef.current.map((artboard) => artboard.id === id
-      ? translateCanvasFrame(artboard, { deltaX, deltaY, minX: 80, minY })
+      ? translateCanvasFrame(artboard, { deltaX, deltaY, minX: -Infinity, minY })
       : artboard);
     workspaceArtboardsRef.current = nextArtboards;
     setArtboards(nextArtboards);
@@ -5991,8 +6127,7 @@ export default function ShaderLabStudio({
     let deltaX = 0;
     let deltaY = 0;
     const dragHandle = shell;
-    const artboardScale = shell.getBoundingClientRect().width / designArtboardDisplaySize(artboard.snapshot.dimensions).width;
-    const minimumVisibleY = Math.max(96, Math.ceil(36 / Math.max(0.01, artboardScale)));
+    const artboardScale = shell.getBoundingClientRect().width / designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale).width;
     let moved = false;
     let frame = 0;
     dragHandle.setPointerCapture(pointerId);
@@ -6000,8 +6135,8 @@ export default function ShaderLabStudio({
     function updatePosition(clientX: number, clientY: number) {
       if (!moved && Math.hypot(clientX - startX, clientY - startY) < 3) return;
       moved = true;
-      deltaX = Math.max(80 - artboard.x, (clientX - startX) / Math.max(0.01, artboardScale));
-      deltaY = Math.max(minimumVisibleY - artboard.y, (clientY - startY) / Math.max(0.01, artboardScale));
+      deltaX = (clientX - startX) / Math.max(0.01, artboardScale);
+      deltaY = (clientY - startY) / Math.max(0.01, artboardScale);
       shell!.dataset.moving = 'true';
     }
     const move = (moveEvent: PointerEvent) => {
@@ -6040,7 +6175,7 @@ export default function ShaderLabStudio({
       // Commit geometry before capturing. The latest committed callback then
       // captures the same source revision, rather than invalidating its own drag.
       if (moved) flushSync(() => {
-        const moved = translateArtboard(artboard.id, deltaX, deltaY, minimumVisibleY);
+        const moved = translateArtboard(artboard.id, deltaX, deltaY);
         if (moved && (Math.abs(deltaX) >= 0.5 || Math.abs(deltaY) >= 0.5)) {
           announceCanvasClipboard(`Moved ${moved.name} to ${moved.x}, ${moved.y} · autosaving`);
         }
@@ -6510,7 +6645,7 @@ export default function ShaderLabStudio({
       }),
       id,
       name: `Canvas shader ${number}`,
-      transform: { ...DEFAULT_LAYER_TRANSFORM },
+      transform: { ...DEFAULT_LAYER_TRANSFORM, ...canvasInsertionTransform() },
       visible: true,
     };
     setShaderLayers((current) => [...current, layer]);
@@ -6524,6 +6659,7 @@ export default function ShaderLabStudio({
   }
 
   function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
+    if (editingCanvas) { setExportError('Frame your selection to apply a composition-wide converter.'); return; }
     const id = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
     const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
     const number = effectLayers.filter((layer) => layer.settings.kind === kind).length + 1;
@@ -6584,7 +6720,7 @@ export default function ShaderLabStudio({
       id,
       name: number === 1 ? 'Brand mark' : `Brand mark ${number}`,
       opacity: 1,
-      transform: { ...DEFAULT_LAYER_TRANSFORM, x: offset, y: offset },
+      transform: { ...DEFAULT_LAYER_TRANSFORM, ...(editingCanvas ? canvasInsertionTransform() : { x: offset, y: offset }) },
       url: builtInLogo,
       visible: true,
     };
@@ -6650,7 +6786,7 @@ export default function ShaderLabStudio({
       name: sticker ? `Text sticker ${nextNumber}` : `Text ${nextNumber}`,
       strikethrough: false,
       tracking: -0.06,
-      transform: { ...DEFAULT_TEXT_LAYER_TRANSFORM, ...placement },
+      transform: { ...DEFAULT_TEXT_LAYER_TRANSFORM, ...(editingCanvas ? canvasInsertionTransform() : placement) },
       underline: false,
       value: sticker
         ? nextNumber === 1 ? identity.shortName : `Sticker ${nextNumber}`
@@ -6749,6 +6885,7 @@ export default function ShaderLabStudio({
   }, []);
 
   const placeBrandAssets = useCallback(async (assets: readonly BrandAsset[]) => {
+    const insertion = canvasInsertionTransform();
     const placementMode = imagePlacementModeRef.current;
     const usedNames = new Set(compositionAssets.map(({ name }) => name));
     const geometry = layerGeometry('asset-import' as AssetLayerId, canvasDimensions);
@@ -6783,8 +6920,8 @@ export default function ShaderLabStudio({
           canvasWidth: canvasDimensions.width,
           imageHeight: image.naturalHeight,
           imageWidth: image.naturalWidth,
-          x: (column - (columns - 1) / 2) * 44,
-          y: (row - (rows - 1) / 2) * 36,
+          x: insertion.x + (column - (columns - 1) / 2) * 44,
+          y: insertion.y + (row - (rows - 1) / 2) * 36,
         }),
         url: asset.path,
         visible: true,
@@ -6797,7 +6934,7 @@ export default function ShaderLabStudio({
     setSelectedLayerId(nextAssets.at(-1)?.id ?? null);
     setSelectedCanvasLayerIds(nextAssets.map(({ id }) => id));
     return { failedCount: results.length - nextAssets.length, nextAssets };
-  }, [canvasDimensions.height, canvasDimensions.width, compositionAssets, ratio]);
+  }, [canvasDimensions.height, canvasDimensions.width, compositionAssets, editingCanvas, ratio]);
 
   const importAndSaveImages = useCallback(async (items: readonly PendingImageImport[]) => {
     setImageImportError(null);
@@ -6898,12 +7035,14 @@ export default function ShaderLabStudio({
     forceArtboard = false,
     explicitLayerIds?: readonly CompositionLayerId[]
   ) {
-    const layerIds = forceArtboard
+    let layerIds = forceArtboard
       ? []
       : explicitLayerIds
         ? layerOrder.filter((id) => explicitLayerIds.includes(id))
         : canvasClipboardLayerIds();
     const artboardId = activeArtboardIdRef.current;
+    if (artboardId === DESIGN_CANVAS_ID && !layerIds.length) layerIds = [...layerOrder];
+    if (artboardId === DESIGN_CANVAS_ID && !layerIds.length) throw new Error('Add or select canvas layers before copying.');
     const captured = await captureCompositionFrame();
     const portableSource = await prepareShaderFrameDocumentSource(captured);
     const portable = parseCanvasDocument(portableSource);
@@ -7023,8 +7162,8 @@ export default function ShaderLabStudio({
         ? { ...artboard, snapshot: captured.snapshot }
         : artboard
     ));
-    let x = Math.max(80, artboard.x + 48);
-    let y = Math.max(96, artboard.y + 48);
+    let x = artboard.x + 48;
+    let y = artboard.y + 48;
     while (existing.some((artboard) => Math.abs(artboard.x - x) < 24 && Math.abs(artboard.y - y) < 24)) {
       x += 48;
       y += 48;
@@ -7033,6 +7172,7 @@ export default function ShaderLabStudio({
     const nextArtboard: DesignArtboard = {
       id,
       name: nextPastedArtboardName(artboard.name),
+      displayScale: typeof artboard.displayScale === 'number' && Number.isFinite(artboard.displayScale) && artboard.displayScale > 0 ? artboard.displayScale : undefined,
       snapshot,
       x,
       y,
@@ -7116,11 +7256,16 @@ export default function ShaderLabStudio({
     }
   }, []);
 
-  function handleImageDrop(event: ReactDragEvent<HTMLElement>) {
+  async function handleImageDrop(event: ReactDragEvent<HTMLElement>) {
     if (!dataTransferHasFiles(event.dataTransfer)) return;
     event.preventDefault();
     setImageDropActive(false);
-    openImageImport(Array.from(event.dataTransfer.files));
+    const files = Array.from(event.dataTransfer.files);
+    const board = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-artboard-id]') : null;
+    const ready = board?.dataset.artboardId
+      ? await activateArtboard(board.dataset.artboardId as DesignArtboardId)
+      : await activateCanvasAtPoint({ x: event.clientX, y: event.clientY });
+    if (ready) openImageImport(files);
   }
 
   function removeAsset(id: AssetLayerId) {
@@ -8115,6 +8260,7 @@ export default function ShaderLabStudio({
   }
 
   async function exportStill(format: StillImageFormat): Promise<ExportPreviewAsset | null> {
+    if (editingCanvas) { setExportError('Select an artboard to export. Loose canvas layers are saved in your project.'); return null; }
     if (commitFocusedCanvasText()) return exportStillRef.current(format);
     if (exportJobRef.current || frameCapturePendingRef.current) return null;
     exportJobRef.current = true;
@@ -8223,6 +8369,7 @@ export default function ShaderLabStudio({
   }
 
   async function exportMotion(format: 'gif' | 'mp4', motionMode: DesignMotionMode = 'standard'): Promise<ExportPreviewAsset | null> {
+    if (editingCanvas) { setExportError('Select an artboard to export. Loose canvas layers are saved in your project.'); return null; }
     if (commitFocusedCanvasText()) return exportMotionRef.current(format, motionMode);
     return renderMotionExport(format, motionMode);
   }
@@ -8338,6 +8485,7 @@ export default function ShaderLabStudio({
   }
 
   async function exportForAutomation(request: DesignAutomationExportInput): Promise<ExportPreviewAsset> {
+    if (editingCanvas) throw new Error('Select an artboard to export. Loose canvas layers are saved in your project.');
     assertShaderWorkspaceIdle();
     const motionMode: DesignMotionMode = request.mode === 'shader-sequence' ? 'sequence' : 'standard';
     const asset = request.format === 'png' || request.format === 'jpg'
@@ -8349,6 +8497,34 @@ export default function ShaderLabStudio({
   }
 
   const designAutomationRef = useCommittedRef({
+    workspaceAction: async (action: string, input: unknown) => {
+      if (action === 'design.workspace.describe') return {
+        activeSurface: editingCanvas ? 'canvas' : activeArtboardId,
+        canvas: { layerIds: workspaceArtboards.find(({ id }) => id === DESIGN_CANVAS_ID)?.snapshot.layerOrder ?? [] },
+        artboards: outputArtboards.map(({ id, name, x, y, snapshot }) => ({ id, name, x, y, ...snapshot.dimensions, layerIds: snapshot.layerOrder })),
+      };
+      if (action === 'design.workspace.frameSelection') {
+        if (!await frameCanvasSelection()) throw new Error('Select loose canvas layers before framing them.');
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        return null;
+      }
+      const request = designWorkspaceActionInput(input);
+      const target = request.target === 'canvas' ? DESIGN_CANVAS_ID : request.target;
+      if (typeof target !== 'string' || !workspaceArtboards.some(({ id }) => id === target)) throw new TypeError('Choose canvas or an existing artboard id.');
+      if (action === 'design.workspace.activate') {
+        if (!await activateArtboard(target as DesignArtboardId, target !== DESIGN_CANVAS_ID)) throw new Error('The editing surface could not be activated.');
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        return null;
+      }
+      if (action !== 'design.workspace.move') throw new TypeError(`Unknown workspace action: ${action}`);
+      if (!Array.isArray(request.layerIds) || !request.layerIds.length || request.layerIds.some((id) => typeof id !== 'string' || !isCanvasLayerId(id as CompositionLayerId) || !layerOrder.includes(id as CompositionLayerId))) {
+        throw new TypeError('layerIds must identify movable layers on the active surface.');
+      }
+      if (request.placement !== undefined && request.placement !== 'preserve' && request.placement !== 'beside') throw new TypeError('placement must be preserve or beside.');
+      if (!await moveLayersToSurface(target as DesignArtboardId, [...new Set(request.layerIds)] as CanvasLayerId[], request.placement === 'beside')) throw new Error('The layers could not be moved.');
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      return null;
+    },
     applyCompositionSource,
     compositionSetupSource,
     prepareCompositionSource,
@@ -8539,9 +8715,12 @@ export default function ShaderLabStudio({
         artboards={workspaceArtboards}
         className='design-lab-artboard-bar'
         dimensions={canvasDimensions}
+        unframed={editingCanvas}
         duplicateLabel='Duplicate active artboard'
         extraActions={(
           <>
+            {editingCanvas && selectedCanvasLayerIds.length ? <Button aria-label='Create artboard from selection' onClick={() => void frameCanvasSelection()} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
+            <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={() => { deselectCanvasLayers(); void activateArtboard(DESIGN_CANVAS_ID); }} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
             <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
           </>
         )}
@@ -8553,7 +8732,7 @@ export default function ShaderLabStudio({
         onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
         removeLabel='Delete active artboard'
         selectLabel='Active design artboard'
-        summary={<span aria-live='polite'>{canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${workspaceArtboards.length} artboard${workspaceArtboards.length === 1 ? '' : 's'}`}</span>}
+        summary={<span aria-live='polite'>{canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`}</span>}
       />
     );
   }
@@ -8778,6 +8957,7 @@ export default function ShaderLabStudio({
   }
 
   function renderArtboard(artboard: DesignArtboard) {
+    if (artboard.id === DESIGN_CANVAS_ID) return renderLooseCanvas(artboard);
     const selected = artboard.id === activeArtboardId;
     const pending = pendingArtboardApplyRef.current;
     const selectedReady = selected && (
@@ -8785,7 +8965,7 @@ export default function ShaderLabStudio({
       || (pending.id === artboard.id && pending.signature === currentArtboardSignature)
     );
     const snapshot = selectedReady ? currentArtboardSnapshot : artboard.snapshot;
-    const size = designArtboardDisplaySize(snapshot.dimensions);
+    const size = designArtboardDisplaySize(snapshot.dimensions, artboard.displayScale);
     const ratioPresentation: DesignRatioOption = RATIO_OPTIONS.find(({ value }) => value === snapshot.ratio) ?? {
       ...snapshot.dimensions,
       label: 'Custom',
@@ -8877,16 +9057,49 @@ export default function ShaderLabStudio({
             backgroundColor: snapshot.backgroundColor,
           }}
         >
-          {selectedReady
+          <CanvasRenderBoundary keepAlive={selectedReady}>{() => selectedReady
             ? visibleLayerIds.map(renderStageLayer)
-            : previewLayerIds.map((layerId, index) => renderInactiveArtboardLayer(artboard, layerId, index))}
+            : previewLayerIds.map((layerId, index) => renderInactiveArtboardLayer(artboard, layerId, index))}</CanvasRenderBoundary>
           {selectedReady ? <span aria-live='polite' className='sr-only'>
             {canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name)}
           </span> : null}
-          <div className='shader-lab-v2-stage-shade' aria-hidden='true' />
         </div>
       </article>
     );
+  }
+
+  function renderLooseCanvas(surface: DesignArtboard) {
+    const ready = editingCanvas && activeArtboardSnapshotReady;
+    const snapshot = ready ? currentArtboardSnapshot : surface.snapshot;
+    const size = designArtboardDisplaySize(snapshot.dimensions);
+    const layers = [...snapshot.assets, ...snapshot.logos, ...snapshot.textLayers, ...snapshot.shaderLayers];
+    return <div className='design-loose-canvas' key={surface.id} style={{ left: surface.x, top: surface.y, ...size }}>
+      <div className='shader-lab-v2-stage design-loose-stage' data-canvas-surface='canvas'
+        data-testid={ready ? 'shader-lab-live-stage' : undefined} onKeyDown={ready ? handleCanvasAssemblyKeyDown : undefined}
+        ref={ready ? stageRef : undefined}>
+        {ready ? visibleLayerIds.map(renderStageLayer) : snapshot.layerOrder.map((id, index) => {
+          const layer = layers.find((layer) => layer.id === id);
+          const box = layer ? designLayerWorldBounds(surface, layer) : { x: 0, y: 0, ...size };
+          return <CanvasRenderBoundary key={id} bounds={{ left: box.x, top: box.y, width: box.width, height: box.height }}>
+            {() => renderInactiveArtboardLayer(surface, id, index)}
+          </CanvasRenderBoundary>;
+        })}
+        {layers.filter(({ visible }) => visible).map((layer, index) => {
+          const box = designLayerWorldBounds(surface, layer);
+          const style = { left: box.x - surface.x, top: box.y - surface.y, width: box.width, height: box.height, zIndex: 1000 + index };
+          return ready ? <span key={layer.id} className='design-loose-fit-marker' data-canvas-fit-target='true'
+            data-canvas-focus-target={index === 0 ? 'true' : undefined} style={style} />
+            : <button aria-label={`Select ${layer.name} on canvas`} className='design-loose-hit-target' data-canvas-fit-target='true'
+              data-canvas-interactive key={layer.id} style={style} type='button' onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.stopPropagation();
+                pendingArtboardLayerRef.current = { artboardId: DESIGN_CANVAS_ID, layerId: layer.id };
+                void activateArtboard(DESIGN_CANVAS_ID);
+              }} />;
+        })}
+        {layers.length === 0 && ready ? <span className='design-loose-fit-marker' data-canvas-focus-target='true' style={{ width: size.width, height: size.height }} /> : null}
+      </div>
+    </div>;
   }
 
   function renderStageLayer(layerId: CompositionLayerId, index: number) {
@@ -8904,6 +9117,7 @@ export default function ShaderLabStudio({
           className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
           key={layerId}
           label={shaderLayer.name}
+          onMoveComplete={(point) => finishLayerMove(layerId, point)}
           layerId={layerId}
           movementBounds={movementBoundsFor(layerId)}
           onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
@@ -8962,6 +9176,7 @@ export default function ShaderLabStudio({
           className='shader-lab-v2-composition-layer'
           key={layerId}
           label={logoLayer.name}
+          onMoveComplete={(point) => finishLayerMove(layerId, point)}
           layerId={layerId}
           movementBounds={movementBoundsFor(layerId)}
           onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
@@ -9003,6 +9218,7 @@ export default function ShaderLabStudio({
           className='shader-lab-v2-composition-layer'
           key={layerId}
           label={textLayer.name}
+          onMoveComplete={(point) => finishLayerMove(layerId, point)}
           layerId={layerId}
           movementBounds={movementBoundsFor(layerId)}
           onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
@@ -9043,6 +9259,7 @@ export default function ShaderLabStudio({
         cropEditing={cropEditing}
         key={layerId}
         label={asset.name}
+        onMoveComplete={(point) => finishLayerMove(layerId, point)}
         layerId={layerId}
         movementBounds={movementBoundsFor(layerId)}
         onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
@@ -9328,6 +9545,14 @@ export default function ShaderLabStudio({
         count={selectedCanvasLayerIds.length}
         cropEditing={cropEditing}
         groupName={selectedCanvasGroup?.name}
+        placementSection={{ label: 'Move to', items: [
+          ...(editingCanvas ? [{ id: 'frame-selection', icon: <Frame aria-hidden='true' />, label: 'Frame selection', onSelect: () => void frameCanvasSelection() }] : []),
+          ...(!editingCanvas ? [{ id: 'move-to-canvas', icon: <Move aria-hidden='true' />, label: 'Move to canvas', onSelect: () => void moveLayersToSurface(DESIGN_CANVAS_ID, selectedCanvasLayerIds, true) }] : []),
+          ...outputArtboards.filter(({ id }) => id !== activeArtboardId).map((board) => ({
+            id: `move-to-${board.id}`, icon: <Frame aria-hidden='true' />, label: board.name,
+            onSelect: () => void moveLayersToSurface(board.id),
+          })),
+        ] }}
         onAlign={alignCanvasAssembly}
         onBringForward={() => moveCanvasSelection(1)}
         onBringToFront={() => moveCanvasSelectionToEdge('front')}
@@ -9416,18 +9641,23 @@ export default function ShaderLabStudio({
             initialPan={{ x: 0, y: -40 }}
             initialViewReady={compositionAutosaveState !== 'loading' && Boolean(artboardFocusRequest)}
             initialZoom={40}
-            maxZoom={220}
-            minZoom={10}
-            navigationItems={workspaceArtboards.map((artboard) => ({
+            maxZoom={800}
+            minZoom={5}
+            navigationItems={workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
+              ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
+                .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
+                  ...designLayerWorldBounds(artboard, layer), active: editingCanvas && selectedCanvasLayerIds.includes(layer.id) }))
+              : [{
               id: artboard.id,
               label: artboard.name,
               x: artboard.x,
               y: artboard.y,
-              ...designArtboardDisplaySize(artboard.snapshot.dimensions),
+              ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
               active: artboard.id === activeArtboardId,
-            }))}
+            }])}
             onArrangeArtboards={arrangeArtboards}
             onDeselect={deselectCanvasLayers}
+            onBackgroundClick={(point) => { void activateCanvasAtPoint(point); }}
             stageClassName='design-artboard-viewport-stage'
             toolId={tool.id}
           >
@@ -9520,7 +9750,7 @@ export default function ShaderLabStudio({
               <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer' role='group'>
                 <button aria-label='Add text layer' onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span>Text</span></button>
                 <button aria-label='Add shader layer' onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
-                <button aria-label='Add effect layer' onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
+                <button aria-label='Add effect layer' disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
                 <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
                 <button aria-label='Add sticker layer' onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span>Sticker</span></button>
                 <button aria-label='Add image layer' className='shader-lab-v2-dock-add-image' onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
@@ -9556,7 +9786,7 @@ export default function ShaderLabStudio({
           />
 
           <ConditionalRender when={!selectedLayerId}>{() => <>
-            <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-composition-setup design-composition-inspector' meta={`${canvasDimensions.width} × ${canvasDimensions.height}`} title='Composition'>
+            {!editingCanvas ? <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-composition-setup design-composition-inspector' meta={`${canvasDimensions.width} × ${canvasDimensions.height}`} title='Composition'>
               <ArtboardSetupFields
                 artboardName={activeArtboardRawName}
                 className='design-artboard-inline-setup'
@@ -9579,11 +9809,13 @@ export default function ShaderLabStudio({
                 <div><dt>Shaders</dt><dd>{shaderLayers.filter(({ visible }) => visible).length}</dd></div>
                 <div><dt>Motion</dt><dd>{paused ? 'Paused' : 'Live'}</dd></div>
               </dl>
-            </LabInspectorSection>
+            </LabInspectorSection> : <LabInspectorSection title='Canvas' meta='Loose layers'>
+              <p className='design-canvas-hint'>Explore anywhere. Drag a layer into an artboard when it belongs in an output. Only artboards export; the whole canvas saves with your project.</p>
+            </LabInspectorSection>}
 
-            <LabInspectorSection className='shader-lab-v2-control-section design-artboard-inspector' meta={`${workspaceArtboards.length} total`} title='Artboards'>
+            <LabInspectorSection className='shader-lab-v2-control-section design-artboard-inspector' meta={`${outputArtboards.length} total`} title='Artboards'>
               <div className='design-artboard-list' aria-label='Workspace artboards' role='group'>
-                {workspaceArtboards.map((artboard, index) => (
+                {outputArtboards.map((artboard, index) => (
                   <button aria-pressed={artboard.id === activeArtboardId} key={artboard.id} onClick={() => {
                     deselectCanvasLayers();
                     activateArtboard(artboard.id, true);
@@ -9596,9 +9828,9 @@ export default function ShaderLabStudio({
               </div>
               <div className='design-artboard-inspector-actions'>
                 <button onClick={() => addArtboard(false)} type='button'><Plus aria-hidden='true' />New artboard</button>
-                <button onClick={() => addArtboard(true)} type='button'><Copy aria-hidden='true' />Duplicate</button>
+                <button disabled={editingCanvas} onClick={() => addArtboard(true)} type='button'><Copy aria-hidden='true' />Duplicate</button>
                 <button onClick={arrangeArtboards} type='button'><LayoutGrid aria-hidden='true' />Arrange all</button>
-                <button disabled={workspaceArtboards.length <= 1} onClick={removeActiveArtboard} type='button'><Trash2 aria-hidden='true' />Delete</button>
+                <button disabled={editingCanvas} onClick={removeActiveArtboard} type='button'><Trash2 aria-hidden='true' />Delete</button>
                 <button aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} type='button'><span aria-hidden='true'>?</span>Artboard guide</button>
               </div>
             </LabInspectorSection>
@@ -9608,7 +9840,7 @@ export default function ShaderLabStudio({
               <div className='shader-lab-v2-composition-add' aria-label='Add composition layer' role='group'>
                 <button onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.filter(({ kind }) => kind !== 'sticker').length} layers</small></span></button>
                 <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
-                <button onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
+                <button disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
                 <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
                 <button onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span><strong>Sticker</strong><small>{compositionAssets.filter(({ kind }) => kind === 'sticker').length + textLayers.filter(({ kind }) => kind === 'sticker').length} layers</small></span></button>
                 <button onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.filter(({ kind }) => kind !== 'sticker').length} placed · {identity.assets.length + identity.proofAssets.length} saved</small></span></button>

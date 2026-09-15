@@ -23,6 +23,7 @@ export type StudioArtboardBarProps = {
   dimensions: { height: number; width: number };
   duplicateLabel: string;
   extraActions?: ReactNode;
+  unframed?: boolean;
   onAdd: () => void;
   onDimensionsChange: (dimensions: { height: number; width: number }) => void;
   onDuplicate: () => void;
@@ -46,6 +47,7 @@ export default function StudioArtboardBar({
   dimensions,
   duplicateLabel,
   extraActions,
+  unframed = false,
   onAdd,
   onDimensionsChange,
   onDuplicate,
@@ -92,13 +94,13 @@ export default function StudioArtboardBar({
               value={active?.id}
             />
           </div>
-          <ArtboardSizeMenu
+          {!unframed ? <ArtboardSizeMenu
             artboardName={active?.name ?? untitledName}
             className='studio-artboard-dimensions animation-artboard-dimensions'
             dimensions={dimensions}
             onArtboardNameChange={onRename}
             onDimensionsChange={onDimensionsChange}
-          />
+          /> : <span className='studio-artboard-summary'>Loose layers · no bounds</span>}
         </div>
       </div>
       <span className='studio-artboard-summary animation-artboard-summary' data-slot='artboard-summary'>{summary}</span>
@@ -107,10 +109,10 @@ export default function StudioArtboardBar({
           <Button aria-label={addLabel} onClick={onAdd} size='sm' title={addLabel} type='button' variant='outline'>
             <Plus aria-hidden='true' /><span>Add</span>
           </Button>
-          <Button aria-label={duplicateLabel} onClick={onDuplicate} size='icon-sm' title='Duplicate artboard' type='button' variant='outline'>
+          <Button aria-label={duplicateLabel} disabled={unframed} onClick={onDuplicate} size='icon-sm' title='Duplicate artboard' type='button' variant='outline'>
             <Copy aria-hidden='true' />
           </Button>
-          <Button aria-label={removeLabel} disabled={artboards.length <= 1} onClick={onRemove} size='icon-sm' title='Delete artboard' type='button' variant='outline'>
+          <Button aria-label={removeLabel} disabled={unframed || artboards.length <= 1} onClick={onRemove} size='icon-sm' title='Delete artboard' type='button' variant='outline'>
             <Trash2 aria-hidden='true' />
           </Button>
         </div>
@@ -121,20 +123,20 @@ export default function StudioArtboardBar({
         ) : null}
       </div>
       <StudioContextMenu
-        detail={active ? `${dimensions.width} × ${dimensions.height}` : undefined}
+        detail={unframed ? 'Loose layers · no bounds' : active ? `${dimensions.width} × ${dimensions.height}` : undefined}
         label={active?.name ?? contextMenuLabel}
         onClose={() => setMenuPosition(null)}
         position={menuPosition}
         sections={[
           {
             items: [
-              { icon: <Copy aria-hidden='true' />, id: `duplicate-${contextTrigger}`, label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
+              { disabled: unframed, icon: <Copy aria-hidden='true' />, id: `duplicate-${contextTrigger}`, label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
               { icon: <Plus aria-hidden='true' />, id: `new-${contextTrigger}`, label: 'New artboard', onSelect: onAdd },
             ],
           },
           {
             items: [
-              { danger: true, disabled: artboards.length <= 1, icon: <Trash2 aria-hidden='true' />, id: `delete-${contextTrigger}`, label: 'Delete artboard', onSelect: onRemove },
+              { danger: true, disabled: unframed || artboards.length <= 1, icon: <Trash2 aria-hidden='true' />, id: `delete-${contextTrigger}`, label: 'Delete artboard', onSelect: onRemove },
             ],
           },
         ]}

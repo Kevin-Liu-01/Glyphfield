@@ -6,6 +6,23 @@ import { paintDesignLabTextLayer } from '@/components/ShaderLabStudio';
 import { createBrandIdentity } from '@/lib/brandIdentity';
 import { DEFAULT_TEXT_EFFECT } from '@/lib/textEffects';
 
+// happy-dom has no layout engine. Keep these painter tests independent of font
+// rasterization; the native layout/pixel parity contract runs in all three real
+// engines in e2e/text-export-parity.spec.ts.
+vi.mock('@/lib/canvasTextLayout', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/canvasTextLayout')>(),
+  layoutNativeCanvasText: ({ boxHeight, boxWidth, fontSize, lineHeight }: {
+    boxHeight: number; boxWidth: number; fontSize: number; lineHeight: number;
+  }) => {
+    const height = fontSize * lineHeight * 2;
+    const offsetY = (Math.max(boxHeight, fontSize) - height) / 2;
+    return { height, offsetY, lines: ['AB', 'CD'].map((value, index) => ({
+      value, x: (boxWidth - 110) / 2, width: 110,
+      baseline: offsetY + (fontSize * lineHeight - 100) / 2 + index * fontSize * lineHeight + 80,
+    })) };
+  },
+}));
+
 describe('Design Lab export text geometry', () => {
   function paint(boxHeight: number, gradient = false, typography: {
     fontSize?: number;
@@ -62,7 +79,8 @@ describe('Design Lab export text geometry', () => {
     const lineBaseline = (lineHeight - 80 - 20) / 2 + 80;
     const firstBaseline = 300 + (Math.max(height, 900 * 0.17 * 0.6) - lineHeight * 2) / 2 + lineBaseline;
     expect(context.fillText).toHaveBeenNthCalledWith(1, 'AB', 465, firstBaseline);
-    expect(context.fillText).toHaveBeenNthCalledWith(2, 'CD', 465, firstBaseline + lineHeight);
+    expect(vi.mocked(context.fillText).mock.calls[1].slice(0, 2)).toEqual(['CD', 465]);
+    expect(vi.mocked(context.fillText).mock.calls[1][2]).toBeCloseTo(firstBaseline + lineHeight, 10);
     expect(context.scale).not.toHaveBeenCalled();
   });
 

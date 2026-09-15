@@ -1,6 +1,6 @@
 ---
 title: Design Lab
-description: Compose type, marks, images, shaders, stickers, converters, and motion on one export-ready canvas.
+description: Explore on an open canvas, then frame type, marks, images, shaders, stickers, converters, and motion into exportable artboards.
 icon: Blocks
 ---
 
@@ -22,9 +22,13 @@ Design Lab is Glyphfield's general composition workspace. It combines the shared
   <DocsFeature icon='artifact' label='04 / Output' title='Preview and export agree'>PNG, JPG, GIF, and MP4 use the same source document, layer order, colors, and live material state.</DocsFeature>
 </DocsFeatureGrid>
 
-The canvas itself is the output surface. The surrounding dotted workspace, library, inspector, zoom controls, and layer dock are editing chrome and never appear in an export.
+The **canvas holds ideas; artboards define outputs**. Click empty canvas (or choose **Canvas** in the bar) to add loose text, images, stickers, marks, or shaders. They use the same editing controls as artboard layers. Drag a layer out of an artboard to make it loose; drop its center inside an artboard to move it into that output. The selection menu also offers **Move to canvas** and named artboard destinations. Composition-wide converters stay with their artboard.
 
-On entry, the restored active artboard is fitted into view. Use **Fit canvas** to see all artboards, or open **Artboard guide** when you need help. View changes do not reposition your layers.
+Select loose layers and choose **Frame selection** to create an artboard around them at their existing on-canvas size. The frame adds padding without rewriting text or stretching images. Artboards and loose layers can use negative coordinates; the workspace has no outer movement boundary. Scroll to zoom (5–800%), drag empty space to pan, or hold Space to pan over content. **Fit canvas** and the map include loose layers as well as artboards. Offscreen inactive artboards and loose-layer previews release their renderers; selection, editing, and export retain the active renderers.
+
+Only the selected artboard exports to PNG, JPG, GIF, or MP4. Loose layers are never silently included, and attempting to export the open canvas asks you to select or create an artboard. Saved designs and project files preserve **both** the canvas and every artboard, including projects with no artboards. Library, inspector, zoom controls, and the layer dock never appear in an export.
+
+On entry, the restored editing surface is brought into view. Use **Fit canvas** to see the whole workspace, or open **Artboard guide** when you need help. View changes do not reposition your layers.
 
 Open **Artboard setup** for shared presets or custom dimensions. The portrait row adds **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160), alongside the existing Portrait (4:5) and Story (9:16) sizes. The selected dimensions are preserved in source, saved designs, and exports.
 

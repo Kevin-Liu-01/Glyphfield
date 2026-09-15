@@ -8,10 +8,11 @@ import { useMountEffect } from './useMountEffect';
  */
 export function useViewportActivity(
   containerRef: RefObject<Element | null>,
-  { initialActive = false, respectDocumentVisibility = true, rootMargin }: {
+  { initialActive = false, respectDocumentVisibility = true, rootMargin, rootSelector }: {
     initialActive?: boolean;
     respectDocumentVisibility?: boolean;
     rootMargin: string;
+    rootSelector?: string;
   }
 ): boolean {
   const [active, setActive] = useState(initialActive);
@@ -37,7 +38,7 @@ export function useViewportActivity(
         intersecting = entry?.isIntersecting ?? false;
         syncVisibility();
       },
-      { rootMargin }
+      { rootMargin, ...(rootSelector ? { root: container.closest(rootSelector) } : {}) }
     );
 
     observer.observe(container);

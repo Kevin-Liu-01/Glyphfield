@@ -792,13 +792,29 @@
 .design-artboard-workspace {
   position: relative;
   display: block;
-  min-width: 2800px;
-  min-height: 1800px;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   overflow: visible;
   container-type: normal;
   background: transparent;
 }
+
+.canvas-render-boundary { position: absolute; inset: 0; overflow: clip; }
+.canvas-render-boundary[data-unframed='true'] { overflow: visible; pointer-events: none; }
+.canvas-render-observer { position: absolute; inset: 0; pointer-events: none; }
+.design-loose-canvas { position: absolute; z-index: 3; pointer-events: none; }
+.design-loose-canvas > .design-loose-stage {
+  width: 100%; height: 100%; max-width: none; overflow: visible;
+  background: transparent; border: 0; box-shadow: none; border-radius: 0;
+  pointer-events: none;
+}
+.design-loose-stage .editable-canvas-layer:not([inert]) { pointer-events: auto; }
+.design-loose-fit-marker, .design-loose-hit-target { position: absolute; background: none; border: 0; padding: 0; }
+.design-loose-fit-marker { pointer-events: none; }
+.design-loose-hit-target { pointer-events: auto; cursor: move; }
+.design-loose-hit-target:hover, .design-loose-hit-target:focus-visible { outline: calc(1px * var(--canvas-zoom-inverse, 1)) solid #5b7cff; }
+.design-canvas-hint { color: var(--lab-muted); font-size: 12px; line-height: 1.6; }
 
 .shader-lab-v2-composer-viewport .canvas-viewport-scroll {
   background-color: hsl(var(--muted) / .32);
@@ -808,9 +824,11 @@
 }
 
 .shader-lab-v2-composer-viewport .canvas-viewport-stage.design-artboard-viewport-stage {
-  width: 2800px;
-  height: 1800px;
-  min-height: 1800px;
+  contain: layout style;
+  overflow: visible;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
 }
 
 .design-artboard-shell {
@@ -843,6 +861,7 @@
 .design-artboard-shell > .shader-lab-v2-stage {
   width: 100%;
   height: 100%;
+  border: 0;
   max-width: none;
   overflow: visible;
   border-radius: 4px;
@@ -1395,19 +1414,6 @@
 
 .shader-lab-v2-stage-logo::before {
   content: '';
-}
-
-.shader-lab-v2-stage-shade {
-  position: absolute;
-  z-index: 1000;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), inset 0 -40px 80px rgb(0 0 0 / .08);
-}
-
-.shader-lab-v2-stage-logo .shader-lab-v2-stage-shade {
-  display: none;
 }
 
 .shader-lab-v2-stage-meta {
@@ -6399,6 +6405,32 @@ html.light
   overflow-y: auto;
   border-left: 1px solid hsl(var(--border));
   background: hsl(var(--background));
+}
+
+.shader-export-stage {
+  display: grid;
+  min-width: 0;
+  min-height: 288px;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.shader-export-stage:is([data-preview-kind='image'], [data-preview-kind='video']) {
+  /* A neutral surround contrasts both white and black artwork in either theme. */
+  background: #777;
+}
+
+.shader-export-media {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(66vh, 680px);
+  object-fit: contain;
+  /* Transparency is visible only inside the artifact's actual bounds. */
+  background: repeating-conic-gradient(#ddd 0% 25%, #eee 0% 50%) 0 / 16px 16px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .18), 0 8px 28px rgb(0 0 0 / .2);
 }
 
 .shader-export-settings,

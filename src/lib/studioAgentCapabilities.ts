@@ -154,8 +154,24 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
     'blog.export.png': { description: 'Render the current blog-cover composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
   },
   material: {
+    'design.workspace.describe': {
+      description: 'Describe the open canvas, loose layer IDs, artboards, and active editing surface.',
+      input: 'No input', output: '{ activeSurface, canvas: { layerIds }, artboards: [{ id, name, x, y, width, height, layerIds }] }',
+    },
+    'design.workspace.frameSelection': {
+      description: 'Create a fitted artboard around the current loose-layer selection without changing its on-canvas scale or layout.',
+      input: 'No input; select canvas layers first using the layer controls', output: 'null',
+    },
+    'design.workspace.activate': {
+      description: 'Edit the loose canvas or an existing artboard with the shared layer controls.',
+      input: "{ target: 'canvas' | artboardId }", output: 'null',
+    },
+    'design.workspace.move': {
+      description: 'Move active layers between the canvas and artboards, preserving their world-space boxes, text layout, and appearance. IDs change only to avoid a destination collision.',
+      input: "{ target: 'canvas' | artboardId, layerIds: string[], placement?: 'preserve' | 'beside' }", output: 'null',
+    },
     'design.export': {
-      description: 'Render a still or motion artifact using the authentic Design Lab renderer.',
+      description: 'Render the selected artboard using the authentic Design Lab renderer. Loose canvas layers are not exported; select an artboard first.',
       input: "{ format: 'png' | 'jpg' | 'gif' | 'mp4', mode?: 'standard' | 'shader-sequence', download?: boolean }",
       output: EXPORT_ARTIFACT,
     },

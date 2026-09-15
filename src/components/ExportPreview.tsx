@@ -46,10 +46,10 @@ function ExportPreviewMedia({
   url: string;
 }) {
   if (kind === 'video') {
-    return <video aria-label={`${asset.format} export preview`} autoPlay className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain' controls loop muted playsInline src={url} />;
+    return <video aria-label={`${asset.format} export preview`} autoPlay className='shader-export-media' controls height={asset.height} loop muted playsInline src={url} width={asset.width} />;
   }
   if (kind === 'image') {
-    return <img alt={`${asset.format} export preview`} className='artifact-frame block max-h-[min(66vh,680px)] w-full object-contain' src={url} />;
+    return <img alt={`${asset.format} export preview`} className='shader-export-media' height={asset.height} src={url} width={asset.width} />;
   }
   if (kind === 'text') {
     return <pre className='studio-scroll-area max-h-[min(66vh,680px)] w-full overflow-auto whitespace-pre-wrap break-words border border-border bg-background p-5 font-mono text-xs leading-5'>{asset.previewText}</pre>;
@@ -317,7 +317,7 @@ export default function ExportPreview({
             />
 
             <div className='shader-export-content'>
-              <div className='grid min-h-72 min-w-0 place-items-center overflow-hidden bg-[radial-gradient(circle,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:14px_14px] p-5'>
+              <div className='shader-export-stage' data-preview-kind={previewKind}>
                 <ExportPreviewMedia asset={asset} downloadFileName={downloadFileName} kind={previewKind} url={url} />
               </div>
 

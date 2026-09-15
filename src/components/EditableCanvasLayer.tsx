@@ -304,10 +304,6 @@ function canvasLayerStyle({
   };
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function useCanvasLayerContentHeight({
   fitContentHeight,
   layerRef,
@@ -449,6 +445,7 @@ export default function EditableCanvasLayer({
   layerId,
   movementBounds = null,
   onChange,
+  onMoveComplete,
   onContextMenu,
   onDoubleClick,
   onDeselect,
@@ -476,6 +473,7 @@ export default function EditableCanvasLayer({
   layerId?: string;
   movementBounds?: CanvasLayerBounds | null;
   onChange: (transform: CanvasLayerTransform) => void;
+  onMoveComplete?: (point: { x: number; y: number }) => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDoubleClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onDeselect: () => void;
@@ -817,8 +815,8 @@ export default function EditableCanvasLayer({
     const proposedTransform = {
       ...session.startTransform,
       scale: session.startScale,
-      x: clamp(session.startX + deltaX, -canvasWidth, canvasWidth),
-      y: clamp(session.startY + deltaY, -canvasHeight, canvasHeight),
+      x: session.startX + deltaX,
+      y: session.startY + deltaY,
     };
     const movementGeometry = movementBounds ? {
       baseHeight: movementBounds.height,
@@ -872,6 +870,12 @@ export default function EditableCanvasLayer({
       directPreviewCommitPendingRef.current = usedDirectPreview;
       if (!usedDirectPreview) resizePreviewTransformRef.current = null;
       onChange(resizePreview);
+      if (session.mode === 'move' && session.moved) {
+        onMoveComplete?.({
+          x: session.parentBounds.left + (baseX + baseWidth / 2 + resizePreview.x) / canvasWidth * session.parentBounds.width,
+          y: session.parentBounds.top + (baseY + baseHeight / 2 + resizePreview.y) / canvasHeight * session.parentBounds.height,
+        });
+      }
     } else {
       clearDirectInteractionPreview();
       resizePreviewTransformRef.current = null;

@@ -140,6 +140,7 @@ export default function CanvasViewport({
   minZoom = 40,
   navigationItems,
   onArrangeArtboards,
+  onBackgroundClick,
   onDeselect,
   stageClassName = '',
   toolId,
@@ -162,6 +163,7 @@ export default function CanvasViewport({
   minZoom?: number;
   navigationItems?: readonly CanvasNavigationItem[];
   onArrangeArtboards?: () => void;
+  onBackgroundClick?: (point: { x: number; y: number }) => void;
   onDeselect?: () => void;
   stageClassName?: string;
   toolId: string;
@@ -624,6 +626,9 @@ export default function CanvasViewport({
         onPointerUp={(event) => {
           const pan = panRef.current;
           if (pan?.pointerId !== event.pointerId) return;
+          if (event.button === 0 && !spacePressed && Math.hypot(event.clientX - pan.startX, event.clientY - pan.startY) < 3) {
+            onBackgroundClick?.({ x: event.clientX, y: event.clientY });
+          }
           cancelPanFrame();
           applyStageTransform(pan.currentX, pan.currentY);
           panRef.current = null;

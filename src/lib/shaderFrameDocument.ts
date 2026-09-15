@@ -8,6 +8,7 @@ import {
   type CanvasJsonValue,
 } from './canvasDocument';
 import { imageUrlToDataUrl } from './download';
+import { packDesignWorkspaceJson, unpackDesignWorkspaceJson } from './designWorkspace';
 import { normalizeLiveMaterialFrameState, type LiveMaterialFrameState } from './liveMaterialPreview';
 import {
   isShaderFrameAssetSource,
@@ -97,7 +98,7 @@ function patchWorkspace(
   captures: ReadonlyMap<string, ShaderFrameCapture>,
   options: CaptureOptions
 ): CanvasJsonObject {
-  const workspace = asCanvasJsonObject(value) ?? {};
+  const workspace = unpackDesignWorkspaceJson(asCanvasJsonObject(value) ?? {});
   const artboards = Array.isArray(workspace.artboards) ? workspace.artboards : [];
   const nextArtboards = artboards.map((value) => {
     const artboard = asCanvasJsonObject(value);
@@ -118,7 +119,7 @@ function patchWorkspace(
       },
     };
   });
-  return { ...workspace, activeArtboardId: options.activeArtboardId, artboards: nextArtboards };
+  return packDesignWorkspaceJson({ ...workspace, activeArtboardId: options.activeArtboardId, artboards: nextArtboards });
 }
 
 /**
@@ -137,7 +138,7 @@ export function applyShaderFrameCaptures(
   if (options.timeline.timeMs !== undefined && (!Number.isFinite(options.timeline.timeMs) || options.timeline.timeMs < 0)) {
     throw new TypeError('The shader capture time must be a non-negative finite number.');
   }
-  const workspace = asCanvasJsonObject(metadata.workspace);
+  const workspace = unpackDesignWorkspaceJson(asCanvasJsonObject(metadata.workspace) ?? {});
   if (workspace?.activeArtboardId && workspace.activeArtboardId !== options.activeArtboardId) {
     throw new TypeError('The active artboard changed before its shader frames could be captured.');
   }

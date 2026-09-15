@@ -76,6 +76,36 @@ Generic actions are `source.read`, `source.apply`, `controls.list`, `control.act
 - Do not delete projects unless the user explicitly requests deletion.
 - Do not assume the drawer document is a `/api/generate` payload. Use the tool's [source format](/docs/reference/source-formats).
 
+## Canvas and artboard ownership
+
+`design.workspace.describe` returns `{ activeSurface, canvas: { layerIds }, artboards }`.
+Call `design.workspace.activate` with `{ target: 'canvas' }` or an artboard ID to
+choose where the existing layer controls and source API edit.
+
+`design.workspace.move` accepts `{ target, layerIds, placement?: 'preserve' | 'beside' }`.
+Layers must belong to the active surface. The default preserves world-space boxes
+and native text sizing; `beside` places ideas next to their source artboard when
+moving to the canvas. IDs are retained unless the destination already contains
+one (for example, a duplicated artboard). Re-read source after moving.
+
+Select loose layers using the layer controls, then invoke
+`design.workspace.frameSelection` to create an output artboard around that selection.
+This preserves on-canvas scale and moves the selected layers into the new artboard.
+
+CanvasDocument schema 2 / Design Lab metadata source 4 remains compatible with
+artboard-only projects. `metadata.designLab.workspace.canvas` stores the loose-layer
+snapshot separately from `workspace.artboards`; `activeSurfaceId: 'canvas'` means
+the active page represents those loose layers, not an output. The internal canvas
+coordinate container has a fixed origin and dimensions; its layers are unbounded.
+Preserve it, including unknown fields, rather than treating it as an artboard or
+changing its dimensions. Optional artboard `displayScale` preserves the physical
+size of a frame created around a selection and does not change export dimensions.
+
+Image and motion exports require an active artboard. `design.export.project`
+includes every artboard **and** loose canvas layer, with authorized image and font
+bytes and captured shader frames. The deterministic HTTP `design-sequence`
+contract is unchanged; use Browser actions for workspace ownership and framing.
+
 ## Persistence boundary
 
 Project identity, navigation, tabs, and most tool drafts persist in `localStorage`. Design Lab named designs, complete autosaves, and converted assets use IndexedDB with a small synchronous recovery journal where needed. The Browser API reads and mutates the same active project state. Stateless HTTP requests do not silently mutate projects; generated apply-ready documents must be passed explicitly to `applySource`.

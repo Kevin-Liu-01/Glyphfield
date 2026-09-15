@@ -9,6 +9,7 @@ import {
   type CanvasJsonObject,
 } from './canvasDocument';
 import { designLabSourceFromCanvasDocument } from './designLabDocument';
+import { DESIGN_CANVAS_ID, unpackDesignWorkspaceJson } from './designWorkspace';
 import { imageUrlToDataUrl } from './download';
 import { isShaderFrameAssetSource, resolveShaderFrameAssetSource } from './shaderFrameAssets';
 import type { PortableAssetLoader } from './portableCanvasAssets';
@@ -129,7 +130,10 @@ export function namespaceDesignLabProjectIdentity(
 function projectArtboards(document: CanvasDocument): CanvasJsonObject[] {
   designLabSourceFromCanvasDocument(document);
   const metadata = asCanvasJsonObject(document.metadata.designLab)!;
-  const workspace = asCanvasJsonObject(metadata.workspace);
+  const rawWorkspace = asCanvasJsonObject(metadata.workspace);
+  if (rawWorkspace?.artboards === undefined) return [];
+  if (!Array.isArray(rawWorkspace.artboards)) throw new TypeError('The project artboards must be an array.');
+  const workspace = unpackDesignWorkspaceJson(rawWorkspace);
   if (workspace?.artboards === undefined) return [];
   if (!Array.isArray(workspace.artboards) || workspace.artboards.length === 0) {
     throw new TypeError('The project artboards must be a non-empty array.');
@@ -263,10 +267,11 @@ export async function prepareDesignLabProjectFile(
   const source = serializeCanvasDocument(portable);
   const blob = new Blob([source], { type: 'application/json' });
   validateProjectSize(blob.size);
-  const count = artboards.length || 1;
+  const count = artboards.length ? artboards.filter(({ id }) => id !== DESIGN_CANVAS_ID).length : 1;
+  const canvas = artboards.find(({ id }) => id === DESIGN_CANVAS_ID);
   return {
     blob,
-    description: `Editable Design Lab project with ${count} artboard${count === 1 ? '' : 's'}, embedded assets, saved shader frames${identity ? ', and brand fonts' : ''}. Reopen it with Open project file in Design Lab.`,
+    description: `Editable Design Lab project with ${count} artboard${count === 1 ? '' : 's'}${canvas ? ' and loose canvas layers' : ''}, embedded assets, saved shader frames${identity ? ', and brand fonts' : ''}. Reopen it with Open project file in Design Lab.`,
     fileName: projectFileName(fileName),
     format: 'JSON',
     previewKind: 'file',

@@ -5,6 +5,7 @@ import {
   type CanvasDocument,
 } from './canvasDocument';
 import { normalizeShaderFrameSnapshot, shaderFrameCanvasAsset, type ShaderFrameSnapshot } from './shaderFrameAssets';
+import { packDesignWorkspaceJson, unpackDesignWorkspaceJson } from './designWorkspace';
 
 type SourceRecord = Record<string, unknown>;
 const compositionKeys = new WeakMap<object, Map<string, string>>();
@@ -71,7 +72,7 @@ export function applyEffectFrameCaptures(
 ): CanvasDocument {
   if (!captures.size) return document;
   const metadata = asCanvasJsonObject(document.metadata.designLab);
-  const workspace = asCanvasJsonObject(metadata?.workspace);
+  const workspace = unpackDesignWorkspaceJson(asCanvasJsonObject(metadata?.workspace) ?? {});
   const artboards = Array.isArray(workspace?.artboards) ? workspace.artboards : [];
   const active = artboards.map(asCanvasJsonObject).find((board) => board?.id === activeArtboardId);
   const snapshot = asCanvasJsonObject(active?.snapshot);
@@ -99,7 +100,7 @@ export function applyEffectFrameCaptures(
       ...document.metadata,
       designLab: {
         ...metadata,
-        workspace: {
+        workspace: packDesignWorkspaceJson({
           ...workspace,
           artboards: artboards.map((value) => value === active ? {
             ...active,
@@ -112,7 +113,7 @@ export function applyEffectFrameCaptures(
               }),
             },
           } : value),
-        },
+        }),
       },
     },
   };

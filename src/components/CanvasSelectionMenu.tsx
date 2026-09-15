@@ -40,6 +40,7 @@ type CanvasSelectionMenuProps = {
   count: number;
   cropEditing?: boolean;
   groupName?: string;
+  placementSection?: StudioContextMenuSection;
   onAlign: (alignment: CanvasLayerAlignment) => void;
   onBringForward: () => void;
   onBringToFront?: () => void;
@@ -169,6 +170,7 @@ export default function CanvasSelectionMenu({
   count,
   cropEditing = false,
   groupName,
+  placementSection,
   onAlign,
   onBringForward,
   onBringToFront,
@@ -196,6 +198,7 @@ export default function CanvasSelectionMenu({
       onClose={onClose}
       position={position}
       sections={[
+        ...(placementSection ? [placementSection] : []),
         imageMenuSection({ canCrop, cropEditing, onCrop, onResetCrop }),
         editMenuSection({ canPaste, onCopy, onCut, onDuplicate, onPaste, onSelectAll }),
         organizeMenuSection({ canGroup, canUngroup, onGroup, onUngroup }),
