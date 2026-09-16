@@ -112,7 +112,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   await expect(bar).toHaveCount(1);
   const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
-  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files, code, and export', exact: true })).toBeVisible();
   const versionsGroup = header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Design saving and versions', exact: true });
   await expect(versionsGroup).toBeVisible();
   const status = versionsGroup.locator('[data-design-version-status]');
@@ -138,7 +138,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   expect(compactStatus.trailingGap).toBeLessThanOrEqual(1);
   const sourceButton = header.getByRole('button', { name: 'Edit source code', exact: true });
   const sourceButtonBeforeEdit = (await sourceButton.boundingBox())!;
-  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export design', exact: true })).toBeVisible();
+  await expect(header.getByRole('group', { name: 'Project files, code, and export', exact: true }).getByRole('button', { name: 'Open export settings', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toHaveCount(0);
   await expect(bar.getByRole('combobox', { name: 'Active design artboard', exact: true })).toBeVisible();
   await expect(bar.locator('button[title="Open saved designs"]')).toHaveCount(0);

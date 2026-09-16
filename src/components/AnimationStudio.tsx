@@ -22,6 +22,7 @@ import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioControls from '@/components/StudioControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
 import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
+import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
@@ -2633,15 +2634,13 @@ function AnimationStudio({
         layout='balanced'
         actions={(
           <>
-          <StudioToolbarGroup label='Project files and source'>
-            <OpenProjectFileButton disabled={exportProgress !== null} onOpen={applyStudioSource} read={readAnimationProjectFile} workspaceLabel='Animation Studio' />
-            <DownloadProjectFileButton disabled={exportProgress !== null || animationSource === null} prepare={prepareProjectFile} />
-            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
-          </StudioToolbarGroup>
           <StudioToolbarGroup label='Animation saving and versions'>
             <DesignVersionHeaderControls />
           </StudioToolbarGroup>
-          <StudioToolbarGroup label='Export animation'>
+          <StudioToolbarGroup label='Project files, code, and export'>
+            <OpenProjectFileButton disabled={exportProgress !== null} onOpen={applyStudioSource} read={readAnimationProjectFile} workspaceLabel='Animation Studio' />
+            <DownloadProjectFileButton disabled={exportProgress !== null || animationSource === null} prepare={prepareProjectFile} />
+            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
             {lastExport ? <ExportPreview asset={lastExport} className='hidden xl:inline-flex' /> : null}
             <Button
               disabled={exportProgress !== null}
@@ -2661,6 +2660,7 @@ function AnimationStudio({
               <Clapperboard aria-hidden='true' />
               <T>Export MP4</T>
             </Button>
+            <StudioErrorNotice error={error} onDismiss={() => setError(null)} title='Animation action failed' />
           </StudioToolbarGroup>
           </>
         )}
@@ -2814,7 +2814,7 @@ function AnimationStudio({
               </div>
             </CanvasViewport>
 
-            <AnimationError error={error} />
+            {presentationMode ? <AnimationError error={error} /> : null}
           </div>
 
           <TimelinePanel

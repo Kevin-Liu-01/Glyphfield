@@ -127,6 +127,7 @@ import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawe
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
+import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import TextEffectThumbnail from '@/components/TextEffectThumbnail';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
@@ -5080,10 +5081,12 @@ export default function ShaderLabStudio({
   const canvasClipboardStatusTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // SVG data URLs may be percent-encoded, not base64. Both are already
+    // embedded; reprocessing them creates an endless resolved-promise loop.
     const candidates = [
       ...logoLayers.map(({ id, url }) => ({ id, url })),
       ...compositionAssets.map(({ id, url }) => ({ id, url })),
-    ].filter(({ url }) => !/^data:[^,]+;base64,/i.test(url));
+    ].filter(({ url }) => !/^data:/i.test(url));
     if (candidates.length === 0) return;
     let cancelled = false;
     void Promise.allSettled(candidates.map(async ({ id, url }) => (
@@ -5094,14 +5097,18 @@ export default function ShaderLabStudio({
         result.status === 'fulfilled' ? [result.value] : []
       )));
       if (embeddedSources.size === 0) return;
-      setLogoLayers((current) => current.map((layer) => {
-        const url = embeddedSources.get(layer.id);
-        return url && url !== layer.url ? { ...layer, url } : layer;
-      }));
-      setCompositionAssets((current) => current.map((asset) => {
-        const url = embeddedSources.get(asset.id);
-        return url && url !== asset.url ? { ...asset, url } : asset;
-      }));
+      const embed = <T extends { id: LogoLayerId | AssetLayerId; url: string }>(current: T[]): T[] => {
+        let changed = false;
+        const next = current.map((layer) => {
+          const url = embeddedSources.get(layer.id);
+          if (!url || url === layer.url) return layer;
+          changed = true;
+          return { ...layer, url };
+        });
+        return changed ? next : current;
+      };
+      setLogoLayers(embed);
+      setCompositionAssets(embed);
     });
     return () => {
       cancelled = true;
@@ -8647,15 +8654,13 @@ export default function ShaderLabStudio({
         layout='balanced'
         actions={(
           <>
-            <StudioToolbarGroup label='Project files and source'>
-              <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
-              <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
-              <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
-            </StudioToolbarGroup>
             <StudioToolbarGroup label='Design saving and versions'>
               <DesignVersionHeaderControls />
             </StudioToolbarGroup>
-            <StudioToolbarGroup label='Export design'>
+            <StudioToolbarGroup label='Project files, code, and export'>
+              <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
+              <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
+              <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
             <StudioSelect
               ariaLabel='Export size preset'
               className='studio-export-preset'
@@ -8697,7 +8702,7 @@ export default function ShaderLabStudio({
                 <Download aria-hidden='true' /><span className='responsive-toolbar-label'>Export</span>
               </Button>
             )}
-            {exportError ? <span className='max-w-44 truncate text-[10px] text-status-error' role='alert' title={exportError}>{exportError}</span> : null}
+            <StudioErrorNotice error={exportError} onDismiss={() => setExportError(null)} title='Design action failed' />
             </StudioToolbarGroup>
           </>
         )}

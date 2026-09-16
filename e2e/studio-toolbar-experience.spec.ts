@@ -31,18 +31,20 @@ for (const tool of ['animation', 'material']) {
   });
 }
 
-test('Design Lab groups project files and source before autosave and export presets', async ({ page }) => {
+test('Design Lab groups project files, code and export together after saving controls', async ({ page }) => {
   await page.goto('/studio?tool=material&project=gt');
   const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
   const actions = header.locator('[data-slot="actions"]');
-  await expect(actions.getByRole('group', { name: 'Project files and source' })).toBeVisible();
+  const files = actions.getByRole('group', { name: 'Project files, code, and export', exact: true });
+  await expect(files).toBeVisible();
+  await expect(files.getByRole('button', { name: 'Open export settings', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Open project file', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Download project file', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Edit source code' })).toBeVisible();
   await expect(header.getByRole('group', { name: 'Shader playback' })).toHaveCount(0);
   const preset = actions.getByRole('combobox', { name: 'Export size preset' });
   await preset.click();
-  await page.getByRole('option', { name: 'Large · 1280px', exact: true }).click();
+  await page.getByRole('option', { name: 'Large', exact: true }).click();
   await expect(preset).toContainText('Large');
   await expect.poll(() => page.evaluate(() => {
     const source = window.glyphfield?.studio.readSource();

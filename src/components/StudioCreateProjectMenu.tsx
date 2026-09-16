@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { useGT } from 'gt-next';
 import { Button } from '@/components/ui/Button';
-import { Film, LayoutGrid, Palette, Plus, Upload, X } from '@/components/ui/SolidIcons';
+import { Film, LayoutGrid, Palette, Plus, Upload } from '@/components/ui/SolidIcons';
+import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import StudioContextMenu, { type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
@@ -115,9 +116,6 @@ export default function StudioCreateProjectMenu({ disabled, identities, onCreate
       type='file'
     />
     {pending ? <span className='sr-only' role='status'>{gt('Preparing project…')}</span> : null}
-    {error ? <div className='studio-save-toast' role='alert'>
-      <div className='studio-save-toast-copy'><strong>{gt('Could not open project')}</strong><span>{error}</span></div>
-      <Button aria-label={gt('Dismiss project error')} onClick={() => setError(null)} size='icon-sm' type='button' variant='ghost'><X /></Button>
-    </div> : null}
+    <StudioErrorNotice error={error} onDismiss={() => setError(null)} title={gt('Could not open project')} />
   </>;
 }

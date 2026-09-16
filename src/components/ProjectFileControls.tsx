@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Download, FileJson, Upload } from '@/components/ui/SolidIcons';
 import { Button } from '@/components/ui/Button';
+import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import { downloadBlob } from '@/lib/download';
 import {
   STUDIO_PROJECT_FILE_ACCEPT,
@@ -50,11 +51,11 @@ export function DownloadProjectFileButton({
       setPending(false);
     }
   }
-  return <span className='inline-flex min-w-0 flex-col gap-1'>
+  return <span className='inline-flex min-w-0 items-center gap-1'>
     <Button aria-label='Download project file' disabled={disabled} loading={pending} onClick={() => void save()} size='sm' type='button' variant='outline'>
       <Download aria-hidden='true' /><span className='studio-toolbar-action-label'>Project file</span>
     </Button>
-    {error ? <span className='max-w-64 text-xs text-status-error' role='alert'>{error}</span> : null}
+    <StudioErrorNotice error={error} onDismiss={() => setError(null)} title='Project download failed' />
     {message ? <span className='sr-only' role='status'>{message}</span> : null}
   </span>;
 }
@@ -87,7 +88,7 @@ export function OpenProjectFileButton({
       setPending(false);
     }
   }
-  return <span className='inline-flex min-w-0 flex-col gap-1'>
+  return <span className='inline-flex min-w-0 items-center gap-1'>
     <Button aria-label='Open project file' disabled={disabled} loading={pending} onClick={() => inputRef.current?.click()} size='sm' title={`Open an editable ${workspaceLabel} project file in this workspace`} type='button' variant='outline'>
       <Upload aria-hidden='true' /><span className='studio-toolbar-action-label'>Open project</span>
     </Button>
@@ -105,7 +106,7 @@ export function OpenProjectFileButton({
       tabIndex={-1}
       type='file'
     />
-    {error ? <span className='max-w-64 text-xs text-status-error' role='alert'>{error}</span> : null}
+    <StudioErrorNotice error={error} onDismiss={() => setError(null)} title='Could not open project' />
     {message ? <span className='sr-only' role='status'>{message}</span> : null}
   </span>;
 }

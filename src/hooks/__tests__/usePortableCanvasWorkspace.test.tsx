@@ -18,6 +18,7 @@ import {
 } from '@/hooks/usePortableCanvasWorkspace';
 import { parseCanvasDocument } from '@/lib/canvasDocument';
 import { createStudioCanvasDocument } from '@/lib/studioCanvasDocument';
+import { captureStudioProjectSnapshots } from '@/lib/studioProjectSnapshots';
 
 const embeddedPng = 'data:image/png;base64,aGVsbG8=';
 
@@ -60,7 +61,7 @@ function WorkspaceHarness({
     applySource,
     document: enabled ? document : null,
     suspendAutosave,
-    workspaceKey: 'gt:test-tool',
+    workspaceKey: 'glyphfield-saved-designs-v1:gt:test-tool',
   });
   useEffect(() => {
     onWorkspace(workspace);
@@ -137,7 +138,7 @@ describe('usePortableCanvasWorkspace', () => {
     const source = workspaces.at(-1)?.source;
     expect(source).toBeTruthy();
     expect(storage.saveAutosavedDesign).toHaveBeenLastCalledWith(
-      'gt:test-tool',
+      'glyphfield-saved-designs-v1:gt:test-tool',
       source,
       '7',
       expect.any(String)
@@ -159,6 +160,21 @@ describe('usePortableCanvasWorkspace', () => {
     expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
   });
 
+  it('copies the mounted portable source before its autosave debounce and unregisters on unmount', async () => {
+    await act(async () => {
+      root.render(<WorkspaceHarness applySource={vi.fn()} onWorkspace={() => undefined} />);
+      await settle();
+    });
+    expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
+    const snapshots = await captureStudioProjectSnapshots('gt');
+    const snapshot = snapshots.get('glyphfield-saved-designs-v1:gt:test-tool')!;
+    expect(snapshot.revision).toBe('7');
+    expect(parseCanvasDocument(snapshot.source).assets['resource:placed-image'].source).toBe(embeddedPng);
+    await act(async () => { root.unmount(); await settle(); });
+    container.remove();
+    expect(await captureStudioProjectSnapshots('gt')).toEqual(new Map());
+  });
+
   it('keeps stale document snapshots out of autosave while live edits are settling', async () => {
     const workspaces: PortableCanvasWorkspace[] = [];
     await act(async () => {
@@ -176,5 +192,25 @@ describe('usePortableCanvasWorkspace', () => {
 
     expect(storage.saveAutosavedDesign).not.toHaveBeenCalled();
     expect(workspaces.at(-1)?.autosaveState).toBe('preparing');
+    const pendingCopy = expect(captureStudioProjectSnapshots('gt')).rejects.toThrow('still loading or preparing');
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    await pendingCopy;
+  });
+
+  it('waits for a debounced live edit to settle before capturing the copy', async () => {
+    await act(async () => {
+      root.render(<WorkspaceHarness applySource={vi.fn()} onWorkspace={() => undefined} suspendAutosave />);
+      await settle();
+    });
+    let completed = false;
+    const copying = captureStudioProjectSnapshots('gt').then((value) => { completed = true; return value; });
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(completed).toBe(false);
+    await act(async () => {
+      root.render(<WorkspaceHarness applySource={vi.fn()} onWorkspace={() => undefined} />);
+      await settle();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(25); });
+    expect((await copying).get('glyphfield-saved-designs-v1:gt:test-tool')?.revision).toBe('7');
   });
 });

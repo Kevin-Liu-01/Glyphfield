@@ -18,11 +18,38 @@ const SAVED_DESIGN_WORKSPACE_INDEX = 'workspaceKey';
 const AUTOSAVED_DESIGN_ID = 'autosaved-draft';
 const AUTOSAVE_RECOVERY_PREFIX = 'glyphfield-autosave-recovery-v1:';
 
-type SavedDesignRecord = {
+export type SavedDesignRecord = {
   design: SavedDesign;
   key: string;
   workspaceKey: string;
 };
+
+/** Read every tool and checkpoint in one project, including closed editors. */
+export async function loadProjectDesignRecords(identityId: string): Promise<SavedDesignRecord[]> {
+  const database = await openSavedDesignDatabase();
+  try {
+    const prefix = savedDesignStorageKey(identityId, '');
+    return await requestResult(database.transaction(SAVED_DESIGN_STORE_NAME, 'readonly')
+      .objectStore(SAVED_DESIGN_STORE_NAME).index(SAVED_DESIGN_WORKSPACE_INDEX)
+      .getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`))) as SavedDesignRecord[];
+  } finally {
+    database.close();
+  }
+}
+
+/** A project copy is all-or-nothing, never a partially written set of canvases. */
+export async function saveProjectDesignRecords(records: readonly SavedDesignRecord[]): Promise<void> {
+  if (!records.length) return;
+  const database = await openSavedDesignDatabase();
+  try {
+    const transaction = database.transaction(SAVED_DESIGN_STORE_NAME, 'readwrite');
+    const completion = transactionComplete(transaction);
+    for (const record of records) transaction.objectStore(SAVED_DESIGN_STORE_NAME).add(record);
+    await completion;
+  } finally {
+    database.close();
+  }
+}
 
 export function uniqueDesignName(designs: readonly SavedDesign[], requestedName: string): string {
   const base = requestedName.trim() || 'Untitled design';

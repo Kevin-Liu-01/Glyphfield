@@ -25,6 +25,8 @@ The project library contains three project kinds and presents them as draggable,
 
 Closing a tab only closes its view. The project remains available under **All projects**. Deleting a custom project removes its saved browser data.
 
+**Duplicate** copies the project's current work, not just its brand template: canvases and artboards, animation timelines, other tool drafts, and saved design checkpoints. Edits still waiting to autosave are included. The copy opens in a new tab and remains independent of the original. If a canvas is still loading or an asset cannot be copied, an **Error** button opens the full explanation; no empty replacement project is created. Use **+ → Use a template** when you want a fresh starting point instead.
+
 Use the **+** beside the project tabs to open **New project**:
 
 - **Start from scratch** with an empty **Design Lab** canvas, an **Animation** timeline, or a new **Brand identity**.
@@ -32,6 +34,8 @@ Use the **+** beside the project tabs to open **New project**:
 - **Import project…** to choose a `.glyphfield.json` file. Glyphfield validates the file locally and opens a new project tab in Design Lab or Animation automatically. Existing projects stay intact; invalid files show an error without creating a tab.
 
 Agents can use the same menu through accessible browser controls: click **Add brand project**, then the desired menu item. For a file chooser, provide a `File` constructed from authorized local bytes. Wait for the destination workspace to finish loading, then call `readSource()` and verify the imported layers and artboards before editing. The editor's **Open project** action remains available when you intentionally want to replace the current workspace.
+
+To copy existing work, activate **Duplicate active project**, wait for a new selected project ID and a ready source editor, then re-read the source in the copy. A successful button click alone does not mean the asynchronous copy is complete. If **Could not duplicate project: show details** appears, open it to read the failure before retrying.
 
 <DocsMedia
   alt='Glyphfield Brand identity workspace for the General Translation project'

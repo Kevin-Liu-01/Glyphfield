@@ -77,6 +77,13 @@ namespaced on import, and rejects malformed files without changing the open
 animation. These cases run through the same Chromium, WebKit, and Firefox matrix;
 they do not replace installed Safari verification.
 
+`e2e/project-duplication.spec.ts` checks that project duplication carries edited
+Design Lab and Animation work plus saved checkpoints, survives reload, and does
+not modify the original. It also checks the combined file/code/export header and
+keyboard-accessible error details in all three engines. The native counterpart is
+`GLYPHFIELD_SAFARI_ONLY='native project copy and error details' pnpm test:safari`;
+it verifies a copied canvas after reload and native click/Escape error handling.
+
 `e2e/control-interactions.spec.ts` additionally checks first-click color pickers,
 achromatic hue changes, HEX-to-picker and picker-to-select transitions, checkbox
 keyboard input, slider commits, numeric Escape, and a typed artboard size followed

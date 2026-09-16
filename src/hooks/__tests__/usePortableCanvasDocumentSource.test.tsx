@@ -17,10 +17,11 @@ vi.mock('@/lib/shaderFrameAssets', async (importOriginal) => ({
 
 import {
   usePortableCanvasDocumentSource,
-  type PortableCanvasDocumentSource,
 } from '@/hooks/usePortableCanvasDocumentSource';
 import { parseCanvasDocument, type CanvasDocument } from '@/lib/canvasDocument';
 import { createStudioCanvasDocument } from '@/lib/studioCanvasDocument';
+
+type PortableSource = ReturnType<typeof usePortableCanvasDocumentSource>;
 
 function documentWithAsset(source: string): CanvasDocument {
   return createStudioCanvasDocument({
@@ -50,7 +51,7 @@ function PortableHarness({
   onValue,
 }: {
   document: CanvasDocument | null;
-  onValue: (value: PortableCanvasDocumentSource) => void;
+  onValue: (value: PortableSource) => void;
 }) {
   const value = usePortableCanvasDocumentSource(document);
   useEffect(() => {
@@ -90,7 +91,7 @@ describe('usePortableCanvasDocumentSource', () => {
   });
 
   async function render(document: CanvasDocument | null) {
-    const values: PortableCanvasDocumentSource[] = [];
+    const values: PortableSource[] = [];
     await act(async () => {
       root.render(<PortableHarness document={document} onValue={(value) => values.push(value)} />);
       await settle();
@@ -101,7 +102,7 @@ describe('usePortableCanvasDocumentSource', () => {
   it('keeps a disabled presentation source idle without resolving assets', async () => {
     const values = await render(null);
 
-    expect(values.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready' });
+    expect(values.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready', prepareSource: expect.any(Function) });
     expect(download.imageUrlToDataUrl).not.toHaveBeenCalled();
     expect(shaderFrames.resolveShaderFrameAssetSource).not.toHaveBeenCalled();
   });
@@ -115,7 +116,7 @@ describe('usePortableCanvasDocumentSource', () => {
       finishEmbedding('data:image/png;base64,aGVsbG8=');
       await settle();
     });
-    expect(disabled.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready' });
+    expect(disabled.at(-1)).toEqual({ document: null, error: null, source: null, status: 'ready', prepareSource: expect.any(Function) });
     expect(download.imageUrlToDataUrl).toHaveBeenCalledOnce();
   });
 
@@ -139,6 +140,19 @@ describe('usePortableCanvasDocumentSource', () => {
     expect(download.imageUrlToDataUrl).toHaveBeenCalledWith('/uploads/artwork.png');
     expect(parseCanvasDocument(values.at(-1)!.source!).assets['resource:artwork']?.source)
       .toBe(embedded);
+  });
+
+  it('prepares the latest document for a project copy while its new image is still loading', async () => {
+    await render(documentWithAsset('data:image/png;base64,b2xk'));
+    let finish!: (source: string) => void;
+    download.imageUrlToDataUrl.mockReturnValue(new Promise<string>((resolve) => { finish = resolve; }));
+    const values = await render(documentWithAsset('blob:new-image'));
+    expect(values.at(-1)?.source).toBeNull();
+    const copying = values.at(-1)!.prepareSource();
+    expect(download.imageUrlToDataUrl).toHaveBeenCalledOnce();
+    await act(async () => { finish('data:image/png;base64,bmV3'); await settle(); });
+    const copy = parseCanvasDocument(await copying);
+    expect(copy.assets['resource:artwork'].source).toBe('data:image/png;base64,bmV3');
   });
 
   it('embeds durable shader frame sources through local blob storage without network requests', async () => {

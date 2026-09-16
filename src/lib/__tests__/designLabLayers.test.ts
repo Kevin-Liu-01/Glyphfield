@@ -276,7 +276,7 @@ describe('Playground optional layers', () => {
     expect(playground).toContain("className='design-lab-dock-tabs'");
     expect(playground).not.toContain('playground-workflow-tabs');
     expect(playground).toContain("metadata='Build from material to finish'");
-    expect(designLab).toContain("label='Project files and source'");
+    expect(designLab).toContain("label='Project files, code, and export'");
     expect(designLab).toContain("ariaLabel='Export size preset'");
     expect(designLab).not.toContain('Type · marks · images · live materials');
     expect(playground).toContain("label: 'Finish'");

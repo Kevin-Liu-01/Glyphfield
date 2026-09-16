@@ -52,6 +52,8 @@ import { StudioExportProgressProvider } from '@/components/StudioExportProgress'
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
+import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
+import { useCommittedRef } from '@/hooks/useCommittedRef';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioContextMenu, {
   contextMenuPositionFromElement,
@@ -64,7 +66,6 @@ import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
 import {
-  duplicateBrandIdentity,
   GT_BRAND_IDENTITY,
   hydrateBrandIdentities,
   renameBrandIdentity,
@@ -938,6 +939,10 @@ export default function StudioApp() {
   );
   const [pendingIdentities, setPendingIdentities] = useState<Record<string, BrandIdentity>>({});
   const [identitiesReady, setIdentitiesReady] = useState(false);
+  const [duplicatingProject, setDuplicatingProject] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const duplicatePendingRef = useRef(false);
+  const activateCreatedIdentityRef = useCommittedRef(activateCreatedIdentity);
   const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
   const [query, setQuery] = useState('');
@@ -1274,18 +1279,27 @@ export default function StudioApp() {
     selectIdentity(identity.id);
   }
 
-  function copyIdentityById(identityId: string) {
+  async function copyIdentityById(identityId: string) {
     const identity = identityById.get(identityId);
-    if (!identity) return;
-    activateCreatedIdentity(duplicateBrandIdentity(
-      identity,
-      undefined,
-      resolvedIdentities.map(({ name }) => name)
-    ));
+    if (!identity || duplicatePendingRef.current) return;
+    duplicatePendingRef.current = true;
+    setDuplicatingProject(true);
+    setProjectError(null);
+    try {
+      const { duplicateStudioProject } = await import('@/lib/studioProjectDuplication');
+      const copy = await duplicateStudioProject(identity, resolvedIdentities.map(({ name }) => name));
+      activateCreatedIdentityRef.current(copy);
+      setTabOrderAnnouncement(`Duplicated ${identity.name} as ${copy.name}.`);
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : 'This project could not be duplicated.');
+    } finally {
+      duplicatePendingRef.current = false;
+      setDuplicatingProject(false);
+    }
   }
 
   function copyIdentity() {
-    if (activeIdentity) copyIdentityById(activeIdentity.id);
+    if (activeIdentity) void copyIdentityById(activeIdentity.id);
   }
 
   function closeOtherIdentities() {
@@ -1680,10 +1694,11 @@ export default function StudioApp() {
             </button>
           </div>
           <div className='project-tabs-actions ml-auto flex h-9 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
-            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} onClick={copyIdentity} size='toolbar' title={gt('Duplicate project')} type='button' variant='outline'>
+            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} loading={duplicatingProject} onClick={copyIdentity} size='toolbar' title={gt('Duplicate project and all its work')} type='button' variant='outline'>
               <Copy aria-hidden='true' />
               <span className='project-action-label'><T>Duplicate</T></span>
             </Button>
+            <StudioErrorNotice error={projectError} onDismiss={() => setProjectError(null)} title='Could not duplicate project' />
             <Button aria-label={gt('Close other project tabs')} className='project-action-button' disabled={openIdentityIds.length <= 1} onClick={closeOtherIdentities} size='toolbar' title={gt('Close other tabs')} type='button' variant='outline'>
               <PanelTopClose aria-hidden='true' />
               <span className='project-action-label'><T>Close others</T></span>

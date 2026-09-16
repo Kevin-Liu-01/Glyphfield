@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   canvasDocumentNeedsAssetEmbedding,
@@ -40,7 +40,7 @@ function serializeImmediateDocument(document: CanvasDocument): PortableCanvasDoc
 
 export function usePortableCanvasDocumentSource(
   document: CanvasDocument | null
-): PortableCanvasDocumentSource {
+): PortableCanvasDocumentSource & { prepareSource: () => Promise<string> } {
   const immediate = useMemo(() => document ? serializeImmediateDocument(document) : null, [document]);
   const assetResolver = useMemo(
     () => createPortableAssetResolverCache((source) => isShaderFrameAssetSource(source)
@@ -52,6 +52,13 @@ export function usePortableCanvasDocumentSource(
     input: CanvasDocument;
     result: PortableCanvasDocumentSource;
   } | null>(null);
+
+  const prepareSource = useCallback(async () => {
+    if (!document) throw new Error('The canvas is not ready to copy yet.');
+    if (immediate?.error) throw immediate.error;
+    if (immediate?.source) return immediate.source;
+    return serializeCanvasDocument(await preparePortableCanvasDocument(document, assetResolver.resolve));
+  }, [assetResolver, document, immediate]);
 
   useEffect(() => {
     if (!document) {
@@ -93,8 +100,8 @@ export function usePortableCanvasDocumentSource(
 
   useEffect(() => () => assetResolver.clear(), [assetResolver]);
 
-  if (!document) return { document: null, error: null, source: null, status: 'ready' };
-  if (immediate) return immediate;
-  if (resolved?.input === document) return resolved.result;
-  return { document: null, error: null, source: null, status: 'preparing' };
+  if (!document) return { document: null, error: null, source: null, status: 'ready', prepareSource };
+  if (immediate) return { ...immediate, prepareSource };
+  if (resolved?.input === document) return { ...resolved.result, prepareSource };
+  return { document: null, error: null, source: null, status: 'preparing', prepareSource };
 }

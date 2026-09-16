@@ -23,6 +23,10 @@ async function clickPoint(harness, point) {
   await nativePointerClick(harness, point);
 }
 
+export async function selectSafariStudioTool(harness, name) {
+  await clickPoint(harness, await toolPoint(harness, name));
+}
+
 async function expectProject(harness, id) {
   await harness.waitFor((id) => new URL(location.href).searchParams.get('project') === id
     && document.querySelector(`.project-tab[data-project-id="${id}"]`)?.dataset.selected === 'true', `selected ${id} project`, id);

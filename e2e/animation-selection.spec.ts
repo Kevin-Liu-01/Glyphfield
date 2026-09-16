@@ -56,10 +56,10 @@ test('Animation keeps file versions in the header and artboard actions around th
   const bar = studio.getByRole('region', { name: 'Animation artboards', exact: true });
   const header = studio.locator('[data-studio-tool-header]');
   await expect(header).toHaveAttribute('data-layout', 'balanced');
-  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files and source', exact: true })).toBeVisible();
+  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Project files, code, and export', exact: true })).toBeVisible();
   const versions = header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Animation saving and versions', exact: true });
   await expect(versions).toBeVisible();
-  await expect(header.locator('[data-slot="trailing"]').getByRole('group', { name: 'Export animation', exact: true })).toBeVisible();
+  await expect(header.getByRole('group', { name: 'Project files, code, and export', exact: true }).getByRole('button', { name: 'Export MP4', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save animation', exact: true })).toHaveCount(0);
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('combobox', { name: 'Active animation artboard', exact: true })).toBeVisible();
   await expect(bar.locator('button[title="Open saved animations"]')).toHaveCount(0);

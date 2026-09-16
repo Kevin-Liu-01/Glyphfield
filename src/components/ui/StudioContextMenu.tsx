@@ -80,12 +80,14 @@ function captureContextMenuScrollOffsets(anchor: HTMLElement) {
 
 export default function StudioContextMenu({
   detail,
+  detailWrap = false,
   label,
   onClose,
   position,
   sections,
 }: {
   detail?: string;
+  detailWrap?: boolean;
   label: string;
   onClose: () => void;
   position: StudioContextMenuPosition | null;
@@ -235,7 +237,7 @@ export default function StudioContextMenu({
     >
       <div className='studio-context-menu__header'>
         <strong>{label}</strong>
-        {detail ? <span>{detail}</span> : null}
+        {detail ? <span style={detailWrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', fontFamily: 'inherit', fontSize: 12, lineHeight: 1.5, letterSpacing: 'normal', textTransform: 'none' } : undefined}>{detail}</span> : null}
       </div>
       {sections.map((section, sectionIndex) => section.items.length > 0 ? (
         <div className='studio-context-menu__section' key={`${section.label ?? 'section'}-${sectionIndex}`}>

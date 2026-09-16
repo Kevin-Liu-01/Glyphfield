@@ -20,6 +20,11 @@ export type CanvasDocumentAutosaveSnapshot = {
 // editor's final flush instead of hydrating an older IndexedDB snapshot.
 const workspaceWriteQueues = new Map<string, Promise<void>>();
 
+export async function waitForProjectAutosaveWrites(identityId: string): Promise<void> {
+  const prefix = `glyphfield-saved-designs-v1:${identityId}:`;
+  await Promise.all([...workspaceWriteQueues].filter(([key]) => key.startsWith(prefix)).map(([, pending]) => pending));
+}
+
 export function canvasDocumentAutosaveSnapshotMatches(
   saved: CanvasDocumentAutosaveSnapshot,
   current: CanvasDocumentAutosaveSnapshot

@@ -102,7 +102,7 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   const studio = await prepareAnimation(page);
   const header = studio.locator('[data-studio-tool-header]');
   const actions = header.locator('[data-slot="actions"]');
-  const files = actions.getByRole('group', { name: 'Project files and source', exact: true });
+  const files = actions.getByRole('group', { name: 'Project files, code, and export', exact: true });
   for (const name of ['Open project file', 'Download project file', 'Edit source code']) {
     await expect(files.getByRole('button', { name, exact: true })).toBeVisible();
   }
@@ -132,7 +132,8 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   for (const name of ['Save animation', 'Fork animation', 'Clone animation']) {
     await expect(versionsGroup.getByRole('button', { name, exact: true })).toBeVisible();
   }
-  const output = actions.getByRole('group', { name: 'Export animation', exact: true });
+  const output = files;
+  await expect(output.getByRole('button', { name: 'Export MP4', exact: true })).toBeVisible();
   const statusBox = (await status.boundingBox())!;
   const exportBox = (await output.boundingBox())!;
   expect(statusBox.x + statusBox.width).toBeLessThanOrEqual(exportBox.x + 1);

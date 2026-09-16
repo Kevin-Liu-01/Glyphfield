@@ -9,6 +9,23 @@ const pendingPersistentWrites = new Map<string, unknown>();
 let persistentWriteTimer: number | null = null;
 let persistenceFlushListenerAttached = false;
 
+/** Include queued edits without forcing synchronous writes to the original. */
+export function capturePersistentValues(prefixes: readonly string[]): Map<string, string> {
+  const values = new Map<string, string>();
+  const matches = (key: string) => prefixes.some((prefix) => key.startsWith(prefix));
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key && matches(key)) {
+      const value = window.localStorage.getItem(key);
+      if (value !== null) values.set(key, value);
+    }
+  }
+  pendingPersistentWrites.forEach((value, key) => {
+    if (matches(key)) values.set(key, JSON.stringify(value));
+  });
+  return values;
+}
+
 function resolveInitialValue<T>(initialValue: T | (() => T)): T {
   return typeof initialValue === 'function'
     ? (initialValue as () => T)()
