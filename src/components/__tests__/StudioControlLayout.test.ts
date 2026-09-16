@@ -60,7 +60,7 @@ describe('shared Studio control layout', () => {
     expect(button).toContain('font-[inherit]');
     expect(studio).toContain("font: 'helvetica'");
     expect(studio).toContain("size='toolbar'");
-    expect(studio).toContain("size='icon-toolbar'");
+    expect(studio).toContain('<StudioActionMenu');
     expect(styles).toMatch(/\.project-tabs\s*\{[\s\S]*?font-size: var\(--studio-toolbar-label-size\);/);
     expect(designLab).toContain("leadingIcon={<Frame aria-hidden='true' />}");
     expect(designLab).not.toContain('`${label} · ${width}px`');

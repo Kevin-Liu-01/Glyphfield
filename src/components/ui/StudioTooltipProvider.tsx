@@ -7,6 +7,7 @@ import { observeTooltipAnchor, tooltipAnchorIsAvailable } from './studioTooltipL
 const OPEN_DELAY_MS = 420;
 const CLOSE_DELAY_MS = 110;
 const CONTROL_SELECTOR = 'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="combobox"], [role="tab"], [title]';
+const EDITABLE_TEXT_SELECTOR = 'textarea, [role="textbox"], input:not([type]), input:is([type="text"], [type="number"], [type="search"], [type="email"], [type="url"], [type="password"], [type="tel"])';
 
 type ControlHint = { anchor: HTMLElement; keyboard: boolean; text: string };
 type ActiveHint = ControlHint & { originalTitle: string | null };
@@ -15,7 +16,11 @@ function hintFromTarget(target: EventTarget | null): Omit<ControlHint, 'keyboard
   if (!(target instanceof Element) || target.closest('[data-studio-preview-trigger], [role="tooltip"]')) return null;
   const anchor = target.closest<HTMLElement>(CONTROL_SELECTOR);
   if (!anchor || !tooltipAnchorIsAvailable(anchor)) return null;
-  const text = anchor.getAttribute('title')?.trim() || anchor.getAttribute('aria-label')?.trim();
+  const title = anchor.getAttribute('title')?.trim();
+  // Field names belong in labels, not bubbles over the text being edited.
+  // Explicit explanatory titles still work, as do icon and range hints.
+  if (!title && anchor.matches(EDITABLE_TEXT_SELECTOR)) return null;
+  const text = title || anchor.getAttribute('aria-label')?.trim();
   return text ? { anchor, text } : null;
 }
 

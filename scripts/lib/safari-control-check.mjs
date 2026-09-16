@@ -12,10 +12,11 @@ export async function checkSafariControls(harness) {
       width: document.pages[document.pageIds[0]].width };
   });
   const hex = 'input[aria-label="Text color HEX"]';
+  await click('button[aria-label="Text color"]');
   await click(hex);
   await press(keys.meta, 'a');
   await type('#FFFFFF');
-  await click('button[aria-label="Text color"]');
+  await press('\uE007'); // Commit HEX without closing the compact picker.
   await waitFor(() => Boolean(document.querySelector('.color-picker-popover:popover-open')), 'first-click color picker');
   const hueSelector = 'input[aria-label="Text color hue"]';
   const hue = await rect(hueSelector);

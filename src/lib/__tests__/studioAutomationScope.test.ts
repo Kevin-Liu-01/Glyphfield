@@ -80,4 +80,25 @@ describe('Studio browser automation workspace scope', () => {
 
     unregister();
   });
+
+  it('follows expanded menu ownership without discovering another workspace portal', () => {
+    const owner = document.createElement('section');
+    owner.className = 'tool-shell';
+    owner.innerHTML = '<button aria-controls="file-menu" aria-expanded="true">File</button><section hidden><button>Hidden setting</button></section>';
+    const menu = document.createElement('div');
+    menu.id = 'file-menu';
+    menu.innerHTML = '<button>Edit source code</button>';
+    const unrelated = document.createElement('div');
+    unrelated.innerHTML = '<button>Other project action</button>';
+    document.body.append(owner, menu, unrelated);
+    const unregister = registerStudioAutomation({ toolId: 'material' }, owner);
+    expect(window.glyphfield!.studio.controls().map(({ label }) => label)).toEqual(['File', 'Edit source code']);
+    const clicked = vi.fn();
+    menu.firstElementChild!.addEventListener('click', clicked);
+    window.glyphfield!.studio.activate('Edit source code');
+    expect(clicked).toHaveBeenCalledOnce();
+    owner.firstElementChild!.setAttribute('aria-expanded', 'false');
+    expect(window.glyphfield!.studio.controls().map(({ label }) => label)).toEqual(['File']);
+    unregister();
+  });
 });

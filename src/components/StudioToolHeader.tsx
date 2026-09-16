@@ -45,7 +45,7 @@ export default function StudioToolHeader({
       <div className={styles.identity} data-slot='identity'>
         {resolvedIcon ? <span className={styles.icon}>{resolvedIcon}</span> : null}
         <Heading>{title}</Heading>
-        {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
+        {metadata ? <span className={styles.metadata} title={typeof metadata === 'string' ? metadata : undefined}>{metadata}</span> : null}
       </div>
 
       <div className={styles.middle} data-slot='middle'>

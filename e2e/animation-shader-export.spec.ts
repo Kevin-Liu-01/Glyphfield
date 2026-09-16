@@ -1,3 +1,4 @@
+import { openSourceEditor, waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -9,9 +10,7 @@ const shader = (page: Page) => animation(page).locator('[data-animation-shader-l
 // single blank text hold so the real shader is the entire exported composition.
 async function prepareAnimation(page: Page, materialId = 'paper-dithering', override = false) {
   await page.goto('/studio?tool=animation');
-  const sourceButton = animation(page).getByRole('button', { name: 'Edit source code', exact: true });
-  await expect(sourceButton).toBeEnabled();
-  await sourceButton.click();
+  await openSourceEditor(page);
   await page.getByRole('button', { name: 'Close source editor', exact: true }).waitFor();
   await page.evaluate(async ({ materialId, override }) => {
     const studio = window.glyphfield!.studio;
@@ -38,7 +37,7 @@ async function prepareAnimation(page: Page, materialId = 'paper-dithering', over
     delete state.activeArtboardId;
     await studio.applySource(state);
   }, { materialId, override });
-  await expect(sourceButton).toBeEnabled();
+  await waitForStudioSource(page);
   await page.getByRole('button', { name: 'Close source editor', exact: true }).click();
   await expect(shader(page).locator('[data-live-material-ready="true"]')).toHaveCount(1);
   await expect(shader(page).locator('canvas')).toBeVisible();

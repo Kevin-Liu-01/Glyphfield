@@ -119,10 +119,8 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   const history = versionsGroup.locator('button[title="Open saved designs"]');
   await expect(status).toHaveCount(1);
   await expect(status).toHaveAttribute('role', 'status');
-  await expect(status).toHaveAttribute('data-compact', 'true');
-  await expect(status).toHaveCSS('width', '24px');
-  await expect(status).toHaveCSS('height', '32px');
-  await expect(status.locator('small')).toHaveClass('sr-only');
+  await expect(status).toHaveCSS('width', '112px');
+  await expect(status.locator('small')).toBeVisible();
   await expect(status).toHaveText('Autosaved');
   await expect(history).toHaveAccessibleDescription('Autosaved draft: Autosaved');
   const compactStatus = await status.evaluate((element) => {
@@ -136,7 +134,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   expect(compactStatus.gap).toBeGreaterThanOrEqual(0);
   expect(compactStatus.gap).toBeLessThanOrEqual(8);
   expect(compactStatus.trailingGap).toBeLessThanOrEqual(1);
-  const sourceButton = header.getByRole('button', { name: 'Edit source code', exact: true });
+  const sourceButton = header.getByRole('button', { name: 'File', exact: true });
   const sourceButtonBeforeEdit = (await sourceButton.boundingBox())!;
   await expect(header.getByRole('group', { name: 'Project files, code, and export', exact: true }).getByRole('button', { name: 'Open export settings', exact: true })).toBeVisible();
   await expect(bar.locator('[data-slot="artboard-start"]').getByRole('button', { name: 'Save design', exact: true })).toHaveCount(0);
@@ -218,7 +216,7 @@ test('Design Lab keeps saved versions in the header and canvas editing controls 
   for (const width of [1440, 1100, 780]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(bar).toBeVisible();
-    await expect(status).toHaveCSS('width', '24px');
+    await expect(status).toHaveCSS('width', width > 1200 ? '112px' : '24px');
     await expect(status).toHaveCSS('height', '32px');
     const bounds = (await bar.boundingBox())!;
     const actions = (await bar.locator('[data-slot="artboard-end"]').boundingBox())!;

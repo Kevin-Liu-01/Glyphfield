@@ -1,3 +1,4 @@
+import { openSourceEditor } from './studio-ui-helpers';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
@@ -5,7 +6,7 @@ async function prepareAnimation(page: Page) {
   await page.setViewportSize({ width: 1536, height: 960 });
   await page.goto('/studio?tool=animation&project=gt');
   const studio = page.locator('.animation-studio:visible');
-  await studio.getByRole('button', { name: 'Edit source code', exact: true }).click();
+  await openSourceEditor(page);
   await page.getByRole('button', { name: 'Close source editor', exact: true }).waitFor();
   await page.evaluate(async () => {
     const api = window.glyphfield!.studio;
@@ -103,9 +104,11 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   const header = studio.locator('[data-studio-tool-header]');
   const actions = header.locator('[data-slot="actions"]');
   const files = actions.getByRole('group', { name: 'Project files, code, and export', exact: true });
+  await files.getByRole('button', { name: 'File', exact: true }).click();
   for (const name of ['Open project file', 'Download project file', 'Edit source code']) {
-    await expect(files.getByRole('button', { name, exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: new RegExp(`^${name}`) })).toBeVisible();
   }
+  await page.keyboard.press('Escape');
   const versionsGroup = actions.getByRole('group', { name: 'Animation saving and versions', exact: true });
   const status = versionsGroup.locator('[data-design-version-status]');
   await expect(status).toContainText('Autosaved');
@@ -113,10 +116,8 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   await expect(history).toContainText('Autosaved animation');
   await expect(status).toHaveCount(1);
   await expect(status).toHaveAttribute('role', 'status');
-  await expect(status).toHaveAttribute('data-compact', 'true');
-  await expect(status).toHaveCSS('width', '24px');
-  await expect(status).toHaveCSS('height', '32px');
-  await expect(status.locator('small')).toHaveClass('sr-only');
+  await expect(status).toHaveCSS('width', '112px');
+  await expect(status.locator('small')).toBeVisible();
   await expect(history).toHaveAccessibleDescription('Autosaved animation: Autosaved');
   const compactStatus = await status.evaluate((element) => {
     const bounds = element.getBoundingClientRect();
@@ -129,9 +130,12 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   expect(compactStatus.gap).toBeGreaterThanOrEqual(0);
   expect(compactStatus.gap).toBeLessThanOrEqual(8);
   expect(compactStatus.trailingGap).toBeLessThanOrEqual(1);
-  for (const name of ['Save animation', 'Fork animation', 'Clone animation']) {
-    await expect(versionsGroup.getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(versionsGroup.getByRole('button', { name: 'Save animation', exact: true })).toBeVisible();
+  await history.click();
+  for (const name of ['Fork animation', 'Clone animation']) {
+    await expect(page.getByRole('region', { name: 'Animation Studio saved animations', exact: true }).getByRole('button', { name, exact: true })).toBeVisible();
   }
+  await page.keyboard.press('Escape');
   const output = files;
   await expect(output.getByRole('button', { name: 'Export MP4', exact: true })).toBeVisible();
   const statusBox = (await status.boundingBox())!;
@@ -141,7 +145,7 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   const dock = studio.locator('.canvas-viewport-toolbar');
   await expect(dock.locator('button[title="Open saved animations"]')).toHaveCount(0);
   const original = await selectFrame(page, studio, 1, 'ALPHA');
-  const sourceButton = files.getByRole('button', { name: 'Edit source code', exact: true });
+  const sourceButton = files.getByRole('button', { name: 'File', exact: true });
   const sourceButtonBeforeEdit = (await sourceButton.boundingBox())!;
   const text = studio.getByRole('textbox', { name: 'Selected layer text', exact: true });
   await text.fill('OMEGA');
@@ -199,7 +203,7 @@ test('Animation keeps saving and versions together in the header, with canvas ed
   await expect(status).toContainText('Saved');
   await expect(history).toContainText('Motion checkpoint');
   await expect(history).toHaveAccessibleDescription(/Motion checkpoint: Saved/);
-  await expect(status).toHaveCSS('width', '24px');
+  await expect(status).toHaveCSS('width', '112px');
 
   await selectFrame(page, studio, 1, 'OMEGA');
   await text.fill('LATEST');
@@ -232,7 +236,8 @@ test('Animation downloads and reopens a real portable project with identical fra
   expect(beta.hash).not.toBe(alpha.hash);
   const original = await semanticSource(page);
   const downloading = page.waitForEvent('download');
-  await studio.getByRole('button', { name: 'Download project file', exact: true }).click();
+  await studio.getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Download project file/ }).click();
   const download = await downloading;
   expect(await download.failure()).toBeNull();
   expect(download.suggestedFilename()).toMatch(/\.glyphfield\.json$/);
@@ -254,7 +259,8 @@ test('Animation downloads and reopens a real portable project with identical fra
   await expect(page).toHaveURL(/project=starter/);
   studio = page.locator('.animation-studio:visible');
   const choosing = page.waitForEvent('filechooser');
-  await studio.getByRole('button', { name: 'Open project file', exact: true }).click();
+  await studio.getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Open project file/ }).click();
   await (await choosing).setFiles({ name: download.suggestedFilename(), mimeType: 'application/json', buffer: bytes });
   await expect(studio.getByRole('status').filter({ hasText: `Opened ${download.suggestedFilename()}.` })).toHaveCount(1);
   await expect.poll(() => semanticSource(page)).toEqual(original);
@@ -268,7 +274,8 @@ test('Animation downloads and reopens a real portable project with identical fra
 
   // A rejected file cannot partially clear the current sequence or change its painted frame.
   const invalid = page.waitForEvent('filechooser');
-  await studio.getByRole('button', { name: 'Open project file', exact: true }).click();
+  await studio.getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Open project file/ }).click();
   await (await invalid).setFiles({ name: 'invalid.glyphfield.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":99}') });
   await expect(studio.getByRole('alert')).toBeVisible();
   expect(await semanticSource(page)).toEqual(original);

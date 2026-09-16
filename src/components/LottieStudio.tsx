@@ -19,7 +19,8 @@ import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPrevi
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
@@ -1138,11 +1139,10 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton disabled={portableLottie.source === null} onClick={() => setSourceOpen(true)} />
+          <StudioFileMenu sourceDisabled={portableLottie.source === null} onSource={() => setSourceOpen(true)} sections={[
+            { label: gt('Workspace'), items: [{ id: 'reset', label: gt('Reset Lottie editor'), description: gt('Return to the starting animation and settings.'), icon: <RotateCcw />, onSelect: resetEditor }] },
+          ]} />
           <ExportPreview asset={lastExport} />
-          <Button aria-label={gt('Reset Lottie editor')} onClick={resetEditor} size='icon' type='button' variant='outline'>
-            <RotateCcw aria-hidden='true' />
-          </Button>
           <Button disabled={!portableLottie.document} onClick={() => void downloadPng()} type='button' variant='outline'>
             <ImageDown aria-hidden='true' />
             <T>Export frame</T>

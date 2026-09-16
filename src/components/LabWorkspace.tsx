@@ -1,4 +1,8 @@
-import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react';
+'use client';
+
+import { useId, useState, type ComponentProps, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { ChevronDown } from '@/components/ui/SolidIcons';
+import { studioSectionIcon } from '@/components/StudioRangeLabel';
 
 import ResizableSidebar from '@/components/ResizableSidebar';
 
@@ -71,6 +75,7 @@ export function LabPanelHeading({
 
 type LabInspectorSectionProps = Omit<ComponentPropsWithoutRef<'section'>, 'title'> & {
   action?: ReactNode;
+  defaultExpanded?: boolean;
   description?: ReactNode;
   icon?: ReactNode;
   index?: ReactNode;
@@ -83,23 +88,32 @@ export function LabInspectorSection({
   children,
   className = '',
   description,
+  defaultExpanded = true,
   icon,
-  index,
+  index: _index,
   meta,
   title,
   ...sectionProps
 }: LabInspectorSectionProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const contentId = useId();
+  const Icon = studioSectionIcon(title);
   return (
     <section {...sectionProps} className={`lab-inspector-section ${className}`.trim()} data-studio-inspector-section>
       <div className='lab-section-heading'>
-        <div>
-          {index !== undefined || icon ? <span className='lab-section-marker'>{icon ?? index}</span> : null}
-          <h2>{title}</h2>
-        </div>
+        <h2 className='min-w-0 flex-1'>
+          <button aria-controls={contentId} aria-expanded={expanded} className='flex min-h-8 w-full items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring' onClick={() => setExpanded((value) => !value)} type='button'>
+            <span aria-hidden='true' className='lab-section-marker'>{icon ?? <Icon />}</span>
+            <span className='min-w-0 flex-1'>{title}</span>
+            <ChevronDown aria-hidden='true' className={`size-3 shrink-0 text-muted-foreground ${expanded ? '' : '-rotate-90'}`} />
+          </button>
+        </h2>
         {meta || action ? <div className='lab-section-trailing'>{meta ? <small>{meta}</small> : null}{action}</div> : null}
       </div>
-      {description ? <p className='lab-section-description'>{description}</p> : null}
-      {children}
+      <div className={expanded ? 'contents' : 'hidden'} hidden={!expanded} id={contentId}>
+        {description ? <p className='lab-section-description'>{description}</p> : null}
+        {children}
+      </div>
     </section>
   );
 }

@@ -39,10 +39,10 @@ async function clickFraction(page: Page, element: Locator, x: number, y = 0.5) {
 for (const neutral of ['#FFFFFF', '#000000']) {
   test(`color picker remembers a chosen hue starting from ${neutral} on the first gesture`, async ({ page }) => {
     await prepare(page, true);
+    await page.getByRole('button', { name: 'Text color', exact: true }).click();
     const hex = page.getByRole('textbox', { name: 'Text color HEX', exact: true });
     await hex.fill(neutral);
     await hex.press('Enter');
-    await page.getByRole('button', { name: 'Text color', exact: true }).click();
     const picker = page.getByRole('dialog', { name: 'Text color color picker', exact: true });
     await expect(picker).toBeVisible();
     const hue = picker.getByRole('slider', { name: 'Text color hue', exact: true });
@@ -60,9 +60,10 @@ for (const neutral of ['#FFFFFF', '#000000']) {
 
 test('HEX blur keeps the first picker click, and the next dropdown and choice work once', async ({ page }) => {
   await prepare(page, true);
+  await page.getByRole('button', { name: 'Text color', exact: true }).click();
   const hex = page.getByRole('textbox', { name: 'Text color HEX', exact: true });
   await hex.fill('#22cc88');
-  await page.getByRole('button', { name: 'Text color', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Text color color picker', exact: true }).getByRole('slider', { name: 'Text color hue', exact: true }).focus();
   await expect(page.getByRole('dialog', { name: 'Text color color picker', exact: true })).toBeVisible();
   await expect.poll(async () => (await readValues(page)).text!.color).toBe('#22CC88');
   await page.keyboard.press('Escape');

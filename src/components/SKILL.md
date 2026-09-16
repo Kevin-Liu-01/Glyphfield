@@ -22,7 +22,7 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
   `DesignVersionProvider` owns one saved-design state; split history/file-action
   consumers can sit in different bars without duplicating persistence.
 - `SourceCodeDrawer` is the human surface for tool serializers/validators.
-  Import its lightweight `SourceCodeButton` leaf when the drawer loads on demand.
+  Expose it through `StudioFileMenu`; keep the drawer itself loaded on demand.
 - `LiveMaterialCanvas` and adapters own authentic shader rendering.
 - `DocsMdx.tsx` owns reusable rich documentation components.
 
@@ -30,10 +30,19 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 
 - Host components own state; shared controls are controlled and semantic.
 - Use accessible labels that are unique within the active tool; agents operate them.
+- Portaled toolbar menus must link their active trigger with `aria-controls` and
+  dismiss when the owning tool/project becomes inactive. Browser API discovery
+  follows those links and must never enumerate another workspace's menu.
 - Preview and export must consume the same resolved values.
 - View zoom/pan never mutates artifact geometry.
 - Canvas manipulation emits document/tool coordinates, not screen coordinates.
 - Use shared color, select, range, button, scrollbar, header, and panel systems.
+- Keep primary output actions visible. Put file/source actions in `StudioFileMenu`,
+  project management in `StudioActionMenu`, and copy/fork operations in saved designs.
+  Do not bring back parallel rows of file or checkpoint icons.
+- `ColorControl` defaults to a compact row with full editing in its picker.
+  `LabInspectorSection` is collapsible and keeps children mounted; collapsing is
+  presentation state, never a document mutation. Keep heading actions outside it.
 - Long-running exports expose progress and a stable Browser API action.
 - Pause hidden/offscreen animation and honor reduced motion where applicable.
 - The landing hero renders the real editor in initial HTML; do not put its

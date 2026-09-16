@@ -11,6 +11,11 @@ import {
   Move,
   MoveDiagonal2,
   Palette,
+  Type,
+  Image,
+  Sparkles,
+  Frame,
+  BookOpen,
   RotateCw,
   Rows3,
   ScanLine,
@@ -54,9 +59,22 @@ function reactNodeText(node: ReactNode): string {
   return '';
 }
 
-function rangeIcon(label: ReactNode): LucideIcon {
+export function studioControlIcon(label: ReactNode): LucideIcon {
   const text = reactNodeText(label);
   return LABEL_RULES.find(([pattern]) => pattern.test(text))?.[1] ?? SlidersHorizontal;
+}
+
+export function studioSectionIcon(label: ReactNode): LucideIcon {
+  const text = reactNodeText(label);
+  const sections: readonly LabelRule[] = [
+    [/color|palette|surface/i, Palette],
+    [/typograph|typeface|\btext\b|content|specimen/i, Type],
+    [/image|artwork|logo|brand asset|sticker/i, Image],
+    [/artboard|composition|canvas|layout|frame/i, Frame],
+    [/shader|material|effect|finish|converter/i, Sparkles],
+    [/library|source|guidance/i, BookOpen],
+  ];
+  return sections.find(([pattern]) => pattern.test(text))?.[1] ?? studioControlIcon(label);
 }
 
 export default function StudioRangeLabel({
@@ -68,7 +86,7 @@ export default function StudioRangeLabel({
   label: ReactNode;
   value?: ReactNode;
 }) {
-  const Icon = rangeIcon(label);
+  const Icon = studioControlIcon(label);
   return (
     <span className={`studio-range-label ${className}`.trim()}>
       <span className='studio-range-label-copy'>

@@ -82,6 +82,8 @@ Always call `describe()` before a tool-specific action. Never invent accessible 
 
 Control discovery and activation are scoped to the active adapter workspace. Identical labels in another retained project or tool cannot receive the operation.
 
+UI hierarchy: the Project menu manages the whole project; Projects reopens saved projects. Tool headers keep checkpoint saving, saved-design browsing, File, and Export together. File contains portable open/download actions where supported and Edit source code. Activate File, then re-read controls() to discover its owned menu actions. Inspector sections can collapse; expand their named heading before operating a hidden control. Color rows open the shared picker for HEX, OKLCH, hue, and opacity. Direct source/export actions are unchanged and do not require opening menus.
+
 Persistent source is available for every navigable tool except the identity-derived Brand book, regardless of whether its Code drawer is open. Direct actions include `identity.export.json`, `brand-element.export.brief`, `moodboard.export.png`, `moodboard.export.identity`, `brand-book.print`, `colors.tokens.read`, `colors.tokens.copy`, Animation GIF/MP4/project exports, Lottie frame/source exports, `opengraph.export.png`, `terminal.export.png`, `blog.export.png`, `partnership.export.png`, `slides.export.png`, and the Design Lab actions below. Read the exact current names and contracts from `describe()` or `/api/agent`.
 
 ### Design Lab actions

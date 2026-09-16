@@ -212,6 +212,16 @@ describe('ColorControl edit transactions', () => {
     expect(commits).toHaveBeenCalledExactlyOnceWith('#00FF00');
   });
 
+  it('keeps opacity editable inside the compact picker and reflects it on the trigger', () => {
+    render('#FF0000', true);
+    const opacity = input('opacity');
+    expect(opacity.closest('[role="dialog"]')).not.toBeNull();
+    act(() => changeValue(opacity, '35'));
+    expect(opacityCommits).toHaveBeenCalledExactlyOnceWith(35);
+    expect(container.querySelector('button[aria-label="Fill"]')!.textContent).toContain('35%');
+    expect(container.querySelector('[data-source-opacity]')!.textContent).toBe('35');
+  });
+
   it('uses the typed compact HEX hue on the first saturation click that blurs the draft', () => {
     render('#0000FF', true);
     const hexInput = input('HEX');

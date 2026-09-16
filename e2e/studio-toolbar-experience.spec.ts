@@ -38,9 +38,11 @@ test('Design Lab groups project files, code and export together after saving con
   const files = actions.getByRole('group', { name: 'Project files, code, and export', exact: true });
   await expect(files).toBeVisible();
   await expect(files.getByRole('button', { name: 'Open export settings', exact: true })).toBeVisible();
-  await expect(actions.getByRole('button', { name: 'Open project file', exact: true })).toBeVisible();
-  await expect(actions.getByRole('button', { name: 'Download project file', exact: true })).toBeVisible();
-  await expect(actions.getByRole('button', { name: 'Edit source code' })).toBeVisible();
+  await files.getByRole('button', { name: 'File', exact: true }).click();
+  for (const name of ['Open project file', 'Download project file', 'Edit source code']) {
+    await expect(page.getByRole('menuitem', { name: new RegExp(`^${name}`) })).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
   await expect(header.getByRole('group', { name: 'Shader playback' })).toHaveCount(0);
   const preset = actions.getByRole('combobox', { name: 'Export size preset' });
   await preset.click();
@@ -55,10 +57,11 @@ test('Design Lab groups project files, code and export together after saving con
 test('shared tooltips appear on hover and keyboard focus without blocking the first click', async ({ page, browserName }) => {
   await page.goto('/studio?tool=material&project=gt');
   const header = page.locator('.shader-lab-v2 [data-studio-tool-header]:visible');
-  const code = header.getByRole('button', { name: 'Edit source code' });
+  const code = header.getByRole('button', { name: 'Save design', exact: true });
   await code.hover();
-  await expect(page.getByRole('tooltip')).toContainText('source');
-  await code.click();
+  await expect(page.getByRole('tooltip')).toContainText('checkpoint');
+  await header.getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Edit source code/ }).click();
   await expect(page.getByRole('tooltip')).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Editable source code' })).toBeVisible();
   await page.getByRole('button', { name: 'Close source editor' }).click();
@@ -71,7 +74,7 @@ test('shared tooltips appear on hover and keyboard focus without blocking the fi
   await page.keyboard.press(tab);
   await page.keyboard.press(backTab);
   await expect(code).toBeFocused();
-  await expect(page.getByRole('tooltip')).toContainText('source');
+  await expect(page.getByRole('tooltip')).toContainText('checkpoint');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
   await expect(code).toBeFocused();

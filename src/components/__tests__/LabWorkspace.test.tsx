@@ -33,7 +33,8 @@ describe('LabWorkspace', () => {
 
     expect(markup).toContain('data-studio-inspector-section="true"');
     expect(markup).toContain('lab-section-marker');
-    expect(markup).toContain('<h2>Motion</h2>');
+    expect(markup).toMatch(/<h2[^>]*><button[^>]*aria-expanded="true"/);
+    expect(markup).toContain('>Motion</span>');
     expect(markup).toContain('<small>Live</small>');
   });
 

@@ -1,3 +1,4 @@
+import { openSourceEditor } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 test('landing Animation autoplay keeps the inspector and scene highlights on the displayed scene without a selection box', async ({ page }) => {
@@ -25,9 +26,7 @@ test('landing Animation autoplay keeps the inspector and scene highlights on the
 async function prepareSelection(page: Page) {
   await page.goto('/studio?tool=animation&project=starter');
   const studio = page.locator('.animation-studio:visible');
-  const sourceButton = studio.getByRole('button', { name: 'Edit source code', exact: true });
-  await expect(sourceButton).toBeEnabled();
-  await sourceButton.click();
+  await openSourceEditor(page);
   await page.getByRole('button', { name: 'Close source editor', exact: true }).waitFor();
   await page.evaluate(async () => {
     const api = window.glyphfield!.studio;

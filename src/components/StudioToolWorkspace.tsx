@@ -39,7 +39,8 @@ import {
 import DesignVersionControls from '@/components/DesignVersionControls';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
@@ -252,6 +253,7 @@ function useCustomFont() {
 
 export function ToolShell({
   actions,
+  versions,
   automation,
   children,
   inspector,
@@ -260,6 +262,7 @@ export function ToolShell({
   tool,
 }: {
   actions?: ReactNode;
+  versions?: ReactNode;
   automation?: Pick<StudioAutomationAdapter, 'actions' | 'invoke'>;
   children: ReactNode;
   inspector: ReactNode;
@@ -295,9 +298,10 @@ export function ToolShell({
   return (
     <div className='tool-shell h-full min-h-0' ref={shellRef}>
       <StudioToolHeader
+        status={versions}
         actions={actions || sourceCode ? (
           <>
-            {sourceCode ? <SourceCodeButton disabled={!sourceReady} onClick={() => setSourceOpen(true)} /> : null}
+            {sourceCode ? <StudioFileMenu sourceDisabled={!sourceReady} onSource={() => setSourceOpen(true)} /> : null}
             {actions}
           </>
         ) : undefined}
@@ -1212,9 +1216,7 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
           throw new RangeError(`Unknown OpenGraph action: ${action}.`);
         },
       }}
-      actions={
-        <>
-          <DesignVersionControls
+      versions={<DesignVersionControls
             autosaveState={openGraphAutosaveState}
             identityId={identity.id}
             onOpen={applySourceCode}
@@ -1222,7 +1224,9 @@ function OpenGraphTool({ identity, tool }: { identity: BrandIdentity; tool: Stud
             source={() => sourceCode}
             toolId={tool.id}
             workspaceLabel={tool.name}
-          />
+          />}
+      actions={
+        <>
           <ExportPreview asset={lastExport} />
           <Button disabled={exporting || !portableOpenGraphDocument} onClick={exportOpenGraph} type='button'>
             <Download aria-hidden='true' />
@@ -2447,9 +2451,7 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
           throw new RangeError(`Unknown Terminal action: ${action}.`);
         },
       }}
-      actions={
-        <>
-          <DesignVersionControls
+      versions={<DesignVersionControls
             autosaveState={terminalAutosaveState}
             identityId={identity.id}
             onOpen={applySourceCode}
@@ -2457,7 +2459,9 @@ function TerminalTool({ identity, tool }: { identity: BrandIdentity; tool: Studi
             source={() => sourceCode}
             toolId={tool.id}
             workspaceLabel={tool.name}
-          />
+          />}
+      actions={
+        <>
           <ExportPreview asset={lastExport} />
           <Button disabled={exporting || !portableTerminalDocument} onClick={exportTerminal} type='button'>
             <Download aria-hidden='true' />
@@ -3490,9 +3494,7 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
           throw new RangeError(`Unknown ${tool.name} action: ${action}.`);
         },
       }}
-      actions={
-        <>
-          <DesignVersionControls
+      versions={<DesignVersionControls
             autosaveState={templateAutosaveState}
             identityId={identity.id}
             onOpen={applySourceCode}
@@ -3500,7 +3502,9 @@ function TemplateTool({ identity, kind, tool }: { identity: BrandIdentity; kind:
             source={() => sourceCode}
             toolId={tool.id}
             workspaceLabel={tool.name}
-          />
+          />}
+      actions={
+        <>
           <ExportPreview asset={lastExport} />
           <Button disabled={exporting || !portableTemplateDocument} onClick={exportTemplate} type='button'>
             <Download aria-hidden='true' />

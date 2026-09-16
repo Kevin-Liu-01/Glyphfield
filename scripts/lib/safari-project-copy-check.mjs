@@ -18,7 +18,7 @@ export async function checkSafariProjectCopy(harness) {
   await command('POST', '/url', { url: `${baseUrl}/studio?tool=identity&project=starter` });
   await click('button[aria-label="Add brand project"]');
   await click('[role="menu"][aria-label="New project"] [role="menuitem"]'); // First item: empty Design Lab project.
-  await waitFor(() => Boolean(document.querySelector('[aria-label="Edit source code"]:not(:disabled)')), 'new Design Lab ready');
+  await readyTool('material');
   await waitFor(() => [...document.querySelectorAll('[data-design-version-status]')].some((element) => element.checkVisibility() && element.textContent === 'Autosaved'), 'empty project hydrated');
   await evaluateAsync(async () => { await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
   await click(`${activeWorkspace} button[aria-label="Add text layer"]`);
@@ -47,7 +47,8 @@ export async function checkSafariProjectCopy(harness) {
     await api.applySource(state);
   });
   console.log(JSON.stringify({ check: 'project copy', phase: 'Animation edited' }));
-  await click('button[aria-label="Duplicate active project"]');
+  await click('button[aria-label="Project"]');
+  await click('[role="menu"][aria-label="Project"] [data-action="duplicate"]');
   await waitFor((id) => document.querySelector('.project-tab[data-selected="true"]')?.dataset.projectId !== id, 'copied project selected', original.brandId);
   await readyTool('animation');
   const animation = await evaluate(() => JSON.parse(window.glyphfield.studio.readSource()).metadata.animation);
@@ -58,14 +59,14 @@ export async function checkSafariProjectCopy(harness) {
   await readyTool('material');
   console.log(JSON.stringify({ check: 'project copy', phase: 'Copied Design Lab opened' }));
   const copied = await waitFor((originalId, textId) => {
-    if (!document.querySelector('[aria-label="Edit source code"]:not(:disabled)')) return null;
+    if (!window.glyphfield?.studio.describe().source.read) return null;
     const source = JSON.parse(window.glyphfield.studio.readSource());
     return source.brandId !== originalId && source.elements[textId]?.content === 'Native Safari project copy' ? source : null;
   }, 'copied canvas content', original.brandId, original.textId);
   await waitFor(() => [...document.querySelectorAll('[data-design-version-status]')].some((element) => element.checkVisibility() && element.textContent === 'Autosaved'), 'copied canvas persisted');
   await command('POST', '/refresh', {});
   await waitFor((id, textId) => {
-    if (!document.querySelector('[aria-label="Edit source code"]:not(:disabled)')) return false;
+    if (!window.glyphfield?.studio.describe().source.read) return false;
     const source = JSON.parse(window.glyphfield.studio.readSource());
     return source.brandId === id && source.elements[textId]?.content === 'Native Safari project copy';
   }, 'reloaded copied project', copied.brandId, original.textId);

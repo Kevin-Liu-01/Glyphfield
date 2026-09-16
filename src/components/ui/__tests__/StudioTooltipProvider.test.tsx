@@ -156,6 +156,21 @@ describe('shared control tooltip coverage', () => {
     expect(tooltip()).toBeNull();
   });
 
+  it.each(['textarea', 'number', 'search'])('does not repeat a %s field label over editable content', (type) => {
+    render(type === 'textarea' ? <textarea aria-label='Editable source code' data-control />
+      : <input aria-label='Field name' data-control type={type} />);
+    hover();
+    waitForHint();
+    focus();
+    expect(tooltip()).toBeNull();
+  });
+
+  it('keeps explicitly authored explanations for editable fields', () => {
+    render(<input aria-label='Width' data-control title='Width in output pixels' type='number' />);
+    focus();
+    expect(tooltip()?.textContent).toBe('Width in output pixels');
+  });
+
   it('does not duplicate a rich preview tooltip', () => {
     render(<StudioPreviewTooltip title='Frame preview'><button aria-label='Frame one' data-control title='Frame one'>1</button></StudioPreviewTooltip>);
     hover();

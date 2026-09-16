@@ -20,7 +20,8 @@ import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { LabInspectorSection, StudioSidebar } from '@/components/LabWorkspace';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import { Button } from '@/components/ui/Button';
@@ -1389,7 +1390,7 @@ export default function BrandElementsStudio({
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <StudioFileMenu onSource={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
           <Button onClick={exportBrief} type='button' variant='outline'>
             <Download aria-hidden='true' />

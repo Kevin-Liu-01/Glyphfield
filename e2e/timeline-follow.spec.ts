@@ -1,10 +1,11 @@
+import { openSourceEditor } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 async function openTimeline(page: Page, landing: boolean) {
   await page.goto(landing ? '/' : '/studio?tool=animation&project=starter');
   const studio = page.locator('.animation-studio:visible').first();
   if (!landing) {
-    await studio.getByRole('button', { name: 'Edit source code', exact: true }).click();
+    await openSourceEditor(page);
     await page.getByRole('button', { name: 'Close source editor', exact: true }).waitFor();
     await page.evaluate(async () => {
       const api = window.glyphfield!.studio;

@@ -1,3 +1,4 @@
+import { waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 async function workspace(page: Page) {
@@ -8,7 +9,7 @@ async function workspace(page: Page) {
 
 async function prepare(page: Page) {
   await page.goto('/studio?tool=material');
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
   const id = await page.evaluate(async () => {
     const studio = window.glyphfield!.studio;
@@ -63,7 +64,7 @@ test('loose layers keep layout, save/reload, and frame into a real output', asyn
   await expect.poll(async () => (await workspace(page)).canvas.layerIds).toEqual([id]);
   await expect(page.locator('[data-design-version-status]')).toHaveText('Autosaved');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await expect.poll(async () => (await workspace(page)).canvas.layerIds).toEqual([id]);
   await page.getByRole('region', { name: 'Canvas layer stack' }).getByRole('button', { name: /^Canvas idea 01/ }).click();
   const beforeFrame = await layer.boundingBox();
@@ -126,7 +127,7 @@ test('negative and distant artboards persist, while offscreen rendering is culle
 
 test('captured shaders survive moving onto a canvas-only project and reloading', async ({ page }) => {
   await page.goto('/studio?tool=material');
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   const id = await page.evaluate(() => {
     const source = JSON.parse(window.glyphfield!.studio.readSource());
     return source.pages[source.pageIds[0]].elementIds.find((id: string) => id.startsWith('shader-')) as string;
@@ -156,7 +157,7 @@ test('captured shaders survive moving onto a canvas-only project and reloading',
   expect(portable.source.metadata.designLab.workspace.canvas.snapshot.layerOrder).toEqual([id]);
   await expect(page.locator('[data-design-version-status]')).toHaveText('Autosaved');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await expect.poll(async () => (await workspace(page)).canvas.layerIds).toEqual([id]);
   expect((await workspace(page)).artboards).toEqual([]);
   await expect(page.locator('[data-canvas-surface="canvas"] [data-canvas-layer-id]')).toHaveCount(1);

@@ -35,6 +35,11 @@ async function settle() {
 }
 
 function button(label: string): HTMLButtonElement {
+  // Secondary checkpoint operations now live in the saved-design surface.
+  if (/^(Fork design|Clone design|New animation)$/.test(label) && !document.querySelector(`button[aria-label="${label}"]`)) {
+    const trigger = document.querySelector<HTMLButtonElement>('[data-design-version-history] button[aria-expanded="false"], [data-design-version-controls] button[aria-expanded="false"]');
+    if (trigger) act(() => trigger.click());
+  }
   const candidate = document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
   if (!candidate) throw new Error(`Missing button: ${label}`);
   return candidate;
@@ -164,7 +169,7 @@ describe('DesignVersionControls', () => {
     };
   }
 
-  it('places compact cloud save state after actions and the saved-design library with a stable accessible description', async () => {
+  it('keeps save state readable and secondary copy actions inside the saved-design library', async () => {
     const renderStatus = async (autosaveState: 'saved' | 'saving' | 'error') => {
       await act(async () => {
         root.render(<DesignVersionProvider autosaveState={autosaveState} collectionLabel='Saved animations'
@@ -179,8 +184,8 @@ describe('DesignVersionControls', () => {
     expect(status.textContent).toBe('Autosaved');
     expect(status.getAttribute('aria-label')).toBe('Autosaved animation: Autosaved');
     expect(status.title).toBe('Autosaved animation: Autosaved');
-    expect(status.getAttribute('data-compact')).toBe('true');
-    expect(status.querySelector('small')?.classList.contains('sr-only')).toBe(true);
+    expect(status.hasAttribute('data-compact')).toBe(false);
+    expect(status.querySelector('small')?.classList.contains('sr-only')).toBe(false);
     expect(status.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     expect(status.tabIndex).toBe(-1);
     expect(status.hasAttribute('aria-hidden')).toBe(false);
@@ -193,8 +198,8 @@ describe('DesignVersionControls', () => {
     expect(container.querySelector('[data-design-version-header-controls]')).not.toBeNull();
     const actions = history.previousElementSibling;
     expect(actions?.contains(button('Save design'))).toBe(true);
-    expect(actions?.contains(button('Fork design'))).toBe(true);
-    expect(actions?.contains(button('Clone design'))).toBe(true);
+    expect(actions?.querySelector('button[aria-label="Fork design"]')).toBeNull();
+    expect(actions?.querySelector('button[aria-label="Clone design"]')).toBeNull();
     expect(actions?.previousElementSibling).toBeNull();
     expect(history.nextElementSibling).toBe(status);
     const descriptionId = history.getAttribute('aria-describedby');
@@ -202,6 +207,8 @@ describe('DesignVersionControls', () => {
     expect(document.getElementById(descriptionId!)).toBe(status);
     await click(history);
     expect(document.querySelector('[role="region"]')).not.toBeNull();
+    expect(document.querySelector('[role="region"]')?.contains(button('Fork design'))).toBe(true);
+    expect(document.querySelector('[role="region"]')?.contains(button('Clone design'))).toBe(true);
     await renderStatus('saving');
     expect(container.querySelector('header [role="status"]')).toBe(status);
     expect(history.getAttribute('aria-describedby')).toBe(descriptionId);
@@ -270,7 +277,6 @@ describe('DesignVersionControls', () => {
       expect(prepareSource).toHaveBeenCalledOnce();
       expect(button('Fork design').disabled).toBe(true);
       expect(container.querySelector('[data-testid="version-history"] button[data-state="Saving"]')).not.toBeNull();
-      await click(container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!);
       expect(document.querySelector('[role="region"]')?.textContent).toContain('Saved designs');
       await act(async () => {
         finishCapture({ source: '{"captured":true}', revision: 'before-capture' });
@@ -439,6 +445,7 @@ describe('DesignVersionControls', () => {
     });
     try {
       await click(button('Fork design'));
+      await click(container.querySelector<HTMLButtonElement>('button[title="Open saved designs"]')!);
       const openOther = [...document.querySelectorAll<HTMLButtonElement>('[role="region"] button')]
         .find((candidate) => candidate.textContent?.includes('Beta'))!;
       await click(openOther);
@@ -528,8 +535,8 @@ describe('DesignVersionControls', () => {
       await settle();
     });
     expect(trigger.textContent).toContain('Alpha');
-    expect(button('Fork design').disabled).toBe(false);
     expect(document.querySelector('[role="region"]')).toBeNull();
+    expect(button('Fork design').disabled).toBe(false);
   });
 
   it('opens, clones, and deletes stored designs without losing their portable source', async () => {
@@ -910,7 +917,6 @@ describe('DesignVersionControls', () => {
     expect(button('Save design').disabled).toBe(true);
     expect(button('Fork design').disabled).toBe(true);
     expect(button('Clone design').disabled).toBe(true);
-    await click(button('Saved designs: Autosaved draft'));
     expect(button('Save design checkpoint').disabled).toBe(true);
     await click(button('Save design checkpoint'));
     expect(await loadSavedDesigns(WORKSPACE_KEY)).toEqual([]);

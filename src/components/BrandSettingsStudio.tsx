@@ -23,7 +23,8 @@ import BrandIdentityPreview from '@/components/BrandIdentityPreview';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -366,7 +367,7 @@ export default function BrandSettingsStudio({
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
+          <StudioFileMenu onSource={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
           <Button onClick={exportIdentity} size='sm' type='button' variant='outline'><Download aria-hidden='true' /><T>Identity JSON</T></Button>
           </>

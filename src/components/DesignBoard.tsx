@@ -7,7 +7,8 @@ import { Download, FileJson, Layers3 } from '@/components/ui/SolidIcons';
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -238,11 +239,9 @@ export default function DesignBoard({
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton onClick={() => setSourceOpen(true)} />
-          <Button onClick={exportIdentity} type='button' variant='outline'>
-            <FileJson aria-hidden='true' />
-            <T>Identity JSON</T>
-          </Button>
+          <StudioFileMenu onSource={() => setSourceOpen(true)} sections={[{ label: 'Brand data', items: [
+            { id: 'identity', label: 'Download identity JSON', description: 'Shared brand settings, not the rendered board.', icon: <FileJson />, onSelect: exportIdentity },
+          ] }]} />
           <ExportPreview asset={lastExport} />
           <Button disabled={exporting} onClick={exportBoard} type='button'>
             <Download aria-hidden='true' />

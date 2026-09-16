@@ -112,7 +112,7 @@ import {
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import { DownloadProjectFileButton, OpenProjectFileButton } from '@/components/ProjectFileControls';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDesignLabProjectFile, type DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
@@ -123,7 +123,7 @@ import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import LogoAppearancePreview, { AppearanceFilteredContent } from '@/components/LogoAppearancePreview';
 import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioRangeLabel from '@/components/StudioRangeLabel';
 import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
@@ -3951,12 +3951,13 @@ function DesignLabShaderInspector({
           <div>
             {(['normal', 'screen', 'overlay', 'multiply'] as const).map((value) => (
               <button
+                aria-label={`Blend mode: ${value}`}
                 aria-pressed={editingShader.blendMode === value}
                 key={value}
                 onClick={() => updateSelectedShader({ blendMode: value })}
                 type='button'
               >
-                {value.slice(0, 3)}
+                {value.charAt(0).toUpperCase() + value.slice(1)}
               </button>
             ))}
           </div>
@@ -8658,9 +8659,8 @@ export default function ShaderLabStudio({
               <DesignVersionHeaderControls />
             </StudioToolbarGroup>
             <StudioToolbarGroup label='Project files, code, and export'>
-              <OpenProjectFileButton disabled={Boolean(exporting) || frameCapturePending} onOpen={applyCompositionSource} />
-              <DownloadProjectFileButton disabled={Boolean(exporting) || frameCapturePending} prepare={prepareProjectFile} />
-              <SourceCodeButton disabled={portableDesignLab.source === null} onClick={() => setSourceOpen(true)} />
+              <StudioFileMenu sourceDisabled={portableDesignLab.source === null} onSource={() => setSourceOpen(true)}
+                project={{ disabled: Boolean(exporting) || frameCapturePending, open: applyCompositionSource, prepare: prepareProjectFile }} />
             <StudioSelect
               ariaLabel='Export size preset'
               className='studio-export-preset'

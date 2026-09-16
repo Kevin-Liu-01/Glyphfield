@@ -74,7 +74,8 @@ test('project download and real file chooser preserve editable artboards, embedd
   }, original);
   await expect(page.locator('.design-artboard-shell')).toHaveCount(1);
   const choosing = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Open project file', exact: true }).click();
+  await page.locator('[data-studio-tool-header]:visible').getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Open project file/ }).click();
   await (await choosing).setFiles({ name: project.fileName, mimeType: project.mimeType, buffer: Buffer.from(project.source) });
   await expect(page.getByRole('status').filter({ hasText: `Opened ${project.fileName}.` })).toHaveCount(1);
   await expect(page.locator('.design-artboard-shell')).toHaveCount(2);
@@ -101,7 +102,8 @@ test('a malformed project selected through the real chooser leaves the current e
   const original = await prepareProject(page);
   const before = await page.evaluate(() => window.glyphfield!.studio.readSource());
   const choosing = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Open project file', exact: true }).click();
+  await page.locator('[data-studio-tool-header]:visible').getByRole('button', { name: 'File', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Open project file/ }).click();
   await (await choosing).setFiles({ name: 'broken.glyphfield.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":99}') });
   await expect(page.getByRole('alert').filter({ hasText: 'Canvas schema version 99 is unsupported.' })).toBeVisible();
   const after = await page.evaluate(() => window.glyphfield!.studio.readSource());

@@ -1,3 +1,4 @@
+import { waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { gemSmokePresets } from '@paper-design/shaders-react';
 import { execFileSync } from 'node:child_process';
@@ -14,7 +15,7 @@ async function prepareShader(page: Page, options: { materialId?: string; timeMs?
   await page.goto('/studio?tool=material');
   await page.getByRole('button', { name: 'Open export settings', exact: true }).waitFor();
   // The toolbar can be interactive before portable assets finish hydrating.
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   const fixture = await page.evaluate(async ({ materialId, timeMs, grain, paused }) => {
     const studio = window.glyphfield!.studio;
     const source = JSON.parse(studio.readSource());
@@ -768,9 +769,11 @@ test('all three authored colors repaint a collapsed Paper ramp while paused', as
     ['light', '#FFCC55'],
   ] as const) {
     const baseline = await pixels(page, shaderId);
+    await page.getByRole('button', { name: `Shader ${role} color`, exact: true }).click();
     const input = page.getByRole('textbox', { name: `Shader ${role} color HEX`, exact: true });
     await input.fill(color);
     await input.press('Tab');
+    await page.keyboard.press('Escape');
     await expect.poll(async () => page.evaluate(({ role, color }) => {
       const source = JSON.parse(window.glyphfield!.studio.readSource());
       const shader = (Object.values(source.elements) as Array<{

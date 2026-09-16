@@ -8,7 +8,7 @@ Use **Project file** when someone needs to keep editing your Design Lab composit
 
 ## Download an editable project
 
-Choose **Project file** from the export controls. Glyphfield captures the active artboard's current shader appearance and prepares one JSON download. You do not need to render a PNG first.
+Choose **File → Download project file** in the tool header (also available in the export dialog). Glyphfield captures the current shader appearance and prepares one editable JSON download. You do not need to render a PNG first.
 
 The file contains:
 
@@ -42,4 +42,4 @@ Agents can prepare the same file with `await window.glyphfield.studio.invoke('de
 
 A project file is a portable Design Lab workspace, not a backup of every brand, tool, saved-version history, or browser setting. It includes the font files and typography needed by the design, not the entire brand library or unrelated brand assets. Older CanvasDocument files without a typography snapshot continue to use the receiving workspace's typography.
 
-For precise structural changes, the same JSON can also be inspected through **Code** and the [source editing workflow](/docs/studio/source-editing). See the [source format reference](/docs/reference/source-formats) for saved-frame and asset contracts.
+For precise structural changes, the same JSON can also be inspected through **File → Edit source code** and the [source editing workflow](/docs/studio/source-editing). See the [source format reference](/docs/reference/source-formats) for saved-frame and asset contracts.

@@ -1,3 +1,4 @@
+import { waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -13,7 +14,7 @@ By going directly to “the primary source," Fuma came to understand the bare bo
 async function prepareQuote(page: Page) {
   const font = `data:font/ttf;base64,${(await readFile('public/fonts/inter-variable.ttf')).toString('base64')}`;
   await page.goto('/studio?tool=material');
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
   await expect.poll(() => page.evaluate(() => Object.values(JSON.parse(window.glyphfield!.studio.readSource()).elements)
     .some((element) => (element as { kind: string }).kind === 'text'))).toBe(true);

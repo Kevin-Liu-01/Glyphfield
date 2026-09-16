@@ -48,6 +48,7 @@ import GitHubStarButton from '@/components/GitHubStarButton';
 import SidebarDitherPanel from '@/components/SidebarDitherPanel';
 import StudioCommandPalette from '@/components/StudioCommandPalette';
 import StudioCreateProjectMenu from '@/components/StudioCreateProjectMenu';
+import StudioActionMenu from '@/components/ui/StudioActionMenu';
 import { StudioExportProgressProvider } from '@/components/StudioExportProgress';
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
@@ -321,14 +322,14 @@ function ProjectFolderMenu({
         variant='outline'
       >
         <ActiveFolderIcon aria-hidden='true' />
-        <span>{gt(activeFolder.label)}</span>
+        <span>{gt('Projects')}</span>
         <span className='project-folder-count'>{folderCounts[activeFolder.id]}</span>
         <ChevronDown aria-hidden='true' className={open ? 'rotate-180' : ''} />
       </Button>
       {open ? (
         <div className='project-folder-popover' role='menu'>
           <div className='project-folder-popover-heading'>
-            <span><T>Project folders</T></span>
+            <span><T>Projects</T></span>
             <span>{folderCounts.all} <T>total</T></span>
           </div>
           {PROJECT_FOLDERS.map((folder) => {
@@ -870,8 +871,9 @@ function StudioAppHeader({
     : gt('Toggle color theme');
 
   return (
-    <header className='app-navbar studio-app-header border-b border-border bg-background'>
+    <header className='app-navbar studio-app-header border-b border-border bg-background' data-canvas-selection-preserve>
       <Link
+        aria-label={PRODUCT_BRAND.name}
         className='flex min-w-0 items-center gap-2.5 border-r border-border px-3.5'
         href='/'
       >
@@ -1694,20 +1696,14 @@ export default function StudioApp() {
             </button>
           </div>
           <div className='project-tabs-actions ml-auto flex h-9 shrink-0 self-center items-center gap-1.5 border-l border-border pl-2'>
-            <Button aria-label={gt('Duplicate active project')} className='project-action-button' disabled={!identitiesReady} loading={duplicatingProject} onClick={copyIdentity} size='toolbar' title={gt('Duplicate project and all its work')} type='button' variant='outline'>
-              <Copy aria-hidden='true' />
-              <span className='project-action-label'><T>Duplicate</T></span>
-            </Button>
+            <StudioActionMenu label={gt('Project')} icon={<BriefcaseBusiness aria-hidden='true' />} disabled={!identitiesReady} loading={duplicatingProject} detail={activeIdentity.name} sections={[
+              { items: [
+                { id: 'duplicate', label: gt('Duplicate active project'), description: gt('Copy every workspace, asset, and saved checkpoint.'), icon: <Copy />, onSelect: copyIdentity },
+                { id: 'close-others', label: gt('Close other project tabs'), description: gt('Close tabs without deleting their work.'), icon: <PanelTopClose />, disabled: openIdentityIds.length <= 1, onSelect: closeOtherIdentities },
+              ] },
+              { items: activeIdentity.builtIn ? [] : [{ id: 'delete', label: gt('Delete active project'), danger: true, icon: <Trash2 />, onSelect: removeIdentity }] },
+            ]} />
             <StudioErrorNotice error={projectError} onDismiss={() => setProjectError(null)} title='Could not duplicate project' />
-            <Button aria-label={gt('Close other project tabs')} className='project-action-button' disabled={openIdentityIds.length <= 1} onClick={closeOtherIdentities} size='toolbar' title={gt('Close other tabs')} type='button' variant='outline'>
-              <PanelTopClose aria-hidden='true' />
-              <span className='project-action-label'><T>Close others</T></span>
-            </Button>
-            {!activeIdentity.builtIn ? (
-              <Button aria-label={gt('Delete active project')} onClick={removeIdentity} size='icon-toolbar' title={gt('Delete project')} type='button' variant='ghost'>
-                <Trash2 aria-hidden='true' />
-              </Button>
-            ) : null}
             <ProjectFolderMenu
               activeIdentityId={activeIdentity.id}
               activeFolderId={activeFolderId}
@@ -1744,10 +1740,10 @@ export default function StudioApp() {
         <aside className='app-navbar studio-nav flex min-h-0 flex-col border-r border-border bg-background'>
           <nav aria-label={gt('Studio help')} className='studio-sidebar-help'>
             <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
-              <Link href='/docs'><BookOpen aria-hidden='true' /><T>Docs</T></Link>
+              <Link aria-label={gt('Docs')} href='/docs'><BookOpen aria-hidden='true' /><span><T>Docs</T></span></Link>
             </Button>
             <Button asChild className='h-9 flex-1 justify-start px-2.5' variant='ghost'>
-              <Link href='/docs/getting-started'><Rocket aria-hidden='true' /><T>Quickstart</T></Link>
+              <Link aria-label={gt('Quickstart')} href='/docs/getting-started'><Rocket aria-hidden='true' /><span><T>Quickstart</T></span></Link>
             </Button>
           </nav>
           <div className='studio-sidebar-scroll studio-scroll-area min-h-0 flex-1 overflow-y-auto px-2 py-3'>
@@ -1767,12 +1763,13 @@ export default function StudioApp() {
                       return (
                         <Button
                           aria-current={selected ? 'page' : undefined}
+                          aria-label={gt(tool.name)}
                           className='h-9 w-full justify-start border-0 px-2.5'
                           key={tool.id}
                           onFocus={() => void preloadStudioTool(tool.id)}
                           onClick={() => selectTool(tool.id)}
                           onPointerEnter={() => void preloadStudioTool(tool.id)}
-                          title={gt(tool.description)}
+                          title={`${gt(tool.name)} — ${gt(tool.description)}`}
                           type='button'
                           variant={selected ? 'default' : 'ghost'}
                         >

@@ -200,8 +200,7 @@ export default function ShaderTimeExplorer(props: ShaderTimeExplorerProps) {
   const playLabel = capabilities?.motionModel === 'stateful' ? 'Start new fluid motion' : 'Resume live shader motion';
 
   return (
-    <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve
-      style={{ gridTemplateColumns: '28px minmax(80px,122px) minmax(48px,1fr) max-content', columnGap: 8 }}>
+    <section className='shader-lab-v2-frame-history' data-canvas-selection-preserve>
       <button aria-label={playing ? 'Freeze current shader frame' : playLabel} title={playing ? 'Freeze current shader frame' : playLabel} disabled={busy}
         onClick={() => playing ? latest.current.onFreeze() : latest.current.onPlay()} type='button'>
         {playing ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}

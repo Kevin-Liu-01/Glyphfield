@@ -121,6 +121,7 @@ function DesignVersionsSurface({
     if (!placement || enteredRef.current) return;
     enteredRef.current = true;
     const firstControl = surfaceRef.current?.querySelector<HTMLElement>('button[aria-current="true"]:not(:disabled)')
+      ?? surfaceRef.current?.querySelector<HTMLElement>('[data-save-checkpoint]:not(:disabled)')
       ?? surfaceRef.current?.querySelector<HTMLElement>('[data-design-version-open]:not(:disabled), button:not(:disabled)');
     const target = firstControl ?? surfaceRef.current?.querySelector<HTMLElement>('[role="region"]');
     target?.focus({ preventScroll: true });
@@ -296,6 +297,7 @@ function SavedDesignRow({
 }
 
 function DesignVersionsPopover({
+  actions,
   activeDesign,
   activeId,
   designs,
@@ -316,6 +318,7 @@ function DesignVersionsPopover({
   itemLabel,
   workspaceLabel,
 }: {
+  actions: ComponentProps<typeof DesignVersionActions>;
   activeDesign: SavedDesign | null;
   activeId: string | null;
   designs: readonly SavedDesign[];
@@ -343,10 +346,17 @@ function DesignVersionsPopover({
         <span className={styles.count}>{designs.length}</span>
       </header>
 
+      <div className='grid gap-1 border-b border-border p-2' role='group' aria-label='Current workspace actions'>
+        {actions.onNew ? <Button aria-label={`New ${itemLabel}`} disabled={actions.disabled} onClick={actions.onNew} size='sm' variant='ghost' type='button' className='justify-start'><Plus aria-hidden='true' />New blank {itemLabel}</Button> : null}
+        <Button aria-label={`Clone ${itemLabel}`} disabled={actions.disabled} onClick={actions.onClone} size='sm' variant='ghost' type='button' className='justify-start'><Copy aria-hidden='true' />Save as independent copy</Button>
+        <Button aria-label={`Fork ${itemLabel}`} disabled={actions.disabled} onClick={actions.onFork} size='sm' variant='ghost' type='button' className='justify-start'><GitFork aria-hidden='true' />Save as linked copy</Button>
+        <p className='px-2 py-1 text-xs leading-5 text-muted-foreground'>Copies include your current edits. A linked copy also records its starting checkpoint.</p>
+      </div>
+
       {!activeDesign && !loading ? (
         <div className={styles.unsavedCallout}>
           <span><strong>Autosaved draft</strong><small>Keep a named checkpoint.</small></span>
-          <button aria-label={`Save ${itemLabel} checkpoint`} disabled={saveDisabled} onClick={onSave} type='button'><Plus aria-hidden='true' />Save checkpoint</button>
+          <button aria-label={`Save ${itemLabel} checkpoint`} data-save-checkpoint disabled={saveDisabled} onClick={onSave} type='button'><Plus aria-hidden='true' />Save checkpoint</button>
         </div>
       ) : null}
 
@@ -424,9 +434,6 @@ function DesignVersionTrigger({
 function DesignVersionActions({
   dirty,
   disabled,
-  onClone,
-  onFork,
-  onNew,
   onSave,
   saving,
   itemLabel,
@@ -443,29 +450,17 @@ function DesignVersionActions({
   const itemTitle = itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1);
   return (
     <div className={styles.actions}>
-      {onNew ? (
-        <Button aria-label={`New ${itemLabel}`} disabled={disabled} onClick={onNew} size='sm' type='button' variant='outline'>
-          <Plus aria-hidden='true' />
-          <span className={styles.actionLabel}>New</span>
-        </Button>
-      ) : null}
       <Button
         aria-label={dirty ? `Save ${itemLabel}` : `${itemTitle} saved`}
         disabled={disabled || !dirty}
         onClick={() => void onSave()}
         size='sm'
-        title={dirty ? `Save ${itemLabel}` : `${itemTitle} saved`}
+        title={dirty ? 'Save a named checkpoint. Your working draft is autosaved separately.' : 'Current checkpoint is up to date. Your working draft is also autosaved.'}
         type='button'
         variant={dirty ? 'default' : 'outline'}
       >
         {dirty ? <Save aria-hidden='true' /> : <Check aria-hidden='true' />}
-        <span className={styles.actionLabel}>{saving ? 'Saving' : dirty ? 'Save' : 'Saved'}</span>
-      </Button>
-      <Button aria-label={`Fork ${itemLabel}`} disabled={disabled} onClick={() => void onFork()} size='icon-sm' title={`Fork into a linked ${itemLabel}`} type='button' variant='outline'>
-        <GitFork aria-hidden='true' />
-      </Button>
-      <Button aria-label={`Clone ${itemLabel}`} disabled={disabled} onClick={() => void onClone()} size='icon-sm' title='Clone as an independent copy' type='button' variant='outline'>
-        <Copy aria-hidden='true' />
+        <span className={styles.actionLabel}>{saving ? 'Saving' : dirty ? 'Save checkpoint' : 'Checkpoint saved'}</span>
       </Button>
     </div>
   );
@@ -494,7 +489,7 @@ type DesignVersionState = {
   notice: string;
   onDismiss: () => void;
   open: boolean;
-  popover: ComponentProps<typeof DesignVersionsPopover>;
+  popover: Omit<ComponentProps<typeof DesignVersionsPopover>, 'actions'>;
   rootRef: RefObject<HTMLDivElement | null>;
   trigger: ComponentProps<typeof DesignVersionTrigger>;
 };
@@ -816,8 +811,8 @@ export function DesignVersionProvider({
   const state: DesignVersionState = {
     actions: {
       dirty, disabled: controlsDisabled,
-      onClone: () => { void cloneDesign(); },
-      onFork: () => { void forkDesign(); },
+      onClone: () => { setOpen(false); void cloneDesign(); },
+      onFork: () => { setOpen(false); void forkDesign(); },
       onNew: onNew ? () => { void startNewDesign(); } : undefined,
       onSave: () => { void saveDesign(); },
       saving, itemLabel,
@@ -856,7 +851,7 @@ function DesignVersionOverlay({ layout, state }: {
   return <>
     {state.open ? (
       <DesignVersionsSurface anchorRef={state.rootRef} layout={layout} onDismiss={state.onDismiss}>
-        <DesignVersionsPopover {...state.popover} />
+        <DesignVersionsPopover {...state.popover} actions={state.actions} />
       </DesignVersionsSurface>
     ) : null}
     <span aria-live='polite' className='sr-only'>{state.notice}</span>
@@ -926,7 +921,7 @@ export function DesignVersionHeaderControls() {
       data-design-version-header-controls data-design-version-history data-layout='toolbar' ref={state.rootRef}>
       <DesignVersionActions {...state.actions} />
       <DesignVersionTrigger {...state.trigger} descriptionId={statusId} />
-      <DesignVersionStatus compact id={statusId} />
+      <DesignVersionStatus id={statusId} />
       <DesignVersionOverlay layout='toolbar' state={state} />
     </div>
   );
@@ -934,6 +929,7 @@ export function DesignVersionHeaderControls() {
 
 function CombinedDesignVersionControls() {
   const state = useDesignVersionState();
+  if (state.layout === 'toolbar') return <DesignVersionHeaderControls />;
   return (
     <div className={styles.root} data-layout={state.layout} ref={state.rootRef} data-design-version-controls>
       <DesignVersionTrigger {...state.trigger} />

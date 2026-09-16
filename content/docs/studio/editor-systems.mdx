@@ -15,6 +15,9 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 
 | Component | Responsibility | State owner | Reused by |
 | --- | --- | --- | --- |
+| `StudioToolHeader` / `StudioFileMenu` | Shared header hierarchy, explicit file operations, and advanced source access | Host supplies existing action callbacks | Every source-enabled tool |
+| `StudioActionMenu` | Named, keyboard-operable toolbar menus built on the shared context menu | Trigger owns open state; active workspace owns the portal | Project actions and File menus |
+| `LabInspectorSection` | Icon-labeled, collapsible inspector sections; children stay mounted | Local presentation state only | Shared libraries and inspectors |
 | `ColorControl` | Native swatch, HEX, OKLCH, and optional opacity | Parent owns color; component validates and converts edits | Brand identity, Color tokens, Animation, Design Lab, Brand elements, finishes |
 | `CanvasViewport` | Zoom, reset, fit, clipping, pan, and scrollable stage | Persists view state per project and tool | Moodboards, Brand elements, OpenGraph, templates, Design Lab |
 | `EditableCanvasLayer` | Selection, drag, resize, keyboard nudge, and selection handles | Parent owns the transform; component owns the active pointer session | Slide, partnership, blog, and expression canvases |
@@ -37,7 +40,8 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 
 | State | Behavior |
 | --- | --- |
-| Resting | Shows the current swatch, normalized HEX, and equivalent OKLCH value |
+| Resting | Compact row with the current swatch, label, normalized HEX, and optional opacity |
+| Open | Full picker with HEX, OKLCH, hue, saturation/brightness, and optional opacity; `compact={false}` remains available for dedicated color-editing surfaces |
 | Native picker open | Uses the browser color input and publishes the selected HEX value immediately |
 | HEX editing | Commits on blur or Enter; invalid input leaves the current color unchanged |
 | OKLCH editing | Parses perceptual color input and converts it to the shared HEX storage format |

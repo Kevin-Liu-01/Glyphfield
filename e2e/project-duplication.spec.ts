@@ -1,3 +1,4 @@
+import { waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 async function readSource(page: Page) {
@@ -13,7 +14,7 @@ async function readSource(page: Page) {
 async function selectTool(page: Page, name: string, tool: string) {
   await page.locator('.studio-nav').getByRole('button', { name, exact: true }).click();
   await expect.poll(async () => (await readSource(page))?.metadata.tool).toBe(tool);
-  await expect(page.locator('[data-studio-tool-header]:visible').getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
 }
 
 test('duplicating a project carries current Design Lab and Animation work, persists, and stays independent', async ({ page }) => {
@@ -21,7 +22,7 @@ test('duplicating a project carries current Design Lab and Animation work, persi
   await page.goto('/studio?tool=identity&project=starter');
   await page.getByRole('button', { name: 'Add brand project', exact: true }).click();
   await page.getByRole('menuitem', { name: /^Design Lab / }).click();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await expect(page.locator('.project-tab[data-selected="true"]')).not.toHaveAttribute('data-project-id', 'starter');
   const originalId = await page.locator('.project-tab[data-selected="true"]').getAttribute('data-project-id');
   await page.getByRole('button', { name: 'Add text layer', exact: true }).click();
@@ -50,7 +51,8 @@ test('duplicating a project carries current Design Lab and Animation work, persi
     delete state.activeArtboardId;
     await api.applySource(state);
   });
-  await page.getByRole('button', { name: 'Duplicate active project', exact: true }).click();
+  await page.getByRole('button', { name: 'Project', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Duplicate active project/ }).click();
   await expect(page.locator('.project-tab[data-selected="true"]')).not.toHaveAttribute('data-project-id', originalId!);
   const copyId = await page.locator('.project-tab[data-selected="true"]').getAttribute('data-project-id');
   await expect.poll(async () => (await readSource(page))?.brandId).toBe(copyId);
@@ -72,7 +74,7 @@ test('duplicating a project carries current Design Lab and Animation work, persi
   }, textId);
   await expect(page.locator('[data-design-version-status]:visible')).toContainText('Unsaved changes');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await expect.poll(async () => (await readSource(page))?.elements[textId]?.content).toBe('Edited copy only');
   await page.locator(`.project-tab[data-project-id="${originalId}"]`).getByRole('button').first().click();
   await expect.poll(async () => (await readSource(page))?.brandId).toBe(originalId);
@@ -84,10 +86,13 @@ for (const tool of ['material', 'animation']) {
     await page.goto(`/studio?tool=${tool}&project=gt`);
     const header = page.locator('[data-studio-tool-header]:visible');
     const group = header.getByRole('group', { name: 'Project files, code, and export', exact: true });
-    await expect(group.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
-    for (const name of ['Open project file', 'Download project file', tool === 'material' ? 'Open export settings' : 'Export MP4']) {
-      await expect(group.getByRole('button', { name, exact: true })).toBeVisible();
+    await waitForStudioSource(page);
+    await group.getByRole('button', { name: 'File', exact: true }).click();
+    for (const name of ['Open project file', 'Download project file', 'Edit source code']) {
+      await expect(page.getByRole('menuitem', { name: new RegExp(`^${name}`) })).toBeVisible();
     }
+    await page.keyboard.press('Escape');
+    await expect(group.getByRole('button', { name: tool === 'material' ? 'Open export settings' : 'Export MP4', exact: true })).toBeVisible();
     const before = (await header.boundingBox())!;
     await group.locator('input[type="file"]').setInputFiles({ name: 'invalid.glyphfield.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":99}') });
     const error = group.getByRole('button', { name: 'Could not open project: show details', exact: true });

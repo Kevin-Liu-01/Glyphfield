@@ -1,3 +1,4 @@
+import { waitForStudioSource } from './studio-ui-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 async function theme(page: Page, mode: 'light' | 'dark') {
@@ -48,7 +49,7 @@ async function designInsertions(page: Page, color: string, outline: string) {
 
 test('Design Lab samples new text, sticker and mark colors without recoloring placed or restored layers', async ({ page }) => {
   await page.goto('/studio?tool=material');
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await expect(page.locator('[data-testid="shader-lab-live-stage"] [data-live-material-ready="true"]').first()).toBeAttached();
   await page.evaluate(() => window.glyphfield!.studio.invoke('design.frame.pause'));
   await theme(page, 'light');
@@ -65,13 +66,13 @@ test('Design Lab samples new text, sticker and mark colors without recoloring pl
   expect(await contentColors(page)).toEqual(combined);
   await expect(page.locator('[data-design-version-status]')).toHaveText('Autosaved');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   expect(await contentColors(page)).toEqual(combined);
 });
 
 test('Animation stores per-frame insertion colors and preserves authored colors through theme changes', async ({ page }) => {
   await page.goto('/studio?tool=animation');
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   await page.evaluate(async () => {
     const studio = window.glyphfield!.studio;
     const state = JSON.parse(studio.readSource()).metadata.animation;
@@ -106,6 +107,6 @@ test('Animation stores per-frame insertion colors and preserves authored colors 
   expect(await contentColors(page)).toEqual(combined);
   await expect(page.locator('.animation-studio:visible [data-design-version-status]')).toHaveText('Autosaved');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Edit source code', exact: true })).toBeEnabled();
+  await waitForStudioSource(page);
   expect(await contentColors(page)).toEqual(combined);
 });

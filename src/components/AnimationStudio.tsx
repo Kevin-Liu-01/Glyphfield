@@ -12,12 +12,11 @@ import CanvasDimensionHandles from '@/components/CanvasDimensionHandles';
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
 import { AnimationError, AnimationSourceDrawer } from '@/components/AnimationStudioFeedback';
 import { DesignVersionHeaderControls, DesignVersionProvider, type DesignVersionControlsProps } from '@/components/DesignVersionControls';
-import { DownloadProjectFileButton, OpenProjectFileButton } from '@/components/ProjectFileControls';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import type { ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
-import SourceCodeButton from '@/components/SourceCodeButton';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioControls from '@/components/StudioControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
@@ -2638,9 +2637,8 @@ function AnimationStudio({
             <DesignVersionHeaderControls />
           </StudioToolbarGroup>
           <StudioToolbarGroup label='Project files, code, and export'>
-            <OpenProjectFileButton disabled={exportProgress !== null} onOpen={applyStudioSource} read={readAnimationProjectFile} workspaceLabel='Animation Studio' />
-            <DownloadProjectFileButton disabled={exportProgress !== null || animationSource === null} prepare={prepareProjectFile} />
-            <SourceCodeButton disabled={animationSource === null} onClick={() => setSourceOpen(true)} />
+            <StudioFileMenu sourceDisabled={animationSource === null} onSource={() => setSourceOpen(true)}
+              project={{ disabled: exportProgress !== null || animationSource === null, open: applyStudioSource, prepare: prepareProjectFile, read: readAnimationProjectFile, workspaceLabel: 'Animation Studio' }} />
             {lastExport ? <ExportPreview asset={lastExport} className='hidden xl:inline-flex' /> : null}
             <Button
               disabled={exportProgress !== null}

@@ -109,11 +109,11 @@ describe('Animation Studio on-demand source and export tools', () => {
     } finally {
       vi.useRealTimers();
     }
-    await waitForUi(() => expect(findButton('Edit source code')?.disabled).toBe(false));
+    await waitForUi(() => expect(findButton('File')?.disabled).toBe(false));
   }
 
   function findButton(label: string) {
-    return [...container.querySelectorAll('button')].find((element) => element.getAttribute('aria-label') === label || element.textContent === label);
+    return [...document.querySelectorAll('button')].find((element) => element.getAttribute('aria-label') === label || element.textContent === label || element.querySelector('strong')?.textContent === label);
   }
 
   async function waitForUi(assertReady: () => void) {
@@ -167,6 +167,7 @@ describe('Animation Studio on-demand source and export tools', () => {
   it('loads source only on its first click and preserves source and close behavior', async () => {
     await mount();
     expect(deferred.loaded).not.toContain('source');
+    await click('File');
     await click('Edit source code');
     await waitForUi(() => expect(container.querySelector('[aria-label="Loaded source editor"] output')?.textContent).toBe('{"version":1}'));
     expect(deferred.loaded).toEqual(['source']);

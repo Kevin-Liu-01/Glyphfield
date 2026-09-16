@@ -10847,7 +10847,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
   display: block;
   min-height: 34px;
   border-bottom: 1px solid hsl(var(--border));
-  font-size: 0.58rem;
+  font-size: var(--studio-control-value-size, 12px);
 }
 
 .design-lab-color:last-child {
@@ -10886,7 +10886,7 @@ input.studio-range.color-hue-range[data-studio-range='true']::-webkit-slider-thu
 
 .design-lab-color code {
   color: hsl(var(--muted-foreground));
-  font-size: 0.45rem;
+  font-size: var(--studio-control-meta-size, 11px);
 }
 
 .design-lab-selection-actions,
@@ -20549,6 +20549,23 @@ html.dark .studio-app .studio-app-header > a img {
     padding: 1.5rem;
   }
 
+}
+
+/* Keep the working canvas useful on laptops. The current tool stays named in
+   its header; the compact navigation rail retains accessible names/tooltips. */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .studio-app { --studio-rail-width: 60px; }
+  .studio-nav .studio-sidebar-scroll { padding: 6px; }
+  .studio-nav section { padding-block: 6px; }
+  .studio-nav section + section { border-top: 1px solid hsl(var(--border)); }
+  .studio-nav section h2,
+  .studio-nav section button > span,
+  .studio-sidebar-help a > span { display: none; }
+  .studio-nav section button { justify-content: center; padding-inline: 0; }
+  .studio-sidebar-help { padding: 4px; gap: 0; }
+  .studio-sidebar-help a { padding-inline: 0; justify-content: center; }
+  .studio-app-header > a { overflow: hidden; padding-inline: 16px; }
+  .studio-app-header > a > p { display: none; }
 }
 
 @media (max-width: 500px) {

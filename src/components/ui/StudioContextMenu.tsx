@@ -79,6 +79,7 @@ function captureContextMenuScrollOffsets(anchor: HTMLElement) {
 }
 
 export default function StudioContextMenu({
+  id,
   detail,
   detailWrap = false,
   label,
@@ -86,6 +87,7 @@ export default function StudioContextMenu({
   position,
   sections,
 }: {
+  id?: string;
   detail?: string;
   detailWrap?: boolean;
   label: string;
@@ -143,7 +145,7 @@ export default function StudioContextMenu({
       }
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && menu?.contains(event.target)) return;
+      if (event.target instanceof Node && (menu?.contains(event.target) || position.anchor?.contains(event.target))) return;
       close();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -223,6 +225,7 @@ export default function StudioContextMenu({
   return createPortal(
     <div
       aria-label={label}
+      id={id}
       className='studio-context-menu'
       data-canvas-selection-preserve
       data-positioned={placement ? 'true' : 'false'}
@@ -246,6 +249,7 @@ export default function StudioContextMenu({
             <button
               aria-checked={item.checked}
               className='studio-context-menu__item'
+              data-action={item.id}
               data-danger={item.danger ? 'true' : undefined}
               disabled={item.disabled}
               key={item.id}

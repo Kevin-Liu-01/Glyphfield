@@ -41,7 +41,8 @@ import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
 import PlaygroundEditableText from '@/components/PlaygroundEditableText';
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import SourceCodeDrawer, { SourceCodeButton } from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import StudioFileMenu from '@/components/StudioFileMenu';
 import { parseSourceObject } from '@/lib/sourceCode';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import RangeControl from '@/components/SurfaceRangeControl';
@@ -1726,7 +1727,7 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
       <StudioToolHeader
         actions={(
           <>
-          <SourceCodeButton disabled={playgroundDocumentSource === null} onClick={() => setSourceOpen(true)} />
+          <StudioFileMenu sourceDisabled={playgroundDocumentSource === null} onSource={() => setSourceOpen(true)} />
           <ExportPreview asset={lastExport} />
           <Button aria-label='Export Playground PNG' disabled={exporting} onClick={exportPng} type='button'>
             <Download aria-hidden='true' /><span className='responsive-toolbar-label'><T>Export</T></span>

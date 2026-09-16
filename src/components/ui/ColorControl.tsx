@@ -151,7 +151,7 @@ function ColorTextInput({
 
 export default function ColorControl({
   ariaLabel,
-  compact = false,
+  compact = true,
   label,
   onChange,
   onPreview,
@@ -371,7 +371,10 @@ export default function ColorControl({
             style={{ backgroundColor: hex }}
           />
           <span>{label}</span>
-          <code>{hex}</code>
+          <span className='flex items-center gap-2'>
+            <code>{hex}</code>
+            {displayedOpacity === undefined ? null : <output className='text-xs tabular-nums text-muted-foreground'>{displayedOpacity}%</output>}
+          </span>
         </button>
       ) : <>
         <div className='flex items-center justify-between gap-3'>
@@ -487,6 +490,10 @@ export default function ColorControl({
               value={oklch}
             />
           </label>
+          {opacity === undefined || !onOpacityChange ? null : <label className='flex flex-col gap-2 text-xs'>
+            <span className='flex justify-between'><span>Opacity</span><output>{displayedOpacity}%</output></span>
+            <ColorRange aria-label={`${ariaLabel} opacity`} max={100} min={0} onCommit={commitOpacityPreview} onValue={scheduleOpacityPreview} value={displayedOpacity!} />
+          </label>}
         </> : null}
       </div>
       {compact ? null : <label className='studio-color-control-field studio-color-control-oklch-field grid grid-cols-[52px_1fr] items-center overflow-hidden rounded-md border border-input bg-background'>

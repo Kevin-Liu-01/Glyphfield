@@ -21,7 +21,7 @@ export async function checkSafariInsertionColors(harness) {
   const { baseUrl, click, command, evaluate, waitFor } = harness;
   // Insertion does not need the native text-editing/selection fixture.
   await command('POST', '/url', { url: `${baseUrl}/studio?tool=material` });
-  await waitFor(() => Boolean(window.glyphfield?.studio && document.querySelector('[aria-label="Edit source code"]:not(:disabled)')), 'ready insertion workspace');
+  await waitFor(() => Boolean(window.glyphfield?.studio.describe().source.read), 'ready insertion workspace');
   await waitFor(() => Boolean(document.querySelector('[data-testid="shader-lab-live-stage"] [data-live-material-ready="true"]'))
     && !document.querySelector('[data-testid="shader-lab-live-stage"] [data-shader-time-restoring="true"]'), 'preservable starter shader before leaving its artboard');
   const readySource = () => waitFor(() => {
@@ -100,7 +100,7 @@ export async function checkSafariCanvasWorkspace(harness) {
   await waitFor(() => document.querySelector('[data-design-version-status]')?.textContent === 'Autosaved', 'saved workspace');
   await command('POST', '/refresh', {});
   await waitFor((framed, id) => {
-    if (!window.glyphfield?.studio || !document.querySelector('[aria-label="Edit source code"]:not(:disabled)')) return false;
+    if (!window.glyphfield?.studio.describe().source.read) return false;
     const source = JSON.parse(window.glyphfield.studio.readSource());
     return source.metadata.designLab.workspace.activeArtboardId === framed && Boolean(source.elements[id]);
   }, 'reloaded framed layer', framed, id);

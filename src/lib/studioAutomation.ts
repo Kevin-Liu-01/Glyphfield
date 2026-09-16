@@ -80,9 +80,19 @@ function controlLabel(element: HTMLElement): string {
 
 function interactiveControls(owner?: HTMLElement | null): HTMLElement[] {
   const scope: ParentNode = owner ? automationWorkspace(owner) : document;
-  return Array.from(scope.querySelectorAll<HTMLElement>(
+  const surfaces: ParentNode[] = [scope];
+  // Toolbar menus render into the body to avoid clipping. Follow only explicit
+  // expanded ownership links from this workspace, never another editor's portal.
+  for (const trigger of scope.querySelectorAll<HTMLElement>('[aria-controls][aria-expanded="true"]')) {
+    if (!automationOwnerIsActive(trigger)) continue;
+    for (const id of trigger.getAttribute('aria-controls')!.split(/\s+/)) {
+      const surface = document.getElementById(id);
+      if (surface && !scope.contains(surface)) surfaces.push(surface);
+    }
+  }
+  return [...new Set(surfaces.flatMap((surface) => Array.from(surface.querySelectorAll<HTMLElement>(
     'button, input, textarea, select, [role="button"], [role="textbox"]'
-  )).filter((element) => !element.hasAttribute('disabled') && automationOwnerIsActive(element));
+  ))))].filter((element) => !element.hasAttribute('disabled') && automationOwnerIsActive(element));
 }
 
 const INACTIVE_AUTOMATION_ANCESTOR = '[inert], [hidden], [aria-hidden="true"], .studio-workspace-layer[data-active="false"], .studio-project-workspace-layer[data-active="false"]';

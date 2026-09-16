@@ -102,7 +102,22 @@
 }
 
 .headerControls .trigger {
-  max-width: 154px;
+  max-width: 150px;
+}
+
+.headerControls .status { height: 32px; }
+
+@media (max-width: 1200px) {
+  .headerControls .status { flex-basis: 24px; width: 24px; max-width: 24px; justify-content: center; }
+  .headerControls .status small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .headerControls .actionLabel { max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
+  .headerControls .trigger { max-width: 125px; }
+}
+
+@media (max-width: 800px) {
+  .headerControls .trigger { max-width: 100px; }
+  .headerControls .actions button { width: 32px; padding-inline: 0; }
+  .headerControls .actionLabel { display: none; }
 }
 
 .root[data-layout='panel'] {

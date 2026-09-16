@@ -47,7 +47,7 @@
 }
 
 .identity :is(h1, h2) {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-width: 0;
   color: hsl(var(--foreground));
   font-size: var(--studio-toolbar-label-size);
@@ -55,9 +55,12 @@
   letter-spacing: -0.012em;
   line-height: 1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metadata {
+  max-width: 260px;
   min-width: 0;
   overflow: hidden;
   color: hsl(var(--muted-foreground));
@@ -161,4 +164,11 @@
   .metadata {
     display: none;
   }
+}
+
+@media (max-width: 1150px) {
+  .metadata { display: none; }
+  .root { gap: 8px; padding-inline: 12px; }
+  .identity { gap: 6px; }
+  .actions :global(.studio-export-preset) { width: 108px; flex-basis: 108px; }
 }

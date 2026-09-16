@@ -47,7 +47,8 @@ describe('ToolShell source adapter lifetime', () => {
   it('keeps drawer delegation valid across equivalent parent rerenders', async () => {
     const apply = vi.fn();
     await render('{"color":"first"}', apply);
-    await act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Edit source code"]')!.click());
+    await act(() => container.querySelector<HTMLButtonElement>('button[aria-label="File"]')!.click());
+    await act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) => button.textContent?.startsWith('Edit source code'))!.click());
     const drawer = window.glyphfield!.studio;
     expect(container.querySelector('.source-code-drawer')).not.toBeNull();
     // Unknown actions delegate to the parent and correctly report capability,

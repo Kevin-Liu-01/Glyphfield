@@ -10,7 +10,7 @@ import {
   type StudioProjectFile,
 } from '@/lib/projectFile';
 
-async function readDefaultProjectFile(file: File): Promise<string> {
+export async function readDefaultProjectFile(file: File): Promise<string> {
   const { readDesignLabProjectFile } = await import('@/lib/designLabProjectFile');
   return readDesignLabProjectFile(file);
 }
@@ -23,7 +23,7 @@ export type ProjectFileControlsProps = {
   workspaceLabel?: string;
 };
 
-export function DownloadProjectFileButton({
+export function useProjectFileDownload({
   disabled = false,
   prepare,
 }: Pick<ProjectFileControlsProps, 'disabled' | 'prepare'>) {
@@ -51,16 +51,21 @@ export function DownloadProjectFileButton({
       setPending(false);
     }
   }
+  return { save, pending, message, error, dismissError: () => setError(null) };
+}
+
+export function DownloadProjectFileButton(props: Pick<ProjectFileControlsProps, 'disabled' | 'prepare'>) {
+  const { save, pending, message, error, dismissError } = useProjectFileDownload(props);
   return <span className='inline-flex min-w-0 items-center gap-1'>
-    <Button aria-label='Download project file' disabled={disabled} loading={pending} onClick={() => void save()} size='sm' type='button' variant='outline'>
+    <Button aria-label='Download project file' disabled={props.disabled} loading={pending} onClick={() => void save()} size='sm' type='button' variant='outline'>
       <Download aria-hidden='true' /><span className='studio-toolbar-action-label'>Project file</span>
     </Button>
-    <StudioErrorNotice error={error} onDismiss={() => setError(null)} title='Project download failed' />
+    <StudioErrorNotice error={error} onDismiss={dismissError} title='Project download failed' />
     {message ? <span className='sr-only' role='status'>{message}</span> : null}
   </span>;
 }
 
-export function OpenProjectFileButton({
+export function useProjectFileOpen({
   disabled = false,
   onOpen,
   read = readDefaultProjectFile,
@@ -88,11 +93,7 @@ export function OpenProjectFileButton({
       setPending(false);
     }
   }
-  return <span className='inline-flex min-w-0 items-center gap-1'>
-    <Button aria-label='Open project file' disabled={disabled} loading={pending} onClick={() => inputRef.current?.click()} size='sm' title={`Open an editable ${workspaceLabel} project file in this workspace`} type='button' variant='outline'>
-      <Upload aria-hidden='true' /><span className='studio-toolbar-action-label'>Open project</span>
-    </Button>
-    <input
+  const input = <input
       accept={STUDIO_PROJECT_FILE_ACCEPT}
       aria-label='Choose project file'
       className='sr-only'
@@ -105,8 +106,18 @@ export function OpenProjectFileButton({
       ref={inputRef}
       tabIndex={-1}
       type='file'
-    />
-    <StudioErrorNotice error={error} onDismiss={() => setError(null)} title='Could not open project' />
+    />;
+  return { input, choose: () => inputRef.current?.click(), pending, message, error, dismissError: () => setError(null), workspaceLabel };
+}
+
+export function OpenProjectFileButton(props: Pick<ProjectFileControlsProps, 'disabled' | 'read' | 'workspaceLabel'> & { onOpen: ProjectFileControlsProps['open'] }) {
+  const { input, choose, pending, message, error, dismissError, workspaceLabel } = useProjectFileOpen(props);
+  return <span className='inline-flex min-w-0 items-center gap-1'>
+    <Button aria-label='Open project file' disabled={props.disabled} loading={pending} onClick={choose} size='sm' title={`Open an editable ${workspaceLabel} project file in this workspace`} type='button' variant='outline'>
+      <Upload aria-hidden='true' /><span className='studio-toolbar-action-label'>Open project</span>
+    </Button>
+    {input}
+    <StudioErrorNotice error={error} onDismiss={dismissError} title='Could not open project' />
     {message ? <span className='sr-only' role='status'>{message}</span> : null}
   </span>;
 }

@@ -8,7 +8,7 @@ The Studio is the visual workspace at `/studio`. It is built around persistent b
 
 Every generator uses the same [editor systems](/docs/studio/editor-systems) for color, canvas zoom, selection, layers, alignment, assets, persistent drafts, and source editing. This makes an interaction learned in one tool available everywhere it applies. The shared [Shader Library](/docs/studio/shader-library) adds a large, quality-sorted live catalog to Design Lab and Animation; `/api/materials` is the authoritative count.
 
-The **Code** action opens a right-side source drawer for the active artifact. Valid JSON or material source applies back into the same state used by the visual inspector, canvas, and export. Read [Source code editing](/docs/studio/source-editing) for formats, validation, and round-trip behavior.
+The **File → Edit source code** action opens a right-side source drawer for the active artifact. Valid JSON or material source applies back into the same state used by the visual inspector, canvas, and export. Read [Source code editing](/docs/studio/source-editing) for formats, validation, and round-trip behavior.
 
 <DocsThemeGallery />
 
@@ -31,14 +31,30 @@ Search covers tool names, descriptions, and capability keywords. `⌘K`, `Ctrl+K
   <DocsMedia alt='General Translation rapid composition surface in Design Lab' caption='Design exploration' meta='Rapid composition' src='/screenshots/studio-gt-playground-dark-2026.png' />
 </DocsMediaGrid>
 
+## Where controls live
+
+The same hierarchy applies across Studio tools:
+
+| Place | Purpose |
+| --- | --- |
+| Project tabs, **Project**, and **Projects** | Name and switch projects; duplicate all their work; reopen closed tabs |
+| Tool header | Save checkpoints, browse saved designs, open **File**, and export |
+| Canvas toolbar | Work on the current artboard: size, arrange, zoom, undo, and redo |
+| Libraries and navigation | Choose assets, presets, and shared project settings |
+| Inspector | Edit the selected layer or the active tool's configuration |
+
+**File** contains portable project open/download where supported, plus **Edit source code** under Advanced. **Export** remains visible because it produces the finished artifact. To import into a new project instead of replacing the current workspace, use **+ → Import project**.
+
+Inspector headings are keyboard-operable disclosure buttons. Collapse sections you are not using; reopening them preserves their controls and edits. Color rows show a swatch and HEX value; open the row for the full picker, HEX, OKLCH, and optional opacity. At laptop widths, the tool navigation becomes an icon rail with named tooltips, leaving more room for the canvas.
+
 ## Projects and tabs
 
 Each project contains a `BrandIdentity` and a separate set of tool drafts. Tabs are views into saved projects:
 
 - **Add** creates a new local identity.
-- **Duplicate** copies the active identity into an editable project.
-- **Close others** reduces visual clutter without deleting projects.
-- **All projects** filters and reopens template, local, and example projects.
+- **Project → Duplicate active project** copies the active identity, current work in every tool, assets, and saved checkpoints into an independent project.
+- **Project → Close other project tabs** reduces visual clutter without deleting projects.
+- **Projects** filters and reopens template, local, and example projects.
 
 Tabs drag directly like browser tabs. The active tab moves with the pointer while adjacent tabs shift to expose the insertion point; there is no separate drag handle.
 
@@ -78,7 +94,7 @@ Visual settings control Studio chrome only:
 - Neutral, violet, teal, or lime selection accent
 - Dots, grid, or plain canvas
 - Rounded or square Studio controls and panels; rounded is the default
-- Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans interface font
+- Helvetica (default), Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans interface font
 - Compact or comfortable density
 - Full or reduced decorative motion
 

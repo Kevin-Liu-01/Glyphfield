@@ -69,7 +69,8 @@ async function expectTool(harness, toolId) {
     assert.notEqual(toolId, 'material', 'Visible Design Lab lost its public source adapter');
     // Animation and identity advertise source only while their actual drawer is
     // open. Exercise that UI and ownership instead of assuming the capability.
-    const codeButton = `${activeWorkspace} button[aria-label="Edit source code"]:not([disabled])`;
+    await harness.click(`${activeWorkspace} button[aria-label="File"]`);
+    const codeButton = '[role="menu"][aria-label="File"] [data-action="source"]:not([disabled])';
     await harness.waitFor((selector) => Boolean(document.querySelector(selector)), `${toolId} source ready`, codeButton);
     await harness.click(codeButton);
     openedDrawer = true;
