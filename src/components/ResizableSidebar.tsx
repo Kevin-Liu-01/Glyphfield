@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
+  type Ref,
   type ReactNode,
 } from 'react';
 
@@ -22,6 +23,7 @@ type ResizableSidebarProps = {
   maxWidth?: number;
   minWidth?: number;
   resizeEdge?: ResizeEdge;
+  scrollRef?: Ref<HTMLDivElement>;
   storageKey: string;
 };
 
@@ -50,6 +52,7 @@ export default function ResizableSidebar({
   maxWidth = 520,
   minWidth = 220,
   resizeEdge = 'right',
+  scrollRef,
   storageKey,
 }: ResizableSidebarProps) {
   const contentId = useId();
@@ -146,6 +149,7 @@ export default function ResizableSidebar({
 
   return (
     <aside
+      aria-label={label}
       className={`resizable-sidebar ${className}`}
       data-canvas-selection-preserve
       data-collapsed={collapsed ? 'true' : 'false'}
@@ -153,7 +157,7 @@ export default function ResizableSidebar({
       data-resizing={resizing ? 'true' : 'false'}
       style={style}
     >
-      <div className='resizable-sidebar-scroll studio-scroll-area' id={contentId}>
+      <div className='resizable-sidebar-scroll studio-scroll-area' id={contentId} ref={scrollRef}>
         {children}
       </div>
       <button

@@ -106,7 +106,7 @@
 /* Shader Lab v2 — one live GPU surface, static discovery previews. */
 .shader-lab-v2-layout {
   display: grid;
-  grid-template-columns: var(--studio-inspector-width) minmax(360px, 1fr) var(--studio-inspector-width);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -120,6 +120,11 @@
   overflow-y: auto;
   background: hsl(var(--background));
   scrollbar-width: thin;
+}
+
+/* The shared sidebars own scrolling and width; resizing must not animate the GPU canvas. */
+.shader-lab-v2-layout > .resizable-sidebar {
+  transition: none;
 }
 
 .shader-lab-v2-library {
@@ -3673,8 +3678,12 @@
 }
 
 @container tool-shell (max-width: 1040px) {
-  .shader-lab-v2-layout {
-    grid-template-columns: 228px minmax(320px, 1fr) 270px;
+  .shader-lab-v2-library {
+    max-width: 228px;
+  }
+
+  .shader-lab-v2-inspector {
+    max-width: 270px;
   }
 
   .shader-lab-v2-bottom-dock {
@@ -3702,13 +3711,36 @@
     overflow-y: auto;
   }
 
+  /* Match the other editors: stacked panels stay reachable on small screens,
+     without overwriting the user's desktop width or collapse preferences. */
+  .shader-lab-v2-layout > .resizable-sidebar {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .shader-lab-v2-layout > .resizable-sidebar .resizable-sidebar-handle,
+  .shader-lab-v2-layout > .resizable-sidebar .resizable-sidebar-toggle {
+    display: none;
+  }
+
+  .shader-lab-v2-layout > .resizable-sidebar[data-collapsed='true'] .resizable-sidebar-scroll {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .shader-lab-v2-inspector > .resizable-sidebar-scroll {
+    height: auto;
+    overflow: visible;
+  }
+
   .shader-lab-v2-library {
     overflow: hidden;
     border-right: 0;
     border-bottom: 1px solid hsl(var(--border));
   }
 
-  .shader-lab-v2-panel-heading,
+  .shader-lab-v2-library .shader-lab-v2-panel-heading,
   .shader-lab-v2-library-note {
     display: none;
   }

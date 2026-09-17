@@ -101,4 +101,17 @@ describe('Studio browser automation workspace scope', () => {
     expect(window.glyphfield!.studio.controls().map(({ label }) => label)).toEqual(['File']);
     unregister();
   });
+
+  it('exposes sidebar controls only when their content is visible, including stacked layouts', () => {
+    const owner = document.createElement('section');
+    owner.className = 'tool-shell';
+    owner.innerHTML = '<aside data-collapsed="true"><div class="resizable-sidebar-scroll" style="visibility:hidden"><input aria-label="Search shaders" /></div><button>Expand Shader library</button></aside>';
+    document.body.append(owner);
+    const unregister = registerStudioAutomation({ toolId: 'material' }, owner);
+    expect(window.glyphfield!.studio.controls().map(({ label }) => label)).toEqual(['Expand Shader library']);
+    const content = owner.querySelector<HTMLElement>('.resizable-sidebar-scroll')!;
+    content.style.visibility = 'visible';
+    expect(window.glyphfield!.studio.controls().map(({ label }) => label)).toEqual(['Search shaders', 'Expand Shader library']);
+    unregister();
+  });
 });

@@ -92,7 +92,13 @@ function interactiveControls(owner?: HTMLElement | null): HTMLElement[] {
   }
   return [...new Set(surfaces.flatMap((surface) => Array.from(surface.querySelectorAll<HTMLElement>(
     'button, input, textarea, select, [role="button"], [role="textbox"]'
-  ))))].filter((element) => !element.hasAttribute('disabled') && automationOwnerIsActive(element));
+  ))))].filter((element) => {
+    if (element.hasAttribute('disabled') || !automationOwnerIsActive(element)) return false;
+    // Collapsed sidebars stay mounted, but their controls are unavailable. Read
+    // the effective visibility because stacked mobile layouts reopen the content.
+    const sidebar = element.closest('.resizable-sidebar-scroll');
+    return !sidebar || window.getComputedStyle(sidebar).visibility !== 'hidden';
+  });
 }
 
 const INACTIVE_AUTOMATION_ANCESTOR = '[inert], [hidden], [aria-hidden="true"], .studio-workspace-layer[data-active="false"], .studio-project-workspace-layer[data-active="false"]';

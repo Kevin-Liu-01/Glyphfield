@@ -117,7 +117,7 @@ import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDes
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
 import ImageCropEditorOverlay from '@/components/ImageCropEditorOverlay';
-import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
+import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
@@ -4859,7 +4859,7 @@ export default function ShaderLabStudio({
   const effectPreviewRedrawRef = useRef<(() => void) | null>(null);
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const materialLibraryRef = useRef<HTMLElement>(null);
+  const materialLibraryRef = useRef<HTMLDivElement>(null);
   const materialLoadMoreRef = useRef<HTMLButtonElement>(null);
   const imageImportRequestIdRef = useRef(0);
   const selectMaterialRef = useCommittedRef(selectMaterial);
@@ -8747,7 +8747,7 @@ export default function ShaderLabStudio({
 
   function renderShaderLibrary() {
     return (
-      <aside className='shader-lab-v2-library studio-sidebar lab-sidebar lab-sidebar-left studio-scroll-area' aria-label='Shader library' data-canvas-selection-preserve ref={materialLibraryRef}>
+      <StudioSidebar className='shader-lab-v2-library' kind='library' label='Shader library' scrollRef={materialLibraryRef} side='left' storageKey='design-lab-library'>
         <LabPanelHeading
           action={<button aria-label='Choose a random shader' onClick={selectRandomMaterial} title='Random shader' type='button'><Sparkles aria-hidden='true' /></button>}
           className='shader-lab-v2-panel-heading'
@@ -8798,7 +8798,7 @@ export default function ShaderLabStudio({
             </button>
           ) : null}
         </div>
-      </aside>
+      </StudioSidebar>
     );
   }
 
@@ -9780,7 +9780,7 @@ export default function ShaderLabStudio({
           </div>
         </section>
 
-        <aside className='shader-lab-v2-inspector studio-sidebar lab-sidebar lab-sidebar-right studio-scroll-area' aria-label='Design Lab controls' data-canvas-selection-preserve>
+        <StudioSidebar className='shader-lab-v2-inspector' kind='inspector' label='Design Lab controls' side='right' storageKey='design-lab-inspector'>
           <LabPanelHeading
             className='shader-lab-v2-inspector-intro'
             description={designLabInspectorDescription({
@@ -10005,7 +10005,7 @@ export default function ShaderLabStudio({
             <button onClick={() => void copySetup()} type='button'>{copied ? <Check aria-hidden='true' /> : 'Copy'}</button>
             {copyError ? <p className='shader-lab-v2-handoff-error' role='alert'>{copyError}</p> : null}
           </section>
-        </aside>
+        </StudioSidebar>
       </div>
       {renderSourceEditor()}
       <ImageAssetModal

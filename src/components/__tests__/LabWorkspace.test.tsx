@@ -46,6 +46,7 @@ describe('LabWorkspace', () => {
     );
 
     expect(markup).toContain('studio-sidebar-library');
+    expect(markup).toContain('aria-label="assets"');
     expect(markup).toContain('lab-sidebar-right');
     expect(markup).toContain('data-resize-edge="left"');
     expect(markup).toContain('--resizable-sidebar-expanded-width:292px');
