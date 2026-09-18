@@ -39,6 +39,16 @@ describe('open Design Lab workspace', () => {
     expect(moved.imageCrop).toBe(layer.imageCrop);
   });
 
+  it('preserves mixed text sizes when moving between artboards and loose canvas', () => {
+    const layer = { id: 'text-rich', fontSize: 48, runs: [{ start: 0, end: 5, style: { fontSize: 96, weight: 700 } }], transform: { x: 0, y: 0, scale: 0.6 } };
+    const moved = reparentDesignLayer(layer, portrait, canvas);
+    const scaleA = designSurfaceSize(portrait.snapshot.dimensions).width / 1080;
+    const scaleB = designSurfaceSize(canvas.snapshot.dimensions).width / 1600;
+    expect(moved.runs[0].style.fontSize * scaleB).toBeCloseTo(layer.runs[0].style.fontSize * scaleA, 10);
+    expect(reparentDesignLayer(moved, canvas, portrait).runs[0].style.fontSize).toBeCloseTo(96, 10);
+    expect(layer.runs[0].style.fontSize).toBe(96);
+  });
+
   it('separates the canvas from output artboards in portable source', () => {
     const packed = packDesignWorkspace([canvas, portrait], DESIGN_CANVAS_ID);
     expect(packed.artboards).toEqual([portrait]);

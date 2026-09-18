@@ -124,4 +124,38 @@ describe('native canvas text editing', () => {
     expect(text.style.fontSize).toBe('40px');
     expect(text.style.lineHeight).toBe('1.1');
   });
+
+  it('remaps each pending rich edit before coalescing its commit', async () => {
+    const richChange = vi.fn();
+    await act(() => root.render(<CanvasEditableText className='rich' label='Rich editor'
+      onChange={commit} onRichChange={richChange} onFocus={select} style={{}}
+      value='abcd' runs={[{ start: 1, end: 3, style: { weight: 700 } }]}
+      resolveRunStyle={(style) => ({ fontWeight: String(style.weight ?? 400) })} />));
+    const text = container.querySelector<HTMLElement>('[role="textbox"]')!;
+    await act(() => {
+      text.focus();
+      text.textContent = 'xabcd';
+      text.dispatchEvent(new Event('input', { bubbles: true }));
+      text.textContent = 'xabc!d';
+      text.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(richChange).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTime(140));
+    expect(richChange).toHaveBeenCalledWith('xabc!d', [{ start: 2, end: 5, style: { weight: 700 } }]);
+  });
+
+  it('ignores a collapsed DOM selection after focus moves to an inspector control', async () => {
+    const selection = vi.fn();
+    await act(() => root.render(<><CanvasEditableText className='rich' label='Rich editor'
+      onChange={commit} onFocus={select} onSelectionChange={selection} style={{}}
+      value='abcd' runs={[{ start: 0, end: 2, style: { weight: 700 } }]} resolveRunStyle={() => ({})} /><button>Format</button></>));
+    const text = container.querySelector<HTMLElement>('[role="textbox"]')!;
+    const range = document.createRange(); range.setStart(text.firstChild!.firstChild!, 0); range.collapse(true);
+    await act(() => {
+      container.querySelector('button')!.focus();
+      window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    expect(selection).not.toHaveBeenCalled();
+  });
 });

@@ -80,6 +80,12 @@ Every layer carries its own opacity. Shader layers also expose `normal`, `screen
 
 Text is a first-class canvas element, not a single caption slot. Add up to 32 text layers through an agent-generated sequence and as many as the interactive composition can reasonably render.
 
+Select words or lines inside a text box to format just that selection. You can select on the canvas or in the inspector's text field. **Selected text** confirms the active range; font, size, weight, color, italic, underline, strikethrough, and tracking apply only to those characters. **Whole text box** returns to box-wide formatting. Mixed selections are labeled **Mixed formatting**. Alignment, wrapping, line height, opacity, outlines, shadows, and material effects remain box-wide controls.
+
+Use **⌘/Ctrl+B**, **⌘/Ctrl+I**, and **⌘/Ctrl+U** while editing for bold, italic, and underline. Formatting follows text as you insert or delete characters and is included in undo/redo, saved designs, duplicates, portable source, and native exports. Plain-text paste inherits the insertion point's formatting; pasted HTML is not imported.
+
+Portable text stores its plain `value` plus optional ordered `runs`: `{ start, end, style }`, using UTF-16 offsets with an exclusive end. Unspecified style properties inherit from the text layer. Agents can edit these through `applySource` or call `design.text.format` with `{ layerId, start, end, style }` on the active editing surface. Run `fontSize` is in authored pixels before the layer's scale, just like the base size. Existing plain-text documents require no migration.
+
 New text starts at **48 px**. Use **Text size in pixels** for an exact size from 1–2048 artboard pixels, the **Text size** slider for quick adjustments, and the adjacent **Font weight** slider for the selected brand font's supported range. The icon toolbar independently toggles italic, underline, and strikethrough, including combined decorations. Setting a size preserves the text box's position and dimensions and resets its separate scale to 1. Explicit pixel sizes stay consistent across artboard ratios; older designs without a pixel size retain their original height-relative sizing until you edit it. Size, scale, weight, and text styling are preserved in source, saved designs, duplicates, previews, and exports.
 
 Text can be rendered as:

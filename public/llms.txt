@@ -90,11 +90,14 @@ Persistent source is available for every navigable tool except the identity-deri
 
 Design Lab exposes:
 
+Inline text formatting: `design.text.format` accepts `{ layerId, start, end, style }` for a text layer on the active surface. Use UTF-16 character offsets, end exclusive. Style supports color, fontRole, fontSize (authored px before layer scale), weight, fontStyle, underline, strikethrough, and tracking. Source preserves plain `value` plus ordered `runs` in element.data. Alignment, wrapping, opacity and effects remain layer-wide.
+
 ```text
 design.frame.pause
 design.frame.capture
 design.frame.play
 design.frame.seek
+design.text.format
 design.motion.describe
 design.sequence.describe
 design.sequence.configure

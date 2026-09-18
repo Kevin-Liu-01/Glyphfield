@@ -121,6 +121,8 @@ export const STUDIO_TOOLS: readonly StudioTool[] = [
       'composition',
       'playground',
       'typography',
+      'rich text',
+      'selected text formatting',
       'svg conversion',
       'layer editor',
       'sticker',

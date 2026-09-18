@@ -1,4 +1,5 @@
 import type { CanvasTextAlign, CanvasTextWrap } from './canvasText';
+import type { ResolvedTextSegment, ResolvedTextStyle } from './richText';
 
 type TextTypography = {
   align: CanvasTextAlign;
@@ -30,7 +31,7 @@ export function canvasTextTypography(options: TextTypography) {
   };
 }
 
-type NativeTextLine = { value: string; x: number; baseline: number };
+type NativeTextLine = { value: string; x: number; baseline: number; style?: ResolvedTextStyle };
 export type NativeCanvasTextLayout = {
   lines: NativeTextLine[];
   height: number;
@@ -51,7 +52,7 @@ export function canvasTextRangeRect(range: Pick<Range, 'getClientRects' | 'getBo
   return range.getBoundingClientRect();
 }
 
-function textLines(text: HTMLElement, origin: DOMRect, ascent: number): NativeTextLine[] {
+function textLines(text: HTMLElement, origin: DOMRect, ascent: number, runs?: Map<Node, { ascent: number; style: ResolvedTextStyle }>): NativeTextLine[] {
   const lines: NativeTextLine[] = [];
   const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
@@ -59,19 +60,20 @@ function textLines(text: HTMLElement, origin: DOMRect, ascent: number): NativeTe
     // Read where the browser placed the text, including hyphen/CJK/NBSP breaks,
     // blank lines, and hanging whitespace. Never re-wrap or rewrite paragraphs.
     const value = node.textContent!;
+    const run = runs?.get(node);
     for (let index = 0; index < value.length; index += 1) {
       range.setStart(node, index);
       range.setEnd(node, index + 1);
       const rect = canvasTextRangeRect(range);
       if (!rect.height) continue;
-      const baseline = rect.top - origin.top + ascent;
+      const baseline = rect.top - origin.top + (run?.ascent ?? ascent);
       const x = rect.left - origin.left;
       const previous = lines.at(-1);
-      if (previous && Math.abs(previous.baseline - baseline) < 0.5) {
+      if (previous && previous.style === run?.style && Math.abs(previous.baseline - baseline) < 0.5) {
         previous.value += value[index];
         previous.x = Math.min(previous.x, x);
       } else {
-        lines.push({ value: value[index], x, baseline });
+        lines.push({ value: value[index], x, baseline, ...(run ? { style: run.style } : {}) });
       }
     }
   }
@@ -101,6 +103,7 @@ export function layoutNativeCanvasText(options: Omit<TextTypography, 'fontSize'>
   boxWidth: number;
   fontSize: number;
   value: string;
+  runs?: ResolvedTextSegment[];
 }): NativeCanvasTextLayout {
   if (observedFonts !== document.fonts) {
     observedFonts = document.fonts;
@@ -121,14 +124,27 @@ export function layoutNativeCanvasText(options: Omit<TextTypography, 'fontSize'>
   const typography = canvasTextTypography({ ...options, fontSize: `${options.fontSize}px` });
   Object.assign(text.style, typography);
   // Same native insertion as CanvasEditableText, including trailing newlines.
-  text.innerText = options.value;
+  const runs = new Map<Node, { ascent: number; style: ResolvedTextStyle }>();
+  if (options.runs?.length) {
+    text.style.display = 'block';
+    for (const run of options.runs) {
+      const span = document.createElement('span');
+      Object.assign(span.style, canvasTextTypography({ ...options, ...run.style, fontSize: `${run.style.fontSize}px` }));
+      span.textContent = options.value.slice(run.start, run.end);
+      text.append(span);
+    }
+  } else text.innerText = options.value;
   host.append(text);
   document.body.append(host);
   try {
     const origin = host.getBoundingClientRect();
     const bounds = text.getBoundingClientRect();
     const ascent = nativeTextAscent(host, typography);
-    const layout = { lines: textLines(text, origin, ascent), height: bounds.height, offsetY: bounds.top - origin.top };
+    options.runs?.forEach((run, index) => {
+      const node = text.children[index]?.firstChild;
+      if (node) runs.set(node, { style: run.style, ascent: nativeTextAscent(host, canvasTextTypography({ ...options, ...run.style, fontSize: `${run.style.fontSize}px` })) });
+    });
+    const layout = { lines: textLines(text, origin, ascent, runs), height: bounds.height, offsetY: bounds.top - origin.top };
     // Motion/effect frames reuse layout; loaded/replaced fonts invalidate it.
     if (layouts.size >= 128) layouts.delete(layouts.keys().next().value!);
     layouts.set(key, layout);

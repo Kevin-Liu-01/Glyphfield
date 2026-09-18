@@ -70,6 +70,7 @@ function designLabInput(): DesignLabDocumentInput {
       tracking: -0.06,
       transform: { heightScale: 0.5, scale: 0.4, widthScale: 0.7, x: 74, y: 304 },
       value: 'Open Source',
+      runs: [{ start: 0, end: 4, style: { weight: 700, color: '#FF0000', underline: true } }],
       visible: true,
       weight: 500,
       wrap: 'wrap',

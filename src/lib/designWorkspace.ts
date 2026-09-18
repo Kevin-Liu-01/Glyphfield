@@ -1,6 +1,7 @@
 import { canvasLayerBounds, canvasLayerDimensions, type CanvasLayerTransform } from './canvasInteraction';
 import { resolveDesignLabFontSize } from './designLabTypography';
 import { asCanvasJsonObject, type CanvasJsonObject } from './canvasDocument';
+import type { TextStyleRun } from './richText';
 
 // An internal editor handle, not an artboard. Portable source stores it in
 // workspace.canvas; older artboard-only documents remain valid.
@@ -31,7 +32,7 @@ export function designLayerWorldBounds(surface: Surface, layer: { id: string; tr
 }
 
 /** Preserve the authored box and native text layout when changing ownership. */
-export function reparentDesignLayer<T extends { id: string; transform: CanvasLayerTransform; fontSize?: number }>(
+export function reparentDesignLayer<T extends { id: string; transform: CanvasLayerTransform; fontSize?: number; runs?: TextStyleRun[] }>(
   layer: T, from: Surface, to: Surface, offset = { x: 0, y: 0 }
 ): T {
   const a = from.snapshot.dimensions;
@@ -57,6 +58,8 @@ export function reparentDesignLayer<T extends { id: string; transform: CanvasLay
     ...(layer.id.startsWith('text-') ? { fontSize: resolveDesignLabFontSize(layer, a.height) * ratio / layer.transform.scale } : {}),
   };
   if (layer.id.startsWith('text-')) {
+    if (layer.runs) result.runs = layer.runs.map((run) => run.style.fontSize === undefined ? run
+      : { ...run, style: { ...run.style, fontSize: run.style.fontSize * ratio } });
     for (const key of ['outlineWidth', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY'] as const) {
       const value = (layer as T & Partial<Record<typeof key, number>>)[key];
       if (typeof value === 'number') Object.assign(result, { [key]: value * ratio });

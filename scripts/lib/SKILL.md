@@ -21,6 +21,7 @@ separating product failures from WebDriver input or focus failures.
 `safari-artboard-export-check.mjs` checks native artboard/map dragging, origin-clean text/SVG paint exports, and portable project/font round trips.
 `safari-canvas-workspace-check.mjs` checks loose layers, theme-safe insertion colors, framing, reload, offscreen culling, native text layout, themed export previews, and loose shader capture/export.
 `safari-project-copy-check.mjs` checks actual project duplication, reload, and compact error-detail controls.
+`safari-rich-text-check.mjs` checks native selected-range formatting, untouched neighboring text, source round trips, and decoded PNG export.
 
 ## Patterns to follow / invariants
 <!-- agent-docs:fill:patterns -->

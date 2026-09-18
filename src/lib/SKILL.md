@@ -16,6 +16,9 @@ and agent contracts.
 - `studioCatalog.ts` is the public navigable tool catalog.
 - `canvasDocument.ts` is the portable scene graph and mutation/history model.
 - `designLabDocument.ts` adapts Design Lab state to CanvasDocument.
+- `richText.ts` owns UTF-16 style ranges and edit remapping. `richTextDom.ts`
+  bridges native selections; `canvasTextLayout.ts` measures the same inline runs
+  for export without re-wrapping text. Keep legacy plain-text layout intact.
 - `shaderLab.ts` and `liveMaterials.ts` define the shared material library.
 - `download.ts`, `canvasExport.ts`, GIF/video/audio helpers own artifact creation.
 - `savedDesigns.ts` owns IndexedDB snapshots and recovery journal behavior.

@@ -16,6 +16,7 @@ import { checkSafariControls } from './lib/safari-control-check.mjs';
 import { checkSafariArtboardExport } from './lib/safari-artboard-export-check.mjs';
 import { checkSafariCanvasWorkspace, checkSafariTextPreview, checkSafariLooseShader, checkSafariInsertionColors } from './lib/safari-canvas-workspace-check.mjs';
 import { checkSafariProjectCopy } from './lib/safari-project-copy-check.mjs';
+import { checkSafariRichText } from './lib/safari-rich-text-check.mjs';
 
 const baseUrl = process.env.GLYPHFIELD_SAFARI_BASE_URL ?? 'http://localhost:3014';
 const driverUrl = process.env.SAFARI_WEBDRIVER_URL ?? 'http://localhost:4445';
@@ -350,11 +351,6 @@ try {
   const capabilities = await startSession();
   console.log(JSON.stringify({ browser: capabilities.browserName, version: capabilities.browserVersion,
     platform: capabilities.platformName, baseUrl }));
-  if (!filter || filter.includes('native selection')) {
-    nativeUndoCapability = await probeNativeUndo();
-    console.log(JSON.stringify({ nativeUndoCapability }));
-  }
-
   await check('native range dragging and keyboard size', async () => {
     const before = await evaluate((selector) => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize), textSelector);
     const value = await drag(sizeSelector, 0.4);
@@ -373,10 +369,10 @@ try {
     return { beforeFontPx: before, afterFontPx: after, scale: value, keyboardScale: keyboardValue.scale };
   });
 
-  await check('native selection, editing and undo delegation', async () => {
+  await check('native selection, editing and text undo', async () => {
     const before = await readText();
     const points = await evaluate((selector) => {
-      const node = document.querySelector(selector).firstChild;
+      const node = document.createTreeWalker(document.querySelector(selector), NodeFilter.SHOW_TEXT).nextNode();
       return [1, 12].map((offset) => {
         const range = document.createRange();
         range.setStart(node, offset); range.setEnd(node, offset + 1);
@@ -407,26 +403,18 @@ try {
       });
     }, textSelector);
     await press(keys.meta, 'z');
-    assert(nativeUndoCapability, 'Native undo must be checked against bare controls before interpreting its result');
-    if (nativeUndoCapability.supported) {
-      // Browsers group typing and deletion differently. Verify an actual undo
-      // followed by exact redo, not a particular browser's transaction boundary.
-      await waitFor((selector, before) => document.querySelector(selector)?.textContent !== before, 'native text undo', textSelector, beforeUndo);
-      await press(keys.meta, keys.shift, 'z');
-      await waitFor((selector, before) => document.querySelector(selector)?.textContent === before, 'native text redo', textSelector, beforeUndo);
-    } else {
-      const trace = await evaluate(() => JSON.parse(document.documentElement.dataset.safariUndoKeys ?? '[]'));
-      const shortcut = trace.find((event) => event.key === 'z');
-      assert(shortcut?.trusted && shortcut.meta && !shortcut.prevented, 'Glyphfield blocked the native undo shortcut');
-    }
+    // Rich text owns its undo history so characters and run styles stay together,
+    // even on Safari versions whose bare plaintext-only editor lacks native undo.
+    await waitFor((selector, before) => document.querySelector(selector)?.textContent !== before, 'text undo', textSelector, beforeUndo);
+    await press(keys.meta, keys.shift, 'z');
+    await waitFor((selector, before) => document.querySelector(selector)?.textContent === before, 'text redo', textSelector, beforeUndo);
     await press(keys.escape);
     await waitFor((expected) => Object.values(JSON.parse(window.glyphfield.studio.readSource()).elements)
       .some((element) => element.kind === 'text' && element.content === expected), 'persisted text edit', beforeUndo);
     const after = await readText();
     assert.equal(after.count, before.count);
     assert.deepEqual(after.bounds, before.bounds);
-    return { selected, finalText: after.text, nativeUndoVerified: nativeUndoCapability.supported,
-      ...(!nativeUndoCapability.supported ? { unsupportedAssertion: nativeUndoCapability.note } : {}) };
+    return { selected, finalText: after.text, textUndoVerified: true };
   });
 
   await check('last keystroke survives immediate artboard switch', async () => {
@@ -487,6 +475,7 @@ try {
 
   const tabHarness = { baseUrl, command, evaluate, evaluateAsync, waitFor, click, rect, actions, mouse, pointerMove,
     pointerDown, pointerUp, keyboard, keys, press, type, drag, captureScreenshot };
+  await check('native rich text selection and export', () => checkSafariRichText(tabHarness));
   await check('native canvas compatibility workspace', () => checkSafariCanvasWorkspace(tabHarness));
   await check('native canvas insertion colors', () => checkSafariInsertionColors(tabHarness), false);
   await check('native project copy and error details', () => checkSafariProjectCopy(tabHarness), false);

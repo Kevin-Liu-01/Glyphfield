@@ -1,9 +1,12 @@
+import { validateTextStyleRuns, type TextStyleRun } from './richText';
+
 /** Defaults for new text and editing controls, not limits on existing source. */
 export const DEFAULT_DESIGN_LAB_FONT_SIZE = 48;
 export const MIN_DESIGN_LAB_FONT_SIZE = 1;
 export const MAX_DESIGN_LAB_FONT_SIZE = 2048;
 
 export type DesignLabTextTypography = {
+  runs?: TextStyleRun[];
   /** Base artboard pixels, before transform.scale; omitted by legacy documents. */
   fontSize?: number;
   fontStyle?: 'normal' | 'italic';
@@ -72,6 +75,7 @@ export function designLabTextDecorationLine(
 export function validateDesignLabTextTypography(value: unknown): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Text typography must be an object.');
   const typography = value as Record<string, unknown>;
+  validateTextStyleRuns(typography.runs, typeof typography.value === 'string' ? typography.value : '');
   if (typography.fontSize !== undefined && !isPositiveFiniteNumber(typography.fontSize)) {
     throw new TypeError('Text fontSize must be a positive finite number.');
   }

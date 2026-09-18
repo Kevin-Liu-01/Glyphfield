@@ -12,8 +12,10 @@
   during its mousedown default action, so focus belongs at completion; keyboard
   tests must not hide the gap with an explicit test focus.
 - Canvas shortcuts must respect inherited editors, including
-  `contenteditable="plaintext-only"`. A focused editor owns Shift-click, native
-  undo, and its text context menu. Layer selection/drag handles remain separate.
+  `contenteditable="plaintext-only"`. A focused editor owns Shift-click, text
+  undo, and its text context menu. Rich text flushes pending typing before using
+  the document history, keeping formatting and characters in the same undo step.
+  Layer selection/drag handles remain separate.
 - DOM-only style previews belong to the selected layer in the owning active
   artboard. A retained or hidden workspace must never receive another editor's
   preview.
@@ -68,6 +70,13 @@ rasterized glyph bounds against the canvas's resolved font. Both sides use the
 same antialiasing threshold; continuous TextMetrics bounds can differ from the
 painted ink in WebKit. Shader interaction checks retain the native canvas and
 record browser callback cadence separately from GPU rendering.
+
+`e2e/rich-text.spec.ts` covers selected words/lines, typography and color controls,
+keyboard formatting, Unicode edits, undo/redo, save/reload, duplicates, source
+round trips, and decoded mixed-font/color export placement in all three engines.
+`GLYPHFIELD_SAFARI_ONLY='native rich text' pnpm test:safari` checks real Safari
+selection, inspector formatting, unchanged neighboring characters, and a decoded
+PNG. Native Safari 26.4 passed this focused check on September 18, 2026.
 
 `e2e/animation-toolbar-files-history.spec.ts` covers Animation's canvas-dock
 Undo/Redo and compact saved-history control, header save status, and real project

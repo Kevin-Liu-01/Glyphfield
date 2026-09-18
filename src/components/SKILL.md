@@ -15,6 +15,10 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - `StudioApp.tsx` owns projects, tabs, active tool, and identity selection.
 - `StudioToolWorkspace.tsx` is the public tool-to-editor switch.
 - `ShaderLabStudio.tsx` is Design Lab despite the historical filename.
+- `CanvasEditableText` retains native text selection and plain paste, with optional
+  rich runs. Range styles use existing inspector controls; layout/effects stay
+  layer-wide. Flush pending text before formatting or document undo/redo, and do
+  not discard the saved range when focus moves into an inspector control.
 - `AnimationStudio.tsx`, `TimelinePanel.tsx`, and audio components own motion.
 - `CanvasViewport`, `EditableCanvasLayer`, layer panels, `ColorControl`,
   `StudioSelect`, and range controls are reusable editor primitives.

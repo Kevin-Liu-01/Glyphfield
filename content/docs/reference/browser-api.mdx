@@ -98,11 +98,14 @@ Application waits for two animation frames after the tool validator resolves. Th
 
 Design Lab adds:
 
+`design.text.format` applies inline styling with `{ layerId, start, end, style }` to a text layer on the active surface. Offsets are UTF-16, the end is exclusive, and ranges must be non-empty and within the text. `style` accepts `color`, `fontRole`, `fontSize`, `weight`, `fontStyle`, `underline`, `strikethrough`, and `tracking`. Font sizes are authored pixels before layer scale. Other characters inherit their existing styles. Read back `element.data.runs` after changes. See [text and text effects](/docs/studio/design-lab#text-and-text-effects) for the source model and box-wide settings.
+
 ```text
 design.frame.pause
 design.frame.capture
 design.frame.play
 design.frame.seek
+design.text.format
 design.motion.describe
 design.sequence.describe
 design.sequence.configure
