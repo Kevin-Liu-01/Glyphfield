@@ -23,6 +23,7 @@ import {
   parseOklch,
 } from '@/lib/color';
 import StudioRange from '@/components/ui/StudioRange';
+import ScreenColorPicker from '@/components/ui/ScreenColorPicker';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 type ColorControlProps = {
@@ -339,7 +340,7 @@ export default function ColorControl({
     const bounds = event.currentTarget.getBoundingClientRect();
     const viewportPadding = 12;
     const pickerWidth = 260;
-    const pickerHeight = compact ? 410 : 320;
+    const pickerHeight = compact ? 455 : 365;
     const left = Math.min(
       window.innerWidth - pickerWidth - viewportPadding,
       Math.max(viewportPadding, bounds.left)
@@ -466,6 +467,7 @@ export default function ColorControl({
             value={Math.round(hsv.hue)}
           />
         </label>
+        <ScreenColorPicker ariaLabel={ariaLabel} onPick={commitHex} />
         <div className='grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground'>
           <span className='rounded-sm border border-border py-1.5'><strong className='font-medium text-foreground'>{Math.round(hsv.hue)}</strong> H</span>
           <span className='rounded-sm border border-border py-1.5'><strong className='font-medium text-foreground'>{Math.round(hsv.saturation * 100)}</strong> S</span>

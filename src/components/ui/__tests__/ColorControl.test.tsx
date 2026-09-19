@@ -80,6 +80,79 @@ describe('ColorControl edit transactions', () => {
     return target;
   }
 
+  function screenPicker() {
+    return container.querySelector<HTMLButtonElement>('[aria-label="Fill pick screen color"]')!;
+  }
+
+  function mockEyeDropper(open: ReturnType<typeof vi.fn>) {
+    vi.stubGlobal('EyeDropper', class { open = open; });
+  }
+
+  it.each([false, true])('commits a screen sample once through preview and source without changing opacity (compact=%s)', async (compact) => {
+    const open = vi.fn().mockResolvedValue({ sRGBHex: '#12abef' });
+    mockEyeDropper(open);
+    render('#FF0000', compact);
+    await act(async () => { screenPicker().click(); });
+    expect(open).toHaveBeenCalledExactlyOnceWith({ signal: expect.any(AbortSignal) });
+    expect(commits).toHaveBeenCalledExactlyOnceWith('#12ABEF');
+    expect(previews).toHaveBeenCalledExactlyOnceWith('#12ABEF');
+    expect(input('HEX').value).toBe('#12ABEF');
+    expect(container.querySelector('[data-source-color]')!.textContent).toBe('#12ABEF');
+    expect(opacityCommits).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screenPicker());
+  });
+
+  it('disables unsupported screen sampling while keeping manual color edits available', () => {
+    vi.stubGlobal('EyeDropper', undefined);
+    render();
+    expect(screenPicker().disabled).toBe(true);
+    expect(screenPicker().title).toContain('supported browser');
+    act(() => changeValue(input('hue'), '120'));
+    expect(commits).toHaveBeenCalledExactlyOnceWith('#00FF00');
+  });
+
+  it('silently cancels screen sampling and permits a retry', async () => {
+    const open = vi.fn().mockRejectedValueOnce(new DOMException('Cancelled', 'AbortError'))
+      .mockResolvedValueOnce({ sRGBHex: '#00ff00' });
+    mockEyeDropper(open);
+    render();
+    await act(async () => { screenPicker().click(); });
+    expect(commits).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="status"]')!.textContent).toBe('');
+    await act(async () => { screenPicker().click(); });
+    expect(commits).toHaveBeenCalledExactlyOnceWith('#00FF00');
+  });
+
+  it('reports screen sampling failures without changing the color', async () => {
+    mockEyeDropper(vi.fn().mockRejectedValue(new DOMException('Failed', 'OperationError')));
+    render();
+    await act(async () => { screenPicker().click(); });
+    expect(commits).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="status"]')!.textContent).toContain('Try again');
+    expect(screenPicker().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it.each(['close', 'unmount'])('aborts sampling on %s and ignores a late result', async (action) => {
+    let resolve!: (value: { sRGBHex: string }) => void;
+    const open = vi.fn().mockImplementation(() => new Promise((done) => { resolve = done; }));
+    mockEyeDropper(open);
+    render();
+    act(() => { screenPicker().click(); screenPicker().click(); });
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(screenPicker().getAttribute('aria-pressed')).toBe('true');
+    act(() => {
+      if (action === 'unmount') root.render(null);
+      else {
+        const close = new Event('beforetoggle');
+        Object.defineProperty(close, 'newState', { value: 'closed' });
+        container.querySelector('[popover]')!.dispatchEvent(close);
+      }
+    });
+    expect(open.mock.calls[0][0].signal.aborted).toBe(true);
+    await act(async () => { resolve({ sRGBHex: '#00ff00' }); });
+    expect(commits).not.toHaveBeenCalled();
+  });
+
   it.each(['#000000', '#FFFFFF', '#808080'])('retains the chosen hue on %s before the first saturation click', (initial) => {
     render(initial);
     const target = picker();

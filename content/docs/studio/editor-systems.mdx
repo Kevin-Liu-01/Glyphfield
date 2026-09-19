@@ -42,12 +42,23 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | --- | --- |
 | Resting | Compact row with the current swatch, label, normalized HEX, and optional opacity |
 | Open | Full picker with HEX, OKLCH, hue, saturation/brightness, and optional opacity; `compact={false}` remains available for dedicated color-editing surfaces |
-| Native picker open | Uses the browser color input and publishes the selected HEX value immediately |
+| Screen eyedropper active | **Pick screen color** (dropper icon) samples any visible screen pixel, including outside the browser; selecting commits one normalized HEX edit without changing opacity; Escape cancels |
 | HEX editing | Commits on blur or Enter; invalid input leaves the current color unchanged |
 | OKLCH editing | Parses perceptual color input and converts it to the shared HEX storage format |
 | With opacity | Adds a zero-to-100-percent range while keeping color and opacity independently controlled |
 
 The conversion functions live in `src/lib/color.ts`, so the inspector, generated token CSS, and exported graphics use the same normalization rules.
+
+The screen eyedropper is shared by compact and expanded color pickers. It requires
+a browser with the EyeDropper API on HTTPS or localhost; unsupported browsers show
+a disabled button with an explanation and retain the other color controls. Closing
+the picker or leaving its editor cancels an unfinished sample.
+
+Browser API control discovery exposes the uniquely labeled `{color label} pick screen color`
+button. Screen sampling requires a real user gesture and native screen selection;
+agents should use the existing HEX or OKLCH controls for deterministic edits and
+re-read the source to verify completion. This browser-only interaction does not change
+the source schema, tool catalog, or deterministic HTTP generation contract.
 
 ## Canvas viewport
 
