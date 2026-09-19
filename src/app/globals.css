@@ -2614,22 +2614,24 @@
 .shader-lab-v2-colors {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
-.shader-lab-v2-colors .studio-color-control {
+.shader-lab-v2-colors .studio-color-control:not(.studio-color-control-compact) {
   gap: 8px;
   padding: 10px;
 }
 
 .shader-lab-v2-palettes {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
-  margin-top: 11px;
+  margin-top: 0;
 }
 
 .shader-lab-v2-palettes button {
   display: flex;
+  flex: 0 0 27px;
   width: 27px;
   height: 18px;
   overflow: hidden;
@@ -2652,7 +2654,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .shader-lab-v2-shader-meta :is(button, a) {

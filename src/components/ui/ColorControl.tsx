@@ -58,6 +58,7 @@ function ColorRange({
   const inputRef = useRef<HTMLInputElement>(null);
   const pointerRef = useRef<number | null>(null);
   const nativeValueRef = useRef(value);
+  const [rangePreview, setRangePreview] = useState<PropBoundPreview<number> | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
   const finishRef = useCommittedRef(finish);
 
@@ -68,6 +69,7 @@ function ColorRange({
 
   function finish() {
     pointerRef.current = null;
+    setRangePreview(null);
     detachRef.current?.();
     detachRef.current = null;
     const next = Number(inputRef.current?.value);
@@ -105,6 +107,8 @@ function ColorRange({
     onChange={(event) => { if (event.nativeEvent.type === 'change') finish(); }}
     onInput={(event) => {
       nativeValueRef.current = Number(event.currentTarget.value);
+      // Keep the native thumb current while the full picker waits for paint.
+      setRangePreview(pointerRef.current === null ? null : { base: value, value: nativeValueRef.current });
       onValue(nativeValueRef.current);
       // Keyboard and assistive edits have no pointer release to commit them.
       if (pointerRef.current === null) onCommit();
@@ -114,7 +118,7 @@ function ColorRange({
     onPointerDown={begin}
     onPointerUp={finishPointer}
     ref={inputRef}
-    value={value}
+    value={rangePreview?.base === value ? rangePreview.value : value}
   />;
 }
 
@@ -182,6 +186,7 @@ export default function ColorControl({
   // HEX cannot represent hue on gray, saturation on black, or the 360° endpoint.
   // Keep the user's exact coordinates while they still describe this color.
   const [pickerColor, setPickerColor] = useState<{ hex: string; hsv: ReturnType<typeof hexToHsv> } | null>(null);
+  const pendingPickerColorRef = useRef<typeof pickerColor>(null);
   const hsv = pickerColor?.hex === hex ? pickerColor.hsv : hexToHsv(hex);
   const hsvRef = useRef(hsv);
   const pickerPointerRef = useRef<number | null>(null);
@@ -193,6 +198,7 @@ export default function ColorControl({
   useEffect(() => () => cancelAnimationFrame(opacityFrameRef.current), []);
 
   function showHexPreview(nextHex: string) {
+    setPickerColor(pendingPickerColorRef.current);
     setHexPreview({ base: committedHex, value: nextHex });
   }
 
@@ -210,7 +216,8 @@ export default function ColorControl({
 
   function schedulePreview(nextValue: string) {
     const nextHex = normalizeHexOrFallback(nextValue, hex);
-    showHexPreview(nextHex);
+    // Coalesce local controls as well as the canvas preview. Pointer events can
+    // arrive faster than paint; only the latest coordinates need a React render.
     pendingHexRef.current = nextHex;
     latestHexRef.current = nextHex;
     if (previewFrameRef.current) return;
@@ -232,13 +239,13 @@ export default function ColorControl({
     };
     const nextHex = hsvToHex(clamped.hue, clamped.saturation, clamped.value);
     hsvRef.current = clamped;
-    setPickerColor({ hex: nextHex, hsv: clamped });
+    pendingPickerColorRef.current = { hex: nextHex, hsv: clamped };
     schedulePreview(nextHex);
   }
 
   function commitTextColor(nextHex: string) {
     hsvRef.current = hexToHsv(nextHex);
-    setPickerColor(null);
+    pendingPickerColorRef.current = null;
     schedulePreview(nextHex);
     flushPreview();
   }
@@ -259,13 +266,13 @@ export default function ColorControl({
   function scheduleOpacityPreview(nextOpacity: number) {
     pendingOpacityRef.current = nextOpacity;
     latestOpacityRef.current = nextOpacity;
-    setOpacityPreview({ base: opacity, value: nextOpacity });
     if (opacityFrameRef.current) return;
     opacityFrameRef.current = requestAnimationFrame(() => {
       opacityFrameRef.current = 0;
       const frameOpacity = pendingOpacityRef.current;
       pendingOpacityRef.current = null;
       if (frameOpacity === null) return;
+      setOpacityPreview({ base: opacity, value: frameOpacity });
       (onOpacityPreview ?? onOpacityChange)?.(frameOpacity);
     });
   }
@@ -276,6 +283,7 @@ export default function ColorControl({
     const nextOpacity = pendingOpacityRef.current ?? latestOpacityRef.current;
     pendingOpacityRef.current = null;
     if (nextOpacity === null) return;
+    setOpacityPreview({ base: opacity, value: nextOpacity });
     onOpacityPreview?.(nextOpacity);
     latestOpacityRef.current = null;
     onOpacityChange?.(nextOpacity);

@@ -46,6 +46,7 @@ Glyphfield tools are composed from shared editor systems. A generator should not
 | HEX editing | Commits on blur or Enter; invalid input leaves the current color unchanged |
 | OKLCH editing | Parses perceptual color input and converts it to the shared HEX storage format |
 | With opacity | Adds a zero-to-100-percent range while keeping color and opacity independently controlled |
+| Dragging | Coalesces picker and preview updates to animation frames; the native slider thumb stays responsive and release commits the final value immediately |
 
 The conversion functions live in `src/lib/color.ts`, so the inspector, generated token CSS, and exported graphics use the same normalization rules.
 

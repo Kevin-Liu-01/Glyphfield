@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, useState } from 'react';
+import { act, Profiler, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -87,6 +87,25 @@ describe('ColorControl edit transactions', () => {
   function mockEyeDropper(open: ReturnType<typeof vi.fn>) {
     vi.stubGlobal('EyeDropper', class { open = open; });
   }
+
+  it('coalesces a burst of pointer moves into one render and commits the final release immediately', () => {
+    const renders = vi.fn();
+    act(() => root.render(<Profiler id='color' onRender={renders}><Harness /></Profiler>));
+    const target = picker();
+    renders.mockClear();
+    act(() => pointer(target, 'pointerdown', { clientX: 0, clientY: 0 }));
+    for (let x = 1; x <= 20; x++) {
+      act(() => pointer(target, 'pointermove', { clientX: x, clientY: 0 }));
+    }
+    expect(renders).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(20));
+    expect(renders).toHaveBeenCalledTimes(1);
+    expect(previews).toHaveBeenCalledExactlyOnceWith('#FFCCCC');
+    expect(commits).not.toHaveBeenCalled();
+    act(() => pointer(target, 'pointerup', { clientX: 100, clientY: 50 }));
+    expect(commits).toHaveBeenCalledExactlyOnceWith('#800000');
+    expect(input('HEX').value).toBe('#800000');
+  });
 
   it.each([false, true])('commits a screen sample once through preview and source without changing opacity (compact=%s)', async (compact) => {
     const open = vi.fn().mockResolvedValue({ sRGBHex: '#12abef' });
