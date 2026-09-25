@@ -440,3 +440,63 @@ test('tool round trips restore the active editor and its last typed character', 
   await text.press('Escape');
   await expect.poll(async () => (await textSource(page)).text).toBe('Select this text!?');
 });
+
+test('canvas navigation keeps selection aligned without repeated layout reads or document edits', async ({ page }) => {
+  await prepareText(page);
+  const original = await textSource(page);
+  const layer = page.locator('[data-testid="shader-lab-live-stage"] .editable-canvas-layer').first();
+  const overlay = page.locator('.editable-canvas-layer-selection');
+  const viewport = page.getByRole('region', { name: 'Canvas viewport', exact: true });
+  const area = (await viewport.boundingBox())!;
+  const x = area.x + area.width / 2;
+  const y = area.y + area.height / 2;
+  const aligned = async () => {
+    const artwork = (await layer.boundingBox())!;
+    const selection = (await overlay.boundingBox())!;
+    for (const key of ['x', 'y', 'width', 'height'] as const) {
+      expect(Math.abs(artwork[key] - selection[key]), `selection ${key}`).toBeLessThan(1);
+    }
+  };
+  const startProbe = async () => page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>('.canvas-viewport')!;
+    viewport.dataset.layoutReads = '0';
+    const original = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      if (viewport.contains(this)) viewport.dataset.layoutReads = String(Number(viewport.dataset.layoutReads) + 1);
+      return original.call(this);
+    };
+    document.addEventListener('finish-canvas-layout-probe', () => {
+      Element.prototype.getBoundingClientRect = original;
+    }, { once: true });
+  });
+  const stopProbe = async () => page.evaluate(() => {
+    document.dispatchEvent(new Event('finish-canvas-layout-probe'));
+    return Number(document.querySelector<HTMLElement>('.canvas-viewport')!.dataset.layoutReads);
+  });
+  await aligned();
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(x + 5, y + 5);
+  await page.waitForTimeout(80);
+  await startProbe();
+  for (let step = 1; step <= 18; step += 1) {
+    await page.mouse.move(x + 5 + step * 3, y + 5 + step);
+    await page.waitForTimeout(16);
+  }
+  expect(await stopProbe(), 'pan layout reads').toBeLessThanOrEqual(2);
+  await aligned();
+  await page.mouse.up({ button: 'middle' });
+  await page.waitForTimeout(160);
+  await startProbe();
+  for (let step = 0; step < 18; step += 1) {
+    await page.mouse.wheel(0, step < 9 ? -40 : 40);
+    await page.waitForTimeout(16);
+  }
+  expect(await stopProbe(), 'wheel layout reads').toBeLessThanOrEqual(3);
+  await page.waitForTimeout(160);
+  await aligned();
+  expect(await textSource(page)).toEqual(original);
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click();
+  await expect(page.locator('.canvas-zoom-value')).toHaveText('100%');
+  await aligned();
+});

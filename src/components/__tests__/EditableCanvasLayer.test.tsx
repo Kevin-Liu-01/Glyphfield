@@ -148,4 +148,44 @@ describe('canvas selection clipping', () => {
     expect((overlay as HTMLElement).style.left).toBe('-130px');
     expect((overlay as HTMLElement).style.top).toBe('-40px');
   });
+
+  it.each(['move', 'resize'])('cancels a %s on window blur without committing or following later pointer moves', async (mode) => {
+    const onChange = await render();
+    const layer = container.querySelector<HTMLElement>('.editable-canvas-layer')!;
+    const target = mode === 'move' ? layer
+      : container.querySelector<HTMLElement>('[aria-label="Resize Shader from right"]')!;
+    const initialWidth = layer.style.width;
+    const initialLeft = layer.style.left;
+    vi.spyOn(target, 'setPointerCapture').mockImplementation(() => {});
+    vi.spyOn(target, 'hasPointerCapture').mockReturnValue(true);
+    const release = vi.spyOn(target, 'releasePointerCapture').mockImplementation(() => {});
+    await act(() => target.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, button: 0, pointerId: 7, clientX: 200, clientY: 200,
+    })));
+    await act(async () => {
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 260, clientY: 240 }));
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(layer.dataset.interactionPreview).toBeTruthy();
+    // Include a queued frame: losing focus must cancel both painted and pending work.
+    await act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 300, clientY: 280 }));
+      window.dispatchEvent(new Event('blur'));
+    });
+    expect(layer.dataset.interactionPreview).toBeUndefined();
+    expect(layer.style.transform).toBe('');
+    expect(layer.style.width).toBe(initialWidth);
+    expect(layer.style.left).toBe(initialLeft);
+    expect(release).toHaveBeenCalledWith(7);
+    await act(async () => {
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 400, clientY: 300 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: 400, clientY: 300 }));
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(layer.dataset.interactionPreview).toBeUndefined();
+    expect(onChange).not.toHaveBeenCalled();
+    const overlay = container.querySelector<HTMLElement>('.editable-canvas-layer-selection')!;
+    expect(overlay.style.left).toBe('-50px');
+    expect(overlay.style.top).toBe('30px');
+  });
 });

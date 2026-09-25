@@ -64,7 +64,7 @@ import { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
-import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
+import CanvasSelectionClip, { canvasSelectionLocalBounds, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import ShaderSkeleton from '@/components/ShaderSkeleton';
 import ShaderFrameImage from '@/components/ShaderFrameImage';
@@ -1239,6 +1239,7 @@ function CanvasSelectionAssemblyOverlay({
   label: string;
   stageRef: RefObject<HTMLDivElement | null>;
 }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [screenBounds, setScreenBounds] = useState<{
     height: number;
     left: number;
@@ -1253,6 +1254,7 @@ function CanvasSelectionAssemblyOverlay({
     const viewport = stage.closest<HTMLElement>('.canvas-viewport');
     if (!viewport) return;
     let frame = 0;
+    let navigation: ReturnType<typeof trackCanvasSelectionNavigation> = null;
     const measure = () => {
       if (stage.closest('[data-canvas-initializing="true"]')) {
         setScreenBounds(null);
@@ -1268,6 +1270,11 @@ function CanvasSelectionAssemblyOverlay({
         }, viewport),
         viewport,
       };
+      navigation = trackCanvasSelectionNavigation(next, viewport, stage.closest('.canvas-viewport-stage'));
+      if (overlayRef.current) {
+        paintCanvasSelectionBounds(overlayRef.current, next);
+        return;
+      }
       setScreenBounds((current) => current
         && Math.abs(current.height - next.height) < 0.25
         && Math.abs(current.left - next.left) < 0.25
@@ -1286,7 +1293,10 @@ function CanvasSelectionAssemblyOverlay({
     resizeObserver.observe(stage);
     if (viewport) resizeObserver.observe(viewport);
     if (viewportStage) resizeObserver.observe(viewportStage);
-    const transformObserver = viewportStage ? new MutationObserver(scheduleMeasure) : null;
+    const transformObserver = viewportStage ? new MutationObserver(() => {
+      if (overlayRef.current && navigation) paintCanvasSelectionBounds(overlayRef.current, navigation());
+      else scheduleMeasure();
+    }) : null;
     transformObserver?.observe(viewportStage!, { attributeFilter: ['style'], attributes: true });
     document.addEventListener('scroll', scheduleMeasure, { capture: true, passive: true });
     window.addEventListener('resize', scheduleMeasure, { passive: true });
@@ -1304,7 +1314,7 @@ function CanvasSelectionAssemblyOverlay({
   const { viewport, ...selectionBounds } = screenBounds;
   return (
     <CanvasSelectionClip viewport={viewport}>
-      <div aria-hidden='true' className='canvas-selection-assembly' data-canvas-selection-preserve style={selectionBounds}>
+      <div aria-hidden='true' className='canvas-selection-assembly' data-canvas-selection-preserve ref={overlayRef} style={selectionBounds}>
         <span className='canvas-selection-assembly__label'>{label}</span>
       </div>
     </CanvasSelectionClip>

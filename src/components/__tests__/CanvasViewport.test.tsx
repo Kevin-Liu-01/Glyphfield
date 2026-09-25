@@ -397,4 +397,41 @@ describe('canvas map and forced pan integration', () => {
     expect(childPointer).toHaveBeenCalledOnce();
     expect(scroll().hasAttribute('data-panning')).toBe(false);
   });
+
+  it('coalesces wheel input into one preview and commits the final anchored view after idle', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const geometry = vi.spyOn(scroll(), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600));
+      const wheel = () => {
+        const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -40 });
+        // happy-dom does not currently populate WheelEvent's mouse coordinates.
+        Object.defineProperties(event, { clientX: { value: 400 }, clientY: { value: 300 } });
+        return scroll().dispatchEvent(event);
+      };
+      await act(() => { for (let step = 0; step < 8; step += 1) wheel(); });
+      expect(frames.size).toBe(1);
+      expect(stage().style.transform).toBe('translate(200px, 150px) scale(0.5)');
+      await flush();
+      expect(stage().style.transform).toBe('translate(40px, 30px) scale(0.9)');
+      expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('90%');
+      expect(geometry).toHaveBeenCalledOnce();
+      expect(scroll().style.getPropertyValue('--canvas-grid-x')).toBe('');
+      await act(() => vi.advanceTimersByTime(120));
+      expect(stage().style.transform).toBe('translate(40px, 30px) scale(0.9)');
+      await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Reset view"]')!.click());
+      await act(() => vi.advanceTimersByTime(200));
+      expect(stage().style.transform).toBe('none');
+      expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('100%');
+      // A keyboard/programmatic reset can interrupt an uncommitted wheel frame.
+      await act(() => wheel());
+      await flush();
+      expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('105%');
+      await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Reset view"]')!.click());
+      await act(() => vi.advanceTimersByTime(200));
+      expect(stage().style.transform).toBe('none');
+      expect(host.querySelector('.canvas-zoom-value')?.textContent).toBe('100%');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

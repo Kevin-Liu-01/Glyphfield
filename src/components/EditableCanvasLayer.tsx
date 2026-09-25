@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom';
 import { MoveDiagonal2 } from '@/components/ui/SolidIcons';
 
-import CanvasSelectionClip, { canvasSelectionLocalBounds } from '@/components/CanvasSelectionClip';
+import CanvasSelectionClip, { canvasSelectionLocalBounds, canvasSelectionProjector, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import {
   MIN_CANVAS_LAYER_SCALE,
@@ -23,12 +23,14 @@ import {
 } from '@/lib/canvasInteraction';
 
 type PointerSession = {
+  captureTarget: HTMLElement;
   groupElements: Array<{ element: HTMLElement; height: number; width: number }>;
   groupOverlay: HTMLElement | null;
   moved: boolean;
   mode: CanvasPointerMode;
   parentBounds: { height: number; left: number; top: number; width: number };
   pointerId: number;
+  selectionProjector: ReturnType<typeof canvasSelectionProjector> | null;
   snapTargets: CanvasSnapTargets;
   startSelected: boolean;
   startClientX: number;
@@ -350,6 +352,7 @@ function useCanvasLayerSelectionBounds({
   width: number;
 }) {
   const [selectionBounds, setSelectionBounds] = useState<SelectionBounds | null>(null);
+  const navigationRef = useRef<ReturnType<typeof trackCanvasSelectionNavigation>>(null);
   const measureSelectionBounds = useCallback(() => {
     const layer = layerRef.current;
     if (layer?.closest('[data-canvas-initializing="true"]')) {
@@ -365,11 +368,10 @@ function useCanvasLayerSelectionBounds({
       viewport,
     };
     const overlay = selectionOverlayRef.current;
+    navigationRef.current = trackCanvasSelectionNavigation(next, viewport, layer?.closest('.canvas-viewport-stage') ?? null);
     if (overlay) {
-      overlay.style.height = `${next.height}px`;
-      overlay.style.left = `${next.left}px`;
-      overlay.style.top = `${next.top}px`;
-      overlay.style.width = `${next.width}px`;
+      paintCanvasSelectionBounds(overlay, next);
+      return;
     }
     setSelectionBounds((current) => current
       && Math.abs(current.height - next.height) < 0.25
@@ -404,7 +406,10 @@ function useCanvasLayerSelectionBounds({
     const measureImmediately = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       frame = null;
-      measureSelectionBounds();
+      const overlay = selectionOverlayRef.current;
+      const navigation = navigationRef.current;
+      if (overlay && navigation) paintCanvasSelectionBounds(overlay, navigation());
+      else measureSelectionBounds();
     };
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(layer);
@@ -522,15 +527,14 @@ export default function EditableCanvasLayer({
   }
 
   function updateSelectionPreview(overlay: HTMLElement, nextTransform: CanvasLayerTransform, session: PointerSession) {
-    const viewport = overlay.closest<HTMLElement>('.canvas-viewport');
-    if (!viewport) return;
+    if (!session.selectionProjector) return;
     const next = canvasLayerBounds(nextTransform, { baseHeight, baseWidth, baseX, baseY });
-    const local = canvasSelectionLocalBounds({
+    const local = session.selectionProjector({
       left: session.parentBounds.left + next.left / canvasWidth * session.parentBounds.width,
       top: session.parentBounds.top + next.top / canvasHeight * session.parentBounds.height,
       width: next.width / canvasWidth * session.parentBounds.width,
       height: next.height / canvasHeight * session.parentBounds.height,
-    }, viewport);
+    });
     overlay.style.left = `${local.left}px`;
     overlay.style.top = `${local.top}px`;
     overlay.style.width = `${local.width}px`;
@@ -592,9 +596,8 @@ export default function EditableCanvasLayer({
   function applyDirectGroupMovePreview(nextTransform: CanvasLayerTransform, session: PointerSession) {
     const deltaX = (nextTransform.x - session.startTransform.x) / canvasWidth * session.parentBounds.width;
     const deltaY = (nextTransform.y - session.startTransform.y) / canvasHeight * session.parentBounds.height;
-    const viewport = session.groupOverlay?.closest<HTMLElement>('.canvas-viewport');
-    if (session.groupOverlay && viewport) {
-      const delta = canvasSelectionLocalBounds({ left: 0, top: 0, width: deltaX, height: deltaY }, viewport);
+    if (session.groupOverlay && session.selectionProjector) {
+      const delta = session.selectionProjector({ left: 0, top: 0, width: deltaX, height: deltaY });
       session.groupOverlay.style.transform = `translate3d(${delta.width}px, ${delta.height}px, 0)`;
     }
     session.groupElements.forEach(({ element, height: elementHeight, width: elementWidth }) => {
@@ -677,11 +680,29 @@ export default function EditableCanvasLayer({
     detachWindowPointerListenersRef.current();
   }, [endPointerRef, flushPendingPointer]);
 
+  const cancelWindowPointer = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    pendingPointerRef.current = null;
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = null;
+    }
+    endPointerRef.current('pointercancel', session.pointerId);
+    detachWindowPointerListenersRef.current();
+  }, [endPointerRef]);
+
+  const cancelHiddenPointer = useCallback(() => {
+    if (document.hidden) cancelWindowPointer();
+  }, [cancelWindowPointer]);
+
   const detachWindowPointerListeners = useCallback(() => {
     window.removeEventListener('pointermove', handleWindowPointerMove);
     window.removeEventListener('pointerup', handleWindowPointerEnd);
     window.removeEventListener('pointercancel', handleWindowPointerEnd);
-  }, [handleWindowPointerEnd, handleWindowPointerMove]);
+    window.removeEventListener('blur', cancelWindowPointer);
+    document.removeEventListener('visibilitychange', cancelHiddenPointer);
+  }, [cancelHiddenPointer, cancelWindowPointer, handleWindowPointerEnd, handleWindowPointerMove]);
   useLayoutEffect(() => {
     detachWindowPointerListenersRef.current = detachWindowPointerListeners;
   }, [detachWindowPointerListeners]);
@@ -691,7 +712,9 @@ export default function EditableCanvasLayer({
     window.addEventListener('pointermove', handleWindowPointerMove);
     window.addEventListener('pointerup', handleWindowPointerEnd);
     window.addEventListener('pointercancel', handleWindowPointerEnd);
-  }, [detachWindowPointerListeners, handleWindowPointerEnd, handleWindowPointerMove]);
+    window.addEventListener('blur', cancelWindowPointer);
+    document.addEventListener('visibilitychange', cancelHiddenPointer);
+  }, [cancelHiddenPointer, cancelWindowPointer, detachWindowPointerListeners, handleWindowPointerEnd, handleWindowPointerMove]);
 
   useEffect(() => () => {
     detachWindowPointerListeners();
@@ -739,7 +762,10 @@ export default function EditableCanvasLayer({
       targetX.push(left, (left + right) / 2, right);
       targetY.push(top, (top + bottom) / 2, bottom);
     });
+    const viewport = layer.closest<HTMLElement>('.canvas-viewport');
     sessionRef.current = {
+      captureTarget: event.currentTarget,
+      selectionProjector: viewport ? canvasSelectionProjector(viewport) : null,
       groupElements: movementBounds ? Array.from(parent.children).flatMap((sibling) => {
         if (
           !(sibling instanceof HTMLElement)
@@ -858,11 +884,13 @@ export default function EditableCanvasLayer({
     const resizePreview = resizePreviewTransformRef.current;
     const usedDirectPreview = directPreviewActiveRef.current;
     sessionRef.current = null;
+    if (session.captureTarget.hasPointerCapture(pointerId)) session.captureTarget.releasePointerCapture(pointerId);
     setSmartGuides({ x: null, y: null });
     if (eventType === 'pointercancel') {
       clearDirectInteractionPreview();
       restoreCommittedLayerLayout();
       resizePreviewTransformRef.current = null;
+      measureSelectionBounds();
       if (session.mode === 'move' && !resizePreview) onChange(session.startTransform);
       return;
     }

@@ -823,9 +823,10 @@
 
 .shader-lab-v2-composer-viewport .canvas-viewport-scroll {
   background-color: hsl(var(--muted) / .32);
+}
+
+.shader-lab-v2-composer-viewport .canvas-viewport-grid {
   background-image: radial-gradient(circle, hsl(var(--foreground) / .13) 0 .75px, transparent .9px);
-  background-position: var(--canvas-grid-x, 0) var(--canvas-grid-y, 0);
-  background-size: var(--canvas-grid-step, 20px) var(--canvas-grid-step, 20px);
 }
 
 .shader-lab-v2-composer-viewport .canvas-viewport-stage.design-artboard-viewport-stage {
@@ -15316,6 +15317,7 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .canvas-viewport-scroll {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -15323,6 +15325,13 @@ html.dark .studio-app .studio-app-header > a img {
   overscroll-behavior: contain;
   cursor: grab;
   touch-action: none;
+}
+
+.canvas-viewport-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  contain: strict;
 }
 
 .canvas-viewport-scroll[data-panning='true'] {

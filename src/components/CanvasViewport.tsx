@@ -172,10 +172,16 @@ export default function CanvasViewport({
   const viewportRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const minimapRef = useRef<CanvasMinimapHandle>(null);
   const navigationSizeRef = useRef({ width: 0, height: 0 });
   const [navigationSize, setNavigationSize] = useState(navigationSizeRef.current);
   const wheelDeltaRef = useRef(0);
+  const wheelFrameRef = useRef(0);
+  const wheelCommitRef = useRef(0);
+  const wheelPointRef = useRef({ x: 0, y: 0 });
+  const wheelBoundsRef = useRef<DOMRect | null>(null);
+  const zoomValueRef = useRef<HTMLButtonElement>(null);
   const canvasHoveredRef = useRef(false);
   const fitKeyRef = useRef(fitKey);
   const panRef = useRef<{
@@ -211,9 +217,21 @@ export default function CanvasViewport({
   function applyStageTransform(x: number, y: number) {
     if (!stageRef.current) return;
     stageRef.current.style.transform = resolveCanvasStageTransform({ x, y, zoom: zoomRef.current });
-    scrollRef.current?.style.setProperty('--canvas-grid-x', `${x}px`);
-    scrollRef.current?.style.setProperty('--canvas-grid-y', `${y}px`);
-    scrollRef.current?.style.setProperty('--canvas-grid-step', `${resolveCanvasGridStep(zoomRef.current)}px`);
+    const scale = String(zoomRef.current / 100);
+    if (stageRef.current.style.getPropertyValue('--canvas-zoom') !== scale) {
+      stageRef.current.style.setProperty('--canvas-zoom', scale);
+      stageRef.current.style.setProperty('--canvas-zoom-inverse', String(100 / zoomRef.current));
+    }
+    const label = `${zoomRef.current}%`;
+    if (zoomValueRef.current && zoomValueRef.current.textContent !== label) zoomValueRef.current.textContent = label;
+    const range = viewportRef.current?.querySelector<HTMLInputElement>('.canvas-zoom-range input');
+    if (range && range.value !== String(zoomRef.current)) range.value = String(zoomRef.current);
+    const step = resolveCanvasGridStep(zoomRef.current);
+    // Keep changing grid styles off the ancestor of every artboard and layer.
+    if (gridRef.current) {
+      gridRef.current.style.backgroundPosition = `${x % step}px ${y % step}px`;
+      gridRef.current.style.backgroundSize = `${step}px ${step}px`;
+    }
     minimapRef.current?.updateView({ pan: { x, y }, zoom: zoomRef.current, ...navigationSizeRef.current });
   }
 
@@ -226,6 +244,7 @@ export default function CanvasViewport({
 
   function fitAllArtboards() {
     if (!navigationItems?.length) return;
+    if (wheelCommitRef.current) commitWheelZoom();
     const next = fitCanvasNavigation(navigationItems, { ...navigationView, zoom: zoomRef.current }, minZoom, maxZoom);
     zoomRef.current = next.zoom;
     setZoom(next.zoom);
@@ -233,6 +252,7 @@ export default function CanvasViewport({
   }
 
   function centerSelectedArtboard() {
+    if (wheelCommitRef.current) commitWheelZoom();
     const selected = navigationItems?.filter((item) => item.active);
     if (!selected?.length) return;
     const bounds = canvasNavigationBounds(selected);
@@ -256,7 +276,8 @@ export default function CanvasViewport({
     });
   }
 
-  function changeZoom(value: number, point?: { x: number; y: number }) {
+  function changeZoom(value: number, point?: { x: number; y: number }, commit = true) {
+    if (commit && wheelCommitRef.current) commitWheelZoom();
     const nextZoom = clampCanvasZoom(value, minZoom, maxZoom);
     const scrollElement = scrollRef.current;
     const currentZoom = zoomRef.current;
@@ -274,8 +295,27 @@ export default function CanvasViewport({
     panOffsetRef.current = nextPan;
     zoomRef.current = nextZoom;
     applyStageTransform(nextPan.x, nextPan.y);
-    setPanOffset(nextPan);
-    setZoom(nextZoom);
+    if (commit) {
+      setPanOffset(nextPan);
+      setZoom(nextZoom);
+    }
+  }
+
+  function flushWheelZoom() {
+    window.cancelAnimationFrame(wheelFrameRef.current);
+    wheelFrameRef.current = 0;
+    const zoomSteps = Math.trunc(wheelDeltaRef.current / 40);
+    wheelDeltaRef.current -= zoomSteps * 40;
+    if (zoomSteps) changeZoom(zoomRef.current - zoomSteps * 5, wheelPointRef.current, false);
+  }
+
+  function commitWheelZoom() {
+    window.clearTimeout(wheelCommitRef.current);
+    wheelCommitRef.current = 0;
+    flushWheelZoom();
+    wheelBoundsRef.current = null;
+    setPanOffset(panOffsetRef.current);
+    setZoom(zoomRef.current);
   }
 
   const handleCanvasWheel = useEffectEvent((event: WheelEvent) => {
@@ -287,19 +327,21 @@ export default function CanvasViewport({
     });
     if (delta === 0) return;
     wheelDeltaRef.current += delta;
-    const zoomSteps = Math.trunc(wheelDeltaRef.current / 40);
-    if (zoomSteps === 0) return;
-    wheelDeltaRef.current -= zoomSteps * 40;
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
-    const bounds = scrollElement.getBoundingClientRect();
-    changeZoom(zoomRef.current - zoomSteps * 5, {
+    const bounds = wheelBoundsRef.current ?? scrollElement.getBoundingClientRect();
+    wheelBoundsRef.current = bounds;
+    wheelPointRef.current = {
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
-    });
+    };
+    if (!wheelFrameRef.current) wheelFrameRef.current = window.requestAnimationFrame(flushWheelZoom);
+    window.clearTimeout(wheelCommitRef.current);
+    wheelCommitRef.current = window.setTimeout(commitWheelZoom, 120);
   });
 
   function fitCanvas() {
+    if (wheelCommitRef.current) commitWheelZoom();
     const scrollElement = scrollRef.current;
     const stageElement = stageRef.current;
     if (!scrollElement || !stageElement) return;
@@ -328,6 +370,7 @@ export default function CanvasViewport({
     };
     panOffsetRef.current = nextPan;
     setPanOffset(nextPan);
+    applyStageTransform(nextPan.x, nextPan.y);
   }
 
   useMountEffect(() => {
@@ -386,7 +429,11 @@ export default function CanvasViewport({
     return () => observer.disconnect();
   }, [navigationEnabled]);
 
-  useEffect(() => () => cancelPanFrame(), []);
+  useEffect(() => () => {
+    cancelPanFrame();
+    window.cancelAnimationFrame(wheelFrameRef.current);
+    window.clearTimeout(wheelCommitRef.current);
+  }, []);
 
   useEffect(() => {
     const scrollElement = scrollRef.current;
@@ -477,11 +524,13 @@ export default function CanvasViewport({
   }, [focusKey, focusOffsetY, initialViewReady, viewInitializedRef, zoomRef]);
 
   function resetView() {
+    if (wheelCommitRef.current) commitWheelZoom();
     wheelDeltaRef.current = 0;
     zoomRef.current = 100;
     setZoom(100);
     panOffsetRef.current = initialPan;
     setPanOffset(initialPan);
+    applyStageTransform(initialPan.x, initialPan.y);
   }
 
   function openViewMenu(event: ReactMouseEvent<HTMLDivElement>) {
@@ -513,6 +562,7 @@ export default function CanvasViewport({
       aria-busy={viewInitializing || undefined}
       className={`canvas-viewport ${className}`}
       onPointerDownCapture={(event) => {
+        if (wheelCommitRef.current) commitWheelZoom();
         if (event.button === 1 || spacePressed) return;
         const target = event.target;
         if (
@@ -527,15 +577,15 @@ export default function CanvasViewport({
       ref={viewportRef}
     >
       <div className='canvas-viewport-toolbar' data-canvas-selection-preserve role='group' aria-label={gt('Canvas zoom')}>
-        <Button aria-label={gt('Zoom out')} disabled={constrainedZoom <= minZoom} onClick={() => changeZoom(constrainedZoom - 10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
+        <Button aria-label={gt('Zoom out')} disabled={constrainedZoom <= minZoom} onClick={() => changeZoom(zoomRef.current - 10)} size='icon-sm' title={gt('Zoom out')} type='button' variant='ghost'>
           <Minus aria-hidden='true' />
         </Button>
         <label className='canvas-zoom-range'>
           <span className='sr-only'><T>Canvas zoom</T></span>
           <StudioRange max={maxZoom} min={minZoom} onChange={(event) => changeZoom(Number(event.target.value))} step={5} value={constrainedZoom} />
         </label>
-        <button className='canvas-zoom-value' onClick={() => changeZoom(100)} title={gt('Reset to 100%')} type='button'>{constrainedZoom}%</button>
-        <Button aria-label={gt('Zoom in')} disabled={constrainedZoom >= maxZoom} onClick={() => changeZoom(constrainedZoom + 10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
+        <button className='canvas-zoom-value' ref={zoomValueRef} onClick={() => changeZoom(100)} title={gt('Reset to 100%')} type='button'>{`${constrainedZoom}%`}</button>
+        <Button aria-label={gt('Zoom in')} disabled={constrainedZoom >= maxZoom} onClick={() => changeZoom(zoomRef.current + 10)} size='icon-sm' title={gt('Zoom in')} type='button' variant='ghost'>
           <Plus aria-hidden='true' />
         </Button>
         <span className='canvas-toolbar-divider' />
@@ -647,13 +697,12 @@ export default function CanvasViewport({
         }}
         ref={scrollRef}
         role='region'
-        style={{
-          '--canvas-grid-step': `${resolveCanvasGridStep(constrainedZoom)}px`,
-          '--canvas-grid-x': `${panOffset.x}px`,
-          '--canvas-grid-y': `${panOffset.y}px`,
-        } as CSSProperties}
         tabIndex={0}
       >
+        <div aria-hidden='true' className='canvas-viewport-grid' ref={gridRef} style={{
+          backgroundPosition: `${panOffset.x % resolveCanvasGridStep(constrainedZoom)}px ${panOffset.y % resolveCanvasGridStep(constrainedZoom)}px`,
+          backgroundSize: `${resolveCanvasGridStep(constrainedZoom)}px ${resolveCanvasGridStep(constrainedZoom)}px`,
+        }} />
         <div
           className={`canvas-viewport-stage ${stageClassName}`}
           data-canvas-font={fontFamily ? 'enforced' : undefined}
@@ -687,8 +736,8 @@ export default function CanvasViewport({
           {
             label: gt('Zoom'),
             items: [
-              { disabled: constrainedZoom >= maxZoom, icon: <Plus aria-hidden='true' />, id: 'zoom-in', label: gt('Zoom in'), onSelect: () => changeZoom(constrainedZoom + 10), shortcut: '+' },
-              { disabled: constrainedZoom <= minZoom, icon: <Minus aria-hidden='true' />, id: 'zoom-out', label: gt('Zoom out'), onSelect: () => changeZoom(constrainedZoom - 10), shortcut: '−' },
+              { disabled: constrainedZoom >= maxZoom, icon: <Plus aria-hidden='true' />, id: 'zoom-in', label: gt('Zoom in'), onSelect: () => changeZoom(zoomRef.current + 10), shortcut: '+' },
+              { disabled: constrainedZoom <= minZoom, icon: <Minus aria-hidden='true' />, id: 'zoom-out', label: gt('Zoom out'), onSelect: () => changeZoom(zoomRef.current - 10), shortcut: '−' },
               { checked: constrainedZoom === 100, icon: <span aria-hidden='true'>1:1</span>, id: 'actual-size', label: gt('Actual size'), onSelect: () => changeZoom(100), shortcut: '100%' },
             ],
           },

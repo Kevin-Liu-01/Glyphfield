@@ -40,6 +40,40 @@
   and inspector. Leaving the editor still dismisses its canvas selection.
 - Numeric shader zoom uses the same native-range ownership and final-commit
   contract as other Studio sliders. Escape cancels the draft before blur runs.
+- Canvas wheel input is coalesced into one visual update per animation frame;
+  view state and zoom persistence commit after 120 ms of idle or before another
+  pointer action. Fit and Reset finish pending wheel work before changing views.
+- Selection overlays cache their coordinate mapping and follow navigation with
+  matrix arithmetic, without layout reads or React updates on each frame.
+  Resize/scroll observations and document edits refresh that geometry. Layer
+  drags cache the viewport conversion for the pointer session. The dotted grid
+  has its own background layer, avoiding inherited style changes on all artwork.
+- Layer move/resize sessions cancel on window blur or document hiding, release
+  pointer capture, discard queued frames, and restore the committed geometry and
+  selection outline. A later pointer move cannot resume an interrupted gesture.
+
+The `canvas navigation` case in `e2e/canvas-interactions.spec.ts` uses real middle
+drag and wheel input to enforce bounded layout reads, aligned selection handles,
+and unchanged document geometry in Chromium, WebKit, and Firefox. Run it with:
+
+```sh
+pnpm test:browsers e2e/canvas-interactions.spec.ts --grep 'canvas navigation|canvas layer dragging'
+```
+
+A local Chromium development-server diagnostic on September 24, 2026, using a
+paused default composition and 90 synthetic wheel frames, reduced geometry reads
+from 446 to 1 and the maximum animation callback interval from 72.1 ms to 17.1 ms.
+This is a before/after diagnostic, not a production or GPU presentation benchmark;
+the real-input regressions enforce behavior and work budgets independently of
+machine-dependent frame timing.
+
+`e2e/infinite-canvas.spec.ts` also exercises repeated real drags within an
+artboard, onto the loose canvas, back into an artboard, and into a differently
+sized artboard. It checks preview-to-drop geometry, grouped spacing, release over
+the sidebar, undo/redo, and save/reload. Focus-loss cancellation has component
+regressions for moves and resizes; automated tab activation on this host retained
+`document.hasFocus() === true` and did not emit blur/visibility events, so it is
+not evidence for native tab-switch behavior.
 
 ## Repeatable engine checks
 
