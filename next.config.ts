@@ -20,8 +20,25 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        {
+          source: '/',
+          has: [{ type: 'host', value: 'docs.glyphfield.com' }],
+          destination: '/docs',
+        },
         { destination: '/api/docs', source: '/docs.md' },
         { destination: '/api/docs/:path*', source: '/docs/:path*.md' },
+      ],
+      fallback: [
+        {
+          source: '/:path*.md',
+          has: [{ type: 'host', value: 'docs.glyphfield.com' }],
+          destination: '/api/docs/:path*',
+        },
+        {
+          source: '/:path*',
+          has: [{ type: 'host', value: 'docs.glyphfield.com' }],
+          destination: '/docs/:path*',
+        },
       ],
     };
   },
