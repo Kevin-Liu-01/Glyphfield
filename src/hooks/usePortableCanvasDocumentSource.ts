@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   canvasDocumentNeedsAssetEmbedding,
-  preparePortableCanvasDocument,
+  preparePortableCanvasSource,
   serializeCanvasDocument,
   type CanvasDocument,
 } from '@/lib/canvasDocument';
@@ -57,8 +57,9 @@ export function usePortableCanvasDocumentSource(
     if (!document) throw new Error('The canvas is not ready to copy yet.');
     if (immediate?.error) throw immediate.error;
     if (immediate?.source) return immediate.source;
-    return serializeCanvasDocument(await preparePortableCanvasDocument(document, assetResolver.resolve));
-  }, [assetResolver, document, immediate]);
+    if (resolved?.input === document && resolved.result.source) return resolved.result.source;
+    return (await preparePortableCanvasSource(document, assetResolver.resolve)).source;
+  }, [assetResolver, document, immediate, resolved]);
 
   useEffect(() => {
     if (!document) {
@@ -68,15 +69,15 @@ export function usePortableCanvasDocumentSource(
     assetResolver.retain(Object.values(document.assets).map(({ source }) => source));
     if (immediate) return;
     let active = true;
-    void preparePortableCanvasDocument(document, assetResolver.resolve)
-      .then((portableDocument) => {
+    void preparePortableCanvasSource(document, assetResolver.resolve)
+      .then(({ document: portableDocument, source }) => {
         if (!active) return;
         setResolved({
           input: document,
           result: {
             document: portableDocument,
             error: null,
-            source: serializeCanvasDocument(portableDocument),
+            source,
             status: 'ready',
           },
         });

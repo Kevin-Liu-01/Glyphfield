@@ -66,6 +66,14 @@ describe('native canvas text editing', () => {
     expect(layerPointerDown).not.toHaveBeenCalled();
   });
 
+  it('does not commit a document edit when unchanged text loses focus', async () => {
+    const text = await render();
+    await act(() => text.focus());
+    await act(() => text.blur());
+    await act(() => vi.advanceTimersByTime(200));
+    expect(commit).not.toHaveBeenCalled();
+  });
+
   it('retains additive layer selection outside an active text edit', async () => {
     const text = await render();
     expect((await pointer(text, { shiftKey: true })).defaultPrevented).toBe(true);

@@ -59,6 +59,12 @@ export default function CanvasEditableText({
 
   function scheduleTextChange(nextValue: string) {
     const current = richRef.current;
+    // Focusing and leaving a text box is selection, not a document edit. Avoid
+    // rebuilding history/source/autosave when the native value did not change.
+    if (nextValue === (pendingValueRef.current ?? current.value)) {
+      inputSelectionRef.current = null;
+      return;
+    }
     pendingRunsRef.current = editTextRuns(pendingValueRef.current ?? current.value, nextValue,
       pendingValueRef.current === null ? current.runs : pendingRunsRef.current, inputSelectionRef.current);
     inputSelectionRef.current = null;

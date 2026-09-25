@@ -124,21 +124,37 @@ function syntaxDiagnostic(error: unknown, source: string, normalized: boolean): 
 }
 
 export function inspectSourceText(value: string): SourceTextDiagnostic {
-  const source = normalizeSourceText(value);
-  const normalized = source !== value;
+  // Editor-produced JSON is already valid. Walking every character to repair
+  // pasted whitespace copies all embedded image/font bytes and creates large
+  // garbage-collection pauses. Reserve that repair for invalid pasted input.
   try {
-    JSON.parse(source);
+    JSON.parse(value);
     return {
       column: null,
       line: null,
-      message: normalized ? 'Valid JSON · pasted spacing normalized' : 'Valid JSON',
-      normalized,
+      message: 'Valid JSON',
+      normalized: false,
       position: null,
-      source,
+      source: value,
       valid: true,
     };
   } catch (error) {
-    return syntaxDiagnostic(error, source, normalized);
+    const source = normalizeSourceText(value);
+    if (source === value) return syntaxDiagnostic(error, source, false);
+    try {
+      JSON.parse(source);
+      return {
+        column: null,
+        line: null,
+        message: 'Valid JSON · pasted spacing normalized',
+        normalized: true,
+        position: null,
+        source,
+        valid: true,
+      };
+    } catch (normalizedError) {
+      return syntaxDiagnostic(normalizedError, source, true);
+    }
   }
 }
 

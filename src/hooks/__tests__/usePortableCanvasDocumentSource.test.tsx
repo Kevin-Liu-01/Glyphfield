@@ -166,6 +166,19 @@ describe('usePortableCanvasDocumentSource', () => {
     expect(parseCanvasDocument(values.at(-1)!.source!).assets['resource:artwork']?.source).toBe('data:image/png;base64,ZnJhbWU=');
   });
 
+  it('reuses prepared source when copying an already embedded document', async () => {
+    download.imageUrlToDataUrl.mockResolvedValue('data:image/png;base64,aGVsbG8=');
+    const values = await render(documentWithAsset('/image.png'));
+    const ready = values.at(-1)!;
+    const stringify = vi.spyOn(JSON, 'stringify');
+    try {
+      expect(await ready.prepareSource()).toBe(ready.source);
+      expect(stringify).not.toHaveBeenCalled();
+    } finally {
+      stringify.mockRestore();
+    }
+  });
+
   it('keeps a document unsaveable when a captured frame has gone missing', async () => {
     shaderFrames.resolveShaderFrameAssetSource.mockRejectedValue(new Error('Captured shader frame missing'));
     const values = await render(documentWithAsset(`glyphfield-shader-frame:${'a'.repeat(64)}`));

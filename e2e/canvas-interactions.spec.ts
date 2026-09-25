@@ -500,3 +500,78 @@ test('canvas navigation keeps selection aligned without repeated layout reads or
   await expect(page.locator('.canvas-zoom-value')).toHaveText('100%');
   await aligned();
 });
+
+
+test('asset-heavy documents avoid serialization during selection and preserve drag, undo, and reload', async ({ page }, testInfo) => {
+  await prepareText(page);
+  await page.evaluate(async () => {
+    const studio = window.glyphfield!.studio;
+    const source = JSON.parse(studio.readSource());
+    const workspace = source.metadata.designLab.workspace;
+    const first = workspace.artboards[0];
+    // Public source fixture: many real embedded images across inactive artboards.
+    // The image payload remains valid SVG, with enough metadata to expose copies.
+    const image = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><metadata>'
+      + 'image metadata '.repeat(6000) + '</metadata><rect width="100" height="100" fill="#4488cc"/></svg>');
+    for (let board = 1; board <= 5; board += 1) {
+      const copy = structuredClone(first);
+      copy.id = `artboard-heavy-${board}`;
+      copy.name = `Image board ${board}`;
+      copy.x = 2500 * board;
+      copy.y = 1500;
+      copy.snapshot.shaderLayers = [];
+      copy.snapshot.layerShaders = {};
+      copy.snapshot.textLayers = [];
+      copy.snapshot.logos = [];
+      copy.snapshot.assets = Array.from({ length: 8 }, (_, index) => ({
+        id: `asset-heavy-${board}-${index}`, name: `Image ${index}`, kind: 'image', url: image,
+        visible: true, opacity: 1, transform: { x: index * 100, y: 0, scale: 1 },
+      }));
+      copy.snapshot.layerOrder = copy.snapshot.assets.map((asset: { id: string }) => asset.id);
+      workspace.artboards.push(copy);
+    }
+    await studio.applySource(source);
+  });
+  await expect(page.locator('[data-design-version-status]')).toHaveText('Autosaved');
+  const before = await textSource(page);
+  await page.getByRole('button', { name: 'Fit canvas', exact: true }).click();
+  const text = page.locator('[data-testid="shader-lab-live-stage"] [data-canvas-editable]').first();
+  // Count large serialization work without reading or changing private app state.
+  await page.evaluate(() => {
+    const state = window as typeof window & { largeSerializations: string[]; originalStringify: typeof JSON.stringify };
+    state.largeSerializations = [];
+    state.originalStringify = JSON.stringify;
+    JSON.stringify = ((...args: Parameters<typeof JSON.stringify>) => {
+      const result = state.originalStringify(...args);
+      if (result && result.length > 500_000) state.largeSerializations.push(new Error().stack ?? 'unknown');
+      return result;
+    }) as typeof JSON.stringify;
+  });
+  await text.click();
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  const serializations = await page.evaluate(() => {
+    const state = window as typeof window & { largeSerializations: string[]; originalStringify: typeof JSON.stringify };
+    JSON.stringify = state.originalStringify;
+    return state.largeSerializations;
+  });
+  await testInfo.attach('selection-serialization-count', { body: JSON.stringify(serializations), contentType: 'text/plain' });
+  expect(serializations, 'Selecting and navigating must reuse the prepared source').toEqual([]);
+  const edge = page.getByRole('button', { name: 'Move Browser text from top edge', exact: true });
+  const rect = (await edge.boundingBox())!;
+  await page.mouse.move(rect.x + rect.width / 4, rect.y + rect.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + rect.width / 4 + 30, rect.y + rect.height / 2 + 20, { steps: 20 });
+  await page.mouse.up();
+  await expect.poll(async () => (await textSource(page)).bounds.x).not.toBe(before.bounds.x);
+  const moved = await textSource(page);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(async () => (await textSource(page)).bounds).toEqual(before.bounds);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect.poll(async () => (await textSource(page)).bounds).toEqual(moved.bounds);
+  await expect(page.locator('[data-design-version-status]')).toHaveText('Autosaved');
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Add text layer', exact: true })).toBeVisible();
+  await expect.poll(async () => (await textSource(page)).bounds).toEqual(moved.bounds);
+  expect(await page.evaluate(() => JSON.parse(window.glyphfield!.studio.readSource()).metadata.designLab.workspace.artboards.length)).toBe(6);
+});

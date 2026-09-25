@@ -205,7 +205,7 @@ describe('Playground optional layers', () => {
 
   it('round-trips complete canvas layers, ordering, groups, shader frame history, and sequences', () => {
     expect(designLab).toContain('createDesignLabCanvasDocument({');
-    expect(designLab).toContain('serializeExistingDesignLabCanvasDocument(withDesignLabTimeline(');
+    expect(designLab).toContain('return portableDesignLab.source;');
     expect(designLab).toContain('parseDesignLabCanvasDocument(source)');
     expect(designLab).toContain('revision: canvasRevisionFromSignature(compositionSignature),');
     expect(designLab).toContain('canvasRevisionFromSignature(compositionSignature)');

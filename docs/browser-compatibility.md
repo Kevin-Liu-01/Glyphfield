@@ -352,3 +352,35 @@ preview. The SVG/text outputs were decoded and read back successfully; the
 project retained both artboards after the original object URL was revoked.
 These are local correctness checks, not a production deployment or a new
 whole-app frame-rate benchmark.
+
+### Embedded-asset interaction performance (2026-09-25)
+
+A supplied 3.2 MB Design Lab project with five output artboards, four loose images,
+text, embedded fonts, and eight captured shader frames exposed repeated portable
+serialization during selection and image drops. The save controls now reuse the
+prepared source; immutable content signatures cache unchanged branches and large
+asset strings; unchanged text blur does not create an edit. Portable preparation
+validates/serializes once, and valid JSON bypasses rich-text paste repair. Font CSS
+and image-cache keys also stay stable across selection-only renders.
+
+A local production Chromium trace of a real image drag measured the mouse-release
+handler at 436 ms before and 31 ms after. The final trace's longest main task was
+37 ms, with no Long Tasks API entries over 50 ms. These are single-run local CPU
+measurements on this project, not GPU presentation FPS or a guarantee for every
+machine/document. Private source/assets are not checked into the repository.
+
+The `asset-heavy` browser regression creates 40 embedded images across five extra
+artboards through the public source API. It asserts zero large serialization
+calls during selection/zoom, then checks a real text drag, Undo/Redo, autosave,
+reload, and retention of all six artboards. Run it in every engine with:
+
+```sh
+pnpm test:browsers e2e/canvas-interactions.spec.ts --grep asset-heavy
+```
+
+Existing `infinite-canvas` tests additionally exercise repeated transfers into,
+out of, and between artboards, group movement, and release outside the viewport.
+
+Validation for this change: 1,932 unit tests, 24 focused browser cases across
+Chromium/WebKit/Firefox (including rich-text editing and pixel-checked export),
+production build/TypeScript, both lint passes, and the agent-docs doctor passed.

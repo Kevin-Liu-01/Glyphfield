@@ -178,6 +178,7 @@ import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivi
 import { useConvertedAssets } from '@/hooks/useConvertedAssets';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useStudioDraft } from '@/hooks/usePersistentState';
+import { immutableJsonSignature } from '@/lib/immutableJsonSignature';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
   brandAssetPath,
@@ -258,7 +259,6 @@ import {
   reconcileDesignLabLayerGroups,
   reconcileDesignLabLayerOrder,
   serializeExistingDesignLabCanvasDocument,
-  withDesignLabTimeline,
 } from '@/lib/designLabDocument';
 import { parseSourceObject } from '@/lib/sourceCode';
 import {
@@ -663,7 +663,7 @@ function cloneDesignArtboards(artboards: readonly DesignArtboard[]): DesignArtbo
 }
 
 function designCanvasHistorySignature(artboards: readonly DesignArtboard[], typographyRevision: number | null = null): string {
-  return JSON.stringify({ projectTypography: typographyRevision, artboards: artboards.map((artboard) => ({
+  return immutableJsonSignature({ projectTypography: typographyRevision, artboards: artboards.map((artboard) => ({
     ...artboard,
     snapshot: {
       ...artboard.snapshot,
@@ -678,7 +678,7 @@ function designCanvasHistorySignature(artboards: readonly DesignArtboard[], typo
 }
 
 function artboardSnapshotPersistenceSignature(snapshot: DesignArtboardSnapshot): string {
-  return JSON.stringify({
+  return immutableJsonSignature({
     ...snapshot,
     timeline: snapshot.timeline.paused
       ? snapshot.timeline
@@ -843,7 +843,7 @@ function DesignArtboardTour({
 }
 
 function artboardSnapshotSignature(snapshot: DesignArtboardSnapshot): string {
-  return JSON.stringify(snapshot);
+  return immutableJsonSignature(snapshot);
 }
 
 function artboardSnapshotReady(
@@ -4963,7 +4963,7 @@ export default function ShaderLabStudio({
     ? { ...brandIdentity, fonts: projectTypography.fonts, typography: projectTypography.typography }
     : brandIdentity, [brandIdentity, projectTypography]);
   const projectTypographyRevision = useMemo(() => projectTypography
-    ? canvasRevisionFromSignature(JSON.stringify(projectTypography)) : null, [projectTypography]);
+    ? canvasRevisionFromSignature(immutableJsonSignature(projectTypography)) : null, [projectTypography]);
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
   const brandPalette = useMemo(() => brandMaterialPalette(identity), [identity]);
   const initialSettings = useMemo(() => shaderLabSettingsFor(DEFAULT_SHADER_MATERIAL_ID, {
@@ -5424,7 +5424,7 @@ export default function ShaderLabStudio({
     () => storedSelectedCanvasLayerIds.filter((id) => canvasLayerIdSet.has(id)),
     [canvasLayerIdSet, storedSelectedCanvasLayerIds]
   );
-  const savedDesignRevision = useMemo(() => `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${JSON.stringify({
+  const savedDesignRevision = useMemo(() => `${designExportSettingsSignature(ratio, normalizedExportSettings)}:${immutableJsonSignature({
     activeArtboardId,
     artboards: workspaceArtboards,
     background: canvasBackground,
@@ -5473,32 +5473,15 @@ export default function ShaderLabStudio({
     width: canvasDimensions.width,
     workspace: packDesignWorkspace(workspaceArtboards, activeArtboardId),
   }), [
-    activeArtboardId,
-    canvasBackground,
-    boundedPreviewFrame,
-    canvasDimensions.height,
-    canvasDimensions.width,
-    compositionAssets,
+    // This content signature covers all layers, artboards, typography, export
+    // settings and timeline. Synchronizing an equivalent artboard snapshot must
+    // not construct and serialize the same portable document a second time.
     compositionDocumentCreatedAt,
     compositionSignature,
-    effectLayers,
     identity.id,
     identity.name,
-    layerGroups,
-    layerOrder,
-    layerShaders,
-    logoLayers,
-    normalizedExportSettings,
-    normalizedShaderSequenceSettings,
-    paused,
-    previewTimeMs,
-    projectTypography,
-    ratio,
-    shaderLayers,
-    textLayers,
     tool.id,
     tool.name,
-    workspaceArtboards,
   ]);
   const portableDesignLab = usePortableCanvasWorkspace({
     applySource: applyCompositionSource,
@@ -5831,7 +5814,7 @@ export default function ShaderLabStudio({
       id: `canvas-action-${designHistorySequenceRef.current}`,
       label,
       signature: signature ?? designCanvasHistorySignature(clonedArtboards, nextTypography
-        ? canvasRevisionFromSignature(JSON.stringify(nextTypography)) : null),
+        ? canvasRevisionFromSignature(immutableJsonSignature(nextTypography)) : null),
     };
   }
 
@@ -5858,7 +5841,7 @@ export default function ShaderLabStudio({
     // A source replacement is one complete action. Preserve an earlier pending
     // edit, then close the normalized source action before the next gesture.
     if (draftHydrated) checkpointDesignCanvasHistory();
-    const typographyRevision = nextTypography ? canvasRevisionFromSignature(JSON.stringify(nextTypography)) : null;
+    const typographyRevision = nextTypography ? canvasRevisionFromSignature(immutableJsonSignature(nextTypography)) : null;
     const signature = designCanvasHistorySignature(nextArtboards, typographyRevision);
     checkpointDesignCanvasHistory(nextArtboards, signature, draftHydrated ? 'Applied source' : 'Opened canvas', nextTypography);
     return signature;
@@ -7646,12 +7629,10 @@ export default function ShaderLabStudio({
   });
 
   function compositionSetupSource(): string | null {
-    if (!portableDesignLab.document) return null;
-    return serializeExistingDesignLabCanvasDocument(withDesignLabTimeline(
-      portableDesignLab.document,
-      { frame: boundedPreviewFrame, paused, timeMs: previewTimeMs },
-      canvasRevisionFromSignature(compositionSignature)
-    ));
+    // The portable document already contains this exact timeline and revision.
+    // Save controls and selection renders must not reserialize every embedded
+    // image and font just to determine whether a source is available.
+    return portableDesignLab.source;
   }
 
   function shaderCaptureRequests(timeMs: number): ShaderFrameCaptureRequest[] {
@@ -8296,13 +8277,13 @@ export default function ShaderLabStudio({
   const effectPreviewOrderSignature = lastPreviewEffectIndex < 0
     ? ''
     : visibleLayerIds.slice(0, lastPreviewEffectIndex + 1).join('|');
-  const compositionImageSignature = [
+  const compositionImageSignature = useMemo(() => [
     ...logoLayers.map(({ id, url }) => `${id}:${url}`),
     ...compositionAssets.map(({ id, imageCrop, url, transform }) => {
       const box = outputLayerBox(id, transform, canvasDimensions.width, canvasDimensions.height);
       return `${id}:${canvasImageViewportKey(url, box.width, box.height)}:${JSON.stringify(normalizeImageCropSettings(imageCrop))}`;
     }),
-  ].join('|');
+  ].join('|'), [logoLayers, compositionAssets, canvasDimensions.width, canvasDimensions.height]);
   const pausedEffectPreviewSignature = paused ? compositionSignature : '';
 
   useEffect(() => {

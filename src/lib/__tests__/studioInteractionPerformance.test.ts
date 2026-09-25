@@ -34,8 +34,7 @@ describe('Studio interaction performance contracts', () => {
 
     expect(layer).toContain('if (frame !== null) return;');
     expect(layer).toContain('new MutationObserver(measureImmediately)');
-    expect(layer).toContain("overlay.style.left = `${next.left}px`;");
-    expect(layer).toContain("overlay.style.top = `${next.top}px`;");
+    expect(layer).toContain('paintCanvasSelectionBounds(overlay, navigation())');
     expect(changeZoom).toContain('zoomRef.current = nextZoom;');
     expect(changeZoom).toContain('applyStageTransform(nextPan.x, nextPan.y);');
   });
@@ -45,7 +44,8 @@ describe('Studio interaction performance contracts', () => {
     const wheelHandler = source.slice(source.indexOf('const handleCanvasWheel'), source.indexOf('function fitCanvas'));
 
     expect(wheelHandler).toContain('resolveCanvasWheelZoomDelta');
-    expect(wheelHandler).toContain('changeZoom(zoomRef.current - zoomSteps * 5');
+    expect(wheelHandler).toContain('window.requestAnimationFrame(flushWheelZoom)');
+    expect(source).toContain('changeZoom(zoomRef.current - zoomSteps * 5');
     expect(wheelHandler).not.toContain('setPanOffset');
     expect(wheelHandler).not.toContain('event.ctrlKey');
     expect(wheelHandler).not.toContain('event.metaKey');

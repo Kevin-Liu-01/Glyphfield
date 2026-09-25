@@ -828,9 +828,16 @@ export async function preparePortableCanvasDocument(
   document: CanvasDocument,
   resolve: CanvasAssetResolver
 ): Promise<CanvasDocument> {
+  return (await preparePortableCanvasSource(document, resolve)).document;
+}
+
+/** Embed, validate and serialize once, sharing the exact result with consumers. */
+export async function preparePortableCanvasSource(
+  document: CanvasDocument,
+  resolve: CanvasAssetResolver
+): Promise<{ document: CanvasDocument; source: string }> {
   if (!canvasDocumentNeedsAssetEmbedding(document)) {
-    serializeCanvasDocument(document);
-    return document;
+    return { document, source: serializeCanvasDocument(document) };
   }
   const embedded = await embedCanvasDocumentAssets(document, resolve);
   const portable = {
@@ -838,15 +845,14 @@ export async function preparePortableCanvasDocument(
     revision: document.revision,
     updatedAt: document.updatedAt,
   };
-  serializeCanvasDocument(portable);
-  return portable;
+  return { document: portable, source: serializeCanvasDocument(portable) };
 }
 
 export async function serializePortableCanvasDocument(
   document: CanvasDocument,
   resolve: CanvasAssetResolver
 ): Promise<string> {
-  return serializeCanvasDocument(await preparePortableCanvasDocument(document, resolve));
+  return (await preparePortableCanvasSource(document, resolve)).source;
 }
 
 export function createCanvasElement(
