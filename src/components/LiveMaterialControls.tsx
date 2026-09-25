@@ -1,6 +1,7 @@
 'use client';
 
 import { T, useGT } from 'gt-next';
+import { useId } from 'react';
 import { ExternalLink } from '@/components/ui/SolidIcons';
 
 import { LiveMaterialOptionLabel, LiveMaterialSourceBadge } from '@/components/LiveMaterialSourceLabel';
@@ -75,13 +76,14 @@ function MaterialRange({
   value: number;
 }) {
   const precision = step < 0.1 ? 2 : step < 1 ? 1 : 0;
+  const rangeLabelId = useId();
   return (
-    <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-      <StudioRangeLabel
+    <label htmlFor={`${rangeLabelId}-input`} className='flex flex-col gap-2 text-sm text-muted-foreground'>
+      <StudioRangeLabel id={rangeLabelId}
         label={label}
         value={<output className='text-xs tabular-nums'>{value.toFixed(precision)}{unit}</output>}
       />
-      <StudioRange
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId}
         max={max}
         min={min}
         onChange={(event) => onChange(Number(event.target.value))}

@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Fragment, memo, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useId, Fragment, memo, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Check,
@@ -393,13 +393,14 @@ function RangeField({
   value: number;
 }) {
   const resolvedValue = Math.min(value, max);
+  const rangeLabelId = useId();
   return (
-    <label className='flex flex-col gap-2 text-sm text-muted-foreground'>
-      <StudioRangeLabel
+    <label htmlFor={`${rangeLabelId}-input`} className='flex flex-col gap-2 text-sm text-muted-foreground'>
+      <StudioRangeLabel id={rangeLabelId}
         label={label}
         value={<output className='font-mono text-xs tabular-nums'>{resolvedValue}{suffix}</output>}
       />
-      <StudioRange
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId}
         max={max}
         min={min}
         onBlur={onChangeEnd}

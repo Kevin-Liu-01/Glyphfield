@@ -11,7 +11,7 @@ import {
   RotateCcw,
   Upload,
 } from '@/components/ui/SolidIcons';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useId, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import DesignVersionControls from '@/components/DesignVersionControls';
@@ -31,7 +31,6 @@ import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
-import { useMountEffect } from '@/hooks/useMountEffect';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
 import {
@@ -111,10 +110,10 @@ const CANVAS_PRESETS = {
   square: { height: 960, label: 'Square · 960 × 960', width: 960 },
 } as const;
 
-const DEFAULT_LOTTIE_BACKGROUND = '#0B0D10';
-const DEFAULT_LOTTIE_ART_COLOR = '#F7F8FC';
-const DEFAULT_LOTTIE_SECONDARY_COLOR = '#8B93A7';
-const DEFAULT_LOTTIE_ACCENT_COLOR = '#7C5CFC';
+const DEFAULT_LOTTIE_BACKGROUND = '#F3F0E8';
+const DEFAULT_LOTTIE_ART_COLOR = '#262923';
+const DEFAULT_LOTTIE_SECONDARY_COLOR = '#67665F';
+const DEFAULT_LOTTIE_ACCENT_COLOR = '#BF4B2E';
 const DEFAULT_LOTTIE_CORNER_RADIUS = 8;
 const DEFAULT_LOTTIE_STROKE_WIDTH = 1;
 const DOTLOTTIE_WASM_URL = '/vendor/dotlottie-player-webgl-0.78.2.wasm';
@@ -161,14 +160,15 @@ function RangeControl({
   suffix?: string;
   value: number;
 }) {
+  const rangeLabelId = useId();
   return (
-    <label className='flex flex-col gap-2'>
-      <StudioRangeLabel
+    <label htmlFor={`${rangeLabelId}-input`} className='flex flex-col gap-2'>
+      <StudioRangeLabel id={rangeLabelId}
         className='text-sm'
         label={label}
         value={<output className='text-xs tabular-nums text-muted-foreground'>{value}{suffix}</output>}
       />
-      <StudioRange
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId}
         max={max}
         min={min}
         onChange={(event) => onChange(Number(event.target.value))}
@@ -200,6 +200,7 @@ function resolveSourceData(
 
 function rasterizeImageDataUrl(
   source: string,
+  color: string,
 ): Promise<{ dataUrl: string; height: number; width: number }> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -222,6 +223,9 @@ function rasterizeImageDataUrl(
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = 'high';
       context.drawImage(image, 0, 0, width, height);
+      context.globalCompositeOperation = 'source-in';
+      context.fillStyle = color;
+      context.fillRect(0, 0, width, height);
       resolve({ dataUrl: canvas.toDataURL('image/png'), height, width });
     };
     image.addEventListener('load', finish, { once: true });
@@ -271,7 +275,6 @@ function renderLottieFrame({
     const surface = document.createElement('canvas');
     surface.width = width;
     surface.height = height;
-    let loaded = false;
     let settled = false;
     let player: DotLottie;
     const timeout = window.setTimeout(() => finish(new Error('The Lottie frame took too long to render.')), 8000);
@@ -281,7 +284,6 @@ function renderLottieFrame({
       settled = true;
       window.clearTimeout(timeout);
       player.removeEventListener('load', handleLoad);
-      player.removeEventListener('render', handleRender);
       player.removeEventListener('loadError', handleError);
       player.removeEventListener('renderError', handleError);
       if (error) {
@@ -299,11 +301,10 @@ function renderLottieFrame({
       }
     };
     const handleLoad = () => {
-      loaded = true;
+      // Loading paints the initial frame; setFrame synchronously paints a new
+      // pose. A same-frame seek emits no render event (notably at frame zero).
       player.setFrame(Math.max(0, Math.min(frame, player.totalFrames - 1)));
-    };
-    const handleRender = () => {
-      if (loaded) finish();
+      finish();
     };
     const handleError = () => finish(new Error('The Lottie frame could not be rendered.'));
 
@@ -324,7 +325,6 @@ function renderLottieFrame({
       useFrameInterpolation: true,
     });
     player.addEventListener('load', handleLoad);
-    player.addEventListener('render', handleRender);
     player.addEventListener('loadError', handleError);
     player.addEventListener('renderError', handleError);
   });
@@ -367,7 +367,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const [duration, setDuration] = useState(4);
   const [segmentStart, setSegmentStart] = useState(0);
   const [segmentEnd, setSegmentEnd] = useState(239);
-  const [isSourceTransitioning, setIsSourceTransitioning] = useState(false);
+  const [isSourceTransitioning, setIsSourceTransitioning] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
@@ -376,6 +376,8 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const studioRootRef = useRef<HTMLDivElement>(null);
   const shaderLayerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<DotLottie | null>(null);
+  const [playerGeneration, setPlayerGeneration] = useState(0);
+  const playerSourceRef = useRef(source);
   const sourceRef = useCommittedRef(source);
   const artColorRef = useCommittedRef(artColor);
   const secondaryColorRef = useCommittedRef(secondaryColor);
@@ -566,20 +568,13 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   function loadSource(nextSource: LottieSource) {
-    const player = playerRef.current;
-    if (!player) return;
     setError(null);
+    setIsSourceTransitioning(true);
     setCurrentFrame(0);
-    player.load({
-      data: resolveSourceData(
-        nextSource,
-        [artColorRef.current, secondaryColorRef.current, accentColorRef.current],
-        cornerRadiusRef.current,
-        strokeWidthRef.current,
-        brandFontFamilyRef.current,
-        brandLogoRef.current,
-      ),
-    });
+    // The WebGL player can repaint its original scene when seeking after load().
+    // Give each replacement a fresh native timeline and rendering surface.
+    playerSourceRef.current = nextSource;
+    setPlayerGeneration((generation) => generation + 1);
   }
 
   function scheduleSourceReload() {
@@ -593,24 +588,37 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     });
   }
 
-  useMountEffect(() => {
+  useEffect(() => {
+    if (!brandLogoAsset) return;
+    let disposed = false;
+    void imageUrlToDataUrl(brandLogoAsset.path)
+      .then((dataUrl) => rasterizeImageDataUrl(dataUrl, artColor))
+      .then((logo) => {
+        if (disposed) return;
+        brandLogoRef.current = { ...logo, label: identity.name };
+        scheduleSourceReload();
+      })
+      .catch(() => { if (!disposed) brandLogoRef.current = undefined; });
+    return () => { disposed = true; };
+  }, [artColor, brandLogoAsset, identity.name]);
+
+  useEffect(() => {
     const canvasElement = canvasRef.current;
     if (!canvasElement) return;
-    let disposed = false;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     reducedMotionRef.current = prefersReducedMotion;
-    desiredPlayingRef.current = !prefersReducedMotion;
-    setIsPlaying(!prefersReducedMotion);
+    if (prefersReducedMotion) desiredPlayingRef.current = false;
+    setIsPlaying(desiredPlayingRef.current);
     void preloadLottieRuntime();
     const player = new DotLottie({
-      autoplay: !prefersReducedMotion,
+      autoplay: desiredPlayingRef.current,
       backgroundColor:
         transparentRef.current || backgroundStyleRef.current === 'shader'
           ? 'transparent'
           : backgroundRef.current,
       canvas: canvasElement,
       data: resolveSourceData(
-        sourceRef.current,
+        playerSourceRef.current,
         [artColorRef.current, secondaryColorRef.current, accentColorRef.current],
         cornerRadiusRef.current,
         strokeWidthRef.current,
@@ -633,24 +641,6 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       useFrameInterpolation: interpolateRef.current,
     });
     playerRef.current = player;
-
-    if (brandLogoAsset) {
-      void imageUrlToDataUrl(brandLogoAsset.path)
-        .then(async (sourceDataUrl) => {
-          const logo = await rasterizeImageDataUrl(sourceDataUrl);
-          if (disposed) return;
-          brandLogoRef.current = {
-            dataUrl: logo.dataUrl,
-            height: logo.height,
-            label: identity.name,
-            width: logo.width,
-          };
-          scheduleSourceReload();
-        })
-        .catch(() => {
-          brandLogoRef.current = undefined;
-        });
-    }
 
     const handleLoad = () => {
       const frameCount = Math.max(1, Math.floor(player.totalFrames));
@@ -690,7 +680,12 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     };
     const handleLoadError = () => setError(gt('This Lottie file could not be loaded.'));
     const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePause = () => {
+      // Flush the exact stopped pose instead of retaining a throttled display
+      // value. Otherwise seeking to that displayed value can be a DOM no-op.
+      setCurrentFrame(Math.round(player.currentFrame));
+      setIsPlaying(false);
+    };
     const handleStop = () => {
       setCurrentFrame(segmentStartRef.current);
       setIsPlaying(false);
@@ -703,7 +698,6 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     player.addEventListener('stop', handleStop);
 
     return () => {
-      disposed = true;
       if (reloadFrameRef.current !== null) {
         window.cancelAnimationFrame(reloadFrameRef.current);
       }
@@ -719,7 +713,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       player.destroy();
       playerRef.current = null;
     };
-  });
+  }, [playerGeneration]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -730,7 +724,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     }
     player.unfreeze();
     if (desiredPlayingRef.current) player.play();
-  }, [active, projectWorkspaceActiveRef]);
+  }, [active, playerGeneration, projectWorkspaceActiveRef]);
 
   function selectSource(nextSource: LottieSource) {
     setSource(nextSource);
@@ -904,6 +898,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   function useStudioPalette() {
+    updateBackground(DEFAULT_LOTTIE_BACKGROUND);
     setArtColor(DEFAULT_LOTTIE_ART_COLOR);
     setSecondaryColor(DEFAULT_LOTTIE_SECONDARY_COLOR);
     setAccentColor(DEFAULT_LOTTIE_ACCENT_COLOR);
@@ -914,6 +909,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   function useMonochromePalette() {
+    updateBackground('#161816');
     setArtColor('#FFFFFF');
     setSecondaryColor('#8A8F98');
     setAccentColor('#FFFFFF');
@@ -998,7 +994,10 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     const portableDocument = portableLottie.document;
     if (!lottieCanvas || !portableDocument) throw new Error('The portable Lottie composition is still preparing.');
     studioExport.start('Rendering Lottie frame preview');
-    const fileName = `${source.id}-frame-${Math.round(currentFrame)}.png`;
+    // The inspector display is throttled; capture the player's actual pose,
+    // including a seek immediately followed by an export action.
+    const exportFrame = playerRef.current?.currentFrame ?? currentFrame;
+    const fileName = `${source.id}-frame-${Math.round(exportFrame)}.png`;
     try {
       const renderedLottie = await renderLottieFrame({
         data: resolveSourceData(
@@ -1010,7 +1009,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
           brandLogoRef.current,
         ),
         fit,
-        frame: currentFrame,
+        frame: exportFrame,
         height: canvas.height,
         width: canvas.width,
       });
@@ -1143,7 +1142,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
             { label: gt('Workspace'), items: [{ id: 'reset', label: gt('Reset Lottie editor'), description: gt('Return to the starting animation and settings.'), icon: <RotateCcw />, onSelect: resetEditor }] },
           ]} />
           <ExportPreview asset={lastExport} />
-          <Button disabled={!portableLottie.document} onClick={() => void downloadPng()} type='button' variant='outline'>
+          <Button disabled={!portableLottie.document || isSourceTransitioning} onClick={() => void downloadPng()} type='button' variant='outline'>
             <ImageDown aria-hidden='true' />
             <T>Export frame</T>
           </Button>
@@ -1338,6 +1337,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
                 </div>
               )}
               <canvas
+                key={playerGeneration}
                 aria-label={gt('Lottie animation preview')}
                 className={`absolute inset-0 z-10 size-full transition-[opacity,transform] duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${isSourceTransitioning ? 'translate-y-px scale-[.998] opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
                 ref={canvasRef}

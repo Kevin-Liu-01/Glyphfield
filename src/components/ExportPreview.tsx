@@ -219,6 +219,7 @@ export default function ExportPreview({
   const [fileNameBase, setFileNameBase] = useState('export');
   const [fileNameExtension, setFileNameExtension] = useState('');
   const customizedNameRef = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (!asset) {
@@ -239,12 +240,18 @@ export default function ExportPreview({
 
   useEffect(() => {
     if (!open) return;
-
+    const previousFocus = document.activeElement;
+    dialogRef.current?.querySelector<HTMLElement>('.shader-export-dialog button')?.focus({ preventScroll: true });
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape' && !event.defaultPrevented) setOpen(false);
     };
     document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected && !previousFocus.closest('[inert]')) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
   }, [open]);
 
   useExportPreviewRefresh({ autoRefresh, needsRefresh, onRefresh, open, refreshKey, refreshing });
@@ -287,6 +294,22 @@ export default function ExportPreview({
           aria-label={`${asset.format} export preview`}
           aria-modal='true'
           className='shader-export-overlay'
+          ref={dialogRef}
+          onKeyDown={(event) => {
+            // A portal still bubbles through its editor in React. Keep typing
+            // and shortcuts in the preview, and wrap keyboard focus inside it.
+            event.stopPropagation();
+            if (event.key === 'Escape' && !event.defaultPrevented) setOpen(false);
+            if (event.key !== 'Tab' || event.defaultPrevented) return;
+            const controls = [...event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]'
+            )].filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+            const target = event.shiftKey ? controls.at(-1) : controls[0];
+            if (document.activeElement === (event.shiftKey ? controls[0] : controls.at(-1))) {
+              event.preventDefault();
+              target?.focus();
+            }
+          }}
           onCancel={(event) => {
             event.preventDefault();
             setOpen(false);
@@ -297,6 +320,7 @@ export default function ExportPreview({
             aria-label='Close export preview'
             className='studio-modal-backdrop'
             onClick={() => setOpen(false)}
+            tabIndex={-1}
             type='button'
           />
           <section className='shader-export-dialog'>

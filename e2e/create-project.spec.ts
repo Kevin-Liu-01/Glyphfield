@@ -79,7 +79,8 @@ test('the plus file chooser imports into a new tab and rejects malformed files w
   const invalidChoice = page.waitForEvent('filechooser');
   await page.getByRole('menuitem', { name: /^Import project/ }).click();
   await (await invalidChoice).setFiles({ name: 'bad.glyphfield.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":99}') });
-  await expect(page.getByRole('alert').filter({ hasText: 'Could not open project' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Could not open project: show details', exact: true })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Canvas schema version 99 is unsupported' })).toHaveCount(1);
   await expect(page.locator('.project-tab')).toHaveCount(4);
   expect(await readSource(page)).toEqual(before);
 });
@@ -96,7 +97,9 @@ test('import detects Animation files and preserves editable frames and embedded 
     return { source: await artifact.blob.text(), fileName: artifact.fileName };
   });
   const originalId = (await readSource(page)).brandId;
+  await expect(page.getByRole('dialog', { name: 'JSON export preview', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'JSON export preview', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Brand identity', exact: true }).click();
   const menu = await openMenu(page);
   const choosing = page.waitForEvent('filechooser');

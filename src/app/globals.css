@@ -36036,14 +36036,24 @@ html.dark .marketing-page-v5 .marketing-live-surface--email img { filter: invert
   .studio-app-header,
   .project-tabs-shell,
   .studio-nav,
-  [data-studio-tool-header] {
+  [data-studio-tool-header],
+  .studio-project-workspace-layer:not([data-active='true']),
+  .studio-workspace-layer:not([data-active='true']) {
     display: none !important;
   }
 
+  html:has(.studio-app),
+  body:has(.studio-app),
   .studio-app,
   .studio-app-body,
   .studio-workspace,
-  .studio-workspace-view {
+  .studio-workspace-view,
+  .studio-workspace-panel,
+  .studio-project-workspace-layer[data-active='true'],
+  .studio-workspace-layer[data-active='true'] {
+    position: static !important;
+    inset: auto !important;
+    contain: none !important;
     width: auto !important;
     height: auto !important;
     display: block !important;

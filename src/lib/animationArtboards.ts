@@ -3,6 +3,7 @@ import type {
   StudioFrameSettings,
   StudioSettings,
 } from './studio';
+import { mergeStudioFrameSettings } from './studio';
 import { normalizeMaterialFinish } from './materialFinish';
 import {
   STUDIO_ARTBOARD_PRESETS,
@@ -39,7 +40,8 @@ export const DEFAULT_ANIMATION_ARTBOARD_ID = 'animation-artboard-main' as Animat
 
 export const ANIMATION_ARTBOARD_PRESETS = STUDIO_ARTBOARD_PRESETS;
 
-function cloneFrameSettings(frame: StudioFrameSettings): StudioFrameSettings {
+function cloneFrameSettings(storedFrame: StudioFrameSettings, settings: StudioSettings): StudioFrameSettings {
+  const frame = mergeStudioFrameSettings(settings, storedFrame);
   return {
     ...frame,
     background: {
@@ -63,7 +65,7 @@ export function cloneAnimationArtboardSnapshot(
     backgroundOverrides: { ...snapshot.backgroundOverrides },
     frameSettings: Object.fromEntries(Object.entries(snapshot.frameSettings).map(([id, frame]) => [
       id,
-      cloneFrameSettings(frame),
+      cloneFrameSettings(frame, snapshot.settings),
     ])),
     sequenceBackground: {
       ...snapshot.sequenceBackground,

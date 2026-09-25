@@ -103,6 +103,7 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_FRAMES,
   mergeStudioBackground,
+  mergeStudioFrameSettings,
   orderStudioSources,
   resolveStudioFrameSettings,
   resolveStudioTransitionSettings,
@@ -642,7 +643,7 @@ function resolveSelectedFrameSettings(
   settings: StudioSettings
 ): StudioFrameSettings | null {
   if (!source) return null;
-  return frameSettings[source.id] ?? createDefaultFrameSettings(settings);
+  return mergeStudioFrameSettings(settings, frameSettings[source.id]);
 }
 
 function AnimationStudio({
@@ -2379,14 +2380,14 @@ function AnimationStudio({
       throw new RangeError('Playback rate must be greater than 0 and no more than 4.');
     }
 
-    const restoredSnapshot: AnimationArtboardSnapshot = {
+    const restoredSnapshot = cloneAnimationArtboardSnapshot({
       audio: normalizeAnimationAudioState(next.audio ?? createEmptyAnimationAudioState()),
       backgroundOverrides: next.backgroundOverrides as Record<string, boolean>,
       frameSettings: next.frameSettings as Record<string, StudioFrameSettings>,
       sequenceBackground: next.sequenceBackground as StudioBackgroundSettings,
       sequenceOrder: [...next.sequenceOrder],
       settings: next.settings as StudioSettings,
-    };
+    });
     const restoredWorkspace = restoreAnimationArtboardWorkspace({
       activeArtboardId: next.activeArtboardId,
       artboards: next.artboards,
@@ -2401,7 +2402,7 @@ function AnimationStudio({
     setIncludeBrandLogo(next.includeBrandLogo);
     setSequenceOrder([...next.sequenceOrder]);
     setStoredSettings(next.settings as StudioSettings);
-    setFrameSettings(next.frameSettings as Record<string, StudioFrameSettings>);
+    setFrameSettings(restoredSnapshot.frameSettings);
     setStoredSequenceBackground(next.sequenceBackground as StudioBackgroundSettings);
     setBackgroundOverrides(next.backgroundOverrides as Record<string, boolean>);
     setPlaybackRate(nextPlaybackRate);

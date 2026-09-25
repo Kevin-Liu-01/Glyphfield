@@ -2,7 +2,10 @@ import { expect, type Page } from '@playwright/test';
 
 export async function waitForStudioSource(page: Page) {
   await expect.poll(() => page.evaluate(() => {
-    try { return Boolean(window.glyphfield?.studio.readSource()); }
+    try {
+      const studio = window.glyphfield?.studio;
+      return studio?.describe().source.read ? Boolean(studio.readSource()) : false;
+    }
     catch (error) {
       if (error instanceof Error && /prepar|not available|No active Studio workspace/i.test(error.message)) return false;
       throw error;

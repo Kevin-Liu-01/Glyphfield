@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useId, useEffect, useRef, useState, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   BookOpenText,
@@ -148,10 +148,11 @@ function RangeField({
   value: number;
 }) {
   const resolvedValue = Math.min(value, max);
+  const rangeLabelId = useId();
   return (
-    <label className='brand-identity-range'>
-      <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
-      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={resolvedValue} />
+    <label htmlFor={`${rangeLabelId}-input`} className='brand-identity-range'>
+      <StudioRangeLabel id={rangeLabelId} label={label} value={<output>{resolvedValue}{suffix}</output>} />
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId} max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={resolvedValue} />
     </label>
   );
 }

@@ -1,5 +1,8 @@
 # Canvas browser compatibility
 
+The [September 25 tool audit](tool-audit-2026-09-25.md) covers the other public
+tools, shared controls, persistence, documentation, and exported artifacts.
+
 ## Contracts
 
 - Native range inputs own their thumbs. Never call `setPointerCapture` on a

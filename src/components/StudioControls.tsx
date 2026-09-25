@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, startTransition, type CSSProperties, type ReactNode } from 'react';
+import { useId, memo, startTransition, type CSSProperties, type ReactNode } from 'react';
 import { T as GTText } from 'gt-next';
 import {
   ArrowDown,
@@ -151,9 +151,10 @@ function RangeControl({
   value: number;
 }) {
   const resolvedValue = Math.min(max, Math.max(min, value));
+  const rangeLabelId = useId();
   return (
-    <label className='studio-range-control flex flex-col gap-2'>
-      <StudioRangeLabel
+    <label htmlFor={`${rangeLabelId}-input`} className='studio-range-control flex flex-col gap-2'>
+      <StudioRangeLabel id={rangeLabelId}
         className='text-sm'
         label={label}
         value={<output className='font-mono text-xs tabular-nums text-muted-foreground'>
@@ -161,7 +162,7 @@ function RangeControl({
           {formatValue ? null : unit}
         </output>}
       />
-      <StudioRange
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={ariaLabel ? undefined : rangeLabelId}
         aria-label={ariaLabel}
         max={max}
         min={min}

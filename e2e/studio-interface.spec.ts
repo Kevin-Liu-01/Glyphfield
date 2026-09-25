@@ -11,6 +11,9 @@ test('every public tool keeps its header and File menu usable at desktop and mid
     await expect(page.getByRole('button', { name: 'Project', exact: true })).toBeEnabled();
     for (const width of [1440, 1024]) {
       await page.setViewportSize({ width, height: 1000 });
+      for (const slider of await page.getByRole('slider').all()) {
+        if (await slider.isVisible()) await expect(slider).toHaveAccessibleName(/\S/);
+      }
       await expect.poll(() => header.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
         const controls = [...element.querySelectorAll('button, [role="combobox"]')]
@@ -54,9 +57,11 @@ test('compact color and collapsible sections preserve edits and provide keyboard
   await page.getByRole('button', { name: 'Select Canvas shader 1 preview', exact: true }).click();
   const color = page.getByRole('button', { name: 'Shader base color', exact: true });
   await expect(color).toBeVisible();
+  expect(await page.evaluate(() => window.glyphfield!.studio.controls().some(({ label }) => label === 'Shader base color HEX'))).toBe(false);
   await color.click();
   const picker = page.getByRole('dialog', { name: 'Shader base color color picker', exact: true });
   await expect(picker).toBeVisible();
+  expect(await page.evaluate(() => window.glyphfield!.studio.controls().some(({ label }) => label === 'Shader base color HEX'))).toBe(true);
   const hex = picker.getByRole('textbox', { name: 'Shader base color HEX', exact: true });
   await hex.fill('#CC5533');
   await hex.press('Enter');

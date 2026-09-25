@@ -3614,6 +3614,11 @@
     page-break-after: always;
   }
 
+  .overviewRow:last-child .pageButton:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
   .page {
     border: 0;
     border-radius: 0;

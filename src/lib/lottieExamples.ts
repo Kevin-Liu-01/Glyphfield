@@ -37,9 +37,9 @@ type AnimatedProperty = ReturnType<typeof animated>;
 const COMPOSITION_FRAMES = 300;
 const FADE_OUT_START = 278;
 const PALETTE: readonly LottieColor[] = [
-  [0.97, 0.98, 0.99, 1],
-  [0.43, 0.47, 0.54, 1],
-  [0.30, 0.49, 1, 1],
+  [0.15, 0.16, 0.14, 1],
+  [0.48, 0.47, 0.43, 1],
+  [0.75, 0.29, 0.18, 1],
 ];
 
 const EASINGS = {
@@ -77,17 +77,6 @@ function loopOpacity(start = 0, end = FADE_OUT_START, peak = 100) {
   ]);
 }
 
-function phaseOpacity(start: number, end: number, idle = 0, peak = 100) {
-  return animated([
-    { ease: 'linear', t: 0, value: [idle] },
-    { ease: 'outQuart', t: start, value: [idle] },
-    { ease: 'linear', t: start + 12, value: [peak] },
-    { ease: 'inCubic', t: end - 10, value: [peak] },
-    { ease: 'linear', t: end, value: [idle] },
-    { ease: 'linear', t: COMPOSITION_FRAMES, value: [idle] },
-  ]);
-}
-
 function settlePosition(
   start: number,
   from: Point,
@@ -101,45 +90,6 @@ function settlePosition(
     { ease: 'linear', t: start + duration, value: to },
     { ease: 'inCubic', t: end, value: to },
     { ease: 'linear', t: COMPOSITION_FRAMES, value: from },
-  ]);
-}
-
-function travelPosition(start: number, end: number, points: readonly Point[]) {
-  const first = points[0] ?? [480, 360, 0];
-  const last = points.at(-1) ?? first;
-  const span = end - start;
-  const travel = points.map((point, index) => ({
-    ease: index === points.length - 1 ? 'outCubic' as const : 'inOutCubic' as const,
-    t: Math.round(start + (span * index) / Math.max(1, points.length - 1)),
-    value: point,
-  }));
-  return animated([
-    { ease: 'linear', t: 0, value: first },
-    ...travel,
-    { ease: 'linear', t: FADE_OUT_START, value: last },
-    { ease: 'linear', t: COMPOSITION_FRAMES, value: first },
-  ]);
-}
-
-function pulseScale(start: number, end: number, minimum = 86, maximum = 112) {
-  return animated([
-    { ease: 'linear', t: 0, value: [minimum, minimum, 100] },
-    { ease: 'outQuart', t: start, value: [minimum, minimum, 100] },
-    { ease: 'inOutCubic', t: start + 14, value: [maximum, maximum, 100] },
-    { ease: 'outCubic', t: start + 30, value: [100, 100, 100] },
-    { ease: 'inCubic', t: end, value: [100, 100, 100] },
-    { ease: 'linear', t: COMPOSITION_FRAMES, value: [minimum, minimum, 100] },
-  ]);
-}
-
-function growScale(start: number, end = FADE_OUT_START, axis: 'x' | 'y' = 'x') {
-  const closed = axis === 'x' ? [0, 100, 100] : [100, 0, 100];
-  return animated([
-    { ease: 'linear', t: 0, value: closed },
-    { ease: 'outQuart', t: start, value: closed },
-    { ease: 'linear', t: start + 24, value: [100, 100, 100] },
-    { ease: 'inCubic', t: end, value: [100, 100, 100] },
-    { ease: 'linear', t: COMPOSITION_FRAMES, value: closed },
   ]);
 }
 
@@ -184,7 +134,7 @@ function stroke(slot: number, width = 1, opacity = 100, dashed = false) {
     lc: 2,
     lj: 2,
     ml: 4,
-    nm: `Palette ${slot + 1}`,
+    nm: `Palette ${slot + 1} / weight=${width}`,
     o: { a: 0, k: opacity },
     ty: 'st',
     w: { a: 0, k: width },
@@ -195,53 +145,11 @@ function lottieGradientStops(from: LottieColor, to: LottieColor) {
   return [0, from[0], from[1], from[2], 1, to[0], to[1], to[2]];
 }
 
-function gradientFill(fromSlot: number, toSlot: number, opacity = 100) {
-  const from = PALETTE[fromSlot] ?? PALETTE[0];
-  const to = PALETTE[toSlot] ?? PALETTE[0];
-  return {
-    e: { a: 0, k: [120, 0] },
-    g: { p: 2, k: { a: 0, k: lottieGradientStops(from, to) } },
-    h: { a: 0, k: 0 },
-    nm: `Palette Gradient ${fromSlot + 1} ${toSlot + 1}`,
-    o: { a: 0, k: opacity },
-    r: 1,
-    s: { a: 0, k: [-120, 0] },
-    t: 1,
-    ty: 'gf',
-  };
-}
-
-function rectangleGroup(name: string, size: Size, slot: number, position: Vertex = [0, 0], radius = 8, opacity = 100) {
-  return {
-    it: [
-      { d: 3, nm: name, p: { a: 0, k: [0, 0] }, r: { a: 0, k: radius }, s: { a: 0, k: size }, ty: 'rc' },
-      fill(slot, opacity),
-      groupTransform(position),
-    ],
-    nm: name,
-    np: 3,
-    ty: 'gr',
-  };
-}
-
 function outlinedRectangleGroup(name: string, size: Size, slot: number, position: Vertex = [0, 0], radius = 8, width = 1, opacity = 100) {
   return {
     it: [
       { d: 3, nm: name, p: { a: 0, k: [0, 0] }, r: { a: 0, k: radius }, s: { a: 0, k: size }, ty: 'rc' },
       stroke(slot, width, opacity),
-      groupTransform(position),
-    ],
-    nm: name,
-    np: 3,
-    ty: 'gr',
-  };
-}
-
-function gradientRectangleGroup(name: string, size: Size, fromSlot: number, toSlot: number, position: Vertex = [0, 0], radius = 8, opacity = 100) {
-  return {
-    it: [
-      { d: 3, nm: name, p: { a: 0, k: [0, 0] }, r: { a: 0, k: radius }, s: { a: 0, k: size }, ty: 'rc' },
-      gradientFill(fromSlot, toSlot, opacity),
       groupTransform(position),
     ],
     nm: name,
@@ -336,14 +244,6 @@ function textLayer(index: number, name: string, text: string, position: Point | 
   };
 }
 
-function sceneLabel(index: number, eyebrow: string, title: string, number: string) {
-  return [
-    textLayer(index, 'Scene eyebrow', eyebrow, [176, 66, 0], 11, 2, 600, loopOpacity(4), 110),
-    textLayer(index + 1, 'Scene title', title, [76, 116, 0], 28, 0, 600, loopOpacity(8), -8),
-    textLayer(index + 2, 'Scene number', number, [884, 66, 0], 11, 1, 600, loopOpacity(12), 80, 1),
-  ];
-}
-
 function baseDocument(name: string, layers: unknown[]): LottieDocument {
   return {
     assets: [],
@@ -401,151 +301,181 @@ function brandLogoLayer(index: number, width: number, height: number) {
   };
 }
 
+// A complete composition stays on screen. Only the explanatory gesture moves.
+// Spatial samples use linear time; settled transforms use a restrained sine arc.
+function breathe(values: number[][]): AnimatedProperty {
+  return animated(values.map((value, index) => ({ t: index * COMPOSITION_FRAMES / (values.length - 1), value })));
+}
+
+function sampledMotion(point: (phase: number) => Point): AnimatedProperty {
+  return animated(Array.from({ length: 61 }, (_, index) => ({
+    ease: 'linear' as const, t: index * 5, value: point(index === 60 ? 0 : index / 60),
+  })));
+}
+
+function curvePoint(points: readonly Vertex[], t: number): Point {
+  const [a, b, c, d] = points;
+  const u = 1 - t;
+  return [0, 1].map((axis) => u ** 3 * a[axis] + 3 * u ** 2 * t * b[axis] + 3 * u * t ** 2 * c[axis] + t ** 3 * d[axis]).concat(0) as Point;
+}
+
+function curveGroup(name: string, points: readonly Vertex[], slot = 0, opacity = 100, width = 1) {
+  const [a, b, c, d] = points;
+  return {
+    ty: 'gr', nm: name,
+    it: [
+      { ty: 'sh', nm: name, ks: { a: 0, k: { c: false, v: [a, d], i: [[0, 0], [c[0] - d[0], c[1] - d[1]]], o: [[b[0] - a[0], b[1] - a[1]], [0, 0]] } } },
+      stroke(slot, width, opacity), groupTransform(),
+    ],
+  };
+}
+
+function orbitGroup(name: string, radiusX: number, radiusY: number, angle: number, slot = 0, opacity = 100) {
+  const group = ellipseGroup(name, [radiusX * 2, radiusY * 2], slot, [0, 0], opacity, true);
+  group.it[group.it.length - 1] = { ...groupTransform(), r: { a: 0, k: angle } };
+  return group;
+}
+
+function particle(index: number, name: string, points: readonly Vertex[], offset = 0, size = 8) {
+  const phase = (t: number) => ((t + offset) % 1 + 1) % 1;
+  const position = sampledMotion((t) => curvePoint(points, phase(t)));
+  const opacity = animated(Array.from({ length: 61 }, (_, i) => ({
+    ease: 'linear' as const, t: i * 5, value: [Math.min(1, phase(i === 60 ? 0 : i / 60) * 12, (1 - phase(i === 60 ? 0 : i / 60)) * 12) * 100],
+  })));
+  return shapeLayer({ index, name, position, opacity, shapes: [ellipseGroup(name, [size, size], 2)] });
+}
+
+function editorialLabel(title: string, category: string, number: string, caption: string) {
+  return [
+    textLayer(90, 'Scene eyebrow', category.toUpperCase(), [176, 66, 0], 12, 1, 500, loopOpacity(), 100),
+    textLayer(91, 'Scene title', title, [76, 138, 0], 44, 0, 400, loopOpacity(), -25),
+    textLayer(92, 'Scene number', number, [884, 66, 0], 12, 1, 500, loopOpacity(), 40, 1),
+    textLayer(93, 'Scene caption', caption, [76, 652, 0], 15, 1, 400),
+    shapeLayer({ index: 94, name: 'Editorial rule', position: [480, 612, 0], shapes: [pathGroup('Fine baseline', [[-404, 0], [404, 0]], 1, 38)] }),
+  ];
+}
+
 function signalRelayDocument(): LottieDocument {
-  const outputs = [
-    { label: 'PLAN', slot: 0, start: 92, y: 270 },
-    { label: 'BUILD', slot: 2, start: 122, y: 370 },
-    { label: 'TEST', slot: 0, start: 152, y: 470 },
-    { label: 'SHIP', slot: 0, start: 182, y: 570 },
-  ];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'FLOW / RELAY', 'One input. Many outcomes.', '01 / 07'),
-    shapeLayer({ index: 1, name: 'Source module', opacity: loopOpacity(16), position: settlePosition(16, [214, 436, 0], [214, 420, 0]), scale: pulseScale(16, 250, 94, 103), shapes: [
-      rectangleGroup('Source module surface', [256, 156], 1, [0, 0], 12, 8),
-      outlinedRectangleGroup('Source module edge', [256, 156], 0, [0, 0], 12, 1, 42),
-      rectangleGroup('Source cursor', [3, 44], 2, [72, 8], 1, 100),
-    ] }),
-    textLayer(40, 'Source label', 'NEW SIGNAL', [118, 376, 0], 11, 1, 600, loopOpacity(22), 86),
-    textLayer(41, 'Source value', 'Start here', [118, 438, 0], 34, 0, 600, loopOpacity(30), -12),
-    shapeLayer({ index: 2, name: 'Signal trunk', opacity: loopOpacity(38, 266, 72), position: [480, 420, 0], shapes: [pathGroup('Signal trunk path', [[-138, 0], [0, 0]], 2, 86, 2)] }),
-    shapeLayer({ index: 3, name: 'Outcome branches', opacity: loopOpacity(48, 266, 64), position: [480, 420, 0], shapes: outputs.map(({ y }, index) => pathGroup(`Outcome branch ${index + 1}`, [[0, 0], [68, 0], [68, y - 420], [142, y - 420]], index === 1 ? 2 : 0, index === 1 ? 88 : 42, index === 1 ? 2 : 1)) }),
-    shapeLayer({ index: 4, name: 'Relay signal', opacity: phaseOpacity(52, 224), position: travelPosition(52, 218, [[342, 420, 0], [480, 420, 0], [548, 420, 0], [548, 370, 0], [622, 370, 0]]), scale: pulseScale(52, 224, 84, 116), shapes: [ellipseGroup('Relay signal core', [18, 18], 2), ellipseGroup('Relay signal center', [6, 6], 0)] }),
-  ];
-  outputs.forEach(({ label, slot, start, y }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Outcome ${label}`, opacity: loopOpacity(start, 266), position: settlePosition(start, [752, y + 10, 0], [752, y, 0]), scale: pulseScale(start, 258, 94, index === 1 ? 108 : 102), shapes: [
-      rectangleGroup('Outcome surface', [260, 68], slot, [0, 0], 8, slot === 2 ? 13 : 5),
-      outlinedRectangleGroup('Outcome edge', [260, 68], slot === 2 ? 2 : 1, [0, 0], 8, 1, slot === 2 ? 88 : 36),
-    ] }));
-    layers.push(textLayer(50 + index, `Outcome label ${label}`, label, [646, y + 8, 0], 22, slot, 500, loopOpacity(start + 4, 266)));
-  });
+  const layers: unknown[] = [...editorialLabel('A thought becomes a system.', 'Signal / Relay', '01', 'One intention. Many possibilities.')];
+  const paths = Array.from({ length: 9 }, (_, i) => [[200, 384], [470, 384], [480, 232 + i * 38], [796, 232 + i * 38]] as Vertex[]);
+  layers.push(shapeLayer({ index: 1, name: 'Signal fan', position: [480, 384, 0], shapes: paths.map((points, i) => curveGroup(`Signal filament ${i}`, points.map(([x, y]) => [x - 480, y - 384]), i === 4 ? 2 : 0, i === 4 ? 100 : 58, i === 4 ? 2 : 1)) }));
+  layers.push(shapeLayer({ index: 2, name: 'Origin disc', position: [200, 384, 0], scale: breathe([[100, 100, 100], [108, 108, 100], [100, 100, 100]]), shapes: [ellipseGroup('Origin ring', [96, 96], 0, [0, 0], 100, true), ellipseGroup('Origin core', [28, 28], 2)] }));
+  layers.push(shapeLayer({ index: 3, name: 'Terminal marks', position: [796, 384, 0], shapes: paths.map((_, i) => ellipseGroup(`Terminal ${i}`, [6, 6], i === 4 ? 2 : 0, [0, (i - 4) * 38])) }));
+  for (let i = 0; i < 3; i++) layers.push(particle(10 + i, `Signal in transit ${i}`, paths[2 + i * 2], i / 3, 10));
+  layers.push(textLayer(40, 'Origin caption', 'INTENT', [200, 472, 0], 12, 1, 500, loopOpacity(), 100, 2));
   return baseDocument('Signal relay', layers);
 }
 
 function decisionRouterDocument(): LottieDocument {
-  return baseDocument('Decision router', [
-    ...sceneLabel(70, 'LOGIC / ROUTING', 'Intent chooses the path.', '02 / 07'),
-    shapeLayer({ index: 1, name: 'Input capsule', opacity: loopOpacity(16), position: settlePosition(16, [480, 218, 0], [480, 204, 0]), scale: pulseScale(16, 258, 92, 105), shapes: [rectangleGroup('Input surface', [210, 78], 0, [0, 0], 10, 8), outlinedRectangleGroup('Input edge', [210, 78], 0, [0, 0], 10, 1, 58)] }),
-    textLayer(40, 'Input label', 'Route', [480, 214, 0], 38, 0, 600, loopOpacity(22), -8, 2),
-    shapeLayer({ index: 2, name: 'Decision fork rails', opacity: loopOpacity(34, 266, 70), position: [480, 320, 0], shapes: [pathGroup('Direct rail', [[0, -74], [0, -24], [-220, 72], [-220, 130]], 0, 66, 2), pathGroup('Refined rail', [[0, -74], [0, -24], [220, 72], [220, 130]], 2, 92, 2)] }),
-    shapeLayer({ index: 3, name: 'Direct outcome module', opacity: loopOpacity(62, 266), position: settlePosition(62, [260, 508, 0], [260, 494, 0]), shapes: [rectangleGroup('Direct outcome surface', [330, 184], 1, [0, 0], 10, 6), outlinedRectangleGroup('Direct outcome edge', [330, 184], 1, [0, 0], 10, 1, 42)] }),
-    shapeLayer({ index: 4, name: 'Refined outcome module', opacity: loopOpacity(92, 266), position: settlePosition(92, [700, 508, 0], [700, 494, 0]), scale: pulseScale(126, 258, 96, 106), shapes: [rectangleGroup('Refined outcome surface', [330, 184], 2, [0, 0], 10, 8), outlinedRectangleGroup('Refined outcome edge', [330, 184], 2, [0, 0], 10, 1, 92)] }),
-    textLayer(41, 'Direct condition', 'speed = “fast”', [128, 438, 0], 13, 1, 500, loopOpacity(70), 16),
-    textLayer(42, 'Direct outcome', 'DIRECT', [128, 510, 0], 34, 0, 600, loopOpacity(76), -12),
-    textLayer(43, 'Refined condition', 'quality = “high”', [568, 438, 0], 13, 2, 500, loopOpacity(100), 16),
-    textLayer(44, 'Refined outcome', 'REFINED', [568, 510, 0], 34, 0, 600, loopOpacity(110), -12),
-    shapeLayer({ index: 5, name: 'Decision signal', opacity: phaseOpacity(84, 204), position: travelPosition(84, 198, [[480, 246, 0], [480, 296, 0], [700, 392, 0], [700, 424, 0]]), shapes: [ellipseGroup('Decision signal core', [16, 16], 2), ellipseGroup('Decision signal center', [5, 5], 0)] }),
-  ]);
+  const upper: Vertex[] = [[176, 388], [492, 388], [492, 240], [790, 240]];
+  const lower: Vertex[] = [[176, 388], [492, 388], [492, 528], [790, 528]];
+  const layers: unknown[] = [...editorialLabel('Choose with intention.', 'Logic / Routing', '02', 'Two possibilities. A considered direction.')];
+  layers.push(shapeLayer({ index: 1, name: 'Possibility field', position: [480, 388, 0], shapes: Array.from({ length: 11 }, (_, i) => {
+    const offset = (i - 5) * 9;
+    const points = upper.map(([x, y], n) => [x - 480, y - 388 + (n > 1 ? offset : offset * 0.25)] as Vertex);
+    return curveGroup(`Unchosen possibility ${i}`, points, 1, 65);
+  }) }));
+  layers.push(shapeLayer({ index: 2, name: 'Chosen field', position: [480, 388, 0], shapes: Array.from({ length: 11 }, (_, i) => {
+    const offset = (i - 5) * 9;
+    return curveGroup(`Chosen possibility ${i}`, lower.map(([x, y], n) => [x - 480, y - 388 + (n > 1 ? offset : offset * 0.25)] as Vertex), i === 5 ? 2 : 0, i === 5 ? 100 : 72, i === 5 ? 2 : 1);
+  }) }));
+  layers.push(shapeLayer({ index: 3, name: 'Decision origin', position: [176, 388, 0], shapes: [ellipseGroup('Decision disc', [32, 32], 2)] }));
+  layers.push(particle(10, 'Committed direction', lower, 0, 12));
+  layers.push(particle(11, 'Following direction', lower, 0.5, 7));
+  layers.push(textLayer(40, 'Alternative label', '01 / EXPLORE', [792, 184, 0], 12, 1, 500, loopOpacity(), 50, 1));
+  layers.push(textLayer(41, 'Chosen label', '02 / REFINE', [792, 596, 0], 12, 2, 500, loopOpacity(), 50, 1));
+  return baseDocument('Decision router', layers);
 }
 
 function sourceMergeDocument(): LottieDocument {
-  const sources = [{ label: 'FILES', start: 26, y: 246 }, { label: 'EVENTS', start: 50, y: 338 }, { label: 'DATA', start: 74, y: 430 }, { label: 'PEOPLE', start: 98, y: 522 }];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'SYNTHESIS / MERGE', 'Many signals. One clear output.', '03 / 07'),
-    shapeLayer({ index: 1, name: 'Source rail system', opacity: loopOpacity(18, 266, 52), position: [480, 384, 0], shapes: sources.map(({ y }, index) => pathGroup(`Source rail ${index + 1}`, [[-290, y - 384], [-152, y - 384], [-92, 0], [0, 0]], index === 2 ? 2 : 1, index === 2 ? 92 : 48, index === 2 ? 2 : 1)) }),
-    shapeLayer({ index: 2, name: 'Synthesis core', opacity: loopOpacity(30, 266), position: settlePosition(30, [516, 398, 0], [516, 384, 0]), scale: pulseScale(124, 258, 92, 108), shapes: [pathGroup('Synthesis core diamond', [[0, -74], [104, 0], [0, 74], [-104, 0]], 2, 96, 1, true, 12), pathGroup('Synthesis core inset', [[0, -40], [56, 0], [0, 40], [-56, 0]], 0, 72, 1, true, 5)] }),
-    textLayer(40, 'Synthesis core label', 'SYNTHESIZE', [516, 392, 0], 15, 0, 600, loopOpacity(40), 80, 2),
-    shapeLayer({ index: 3, name: 'Output rail', opacity: loopOpacity(108, 266, 72), position: [480, 384, 0], shapes: [pathGroup('Output rail path', [[140, 0], [300, 0]], 2, 88, 2)] }),
-    shapeLayer({ index: 4, name: 'Output artifact', opacity: loopOpacity(152, 262), position: settlePosition(152, [832, 398, 0], [832, 384, 0]), scale: pulseScale(152, 258, 86, 112), shapes: [rectangleGroup('Output artifact surface', [132, 178], 2, [0, 0], 6, 12), outlinedRectangleGroup('Output artifact edge', [132, 178], 2, [0, 0], 6, 1, 94), rectangleGroup('Output artifact line one', [78, 5], 0, [0, -36], 2, 82), rectangleGroup('Output artifact line two', [54, 5], 0, [-12, -14], 2, 52), rectangleGroup('Output artifact line three', [70, 5], 0, [-4, 8], 2, 68)] }),
-    textLayer(41, 'Output artifact label', 'CLEAR', [832, 458, 0], 11, 2, 600, loopOpacity(164, 262), 96, 2),
-  ];
-  sources.forEach(({ label, start, y }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Source module ${label}`, opacity: loopOpacity(start, 266), position: settlePosition(start, [190, y + 10, 0], [190, y, 0]), shapes: [rectangleGroup('Source module surface', [228, 58], 1, [0, 0], 7, 5), outlinedRectangleGroup('Source module edge', [228, 58], index === 2 ? 2 : 1, [0, 0], 7, 1, index === 2 ? 82 : 34)] }));
-    layers.push(textLayer(50 + index, `Source label ${label}`, label, [98, y + 6, 0], 14, index === 2 ? 2 : 0, 600, loopOpacity(start + 4, 266), 76));
-  });
+  const layers: unknown[] = [...editorialLabel('Clarity from complexity.', 'Synthesis / Merge', '03', 'Different perspectives. A shared understanding.')];
+  const paths = Array.from({ length: 15 }, (_, i) => [[120, 206 + i * 24], [400, 206 + i * 24], [440, 386], [770, 386]] as Vertex[]);
+  layers.push(shapeLayer({ index: 1, name: 'Converging perspectives', position: [480, 386, 0], shapes: paths.map((points, i) => curveGroup(`Perspective ${i}`, points.map(([x, y]) => [x - 480, y - 386]), i === 7 ? 2 : 0, i === 7 ? 100 : 56)) }));
+  for (let i = 0; i < 5; i++) layers.push(particle(10 + i, `Converging signal ${i}`, paths[i * 3 + 1], i / 5, 7));
+  layers.push(shapeLayer({ index: 2, name: 'Synthesis aperture', position: [784, 386, 0], scale: breathe([[100, 100, 100], [100, 110, 100], [100, 100, 100]]), shapes: [ellipseGroup('Aperture', [72, 176], 2, [0, 0], 100, true), ellipseGroup('Focus', [18, 18], 2)] }));
+  layers.push(textLayer(40, 'Input note', 'MANY', [120, 592, 0], 12, 1, 500, loopOpacity(), 100));
+  layers.push(textLayer(41, 'Output note', 'ONE', [784, 514, 0], 12, 2, 500, loopOpacity(), 100, 2));
   return baseDocument('Source merge', layers);
 }
 
 function layerAssemblyDocument(): LottieDocument {
-  const planes = [{ label: 'PLAN', slot: 1, start: 22, y: 244 }, { label: 'STRUCTURE', slot: 1, start: 52, y: 352 }, { label: 'FINISH', slot: 2, start: 82, y: 460 }];
-  const diamond: readonly Vertex[] = [[0, -64], [238, 0], [0, 64], [-238, 0]];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'SYSTEM / ASSEMBLY', 'Parts become a system.', '04 / 07'),
-    shapeLayer({ index: 1, name: 'Assembly spine', opacity: loopOpacity(18, 266, 54), position: [480, 380, 0], shapes: [pathGroup('Assembly spine path', [[0, -184], [0, 182]], 2, 76, 1, false, 0, true)] }),
-    shapeLayer({ index: 2, name: 'System foundation', opacity: loopOpacity(128, 266), position: settlePosition(128, [480, 594, 0], [480, 576, 0]), scale: pulseScale(156, 258, 92, 108), shapes: [pathGroup('System foundation diamond', diamond, 2, 96, 1, true, 16), pathGroup('System foundation inset', [[0, -34], [124, 0], [0, 34], [-124, 0]], 0, 74, 1, true, 5)] }),
-    textLayer(40, 'System state', 'SYSTEM READY', [480, 584, 0], 18, 0, 600, loopOpacity(154, 264), 90, 2),
-  ];
-  planes.forEach(({ label, slot, start, y }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Assembly plane ${label}`, opacity: loopOpacity(start, 266), position: settlePosition(start, [480, y - 36, 0], [480, y, 0], FADE_OUT_START, 34), scale: pulseScale(start, 260, 90, index === 2 ? 106 : 102), shapes: [pathGroup('Assembly plane surface', diamond, slot, slot === 2 ? 96 : 58, 1, true, slot === 2 ? 11 : 5), pathGroup('Assembly plane seam', [[-118, 0], [0, 32], [118, 0]], slot === 2 ? 0 : 1, 46, 1)] }));
-    layers.push(textLayer(50 + index, `Assembly label ${label}`, label, [480, y + 7, 0], 15, slot === 2 ? 0 : 1, 600, loopOpacity(start + 6, 266), 100, 2));
-  });
+  const layers: unknown[] = [...editorialLabel('Better, together.', 'Structure / Assembly', '04', 'Independent layers. One coherent whole.')];
+  const plane: Vertex[] = [[0, -102], [226, 0], [0, 102], [-226, 0]];
+  for (let i = 0; i < 3; i++) {
+    const y = 292 + i * 98;
+    const delta = i === 0 ? -22 : i === 2 ? 22 : 0;
+    layers.push(shapeLayer({ index: 10 + i, name: `Assembly stratum ${i}`, position: breathe([[480, y, 0], [480, y + delta, 0], [480, y, 0]]), shapes: [
+      pathGroup('Plane perimeter', plane, i === 1 ? 2 : 0, 100, 1, true, i === 1 ? 8 : 3),
+      ...Array.from({ length: 15 }, (_, n) => {
+        const t = (n + 1) / 16;
+        return pathGroup(`Plane ruling ${n}`, [[-226 * (1 - t), 102 * t], [226 * t, -102 * (1 - t)]], i === 1 ? 2 : 0, i === 1 ? 72 : 28);
+      }),
+    ] }));
+  }
+  layers.push(shapeLayer({ index: 1, name: 'Assembly axis', position: [480, 394, 0], shapes: [pathGroup('Alignment axis', [[0, -200], [0, 198]], 1, 44, 1, false, 0, true)] }));
+  layers.push(textLayer(40, 'Assembly note top', 'CONTEXT', [780, 296, 0], 12, 1, 500, loopOpacity(), 70));
+  layers.push(textLayer(41, 'Assembly note middle', 'INTELLIGENCE', [780, 394, 0], 12, 2, 500, loopOpacity(), 70));
+  layers.push(textLayer(42, 'Assembly note base', 'EXPRESSION', [780, 492, 0], 12, 1, 500, loopOpacity(), 70));
   return baseDocument('Layer assembly', layers);
 }
 
 function qualityScanDocument(): LottieDocument {
-  const rows = [
-    { code: '01', start: 64, text: 'Layout aligned', y: 286 },
-    { code: '02', start: 96, text: 'Type resolved', y: 374 },
-    { code: '03', start: 128, text: 'Motion tuned', y: 462 },
-    { code: '04', start: 160, text: 'Export verified', y: 550 },
-  ];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'QUALITY / SCAN', 'Every detail earns approval.', '05 / 07'),
-    textLayer(40, 'Scan target label', 'SYSTEM CHECK', [86, 188, 0], 11, 1, 600, loopOpacity(16), 90),
-    textLayer(41, 'Scan target text', 'Ready when every part is clear', [86, 226, 0], 22, 0, 500, loopOpacity(22), -4),
-    shapeLayer({ index: 1, name: 'Scan baseline', opacity: loopOpacity(24, 266, 74), position: [480, 244, 0], scale: growScale(24), shapes: [gradientRectangleGroup('Scan baseline fill', [788, 2], 2, 0, [0, 0], 1, 100)] }),
-    shapeLayer({ index: 2, name: 'Quality scan line', opacity: phaseOpacity(48, 218, 0, 84), position: travelPosition(48, 212, [[78, 266, 0], [882, 266, 0], [882, 566, 0], [78, 566, 0]]), shapes: [gradientRectangleGroup('Quality scan beam', [3, 330], 2, 0, [0, 0], 1, 100)] }),
-  ];
-  rows.forEach(({ code, start, text, y }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Quality row ${code}`, opacity: loopOpacity(32 + index * 8, 266), position: [480, y, 0], shapes: [rectangleGroup('Quality row surface', [788, 72], 1, [0, 0], 6, 4), outlinedRectangleGroup('Quality row edge', [788, 72], 1, [0, 0], 6, 1, 30), rectangleGroup('Quality approval rail', [4, 72], 2, [-392, 0], 1, index === 2 ? 100 : 58)] }));
-    layers.push(textLayer(50 + index, `Quality code ${code}`, code, [106, y + 5, 0], 12, index === 2 ? 2 : 1, 600, loopOpacity(40 + index * 8, 266), 74));
-    layers.push(textLayer(60 + index, `Quality check ${code}`, text, [190, y + 7, 0], 18, 0, 500, loopOpacity(44 + index * 8, 266), -2));
-    layers.push(shapeLayer({ index: 20 + index, name: `Approval state ${code}`, opacity: loopOpacity(start, 260), position: [842, y, 0], scale: pulseScale(start, 256, 70, 114), shapes: [ellipseGroup('Approval state ring', [24, 24], 2, [0, 0], 92, true), pathGroup('Approval check', [[-5, 0], [-1, 5], [7, -6]], 2, 100, 2)] }));
-  });
+  const layers: unknown[] = [...editorialLabel('Precision is a practice.', 'Quality / Resolve', '05', 'Every detail, brought into focus.')];
+  const center: Point = [480, 386, 0];
+  for (let column = 0; column < 13; column++) {
+    const x = (column - 6) * 32;
+    const shapes = Array.from({ length: 11 }, (_, row) => {
+      const y = (row - 5) * 32;
+      const distance = Math.hypot(x / 210, y / 180);
+      return ellipseGroup(`Sample ${column}:${row}`, [distance < 0.6 ? 9 : 5, distance < 0.6 ? 9 : 5], 0, [x, y], distance > 1.05 ? 16 : 75, distance < 0.6);
+    });
+    layers.push(shapeLayer({ index: 10 + column, name: `Resolved samples ${column}`, position: center, opacity: animated(Array.from({ length: 61 }, (_, i) => {
+      const scanX = -220 * Math.cos(i / 60 * 2 * Math.PI);
+      return { ease: 'linear' as const, t: i * 5, value: [46 + 54 * Math.exp(-(((scanX - x) / 65) ** 2))] };
+    })), shapes }));
+  }
+  layers.push(shapeLayer({ index: 1, name: 'Focus boundary', position: center, shapes: [
+    pathGroup('Focus top left', [[-236, -136], [-236, -192], [-180, -192]], 0, 90),
+    pathGroup('Focus bottom right', [[236, 136], [236, 192], [180, 192]], 0, 90),
+  ] }));
+  layers.unshift(shapeLayer({ index: 2, name: 'Optical scan', position: sampledMotion((t) => [480 - 220 * Math.cos(t * Math.PI * 2), 386, 0]), shapes: [pathGroup('Scanning blade', [[0, -192], [0, 192]], 2, 100, 2), ellipseGroup('Scan locator', [8, 8], 2, [0, -204])] }));
+  layers.push(textLayer(40, 'Precision scale', '1 : 1', [800, 584, 0], 16, 1, 400, loopOpacity(), 10, 1));
   return baseDocument('Quality scan', layers);
 }
 
 function networkOrbitDocument(): LottieDocument {
-  const nodes = [
-    { code: 'A', position: [286, 314, 0] as Point, start: 42 },
-    { code: 'B', position: [674, 286, 0] as Point, start: 82 },
-    { code: 'C', position: [714, 486, 0] as Point, start: 122 },
-    { code: 'D', position: [304, 520, 0] as Point, start: 162 },
-  ];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'NETWORK / ORBIT', 'A living system of nodes.', '06 / 07'),
-    shapeLayer({ index: 1, name: 'Network field', opacity: loopOpacity(18, 266, 78), position: settlePosition(18, [480, 428, 0], [480, 412, 0]), shapes: [ellipseGroup('Network field outer', [420, 420], 0, [0, 0], 72, true), ellipseGroup('Network orbit one', [420, 152], 1, [0, -86], 42, true), ellipseGroup('Network orbit two', [420, 152], 1, [0, 86], 42, true), ellipseGroup('Network meridian', [154, 420], 1, [0, 0], 48, true), pathGroup('Network axis', [[-210, 0], [210, 0]], 1, 42, 1, false, 0, true)] }),
-    shapeLayer({ index: 2, name: 'Network route', opacity: loopOpacity(34, 266, 92), position: [480, 412, 0], shapes: [pathGroup('Network route path', [[-194, -98], [0, -10], [194, -126], [234, 74], [0, 18], [-176, 108]], 2, 100, 2)] }),
-    shapeLayer({ index: 3, name: 'Network packet', opacity: phaseOpacity(44, 224), position: travelPosition(44, 218, nodes.map(({ position }) => position)), scale: pulseScale(44, 224, 82, 116), shapes: [ellipseGroup('Network packet glow', [26, 26], 2, [0, 0], 24), ellipseGroup('Network packet core', [10, 10], 2)] }),
-    textLayer(40, 'Network count', '24', [480, 430, 0], 82, 0, 600, loopOpacity(92), -30, 2),
-    textLayer(41, 'Network count label', 'ACTIVE NODES', [480, 478, 0], 12, 1, 600, loopOpacity(102), 110, 2),
-  ];
-  nodes.forEach(({ code, position, start }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Network node ${code}`, opacity: loopOpacity(start, 260), position, scale: pulseScale(start, 256, 72, 118), shapes: [ellipseGroup('Network node ring', [34, 34], index === 2 ? 2 : 0, [0, 0], index === 2 ? 100 : 72, true), ellipseGroup('Network node core', [8, 8], index === 2 ? 2 : 0)] }));
-    layers.push(textLayer(50 + index, `Network code ${code}`, code, [position[0] + 26, position[1] + 5, 0], 11, index === 2 ? 2 : 1, 600, loopOpacity(start + 4, 260), 70));
-  });
+  const center: Point = [480, 384, 0];
+  const layers: unknown[] = [...editorialLabel('Connected by possibility.', 'Network / Orbit', '06', 'An open system, in continuous conversation.')];
+  const grid = [ellipseGroup('World contour', [364, 364], 0, [0, 0], 90, true)];
+  for (const width of [96, 208, 308]) grid.push(ellipseGroup(`Meridian ${width}`, [width, 364], 0, [0, 0], 36, true));
+  for (const y of [-120, -64, 0, 64, 120]) {
+    grid.push(ellipseGroup(`Latitude ${y}`, [2 * Math.sqrt(182 ** 2 - y ** 2), 54], 0, [0, y], 32, true));
+  }
+  layers.push(shapeLayer({ index: 1, name: 'Connected world', position: center, shapes: grid }));
+  layers.unshift(shapeLayer({ index: 2, name: 'Open orbital path', position: center, shapes: [orbitGroup('Exchange orbit', 250, 94, -24, 2, 90)] }));
+  for (let i = 0; i < 3; i++) {
+    layers.unshift(shapeLayer({ index: 10 + i, name: `Orbiting node ${i}`, position: sampledMotion((phase) => {
+      const a = (phase + i / 3) * 2 * Math.PI;
+      const rotation = -24 * Math.PI / 180;
+      const x = 250 * Math.cos(a); const y = 94 * Math.sin(a);
+      return [480 + x * Math.cos(rotation) - y * Math.sin(rotation), 384 + x * Math.sin(rotation) + y * Math.cos(rotation), 0];
+    }), shapes: [ellipseGroup('Node halo', [26, 26], 2, [0, 0], 12), ellipseGroup('Node', [10, 10], 2)] }));
+  }
+  layers.push(textLayer(40, 'Network scale', 'ALWAYS IN EXCHANGE', [480, 592, 0], 12, 1, 500, loopOpacity(), 100, 2));
   return baseDocument('Network orbit', layers);
 }
 
 function endpointDeliveryDocument(): LottieDocument {
-  const destinations = [
-    { code: 'WEB', format: 'HTML', slot: 0, start: 86, y: 246 },
-    { code: 'APP', format: 'NATIVE', slot: 2, start: 120, y: 366 },
-    { code: 'API', format: 'JSON', slot: 0, start: 154, y: 486 },
-  ];
-  const layers: unknown[] = [
-    ...sceneLabel(70, 'DELIVERY / ENDPOINTS', 'One artifact. Every endpoint.', '07 / 07'),
-    shapeLayer({ index: 1, name: 'Origin artifact', opacity: loopOpacity(16, 266), position: settlePosition(16, [190, 390, 0], [190, 374, 0]), scale: pulseScale(16, 258, 92, 104), shapes: [rectangleGroup('Origin artifact surface', [216, 268], 1, [0, 0], 8, 6), outlinedRectangleGroup('Origin artifact edge', [216, 268], 0, [0, 0], 8, 1, 56), rectangleGroup('Origin artifact fold', [52, 3], 2, [66, -102], 1, 100), rectangleGroup('Origin line one', [128, 6], 0, [-18, -46], 2, 82), rectangleGroup('Origin line two', [94, 6], 0, [-35, -16], 2, 48), rectangleGroup('Origin line three', [118, 6], 0, [-23, 14], 2, 62)] }),
-    textLayer(40, 'Origin artifact label', 'design.json', [118, 482, 0], 16, 1, 500, loopOpacity(28), 4),
-    shapeLayer({ index: 2, name: 'Endpoint routing system', opacity: loopOpacity(34, 266, 64), position: [480, 374, 0], shapes: destinations.map(({ y }, index) => pathGroup(`Endpoint route ${index + 1}`, [[-182, 0], [-48, 0], [40, y - 374], [146, y - 374]], index === 1 ? 2 : 1, index === 1 ? 96 : 48, index === 1 ? 2 : 1)) }),
-    shapeLayer({ index: 3, name: 'Delivery packet', opacity: phaseOpacity(54, 214), position: travelPosition(54, 208, [[298, 374, 0], [432, 374, 0], [520, 366, 0], [626, 366, 0]]), scale: pulseScale(54, 214, 84, 118), shapes: [gradientRectangleGroup('Delivery packet core', [54, 14], 2, 0, [0, 0], 7, 100)] }),
-    textLayer(41, 'Endpoint count', '3', [824, 594, 0], 54, 0, 600, loopOpacity(176, 264), -22, 1),
-    textLayer(42, 'Endpoint count label', 'ENDPOINTS', [824, 626, 0], 10, 1, 600, loopOpacity(182, 264), 104, 1),
-  ];
-  destinations.forEach(({ code, format, slot, start, y }, index) => {
-    layers.push(shapeLayer({ index: 10 + index, name: `Endpoint ${code}`, opacity: loopOpacity(start, 262), position: settlePosition(start, [752, y + 10, 0], [752, y, 0]), scale: pulseScale(start, 256, 88, slot === 2 ? 110 : 102), shapes: [rectangleGroup('Endpoint surface', [252, 76], slot, [0, 0], 8, slot === 2 ? 12 : 5), outlinedRectangleGroup('Endpoint edge', [252, 76], slot === 2 ? 2 : 1, [0, 0], 8, 1, slot === 2 ? 96 : 38), ellipseGroup('Endpoint status', [8, 8], slot === 2 ? 2 : 0, [-94, 0], 100)] }));
-    layers.push(textLayer(50 + index, `Endpoint code ${code}`, code, [690, y + 6, 0], 16, slot === 2 ? 2 : 0, 600, loopOpacity(start + 4, 262), 86));
-    layers.push(textLayer(60 + index, `Endpoint format ${code}`, format, [852, y + 5, 0], 12, 1, 500, loopOpacity(start + 8, 262), 20, 1));
-  });
+  const layers: unknown[] = [...editorialLabel('Made to move everywhere.', 'Delivery / Adapt', '07', 'The same idea. A different expression.')];
+  const paths = [230, 386, 542].map((y, i) => [[288, 386], [510, 386], [480, y], [[676, 725, 700][i], y]] as Vertex[]);
+  layers.push(shapeLayer({ index: 1, name: 'Distribution paths', position: [480, 386, 0], shapes: paths.map((points, i) => curveGroup(`Distribution ${i}`, points.map(([x, y]) => [x - 480, y - 386]), i === 1 ? 2 : 0, 70)) }));
+  layers.push(shapeLayer({ index: 2, name: 'Original idea', position: [220, 386, 0], rotation: breathe([[0], [90], [0]]), shapes: [pathGroup('Origin diamond', [[0, -68], [68, 0], [0, 68], [-68, 0]], 0, 100, 1, true, 3), ellipseGroup('Origin seed', [20, 20], 2)] }));
+  layers.push(shapeLayer({ index: 3, name: 'Web expression', position: [756, 230, 0], shapes: [outlinedRectangleGroup('Browser', [160, 106], 0, [0, 0], 3, 1, 100), pathGroup('Browser chrome', [[-80, -27], [80, -27]], 0, 60), ellipseGroup('Browser origin', [6, 6], 2, [-62, -40]), pathGroup('Browser sign', [[-12, 0], [10, 12], [-12, 26]], 2, 100, 2)] }));
+  layers.push(shapeLayer({ index: 4, name: 'App expression', position: [756, 386, 0], shapes: [outlinedRectangleGroup('Device', [62, 104], 2, [0, 0], 8, 1, 100), pathGroup('Device sign', [[-10, -14], [10, 0], [-10, 14]], 2, 100, 2)] }));
+  layers.push(shapeLayer({ index: 5, name: 'API expression', position: [756, 542, 0], shapes: [pathGroup('Left brace', [[-40, -32], [-56, -32], [-56, 32], [-40, 32]], 0, 100), pathGroup('Right brace', [[40, -32], [56, -32], [56, 32], [40, 32]], 0, 100), pathGroup('API sign', [[-10, -14], [10, 0], [-10, 14]], 2, 100, 2)] }));
+  paths.forEach((points, i) => layers.unshift(particle(10 + i, `Delivered signal ${i}`, points, i / 3, 8)));
+  ['WEB', 'APP', 'API'].forEach((label, i) => layers.push(textLayer(50 + i, `Endpoint label ${label}`, label, [880, 236 + i * 156, 0], 12, 1, 500, loopOpacity(), 60, 1)));
+  layers.push(textLayer(40, 'Origin note', 'ORIGINAL', [220, 494, 0], 12, 1, 500, loopOpacity(), 100, 2));
   return baseDocument('Endpoint delivery', layers);
 }
 
@@ -614,7 +544,9 @@ function customizeLottieGradient(record: LottieRecord, next: LottieRecord, color
 function customizeLottieGeometry(record: LottieRecord, next: LottieRecord, appearance: LottieAppearance) {
   if (record.ty === 'st' && record.w && typeof record.w === 'object') {
     const widthProperty = record.w as LottieRecord;
-    if (widthProperty.a === 0) next.w = { ...widthProperty, k: appearance.strokeWidth };
+    const authoredWeight = typeof record.nm === 'string' ? /weight=([\d.]+)/.exec(record.nm) : null;
+    const weight = authoredWeight ? Number(authoredWeight[1]) : 1;
+    if (widthProperty.a === 0) next.w = { ...widthProperty, k: appearance.strokeWidth * weight };
   }
   if (record.ty !== 'rc' || !record.r || typeof record.r !== 'object') return;
   const radiusProperty = record.r as LottieRecord;

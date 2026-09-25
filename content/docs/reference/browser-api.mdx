@@ -72,6 +72,8 @@ artifact.download
 
 Hidden or inert retained workspaces are excluded. Matching is whitespace-normalized and case-insensitive but otherwise exact. If two controls inside the same active workspace share a label, the first matching control wins; tool authors should keep actionable accessible names unique.
 
+Slider names stay stable as their values change. For example, Lottie's playback slider is `Speed`, so `studio.set('Speed', 1.5)` keeps working after an earlier adjustment. The displayed value and unit are separate from the accessible name.
+
 ## Values and files
 
 `set` accepts strings, numbers, booleans, `File`, or `File[]`.

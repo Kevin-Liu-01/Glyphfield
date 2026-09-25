@@ -105,7 +105,9 @@ const INACTIVE_AUTOMATION_ANCESTOR = '[inert], [hidden], [aria-hidden="true"], .
 
 function automationOwnerIsActive(owner: HTMLElement | null | undefined): boolean {
   if (owner === undefined) return true;
-  return Boolean(owner?.isConnected && !owner.closest(INACTIVE_AUTOMATION_ANCESTOR));
+  if (!owner?.isConnected || owner.closest(INACTIVE_AUTOMATION_ANCESTOR)) return false;
+  const popover = owner.closest('[popover]');
+  return !popover || popover.matches(':popover-open');
 }
 
 type StudioAutomationRegistration = {
@@ -177,6 +179,16 @@ function matchingControl(label: string, owner?: HTMLElement | null): HTMLElement
   return match;
 }
 
+function setTextControlValue(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) {
+  // Use the browser setter so controlled inputs observe a value change when
+  // the input event arrives, rather than treating it as an already-seen value.
+  const prototype = element instanceof HTMLInputElement ? HTMLInputElement.prototype
+    : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLSelectElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value);
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function setNativeValue(element: HTMLElement, value: StudioAutomationValue) {
   if (element instanceof HTMLInputElement && element.type === 'file') {
     const files = value instanceof File ? [value] : Array.isArray(value) && value.every((item) => item instanceof File) ? value : null;
@@ -194,9 +206,7 @@ function setNativeValue(element: HTMLElement, value: StudioAutomationValue) {
     return;
   }
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
-    element.value = String(value);
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
+    setTextControlValue(element, String(value));
     return;
   }
   if (element.getAttribute('role') === 'textbox' || element.isContentEditable) {

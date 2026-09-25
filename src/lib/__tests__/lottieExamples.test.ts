@@ -113,7 +113,7 @@ describe('Lottie product presets', () => {
         const value = textValue(layer);
         expect(typeof value).toBe('string');
         expect((value as string).trim()).not.toBe('');
-        expect((value as string).length).toBeLessThanOrEqual(32);
+        expect((value as string).length).toBeLessThanOrEqual(56);
         expect((value as string)).not.toContain('\n');
 
         const transform = layer.ks as Record<string, unknown> | undefined;
@@ -202,7 +202,7 @@ describe('Lottie product presets', () => {
       const records = collectRecords(example.data);
       const strokes = records.filter((record) => record.ty === 'st');
       const paths = records.filter((record) => record.ty === 'sh');
-      const kicker = layers.find(({ nm }) => nm === 'Palette 3 Text | Scene eyebrow');
+      const kicker = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene eyebrow');
       const title = layers.find(({ nm }) => nm === 'Palette 1 Text | Scene title');
       const meta = layers.find(({ nm }) => nm === 'Palette 2 Text | Scene number');
       const titleTransform = title?.ks as Record<string, unknown> | undefined;
@@ -222,8 +222,8 @@ describe('Lottie product presets', () => {
       })).toBe(true);
       expect(kicker).toBeDefined();
       expect(meta).toBeDefined();
-      expect(titlePosition?.k).toEqual([76, 116, 0]);
-      expect(titleStyle?.s).toBe(28);
+      expect(titlePosition?.k).toEqual([76, 138, 0]);
+      expect(titleStyle?.s).toBe(44);
       expect(titleStyle?.j).toBe(0);
     }
   });
@@ -248,15 +248,6 @@ describe('Lottie product presets', () => {
     expect(paletteColors).toContainEqual([0, 0, 1, 1]);
     expect(
       records
-        .filter((record) => record.ty === 'gf')
-        .map((record) => {
-          const gradient = record.g as Record<string, unknown> | undefined;
-          const colorProperty = gradient?.k as Record<string, unknown> | undefined;
-          return colorProperty?.k;
-        }),
-    ).toContainEqual([0, 0, 0, 1, 1, 1, 0, 0]);
-    expect(
-      records
         .filter((record) => record.ty === 'rc')
         .every((record) => {
           const radius = (record.r as Record<string, unknown>)?.k;
@@ -269,7 +260,10 @@ describe('Lottie product presets', () => {
     expect(
       records
         .filter((record) => record.ty === 'st')
-        .every((record) => (record.w as Record<string, unknown>)?.k === 9),
+        .every((record) => {
+          const weight = /weight=([\d.]+)/.exec(String(record.nm));
+          return (record.w as Record<string, unknown>)?.k === 9 * Number(weight?.[1] ?? 1);
+        }),
     ).toBe(true);
 
     const customizedFonts = customized.fonts as Record<string, unknown> | undefined;
@@ -288,6 +282,25 @@ describe('Lottie product presets', () => {
         return typeof style?.f === 'string' && style.f.startsWith('BrandFont-');
       }),
     ).toBe(true);
+  });
+
+  it('preserves palette gradient recoloring for imported and older documents', () => {
+    const result = customizeLottieDocument({ shapes: [{
+      ty: 'gf', nm: 'Palette Gradient 3 1', g: { p: 2, k: { a: 0, k: [0, 1, 0, 0, 1, 0, 1, 0] } },
+    }] }, { colors: ['#FF0000', '#00FF00', '#0000FF'], cornerRadius: 8, strokeWidth: 1 });
+    expect(result.shapes).toMatchObject([{ g: { k: { k: [0, 0, 0, 1, 1, 1, 0, 0] } } }]);
+  });
+
+  it('keeps the editorial composition visible from the first frame', () => {
+    for (const { data } of LOTTIE_EXAMPLES) {
+      const layers = data.layers as Record<string, unknown>[];
+      const texts = textLayers(data);
+      for (const layer of texts) {
+        const opacity = (layer.ks as Record<string, unknown>).o as { k: { s: number[] }[] };
+        expect(opacity.k[0].s).toEqual([100]);
+      }
+      expect(layers.filter(({ ty }) => ty === 4).length).toBeGreaterThan(3);
+    }
   });
 
   it('embeds the active brand mark in a reserved animated safe area', () => {

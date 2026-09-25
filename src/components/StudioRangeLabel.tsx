@@ -79,17 +79,19 @@ export function studioSectionIcon(label: ReactNode): LucideIcon {
 
 export default function StudioRangeLabel({
   className = '',
+  id,
   label,
   value,
 }: {
   className?: string;
+  id?: string;
   label: ReactNode;
   value?: ReactNode;
 }) {
   const Icon = studioControlIcon(label);
   return (
     <span className={`studio-range-label ${className}`.trim()}>
-      <span className='studio-range-label-copy'>
+      <span className='studio-range-label-copy' id={id}>
         <span aria-hidden='true' className='studio-range-icon'><Icon /></span>
         <span>{label}</span>
       </span>

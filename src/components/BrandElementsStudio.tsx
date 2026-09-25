@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useId, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Badge,
@@ -243,10 +243,11 @@ function ElementRangeControl({
   value: number;
 }) {
   const resolvedValue = Math.min(value, max);
+  const rangeLabelId = useId();
   return (
-    <label className='element-editor-range'>
-      <StudioRangeLabel label={label} value={<output>{resolvedValue}{suffix}</output>} />
-      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} value={resolvedValue} />
+    <label htmlFor={`${rangeLabelId}-input`} className='element-editor-range'>
+      <StudioRangeLabel id={rangeLabelId} label={label} value={<output>{resolvedValue}{suffix}</output>} />
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId} max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} value={resolvedValue} />
     </label>
   );
 }

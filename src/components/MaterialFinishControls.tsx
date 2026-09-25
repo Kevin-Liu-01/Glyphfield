@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 
 import StudioRangeLabel from '@/components/StudioRangeLabel';
@@ -33,14 +33,15 @@ function RangeControl({
   unit?: string;
   value: number;
 }) {
+  const rangeLabelId = useId();
   return (
-    <label className='flex flex-col gap-2'>
-      <StudioRangeLabel
+    <label htmlFor={`${rangeLabelId}-input`} className='flex flex-col gap-2'>
+      <StudioRangeLabel id={rangeLabelId}
         className='text-sm text-muted-foreground'
         label={label}
         value={<output className='font-mono text-xs tabular-nums'>{value}{unit}</output>}
       />
-      <StudioRange max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={value} />
+      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId} max={max} min={min} onChange={(event) => onChange(Number(event.target.value))} step={step} value={value} />
     </label>
   );
 }

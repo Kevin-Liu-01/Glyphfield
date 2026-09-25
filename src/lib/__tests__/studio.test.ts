@@ -99,6 +99,15 @@ describe('applyFrameSettings', () => {
 });
 
 describe('sequence backgrounds', () => {
+  it('resolves partial imported frames before rendering text over a shader override', () => {
+    const background = { ...createDefaultFrameSettings(DEFAULT_SETTINGS).background, style: 'shader' as const };
+    const frame = resolveStudioFrameSettings(DEFAULT_SETTINGS, { background }, background, true);
+    expect(frame).toMatchObject({ fontSize: 108, fontWeight: 550, opacity: 1, scale: 1 });
+    const resolved = applyFrameSettings(textSource, frame);
+    expect(resolved.fontWeight).toBe(550);
+    expect(resolved.background?.style).toBe('shader');
+  });
+
   it('inherits one sequence background until a frame explicitly overrides it', () => {
     const storedFrame = createDefaultFrameSettings(DEFAULT_SETTINGS);
     storedFrame.background = mergeStudioBackground(

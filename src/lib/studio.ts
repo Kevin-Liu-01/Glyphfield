@@ -150,11 +150,11 @@ export function mergeStudioBackground(
 
 export function resolveStudioFrameSettings(
   settings: StudioSettings,
-  storedFrame: StudioFrameSettings | undefined,
+  storedFrame: Partial<StudioFrameSettings> | undefined,
   sequenceBackground: StudioBackgroundSettings,
   hasBackgroundOverride: boolean
 ): StudioFrameSettings {
-  const frame = storedFrame ?? createDefaultFrameSettings(settings);
+  const frame = mergeStudioFrameSettings(settings, storedFrame);
   if (hasBackgroundOverride) return frame;
   return {
     ...frame,
@@ -163,6 +163,21 @@ export function resolveStudioFrameSettings(
       {},
       settings.shaderSettings
     ),
+  };
+}
+
+/** Source edits may override just a background or transform. Resolve the rest
+ * before preview, inspectors, history, or export consume the frame. */
+export function mergeStudioFrameSettings(
+  settings: StudioSettings,
+  storedFrame: Partial<StudioFrameSettings> | undefined
+): StudioFrameSettings {
+  const defaults = createDefaultFrameSettings(settings);
+  return {
+    ...defaults,
+    ...storedFrame,
+    background: mergeStudioBackground(defaults.background, storedFrame?.background ?? {}, settings.shaderSettings),
+    finish: normalizeMaterialFinish(storedFrame?.finish ?? defaults.finish),
   };
 }
 
