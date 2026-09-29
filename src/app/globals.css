@@ -885,12 +885,17 @@
   bottom: 100%;
   left: 0;
   display: flex;
-  width: 100%;
-  height: calc(34px * var(--canvas-zoom-inverse, 1));
+  /* Lay out the whole row at its visible width before cancelling canvas zoom.
+     Scaling each child separately leaves flex layout unaware of text overlap. */
+  width: calc(100% / var(--canvas-zoom-inverse, 1));
+  height: 34px;
   min-width: 0;
+  container-type: inline-size;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
+  transform: scale(var(--canvas-zoom-inverse, 1));
+  transform-origin: left bottom;
   color: hsl(var(--muted-foreground));
   font-family: var(--font-mono), monospace;
   font-size: 10px;
@@ -907,7 +912,9 @@
 
 .design-artboard-label > button {
   display: inline-flex;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   min-height: 28px;
   align-items: center;
   gap: 6px;
@@ -940,24 +947,30 @@
 }
 
 .design-artboard-label > button svg {
+  flex-shrink: 0;
   width: 12px;
   height: 12px;
 }
 
 .design-artboard-label > button span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.design-artboard-label > button {
-  transform: scale(var(--canvas-zoom-inverse, 1));
-  transform-origin: left center;
+.design-artboard-label > span {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.design-artboard-label > span {
-  transform: scale(var(--canvas-zoom-inverse, 1));
-  transform-origin: right center;
+@container (max-width: 180px) {
+  .design-artboard-label > span {
+    display: none;
+  }
 }
 
 .design-artboard-shell[data-active='true'] .design-artboard-label {
