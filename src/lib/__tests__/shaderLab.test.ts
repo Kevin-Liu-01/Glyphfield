@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
 import { SHADER_EFFECTS } from '../shaderEffects';
 import {
+  SHADER_LAB_KINDS,
+  shaderLabKind,
   SHADER_LAB_CATEGORIES,
   SHADER_LAB_SOURCES,
   SHADER_LAB_FEATURED_IDS,
@@ -134,5 +136,22 @@ describe('shader lab', () => {
       expect(materialIds.has(materialId)).toBe(true);
       expect(settings).toMatchObject({ colorA: expect.stringMatching(/^#/), colorB: expect.stringMatching(/^#/) });
     });
+  });
+  it('sorts every material into one kind and filters by kind and multi-word search', () => {
+    const kinds = new Set(SHADER_LAB_KINDS.map(({ id }) => id));
+    DISCOVERABLE_LIVE_MATERIAL_OPTIONS.forEach((material) => expect(kinds.has(shaderLabKind(material))).toBe(true));
+    expect(shaderLabKind({ id: 'shader-effects-smoke-flow' })).toBe('interactive');
+    expect(shaderLabKind({ id: 'shader-effects-circle' })).toBe('shapes');
+    expect(shaderLabKind({ id: 'shader-effects-blur' })).toBe('image-effects');
+    expect(shaderLabKind({ id: 'paper-gem-smoke' })).toBe('backgrounds');
+    expect(shaderLabKind({ id: 'pavel-fluid-energy' })).toBe('interactive');
+    const interactive = shaderLabMaterials('', 'all', 'all', 'interactive');
+    expect(interactive.length).toBeGreaterThan(10);
+    expect(interactive.every((material) => shaderLabKind(material) === 'interactive')).toBe(true);
+    const total = SHADER_LAB_KINDS.filter(({ id }) => id !== 'all')
+      .reduce((sum, { id }) => sum + shaderLabCategoryCount('all', 'all', id), 0);
+    expect(total).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    expect(shaderLabMaterials('liquid metal', 'all').some(({ name }) => /liquid metal/i.test(name))).toBe(true);
+    expect(shaderLabMaterials('image effects blur', 'all').every((material) => shaderLabKind(material) === 'image-effects')).toBe(true);
   });
 });

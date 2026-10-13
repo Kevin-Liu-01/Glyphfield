@@ -155,6 +155,25 @@ export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 
   return 'graphic';
 }
 
+export type ShaderLabKind = 'all' | 'backgrounds' | 'image-effects' | 'interactive' | 'shapes';
+
+/** What a material is for, independent of its look: a full background, an effect applied to an image, a pointer-driven simulation, or a shape primitive. */
+export const SHADER_LAB_KINDS: readonly { id: ShaderLabKind; label: string }[] = [
+  { id: 'all', label: 'All kinds' },
+  { id: 'backgrounds', label: 'Backgrounds' },
+  { id: 'image-effects', label: 'Image effects' },
+  { id: 'interactive', label: 'Interactive' },
+  { id: 'shapes', label: 'Shapes' },
+];
+
+export function shaderLabKind(material: Pick<LiveMaterialOption, 'id'>): Exclude<ShaderLabKind, 'all'> {
+  const effect = getShaderEffect(material.id);
+  if (!effect) return material.id === 'pavel-fluid-energy' ? 'interactive' : 'backgrounds';
+  if (effect.category === 'Interactive') return 'interactive';
+  if (effect.category === 'Shapes') return 'shapes';
+  return effect.requiresChild ? 'image-effects' : 'backgrounds';
+}
+
 export type ShaderLabSource = 'all' | LiveMaterialOption['engine'];
 
 const SHADER_LAB_SOURCE_LABELS: Readonly<Record<LiveMaterialOption['engine'], string>> = {
@@ -175,13 +194,21 @@ export const SHADER_LAB_SOURCES: readonly { id: ShaderLabSource; label: string }
     .map((engine) => ({ id: engine, label: SHADER_LAB_SOURCE_LABELS[engine] })),
 ];
 
-export function shaderLabMaterials(query: string, category: ShaderLabCategory, source: ShaderLabSource = 'all'): readonly LiveMaterialOption[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+export function shaderLabMaterials(
+  query: string,
+  category: ShaderLabCategory,
+  source: ShaderLabSource = 'all',
+  kind: ShaderLabKind = 'all'
+): readonly LiveMaterialOption[] {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const filtered = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => {
     if (source !== 'all' && material.engine !== source) return false;
     if (category !== 'all' && shaderLabCategory(material) !== category) return false;
-    if (!normalizedQuery) return true;
-    return `${material.name} ${material.description} ${material.engine}`.toLocaleLowerCase().includes(normalizedQuery);
+    if (kind !== 'all' && shaderLabKind(material) !== kind) return false;
+    if (!terms.length) return true;
+    // Every word must match somewhere: name, description, engine, look or kind.
+    const haystack = `${material.name} ${material.description} ${material.engine} ${shaderLabCategory(material)} ${shaderLabKind(material).replace('-', ' ')}`.toLocaleLowerCase();
+    return terms.every((term) => haystack.includes(term));
   });
   const featured: LiveMaterialOption[] = [];
   const primary: LiveMaterialOption[] = [];
@@ -219,9 +246,10 @@ export function shaderLabMaterials(query: string, category: ShaderLabCategory, s
   return [...featured, ...primary, ...variants];
 }
 
-export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all'): number {
+export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all', kind: ShaderLabKind = 'all'): number {
   return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => (source === 'all' || material.engine === source)
-    && (category === 'all' || shaderLabCategory(material) === category)).length;
+    && (category === 'all' || shaderLabCategory(material) === category)
+    && (kind === 'all' || shaderLabKind(material) === kind)).length;
 }
 
 export function shaderPreviewAssetPath(materialId: LiveMaterialId): string {

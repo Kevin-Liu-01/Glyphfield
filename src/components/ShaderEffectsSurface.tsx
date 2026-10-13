@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getWebGPUSupport } from 'shaders/core';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { driveAmbientPointer } from '@/lib/ambientPointer';
 import { createShaderEffectsRenderer } from '@/lib/shaderEffectsRenderer';
 import { getShaderEffect, shaderEffectInputsChanged } from '@/lib/shaderEffects';
 import { createLiveMaterialClock } from '@/lib/liveMaterialClock';
@@ -19,6 +20,10 @@ type Props = {
   maxPixelCount?: number; renderScale: number; patternScale: number; sourceImage?: string;
 };
 type Failure = 'unsupported' | 'failed';
+
+// Stateful effects start from an empty field; simulate this much before the first paint.
+const WARMUP_SECONDS = 3;
+const WARMUP_STEP_SECONDS = 1 / 30;
 
 export default function ShaderEffectsSurface(props: Props) {
   const gt = useGT();
@@ -36,7 +41,10 @@ export default function ShaderEffectsSurface(props: Props) {
     const surface = host.current!;
     const output = canvas.current!;
     const gpu = gpuCanvas.current!;
-    const stateful = getShaderEffect(materialId)?.stateful ?? false;
+    const effect = getShaderEffect(materialId);
+    const stateful = effect?.stateful ?? false;
+    const interactive = effect?.category === 'Interactive';
+    let warmed = !stateful;
     const context = output.getContext('2d');
     if (!context) return;
     let disposed = false;
@@ -89,6 +97,17 @@ export default function ShaderEffectsSurface(props: Props) {
         if (resizeRequested) { resizeRequested = false; await resize(); }
         if (drawingStopped()) return;
         adapter.update(state.settings, state.patternScale, aspect());
+        if (!warmed) {
+          warmed = true;
+          for (let elapsed = 0; elapsed < WARMUP_SECONDS && !drawingStopped(); elapsed += WARMUP_STEP_SECONDS) {
+            // A faster sweep during warm-up leaves a full stroke for trail and ink effects.
+            if (interactive) driveAmbientPointer(gpu, elapsed * 3, true);
+            await adapter.renderer.renderSyntheticFrame(WARMUP_STEP_SECONDS);
+          }
+          if (drawingStopped()) return;
+        }
+        // Interactive effects follow a slow virtual cursor until someone moves the real one.
+        if (interactive && !state.paused) driveAmbientPointer(gpu, WARMUP_SECONDS * 3 + now / 1000);
         // Stateful effects advance from their accumulated state; a requested time is ignored.
         const frame = clock.draw({ now, rate: liveMaterialMotionRate(state.settings.speed), active: state.active, paused: state.paused, captureTimeMs: stateful ? null : state.captureTimeMs, frameState: state.frameState });
         const delta = (frame - lastFrame) / 1000;

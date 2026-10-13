@@ -45,6 +45,10 @@ Every card contains a live preview, material name, source badge, and selected st
 
 Choosing a source filter narrows the current quality-sorted catalog and its category counts; it does not change how the shader is rendered or edited.
 
+A second filter narrows by kind: **Backgrounds** fill an artboard on their own, **Image effects** transform a source image (blur, halftone, distortions, transitions), **Interactive** materials respond to the pointer, and **Shapes** are primitives for compositing. Search matches every word you type against the name, description, source, look and kind, so `interactive smoke` or `image effects blur` both work.
+
+Stateful and interactive materials (Smoke, Ink Flow, Boids, Reaction Diffusion and others) simulate a few seconds before they first appear, so they open already developed. Until you move the pointer over them, interactive materials follow a slow virtual cursor; move over the canvas to take control.
+
 Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
 
 ### Rendering quality
