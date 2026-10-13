@@ -9,6 +9,7 @@ import { OPEN_SURFACE_LIBRARY, OPEN_SURFACE_PRESETS } from '../openSurfaceLibrar
 import { STICKER_FINISH_PRESETS } from '../surfaceSticker';
 import { STUDIO_TOOLS } from '../studioCatalog';
 import { shaderLabMaterials } from '../shaderLab';
+import { SHADER_EFFECTS } from '../shaderEffects';
 import {
   STUDIO_AGENT_CAPABILITIES,
   STUDIO_STANDARD_ACTION_CONTRACTS,
@@ -22,6 +23,13 @@ describe('agent discovery catalogs', () => {
       shaderLabMaterials('', 'all').map(({ id }) => id)
     );
     expect(AGENT_SHADER_LIBRARY.sharedBy).toEqual(['animation', 'material']);
+  });
+
+  it('publishes each native effect control set once, on its material', () => {
+    expect(AGENT_SHADER_LIBRARY.shaderEffects.components.every((component) => !('controls' in component) && !('props' in component))).toBe(true);
+    const native = AGENT_SHADER_LIBRARY.materials.filter((material) => 'nativeControls' in material);
+    expect(native.map(({ id }) => id).sort()).toEqual(SHADER_EFFECTS.map(({ id }) => id).sort());
+    expect(native.every((material) => 'settingsKey' in material && material.settingsKey === 'effectProps')).toBe(true);
   });
 
   it('publishes honest per-provider frame capture, seek and loop capabilities', () => {

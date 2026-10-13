@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
+import { SHADER_EFFECTS } from '../shaderEffects';
 import {
   SHADER_LAB_CATEGORIES,
+  SHADER_LAB_SOURCES,
   SHADER_LAB_FEATURED_IDS,
   SHADER_LAB_FEATURED_MATERIALS,
   SHADER_LIBRARY_DEFAULT_IDS,
@@ -60,6 +62,38 @@ describe('shader lab', () => {
       expect(existsSync(path), `missing preview for ${id}`).toBe(true);
       expect(statSync(path).size, `empty preview for ${id}`).toBeGreaterThan(100);
     });
+  });
+
+  it('filters the native Shaders.com collection apart from the original studies', () => {
+    const native = shaderLabMaterials('', 'all', 'Shaders.com WebGPU');
+    expect(native).toHaveLength(SHADER_EFFECTS.length);
+    expect(native.every(({ id }) => id.startsWith('shader-effects-'))).toBe(true);
+    expect(shaderLabMaterials('', 'all', 'Shaders.com study').every(({ id }) => id.startsWith('shaders-'))).toBe(true);
+    expect(SHADER_LAB_SOURCES.map(({ id }) => id)).toEqual(expect.arrayContaining(['all', 'Shaders.com WebGPU', 'Shaders.com study']));
+    const grouped = SHADER_LAB_CATEGORIES.filter(({ id }) => id !== 'all')
+      .reduce((total, { id }) => total + shaderLabCategoryCount(id, 'Shaders.com WebGPU'), 0);
+    expect(grouped).toBe(SHADER_EFFECTS.length);
+  });
+
+  it('curates native effects: finished materials first, primitives and neutral adjustments last', () => {
+    const order = shaderLabMaterials('', 'all', 'Shaders.com WebGPU').map(({ id }) => id);
+    expect(order.slice(0, 4)).toEqual(['shader-effects-aurora', 'shader-effects-liquid-metal', 'shader-effects-chrome', 'shader-effects-holographic']);
+    const rank = (name: string) => order.indexOf(`shader-effects-${name}`);
+    expect(rank('godrays')).toBeLessThan(rank('blur'));
+    expect(rank('blur')).toBeLessThan(rank('linear-wipe'));
+    expect(rank('linear-wipe')).toBeLessThan(rank('exposure'));
+    expect(rank('exposure')).toBeLessThan(rank('circle'));
+    expect(new Set(SHADER_EFFECTS.map(({ qualityScore }) => qualityScore)).size).toBe(SHADER_EFFECTS.length);
+  });
+
+  it('groups native effects by their upstream category', () => {
+    const groupOf = (name: string) => shaderLabCategory({ engine: 'Shaders.com WebGPU', id: `shader-effects-${name}`, name });
+    expect(groupOf('aurora')).toBe('light');
+    expect(groupOf('liquid-metal')).toBe('metal');
+    expect(groupOf('swirl')).toBe('fluid');
+    expect(groupOf('mesh-gradient')).toBe('gradient');
+    expect(groupOf('blur')).toBe('graphic');
+    expect(groupOf('smoke')).toBe('fluid');
   });
 
   it('groups materials by their visual behavior', () => {

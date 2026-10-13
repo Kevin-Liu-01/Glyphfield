@@ -55,11 +55,12 @@ test.describe('native Shaders.com WebGPU materials', () => {
     expect(result.restored.pixels.sha256).toBe(result.initial.pixels.sha256);
   });
 
-  test('unsupported WebGPU is an explicit error rather than an exportable fallback', async ({ page }) => {
+  test('unsupported WebGPU shows a labelled still preview that cannot be exported', async ({ page }) => {
     await page.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
     await page.goto('/shader-preview?diagnostics=1&materialId=shader-effects-aurora');
     await expect(page.locator('[data-shader-effects]')).toHaveAttribute('data-live-material-ready', 'error');
     await expect(page.getByRole('status')).toContainText(/WebGPU/);
+    await expect(page.locator('[data-shader-effects] img')).toHaveAttribute('src', '/shader-previews/shader-effects-aurora.webp');
     await expect(page.locator('[data-live-material-runtime-ready]')).toHaveCount(0);
   });
 

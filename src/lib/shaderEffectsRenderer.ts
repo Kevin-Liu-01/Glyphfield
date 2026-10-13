@@ -1,52 +1,54 @@
 /** Browser-only adapter. Each upstream component is imported only when selected. */
 import { createGpuUniformsMap, getNaturalSize, rootPassthrough, shaderRendererGPU, type GpuShaderDefinition } from 'shaders/core';
 import { shaderEffectsLoaders } from './shaderEffectsLoaders.generated';
-import { getShaderEffect, shaderEffectRenderProps, shaderEffectUsesBands, validateShaderEffectProps } from './shaderEffects';
+import { getShaderEffect } from './shaderEffects';
+import { shaderEffectRenderProps } from './shaderEffectsProps';
+import { normalizeHexOrFallback } from './color';
 import type { LiveMaterialSettings } from './liveMaterials';
 
-async function rasterSource(source: string): Promise<string> {
-  const image = new Image();
-  image.crossOrigin = 'anonymous';
-  image.src = source;
-  await image.decode();
-  const scale = Math.min(1, 2048 / Math.max(image.naturalWidth, image.naturalHeight));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Cannot prepare the source image.');
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Cannot decode source image.')), 'image/png'));
-  return URL.createObjectURL(blob);
+/** Luminance-only sample for filters; its tones map through the active palette. */
+const DEFAULT_SOURCE = '/shader-effects-source.svg';
+
+function paletteMapColors(settings: LiveMaterialSettings) {
+  return { colorLow: normalizeHexOrFallback(settings.colorA, '#000000'), colorMid: normalizeHexOrFallback(settings.colorB, '#808080'), colorHigh: normalizeHexOrFallback(settings.colorC, '#FFFFFF') };
 }
 
-export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id: string, settings: LiveMaterialSettings, sourceImage?: string) {
+function samePalette(left: LiveMaterialSettings, right: LiveMaterialSettings): boolean {
+  return left.colorA === right.colorA && left.colorB === right.colorB && left.colorC === right.colorC;
+}
+
+/**
+ * Builds one upstream renderer. Renderers share upstream's page-wide default
+ * GPU device; call only after the host has confirmed WebGPU support.
+ */
+export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id: string, settings: LiveMaterialSettings, sourceImage: string | undefined, aspect: number) {
   const effect = getShaderEffect(id);
   if (!effect) throw new Error('Unknown Shaders.com material.');
   const load = shaderEffectsLoaders[effect.component as keyof typeof shaderEffectsLoaders];
   const definition = (await load()).default as GpuShaderDefinition;
+  // Upstream decodes data/blob URLs and rasterises the SVG sample itself.
+  const imageUrl = effect.requiresChild || effect.component === 'ImageTexture' ? sourceImage || DEFAULT_SOURCE : undefined;
+  const paletteMapped = effect.requiresChild && !sourceImage;
+  const [image, paletteMap] = await Promise.all([
+    effect.requiresChild ? shaderEffectsLoaders.ImageTexture() : undefined,
+    paletteMapped ? shaderEffectsLoaders.GradientMap() : undefined,
+  ]);
   const renderer = shaderRendererGPU();
-  let imageUrl: string | undefined;
   try {
-    if ((effect.requiresChild && sourceImage) || effect.component === 'ImageTexture') imageUrl = await rasterSource(sourceImage || '/shader-effects-source.svg');
     await renderer.initialize({ canvas, observeElement: false });
     renderer.stopAnimation();
-    if (renderer.getFailureReason()) throw new Error('This material requires a browser and device with WebGPU support.');
+    const failure = renderer.getFailureReason();
+    if (failure) throw new Error(`WebGPU unavailable (${failure}).`);
     renderer.registerNode('root', rootPassthrough.fragment, null, null, {}, rootPassthrough);
-    const resolve = (next: LiveMaterialSettings) => shaderEffectRenderProps(id, validateShaderEffectProps(id, next.effectProps ?? {}), canvas.clientWidth / Math.max(1, canvas.clientHeight));
-    const props = resolve(settings);
     const register = (nodeId: string, def: GpuShaderDefinition, parent: string, values: Record<string, unknown>, order = 0) => {
       const defaults = Object.fromEntries(Object.entries(def.props).map(([key, prop]) => [key, prop.default]));
       renderer.registerNode(nodeId, def.fragment, parent, { blendMode: 'normal', opacity: 1, renderOrder: order }, createGpuUniformsMap(def, { ...defaults, ...values }, nodeId), def);
     };
-    if (effect.component === 'ImageTexture') props.url = imageUrl!;
-    const nodes = shaderEffectUsesBands(id, props) ? ['effect', 'band-1', 'band-2', 'band-3', 'band-4'] : ['effect'];
-    const nodeProps = (values: typeof props, index: number): typeof props => nodes.length > 1 ? { ...values, center: { x: 0.5, y: -0.2 + index * 0.35 } } : values;
-    nodes.forEach((nodeId, index) => register(nodeId, definition, 'root', nodeProps(props, index), index));
-    if (effect.requiresChild) {
-      const { default: source } = imageUrl ? await shaderEffectsLoaders.ImageTexture() : await shaderEffectsLoaders.FlowingGradient();
-      register('source', source, 'effect', imageUrl ? { url: imageUrl, fit: 'cover' } : { speed: 0.35, distortion: 0.7 });
-    }
+    const props = shaderEffectRenderProps(id, settings, aspect);
+    register('effect', definition, 'root', effect.component === 'ImageTexture' ? { ...props, url: imageUrl, objectFit: 'cover' } : props);
+    // Filters without an image read a structured sample mapped onto the brand palette.
+    if (paletteMap) register('palette-map', paletteMap.default as GpuShaderDefinition, 'effect', { palette: 'custom', speed: 0, ...paletteMapColors(settings) });
+    if (image) register('source', image.default as GpuShaderDefinition, paletteMap ? 'palette-map' : 'effect', { url: imageUrl, objectFit: 'cover' });
     if (effect.component === 'DisplacementMap') {
       const { default: noise } = await shaderEffectsLoaders.SimplexNoise();
       register('displacement', noise, 'root', { scale: 3 }, -1);
@@ -55,35 +57,33 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
     }
     renderer.stopAnimation();
     let previous = props;
-    let previousInput = settings.effectProps;
-    let previousAspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+    let previousSettings = settings;
+    let previousAspect = aspect;
     let previousScale: number | undefined;
     return {
       renderer,
       assetsReady: () => !imageUrl || !!getNaturalSize(imageUrl),
-      update(next: LiveMaterialSettings, scale: number) {
-        const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-        if (next.effectProps !== previousInput || aspect !== previousAspect) {
-          previousInput = next.effectProps;
-          previousAspect = aspect;
-          const values = resolve(next);
-          nodes.forEach((nodeId, index) => {
-            const oldValues = nodeProps(previous, index);
-            for (const [key, value] of Object.entries(nodeProps(values, index))) {
-              if (definition.props[key] && JSON.stringify(oldValues[key]) !== JSON.stringify(value)) renderer.updateUniformValue(nodeId, key, value);
-            }
-          });
+      /** Applies changed uniforms only; settings arrive as new objects on every host render. */
+      update(next: LiveMaterialSettings, scale: number, nextAspect: number) {
+        const paletteChanged = !samePalette(next, previousSettings);
+        if (next.effectProps !== previousSettings.effectProps || paletteChanged || nextAspect !== previousAspect) {
+          const values = shaderEffectRenderProps(id, next, nextAspect);
+          for (const [key, value] of Object.entries(values)) {
+            if (definition.props[key] && JSON.stringify(previous[key]) !== JSON.stringify(value)) renderer.updateUniformValue('effect', key, value);
+          }
+          if (paletteMap && paletteChanged) Object.entries(paletteMapColors(next)).forEach(([key, value]) => renderer.updateUniformValue('palette-map', key, value));
           previous = values;
+          previousSettings = next;
+          previousAspect = nextAspect;
         }
         if (scale === previousScale) return;
         previousScale = scale;
-        nodes.forEach((nodeId) => renderer.updateNodeMetadata(nodeId, { transform: { scale, offsetX: 0, offsetY: 0, rotation: 0, anchorX: 0.5, anchorY: 0.5, edges: props.surface === 'shape' ? 'transparent' : 'mirror' } }));
+        renderer.updateNodeMetadata('effect', { transform: { scale, offsetX: 0, offsetY: 0, rotation: 0, anchorX: 0.5, anchorY: 0.5, edges: props.surface === 'shape' ? 'transparent' : 'mirror' } });
       },
-      dispose: () => { renderer.cleanup(); if (imageUrl) URL.revokeObjectURL(imageUrl); },
+      dispose: () => renderer.cleanup(),
     };
   } catch (error) {
     renderer.cleanup();
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
     throw error;
   }
 }

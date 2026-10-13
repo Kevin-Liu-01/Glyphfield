@@ -1,4 +1,4 @@
-import { validateShaderEffectProps } from './shaderEffects';
+import { validateShaderEffectProps } from './shaderEffectsProps';
 import {
   buildBackgroundSvg,
   DEFAULT_BACKGROUND_SETTINGS,

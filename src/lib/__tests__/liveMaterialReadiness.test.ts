@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { liveMaterialReadinessStatus, shouldMountLiveMaterial, waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
+import { liveMaterialReadinessStatus, readyLiveMaterialCanvas, shouldMountLiveMaterial, waitForLiveMaterialReady } from '@/lib/liveMaterialReadiness';
 
 describe('live material capture readiness', () => {
   it('mounts an offscreen shader for capture while respecting inactive workspaces', () => {
@@ -51,6 +51,18 @@ describe('live material capture readiness', () => {
     root.children[1]!.setAttribute('data-live-material-ready', 'true');
     await ready;
     expect(captured).toBe(true);
+  });
+
+  it('exports only a canvas whose surface reports ready pixels', () => {
+    const root = document.createElement('div');
+    // An unpainted canvas still has the default 300 x 150 size.
+    root.innerHTML = '<div data-live-material-ready="false"><canvas></canvas></div>';
+    expect(readyLiveMaterialCanvas(root)).toBeNull();
+    root.innerHTML = '<div data-live-material-ready="true"><canvas id="output"></canvas><canvas data-shader-internal="true"></canvas></div>';
+    expect(readyLiveMaterialCanvas(root)?.id).toBe('output');
+    root.innerHTML = '<canvas data-live-material-ready="true" id="direct"></canvas>';
+    expect(readyLiveMaterialCanvas(root)?.id).toBe('direct');
+    expect(readyLiveMaterialCanvas(null)).toBeNull();
   });
 
   it('reports loading failure instead of exporting the incomplete frame', async () => {

@@ -8,6 +8,7 @@ import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import { LabPanelHeading } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import { Button } from '@/components/ui/Button';
+import StudioSelect from '@/components/ui/StudioSelect';
 import {
   DISCOVERABLE_LIVE_MATERIAL_OPTIONS,
   type LiveMaterialId,
@@ -15,8 +16,10 @@ import {
 } from '@/lib/liveMaterials';
 import {
   SHADER_LAB_CATEGORIES,
+  SHADER_LAB_SOURCES,
   shaderLabMaterials,
   type ShaderLabCategory,
+  type ShaderLabSource,
 } from '@/lib/shaderLab';
 
 const EMPTY_EXCLUDED_MATERIAL_IDS: readonly LiveMaterialId[] = [];
@@ -52,11 +55,12 @@ function ShaderLibraryBrowser({
   const gt = useGT();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
+  const [source, setSource] = useState<ShaderLabSource>('all');
   const [visibleLimit, setVisibleLimit] = useState(limit);
   const matchedMaterials = useMemo(() => {
     const excludedIds = new Set(excludeMaterialIds);
-    return shaderLabMaterials(query, category).filter(({ id }) => !excludedIds.has(id));
-  }, [category, excludeMaterialIds, query]);
+    return shaderLabMaterials(query, category, source).filter(({ id }) => !excludedIds.has(id));
+  }, [category, excludeMaterialIds, query, source]);
   const filteredMaterials = useMemo(() => {
     if (!visibleLimit || matchedMaterials.length <= visibleLimit) return matchedMaterials;
     const topMaterials = matchedMaterials.slice(0, visibleLimit);
@@ -69,7 +73,7 @@ function ShaderLibraryBrowser({
 
   useEffect(() => {
     setVisibleLimit(limit);
-  }, [category, limit, query]);
+  }, [category, limit, query, source]);
 
   return (
     <div className={compact ? 'shader-library-browser-compact' : 'shader-library-browser'}>
@@ -123,6 +127,13 @@ function ShaderLibraryBrowser({
             </button>
           ))}
         </div>
+        <StudioSelect
+          ariaLabel={gt('Shader source filter')}
+          className={compact ? 'mt-2 h-7 text-[10px]' : 'mt-2 h-8'}
+          onValueChange={(value) => setSource(SHADER_LAB_SOURCES.find(({ id }) => id === value)?.id ?? 'all')}
+          options={SHADER_LAB_SOURCES.map(({ id, label }) => ({ label: gt(label), value: id }))}
+          value={source}
+        />
       </div>
 
       <div className={`shader-library-grid grid grid-cols-2 ${compact ? 'gap-1' : 'gap-2 p-3'}`}>

@@ -176,6 +176,8 @@ Design Lab is the general layer compositor. It combines multiple text, mark, ima
 
 The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, categories, controls, palettes, and defaults. Never infer a material ID from its display name.
 
+Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) take `settings.effectProps` holding only the values to change; each material's `nativeControls` lists keys, defaults, and ranges. Their colours default to the shared `colorA`/`colorB`/`colorC` palette (a control's `palette` field names its stop), and motion speed is `settings.speed`. They render only with WebGPU; without it Studio shows a labelled still and refuses export.
+
 New Design Lab compositions default to Gem Smoke. Saved documents remain authoritative, and authored legacy materials must not be replaced merely because defaults changed.
 
 Animation builds text, mark, and image sequences with per-frame layout, timing, material backgrounds, frame overrides, audio clips, GIF, and MP4. Lottie imports JSON or `.lottie`, supports recoloring, trim/playback, live-material backgrounds, frame PNG, and source download.

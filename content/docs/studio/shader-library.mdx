@@ -32,16 +32,18 @@ Design Lab's library, canvas, inspector, and layer dock each scroll independentl
 
 ## Browse and select
 
-Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. Source filters include:
+Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. The **Shader source** filter narrows the catalog to one family:
 
 - Design studies
 - Paper
 - Glyphfield
-- Shaders.com
+- Shaders.com WebGPU (the native collection)
+- Shaders.com studies (Glyphfield's original studies)
 - WebGL Fluid
 - ShaderGradient
+- HoloCloth
 
-Choosing a source filter narrows the current quality-sorted catalog; it does not change how the shader is rendered or edited.
+Choosing a source filter narrows the current quality-sorted catalog and its category counts; it does not change how the shader is rendered or edited.
 
 Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
 
@@ -60,6 +62,8 @@ After choosing a material, use the adjacent inspector to edit it. Paper presets,
 - **Motion:** playback speed
 - **Scale:** logarithmic shader zoom from `0.1×` to `10×`
 - **Frame:** capability-aware time selection and a persistent lossless appearance capture in Design Lab
+
+Native Shaders.com WebGPU effects use the color system, motion, and scale controls, plus their own upstream settings; form, light, and orientation do not apply to them.
 
 The palette menu includes the active identity plus curated signal, mineral, paper, dither, monochrome, mercury, ultraviolet, copper, arctic, vermilion, and cobalt starting points. Each palette applies a coordinated Base, Mid, and Light ramp without locking later edits. Shader adapters preserve all three authored stops even when an upstream renderer ships with only a one- or two-color preset.
 
@@ -110,15 +114,25 @@ See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), 
 
 ## Native Shaders.com collection
 
-The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Search for **Shaders.com WebGPU**, an effect name, or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies.
+The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Choose **Shaders.com WebGPU** in the source filter, or search for an effect name or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies under **Shaders.com studies**.
 
-The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand. They require a browser and device with WebGPU enabled; an unavailable renderer reports an error and cannot be exported as though it rendered successfully.
+The collection is curated rather than alphabetical. Finished full-frame materials such as Aurora, Liquid Metal, Chrome, Holographic, Godrays, and Plasma lead; filters, distortions, blurs, and transitions that work on a source follow; neutral colour adjustments and raw shape primitives such as Circle and Star come last. Each effect keeps its upstream category, which also places it in the library's Fluid, Light, Metal, Gradient, or Graphic group.
 
-Each effect exposes its upstream settings, including colors, positions, numeric controls, switches, and choices. Surface materials such as Liquid Metal, Chrome, and Holographic default to **Full canvas**, fitting their native surface to any artboard aspect ratio without the upstream demo sphere. Edge-driven materials (Neon, Light Edge, Thin Film, and Obsidian) form diagonal bands across the canvas so their luminous edges stay visible. Choose **Shape** to edit the original geometry and placement. Shape primitives such as Circle and Star retain their intended shapes.
+The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand, and every native effect on a page shares one GPU device. Studio checks WebGPU before loading an effect or its source image. Without it, the canvas shows the material's still thumbnail with a label; the surface stays in an error state, so still and motion exports refuse it instead of exporting the thumbnail as a render.
 
-Structured gradient stops, lights, and shapes can be edited in their structured fields. Filters and transitions use a live Shaders.com Flowing Gradient until you choose a **Source image**. Import a local PNG, JPEG, or WebP; that image is saved with the effect's editable source. Transition **Progress** is a native effect setting and can be edited independently of playback. The Image Texture component uses an abstract, full-area sample image by default.
+Each effect exposes its upstream settings, including colors, positions, numeric controls, switches, and choices. Settings that only apply in another mode (for example the CMYK inks of Halftone) appear when that mode is chosen.
 
-Settings persist under `settings.effectProps`, alongside the shared playback speed. `/api/materials` returns `nativeControls` for each material, including defaults, valid choices, and numeric ranges. The same endpoint accounts for every upstream component under `shaderEffects.components`: Group is covered by Design Lab groups; VideoTexture and WebcamTexture are media inputs rather than gallery materials; HTMLInCanvas requires an experimental browser DOM-capture API and is not offered as a supported material. Camera access is never requested merely by browsing the collection.
+The shared palette seeds every native colour, so the active brand palette applies by default: background and base colours take **Base**, the main colour takes **Mid**, highlights take **Light**, and multi-stop gradients take all three. Effects with a built-in colour scheme, such as Gradient Map, Color Wheel, Thin Film, and Ink Flow, default to their custom-colour mode for the same reason. A colour you change in the effect settings is saved and wins over the palette; **Reset effect settings** returns every native setting to its default and palette colour.
+
+Playback speed is the shared **Speed** control. Each effect's own speed multiplier is hidden; patterns that ship frozen upstream (for example Chevron and Fluted Glass) move at a slow native rate so Speed can animate them.
+
+Surface materials such as Liquid Metal, Chrome, and Holographic default to **Full canvas**, fitting their native surface to any artboard aspect ratio without the upstream demo sphere. Edge-lit materials (Neon, Light Edge, Thin Film, and Obsidian) render as one rounded panel inset from the artboard edges, with equal margins at any aspect ratio, so their luminous rim stays visible. Choose **Shape** to edit the original geometry and placement. Shape primitives such as Circle and Star retain their intended shapes.
+
+Structured gradient stops, lights, and shapes can be edited in their structured fields. Filters, distortions, blurs, and transitions use a built-in sample until you choose a **Source image**: bold type strokes, hairlines, concentric rings, a glossy highlight, and a tonal ramp. The sample is luminance only and is mapped through the active palette, so each effect shows its own result in the brand colours. Import a local PNG, JPEG, or WebP; images over 2048 pixels are scaled once on import, and the image is saved with the effect's editable source. Drop Shadow reads the source's transparency, so it needs a cut-out image. Transition **Progress** is a native effect setting and can be edited independently of playback. The Image Texture component shows the unmapped sample by default.
+
+Adjustments that do nothing at their upstream defaults start with a visible setting instead: Exposure, Saturation, Vibrance, Hue Shift, Sharpness, Brightness/Contrast, Solarize, Glitch, Flip, Corner Pin, and Perspective. Dither starts with an opaque dark colour.
+
+Settings persist under `settings.effectProps`, alongside the shared playback speed. `effectProps` holds only the values you changed; omitted keys use the effect's defaults. `/api/materials` returns `nativeControls` for each material, including defaults, valid choices, and numeric ranges. A colour control's `palette` field names the stop that seeds it: `base` is `settings.colorA`, `main` is `colorB`, `highlight` is `colorC`, and `ramp` or `lights` spread all three across a list; `hidden` controls, such as the native `speed`, are not shown in Studio. The same endpoint lists every upstream component under `shaderEffects.components` (catalog fields only; controls appear once, on the material's `nativeControls`): Group is covered by Design Lab groups; VideoTexture and WebcamTexture are media inputs rather than gallery materials; HTMLInCanvas requires an experimental browser DOM-capture API and is not offered as a supported material. Camera access is never requested merely by browsing the collection.
 
 For example, a deterministic `design-sequence` request can specify:
 
@@ -136,4 +150,4 @@ For example, a deterministic `design-sequence` request can specify:
 }
 ```
 
-This is the `shader` portion of the request, not a standalone request body. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations depend on their accumulated state and pointer history, so a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.
+This is the `shader` portion of the request, not a standalone request body. Aurora's native `colorA` and `colorB` are explicit here and override the palette; its `colorC` is omitted, so it follows the shared palette. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations and the accumulating effects (Time Trail, Particle Field, Key Frames, Smoke Fill, and Particles) are stateful: they ignore a requested time and continue from their accumulated state and pointer history, so their `motion.supportsEditableSeek` is `false` and a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.

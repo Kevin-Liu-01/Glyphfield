@@ -1,4 +1,4 @@
-import { getShaderEffect, shaderEffectDefaults } from './shaderEffects';
+import { getShaderEffect } from './shaderEffects';
 import type { CSSProperties } from 'react';
 
 import {
@@ -124,7 +124,28 @@ export const SHADER_LAB_FEATURED_MATERIALS: readonly LiveMaterialOption[] = SHAD
   .map((id) => DISCOVERABLE_LIVE_MATERIAL_OPTIONS.find((material) => material.id === id))
   .filter((material): material is LiveMaterialOption => Boolean(material));
 
-export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 'id' | 'name'>): Exclude<ShaderLabCategory, 'all'> {
+type ShaderLabGroup = Exclude<ShaderLabCategory, 'all'>;
+
+// Shaders.com effects group by their upstream category; other categories are graphic.
+const SHADER_EFFECT_GROUPS: Readonly<Record<string, ShaderLabGroup>> = {
+  Interactive: 'fluid',
+  'Shape Effects': 'metal',
+  Textures: 'gradient',
+};
+
+// Components whose look belongs to a different group than their upstream category.
+const groupOf = (group: ShaderLabGroup, names: readonly string[]) => names.map((name): [string, ShaderLabGroup] => [name, group]);
+const SHADER_EFFECT_GROUP_OVERRIDES: ReadonlyMap<string, ShaderLabGroup> = new Map([
+  ...groupOf('light', ['Aurora', 'Beam', 'Boids', 'CursorTrail', 'FallingLines', 'FloatingParticles', 'Glow', 'Godrays', 'Hologram', 'Holographic', 'Irradiance', 'LensFlare', 'LightEdge', 'LightLeak', 'MagneticFilings', 'Nebula', 'Neon', 'ParticleFlow', 'Prism', 'Sparkle', 'SunBurst']),
+  ...groupOf('fluid', ['Blob', 'CurlNoise', 'FlowField', 'Goo', 'Liquify', 'Marble', 'Particles', 'Ripples', 'SmokeFill', 'Swirl', 'Twirl', 'Water', 'WaveDistortion']),
+  ...groupOf('metal', ['FlutedGlass', 'GlassTiles', 'Spherize']),
+  ...groupOf('gradient', ['Heatmap']),
+  ...groupOf('graphic', ['BlockNoise', 'BlueNoise', 'BrickPattern', 'Checkerboard', 'Chevron', 'ColorWheel', 'CursorRipples', 'DotGrid', 'Emboss', 'Grid', 'GridDistortion', 'HexGrid', 'ImageTexture', 'IsometricCubes', 'PixelSort', 'PixelThrow', 'Scratches', 'Shatter', 'SineWave', 'SolidColor', 'Spiral', 'Stripes', 'Text', 'TriangularGrid', 'Truchet', 'Voxels', 'Weave']),
+]);
+
+export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 'id' | 'name'>): ShaderLabGroup {
+  const effect = getShaderEffect(material.id);
+  if (effect) return SHADER_EFFECT_GROUP_OVERRIDES.get(effect.component) ?? SHADER_EFFECT_GROUPS[effect.category] ?? 'graphic';
   const key = `${material.id} ${material.name} ${material.engine}`.toLowerCase();
   if (material.id === 'holo-cloth-silk') return 'light';
   if (/(chrome|metal|glass|prismatic|gem)/.test(key)) return 'metal';
@@ -134,9 +155,30 @@ export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 
   return 'graphic';
 }
 
-export function shaderLabMaterials(query: string, category: ShaderLabCategory): readonly LiveMaterialOption[] {
+export type ShaderLabSource = 'all' | LiveMaterialOption['engine'];
+
+const SHADER_LAB_SOURCE_LABELS: Readonly<Record<LiveMaterialOption['engine'], string>> = {
+  'Design study': 'Design studies',
+  'Glyphfield': 'Glyphfield',
+  'Holo material': 'HoloCloth',
+  'Paper Shaders': 'Paper',
+  'ShaderGradient': 'ShaderGradient',
+  'Shaders.com WebGPU': 'Shaders.com WebGPU',
+  'Shaders.com study': 'Shaders.com studies',
+  'WebGL Fluid': 'WebGL Fluid',
+};
+
+/** Source filter options; the native Shaders.com collection is separate from Glyphfield's studies of it. */
+export const SHADER_LAB_SOURCES: readonly { id: ShaderLabSource; label: string }[] = [
+  { id: 'all', label: 'All sources' },
+  ...[...new Set(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.map(({ engine }) => engine))]
+    .map((engine) => ({ id: engine, label: SHADER_LAB_SOURCE_LABELS[engine] })),
+];
+
+export function shaderLabMaterials(query: string, category: ShaderLabCategory, source: ShaderLabSource = 'all'): readonly LiveMaterialOption[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filtered = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => {
+    if (source !== 'all' && material.engine !== source) return false;
     if (category !== 'all' && shaderLabCategory(material) !== category) return false;
     if (!normalizedQuery) return true;
     return `${material.name} ${material.description} ${material.engine}`.toLocaleLowerCase().includes(normalizedQuery);
@@ -177,9 +219,9 @@ export function shaderLabMaterials(query: string, category: ShaderLabCategory): 
   return [...featured, ...primary, ...variants];
 }
 
-export function shaderLabCategoryCount(category: ShaderLabCategory): number {
-  if (category === 'all') return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length;
-  return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => shaderLabCategory(material) === category).length;
+export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all'): number {
+  return DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => (source === 'all' || material.engine === source)
+    && (category === 'all' || shaderLabCategory(material) === category)).length;
 }
 
 export function shaderPreviewAssetPath(materialId: LiveMaterialId): string {
@@ -215,7 +257,8 @@ export function shaderLabSettingsFor(
   materialId: LiveMaterialId,
   current: LiveMaterialSettings
 ): LiveMaterialSettings {
-  return { ...current, effectProps: getShaderEffect(materialId) ? shaderEffectDefaults(materialId) : undefined, ...MATERIAL_TUNING[materialId] };
+  // Native effects store only explicit edits; defaults resolve at render time.
+  return { ...current, effectProps: getShaderEffect(materialId) ? {} : undefined, ...MATERIAL_TUNING[materialId] };
 }
 
 export function shaderPreviewCaptureSettings(
