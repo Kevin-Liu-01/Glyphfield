@@ -36,6 +36,7 @@ import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
 import { Button } from '@/components/ui/Button';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useValueStore, type ValueStore } from '@/hooks/useValueStore';
 import { studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { resolveExportDimensions, resolveSeamlessLoopOverlapFrames } from '@/lib/canvasExport';
 import type { StudioArtboardDimensions } from '@/lib/artboardSizes';
@@ -500,6 +501,7 @@ export const DesignLabArtboardToolbar = memo(function DesignLabArtboardToolbar({
   canFrameSelection,
   canvasDimensions,
   editingCanvas,
+  statusStore,
   summary,
   workspaceTourOpen,
 }: {
@@ -509,10 +511,13 @@ export const DesignLabArtboardToolbar = memo(function DesignLabArtboardToolbar({
   canFrameSelection: boolean;
   canvasDimensions: StudioArtboardDimensions;
   editingCanvas: boolean;
+  statusStore: ValueStore<string | null>;
   summary: string;
   workspaceTourOpen: boolean;
 }) {
   const { selectArtboardFromPicker, updateActiveArtboardDimensions } = actions;
+  // Copy, paste and move announcements replace the summary for a moment.
+  const canvasClipboardStatus = useValueStore(statusStore);
   return (
     <StudioArtboardBar
       activeArtboardId={activeArtboardId}
@@ -538,7 +543,7 @@ export const DesignLabArtboardToolbar = memo(function DesignLabArtboardToolbar({
       onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
       removeLabel='Delete active artboard'
       selectLabel='Active design artboard'
-      summary={<span aria-live='polite'>{summary}</span>}
+      summary={<span aria-live='polite'>{canvasClipboardStatus ?? summary}</span>}
     />
   );
 });

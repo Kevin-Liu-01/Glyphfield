@@ -537,7 +537,8 @@ describe('Design Lab image import and selection chrome', () => {
     expect(designLab.includes('remapDesignLabClipboardSnapshot(anchored, payload.kind')).toBe(true);
     expect(designLab.includes('await hydrateDesignLabClipboardFrames(payload)')).toBe(true);
     expect(designLab).toContain("`Pasted ${nextArtboard.name} · autosaving`");
-    expect(designLab).toContain("canvasClipboardStatus ?? `${layerOrder.length} layer");
+    expect(designLab).toContain('{canvasClipboardStatus ?? summary}');
+    expect(designLab).toContain("const artboardSummary = `${layerOrder.length} layer");
     expect(designLab).not.toContain('workspaceAutosaveLabel');
   });
 

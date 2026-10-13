@@ -20,7 +20,7 @@ import {
   Trash2,
   X,
 } from '@/components/ui/SolidIcons';
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import { memo, startTransition, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
@@ -326,7 +326,13 @@ import {
   type DesignLabStageActions,
 } from '@/components/DesignLabStage';
 import { useStableHandlers } from '@/hooks/useStableHandlers';
-import { DesignLabInspectorPanel, type DesignLabInspectorActions, type DesignLabInspectorArtboard } from '@/components/DesignLabInspector';
+import { useLocalValueStore } from '@/hooks/useValueStore';
+import {
+  DesignLabInspectorPanel,
+  type DesignLabInspectorActions,
+  type DesignLabInspectorArtboard,
+  type DesignLabTextSelection,
+} from '@/components/DesignLabInspector';
 import {
   DESIGN_LAB_LONG_LAYER_LIST,
   DesignLabDockLayer,
@@ -2782,17 +2788,19 @@ export default function ShaderLabStudio({
     [DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID]
   );
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<CanvasSelectionMenuPosition | null>(null);
-  const [textSelection, setTextSelection] = useState<(TextSelectionRange & { layerId: TextLayerId }) | null>(null);
-  const textSelectionRef = useRef<typeof textSelection>(null);
+  // Text ranges change on every native selection change; only the text
+  // inspector subscribes, so selecting characters never re-renders the editor.
+  const textSelectionStore = useLocalValueStore<DesignLabTextSelection | null>(null);
+  const textSelectionRef = useRef<DesignLabTextSelection | null>(null);
   function rememberTextSelection(layerId: TextLayerId, range: TextSelectionRange) {
     const next = range.end > range.start ? { ...range, layerId } : null;
     if (JSON.stringify(next) === JSON.stringify(textSelectionRef.current)) return;
     textSelectionRef.current = next;
-    setTextSelection(next);
+    textSelectionStore.set(next);
   }
   function clearTextRange() {
     textSelectionRef.current = null;
-    setTextSelection(null);
+    textSelectionStore.set(null);
   }
   const [cropEditingLayerId, setCropEditingLayerId] = useState<AssetLayerId | null>(null);
   const [artboardMenu, setArtboardMenu] = useState<DesignArtboardMenuState | null>(null);
@@ -2800,7 +2808,8 @@ export default function ShaderLabStudio({
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const [canvasClipboardStatus, setCanvasClipboardStatus] = useState<string | null>(null);
+  // Status messages are transient; only the artboard toolbar subscribes.
+  const canvasStatusStore = useLocalValueStore<string | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [captureTimeMs, setCaptureTimeMs] = useState<number | null>(null);
   const [sequenceCapture, setSequenceCapture] = useState<ShaderSequenceCapture | null>(null);
@@ -2825,8 +2834,8 @@ export default function ShaderLabStudio({
   );
   useEffect(() => {
     textSelectionRef.current = null;
-    setTextSelection(null);
-  }, [activeArtboardId, storedSelectedLayerId]);
+    textSelectionStore.set(null);
+  }, [activeArtboardId, storedSelectedLayerId, textSelectionStore]);
   const [artboards, setArtboards] = useState<DesignArtboard[]>(() => [{
     id: DEFAULT_DESIGN_ARTBOARD_ID,
     name: 'Artboard 1',
@@ -3464,7 +3473,8 @@ export default function ShaderLabStudio({
       ? describeDesignCanvasChange(history.present.artboards, nextArtboards)
       : 'Opened canvas'), signature, nextTypography);
     designHistoryRef.current = checkpointCanvasHistory(history, next);
-    setDesignHistoryRevision((revision) => revision + 1);
+    // Only the undo controls and history list read the revision.
+    startTransition(() => setDesignHistoryRevision((revision) => revision + 1));
   }
 
   function checkpointAppliedDesignSource(nextArtboards: DesignArtboard[], nextTypography: DesignLabProjectIdentity | null) {
@@ -3985,7 +3995,7 @@ export default function ShaderLabStudio({
       if (pending.id !== activeArtboardId || pending.signature !== currentArtboardSignature) return;
       pendingArtboardApplyRef.current = null;
     }
-    setArtboards((current) => {
+    const syncActiveArtboard = () => setArtboards((current) => {
       const target = current.find((artboard) => artboard.id === activeArtboardId);
       if (!target) return current;
       if (artboardSnapshotPersistenceSignature(target.snapshot) === currentArtboardPersistenceSignature) return current;
@@ -3995,6 +4005,10 @@ export default function ShaderLabStudio({
       workspaceArtboardsRef.current = nextArtboards;
       return nextArtboards;
     });
+    // The active artboard already renders from live state. After an ordinary
+    // edit this copy changes nothing on screen, so it waits behind input.
+    if (pending) syncActiveArtboard();
+    else startTransition(syncActiveArtboard);
   }, [activeArtboardId, currentArtboardPersistenceSignature, currentArtboardSnapshot, draftHydrated, workspaceArtboardsRef]);
 
   useEffect(() => {
@@ -4829,13 +4843,13 @@ export default function ShaderLabStudio({
   }, [placeBrandAssets]);
 
   function announceCanvasClipboard(message: string) {
-    setCanvasClipboardStatus(message);
+    canvasStatusStore.set(message);
     if (canvasClipboardStatusTimerRef.current !== null) {
       window.clearTimeout(canvasClipboardStatusTimerRef.current);
     }
     canvasClipboardStatusTimerRef.current = window.setTimeout(() => {
       canvasClipboardStatusTimerRef.current = null;
-      setCanvasClipboardStatus(null);
+      canvasStatusStore.set(null);
     }, 2_400);
   }
 
@@ -6883,7 +6897,7 @@ export default function ShaderLabStudio({
     // The signature covers every field the picker shows.
     [artboardNamesSignature]
   );
-  const artboardSummary = canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`;
+  const artboardSummary = `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`;
   const previewQualityToggle = useMemo(() => (
     <DesignLabPreviewQualityToggle
       automaticallyReduced={previewQuality.automaticallyReduced}
@@ -7077,6 +7091,7 @@ export default function ShaderLabStudio({
             canFrameSelection={editingCanvas && selectedCanvasLayerIds.length > 0}
             canvasDimensions={canvasDimensions}
             editingCanvas={editingCanvas}
+            statusStore={canvasStatusStore}
             summary={artboardSummary}
             workspaceTourOpen={workspaceTourOpen}
           />
@@ -7169,7 +7184,7 @@ export default function ShaderLabStudio({
           settings={settings}
           shaderSize={shaderSize}
           stageRef={stageRef}
-          textRange={selectedTextInspector && textSelection?.layerId === selectedTextInspector.layer.id ? textSelection : null}
+          textSelectionStore={textSelectionStore}
           textRenderedWeight={selectedTextRenderedWeight}
           textWeightRange={selectedTextWeightRange}
           title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}

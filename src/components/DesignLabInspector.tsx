@@ -70,6 +70,7 @@ import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
+import { useValueStore, type ValueStore } from '@/hooks/useValueStore';
 import {
   brandTypographyFamily,
   brandTypographyRole,
@@ -1329,6 +1330,8 @@ export const DesignLabShaderFrameInspector = memo(function DesignLabShaderFrameI
   );
 });
 
+export type DesignLabTextSelection = TextSelectionRange & { layerId: TextLayerId };
+
 export type DesignLabInspectorArtboard = {
   id: string;
   layerCount: number;
@@ -1421,8 +1424,8 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   settings,
   shaderSize,
   stageRef,
-  textRange,
   textRenderedWeight,
+  textSelectionStore,
   textWeightRange,
   title,
   workspaceTourOpen,
@@ -1471,8 +1474,8 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   settings: LiveMaterialSettings;
   shaderSize: number;
   stageRef: RefObject<HTMLDivElement | null>;
-  textRange: TextSelectionRange | null;
   textRenderedWeight: number;
+  textSelectionStore: ValueStore<DesignLabTextSelection | null>;
   textWeightRange: { max: number; min: number };
   title: string;
   workspaceTourOpen: boolean;
@@ -1494,7 +1497,9 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
     updateSelectedShader,
     updateSetting,
   } = actions;
+  const textSelection = useValueStore(textSelectionStore);
   const selectedTextLayer = selectedTextInspector?.layer ?? null;
+  const textRange = selectedTextLayer && textSelection?.layerId === selectedTextLayer.id ? textSelection : null;
   const selectedLogoLayer = selectedLogoInspector?.layer ?? null;
   const selectedAsset = selectedAssetInspector?.asset ?? null;
   return (
