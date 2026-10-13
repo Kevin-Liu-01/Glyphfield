@@ -24,6 +24,8 @@ export type ShaderEffect = {
   requiresChild: boolean;
   stateful: boolean;
   infrastructure: string | null;
+  /** Library order, set by the generator's tier map. */
+  qualityScore: number;
 };
 export const SHADER_EFFECTS_VERSION = '4.0.1';
 export const SHADER_EFFECTS_SOURCE = 'https://github.com/shader-effects-inc/shaders';

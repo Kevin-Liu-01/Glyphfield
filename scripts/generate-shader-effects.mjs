@@ -9,6 +9,22 @@ const infrastructure = {
   VideoTexture: 'Video input is a media source, not a standalone material.',
 };
 
+// Library order. Finished full-frame materials lead; filters that need a
+// source follow; colour adjustments and raw shape primitives come last.
+// Within a tier the listed order wins (0.1 apart). Every material must be listed.
+const QUALITY_TIERS = [
+  [90, ['Aurora', 'LiquidMetal', 'Chrome', 'Holographic', 'Godrays', 'Plasma', 'MeshGradient', 'Nebula', 'ThinFilm', 'FlowingGradient', 'Prism', 'Strands']],
+  [86, ['Obsidian', 'LightEdge', 'Neon', 'Irradiance', 'Water', 'Marble', 'Swirl', 'Blob', 'Glass', 'BrushedMetal', 'Hologram', 'Frost', 'Plastic', 'Goo', 'MultiPointGradient', 'Waveform', 'LensFlare', 'StudioBackground', 'SunBurst', 'CarbonFiber', 'Heatmap']],
+  [80, ['CurlNoise', 'Voronoi', 'Ripples', 'ConicGradient', 'Voxels', 'SmokeFill', 'Particles', 'InkFlow', 'Smoke', 'SmokeFlow', 'ReactionDiffusion', 'ChromaFlow', 'FloatingParticles', 'FallingLines', 'FractalNoise', 'ErosionNoise', 'Fog', 'ParticleFlow', 'MagneticFilings', 'Boids', 'Beam', 'Crystal']],
+  [72, ['SimplexNoise', 'PerlinNoise', 'WorleyNoise', 'WaveletNoise', 'GaborNoise', 'DiamondGradient', 'LinearGradient', 'RadialGradient', 'IsometricCubes', 'Truchet', 'Weave', 'Spiral', 'Scratches', 'SineWave', 'Engraving', 'Halftone', 'Ascii', 'Dither', 'GradientMap', 'Chalkboard', 'CRTScreen', 'Watercolor', 'LightLeak', 'ParticleField', 'Emboss']],
+  [64, ['VHS', 'Glitch', 'FlutedGlass', 'GlassTiles', 'Kaleidoscope', 'Form3D', 'Surface3D', 'ContourLines', 'Glow', 'Sparkle', 'ChromaticAberration', 'LensDistortion', 'Shatter', 'PixelSort', 'CursorRipples', 'CursorTrail', 'DataMosh', 'Paper', 'Stone', 'Wool', 'Pixelate', 'ColorWheel', 'TriangularGrid', 'HexGrid', 'DotGrid', 'BrickPattern', 'Chevron', 'Stripes', 'BlockNoise', 'BlueNoise']],
+  [56, ['Spherize', 'Twirl', 'WaveDistortion', 'FlowField', 'Bulge', 'ConcentricSpin', 'BarShift', 'PolarCoordinates', 'Repeater', 'GridDistortion', 'Liquify', 'PixelThrow', 'FilmGrain', 'CompressionArtifacts', 'ReflectivePlane', 'BokehBlur', 'ProgressiveBlur', 'TiltShift', 'ZoomBlur', 'AngularBlur', 'ChannelBlur', 'DiffuseBlur', 'LinearBlur', 'Blur', 'ObjectTracker', 'KeyFrames', 'TimeTrail', 'Vignette', 'DropShadow', 'DisplacementMap', 'RectangularCoordinates', 'Mirror', 'Bend', 'Stretch', 'Perspective', 'CornerPin', 'Checkerboard', 'Grid', 'Text', 'ImageTexture']],
+  [44, ['PagePeel', 'RippleWipe', 'NoiseDissolve', 'BlockDissolve', 'DiamondWipe', 'IrisWipe', 'RadialWipe', 'VenetianBlinds', 'SliceWipe', 'CheckerWipe', 'RandomBars', 'BarnDoors', 'LinearWipe', 'Flip']],
+  [34, ['FilmStock', 'Duotone', 'Tritone', 'Posterize', 'Solarize', 'Tint', 'Invert', 'Grayscale', 'HueShift', 'Saturation', 'Vibrance', 'Exposure', 'BrightnessContrast', 'Sharpness', 'SolidColor']],
+  [24, ['Flower', 'Star', 'Ring', 'Polygon', 'Heart', 'Arc', 'Crescent', 'Circle', 'Ellipse', 'RoundedRect', 'Cross', 'Teardrop', 'Vesica', 'Parallelogram', 'Trapezoid', 'Line']],
+];
+const qualityScores = new Map(QUALITY_TIERS.flatMap(([score, names]) => names.map((name, index) => [name, Math.round((score - index * 0.1) * 10) / 10])));
+
 function nativeProps(item, definition) {
   const props = {
     ...(item.category === 'Shape Effects' ? { surface: { type: 'select', label: 'Surface', group: 'Framing', default: 'canvas', options: [{ label: 'Full canvas', value: 'canvas' }, { label: 'Shape', value: 'shape' }] } } : {}),
@@ -26,6 +42,7 @@ for (const item of getAllShaders()) {
   const { default: definition } = await import(`shaders/core/${item.name}`);
   const id = `shader-effects-${item.name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}`;
   const isMaterial = !infrastructure[item.name];
+  if (isMaterial && !qualityScores.has(item.name)) throw new Error(`Add ${item.name} to a quality tier.`);
   index.push({
     id,
     component: item.name,
@@ -35,6 +52,7 @@ for (const item of getAllShaders()) {
     requiresChild: !!definition.requiresChild,
     stateful: item.category === 'Interactive' || ['TimeTrail', 'ParticleField', 'KeyFrames', 'SmokeFill', 'Particles'].includes(item.name),
     infrastructure: infrastructure[item.name] ?? null,
+    qualityScore: qualityScores.get(item.name) ?? 0,
   });
   if (isMaterial) props[id] = nativeProps(item, definition);
 }

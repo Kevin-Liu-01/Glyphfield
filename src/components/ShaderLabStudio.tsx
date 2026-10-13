@@ -297,11 +297,13 @@ import {
 import { createImportedBrandAsset, imageLibraryErrorMessage, readEmbeddedImageFile } from '@/lib/imageAssets';
 import {
   SHADER_LAB_CATEGORIES,
+  SHADER_LAB_SOURCES,
   shaderLabCategoryCount,
   shaderLabMaterials,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
   type ShaderLabCategory,
+  type ShaderLabSource,
 } from '@/lib/shaderLab';
 import {
   savedDesignStorageKey,
@@ -5153,6 +5155,7 @@ export default function ShaderLabStudio({
   const [frameCapturePending, setFrameCapturePending] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ShaderLabCategory>('all');
+  const [materialSource, setMaterialSource] = useState<ShaderLabSource>('all');
   const [visibleMaterialCount, setVisibleMaterialCount] = useState(SHADER_LIBRARY_INITIAL_CARD_COUNT);
   const [logoLayers, setLogoLayers] = useState<CompositionLogoLayer[]>(() => [{
     appearance: { ...DEFAULT_LOGO_APPEARANCE },
@@ -5539,7 +5542,7 @@ export default function ShaderLabStudio({
     sequencePreviewAnimationRef.current = requestAnimationFrame(sequencePreviewTickRef.current);
     return () => cancelAnimationFrame(sequencePreviewAnimationRef.current);
   }, [active, sequencePreviewing]);
-  const materials = useMemo(() => shaderLabMaterials(query, category), [category, query]);
+  const materials = useMemo(() => shaderLabMaterials(query, category, materialSource), [category, materialSource, query]);
   const visibleMaterials = useMemo(
     () => materials.slice(0, visibleMaterialCount),
     [materials, visibleMaterialCount]
@@ -8984,10 +8987,20 @@ export default function ShaderLabStudio({
               }}
               type='button'
             >
-              {option.label}<span>{shaderLabCategoryCount(option.id)}</span>
+              {option.label}<span>{shaderLabCategoryCount(option.id, materialSource)}</span>
             </button>
           ))}
         </div>
+        <StudioSelect
+          ariaLabel='Shader source'
+          className='mt-2 h-8'
+          onValueChange={(value) => {
+            setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
+            setMaterialSource(SHADER_LAB_SOURCES.find(({ id }) => id === value)?.id ?? 'all');
+          }}
+          options={SHADER_LAB_SOURCES.map(({ id, label }) => ({ label, value: id }))}
+          value={materialSource}
+        />
         <div className='shader-lab-v2-material-grid studio-scroll-area'>
           {visibleMaterials.map((option) => (
             <ShaderMaterialCard key={option.id} material={option} onSelect={handleMaterialSelect} selected={editingShader?.materialId === option.id} />

@@ -32,16 +32,18 @@ Design Lab's library, canvas, inspector, and layer dock each scroll independentl
 
 ## Browse and select
 
-Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. Source filters include:
+Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. The **Shader source** filter narrows the catalog to one family:
 
 - Design studies
 - Paper
 - Glyphfield
-- Shaders.com
+- Shaders.com WebGPU (the native collection)
+- Shaders.com studies (Glyphfield's original studies)
 - WebGL Fluid
 - ShaderGradient
+- HoloCloth
 
-Choosing a source filter narrows the current quality-sorted catalog; it does not change how the shader is rendered or edited.
+Choosing a source filter narrows the current quality-sorted catalog and its category counts; it does not change how the shader is rendered or edited.
 
 Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
 
@@ -110,7 +112,9 @@ See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), 
 
 ## Native Shaders.com collection
 
-The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Search for **Shaders.com WebGPU**, an effect name, or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies.
+The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Choose **Shaders.com WebGPU** in the source filter, or search for an effect name or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies under **Shaders.com studies**.
+
+The collection is curated rather than alphabetical. Finished full-frame materials such as Aurora, Liquid Metal, Chrome, Holographic, Godrays, and Plasma lead; filters, distortions, blurs, and transitions that work on a source follow; neutral colour adjustments and raw shape primitives such as Circle and Star come last. Each effect keeps its upstream category, which also places it in the library's Fluid, Light, Metal, Gradient, or Graphic group.
 
 The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand. They require a browser and device with WebGPU enabled; an unavailable renderer reports an error and cannot be exported as though it rendered successfully.
 

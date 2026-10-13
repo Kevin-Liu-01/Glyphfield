@@ -442,7 +442,7 @@ const ALL_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
   ...PAPER_LIVE_MATERIAL_OPTIONS,
   ...SHADER_EFFECTS.map((effect): LiveMaterialOption => ({
     id: effect.id, name: effect.name, description: `${effect.description} · ${effect.category}`,
-    engine: 'Shaders.com WebGPU', qualityScore: 90,
+    engine: 'Shaders.com WebGPU', qualityScore: effect.qualityScore,
     sourceLabel: 'Shaders.com · MIT', sourceUrl: SHADER_EFFECTS_SOURCE,
   })),
   {
