@@ -194,7 +194,22 @@ function OpenerPage({ context }: { context: BookPageContext }) {
         <Text context={context} options={{ as: 'h1', className: styles.d2, multiline: false }} slot='title' />
         <Text context={context} options={{ className: styles.lead }} slot='summary' />
       </div>
+      {context.page.variant === 'numeral' ? <OpenerContents context={context} /> : null}
     </div>
+  );
+}
+
+/** The pages in this section with their folios: the opener reads as a chapter index. */
+function OpenerContents({ context }: { context: BookPageContext }) {
+  const section = context.sections.find(({ id }) => id === context.page.group);
+  const pages = section?.pages.filter((page) => page.kind !== 'opener' && !page.hidden) ?? [];
+  if (!pages.length) return null;
+  return (
+    <ol className={styles.openerContents}>
+      {pages.map((page) => (
+        <li key={page.id}><span className={styles.label}>{String(context.folios.get(page.id) ?? '').padStart(2, '0')}</span><span>{page.title}</span></li>
+      ))}
+    </ol>
   );
 }
 
@@ -215,10 +230,18 @@ function PremisePage({ context }: { context: BookPageContext }) {
   );
 }
 
+/** The promise leads as the page's one dominant line; challenge and outcome sit beneath it. */
 function ChallengePage({ context }: { context: BookPageContext }) {
-  const steps = [['challenge', 'Challenge'], ['promise', 'Promise'], ['outcome', 'Outcome']] as const;
+  const lead = context.page.variant === 'flow';
+  const steps = ([['challenge', 'Challenge'], ['promise', 'Promise'], ['outcome', 'Outcome']] as const).filter(([slot]) => !lead || slot !== 'promise');
   return (
     <div className={styles.grid} data-layout='flow'>
+      {lead ? (
+        <div className={styles.flowLead}>
+          <Label>Promise</Label>
+          <Text context={context} options={{ as: 'p', className: styles.d1 }} slot='promise' />
+        </div>
+      ) : null}
       {steps.map(([slot, name], index) => (
         <article className={styles.flowStep} key={slot}>
           <span className={styles.flowIndex}>{String(index + 1).padStart(2, '0')}</span>
@@ -908,22 +931,26 @@ function VoicePrinciplesPage({ context }: { context: BookPageContext }) {
   );
 }
 
+/** Real before-and-after lines from voice.examples; phrases and the avoid list fill in when there are none. */
 function VoiceDoDontPage({ context }: { context: BookPageContext }) {
   const { identity } = context;
-  const rows = Math.max(identity.voice.phrases.length, identity.voice.avoid.length);
+  const examples = (identity.voice.examples ?? []).filter(({ write }) => write.trim()).slice(0, 4);
+  const rows = examples.length
+    ? examples.map(({ avoid, context: where, write }) => ({ avoid, where, write }))
+    : Array.from({ length: Math.min(4, Math.max(identity.voice.phrases.length, identity.voice.avoid.length)) }, (_, index) => ({ avoid: identity.voice.avoid[index] ?? '', where: '', write: identity.voice.phrases[index] ?? '' }));
   return (
     <div className={styles.grid} data-layout='voice-dodont'>
       <div className={styles.intro}>
         <Label>{context.page.title}</Label>
-        <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
+        <Text context={context} options={{ className: styles.lead }} slot='lead' />
       </div>
       <table className={styles.dodont}>
         <thead><tr><th scope='col'><span className={styles.label}><span aria-hidden='true' className={styles.check}>✓</span> Write</span></th><th scope='col'><span className={styles.label}><span aria-hidden='true' className={styles.cross}>✕</span> Avoid</span></th></tr></thead>
         <tbody>
-          {Array.from({ length: Math.min(4, rows) }, (_, index) => (
+          {rows.map((row, index) => (
             <tr key={index}>
-              <td className={styles.h3} data-face='display'>{identity.voice.phrases[index] ? `“${identity.voice.phrases[index]}”` : ''}</td>
-              <td className={styles.bodyText}>{identity.voice.avoid[index] ?? ''}</td>
+              <td><span className={styles.label}>{row.where}</span><span className={styles.h3} data-face='display'>{row.write ? `“${row.write}”` : ''}</span></td>
+              <td className={styles.bodyText}>{row.avoid}</td>
             </tr>
           ))}
         </tbody>
@@ -1286,7 +1313,7 @@ function samePage(previous: BookPageViewProps, next: BookPageViewProps): boolean
   if (previous.folio !== next.folio || previous.sectionName !== next.sectionName) return false;
   if (before.editable !== after.editable || before.identity !== after.identity || before.sectionNumber !== after.sectionNumber || before.scope !== after.scope) return false;
   // The contents page lists every section, so it follows the whole book.
-  if (after.page.kind === 'contents' && (before.sections !== after.sections || before.folios !== after.folios)) return false;
+  if ((after.page.kind === 'contents' || after.page.kind === 'opener') && (before.sections !== after.sections || before.folios !== after.folios)) return false;
   return before.page === after.page || JSON.stringify(before.page) === JSON.stringify(after.page);
 }
 

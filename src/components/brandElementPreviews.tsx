@@ -1302,11 +1302,12 @@ function Backdrop({ context }: Props) {
 
 function PartnershipLockup({ context }: Props) {
   return (
-    <div className={styles.lockup}>
+    <div className={styles.lockup} data-placeholder={context.settings.partnerName.trim() === 'Partner' || undefined}>
       <Pattern context={context} />
       <span className={styles.lockupMarks} style={artworkStyle(context.settings)}>
         <Logo context={context} kind='wordmark' />
         <span aria-hidden='true' className={styles.lockupX}>×</span>
+        {/* With no customer to pair, the partner is a marked slot rather than a fake brand. */}
         <Edit as='strong' className={styles.partner} context={context} field='partnerName' />
       </span>
       <span className={styles.meta}>Partnership lockup · equal height · shared clear space</span>

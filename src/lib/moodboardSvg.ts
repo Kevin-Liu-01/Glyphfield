@@ -649,6 +649,12 @@ function renderType(context: TileContext): string {
   }
 }
 
+/** The specimen pair for a display face: the brand's own first letters (Ra, St, Mi). */
+function specimenPair(name: string): string {
+  const letters = [...name.replace(/[^\p{L}]/gu, '')];
+  return letters.length >= 2 ? `${letters[0]!.toLocaleUpperCase()}${letters[1]!.toLocaleLowerCase()}` : 'Aa';
+}
+
 /**
  * The display face on a two-column grid: family name and use top left, the
  * specimen anchored bottom left, weights and the set sample in the right column.
@@ -672,7 +678,7 @@ function renderGlyph(context: TileContext): string {
   const column = columnW > 80
     ? `${label(context, weights.length ? `Weights · ${weights.join(' · ')}` : `Weight · ${display.weight}`, columnX, glyphY - labelSize(context) * 3.4, { width: columnW })}${textBlock(context, sample, { maxHeight: glyphSize * 0.4, maxLines: 1, maxSize: clamp(glyphSize * 0.24, 12, 56), minSize: 10, role: 'display', width: columnW, x: columnX, y: glyphY - labelSize(context) * 3.4 - clamp(glyphSize * 0.3, 14, 70) })}`
     : '';
-  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${head.markup}<text x="${n(p - glyphSize * 0.04)}" y="${n(glyphY)}" font-family="${escapeXml(display.stack)}" font-size="${n(glyphSize)}" font-weight="${display.weight}" letter-spacing="${n(trackingFor(glyphSize, display.tracking))}" fill="${surface.foreground}">Aa</text>${column}${hairline(p, h - p - labelSize(context) * 1.2, w - p * 2, surface.rule)}${label(context, display.family, p, h - p - labelSize(context) * 0.2 - labelSize(context), { width: w - p * 2 })}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${head.markup}<text x="${n(p - glyphSize * 0.04)}" y="${n(glyphY)}" font-family="${escapeXml(display.stack)}" font-size="${n(glyphSize)}" font-weight="${display.weight}" letter-spacing="${n(trackingFor(glyphSize, display.tracking))}" fill="${surface.foreground}">${escapeXml(specimenPair(context.identity.name))}</text>${column}${hairline(p, h - p - labelSize(context) * 1.2, w - p * 2, surface.rule)}${label(context, display.family, p, h - p - labelSize(context) * 0.2 - labelSize(context), { width: w - p * 2 })}`;
 }
 
 const TYPE_SCALE_STEPS = [

@@ -1486,3 +1486,18 @@
 
 .emailProducts .emailProduct { display: grid; gap: 2px; padding-top: 0; font-family: var(--el-body); font-size: 16px; color: var(--el-fg); }
 .emailProducts .emailProduct small { font-size: 14px; line-height: 1.45; color: var(--el-quiet); }
+
+/* Logos without intrinsic size get a wider box than their artwork; keep the art
+   on the left edge where text aligns, and centred only where the layout centres it. */
+.logo { object-position: left center; }
+.lockupMarks .logo,
+.iconTile .logo,
+.artMark .logo,
+.sticker .logo,
+.pressTile .logo,
+.notebookBand .logo,
+.counter .logo,
+.logoBoard .logo,
+.strap .logo { object-position: center; }
+
+.lockup[data-placeholder] .partner { border: 2px dashed var(--el-rule); border-radius: var(--el-radius); padding: 8px 28px; color: var(--el-quiet); font-size: 48px; }
