@@ -26,6 +26,7 @@ import {
   type BrandSurface,
   type BrandSurfaceTone,
 } from './brandOutputKit';
+import { brandCustomers, brandMessaging, brandProducts, brandProofStatements } from './brandContent';
 import { mixHexColors } from './color';
 import {
   layoutMoodboardTiles,
@@ -416,7 +417,7 @@ function renderPoster(context: TileContext): string {
   const gap = p * 0.6;
   const count = posterW < 110 ? 1 : clamp(Math.floor((w - p * 2 + gap) / (posterW + gap)), 1, 3);
   const companions = ['type', 'device', 'image'].filter((variant) => variant !== tile.variant);
-  const phrases = [tile.copy.headline, ...(identity.voice?.phrases ?? []), identity.tagline].filter((phrase, index, all) => phrase && all.indexOf(phrase) === index);
+  const phrases = [tile.copy.headline, ...brandMessaging(identity).phrases, ...brandProducts(identity).map(({ summary }) => summary)].filter((phrase, index, all) => phrase && all.indexOf(phrase) === index);
   const specs: PosterSpec[] = Array.from({ length: count }, (_, index) => ({
     headline: phrases[index] ?? tile.copy.headline,
     primary: index === 0,
@@ -460,7 +461,7 @@ function renderSocial(context: TileContext): string {
   const startX = (w - totalW) / 2;
   const post = surfaceOf(context, featureTone(context));
   const postContext = { ...context, surface: post };
-  const headlines = [tile.copy.headline, ...(identity.voice?.phrases ?? []), identity.strategy?.promise ?? ''].filter((phrase, index, all) => phrase && all.indexOf(phrase) === index);
+  const headlines = [tile.copy.headline, ...brandProducts(identity).map(({ summary }) => summary)].filter((phrase, index, all) => phrase && all.indexOf(phrase) === index);
   const inner = postW * 0.08;
   const posts = Array.from({ length: count }, (_, index) => {
     const x = startX + index * (postW + gap);
@@ -529,11 +530,13 @@ function renderEmail(context: TileContext): string {
   return `${rect(0, 0, w, h, surface.background)}${rect(mailX, p, mailW, h - p, mail.background)}${deviceArt(context, mailX, p, mailW, headerH, true, 13)}${logo({ ...context, surface: surfaceOf(context, 'deep') }, '#000000', mailX + inner, p + inner * 0.7, mailW * 0.2, headerH * 0.16)}${textBlock(mailContext, tile.copy.headline, { field: 'headline', maxHeight: mailW * 0.12, maxLines: 2, maxSize: clamp(mailW * 0.055, 11, 30), role: 'display', width: mailW - inner * 2, x: mailX + inner, y: p + headerH + inner })}${textBlock(mailContext, tile.copy.body, { color: mail.secondary, field: 'body', maxHeight: mailW * 0.1, maxLines: 3, maxSize: clamp(mailW * 0.028, 8, 15), role: 'body', width: mailW - inner * 2, x: mailX + inner, y: p + headerH + inner + mailW * 0.13 })}${rect(mailX + inner, buttonY, buttonW, buttonFont * 2.6, palette.accent, ` rx="${n(radius)}"`)}<text x="${n(mailX + inner + buttonFont * 1.2)}" y="${n(buttonY + buttonFont * 1.68)}" font-family="${escapeXml(context.fonts.body.stack)}" font-size="${n(buttonFont)}" font-weight="${Math.max(500, context.fonts.body.weight)}" fill="${accentText}" data-field="caption">${escapeXml(buttonText)}</text>`;
 }
 
+const INBOX_TEMPLATE_IDS = ['onboarding-day3-no-api-key-email', 'onboarding-day3-live-email', 'usage-soft-limit-email', 'upgrade-confirmation-email'] as const;
+
 function renderInbox(context: TileContext): string {
   const { h, palette, surface, tile, w } = context;
   const p = pad(context);
   const rowH = clamp((h - p * 2) / 5, 26, 64);
-  const subjects = [tile.copy.headline, ...context.identity.voice?.phrases ?? [], context.identity.strategy?.promise ?? ''].filter(Boolean).slice(0, 4);
+  const subjects = [tile.copy.headline, ...INBOX_TEMPLATE_IDS.map((id) => getEmailLifecycleTemplate(id, context.identity)?.subject)].filter((subject, index, all): subject is string => Boolean(subject) && all.indexOf(subject) === index).slice(0, 4);
   const rows = subjects.map((subject, index) => {
     const y = p + labelSize(context) * 2.2 + index * rowH;
     const active = index === 0;
@@ -646,18 +649,30 @@ function renderType(context: TileContext): string {
   }
 }
 
+/**
+ * The display face on a two-column grid: family name and use top left, the
+ * specimen anchored bottom left, weights and the set sample in the right column.
+ */
 function renderGlyph(context: TileContext): string {
   const { fonts, h, surface, tile, w } = context;
   const p = pad(context);
-  const glyphSize = Math.min(h * 0.62, w * 0.36);
-  const columnX = Math.max(w * 0.5, p + glyphSize * 1.3);
-  const columnW = w - columnX - p;
   const display = fonts.display;
   const weights = [...new Set(brandFontAssets(context.identity).filter((font) => font.family === display.family).flatMap((font) => (font.weightMin !== undefined && font.weightMax !== undefined ? [300, 400, 500, 700].filter((weight) => weight >= font.weightMin! && weight <= font.weightMax!) : [font.weight])))].sort((a, b) => a - b).slice(0, 4);
-  const columnText = columnW > 90
-    ? `${textBlock(context, tile.copy.headline, { field: 'headline', maxHeight: h * 0.24, maxLines: 2, maxSize: clamp(h * 0.1, 14, 44), role: 'display', width: columnW, x: columnX, y: p })}${textBlock(context, tile.copy.body, { color: surface.secondary, field: 'body', maxHeight: h * 0.3, maxLines: 4, maxSize: clamp(h * 0.045, 9, 16), role: 'body', width: columnW, x: columnX, y: p + h * 0.26 })}${label(context, weights.length ? weights.join(' · ') : String(display.weight), columnX, h - p - labelSize(context) * 3)}`
+  const top = p + labelSize(context) * 2.2;
+  const titleSize = clamp(Math.min(h * 0.09, w * 0.06), 13, 40);
+  const head = textStack(context, p, top, w - p * 2, [
+    { gap: titleSize * 0.35, options: { field: 'headline', maxHeight: titleSize * 1.3, maxLines: 1, maxSize: titleSize, minSize: 11, role: 'display' }, value: tile.copy.headline },
+    { gap: 0, options: { color: surface.secondary, field: 'body', maxHeight: h * 0.14, maxLines: 2, maxSize: clamp(h * 0.04, 9, 15), minSize: 8, role: 'body' }, value: tile.copy.body },
+  ]);
+  const glyphSize = Math.min(h - head.bottom - p - labelSize(context) * 2, w * 0.34);
+  const glyphY = h - p - labelSize(context) * 2.2;
+  const columnX = p + Math.max(glyphSize * 1.25, (w - p * 2) * 0.5);
+  const columnW = w - columnX - p;
+  const sample = 'Rg 0123 &';
+  const column = columnW > 80
+    ? `${label(context, weights.length ? `Weights · ${weights.join(' · ')}` : `Weight · ${display.weight}`, columnX, glyphY - labelSize(context) * 3.4, { width: columnW })}${textBlock(context, sample, { maxHeight: glyphSize * 0.4, maxLines: 1, maxSize: clamp(glyphSize * 0.24, 12, 56), minSize: 10, role: 'display', width: columnW, x: columnX, y: glyphY - labelSize(context) * 3.4 - clamp(glyphSize * 0.3, 14, 70) })}`
     : '';
-  return `${rect(0, 0, w, h, surface.background)}<text x="${n(p - glyphSize * 0.04)}" y="${n(h - p - labelSize(context) * 2.4)}" font-family="${escapeXml(display.stack)}" font-size="${n(glyphSize)}" font-weight="${display.weight}" letter-spacing="${n(trackingFor(glyphSize, display.tracking))}" fill="${surface.foreground}">Aa</text>${columnText}${label(context, tile.copy.caption, p, h - p - labelSize(context), { field: 'caption' })}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${head.markup}<text x="${n(p - glyphSize * 0.04)}" y="${n(glyphY)}" font-family="${escapeXml(display.stack)}" font-size="${n(glyphSize)}" font-weight="${display.weight}" letter-spacing="${n(trackingFor(glyphSize, display.tracking))}" fill="${surface.foreground}">Aa</text>${column}${hairline(p, h - p - labelSize(context) * 1.2, w - p * 2, surface.rule)}${label(context, display.family, p, h - p - labelSize(context) * 0.2 - labelSize(context), { width: w - p * 2 })}`;
 }
 
 const TYPE_SCALE_STEPS = [
@@ -677,7 +692,8 @@ function renderTypeScale(context: TileContext): string {
   const steps = TYPE_SCALE_STEPS;
   const total = steps.reduce((sum, entry) => sum + Math.max(ratio ** entry.step * 1.5, 1.9), 0);
   const unit = rowsH / total;
-  const lines = distinctLines([...(identity.voice?.phrases ?? []), identity.strategy?.promise, identity.strategy?.concept, identity.positioning], [tile.copy.headline]);
+  // Phrases belong to the voice tile; the scale sets the promise and product lines so no line repeats on the board.
+  const lines = distinctLines([brandMessaging(identity).promise, ...brandProducts(identity).map(({ summary }) => summary), identity.positioning], [tile.copy.headline]);
   const texts = [tile.copy.headline, lines[0] ?? identity.name, lines[1] ?? identity.name, tile.copy.body, `${identity.website} · ${identity.socialHandle}`];
   const labelW = clamp(w * 0.17, 76, 190);
   let y = top;
@@ -713,7 +729,7 @@ function renderTypePairing(context: TileContext): string {
   const { fonts, h, identity, surface, w } = context;
   const p = pad(context);
   const half = (h - p * 2) / 2;
-  return `${rect(0, 0, w, h, surface.background)}${label(context, `Display · ${fonts.display.family}`, p, p)}${textBlock(context, identity.tagline, { maxHeight: half * 0.62, maxLines: 2, maxSize: clamp(half * 0.32, 14, 52), role: 'display', width: w - p * 2, x: p, y: p + labelSize(context) * 2.2 })}${hairline(p, p + half, w - p * 2, surface.rule)}${label(context, `Body · ${fonts.body.family}`, p, p + half + labelSize(context))}${textBlock(context, identity.description, { color: surface.secondary, maxHeight: half * 0.7, maxLines: 5, maxSize: clamp(half * 0.09, 9, 17), role: 'body', width: w - p * 2, x: p, y: p + half + labelSize(context) * 3.2 })}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, `Display · ${fonts.display.family}`, p, p)}${textBlock(context, brandMessaging(identity).promise || identity.tagline, { maxHeight: half * 0.62, maxLines: 2, maxSize: clamp(half * 0.32, 14, 52), role: 'display', width: w - p * 2, x: p, y: p + labelSize(context) * 2.2 })}${hairline(p, p + half, w - p * 2, surface.rule)}${label(context, `Body · ${fonts.body.family}`, p, p + half + labelSize(context))}${textBlock(context, identity.positioning || identity.mission, { color: surface.secondary, maxHeight: half * 0.7, maxLines: 5, maxSize: clamp(half * 0.09, 9, 17), role: 'body', width: w - p * 2, x: p, y: p + half + labelSize(context) * 3.2 })}`;
 }
 
 function renderCharset(context: TileContext): string {
@@ -754,23 +770,49 @@ function renderPalette(context: TileContext): string {
   }
 }
 
+/**
+ * Colour in proportion as one composed field: the dominant colour takes most of
+ * the tile, support and accent nest inside it, so 60 / 30 / 10 is visible at a glance.
+ */
 function renderProportion(context: TileContext): string {
   const { h, palette, surface, tile, w } = context;
   const p = pad(context);
   const shares = paletteShares(context);
-  const barY = p + labelSize(context) * 2.2;
-  const barH = Math.max(24, h - barY - p - labelSize(context) * 4.6);
-  let x = p;
-  const width = w - p * 2;
-  const segments = shares.map((share) => {
-    const segmentW = (width * share.share) / 100;
-    const text = readableOn(share.color, palette);
-    const segment = `${rect(x, barY, segmentW, barH, share.color)}${contrastRatio(share.color, surface.background) < 1.25 ? frame(x, barY, segmentW, barH, surface.rule) : ''}${segmentW > 46 ? `<text x="${n(x + 10)}" y="${n(barY + barH - 10)}" font-family="${escapeXml(context.fonts.code.stack)}" font-size="${n(labelSize(context))}" fill="${text}">${share.share}%</text>` : ''}`;
-    const caption = segmentW > 70 ? `${textBlock(context, share.name, { maxHeight: labelSize(context) * 1.8, maxLines: 1, maxSize: clamp(labelSize(context) * 1.3, 10, 16), role: 'body', weight: 500, width: segmentW - 8, x, y: barY + barH + labelSize(context) * 0.9 })}${label(context, share.color, x, barY + barH + labelSize(context) * 2.9, { width: segmentW - 8 })}` : '';
-    x += segmentW;
-    return segment + caption;
+  const top = p + labelSize(context) * 2.2;
+  const areaX = p;
+  const areaY = top;
+  const areaW = w - p * 2;
+  const areaH = h - top - p;
+  const wide = areaW / areaH >= 1.4;
+  const [dominant, support, accent, signal] = shares as [PaletteShare, PaletteShare, PaletteShare, PaletteShare];
+  // Dominant fills the field; support takes a slab; accent and signal sit inside the support slab.
+  const supportW = wide ? areaW * 0.36 : areaW;
+  const supportH = wide ? areaH : areaH * 0.38;
+  const supportX = wide ? areaX + areaW - supportW : areaX;
+  const supportY = wide ? areaY : areaY + areaH - supportH;
+  const accentW = wide ? supportW * 0.42 : supportW * 0.3;
+  const accentH = wide ? supportH * 0.34 : supportH;
+  const accentX = wide ? supportX : supportX + supportW - accentW;
+  const accentY = wide ? supportY + supportH - accentH : supportY;
+  const signalW = accentW * 0.34;
+  const blocks = [
+    { color: dominant.color, h: areaH, share: dominant, w: areaW, x: areaX, y: areaY },
+    { color: support.color, h: supportH, share: support, w: supportW, x: supportX, y: supportY },
+    { color: accent.color, h: accentH, share: accent, w: accentW, x: accentX, y: accentY },
+    { color: signal.color, h: accentH, share: signal, w: signalW, x: accentX + accentW - signalW, y: accentY },
+  ];
+  const big = clamp(Math.min(areaW, areaH) * 0.2, 16, 88);
+  const markup = blocks.map((block, index) => {
+    const text = readableOn(block.color, palette);
+    const framed = contrastRatio(block.color, surface.background) < 1.25 && index === 0 ? frame(block.x, block.y, block.w, block.h, surface.rule) : '';
+    const size = index === 0 ? big : index === 1 ? big * 0.62 : big * 0.36;
+    const textX = block.x + clamp(size * 0.35, 6, 22);
+    const roomy = block.w > size * 2.6 && block.h > size * 1.6;
+    const figure = roomy ? `<text x="${n(textX)}" y="${n(block.y + clamp(size * 0.35, 6, 22) + size * 0.82)}" font-family="${escapeXml(context.fonts.display.stack)}" font-size="${n(size)}" font-weight="${context.fonts.display.weight}" letter-spacing="${n(trackingFor(size, context.fonts.display.tracking))}" fill="${text}">${block.share.share}%</text>` : '';
+    const name = roomy && block.w > 90 ? `${label({ ...context, surface: { ...surface, background: block.color, foreground: text, secondary: text } }, `${block.share.name} · ${block.color}`, textX, block.y + clamp(size * 0.35, 6, 22) + size * 1.25, { color: text, width: block.w - (textX - block.x) * 2 })}` : '';
+    return `${rect(block.x, block.y, block.w, block.h, block.color)}${framed}${figure}${name}`;
   }).join('');
-  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${segments}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${markup}`;
 }
 
 function renderSwatches(context: TileContext): string {
@@ -794,31 +836,43 @@ function renderSwatches(context: TileContext): string {
   return `${rect(0, 0, w, h, surface.background)}${label(context, 'Palette · roles', p, p)}${cells}`;
 }
 
+/** Approved text pairs that pass, plus one labelled pair to avoid. */
 function renderPairs(context: TileContext): string {
   const { h, palette, surface, w } = context;
   const p = pad(context);
-  const pairs: Array<[string, string]> = [
+  const candidates: Array<[string, string]> = [
     [palette.ink, palette.paper],
     [palette.paper, palette.deep],
     [readableOn(palette.accent, palette), palette.accent],
     [palette.accent, palette.paper],
     [palette.ink, palette.muted],
     [palette.secondary, palette.deep],
+    [palette.highlight, palette.paper],
+    [palette.paper, palette.accent],
   ];
+  const unique = candidates.filter(([foreground, background], index) => candidates.findIndex(([f, b]) => f === foreground && b === background) === index && foreground !== background);
+  const passing = unique.filter(([foreground, background]) => contrastRatio(foreground, background) >= 4.5).slice(0, 5);
+  const avoid = unique.filter(([foreground, background]) => contrastRatio(foreground, background) < 3).sort((left, right) => contrastRatio(left[0], left[1]) - contrastRatio(right[0], right[1]))[0];
+  const cells = avoid ? [...passing, avoid] : passing;
   const columns = w > h * 1.6 ? 3 : 2;
-  const rows = Math.ceil(pairs.length / columns);
+  const rows = Math.max(1, Math.ceil(cells.length / columns));
   const gap = p * 0.35;
   const top = p + labelSize(context) * 2.2;
   const cellW = (w - p * 2 - gap * (columns - 1)) / columns;
   const cellH = (h - top - p - gap * (rows - 1)) / rows;
-  const cells = pairs.map(([foreground, background], index) => {
+  const markup = cells.map(([foreground, background], index) => {
     const x = p + (index % columns) * (cellW + gap);
     const y = top + Math.floor(index / columns) * (cellH + gap);
     const ratio = contrastRatio(foreground, background);
+    const isAvoid = avoid !== undefined && index === cells.length - 1;
     const size = clamp(cellH * 0.42, 12, 48);
-    return `${rect(x, y, cellW, cellH, background)}${contrastRatio(background, surface.background) < 1.25 ? frame(x, y, cellW, cellH, surface.rule) : ''}<text x="${n(x + 10)}" y="${n(y + 8 + size * 0.85)}" font-family="${escapeXml(context.fonts.display.stack)}" font-size="${n(size)}" font-weight="${context.fonts.display.weight}" fill="${foreground}">Aa</text><text x="${n(x + cellW - 10)}" y="${n(y + cellH - 10)}" text-anchor="end" font-family="${escapeXml(context.fonts.code.stack)}" font-size="${n(clamp(cellH * 0.12, 8, 12))}" fill="${foreground}">${ratio.toFixed(1)}:1 ${wcagRating(ratio)}</text>`;
+    const meta = clamp(cellH * 0.12, 8, 12);
+    const tag = isAvoid ? `Avoid · ${ratio.toFixed(1)}:1` : `${ratio.toFixed(1)}:1 ${wcagRating(ratio)}`;
+    const tagColor = isAvoid ? readableOn(background, palette) : foreground;
+    const strike = isAvoid ? `<path d="M${n(x)} ${n(y + cellH)}L${n(x + cellW)} ${n(y)}" stroke="${tagColor}" stroke-opacity=".35"/>` : '';
+    return `${rect(x, y, cellW, cellH, background)}${contrastRatio(background, surface.background) < 1.25 ? frame(x, y, cellW, cellH, surface.rule) : ''}${strike}<text x="${n(x + 10)}" y="${n(y + 8 + size * 0.85)}" font-family="${escapeXml(context.fonts.display.stack)}" font-size="${n(size)}" font-weight="${context.fonts.display.weight}" fill="${foreground}">Aa</text><text x="${n(x + cellW - 10)}" y="${n(y + cellH - 10)}" text-anchor="end" font-family="${escapeXml(context.fonts.code.stack)}" font-size="${n(meta)}" fill="${tagColor}">${tag}</text>`;
   }).join('');
-  return `${rect(0, 0, w, h, surface.background)}${label(context, 'Contrast pairs · WCAG 2.2', p, p)}${cells}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, 'Text pairs that pass WCAG 2.2 · one to avoid', p, p)}${markup}`;
 }
 
 function renderTints(context: TileContext): string {
@@ -935,7 +989,7 @@ function renderProof(context: TileContext): string {
 function renderProofList(context: TileContext, items: readonly string[], heading: string): string {
   const { h, identity, surface, tile, w } = context;
   const p = pad(context);
-  const names = items.length > 1 ? items : (identity.proof ?? []).slice(0, 6);
+  const names = items.length > 1 ? items : [...brandProofStatements(identity), ...brandCustomers(identity)].slice(0, 6);
   const logos = (context.assets.proofAssets ?? []).slice(0, 6);
   const top = p + labelSize(context) * 2.4;
   if (logos.length >= 3 && tile.variant !== 'list') {

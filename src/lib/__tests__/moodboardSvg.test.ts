@@ -43,8 +43,6 @@ const assets = {
   markLight: 'data:image/svg+xml;base64,LIGHT',
 };
 
-const TILE_COUNTS = { campaign: 8, catalog: 12, showcase: 8, specimen: 8, system: 11 } as const;
-
 describe('buildMoodboardSvg', () => {
   it('embeds each brand typography role under its real family without interface-font fallbacks', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'system');
@@ -72,13 +70,28 @@ describe('buildMoodboardSvg', () => {
   it.each(MOODBOARD_COMPOSITIONS)('renders the default %s board as clipped grid tiles', (composition) => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, composition);
 
-    expect(svg.match(/class="application-panel/g)).toHaveLength(TILE_COUNTS[composition]);
+    expect(svg.match(/class="application-panel/g)).toHaveLength(defaultMoodboardTiles(GT_BRAND_IDENTITY, composition).length);
     expect(svg).toContain(`data-board-mode="${composition}"`);
     expect(svg).toContain('data-board-recipe="monochrome-language"');
     expect(svg).toMatch(/<svg class="application-panel [^"]+" data-panel="[a-z]+" data-tile="[a-z0-9-]+"/);
     expect(svg).not.toContain('LIVE REFERENCE');
     expect(svg).not.toContain('/screenshots/');
     expect(svg).not.toContain('/references/');
+  });
+
+  it('composes showcase and campaign boards from each identity\'s art direction without repeating a line', () => {
+    for (const composition of ['showcase', 'campaign'] as const) {
+      const layouts = new Set(BUILT_IN_BRAND_IDENTITIES.map((identity) => defaultMoodboardTiles(identity, composition).map(({ kind, span }) => `${kind}:${span}`).join(' ')));
+      expect(layouts.size, composition).toBeGreaterThanOrEqual(8);
+    }
+    for (const identity of BUILT_IN_BRAND_IDENTITIES) {
+      for (const composition of MOODBOARD_COMPOSITIONS) {
+        const lines = defaultMoodboardTiles(identity, composition)
+          .filter(({ kind, variant }) => ['billboard', 'cover', 'poster', 'social', 'statement', 'voice', 'web'].includes(kind) || (kind === 'type' && ['phrases', 'scale'].includes(variant)))
+          .map(({ copy }) => copy.headline.toLocaleLowerCase());
+        expect(new Set(lines).size, `${identity.id} ${composition}: ${lines.join(' | ')}`).toBe(lines.length);
+      }
+    }
   });
 
   it('keeps showcase and system ratios at 16:9 and 4:5', () => {
@@ -145,7 +158,7 @@ describe('buildMoodboardSvg', () => {
       },
     });
 
-    expect(svg.match(/class="application-panel/g)).toHaveLength(7);
+    expect(svg.match(/class="application-panel/g)).toHaveLength(defaultMoodboardTiles(GT_BRAND_IDENTITY, 'showcase').length - 1);
     expect(svg.indexOf('data-tile="voice"')).toBeLessThan(svg.indexOf('data-tile="cover"'));
     expect(svg).not.toContain('data-tile="card"');
     expect(svg).toContain('Edited');
@@ -173,7 +186,7 @@ describe('buildMoodboardSvg', () => {
         const svg = buildMoodboardSvg(identity, moodboardPreviewAssets(identity, boardAssets), composition);
         const layout = layoutMoodboard(identity, composition);
 
-        expect(svg.match(/class="application-panel/g)).toHaveLength(TILE_COUNTS[composition]);
+        expect(svg.match(/class="application-panel/g)).toHaveLength(defaultMoodboardTiles(identity, composition).length);
         expect(svg).toContain(`data-brand="${identity.id}"`);
         expect(svg).not.toContain('opacity=".94"');
         expect(svg).not.toMatch(/\/(?:references|screenshots)\//i);
