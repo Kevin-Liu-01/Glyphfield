@@ -58,6 +58,8 @@ export type BrandHealthSection = {
   label: string;
   passed: number;
   score: number;
+  /** The most severe failing check, or pass. */
+  status: BrandHealthSeverity | 'pass';
   summary: string;
 };
 
@@ -613,12 +615,14 @@ export function auditBrandHealth(identity: BrandIdentity): BrandHealthReport {
     const sectionChecks = checks.filter((check) => check.section === id);
     const total = sectionChecks.reduce((sum, check) => sum + SEVERITY_WEIGHT[check.severity], 0);
     const earned = sectionChecks.reduce((sum, check) => sum + (check.passed ? SEVERITY_WEIGHT[check.severity] : 0), 0);
+    const failing = new Set(sectionChecks.filter(({ passed }) => !passed).map(({ severity }) => severity));
     return {
       checks: sectionChecks.length,
       id,
       label,
       passed: sectionChecks.filter(({ passed }) => passed).length,
       score: total ? earned / total : 1,
+      status: failing.has('error') ? 'error' : failing.has('warning') ? 'warning' : failing.has('info') ? 'info' : 'pass',
       summary: sectionSummary(id, identity, contrast),
     };
   });
