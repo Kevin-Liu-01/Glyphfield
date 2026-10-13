@@ -4,6 +4,8 @@ import {
   GT_BRAND_IDENTITY,
   STARTER_BRAND_IDENTITY,
 } from './identityPresets';
+import { brandIdentityFingerprint } from './brandIdentityFingerprint';
+import { isPristineBuiltInIdentity } from './builtInIdentityRevision';
 import { migrateGtTypography } from './gtTypographyMigration';
 import { normalizeHexOrFallback } from './color';
 import { capVisibleFontWeight } from './typography';
@@ -97,11 +99,34 @@ export type BrandArtDirection = {
   titleMaxLines: 1 | 2;
 };
 
-type BrandColor = {
+export type BrandColor = {
   hex: string;
   id: string;
   name: string;
+  /** Approximate share of visual space, 0–100, used for 60/30/10 proportion checks. */
+  proportion?: number;
   role: string;
+};
+
+/** A foreground/background color pair the brand intends for text or icons. */
+export type BrandColorPairing = {
+  background: string;
+  foreground: string;
+  /** AA needs 4.5:1 for body text; AA-large needs 3:1 for large display text and icons. */
+  level?: 'AA' | 'AA-large';
+  usage: string;
+};
+
+/** A modular type scale: sizes are basePx × ratio^step. */
+export type BrandTypeScale = {
+  basePx: number;
+  ratio: number;
+};
+
+export type BrandVoiceExample = {
+  avoid: string;
+  context: string;
+  write: string;
 };
 
 export type BrandTypography = {
@@ -120,7 +145,10 @@ export type BrandFontAsset = {
   format: 'opentype' | 'truetype' | 'woff' | 'woff2';
   id: string;
   label: string;
+  /** License name or usage terms for the font file, such as "OFL-1.1" or "Commercial desktop + web". */
+  license?: string;
   path: string;
+  sourceUrl?: string;
   style: 'italic' | 'normal';
   weight: number;
   weightMax?: number;
@@ -192,6 +220,7 @@ export type BrandIdentity = {
   assets: BrandAsset[];
   audiences: string[];
   builtIn: boolean;
+  colorPairings?: BrandColorPairing[];
   colors: BrandColor[];
   contactEmail: string;
   description: string;
@@ -205,6 +234,8 @@ export type BrandIdentity = {
   mission: string;
   name: string;
   positioning: string;
+  /** Content fingerprint of the shipped preset a built-in was hydrated from. */
+  presetFingerprint?: string;
   products: string[];
   proof: string[];
   proofAssets: BrandAsset[];
@@ -216,9 +247,12 @@ export type BrandIdentity = {
   style: BrandStyle;
   strategy: BrandStrategy;
   tagline: string;
+  typeScale?: BrandTypeScale;
   typography: BrandTypography[];
   voice: {
     avoid: string[];
+    /** Before/after copy examples that show the voice in a real context. */
+    examples?: BrandVoiceExample[];
     phrases: string[];
     principles: string[];
   };
@@ -557,7 +591,9 @@ function cloneBrandStrategy(identity: BrandIdentity): BrandIdentity['strategy'] 
 
 function cloneBrandVoice(identity: BrandIdentity): BrandIdentity['voice'] {
   return {
+    ...identity.voice,
     avoid: [...(identity.voice?.avoid ?? [])],
+    ...(identity.voice?.examples ? { examples: identity.voice.examples.map((example) => ({ ...example })) } : {}),
     phrases: [...(identity.voice?.phrases ?? [])],
     principles: [...(identity.voice?.principles ?? [])],
   };
@@ -575,6 +611,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     ),
     assets: identity.assets.map(cloneBrandAsset),
     audiences: [...(identity.audiences ?? [])],
+    ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
     colors: (identity.colors ?? []).map((color) => ({
       ...color,
       hex: normalizeHexOrFallback(color.hex),
@@ -595,6 +632,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
     strategy: cloneBrandStrategy(identity),
+    ...(identity.typeScale ? { typeScale: { ...identity.typeScale } } : {}),
     typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
     voice: cloneBrandVoice(identity),
@@ -739,6 +777,62 @@ function isBrandIdentity(value: unknown): value is BrandIdentity {
   );
 }
 
+function migrateBasementDisplaySpacing(
+  identity: BrandIdentity | undefined,
+  preset: BrandIdentity
+): BrandIdentity | undefined {
+  const storedDisplay = identity?.typography.find(({ role }) => role === 'Display');
+  const presetDisplay = preset.typography.find(({ role }) => role === 'Display');
+  if (
+    preset.id !== 'basement'
+    || !identity
+    || storedDisplay?.letterSpacing !== -5
+    || storedDisplay.lineHeight !== 0.88
+    || !presetDisplay
+  ) return identity;
+  return {
+    ...identity,
+    typography: identity.typography.map((typography) =>
+      typography.role === 'Display'
+        ? {
+            ...typography,
+            letterSpacing: presetDisplay.letterSpacing,
+            lineHeight: presetDisplay.lineHeight,
+            usage: presetDisplay.usage,
+          }
+        : typography
+    ),
+  };
+}
+
+/** One-time content migrations for edited built-ins saved by earlier releases. */
+function migrateStoredBuiltIn(identity: BrandIdentity, preset: BrandIdentity): BrandIdentity {
+  return migrateBasementDisplaySpacing(
+    migrateGtTypography(identity, preset, DEFAULT_BRAND_FONT_ASSETS),
+    preset
+  ) ?? identity;
+}
+
+/** The shipped version of a built-in identity, ready to replace an edited copy. */
+export function restoreBuiltInBrandIdentity(id: string): BrandIdentity | undefined {
+  const preset = BUILT_IN_BRAND_IDENTITIES.find((candidate) => candidate.id === id);
+  if (!preset) return undefined;
+  const shipped = cloneBrandIdentity(preset);
+  return { ...shipped, builtIn: true, presetFingerprint: brandIdentityFingerprint(shipped) };
+}
+
+/** True when a built-in identity differs from the preset it was hydrated from. */
+export function isEditedBuiltInIdentity(identity: BrandIdentity): boolean {
+  return identity.builtIn
+    && typeof identity.presetFingerprint === 'string'
+    && brandIdentityFingerprint(identity) !== identity.presetFingerprint;
+}
+
+/** Fill defaults and copy nested records without dropping unknown fields. */
+export function normalizeBrandIdentity(identity: BrandIdentity): BrandIdentity {
+  return cloneBrandIdentity(identity);
+}
+
 export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
   const storedIdentities = Array.isArray(value) ? value.filter(isBrandIdentity) : [];
   const builtInIds = new Set(BUILT_IN_BRAND_IDENTITIES.map(({ id }) => id));
@@ -747,40 +841,19 @@ export function hydrateBrandIdentities(value: unknown): BrandIdentity[] {
     ({ id }) => !builtInIds.has(id) && !retiredBuiltInIds.has(id)
   );
   const builtInIdentities = BUILT_IN_BRAND_IDENTITIES.map((preset) => {
-    const storedIdentity = migrateGtTypography(
-      storedIdentities.find(({ id }) => id === preset.id), preset, DEFAULT_BRAND_FONT_ASSETS
-    );
-    const storedDisplay = storedIdentity?.typography.find(({ role }) => role === 'Display');
-    const presetDisplay = preset.typography.find(({ role }) => role === 'Display');
-    const migratedStoredIdentity =
-      preset.id === 'basement' &&
-      storedIdentity &&
-      storedDisplay?.letterSpacing === -5 &&
-      storedDisplay.lineHeight === 0.88 &&
-      presetDisplay
-        ? {
-            ...storedIdentity,
-            typography: storedIdentity.typography.map((typography) =>
-              typography.role === 'Display'
-                ? {
-                    ...typography,
-                    letterSpacing: presetDisplay.letterSpacing,
-                    lineHeight: presetDisplay.lineHeight,
-                    usage: presetDisplay.usage,
-                  }
-                : typography
-            ),
-          }
-        : storedIdentity;
-    const identity =
-      migratedStoredIdentity?.revision === preset.revision
-        ? mergeBrandIdentity(migratedStoredIdentity, preset)
-        : cloneBrandIdentity(preset);
+    const storedIdentity = storedIdentities.find(({ id }) => id === preset.id);
+    const shipped = cloneBrandIdentity(preset);
+    // Untouched built-ins always refresh to the shipped preset. Edited ones keep
+    // every stored value on any revision; the preset only backfills missing fields.
+    const identity = !storedIdentity || isPristineBuiltInIdentity(storedIdentity)
+      ? shipped
+      : mergeBrandIdentity(migrateStoredBuiltIn(storedIdentity, preset), preset);
     return {
       ...identity,
       builtIn: true,
       id: preset.id,
       kind: preset.kind,
+      presetFingerprint: brandIdentityFingerprint(shipped),
       revision: preset.revision,
     };
   });
