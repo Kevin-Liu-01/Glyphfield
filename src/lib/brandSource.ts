@@ -560,6 +560,26 @@ function duplicateIds(items: unknown, key: string, path: string, issues: BrandSo
   return seen;
 }
 
+/** Role refs and scale ids in colorSystem must name colors[].id values. */
+function colorSystemReferences(system: unknown, colorIds: ReadonlySet<string>, issues: BrandSourceIssue[]) {
+  if (!isRecord(system)) return;
+  const known = [...colorIds].join(', ') || 'none defined';
+  for (const mode of ['light', 'dark'] as const) {
+    const roles = system[mode];
+    if (!isRecord(roles)) continue;
+    for (const [role, ref] of Object.entries(roles)) {
+      const id = typeof ref === 'string' ? parseColorRef(ref)?.id : undefined;
+      if (id && !colorIds.has(id)) issue(issues, 'reference', `colorSystem.${mode}.${role}`, `colorSystem.${mode}.${role} "${String(ref)}" does not match any colors[].id (${known}).`);
+    }
+  }
+  if (!Array.isArray(system.scales)) return;
+  system.scales.forEach((scale, index) => {
+    if (isRecord(scale) && typeof scale.id === 'string' && !colorIds.has(scale.id)) {
+      issue(issues, 'reference', `colorSystem.scales[${index}].id`, `colorSystem.scales[${index}].id "${scale.id}" does not match any colors[].id.`);
+    }
+  });
+}
+
 function crossReferences(identity: Record<string, unknown>, issues: BrandSourceIssue[]) {
   duplicateIds(identity.colors, 'id', 'colors', issues);
   duplicateIds(identity.proofAssets, 'id', 'proofAssets', issues, duplicateIds(identity.assets, 'id', 'assets', issues));
@@ -584,26 +604,7 @@ function crossReferences(identity: Record<string, unknown>, issues: BrandSourceI
     });
   }
 
-  if (isRecord(identity.colorSystem)) {
-    const system = identity.colorSystem;
-    for (const mode of ['light', 'dark'] as const) {
-      const roles = system[mode];
-      if (!isRecord(roles)) continue;
-      for (const [role, ref] of Object.entries(roles)) {
-        const id = typeof ref === 'string' ? parseColorRef(ref)?.id : undefined;
-        if (id && !colorIds.has(id)) {
-          issue(issues, 'reference', `colorSystem.${mode}.${role}`, `colorSystem.${mode}.${role} "${String(ref)}" does not match any colors[].id (${[...colorIds].join(', ') || 'none defined'}).`);
-        }
-      }
-    }
-    if (Array.isArray(system.scales)) {
-      system.scales.forEach((scale, index) => {
-        if (isRecord(scale) && typeof scale.id === 'string' && !colorIds.has(scale.id)) {
-          issue(issues, 'reference', `colorSystem.scales[${index}].id`, `colorSystem.scales[${index}].id "${scale.id}" does not match any colors[].id.`);
-        }
-      });
-    }
-  }
+  colorSystemReferences(identity.colorSystem, colorIds, issues);
 
   const fonts = Array.isArray(identity.fonts) ? identity.fonts.filter(isRecord) : [];
   const fontIds = new Set(fonts.flatMap((font) => typeof font.id === 'string' ? [font.id] : []));
