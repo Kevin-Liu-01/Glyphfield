@@ -11,10 +11,9 @@ import {
 
 describe('Studio artifact canvas presentation', () => {
   it('keeps every expression tool on one stage, frame, and artboard preset', () => {
-    const workspace = readFileSync(
-      join(process.cwd(), 'src/components/StudioToolWorkspace.tsx'),
-      'utf8'
-    );
+    const workspace = ['OpenGraphTool', 'TerminalTool', 'TemplateTool']
+      .map((name) => readFileSync(join(process.cwd(), `src/components/tools/${name}.tsx`), 'utf8'))
+      .join('\n');
     const templatePreview = readFileSync(
       join(process.cwd(), 'src/components/TemplateCanvasPreview.tsx'),
       'utf8'
@@ -22,7 +21,7 @@ describe('Studio artifact canvas presentation', () => {
 
     expect(workspace.match(/stageClassName=\{STUDIO_ARTIFACT_STAGE_CLASS\}/g)).toHaveLength(3);
     expect(workspace.match(/frameClassName=\{STUDIO_ARTIFACT_FRAME_CLASS\}/g)).toHaveLength(2);
-    expect(workspace.match(/STUDIO_ARTIFACT_PLANE_CLASS/g)).toHaveLength(3);
+    expect(workspace.match(/className=\{(?:`\$\{)?STUDIO_ARTIFACT_PLANE_CLASS/g)).toHaveLength(2);
     expect(templatePreview).toContain('frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}');
     expect(templatePreview).toContain('className={`${STUDIO_ARTIFACT_PLANE_CLASS}');
 
