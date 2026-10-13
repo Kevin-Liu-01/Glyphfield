@@ -8994,7 +8994,7 @@ export default function ShaderLabStudio({
           ))}
         </div>
         <StudioSelect
-          ariaLabel='Shader source'
+          ariaLabel='Shader source filter'
           className='mt-2 h-8'
           onValueChange={(value) => {
             setVisibleMaterialCount(SHADER_LIBRARY_INITIAL_CARD_COUNT);
