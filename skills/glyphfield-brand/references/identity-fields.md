@@ -7,17 +7,42 @@
 | Field | Notes |
 | --- | --- |
 | `name` | Exactly as the brand writes it. |
-| `shortName` | Uppercase monogram, up to 8 characters. |
+| `shortName` | The short form the brand uses, up to 8 characters: its abbreviation (`GT`, `BSMNT`) or, for a one-word brand, the name (`Stripe`). Never a single letter. |
 | `tagline` | The line the brand already uses. Never invent one. |
 | `positioning`, `mission`, `description` | One or two sentences each, from the brand's own copy. |
 | `website`, `contactEmail`, `socialHandle` | Handle starts with `@`. |
-| `audiences`, `products`, `proof`, `values` | String lists. Proof must be published and verifiable. |
+| `audiences`, `products`, `values` | String lists. |
+| `productDetails` | `[{ name, summary }]`: one plain line per product, from its own product page. Replaced as a whole. |
+| `proof` | Published, verifiable statements such as metrics. No customer names. |
+| `customers` | Customer or client names the brand shows publicly. |
 | `sourceNotes` | One line per source you used. |
+
+## Template samples
+
+`samples` fills templates with real content instead of placeholders. Every field is optional.
+
+```json
+{
+  "samples": {
+    "person": { "name": "Elena Novak", "role": "Payments engineer" },
+    "event": { "name": "Stripe Sessions", "date": "Tue 5 May", "time": "09:00 PT", "location": "San Francisco" },
+    "install": "npm install stripe",
+    "code": { "label": "POST /v1/payment_intents", "snippet": "curl https://api.stripe.com/v1/payment_intents …" },
+    "actions": ["Create a payment link", "Refund a payment"],
+    "metric": { "label": "Gross volume", "value": "$248,310.42", "change": "+12.4% from last month" },
+    "plans": [{ "name": "Standard", "price": "2.9% + 30¢", "features": ["No setup or monthly fees"] }],
+    "release": { "title": "Accept and optimize payments globally", "items": ["Online and in person"] }
+  }
+}
+```
+
+The person is a sample, never a real employee. Plans, install commands and code come from the brand's own pricing and docs; leave them out rather than invent them.
 
 ## Strategy and voice
 
 - `strategy`: `challenge`, `concept` (central idea), `promise`, `outcome`, `pillars` (3–5), `personality` (3–4 traits).
 - `voice`: `principles`, `phrases`, `avoid`, and `examples: [{ context, write, avoid }]` with at least three real contexts (homepage hero, error message, release note, onboarding email).
+- `tagline`, `strategy.promise` and each of `voice.phrases` are different lines; the audit flags repeats.
 
 ## Color
 
@@ -52,7 +77,7 @@ Keep the ids `ink`, `paper`, `muted` and `emphasis`: Glyphfield tools read them.
 }
 ```
 
-Bind roles to stored files with `identity.font.add { file, roles }`; it sets `fontId` and `family` for you.
+Bind roles to stored files with `identity.font.add { file, roles }`; it sets `fontId` and `family` for you. The Code role must be a monospace face (look for `--font-mono` in the site CSS). Font records no role uses are template leftovers: remove them with `identity.fix { fixId: 'prune-fonts' }`.
 
 ## Logos
 
