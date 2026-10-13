@@ -34,7 +34,9 @@
     "test:browsers": "playwright test --config playwright.config.ts",
     "test:safari": "node scripts/check-safari-canvas.mjs",
     "test:watch": "vitest",
-    "typecheck": "fumadocs-mdx && tsc6 --noEmit"
+    "typecheck": "fumadocs-mdx && tsc6 --noEmit",
+    "generate:shader-effects": "node scripts/generate-shader-effects.mjs",
+    "test:shader-effects": "node scripts/check-shader-effects.mjs"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-web": "^0.78.2",
@@ -56,6 +58,7 @@
     "prismjs": "^1.30.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "shaders": "4.0.1",
     "shadow-plugin": "^2.1.0",
     "three": "^0.180.0"
   },

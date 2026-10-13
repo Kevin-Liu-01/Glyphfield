@@ -1,5 +1,7 @@
 'use client';
 
+import ShaderEffectsControls from './ShaderEffectsControls';
+import { getShaderEffect, validateShaderEffectProps } from '@/lib/shaderEffects';
 import {
   AlignCenter,
   AlignLeft,
@@ -1624,6 +1626,9 @@ function validateCompositionLayers(composition: DesignLabCompositionSource['comp
   assertOptionalArray(composition.effectLayers, 'Converter layers', (layer) => !layer.id?.startsWith('effect-'));
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
   composition.textLayers?.forEach(validateDesignLabTextTypography);
+  [...(composition.shaderLayers ?? []), ...Object.values(composition.layerShaders ?? {})].forEach((layer) => {
+    if (layer?.settings?.effectProps !== undefined) validateShaderEffectProps(layer.materialId, layer.settings.effectProps);
+  });
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
   assertOptionalArray(composition.assets, 'Image layers', (layer) => (
     !layer.id?.startsWith('asset-')
@@ -4028,7 +4033,7 @@ function DesignLabShaderInspector({
   updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
 }) {
   return <>
-    <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
+    {getShaderEffect(editingShader.materialId) ? <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Effect settings'><ShaderEffectsControls materialId={editingShader.materialId} value={settings.effectProps} onChange={(effectProps) => updateSetting('effectProps', effectProps)} /></LabInspectorSection> : <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
       <div className='shader-lab-v2-colors'>
         {([
           { key: 'colorA', label: 'Base color' },
@@ -4077,7 +4082,7 @@ function DesignLabShaderInspector({
           <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
         ) : null}
       </div>
-    </LabInspectorSection>
+    </LabInspectorSection>}
 
     <LabInspectorSection className='shader-lab-v2-control-section' meta='Essentials' title='Shader settings'>
       <div className='shader-lab-v2-ranges'>
@@ -4134,7 +4139,7 @@ function DesignLabShaderInspector({
             value={settings.centerY ?? 0.5}
           />
         </> : null}
-        {PRIMARY_CONTROLS.map((control) => (
+        {PRIMARY_CONTROLS.filter((control) => !getShaderEffect(editingShader.materialId) || control.key === 'speed').map((control) => (
           <RangeControl
             {...control}
             formatValue={control.key === 'speed' ? (value) => `${value.toFixed(2)}×` : undefined}

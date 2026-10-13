@@ -70,6 +70,8 @@ import {
   scheduleWebGLContextRelease,
 } from '@/lib/webglContext';
 
+const ShaderEffectsSurface = dynamic(() => import('./ShaderEffectsSurface'), { ssr: false, loading: () => <div data-live-material-ready='false'><ShaderSkeleton /></div> });
+
 const SHADER_ZOOM_RESPONSE_MS = 45;
 const PAPER_PREVIEW_FRAME_RATE = 30;
 const WEBGL_PREVIEW_FRAME_RATE = 60;
@@ -2303,6 +2305,12 @@ function LiveMaterialRenderView({
       />
     );
   }
+
+  if (materialId.startsWith('shader-effects-')) return <ShaderEffectsSurface
+    materialId={materialId} settings={settings} active={active} paused={paused}
+    captureTimeMs={captureTimeMs} frameState={frameState} frameRate={frameRate}
+    maxPixelCount={maxPixelCount} renderScale={renderScale} patternScale={patternScale} sourceImage={sourceImage}
+  />;
 
   if (materialId === 'shadergradient-prismatic-sphere') {
     const providerFallback = (

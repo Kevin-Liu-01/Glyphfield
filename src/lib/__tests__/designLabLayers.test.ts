@@ -265,7 +265,7 @@ describe('Playground optional layers', () => {
     expect(designLab).toContain('navigationItems={workspaceArtboards.flatMap');
     expect(designLab).toContain('onKeyDown={(event) => nudgeArtboard(event, artboard)}');
     expect(designLab).toContain('dragHandle.setPointerCapture(pointerId);');
-    expect(studioStyles).toMatch(/\.design-artboard-label\s*\{[\s\S]*?height: calc\(34px \* var\(--canvas-zoom-inverse, 1\)\);[\s\S]*?touch-action: none;/);
+    expect(studioStyles).toMatch(/\.design-artboard-label\s*\{[\s\S]*?height: 34px;[\s\S]*?transform: scale\(var\(--canvas-zoom-inverse, 1\)\);[\s\S]*?touch-action: none;/);
     expect(studioStyles).toContain(".design-artboard-shell[data-moving='true'] {");
     expect(studioStyles).toContain('will-change: transform;');
   });

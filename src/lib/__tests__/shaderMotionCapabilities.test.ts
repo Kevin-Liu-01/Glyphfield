@@ -79,7 +79,7 @@ describe('shader motion capabilities', () => {
 
   it('keeps custom shader and Canvas2D time addressable without promising a repeat period', () => {
     for (const { id, engine } of LIVE_MATERIAL_OPTIONS) {
-      if (['Paper Shaders', 'ShaderGradient', 'WebGL Fluid'].includes(engine)) continue;
+      if (['Paper Shaders', 'ShaderGradient', 'WebGL Fluid', 'Shaders.com WebGPU'].includes(engine)) continue;
       expect(getShaderMotionCapabilities(id)).toMatchObject({
         provider: id === 'glyphfield-glyph-field' ? 'canvas2d' : 'custom-glsl',
         motionModel: 'direct-time',

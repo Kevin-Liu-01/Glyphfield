@@ -35,7 +35,7 @@ export default function ShaderFrameCaptureDiagnostics({ materialId, rootRef, res
         frozen = freezeLiveMaterialFrame(root, 1000);
         if (!frozen) throw new Error('Native shader capture is not ready.');
         capturedPixels = readShaderPixels(root);
-        const gl = frozen.state.engine === 'canvas2d' ? null
+        const gl = (frozen.state.engine === 'canvas2d' || frozen.state.engine === 'webgpu') ? null
           : frozen.canvas.getContext('webgl2') ?? frozen.canvas.getContext('webgl');
         return { state: frozen.state, presentation: frozen.presentation,
           drawingBufferPreserved: gl?.getContextAttributes()?.preserveDrawingBuffer ?? null,

@@ -1,3 +1,4 @@
+import { getShaderEffect, SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS_VERSION, SHADER_EFFECTS_SOURCE } from './shaderEffects';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
@@ -48,6 +49,7 @@ SHARED_SHADER_MATERIALS.forEach(({ engine }) => {
 
 export const AGENT_SHADER_LIBRARY = {
   categories: SHADER_LAB_CATEGORIES,
+  shaderEffects: { version: SHADER_EFFECTS_VERSION, source: SHADER_EFFECTS_SOURCE, license: 'MIT', components: SHADER_EFFECT_COMPONENTS.map(({ props, ...component }) => ({ ...component, controls: props })) },
   controls: {
     amplitude: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.amplitude, maximum: 8, minimum: 0, step: 0.1, type: 'number' },
     brightness: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.brightness, maximum: 2, minimum: 0.1, step: 0.05, type: 'number' },
@@ -73,6 +75,7 @@ export const AGENT_SHADER_LIBRARY = {
   materials: SHARED_SHADER_MATERIALS.map((material) => ({
     ...material,
     motion: getShaderMotionCapabilities(material.id),
+    ...(getShaderEffect(material.id) ? { nativeControls: getShaderEffect(material.id)!.props, settingsKey: 'effectProps', requiresWebGPU: true } : {}),
   })),
   framePersistence: {
     appearance: 'lossless-png-snapshot',

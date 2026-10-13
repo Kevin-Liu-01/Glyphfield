@@ -49,7 +49,7 @@ export type LiveMaterialPatternScalePreview = {
 
 export type LiveMaterialSettingsPreview = {
   channel: string;
-  settings: Record<string, number | string>;
+  settings: Partial<LiveMaterialSettings>;
 };
 
 export type LiveMaterialTimePreview = {
@@ -58,7 +58,7 @@ export type LiveMaterialTimePreview = {
 };
 
 export type LiveMaterialFrameState = {
-  engine: 'paper' | 'webgl' | 'canvas2d' | 'shadergradient' | 'fluid';
+  engine: 'paper' | 'webgl' | 'canvas2d' | 'shadergradient' | 'fluid' | 'webgpu';
   frame: number;
   timelineTimeMs: number;
   version: 1 | 2;
@@ -175,7 +175,7 @@ export function normalizeLiveMaterialFrameState(value: unknown): LiveMaterialFra
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as Partial<LiveMaterialFrameState>;
   if (
-    !['paper', 'webgl', 'canvas2d', 'shadergradient', 'fluid'].includes(candidate.engine ?? '')
+    !['paper', 'webgl', 'canvas2d', 'shadergradient', 'fluid', 'webgpu'].includes(candidate.engine ?? '')
     || (candidate.version !== 2 && !(candidate.version === 1 && candidate.engine === 'paper'))
     || !Number.isFinite(candidate.frame)
     || !Number.isFinite(candidate.timelineTimeMs)
@@ -230,7 +230,7 @@ export function previewLiveMaterialPatternScale(channel: string, value: number):
 
 export function previewLiveMaterialSettings(
   channel: string,
-  settings: Record<string, number | string>
+  settings: Partial<LiveMaterialSettings>
 ): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<LiveMaterialSettingsPreview>(

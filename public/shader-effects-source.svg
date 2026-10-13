@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="field" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#080b28"/><stop offset=".4" stop-color="#4937ad"/><stop offset=".7" stop-color="#e16683"/><stop offset="1" stop-color="#ffe1a8"/></linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#21184d"/><stop offset=".5" stop-color="#b49bea"/><stop offset="1" stop-color="#fff3da"/></linearGradient>
+  </defs>
+  <path fill="url(#field)" d="M0 0h1200v800H0z"/>
+  <path fill="url(#ribbon)" d="M-200 620C130 950 280 150 610 340S1040 360 1400-180L1400 30C1030 620 820 630 580 440S120 1100-200 860Z"/>
+</svg>

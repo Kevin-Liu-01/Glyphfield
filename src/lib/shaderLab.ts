@@ -1,3 +1,4 @@
+import { getShaderEffect, shaderEffectDefaults } from './shaderEffects';
 import type { CSSProperties } from 'react';
 
 import {
@@ -214,7 +215,7 @@ export function shaderLabSettingsFor(
   materialId: LiveMaterialId,
   current: LiveMaterialSettings
 ): LiveMaterialSettings {
-  return { ...current, ...MATERIAL_TUNING[materialId] };
+  return { ...current, effectProps: getShaderEffect(materialId) ? shaderEffectDefaults(materialId) : undefined, ...MATERIAL_TUNING[materialId] };
 }
 
 export function shaderPreviewCaptureSettings(

@@ -1,5 +1,8 @@
 'use client';
 
+import ShaderEffectsControls from './ShaderEffectsControls';
+import { getShaderEffect } from '@/lib/shaderEffects';
+
 import { T, useGT } from 'gt-next';
 import { useId } from 'react';
 import { ExternalLink } from '@/components/ui/SolidIcons';
@@ -196,6 +199,7 @@ export default function LiveMaterialControls({
         ) : null}
       </div> : null}
 
+      {getShaderEffect(materialId) ? <ShaderEffectsControls materialId={materialId} value={resolvedSettings.effectProps} onChange={(effectProps) => update({ effectProps })} /> : <>
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <div>
           <p className='text-sm font-medium'><T>Color system</T></p>
@@ -253,6 +257,7 @@ export default function LiveMaterialControls({
         </div>
       ) : null}
 
+      </>}
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <p className='text-sm font-medium'><T>Motion</T></p>
         <MaterialRange label={gt('Shader speed')} max={1.5} min={0} onChange={(speed) => update({ speed })} step={0.01} unit='×' value={resolvedSettings.speed} />

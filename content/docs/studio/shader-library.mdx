@@ -107,3 +107,33 @@ Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation co
 Design Lab's portable source preserves the material ID and settings inside shader elements and metadata, including layer opacity/blend, source assets, captured PNG assets, native frame state, transforms, and sequence timing. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source returned by the current tool as the authoritative schema for round trips.
 
 See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.
+
+## Native Shaders.com collection
+
+The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Search for **Shaders.com WebGPU**, an effect name, or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies.
+
+The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand. They require a browser and device with WebGPU enabled; an unavailable renderer reports an error and cannot be exported as though it rendered successfully.
+
+Each effect exposes its upstream settings, including colors, positions, numeric controls, switches, and choices. Surface materials such as Liquid Metal, Chrome, and Holographic default to **Full canvas**, fitting their native surface to any artboard aspect ratio without the upstream demo sphere. Edge-driven materials (Neon, Light Edge, Thin Film, and Obsidian) form diagonal bands across the canvas so their luminous edges stay visible. Choose **Shape** to edit the original geometry and placement. Shape primitives such as Circle and Star retain their intended shapes.
+
+Structured gradient stops, lights, and shapes can be edited in their structured fields. Filters and transitions use a live Shaders.com Flowing Gradient until you choose a **Source image**. Import a local PNG, JPEG, or WebP; that image is saved with the effect's editable source. Transition **Progress** is a native effect setting and can be edited independently of playback. The Image Texture component uses an abstract, full-area sample image by default.
+
+Settings persist under `settings.effectProps`, alongside the shared playback speed. `/api/materials` returns `nativeControls` for each material, including defaults, valid choices, and numeric ranges. The same endpoint accounts for every upstream component under `shaderEffects.components`: Group is covered by Design Lab groups; VideoTexture and WebcamTexture are media inputs rather than gallery materials; HTMLInCanvas requires an experimental browser DOM-capture API and is not offered as a supported material. Camera access is never requested merely by browsing the collection.
+
+For example, a deterministic `design-sequence` request can specify:
+
+```json
+{
+  "materialId": "shader-effects-aurora",
+  "settings": {
+    "speed": 0.3,
+    "effectProps": {
+      "intensity": 80,
+      "colorA": "#A533F8",
+      "colorB": "#22EE88"
+    }
+  }
+}
+```
+
+This is the `shader` portion of the request, not a standalone request body. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations depend on their accumulated state and pointer history, so a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.

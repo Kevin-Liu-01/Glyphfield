@@ -97,6 +97,15 @@ describe('planAgentGeneration', () => {
     expect(agentAssetPaths(plan)).toEqual(['/brands/gt/logos/mark-white.svg']);
   });
 
+  it('validates and preserves native Shaders.com props in generated recipes', () => {
+    const plan = planAgentGeneration({ kind: 'design-sequence', shader: {
+      materialId: 'shader-effects-aurora', settings: { effectProps: { intensity: 42, colorA: '#123456' } },
+    } });
+    expect(plan).toMatchObject({ shader: { materialId: 'shader-effects-aurora', settings: { effectProps: { intensity: 42, colorA: '#123456' } } } });
+    expect(() => planAgentGeneration({ kind: 'design-sequence', shader: { materialId: 'shader-effects-aurora', settings: { effectProps: { intensity: -500 } } } })).toThrow();
+    expect(() => planAgentGeneration({ kind: 'design-sequence', shader: { materialId: 'paper-gem-smoke', settings: { effectProps: { intensity: 42 } } } })).toThrow();
+  });
+
   it('rejects undocumented Design Lab materials and sequence bounds', () => {
     expect(() => planAgentGeneration({
       kind: 'design-sequence',

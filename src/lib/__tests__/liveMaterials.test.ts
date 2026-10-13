@@ -142,7 +142,7 @@ describe('live materials', () => {
     const paperMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Paper Shaders');
     expect(PAPER_SHADER_FAMILIES).toHaveLength(29);
     expect(paperMaterials).toHaveLength(120);
-    expect(LIVE_MATERIAL_OPTIONS).toHaveLength(142);
+    expect(LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine !== 'Shaders.com WebGPU')).toHaveLength(142);
     expect(paperMaterials.map(({ id }) => id)).toEqual(expect.arrayContaining(PAPER_LIVE_MATERIAL_IDS));
     expect(new Set(PAPER_LIVE_MATERIAL_IDS).size).toBe(PAPER_LIVE_MATERIAL_IDS.length);
     expect(new Set(paperMaterials.map(({ sourceUrl }) => sourceUrl))).toEqual(new Set([PAPER_SHADERS_SOURCE_URL]));

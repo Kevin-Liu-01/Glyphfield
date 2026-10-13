@@ -1,3 +1,4 @@
+import { validateShaderEffectProps } from './shaderEffects';
 import {
   buildBackgroundSvg,
   DEFAULT_BACKGROUND_SETTINGS,
@@ -377,6 +378,11 @@ function liveMaterialSettingsValue(
     type: string;
   }>;
   Object.entries(input).forEach(([key, value]) => {
+    if (key === 'effectProps') {
+      try { (output as unknown as LiveMaterialSettings).effectProps = validateShaderEffectProps(materialId, value); }
+      catch (error) { throw new AgentGenerationError(error instanceof Error ? error.message : 'Invalid effectProps.', 'shader.settings.effectProps'); }
+      return;
+    }
     const fallback = output[key];
     const control = controls[key];
     if (fallback === undefined || !control) {

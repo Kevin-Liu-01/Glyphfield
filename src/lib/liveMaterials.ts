@@ -1,3 +1,4 @@
+import { SHADER_EFFECTS, SHADER_EFFECTS_SOURCE, type ShaderEffectProps } from './shaderEffects';
 import type { BrandIdentity } from './brandIdentity';
 
 export const PAPER_SHADER_FAMILIES = [
@@ -84,9 +85,11 @@ export type LiveMaterialId =
   | 'study-orbit-gradient'
   | 'study-radiant-void'
   | 'study-galactic-rings'
+  | `shader-effects-${string}`
   | PaperLiveMaterialId;
 
 export type LiveMaterialSettings = {
+  effectProps?: ShaderEffectProps;
   amplitude: number;
   brightness: number;
   centerX: number;
@@ -107,7 +110,7 @@ export type LiveMaterialSettings = {
 
 export type LiveMaterialOption = {
   description: string;
-  engine: 'Holo material' | 'ShaderGradient' | 'Shaders.com study' | 'Glyphfield' | 'WebGL Fluid' | 'Paper Shaders' | 'Design study';
+  engine: 'Shaders.com WebGPU' | 'Holo material' | 'ShaderGradient' | 'Shaders.com study' | 'Glyphfield' | 'WebGL Fluid' | 'Paper Shaders' | 'Design study';
   id: LiveMaterialId;
   name: string;
   qualityScore: number;
@@ -437,6 +440,11 @@ const ALL_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
     qualityScore: 82,
   },
   ...PAPER_LIVE_MATERIAL_OPTIONS,
+  ...SHADER_EFFECTS.map((effect): LiveMaterialOption => ({
+    id: effect.id, name: effect.name, description: `${effect.description} · ${effect.category}`,
+    engine: 'Shaders.com WebGPU', qualityScore: 90,
+    sourceLabel: 'Shaders.com · MIT', sourceUrl: SHADER_EFFECTS_SOURCE,
+  })),
   {
     description: 'A live GPU dye field adapted from Pavel Dobryakov’s MIT-licensed WebGL Fluid Simulation.',
     engine: 'WebGL Fluid',
@@ -602,7 +610,7 @@ export function liveMaterialSourceName({
   engine,
   sourceLabel,
 }: Pick<LiveMaterialOption, 'engine' | 'sourceLabel'>): string {
-  if (engine === 'Shaders.com study') return 'Shaders.com';
+  if (engine === 'Shaders.com WebGPU' || engine === 'Shaders.com study') return 'Shaders.com';
   if (engine === 'WebGL Fluid') return 'WebGL';
   if (engine === 'Paper Shaders') return 'Paper';
   if (engine === 'Design study' && sourceLabel) return sourceLabel.split('·')[0]!.trim().replaceAll(' ', '');

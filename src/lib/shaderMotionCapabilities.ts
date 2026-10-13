@@ -1,3 +1,4 @@
+import { getShaderEffect } from './shaderEffects';
 import {
   getLiveMaterial,
   getPaperLiveMaterialDefinition,
@@ -7,7 +8,7 @@ import {
 } from './liveMaterials';
 
 export type ShaderMotionModel = 'static' | 'direct-time' | 'procedural' | 'stateful';
-export type ShaderMotionProvider = 'paper' | 'shadergradient' | 'canvas2d' | 'custom-glsl' | 'fluid';
+export type ShaderMotionProvider = 'paper' | 'shadergradient' | 'canvas2d' | 'custom-glsl' | 'fluid' | 'webgpu';
 
 export type ShaderLoopCapability =
   | Readonly<{ kind: 'static' }>
@@ -110,6 +111,12 @@ const PAPER_LOOP_CANDIDATES: Partial<Record<LiveMaterialId, ShaderLoopCapability
  */
 export function getShaderMotionCapabilities(materialId: LiveMaterialId): ShaderMotionCapabilities {
   const { id } = getLiveMaterial(materialId);
+
+  const effect = getShaderEffect(id);
+  if (effect) return {
+    materialId: id, provider: 'webgpu', motionModel: effect.stateful ? 'stateful' : 'procedural',
+    supportsPngSnapshot: true, supportsEditableSeek: !effect.stateful, loop: CONTINUOUS_LOOP,
+  };
 
   if (isPaperLiveMaterialId(id)) {
     const { family } = getPaperLiveMaterialDefinition(id);

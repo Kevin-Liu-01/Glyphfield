@@ -8,7 +8,7 @@ export interface ShaderPixels {
 export function readShaderPixels(root: HTMLElement): ShaderPixels {
   if (root.querySelector('[data-live-material-ready="error"]')) throw new Error('Shader renderer failed.');
   if (root.querySelector('[data-live-material-ready="false"]')) throw new Error('Shader renderer is not ready.');
-  const canvases = Array.from(root.querySelectorAll('canvas'));
+  const canvases = Array.from(root.querySelectorAll<HTMLCanvasElement>('canvas:not([data-shader-internal])'));
   if (canvases.length !== 1) throw new Error(`Expected one authentic shader canvas; found ${canvases.length}.`);
   const canvas = canvases[0]!;
   for (let element: HTMLElement | null = canvas; element; element = element.parentElement) {
