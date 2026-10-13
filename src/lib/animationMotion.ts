@@ -437,3 +437,17 @@ export const EASING_CHOICES: readonly { id: string; label: string; value: CubicB
 export function easingChoiceId(curve: CubicBezier): string {
   return EASING_CHOICES.find(({ value }) => value.every((entry, index) => Math.abs(entry - (curve[index] ?? 0)) < 1e-6))?.id ?? 'custom';
 }
+
+/**
+ * The first moment a scene reads as composed: after its text entrance and its
+ * last keyframe. Selecting a scene parks the playhead here so edits act on the
+ * visible pose rather than an empty entrance frame.
+ */
+export function sceneSettledTime(
+  frame: { keyframes?: readonly AnimationKeyframe[]; textAnimation?: TextAnimationSettings },
+  holdMs: number
+): number {
+  const entrance = textAnimationIsActive(frame.textAnimation) ? frame.textAnimation!.durationMs : 0;
+  const keyed = frame.keyframes?.length ? frame.keyframes[frame.keyframes.length - 1]!.atMs : 0;
+  return Math.max(0, Math.min(Math.max(0, holdMs - 1), Math.max(entrance, keyed)));
+}

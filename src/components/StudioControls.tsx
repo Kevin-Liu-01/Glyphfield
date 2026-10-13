@@ -756,53 +756,20 @@ function SelectedFrameContentControls({
   settings,
 }: SelectedFrameContentControlsProps) {
   const gt = useMotionGT();
+  const isText = selectedSource.kind === 'text';
   return (
     <>
-      {selectedSource.kind === 'text' ? (
-        <>
-          <label className='animation-layer-text-field'>
-            <span><T>Text</T></span>
-            <input
-              aria-label={gt('Selected layer text')}
-              onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
-              spellCheck={false}
-              type='text'
-              value={selectedSource.text}
-            />
-          </label>
-          <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2'>
-            <div className='studio-field'>
-              <span className='studio-field-label'><T>Anchor</T></span>
-              <StudioSelect
-                ariaLabel={gt('Text anchor')}
-                onValueChange={(value) => onFrameSettingsChange({ textAnchor: value === 'start' ? 'start' : undefined })}
-                options={[{ label: gt('Centre'), value: 'center' }, { label: gt('Leading edge'), value: 'start' }]}
-                value={frameSettings.textAnchor ?? 'center'}
-              />
-            </div>
-            <div className='studio-field'>
-              <span className='studio-field-label'><T>Caption</T></span>
-              <StudioSelect
-                ariaLabel={gt('Caption position')}
-                onValueChange={(position) => onFrameSettingsChange({ caption: { position: position as (typeof CAPTION_POSITIONS)[number], text: frameSettings.caption?.text ?? '' } })}
-                options={CAPTION_POSITIONS.map((position) => ({ label: gt(position.replace('-', ' ').replace(/^./, (first) => first.toUpperCase())), value: position }))}
-                value={frameSettings.caption?.position ?? 'top-left'}
-              />
-            </div>
-          </div>
-          <label className='animation-layer-text-field'>
-            <span><T>Caption text</T></span>
-            <input
-              aria-label={gt('Scene caption')}
-              maxLength={120}
-              onChange={(event) => onFrameSettingsChange({ caption: event.target.value ? { position: frameSettings.caption?.position ?? 'top-left', text: event.target.value } : undefined })}
-              placeholder={gt('Optional metadata line')}
-              spellCheck={false}
-              type='text'
-              value={frameSettings.caption?.text ?? ''}
-            />
-          </label>
-        </>
+      {isText ? (
+        <label className='animation-layer-text-field'>
+          <span><T>Text</T></span>
+          <input
+            aria-label={gt('Selected layer text')}
+            onChange={(event) => onTextSourceChange(selectedSource.id, event.target.value)}
+            spellCheck={false}
+            type='text'
+            value={selectedSource.text}
+          />
+        </label>
       ) : null}
       {motion && playhead ? (
         <>
@@ -826,18 +793,52 @@ function SelectedFrameContentControls({
           <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
         </>
       )}
-      {selectedSource.kind === 'text' ? (
-        <>
+      {isText ? (
+        <InspectorGroup title={<T>Type</T>}>
+          <div className='studio-field'>
+            <span className='studio-field-label'><T>Anchor</T></span>
+            <StudioSelect
+              ariaLabel={gt('Text anchor')}
+              onValueChange={(value) => onFrameSettingsChange({ textAnchor: value === 'start' ? 'start' : undefined })}
+              options={[{ label: gt('Centre'), value: 'center' }, { label: gt('Leading edge'), value: 'start' }]}
+              value={frameSettings.textAnchor ?? 'center'}
+            />
+          </div>
           <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
           <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
           <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Text color</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
-        </>
+        </InspectorGroup>
       ) : (
         <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
           <T>Image fit</T>
           <StudioSelect ariaLabel={gt('Image fit')} onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })} options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]} value={frameSettings.fit} />
         </div>
       )}
+      {isText ? (
+        <InspectorGroup description={<T>One small line of scene metadata in the brand's Code face, fixed to a corner of the safe area.</T>} title={<T>Caption</T>}>
+          <label className='animation-layer-text-field'>
+            <span><T>Caption text</T></span>
+            <input
+              aria-label={gt('Scene caption')}
+              maxLength={120}
+              onChange={(event) => onFrameSettingsChange({ caption: event.target.value ? { position: frameSettings.caption?.position ?? 'top-left', text: event.target.value } : undefined })}
+              placeholder={gt('Optional metadata line')}
+              spellCheck={false}
+              type='text'
+              value={frameSettings.caption?.text ?? ''}
+            />
+          </label>
+          <div className='studio-field'>
+            <span className='studio-field-label'><T>Position</T></span>
+            <StudioSelect
+              ariaLabel={gt('Caption position')}
+              onValueChange={(position) => onFrameSettingsChange({ caption: { position: position as (typeof CAPTION_POSITIONS)[number], text: frameSettings.caption?.text ?? '' } })}
+              options={CAPTION_POSITIONS.map((position) => ({ label: gt(position.replace('-', ' ').replace(/^./, (first) => first.toUpperCase())), value: position }))}
+              value={frameSettings.caption?.position ?? 'top-left'}
+            />
+          </div>
+        </InspectorGroup>
+      ) : null}
       {motion && playhead ? (
         <SelectedFrameMotionControls
           frameSettings={frameSettings}

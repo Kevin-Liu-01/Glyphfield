@@ -160,7 +160,8 @@ export function AnimationPoseControls({
   const keyed = Boolean(keyframes?.length);
   const sceneTime = useSceneTime({ ...playhead, enabled: keyed && following });
   const pose = resolveKeyframePose(frameSettings, keyframes, sceneTime);
-  const onKey = keyed && keyframes!.some((keyframe) => Math.abs(keyframe.atMs - sceneTime) < 1);
+  // Matches the editor's keyframe snap: edits within a frame update that keyframe.
+  const onKey = keyed && keyframes!.some((keyframe) => Math.abs(keyframe.atMs - sceneTime) <= 25);
   return (
     <div className='flex flex-col gap-4' data-animation-pose-controls={keyed ? 'keyed' : 'static'}>
       {keyed ? (
@@ -263,7 +264,7 @@ export function AnimationTextEntranceControls({
   return (
     <div className='flex flex-col gap-3'>
       <div className='studio-field'>
-        <span className='studio-field-label'><T>Text entrance</T></span>
+        <span className='studio-field-label'><T>Preset</T></span>
         <StudioSelect
           ariaLabel={gt('Text entrance')}
           onValueChange={(value) => update({ preset: value as TextAnimationPreset })}

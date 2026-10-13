@@ -76,6 +76,7 @@ import {
 import {
   isMotionPresetId,
   motionPresetKeyframes,
+  sceneSettledTime,
   normalizeSceneMotion,
   poseFromFrame,
   resolveKeyframePose,
@@ -3123,14 +3124,21 @@ function AnimationStudio({
     return file;
   }
 
+  /** Master time where a scene reads as composed (after its entrance and last keyframe). */
+  function settledSceneTime(id: string): number {
+    const index = Math.max(0, sourcesRef.current.findIndex((source) => source.id === id));
+    const source = sourcesRef.current[index];
+    const start = sequenceSceneTime(layoutRef.current, index);
+    return source ? start + sceneSettledTime(source, layoutRef.current.holds[index] ?? 0) : start;
+  }
+
   function selectSource(id: string) {
     if (exportJobRef.current) return;
     setSelectedTransitionIndex(null);
     setSelectedSourceId(id);
     setSelectedEffectTarget('content');
     changePlaying(false);
-    const index = sources.findIndex((source) => source.id === id);
-    seek(sequenceSceneTime(sequenceLayout, Math.max(0, index)));
+    seek(settledSceneTime(id));
   }
 
   function selectSourceBackground(id: string) {
@@ -3140,8 +3148,7 @@ function AnimationStudio({
     setSelectedEffectTarget('background');
     setBackgroundEditScope('frame');
     changePlaying(false);
-    const index = sources.findIndex((source) => source.id === id);
-    seek(sequenceSceneTime(sequenceLayout, Math.max(0, index)));
+    seek(settledSceneTime(id));
   }
 
   function selectTransition(index: number) {

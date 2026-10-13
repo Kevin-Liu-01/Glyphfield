@@ -349,7 +349,10 @@ function AnimationTimelinePreview({
       if (canvas.height !== renderHeight) canvas.height = renderHeight;
       const context = canvas.getContext('2d');
       if (!context) return;
-      const scale = Math.min(canvas.width / logicalWidth, canvas.height / logicalHeight);
+      // Storyboard cards crop to fill; tooltips and the inspector show the whole frame.
+      const scale = layout === 'timeline'
+        ? Math.max(canvas.width / logicalWidth, canvas.height / logicalHeight)
+        : Math.min(canvas.width / logicalWidth, canvas.height / logicalHeight);
       const offsetX = (canvas.width - logicalWidth * scale) / 2;
       const offsetY = (canvas.height - logicalHeight * scale) / 2;
       context.clearRect(0, 0, canvas.width, canvas.height);

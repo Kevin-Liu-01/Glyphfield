@@ -437,8 +437,9 @@ function TimelinePanel({
                       data-studio-context-trigger='timeline-frame'
                       data-selected={selected ? 'true' : 'false'}
                       onClick={() => {
+                        // The host parks the playhead where the scene reads as composed.
                         onSelectSource(source.id);
-                        seekAndSync(sceneStart(index));
+                        follow(sceneStart(index), true);
                       }}
                       onContextMenu={(event) => {
                         event.preventDefault();
@@ -496,7 +497,7 @@ function TimelinePanel({
                             {String(index + 1).padStart(2, '0')}→{String((index + 1) % sources.length + 1).padStart(2, '0')}
                           </b>
                           <strong>{packagePresentation.label}</strong>
-                          <small>{Math.round(transitionMs)}ms</small>
+                          {(transitionMs / 1000) * pixelsPerSecond >= 96 ? <small>{Math.round(transitionMs)}ms</small> : null}
                         </span>
                       </button>
                     </StudioPreviewTooltip>
