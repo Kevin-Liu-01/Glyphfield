@@ -102,24 +102,12 @@ export function brandLogoFileName(asset: { id: string; path: string }): string {
   return `logos/${brandTokenName(asset.id)}.${extensionFor(asset.path)}`;
 }
 
-/** Guidelines for coding agents: how to use the brand in code and in copy. */
-export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
-  const contrast = brandContrastResults(identity);
-  const report = auditBrandHealth(identity);
-  const scale = brandTypeScale(identity);
-  const included = new Set(brandKitIncludedFonts(identity).map(({ id }) => id));
-  const fonts = brandFontAssets(identity).filter((font) => identity.typography.some(({ fontId }) => fontId === font.id));
-  const examples = identity.voice.examples ?? [];
-  const sections = [
-    `# ${identity.name} brand guidelines`,
-    `> For coding agents and contributors. Exported by Glyphfield from project \`${identity.id}\`. Brand health ${report.score}/100 (${report.grade}). Tokens live in \`tokens/\`; logos in \`logos/\`.`,
-    identity.tagline ? `**${identity.tagline}**` : '',
-    identity.positioning,
-    identity.mission ? `Mission: ${identity.mission}` : '',
+function rulesSection(identity: BrandIdentity): string[] {
+  return [
     '## Rules for every change',
     bullets([
       'Use the tokens in `tokens/brand.css` (or `tokens/tailwind.css`) instead of raw hex values, font names or pixel sizes.',
-      `Text and backgrounds use the approved pairs below; never place text on a pair that fails ${'WCAG AA'}.`,
+      'Text and backgrounds use the approved pairs below; never place text on a pair that fails WCAG AA.',
       ...(identity.colors.some((color) => typeof color.proportion === 'number')
         ? ['Keep the palette in proportion: the dominant field stays dominant and the accent stays rare.']
         : []),
@@ -127,12 +115,24 @@ export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
       ...identity.graphicSystem.rules,
       ...identity.dossier.prohibited.map((rule) => (/^(no|never|do not|don't)\b/i.test(rule) ? rule : `Avoid: ${rule}`)),
     ]),
+  ];
+}
+
+function voiceSection(identity: BrandIdentity): string[] {
+  const examples = identity.voice.examples ?? [];
+  return [
     '## Voice and copy',
     identity.voice.principles.length ? `Principles: ${identity.voice.principles.join(' · ')}.` : '',
     identity.strategy.personality.length ? `Personality: ${identity.strategy.personality.join(', ')}.` : '',
     identity.voice.phrases.length ? `Approved phrases:\n\n${bullets(identity.voice.phrases.map((phrase) => `“${phrase}”`))}` : '',
     identity.voice.avoid.length ? `Avoid:\n\n${bullets(identity.voice.avoid)}` : '',
     examples.length ? table(['Context', 'Write', 'Avoid'], examples.map((example) => [example.context, example.write, example.avoid || '—'])) : '',
+  ];
+}
+
+function colorSection(identity: BrandIdentity): string[] {
+  const contrast = brandContrastResults(identity);
+  return [
     '## Color',
     table(['Token', 'Hex', 'Name', 'Role', 'Share'], identity.colors.map((color) => [
       `\`--brand-color-${color.id}\``,
@@ -149,6 +149,15 @@ export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
       pair.passes ? `${pair.level} pass` : `${pair.level} FAIL`,
     ]))}` : '',
     identity.dossier.color,
+  ];
+}
+
+function typographySection(identity: BrandIdentity): string[] {
+  const scale = brandTypeScale(identity);
+  const included = new Set(brandKitIncludedFonts(identity).map(({ id }) => id));
+  const fonts = brandFontAssets(identity).filter((font) => identity.typography.some(({ fontId }) => fontId === font.id));
+  const fontLine = (font: BrandFontAsset) => `${font.label} (${font.format})${font.license ? ` — ${font.license}` : ''}${included.has(font.id) ? ` → \`${fontFileName(font)}\`` : ' — not included; use your licensed copy'}`;
+  return [
     '## Typography',
     table(['Role', 'Family', 'Weight', 'Line height', 'Tracking', 'Size token', 'Use'], ROLES.map((role) => {
       const typography = brandTypographyRole(identity, role);
@@ -163,21 +172,41 @@ export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
       ];
     })),
     `Type scale: ${identity.typeScale?.basePx ?? 16}px base × ${identity.typeScale?.ratio ?? 1.25} — ${scale.map(({ name, px }) => `${name} ${px}px`).join(', ')}.`,
-    fonts.length ? `Font files:\n\n${bullets(fonts.map((font) => `${font.label} (${font.format})${font.license ? ` — ${font.license}` : ''}${included.has(font.id) ? ` → \`${fontFileName(font)}\`` : ' — not included; use your licensed copy'}`))}` : '',
+    fonts.length ? `Font files:\n\n${bullets(fonts.map(fontLine))}` : '',
     identity.dossier.typography,
+  ];
+}
+
+function logoSection(identity: BrandIdentity): string[] {
+  const surfaceLabel = (surface: string) => (surface === 'light' ? 'light surfaces' : surface === 'dark' ? 'dark surfaces' : 'any surface');
+  return [
     '## Logos',
     logoAssets(identity).length
-      ? table(['File', 'Use on', 'Label'], logoAssets(identity).map((asset) => [`\`${brandLogoFileName(asset)}\``, asset.surface === 'light' ? 'light surfaces' : asset.surface === 'dark' ? 'dark surfaces' : 'any surface', asset.label]))
+      ? table(['File', 'Use on', 'Label'], logoAssets(identity).map((asset) => [`\`${brandLogoFileName(asset)}\``, surfaceLabel(asset.surface), asset.label]))
       : 'No logo files are defined yet.',
     identity.dossier.logo,
+  ];
+}
+
+function deviceSection(identity: BrandIdentity): string[] {
+  const { graphicSystem } = identity;
+  return [
     '## Graphic device and imagery',
-    identity.graphicSystem.device ? `**${identity.graphicSystem.device}.** ${identity.graphicSystem.description}` : '',
-    identity.graphicSystem.composition,
-    identity.graphicSystem.imageDirection ? `Imagery: ${identity.graphicSystem.imageDirection}` : '',
+    graphicSystem.device ? `**${graphicSystem.device}.** ${graphicSystem.description}` : '',
+    graphicSystem.composition,
+    graphicSystem.imageDirection ? `Imagery: ${graphicSystem.imageDirection}` : '',
     identity.motion.length ? `Motion:\n\n${bullets(identity.motion.map((motion) => `${motion.name} — ${motion.durationMs}ms, \`${motion.curve}\`. ${motion.description}`))}` : '',
-    '## Using the brand in code',
-    '```css\n@import "./tokens/brand.css";\n\nbody {\n  background: var(--brand-color-paper);\n  color: var(--brand-color-ink);\n  font: var(--brand-font-body-weight) var(--brand-text-body) / var(--brand-font-body-leading) var(--brand-font-body);\n}\n\nh1 {\n  font-family: var(--brand-font-display);\n  font-size: var(--brand-text-display);\n  font-weight: var(--brand-font-display-weight);\n  line-height: var(--brand-font-display-leading);\n  letter-spacing: var(--brand-font-display-tracking);\n}\n```',
-    'With Tailwind CSS v4, `@import "./tokens/tailwind.css";` after `@import "tailwindcss";` and use classes such as `bg-paper text-ink font-display text-display rounded-brand`.',
+  ];
+}
+
+const CODE_SECTION = [
+  '## Using the brand in code',
+  '```css\n@import "./tokens/brand.css";\n\nbody {\n  background: var(--brand-color-paper);\n  color: var(--brand-color-ink);\n  font: var(--brand-font-body-weight) var(--brand-text-body) / var(--brand-font-body-leading) var(--brand-font-body);\n}\n\nh1 {\n  font-family: var(--brand-font-display);\n  font-size: var(--brand-text-display);\n  font-weight: var(--brand-font-display-weight);\n  line-height: var(--brand-font-display-leading);\n  letter-spacing: var(--brand-font-display-tracking);\n}\n```',
+  'With Tailwind CSS v4, `@import "./tokens/tailwind.css";` after `@import "tailwindcss";` and use classes such as `bg-paper text-ink font-display text-display rounded-brand`.',
+];
+
+function strategySection(identity: BrandIdentity): string[] {
+  return [
     '## Strategy',
     table(['', ''], [
       ['Challenge', identity.strategy.challenge],
@@ -191,14 +220,38 @@ export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
     identity.audiences.length ? `Audiences: ${identity.audiences.join(', ')}.` : '',
     identity.proof.length ? `Proof (use only as published): ${identity.proof.join(', ')}.` : '',
     identity.applications.length ? `## Applications\n\n${table(['Application', 'Format', 'Intent'], identity.applications.map((item) => [item.name, item.format, item.description]))}` : '',
-    '## Before you ship',
-    bullets([
-      'Colors come from tokens and every text pair passes WCAG AA.',
-      'Headlines use the Display role; body copy uses the Body role at the body step or larger.',
-      'Copy follows the voice principles and avoids the listed words.',
-      'Logos are untouched files from `logos/` on the surface they were made for.',
-      'Claims, metrics and customer names match the brand\'s published sources.',
-    ]),
+  ];
+}
+
+const CHECKLIST_SECTION = [
+  '## Before you ship',
+  bullets([
+    'Colors come from tokens and every text pair passes WCAG AA.',
+    'Headlines use the Display role; body copy uses the Body role at the body step or larger.',
+    'Copy follows the voice principles and avoids the listed words.',
+    'Logos are untouched files from `logos/` on the surface they were made for.',
+    'Claims, metrics and customer names match the brand\'s published sources.',
+  ]),
+];
+
+/** Guidelines for coding agents: how to use the brand in code and in copy. */
+export function brandGuidelinesMarkdown(identity: BrandIdentity): string {
+  const report = auditBrandHealth(identity);
+  const sections = [
+    `# ${identity.name} brand guidelines`,
+    `> For coding agents and contributors. Exported by Glyphfield from project \`${identity.id}\`. Brand health ${report.score}/100 (${report.grade}). Tokens live in \`tokens/\`; logos in \`logos/\`.`,
+    identity.tagline ? `**${identity.tagline}**` : '',
+    identity.positioning,
+    identity.mission ? `Mission: ${identity.mission}` : '',
+    ...rulesSection(identity),
+    ...voiceSection(identity),
+    ...colorSection(identity),
+    ...typographySection(identity),
+    ...logoSection(identity),
+    ...deviceSection(identity),
+    ...CODE_SECTION,
+    ...strategySection(identity),
+    ...CHECKLIST_SECTION,
     identity.sourceNotes.length ? `## Sources\n\n${bullets(identity.sourceNotes)}` : '',
   ];
   return `${sections.filter((section) => section.trim()).join('\n\n')}\n`;

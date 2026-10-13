@@ -102,39 +102,53 @@ function replaceById<T extends { id: string }>(items: readonly T[], next: T): T[
 
 export type BrandAssetAddResult = { asset: BrandAsset; identity: BrandIdentity };
 
+function optionalTags(input: Input, action: string): string[] | undefined {
+  const tags = input.tags;
+  if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === 'string'))) {
+    throw new TypeError(`${action} tags must be an array of strings.`);
+  }
+  return tags as string[] | undefined;
+}
+
+function withoutEmpty<T extends object>(record: T): T {
+  return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined && value !== '')) as T;
+}
+
+function assetFromInput(identity: BrandIdentity, input: Input, path: string, fallbackName: string): BrandAsset {
+  const action = 'identity.asset.add';
+  const slot = optionalEnum(input, 'slot', BRAND_LOGO_SLOTS.map(({ id }) => id) as BrandLogoSlot[], action);
+  const slotRecord = BRAND_LOGO_SLOTS.find(({ id }) => id === slot);
+  const type = optionalEnum(input, 'type', ASSET_TYPES, action) ?? (slot ? 'logo' : 'image');
+  const label = optionalString(input, 'label', action, 200)
+    || (slotRecord ? `${identity.name} ${slotRecord.label.toLocaleLowerCase()}` : fallbackName);
+  const usage = optionalString(input, 'usage', action)
+    || (slotRecord ? `${slotRecord.label} in every Glyphfield application.` : 'Reusable brand artwork');
+  return withoutEmpty({
+    alt: optionalString(input, 'alt', action, 400) || label,
+    id: optionalString(input, 'id', action, 120) || slot || newId('asset'),
+    label,
+    license: optionalString(input, 'license', action, 400),
+    path,
+    redistribution: optionalEnum(input, 'redistribution', REDISTRIBUTION, action) ?? 'original',
+    sourceOwner: optionalString(input, 'sourceOwner', action, 200),
+    sourceUrl: optionalString(input, 'sourceUrl', action, 2_000),
+    surface: optionalEnum(input, 'surface', ['light', 'dark', 'any'] as const, action) ?? slotRecord?.surface ?? 'any',
+    tags: optionalTags(input, action) ?? [type],
+    type,
+    usage,
+  });
+}
+
 /** Add or replace an image asset from a File. A logo `slot` replaces that slot in place. */
 export async function addBrandAssetFromFile(identity: BrandIdentity, rawInput: unknown): Promise<BrandAssetAddResult> {
   const action = 'identity.asset.add';
   const input = inputRecord(rawInput, action, "{ file, slot: 'mark-dark' }");
   const file = requireFile(input, action);
-  const slot = optionalEnum(input, 'slot', BRAND_LOGO_SLOTS.map(({ id }) => id) as BrandLogoSlot[], action);
-  const slotRecord = BRAND_LOGO_SLOTS.find(({ id }) => id === slot);
-  const type = optionalEnum(input, 'type', ASSET_TYPES, action) ?? (slot ? 'logo' : 'image');
-  const tags = input.tags;
-  if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === 'string'))) {
-    throw new TypeError(`${action} tags must be an array of strings.`);
-  }
+  // Validate every option before decoding the file so bad input fails fast.
+  assetFromInput(identity, input, '/', file.name);
   const image = await readEmbeddedImageFile(file);
-  const label = optionalString(input, 'label', action, 200)
-    || (slotRecord ? `${identity.name} ${slotRecord.label.toLocaleLowerCase()}` : image.name);
-  const asset: BrandAsset = {
-    alt: optionalString(input, 'alt', action, 400) || label,
-    id: optionalString(input, 'id', action, 120) || slot || newId('asset'),
-    label,
-    license: optionalString(input, 'license', action, 400),
-    path: image.source,
-    redistribution: optionalEnum(input, 'redistribution', REDISTRIBUTION, action) ?? 'original',
-    sourceOwner: optionalString(input, 'sourceOwner', action, 200),
-    sourceUrl: optionalString(input, 'sourceUrl', action, 2_000),
-    surface: optionalEnum(input, 'surface', ['light', 'dark', 'any'] as const, action) ?? slotRecord?.surface ?? 'any',
-    tags: (tags as string[] | undefined) ?? [type],
-    type,
-    usage: optionalString(input, 'usage', action) || (slotRecord ? `${slotRecord.label} in every Glyphfield application.` : 'Reusable brand artwork'),
-  };
-  Object.keys(asset).forEach((key) => {
-    if (asset[key as keyof BrandAsset] === undefined || asset[key as keyof BrandAsset] === '') delete asset[key as keyof BrandAsset];
-  });
-  const collection = type === 'proof' ? 'proofAssets' : 'assets';
+  const asset = assetFromInput(identity, input, image.source, image.name);
+  const collection = asset.type === 'proof' ? 'proofAssets' : 'assets';
   assertValid({ [collection]: [asset] });
   const other = collection === 'assets' ? identity.proofAssets : identity.assets;
   if (other.some(({ id }) => id === asset.id)) {
@@ -181,6 +195,38 @@ function weightFromFileName(fileName: string): number {
 
 export type BrandFontAddResult = { font: BrandFontAsset; identity: BrandIdentity };
 
+function fontExtension(format: BrandFontAsset['format']): string {
+  if (format === 'opentype') return 'otf';
+  if (format === 'truetype') return 'ttf';
+  return format;
+}
+
+function fontWeights(input: Input, fileName: string): Pick<BrandFontAsset, 'weight' | 'weightMax' | 'weightMin'> {
+  const action = 'identity.font.add';
+  const variable = /variable|\[wght/i.test(fileName);
+  const weightMin = optionalNumber(input, 'weightMin', action, 1, 1000) ?? (variable ? 100 : undefined);
+  const weightMax = optionalNumber(input, 'weightMax', action, 1, 1000) ?? (variable ? 900 : undefined);
+  const weight = optionalNumber(input, 'weight', action, 1, 1000) ?? (variable ? 400 : weightFromFileName(fileName));
+  return weightMin !== undefined && weightMax !== undefined ? { weight, weightMax, weightMin } : { weight };
+}
+
+function fontRoles(input: Input): Set<BrandTypography['role']> {
+  const roles = input.roles;
+  if (roles !== undefined && (!Array.isArray(roles) || !roles.every((role) => ROLES.includes(role as BrandTypography['role'])))) {
+    throw new TypeError(`identity.font.add roles must be an array of ${ROLES.join(', ')}.`);
+  }
+  return new Set((roles as BrandTypography['role'][] | undefined) ?? []);
+}
+
+function assignFontRoles(identity: BrandIdentity, font: BrandFontAsset, assigned: ReadonlySet<BrandTypography['role']>): BrandTypography[] {
+  const typography = ROLES.flatMap((role) => {
+    const current = identity.typography.find((candidate) => candidate.role === role);
+    if (!assigned.has(role)) return current ? [current] : [];
+    return [{ ...(current ?? { role, usage: `${role} typography` }), family: font.family, fontId: font.id }];
+  });
+  return [...typography, ...identity.typography.filter(({ role }) => !ROLES.includes(role))];
+}
+
 /** Store a font file with the identity and optionally assign it to typography roles. */
 export async function addBrandFontFromFile(identity: BrandIdentity, rawInput: unknown): Promise<BrandFontAddResult> {
   const action = 'identity.font.add';
@@ -189,42 +235,28 @@ export async function addBrandFontFromFile(identity: BrandIdentity, rawInput: un
   if (file.size > MAX_BRAND_FONT_BYTES) {
     throw new TypeError(`${action}: keep font files under 2.5 MB so the identity stays portable; subset to Latin woff2 first.`);
   }
+  const roles = fontRoles(input);
   const bytes = new Uint8Array(await file.arrayBuffer());
   const format = detectFontFormat(bytes);
   if (!format) throw new TypeError(`${action}: ${file.name || 'this file'} is not a TTF, OTF, WOFF or WOFF2 font.`);
-  const roles = input.roles;
-  if (roles !== undefined && (!Array.isArray(roles) || !roles.every((role) => ROLES.includes(role as BrandTypography['role'])))) {
-    throw new TypeError(`${action} roles must be an array of ${ROLES.join(', ')}.`);
-  }
-  const variable = /variable|\[wght/i.test(file.name);
-  const weightMin = optionalNumber(input, 'weightMin', action, 1, 1000) ?? (variable ? 100 : undefined);
-  const weightMax = optionalNumber(input, 'weightMax', action, 1, 1000) ?? (variable ? 900 : undefined);
   const family = optionalString(input, 'family', action, 80) || familyFromFontFileName(file.name);
-  const weight = optionalNumber(input, 'weight', action, 1, 1000) ?? (variable ? 400 : weightFromFileName(file.name));
-  const mime = `font/${format === 'opentype' ? 'otf' : format === 'truetype' ? 'ttf' : format}`;
-  const font: BrandFontAsset = {
+  const font: BrandFontAsset = withoutEmpty({
     family,
-    fileName: file.name || `${family}.${format === 'opentype' ? 'otf' : format === 'truetype' ? 'ttf' : format}`,
+    fileName: file.name || `${family}.${fontExtension(format)}`,
     format,
     id: optionalString(input, 'id', action, 120) || newId('font'),
     label: optionalString(input, 'label', action, 120) || family,
-    ...(optionalString(input, 'license', action, 400) ? { license: optionalString(input, 'license', action, 400) } : {}),
-    path: await blobToDataUrl(new Blob([bytes], { type: mime })),
-    ...(optionalString(input, 'sourceUrl', action, 2_000) ? { sourceUrl: optionalString(input, 'sourceUrl', action, 2_000) } : {}),
+    license: optionalString(input, 'license', action, 400),
+    path: await blobToDataUrl(new Blob([bytes], { type: `font/${fontExtension(format)}` })),
+    sourceUrl: optionalString(input, 'sourceUrl', action, 2_000),
     style: optionalEnum(input, 'style', ['italic', 'normal'] as const, action) ?? (/italic|oblique/i.test(file.name) ? 'italic' : 'normal'),
-    weight,
-    ...(weightMin !== undefined && weightMax !== undefined ? { weightMax, weightMin } : {}),
-  };
-  assertValid({ fonts: [font] });
-  const fonts = replaceById(brandFontAssets(identity), font);
-  const assigned = new Set((roles as BrandTypography['role'][] | undefined) ?? []);
-  const typography = ROLES.flatMap((role) => {
-    const current = identity.typography.find((candidate) => candidate.role === role);
-    if (!assigned.has(role)) return current ? [current] : [];
-    return [{ ...(current ?? { role, usage: `${role} typography` }), family: font.family, fontId: font.id }];
+    ...fontWeights(input, file.name),
   });
-  const extra = identity.typography.filter(({ role }) => !ROLES.includes(role));
-  return { font, identity: { ...identity, fonts, typography: [...typography, ...extra] } };
+  assertValid({ fonts: [font] });
+  return {
+    font,
+    identity: { ...identity, fonts: replaceById(brandFontAssets(identity), font), typography: assignFontRoles(identity, font, roles) },
+  };
 }
 
 export type BrandApplyInput = {

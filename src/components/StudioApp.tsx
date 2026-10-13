@@ -795,6 +795,7 @@ export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
               hasPendingChanges={hasPendingIdentityChanges}
               identity={activeIdentity}
               onChange={onIdentityChange}
+              onSave={onIdentitySave}
               tool={activeTool}
             />
           ) : (

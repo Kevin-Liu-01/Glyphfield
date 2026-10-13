@@ -657,6 +657,42 @@ function validateRemoval(remove: unknown, issues: BrandSourceIssue[]): BrandSour
   return output;
 }
 
+function lockedFieldWarnings(current: BrandIdentity, candidate: Record<string, unknown>, issues: BrandSourceIssue[]) {
+  for (const field of LOCKED_FIELDS) {
+    const value = candidate[field];
+    const currentValue = current[field];
+    if (value !== undefined && value !== currentValue) {
+      issue(issues, 'locked', field, `${field} is managed by Glyphfield; kept ${describeValue(currentValue)}.`, 'warning');
+    }
+  }
+}
+
+function removeRecords(merged: Record<string, unknown>, removal: BrandSourceRemoval, issues: BrandSourceIssue[]): Record<string, unknown> {
+  let next = merged;
+  for (const [collection, ids] of Object.entries(removal) as [RemovableCollection, readonly string[]][]) {
+    const items = Array.isArray(next[collection]) ? next[collection] as unknown[] : [];
+    const missing = ids.filter((id) => !items.some((item) => isRecord(item) && item.id === id));
+    missing.forEach((id) => issue(issues, 'reference', `remove.${collection}`, `remove.${collection} "${id}" does not match any ${collection}[].id.`, 'warning'));
+    next = { ...next, [collection]: items.filter((item) => !(isRecord(item) && typeof item.id === 'string' && ids.includes(item.id))) };
+  }
+  return next;
+}
+
+function restoreLockedFields(merged: Record<string, unknown>, base: Record<string, unknown>) {
+  for (const field of LOCKED_FIELDS) {
+    if (base[field] === undefined) delete merged[field];
+    else merged[field] = base[field];
+  }
+}
+
+function addMergedErrors(merged: Record<string, unknown>, issues: BrandSourceIssue[]) {
+  // Patch warnings already cover unknown fields the caller sent; add merged errors and references.
+  for (const candidate of validateBrandIdentitySource(merged, 'full').issues) {
+    if (candidate.severity !== 'error' && candidate.code !== 'reference') continue;
+    if (!issues.some(({ message }) => message === candidate.message)) issues.push(candidate);
+  }
+}
+
 /**
  * Validate and apply identity source to the active identity. Locked project
  * fields keep their current values, unknown fields are kept, and record IDs are
@@ -677,39 +713,20 @@ export function applyBrandIdentitySource(
   const candidate = mode === 'replace' && isRecord(input) && input.id === undefined
     ? { ...input, id: current.id }
     : input;
-  const patchCheck = validateBrandIdentitySource(candidate, mode === 'replace' ? 'full' : 'patch');
-  issues.push(...patchCheck.issues);
+  issues.push(...validateBrandIdentitySource(candidate, mode === 'replace' ? 'full' : 'patch').issues);
   if (issues.some(({ severity }) => severity === 'error') || !isRecord(candidate)) {
     throw new BrandSourceValidationError(issues);
   }
-
-  for (const field of LOCKED_FIELDS) {
-    const value = candidate[field];
-    const currentValue = current[field];
-    if (value !== undefined && value !== currentValue) {
-      issue(issues, 'locked', field, `${field} is managed by Glyphfield; kept ${describeValue(currentValue)}.`, 'warning');
-    }
-  }
+  lockedFieldWarnings(current, candidate, issues);
 
   const base = current as unknown as Record<string, unknown>;
-  let merged = mode === 'replace' ? { ...candidate } : mergeObject(IDENTITY_SPEC, base, candidate);
-  for (const [collection, ids] of Object.entries(removal) as [RemovableCollection, readonly string[]][]) {
-    const items = Array.isArray(merged[collection]) ? merged[collection] as unknown[] : [];
-    const missing = ids.filter((id) => !items.some((item) => isRecord(item) && item.id === id));
-    missing.forEach((id) => issue(issues, 'reference', `remove.${collection}`, `remove.${collection} "${id}" does not match any ${collection}[].id.`, 'warning'));
-    merged = { ...merged, [collection]: items.filter((item) => !(isRecord(item) && typeof item.id === 'string' && ids.includes(item.id))) };
-  }
-  for (const field of LOCKED_FIELDS) {
-    if (base[field] === undefined) delete merged[field];
-    else merged[field] = base[field];
-  }
-
-  const mergedCheck = validateBrandIdentitySource(merged, 'full');
-  // Patch warnings already cover unknown fields the caller sent; repeat only merged errors.
-  const mergedIssues = mergedCheck.issues.filter(({ code, severity }) => severity === 'error' || code === 'reference');
-  for (const candidate of mergedIssues) {
-    if (!issues.some(({ message }) => message === candidate.message)) issues.push(candidate);
-  }
+  const merged = removeRecords(
+    mode === 'replace' ? { ...candidate } : mergeObject(IDENTITY_SPEC, base, candidate),
+    removal,
+    issues
+  );
+  restoreLockedFields(merged, base);
+  addMergedErrors(merged, issues);
   if (issues.some(({ severity }) => severity === 'error')) throw new BrandSourceValidationError(issues);
 
   const normalized = normalizeBrandIdentity(merged as unknown as BrandIdentity);

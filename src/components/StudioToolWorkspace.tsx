@@ -3955,7 +3955,7 @@ function StudioToolWorkspace({
     buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
     colors: <ColorTool identity={identity} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
-    identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} tool={tool} />,
+    identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} onSave={onIdentitySave} tool={tool} />,
     material: <MaterialTool active={active} identity={identity} onIdentitySave={onIdentitySave} tool={tool} />,
     opengraph: <OpenGraphTool key={`${identity.id}:${tool.id}`} identity={identity} tool={tool} />,
     partnership: <TemplateTool identity={identity} kind='partnership' tool={tool} />,
