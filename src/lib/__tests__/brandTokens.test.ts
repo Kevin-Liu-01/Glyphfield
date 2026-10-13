@@ -4,6 +4,7 @@ import { BUILT_IN_BRAND_IDENTITIES, createBrandIdentity } from '../brandIdentity
 import {
   BRAND_TYPE_STEPS,
   brandCssVariables,
+  brandRoleTypeStep,
   brandDesignTokens,
   brandFontStack,
   brandTailwindTheme,
@@ -82,6 +83,51 @@ describe('CSS serializers', () => {
     expect(theme).toContain('  --font-code: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;');
     expect(theme).toMatch(/--text-display: [\d.]+rem;\n {2}--text-display--line-height: [\d.]+;/);
     expect(theme).toContain('--radius-brand: 6px;');
+  });
+});
+
+describe('colour system and type extensions', () => {
+  it('emits OKLCH scales and semantic light and dark roles in every format', () => {
+    const css = brandCssVariables(identity);
+    expect(css).toMatch(/--brand-color-ink-50: #[\dA-F]{6}; \/\* oklch\(/);
+    expect(css).toContain('--brand-primary: #C6FF3D; /* emphasis */');
+    expect(css).toContain('@media (prefers-color-scheme: dark) {');
+    expect(css).toContain(':root[data-theme="dark"],\n.dark {');
+    const theme = brandTailwindTheme(identity);
+    expect(theme).toMatch(/--color-emphasis-700: #[\dA-F]{6};/);
+    expect(theme).toContain('@theme inline {\n  --color-background: var(--brand-background);');
+    const tokens = brandDesignTokens(identity) as Record<string, Record<string, Record<string, Record<string, unknown>>>>;
+    expect(tokens.semantic!.light!.primary).toMatchObject({ $type: 'color', $value: '{color.emphasis}' });
+    expect(String(tokens.semantic!.dark!['foreground-muted']!.$value)).toMatch(/^\{(color\.ink|palette\.ink\.\d+)\}$/);
+    expect(Object.keys(tokens.palette!.ink!)).toEqual(['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']);
+  });
+
+  it('limits output to the requested sections', () => {
+    const typeOnly = brandCssVariables(identity, { include: ['type'] });
+    expect(typeOnly).toContain('--brand-font-display-size:');
+    expect(typeOnly).not.toContain('--brand-color-');
+    expect(typeOnly).not.toContain('prefers-color-scheme');
+    const colorOnly = brandTailwindTheme(identity, { include: ['color'] });
+    expect(colorOnly).toContain('--color-ink: #111111;');
+    expect(colorOnly).not.toContain('--font-');
+    expect(Object.keys(brandDesignTokens(identity, { include: ['semantic'] }))).toEqual(['$description', '$extensions', 'semantic']);
+  });
+
+  it('follows role step overrides and fixed variation axes', () => {
+    const tuned = {
+      ...identity,
+      typeScale: { basePx: 16, ratio: 1.25, roleSteps: { Display: 'h1', Body: 'not-a-step' } },
+      typography: identity.typography.map((role) => role.role === 'Display' ? { ...role, opticalSize: 32, slant: 8 } : role),
+    };
+    expect(brandRoleTypeStep(tuned, 'Display')).toBe('h1');
+    expect(brandRoleTypeStep(tuned, 'Body')).toBe('body');
+    const tokens = brandDesignTokens(tuned) as Record<string, Record<string, Record<string, unknown>>>;
+    expect(tokens.typography!.display).toMatchObject({ $extensions: { 'app.glyphfield': { opticalSize: 32, slant: 8 } }, $value: { fontSize: '{size.h1}' } });
+    const css = brandCssVariables(tuned, { include: ['type'] });
+    expect(css).toContain('--brand-font-display-variation: "opsz" 32;');
+    expect(css).toContain('--brand-font-display-style: oblique 8deg;');
+    expect(css).toContain('--brand-font-display-size: 3.0519rem; /* h1, 48.83px */');
+    expect(brandTailwindTheme(tuned, { include: ['type'] })).toMatch(/--text-h1: [\d.]+rem;\n {2}--text-h1--line-height:/);
   });
 });
 

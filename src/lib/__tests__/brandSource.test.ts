@@ -77,6 +77,31 @@ describe('BrandIdentity source contract', () => {
   });
 });
 
+describe('colour system and type axis fields', () => {
+  it('validates color refs, scale settings, role steps and variation axes', () => {
+    const identity = JSON.parse(JSON.stringify(createBrandIdentity('Acme', 'acme')));
+    identity.colorSystem = { dark: { primary: 'emphasis.300' }, light: { border: 'ink.200', primary: 'nope' }, scales: [{ chroma: 80, id: 'ink' }, { id: 'ghost' }] };
+    identity.typeScale = { basePx: 16, ratio: 1.25, roleSteps: { Display: 'giant' } };
+    identity.typography[0].opticalSize = 400;
+    const found = errors(identity).map(({ code, path }) => `${code}:${path}`);
+    expect(found).toEqual(expect.arrayContaining([
+      'reference:colorSystem.light.primary',
+      'reference:colorSystem.scales[1].id',
+      'enum:typeScale.roleSteps.Display',
+      'range:typography[0].opticalSize',
+    ]));
+    expect(found).not.toContain('reference:colorSystem.dark.primary');
+    identity.colorSystem.light.primary = 'ink.750';
+    expect(errors(identity).map(({ code, path }) => `${code}:${path}`)).toContain('format:colorSystem.light.primary');
+  });
+
+  it('merges colorSystem by key and its scales by id', () => {
+    const base = { ...createBrandIdentity('Acme', 'acme'), colorSystem: { light: { border: 'ink.200' }, scales: [{ chroma: 80, id: 'ink' }] } };
+    const next = applyBrandIdentitySource(base, { colorSystem: { light: { primary: 'emphasis' }, scales: [{ hueShift: 10, id: 'ink' }] } }).identity;
+    expect(next.colorSystem).toEqual({ light: { border: 'ink.200', primary: 'emphasis' }, scales: [{ chroma: 80, hueShift: 10, id: 'ink' }] });
+  });
+});
+
 describe('applyBrandIdentitySource', () => {
   const base = createBrandIdentity('Acme', 'acme');
 

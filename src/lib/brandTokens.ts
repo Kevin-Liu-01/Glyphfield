@@ -4,7 +4,14 @@ import {
   type BrandIdentity,
   type BrandTypography,
 } from './brandIdentity';
-import { normalizeHex } from './color';
+import { formatOklch, normalizeHex } from './color';
+import {
+  brandColorScales,
+  COLOR_MODES,
+  resolveSemanticColors,
+  SEMANTIC_COLOR_ROLES,
+  type ColorMode,
+} from './colorSystem';
 
 /**
  * Pure design-token serializers for one BrandIdentity. No React or DOM.
@@ -17,7 +24,12 @@ import { normalizeHex } from './color';
  * - brandTokenName(value): a token-safe kebab-case name.
  *
  * Token names: colors use their identity `id` (`--brand-color-ink`, `--color-ink`);
- * typography roles are display/body/accent/code; type steps are BRAND_TYPE_STEPS.
+ * scale steps append the step (`--brand-color-ink-700`, `--color-ink-700`);
+ * semantic roles are SEMANTIC_COLOR_ROLES with light and dark values
+ * (`--brand-primary`, Tailwind `bg-primary`); typography roles are
+ * display/body/accent/code; type steps are BRAND_TYPE_STEPS.
+ *
+ * `include` limits output to some sections, such as ['type'] for type tokens only.
  */
 
 export type BrandTypeStep = {
@@ -32,10 +44,21 @@ export type BrandTypeScaleStep = BrandTypeStep & {
   rem: number;
 };
 
+export type BrandTokenSection = 'color' | 'scale' | 'semantic' | 'type' | 'radius' | 'motion';
+
+export const BRAND_TOKEN_SECTIONS: readonly BrandTokenSection[] = ['color', 'scale', 'semantic', 'type', 'radius', 'motion'];
+
 export type BrandTokenSerializerOptions = {
   /** Complete `@font-face` rules to prepend, such as the brand kit's local font files. */
   fontFaces?: readonly string[];
+  /** Sections to emit; every section when omitted. */
+  include?: readonly BrandTokenSection[];
 };
+
+function sectionFilter(options: BrandTokenSerializerOptions): (section: BrandTokenSection) => boolean {
+  const include = options.include?.length ? new Set(options.include) : null;
+  return (section) => !include || include.has(section);
+}
 
 /** Modular steps from caption (-2) to display (+6). */
 export const BRAND_TYPE_STEPS: readonly BrandTypeStep[] = [
@@ -69,6 +92,22 @@ function round(value: number, digits: number): number {
 
 export function brandTokenName(value: string): string {
   return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'token';
+}
+
+/** The type step a role is set at: the identity's typeScale.roleSteps entry, else the default. */
+export function brandRoleTypeStep(identity: Pick<BrandIdentity, 'typeScale'>, role: BrandTypography['role']): string {
+  const step = identity.typeScale?.roleSteps?.[role];
+  return step && BRAND_TYPE_STEPS.some(({ name }) => name === step) ? step : BRAND_ROLE_TYPE_STEP[role];
+}
+
+/** CSS font-variation-settings for a role's fixed axes, or null when the role uses none. */
+export function brandFontVariationSettings(typography: Pick<BrandTypography, 'opticalSize'>): string | null {
+  return typeof typography.opticalSize === 'number' ? `"opsz" ${typography.opticalSize}` : null;
+}
+
+/** CSS font-style for a role: `oblique Ndeg` when a slant is set. */
+export function brandFontStyle(typography: Pick<BrandTypography, 'slant'>): string | null {
+  return typeof typography.slant === 'number' && typography.slant !== 0 ? `oblique ${typography.slant}deg` : null;
 }
 
 /** Sizes are basePx × ratio^step, rounded to 0.01px; rem assumes a 16px root. */
@@ -108,14 +147,42 @@ function roleKey(role: BrandTypography['role']): string {
   return role.toLocaleLowerCase();
 }
 
-/** W3C Design Tokens Community Group format (2025.10): color, font, size, typography, radius, motion. */
-export function brandDesignTokens(identity: BrandIdentity): Record<string, unknown> {
+function dtcgColor(hex: string): { colorSpace: 'srgb'; components: [number, number, number]; hex: string } {
+  return { colorSpace: 'srgb', components: rgbComponents(hex), hex: normalizeHex(hex).toLocaleLowerCase() };
+}
+
+/** A DTCG alias for a color ref: `{color.ink}` or `{palette.ink.700}`. */
+function dtcgColorAlias(ref: string): string {
+  const [id, step] = ref.split('.');
+  return step ? `{palette.${id}.${step}}` : `{color.${id}}`;
+}
+
+/**
+ * W3C Design Tokens Community Group format (2025.10): color, palette (OKLCH scales),
+ * semantic (light and dark roles as aliases), font, size, typography, radius, motion.
+ */
+export function brandDesignTokens(identity: BrandIdentity, options: BrandTokenSerializerOptions = {}): Record<string, unknown> {
+  const includes = sectionFilter(options);
   const color = Object.fromEntries(identity.colors.map((entry) => [entry.id, {
     $description: entry.role,
     $extensions: { 'app.glyphfield': { name: entry.name, ...(typeof entry.proportion === 'number' ? { proportion: entry.proportion } : {}) } },
     $type: 'color',
-    $value: { colorSpace: 'srgb', components: rgbComponents(entry.hex), hex: normalizeHex(entry.hex).toLocaleLowerCase() },
+    $value: dtcgColor(entry.hex),
   }]));
+  const scales = brandColorScales(identity);
+  const palette = Object.fromEntries([...scales].map(([id, scale]) => [id, Object.fromEntries(scale.map((swatch) => [String(swatch.step), {
+    ...(swatch.anchored ? { $extensions: { 'app.glyphfield': { anchored: true } } } : {}),
+    $type: 'color',
+    $value: dtcgColor(swatch.hex),
+  }]))]));
+  const semantic = Object.fromEntries(COLOR_MODES.map((mode) => {
+    const resolved = resolveSemanticColors(identity, mode);
+    return [mode, Object.fromEntries(SEMANTIC_COLOR_ROLES.map(({ id, usage }) => [id, {
+      $description: usage,
+      $type: 'color',
+      $value: dtcgColorAlias(resolved[id].ref),
+    }]))];
+  }));
   const family = Object.fromEntries(ROLES.map((role) => [roleKey(role), {
     $description: brandTypographyRole(identity, role).usage,
     $type: 'fontFamily',
@@ -132,12 +199,17 @@ export function brandDesignTokens(identity: BrandIdentity): Record<string, unkno
   const typography = Object.fromEntries(ROLES.map((role) => {
     const typographyRole = brandTypographyRole(identity, role);
     const key = roleKey(role);
+    const axes = {
+      ...(typeof typographyRole.opticalSize === 'number' ? { opticalSize: typographyRole.opticalSize } : {}),
+      ...(typeof typographyRole.slant === 'number' && typographyRole.slant !== 0 ? { slant: typographyRole.slant } : {}),
+    };
     return [key, {
       $description: typographyRole.usage,
+      ...(Object.keys(axes).length ? { $extensions: { 'app.glyphfield': axes } } : {}),
       $type: 'typography',
       $value: {
         fontFamily: `{font.family.${key}}`,
-        fontSize: `{size.${BRAND_ROLE_TYPE_STEP[role]}}`,
+        fontSize: `{size.${brandRoleTypeStep(identity, role)}}`,
         fontWeight: `{font.weight.${key}}`,
         letterSpacing: { unit: 'px', value: typographyRole.letterSpacing ?? 0 },
         lineHeight: typographyRole.lineHeight ?? 1.5,
@@ -162,12 +234,13 @@ export function brandDesignTokens(identity: BrandIdentity): Record<string, unkno
         typeScale: identity.typeScale ?? DEFAULT_BRAND_TYPE_SCALE,
       },
     },
-    color,
-    font: { family, weight },
-    ...(identity.motion.length ? { motion } : {}),
-    radius: { base: { $type: 'dimension', $value: { unit: 'px', value: identity.style.borderRadius } } },
-    size,
-    typography,
+    ...(includes('color') ? { color } : {}),
+    ...(includes('type') ? { font: { family, weight } } : {}),
+    ...(includes('motion') && identity.motion.length ? { motion } : {}),
+    ...(includes('scale') ? { palette } : {}),
+    ...(includes('radius') ? { radius: { base: { $type: 'dimension', $value: { unit: 'px', value: identity.style.borderRadius } } } } : {}),
+    ...(includes('semantic') ? { semantic } : {}),
+    ...(includes('type') ? { size, typography } : {}),
   };
 }
 
@@ -179,60 +252,154 @@ function withFontFaces(options: BrandTokenSerializerOptions): string[] {
   return options.fontFaces?.length ? ['', ...options.fontFaces] : [];
 }
 
-/** `:root` custom properties: --brand-color-*, --brand-font-*, --brand-text-*, --brand-radius, motion. */
+function semanticDeclarations(identity: BrandIdentity, mode: ColorMode, prefix: string, indent: string): string[] {
+  const resolved = resolveSemanticColors(identity, mode);
+  return SEMANTIC_COLOR_ROLES.map(({ id }) => `${indent}${prefix}${id}: ${resolved[id].hex}; /* ${resolved[id].ref} */`);
+}
+
+/** Dark values for `prefers-color-scheme: dark` (unless data-theme="light") and for data-theme="dark" or .dark. */
+function darkModeBlocks(identity: BrandIdentity, prefix: string): string[] {
+  return [
+    '@media (prefers-color-scheme: dark) {',
+    '  :root:not([data-theme="light"]):not(.light) {',
+    ...semanticDeclarations(identity, 'dark', prefix, '    '),
+    '  }',
+    '}',
+    '',
+    ':root[data-theme="dark"],',
+    '.dark {',
+    ...semanticDeclarations(identity, 'dark', prefix, '  '),
+    '}',
+  ];
+}
+
+/**
+ * `:root` custom properties: --brand-color-* (and scale steps), semantic roles
+ * (--brand-background … --brand-negative, with dark values), --brand-font-*,
+ * --brand-text-*, --brand-radius, motion.
+ */
 export function brandCssVariables(identity: BrandIdentity, options: BrandTokenSerializerOptions = {}): string {
-  const lines: string[] = [];
-  for (const color of identity.colors) lines.push(`  --brand-color-${color.id}: ${normalizeHex(color.hex)}; /* ${color.name} — ${color.role.replace(/\*\//g, '')} */`);
-  lines.push('');
-  for (const role of ROLES) {
-    const typography = brandTypographyRole(identity, role);
-    const key = roleKey(role);
-    lines.push(`  --brand-font-${key}: ${cssFontStack(brandFontStack(brandTypographyFamily(identity, role), role))};`);
-    lines.push(`  --brand-font-${key}-weight: ${typography.weight ?? 400};`);
-    lines.push(`  --brand-font-${key}-leading: ${typography.lineHeight ?? 1.5};`);
-    lines.push(`  --brand-font-${key}-tracking: ${typography.letterSpacing ?? 0}px;`);
+  const includes = sectionFilter(options);
+  const groups: string[][] = [];
+  if (includes('color')) {
+    groups.push(identity.colors.map((color) => `  --brand-color-${color.id}: ${normalizeHex(color.hex)}; /* ${color.name} — ${color.role.replace(/\*\//g, '')} */`));
   }
-  lines.push('');
-  for (const step of brandTypeScale(identity)) lines.push(`  --brand-text-${step.name}: ${step.rem}rem; /* ${step.px}px */`);
-  lines.push('', `  --brand-radius: ${identity.style.borderRadius}px;`);
-  for (const motion of identity.motion) {
-    lines.push(`  --brand-duration-${brandTokenName(motion.id)}: ${motion.durationMs}ms;`);
-    lines.push(`  --brand-ease-${brandTokenName(motion.id)}: ${motion.curve};`);
+  if (includes('scale')) {
+    for (const [id, scale] of brandColorScales(identity)) {
+      groups.push(scale.map((swatch) => `  --brand-color-${id}-${swatch.step}: ${swatch.hex}; /* ${formatOklch(swatch.hex)}${swatch.anchored ? ', brand value' : ''} */`));
+    }
   }
-  return [header(identity, 'CSS custom properties'), ...withFontFaces(options), '', ':root {', ...lines, '}', ''].join('\n');
+  if (includes('semantic')) groups.push(semanticDeclarations(identity, 'light', '--brand-', '  '));
+  if (includes('type')) {
+    const typeLines: string[] = [];
+    const scale = new Map(brandTypeScale(identity).map((step) => [step.name, step]));
+    for (const role of ROLES) {
+      const typography = brandTypographyRole(identity, role);
+      const key = roleKey(role);
+      const step = scale.get(brandRoleTypeStep(identity, role));
+      typeLines.push(`  --brand-font-${key}: ${cssFontStack(brandFontStack(brandTypographyFamily(identity, role), role))};`);
+      if (step) typeLines.push(`  --brand-font-${key}-size: ${step.rem}rem; /* ${step.name}, ${step.px}px */`);
+      typeLines.push(`  --brand-font-${key}-weight: ${typography.weight ?? 400};`);
+      typeLines.push(`  --brand-font-${key}-leading: ${typography.lineHeight ?? 1.5};`);
+      typeLines.push(`  --brand-font-${key}-tracking: ${typography.letterSpacing ?? 0}px;`);
+      const variation = brandFontVariationSettings(typography);
+      if (variation) typeLines.push(`  --brand-font-${key}-variation: ${variation};`);
+      const style = brandFontStyle(typography);
+      if (style) typeLines.push(`  --brand-font-${key}-style: ${style};`);
+    }
+    groups.push(typeLines);
+    groups.push(brandTypeScale(identity).map((step) => `  --brand-text-${step.name}: ${step.rem}rem; /* ${step.px}px */`));
+  }
+  const tail: string[] = [];
+  if (includes('radius')) tail.push(`  --brand-radius: ${identity.style.borderRadius}px;`);
+  if (includes('motion')) {
+    for (const motion of identity.motion) {
+      tail.push(`  --brand-duration-${brandTokenName(motion.id)}: ${motion.durationMs}ms;`);
+      tail.push(`  --brand-ease-${brandTokenName(motion.id)}: ${motion.curve};`);
+    }
+  }
+  if (tail.length) groups.push(tail);
+  const lines = groups.flatMap((group, index) => (index === 0 ? group : ['', ...group]));
+  return [
+    header(identity, 'CSS custom properties'),
+    ...withFontFaces(options),
+    '',
+    ':root {',
+    ...lines,
+    '}',
+    ...(includes('semantic') ? ['', ...darkModeBlocks(identity, '--brand-')] : []),
+    '',
+  ].join('\n');
 }
 
 /**
  * A Tailwind CSS v4 theme, pasted after `@import "tailwindcss";`. Utilities follow
- * the token names: bg-paper text-ink, font-display text-display, rounded-brand.
+ * the token names: bg-paper text-ink, bg-ink-700, font-display text-display,
+ * rounded-brand, and semantic bg-background text-foreground bg-primary that switch
+ * with prefers-color-scheme, data-theme="dark" or .dark.
  */
 export function brandTailwindTheme(identity: BrandIdentity, options: BrandTokenSerializerOptions = {}): string {
-  const lines: string[] = [];
-  for (const color of identity.colors) lines.push(`  --color-${color.id}: ${normalizeHex(color.hex)};`);
-  lines.push('');
-  for (const role of ROLES) lines.push(`  --font-${roleKey(role)}: ${cssFontStack(brandFontStack(brandTypographyFamily(identity, role), role))};`);
-  lines.push('');
-  const roleByStep = new Map(ROLES.map((role) => [BRAND_ROLE_TYPE_STEP[role], brandTypographyRole(identity, role)]));
-  for (const step of brandTypeScale(identity)) {
-    lines.push(`  --text-${step.name}: ${step.rem}rem;`);
-    const role = roleByStep.get(step.name);
-    if (!role) continue;
-    lines.push(`  --text-${step.name}--line-height: ${role.lineHeight ?? 1.5};`);
-    lines.push(`  --text-${step.name}--letter-spacing: ${role.letterSpacing ?? 0}px;`);
-    lines.push(`  --text-${step.name}--font-weight: ${role.weight ?? 400};`);
+  const includes = sectionFilter(options);
+  const groups: string[][] = [];
+  if (includes('color')) groups.push(identity.colors.map((color) => `  --color-${color.id}: ${normalizeHex(color.hex)};`));
+  if (includes('scale')) {
+    groups.push([...brandColorScales(identity)].flatMap(([id, scale]) => scale.map((swatch) => `  --color-${id}-${swatch.step}: ${swatch.hex};`)));
   }
-  lines.push('', `  --radius-brand: ${identity.style.borderRadius}px;`);
-  for (const motion of identity.motion) {
-    if (parseCubicBezier(motion.curve)) lines.push(`  --ease-${brandTokenName(motion.id)}: ${motion.curve};`);
+  if (includes('type')) {
+    groups.push(ROLES.map((role) => `  --font-${roleKey(role)}: ${cssFontStack(brandFontStack(brandTypographyFamily(identity, role), role))};`));
+    const roleByStep = new Map<string, BrandTypography>();
+    for (const role of ROLES) {
+      const step = brandRoleTypeStep(identity, role);
+      if (!roleByStep.has(step)) roleByStep.set(step, brandTypographyRole(identity, role));
+    }
+    const sizes: string[] = [];
+    for (const step of brandTypeScale(identity)) {
+      sizes.push(`  --text-${step.name}: ${step.rem}rem;`);
+      const role = roleByStep.get(step.name);
+      if (!role) continue;
+      sizes.push(`  --text-${step.name}--line-height: ${role.lineHeight ?? 1.5};`);
+      sizes.push(`  --text-${step.name}--letter-spacing: ${role.letterSpacing ?? 0}px;`);
+      sizes.push(`  --text-${step.name}--font-weight: ${role.weight ?? 400};`);
+    }
+    groups.push(sizes);
   }
+  const tail: string[] = [];
+  if (includes('radius')) tail.push(`  --radius-brand: ${identity.style.borderRadius}px;`);
+  if (includes('motion')) {
+    for (const motion of identity.motion) {
+      if (parseCubicBezier(motion.curve)) tail.push(`  --ease-${brandTokenName(motion.id)}: ${motion.curve};`);
+    }
+  }
+  if (tail.length) groups.push(tail);
+  const lines = groups.flatMap((group, index) => (index === 0 ? group : ['', ...group]));
+  const paletteIds = new Set(identity.colors.map(({ id }) => id));
+  // A palette color named like a role keeps its utility; the role stays a CSS variable.
+  const semanticRoles = SEMANTIC_COLOR_ROLES.filter(({ id }) => !paletteIds.has(id));
+  const semantic = includes('semantic') ? [
+    '',
+    '/* Semantic roles: light by default, dark with prefers-color-scheme, data-theme="dark" or .dark. */',
+    '@theme inline {',
+    ...semanticRoles.map(({ id }) => `  --color-${id}: var(--brand-${id});`),
+    '}',
+    '',
+    ':root {',
+    ...semanticDeclarations(identity, 'light', '--brand-', '  '),
+    '}',
+    '',
+    ...darkModeBlocks(identity, '--brand-'),
+  ] : [];
   return [
     header(identity, 'Tailwind CSS v4 theme'),
-    '/* Usage: bg-paper text-ink, font-display text-display, rounded-brand. */',
+    `/* Usage: ${[
+      includes('color') ? 'bg-paper text-ink' : '',
+      includes('scale') ? 'bg-ink-700' : '',
+      includes('semantic') ? 'bg-background text-foreground bg-primary' : '',
+      includes('type') ? 'font-display text-display' : '',
+      includes('radius') ? 'rounded-brand' : '',
+    ].filter(Boolean).join(', ')}. */`,
     ...withFontFaces(options),
-    '',
-    '@theme {',
-    ...lines,
-    '}',
+    ...(lines.length ? ['', '@theme {', ...lines, '}'] : []),
+    ...semantic,
     '',
   ].join('\n');
 }
