@@ -1,4 +1,5 @@
 import index from './shaderEffectsIndex.generated.json';
+import type { LiveMaterialSettings } from './liveMaterials';
 
 export type ShaderEffectValue = string | number | boolean | null | ShaderEffectValue[] | { [key: string]: ShaderEffectValue };
 export type ShaderEffectProps = Record<string, ShaderEffectValue>;
@@ -38,6 +39,31 @@ export const SHADER_EFFECTS = SHADER_EFFECT_COMPONENTS.filter((effect) => !effec
 const byId = new Map(SHADER_EFFECTS.map((effect) => [effect.id, effect]));
 export function getShaderEffect(id: string): ShaderEffect | undefined {
   return byId.get(id as ShaderEffect['id']);
+}
+
+/** The surface inputs that change pixels. Hosts pass fresh settings objects on every render. */
+export type ShaderEffectRenderInputs = {
+  active: boolean;
+  captureTimeMs: number | null;
+  frameRate: number;
+  frameState?: unknown;
+  patternScale: number;
+  paused: boolean;
+  settings: Pick<LiveMaterialSettings, 'colorA' | 'colorB' | 'colorC' | 'effectProps' | 'speed'>;
+};
+
+function sameEffectProps(left: ShaderEffectProps = {}, right: ShaderEffectProps = {}): boolean {
+  if (left === right) return true;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => Object.hasOwn(right, key) && left[key] === right[key]);
+}
+
+/** Whether a native surface must redraw, compared by value rather than object identity. */
+export function shaderEffectInputsChanged(previous: ShaderEffectRenderInputs, next: ShaderEffectRenderInputs): boolean {
+  return previous.active !== next.active || previous.paused !== next.paused || previous.captureTimeMs !== next.captureTimeMs
+    || previous.frameState !== next.frameState || previous.frameRate !== next.frameRate || previous.patternScale !== next.patternScale
+    || (['colorA', 'colorB', 'colorC', 'speed'] as const).some((key) => previous.settings[key] !== next.settings[key])
+    || !sameEffectProps(previous.settings.effectProps, next.settings.effectProps);
 }
 
 export type ShaderEffectsPropsModule = typeof import('./shaderEffectsProps');

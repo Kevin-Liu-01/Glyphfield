@@ -118,7 +118,7 @@ The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components
 
 The collection is curated rather than alphabetical. Finished full-frame materials such as Aurora, Liquid Metal, Chrome, Holographic, Godrays, and Plasma lead; filters, distortions, blurs, and transitions that work on a source follow; neutral colour adjustments and raw shape primitives such as Circle and Star come last. Each effect keeps its upstream category, which also places it in the library's Fluid, Light, Metal, Gradient, or Graphic group.
 
-The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand. They require a browser and device with WebGPU enabled; an unavailable renderer reports an error and cannot be exported as though it rendered successfully.
+The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand, and every native effect on a page shares one GPU device. Studio checks WebGPU before loading an effect or its source image. Without it, the canvas shows the material's still thumbnail with a label; the surface stays in an error state, so still and motion exports refuse it instead of exporting the thumbnail as a render.
 
 Each effect exposes its upstream settings, including colors, positions, numeric controls, switches, and choices. Settings that only apply in another mode (for example the CMYK inks of Halftone) appear when that mode is chosen.
 
@@ -148,4 +148,4 @@ For example, a deterministic `design-sequence` request can specify:
 }
 ```
 
-This is the `shader` portion of the request, not a standalone request body. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations depend on their accumulated state and pointer history, so a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.
+This is the `shader` portion of the request, not a standalone request body. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations and the accumulating effects (Time Trail, Particle Field, Key Frames, Smoke Fill, and Particles) are stateful: they ignore a requested time and continue from their accumulated state and pointer history, so their `motion.supportsEditableSeek` is `false` and a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.

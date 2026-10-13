@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAllShaders } from 'shaders/registry';
-import { SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS, getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps } from '../shaderEffects';
+import { SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS, getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps, shaderEffectInputsChanged, type ShaderEffectRenderInputs } from '../shaderEffects';
 import { getShaderEffectControls, resolveShaderEffectProps, shaderEffectDefaults, shaderEffectRenderProps, validateShaderEffectProps, visibleShaderEffectControls } from '../shaderEffectsProps';
 import { getLiveMaterial, DEFAULT_LIVE_MATERIAL_SETTINGS } from '../liveMaterials';
 import { shaderLabSettingsFor } from '../shaderLab';
@@ -136,5 +136,15 @@ describe('Shaders.com native library', () => {
     const colors = [...svg.matchAll(/#([\da-f]{6})\b/gi)].map(([, hex]) => hex.toLowerCase());
     expect(colors.length).toBeGreaterThan(5);
     colors.forEach((hex) => expect(hex.slice(0, 2) === hex.slice(2, 4) && hex.slice(2, 4) === hex.slice(4, 6), hex).toBe(true));
+  });
+  it('redraws a surface only when a render input changes by value', () => {
+    const inputs: ShaderEffectRenderInputs = { active: true, paused: false, captureTimeMs: null, frameRate: 30, patternScale: 1, settings: { ...DEFAULT_LIVE_MATERIAL_SETTINGS, effectProps: { intensity: 20, center: { x: 0.5, y: 0.5 } } } };
+    // A host render rebuilds settings and effectProps objects without changing them.
+    expect(shaderEffectInputsChanged(inputs, { ...inputs, settings: { ...inputs.settings, effectProps: { ...inputs.settings.effectProps } } })).toBe(false);
+    expect(shaderEffectInputsChanged({ ...inputs, settings: { ...inputs.settings, effectProps: undefined } }, { ...inputs, settings: { ...inputs.settings, effectProps: {} } })).toBe(false);
+    expect(shaderEffectInputsChanged(inputs, { ...inputs, settings: { ...inputs.settings, effectProps: { intensity: 21, center: { x: 0.5, y: 0.5 } } } })).toBe(true);
+    expect(shaderEffectInputsChanged(inputs, { ...inputs, settings: { ...inputs.settings, colorB: '#000000' } })).toBe(true);
+    expect(shaderEffectInputsChanged(inputs, { ...inputs, captureTimeMs: 1600 })).toBe(true);
+    expect(shaderEffectInputsChanged(inputs, { ...inputs, patternScale: 2 })).toBe(true);
   });
 });
