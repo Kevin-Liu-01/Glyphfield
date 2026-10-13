@@ -20,8 +20,11 @@ import {
 import { brandAssetPath, brandFontAssets, brandTypographyFamily, brandTypographyRole, type BrandAsset, type BrandIdentity } from '@/lib/brandIdentity';
 import type { BookPage, BookSection } from '@/lib/brandBookModel';
 import {
+  brandDeviceBase,
   brandDeviceSvg,
   brandSurface,
+  estimateTextWidth,
+  fontMetrics,
   contrastRatio,
   imageFits,
   isDarkColor,
@@ -591,13 +594,21 @@ function weightsFor(identity: BrandIdentity, role: 'Body' | 'Display'): number[]
   return [...new Set(weights)].sort((left, right) => left - right).slice(0, 5);
 }
 
+/** Largest display size (cqi) that sets the family name on one line across the measure. */
+function familyNameSize(identity: BrandIdentity, family: string): number {
+  const display = brandTypographyRole(identity, 'Display');
+  const metrics = fontMetrics(family, display.weight ?? 500, 'Display');
+  const width = estimateTextWidth(family, 1, metrics.charWidth, metrics.monospace);
+  return Math.min(11.2, 86 / Math.max(1, width));
+}
+
 function TypeDisplayPage({ context }: { context: BookPageContext }) {
   const { identity } = context;
   const family = brandTypographyFamily(identity, 'Display');
   return (
     <div className={styles.grid} data-layout='type-display'>
       <Label>{context.page.title}</Label>
-      <h1 className={styles.d4} data-face='display'>{family}</h1>
+      <h1 className={styles.d4} data-face='display' style={{ fontSize: `${familyNameSize(identity, family)}cqi` }}>{family}</h1>
       <Text context={context} options={{ className: styles.d1, multiline: false }} slot='sample' />
       <div className={styles.typeMeta}>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
@@ -1234,6 +1245,17 @@ export type BookPageViewProps = {
   sectionName: string;
 };
 
+const DEVICE_LED: ReadonlySet<string> = new Set(['cover:device', 'opener:device', 'deviceHero:full', 'deviceHero:split']);
+
+/** Device-led pages sit on the device's own base colour so panel and field meet without a seam. */
+function pageSurface(identity: BrandIdentity, page: BookPage, palette: BrandPalette) {
+  const surface = brandSurface(palette, page.tone);
+  if (!DEVICE_LED.has(`${page.kind}:${page.variant}`)) return surface;
+  const base = brandDeviceBase(identity, isDarkColor(surface.background) ? 'dark' : 'light');
+  const foreground = readableOn(base, palette);
+  return { ...surface, background: base, foreground, rule: mixHexColors(foreground, base, 0.8), secondary: mixHexColors(foreground, base, 0.3) };
+}
+
 function samePage(previous: BookPageViewProps, next: BookPageViewProps): boolean {
   const before = previous.context;
   const after = next.context;
@@ -1247,7 +1269,7 @@ function samePage(previous: BookPageViewProps, next: BookPageViewProps): boolean
 /** One printed page: editorial chrome around the page's single idea. */
 export const BookPageView = memo(function BookPageView({ context, folio, sectionName }: BookPageViewProps) {
   const { identity, page, palette } = context;
-  const surface = brandSurface(palette, page.tone);
+  const surface = pageSurface(identity, page, palette);
   const Renderer = PAGE_RENDERERS[page.kind];
   const style = {
     '--page-bg': surface.background,

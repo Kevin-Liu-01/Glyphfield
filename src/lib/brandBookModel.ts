@@ -214,12 +214,21 @@ function imageryPages(identity: BrandIdentity): PageSeed[] {
   ];
 }
 
+/** Three distinct levels: when the promise or a phrase repeats the tagline, step to the next line. */
+function messagingCopy(identity: BrandIdentity): Record<string, string> {
+  const tagline = identity.tagline;
+  const candidates = [identity.strategy?.promise, identity.strategy?.concept, identity.positioning].filter((value): value is string => Boolean(value?.trim()));
+  const promise = candidates.find((value) => value !== tagline) ?? '';
+  const phrase = (identity.voice?.phrases ?? []).find((value) => value !== tagline && value !== promise) ?? identity.mission ?? '';
+  return { phrase, promise, tagline };
+}
+
 function voicePages(identity: BrandIdentity): PageSeed[] {
   const welcome = getEmailLifecycleTemplate('welcome-email', identity);
   return [
     { copy: { lead: identity.dossier?.personality ?? 'How the brand sounds when it is at its best.' }, id: 'voice-principles', kind: 'voicePrinciples', title: 'Voice principles', tone: 'paper' },
     { copy: { lead: 'Use the lines on the left as patterns. The column on the right names what to leave out.' }, id: 'voice-dodont', kind: 'voiceDoDont', title: 'Do and don’t', tone: 'paper' },
-    { copy: { phrase: first(identity.voice?.phrases, identity.tagline), promise: identity.strategy?.promise ?? '', tagline: identity.tagline }, id: 'voice-messaging', kind: 'voiceMessaging', title: 'Messaging hierarchy', tone: 'muted' },
+    { copy: messagingCopy(identity), id: 'voice-messaging', kind: 'voiceMessaging', title: 'Messaging hierarchy', tone: 'muted' },
     { copy: { body: welcome?.body ?? identity.description, cta: welcome?.cta ?? 'Get started', subject: welcome?.subject ?? `Welcome to ${identity.name}` }, id: 'voice-sample', kind: 'voiceSample', title: 'Voice in use', tone: 'paper' },
   ];
 }

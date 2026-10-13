@@ -1051,10 +1051,10 @@
 
 .minimumSample .mark {
   width: auto;
-  height: 1.6cqi;
+  height: 2.4cqi;
 }
 
-.minimumRows > div:last-child .minimumSample .mark { height: 2.1cqi; }
+.minimumRows > div:last-child .minimumSample .mark { height: 3.2cqi; }
 
 .colorways {
   grid-column: 6 / span 7;

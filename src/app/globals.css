@@ -19008,62 +19008,6 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
   display: block;
 }
 
-.brand-system-diagram-surface { fill: var(--diagram-paper); }
-
-.brand-system-diagram-input rect,
-.brand-system-diagram-output rect {
-  fill: var(--diagram-paper);
-  stroke: color-mix(in srgb, var(--diagram-ink) 36%, transparent);
-  stroke-width: 1.5;
-}
-
-.brand-system-diagram-input path,
-.brand-system-diagram-output path {
-  fill: none;
-  stroke: var(--diagram-ink);
-  stroke-width: 1.5;
-}
-
-.brand-system-diagram-input text,
-.brand-system-diagram-output text {
-  fill: var(--diagram-ink);
-  font-family: var(--diagram-font), sans-serif;
-  font-size: 17px;
-  font-weight: var(--diagram-font-weight);
-}
-
-.brand-system-diagram-core rect {
-  fill: var(--diagram-accent);
-  stroke: var(--diagram-ink);
-  stroke-width: 1.5;
-}
-
-.brand-system-diagram-core text {
-  fill: var(--diagram-accent-text);
-  font-family: var(--diagram-font), sans-serif;
-  font-size: 23px;
-  font-weight: min(var(--diagram-font-weight), 550);
-}
-
-.brand-system-diagram-core .brand-system-diagram-core-name {
-  font-size: 15px;
-  opacity: 0.68;
-}
-
-.brand-system-diagram[data-brand-diagram='gt'] {
-  --diagram-accent: #181818 !important;
-  --diagram-accent-text: #ffffff !important;
-}
-
-.brand-system-diagram[data-brand-diagram='ramp'] {
-  --diagram-paper: #f2efe6 !important;
-}
-
-.brand-system-diagram[data-brand-diagram='viteplus'] .brand-system-diagram-core rect,
-.brand-system-diagram[data-brand-diagram='stripe'] .brand-system-diagram-core rect {
-  filter: saturate(1.18);
-}
-
 .brand-dossier-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
