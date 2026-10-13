@@ -1368,3 +1368,118 @@
 @media (prefers-reduced-motion: reduce) {
   .surface [data-brand-editable='true'] { transition: none; }
 }
+
+/* Brand-content templates (brand-polish) ----------------------------------- */
+
+/* Terminals are dark, monospace and copyable, whatever the artboard surface. */
+.terminal {
+  --el-term-bg: color-mix(in srgb, var(--el-fg) 92%, #000);
+  --el-term-fg: color-mix(in srgb, var(--el-bg) 92%, #FFF);
+  color: var(--el-term-fg);
+  background: var(--el-term-bg);
+}
+.terminal .terminalBar { border-bottom-color: color-mix(in srgb, var(--el-term-fg) 14%, transparent); color: color-mix(in srgb, var(--el-term-fg) 60%, transparent); }
+.terminal .terminalBar i { background: color-mix(in srgb, var(--el-term-fg) 22%, transparent); }
+.terminal .quiet { color: color-mix(in srgb, var(--el-term-fg) 62%, transparent); }
+.terminal .prompt,
+.terminal .ascii,
+.terminal .asciiLarge { color: color-mix(in srgb, var(--el-accent) 70%, var(--el-term-fg)); }
+.terminalComment { color: color-mix(in srgb, var(--el-term-fg) 55%, transparent); }
+.terminalBody { gap: 14px; padding: 40px 48px; }
+.ascii { height: 104px; margin-bottom: 22px; }
+.codeBlock { margin: 8px 0 0; padding: 0; font: inherit; line-height: 1.6; white-space: pre-wrap; }
+
+.newsletterList { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.newsletterList li { position: relative; padding-left: 22px; font-size: 16px; line-height: 1.45; }
+.newsletterList li::before { position: absolute; top: 0.62em; left: 0; width: 10px; height: 2px; background: var(--el-accent-text); content: ''; }
+
+/* App store frames: three different screens, one per product. */
+.phoneScreen { position: absolute; inset: 10px; display: flex; flex-direction: column; gap: 18px; overflow: hidden; border-radius: 38px; padding: 64px 30px 30px; background: var(--el-raised); }
+.phoneTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.phoneTop .logo { height: 28px; }
+.phoneMetric { display: grid; gap: 6px; border-radius: var(--el-radius); padding: 22px; background: var(--el-bg); }
+.phoneMetric strong { font-family: var(--el-display); font-size: 44px; font-weight: var(--el-display-weight); letter-spacing: var(--el-tracking); line-height: 1; }
+.phoneMetric small { font-size: 14px; color: var(--el-quiet); }
+.phoneArt { position: relative; flex: 1; overflow: hidden; border-radius: var(--el-radius); }
+.phoneRow { display: flex; align-items: center; gap: 14px; border-radius: var(--el-radius); padding: 18px; font-size: 18px; background: var(--el-bg); }
+.phoneRow i { width: 10px; height: 10px; border-radius: 50%; background: var(--el-rule); }
+.phoneRow[data-active] { box-shadow: inset 0 0 0 2px var(--el-accent); }
+.phoneRow[data-active] i { background: var(--el-accent); }
+.phoneCode { flex: 1; border-radius: var(--el-radius); padding: 20px; font-family: var(--el-code); font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: color-mix(in srgb, var(--el-bg) 92%, #FFF); background: color-mix(in srgb, var(--el-fg) 92%, #000); }
+.phoneFoot { font-family: var(--el-display); font-size: 22px; font-weight: var(--el-display-weight); line-height: 1.2; }
+
+/* Navigation bar with its open menu, so the component reads at full height. */
+.navStage { display: flex; flex-direction: column; }
+.navMenu { display: grid; flex: 1; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: 1px solid var(--el-rule); }
+.navMenuList { display: grid; align-content: start; gap: 6px; padding: 40px 48px; }
+.navMenuList > span { display: grid; gap: 4px; border-radius: var(--el-radius); padding: 14px 16px; }
+.navMenuList > span[data-active] { background: var(--el-raised); }
+.navMenuList strong { font-size: 18px; font-weight: 600; }
+.navMenuList small { font-size: 15px; color: var(--el-quiet); }
+.navMenuFeature { position: relative; overflow: hidden; }
+.navMenuCaption { position: absolute; right: 32px; bottom: 32px; left: 32px; display: grid; gap: 8px; padding: 20px 24px; background: var(--el-bg); }
+.navMenuCaption strong { font-family: var(--el-display); font-size: 26px; font-weight: var(--el-display-weight); line-height: 1.15; }
+
+.customerRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 28px; border-top: 1px solid var(--el-rule); padding-top: 24px; font-size: 18px; }
+.customerRow strong { font-weight: 600; }
+
+/* Auth: the line sits on the artwork as type, not in a pasted box. */
+.authArt > .device { position: absolute; inset: 0; }
+.authCaption { position: absolute; right: 48px; bottom: 48px; left: 48px; max-width: 460px; font-family: var(--el-display); font-size: 34px; font-weight: var(--el-display-weight); letter-spacing: var(--el-tracking); line-height: 1.1; color: #FFF; text-wrap: balance; text-shadow: 0 1px 24px rgb(0 0 0 / 0.35); }
+
+/* Press kit: facts, assets and contacts on one sheet. */
+.pressKit { display: flex; flex-direction: column; gap: 48px; height: 100%; padding: 80px 88px 56px; }
+.pressHead { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--el-rule); padding-bottom: 28px; }
+.pressMain { display: grid; grid-template-columns: 1.15fr 1fr; gap: 72px; }
+.pressIntro { display: flex; flex-direction: column; gap: 22px; }
+.pressIntro .headline { font-size: calc(72px * var(--el-scale)); }
+.pressFacts { display: grid; align-content: start; gap: 0; margin: 0; }
+.pressFacts > div { display: grid; grid-template-columns: 48px 1fr; gap: 16px; border-top: 1px solid var(--el-rule); padding: 18px 0; }
+.pressFacts dd { margin: 0; font-size: 20px; line-height: 1.35; }
+.pressAssets { display: grid; flex: 1; grid-template-columns: repeat(4, 1fr); gap: 20px; min-height: 0; }
+.pressTile { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; overflow: hidden; border-radius: var(--el-radius); box-shadow: inset 0 0 0 1px var(--el-rule); }
+.pressTile small { position: absolute; bottom: 14px; left: 16px; font-family: var(--el-code); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--el-quiet); }
+.pressTile[data-tone='dark'] small,
+.pressTile[data-tone='art'] small { color: rgb(255 255 255 / 0.72); }
+.pressTile .logo { position: relative; height: 40px; max-width: 70%; }
+.pressSwatch { width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--el-rule); }
+
+/* Notebook: one cloth-bound cover, mark embossed on a band. */
+.notebook { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 96px 88px; color: #FFF; background: var(--el-fg); }
+.notebook > :not(.fill) { position: relative; z-index: 1; }
+.notebookBand { display: grid; width: 132px; height: 132px; place-items: center; border-radius: 50%; background: rgb(0 0 0 / 0.28); }
+.notebookBand .logo { height: 56px; max-width: 88px; }
+.notebookText { display: flex; flex-direction: column; gap: 24px; margin-top: auto; }
+.notebookTitle { margin: 0; font-family: var(--el-display); font-size: calc(150px * var(--el-scale)); font-weight: var(--el-display-weight); letter-spacing: var(--el-tracking); line-height: 0.9; }
+.notebookLine { max-width: 18em; margin: 0; font-size: 26px; line-height: 1.3; color: rgb(255 255 255 / 0.82); }
+.notebookFoot { display: flex; justify-content: space-between; margin-top: 64px; border-top: 1px solid rgb(255 255 255 / 0.3); padding-top: 22px; font-family: var(--el-code); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(255 255 255 / 0.72); }
+
+/* Event backdrop and booth wall: a whole desk on a floor line, never cut off. */
+.backdropLine { margin: 0; font-family: var(--el-code); font-size: 20px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--el-quiet); }
+.counter { right: 22%; bottom: 72px; left: 22%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; height: 210px; border-top: 14px solid var(--el-accent); background: var(--el-fg); }
+.counter .meta { color: color-mix(in srgb, var(--el-bg) 70%, transparent); }
+.counterTop { display: block; }
+.backdrop[data-wall]::after { position: absolute; right: 0; bottom: 0; left: 0; height: 72px; background: color-mix(in srgb, var(--el-fg) 12%, var(--el-bg)); content: ''; }
+.backdrop[data-wall] .backdropText { bottom: 330px; }
+
+.labelAddress { display: grid; gap: 4px; border-bottom: 1px solid var(--el-rule); padding: 8px 0 28px; font-size: 20px; line-height: 1.35; }
+.labelAddress strong { font-size: 28px; }
+
+.letterMeta { display: flex; flex-direction: column; gap: 8px; margin-bottom: 48px; font-size: 18px; }
+.letterList { display: grid; gap: 12px; margin: 0; padding: 0 0 0 22px; font-size: 18px; line-height: 1.6; }
+.letterhead { gap: 28px; }
+.letterFoot { display: flex; justify-content: space-between; }
+
+/* API reference: the request is the hero, set dark like a terminal. */
+.apiText .headline { font-size: calc(64px * var(--el-scale)); }
+.apiCode { gap: 14px; padding: 64px; color: color-mix(in srgb, var(--el-bg) 92%, #FFF); background: color-mix(in srgb, var(--el-fg) 92%, #000); }
+.apiCode .meta { color: color-mix(in srgb, var(--el-bg) 60%, transparent); }
+.apiCode pre { margin: 0 0 24px; font-size: 18px; line-height: 1.65; }
+
+/* Long published prices ("$450/mo billed annually") step down instead of wrapping into three lines. */
+.price[data-long] { font-size: 32px; line-height: 1.15; }
+
+.surface[data-element='terminal-theme'] .terminalBody { gap: 22px; padding: 56px 64px; font-size: 22px; }
+.surface[data-element='terminal-theme'] .codeBlock { font-size: 24px; }
+.surface[data-element='terminal-theme'] .swatches { margin-top: auto; }
+.surface[data-element='terminal-theme'] .swatches span { font-size: 16px; }

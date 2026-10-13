@@ -54,7 +54,7 @@ import { brandPalette } from '@/lib/brandOutputKit';
 import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
-import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { ElementPreview } from './brandElementPreviews';
 import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
 import { registerStudioAutomation } from '@/lib/studioAutomation';
@@ -661,14 +661,12 @@ export default function BrandElementsStudio({
             </div>
             <CanvasViewport
               className='min-h-[560px] flex-1'
-              fontFamily={brandTypographyFamily(identity, 'Body')}
-              fontWeight={capVisibleFontWeight(brandTypographyRole(identity, 'Body').weight ?? 400)}
               identityId={identity.id}
               stageClassName='grid min-h-[560px] grid-cols-[minmax(0,1fr)] place-items-center p-5 sm:p-8'
               toolId={tool.id}
             >
               <div
-                className='brand-element-artboard mx-auto w-full max-w-6xl'
+                className='brand-element-stage mx-auto w-full max-w-6xl'
                 data-element={selectedElement.id}
                 style={{ '--brand-logo-filter': logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance }) } as CSSProperties}
               >
