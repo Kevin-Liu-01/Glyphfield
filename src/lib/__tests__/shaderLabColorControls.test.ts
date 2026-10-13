@@ -1,12 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from './designLabSource';
 
-const shaderLab = readFileSync(
-  join(process.cwd(), 'src/components/ShaderLabStudio.tsx'),
-  'utf8'
-);
+const shaderLab = readDesignLabSource();
 
 describe('Shader Lab color controls', () => {
   it('routes every editable color through the shared studio component', () => {

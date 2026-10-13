@@ -355,147 +355,50 @@ import {
 
 import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLayerGeometry, designLayerWorldBounds, reparentDesignLayer, packDesignWorkspace, unpackDesignWorkspace } from '@/lib/designWorkspace';
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
-
-type ShaderRatio = StudioArtboardPresetId | 'custom';
-type ShaderBlendMode = 'multiply' | 'normal' | 'overlay' | 'screen';
-type ShaderLayerId = `shader-${string}`;
-type EffectLayerId = `effect-${string}`;
-type LogoLayerId = `logo-${string}`;
-type TextLayerId = `text-${string}`;
-type AssetLayerId = `asset-${string}`;
-type ContentLayerId = LogoLayerId | TextLayerId | AssetLayerId;
-type CanvasLayerId = ShaderLayerId | ContentLayerId;
-type CompositionLayerId = ShaderLayerId | EffectLayerId | ContentLayerId;
-type CompositionLayerGroupId = `group-${string}`;
-
-type CompositionLayerGroup = {
-  id: CompositionLayerGroupId;
-  layerIds: CanvasLayerId[];
-  name: string;
-};
-
-type ShaderApplication = {
-  blendMode: ShaderBlendMode;
-  frameState?: LiveMaterialFrameState;
-  frameSnapshot?: ShaderFrameSnapshot;
-  materialId: LiveMaterialId;
-  opacity: number;
-  settings: LiveMaterialSettings;
-  shaderSize: number;
-};
-
-type CompositionShaderLayer = ShaderApplication & {
-  id: ShaderLayerId;
-  name: string;
-  transform: CanvasLayerTransform;
-  visible: boolean;
-};
-
-type CompositionEffectLayer = {
-  frameSnapshot?: ShaderFrameSnapshot;
-  id: EffectLayerId;
-  name: string;
-  opacity: number;
-  settings: CompositionEffectSettings;
-  visible: boolean;
-};
-
-
-type CompositionLogoLayer = {
-  appearance?: LogoAppearanceSettings;
-  color?: string;
-  convertedAssetId?: string;
-  id: LogoLayerId;
-  name: string;
-  opacity?: number;
-  transform: CanvasLayerTransform;
-  url: string;
-  visible: boolean;
-};
-
-type CompositionAsset = {
-  appearance?: LogoAppearanceSettings;
-  id: AssetLayerId;
-  imageCrop?: ImageCropSettings;
-  kind?: ImageAssetPlacementMode;
-  libraryAssetId?: string;
-  name: string;
-  opacity?: number;
-  stickerFinish?: StickerFinishSettings;
-  transform: CanvasLayerTransform;
-  url: string;
-  visible: boolean;
-};
-
-type CompositionTextLayer = {
-  runs?: TextStyleRun[];
-  align: CanvasTextAlign;
-  color?: string;
-  fontRole?: BrandTypography['role'];
-  fontSize?: number;
-  fontStyle?: 'normal' | 'italic';
-  id: TextLayerId;
-  kind?: 'sticker' | 'text';
-  lineHeight: number;
-  name: string;
-  opacity?: number;
-  outlineColor?: string;
-  outlineEnabled?: boolean;
-  outlineWidth?: number;
-  shadowBlur?: number;
-  shadowColor?: string;
-  shadowEnabled?: boolean;
-  shadowOffsetX?: number;
-  shadowOffsetY?: number;
-  shadowOpacity?: number;
-  strikethrough?: boolean;
-  textEffect?: TextEffectSettings;
-  tracking: number;
-  transform: CanvasLayerTransform;
-  underline?: boolean;
-  value: string;
-  visible: boolean;
-  weight: number;
-  wrap: CanvasTextWrap;
-};
-
-type LayerGeometry = {
-  baseHeight: number;
-  baseWidth: number;
-  baseX: number;
-  baseY: number;
-};
-
-function resolveTextRunStyle(layer: CompositionTextLayer, identity: BrandIdentity, canvasHeight: number, style: InlineTextStyle): ResolvedTextStyle {
-  const appearance = resolvedTextAppearance(layer);
-  const fontRole = style.fontRole ?? appearance.fontRole;
-  return {
-    color: style.color ?? appearance.color,
-    fontFamily: `${JSON.stringify(brandTypographyFamily(identity, fontRole))}, Arial, sans-serif`,
-    fontSize: style.fontSize === undefined ? resolveDesignLabFontSize(layer, canvasHeight) : style.fontSize * layer.transform.scale,
-    fontStyle: style.fontStyle ?? layer.fontStyle ?? 'normal',
-    fontWeight: resolveBrandTypographyWeight(identity, fontRole, style.weight ?? layer.weight),
-    tracking: style.tracking ?? layer.tracking,
-    underline: style.underline ?? layer.underline ?? false,
-    strikethrough: style.strikethrough ?? layer.strikethrough ?? false,
-  };
-}
-
-type TextAppearanceSettings = {
-  color: string;
-  fontRole: BrandTypography['role'];
-  opacity: number;
-  outlineColor: string;
-  outlineEnabled: boolean;
-  outlineWidth: number;
-  shadowBlur: number;
-  shadowColor: string;
-  shadowEnabled: boolean;
-  shadowOffsetX: number;
-  shadowOffsetY: number;
-  shadowOpacity: number;
-  textEffect: TextEffectSettings;
-};
+import {
+  colorWithOpacity,
+  DEFAULT_LAYER_TRANSFORM,
+  DEFAULT_TEXT_APPEARANCE,
+  DEFAULT_TEXT_LAYER_TRANSFORM,
+  isAssetLayerId,
+  isCanvasLayerId,
+  isContentLayerId,
+  isEffectLayerId,
+  isLogoLayerId,
+  isShaderLayerId,
+  isStickerLayer,
+  isTextLayerId,
+  layerGeometry,
+  layerKind,
+  resolvedLogoAppearance,
+  resolvedTextAppearance,
+  resolvedTextTransform,
+  resolveTextRunStyle,
+  textShadowStyle,
+  type AssetLayerId,
+  type CanvasLayerId,
+  type CompositionAsset,
+  type CompositionEffectLayer,
+  type CompositionLayerGroup,
+  type CompositionLayerGroupId,
+  type CompositionLayerId,
+  type CompositionLogoLayer,
+  type CompositionShaderLayer,
+  type CompositionTextLayer,
+  type ContentLayerId,
+  type DesignArtboard,
+  type DesignArtboardId,
+  type DesignArtboardSnapshot,
+  type DesignShaderSequenceSettings,
+  type EffectLayerId,
+  type LogoLayerId,
+  type ShaderApplication,
+  type ShaderBlendMode,
+  type ShaderLayerId,
+  type ShaderRatio,
+  type TextAppearanceSettings,
+  type TextLayerId,
+} from '@/lib/designLabModel';
 
 type TextEffectRenderScratch = {
   fill: HTMLCanvasElement;
@@ -532,44 +435,6 @@ type DesignExportRequest = {
   format: DesignExportFormat;
   motionMode?: DesignMotionMode;
   settingsSignature: string;
-};
-
-type DesignShaderSequenceSettings = ShaderSequenceSettings & {
-  sequenceOffset: number;
-  targetLayerId: ShaderLayerId | null;
-};
-
-type DesignArtboardId = `artboard-${string}`;
-
-type DesignArtboardTimeline = {
-  frame: number;
-  paused: boolean;
-  timeMs?: number;
-};
-
-type DesignArtboardSnapshot = {
-  assets: CompositionAsset[];
-  backgroundColor: string;
-  dimensions: StudioArtboardDimensions;
-  effectLayers: CompositionEffectLayer[];
-  groups: CompositionLayerGroup[];
-  layerOrder: CompositionLayerId[];
-  layerShaders: Partial<Record<ContentLayerId, ShaderApplication>>;
-  logos: CompositionLogoLayer[];
-  ratio: ShaderRatio;
-  shaderLayers: CompositionShaderLayer[];
-  shaderSequence: DesignShaderSequenceSettings;
-  textLayers: CompositionTextLayer[];
-  timeline: DesignArtboardTimeline;
-};
-
-type DesignArtboard = {
-  displayScale?: number;
-  id: DesignArtboardId;
-  name: string;
-  snapshot: DesignArtboardSnapshot;
-  x: number;
-  y: number;
 };
 
 type DesignArtboardWorkspaceSource = {
@@ -1338,7 +1203,6 @@ function CanvasSelectionAssemblyOverlay({
   );
 }
 
-const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
 const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
 // Captures lift the device-ratio cap; the export pixel count then sets the canvas size.
@@ -1371,26 +1235,6 @@ const DEFAULT_DESIGN_LAB_LAYER_ORDER = [
   DEFAULT_LOGO_LAYER_ID,
 ] as const satisfies readonly CompositionLayerId[];
 const DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID = DEFAULT_CANVAS_SHADER_ID;
-const DEFAULT_TEXT_LAYER_TRANSFORM: CanvasLayerTransform = {
-  ...DEFAULT_LAYER_TRANSFORM,
-  heightScale: 1,
-  widthScale: 1,
-};
-const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
-  color: '#FFFFFF',
-  fontRole: 'Display',
-  opacity: 1,
-  outlineColor: '#000000',
-  outlineEnabled: false,
-  outlineWidth: 1,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: false,
-  shadowOffsetX: 0,
-  shadowOffsetY: 8,
-  shadowOpacity: 35,
-  textEffect: { ...DEFAULT_TEXT_EFFECT },
-};
 const STICKER_IMAGE_APPEARANCE: LogoAppearanceSettings = {
   ...DEFAULT_LOGO_APPEARANCE,
   borderColor: '#FFFFFF',
@@ -1416,34 +1260,6 @@ const STICKER_TEXT_APPEARANCE: Partial<TextAppearanceSettings> = {
   shadowOpacity: 34,
 };
 
-function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
-  return layerId?.startsWith('text-') ?? false;
-}
-
-function isShaderLayerId(layerId: CompositionLayerId | null): layerId is ShaderLayerId {
-  return layerId?.startsWith('shader-') ?? false;
-}
-
-function isEffectLayerId(layerId: CompositionLayerId | null): layerId is EffectLayerId {
-  return layerId?.startsWith('effect-') ?? false;
-}
-
-function isLogoLayerId(layerId: CompositionLayerId | null): layerId is LogoLayerId {
-  return layerId?.startsWith('logo-') ?? false;
-}
-
-function isAssetLayerId(layerId: CompositionLayerId | null): layerId is AssetLayerId {
-  return layerId?.startsWith('asset-') ?? false;
-}
-
-function isContentLayerId(layerId: CompositionLayerId | null): layerId is ContentLayerId {
-  return isLogoLayerId(layerId) || isTextLayerId(layerId) || isAssetLayerId(layerId);
-}
-
-function isCanvasLayerId(layerId: CompositionLayerId | null): layerId is CanvasLayerId {
-  return isShaderLayerId(layerId) || isContentLayerId(layerId);
-}
-
 function CanvasLayerKindIcon({ layerId, sticker = false }: { layerId: CompositionLayerId; sticker?: boolean }) {
   if (sticker) return <Sticker aria-hidden='true' />;
   if (isShaderLayerId(layerId)) return <Sparkles aria-hidden='true' />;
@@ -1451,13 +1267,6 @@ function CanvasLayerKindIcon({ layerId, sticker = false }: { layerId: Compositio
   if (isTextLayerId(layerId)) return <Type aria-hidden='true' />;
   if (isLogoLayerId(layerId)) return <Layers3 aria-hidden='true' />;
   return <ImagePlus aria-hidden='true' />;
-}
-
-function isStickerLayer(
-  assetLayer: CompositionAsset | null,
-  textLayer: CompositionTextLayer | null
-): boolean {
-  return assetLayer?.kind === 'sticker' || textLayer?.kind === 'sticker';
 }
 
 function resolveLayerDockLayers(
@@ -1916,46 +1725,6 @@ function restoredLayerOrder({
   }) as CompositionLayerId[];
 }
 
-function resolvedTextTransform(transform: CanvasLayerTransform): CanvasLayerTransform {
-  return {
-    ...transform,
-    heightScale: transform.heightScale ?? 1,
-    widthScale: transform.widthScale ?? 1,
-  };
-}
-
-function resolvedTextAppearance(layer: CompositionTextLayer): TextAppearanceSettings {
-  return {
-    color: layer.color ?? DEFAULT_TEXT_APPEARANCE.color,
-    fontRole: layer.fontRole ?? DEFAULT_TEXT_APPEARANCE.fontRole,
-    opacity: layer.opacity ?? DEFAULT_TEXT_APPEARANCE.opacity,
-    outlineColor: layer.outlineColor ?? DEFAULT_TEXT_APPEARANCE.outlineColor,
-    outlineEnabled: layer.outlineEnabled ?? DEFAULT_TEXT_APPEARANCE.outlineEnabled,
-    outlineWidth: layer.outlineWidth ?? DEFAULT_TEXT_APPEARANCE.outlineWidth,
-    shadowBlur: layer.shadowBlur ?? DEFAULT_TEXT_APPEARANCE.shadowBlur,
-    shadowColor: layer.shadowColor ?? DEFAULT_TEXT_APPEARANCE.shadowColor,
-    shadowEnabled: layer.shadowEnabled ?? DEFAULT_TEXT_APPEARANCE.shadowEnabled,
-    shadowOffsetX: layer.shadowOffsetX ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetX,
-    shadowOffsetY: layer.shadowOffsetY ?? DEFAULT_TEXT_APPEARANCE.shadowOffsetY,
-    shadowOpacity: layer.shadowOpacity ?? DEFAULT_TEXT_APPEARANCE.shadowOpacity,
-    textEffect: resolveTextEffectSettings(layer.textEffect),
-  };
-}
-
-function resolvedLogoAppearance(settings?: LogoAppearanceSettings): LogoAppearanceSettings {
-  return { ...DEFAULT_LOGO_APPEARANCE, ...settings };
-}
-
-function colorWithOpacity(color: string, opacity: number): string {
-  const hex = color.replace('#', '');
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
-  const value = Number.parseInt(hex, 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
-}
-
 function scrollLayerDockWithWheel(event: ReactWheelEvent<HTMLDivElement>) {
   if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
   const dock = event.currentTarget;
@@ -1970,11 +1739,6 @@ function scrollLayerDockWithWheel(event: ReactWheelEvent<HTMLDivElement>) {
   if (nextScroll === dock.scrollLeft) return;
   event.preventDefault();
   dock.scrollLeft = nextScroll;
-}
-
-function textShadowStyle(settings: TextAppearanceSettings): string | undefined {
-  if (!settings.shadowEnabled) return undefined;
-  return `${settings.shadowOffsetX}px ${settings.shadowOffsetY}px ${settings.shadowBlur}px ${colorWithOpacity(settings.shadowColor, settings.shadowOpacity / 100)}`;
 }
 
 function InspectorTextArea({
@@ -2032,10 +1796,6 @@ function InspectorTextArea({
       rows={2}
     />
   );
-}
-
-function layerGeometry(layerId: CanvasLayerId, canvas: StudioArtboardDimensions): LayerGeometry {
-  return designLayerGeometry(layerId, canvas);
 }
 
 const PRIMARY_CONTROLS: readonly {
@@ -2481,14 +2241,6 @@ function syncSelectedCanvasLayerOverlay(layer: HTMLElement) {
 
 function dataTransferHasFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.types).includes('Files');
-}
-
-function layerKind(id: CompositionLayerId) {
-  if (isShaderLayerId(id)) return 'Shader';
-  if (isEffectLayerId(id)) return 'Converter';
-  if (isLogoLayerId(id)) return 'Brand mark';
-  if (isTextLayerId(id)) return 'Editable text';
-  return 'Image';
 }
 
 function drawContained(

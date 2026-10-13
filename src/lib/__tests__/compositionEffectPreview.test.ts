@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { defaultCompositionEffectSettings } from '../compositionEffects';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '../compositionEffectPreview';
+import { readDesignLabSource } from './designLabSource';
 
 const layer = { id: 'effect-one', opacity: 0.8, settings: defaultCompositionEffectSettings('bayer') };
 const visibleIds = new Set([layer.id]);
@@ -46,7 +46,7 @@ describe('converter capture preview isolation', () => {
   });
 
   it('wires the guard before freezing and ignores converter preview writes during capture', () => {
-    const source = readFileSync(new URL('../../components/ShaderLabStudio.tsx', import.meta.url), 'utf8');
+    const source = readDesignLabSource();
     const capture = source.slice(source.indexOf('  async function captureCompositionFrame('), source.indexOf('  async function prepareCompositionSource('));
     expect(capture.indexOf('assertCompositionEffectCaptureReady(')).toBeGreaterThan(0);
     expect(capture.indexOf('assertCompositionEffectCaptureReady(')).toBeLessThan(capture.indexOf('beginShaderFrameCapture('));

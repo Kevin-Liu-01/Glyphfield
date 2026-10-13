@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { readDesignLabSource } from './designLabSource';
 
 const playground = readFileSync(join(process.cwd(), 'src/components/SurfaceLabStudio.tsx'), 'utf8');
-const designLab = readFileSync(join(process.cwd(), 'src/components/ShaderLabStudio.tsx'), 'utf8');
+const designLab = readDesignLabSource();
 const studioWorkspace = readFileSync(join(process.cwd(), 'src/components/StudioToolWorkspace.tsx'), 'utf8');
 const editableCanvasLayer = readFileSync(join(process.cwd(), 'src/components/EditableCanvasLayer.tsx'), 'utf8');
 const animationStudio = readFileSync(join(process.cwd(), 'src/components/AnimationStudio.tsx'), 'utf8');
