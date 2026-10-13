@@ -4,6 +4,7 @@ import {
   BRAND_ELEMENTS,
   createBrandElementSettings,
   filterBrandElements,
+  parseBrandElementSource,
 } from '../brandElements';
 import { GT_BRAND_IDENTITY } from '../brandIdentity';
 
@@ -89,4 +90,28 @@ describe('createBrandElementSettings', () => {
     expect(settings.headline).not.toBe(webCard.name);
   });
 });
+});
+
+describe('parseBrandElementSource', () => {
+  const welcome = BRAND_ELEMENTS.find(({ id }) => id === 'welcome-email')!;
+
+  it('round-trips version 2 source without storing defaults', () => {
+    const settings = createBrandElementSettings(welcome, GT_BRAND_IDENTITY);
+    const parsed = parseBrandElementSource({ ...settings, elementId: 'welcome-email', schema: 'glyphfield.brand-element', version: 2 }, BRAND_ELEMENTS, 'x-post', GT_BRAND_IDENTITY);
+    expect(parsed).toEqual({ elementId: 'welcome-email', overrides: {} });
+  });
+
+  it('applies version 1 settings to the selected element and keeps only edits', () => {
+    const parsed = parseBrandElementSource({ headline: 'Audit element', layout: 'split', unknownField: true }, BRAND_ELEMENTS, 'welcome-email', GT_BRAND_IDENTITY);
+    expect(parsed).toEqual({ elementId: 'welcome-email', overrides: { headline: 'Audit element', layout: 'split' } });
+  });
+
+  it('clamps numbers and rejects invalid values with field names', () => {
+    expect(parseBrandElementSource({ artworkScale: 900 }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY).overrides).toEqual({ artworkScale: 200 });
+    expect(() => parseBrandElementSource({ accentColor: 'red' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/accentColor/);
+    expect(() => parseBrandElementSource({ layout: 'grid' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/layout/);
+    expect(() => parseBrandElementSource({ showLogo: 'yes' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/showLogo/);
+    expect(() => parseBrandElementSource({ elementId: 'nope' }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/elementId/);
+    expect(() => parseBrandElementSource({ version: 3 }, BRAND_ELEMENTS, 'web-card', GT_BRAND_IDENTITY)).toThrow(/version 3/);
+  });
 });

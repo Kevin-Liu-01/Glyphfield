@@ -1,4 +1,6 @@
 import { EMAIL_LIFECYCLE_TEMPLATES, getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
+import type { BrandIdentity } from '@/lib/brandIdentity';
+import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
 
 export type BrandElementCategory =
   | 'Digital'
@@ -1052,5 +1054,101 @@ export function filterBrandElements(
       .includes(normalizedQuery)
   );
 }
-import type { BrandIdentity } from '@/lib/brandIdentity';
-import { DEFAULT_LOGO_APPEARANCE, type LogoAppearanceSettings } from '@/lib/logoAppearance';
+
+
+export const BRAND_ELEMENT_SOURCE_SCHEMA = 'glyphfield.brand-element';
+export const BRAND_ELEMENT_SOURCE_VERSION = 2;
+
+type SettingReader = (value: unknown, path: string) => unknown;
+
+function hexSetting(value: unknown, path: string): string {
+  if (typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) throw new TypeError(`${path} must be a six-digit HEX colour.`);
+  return value.toUpperCase();
+}
+
+function textSetting(maximum: number): SettingReader {
+  return (value, path) => {
+    if (typeof value !== 'string') throw new TypeError(`${path} must be a string.`);
+    if (value.length > maximum) throw new RangeError(`${path} must be at most ${maximum} characters.`);
+    return value;
+  };
+}
+
+function numberSetting(minimum: number, maximum: number): SettingReader {
+  return (value, path) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${path} must be a finite number.`);
+    return Math.min(maximum, Math.max(minimum, value));
+  };
+}
+
+function enumSetting(allowed: readonly string[]): SettingReader {
+  return (value, path) => {
+    if (typeof value !== 'string' || !allowed.includes(value)) throw new RangeError(`${path} must be one of ${allowed.join(', ')}.`);
+    return value;
+  };
+}
+
+function booleanSetting(value: unknown, path: string): boolean {
+  if (typeof value !== 'boolean') throw new TypeError(`${path} must be a Boolean.`);
+  return value;
+}
+
+function objectSetting(value: unknown, path: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${path} must be an object.`);
+  return value as Record<string, unknown>;
+}
+
+const SETTING_READERS: Record<keyof BrandElementSettings, SettingReader> = {
+  accentColor: hexSetting,
+  artworkScale: numberSetting(40, 200),
+  artworkX: numberSetting(-120, 120),
+  artworkY: numberSetting(-120, 120),
+  assetId: textSetting(200),
+  assetOpacity: numberSetting(0, 100),
+  assetPlacement: enumSetting(['background', 'banner', 'card', 'header']),
+  backgroundColor: hexSetting,
+  body: textSetting(2000),
+  cta: textSetting(200),
+  fontRole: enumSetting(['Accent', 'Body', 'Code', 'Display']),
+  fontWeight: numberSetting(100, 900),
+  foregroundColor: hexSetting,
+  headline: textSetting(400),
+  layout: enumSetting(['split', 'stacked', 'centered']),
+  logoAppearance: objectSetting,
+  partnerName: textSetting(120),
+  pattern: enumSetting(['none', 'dots', 'grid', 'dither']),
+  patternOpacity: numberSetting(0, 100),
+  personName: textSetting(120),
+  personRole: textSetting(200),
+  scale: enumSetting(['compact', 'balanced', 'bold']),
+  showLogo: booleanSetting,
+  showWebsite: booleanSetting,
+};
+
+/**
+ * Validate a brand element source document. Version 2 names its element with
+ * `elementId`; version 1 documents (settings only) apply to the selected
+ * element. Only values that differ from the identity defaults are stored, so
+ * untouched copy keeps following identity edits. Unknown keys are ignored.
+ */
+export function parseBrandElementSource(
+  value: Record<string, unknown>,
+  elements: readonly BrandElement[],
+  selectedElementId: string,
+  identity: BrandIdentity
+): { elementId: string; overrides: BrandElementOverrides } {
+  if (value.version !== undefined && value.version !== 1 && value.version !== BRAND_ELEMENT_SOURCE_VERSION) {
+    throw new RangeError(`Brand element source version ${String(value.version)} is not supported.`);
+  }
+  const elementId = value.elementId === undefined ? selectedElementId : String(value.elementId);
+  const element = elements.find(({ id }) => id === elementId);
+  if (!element) throw new RangeError('elementId must reference an ID returned by /api/elements.');
+  const defaults = createBrandElementSettings(element, identity);
+  const overrides: Record<string, unknown> = {};
+  for (const [key, reader] of Object.entries(SETTING_READERS)) {
+    if (value[key] === undefined) continue;
+    const parsed = reader(value[key], key);
+    if (JSON.stringify(parsed) !== JSON.stringify(defaults[key as keyof BrandElementSettings])) overrides[key] = parsed;
+  }
+  return { elementId, overrides: overrides as BrandElementOverrides };
+}
