@@ -255,6 +255,11 @@ function currentContextRecovery(
   return { failed: false, materialId, version: 0 };
 }
 
+/** Supersampled capture: Paper renders up to the pixel budget instead of device ratio. */
+function paperMinPixelRatio(renderScale: number): number {
+  return renderScale > 1 && typeof window !== 'undefined' ? (window.devicePixelRatio || 1) * renderScale : 0.5;
+}
+
 function materialRequiresWebGL2(materialId: LiveMaterialId): boolean {
   return materialId === 'shadergradient-prismatic-sphere'
     || materialId === 'pavel-fluid-energy'
@@ -1680,8 +1685,7 @@ function PaperShaderSurface({
     height: '100%',
     maxPixelCount: maxPixelCount
       ?? Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
-    // Supersampled capture: Paper renders up to the pixel budget instead of device ratio.
-    minPixelRatio: renderScale > 1 && typeof window !== 'undefined' ? (window.devicePixelRatio || 1) * renderScale : 0.5,
+    minPixelRatio: paperMinPixelRatio(renderScale),
     ref: surfaceRef,
     style: surfaceStyle,
     webGlContextAttributes,
