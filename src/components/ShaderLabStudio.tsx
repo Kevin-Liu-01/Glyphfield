@@ -8959,6 +8959,8 @@ export default function ShaderLabStudio({
     const next = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[(index + 1) % DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.length]!;
     const detail = previewQuality.automaticallyReduced ? 'Auto lowered resolution after slow frames.' : 'Exports always render at full size.';
     return (
+      <>
+      <span className='canvas-toolbar-divider' />
       <Button
         aria-label='Live shader preview quality'
         className='gap-1 px-2 text-xs'
@@ -8972,6 +8974,7 @@ export default function ShaderLabStudio({
         <Gauge aria-hidden='true' />
         <span>{current.label}</span>
       </Button>
+      </>
     );
   }
 
