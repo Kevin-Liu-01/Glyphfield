@@ -1,0 +1,56 @@
+---
+title: Slide templates
+description: Multi-slide decks with per-slide layouts, speaker notes, slide numbers, and a PDF export.
+icon: Presentation
+---
+
+Slide templates is a deck. A new deck has five slides built from the identity: a title slide, an agenda from its strategy pillars, its proof figures as metrics (or a statement when it has none), a quote in its voice, and a closing slide with its website.
+
+## Slides
+
+The **Slides** section lists every slide with a live thumbnail. Click a slide to edit it. **Add slide** inserts a slide after the current one in the chosen **New slide layout**; **Duplicate slide**, **Move slide up**, **Move slide down**, and **Delete slide** act on the current slide. Drag a thumbnail to reorder, or focus it and press Alt with an arrow key.
+
+Each slide has its own layout. The **Slide library** applies one of 14 layouts to the current slide:
+
+1. Title
+2. Section
+3. Agenda
+4. Split
+5. Metrics
+6. Quote
+7. Timeline
+8. Statement
+9. Comparison
+10. Process
+11. Chart
+12. Team
+13. Image
+14. Closing
+
+Switching layouts keeps the slide's text: the headline, list items, metrics, and labels move into the new layout, and anything the new layout has no place for comes back when you switch again.
+
+## Content controls
+
+- **Title**, **Typography role**, and **Font weight** edit the current slide's headline.
+- **Body or list · one item per line** sets the list items for agenda, timeline, process, comparison, and team slides.
+- **Speaker notes** are stored on the slide.
+- **Surface** chooses **Base white**, **Base dark**, **Grid**, or **Noise** for the current slide, and **Add background image** places an image behind it.
+
+Footers can show slide numbers with `{page}` and `{pages}` in any text layer, for example `{page} / {pages}`.
+
+## Formats and export
+
+Formats: 16:9 (1600 × 900), 4:3 (1600 × 1200), and Square (1200 × 1200); a format change re-flows every slide. **Export PNG** renders the current slide. **More exports → Export PDF deck** renders every slide into one PDF with lossless page images.
+
+## Browser actions
+
+| Action | Use |
+|---|---|
+| `slides.export.png` / `slides.export.svg` | Export the current slide |
+| `slides.export.pdf` | Export every slide as one PDF |
+| `slides.slide.add` / `slides.slide.duplicate` / `slides.slide.move` / `slides.slide.remove` / `slides.slide.select` | Deck management |
+| `slides.document.describe` | Format, layouts, slides, and layers |
+| `slides.layer.add` / `slides.layer.update` / `slides.layer.remove` / `slides.layer.duplicate` | Layer edits |
+| `slides.layer.reorder` / `slides.layer.select` / `slides.layer.align` | Stack, selection, and alignment |
+| `slides.format.set` / `slides.layout.apply` / `slides.template.reset` | Format, layout (`pageId` optional), and template |
+| `slides.history.undo` / `slides.history.redo` | History |

@@ -20,6 +20,7 @@ import DesignVersionControls from '@/components/DesignVersionControls';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import { Button } from '@/components/ui/Button';
+import StudioActionMenu from '@/components/ui/StudioActionMenu';
 import { contextMenuPositionFromEvent, type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import { ToolShell } from '@/components/tools/ToolShell';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
@@ -662,16 +663,17 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
       actions={(
         <>
           <ExportPreview asset={lastExport} />
-          <Button disabled={exporting || !portable.document} onClick={() => void exportPage('svg')} type='button' variant='outline'>
-            <FileDown aria-hidden='true' />
-            <T>Export SVG</T>
-          </Button>
-          {kind === 'slides' ? (
-            <Button disabled={exporting || !portable.document} onClick={() => void exportPdf()} type='button' variant='outline'>
-              <FileDown aria-hidden='true' />
-              <T>Export PDF</T>
-            </Button>
-          ) : null}
+          <StudioActionMenu
+            disabled={exporting || !portable.document}
+            icon={<FileDown aria-hidden='true' />}
+            label={gt('More exports')}
+            sections={[{
+              items: [
+                { description: gt('Self-contained vector with embedded fonts and images'), icon: <FileDown aria-hidden='true' />, id: 'svg', label: gt('Export SVG'), onSelect: () => void exportPage('svg') },
+                ...(kind === 'slides' ? [{ description: gt('Every slide in one PDF'), icon: <FileDown aria-hidden='true' />, id: 'pdf', label: gt('Export PDF deck'), onSelect: () => void exportPdf() }] : []),
+              ],
+            }]}
+          />
           <Button disabled={exporting || !portable.document} onClick={() => void exportPage('png')} type='button'>
             <Download aria-hidden='true' />
             <T>Export PNG</T>
