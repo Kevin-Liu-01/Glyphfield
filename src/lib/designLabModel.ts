@@ -50,6 +50,8 @@ export type ShaderApplication = {
 
 export type CompositionShaderLayer = ShaderApplication & {
   id: ShaderLayerId;
+  /** Locked layers ignore canvas pointer and keyboard edits; source maps this to element.locked. */
+  locked?: boolean;
   name: string;
   transform: CanvasLayerTransform;
   visible: boolean;
@@ -70,6 +72,7 @@ export type CompositionLogoLayer = {
   color?: string;
   convertedAssetId?: string;
   id: LogoLayerId;
+  locked?: boolean;
   name: string;
   opacity?: number;
   transform: CanvasLayerTransform;
@@ -83,6 +86,7 @@ export type CompositionAsset = {
   imageCrop?: ImageCropSettings;
   kind?: ImageAssetPlacementMode;
   libraryAssetId?: string;
+  locked?: boolean;
   name: string;
   opacity?: number;
   stickerFinish?: StickerFinishSettings;
@@ -101,6 +105,7 @@ export type CompositionTextLayer = {
   id: TextLayerId;
   kind?: 'sticker' | 'text';
   lineHeight: number;
+  locked?: boolean;
   name: string;
   opacity?: number;
   outlineColor?: string;

@@ -229,6 +229,7 @@ function elementFromLayer(
     content: type === 'text' ? stringValue(layer.value, '') : undefined,
     data: { ...layer, layerType: type },
     hidden: !booleanValue(layer.visible, true),
+    locked: booleanValue(layer.locked, false),
     imageTreatment: imageTreatmentFromLayer(layer, type),
     style: {
       ...element.style,
@@ -351,6 +352,9 @@ function restoreLayer(document: CanvasDocument, element: CanvasElement): {
   layer.name = element.name;
   layer.opacity = element.style.opacity;
   layer.visible = !element.hidden;
+  // element.locked is the portable lock; the layer only records a locked layer.
+  if (element.locked) layer.locked = true;
+  else delete layer.locked;
   if (layerType === 'shader') layer.blendMode = element.style.blendMode;
   if (layerType === 'text') layer.value = element.content ?? '';
   if (layerType === 'asset' || layerType === 'logo' || layerType === 'shader' || layerType === 'text') {

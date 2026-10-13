@@ -244,6 +244,25 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.workspace).toEqual(designLabInput().workspace);
   });
 
+  it('maps a layer lock to the portable element lock and back', () => {
+    const input = designLabInput();
+    input.textLayers = input.textLayers.map((layer) => ({ ...layer, locked: true }));
+    const document = createDesignLabCanvasDocument(input);
+    expect(document.elements['text-title']).toMatchObject({ locked: true });
+    expect(document.elements['shader-background']).toMatchObject({ locked: false });
+    const restored = designLabSourceFromCanvasDocument(document);
+    const composition = restored.composition as { shaderLayers: object[]; textLayers: object[] };
+    expect(composition.textLayers[0]).toMatchObject({ locked: true });
+    expect(composition.shaderLayers[0]).not.toHaveProperty('locked');
+
+    // Agents lock layers through the canonical element field.
+    const unlocked = applyCanvasMutation(document, { elementId: 'text-title', locked: false, type: 'set-lock' });
+    const relocked = applyCanvasMutation(unlocked, { elementId: 'shader-background', locked: true, type: 'set-lock' });
+    const edited = designLabSourceFromCanvasDocument(relocked).composition as { shaderLayers: object[]; textLayers: object[] };
+    expect(edited.textLayers[0]).not.toHaveProperty('locked');
+    expect(edited.shaderLayers[0]).toMatchObject({ locked: true });
+  });
+
   it('upgrades legacy full-canvas shaders with an explicit adjustable frame', () => {
     const input = designLabInput();
     const legacyShader = { ...input.shaderLayers[0] } as Record<string, unknown>;

@@ -227,11 +227,14 @@ export const DesignLabStageLayer = memo(function DesignLabStageLayer({
     );
   }
   const canvasLayerId = layerId as CanvasLayerId;
+  const canvasLayer = layer as Exclude<StageLayer, CompositionEffectLayer>;
   const geometry = layerGeometry(canvasLayerId, canvasDimensions);
   const shared = {
     ...geometry,
     canvasHeight: canvasDimensions.height,
     canvasWidth: canvasDimensions.width,
+    // Locked layers stay visible but ignore canvas pointer and keyboard edits.
+    interactive: !canvasLayer.locked,
     label: layer.name,
     layerId,
     movementBounds,

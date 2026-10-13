@@ -9,7 +9,7 @@ import { memo, type ComponentProps, type MouseEvent as ReactMouseEvent, type Rea
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
 import { imageCropElementStyle } from '@/components/DesignLabCanvasContent';
-import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Grid3X3, ImagePlus, Layers3, Sparkles, Sticker, Trash2, Type } from '@/components/ui/SolidIcons';
+import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Grid3X3, ImagePlus, Layers3, Lock, LockOpen, Sparkles, Sticker, Trash2, Type } from '@/components/ui/SolidIcons';
 import { contextMenuPositionFromElement, contextMenuPositionFromEvent, type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity } from '@/lib/brandIdentity';
@@ -56,6 +56,7 @@ export type DesignLabLayerRowActions = {
   openLayerMenu: (id: CompositionLayerId, position: StudioContextMenuPosition) => void;
   removeLayer: (id: CompositionLayerId) => void;
   selectLayerFromStack: (id: CompositionLayerId) => void;
+  toggleLayerLock: (id: CompositionLayerId) => void;
   toggleLayerVisibility: (id: CompositionLayerId) => void;
   updateTextValue: (id: TextLayerId, value: string) => void;
 };
@@ -72,9 +73,33 @@ export type DesignLabLayerRowProps = {
   label: string;
   layer: DesignLabListedLayer;
   lazy: boolean;
+  /** Undefined for converters, which have no canvas geometry to lock. */
+  locked?: boolean;
   selected: boolean;
   visible: boolean;
 };
+
+function LayerLockButton({ className, label, layerId, locked, onToggle }: {
+  className?: string;
+  label: string;
+  layerId: CompositionLayerId;
+  locked: boolean;
+  onToggle: (id: CompositionLayerId) => void;
+}) {
+  return (
+    <button
+      aria-label={`${locked ? 'Unlock' : 'Lock'} ${label}`}
+      aria-pressed={locked}
+      className={className}
+      data-locked={locked ? 'true' : 'false'}
+      onClick={() => onToggle(layerId)}
+      title={locked ? 'Unlock layer' : 'Lock layer'}
+      type='button'
+    >
+      {locked ? <Lock aria-hidden='true' /> : <LockOpen aria-hidden='true' />}
+    </button>
+  );
+}
 
 export function CanvasLayerKindIcon({ layerId, sticker = false }: { layerId: CompositionLayerId; sticker?: boolean }) {
   if (sticker) return <Sticker aria-hidden='true' />;
@@ -331,6 +356,7 @@ export const DesignLabDockLayer = memo(function DesignLabDockLayer({
   label,
   layer,
   lazy,
+  locked,
   selected,
   visible: layerIsVisible,
 }: DesignLabLayerRowProps) {
@@ -350,6 +376,7 @@ export const DesignLabDockLayer = memo(function DesignLabDockLayer({
         aria-label={`${label} layer`}
         className={lazy ? `shader-lab-v2-dock-layer ${styles.lazyDockRow}` : 'shader-lab-v2-dock-layer'}
         data-kind={kind.toLocaleLowerCase().replaceAll(' ', '-')}
+        data-locked={locked ? 'true' : undefined}
         data-material={appliedShader ? 'true' : 'false'}
         data-selected={selected ? 'true' : 'false'}
         data-studio-context-trigger='layer'
@@ -406,11 +433,12 @@ export const DesignLabDockLayer = memo(function DesignLabDockLayer({
             <LayerDockStaticPreview effectLayer={effectLayer} imageCrop={imageCrop} label={label} onSelect={() => actions.selectLayerFromStack(layerId)} previewUrl={previewUrl} />
           )}
         </div>
-        <div className='shader-lab-v2-dock-layer-actions'>
+        <div className={locked === undefined ? 'shader-lab-v2-dock-layer-actions' : `shader-lab-v2-dock-layer-actions ${styles.lockableActions}`}>
           <button aria-label={`Duplicate ${label}`} onClick={() => actions.duplicateLayer(layerId)} title='Duplicate' type='button'><Copy aria-hidden='true' /></button>
           <button aria-label={`Move ${label} forward`} disabled={!canMoveForward} onClick={() => actions.moveLayer(layerId, 1)} title='Move forward' type='button'><ArrowUp aria-hidden='true' /></button>
           <button aria-label={`Move ${label} backward`} disabled={!canMoveBackward} onClick={() => actions.moveLayer(layerId, -1)} title='Move backward' type='button'><ArrowDown aria-hidden='true' /></button>
           <button aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${label}`} aria-pressed={layerIsVisible} onClick={() => actions.toggleLayerVisibility(layerId)} title={layerIsVisible ? 'Hide layer' : 'Show layer'} type='button'>{layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}</button>
+          {locked === undefined ? null : <LayerLockButton label={label} layerId={layerId} locked={locked} onToggle={actions.toggleLayerLock} />}
           <button aria-label={`Delete ${label}`} onClick={() => actions.removeLayer(layerId)} title='Delete' type='button'><Trash2 aria-hidden='true' /></button>
         </div>
       </div>
@@ -429,6 +457,7 @@ export const DesignLabInspectorLayer = memo(function DesignLabInspectorLayer({
   label,
   layer,
   lazy,
+  locked,
   selected,
   visible: layerIsVisible,
 }: DesignLabLayerRowProps) {
@@ -454,7 +483,8 @@ export const DesignLabInspectorLayer = memo(function DesignLabInspectorLayer({
       meta={`${layerIsVisible ? 'Visible' : 'Hidden'}${groupName ? ` · ${groupName}` : ''}`}
     >
       <div
-        className={lazy ? `design-layer-inspector-row ${styles.lazyListRow}` : 'design-layer-inspector-row'}
+        className={['design-layer-inspector-row', lazy ? styles.lazyListRow : '', locked === undefined ? '' : styles.lockableRow].filter(Boolean).join(' ')}
+        data-locked={locked ? 'true' : undefined}
         data-selected={selected ? 'true' : 'false'}
         data-studio-context-trigger='layer'
         data-visible={layerIsVisible ? 'true' : 'false'}
@@ -479,6 +509,9 @@ export const DesignLabInspectorLayer = memo(function DesignLabInspectorLayer({
           <span><CanvasLayerKindIcon layerId={layerId} sticker={stickerLayer} /></span>
           <span><strong>{label}</strong><small>{String(index + 1).padStart(2, '0')} · {kind}{groupName ? ` · ${groupName}` : ''}</small></span>
         </button>
+        {locked === undefined ? null : (
+          <LayerLockButton className='design-layer-inspector-visibility' label={label} layerId={layerId} locked={locked} onToggle={actions.toggleLayerLock} />
+        )}
         <button
           aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${label}`}
           aria-pressed={layerIsVisible}

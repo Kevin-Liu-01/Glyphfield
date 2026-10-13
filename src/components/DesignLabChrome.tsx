@@ -15,6 +15,7 @@ import {
   Gauge,
   ImageDown,
   Info,
+  Keyboard,
   MonitorUp,
   Move,
   Pause,
@@ -25,7 +26,7 @@ import {
   X,
   Zap,
 } from '@/components/ui/SolidIcons';
-import { memo, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
 import { DesignVersionHeaderControls } from '@/components/DesignVersionControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
@@ -53,6 +54,8 @@ import {
   type ShaderLayerId,
 } from '@/lib/designLabModel';
 import type { StudioToolId } from '@/lib/studioCatalog';
+import { DESIGN_LAB_SHORTCUTS } from '@/lib/designLabShortcuts';
+import styles from './DesignLabChrome.module.css';
 import type { ProjectFileControlsProps } from '@/components/ProjectFileControls';
 import type { ShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
 
@@ -671,5 +674,69 @@ export const DesignLabMotionStrip = memo(function DesignLabMotionStrip({
         </aside>
       ) : null}
     </>
+  );
+});
+
+function formatShortcutKeys(keys: string, mac: boolean): string {
+  if (mac) return keys;
+  return keys.replaceAll('⇧⌘', 'Ctrl+Shift+').replaceAll('⌥⌘', 'Ctrl+Alt+').replaceAll('⌥⇧', 'Alt+Shift+')
+    .replaceAll('⌘', 'Ctrl+').replaceAll('⌥', 'Alt+').replaceAll('⇧', 'Shift+').replaceAll('⌫', 'Delete');
+}
+
+/** Reference sheet for every Design Lab shortcut, driven by the same catalog as the key handler. */
+export const DesignLabShortcutsPanel = memo(function DesignLabShortcutsPanel({ onClose }: { onClose: () => void }) {
+  const panelRef = useRef<HTMLElement>(null);
+  const [mac] = useState(() => typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform));
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+  const groups = [...new Set(DESIGN_LAB_SHORTCUTS.map(({ group }) => group))];
+  return (
+    <aside aria-label='Keyboard shortcuts' className={styles.shortcuts} data-canvas-selection-preserve ref={panelRef} role='dialog' tabIndex={-1}>
+      <header className={styles.header}>
+        <strong className={styles.title}>Keyboard shortcuts</strong>
+        <button aria-label='Close keyboard shortcuts' className={styles.close} onClick={onClose} type='button'><X aria-hidden='true' /></button>
+      </header>
+      <div className={styles.groups}>
+        {groups.map((group) => (
+          <section className={styles.group} key={group}>
+            <h3>{group}</h3>
+            <dl>
+              {DESIGN_LAB_SHORTCUTS.filter((entry) => entry.group === group).map((entry) => (
+                <div className={styles.row} key={entry.description}>
+                  <dt>{entry.description}</dt>
+                  <dd><kbd>{formatShortcutKeys(entry.keys, mac)}</kbd></dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
+    </aside>
+  );
+});
+
+/** Canvas toolbar button that opens the shortcuts sheet; ? does the same. */
+export const DesignLabShortcutsButton = memo(function DesignLabShortcutsButton({ onToggle, open }: { onToggle: () => void; open: boolean }) {
+  return (
+    <Button
+      aria-expanded={open}
+      aria-keyshortcuts='?'
+      aria-label='Keyboard shortcuts'
+      onClick={onToggle}
+      size='icon-sm'
+      title='Keyboard shortcuts (?)'
+      type='button'
+      variant='ghost'
+    >
+      <Keyboard aria-hidden='true' />
+    </Button>
   );
 });

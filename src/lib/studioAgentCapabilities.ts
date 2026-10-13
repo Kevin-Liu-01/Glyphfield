@@ -216,6 +216,23 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
     'design.sequence.describe': { description: 'Describe resolved shader-sequence settings, duration, and material timeline.', input: 'No input', output: '{ durationMs, materials, settings }' },
     'design.sequence.preview': { description: 'Start the configured shader-sequence preview.', input: 'No input', output: 'null' },
     'design.sequence.stop': { description: 'Stop the shader-sequence preview.', input: 'No input', output: 'null' },
+    'design.layers.arrange': {
+      description: 'Align unlocked layers to the bounds of the selection, or space them evenly. A fully selected group moves as one unit.',
+      input: "{ arrangement: 'left' | 'horizontal-center' | 'right' | 'top' | 'vertical-center' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical', layerIds?: string[] }; omit layerIds to use the current selection; align needs 2 units, distribute 3",
+      output: 'null',
+    },
+    'design.layers.lock': {
+      description: 'Lock or unlock layers. Locked layers ignore canvas pointer and keyboard edits but stay editable in the inspector; source records element.locked.',
+      input: '{ layerIds: string[], locked: boolean }', output: 'null',
+    },
+    'design.layers.copyStyle': {
+      description: 'Copy one layer\'s appearance (type, color, effects, opacity and material), never its content or geometry.',
+      input: '{ layerId: string }', output: 'null',
+    },
+    'design.layers.pasteStyle': {
+      description: 'Apply the copied style to unlocked layers. Each target takes the fields it shares with the source; a copied material fills content layers.',
+      input: '{ layerIds: string[] }', output: 'null',
+    },
   },
   opengraph: {
     'opengraph.export.png': { description: 'Render the current OpenGraph composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },

@@ -111,7 +111,13 @@ design.export.mp4
 design.export.shader-sequence.gif
 design.export.shader-sequence.mp4
 design.export.project
+design.layers.arrange
+design.layers.lock
+design.layers.copyStyle
+design.layers.pasteStyle
 ```
+
+Layer commands: `design.layers.arrange` takes `{ arrangement, layerIds? }` (left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal, distribute-vertical) and aligns to the selection bounds, not the artboard. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`; locked layers ignore canvas edits but keep inspector controls. `design.layers.copyStyle` `{ layerId }` then `design.layers.pasteStyle` `{ layerIds }` copies appearance only, never content or geometry.
 
 Use `studio.invoke('design.frame.pause')` for an ordinary synchronous pause: it returns null without encoding PNGs or writing captured-frame assets. For a durable exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: ordinary pause retains its mounted simulation, but time-only history replay is unsupported and playing from a saved PNG starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata. The explorer range extends only on request; playback does not automatically grow that range or create stored frames.
 

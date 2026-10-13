@@ -10,3 +10,18 @@
   contain-intrinsic-size: auto auto auto 42px;
   content-visibility: auto;
 }
+
+/* Canvas layers add a lock toggle; converters keep the original five actions. */
+.lockableActions.lockableActions {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.lockableRow.lockableRow {
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+}
+
+/* A locked layer's toggle reads at full strength, like other pressed controls. */
+.lockableActions [data-locked='true'],
+.lockableRow [data-locked='true'] {
+  color: hsl(var(--foreground));
+}

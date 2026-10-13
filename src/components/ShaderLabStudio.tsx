@@ -12,7 +12,10 @@ import {
   ImagePlus,
   Layers3,
   LayoutGrid,
+  Lock,
+  LockOpen,
   Move,
+  PaintBrush,
   Plus,
   Scissors,
   Search,
@@ -327,6 +330,9 @@ import {
 } from '@/components/DesignLabStage';
 import { useStableHandlers } from '@/hooks/useStableHandlers';
 import { useLocalValueStore } from '@/hooks/useValueStore';
+import { arrangeCanvasUnits, canArrangeUnits, isDesignLabArrangement, type DesignLabArrangement } from '@/lib/designLabArrange';
+import { applyDesignLabLayerStyle, extractDesignLabLayerStyle, type DesignLabLayerStyle, type DesignLabStyledLayer } from '@/lib/designLabStyle';
+import { resolveDesignLabShortcut, type DesignLabShortcutCommand } from '@/lib/designLabShortcuts';
 import {
   DesignLabInspectorPanel,
   type DesignLabInspectorActions,
@@ -347,6 +353,8 @@ import {
   DesignLabHeader,
   DesignLabMotionStrip,
   DesignLabPreviewQualityToggle,
+  DesignLabShortcutsButton,
+  DesignLabShortcutsPanel,
   type DesignLabArtboardToolbarActions,
   type DesignLabHeaderActions,
   type DesignLabMotionStripActions,
@@ -1611,6 +1619,7 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 
 type DesignAutomationHandlers = {
   formatText: (input: unknown) => Promise<unknown>;
+  layerAction: (action: string, input: unknown) => Promise<unknown>;
   workspaceAction: (action: string, input: unknown) => Promise<unknown>;
   prepareCompositionSource: () => Promise<string>;
   prepareProjectFile: () => Promise<ExportPreviewAsset>;
@@ -1637,6 +1646,39 @@ const DESIGN_AUTOMATION_EXPORT_REQUESTS: Readonly<Record<string, DesignAutomatio
   'design.export.shader-sequence.mp4': { format: 'mp4', mode: 'shader-sequence' },
 };
 
+/** Validates `design.layers.*` input; unknown keys are rejected like other Design Lab actions. */
+export function designLayerActionInput(action: string, input: unknown): {
+  arrangement?: DesignLabArrangement;
+  layerId?: string;
+  layerIds?: string[];
+  locked?: boolean;
+} {
+  const allowed: Record<string, readonly string[]> = {
+    'design.layers.arrange': ['arrangement', 'layerIds'],
+    'design.layers.copyStyle': ['layerId'],
+    'design.layers.lock': ['layerIds', 'locked'],
+    'design.layers.pasteStyle': ['layerIds'],
+  };
+  const keys = allowed[action];
+  if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !keys.includes(key))) {
+    throw new TypeError(`${action} accepts only { ${keys.join(', ')} }.`);
+  }
+  const request = input as Record<string, unknown>;
+  if (request.layerIds !== undefined && (!Array.isArray(request.layerIds) || request.layerIds.some((id) => typeof id !== 'string'))) {
+    throw new TypeError('layerIds must be an array of layer ids.');
+  }
+  if (action === 'design.layers.arrange' && !isDesignLabArrangement(request.arrangement)) {
+    throw new TypeError('arrangement must be left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal or distribute-vertical.');
+  }
+  if (action === 'design.layers.lock' && typeof request.locked !== 'boolean') throw new TypeError('locked must be true or false.');
+  if (action === 'design.layers.copyStyle' && typeof request.layerId !== 'string') throw new TypeError('layerId must identify a layer.');
+  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle') && !Array.isArray(request.layerIds)) {
+    throw new TypeError('layerIds must list at least one layer.');
+  }
+  return request as ReturnType<typeof designLayerActionInput>;
+}
+
 function designAutomationSeekTime(input: unknown): number {
   if (!input || typeof input !== 'object' || Array.isArray(input)
     || Object.keys(input).some((key) => key !== 'timeMs')
@@ -1655,6 +1697,7 @@ function designWorkspaceActionInput(input: unknown) {
 
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
   if (action.startsWith('design.workspace.')) return handlers.workspaceAction(action, input);
+  if (action.startsWith('design.layers.')) return handlers.layerAction(action, input);
   switch (action) {
     case 'design.text.format':
       return handlers.formatText(input);
@@ -1843,7 +1886,8 @@ type DesignLabCanvasSelectionInput = {
   layerGroups: CompositionLayerGroup[];
   layerGroupByLayerId: ReadonlyMap<CanvasLayerId, CompositionLayerGroup>;
   layerOrder: CompositionLayerId[];
-  layerVisible: (id: CompositionLayerId) => boolean;
+  /** Visible and unlocked: the layers a canvas gesture may select or move. */
+  layerSelectable: (id: CompositionLayerId) => boolean;
   logoLayers: CompositionLogoLayer[];
   removeLayer: (id: CompositionLayerId) => void;
   selectedCanvasLayerIds: CanvasLayerId[];
@@ -2121,7 +2165,7 @@ function useDesignLabCanvasSelection({
   layerGroups,
   layerGroupByLayerId,
   layerOrder,
-  layerVisible,
+  layerSelectable,
   logoLayers,
   removeLayer,
   selectedCanvasLayerIds,
@@ -2182,7 +2226,7 @@ function useDesignLabCanvasSelection({
 
   function selectableAssemblyFor(id: CanvasLayerId): CanvasLayerId[] {
     const ids = groupForLayer(id)?.layerIds ?? [id];
-    return ids.filter(layerVisible);
+    return ids.filter(layerSelectable);
   }
 
   function selectCanvasAssembly(id: CanvasLayerId, additive = false) {
@@ -2302,6 +2346,38 @@ function useDesignLabCanvasSelection({
     updateCanvasLayerTransforms(updates);
   }
 
+  /** Selected layers grouped into rigid units: a fully selected group moves as one. */
+  function selectionUnits(ids: readonly CanvasLayerId[] = selectedCanvasLayerIds): CanvasLayerId[][] {
+    const idSet = new Set(ids);
+    const claimed = new Set<CanvasLayerId>();
+    const units: CanvasLayerId[][] = [];
+    for (const id of ids) {
+      if (claimed.has(id)) continue;
+      const group = groupForLayer(id);
+      const unit = group && group.layerIds.every((layerId) => idSet.has(layerId)) ? group.layerIds : [id];
+      unit.forEach((layerId) => claimed.add(layerId));
+      units.push([...unit]);
+    }
+    return units;
+  }
+
+  function arrangeCanvasSelection(arrangement: DesignLabArrangement, ids: readonly CanvasLayerId[] = selectedCanvasLayerIds): boolean {
+    const units = selectionUnits(ids);
+    if (!canArrangeUnits(arrangement, units.length)) return false;
+    const offsets = arrangeCanvasUnits(units.map((unit) => unit.flatMap((layerId): CanvasSelectionItem[] => {
+      const transform = canvasLayerTransform(layerId);
+      return transform ? [{ geometry: layerGeometry(layerId, canvasDimensions), transform }] : [];
+    })), arrangement);
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
+    units.forEach((unit, index) => unit.forEach((layerId) => {
+      const transform = canvasLayerTransform(layerId);
+      const offset = offsets[index]!;
+      if (transform) updates.set(layerId, { ...transform, x: transform.x + offset.x, y: transform.y + offset.y });
+    }));
+    updateCanvasLayerTransforms(updates);
+    return true;
+  }
+
   function moveCanvasSelection(direction: -1 | 1) {
     const selected = new Set<CompositionLayerId>(selectedCanvasLayerIds);
     setLayerOrder((current) => {
@@ -2333,7 +2409,7 @@ function useDesignLabCanvasSelection({
   }
 
   function selectAllCanvasLayers() {
-    const ids = layerOrder.filter((id): id is CanvasLayerId => isCanvasLayerId(id) && layerVisible(id));
+    const ids = layerOrder.filter((id): id is CanvasLayerId => isCanvasLayerId(id) && layerSelectable(id));
     setSelectedCanvasLayerIds(ids);
     setSelectedLayerId(ids.at(-1) ?? null);
     setSelectionMenuPosition(null);
@@ -2392,6 +2468,7 @@ function useDesignLabCanvasSelection({
 
   return {
     alignCanvasAssembly,
+    arrangeCanvasSelection,
     deselectCanvasLayers,
     duplicateCanvasSelection,
     groupCanvasSelection,
@@ -2408,6 +2485,7 @@ function useDesignLabCanvasSelection({
     selectedCanvasGroup,
     selectedCanvasLayerIdSet,
     selectedGroupedAssemblies,
+    selectionUnits,
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
@@ -2488,39 +2566,77 @@ const DesignArtboardContextMenu = memo(function DesignArtboardContextMenu({
   );
 });
 
+function layerStyleMenuSection(
+  layerId: CompositionLayerId,
+  canPaste: boolean,
+  onCopyStyle: (id: CompositionLayerId) => void,
+  onPasteStyle: (id: CompositionLayerId) => void
+) {
+  return {
+    label: 'Style',
+    items: [
+      { icon: <PaintBrush aria-hidden='true' />, id: 'copy-layer-style', label: 'Copy style', onSelect: () => onCopyStyle(layerId), shortcut: '⌥⌘C' },
+      { disabled: !canPaste, icon: <PaintBrush aria-hidden='true' />, id: 'paste-layer-style', label: 'Paste style', onSelect: () => onPasteStyle(layerId), shortcut: '⌥⌘V' },
+    ],
+  };
+}
+
+function layerLockMenuItem(layerId: CompositionLayerId, locked: boolean, onToggleLock: (id: CompositionLayerId) => void) {
+  return {
+    checked: locked,
+    icon: locked ? <Lock aria-hidden='true' /> : <LockOpen aria-hidden='true' />,
+    id: 'toggle-layer-lock',
+    label: locked ? 'Unlock layer' : 'Lock layer',
+    onSelect: () => onToggleLock(layerId),
+    shortcut: '⇧⌘L',
+  };
+}
+
 const LayerDockContextMenu = memo(function LayerDockContextMenu({
+  canPasteStyle,
   layerKind,
   layerLabel,
+  layerLocked,
   layerOrder,
   layerVisible,
   menu,
   onClose,
   onCopy,
+  onCopyStyle,
   onCut,
   onDelete,
   onDuplicate,
   onMove,
   onMoveToEdge,
   onPaste,
+  onPasteStyle,
+  onToggleLock,
   onToggleVisibility,
 }: {
+  canPasteStyle: boolean;
   layerKind: (id: CompositionLayerId) => string;
   layerLabel: (id: CompositionLayerId) => string;
+  layerLocked: (id: CompositionLayerId) => boolean;
   layerOrder: readonly CompositionLayerId[];
   layerVisible: (id: CompositionLayerId) => boolean;
   menu: LayerDockMenuState | null;
   onClose: () => void;
   onCopy: (id: CompositionLayerId) => void;
+  onCopyStyle: (id: CompositionLayerId) => void;
   onCut: (id: CompositionLayerId) => void;
   onDelete: (id: CompositionLayerId) => void;
   onDuplicate: (id: CompositionLayerId) => void;
   onMove: (id: CompositionLayerId, direction: -1 | 1) => void;
   onMoveToEdge: (id: CompositionLayerId, edge: 'back' | 'front') => void;
   onPaste: () => void;
+  onPasteStyle: (id: CompositionLayerId) => void;
+  onToggleLock: (id: CompositionLayerId) => void;
   onToggleVisibility: (id: CompositionLayerId) => void;
 }) {
   const layerId = menu && layerOrder.includes(menu.layerId) ? menu.layerId : null;
   const visible = layerId ? layerVisible(layerId) : false;
+  const locked = layerId ? layerLocked(layerId) : false;
+  const canvasLayer = isCanvasLayerId(layerId);
   const orderIndex = layerId ? layerOrder.indexOf(layerId) : -1;
   return (
     <StudioContextMenu
@@ -2537,6 +2653,7 @@ const LayerDockContextMenu = memo(function LayerDockContextMenu({
             { icon: <Files aria-hidden='true' />, id: 'duplicate-layer', label: 'Duplicate layer', onSelect: () => onDuplicate(layerId), shortcut: '⌘D' },
           ],
         },
+        ...(canvasLayer ? [layerStyleMenuSection(layerId, canPasteStyle && !locked, onCopyStyle, onPasteStyle)] : []),
         {
           label: 'Visibility',
           items: [
@@ -2547,6 +2664,7 @@ const LayerDockContextMenu = memo(function LayerDockContextMenu({
               label: visible ? 'Layer visible' : 'Layer hidden',
               onSelect: () => onToggleVisibility(layerId),
             },
+            ...(canvasLayer ? [layerLockMenuItem(layerId, locked, onToggleLock)] : []),
           ],
         },
         {
@@ -2873,6 +2991,9 @@ export default function ShaderLabStudio({
   const artboardActivationRef = useRef<{ id: DesignArtboardId; result: Promise<boolean> } | null>(null);
   const pendingArtboardLayerRef = useRef<{ artboardId: DesignArtboardId; layerId: CanvasLayerId } | null>(null);
   const designLabClipboardRef = useRef<string | null>(null);
+  const styleClipboardRef = useRef<DesignLabLayerStyle | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const pointerInEditorRef = useRef(false);
   const imagePlacementModeRef = useRef<ImageAssetPlacementMode>('image');
   const canvasClipboardStatusTimerRef = useRef<number | null>(null);
 
@@ -3270,6 +3391,7 @@ export default function ShaderLabStudio({
   });
   const {
     alignCanvasAssembly,
+    arrangeCanvasSelection,
     deselectCanvasLayers,
     duplicateCanvasSelection,
     groupCanvasSelection,
@@ -3286,6 +3408,7 @@ export default function ShaderLabStudio({
     selectedCanvasGroup,
     selectedCanvasLayerIdSet,
     selectedGroupedAssemblies,
+    selectionUnits,
     selectLayerFromStack,
     ungroupCanvasSelection,
     updateCanvasLayerTransform,
@@ -3296,7 +3419,7 @@ export default function ShaderLabStudio({
     layerGroups,
     layerGroupByLayerId,
     layerOrder,
-    layerVisible,
+    layerSelectable: (id) => layerVisible(id) && !layerLocked(id),
     logoLayers,
     removeLayer,
     selectedCanvasLayerIds,
@@ -5050,6 +5173,46 @@ export default function ShaderLabStudio({
     }
   }
 
+  function runEditorShortcut(command: DesignLabShortcutCommand) {
+    if (command.kind === 'shortcuts') setShortcutsOpen((open) => !open);
+    else if (command.kind === 'copy-style') copyLayerStyle();
+    else if (command.kind === 'paste-style') pasteLayerStyle();
+    else if (command.kind === 'toggle-lock') toggleSelectionLock();
+    else if (command.kind === 'arrange') {
+      if (!arrangeCanvasSelection(command.arrangement)) {
+        announceCanvasClipboard(command.arrangement.startsWith('distribute-')
+          ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
+      }
+    } else if (command.layer === 'text') addTextLayer();
+    else if (command.layer === 'shader') addCanvasShader();
+    else if (command.layer === 'mark') addBrandMarkLayer();
+    else if (command.layer === 'image') openImageImport();
+    else if (command.layer === 'sticker') openImageImport([], 'sticker');
+    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
+    else addEffectLayer();
+  }
+
+  const handleEditorShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.repeat || !workspaceActiveRef.current || !projectWorkspaceActiveRef.current) return;
+    const root = studioRootRef.current;
+    const target = event.target instanceof Element ? event.target : null;
+    // Typing, menus and dialogs keep their keys; the editor must be focused or under the pointer.
+    if (!root || isCanvasTextEditingTarget(event.target)
+      || target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="dialog"], [role="listbox"]')) return;
+    if (!root.contains(document.activeElement) && !pointerInEditorRef.current) return;
+    const command = resolveDesignLabShortcut(event);
+    if (!command) return;
+    event.preventDefault();
+    runEditorShortcut(command);
+  });
+
+  useEffect(() => {
+    if (!active) return;
+    const handleKeyDown = (event: KeyboardEvent) => handleEditorShortcut(event);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [active]);
+
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
   const handleDesignLabPaste = useEffectEvent((event: ClipboardEvent) => {
     if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
@@ -5209,6 +5372,95 @@ export default function ShaderLabStudio({
 
   function layerVisible(id: CompositionLayerId) {
     return !designLabDocument.elements[id]?.hidden;
+  }
+
+  function layerLocked(id: CompositionLayerId) {
+    return Boolean(designLabDocument.elements[id]?.locked);
+  }
+
+  /** Canvas layers that keyboard and menu commands act on: the canvas selection, else the selected layer. */
+  function commandLayerIds(): CanvasLayerId[] {
+    if (selectedCanvasLayerIds.length > 0) return selectedCanvasLayerIds;
+    return selectedLayerId && isCanvasLayerId(selectedLayerId) ? [selectedLayerId] : [];
+  }
+
+  function setLayersLocked(ids: readonly CompositionLayerId[], locked: boolean) {
+    const targets = new Set(ids.filter(isCanvasLayerId));
+    if (targets.size === 0) return;
+    const lock = <T extends { id: string; locked?: boolean }>(layer: T): T => {
+      if (!targets.has(layer.id as CanvasLayerId) || Boolean(layer.locked) === locked) return layer;
+      const next = { ...layer };
+      if (locked) next.locked = true;
+      else delete next.locked;
+      return next;
+    };
+    setShaderLayers((current) => current.map(lock));
+    setTextLayers((current) => current.map(lock));
+    setLogoLayers((current) => current.map(lock));
+    setCompositionAssets((current) => current.map(lock));
+    // A locked layer leaves the canvas selection but stays open in the inspector.
+    if (locked) setSelectedCanvasLayerIds((current) => current.filter((id) => !targets.has(id)));
+    announceCanvasClipboard(`${locked ? 'Locked' : 'Unlocked'} ${targets.size} layer${targets.size === 1 ? '' : 's'}`);
+  }
+
+  function toggleLayerLock(id: CompositionLayerId) {
+    setLayersLocked([id], !layerLocked(id));
+  }
+
+  function toggleSelectionLock() {
+    const ids = commandLayerIds();
+    if (ids.length === 0) return;
+    setLayersLocked(ids, !ids.every(layerLocked));
+  }
+
+  function styledLayer(id: CompositionLayerId): DesignLabStyledLayer | null {
+    if (!isCanvasLayerId(id)) return null;
+    const layer = stageLayerById.get(id);
+    return layer ? layer as DesignLabStyledLayer : null;
+  }
+
+  function copyLayerStyle(id: CompositionLayerId | null = selectedLayerId): boolean {
+    const layer = id ? styledLayer(id) : null;
+    if (!layer) {
+      announceCanvasClipboard('Select a text, mark, image or shader layer to copy its style');
+      return false;
+    }
+    styleClipboardRef.current = extractDesignLabLayerStyle(layer, isContentLayerId(layer.id) ? layerShaders[layer.id] : undefined);
+    announceCanvasClipboard(`Copied style from ${layer.name}`);
+    return true;
+  }
+
+  function pasteLayerStyle(ids: readonly CompositionLayerId[] = commandLayerIds()): number {
+    const style = styleClipboardRef.current;
+    const targets = new Set(ids.filter((id) => styledLayer(id) && !layerLocked(id)));
+    if (!style || targets.size === 0) {
+      announceCanvasClipboard(style ? 'Select unlocked layers to paste the style onto' : 'Copy a style first');
+      return 0;
+    }
+    const restyle = <T extends DesignLabStyledLayer>(layer: T): T => (
+      targets.has(layer.id as CompositionLayerId) ? applyDesignLabLayerStyle(layer, style).layer : layer
+    );
+    targets.forEach((id) => {
+      shaderApplicationPreviewOverridesRef.current.delete(id as ShaderLayerId | ContentLayerId);
+      if (isTextLayerId(id)) textLayerPreviewOverridesRef.current.delete(id);
+      if (isLogoLayerId(id)) logoLayerPreviewOverridesRef.current.delete(id);
+      if (isAssetLayerId(id)) assetLayerPreviewOverridesRef.current.delete(id);
+    });
+    setShaderLayers((current) => current.map(restyle));
+    setTextLayers((current) => current.map(restyle));
+    setLogoLayers((current) => current.map(restyle));
+    setCompositionAssets((current) => current.map(restyle));
+    const contentTargets = [...targets].filter(isContentLayerId);
+    // A copied material fills content layers; without one they keep their own.
+    if (style.material && contentTargets.length > 0) {
+      const material = style.material;
+      setLayerShaders((current) => ({
+        ...current,
+        ...Object.fromEntries(contentTargets.map((id) => [id, { ...material, settings: { ...material.settings } }])),
+      }));
+    }
+    announceCanvasClipboard(`Pasted style onto ${targets.size} layer${targets.size === 1 ? '' : 's'}`);
+    return targets.size;
   }
 
   const designLabPage = designLabDocument.pages[designLabDocument.pageIds[0]!]!;
@@ -6336,6 +6588,33 @@ export default function ShaderLabStudio({
   }
 
   const designAutomationRef = useCommittedRef({
+    layerAction: async (action: string, input: unknown) => {
+      assertShaderWorkspaceIdle();
+      const request = designLayerActionInput(action, input);
+      const surfaceIds = new Set<string>(layerOrder);
+      const ids = (request.layerIds ?? []).map((id) => {
+        if (!surfaceIds.has(id) || !isCanvasLayerId(id as CompositionLayerId)) throw new TypeError(`${id} is not a text, mark, image or shader layer on the active surface.`);
+        return id as CanvasLayerId;
+      });
+      if (action === 'design.layers.arrange') {
+        const unlocked = (ids.length ? ids : selectedCanvasLayerIds).filter((id) => !layerLocked(id));
+        if (!arrangeCanvasSelection(request.arrangement!, unlocked)) {
+          throw new Error('Choose at least two unlocked layers to align, or three to distribute.');
+        }
+      } else if (action === 'design.layers.lock') {
+        if (ids.length === 0) throw new TypeError('layerIds must list at least one layer.');
+        setLayersLocked(ids, request.locked!);
+      } else if (action === 'design.layers.copyStyle') {
+        if (!surfaceIds.has(request.layerId!) || !copyLayerStyle(request.layerId as CompositionLayerId)) {
+          throw new TypeError('layerId must identify a text, mark, image or shader layer on the active surface.');
+        }
+        return null;
+      } else if (pasteLayerStyle(ids) === 0) {
+        throw new Error('Copy a style first, then paste it onto unlocked layers.');
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return null;
+    },
     formatText: async (input: unknown) => {
       assertShaderWorkspaceIdle();
       if (!input || typeof input !== 'object' || Array.isArray(input)
@@ -6665,6 +6944,7 @@ export default function ShaderLabStudio({
     openLayerMenu: (layerId, position) => setLayerDockMenu({ layerId, position }),
     removeLayer,
     selectLayerFromStack,
+    toggleLayerLock,
     toggleLayerVisibility,
     updateTextValue: (id, value) => updateTextLayer(id, { value }),
   });
@@ -6686,6 +6966,7 @@ export default function ShaderLabStudio({
       label: layerLabel(layerId),
       layer,
       lazy: listedLayerIds.length >= DESIGN_LAB_LONG_LAYER_LIST,
+      locked: isCanvasLayerId(layerId) ? layerLocked(layerId) : undefined,
       selected: selectedLayerId === layerId || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)),
       visible: layerVisible(layerId),
     };
@@ -6806,11 +7087,17 @@ export default function ShaderLabStudio({
             onSelect: () => void moveLayersToSurface(board.id),
           })),
         ] }}
+        arrangeUnitCount={selectionUnits().length}
         onAlign={alignCanvasAssembly}
+        onArrange={(arrangement) => { arrangeCanvasSelection(arrangement); }}
         onBringForward={() => moveCanvasSelection(1)}
         onBringToFront={() => moveCanvasSelectionToEdge('front')}
         onClose={() => setSelectionMenuPosition(null)}
+        canPasteStyle={Boolean(styleClipboardRef.current)}
         onCopy={() => void copyDesignLabSelectionFromMenu()}
+        onCopyStyle={() => { copyLayerStyle(); }}
+        onPasteStyle={() => { pasteLayerStyle(); }}
+        onToggleLock={toggleSelectionLock}
         onCrop={selectedAssetId ? () => setImageCropEditing(selectedAssetId, !cropEditing) : undefined}
         onCut={() => void cutDesignLabSelectionFromMenu(removeCanvasSelection)}
         onDelete={removeCanvasSelection}
@@ -6898,13 +7185,18 @@ export default function ShaderLabStudio({
     [artboardNamesSignature]
   );
   const artboardSummary = `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`;
+  const toggleShortcuts = useCallback(() => setShortcutsOpen((open) => !open), []);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
   const previewQualityToggle = useMemo(() => (
-    <DesignLabPreviewQualityToggle
-      automaticallyReduced={previewQuality.automaticallyReduced}
-      mode={previewQuality.mode}
-      quality={previewQuality.quality}
-    />
-  ), [previewQuality.automaticallyReduced, previewQuality.mode, previewQuality.quality]);
+    <>
+      <DesignLabPreviewQualityToggle
+        automaticallyReduced={previewQuality.automaticallyReduced}
+        mode={previewQuality.mode}
+        quality={previewQuality.quality}
+      />
+      <DesignLabShortcutsButton onToggle={toggleShortcuts} open={shortcutsOpen} />
+    </>
+  ), [previewQuality.automaticallyReduced, previewQuality.mode, previewQuality.quality, shortcutsOpen, toggleShortcuts]);
   const navigationItems = useMemo(() => workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
     ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
       .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
@@ -6962,8 +7254,10 @@ export default function ShaderLabStudio({
           onPaste={() => void pasteDesignLabSelectionFromMenu()}
         /> : null}
         {layerDockMenu ? <LayerDockContextMenu
+          canPasteStyle={Boolean(styleClipboardRef.current)}
           layerKind={resolvedLayerKind}
           layerLabel={layerLabel}
+          layerLocked={layerLocked}
           layerOrder={layerOrder}
           layerVisible={layerVisible}
           menu={layerDockMenu}
@@ -6972,10 +7266,13 @@ export default function ShaderLabStudio({
             selectLayerFromStack(id);
             void copyDesignLabSelectionFromMenu(false, [id]);
           }}
+          onCopyStyle={(id) => { copyLayerStyle(id); }}
           onCut={(id) => {
             selectLayerFromStack(id);
             void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
           }}
+          onPasteStyle={(id) => { pasteLayerStyle([id]); }}
+          onToggleLock={toggleLayerLock}
           onDelete={removeLayer}
           onDuplicate={duplicateLayer}
           onMove={moveLayer}
@@ -7034,6 +7331,8 @@ export default function ShaderLabStudio({
       className='shader-lab-v2 tool-shell h-full min-h-0'
       onKeyDownCapture={beginCanvasHistoryKey}
       onPointerDownCapture={beginCanvasHistoryPointer}
+      onPointerEnter={() => { pointerInEditorRef.current = true; }}
+      onPointerLeave={() => { pointerInEditorRef.current = false; }}
       ref={studioRootRef}
     >
       <DesignLabHeader
@@ -7095,6 +7394,7 @@ export default function ShaderLabStudio({
             summary={artboardSummary}
             workspaceTourOpen={workspaceTourOpen}
           />
+          {shortcutsOpen ? <DesignLabShortcutsPanel onClose={closeShortcuts} /> : null}
           {workspaceTourOpen ? (
             <DesignArtboardTour
               onClose={() => setWorkspaceTourOpen(false)}

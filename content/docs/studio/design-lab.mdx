@@ -72,6 +72,16 @@ The dock is ordered **front to back**. Move layers up or down, duplicate them, h
 
 Use **Undo** and **Redo** directly in the canvas toolbar, and **Action history** to inspect recent edits. Open named checkpoints from **Saved designs** in the global header; those are separate from the current edit history. Command/Ctrl + Z works while the canvas has keyboard focus or the pointer is over it; Shift + Command/Ctrl + Z redoes. Text fields keep their native text undo.
 
+### Align, distribute, lock and reuse styles
+
+Select two or more layers and open the selection menu (right-click, or Shift+F10). **Align selection** lines layers up with each other: **Align left edges**, **Align horizontal centers**, **Align right edges**, **Align top edges**, **Align vertical centers** and **Align bottom edges** use the bounds of the whole selection. **Distribute horizontally** and **Distribute vertically** need three or more layers: the outermost layers stay put and every neighbouring pair gets the same gap. A fully selected group moves as one unit, so its internal layout never changes. **Align to artboard** still moves the whole selection against the artboard edges and centers.
+
+**Lock** a layer from its row in the layer dock or the Composition layer list, from the layer menu, or with Shift + Command/Ctrl + L. A locked layer stays visible, renders and exports as before, and keeps every inspector control, but it ignores canvas clicks, drags, resize handles, text editing and nudges, and it drops out of canvas selections and Select all. Unlock it from the same row or menu. Locks are saved with the layer in source (`element.locked`), autosave, saved designs and project files.
+
+**Copy style** (Option + Command/Ctrl + C) takes the selected layer's appearance; **Paste style** (Option + Command/Ctrl + V) applies it to the selected unlocked layers. Text styles carry font role, size, weight, italic, underline, strikethrough, tracking, line height, alignment, wrapping, color, outline, shadow, text effect and opacity; pasting clears inline overrides for those properties so the new look applies to the whole box. Marks and images carry appearance and opacity, marks also carry color, and stickers carry their finish. A shader layer's material, or a material applied to a content layer, fills the targets; targets keep their own material when the copied layer has none. Content, position, size, name, visibility and lock state never change.
+
+Press **?** or choose **Keyboard shortcuts** in the canvas toolbar for the full list. With the editor focused or under the pointer, and no text field active, single letters add layers: **T** text, **S** shader, **M** brand mark, **I** image, **K** sticker and **E** an artboard effect. Option + A, H, D, W, V or S aligns the selection; Option + Shift + H or V distributes it.
+
 ### Layer opacity and blending
 
 Every layer carries its own opacity. Shader layers also expose `normal`, `screen`, `overlay`, and `multiply` blending. Content-bound shaders contribute their own opacity in addition to the text, logo, or image opacity, so a material can be faded without making the underlying content disappear from the document.
