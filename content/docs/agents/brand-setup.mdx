@@ -1,0 +1,94 @@
+---
+title: Brand setup with an agent
+description: Let Claude Code, Codex or Cursor research a brand from its own sources and set up the complete identity, audit it and export the brand kit.
+icon: Bot
+---
+
+The Brand identity tool is the foundation every Glyphfield tool reads. A coding agent can set it up end to end: it researches the brand from the user's website, repository or design files, fills every section through the Browser API, adds the real logo and font files, runs the brand health audit, fixes what it finds and exports the brand kit.
+
+<DocsMedia alt='Brand identity tool showing the brand cover, health score and quick actions' caption='Set up with your agent starts from the Brand identity overview' meta='Prompt · Browser API · audit · kit' src='/screenshots/studio-gt-identity-light-2026.png' />
+
+## Start from the Studio
+
+Open **Brand identity → Set up with agent**. It shows a ready-to-run prompt for the active project with the project URL, the rules and every call. Choose **New brand** for a fresh project or **Improve this brand** for one that already has content, then **Copy prompt** and paste it into Claude Code, Codex or Cursor. The same text is available programmatically from `identity.setup.prompt`.
+
+For a new brand, create the project first: **Add brand project → Brand identity** (a scratch identity), or **Use a template → Starter** for a complete neutral example to replace.
+
+## The workflow
+
+1. **Research.** Homepage, about page, README and docs; CSS custom properties, Tailwind config or token files; font files and their licenses; logo files; any brand guide. Use only sources the user authorized and record each one in `sourceNotes`. Never invent customers, metrics, claims or slogans.
+2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, typography roles with `typeScale`, the graphic device and image direction, products, proof and applications.
+3. **Connect.** Open `/studio?tool=identity&project=<id>` in a browser the agent controls, wait for `window.glyphfield.studio`, call `describe()`, and confirm `activeTool()` is `identity`.
+4. **Validate.** `identity.validate { identity: patch }` returns `{ ok, issues }` without changing anything.
+5. **Apply.** `identity.apply { identity: patch }` merges the patch.
+6. **Files.** `identity.asset.add { file, slot }` for each logo and `identity.font.add { file, roles, license, sourceUrl }` for each font.
+7. **Audit and fix.** `identity.audit`, then `identity.fix { fixId }` or each finding's `agentPrompt`, until there are no errors.
+8. **Save and export.** `identity.save`, then `identity.export.kit { format: 'zip' }` and verify the Blob.
+
+```js
+const studio = window.glyphfield.studio;
+if (studio.activeTool() !== 'identity') throw new Error('Open the Brand identity tool first.');
+
+const patch = {
+  tagline: 'Fast, careful tools for small teams.',
+  colors: [
+    { id: 'paper', name: 'Paper', hex: '#FAFAF7', role: 'Primary background', proportion: 60 },
+    { id: 'ink', name: 'Night', hex: '#0B0B0C', role: 'Text and marks', proportion: 28 },
+    { id: 'emphasis', name: 'Signal lime', hex: '#C6FF3D', role: 'Primary action', proportion: 8 },
+  ],
+  colorPairings: [{ foreground: 'ink', background: 'paper', usage: 'Body text', level: 'AA' }],
+};
+
+const check = await studio.invoke('identity.validate', { identity: patch });
+if (!check.ok) throw new Error(check.issues.map(({ message }) => message).join('\n'));
+await studio.invoke('identity.apply', { identity: patch });
+
+const logo = new File([svgBytes], 'mark.svg', { type: 'image/svg+xml' });
+await studio.invoke('identity.asset.add', { file: logo, slot: 'mark-dark' });
+
+const report = await studio.invoke('identity.audit');
+for (const finding of report.findings) {
+  if (finding.fix) await studio.invoke('identity.fix', { fixId: finding.fix.id });
+}
+await studio.invoke('identity.save');
+
+const kit = await studio.invoke('identity.export.kit', { format: 'zip' });
+if (kit.blob.type !== 'application/zip' || !kit.blob.size) throw new Error('The brand kit is empty.');
+```
+
+## The source contract
+
+`GET /api/brand/validate` returns the BrandIdentity JSON Schema (`schema`), the merge-patch schema (`patchSchema`), the merge rules and the logo slots. The same schema is published as `BrandIdentity` in `/openapi.json`.
+
+- Objects (`strategy`, `voice`, `graphicSystem`, `dossier`, `artDirection`, `style`, `typeScale`) merge by key.
+- Record arrays merge by `id`: a matching id updates that record, a new id appends one, and records you leave out are kept. `typography` merges by `role`; `colorPairings` merge by foreground and background.
+- String lists and `voice.examples` are replaced as a whole. Delete records with `remove: { assets: ['id'], colors: ['id'] }`.
+- `id`, `builtIn`, `kind`, `revision` and `presetFingerprint` belong to the project and keep their values.
+- Asset, font and motion paths must be `data:` URLs or paths on the Glyphfield origin. Remote URLs are rejected, never fetched.
+- Unknown fields are kept and reported as warnings.
+
+Errors are precise. For example: `colors[1].hex must be a six-digit HEX color such as "#1A2B3C"; received "#FFF".` and `typography[1].fontId "acme-sans" does not match any fonts[].id (…). Add the file with identity.font.add or pick an existing font.`
+
+Glyphfield tools read the color ids `ink` (text), `paper` (background), `muted` (quiet surface) and `emphasis` (accent). `success`, `warning`, `progress` and `error` are optional extensions.
+
+## Logo slots
+
+| Slot | Use |
+| --- | --- |
+| `mark-dark` | Dark mark for light surfaces. Required. |
+| `mark-light` | Light mark for dark surfaces. Required. |
+| `wordmark` | Wordmark or lockup for light surfaces. |
+| `wordmark-light` | Wordmark or lockup for dark surfaces. |
+| `mark-mono` | One-color mark for embossing, favicons and single-ink print. |
+
+## Brand health
+
+`identity.audit` scores completeness from 0 to 100 across essentials, strategy, voice, logos, color, typography, graphic device, imagery, products and proof, applications, and naming. Findings include missing logo variants, text pairs that fail WCAG AA, palette proportions, unlicensed or missing font files, missing voice examples, type scale and leading, alt text, inconsistent naming and identity storage size. Each finding has an `agentPrompt`; deterministic ones also have a `fix.id` for `identity.fix`, such as adjusting a color to reach 4.5:1 while keeping its hue.
+
+## Without a browser
+
+`POST /api/brand/validate` validates and normalizes a full identity or a patch and returns the health report for a full identity. `POST /api/brand/kit` renders `dtcg`, `css`, `tailwind` or `markdown` from a full identity. Both are stateless and reject unknown top-level fields. See the [endpoint reference](/docs/reference/endpoints).
+
+## Built-in identities
+
+Built-in identities can be improved in place. Glyphfield keeps every edit when it ships a newer version of a built-in, and **Restore the shipped version** on the overview returns to the shipped one. To make your own brand from a built-in, use **Use a template** to create a copy first.

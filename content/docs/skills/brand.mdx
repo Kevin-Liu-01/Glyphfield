@@ -1,0 +1,37 @@
+---
+title: Brand
+description: Use $glyphfield-brand to set up or improve a brand identity from its own sources, audit it and export the brand kit.
+icon: BadgeCheck
+---
+
+`$glyphfield-brand` turns a coding agent into a brand setup tool. It researches the brand from the user's website, repository or design files, applies a validated identity through the Brand identity Browser API, adds logo and font files, runs the health audit until it is clean, and exports the brand kit.
+
+<DocsMedia alt='Brand identity tool with the brand cover and health summary' caption='The skill fills the identity every Glyphfield tool reads' meta='Research · apply · audit · kit' src='/screenshots/studio-gt-identity-dark-2026.png' />
+
+## Use it for
+
+- “Set up our brand in Glyphfield from acme.com and this repo.”
+- “Fill the gaps the brand health audit found.”
+- “Export brand.md and Tailwind tokens for this repository.”
+
+## Package
+
+```text
+skills/glyphfield-brand/
+├── SKILL.md
+├── agents/openai.yaml
+└── references/
+    ├── browser-actions.md
+    └── identity-fields.md
+```
+
+## Procedure
+
+1. Research the authorized sources and record each in `sourceNotes`.
+2. Draft a merge patch; check it with `identity.validate`.
+3. Apply it with `identity.apply`.
+4. Add logos with `identity.asset.add { file, slot }` and fonts with `identity.font.add { file, roles, license }`.
+5. Run `identity.audit`; apply `identity.fix` or follow each finding's `agentPrompt`.
+6. `identity.save`, then `identity.export.kit` and verify the Blob.
+
+The skill never invents facts, never writes browser storage directly, and never passes a filesystem path or remote URL into the Studio. Combine it with [`$glyphfield-studio`](/docs/skills/studio) for other tools and [`$glyphfield-export`](/docs/skills/export) for downstream artifacts. The full workflow is in [Brand setup with an agent](/docs/agents/brand-setup).

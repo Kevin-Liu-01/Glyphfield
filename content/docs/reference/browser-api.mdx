@@ -177,7 +177,7 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 
 | Tool | Direct actions |
 | --- | --- |
-| Brand identity | `identity.export.json` |
+| Brand identity | `identity.export.json`, `identity.read`, `identity.validate`, `identity.apply`, `identity.asset.add`, `identity.font.add`, `identity.audit`, `identity.fix`, `identity.save`, `identity.export.kit`, `identity.setup.prompt` |
 | Brand elements | `brand-element.export.brief` |
 | Moodboard | `moodboard.export.png`, `moodboard.export.identity` |
 | Brand book | `brand-book.print` |
@@ -189,6 +189,8 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png` |
 
 `animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
+
+Brand identity actions validate before they change anything. `identity.apply` accepts `{ identity, mode?: 'merge' | 'replace', remove?, save? }`: records merge by `id` (typography by `role`), string lists are replaced, unknown fields and the project's `id`, `kind` and `revision` are kept, and a failure throws one `TypeError` listing every issue path. `identity.asset.add` and `identity.font.add` take a `File`; a logo `slot` (`mark-dark`, `mark-light`, `wordmark`, `wordmark-light`, `mark-mono`) replaces that slot in place. `identity.audit` returns the brand health report, `identity.fix` applies one finding's `fix.id`, `identity.save` keeps pending changes, and `identity.export.kit` accepts `{ format?: 'zip' | 'dtcg' | 'css' | 'tailwind' | 'markdown' | 'logos', download? }`. See [Brand setup with an agent](/docs/agents/brand-setup).
 
 Every other visible feature remains reachable through workspace-scoped `controls()`, `activate()`, and `set()`. Tool capability records distinguish a direct Browser action, an interactive Browser control, and deterministic HTTP generation so an agent does not mistake a clickable flow for a returned value.
 

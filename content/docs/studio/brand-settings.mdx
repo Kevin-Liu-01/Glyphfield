@@ -1,85 +1,103 @@
 ---
 title: Brand identity
-description: Maintain the identity source that drives every visual tool and generated application.
+description: Set up, audit and maintain the identity that drives every visual tool, by hand or with your coding agent, and export it as a brand kit.
 icon: Settings2
 ---
 
-Brand identity is the source of truth for the active project. Edits persist immediately and flow into all tools that read the identity.
+Brand identity is the source of truth for the active project. Every tool reads it: brand elements, moodboards, the brand book, motion, Lottie, Design Lab, templates and components. Edits are drafts until you select **Save changes**; agents call `identity.save`.
 
 <DocsMedia
-  alt='General Translation Brand identity overview with strategy, language, and asset counts'
-  caption='Foundations are edited once and consumed throughout Studio'
-  meta='Identity · assets · type · color'
+  alt='General Translation Brand identity overview with the brand cover, health score and quick actions'
+  caption='The overview reads like the front page of the brand'
+  meta='Cover · health · what is defined · quick actions'
   src='/screenshots/studio-gt-identity-dark-2026.png'
 />
 
-## Direction and references
+## Overview
 
-Every project contains an editable art-direction dossier and a categorized 20-reference contact sheet. The dossier records the premise, personality, logo behavior, typography, color, imagery, composition, signature device, motion, application recipes, prohibited moves, and provenance rules.
+The overview is the brand's front page. The cover sets the name in the brand's own Display face on its paper color with its accent, followed by the tagline and positioning. Below it:
 
-Reference records are not treated as generic background images. Each one stores a category, source owner, source URL, intended use, status, and redistribution state. Official captures remain research-only until the owner or license explicitly permits bundling. Planned records remain visible as planned instead of pretending that research has been completed.
+- **Quick actions**: Set up with your agent, Download brand kit, Edit source, and, for an edited built-in, Restore the shipped version.
+- **Brand health**: the 0–100 completeness score and the count of errors, warnings and suggestions.
+- **What is defined**: every section with a one-line summary, a completeness meter and an Edit link.
+- **System at a glance**: the mark on light and dark, the palette drawn in proportion, the Display specimen and the graphic device.
+- **Identity essentials**: brand name, short name, website, contact email, social handle, tagline, positioning, mission and description.
+- **Identity preview**: the identity applied to its own art-directed composition.
 
-The built-in identities use separate preview recipes. Their compositions, hierarchy, image worlds, and signature devices are selected by art direction rather than by swapping colors into one global preview.
+## Set up with your agent
 
-## Core identity
+**Set up with agent** gives a ready-to-run prompt for Claude Code, Codex or Cursor. The agent researches the brand from your website, repository or design files and fills every section through the Browser API, adds your logo and font files, runs the audit and exports the kit. Choose **New brand** or **Improve this brand**, then **Copy prompt**. The panel lists the project URL, the workflow guide, the identity schema and every action the agent can call. See [Brand setup with an agent](/docs/agents/brand-setup).
 
-Define the brand name, short name, website, tagline, positioning, and description. The short name is used for monograms and compact marks when a logo is unavailable.
+## Brand health
 
-## Strategy
+**Brand health** audits the identity across essentials, strategy, voice, logos, color, typography, graphic device, imagery, products and proof, applications, and naming. It checks:
 
-Record the challenge the identity must solve, its central concept, promise, intended outcome, pillars, and personality. These fields are not presentation notes: the moodboard and application system use them as production content.
+- Missing or placeholder logo variants, and logos marked for the wrong surface.
+- Every text pair against WCAG 2.2 AA (4.5:1 for text, 3:1 for large text and icons).
+- Palette proportions (one dominant field, a secondary, a rare accent) and a palette still set to the default.
+- Typography roles without a stored font file, fonts without a recorded license, the type scale ratio and body leading.
+- Empty voice principles, phrases and examples; placeholder strategy; missing products, audiences and proof.
+- Alt text, color names, the social handle format, the monogram and how much browser storage the identity uses.
 
-## Graphic system
+Each finding names what is wrong and why. Deterministic findings have a one-click fix, such as adjusting a color's OKLCH lightness until its pair passes AA while keeping its hue. Every finding also has **Agent prompt**, which copies a self-contained instruction for your coding agent. **Copy prompt for all findings** combines them.
 
-Define one recognizable device, its rationale, composition behavior, image direction, pattern grammar, and operating rules. The board renderer supports blocks, brackets, bursts, circuits, flows, grids, orbits, rays, steps, and waves, so the identity can produce a repeatable visual language instead of a palette swap.
+## Brand kit
 
-## Logo family
+**Brand kit** exports the identity for code and other tools:
 
-Upload separate marks for light and dark surfaces. Use SVG or a transparent PNG under 1.5 MB.
+| File | Contents |
+| --- | --- |
+| `<brand>-brand-kit.zip` | Everything below plus `identity.json`, the logo files and redistributable fonts |
+| `brand.md` | Guidelines written for coding agents: rules, voice and examples, color tokens and contrast pairs, typography and scale, logo use, code snippets and a pre-ship checklist |
+| `<brand>-tokens.json` | W3C Design Tokens (DTCG 2025.10): color, font family and weight, size, typography, radius and motion |
+| `<brand>-brand.css` | CSS custom properties: `--brand-color-*`, `--brand-font-*`, `--brand-text-*`, `--brand-radius` |
+| `<brand>-tailwind.css` | A Tailwind CSS v4 `@theme` block: `bg-paper`, `text-ink`, `font-display`, `text-display`, `rounded-brand` |
+| `<brand>-logos.zip` | Every logo asset named by slot |
 
-- The **dark mark** is intended for light surfaces.
-- The **light mark** is intended for dark surfaces.
+Fonts are packaged only when you uploaded them or their recorded license is an open font license; other fonts are referenced in the CSS with a note to add your licensed copy. The ZIP is written without compression. The preview shows each text file live and can copy it.
 
-Glyphfield chooses the appropriate variant in project tabs, templates, previews, and exports. If a matching variant is missing, it falls back to the available mark.
+## Voice & strategy
 
-## Asset provenance
+Record the challenge, central concept, promise, outcome, strategic pillars and personality traits; the voice principles, approved phrases, language to avoid and greetings; and **voice examples**: real contexts (an error message, a release note) with the on-brand line and the version to avoid. Audiences, values, products, proof points and sources complete the section. The moodboard, brand book and application system use these fields as production content.
 
-Asset records support alt text, semantic role, focal point, tags, source owner, source URL, license, redistribution status, and intended usage. Use the collapsed provenance controls in the asset library to keep the browsing view quiet while preserving the information required for export, replacement, attribution, and agent use.
+## Logos & assets
 
-The semantic roles are logo, background, texture, image, reference, motion, icon, product, and proof. A product or proof mark is never offered as background decoration unless its role is changed deliberately.
+The **Logo family** holds one file per slot: `mark-dark` (dark mark for light surfaces), `mark-light` (light mark for dark surfaces), `wordmark`, `wordmark-light` and `mark-mono`. Upload or replace each slot directly. Glyphfield chooses the right variant for project tabs, templates, previews and exports, and falls back to the available mark when a variant is missing.
 
-## Conversion library
+The **Asset library** stores every image with its semantic role (logo, background, texture, image, icon, product, proof, motion or reference), alt text, focal point, tags, source owner, source URL, license, redistribution status and intended usage. A product or proof mark is never offered as background decoration unless its role is changed deliberately.
 
-The Asset library also contains a reusable local conversion workspace. It accepts SVG, PNG, JPEG, WebP, GIF, AVIF, and BMP files, sanitizes SVG markup, and creates a transparent shader-safe PNG at a selected maximum dimension. The original and converted file remain available for download and are stored in this browser rather than uploaded.
+The **Conversion library** accepts SVG, PNG, JPEG, WebP, GIF, AVIF and BMP files, sanitizes SVG markup and creates a transparent shader-safe PNG at a selected maximum dimension. Converted records are available to Design Lab across local projects; use the asset library when a file should be part of the portable `BrandIdentity`.
 
-Converted records are available to Design Lab across local projects. They do not automatically become identity assets with provenance metadata; use the identity asset uploader when a file should be part of the portable `BrandIdentity` record.
+## Color system
 
-## Semantic colors
+Each color has a name, a role, a HEX value (shown in OKLCH too) and a **share** of visual space. Aim for about 60 / 30 / 10. Glyphfield tools read the ids `ink` (text), `paper` (background), `muted` (quiet surface) and `emphasis` (accent); `success`, `warning`, `progress` and `error` are optional extensions. Add further colors with token-safe ids.
 
-Each color contains a name, role, and six-digit HEX value. The color tools also expose an OKLCH representation for perceptual comparison.
-
-The standard roles are ink, paper, emphasis, and success. Generators use ink and paper as default foreground and background values.
+**Text pairs** declare which foreground and background colors the brand uses for text, each at AA or AA-large, with the measured ratio. Without declared pairs the audit checks ink on paper, ink on muted and the best text color on the accent.
 
 ## Typography
 
-Assign families to Display, Body, Accent, and Code roles. The identity-wide family names feed templates, components, and the brand board. Individual tools may also load a local font for a one-off artifact.
+Every face is a real font file record: upload TTF, OTF, WOFF or WOFF2 (up to 2.5 MB), record its license, then assign it to the Display, Body, Accent and Code roles with weight, line height and tracking. The **Type scale** sets one base size and one ratio; every exported size comes from it, from `caption` to `display`.
 
-General Translation defaults to **Rasmus Inter** for Display, Body, and Accent, with Geist Mono reserved for Code. Existing GT projects using the previous bundled Switzer display default migrate to Inter while keeping their other edits. Explicit custom font assignments and uploaded font replacements are preserved; this does not change another brand's typography.
+General Translation defaults to **Rasmus Inter** for Display, Body and Accent, with Geist Mono reserved for Code. Existing GT projects using the previous bundled Switzer display default migrate to Inter while keeping their other edits. Explicit custom font assignments and uploaded font replacements are preserved.
 
-## Language and voice
+## System defaults
 
-Greetings feed the default animation sequence. Voice principles and preferred phrases seed titles and supporting copy across templates. Audiences document who the system should address.
+Set interface density, image treatment, construction field, corner radius and default logo scale. Define the recognizable graphic device, its pattern grammar (blocks, brackets, burst, circuit, flow, grid, orbit, rays, steps, wave), rationale, composition behavior, image direction and operating rules, so the identity produces a repeatable visual language instead of a palette swap.
 
-## Applications
+## Direction & references
 
-Every application has a name, category, format, and design intent. Edit these records to determine which credible product, marketing, editorial, social, developer, event, and physical outputs appear on the identity board.
+Every project contains an editable art-direction dossier (premise, personality, logo, typography, color, imagery, composition, signature device, motion, application recipes, rendering recipe, do-not rules and provenance), a brand-native system diagram, the **applications** the identity must work across (name, category, format and intent), and a categorized reference contact sheet. Reference records store a category, owner, source URL, intended use, status and redistribution state; captures remain research-only until the owner or license permits bundling.
+
+## Built-in identities
+
+The nine built-ins (Starter, Basement, General Translation, Ramp, Mintlify, Tailwind CSS, Vite+, Cloudflare and Stripe) are studied from official public sources and remain the property of their owners. Each is stamped with a fingerprint of the version it shipped with. When Glyphfield ships a newer version, an untouched built-in refreshes; an edited one keeps every edit and only gains fields it did not have. **Restore the shipped version** on the overview replaces your edits with the current shipped identity.
 
 ## What updates automatically
 
 - Moodboard foundations and applications
 - Brand element defaults
-- OpenGraph, slides, blog, and partnership templates
-- Logo, color, typography, and component previews
+- OpenGraph, slides, blog and partnership templates
+- Logo, color, typography and component previews
 - Animation greetings and default brand colors
 - Agent element briefs after the identity is supplied in a request
 
@@ -87,18 +105,8 @@ Existing per-tool overrides remain overrides. Reset a tool or element to return 
 
 ## Edit the identity as source
 
-Select **File → Edit source code** to open the complete active `BrandIdentity` as JSON in the shared right-side drawer. This is the same identity object used by the forms, previews, project persistence, and downstream generators.
+Select **File → Edit source code** to open the complete active `BrandIdentity` as JSON in the shared right-side drawer. **Apply** validates the whole document against the [BrandIdentity schema](/docs/agents/brand-setup#the-source-contract) and replaces the identity; the project's `id`, `kind` and `revision` are kept. Errors list every invalid path, such as `colors[1].hex must be a six-digit HEX color such as "#1A2B3C"; received "#FFF".` **Reset** reloads the latest identity snapshot produced by the visual controls.
 
-The top-level source must remain a JSON object and include:
+The source must remain a JSON object with `name`, `assets`, `colors` and `typography`. Unknown fields are kept. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin.
 
-- `id`
-- `name`
-- `assets` as an array
-- `colors` as an array
-- `typography` as an array
-
-Select **Apply** to validate and replace the active identity. Invalid JSON or missing required collections remains unapplied and appears as an inline error. **Reset** reloads the latest identity snapshot produced by the visual controls.
-
-Use the source drawer for precise bulk edits, asset metadata, or identity handoff. Use the visual sections when a field benefits from previews, upload validation, or direct manipulation. Both workflows update the same project-scoped identity.
-
-See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).
+Agents use `identity.apply` for targeted merges instead of replacing the whole document. See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).

@@ -8,6 +8,7 @@
     "generate",
     "recipes",
     "identity-assets",
+    "brand-setup",
     "browser-workflow",
     "errors"
   ]

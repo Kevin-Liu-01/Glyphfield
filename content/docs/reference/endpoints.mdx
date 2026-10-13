@@ -19,6 +19,8 @@ icon: Braces
 | GET | `/api/identities` | Built-in template and reference identity records |
 | GET | `/api/elements` | Searchable brand element records |
 | GET | `/api/generate` | Current generation contract and examples |
+| GET | `/api/brand/validate` | BrandIdentity JSON Schema, merge-patch schema, merge rules and logo slots |
+| GET | `/api/brand/kit` | Brand kit text formats and request contract |
 | GET | `/api/search` | Self-hosted documentation search index/query response |
 | GET | `/api/surface-textures/{assetId}/{map}` | Allowlisted CC0 surface map with provider/license headers |
 | GET | `/api/og` | Parameterized 1200 × 630 OpenGraph PNG |
@@ -45,6 +47,16 @@ Design Lab actions include PNG/JPG stills, GIF, ordinary MP4, sequence GIF/MP4, 
 Frame selection is a browser-native workflow, not a new HTTP generation kind. `design.frame.pause` synchronously pauses native motion and returns `null` without encoding or storing frame assets. `design.frame.capture` persists the visible PNG appearance and returns portable source; `design.frame.play` resumes motion; `design.frame.seek` accepts `{ timeMs }` for seekable providers; `design.motion.describe` reports per-layer capabilities. `/api/materials` includes each material's motion model, PNG capture support, editable seek support, and known or unverified loop behavior. Stateful Fluid history is not seekable.
 
 PNG/JPG export freezes the exact current visible frame. GIF/MP4 sample motion from the current frame anchor and restore that paused pose afterward. Exports leave playback paused and do not add captured-frame assets to IndexedDB. Durable frame capture remains a separate action; unavailable resources and unsupported timestamp-sampled Fluid motion are reported explicitly.
+
+## Brand identity
+
+| Method | Route | Content type |
+| --- | --- | --- |
+| POST | `/api/brand/validate` | Request `{ identity, mode?: 'full' \| 'patch' }`; response `{ ok, issues, identity, health, schemaVersion }` |
+| POST | `/api/brand/kit` | Request `{ identity, format: 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' }`; response is the file itself |
+| OPTIONS | `/api/brand/validate`, `/api/brand/kit` | CORS preflight |
+
+Both routes are stateless: nothing is stored and no remote URL is fetched. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Invalid source is not an HTTP error on `/api/brand/validate`: it returns `ok: false` with `issues[]`, each naming a `path`, a `code` and an actionable `message`. `/api/brand/kit` returns `400 invalid_identity` naming the first invalid path. Unknown top-level fields return `400 unknown_field`; bodies over 5 MB return `413`. The ZIP, logo pack and font files come from the browser action `identity.export.kit`.
 
 ## Documentation search
 
