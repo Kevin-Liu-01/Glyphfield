@@ -14,7 +14,14 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 
 - `StudioApp.tsx` owns projects, tabs, active tool, and identity selection.
 - `StudioToolWorkspace.tsx` is the public tool-to-editor switch.
-- `ShaderLabStudio.tsx` is Design Lab despite the historical filename.
+- `ShaderLabStudio.tsx` is Design Lab despite the historical filename. It owns
+  state, history, export and the Browser API adapter; rendering lives in memoized
+  modules: `DesignLabStage` (layers, live materials, artboards),
+  `DesignLabLayerDock` (dock and layer list), `DesignLabInspector`,
+  `DesignLabChrome` (title bar, artboard toolbar, motion strip, shortcuts) and
+  `DesignLabCanvasContent`. Pass editor actions through `useStableHandlers` and
+  memoized data so a commit re-renders only what changed; transient values that
+  change per keystroke or pointer move belong in `useValueStore` stores.
 - `CanvasEditableText` retains native text selection and plain paste, with optional
   rich runs. Range styles use existing inspector controls; layout/effects stay
   layer-wide. Flush pending text before formatting or document undo/redo, and do
