@@ -68,8 +68,8 @@ const EXPORT_ARTIFACT = 'ExportPreviewAsset with a non-empty Blob and determinis
 export const STUDIO_TOOL_ACTION_CONTRACTS = {
   animation: {
     'animation.export': {
-      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix.',
-      input: "{ format: 'gif' | 'mp4', download?: boolean }",
+      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix, or a PNG poster frame at the playhead.',
+      input: "{ format: 'gif' | 'mp4' | 'png', download?: boolean }",
       output: EXPORT_ARTIFACT,
     },
     'animation.export.gif': {
@@ -82,10 +82,50 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       input: 'No input',
       output: EXPORT_ARTIFACT,
     },
+    'animation.export.png': {
+      description: 'Render the frame at the playhead at full output size as a PNG poster frame.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
     'animation.export.project': {
       description: 'Package the complete editable animation and authorized local assets.',
       input: 'No input',
       output: EXPORT_ARTIFACT,
+    },
+    'animation.describe': {
+      description: 'Describe scenes with their master-timeline start, hold, outgoing transition, keyframes, and text entrance, plus brand starters.',
+      input: 'No input',
+      output: '{ durationMs, fps, width, height, playheadMs, scenes: [{ id, index, kind, label, startMs, holdMs, transitionMs, keyframes, textAnimation }], starters }',
+    },
+    'animation.seek': {
+      description: 'Pause and move the playhead; the inspector follows the displayed scene or transition.',
+      input: '{ timeMs: non-negative number }',
+      output: 'animation.describe result',
+    },
+    'animation.scene.update': {
+      description: 'Set a scene hold or outgoing transition (null follows the sequence default), its text entrance (null removes it), or its pose at the playhead (a keyframe when the layer is keyframed).',
+      input: "{ sceneId, holdMs?: number | null, transitionMs?: number | null, textAnimation?: { preset: 'none' | 'type-on' | 'word-rise' | 'line-reveal' | 'glyph-stagger' | 'tracking-in', durationMs?, staggerMs?, easing? } | null, pose?: { alignX?, alignY?, scale?, rotation?, opacity? } }",
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.set': {
+      description: 'Add or update the scene layer keyframe at a time into its hold, optionally with a pose and outgoing easing.',
+      input: '{ sceneId, atMs, pose?: { alignX?, alignY?, scale?, rotation?, opacity? }, easing?: [x1, y1, x2, y2] }',
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.remove': {
+      description: 'Remove one keyframe; removing the last keeps its pose as the static pose.',
+      input: '{ sceneId, keyframeId }',
+      output: 'animation.describe result',
+    },
+    'animation.motion.preset': {
+      description: 'Replace a scene layer keyframes with a preset built around its settled pose.',
+      input: "{ sceneId, preset: 'push-in' | 'rise-in' | 'slide-in' | 'pop-in' | 'float' }",
+      output: 'animation.describe result',
+    },
+    'animation.starter.apply': {
+      description: 'Replace the active artboard with a brand starter composed in the identity art direction. Undo restores the previous sequence.',
+      input: "{ starterId: 'brand-intro' | 'product-reel' | 'proof-points' }",
+      output: 'animation.describe result',
     },
   },
   'brand-book': {
@@ -237,6 +277,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
     exports: [
       { action: 'animation.export.gif', format: 'GIF', route: 'browser-action' },
       { action: 'animation.export.mp4', format: 'MP4', route: 'browser-action' },
+      { action: 'animation.export.png', format: 'PNG poster frame', route: 'browser-action' },
       { action: 'animation.export.project', format: 'JSON project', route: 'browser-action' },
     ],
     source: { apply: true, boundary: 'CanvasDocument schema 2 with Animation state and portable assets', format: 'JSON', read: true },

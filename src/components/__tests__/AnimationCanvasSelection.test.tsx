@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AnimationCanvasSelection from '@/components/AnimationCanvasSelection';
+import { createSequenceLayout, uniformSequenceLayout } from '@/lib/animation';
 
 describe('Animation canvas selection presentation', () => {
   let container: HTMLDivElement;
@@ -39,12 +40,10 @@ describe('Animation canvas selection presentation', () => {
       <AnimationCanvasSelection
         active={active}
         currentMsRef={currentMsRef}
-        holdMs={1000}
         isPlaying={isPlaying}
-        itemCount={2}
+        layout={uniformSequenceLayout({ holdMs: 1000, itemCount: 2, transitionMs: 500 })}
         selectedIndex={selectedIndex}
         subscribeToPlayhead={subscribeToPlayhead}
-        transitionMs={500}
         viewportVisible={viewportVisible}
       >
         <div data-selection='true'>Selected frame controls</div>
@@ -111,6 +110,30 @@ describe('Animation canvas selection presentation', () => {
     expect(container.firstElementChild).not.toBeNull();
     await render({ selectedIndex: 0 });
     expect(container.firstElementChild).toBeNull();
+  });
+
+  it('passes the paused time into a keyframed scene and follows per-scene holds', async () => {
+    const seen: number[] = [];
+    await act(() => root.render(
+      <AnimationCanvasSelection
+        active
+        currentMsRef={currentMsRef}
+        isPlaying={false}
+        layout={createSequenceLayout([400, 2000], [100, 100])}
+        selectedIndex={1}
+        subscribeToPlayhead={subscribeToPlayhead}
+      >
+        {(sceneElapsedMs) => { seen.push(sceneElapsedMs); return <div data-pose={sceneElapsedMs} />; }}
+      </AnimationCanvasSelection>
+    ));
+    expect(container.firstElementChild).toBeNull();
+    await seek(500 + 750);
+    expect(container.firstElementChild?.getAttribute('data-pose')).toBe('750');
+    await seek(500 + 1999);
+    expect(container.firstElementChild?.getAttribute('data-pose')).toBe('1999');
+    await seek(2500 + 50);
+    expect(container.firstElementChild).toBeNull();
+    expect(seen).toContain(750);
   });
 
   it('does not expose a missing source selection', async () => {
