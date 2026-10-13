@@ -1331,6 +1331,8 @@ function CanvasSelectionAssemblyOverlay({
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
 const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
+// Captures lift the device-ratio cap; the export pixel count then sets the canvas size.
+const DESIGN_LAB_CAPTURE_SUPERSAMPLE = 8;
 // High renders live shaders near device resolution; Auto drops to the draft
 // budget after sustained slow frames. Exports always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
@@ -8495,6 +8497,9 @@ export default function ShaderLabStudio({
       const timeMs = pauseShaderHistory();
       const settingsSignature = compositionSignatureRef.current;
       const assertFresh = exportFreshnessGuard();
+      // Re-render every shader at the controlled time, which sizes it for the export.
+      await waitForCapturedFrame({ durationMs: 0, index: 0, timeMs: timeMs - previewTimeRef.current });
+      assertFresh();
       const capture = beginShaderFrameCapture(shaderCaptureRequests(timeMs), timeMs, { mode: 'transient', previewGroup: 'design-lab' });
       const captures = await capture.result;
       assertFresh();
@@ -8840,7 +8845,7 @@ export default function ShaderLabStudio({
         paused={!active || paused || controlledTimeMs !== null}
         previewChannel={instanceKey}
         previewGroup='design-lab'
-        renderScale={1}
+        renderScale={captureTimeMs === null ? 1 : DESIGN_LAB_CAPTURE_SUPERSAMPLE}
         restoreTimeMs={shaderTimelineRestore.pendingKeys.includes(instanceKey)
           ? paused ? previewCaptureTimeMs : shaderTimelineRestore.timeMs : undefined}
         holdRestoredPlayback={shaderTimelineRestoring}

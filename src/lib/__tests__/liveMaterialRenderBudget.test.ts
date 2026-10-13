@@ -95,6 +95,26 @@ describe('live material render budget', () => {
     })).toBe(1);
   });
 
+  it('supersamples a capture to its export pixel count past the device ratio cap', () => {
+    const ratio = resolveLiveMaterialPixelRatio({
+      cssHeight: 405,
+      cssWidth: 720,
+      devicePixelRatio: 2,
+      maxDevicePixelRatio: 2,
+      maxPixelCount: 4800 * 2700,
+      renderScale: 8,
+    });
+    expect(Math.round(720 * ratio)).toBe(4800);
+    expect(resolveLiveMaterialPixelRatio({
+      cssHeight: 900,
+      cssWidth: 1600,
+      devicePixelRatio: 2,
+      maxDevicePixelRatio: 2,
+      maxPixelCount: 1e9,
+      renderScale: 8,
+    }) * 1600).toBeLessThanOrEqual(8192);
+  });
+
   it('shares the Design Lab budget as live shader layers accumulate', () => {
     const budgetFor = (instanceCount: number) => liveMaterialInstancePixelBudget({
       instanceCount,

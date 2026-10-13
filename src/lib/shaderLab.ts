@@ -148,10 +148,10 @@ export function shaderLabCategory(material: Pick<LiveMaterialOption, 'engine' | 
   if (effect) return SHADER_EFFECT_GROUP_OVERRIDES.get(effect.component) ?? SHADER_EFFECT_GROUPS[effect.category] ?? 'graphic';
   const key = `${material.id} ${material.name} ${material.engine}`.toLowerCase();
   if (material.id === 'holo-cloth-silk') return 'light';
-  if (/(chrome|metal|glass|prismatic|gem)/.test(key)) return 'metal';
+  if (/(chrome|metal|glass|prismatic|gem|foil)/.test(key)) return 'metal';
   if (/(fluid|water|warp|swirl|smoke|metaball)/.test(key)) return 'fluid';
-  if (/(bloom|ray|line|radiant|ring|border|circuit)/.test(key)) return 'light';
-  if (/(gradient|mesh|noise|orbit|panel)/.test(key)) return 'gradient';
+  if (/(bloom|ray|line|radiant|ring|border|circuit|caustic|nebula)/.test(key)) return 'light';
+  if (/(gradient|mesh|noise|orbit|panel|silk|ribbon)/.test(key)) return 'gradient';
   return 'graphic';
 }
 

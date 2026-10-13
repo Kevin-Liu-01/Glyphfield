@@ -25,6 +25,11 @@ export const ORIGINAL_MATERIAL_IDS = [
   'study-orbit-gradient',
   'study-radiant-void',
   'study-galactic-rings',
+  'glyphfield-liquid-glass',
+  'glyphfield-caustics',
+  'glyphfield-iridescent-foil',
+  'glyphfield-nebula',
+  'glyphfield-silk-ribbons',
 ] as const;
 
 export type OriginalMaterialId = (typeof ORIGINAL_MATERIAL_IDS)[number];
@@ -790,6 +795,149 @@ void main() {
   vec2 star = floor(referenceCoord() / 1.5);
   float twinkle = 0.6 + 0.4 * sin(u_time * 3.0 + hash12(star) * TAU);
   color += step(0.9984, hash12(star)) * twinkle * mix(vec3(1.0), u_color_c, 0.3) * 0.9;
+  writeColor(color);
+}`,
+  'glyphfield-liquid-glass': `
+float smoothUnion(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float glassField(vec2 p, float time) {
+  float field = 10.0;
+  for (int index = 0; index < 5; index++) {
+    float seed = float(index);
+    vec2 center = vec2(
+      sin(time * (0.31 + seed * 0.07) + seed * 1.9) * (0.75 + seed * 0.12),
+      cos(time * (0.27 + seed * 0.05) + seed * 2.7) * (0.45 + seed * 0.06)
+    );
+    float radius = 0.26 + 0.1 * sin(seed * 3.1) + u_amplitude * 0.02;
+    field = smoothUnion(field, length(p - center) - radius, 0.32 + u_strength * 0.3);
+  }
+  return field;
+}
+
+vec3 backdrop(vec2 p) {
+  float diagonal = 0.5 + 0.5 * sin(dot(p, vec2(0.55, 0.85)) * (0.9 + u_frequency * 0.1));
+  vec3 color = ramp(diagonal * 0.8 + 0.1);
+  vec2 grid = abs(fract(p * (2.5 + u_density)) - 0.5);
+  float lines = 1.0 - smoothstep(0.0, 0.02, min(grid.x, grid.y));
+  return color + lines * u_color_c * 0.18;
+}
+
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.35;
+  float distance0 = glassField(p, time);
+  float epsilon = 0.004;
+  vec2 gradient = vec2(glassField(p + vec2(epsilon, 0.0), time) - distance0, glassField(p + vec2(0.0, epsilon), time) - distance0) / epsilon;
+  float inside = 1.0 - aastep(0.0, distance0);
+  float depth = clamp(-distance0 * 3.0, 0.0, 1.0);
+  vec3 normal = normalize(vec3(-gradient * (1.0 - depth * 0.85), 0.35 + depth));
+  // Refraction bends the backdrop through the glass; each channel bends a little differently.
+  vec2 bend = normal.xy * (0.18 + u_strength * 0.12);
+  vec3 refracted = vec3(backdrop(p + bend * 1.06).r, backdrop(p + bend).g, backdrop(p + bend * 0.94).b);
+  float fresnel = pow(1.0 - normal.z, 3.0);
+  vec3 light = normalize(vec3(-0.5, 0.7, 0.6));
+  float specular = pow(max(dot(reflect(-light, normal), vec3(0.0, 0.0, 1.0)), 0.0), 60.0);
+  vec3 glass = refracted * 1.05 + fresnel * mix(vec3(1.0), u_color_c, 0.3) * 0.55 + specular * 1.6;
+  float shadow = exp(-max(glassField(p + vec2(0.05, 0.07), time), 0.0) * 9.0) * (1.0 - inside) * 0.35;
+  vec3 color = mix(backdrop(p) * (1.0 - shadow), glass, inside);
+  writeColor(color);
+}`,
+  'glyphfield-caustics': `
+float causticLayer(vec2 p, float time) {
+  vec2 q = warp(p, time, 0.55 + u_strength * 0.5, 3);
+  float n = gnoise(vec3(q * 1.6, time * 0.6));
+  return pow(1.0 - abs(n), 7.0 + u_density * 3.0);
+}
+
+void main() {
+  vec2 p = studioUv() * (0.9 + u_detail * 0.08);
+  float time = u_time * 0.35;
+  float spread = 0.012 + u_amplitude * 0.002;
+  vec3 caustic = vec3(
+    causticLayer(p + vec2(spread, 0.0), time),
+    causticLayer(p, time),
+    causticLayer(p - vec2(spread, 0.0), time)
+  );
+  caustic += vec3(causticLayer(p * 1.9 + 7.0, time * 1.3)) * 0.45;
+  float depth = 0.5 + 0.5 * sin(dot(p, vec2(0.3, 0.9)) * 0.8 + fbm(vec3(p * 0.4, time * 0.3), 3) * 1.6);
+  vec3 water = mixLab(u_lab_a, u_lab_b, 0.25 + depth * 0.55);
+  vec3 color = water + caustic * mix(u_color_c, vec3(1.0), 0.35) * (0.9 + u_strength * 0.6);
+  writeColor(color);
+}`,
+  'glyphfield-iridescent-foil': `
+float creases(vec2 p, float time) {
+  float height = 0.0;
+  float amplitude = 0.6;
+  for (int index = 0; index < 3; index++) {
+    height += amplitude * (1.0 - abs(gnoise(vec3(p, time * 0.15 + float(index) * 3.1))));
+    p = OCTAVE * p * 1.05 + 4.7;
+    amplitude *= 0.45;
+  }
+  return height;
+}
+
+void main() {
+  vec2 p = studioUv() * (0.42 + u_detail * 0.04);
+  float time = u_time * 0.4;
+  float epsilon = 0.003;
+  float height = creases(p, time);
+  vec2 slope = vec2(creases(p + vec2(epsilon, 0.0), time) - height, creases(p + vec2(0.0, epsilon), time) - height) / epsilon;
+  vec3 normal = normalize(vec3(-slope * (0.16 + u_amplitude * 0.025), 1.0));
+  vec2 pointer = (u_pointer * 2.0 - 1.0) * vec2(u_resolution.x / u_resolution.y, 1.0);
+  vec3 light = normalize(vec3(pointer * 0.6 + vec2(-0.3, 0.4), 1.0));
+  float facing = max(normal.z, 0.0);
+  // Thin-film interference: hue follows viewing angle and local film thickness.
+  float thickness = height * (0.6 + u_strength * 0.8) + (1.0 - facing) * (1.6 + u_frequency * 0.12);
+  vec3 film = mix(ramp(fract(thickness * 0.8)), spectrum(thickness + time * 0.04), 0.4 + u_strength * 0.25);
+  float diffuse = max(dot(normal, light), 0.0);
+  float specular = pow(max(dot(reflect(-light, normal), vec3(0.0, 0.0, 1.0)), 0.0), 48.0);
+  vec3 color = film * (0.06 + diffuse * diffuse * 1.15) + specular * mix(vec3(1.0), u_color_c, 0.2) * 1.8;
+  writeColor(color);
+}`,
+  'glyphfield-nebula': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.08;
+  vec2 q = warp(p * 0.45, time, 1.0 + u_strength * 0.9, 5);
+  float gas = fbm(vec3(q * 1.1, time * 0.5), 5) * 1.7 + 0.5;
+  float cloud = smoothstep(0.42, 1.05, gas);
+  float filaments = pow(1.0 - abs(fbm(vec3(q * 2.6 + 3.0, time * 0.7), 4)), 9.0);
+  float dust = smoothstep(0.42, 0.8, fbm(vec3(q * 1.9 - 5.0, time * 0.4), 4) * 1.7 + 0.5);
+  vec3 emission = ramp(clamp(0.2 + gas * 0.75, 0.0, 1.0)) * cloud * cloud * (1.1 + u_density * 0.6);
+  emission += mix(u_color_c, vec3(1.0), 0.3) * filaments * cloud * (0.8 + u_strength * 0.8);
+  emission *= 1.0 - dust * 0.85;
+  vec3 color = u_color_a * 0.25 + emission;
+  vec2 star = floor(referenceCoord() / 1.6);
+  float brightness = hash12(star);
+  float twinkle = 0.65 + 0.35 * sin(u_time * 2.0 + brightness * 40.0);
+  color += step(0.9975, brightness) * twinkle * mix(vec3(1.0), u_color_c, 0.3) * (1.0 - dust * 0.8);
+  writeColor(color);
+}`,
+  'glyphfield-silk-ribbons': `
+void main() {
+  vec2 p = studioUv();
+  float time = u_time * 0.25;
+  vec3 color = u_color_a * 0.55;
+  for (int index = 0; index < 4; index++) {
+    float seed = float(index);
+    float phase = p.x * (0.7 + seed * 0.14 + u_frequency * 0.04) + time * (0.6 + seed * 0.15) + seed * 1.7;
+    float center = sin(phase) * (0.32 + u_amplitude * 0.04) + (seed - 1.5) * 0.38 + sin(phase * 0.47 + seed) * 0.22;
+    float width = 0.22 + 0.08 * sin(phase * 0.8 + seed * 2.0) + u_density * 0.06;
+    float across = (p.y - center) / width;
+    float coverage = 1.0 - aastep(1.0, abs(across));
+    // Satin: a broad soft fold plus a narrow sheen that slides as the ribbon twists.
+    float twist = sin(phase * 1.3 + seed * 2.3);
+    float fold = 0.55 + 0.45 * cos((across - twist * 0.4) * 1.6);
+    float sheen = exp(-pow((across - twist * 0.6) * (3.5 - u_strength), 2.0));
+    vec3 fabric = ramp(0.3 + seed * 0.17);
+    vec3 ribbon = fabric * (0.3 + fold * 0.7) + mix(u_color_c, vec3(1.0), 0.35) * sheen * (0.35 + u_strength * 0.6);
+    float shadow = exp(-max(0.0, abs(across) - 1.0) * 4.0) * 0.4;
+    color *= 1.0 - shadow * (1.0 - coverage);
+    color = mix(color, ribbon, coverage * 0.94);
+  }
   writeColor(color);
 }`,
 };

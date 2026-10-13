@@ -47,6 +47,12 @@ Choosing a source filter narrows the current quality-sorted catalog and its cate
 
 Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
 
+### Rendering quality
+
+Glyphfield's own GLSL materials blend palette colors in linear light and interpolate ramps in OKLab, so mixes between two brand colors stay vivid instead of turning grey. Every frame is dithered before 8-bit output to remove gradient banding, edges are anti-aliased, and patterns such as weaves, halftone screens and pixel cells are sized relative to the frame, so a preview and a 4K export show the same composition.
+
+Design Lab renders live shaders near the display's native resolution. **Preview quality** in the artboard bar chooses **Auto**, **High** or **Draft**. Auto starts at High and drops to the Draft budget after sustained slow frames. Exports always render at output size, whatever the preview setting.
+
 ### WebGL availability
 
 Studio probes WebGL 2 before mounting Three.js, Paper, or ShaderGradient providers. If the browser is sandboxed, GPU access is disabled, or context creation fails, the provider is never constructed and the canvas displays a representative three-color static fallback instead. A provider error boundary also catches context-loss races. Studio controls, source editing, deterministic background recipes, and non-WebGL exports remain usable without a runtime overlay.
@@ -83,10 +89,10 @@ The original file and converted PNG can both be downloaded from the library. PNG
 
 The shared catalog combines several implementation types:
 
-- Original Glyphfield mesh, grain, dither, glyph-volume, and GLSL materials
+- Original Glyphfield materials: Liquid Glass, Caustics, Iridescent Foil, Nebula, Silk Ribbons, the mesh, grain and dither gradients, and the glyph volume
 - The editable ShaderGradient sphere
 - Nine original studies of public Shaders.com visual techniques, including Spectral Bloom, Architectural Chrome, Soft Register, and Circuit
-- **Fluid Energy**, adapted from Pavel Dobryakov's MIT-licensed [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
+- **Fluid Energy**, a stable-fluids solver (vorticity, pressure projection, half-float buffers) adapted from Pavel Dobryakov's MIT-licensed [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
 - 29 Paper shader families and 120 upstream-authored presets rendered with [`@paper-design/shaders-react`](https://github.com/paper-design/shaders)
 - Original design studies informed by [Evil Rabbit Shaders](https://shaders.evilrabbit.com/), [GRADIENTOOL](https://www.gradientool.com/), and [Grainient](https://grainient.supply/freebies)
 

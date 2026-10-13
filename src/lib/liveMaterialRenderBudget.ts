@@ -1,3 +1,5 @@
+const MAX_CANVAS_EDGE = 8192;
+
 export type LiveMaterialPixelRatioInput = {
   cssHeight: number;
   cssWidth: number;
@@ -52,10 +54,11 @@ export function resolveLiveMaterialPixelRatio({
   maxPixelCount,
   renderScale,
 }: LiveMaterialPixelRatioInput): number {
-  const requestedRatio = Math.max(
-    0.1,
-    Math.min(maxDevicePixelRatio, Math.max(0.1, devicePixelRatio) * Math.max(0.1, renderScale))
-  );
+  // A render scale above 1 is an explicit supersampling request (export capture):
+  // it lifts the device-ratio cap so the pixel budget becomes the target size.
+  const requestedRatio = renderScale > 1
+    ? Math.min(Math.max(0.1, devicePixelRatio) * renderScale, MAX_CANVAS_EDGE / Math.max(1, cssWidth, cssHeight))
+    : Math.max(0.1, Math.min(maxDevicePixelRatio, Math.max(0.1, devicePixelRatio) * Math.max(0.1, renderScale)));
   if (!Number.isFinite(maxPixelCount) || (maxPixelCount ?? 0) <= 0) return requestedRatio;
 
   const cssPixels = Math.max(1, cssWidth) * Math.max(1, cssHeight);

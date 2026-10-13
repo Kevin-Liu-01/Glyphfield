@@ -55,7 +55,7 @@ function ShaderGradientRenderLifecycle({
     setDpr(resolveLiveMaterialPixelRatio({
       cssHeight: size.height,
       cssWidth: size.width,
-      devicePixelRatio: 1,
+      devicePixelRatio: window.devicePixelRatio || 1,
       maxDevicePixelRatio: 2,
       maxPixelCount,
       renderScale,

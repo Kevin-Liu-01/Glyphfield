@@ -101,9 +101,14 @@ describe('live materials', () => {
     expect(LIVE_MATERIAL_OPTIONS.some(({ id }) => String(id) === 'shaders-dedalus-bloom')).toBe(false);
   });
 
-  it('offers the glyph field alongside original mesh, grain, and dither gradient materials', () => {
+  it('offers the glyph field alongside the original Glyphfield materials', () => {
     const glyphfieldMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Glyphfield');
     expect(glyphfieldMaterials.map(({ id }) => id)).toEqual([
+      'glyphfield-liquid-glass',
+      'glyphfield-caustics',
+      'glyphfield-iridescent-foil',
+      'glyphfield-nebula',
+      'glyphfield-silk-ribbons',
       'glyphfield-glyph-field',
       'glyphfield-mesh-gradient',
       'glyphfield-grain-gradient',
@@ -142,7 +147,7 @@ describe('live materials', () => {
     const paperMaterials = LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine === 'Paper Shaders');
     expect(PAPER_SHADER_FAMILIES).toHaveLength(29);
     expect(paperMaterials).toHaveLength(120);
-    expect(LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine !== 'Shaders.com WebGPU')).toHaveLength(142);
+    expect(LIVE_MATERIAL_OPTIONS.filter(({ engine }) => engine !== 'Shaders.com WebGPU')).toHaveLength(147);
     expect(paperMaterials.map(({ id }) => id)).toEqual(expect.arrayContaining(PAPER_LIVE_MATERIAL_IDS));
     expect(new Set(PAPER_LIVE_MATERIAL_IDS).size).toBe(PAPER_LIVE_MATERIAL_IDS.length);
     expect(new Set(paperMaterials.map(({ sourceUrl }) => sourceUrl))).toEqual(new Set([PAPER_SHADERS_SOURCE_URL]));

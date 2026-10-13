@@ -85,6 +85,11 @@ export type LiveMaterialId =
   | 'study-orbit-gradient'
   | 'study-radiant-void'
   | 'study-galactic-rings'
+  | 'glyphfield-liquid-glass'
+  | 'glyphfield-caustics'
+  | 'glyphfield-iridescent-foil'
+  | 'glyphfield-nebula'
+  | 'glyphfield-silk-ribbons'
   | `shader-effects-${string}`
   | PaperLiveMaterialId;
 
@@ -431,6 +436,41 @@ const ALL_LIVE_MATERIAL_OPTIONS: readonly LiveMaterialOption[] = [
     id: 'glyphfield-grain-gradient',
     name: 'Grain gradient',
     qualityScore: 89,
+  },
+  {
+    description: 'Merging glass bodies that refract the palette behind them, with chromatic dispersion, Fresnel rims and soft contact shadows.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-liquid-glass',
+    name: 'Liquid Glass',
+    qualityScore: 97.5,
+  },
+  {
+    description: 'Shifting underwater light: a dispersed caustic web over a deep palette pool.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-caustics',
+    name: 'Caustics',
+    qualityScore: 96.5,
+  },
+  {
+    description: 'Crumpled holographic foil with thin-film color that follows the viewing angle and the pointer light.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-iridescent-foil',
+    name: 'Iridescent Foil',
+    qualityScore: 96,
+  },
+  {
+    description: 'Domain-warped emission clouds, bright filaments, dark dust lanes and a sparse star field.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-nebula',
+    name: 'Nebula',
+    qualityScore: 95.5,
+  },
+  {
+    description: 'Overlapping satin ribbons with soft folds, sliding sheen and cast shadows.',
+    engine: 'Glyphfield',
+    id: 'glyphfield-silk-ribbons',
+    name: 'Silk Ribbons',
+    qualityScore: 94.5,
   },
   {
     description: 'A three-color flow resolved through a crisp ordered-dither matrix.',

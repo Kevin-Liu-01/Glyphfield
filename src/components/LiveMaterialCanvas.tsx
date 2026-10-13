@@ -1680,7 +1680,8 @@ function PaperShaderSurface({
     height: '100%',
     maxPixelCount: maxPixelCount
       ?? Math.max(18_000, Math.round(360_000 * Math.min(2, renderScale * renderScale))),
-    minPixelRatio: 0.5,
+    // Supersampled capture: Paper renders up to the pixel budget instead of device ratio.
+    minPixelRatio: renderScale > 1 && typeof window !== 'undefined' ? (window.devicePixelRatio || 1) * renderScale : 0.5,
     ref: surfaceRef,
     style: surfaceStyle,
     webGlContextAttributes,
