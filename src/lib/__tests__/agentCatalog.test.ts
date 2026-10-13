@@ -147,4 +147,11 @@ describe('agent discovery catalogs', () => {
       expect(variant.additionalProperties).toBe(false);
     }
   });
+  it('labels every shared material with its library look and kind', () => {
+    const kinds = new Set(AGENT_SHADER_LIBRARY.kinds.map(({ id }) => id));
+    for (const material of AGENT_SHADER_LIBRARY.materials) {
+      expect(kinds.has(material.kind)).toBe(true);
+      expect(material.category).toMatch(/^(fluid|light|metal|gradient|graphic)$/);
+    }
+  });
 });
