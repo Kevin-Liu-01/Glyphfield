@@ -24,6 +24,31 @@ type Failure = 'unsupported' | 'failed';
 // Stateful effects start from an empty field; simulate this much before the first paint.
 const WARMUP_SECONDS = 3;
 const WARMUP_STEP_SECONDS = 1 / 30;
+// The warm-up sweeps the virtual cursor faster so trail and ink effects leave a full stroke.
+const WARMUP_SWEEP = 3;
+
+async function warmUpStatefulEffect(
+  renderer: { renderSyntheticFrame: (deltaSeconds: number) => Promise<void> },
+  pointerTarget: HTMLElement | null,
+  stopped: () => boolean
+) {
+  for (let elapsed = 0; elapsed < WARMUP_SECONDS && !stopped(); elapsed += WARMUP_STEP_SECONDS) {
+    if (pointerTarget) driveAmbientPointer(pointerTarget, elapsed * WARMUP_SWEEP, true);
+    await renderer.renderSyntheticFrame(WARMUP_STEP_SECONDS);
+  }
+}
+
+/** Interactive effects follow a slow virtual cursor until someone moves the real one. */
+function followAmbientPointer(target: HTMLElement | null, now: number) {
+  if (target) driveAmbientPointer(target, WARMUP_SECONDS * WARMUP_SWEEP + now / 1000);
+}
+
+/** Keep an owned 2D buffer: WebGPU may recycle its presented texture before the synchronous freeze/export path reads it. */
+function copyPresentedFrame(gpu: HTMLCanvasElement, output: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+  if (output.width !== gpu.width || output.height !== gpu.height) { output.width = gpu.width; output.height = gpu.height; }
+  context.clearRect(0, 0, output.width, output.height);
+  context.drawImage(gpu, 0, 0);
+}
 
 export default function ShaderEffectsSurface(props: Props) {
   const gt = useGT();
@@ -43,7 +68,7 @@ export default function ShaderEffectsSurface(props: Props) {
     const gpu = gpuCanvas.current!;
     const effect = getShaderEffect(materialId);
     const stateful = effect?.stateful ?? false;
-    const interactive = effect?.category === 'Interactive';
+    const pointerTarget = effect?.category === 'Interactive' ? gpu : null;
     let warmed = !stateful;
     const context = output.getContext('2d');
     if (!context) return;
@@ -99,15 +124,9 @@ export default function ShaderEffectsSurface(props: Props) {
         adapter.update(state.settings, state.patternScale, aspect());
         if (!warmed) {
           warmed = true;
-          for (let elapsed = 0; elapsed < WARMUP_SECONDS && !drawingStopped(); elapsed += WARMUP_STEP_SECONDS) {
-            // A faster sweep during warm-up leaves a full stroke for trail and ink effects.
-            if (interactive) driveAmbientPointer(gpu, elapsed * 3, true);
-            await adapter.renderer.renderSyntheticFrame(WARMUP_STEP_SECONDS);
-          }
-          if (drawingStopped()) return;
+          await warmUpStatefulEffect(adapter.renderer, pointerTarget, drawingStopped);
         }
-        // Interactive effects follow a slow virtual cursor until someone moves the real one.
-        if (interactive && !state.paused) driveAmbientPointer(gpu, WARMUP_SECONDS * 3 + now / 1000);
+        if (!state.paused) followAmbientPointer(pointerTarget, now);
         // Stateful effects advance from their accumulated state; a requested time is ignored.
         const frame = clock.draw({ now, rate: liveMaterialMotionRate(state.settings.speed), active: state.active, paused: state.paused, captureTimeMs: stateful ? null : state.captureTimeMs, frameState: state.frameState });
         const delta = (frame - lastFrame) / 1000;
@@ -123,11 +142,7 @@ export default function ShaderEffectsSurface(props: Props) {
           return;
         }
         if (warmupFrames++ < 2) { pending = true; return; }
-        // Keep an owned 2D buffer: WebGPU may recycle its presented texture before
-        // the editor's synchronous freeze/export path reads it.
-        if (output.width !== gpu.width || output.height !== gpu.height) { output.width = gpu.width; output.height = gpu.height; }
-        context.clearRect(0, 0, output.width, output.height);
-        context.drawImage(gpu, 0, 0);
+        copyPresentedFrame(gpu, output, context);
         surface.dataset.liveMaterialReady = 'true';
         presentedFrame = frame;
         signal.publish();
