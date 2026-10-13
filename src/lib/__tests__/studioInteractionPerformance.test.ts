@@ -58,7 +58,10 @@ describe('Studio interaction performance contracts', () => {
     const setter = source.slice(source.indexOf('const setPersistentValue'), source.indexOf('return [value'));
 
     expect(source).toContain('pendingPersistentWrites.set(storageKey, value)');
-    expect(source).toContain('window.setTimeout(flushPendingPersistentWrites');
+    expect(source).toContain('window.setTimeout(schedulePersistentIdleFlush, PERSISTENCE_DELAY_MS)');
+    expect(source).toContain('window.requestIdleCallback(');
+    expect(source).toContain("window.addEventListener('pagehide', flushPendingPersistentWrites)");
+    expect(source).toContain("document.addEventListener('visibilitychange', flushPendingPersistentWritesWhenHidden)");
     expect(setter).toContain('schedulePersistentWrite(storageKey, resolvedValue)');
     expect(setter).not.toContain('localStorage.setItem');
     expect(setter).not.toContain('JSON.stringify');

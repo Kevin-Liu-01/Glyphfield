@@ -34,6 +34,9 @@ describe('persistent state write scheduling', () => {
     vi.advanceTimersByTime(119);
     expect(setItem).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
+    // The quiet period ends; serialization waits for the next idle slot, not this task.
+    expect(setItem).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
 
     expect(setItem.mock.calls).toEqual([
       ['draft:position', JSON.stringify({ x: 2 })],
@@ -77,9 +80,77 @@ describe('persistent state write scheduling', () => {
     expect(readPersistentValue('draft:quick-return', { x: 0 })).toEqual({ x: 36 });
     expect(readPersistentValue('draft:other-workspace', { x: 0 })).toEqual({ x: 84 });
 
-    vi.advanceTimersByTime(120);
+    vi.advanceTimersByTime(121);
     expect(readPersistentValue('draft:quick-return', { x: 0 })).toEqual({ x: 36 });
     expect(setItem).toHaveBeenCalledExactlyOnceWith('draft:quick-return', '{"x":36}');
+  });
+
+  it('serializes in idle time, yields when the idle slice ends, and restarts on new edits', async () => {
+    vi.resetModules();
+    const { readPersistentValue: read, schedulePersistentWrite: schedule } = await import('../../hooks/usePersistentState');
+    const idle: { callback: IdleRequestCallback; options?: IdleRequestOptions }[] = [];
+    const cancelIdleCallback = vi.fn();
+    const setItem = vi.fn();
+    vi.stubGlobal('window', {
+      addEventListener: vi.fn(),
+      cancelIdleCallback,
+      clearTimeout: (timer: number) => clearTimeout(timer),
+      localStorage: { getItem: () => null, setItem },
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => idle.push({ callback, options }),
+      setTimeout: (callback: () => void, delay: number) => setTimeout(callback, delay),
+    });
+
+    schedule('draft:a', { layers: 1 });
+    vi.advanceTimersByTime(120);
+    expect(idle).toHaveLength(1);
+    expect(idle[0]?.options).toEqual({ timeout: 1_000 });
+
+    // A new edit cancels the queued idle flush and restarts the quiet period.
+    schedule('draft:b', { layers: 2 });
+    expect(cancelIdleCallback).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(120);
+    expect(idle).toHaveLength(2);
+
+    let remaining = 2;
+    idle[1]!.callback({ didTimeout: false, timeRemaining: () => (remaining -= 2) + 2 });
+    expect(setItem.mock.calls).toEqual([['draft:a', '{"layers":1}']]);
+    // The unwritten key is still readable and goes in the next idle slice.
+    expect(read('draft:b', null)).toEqual({ layers: 2 });
+    expect(idle).toHaveLength(3);
+    idle[2]!.callback({ didTimeout: true, timeRemaining: () => 0 });
+    expect(setItem.mock.calls.at(-1)).toEqual(['draft:b', '{"layers":2}']);
+  });
+
+  it('writes queued values synchronously when the page or tab is hidden', async () => {
+    vi.resetModules();
+    const { schedulePersistentWrite: schedule } = await import('../../hooks/usePersistentState');
+    const windowListeners = new Map<string, () => void>();
+    const documentListeners = new Map<string, () => void>();
+    const setItem = vi.fn();
+    const fakeDocument = {
+      addEventListener: (type: string, listener: () => void) => documentListeners.set(type, listener),
+      visibilityState: 'visible',
+    };
+    vi.stubGlobal('document', fakeDocument);
+    vi.stubGlobal('window', {
+      addEventListener: (type: string, listener: () => void) => windowListeners.set(type, listener),
+      clearTimeout: (timer: number) => clearTimeout(timer),
+      localStorage: { setItem },
+      setTimeout: (callback: () => void, delay: number) => setTimeout(callback, delay),
+    });
+
+    schedule('draft:hidden', { x: 1 });
+    documentListeners.get('visibilitychange')?.();
+    expect(setItem).not.toHaveBeenCalled();
+    fakeDocument.visibilityState = 'hidden';
+    documentListeners.get('visibilitychange')?.();
+    expect(setItem).toHaveBeenCalledExactlyOnceWith('draft:hidden', '{"x":1}');
+
+    schedule('draft:pagehide', { x: 2 });
+    windowListeners.get('pagehide')?.();
+    expect(setItem).toHaveBeenLastCalledWith('draft:pagehide', '{"x":2}');
+    vi.runOnlyPendingTimers();
+    expect(setItem).toHaveBeenCalledTimes(2);
   });
 
   it('drops corrupt storage and keeps the in-memory fallback', () => {

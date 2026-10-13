@@ -82,7 +82,8 @@ describe('persistent state initialization and equality', () => {
     await act(async () => commits.at(-1)!.setValue({ count: 4 }));
     expect(commits.at(-1)?.value).not.toBe(commits[0]?.value);
     await act(async () => commits.at(-1)!.setValue((value) => ({ count: value.count + 1 })));
-    await act(async () => { vi.advanceTimersByTime(120); });
+    // 120 ms quiet period, then the next idle slot.
+    await act(async () => { vi.advanceTimersByTime(121); });
     expect(window.localStorage.setItem).toHaveBeenCalledExactlyOnceWith('draft', '{"count":5}');
   });
 
@@ -103,7 +104,7 @@ describe('persistent state initialization and equality', () => {
     await render({ count: 0 }, 'queued');
     expect(commits.at(-1)?.value.count).toBe(36);
     expect(window.localStorage.setItem).not.toHaveBeenCalled();
-    await act(async () => { vi.advanceTimersByTime(120); });
+    await act(async () => { vi.advanceTimersByTime(121); });
     expect(window.localStorage.setItem).toHaveBeenCalledExactlyOnceWith('queued', '{"count":36}');
   });
 
