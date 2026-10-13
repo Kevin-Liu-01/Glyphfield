@@ -464,7 +464,7 @@ export function resolveMoodboardBoard(
 export type MoodboardRect = { height: number; width: number; x: number; y: number };
 
 /** Row weight: larger and feature tiles earn taller rows. */
-export function moodboardTileEmphasis(tile: Pick<MoodboardTile, 'kind' | 'span' | 'variant'>): number {
+function moodboardTileEmphasis(tile: Pick<MoodboardTile, 'kind' | 'span' | 'variant'>): number {
   if (tile.kind === 'cover') return tile.span >= 6 ? 1.6 : 1.2;
   if (tile.kind === 'palette' && tile.variant === 'proportion' && tile.span === 12) return 0.62;
   if (tile.kind === 'type' && tile.variant === 'scale' && tile.span === 12) return 1.1;
@@ -542,7 +542,7 @@ export const MOODBOARD_SOURCE_SCHEMA = 'glyphfield.moodboard';
 export const MOODBOARD_SOURCE_VERSION = 2;
 const MAX_COPY_LENGTH = 600;
 
-export type MoodboardSourceTile = MoodboardTile & { label: string; variants: readonly string[] };
+type MoodboardSourceTile = MoodboardTile & { label: string; variants: readonly string[] };
 
 export function moodboardSourceBoards(identity: BrandIdentity, overrides: MoodboardOverrides | undefined) {
   return Object.fromEntries(MOODBOARD_COMPOSITIONS.map((composition) => {

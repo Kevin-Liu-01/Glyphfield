@@ -194,7 +194,7 @@ const ELEMENT_SIZES: Record<string, ArtboardSize> = {
   'whitepaper-cover': { height: 1414, width: 1000 },
 };
 
-export function elementArtboardSize(element: BrandElement): ArtboardSize {
+function elementArtboardSize(element: BrandElement): ArtboardSize {
   return ELEMENT_SIZES[element.id] ?? FAMILY_SIZES[element.preview] ?? { height: 800, width: 1280 };
 }
 
@@ -274,10 +274,10 @@ function EmailHeaderArt({ context, compact = false }: Props & { compact?: boolea
   if (identity.id === 'gt' && template?.artworkPath) {
     return <span className={styles.emailArt}><img alt='' src={template.artworkPath} style={artworkStyle(settings)} /></span>;
   }
+  // The wordmark already leads the email; the header is the device alone.
   return (
-    <span className={styles.emailArt} data-compact={compact || undefined}>
+    <span className={styles.emailArt} data-compact={compact || undefined} style={artworkStyle(settings)}>
       <Device context={context} dark seed={template?.id.length ?? 3} />
-      <span className={styles.emailArtMark} style={artworkStyle(settings)}><Logo context={context} onDark /></span>
     </span>
   );
 }
@@ -568,25 +568,42 @@ const ASCII_MARKS: Record<string, readonly string[]> = {
   ST: ['███████╗████████╗', '██╔════╝╚══██╔══╝', '███████╗   ██║   ', '╚════██║   ██║   ', '███████║   ██║   ', '╚══════╝   ╚═╝   '],
 };
 
-const BLOCK_GLYPHS: Record<string, readonly string[]> = {
-  A: [' ██ ', '█  █', '████', '█  █'], B: ['███ ', '████', '█  █', '███ '], C: [' ███', '█   ', '█   ', ' ███'],
-  D: ['███ ', '█  █', '█  █', '███ '], E: ['████', '███ ', '█   ', '████'], F: ['████', '███ ', '█   ', '█   '],
-  G: [' ███', '█   ', '█ ██', ' ███'], H: ['█  █', '████', '█  █', '█  █'], I: ['███', ' █ ', ' █ ', '███'],
-  J: ['  ██', '   █', '█  █', ' ██ '], K: ['█  █', '███ ', '█ █ ', '█  █'],
-  L: ['█   ', '█   ', '█   ', '████'], M: ['█   █', '██ ██', '█ █ █', '█   █'], N: ['█  █', '██ █', '█ ██', '█  █'],
-  O: [' ██ ', '█  █', '█  █', ' ██ '], P: ['███ ', '█  █', '███ ', '█   '], Q: [' ██ ', '█  █', '█ ██', ' ███'], R: ['███ ', '█  █', '███ ', '█  █'],
-  S: [' ███', '██  ', '  ██', '███ '], T: ['████', ' ██ ', ' ██ ', ' ██ '], U: ['█  █', '█  █', '█  █', ' ██ '], V: ['█  █', '█  █', '█  █', ' ██ '],
-  W: ['█   █', '█ █ █', '██ ██', '█   █'], X: ['█  █', ' ██ ', ' ██ ', '█  █'], Y: ['█  █', ' ██ ', ' █  ', ' █  '], Z: ['████', '  █ ', ' █  ', '████'],
-  '+': ['    ', ' █  ', '███ ', ' █  '],
+/** A 3 × 5 pixel alphabet; each pixel prints as two block characters so it reads square in monospace. */
+const PIXEL_FONT: Record<string, string> = {
+  '+': '000/010/111/010/000', A: '010/101/111/101/101', B: '110/101/110/101/110', C: '011/100/100/100/011',
+  D: '110/101/101/101/110', E: '111/100/110/100/111', F: '111/100/110/100/100', G: '011/100/101/101/011',
+  H: '101/101/111/101/101', I: '111/010/010/010/111', J: '001/001/001/101/010', K: '101/101/110/101/101',
+  L: '100/100/100/100/111', M: '101/111/111/101/101', N: '101/111/111/111/101', O: '010/101/101/101/010',
+  P: '110/101/110/100/100', Q: '010/101/101/111/011', R: '110/101/110/101/101', S: '011/100/010/001/110',
+  T: '111/010/010/010/010', U: '101/101/101/101/111', V: '101/101/101/101/010', W: '101/101/111/111/101',
+  X: '101/101/010/101/101', Y: '101/101/010/010/010', Z: '111/001/010/100/111',
 };
 
-/** A block-letter ASCII mark set from the short name, or the full name when the short name is one letter. */
-export function asciiMark(shortName: string, name = shortName): string {
+/** A pixel-letter ASCII mark from the short name, or the full name when the short name is one letter. */
+function asciiMark(shortName: string, name = shortName): string {
   const known = ASCII_MARKS[shortName];
   if (known) return known.join('\n');
   const source = shortName.length <= 1 && /^[a-z+ ]{2,8}$/i.test(name) ? name.replace(/\s+/g, '') : shortName;
-  const letters = [...source.toLocaleUpperCase()].slice(0, 8).map((letter) => BLOCK_GLYPHS[letter] ?? ['█  █', ' ██ ', ' ██ ', '█  █']);
-  return [0, 1, 2, 3].map((row) => letters.map((glyph) => glyph[row]).join(' ')).join('\n');
+  const letters = [...source.toLocaleUpperCase()].slice(0, 8).map((letter) => (PIXEL_FONT[letter] ?? '111/101/101/101/111').split('/'));
+  return [0, 1, 2, 3, 4].map((row) => letters.map((rows) => [...rows[row]!].map((pixel) => (pixel === '1' ? '██' : '  ')).join('')).join('  ')).join('\n');
+}
+
+/**
+ * Draws ASCII art as cells so it never depends on a font having block glyphs.
+ * Solid blocks print at full strength; box-drawing shadows print lighter.
+ */
+function AsciiArt({ className, text }: { className: string; text: string }) {
+  const lines = text.split('\n');
+  const width = Math.max(...lines.map((line) => [...line].length));
+  const cells = lines.flatMap((line, row) => [...line].flatMap((character, column) => {
+    if (character === ' ') return [];
+    return [<rect fillOpacity={character === '█' ? 1 : 0.32} height='2' key={`${row}-${column}`} width='1.02' x={column} y={row * 2} />];
+  }));
+  return (
+    <svg aria-label={text} className={className} fill='currentColor' role='img' viewBox={`0 0 ${width} ${lines.length * 2}`} style={{ aspectRatio: `${width} / ${lines.length * 2}` }}>
+      {cells}
+    </svg>
+  );
 }
 
 function Terminal({ children, context, title }: Props & { children: ReactNode; title: string }) {
@@ -603,7 +620,7 @@ function CliBanner({ context }: Props) {
   const { identity, settings } = context;
   return (
     <Terminal context={context} title={`${identity.id} — zsh — 80×24`}>
-      <pre className={styles.ascii}>{asciiMark(identity.shortName, identity.name)}</pre>
+      <AsciiArt className={styles.ascii} text={asciiMark(identity.shortName, identity.name)} />
       <p><span className={styles.prompt}>$</span> <Edit context={context} field='cta' /></p>
       <p className={styles.ok}>✓ {identity.name} installed</p>
       <p className={styles.ok}>✓ Brand context loaded from {identity.website}</p>
@@ -616,7 +633,7 @@ function CliBanner({ context }: Props) {
 function AsciiMarkPreview({ context }: Props) {
   return (
     <div className={styles.asciiBoard}>
-      <pre className={styles.asciiLarge}>{asciiMark(context.identity.shortName, context.identity.name)}</pre>
+      <AsciiArt className={styles.asciiLarge} text={asciiMark(context.identity.shortName, context.identity.name)} />
       <Edit as='p' className={styles.quiet} context={context} field='body' multiline />
     </div>
   );
@@ -1170,7 +1187,7 @@ function Backdrop({ context }: Props) {
         <Edit as='h1' className={styles.headline} context={context} field='headline' multiline />
         <Website context={context} />
       </div>
-      {wall ? <span className={styles.counter}><Logo context={context} /></span> : null}
+      {wall ? <span className={styles.counter}><Logo context={context} kind='wordmark' onDark={isDarkColor(context.settings.foregroundColor)} /></span> : null}
     </div>
   );
 }

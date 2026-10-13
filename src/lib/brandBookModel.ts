@@ -36,7 +36,7 @@ export const BOOK_SECTION_NAMES: Record<BookGroupId, string> = {
   voice: 'Voice',
 };
 
-export const BOOK_SECTION_SUMMARIES: Record<BookSectionId, string> = {
+const BOOK_SECTION_SUMMARIES: Record<BookSectionId, string> = {
   applications: 'The system at work: grid, print, digital, social, and event surfaces.',
   colour: 'Palette, roles, proportion, and every approved pairing with its contrast.',
   device: 'The ownable graphic idea, how it is built, and how far it can flex.',

@@ -224,12 +224,13 @@
 
 .artMark {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+  top: 32px;
+  left: 32px;
+  display: block;
+  transform-origin: top left;
 }
 
-.artMark .logo { height: 72px; max-width: 60%; }
+.artMark .logo { height: 40px; max-width: 240px; }
 
 /* Social ----------------------------------------------------------------- */
 
@@ -405,9 +406,6 @@
 }
 
 .emailArt img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.emailArtMark { position: absolute; inset: 0; display: grid; place-items: center; }
-.emailArtMark .logo { height: 44px; }
-.emailArt[data-compact] .emailArtMark .logo { height: 22px; }
 
 .emailContent {
   display: flex;
@@ -601,8 +599,8 @@
 
 .terminalBody p { margin: 0; }
 .prompt { color: var(--el-accent-text); }
-.ascii, .asciiLarge { margin: 0 0 18px; font-family: var(--el-code); line-height: 1.12; white-space: pre; color: var(--el-accent-text); }
-.ascii { font-size: 18px; }
+.ascii, .asciiLarge { display: block; margin: 0 0 18px; color: var(--el-accent-text); }
+.ascii { align-self: flex-start; width: auto; height: 88px; }
 .terminalHeadline { margin-top: 18px !important; font-family: var(--el-display); font-size: 30px; font-weight: var(--el-display-weight); letter-spacing: var(--el-tracking); }
 
 .asciiBoard {
@@ -616,7 +614,7 @@
   text-align: center;
 }
 
-.asciiLarge { font-size: 34px; }
+.asciiLarge { width: auto; max-width: 100%; height: 180px; }
 
 .swatches {
   display: grid;
@@ -1210,7 +1208,7 @@
 .backdropText .headline { font-size: calc(96px * var(--el-scale)); }
 .backdrop[data-wall] .backdropText { bottom: 220px; }
 .counter { position: absolute; right: 18%; bottom: 0; left: 18%; display: grid; height: 180px; place-items: center; background: var(--el-fg); }
-.counter .logo { filter: invert(1); }
+.counter .logo { height: 56px; }
 
 .lockup {
   position: relative;

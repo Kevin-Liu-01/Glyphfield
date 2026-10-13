@@ -972,7 +972,7 @@ export function createBrandElementSettings(
     'case-study-cover': { body: identity.proof[0] ? `How ${identity.proof[0]} built with ${identity.name}.` : identity.description, headline: 'A system designed to scale.', pattern: 'none', scale: 'bold' },
     'whitepaper-cover': { body: identity.mission, headline: `The ${identity.name} field guide.`, layout: 'stacked', pattern: 'none' },
     'booth-wall': { body: identity.website, headline: identity.tagline, pattern: 'none', scale: 'bold' },
-    'notebook-cover': { body: identity.mission, headline: identity.shortName, layout: 'centered', pattern: 'none', scale: 'bold' },
+    'notebook-cover': { body: identity.mission, headline: identity.shortName.length > 1 ? identity.shortName : identity.name, layout: 'centered', pattern: 'none', scale: 'bold' },
     lanyard: { headline: 'Alex Morgan', pattern: 'none' },
     'event-badge': { headline: 'Alex Morgan', pattern: 'none' },
     'event-backdrop': {
@@ -1129,14 +1129,16 @@ const SETTING_READERS: Record<keyof BrandElementSettings, SettingReader> = {
  * Validate a brand element source document. Version 2 names its element with
  * `elementId`; version 1 documents (settings only) apply to the selected
  * element. Only values that differ from the identity defaults are stored, so
- * untouched copy keeps following identity edits. Unknown keys are ignored.
+ * untouched copy keeps following identity edits. `keys` lists the settings the
+ * document provided; settings it omits keep their current values. Unknown keys
+ * are ignored.
  */
 export function parseBrandElementSource(
   value: Record<string, unknown>,
   elements: readonly BrandElement[],
   selectedElementId: string,
   identity: BrandIdentity
-): { elementId: string; overrides: BrandElementOverrides } {
+): { elementId: string; keys: Array<keyof BrandElementSettings>; overrides: BrandElementOverrides } {
   if (value.version !== undefined && value.version !== 1 && value.version !== BRAND_ELEMENT_SOURCE_VERSION) {
     throw new RangeError(`Brand element source version ${String(value.version)} is not supported.`);
   }
@@ -1145,10 +1147,12 @@ export function parseBrandElementSource(
   if (!element) throw new RangeError('elementId must reference an ID returned by /api/elements.');
   const defaults = createBrandElementSettings(element, identity);
   const overrides: Record<string, unknown> = {};
+  const keys: Array<keyof BrandElementSettings> = [];
   for (const [key, reader] of Object.entries(SETTING_READERS)) {
     if (value[key] === undefined) continue;
+    keys.push(key as keyof BrandElementSettings);
     const parsed = reader(value[key], key);
     if (JSON.stringify(parsed) !== JSON.stringify(defaults[key as keyof BrandElementSettings])) overrides[key] = parsed;
   }
-  return { elementId, overrides: overrides as BrandElementOverrides };
+  return { elementId, keys, overrides: overrides as BrandElementOverrides };
 }

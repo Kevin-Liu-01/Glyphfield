@@ -123,7 +123,7 @@ function fontSpec(identity: BrandIdentity, role: 'Accent' | 'Body' | 'Code' | 'D
   };
 }
 
-export function moodboardFonts(identity: BrandIdentity): Record<FontRole, FontSpec> {
+function moodboardFonts(identity: BrandIdentity): Record<FontRole, FontSpec> {
   return {
     accent: fontSpec(identity, 'Accent'),
     body: fontSpec(identity, 'Body'),
@@ -913,7 +913,7 @@ function renderVoice(context: TileContext): string {
   }
   const quoteSize = clamp(Math.min(w * 0.08, h * 0.16), 16, 72);
   const quoteRole: FontRole = context.fonts.accent.monospace ? 'display' : 'accent';
-  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}<text x="${n(p - quoteSize * 0.05)}" y="${n(p + labelSize(context) * 2 + quoteSize * 0.8)}" font-family="${escapeXml(context.fonts[quoteRole].stack)}" font-size="${n(quoteSize * 1.4)}" fill="${surface.foreground}" fill-opacity=".9">“</text>${textBlock(context, tile.copy.headline, { field: 'headline', maxHeight: h * 0.52, maxLines: 4, maxSize: quoteSize, minSize: 13, role: quoteRole, width: w - p * 2, x: p, y: p + labelSize(context) * 2 + quoteSize * 0.9 })}${textBlock(context, tile.copy.body, { anchor: 'bottom', color: surface.secondary, field: 'body', maxHeight: h * 0.18, maxLines: 2, maxSize: clamp(h * 0.045, 9, 15), role: 'body', width: w - p * 2, x: p, y: h - p })}`;
+  return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}<text x="${n(p - quoteSize * 0.05)}" y="${n(p + labelSize(context) * 2.4 + quoteSize * 1.05)}" font-family="${escapeXml(context.fonts[quoteRole].stack)}" font-size="${n(quoteSize * 1.4)}" fill="${surface.foreground}" fill-opacity=".9">“</text>${textBlock(context, tile.copy.headline, { field: 'headline', maxHeight: h * 0.5, maxLines: 4, maxSize: quoteSize, minSize: 13, role: quoteRole, width: w - p * 2, x: p, y: p + labelSize(context) * 2.4 + quoteSize * 1.15 })}${textBlock(context, tile.copy.body, { anchor: 'bottom', color: surface.secondary, field: 'body', maxHeight: h * 0.18, maxLines: 2, maxSize: clamp(h * 0.045, 9, 15), role: 'body', width: w - p * 2, x: p, y: h - p })}`;
 }
 
 function renderProof(context: TileContext): string {

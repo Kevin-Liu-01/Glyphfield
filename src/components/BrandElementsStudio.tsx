@@ -557,8 +557,11 @@ export default function BrandElementsStudio({
     const parsed = parseBrandElementSource(parseSourceObject(source), identityElements, selectedElement.id, identity);
     setSelectedElementId(parsed.elementId);
     setElementOverrides((current) => {
+      // Provided settings replace their stored values; omitted settings stay as they are.
+      const kept = Object.fromEntries(Object.entries(current[parsed.elementId] ?? {}).filter(([key]) => !parsed.keys.includes(key as keyof BrandElementSettings)));
+      const merged = { ...kept, ...parsed.overrides };
       const next = { ...current };
-      if (Object.keys(parsed.overrides).length > 0) next[parsed.elementId] = parsed.overrides;
+      if (Object.keys(merged).length > 0) next[parsed.elementId] = merged;
       else delete next[parsed.elementId];
       return next;
     });

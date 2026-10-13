@@ -487,7 +487,7 @@ function PalettePage({ context }: { context: BookPageContext }) {
   );
 }
 
-export function paletteProportions(identity: BrandIdentity, palette: BrandPalette) {
+function paletteProportions(identity: BrandIdentity, palette: BrandPalette) {
   const darkLed = ['editorial-interruption', 'unified-terminal', 'utility-wave'].includes(identity.artDirection?.preview ?? '');
   const name = (hex: string, fallback: string) => identity.colors.find((color) => color.hex.toUpperCase() === hex.toUpperCase())?.name ?? fallback;
   const dominant = darkLed ? palette.deep : palette.paper;

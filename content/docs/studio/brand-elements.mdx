@@ -65,7 +65,7 @@ Select **File → Edit source code** to edit the selected element as JSON. Versi
 }
 ```
 
-Applying source selects `elementId` (when present) and stores only the values that differ from the identity defaults, so untouched copy keeps following identity edits. Colours must be six-digit HEX, enums must match the editor options, numbers are clamped to the editor ranges, and unknown keys are ignored. Version 1 documents without `elementId` apply to the selected element, as before.
+Applying source selects `elementId` (when present) and stores only the values that differ from the identity defaults, so untouched copy keeps following identity edits. Settings omitted from the document keep their current values, so `{ "elementId": "x-post" }` simply selects an element. Colours must be six-digit HEX, enums must match the editor options, numbers are clamped to the editor ranges, and unknown keys are ignored. Version 1 documents without `elementId` apply to the selected element, as before.
 
 Resetting the drawer restores the current settings. Using the element’s normal **Reset** action removes the override entirely and returns the application to its identity-derived state.
 

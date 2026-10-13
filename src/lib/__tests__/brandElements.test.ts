@@ -98,12 +98,14 @@ describe('parseBrandElementSource', () => {
   it('round-trips version 2 source without storing defaults', () => {
     const settings = createBrandElementSettings(welcome, GT_BRAND_IDENTITY);
     const parsed = parseBrandElementSource({ ...settings, elementId: 'welcome-email', schema: 'glyphfield.brand-element', version: 2 }, BRAND_ELEMENTS, 'x-post', GT_BRAND_IDENTITY);
-    expect(parsed).toEqual({ elementId: 'welcome-email', overrides: {} });
+    expect(parsed.elementId).toBe('welcome-email');
+    expect(parsed.overrides).toEqual({});
+    expect(parsed.keys).toContain('headline');
   });
 
   it('applies version 1 settings to the selected element and keeps only edits', () => {
     const parsed = parseBrandElementSource({ headline: 'Audit element', layout: 'split', unknownField: true }, BRAND_ELEMENTS, 'welcome-email', GT_BRAND_IDENTITY);
-    expect(parsed).toEqual({ elementId: 'welcome-email', overrides: { headline: 'Audit element', layout: 'split' } });
+    expect(parsed).toEqual({ elementId: 'welcome-email', keys: ['headline', 'layout'], overrides: { headline: 'Audit element', layout: 'split' } });
   });
 
   it('clamps numbers and rejects invalid values with field names', () => {

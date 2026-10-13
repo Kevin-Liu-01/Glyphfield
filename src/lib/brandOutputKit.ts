@@ -117,7 +117,7 @@ export function hashSeed(value: string): number {
   return hash >>> 0;
 }
 
-export function seededRandom(seed: number): () => number {
+function seededRandom(seed: number): () => number {
   let state = seed >>> 0 || 1;
   return () => {
     state = (state + 0x6d2b79f5) >>> 0;
@@ -183,7 +183,7 @@ export function estimateTextWidth(value: string, fontSize: number, charWidth = 0
 }
 
 /** Greedy word wrap against an estimated measure. Unbreakable words keep their own line. */
-export function wrapToWidth(value: string, maxWidth: number, fontSize: number, charWidth = 0.54, monospace = false): string[] {
+function wrapToWidth(value: string, maxWidth: number, fontSize: number, charWidth = 0.54, monospace = false): string[] {
   const paragraphs = value.split('\n');
   const lines: string[] = [];
   for (const paragraph of paragraphs) {
@@ -529,7 +529,7 @@ export function brandDeviceBase(identity: BrandIdentity, tone: BrandDeviceTone):
 }
 
 /** The device's natural surface: the tone it was designed on first. */
-export function brandDeviceDefaultTone(identity: BrandIdentity): BrandDeviceTone {
+function brandDeviceDefaultTone(identity: BrandIdentity): BrandDeviceTone {
   const pattern = identity.graphicSystem?.pattern ?? 'grid';
   return ['brackets', 'steps', 'circuit'].includes(pattern) ? 'light' : 'dark';
 }
