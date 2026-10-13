@@ -672,6 +672,17 @@ function cloneBrandSamples(samples: BrandSamples): BrandSamples {
   };
 }
 
+/** Optional collections, copied only when present so absent fields stay absent. */
+function cloneOptionalRecords(identity: BrandIdentity): Partial<BrandIdentity> {
+  return {
+    ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
+    ...(identity.customers ? { customers: [...identity.customers] } : {}),
+    ...(identity.productDetails ? { productDetails: identity.productDetails.map((detail) => ({ ...detail })) } : {}),
+    ...(identity.samples ? { samples: cloneBrandSamples(identity.samples) } : {}),
+    ...(identity.typeScale ? { typeScale: { ...identity.typeScale } } : {}),
+  };
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -684,31 +695,27 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     ),
     assets: identity.assets.map(cloneBrandAsset),
     audiences: [...(identity.audiences ?? [])],
-    ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
     colors: (identity.colors ?? []).map((color) => ({
       ...color,
       hex: normalizeHexOrFallback(color.hex),
     })),
     contactEmail: identity.contactEmail ?? '',
-    ...(identity.customers ? { customers: [...identity.customers] } : {}),
     fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
     dossier: cloneBrandDossier(identity),
     graphicSystem: cloneBrandGraphicSystem(identity),
     mission: identity.mission ?? identity.positioning ?? '',
     motion: (identity.motion ?? []).map((motion) => ({ ...motion })),
-    ...(identity.productDetails ? { productDetails: identity.productDetails.map((detail) => ({ ...detail })) } : {}),
     products: [...(identity.products ?? [])],
     proof: [...(identity.proof ?? [])],
     proofAssets: (identity.proofAssets ?? []).map(cloneBrandAsset),
     references: (identity.references ?? []).map((reference) => ({ ...reference })),
     revision: identity.revision ?? 1,
-    ...(identity.samples ? { samples: cloneBrandSamples(identity.samples) } : {}),
     socialHandle: identity.socialHandle ?? '',
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
     strategy: cloneBrandStrategy(identity),
-    ...(identity.typeScale ? { typeScale: { ...identity.typeScale } } : {}),
+    ...cloneOptionalRecords(identity),
     typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
     voice: cloneBrandVoice(identity),

@@ -35,6 +35,7 @@ import {
 } from '@/lib/brandOutputKit';
 import { formatOklch, mixHexColors } from '@/lib/color';
 
+import { brandCustomers, brandProducts, brandProofStatements } from '@/lib/brandContent';
 import styles from './BrandBook.module.css';
 
 export type BookPageContext = {
@@ -240,8 +241,23 @@ function MissionPage({ context }: { context: BookPageContext }) {
       <div className={styles.aside}>
         <Label>Position</Label>
         <Text context={context} options={{ className: styles.lead }} slot='position' />
+        <MissionFacts context={context} />
       </div>
     </div>
+  );
+}
+
+/** Products with their one-liners, then the published proof and customers. */
+function MissionFacts({ context }: { context: BookPageContext }) {
+  const products = brandProducts(context.identity).slice(0, 4);
+  const proof = brandProofStatements(context.identity).slice(0, 2);
+  const customers = brandCustomers(context.identity).slice(0, 6);
+  return (
+    <dl className={styles.missionFacts}>
+      {products.map((product) => <div key={product.name}><dt>{product.name}</dt><dd>{product.summary}</dd></div>)}
+      {proof.length ? <div><dt>Proof</dt><dd>{proof.join(' · ')}</dd></div> : null}
+      {customers.length ? <div><dt>Customers</dt><dd>{customers.join(', ')}</dd></div> : null}
+    </dl>
   );
 }
 

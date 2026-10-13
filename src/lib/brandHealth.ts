@@ -362,6 +362,40 @@ function colorChecks(identity: BrandIdentity, contrast: readonly BrandContrastRe
   return checks;
 }
 
+/** Code needs a monospace face; stored fonts no role uses are template leftovers. */
+function codeAndFontChecks(identity: BrandIdentity): Check[] {
+  const fonts = brandFontAssets(identity);
+  const checks: Check[] = [];
+  const code = identity.typography.find(({ role }) => role === 'Code');
+  if (code) {
+    const family = fonts.find(({ id }) => id === code.fontId)?.family ?? code.family;
+    const monospace = fontMetrics(family, code.weight, 'Code').monospace;
+    checks.push({
+      detail: monospace ? `Code renders in ${family}, a monospace face.` : `Code renders in ${family}, which is not monospace; columns of numbers and code will not align.`,
+      hint: 'Set the Code role to the monospace face the brand uses in its site CSS (look for --font-mono or font-family: monospace) and add its file with identity.font.add { file, roles: [\'Code\'] }.',
+      id: 'type-code-monospace',
+      passed: monospace,
+      section: 'typography',
+      severity: 'warning',
+      title: 'Use a monospace face for Code',
+    });
+  }
+  const unused = unusedBrandFonts(identity);
+  checks.push({
+    detail: unused.length
+      ? `${unused.length} stored ${unused.length === 1 ? 'font is' : 'fonts are'} not used by any role: ${[...new Set(unused.map(({ family }) => family))].join(', ')}.`
+      : 'Every stored font renders a typography role.',
+    fix: unused.length ? { id: 'prune-fonts', label: 'Remove unused fonts' } : undefined,
+    hint: 'Remove font records no typography role uses, usually leftovers from the template the project started from: identity.fix { fixId: \'prune-fonts\' }, or identity.apply with remove: { fonts: [id] }.',
+    id: 'type-unused-fonts',
+    passed: unused.length === 0,
+    section: 'typography',
+    severity: 'warning',
+    title: 'Remove unused fonts',
+  });
+  return checks;
+}
+
 function typographyChecks(identity: BrandIdentity): Check[] {
   const fonts = brandFontAssets(identity);
   const fontIds = new Set(fonts.map(({ id }) => id));
@@ -400,33 +434,7 @@ function typographyChecks(identity: BrandIdentity): Check[] {
       title: `Record the ${font.family} license`,
     });
   }
-  const code = identity.typography.find(({ role }) => role === 'Code');
-  if (code) {
-    const family = fonts.find(({ id }) => id === code.fontId)?.family ?? code.family;
-    const monospace = fontMetrics(family, code.weight, 'Code').monospace;
-    checks.push({
-      detail: monospace ? `Code renders in ${family}, a monospace face.` : `Code renders in ${family}, which is not monospace; columns of numbers and code will not align.`,
-      hint: 'Set the Code role to the monospace face the brand uses in its site CSS (look for --font-mono or font-family: monospace) and add its file with identity.font.add { file, roles: [\'Code\'] }.',
-      id: 'type-code-monospace',
-      passed: monospace,
-      section: 'typography',
-      severity: 'warning',
-      title: 'Use a monospace face for Code',
-    });
-  }
-  const unused = unusedBrandFonts(identity);
-  checks.push({
-    detail: unused.length
-      ? `${unused.length} stored ${unused.length === 1 ? 'font is' : 'fonts are'} not used by any role: ${[...new Set(unused.map(({ family }) => family))].join(', ')}.`
-      : 'Every stored font renders a typography role.',
-    fix: unused.length ? { id: 'prune-fonts', label: 'Remove unused fonts' } : undefined,
-    hint: 'Remove font records no typography role uses, usually leftovers from the template the project started from: identity.fix { fixId: \'prune-fonts\' }, or identity.apply with remove: { fonts: [id] }.',
-    id: 'type-unused-fonts',
-    passed: unused.length === 0,
-    section: 'typography',
-    severity: 'warning',
-    title: 'Remove unused fonts',
-  });
+  checks.push(...codeAndFontChecks(identity));
   const scale = identity.typeScale;
   checks.push({
     detail: scale

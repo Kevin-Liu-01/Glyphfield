@@ -648,6 +648,11 @@
   gap: 1cqi;
 }
 
+.missionFacts { display: grid; gap: 0; margin: 1.2cqi 0 0; }
+.missionFacts > div { display: grid; grid-template-columns: 9cqi 1fr; gap: 1cqi; border-top: 1px solid var(--page-rule); padding: 0.75cqi 0; }
+.missionFacts dt { font-family: var(--book-body); font-size: 0.86cqi; font-weight: 560; }
+.missionFacts dd { margin: 0; color: var(--page-quiet); font-size: 0.86cqi; line-height: 1.4; }
+
 .button {
   display: inline-flex;
   width: fit-content;

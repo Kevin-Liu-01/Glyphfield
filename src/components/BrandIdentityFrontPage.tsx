@@ -285,7 +285,7 @@ export default function BrandIdentityFrontPage({
       <Panel description={<T>The durable facts every generated design starts from.</T>} id='brand-identity-essentials' title={<T>Identity essentials</T>}>
         <div className={styles.formGrid}>
           <TextField label={<T>Brand name</T>} onChange={(name) => update({ name })} value={identity.name} />
-          <TextField label={<T>Short name</T>} maxLength={8} onChange={(shortName) => update({ shortName: shortName.toLocaleUpperCase() })} value={identity.shortName} />
+          <TextField label={<T>Short name</T>} maxLength={8} onChange={(shortName) => update({ shortName: shortName.trim() })} value={identity.shortName} />
           <TextField label={<T>Website</T>} onChange={(website) => update({ website })} value={identity.website} />
           <TextField label={<T>Contact email</T>} onChange={(contactEmail) => update({ contactEmail })} type='email' value={identity.contactEmail} />
           <TextField label={<T>Social handle</T>} onChange={(socialHandle) => update({ socialHandle })} placeholder='@brand' value={identity.socialHandle} />
