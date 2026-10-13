@@ -224,6 +224,18 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('}, [commitIdentities, identitiesRef]);');
   });
 
+  it('keeps the typing pace clock out of the Typography tool render', () => {
+    const source = readSource('src/components/StudioToolWorkspace.tsx');
+    const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));
+    const toolStart = source.indexOf('function TypographyTool(');
+    const tool = source.slice(toolStart, source.indexOf('\nfunction ', toolStart + 1));
+
+    expect(meter).toContain('window.setInterval(() => setTickAt(Date.now()), 250)');
+    expect(tool).not.toContain('setInterval');
+    expect(tool).toContain('useMemo(() => stringifySource({ typography: identity.typography }), [identity.typography])');
+    expect(tool).toContain('<TypingMeter');
+  });
+
   it('preloads lazy Studio workspaces from pointer and keyboard intent', () => {
     const source = readSource('src/components/StudioApp.tsx');
     const lottie = readSource('src/components/LottieStudio.tsx');

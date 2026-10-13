@@ -1795,6 +1795,49 @@ function resolveTypographySystemPresentation(identity: BrandIdentity) {
   };
 }
 
+/**
+ * Live typing pace readout. It owns the 250ms clock so ticks re-render only this
+ * footer, not the whole Typography tool.
+ */
+function TypingMeter({
+  charactersEntered,
+  inputAt,
+  onReset,
+  sampleText,
+  startedAt,
+}: {
+  charactersEntered: number;
+  inputAt: number | null;
+  onReset: () => void;
+  sampleText: string;
+  startedAt: number | null;
+}) {
+  const gt = useGT();
+  const [tickAt, setTickAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    const timer = window.setInterval(() => setTickAt(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  // The latest of the last keystroke and the last tick, as one clock did before.
+  const now = inputAt === null ? null : Math.max(inputAt, tickAt ?? inputAt);
+  const elapsedMs = startedAt === null || now === null ? 0 : now - startedAt;
+  const sample = measureTypingSample(sampleText, 0);
+  const pace = measureTypingSample('x'.repeat(charactersEntered), elapsedMs);
+
+  return (
+    <footer className='typography-lab-typing-meter'>
+      <span><strong>{pace.wordsPerMinute}</strong> wpm</span>
+      <span><strong>{sample.words}</strong> words</span>
+      <span><strong>{sample.characters}</strong> chars</span>
+      <span><strong>{pace.seconds}</strong> sec</span>
+      <button aria-label={gt('Clear specimen and restart typing meter')} onClick={onReset} title={gt('Clear and restart')} type='button'><RotateCcw aria-hidden='true' /></button>
+    </footer>
+  );
+}
+
 function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandIdentity; onIdentityChange: (identity: BrandIdentity) => void; tool: StudioTool }) {
   const gt = useGT();
   const fonts = brandFontAssets(identity);
@@ -1810,15 +1853,9 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
   const [previewMode, setPreviewMode] = useState<'system' | 'type'>('type');
   const [typingCharactersEntered, setTypingCharactersEntered] = useState(0);
   const [typingStartedAt, setTypingStartedAt] = useState<number | null>(null);
-  const [typingNow, setTypingNow] = useState<number | null>(null);
+  const [typingInputAt, setTypingInputAt] = useState<number | null>(null);
   const liveSpecimenRef = useRef<HTMLTextAreaElement>(null);
-  const sourceCode = stringifySource({ typography: identity.typography });
-
-  useEffect(() => {
-    if (typingStartedAt === null) return;
-    const timer = window.setInterval(() => setTypingNow(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, [typingStartedAt]);
+  const sourceCode = useMemo(() => stringifySource({ typography: identity.typography }), [identity.typography]);
 
   function applySourceCode(source: string) {
     const value = parseSourceObject(source);
@@ -1849,7 +1886,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     const now = Date.now();
     if (typingStartedAt === null) setTypingStartedAt(now);
     setTypingCharactersEntered((current) => current + Math.max(0, Array.from(value).length - Array.from(sampleText).length));
-    setTypingNow(now);
+    setTypingInputAt(now);
     setSampleText(value);
   }
 
@@ -1857,7 +1894,7 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     setSampleText('');
     setTypingCharactersEntered(0);
     setTypingStartedAt(null);
-    setTypingNow(null);
+    setTypingInputAt(null);
   }
 
   async function loadFont(file: File) {
@@ -1886,14 +1923,6 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
     selectedRole,
     previewSizes
   );
-  const typingElapsedMs = typingStartedAt === null || typingNow === null ? 0 : typingNow - typingStartedAt;
-  const sampleMeasurement = measureTypingSample(sampleText, 0);
-  const typingPace = measureTypingSample('x'.repeat(typingCharactersEntered), typingElapsedMs);
-  const typingMeasurement = {
-    ...sampleMeasurement,
-    seconds: typingPace.seconds,
-    wordsPerMinute: typingPace.wordsPerMinute,
-  };
 
   useEffect(() => {
     const specimen = liveSpecimenRef.current;
@@ -2031,13 +2060,13 @@ function TypographyTool({ identity, onIdentityChange, tool }: { identity: BrandI
                   </div>
                 ))}
               </section>
-              <footer className='typography-lab-typing-meter'>
-                <span><strong>{typingMeasurement.wordsPerMinute}</strong> wpm</span>
-                <span><strong>{typingMeasurement.words}</strong> words</span>
-                <span><strong>{typingMeasurement.characters}</strong> chars</span>
-                <span><strong>{typingMeasurement.seconds}</strong> sec</span>
-                <button aria-label={gt('Clear specimen and restart typing meter')} onClick={resetTypingSession} title={gt('Clear and restart')} type='button'><RotateCcw aria-hidden='true' /></button>
-              </footer>
+              <TypingMeter
+                charactersEntered={typingCharactersEntered}
+                inputAt={typingInputAt}
+                onReset={resetTypingSession}
+                sampleText={sampleText}
+                startedAt={typingStartedAt}
+              />
             </article>
           </div>
         ) : (
