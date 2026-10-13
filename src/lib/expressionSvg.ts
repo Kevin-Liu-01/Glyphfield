@@ -37,6 +37,8 @@ import { terminalLanguageIcon } from './terminalLanguageIcon';
 export type TextMeasure = (text: string, font: { family: string; size: number; weight: number }) => number;
 
 export type ExpressionRenderContext = {
+  /** Width / height of an image asset when known; SVG-in-SVG alignment needs exact boxes. */
+  assetAspect?: (assetId: string | undefined) => number | null;
   assetSource: (assetId: string | undefined) => string | null;
   colors: Readonly<Record<string, string>>;
   /** Returns the CSS font-family list for a text style's font asset. */
@@ -51,7 +53,7 @@ export type ExpressionRenderContext = {
   proof: readonly string[];
 };
 
-const FALLBACK_STACK = 'Inter, Arial, sans-serif';
+const FALLBACK_STACK = 'Inter, "Helvetica Neue", Arial, sans-serif';
 const round = (value: number) => Math.round(value * 100) / 100;
 
 /** Width estimate for DOM-free generation; the browser passes canvas metrics. */
@@ -73,8 +75,13 @@ export function quoteFontFamily(family: string): string {
   return /[",]/.test(family) ? family : `"${family}"`;
 }
 
+const MONO_STACK = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+const SERIF_STACK = 'Georgia, "Times New Roman", serif';
+
+/** Brand family first, then a fallback of the same kind so a missing font never lands on Times. */
 export function defaultFontFamily(_fontAssetId: string | undefined, family: string): string {
-  return `${quoteFontFamily(family)}, ${FALLBACK_STACK}`;
+  const fallback = /mono|code/i.test(family) ? MONO_STACK : /serif|flare|garamond|tiempos/i.test(family) && !/sans/i.test(family) ? SERIF_STACK : FALLBACK_STACK;
+  return `${quoteFontFamily(family)}, ${fallback}`;
 }
 
 function uid(context: ExpressionRenderContext, element: CanvasElement, suffix: string): string {
@@ -250,8 +257,19 @@ function renderLogo(element: CanvasElement, context: ExpressionRenderContext): s
   const filter = appearance
     ? buildLogoSvgFilter(appearance, tone === 'original' ? (context.colors.ink ?? '#000000') : toneColor, filterId)
     : tone !== 'original' ? toneFilter(filterId, toneColor) : '';
-  const { height, width, x, y } = element.bounds;
-  return `${filter ? `<defs>${filter}</defs>` : ''}<image href="${escapeXml(source)}" x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" preserveAspectRatio="${alignedAspect(element, 'meet')}"${filter ? ` filter="url(#${filterId})"` : ''}/>`;
+  const fitted = fitAsset(element.bounds, context.assetAspect?.(element.assetId) ?? null, dataString(element, 'align', 'center'));
+  const aspect = fitted ? 'none' : alignedAspect(element, 'meet');
+  const { height, width, x, y } = fitted ?? element.bounds;
+  return `${filter ? `<defs>${filter}</defs>` : ''}<image href="${escapeXml(source)}" x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" preserveAspectRatio="${aspect}"${filter ? ` filter="url(#${filterId})"` : ''}/>`;
+}
+
+/** Fit an image of known aspect inside a box ourselves; browsers differ on SVG-in-SVG alignment. */
+function fitAsset(box: { height: number; width: number; x: number; y: number }, aspect: number | null, align: string) {
+  if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return null;
+  const width = Math.min(box.width, box.height * aspect);
+  const height = width / aspect;
+  const x = align === 'start' ? box.x : align === 'end' ? box.x + box.width - width : box.x + (box.width - width) / 2;
+  return { height, width, x, y: box.y + (box.height - height) / 2 };
 }
 
 function renderShape(element: CanvasElement, context: ExpressionRenderContext): string {
@@ -474,19 +492,18 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
   if (!style || !active) return '';
   const theme = resolveCodeTheme(dataString(element, 'theme', 'brand-dark'), context.colors);
   const family = attributeFamily(context.fontFamily(style.fontId, style.fontFamily));
-  const size = style.fontSize;
-  const lineHeight = size * style.lineHeight;
+  const baseSize = style.fontSize;
   const chrome = dataString(element, 'chrome', 'tabs');
   const lineNumbers = dataBoolean(element, 'lineNumbers', true);
   const radius = element.style.borderRadius;
   const { height, width, x, y } = element.bounds;
-  const header = chrome === 'none' ? 0 : round(Math.max(size * 3, 40));
+  const header = chrome === 'none' ? 0 : round(Math.max(baseSize * 3, 40));
   const clipId = uid(context, element, 'clip');
-  const padX = round(Math.max(size * 1.6, 24));
-  const tabSize = round(size * 0.86);
+  const padX = round(Math.max(baseSize * 1.6, 24));
+  const tabSize = round(baseSize * 0.86);
   let headerMarkup = '';
   if (chrome === 'window') {
-    headerMarkup = [0, 1, 2].map((index) => `<circle cx="${round(x + padX + index * size * 1.25)}" cy="${round(y + header / 2)}" r="${round(size * 0.36)}" fill="${theme.border}"/>`).join('')
+    headerMarkup = [0, 1, 2].map((index) => `<circle cx="${round(x + padX + index * baseSize * 1.25)}" cy="${round(y + header / 2)}" r="${round(baseSize * 0.36)}" fill="${theme.border}"/>`).join('')
       + `<text x="${round(x + width / 2)}" y="${round(y + header / 2 + tabSize * 0.36)}" text-anchor="middle" fill="${theme.muted}" font-family="${family}" font-size="${tabSize}">${escapeXml(active.name)}</text>`;
   } else if (chrome === 'tabs') {
     let cursor = x + padX * 0.5;
@@ -501,6 +518,11 @@ function renderCode(element: CanvasElement, context: ExpressionRenderContext): s
   }
   const highlighted = new Set(active.highlight);
   const lines = highlightCodeLines(active.code, active.language, theme);
+  // Long lines shrink the code (to 62% at most) instead of running out of the window.
+  const longest = Math.max(1, ...lines.map((tokens) => context.measure(tokens.map(({ content }) => content).join(''), { family: style.fontFamily, size: baseSize, weight: style.fontWeight })));
+  const room = width - padX * 1.5 - (lineNumbers ? context.measure(String(lines.length), { family: style.fontFamily, size: baseSize, weight: style.fontWeight }) + baseSize * 1.4 : 0);
+  const size = baseSize * Math.max(0.62, Math.min(1, room / longest));
+  const lineHeight = size * style.lineHeight;
   const gutter = lineNumbers ? round(context.measure(String(lines.length), { family: style.fontFamily, size, weight: style.fontWeight }) + size * 1.4) : 0;
   const top = y + header + size * 1.1;
   const visible = Math.max(1, Math.floor((height - header - size * 1.4) / lineHeight));
@@ -540,7 +562,7 @@ export function layoutLockup(element: CanvasElement, context: ExpressionRenderCo
       const textWidth = context.measure(partner.label, { family: partner.fontFamily ?? 'Inter', size, weight: partner.fontWeight ?? 500 });
       return { height: size, width: textWidth };
     }
-    const aspect = Math.max(0.2, partner.aspect);
+    const aspect = Math.max(0.2, context.assetAspect?.(partner.assetId) ?? partner.aspect);
     if (sizing === 'height') return { height: unit * 0.62, width: unit * 0.62 * aspect };
     if (sizing === 'width') {
       const widthTarget = unit * 1.8;
@@ -596,7 +618,7 @@ function renderLockup(element: CanvasElement, context: ExpressionRenderContext):
         parts.push(`<line x1="${round(center)}" y1="${round(middle - layout.unit * layout.scale * 0.32)}" x2="${round(center)}" y2="${round(middle + layout.unit * layout.scale * 0.32)}" stroke="${fill}" stroke-opacity="0.32" stroke-width="1.5"/>`);
       } else if (layout.separator !== 'none') {
         const size = round(layout.unit * layout.scale * 0.34);
-        parts.push(`<text x="${round(center)}" y="${round(middle + size * 0.36)}" text-anchor="middle" fill="${fill}" opacity="0.42" font-family="${FALLBACK_STACK}" font-size="${size}" font-weight="300">${escapeXml(layout.separator)}</text>`);
+        parts.push(`<text x="${round(center)}" y="${round(middle + size * 0.36)}" text-anchor="middle" fill="${fill}" opacity="0.42" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${size}" font-weight="300">${escapeXml(layout.separator)}</text>`);
       }
       cursor += gap * 2 + layout.separatorWidth * layout.scale;
     }
@@ -621,7 +643,7 @@ function renderChart(element: CanvasElement, context: ExpressionRenderContext): 
     const bx = x + index * slot + (slot - barWidth) / 2;
     const isLast = index === values.length - 1;
     const label = labels[index]
-      ? `<text x="${round(bx + barWidth / 2)}" y="${round(y + height - labelSize * 0.4)}" text-anchor="middle" fill="${fill}" opacity="0.6" font-family="${FALLBACK_STACK}" font-size="${labelSize}">${escapeXml(labels[index]!)}</text>`
+      ? `<text x="${round(bx + barWidth / 2)}" y="${round(y + height - labelSize * 0.4)}" text-anchor="middle" fill="${fill}" opacity="0.6" font-family="${escapeXml(FALLBACK_STACK)}" font-size="${labelSize}">${escapeXml(labels[index]!)}</text>`
       : '';
     return `<rect x="${round(bx)}" y="${round(y + plotHeight - barHeight)}" width="${round(barWidth)}" height="${round(barHeight)}" fill="${isLast ? accent : fill}" opacity="${isLast ? 1 : round(0.18 + index * 0.1)}"/>${label}`;
   }).join('');

@@ -6,9 +6,11 @@ import {
   type BrandIdentity,
 } from './brandIdentity';
 import type { CanvasAsset, CanvasDocument, CanvasElement, CanvasJsonValue } from './canvasDocument';
+import { layoutCanvasText } from './canvasText';
 import { colorContrastRatio } from './color';
 import { escapeXml } from './download';
 import type { ExpressionDeviceId } from './expressionDevices';
+import { estimateTextWidth } from './expressionSvg';
 import {
   createExpressionShell,
   dataString,
@@ -22,6 +24,7 @@ import {
   pageElements,
   pageSettings,
   pruneAssets,
+  readCodeTabs,
   readStringArray,
   resolveExpressionColor,
   resolveExpressionFormat,
@@ -48,6 +51,8 @@ import { capVisibleFontWeight } from './typography';
 type KickerStyle = { casing: 'none' | 'uppercase'; role: ExpressionFontRole; tracking: number };
 
 export type ExpressionRecipe = {
+  /** Background generator palette as color roles: deep field, signal, highlight. */
+  backgroundRoles: readonly [string, string, string];
   codeTheme: 'brand-dark' | 'brand-light';
   device: ExpressionDeviceId;
   headlineRole: ExpressionFontRole;
@@ -65,6 +70,7 @@ const QUIET_KICKER: KickerStyle = { casing: 'none', role: 'Body', tracking: 0 };
 
 const RECIPES: Record<string, ExpressionRecipe> = {
   basement: {
+    backgroundRoles: ['ink', 'progress', 'emphasis'],
     codeTheme: 'brand-dark',
     device: 'interruption',
     headlineCasing: 'uppercase',
@@ -76,6 +82,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'ink', opengraph: 'ink', partnership: 'ink', slides: 'ink', terminal: 'ink' },
   },
   cloudflare: {
+    backgroundRoles: ['error', 'emphasis', 'success'],
     codeTheme: 'brand-dark',
     device: 'horizon',
     headlineCasing: 'none',
@@ -87,6 +94,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'paper', partnership: 'paper', slides: 'paper', terminal: 'paper' },
   },
   gt: {
+    backgroundRoles: ['ink', 'progress', 'emphasis'],
     codeTheme: 'brand-dark',
     device: 'greetings',
     headlineCasing: 'none',
@@ -98,6 +106,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'ink', partnership: 'paper', slides: 'paper', terminal: 'ink' },
   },
   mintlify: {
+    backgroundRoles: ['error', 'emphasis', 'success'],
     codeTheme: 'brand-dark',
     device: 'beam',
     headlineCasing: 'none',
@@ -109,17 +118,19 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'error', partnership: 'paper', slides: 'paper', terminal: 'error' },
   },
   ramp: {
+    backgroundRoles: ['error', 'progress', 'emphasis'],
     codeTheme: 'brand-dark',
     device: 'ledger',
     headlineCasing: 'none',
     headlineRole: 'Display',
     kicker: QUIET_KICKER,
     layouts: { blog: 'feature', opengraph: 'split', partnership: 'announcement', terminal: 'split' },
-    media: 'library-editorial',
+    media: 'library-campaign',
     rules: true,
     surfaces: { blog: 'paper', opengraph: 'paper', partnership: 'paper', slides: 'paper', terminal: 'paper' },
   },
   starter: {
+    backgroundRoles: ['ink', 'emphasis', 'success'],
     codeTheme: 'brand-light',
     device: 'window',
     headlineCasing: 'none',
@@ -131,6 +142,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'paper', partnership: 'paper', slides: 'paper', terminal: 'muted' },
   },
   stripe: {
+    backgroundRoles: ['error', 'emphasis', 'success'],
     codeTheme: 'brand-dark',
     device: 'field',
     headlineCasing: 'none',
@@ -142,6 +154,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'paper', partnership: 'paper', slides: 'paper', terminal: 'muted' },
   },
   tailwind: {
+    backgroundRoles: ['error', 'ink', 'emphasis'],
     codeTheme: 'brand-dark',
     device: 'waves',
     headlineCasing: 'none',
@@ -153,6 +166,7 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'ink', opengraph: 'ink', partnership: 'paper', slides: 'ink', terminal: 'error' },
   },
   viteplus: {
+    backgroundRoles: ['ink', 'emphasis', 'success'],
     codeTheme: 'brand-dark',
     device: 'convergence',
     headlineCasing: 'none',
@@ -176,6 +190,24 @@ const RECIPE_BY_PREVIEW: Record<BrandIdentity['artDirection']['preview'], string
   'unified-terminal': 'viteplus',
   'utility-wave': 'tailwind',
 };
+
+const BACKGROUND_PATTERNS: Readonly<Record<BrandIdentity['graphicSystem']['pattern'], 'crosshatch' | 'dots' | 'fibers' | 'grid' | 'lines' | 'topographic'>> = {
+  blocks: 'grid', brackets: 'crosshatch', burst: 'lines', circuit: 'grid', flow: 'fibers', grid: 'grid', none: 'dots', orbit: 'dots', rays: 'lines', steps: 'lines', wave: 'topographic',
+};
+
+export function brandBackgroundPalette(identity: BrandIdentity): [string, string, string] {
+  const colors = expressionColors(identity);
+  const [a, b, c] = expressionRecipe(identity).backgroundRoles;
+  return [
+    resolveExpressionColor(a, colors, colors.ink!),
+    resolveExpressionColor(b, colors, colors.ink!),
+    resolveExpressionColor(c, colors, colors.paper!),
+  ];
+}
+
+export function brandBackgroundPattern(identity: BrandIdentity) {
+  return BACKGROUND_PATTERNS[identity.graphicSystem.pattern] ?? 'dots';
+}
 
 export function expressionRecipe(identity: BrandIdentity): ExpressionRecipe {
   return RECIPES[identity.id] ?? RECIPES[RECIPE_BY_PREVIEW[identity.artDirection.preview]] ?? RECIPES.starter!;
@@ -343,10 +375,13 @@ export function expressionPartnerOptions(identity: BrandIdentity): { id: string;
   return [...proof, ...identities, { aspect: 2.6, id: 'template-northstar', label: 'Northstar', path: '/templates/logos/northstar.svg' }];
 }
 
+/** The identity's own proof partner (Ramp first when listed), or null for an honest placeholder. */
 export function defaultPartnerOption(identity: BrandIdentity) {
-  const options = expressionPartnerOptions(identity);
-  return options.find(({ id }) => id === 'ramp') ?? options[0]!;
+  const options = expressionPartnerOptions(identity).filter(({ id }) => identity.proofAssets.some((asset) => asset.id === id));
+  return options.find(({ id }) => id === 'ramp') ?? options[0] ?? null;
 }
+
+export const PARTNER_PLACEHOLDER = 'Partner';
 
 // ---------------------------------------------------------------------------
 // Layout specifications
@@ -386,6 +421,8 @@ export type SlotSpec = ChartSpec | CodeSpec | DeviceSpec | ImageSpec | LockupSpe
 type LayoutContext = {
   /** Emphasis when it reads as text on this surface, otherwise the foreground. */
   accent: ExpressionColor;
+  /** Longest code tab in lines, so code windows can hug their content. */
+  codeLines: number;
   dark: boolean;
   fg: 'ink' | 'paper';
   height: number;
@@ -494,15 +531,20 @@ function rule(context: LayoutContext, slot: string, box: Box, opacity = 0.2): Sh
   return { box, fill: context.fg, kind: 'shape', name: 'Divider', opacity, shape: 'line', slot, strokeWidth: 1 };
 }
 
+function proofText(context: LayoutContext): string {
+  return context.identity.id === 'gt' ? context.identity.website : context.identity.proof[0] ?? context.identity.products[0] ?? '';
+}
+
 function proofChip(context: LayoutContext, x: number, y: number): SlotSpec[] {
-  const proof = context.identity.id === 'gt' ? context.identity.website : context.identity.proof[0] ?? context.identity.products[0] ?? '';
+  const proof = proofText(context);
   if (!proof) return [];
   const size = px(Math.max(13, 14 * context.s));
   const height = px(size * 2.8);
   const width = px(Math.min(context.width * 0.4, Math.max(160, proof.length * size * 0.62 + size * 2.6)));
   const emphasis = resolveExpressionColor('emphasis', expressionColors(context.identity), '#000000');
   const surface = resolveExpressionColor(context.surface, expressionColors(context.identity), '#FFFFFF');
-  const chipFill = colorContrastRatio(emphasis, surface) < 1.25 ? context.fg : 'emphasis';
+  // A chip is its own field, so only an emphasis identical to the page falls back.
+  const chipFill = colorContrastRatio(emphasis, surface) < 1.02 ? context.fg : 'emphasis';
   const chipText = foregroundRole(context.identity, chipFill);
   return [
     { box: { height, width, x, y }, fill: chipFill, kind: 'shape', name: 'Proof chip', radius: Math.min(context.identity.style.borderRadius, 6), shape: 'rect', slot: 'proof-chip' },
@@ -555,7 +597,8 @@ const OPENGRAPH_LAYOUTS: Layout[] = [
         headline(c, { height: px(c.height * 0.36), width: column, x: c.m, y: px(c.height * 0.2) }, 56 * c.s, { maxLines: 3 }),
         dek(c, { height: px(64 * c.s), width: Math.min(column, px(440 * c.s)), x: c.m, y: px(c.height * 0.6) }, 16 * c.s, { maxLines: 3 }),
         ...proofChip(c, c.m, c.height - px(64 * c.s) - px(38 * c.s)),
-        meta(c, 'website', 'Website', { height: px(24 * c.s), width: px(320 * c.s), x: c.width - c.m - px(320 * c.s), y: c.height - px(64 * c.s) - px(24 * c.s) }, c.identity.website, { align: 'right', fill: mediaForeground(c), opacity: 0.84 }),
+        // The proof chip already carries the address when it is the website.
+        ...(proofText(c) === c.identity.website ? [] : [meta(c, 'website', 'Website', { height: px(24 * c.s), width: px(320 * c.s), x: c.width - c.m - px(320 * c.s), y: c.height - px(64 * c.s) - px(24 * c.s) }, c.identity.website, { align: 'right', fill: mediaForeground(c), opacity: 0.84 })]),
       ];
     },
   },
@@ -618,7 +661,8 @@ const BLOG_LAYOUTS: Layout[] = [
       background(c),
       logo(c, { height: px(56 * c.s), width: px(56 * c.s), x: c.m, y: px(64 * c.s) }),
       meta(c, 'brand-name', 'Brand name', { height: px(28 * c.s), width: px(420 * c.s), x: c.m + px(74 * c.s), y: px(78 * c.s) }, c.identity.name, { opacity: 1, size: px(19 * c.s), weight: 500 }),
-      headline(c, { height: px(c.height * 0.42), width: c.width - c.m * 2, x: c.m, y: px(c.height * 0.28) }, 68 * c.s, { valign: 'top' }),
+      // Editorial covers anchor the headline to the foot of the page, above the byline.
+      headline(c, { height: c.height - px(c.height * 0.27) - px(148 * c.s), width: px((c.width - c.m * 2) * 0.86), x: c.m, y: px(c.height * 0.27) }, 72 * c.s, { valign: 'bottom' }),
       meta(c, 'website', 'Footer', { height: px(24 * c.s), width: px(420 * c.s), x: c.m, y: c.height - px(80 * c.s) }, c.identity.website),
     ],
   },
@@ -685,6 +729,11 @@ const BLOG_LAYOUTS: Layout[] = [
 
 // Terminal card --------------------------------------------------------------
 
+/** Window height that hugs the code, never taller than the room it has. */
+function codeHeight(context: LayoutContext, size: number, available: number): number {
+  return px(Math.min(available, Math.max(size * 3, 40) + (context.codeLines + 1.6) * size * 1.62));
+}
+
 function codeSpec(context: LayoutContext, box: Box, size: number, chrome: CodeSpec['chrome'] = 'tabs'): CodeSpec {
   return { box, chrome, kind: 'code', name: 'Code window', radius: Math.max(context.identity.style.borderRadius, 8) * context.s * 1.4, size: px(size), slot: 'code' };
 }
@@ -693,12 +742,20 @@ const TERMINAL_LAYOUTS: Layout[] = [
   {
     id: 'card',
     label: 'Card',
-    specs: (c) => [
-      background(c),
-      headline(c, { height: px(64 * c.s), width: c.width - c.m * 2 - px(80 * c.s), x: c.m, y: px(48 * c.s) }, 42 * c.s, { maxLines: 1, name: 'Card title', slot: 'title', valign: 'middle', content: c.text('title', codeSample(c.identity).title) }),
-      logo(c, { height: px(32 * c.s), width: px(32 * c.s), x: c.width - c.m - px(32 * c.s), y: px(64 * c.s) }, 'mark', 'end'),
-      codeSpec(c, { height: c.height - px(142 * c.s) - px(68 * c.s), width: c.width - c.m * 2, x: c.m, y: px(142 * c.s) }, 18 * c.s),
-    ],
+    specs: (c) => {
+      // The window hugs its code, and title plus window sit centered on the card.
+      const size = 18 * c.s;
+      const titleHeight = px(64 * c.s);
+      const gap = px(30 * c.s);
+      const windowHeight = px(Math.min(c.height - px(142 * c.s) - px(68 * c.s), Math.max(size * 3, 40) + (c.codeLines + 1.6) * size * 1.62));
+      const top = Math.max(px(48 * c.s), px((c.height - titleHeight - gap - windowHeight) / 2));
+      return [
+        background(c),
+        headline(c, { height: titleHeight, width: c.width - c.m * 2 - px(80 * c.s), x: c.m, y: top }, 42 * c.s, { maxLines: 1, name: 'Card title', slot: 'title', valign: 'middle', content: c.text('title', codeSample(c.identity).title) }),
+        logo(c, { height: px(32 * c.s), width: px(32 * c.s), x: c.width - c.m - px(32 * c.s), y: top + (titleHeight - px(32 * c.s)) / 2 }, 'mark', 'end'),
+        codeSpec(c, { height: windowHeight, width: c.width - c.m * 2, x: c.m, y: top + titleHeight + gap }, size),
+      ];
+    },
   },
   {
     id: 'split',
@@ -719,7 +776,10 @@ const TERMINAL_LAYOUTS: Layout[] = [
         kicker(c, { height: px(24 * c.s), width: column, x: c.m, y: px(c.height * 0.28) }, c.identity.products[0] ?? 'Developers'),
         headline(c, { height: px(c.height * 0.32), width: column, x: c.m, y: px(c.height * 0.28) + px(36 * c.s) }, 44 * c.s, { maxLines: 4, name: 'Card title', slot: 'title', valign: 'top', content: c.text('title', codeSample(c.identity).title) }),
         logo(c, { height: px(32 * c.s), width: px(140 * c.s), x: c.m, y: c.height - c.m - px(32 * c.s) }, 'wordmark'),
-        codeSpec(c, { height: c.height - c.m * 2, width: c.width - column - c.m * 3, x: column + c.m * 2, y: c.m }, 16 * c.s),
+        (() => {
+          const height = codeHeight(c, 16 * c.s, c.height - c.m * 2);
+          return codeSpec(c, { height, width: c.width - column - c.m * 3, x: column + c.m * 2, y: px((c.height - height) / 2) }, 16 * c.s);
+        })(),
       ];
     },
   },
@@ -752,7 +812,7 @@ function lockupSpec(box: Box, justify: LockupSpec['justify']): LockupSpec {
 }
 
 function partnershipTitle(context: LayoutContext): string {
-  return context.text('headline', `${context.identity.name} × ${defaultPartnerOption(context.identity).label}`);
+  return context.text('headline', `${context.identity.name} × ${defaultPartnerOption(context.identity)?.label ?? PARTNER_PLACEHOLDER}`);
 }
 
 const PARTNERSHIP_LAYOUTS: Layout[] = [
@@ -791,7 +851,7 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
     specs: (c) => [
       background(c),
       kicker(c, { height: px(24 * c.s), width: px(500 * c.s), x: c.m, y: c.m }, 'Partnership'),
-      headline(c, { height: px(c.height * 0.42), width: c.width - c.m * 2, x: c.m, y: c.m + px(44 * c.s) }, 76 * c.s, { content: partnershipTitle(c), valign: 'top' }),
+      headline(c, { height: c.height - c.m * 2 - px(44 * c.s) - px(132 * c.s), width: c.width - c.m * 2, x: c.m, y: c.m + px(44 * c.s) }, 76 * c.s, { content: partnershipTitle(c), valign: 'bottom' }),
       rule(c, 'rule', { height: 2, width: c.width - c.m * 2, x: c.m, y: c.height - c.m - px(96 * c.s) }),
       lockupSpec({ height: px(72 * c.s), width: px((c.width - c.m * 2) * 0.6), x: c.m, y: c.height - c.m - px(72 * c.s) }, 'start'),
       meta(c, 'website', 'Footer', { height: px(24 * c.s), width: px(360 * c.s), x: c.width - c.m - px(360 * c.s), y: c.height - c.m - px(48 * c.s) }, c.identity.website, { align: 'right' }),
@@ -803,10 +863,20 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
 
 function slideChrome(c: LayoutContext): SlotSpec[] {
   return [
-    logo(c, { height: px(40 * c.s), width: px(160 * c.s), x: c.m, y: c.m }, 'wordmark'),
+    logo(c, { height: px(30 * c.s), width: px(150 * c.s), x: c.m, y: c.m + px(5 * c.s) }, 'wordmark'),
     meta(c, 'website', 'Footer', { height: px(22 * c.s), width: px(420 * c.s), x: c.m, y: c.height - c.m - px(18 * c.s) }, c.identity.website, { size: px(Math.max(12, 13 * c.s)) }),
     meta(c, 'page-number', 'Page number', { height: px(22 * c.s), width: px(160 * c.s), x: c.width - c.m - px(160 * c.s), y: c.height - c.m - px(18 * c.s) }, '{page} / {pages}', { align: 'right', size: px(Math.max(12, 13 * c.s)), tabular: true }),
   ];
+}
+
+/** First content line under the slide chrome (logo plus breathing room). */
+function slideTop(c: LayoutContext): number {
+  return c.m + px(40 * c.s) + px(72 * c.s);
+}
+
+function estimateTextHeight(text: string, width: number, size: number, lineHeight: number): number {
+  const lines = layoutCanvasText(text, width, () => 0, 0, 'wrap', (line) => estimateTextWidth(line, { family: '', size, weight: 400 }));
+  return lines.length * size * lineHeight;
 }
 
 function items(c: LayoutContext, fallback: readonly string[]): string[] {
@@ -839,6 +909,18 @@ function parseProofFigure(value: string): { label: string; value: string } | nul
   const match = /^([$€£]?[\d.,]+\s?[%+KMBTkmbt×x]*\+?)\s*(.*)$/.exec(value.trim());
   if (!match || !/\d/.test(match[1]!)) return null;
   return { label: match[2]?.trim() || '', value: match[1]!.trim() };
+}
+
+/**
+ * Figures for metric and chart slides: the identity's numeric proof, then its
+ * named proof (customers), then a placeholder that says what belongs there.
+ */
+export function metricFigures(identity: BrandIdentity): { label: string; value: string }[] {
+  const figures = proofFigures(identity);
+  if (figures.length >= 2) return figures;
+  const named = identity.proof.filter((value) => value.length <= 14).map((value) => ({ label: 'Customer', value }));
+  if (named.length >= 2) return named;
+  return [{ label: 'Add a figure', value: '—' }, { label: 'Add a figure', value: '—' }, { label: 'Add a figure', value: '—' }];
 }
 
 export function proofFigures(identity: BrandIdentity): { label: string; value: string }[] {
@@ -907,18 +989,16 @@ const SLIDE_LAYOUTS: Layout[] = [
     id: 'metrics',
     label: 'Metrics',
     specs: (c) => {
-      const figures = proofFigures(c.identity);
-      const fallback = figures.length >= 2 ? figures : [{ label: 'Coverage', value: '98.7%' }, { label: 'Markets', value: '42' }, { label: 'Launch', value: '7d' }];
-      const list = fallback.slice(0, 3);
+      const list = metricFigures(c.identity).slice(0, 3);
       const columnWidth = (c.width - c.m * 2 - px(48 * c.s) * (list.length - 1)) / list.length;
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.26), width: px((c.width - c.m * 2) * 0.7), x: c.m, y: px(c.height * 0.18) }, 60 * c.s, { maxLines: 2, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.2), width: px((c.width - c.m * 2) * 0.7), x: c.m, y: slideTop(c) }, 60 * c.s, { maxLines: 2, valign: 'top' }),
         ...list.flatMap((figure, index) => {
           const x = c.m + index * (columnWidth + px(48 * c.s));
           return [
-            rule(c, `rule-${index + 1}`, { height: 2, width: columnWidth, x, y: px(c.height * 0.52) }, 0.9),
+            rule(c, `rule-${index + 1}`, { height: 2, width: columnWidth, x, y: px(c.height * 0.53) }, 0.9),
             { box: { height: px(c.height * 0.16), width: columnWidth, x, y: px(c.height * 0.55) }, content: c.text(`metric-${index + 1}`, figure.value), fill: index === 0 ? c.accent : c.fg, fit: true, kind: 'text', maxLines: 1, name: `Metric ${index + 1}`, role: 'Display', size: px(96 * c.s), slot: `metric-${index + 1}`, tabular: true, valign: 'top' } satisfies TextSpec,
             { box: { height: px(56 * c.s), width: columnWidth, x, y: px(c.height * 0.73) }, content: c.text(`metric-${index + 1}-label`, figure.label), fill: c.fg, kind: 'text', maxLines: 2, name: `Metric label ${index + 1}`, opacity: 0.66, role: 'Body', size: px(20 * c.s), slot: `metric-${index + 1}-label` } satisfies TextSpec,
           ];
@@ -929,25 +1009,35 @@ const SLIDE_LAYOUTS: Layout[] = [
   {
     id: 'quote',
     label: 'Quote',
-    specs: (c) => [
-      background(c),
-      ...slideChrome(c),
-      { box: { height: px(160 * c.s), width: px(140 * c.s), x: c.m, y: px(c.height * 0.2) }, content: '“', fill: c.accent, kind: 'text', maxLines: 1, name: 'Quote mark', role: 'Display', size: px(200 * c.s), slot: 'quote-mark' },
-      headline(c, { height: px(c.height * 0.42), width: c.width - c.m * 2 - px(180 * c.s), x: c.m + px(180 * c.s), y: px(c.height * 0.24) }, 60 * c.s, { content: c.text('headline', c.identity.voice.phrases[1] ?? c.identity.tagline), maxLines: 4, role: c.recipe.headlineRole === 'Accent' ? 'Accent' : 'Display', valign: 'top' }),
-      meta(c, 'attribution', 'Attribution', { height: px(28 * c.s), width: px(600 * c.s), x: c.m + px(180 * c.s), y: px(c.height * 0.72) }, `${c.identity.name}`, { opacity: 0.7, size: px(20 * c.s) }),
-    ],
+    specs: (c) => {
+      // The attribution follows the quote instead of a fixed line, so short quotes stay one block.
+      const top = slideTop(c);
+      const indent = px(180 * c.s);
+      const width = c.width - c.m * 2 - indent;
+      const quote = c.text('headline', c.identity.voice.phrases[1] ?? c.identity.tagline);
+      const size = px(60 * c.s);
+      const boxHeight = px(c.height * 0.4);
+      const textHeight = Math.min(boxHeight, estimateTextHeight(quote, width, size, 1.04));
+      return [
+        background(c),
+        ...slideChrome(c),
+        { box: { height: px(160 * c.s), width: px(140 * c.s), x: c.m, y: top - px(16 * c.s) }, content: '“', fill: c.accent, kind: 'text', maxLines: 1, name: 'Quote mark', role: 'Display', size: px(200 * c.s), slot: 'quote-mark' },
+        headline(c, { height: boxHeight, width, x: c.m + indent, y: top }, size, { content: quote, maxLines: 4, role: c.recipe.headlineRole === 'Accent' ? 'Accent' : 'Display', valign: 'top' }),
+        meta(c, 'attribution', 'Attribution', { height: px(28 * c.s), width: px(600 * c.s), x: c.m + indent, y: top + px(textHeight) + px(40 * c.s) }, `${c.identity.name}`, { opacity: 0.7, size: px(20 * c.s) }),
+      ];
+    },
   },
   {
     id: 'timeline',
     label: 'Timeline',
     specs: (c) => {
       const list = items(c, c.identity.products.length >= 3 ? c.identity.products : SLIDE_DEFAULT_ITEMS).slice(0, 4);
-      const lineY = px(c.height * 0.62);
+      const lineY = px(c.height * 0.64);
       const step = (c.width - c.m * 2) / list.length;
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.26), width: px((c.width - c.m * 2) * 0.72), x: c.m, y: px(c.height * 0.18) }, 60 * c.s, { maxLines: 2, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.2), width: px((c.width - c.m * 2) * 0.72), x: c.m, y: slideTop(c) }, 60 * c.s, { maxLines: 2, valign: 'top' }),
         rule(c, 'timeline-rule', { height: 2, width: c.width - c.m * 2, x: c.m, y: lineY }, 0.3),
         ...list.flatMap((item, index) => {
           const x = c.m + index * step;
@@ -973,18 +1063,19 @@ const SLIDE_LAYOUTS: Layout[] = [
     id: 'comparison',
     label: 'Comparison',
     specs: (c) => {
-      const list = items(c, ['Before', 'After']);
+      // The identity's own "avoid" and "do" voice rules make an honest before / after.
+      const list = items(c, [c.identity.voice.avoid[0] ?? 'Before', c.identity.voice.principles[0] ?? 'After']);
       const columnWidth = (c.width - c.m * 2 - px(48 * c.s)) / 2;
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.24), width: c.width - c.m * 2, x: c.m, y: px(c.height * 0.16) }, 56 * c.s, { maxLines: 2, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.16), width: c.width - c.m * 2, x: c.m, y: slideTop(c) }, 56 * c.s, { maxLines: 2, valign: 'top' }),
         ...[0, 1].flatMap((index) => {
           const x = c.m + index * (columnWidth + px(48 * c.s));
           return [
-            { box: { height: px(c.height * 0.36), width: columnWidth, x, y: px(c.height * 0.46) }, fill: index === 1 ? 'emphasis' : c.fg, kind: 'shape', name: `Panel ${index + 1}`, opacity: index === 1 ? 1 : 0.06, radius: c.identity.style.borderRadius, shape: 'rect', slot: `panel-${index + 1}` } satisfies ShapeSpec,
-            itemNumber(c, index, { height: px(24 * c.s), width: px(80 * c.s), x: x + px(36 * c.s), y: px(c.height * 0.46) + px(36 * c.s) }),
-            itemText(c, index, list[index] ?? '', { height: px(c.height * 0.2), width: columnWidth - px(72 * c.s), x: x + px(36 * c.s), y: px(c.height * 0.46) + px(84 * c.s) }, { fill: index === 1 ? foregroundRole(c.identity, 'emphasis') : c.fg, role: 'Display', size: px(40 * c.s) }),
+            { box: { height: px(c.height * 0.34), width: columnWidth, x, y: px(c.height * 0.48) }, fill: index === 1 ? 'emphasis' : c.fg, kind: 'shape', name: `Panel ${index + 1}`, opacity: index === 1 ? 1 : 0.06, radius: c.identity.style.borderRadius, shape: 'rect', slot: `panel-${index + 1}` } satisfies ShapeSpec,
+            itemNumber(c, index, { height: px(24 * c.s), width: px(80 * c.s), x: x + px(36 * c.s), y: px(c.height * 0.48) + px(36 * c.s) }),
+            itemText(c, index, list[index] ?? '', { height: px(c.height * 0.2), width: columnWidth - px(72 * c.s), x: x + px(36 * c.s), y: px(c.height * 0.48) + px(84 * c.s) }, { fill: index === 1 ? foregroundRole(c.identity, 'emphasis') : c.fg, maxLines: 4, role: 'Display', size: px(34 * c.s) }),
           ];
         }),
       ];
@@ -1000,13 +1091,13 @@ const SLIDE_LAYOUTS: Layout[] = [
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.24), width: px((c.width - c.m * 2) * 0.72), x: c.m, y: px(c.height * 0.16) }, 58 * c.s, { maxLines: 2, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.2), width: px((c.width - c.m * 2) * 0.72), x: c.m, y: slideTop(c) }, 58 * c.s, { maxLines: 2, valign: 'top' }),
         ...list.flatMap((item, index) => {
           const x = c.m + index * (columnWidth + gap);
           return [
-            rule(c, `rule-${index + 1}`, { height: 2, width: columnWidth, x, y: px(c.height * 0.5) }, index === 0 ? 1 : 0.3),
-            itemNumber(c, index, { height: px(24 * c.s), width: px(80 * c.s), x, y: px(c.height * 0.5) + px(24 * c.s) }),
-            itemText(c, index, item, { height: px(c.height * 0.2), width: columnWidth - px(12 * c.s), x, y: px(c.height * 0.5) + px(64 * c.s) }, { maxLines: 3, size: px(26 * c.s), weight: 500 }),
+            rule(c, `rule-${index + 1}`, { height: 2, width: columnWidth, x, y: px(c.height * 0.54) }, index === 0 ? 1 : 0.3),
+            itemNumber(c, index, { height: px(24 * c.s), width: px(80 * c.s), x, y: px(c.height * 0.54) + px(24 * c.s) }),
+            itemText(c, index, item, { height: px(c.height * 0.18), width: columnWidth - px(12 * c.s), x, y: px(c.height * 0.54) + px(64 * c.s) }, { maxLines: 3, size: px(26 * c.s), weight: 500 }),
           ];
         }),
       ];
@@ -1016,14 +1107,14 @@ const SLIDE_LAYOUTS: Layout[] = [
     id: 'chart',
     label: 'Chart',
     specs: (c) => {
-      const figure = proofFigures(c.identity)[0] ?? { label: 'Year over year', value: '+42%' };
+      const figure = metricFigures(c.identity)[0]!;
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.24), width: px(c.width * 0.42), x: c.m, y: px(c.height * 0.18) }, 52 * c.s, { maxLines: 3, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.2), width: px(c.width * 0.42), x: c.m, y: slideTop(c) }, 52 * c.s, { maxLines: 3, valign: 'top' }),
         { box: { height: px(c.height * 0.2), width: px(c.width * 0.42), x: c.m, y: px(c.height * 0.52) }, content: c.text('metric-1', figure.value), fill: c.accent, fit: true, kind: 'text', maxLines: 1, name: 'Metric', role: 'Display', size: px(128 * c.s), slot: 'metric-1', tabular: true, valign: 'bottom' },
         { box: { height: px(28 * c.s), width: px(c.width * 0.42), x: c.m, y: px(c.height * 0.74) }, casing: 'uppercase', content: c.text('metric-1-label', figure.label), fill: c.fg, kind: 'text', maxLines: 1, name: 'Metric label', opacity: 0.6, role: 'Code', size: px(16 * c.s), slot: 'metric-1-label', tracking: 0.08 },
-        { box: { height: px(c.height * 0.56), width: px(c.width * 0.42), x: c.width - c.m - px(c.width * 0.42), y: px(c.height * 0.2) }, kind: 'chart', labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'], name: 'Chart', slot: 'chart', values: [42, 68, 55, 88, 100] },
+        { box: { height: px(c.height * 0.78) - slideTop(c), width: px(c.width * 0.42), x: c.width - c.m - px(c.width * 0.42), y: slideTop(c) }, kind: 'chart', labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'], name: 'Chart', slot: 'chart', values: [42, 68, 55, 88, 100] },
       ];
     },
   },
@@ -1031,13 +1122,13 @@ const SLIDE_LAYOUTS: Layout[] = [
     id: 'team',
     label: 'Team',
     specs: (c) => {
-      const list = items(c, ['Design', 'Engineering', 'Operations']).slice(0, 3);
+      const list = items(c, c.identity.products.length >= 3 ? c.identity.products : ['Design', 'Engineering', 'Operations']).slice(0, 3);
       const step = (c.width - c.m * 2) / list.length;
-      const diameter = px(Math.min(176 * c.s, step * 0.6));
+      const diameter = px(Math.min(160 * c.s, step * 0.6, c.height * 0.2));
       return [
         background(c),
         ...slideChrome(c),
-        headline(c, { height: px(c.height * 0.2), width: c.width - c.m * 2, x: c.m, y: px(c.height * 0.15) }, 56 * c.s, { maxLines: 2, valign: 'top' }),
+        headline(c, { height: px(c.height * 0.16), width: c.width - c.m * 2, x: c.m, y: slideTop(c) }, 56 * c.s, { maxLines: 2, valign: 'top' }),
         ...list.flatMap((item, index) => {
           const centerX = c.m + step * index + step / 2;
           return [
@@ -1319,14 +1410,20 @@ function buildCode(spec: CodeSpec, existing: CanvasElement | null, identity: Bra
 
 export function lockupPartnersFor(identity: BrandIdentity, dark: boolean, partnerId?: string): { assets: CanvasAsset[]; partners: LockupPartner[] } {
   const brand = brandLogoAsset(identity, 'wordmark', dark);
+  const brandPartner: LockupPartner = { aspect: partnerAspectGuess(brand.libraryId), assetId: brand.asset.id, id: 'brand', kind: 'logo', label: identity.name, sourceId: brand.libraryId ?? undefined };
   const option = expressionPartnerOptions(identity).find(({ id }) => id === partnerId) ?? defaultPartnerOption(identity);
+  if (!option) {
+    // No real partner on file: a written slot that reads as a placeholder, never a made-up brand.
+    const font = expressionFont(identity, 'Display');
+    return {
+      assets: [brand.asset, font.asset],
+      partners: [brandPartner, { aspect: 3, fontAssetId: font.asset.id, fontFamily: font.family, fontWeight: font.weight, id: 'partner-1', kind: 'text', label: PARTNER_PLACEHOLDER }],
+    };
+  }
   const partnerAsset = expressionAsset(`partner:${option.id}`, option.label, option.path);
   return {
     assets: [brand.asset, partnerAsset],
-    partners: [
-      { aspect: partnerAspectGuess(brand.libraryId), assetId: brand.asset.id, id: 'brand', kind: 'logo', label: identity.name, sourceId: brand.libraryId ?? undefined },
-      { aspect: option.aspect, assetId: partnerAsset.id, id: 'partner-1', kind: 'logo', label: option.label, sourceId: option.id },
-    ],
+    partners: [brandPartner, { aspect: option.aspect, assetId: partnerAsset.id, id: 'partner-1', kind: 'logo', label: option.label, sourceId: option.id }],
   };
 }
 
@@ -1413,7 +1510,10 @@ function layoutContext(document: CanvasDocument, pageId: string, identity: Brand
     .join('\n');
   const colors = expressionColors(identity);
   const surfaceHex = resolveExpressionColor(surface, colors, colors.paper!);
+  const codeElement = [...existing.values()].find((element) => element.kind === 'component' && element.data.component === 'code');
+  const codeTabs = codeElement ? readCodeTabs(codeElement) : codeSample(identity).tabs;
   return {
+    codeLines: Math.max(1, ...codeTabs.map((tab) => tab.code.split('\n').length)),
     accent: colorContrastRatio(colors.emphasis ?? colors.ink!, surfaceHex) >= 3 ? 'emphasis' : foregroundRole(identity, surface),
     dark: isDarkSurface(identity, surface),
     fg: foregroundRole(identity, surface),
