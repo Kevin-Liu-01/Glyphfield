@@ -646,6 +646,17 @@ function cloneBrandColorSystem(system: BrandColorSystem): BrandColorSystem {
   };
 }
 
+/** Optional colour and type system fields, deep-copied when present. */
+function cloneSystemFields(identity: BrandIdentity): Pick<BrandIdentity, 'colorSystem' | 'typeScale'> {
+  const typeScale = identity.typeScale
+    ? { ...identity.typeScale, ...(identity.typeScale.roleSteps ? { roleSteps: { ...identity.typeScale.roleSteps } } : {}) }
+    : undefined;
+  return {
+    ...(identity.colorSystem ? { colorSystem: cloneBrandColorSystem(identity.colorSystem) } : {}),
+    ...(typeScale ? { typeScale } : {}),
+  };
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -659,7 +670,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     assets: identity.assets.map(cloneBrandAsset),
     audiences: [...(identity.audiences ?? [])],
     ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
-    ...(identity.colorSystem ? { colorSystem: cloneBrandColorSystem(identity.colorSystem) } : {}),
+    ...cloneSystemFields(identity),
     colors: (identity.colors ?? []).map((color) => ({
       ...color,
       hex: normalizeHexOrFallback(color.hex),
@@ -680,7 +691,6 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
     strategy: cloneBrandStrategy(identity),
-    ...(identity.typeScale ? { typeScale: { ...identity.typeScale, ...(identity.typeScale.roleSteps ? { roleSteps: { ...identity.typeScale.roleSteps } } : {}) } } : {}),
     typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
     voice: cloneBrandVoice(identity),

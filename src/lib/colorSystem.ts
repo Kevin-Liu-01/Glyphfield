@@ -82,9 +82,22 @@ export function resolveColorScaleSettings(settings?: Partial<BrandColorScale>): 
  * step is gamut mapped to sRGB by reducing chroma only. With `anchor`, the step
  * nearest the base lightness is the exact palette HEX.
  */
-export function colorScale(hex: string, settings?: Partial<BrandColorScale>): ColorScaleSwatch[] {
-  const base = hexToOklch(normalizeHexOrFallback(hex));
+const scaleCache = new Map<string, readonly ColorScaleSwatch[]>();
+const SCALE_CACHE_LIMIT = 512;
+
+export function colorScale(hex: string, settings?: Partial<BrandColorScale>): readonly ColorScaleSwatch[] {
   const resolved = resolveColorScaleSettings(settings);
+  const key = `${normalizeHexOrFallback(hex)}|${resolved.anchor}|${resolved.chroma}|${resolved.darkest}|${resolved.hueShift}|${resolved.lightest}`;
+  const cached = scaleCache.get(key);
+  if (cached) return cached;
+  const scale = Object.freeze(buildColorScale(hex, resolved));
+  if (scaleCache.size >= SCALE_CACHE_LIMIT) scaleCache.delete(scaleCache.keys().next().value!);
+  scaleCache.set(key, scale);
+  return scale;
+}
+
+function buildColorScale(hex: string, resolved: ResolvedColorScaleSettings): ColorScaleSwatch[] {
+  const base = hexToOklch(normalizeHexOrFallback(hex));
   const count = COLOR_SCALE_STEPS.length;
   const lightnessAt = (index: number) => resolved.lightest + (resolved.darkest - resolved.lightest) * (index / (count - 1));
   let anchorIndex = -1;
@@ -119,7 +132,7 @@ export function colorScaleSettings(identity: Pick<BrandIdentity, 'colorSystem'>,
 }
 
 /** Every palette color's scale, keyed by color id. */
-export function brandColorScales(identity: Pick<BrandIdentity, 'colors' | 'colorSystem'>): Map<string, ColorScaleSwatch[]> {
+export function brandColorScales(identity: Pick<BrandIdentity, 'colors' | 'colorSystem'>): Map<string, readonly ColorScaleSwatch[]> {
   return new Map(identity.colors.map((color) => [color.id, colorScale(color.hex, colorScaleSettings(identity, color.id))]));
 }
 
@@ -141,9 +154,9 @@ export function formatColorRef({ id, step }: ColorRef): string {
   return step === undefined ? id : `${id}.${step}`;
 }
 
-type ScaleCache = Map<string, ColorScaleSwatch[]>;
+type ScaleCache = Map<string, readonly ColorScaleSwatch[]>;
 
-function scaleFor(identity: Pick<BrandIdentity, 'colors' | 'colorSystem'>, id: string, cache?: ScaleCache): ColorScaleSwatch[] | null {
+function scaleFor(identity: Pick<BrandIdentity, 'colors' | 'colorSystem'>, id: string, cache?: ScaleCache): readonly ColorScaleSwatch[] | null {
   const cached = cache?.get(id);
   if (cached) return cached;
   const color = identity.colors.find((entry) => entry.id === id);
@@ -509,7 +522,7 @@ export function setSemanticOverride(
   ref: string | null
 ): BrandColorSystem | undefined {
   const defaults = defaultSemanticMapping(identity, mode);
-  const current = { ...(identity.colorSystem?.[mode] ?? {}) };
+  const current = { ...identity.colorSystem?.[mode] };
   if (ref === null || ref === defaults[role]) delete current[role];
   else current[role] = ref;
   return compactColorSystem({ ...identity.colorSystem, [mode]: current });
