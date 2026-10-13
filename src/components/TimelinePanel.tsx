@@ -28,7 +28,7 @@ import StudioContextMenu, {
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useTimelineFollow } from '@/hooks/useTimelineFollow';
 import {
@@ -116,7 +116,7 @@ function TimelineZoomControls({
   onZoomChange: (pixelsPerSecond: number) => void;
   pixelsPerSecond: number;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <div aria-label={gt('Timeline zoom')} className={timelineStyles.zoom} role='group' title={`${Math.round((pixelsPerSecond / DEFAULT_TIMELINE_ZOOM) * 100)}%`}>
       <Button aria-label={gt('Zoom timeline out')} disabled={disabled || pixelsPerSecond <= MIN_TIMELINE_ZOOM} onClick={() => onZoomChange(clampTimelineZoom(pixelsPerSecond / 1.25))} size='icon-xs' type='button' variant='ghost'><Minus aria-hidden='true' /></Button>
@@ -171,7 +171,7 @@ function TimelinePanel({
   transitionSettings,
   zoom,
 }: TimelinePanelProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const disabledRef = useCommittedRef(disabled);
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLOutputElement>(null);

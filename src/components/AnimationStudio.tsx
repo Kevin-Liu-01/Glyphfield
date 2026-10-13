@@ -25,6 +25,7 @@ import StudioControls, { type AnimationMotionActions, type AnimationPlayheadCont
 import StudioArtboardBar from '@/components/StudioArtboardBar';
 import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
 import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
+import { MotionTranslationContext } from '@/components/MotionTranslation';
 import TimelinePanel from '@/components/TimelinePanel';
 import { Button } from '@/components/ui/Button';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
@@ -913,6 +914,10 @@ function AnimationStudio({
   viewportVisible?: boolean;
 }) {
   const gt = useCachedGT();
+  const translateRef = useCommittedRef(gt);
+  // One translator identity for the editor's lifetime: General Translation can
+  // return a new function per render, which would re-render every consumer.
+  const [motionGT] = useState(() => ((message: string, options?: Parameters<typeof gt>[1]) => translateRef.current(message, options)) as typeof gt);
   const [projectIdentity, setProjectIdentity] = useState<DesignLabProjectIdentity | null>(null);
   const identity = useMemo(() => brandIdentity && projectIdentity
     ? { ...brandIdentity, fonts: projectIdentity.fonts, typography: projectIdentity.typography }
@@ -1093,10 +1098,13 @@ function AnimationStudio({
     return () => playheadListenersRef.current.delete(listener);
   }, []);
   useCanvasSelectionDismiss(canvasSelectionRef, () => {
-    setSelectedSourceId(null);
-    setSelectedTransitionIndex(null);
-    setBackgroundEditScope('sequence');
-    setSelectedEffectTarget('content');
+    // Dismissing swaps the whole inspector; never block the pointer event on it.
+    startTransition(() => {
+      setSelectedSourceId(null);
+      setSelectedTransitionIndex(null);
+      setBackgroundEditScope('sequence');
+      setSelectedEffectTarget('content');
+    });
   });
 
   const captionFontFamily = resolveCaptionFontFamily(identity);
@@ -1390,13 +1398,23 @@ function AnimationStudio({
     resolvedFrameSettings,
     settings
   ), [resolvedFrameSettings, selectedSource, settings]);
-  const transitionSettings = useMemo(
-    () => sources.map((source) => resolveStudioTransitionSettings(
-      settings,
-      frameSettings[source.id]?.transition
-    )),
-    [frameSettings, settings, sources]
-  );
+  // Per-cut identity is kept while a cut's override and the defaults are unchanged.
+  const transitionCacheRef = useRef(new Map<string, { inputs: readonly unknown[]; value: ReturnType<typeof resolveStudioTransitionSettings> }>());
+  const transitionSettings = useMemo(() => {
+    const previous = transitionCacheRef.current;
+    const next = new Map<string, { inputs: readonly unknown[]; value: ReturnType<typeof resolveStudioTransitionSettings> }>();
+    const resolved = sources.map((source) => {
+      const inputs = [frameSettings[source.id]?.transition, settings.backgroundTransition, settings.bezier, settings.packageId] as const;
+      const cached = previous.get(source.id);
+      const value = cached && cached.inputs.every((entry, index) => Object.is(entry, inputs[index]))
+        ? cached.value
+        : resolveStudioTransitionSettings(settings, frameSettings[source.id]?.transition);
+      next.set(source.id, { inputs, value });
+      return value;
+    });
+    transitionCacheRef.current = next;
+    return resolved;
+  }, [frameSettings, settings, sources]);
   const selectedTransition = useMemo(() => selectedAnimationTransition(
     selectedTransitionIndex,
     sources,
@@ -1772,15 +1790,16 @@ function AnimationStudio({
       })
       .catch(() => {
         if (!cancelled) {
-          setError(gt('The brand logo could not be loaded.'));
+          setError(translateRef.current('The brand logo could not be loaded.'));
           setSelectedSourceId((current) => current === 'brand-logo' ? 'text-0' : current);
         }
       });
     return () => {
       cancelled = true;
     };
-  // The asset path is the identity of the artwork; the asset object is derived per render.
-  }, [brandLogoAssetPath, gt]);
+  // Only a different artwork path reloads the mark; the translator and asset
+  // object change identity between renders and must never retrigger the load.
+  }, [brandLogoAssetPath]);
 
   useEffect(() => {
     if (!active) {
@@ -1802,12 +1821,12 @@ function AnimationStudio({
         ? { ...current, url: embeddedSource }
         : current);
     }).catch(() => {
-      if (active) setError(gt('The brand logo could not be embedded for sharing.'));
+      if (active) setError(translateRef.current('The brand logo could not be embedded for sharing.'));
     });
     return () => {
       active = false;
     };
-  }, [brandLogoSource, gt, presentationMode]);
+  }, [brandLogoSource, presentationMode, translateRef]);
 
   const attachedShaderCacheRef = useRef(new WeakMap<StudioSource, { image: HTMLCanvasElement; source: StudioSource }>());
   const attachShaderLayers = useCallback((currentSources: readonly StudioSource[]): StudioSource[] => {
@@ -3261,9 +3280,10 @@ function AnimationStudio({
   const playheadContext = useMemo<AnimationPlayheadContext>(() => ({
     currentMsRef: playheadRef,
     guidesVisible,
+    isPlaying,
     layout: sequenceLayout,
     subscribeToPlayhead,
-  }), [guidesVisible, sequenceLayout, subscribeToPlayhead]);
+  }), [guidesVisible, isPlaying, sequenceLayout, subscribeToPlayhead]);
   const backgroundOverrideSourceIds = useMemo(
     () => sources.filter((source) => backgroundOverrides[source.id]).map(({ id }) => id),
     [backgroundOverrides, sources]
@@ -3580,6 +3600,7 @@ function AnimationStudio({
   }
 
   return (
+    <MotionTranslationContext.Provider value={motionGT}>
     <AnimationVersionWorkspace
       autosaveState={autosaveState}
       collectionLabel='Saved animations'
@@ -3598,6 +3619,7 @@ function AnimationStudio({
     >
       {renderWorkspace()}
     </AnimationVersionWorkspace>
+    </MotionTranslationContext.Provider>
   );
 }
 

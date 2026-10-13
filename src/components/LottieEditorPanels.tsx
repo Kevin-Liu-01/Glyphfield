@@ -8,7 +8,7 @@ import ColorControl from '@/components/ui/ColorControl';
 import { Eye, EyeOff, Pause, Play, Plus, RotateCcw, Trash2 } from '@/components/ui/SolidIcons';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 import type { LottieColorSummary, LottieLayerSummary, LottieMarker, LottieTextLayer } from '@/lib/lottieEditing';
 
 const T = memo(GTText);
@@ -41,7 +41,7 @@ export const LottieTransport = memo(function LottieTransport({
   subscribeToFrame: (listener: FrameListener) => () => void;
   totalFrames: number;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const [frame, setFrame] = useState(segmentStart);
   useEffect(() => subscribeToFrame(setFrame), [subscribeToFrame]);
   return (
@@ -81,7 +81,7 @@ export const LottieMarkerControls = memo(function LottieMarkerControls({
   onRemoveMarker: (index: number) => void;
   onRenameMarker: (index: number, name: string) => void;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <div className='flex flex-col gap-2'>
       {markers.length === 0 ? (
@@ -136,7 +136,7 @@ export const LottieLayerControls = memo(function LottieLayerControls({
   textLayers: readonly LottieTextLayer[];
   textOverrides: Readonly<Record<string, string>>;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const hidden = new Set(hiddenLayers);
   const textByKey = new Map(textLayers.map((layer) => [layer.key, layer]));
   return (
@@ -195,7 +195,7 @@ export const BrandTokenChips = memo(function BrandTokenChips({
   tokens: readonly BrandToken[];
   value: string;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <div aria-label={`${gt('Brand tokens for')} ${target}`} className='flex flex-wrap gap-1' role='group'>
       {tokens.map((token) => (
@@ -229,7 +229,7 @@ export const LottieSourceColorControls = memo(function LottieSourceColorControls
   onReset: () => void;
   tokens: readonly BrandToken[];
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <div className='flex flex-col gap-3'>
       <div className='grid grid-cols-2 gap-1.5'>
@@ -256,7 +256,7 @@ export const LottieSourceColorControls = memo(function LottieSourceColorControls
 });
 
 export function LottieRecolorModeToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }): ReactNode {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'>
       <span><T>Palette recolours every paint</T></span>

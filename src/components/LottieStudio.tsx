@@ -20,6 +20,7 @@ import DesignVersionControls from '@/components/DesignVersionControls';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
+import { MotionTranslationContext } from '@/components/MotionTranslation';
 import {
   BrandTokenChips,
   LottieLayerControls,
@@ -485,6 +486,9 @@ function renderLottieFrame({
 
 export default function LottieStudio({ active = true, identity }: { active?: boolean; identity: BrandIdentity }) {
   const gt = useCachedGT();
+  const translateRef = useCommittedRef(gt);
+  // Stable translator for memoized panels; see AnimationStudio.
+  const [motionGT] = useState(() => ((message: string, options?: Parameters<typeof gt>[1]) => translateRef.current(message, options)) as typeof gt);
   const studioExport = useStudioExportProgress(`${identity.id}:lottie`);
   const brandFontFamily = brandTypographyFamily(identity, 'Display');
   const brandDisplayTypography = brandTypographyRole(identity, 'Display');
@@ -1860,6 +1864,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }
 
   return (
+    <MotionTranslationContext.Provider value={motionGT}>
     <div className='source-code-host tool-shell flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground' ref={studioRootRef}>
       {renderHeader()}
       <div className='lottie-editor-body lab-workspace min-h-0 flex-1'>
@@ -1869,5 +1874,6 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       </div>
       {renderSourceDrawer()}
     </div>
+    </MotionTranslationContext.Provider>
   );
 }

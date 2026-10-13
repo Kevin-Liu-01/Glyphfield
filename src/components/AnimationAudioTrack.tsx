@@ -29,7 +29,7 @@ import {
   type AnimationAudioClip,
   type AnimationAudioState,
 } from '@/lib/animationAudio';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 
 const T = memo(GTText);
 T.displayName = 'AnimationAudioTranslation';
@@ -105,7 +105,7 @@ export default function AnimationAudioTrack({
   segmentCount,
   totalMs,
 }: AnimationAudioTrackProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const [expanded, setExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const laneRef = useRef<HTMLDivElement>(null);

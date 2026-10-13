@@ -71,7 +71,7 @@ import {
 } from '@/lib/studio';
 import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { normalizeMaterialFinish } from '@/lib/materialFinish';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 
 const T = memo(GTText);
 T.displayName = 'StudioTranslation';
@@ -96,6 +96,8 @@ export type AnimationMotionActions = {
 export type AnimationPlayheadContext = {
   currentMsRef: { current: number };
   guidesVisible: boolean;
+  /** While playing, pose readouts stay on the displayed scene's settled values instead of following every frame. */
+  isPlaying: boolean;
   layout: SequenceLayout;
   subscribeToPlayhead: (listener: (timeMs: number) => void) => () => void;
 };
@@ -190,7 +192,7 @@ function BackgroundScopeControl({
   selected: boolean;
   sourceCount: number;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const effectiveScope = scope === 'frame' && selected ? 'frame' : 'sequence';
   return (
     <div className='animation-background-scope'>
@@ -254,16 +256,45 @@ function animationSourceLabel(source: StudioSource): string {
   return source.kind === 'text' ? source.text : source.name;
 }
 
-function AnimationSequenceSceneRow({
-  controls,
-  index,
-  source,
-}: {
+type SceneRowProps = {
   controls: StudioControlsProps;
   index: number;
   source: StudioSource;
-}) {
-  const gt = useCachedGT();
+};
+
+function sceneRowSelection(controls: StudioControlsProps, source: StudioSource, index: number) {
+  return [
+    controls.selectedSource?.id === source.id,
+    controls.selectedEffectTarget,
+    controls.backgroundScope,
+    controls.selectedTransitionIndex === index,
+    controls.backgroundOverrideSourceIds.includes(source.id),
+  ].join('|');
+}
+
+/** A scene row redraws only when its own scene, cut, selection, or shared timing settings change. */
+function sceneRowPropsMatch(previous: SceneRowProps, next: SceneRowProps): boolean {
+  const a = previous.controls;
+  const b = next.controls;
+  const index = next.index;
+  const following = (index + 1) % Math.max(1, b.sources.length);
+  return previous.source === next.source
+    && previous.index === index
+    && a.sources.length === b.sources.length
+    && a.settings === b.settings
+    && a.transitionSettings[index] === b.transitionSettings[index]
+    && a.previewSources[index] === b.previewSources[index]
+    && a.previewSources[following] === b.previewSources[following]
+    && a.onSelectSource === b.onSelectSource
+    && sceneRowSelection(a, previous.source, index) === sceneRowSelection(b, next.source, index);
+}
+
+const AnimationSequenceSceneRow = memo(function AnimationSequenceSceneRow({
+  controls,
+  index,
+  source,
+}: SceneRowProps) {
+  const gt = useMotionGT();
   const {
     backgroundOverrideSourceIds,
     backgroundScope,
@@ -379,7 +410,7 @@ function AnimationSequenceSceneRow({
       ) : null}
     </>
   );
-}
+}, sceneRowPropsMatch);
 
 function AnimationStarterGallery({
   identityName,
@@ -390,7 +421,7 @@ function AnimationStarterGallery({
   onApply: (starterId: AnimationStarterId) => void;
   starters: readonly AnimationStarter[];
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <div className='flex flex-col gap-2'>
       <p className='text-xs leading-5 text-muted-foreground'><T>Composed in</T> {identityName}<T>'s type, colour, cadence, and graphic device. Applying replaces this artboard; undo restores it.</T></p>
@@ -412,7 +443,7 @@ function AnimationStarterGallery({
 }
 
 function AnimationSequenceLayerControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     backgroundScope,
     backgroundOverrideSourceIds,
@@ -522,7 +553,7 @@ function AnimationBackgroundControls({
   shaderGallerySettings,
   showScope = true,
 }: AnimationBackgroundControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     backgroundOverrideCount,
     backgroundScope,
@@ -724,7 +755,7 @@ function SelectedFrameContentControls({
   selectedSource,
   settings,
 }: SelectedFrameContentControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <>
       {selectedSource.kind === 'text' ? (
@@ -777,6 +808,7 @@ function SelectedFrameContentControls({
         <>
           <AnimationPoseControls
             currentMsRef={playhead.currentMsRef}
+            following={!playhead.isPlaying}
             frameSettings={frameSettings}
             layout={playhead.layout}
             onPoseChange={motion.onPoseChange}
@@ -848,7 +880,7 @@ function SelectedFrameBackgroundControls({
   onResetSelectedBackgroundOverride,
   usesGenericMaterialColors,
 }: SelectedFrameBackgroundControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <>
       <div className='animation-layer-scope-note'>
@@ -920,7 +952,7 @@ function SelectedFrameControls({
   materialIdentity,
   usesGenericMaterialColors,
 }: SelectedFrameControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     frameSettings,
     hasSelectedBackgroundOverride,
@@ -1080,7 +1112,7 @@ function AnimationPanelHeading({
 }
 
 function AnimationTransitionControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     compact = false,
     hasImageSources,
@@ -1180,7 +1212,7 @@ function AnimationTransitionControls({ controls }: { controls: StudioControlsPro
 }
 
 function AnimationGlobalControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const { compact = false, hasImageSources, onSettingsChange, settings } = controls;
   return (
     <>
@@ -1400,7 +1432,7 @@ function StudioControls({
   starters,
   transitionSettings,
 }: StudioControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const effectiveBackgroundScope = backgroundScope === 'frame' && selectedSource
     ? 'frame'
     : 'sequence';

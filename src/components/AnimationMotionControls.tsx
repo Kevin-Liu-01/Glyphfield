@@ -20,7 +20,7 @@ import {
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 import { resolveSequencePosition, type CubicBezier, type SequenceLayout } from '@/lib/animation';
 import {
   DEFAULT_TEXT_ANIMATION,
@@ -146,17 +146,19 @@ type PlayheadProps = {
  * scene's static pose. Only this block re-renders when the playhead moves.
  */
 export function AnimationPoseControls({
+  following = true,
   frameSettings,
   onPoseChange,
   ...playhead
 }: PlayheadProps & {
+  following?: boolean;
   frameSettings: StudioFrameSettings;
   onPoseChange: (patch: Partial<AnimationPose>) => void;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const keyframes = frameSettings.keyframes;
   const keyed = Boolean(keyframes?.length);
-  const sceneTime = useSceneTime({ ...playhead, enabled: keyed });
+  const sceneTime = useSceneTime({ ...playhead, enabled: keyed && following });
   const pose = resolveKeyframePose(frameSettings, keyframes, sceneTime);
   const onKey = keyed && keyframes!.some((keyframe) => Math.abs(keyframe.atMs - sceneTime) < 1);
   return (
@@ -185,7 +187,7 @@ export function AnimationAlignControls({
   onAlign: (edge: AnimationAlignEdge) => void;
   onGuidesVisibleChange: (visible: boolean) => void;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const actions: readonly { edge: AnimationAlignEdge; icon: ReactNode; label: string }[] = [
     { edge: 'left', icon: <AlignHorizontalJustifyStart aria-hidden='true' />, label: gt('Align layer left') },
     { edge: 'center', icon: <AlignHorizontalJustifyCenter aria-hidden='true' />, label: gt('Align layer to horizontal center') },
@@ -251,7 +253,7 @@ export function AnimationTextEntranceControls({
   onChange: (next: TextAnimationSettings | undefined) => void;
   textAnimation: TextAnimationSettings | undefined;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const current = textAnimation ?? DEFAULT_TEXT_ANIMATION;
   const preset = current.preset;
   const update = (patch: Partial<TextAnimationSettings>) => {
@@ -315,7 +317,7 @@ export function AnimationKeyframeControls({
   onRemoveKeyframe: (id: string) => void;
   onSeekKeyframe: (atMs: number) => void;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const count = keyframes?.length ?? 0;
   return (
     <div className='flex flex-col gap-3'>
