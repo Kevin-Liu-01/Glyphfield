@@ -143,6 +143,7 @@ export default function CanvasViewport({
   onBackgroundClick,
   onDeselect,
   stageClassName = '',
+  toolbarActions,
   toolId,
 }: {
   actionHistory?: CanvasActionHistory;
@@ -166,6 +167,8 @@ export default function CanvasViewport({
   onBackgroundClick?: (point: { x: number; y: number }) => void;
   onDeselect?: () => void;
   stageClassName?: string;
+  /** Host view controls shown after Fit canvas, such as live preview quality. */
+  toolbarActions?: ReactNode;
   toolId: string;
 }) {
   const gt = useGT();
@@ -595,6 +598,7 @@ export default function CanvasViewport({
         <Button aria-label={gt('Fit canvas')} onClick={fitCanvas} size='icon-sm' title={gt('Fit canvas')} type='button' variant='ghost'>
           <Maximize2 aria-hidden='true' />
         </Button>
+        {toolbarActions ? <><span className='canvas-toolbar-divider' />{toolbarActions}</> : null}
         {actionHistory ? (
           <>
             <span className='canvas-toolbar-divider' />

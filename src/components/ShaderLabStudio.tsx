@@ -144,7 +144,7 @@ import StudioContextMenu, {
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useRenderQuality } from '@/hooks/useLandingRenderQuality';
-import { parseLandingRenderQualityMode, studioRenderQualityStore } from '@/lib/landingRenderQuality';
+import { studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
@@ -8951,6 +8951,28 @@ export default function ShaderLabStudio({
     );
   }
 
+  function renderPreviewQualityToggle() {
+    const index = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.findIndex(({ value }) => value === previewQuality.mode);
+    const current = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[Math.max(0, index)]!;
+    const next = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[(index + 1) % DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.length]!;
+    const detail = previewQuality.automaticallyReduced ? 'Auto lowered resolution after slow frames.' : 'Exports always render at full size.';
+    return (
+      <Button
+        aria-label='Live shader preview quality'
+        className='gap-1 px-2 text-xs'
+        data-preview-quality={previewQuality.quality}
+        onClick={() => studioRenderQualityStore.setMode(next.value)}
+        size='sm'
+        title={`Preview quality: ${current.label}. ${detail} Click for ${next.label}.`}
+        type='button'
+        variant='ghost'
+      >
+        <Gauge aria-hidden='true' />
+        <span>{current.label}</span>
+      </Button>
+    );
+  }
+
   function renderArtboardToolbar() {
     return (
       <StudioArtboardBar
@@ -8966,15 +8988,6 @@ export default function ShaderLabStudio({
           <>
             {editingCanvas && selectedCanvasLayerIds.length ? <Button aria-label='Create artboard from selection' onClick={() => void frameCanvasSelection()} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
             <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={() => { deselectCanvasLayers(); void activateArtboard(DESIGN_CANVAS_ID); }} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
-            <StudioSelect
-              ariaLabel='Live shader preview quality'
-              onValueChange={(value) => studioRenderQualityStore.setMode(parseLandingRenderQualityMode(value))}
-              className='h-8 w-[5.75rem]'
-              leadingIcon={<Gauge aria-hidden='true' className='size-3.5' />}
-              options={DESIGN_LAB_PREVIEW_QUALITY_OPTIONS}
-              title={previewQuality.automaticallyReduced ? 'Auto lowered preview resolution after slow frames. Exports are unchanged.' : 'Live shader preview resolution. Exports always render at full size.'}
-              value={previewQuality.mode}
-            />
             <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
           </>
         )}
@@ -9885,6 +9898,7 @@ export default function ShaderLabStudio({
           <CanvasViewport
             actionHistory={canvasActionHistory}
             className='shader-lab-v2-composer-viewport'
+            toolbarActions={renderPreviewQualityToggle()}
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}
             focusKey={artboardFocusRequest ? `${artboardFocusRequest.id}:${artboardFocusRequest.revision}` : undefined}
