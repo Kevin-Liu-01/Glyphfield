@@ -89,6 +89,7 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import { readyLiveMaterialCanvas } from '@/lib/liveMaterialReadiness';
 import {
   SHADER_LAB_CATEGORIES,
   SHADER_LIBRARY_DEFAULT_IDS,
@@ -1607,8 +1608,8 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
       if (backgroundEnabled) {
         context.save();
         context.globalAlpha = backgroundOpacity;
-        const liveShader = shaderStageRef.current?.querySelector('canvas');
-        if (liveShader?.width && liveShader.height) {
+        const liveShader = readyLiveMaterialCanvas(shaderStageRef.current);
+        if (liveShader) {
           drawCanvasImageCover(context, liveShader, liveShader.width, liveShader.height, width, height);
         } else {
           try {

@@ -24,6 +24,19 @@ export function liveMaterialReadinessStatus(
   return requiresWebGL2 && webGL2Available === null ? 'false' : undefined;
 }
 
+/**
+ * The painted canvas of a surface that reports ready pixels, or null. A canvas
+ * that has never painted still has its default 300 x 150 size, so size alone
+ * does not prove a render.
+ */
+export function readyLiveMaterialCanvas(root: ParentNode | null | undefined): HTMLCanvasElement | null {
+  for (const ready of Array.from(root?.querySelectorAll<HTMLElement>('[data-live-material-ready="true"]') ?? [])) {
+    const canvas = ready instanceof HTMLCanvasElement ? ready : ready.querySelector<HTMLCanvasElement>('canvas:not([data-shader-internal])');
+    if (canvas?.width && canvas.height) return canvas;
+  }
+  return null;
+}
+
 const RENDERER_UNAVAILABLE_MESSAGE = 'The shader could not render. Reload its preview or enable browser graphics acceleration, then try exporting again.';
 
 /** Wait for asynchronous renderer assets before reading the composition pixels. */
