@@ -3,6 +3,7 @@ export type LandingRenderQuality = 'high' | 'low';
 
 export const LANDING_RENDER_FRAME_RATE = 60;
 export const LANDING_RENDER_QUALITY_STORAGE_KEY = 'glyphfield-landing-render-quality-v1';
+export const STUDIO_RENDER_QUALITY_STORAGE_KEY = 'glyphfield-studio-render-quality-v1';
 const TARGET_FRAME_INTERVAL = 1_000 / LANDING_RENDER_FRAME_RATE;
 
 export type LandingRenderQualitySnapshot = {
@@ -94,14 +95,14 @@ type LandingQualityEnvironment = {
   writeMode: (mode: LandingRenderQualityMode) => void;
 };
 
-function browserEnvironment(): LandingQualityEnvironment {
+function browserEnvironment(storageKey = LANDING_RENDER_QUALITY_STORAGE_KEY): LandingQualityEnvironment {
   const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   return {
     cancelFrame: (id) => window.cancelAnimationFrame(id),
     isVisible: () => document.visibilityState === 'visible',
     prefersReducedMotion: () => media?.matches ?? false,
     readMode: () => {
-      try { return JSON.parse(window.localStorage.getItem(LANDING_RENDER_QUALITY_STORAGE_KEY) ?? '"auto"'); }
+      try { return JSON.parse(window.localStorage.getItem(storageKey) ?? '"auto"'); }
       catch { return 'auto'; }
     },
     requestFrame: (callback) => window.requestAnimationFrame(callback),
@@ -114,7 +115,7 @@ function browserEnvironment(): LandingQualityEnvironment {
       };
     },
     writeMode: (mode) => {
-      try { window.localStorage.setItem(LANDING_RENDER_QUALITY_STORAGE_KEY, JSON.stringify(mode)); }
+      try { window.localStorage.setItem(storageKey, JSON.stringify(mode)); }
       catch { /* A blocked preference store must not prevent an in-memory override. */ }
     },
   };
@@ -199,4 +200,9 @@ export function createLandingRenderQualityStore(makeEnvironment = browserEnviron
   };
 }
 
+export type RenderQualityStore = ReturnType<typeof createLandingRenderQualityStore>;
+
 export const landingRenderQualityStore = createLandingRenderQualityStore();
+
+/** Design Lab live previews: same Auto/High/Low policy, stored separately from the landing demos. */
+export const studioRenderQualityStore = createLandingRenderQualityStore(() => browserEnvironment(STUDIO_RENDER_QUALITY_STORAGE_KEY));

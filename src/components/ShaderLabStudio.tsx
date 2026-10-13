@@ -25,6 +25,7 @@ import {
   Files,
   Film,
   Frame,
+  Gauge,
   Grid3X3,
   ImageDown,
   ImagePlus,
@@ -142,6 +143,8 @@ import StudioContextMenu, {
 } from '@/components/ui/StudioContextMenu';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioSelect from '@/components/ui/StudioSelect';
+import { useRenderQuality } from '@/hooks/useLandingRenderQuality';
+import { parseLandingRenderQualityMode, studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
@@ -1326,8 +1329,17 @@ function CanvasSelectionAssemblyOverlay({
 const DEFAULT_LAYER_TRANSFORM: CanvasLayerTransform = { scale: 1, x: 0, y: 0 };
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
 const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
-const DESIGN_LAB_PREVIEW_MIN_PIXEL_COUNT = 48_000;
-const DESIGN_LAB_PREVIEW_TOTAL_PIXEL_BUDGET = 300_000;
+// High renders live shaders near device resolution; Auto drops to the draft
+// budget after sustained slow frames. Exports always use output resolution.
+const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
+  high: { maxPerInstance: 2_400_000, minPerInstance: 240_000, totalBudget: 4_800_000 },
+  low: { maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, minPerInstance: 48_000, totalBudget: 300_000 },
+} as const;
+const DESIGN_LAB_PREVIEW_QUALITY_OPTIONS = [
+  { label: 'Auto', value: 'auto' },
+  { label: 'High', value: 'high' },
+  { label: 'Draft', value: 'low' },
+] as const;
 const DESIGN_LAB_PREVIEW_FRAME_RATE = 60;
 const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;
 const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
@@ -7626,11 +7638,10 @@ export default function ShaderLabStudio({
       ? { ...current, pendingKeys: current.pendingKeys.filter((pendingKey) => pendingKey !== key) }
       : current);
   }
+  const previewQuality = useRenderQuality(studioRenderQualityStore, active && livePreviewRuntimeReady && !paused && compositionHasMotion);
   const livePreviewPixelBudget = liveMaterialInstancePixelBudget({
     instanceCount: visibleShaderRendererCount,
-    maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
-    minPerInstance: DESIGN_LAB_PREVIEW_MIN_PIXEL_COUNT,
-    totalBudget: DESIGN_LAB_PREVIEW_TOTAL_PIXEL_BUDGET,
+    ...DESIGN_LAB_PREVIEW_PIXEL_BUDGETS[previewQuality.quality],
   });
 
   function compositionSetupSource(): string | null {
@@ -8927,6 +8938,15 @@ export default function ShaderLabStudio({
           <>
             {editingCanvas && selectedCanvasLayerIds.length ? <Button aria-label='Create artboard from selection' onClick={() => void frameCanvasSelection()} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
             <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={() => { deselectCanvasLayers(); void activateArtboard(DESIGN_CANVAS_ID); }} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
+            <StudioSelect
+              ariaLabel='Live shader preview quality'
+              onValueChange={(value) => studioRenderQualityStore.setMode(parseLandingRenderQualityMode(value))}
+              className='h-8 w-[5.75rem]'
+              leadingIcon={<Gauge aria-hidden='true' className='size-3.5' />}
+              options={DESIGN_LAB_PREVIEW_QUALITY_OPTIONS}
+              title={previewQuality.automaticallyReduced ? 'Auto lowered preview resolution after slow frames. Exports are unchanged.' : 'Live shader preview resolution. Exports always render at full size.'}
+              value={previewQuality.mode}
+            />
             <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
           </>
         )}
