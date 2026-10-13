@@ -1,9 +1,19 @@
 import {
+  clamp,
   cubicBezierAt,
   resolveAnchor,
   type CubicBezier,
   type TimelinePosition,
 } from './animation';
+import {
+  resolveKeyframePose,
+  textAnimationIsActive,
+  textAnimationUnits,
+  textUnitProgress,
+  textUnitState,
+  type AnimationKeyframe,
+  type TextAnimationSettings,
+} from './animationMotion';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   type LiveMaterialId,
@@ -60,10 +70,24 @@ export function resolveStudioBackgroundOpacity(
   return Math.min(1, Math.max(0, background.opacity ?? 1));
 }
 
+export type StudioCaptionPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+
+/** A small fixed line of scene metadata (eyebrow, index, or proof note) set in the brand's supporting face. */
+export type StudioCaption = {
+  position: StudioCaptionPosition;
+  text: string;
+};
+
+/** Where a text layer hangs from its anchor: its centre (default) or its leading edge. */
+export type StudioTextAnchor = 'center' | 'start';
+
 type StudioSourceBase = {
   alignX?: number;
   alignY?: number;
   background?: StudioBackground;
+  caption?: StudioCaption;
+  /** Supporting face for the caption; falls back to the display face. */
+  captionFontFamily?: string;
   fit?: 'contain' | 'cover';
   finish?: MaterialFinishSettings;
   fontFamily?: string;
@@ -71,9 +95,17 @@ type StudioSourceBase = {
   fontWeight?: number;
   foreground?: string;
   id: string;
+  /** Layer pose keyframes across the scene hold; absent means a static pose. */
+  keyframes?: readonly AnimationKeyframe[];
+  /** Runtime only: time into the scene used to resolve the text entrance. Never serialized. */
+  motionElapsedMs?: number;
   opacity?: number;
   rotation?: number;
   scale?: number;
+  textAnchor?: StudioTextAnchor;
+  textAnimation?: TextAnimationSettings;
+  /** Display tracking in em, matching the brand typography role. */
+  tracking?: number;
 };
 
 export type StudioSource =
@@ -158,6 +190,78 @@ function canvasFontFamily(family: string | undefined): string {
   return family ? `${JSON.stringify(family)}, Arial, sans-serif` : 'Switzer, Arial, sans-serif';
 }
 
+function drawTrackedText(
+  context: CanvasRenderingContext2D,
+  units: readonly string[],
+  measuredWidth: number,
+  extraSpacing: number,
+  anchor: StudioTextAnchor
+): void {
+  const width = measuredWidth + extraSpacing * Math.max(0, units.length - 1);
+  const originX = anchor === 'start' ? 0 : -width / 2;
+  let prefix = '';
+  context.textAlign = 'left';
+  units.forEach((unit, index) => {
+    context.fillText(unit, originX + context.measureText(prefix).width + extraSpacing * index, 0);
+    prefix += unit;
+  });
+}
+
+function applyTracking(context: CanvasRenderingContext2D, tracking: number | undefined, fontSize: number): void {
+  // Native canvas tracking where available; measureText then includes it.
+  if (tracking && 'letterSpacing' in context) context.letterSpacing = `${tracking * fontSize}px`;
+}
+
+/**
+ * Draws a text entrance with the frame's real font metrics. Units are placed at
+ * their measured offsets in the full string, so the settled frame matches the
+ * static renderer exactly.
+ */
+function drawAnimatedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  settings: TextAnimationSettings,
+  elapsedMs: number,
+  fontSize: number,
+  measuredWidth: number,
+  anchor: StudioTextAnchor
+): void {
+  const progress = cubicBezierAt(clamp(elapsedMs / Math.max(1, settings.durationMs), 0, 1), settings.easing);
+  const originX = anchor === 'start' ? 0 : -measuredWidth / 2;
+  if (settings.preset === 'line-reveal') {
+    const lineHeight = fontSize * 1.32;
+    context.save();
+    context.beginPath();
+    context.rect(originX - fontSize, -lineHeight / 2, measuredWidth + fontSize * 2, lineHeight);
+    context.clip();
+    context.fillText(text, 0, (1 - progress) * lineHeight);
+    context.restore();
+    return;
+  }
+  const units = textAnimationUnits(text, settings.preset);
+  const baseAlpha = context.globalAlpha;
+  if (settings.preset === 'tracking-in') {
+    context.globalAlpha = baseAlpha * progress;
+    drawTrackedText(context, units, measuredWidth, (1 - progress) * fontSize * 0.42, anchor);
+    return;
+  }
+  context.textAlign = 'left';
+  let prefix = '';
+  units.forEach((unit, index) => {
+    const offset = context.measureText(prefix).width;
+    prefix += unit;
+    const state = textUnitState(settings.preset, textUnitProgress(settings, index, units.length, elapsedMs), fontSize);
+    if (state.alpha <= 0) return;
+    const unitWidth = context.measureText(unit).width;
+    context.save();
+    context.globalAlpha = baseAlpha * state.alpha;
+    context.translate(originX + offset + unitWidth / 2, state.offsetY);
+    if (state.scale !== 1) context.scale(state.scale, state.scale);
+    context.fillText(unit, -unitWidth / 2, 0);
+    context.restore();
+  });
+}
+
 function drawTextContent(
   context: CanvasRenderingContext2D,
   source: Extract<StudioSource, { kind: 'text' }>,
@@ -168,17 +272,119 @@ function drawTextContent(
 ): MaterialBounds {
   const text = textOverride ?? source.text;
   const fontSize = source.fontSize ?? config.fontSize;
+  const textAnchor = source.textAnchor ?? 'center';
   context.fillStyle = source.foreground ?? config.foreground;
   context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${fontSize}px ${canvasFontFamily(source.fontFamily ?? config.fontFamily)}`;
-  context.textAlign = 'center';
+  applyTracking(context, source.tracking, fontSize);
+  context.textAlign = textAnchor === 'start' ? 'left' : 'center';
   context.textBaseline = 'middle';
   const measuredWidth = context.measureText(text).width;
   const textScale = Math.min(1, (config.width * 0.84) / measuredWidth);
   context.scale(textScale, textScale);
-  context.fillText(text, 0, 0);
+  if (
+    textOverride === undefined
+    && source.motionElapsedMs !== undefined
+    && source.textAnimation
+    && textAnimationIsActive(source.textAnimation)
+    && source.motionElapsedMs < source.textAnimation.durationMs
+  ) {
+    drawAnimatedText(context, text, source.textAnimation, source.motionElapsedMs, fontSize, measuredWidth, textAnchor);
+  } else {
+    context.fillText(text, 0, 0);
+  }
   const width = measuredWidth * textScale * scale;
   const height = fontSize * 1.18 * textScale * scale;
-  return { height, width, x: anchor.x - width / 2, y: anchor.y - height / 2 };
+  return { height, width, x: textAnchor === 'start' ? anchor.x : anchor.x - width / 2, y: anchor.y - height / 2 };
+}
+
+/** Caption type scale and safe margin, shared by the renderer and layout guides. */
+export function studioCaptionMetrics(width: number, height: number): { fontSize: number; margin: number } {
+  const short = Math.min(width, height);
+  return { fontSize: Math.max(11, Math.round(short * 0.032)), margin: Math.round(short * 0.08) };
+}
+
+function drawCaption(context: CanvasRenderingContext2D, source: StudioSource, config: RenderConfig, alpha: number): void {
+  const caption = source.caption;
+  if (!caption?.text.trim() || alpha <= 0) return;
+  const { fontSize, margin } = studioCaptionMetrics(config.width, config.height);
+  const right = caption.position.endsWith('right');
+  const bottom = caption.position.startsWith('bottom');
+  context.save();
+  context.globalAlpha = alpha * 0.74;
+  context.fillStyle = source.foreground ?? config.foreground;
+  context.font = `500 ${fontSize}px ${canvasFontFamily(source.captionFontFamily ?? source.fontFamily ?? config.fontFamily)}`;
+  applyTracking(context, 0.06, fontSize);
+  context.textAlign = right ? 'right' : 'left';
+  context.textBaseline = bottom ? 'alphabetic' : 'top';
+  context.fillText(caption.text, right ? config.width - margin : margin, bottom ? config.height - margin : margin);
+  context.restore();
+}
+
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Unscaled layer bounds that match the renderer: text uses the same font,
+ * fitting, and line box as drawTextContent; images use their fit box.
+ */
+export function measureStudioSourceBounds(
+  source: StudioSource,
+  config: Pick<RenderConfig, 'fit' | 'fontFamily' | 'fontSize' | 'fontWeight' | 'height' | 'width'>
+): { height: number; width: number } {
+  if (source.kind === 'image') {
+    const availableWidth = config.width * 0.78;
+    const availableHeight = config.height * 0.74;
+    const containScale = Math.min(availableWidth / source.width, availableHeight / source.height);
+    const coverScale = Math.max(availableWidth / source.width, availableHeight / source.height);
+    const imageScale = (source.fit ?? config.fit) === 'cover' ? coverScale : containScale;
+    return { height: source.height * imageScale, width: source.width * imageScale };
+  }
+  const fontSize = source.fontSize ?? config.fontSize;
+  if (measureContext === undefined) {
+    const candidate = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+    // Test DOMs can return a context without text metrics; fall back to the estimate.
+    measureContext = typeof candidate?.measureText === 'function' ? candidate : null;
+  }
+  const context = measureContext;
+  let measuredWidth = Math.max(1, Array.from(source.text).length) * fontSize * 0.62;
+  if (context) {
+    context.font = `${capVisibleFontWeight(source.fontWeight ?? config.fontWeight)} ${fontSize}px ${canvasFontFamily(source.fontFamily ?? config.fontFamily)}`;
+    if ('letterSpacing' in context) context.letterSpacing = `${(source.tracking ?? 0) * fontSize}px`;
+    measuredWidth = context.measureText(source.text).width || measuredWidth;
+  }
+  const textScale = Math.min(1, (config.width * 0.84) / Math.max(1, measuredWidth));
+  return {
+    height: fontSize * 1.18 * textScale,
+    width: Math.max(fontSize * 0.5, measuredWidth) * textScale,
+  };
+}
+
+/** Resolves keyframes and the text entrance for one scene at a time on its hold. */
+export function applySceneMotion(source: StudioSource, sceneElapsedMs: number | undefined): StudioSource {
+  if (sceneElapsedMs === undefined) return source;
+  const hasKeyframes = Boolean(source.keyframes?.length);
+  const hasText = source.kind === 'text' && textAnimationIsActive(source.textAnimation);
+  if (!hasKeyframes && !hasText) return source;
+  const pose = hasKeyframes
+    ? resolveKeyframePose({
+        alignX: source.alignX ?? 0,
+        alignY: source.alignY ?? 0,
+        opacity: source.opacity ?? 1,
+        rotation: source.rotation ?? 0,
+        scale: source.scale ?? 1,
+      }, source.keyframes, sceneElapsedMs)
+    : null;
+  return {
+    ...source,
+    ...pose,
+    ...(hasText ? { motionElapsedMs: sceneElapsedMs } : {}),
+  };
+}
+
+/** True when a scene changes during its hold, so preview and GIF must sample it. */
+export function sceneMovesDuringHold(source: StudioSource | undefined): boolean {
+  if (!source) return false;
+  return (source.keyframes?.length ?? 0) > 1
+    || (source.kind === 'text' && textAnimationIsActive(source.textAnimation));
 }
 
 function drawImageContent(
@@ -734,27 +940,30 @@ export function renderFrame(
     return;
   }
 
-  const current = sources[position.index % sources.length] ?? sources[0];
-  if (!current) return;
-  const next = sources[position.nextIndex % sources.length] ?? current;
+  const currentSource = sources[position.index % sources.length] ?? sources[0];
+  if (!currentSource) return;
+  const nextSource = sources[position.nextIndex % sources.length] ?? currentSource;
+  // The outgoing scene leaves from the end of its hold; the incoming one enters at its start.
+  const current = applySceneMotion(currentSource, position.sceneElapsedMs);
+  const next = position.phase === 'transition' && sources.length > 1
+    ? applySceneMotion(nextSource, position.sceneElapsedMs === undefined ? undefined : 0)
+    : nextSource;
   if (!options.omitBackground) drawFrameBackground(context, current, next, config, position, sources.length);
   const needsBackdrop = current.finish?.glassEnabled || next.finish?.glassEnabled;
   const backdrop = needsBackdrop ? captureBackdrop(context) : undefined;
   if (position.phase === 'hold' || sources.length === 1) {
     drawSource(context, current, config, { backdrop });
+    drawCaption(context, current, config, 1);
     return;
   }
 
+  const eased = cubicBezierAt(position.progress, config.bezier);
   if (config.packageId === 'type-delete') {
     drawTypeDelete(context, current, next, config, position.progress, backdrop);
-    return;
+  } else {
+    transitionEffects[config.packageId](context, current, next, config, eased, backdrop);
   }
-  transitionEffects[config.packageId](
-    context,
-    current,
-    next,
-    config,
-    cubicBezierAt(position.progress, config.bezier),
-    backdrop
-  );
+  // Captions stay fixed in the frame and exchange by opacity only.
+  drawCaption(context, current, config, 1 - eased);
+  drawCaption(context, next, config, eased);
 }

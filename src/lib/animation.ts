@@ -12,6 +12,17 @@ export type TimelinePosition = {
   nextIndex: number;
   phase: 'hold' | 'transition';
   progress: number;
+  /** Time since the current scene started, clamped to its hold. Drives layer keyframes and text reveals. */
+  sceneElapsedMs?: number;
+};
+
+/** Absolute start, hold, and outgoing transition of every scene on the master timeline. */
+export type SequenceLayout = {
+  count: number;
+  holds: readonly number[];
+  starts: readonly number[];
+  totalMs: number;
+  transitions: readonly number[];
 };
 
 export type FrameSchedule = {
@@ -176,6 +187,111 @@ export function resolveAnimationPreviewResolution({
   };
 }
 
+/** Storyboard scale in pixels per second of master time. */
+export const DEFAULT_TIMELINE_ZOOM = 150;
+export const MIN_TIMELINE_ZOOM = 40;
+export const MAX_TIMELINE_ZOOM = 800;
+
+export function clampTimelineZoom(value: number | undefined): number {
+  const resolved = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_TIMELINE_ZOOM;
+  return Math.round(Math.min(MAX_TIMELINE_ZOOM, Math.max(MIN_TIMELINE_ZOOM, resolved)));
+}
+
+function finiteDuration(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+/**
+ * Lays out scenes with their own hold and outgoing transition. A single scene
+ * never reserves transition time; with more scenes the last transition wraps to
+ * the first, matching the looping preview and the GIF/MP4 frame tables.
+ */
+export function createSequenceLayout(
+  holds: readonly number[],
+  transitions: readonly number[]
+): SequenceLayout {
+  const count = holds.length;
+  const resolvedHolds = holds.map(finiteDuration);
+  const resolvedTransitions = holds.map((_, index) => (
+    count > 1 ? finiteDuration(transitions[index]) : 0
+  ));
+  const starts: number[] = [];
+  let cursor = 0;
+  for (let index = 0; index < count; index += 1) {
+    starts.push(cursor);
+    cursor += resolvedHolds[index]! + resolvedTransitions[index]!;
+  }
+  return {
+    count,
+    holds: resolvedHolds,
+    starts,
+    totalMs: cursor,
+    transitions: resolvedTransitions,
+  };
+}
+
+export function uniformSequenceLayout(timing: TimelineTiming): SequenceLayout {
+  const count = Math.max(0, Math.floor(timing.itemCount));
+  return createSequenceLayout(
+    Array.from({ length: count }, () => timing.holdMs),
+    Array.from({ length: count }, () => timing.transitionMs)
+  );
+}
+
+export function sequenceLayoutsEqual(first: SequenceLayout, second: SequenceLayout): boolean {
+  return first.count === second.count
+    && first.holds.every((hold, index) => hold === second.holds[index])
+    && first.transitions.every((transition, index) => transition === second.transitions[index]);
+}
+
+/** Start of a scene's hold, or the midpoint of its outgoing transition. */
+export function sequenceSceneTime(
+  layout: SequenceLayout,
+  index: number,
+  target: 'hold' | 'transition' | 'transition-start' = 'hold'
+): number {
+  if (layout.count === 0) return 0;
+  const resolved = Math.min(layout.count - 1, Math.max(0, Math.floor(index)));
+  const start = layout.starts[resolved] ?? 0;
+  if (target === 'hold') return start;
+  const hold = layout.holds[resolved] ?? 0;
+  if (target === 'transition-start') return start + hold;
+  return start + hold + (layout.transitions[resolved] ?? 0) / 2;
+}
+
+/** Resolves the master playhead through per-scene timing. Time wraps like the looping preview. */
+export function resolveSequencePosition(timeMs: number, layout: SequenceLayout): TimelinePosition {
+  const count = Math.max(1, layout.count);
+  if (layout.count === 0 || layout.totalMs <= 0) {
+    return { elapsedMs: 0, index: 0, nextIndex: layout.count > 1 ? 1 : 0, phase: 'hold', progress: 0, sceneElapsedMs: 0 };
+  }
+  const time = Number.isFinite(timeMs) ? timeMs : 0;
+  const elapsedMs = ((time % layout.totalMs) + layout.totalMs) % layout.totalMs;
+  let low = 0;
+  let high = count - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if ((layout.starts[middle] ?? 0) <= elapsedMs) low = middle;
+    else high = middle - 1;
+  }
+  const index = low;
+  const holdMs = layout.holds[index] ?? 0;
+  const transitionMs = layout.transitions[index] ?? 0;
+  const segmentElapsed = elapsedMs - (layout.starts[index] ?? 0);
+  const nextIndex = (index + 1) % count;
+  if (transitionMs === 0 || segmentElapsed < holdMs) {
+    return { elapsedMs, index, nextIndex, phase: 'hold', progress: 0, sceneElapsedMs: Math.min(holdMs, segmentElapsed) };
+  }
+  return {
+    elapsedMs,
+    index,
+    nextIndex,
+    phase: 'transition',
+    progress: clamp((segmentElapsed - holdMs) / transitionMs, 0, 1),
+    sceneElapsedMs: holdMs,
+  };
+}
+
 export function resolveTimeline(
   timeMs: number,
   timing: TimelineTiming
@@ -191,7 +307,7 @@ export function resolveTimeline(
   const nextIndex = (index + 1) % itemCount;
 
   if (transitionMs === 0 || segmentElapsed < holdMs) {
-    return { elapsedMs, index, nextIndex, phase: 'hold', progress: 0 };
+    return { elapsedMs, index, nextIndex, phase: 'hold', progress: 0, sceneElapsedMs: Math.min(holdMs, segmentElapsed) };
   }
 
   return {
@@ -200,6 +316,7 @@ export function resolveTimeline(
     nextIndex,
     phase: 'transition',
     progress: clamp((segmentElapsed - holdMs) / transitionMs, 0, 1),
+    sceneElapsedMs: holdMs,
   };
 }
 
@@ -243,38 +360,56 @@ export function buildFrameSchedule({
   sampleHoldFrames = false,
   transitionMs,
 }: TimelineTiming & { fps: number; sampleHoldFrames?: boolean }): FrameSchedule[] {
-  if (itemCount <= 0) return [];
+  return buildSequenceFrameSchedule({
+    fps,
+    layout: uniformSequenceLayout({ holdMs, itemCount, transitionMs }),
+    sampleHold: () => sampleHoldFrames,
+  });
+}
+
+/**
+ * GIF frame table for per-scene timing. Holds collapse to one frame unless the
+ * scene moves during its hold (shader background, layer keyframes, text reveal).
+ */
+export function buildSequenceFrameSchedule({
+  fps,
+  layout,
+  sampleHold = () => false,
+}: {
+  fps: number;
+  layout: SequenceLayout;
+  sampleHold?: (index: number) => boolean;
+}): FrameSchedule[] {
+  if (layout.count <= 0) return [];
 
   const frameDuration = normalizeGifDuration(1000 / clamp(fps, 1, 60));
-  const holdDuration = normalizeGifDuration(holdMs);
-  const hasTransition = itemCount > 1 && transitionMs > 0;
-  const transitionDuration = hasTransition
-    ? normalizeGifDuration(transitionMs)
-    : 0;
-  const holdFrameCount = sampleHoldFrames
-    ? Math.max(1, Math.round(holdDuration / frameDuration))
-    : 1;
-  const transitionFrameCount =
-    !hasTransition
-      ? 0
-      : Math.max(1, Math.round(transitionDuration / frameDuration));
-  const holdDelays = distributeDuration(holdDuration, holdFrameCount);
-  const transitionDelays =
-    transitionFrameCount === 0
-      ? []
-      : distributeDuration(transitionDuration, transitionFrameCount);
   const schedule: FrameSchedule[] = [];
   let atMs = 0;
 
-  for (let index = 0; index < itemCount; index += 1) {
-    const nextIndex = (index + 1) % itemCount;
+  for (let index = 0; index < layout.count; index += 1) {
+    const nextIndex = (index + 1) % layout.count;
+    const holdDuration = normalizeGifDuration(layout.holds[index] ?? 0);
+    const transitionMs = layout.transitions[index] ?? 0;
+    const transitionDuration = transitionMs > 0 ? normalizeGifDuration(transitionMs) : 0;
+    const holdFrameCount = sampleHold(index)
+      ? Math.max(1, Math.round(holdDuration / frameDuration))
+      : 1;
+    const transitionFrameCount = transitionDuration === 0
+      ? 0
+      : Math.max(1, Math.round(transitionDuration / frameDuration));
+    const holdDelays = distributeDuration(holdDuration, holdFrameCount);
+    const transitionDelays = transitionFrameCount === 0
+      ? []
+      : distributeDuration(transitionDuration, transitionFrameCount);
+    let sceneElapsedMs = 0;
     for (const delayMs of holdDelays) {
       schedule.push({
         atMs,
         delayMs,
-        position: { elapsedMs: atMs, index, nextIndex, phase: 'hold', progress: 0 },
+        position: { elapsedMs: atMs, index, nextIndex, phase: 'hold', progress: 0, sceneElapsedMs },
       });
       atMs += delayMs;
+      sceneElapsedMs += delayMs;
     }
 
     for (let frame = 0; frame < transitionDelays.length; frame += 1) {
@@ -288,6 +423,7 @@ export function buildFrameSchedule({
           nextIndex,
           phase: 'transition',
           progress: (frame + 1) / (transitionDelays.length + 1),
+          sceneElapsedMs: layout.holds[index] ?? 0,
         },
       });
       atMs += delayMs;
@@ -303,8 +439,9 @@ export function resolveAnchor(
   alignX: number,
   alignY: number
 ): { x: number; y: number } {
+  // ±1 is the canvas edge; keyframes may park a layer just outside it.
   return {
-    x: width * ((clamp(alignX, -1, 1) + 1) / 2),
-    y: height * ((clamp(alignY, -1, 1) + 1) / 2),
+    x: width * ((clamp(alignX, -1.5, 1.5) + 1) / 2),
+    y: height * ((clamp(alignY, -1.5, 1.5) + 1) / 2),
   };
 }
