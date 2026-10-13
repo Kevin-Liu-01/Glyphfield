@@ -2,7 +2,7 @@
 /** Native WebGPU catalog audit and authentic thumbnail capture, one renderer at a time. */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-const catalog = JSON.parse(readFileSync(new URL('../src/lib/shaderEffectsCatalog.generated.json', import.meta.url)));
+const catalog = JSON.parse(readFileSync(new URL('../src/lib/shaderEffectsIndex.generated.json', import.meta.url)));
 const base = process.env.GLYPHFIELD_SHADER_BASE_URL ?? 'http://localhost:3015';
 const selected = process.argv.find((arg) => arg.startsWith('--materials='))?.split('=')[1]?.split(',');
 const entries = catalog.filter((effect) => !effect.infrastructure && (!selected || selected.includes(effect.id)));

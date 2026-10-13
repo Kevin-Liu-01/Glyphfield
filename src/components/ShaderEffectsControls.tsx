@@ -1,15 +1,27 @@
 'use client';
 
 import { useState } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { normalizeHex } from '@/lib/color';
 import ColorControl from './ui/ColorControl';
 import StudioRange from './ui/StudioRange';
 import StudioSelect from './ui/StudioSelect';
 import StudioCheckbox from './ui/StudioCheckbox';
-import { getShaderEffect, shaderEffectDefaults, validateShaderEffectProps, type ShaderEffectControl, type ShaderEffectProps, type ShaderEffectValue } from '@/lib/shaderEffects';
+import { getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps, type ShaderEffectControl, type ShaderEffectProps, type ShaderEffectsPropsModule, type ShaderEffectValue } from '@/lib/shaderEffects';
 
 function parseStructuredValue(value: string): ShaderEffectValue {
   try { return JSON.parse(value); } catch { return value; }
+}
+
+function useShaderEffectsProps(): ShaderEffectsPropsModule | undefined {
+  const [loaded, setLoaded] = useState(loadedShaderEffectsProps);
+  useMountEffect(() => {
+    if (loaded) return;
+    let live = true;
+    void loadShaderEffectsProps().then((module) => { if (live) setLoaded(module); }, () => {});
+    return () => { live = false; };
+  });
+  return loaded;
 }
 
 function StructuredControl({ label, value, onChange }: { label: string; value: ShaderEffectValue; onChange: (value: ShaderEffectValue) => void }) {
@@ -67,19 +79,24 @@ function NativeControl({ name, control, value, onChange }: { name: string; contr
   return <StructuredControl label={`Effect ${label}`} value={value} onChange={onChange} />;
 }
 
+/** `value` holds only explicit edits; everything else shows its resolved default. */
 export default function ShaderEffectsControls({ materialId, value, onChange }: { materialId: string; value?: ShaderEffectProps; onChange: (value: ShaderEffectProps) => void }) {
   const effect = getShaderEffect(materialId);
+  const loaded = useShaderEffectsProps();
   if (!effect) return null;
-  const props = { ...shaderEffectDefaults(materialId), ...value };
-  const controls = Object.entries(effect.props).filter(([name, control]) => props[name] !== undefined
+  if (!loaded) return <p className='text-xs leading-5 text-muted-foreground' role='status'>Loading effect settings…</p>;
+  const controlsById = loaded.getShaderEffectControls(materialId) ?? {};
+  const explicit = value ?? {};
+  const props = { ...loaded.shaderEffectDefaults(materialId), ...explicit };
+  const controls = Object.entries(controlsById).filter(([name, control]) => props[name] !== undefined
     && !['shapeType', 'shapeSdfUrl'].includes(name)
     && !(props.surface === 'canvas' && (control.group === 'Shape' || control.group === 'Position')));
   const groups = [...new Set(controls.map(([, control]) => control.group ?? 'Effect'))];
   return <div className='flex flex-col gap-4'>
     <p className='text-xs leading-5 text-muted-foreground'>Shaders.com · {effect.category} · WebGPU{effect.requiresChild ? '. Applies to your image, or a flowing shader gradient when no image is attached.' : ''}</p>
     {groups.map((group) => <details open key={group} className='border-t border-border pt-3'><summary className='cursor-pointer text-xs font-medium'>{group}</summary><div className='flex flex-col gap-4 pt-4'>
-      {controls.filter(([, control]) => (control.group ?? 'Effect') === group).map(([name, control]) => <NativeControl key={name} name={name} control={control} value={props[name]} onChange={(next) => onChange(validateShaderEffectProps(materialId, { ...props, [name]: next }))} />)}
+      {controls.filter(([, control]) => (control.group ?? 'Effect') === group).map(([name, control]) => <NativeControl key={name} name={name} control={control} value={props[name]} onChange={(next) => onChange(loaded.validateShaderEffectProps(materialId, { ...explicit, [name]: next }))} />)}
     </div></details>)}
-    <button className='text-left text-xs underline underline-offset-4' type='button' onClick={() => onChange(shaderEffectDefaults(materialId))}>Reset effect settings</button>
+    <button className='text-left text-xs underline underline-offset-4' type='button' onClick={() => onChange({})}>Reset effect settings</button>
   </div>;
 }

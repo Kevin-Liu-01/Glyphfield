@@ -1,7 +1,7 @@
 'use client';
 
 import ShaderEffectsControls from './ShaderEffectsControls';
-import { getShaderEffect, validateShaderEffectProps } from '@/lib/shaderEffects';
+import { getShaderEffect, loadShaderEffectsProps } from '@/lib/shaderEffects';
 import {
   AlignCenter,
   AlignLeft,
@@ -1626,9 +1626,6 @@ function validateCompositionLayers(composition: DesignLabCompositionSource['comp
   assertOptionalArray(composition.effectLayers, 'Converter layers', (layer) => !layer.id?.startsWith('effect-'));
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
   composition.textLayers?.forEach(validateDesignLabTextTypography);
-  [...(composition.shaderLayers ?? []), ...Object.values(composition.layerShaders ?? {})].forEach((layer) => {
-    if (layer?.settings?.effectProps !== undefined) validateShaderEffectProps(layer.materialId, layer.settings.effectProps);
-  });
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
   assertOptionalArray(composition.assets, 'Image layers', (layer) => (
     !layer.id?.startsWith('asset-')
@@ -1684,7 +1681,17 @@ function validateCompositionMetadata(parsed: DesignLabCompositionSource): void {
   validateArtboardWorkspace(parsed.workspace);
 }
 
-function parseCompositionSource(source: string): DesignLabCompositionSource {
+/** Native effect props validate against control metadata that loads on demand. */
+async function validateShaderEffectSettings(parsed: DesignLabCompositionSource): Promise<void> {
+  const layers = [parsed.composition, ...(parsed.workspace?.artboards ?? []).map(({ snapshot }) => snapshot)]
+    .flatMap((composition) => [...(composition.shaderLayers ?? []), ...Object.values(composition.layerShaders ?? {})])
+    .flatMap((layer) => layer?.settings?.effectProps === undefined ? [] : [{ effectProps: layer.settings.effectProps, materialId: layer.materialId }]);
+  if (!layers.length) return;
+  const { validateShaderEffectProps } = await loadShaderEffectsProps();
+  layers.forEach(({ effectProps, materialId }) => validateShaderEffectProps(materialId, effectProps));
+}
+
+async function parseCompositionSource(source: string): Promise<DesignLabCompositionSource> {
   const sourceRoot = parseSourceObject(source);
   const parsed = (
     isCanvasDocumentEnvelope(sourceRoot)
@@ -1705,6 +1712,7 @@ function parseCompositionSource(source: string): DesignLabCompositionSource {
   if (!parsed?.composition) throw new TypeError('A composition object is required.');
   validateCompositionLayers(parsed.composition);
   validateCompositionMetadata(parsed);
+  await validateShaderEffectSettings(parsed);
   return parsed;
 }
 
@@ -4405,7 +4413,7 @@ function useDesignLabLayerActions({
     duplicatingRef.current = true;
     try {
       const document = await captureCompositionFrame();
-      const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(document)).composition;
+      const captured = (await parseCompositionSource(serializeExistingDesignLabCanvasDocument(document))).composition;
       const nextIds = [...new Set(ids)].flatMap((id) => {
         const nextId = duplicateCapturedLayer(id, captured);
         return nextId ? [nextId] : [];
@@ -6071,7 +6079,7 @@ export default function ShaderLabStudio({
 
   async function captureArtboardBeforeLeaving() {
     const artboardId = activeArtboardIdRef.current;
-    const captured = parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame()));
+    const captured = await parseCompositionSource(serializeExistingDesignLabCanvasDocument(await captureCompositionFrame()));
     const snapshot = captured.workspace?.artboards?.find((artboard) => artboard.id === artboardId)?.snapshot;
     if (!snapshot || activeArtboardIdRef.current !== artboardId) {
       throw new Error('The active artboard changed before its shader frames could be preserved.');
@@ -7241,7 +7249,7 @@ export default function ShaderLabStudio({
     const captured = await captureCompositionFrame();
     const portableSource = await prepareShaderFrameDocumentSource(captured);
     const portable = parseCanvasDocument(portableSource);
-    const parsed = parseCompositionSource(portableSource);
+    const parsed = await parseCompositionSource(portableSource);
     const artboard = parsed.workspace?.artboards?.find((item) => item.id === artboardId);
     if (!artboard) throw new Error('The copied artboard is no longer available.');
     const frameAssets = Object.values(portable.assets).filter(({ id }) => id.startsWith('shader-frame:'));
@@ -7774,7 +7782,7 @@ export default function ShaderLabStudio({
     assertShaderWorkspaceIdle();
     clearTransientCompositionPreviews();
     const sourceSequence = ++sourceApplySequenceRef.current;
-    const parsed = parseCompositionSource(source);
+    const parsed = await parseCompositionSource(source);
     const importedTypography = await prepareImportedProjectTypography(source);
     if (sourceSequence !== sourceApplySequenceRef.current) throw new Error('A newer design was opened while frame assets were loading.');
 

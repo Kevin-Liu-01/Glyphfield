@@ -1,7 +1,8 @@
 /** Browser-only adapter. Each upstream component is imported only when selected. */
 import { createGpuUniformsMap, getNaturalSize, rootPassthrough, shaderRendererGPU, type GpuShaderDefinition } from 'shaders/core';
 import { shaderEffectsLoaders } from './shaderEffectsLoaders.generated';
-import { getShaderEffect, shaderEffectRenderProps, shaderEffectUsesBands, validateShaderEffectProps } from './shaderEffects';
+import { getShaderEffect } from './shaderEffects';
+import { shaderEffectRenderProps, shaderEffectUsesBands, validateShaderEffectProps } from './shaderEffectsProps';
 import type { LiveMaterialSettings } from './liveMaterials';
 
 async function rasterSource(source: string): Promise<string> {

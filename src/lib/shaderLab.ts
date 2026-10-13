@@ -1,4 +1,4 @@
-import { getShaderEffect, shaderEffectDefaults } from './shaderEffects';
+import { getShaderEffect } from './shaderEffects';
 import type { CSSProperties } from 'react';
 
 import {
@@ -215,7 +215,8 @@ export function shaderLabSettingsFor(
   materialId: LiveMaterialId,
   current: LiveMaterialSettings
 ): LiveMaterialSettings {
-  return { ...current, effectProps: getShaderEffect(materialId) ? shaderEffectDefaults(materialId) : undefined, ...MATERIAL_TUNING[materialId] };
+  // Native effects store only explicit edits; defaults resolve at render time.
+  return { ...current, effectProps: getShaderEffect(materialId) ? {} : undefined, ...MATERIAL_TUNING[materialId] };
 }
 
 export function shaderPreviewCaptureSettings(

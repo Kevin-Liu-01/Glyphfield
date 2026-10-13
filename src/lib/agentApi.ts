@@ -115,7 +115,7 @@ const AGENT_IDENTITY_SCHEMA = {
 } as const;
 const LIVE_MATERIAL_SETTINGS_SCHEMA = {
   additionalProperties: false,
-  properties: { effectProps: { type: 'object', description: 'Native Shaders.com props. Keys, defaults, options and ranges are declared by each material nativeControls in /api/materials. Remote media URLs are not accepted.' }, ...Object.fromEntries(Object.entries(AGENT_SHADER_LIBRARY.controls).map(([name, control]) => [
+  properties: { effectProps: { type: 'object', description: 'Native Shaders.com props: only the values to change. Keys, defaults, options and ranges are declared by each material nativeControls in /api/materials; omitted keys use those defaults. Remote media URLs are not accepted.' }, ...Object.fromEntries(Object.entries(AGENT_SHADER_LIBRARY.controls).map(([name, control]) => [
     name,
     control.type === 'hex-color'
       ? HEX_COLOR_SCHEMA
