@@ -6,6 +6,7 @@ import { join } from 'node:path';
 // behavior change. The host stays first for ordered slices of its functions.
 export const DESIGN_LAB_SOURCE_FILES = [
   'src/components/ShaderLabStudio.tsx',
+  'src/components/DesignLabCanvasContent.tsx',
   'src/lib/designLabModel.ts',
 ] as const;
 
