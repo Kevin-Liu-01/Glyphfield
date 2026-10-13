@@ -57,7 +57,8 @@ type PlayheadDragSession = {
 };
 
 const TIMELINE_AXIS_INSET = 10;
-const MIN_SCENE_WIDTH = 96;
+/** A scene card's width at default zoom; zoom scales it with the time axis. */
+const MIN_SCENE_WIDTH = 224;
 
 type TimelinePanelProps = {
   audio: AnimationAudioState;
@@ -198,7 +199,10 @@ function TimelinePanel({
   // and audio clips stay aligned with every scene at any zoom.
   const timelineWidth = useMemo(() => Math.max(
     1,
-    Math.max(sources.length * MIN_SCENE_WIDTH, (layout.totalMs / 1000) * pixelsPerSecond) + TIMELINE_AXIS_INSET * 2
+    Math.max(
+      sources.length * MIN_SCENE_WIDTH * (pixelsPerSecond / DEFAULT_TIMELINE_ZOOM),
+      (layout.totalMs / 1000) * pixelsPerSecond
+    ) + TIMELINE_AXIS_INSET * 2
   ), [layout.totalMs, pixelsPerSecond, sources.length]);
   const segmentBoundaries = useMemo(() => (
     layout.totalMs > 0 ? layout.starts.map((start) => start / layout.totalMs) : []
