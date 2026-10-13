@@ -1,3 +1,4 @@
+import { expressionActionContracts } from './expressionActions';
 import type { StudioToolId } from './studioCatalog';
 
 export type NavigableStudioToolId = Exclude<
@@ -152,6 +153,7 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   blog: {
     'blog.export.png': { description: 'Render the current blog-cover composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('blog'),
   },
   material: {
     'design.workspace.describe': {
@@ -219,15 +221,19 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   opengraph: {
     'opengraph.export.png': { description: 'Render the current OpenGraph composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('opengraph'),
   },
   partnership: {
     'partnership.export.png': { description: 'Render the current partnership lockup as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('partnership'),
   },
   slides: {
-    'slides.export.png': { description: 'Render the current slide composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    'slides.export.png': { description: 'Render the active slide as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('slides'),
   },
   terminal: {
     'terminal.export.png': { description: 'Render the current syntax-highlighted terminal card as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
+    ...expressionActionContracts('terminal'),
   },
 } as const satisfies Partial<Record<NavigableStudioToolId, Record<string, StudioActionContract>>>;
 
@@ -241,7 +247,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
     ],
     source: { apply: true, boundary: 'CanvasDocument schema 2 with Animation state and portable assets', format: 'JSON', read: true },
   },
-  blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Blog cover workspace document', format: 'JSON', read: true } },
+  blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { action: 'blog.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
   'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: false },
   'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
   buttons: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Component Library workspace configuration', format: 'JSON', read: true } },
@@ -250,10 +256,10 @@ export const STUDIO_AGENT_CAPABILITIES = {
   identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
   lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
   material: { directHttpGeneration: ['design-sequence'], exports: [{ action: 'design.export.png', format: 'PNG', route: 'browser-action' }, { action: 'design.export.jpg', format: 'JPG', route: 'browser-action' }, { action: 'design.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'design.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'design.export.project', format: 'JSON project', route: 'browser-action' }], source: { apply: true, boundary: 'CanvasDocument schema 2 with Design Lab metadata source 4', format: 'JSON', read: true } },
-  opengraph: { directHttpGeneration: ['background'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'OpenGraph workspace document', format: 'JSON', read: true } },
-  partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Partnership workspace document', format: 'JSON', read: true } },
-  slides: { directHttpGeneration: ['template'], exports: [{ action: 'slides.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Slide workspace document', format: 'JSON', read: true } },
-  terminal: { directHttpGeneration: [], exports: [{ action: 'terminal.export.png', format: 'PNG', route: 'browser-action' }], source: { apply: true, boundary: 'Terminal card workspace document', format: 'JSON', read: true } },
+  opengraph: { directHttpGeneration: ['background', 'template'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { action: 'opengraph.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
+  partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { action: 'partnership.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
+  slides: { directHttpGeneration: ['template'], exports: [{ action: 'slides.export.png', format: 'PNG', route: 'browser-action' }, { action: 'slides.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'slides.export.pdf', format: 'PDF deck', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2 (one page per slide)', format: 'JSON', read: true } },
+  terminal: { directHttpGeneration: ['template'], exports: [{ action: 'terminal.export.png', format: 'PNG', route: 'browser-action' }, { action: 'terminal.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
   typography: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Identity typography preview workspace', format: 'JSON', read: true } },
 } as const satisfies Record<NavigableStudioToolId, StudioAgentCapability>;
 
