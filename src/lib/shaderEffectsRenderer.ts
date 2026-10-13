@@ -2,7 +2,7 @@
 import { createGpuUniformsMap, getNaturalSize, rootPassthrough, shaderRendererGPU, type GpuShaderDefinition } from 'shaders/core';
 import { shaderEffectsLoaders } from './shaderEffectsLoaders.generated';
 import { getShaderEffect } from './shaderEffects';
-import { shaderEffectRenderProps, shaderEffectUsesBands, validateShaderEffectProps } from './shaderEffectsProps';
+import { shaderEffectRenderProps, shaderEffectUsesBands } from './shaderEffectsProps';
 import type { LiveMaterialSettings } from './liveMaterials';
 
 async function rasterSource(source: string): Promise<string> {
@@ -34,7 +34,7 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
     renderer.stopAnimation();
     if (renderer.getFailureReason()) throw new Error('This material requires a browser and device with WebGPU support.');
     renderer.registerNode('root', rootPassthrough.fragment, null, null, {}, rootPassthrough);
-    const resolve = (next: LiveMaterialSettings) => shaderEffectRenderProps(id, validateShaderEffectProps(id, next.effectProps ?? {}), canvas.clientWidth / Math.max(1, canvas.clientHeight));
+    const resolve = (next: LiveMaterialSettings) => shaderEffectRenderProps(id, next, canvas.clientWidth / Math.max(1, canvas.clientHeight));
     const props = resolve(settings);
     const register = (nodeId: string, def: GpuShaderDefinition, parent: string, values: Record<string, unknown>, order = 0) => {
       const defaults = Object.fromEntries(Object.entries(def.props).map(([key, prop]) => [key, prop.default]));
@@ -56,7 +56,7 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
     }
     renderer.stopAnimation();
     let previous = props;
-    let previousInput = settings.effectProps;
+    let previousInput: LiveMaterialSettings = settings;
     let previousAspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
     let previousScale: number | undefined;
     return {
@@ -64,8 +64,9 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
       assetsReady: () => !imageUrl || !!getNaturalSize(imageUrl),
       update(next: LiveMaterialSettings, scale: number) {
         const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-        if (next.effectProps !== previousInput || aspect !== previousAspect) {
-          previousInput = next.effectProps;
+        const inputChanged = next.effectProps !== previousInput.effectProps || next.colorA !== previousInput.colorA || next.colorB !== previousInput.colorB || next.colorC !== previousInput.colorC;
+        if (inputChanged || aspect !== previousAspect) {
+          previousInput = next;
           previousAspect = aspect;
           const values = resolve(next);
           nodes.forEach((nodeId, index) => {

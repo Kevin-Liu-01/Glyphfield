@@ -199,7 +199,6 @@ export default function LiveMaterialControls({
         ) : null}
       </div> : null}
 
-      {getShaderEffect(materialId) ? <ShaderEffectsControls materialId={materialId} value={resolvedSettings.effectProps} onChange={(effectProps) => update({ effectProps })} /> : <>
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <div>
           <p className='text-sm font-medium'><T>Color system</T></p>
@@ -225,6 +224,7 @@ export default function LiveMaterialControls({
         ))}
       </div>
 
+      {getShaderEffect(materialId) ? <ShaderEffectsControls materialId={materialId} palette={resolvedSettings} value={resolvedSettings.effectProps} onChange={(effectProps) => update({ effectProps })} /> : <>
       <div className='flex flex-col gap-3 border-t border-border pt-4'>
         <p className='text-sm font-medium'><T>Form</T></p>
         {MATERIAL_CONTROLS.map(({ key, label, max, min, step }) => (

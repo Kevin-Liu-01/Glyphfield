@@ -25,13 +25,99 @@ const QUALITY_TIERS = [
 ];
 const qualityScores = new Map(QUALITY_TIERS.flatMap(([score, names]) => names.map((name, index) => [name, Math.round((score - index * 0.1) * 10) / 10])));
 
+// Glyphfield defaults where a colour mode would ignore the seeded palette.
+const DEFAULT_OVERRIDES = {
+  ColorWheel: { mode: 'custom' },
+  GradientMap: { palette: 'custom' },
+  InkFlow: { colorMode: 'custom' },
+  ThinFilm: { mode: 'custom' },
+};
+
+// Which shared palette stop seeds each colour prop, in prop order: base =
+// settings.colorA, main = colorB, highlight = colorC; null keeps upstream.
+// Unlisted effects use order: one colour -> main, two -> base/main, more cycle.
+const SHAPE_ROLES = ['main', 'highlight'];
+const PALETTE_ROLES = {
+  Aurora: ['main', 'highlight', 'base'],
+  Beam: ['highlight', 'main'],
+  Boids: ['main', 'highlight'],
+  BrickPattern: ['main', 'base'],
+  BrushedMetal: ['highlight', 'base'],
+  CarbonFiber: ['highlight', 'base'],
+  Chalkboard: ['base', 'highlight'],
+  Chrome: ['highlight', 'main', 'highlight'],
+  ContourLines: ['main', 'base'],
+  Crystal: ['highlight', 'main'],
+  CursorTrail: ['main', 'highlight'],
+  Dither: ['base', 'highlight'],
+  DropShadow: ['base'],
+  Duotone: ['base', 'highlight'],
+  Engraving: ['base', 'highlight'],
+  FallingLines: ['main', 'main'],
+  FlowingGradient: ['base', 'main', 'highlight', 'main'],
+  FlutedGlass: ['highlight'],
+  Glass: ['highlight', 'highlight', 'main'],
+  Godrays: ['main', 'base'],
+  Goo: ['main', 'highlight'],
+  Grid: ['main', 'base'],
+  Halftone: ['highlight', null, null, null, 'base'],
+  Heatmap: ['base', 'highlight'],
+  InkFlow: ['main', 'base', 'main', 'highlight'],
+  Irradiance: ['base'],
+  IsometricCubes: ['main', 'highlight', 'base'],
+  KeyFrames: ['main', 'highlight', 'highlight'],
+  LightLeak: ['highlight', 'main', 'base'],
+  LiquidMetal: ['highlight', 'base'],
+  MagneticFilings: ['main', 'highlight'],
+  Marble: ['highlight', 'main', 'base'],
+  Nebula: ['highlight', 'main', 'base'],
+  Neon: ['main', 'highlight', 'main'],
+  ObjectTracker: ['highlight', 'main', 'base', 'highlight'],
+  ParticleFlow: ['main', 'highlight'],
+  Particles: ['main', 'highlight'],
+  Plastic: ['main', 'base', 'highlight'],
+  Prism: ['highlight'],
+  Smoke: ['main', 'highlight'],
+  SmokeFill: ['main', 'highlight'],
+  SmokeFlow: ['main', 'highlight'],
+  Spherize: ['highlight'],
+  StudioBackground: ['base', 'highlight', 'main', 'highlight'],
+  SunBurst: ['main', 'base'],
+  Surface3D: ['highlight'],
+  Vignette: ['base'],
+  Voronoi: ['main', 'highlight', 'base'],
+  Voxels: ['main', 'base', 'highlight', 'base'],
+  Watercolor: ['highlight'],
+  Waveform: ['main', 'highlight'],
+};
+const ORDER_ROLES = ['base', 'main', 'highlight'];
+const typesOf = (control) => [control.type].flat();
+
+function paletteRoles(name, category, colorKeys) {
+  const roles = PALETTE_ROLES[name] ?? (colorKeys.length === 1 ? ['main'] : category === 'Shapes' ? SHAPE_ROLES : colorKeys.map((_, index) => ORDER_ROLES[index % 3]));
+  if (roles.length !== colorKeys.length) throw new Error(`${name}: palette roles must match ${colorKeys.length} colour props.`);
+  return Object.fromEntries(colorKeys.map((key, index) => [key, roles[index]]));
+}
+
 function nativeProps(item, definition) {
   const props = {
     ...(item.category === 'Shape Effects' ? { surface: { type: 'select', label: 'Surface', group: 'Framing', default: 'canvas', options: [{ label: 'Full canvas', value: 'canvas' }, { label: 'Shape', value: 'shape' }] } } : {}),
     ...(definition.requiresChild || item.name === 'ImageTexture' ? { sourceImage: { type: 'local-image', label: 'Source image', group: 'Source', default: '' } } : {}),
   };
+  const overrides = DEFAULT_OVERRIDES[item.name] ?? {};
   for (const [key, prop] of Object.entries(definition.props)) {
-    props[key] = { default: prop.default === 'transparent' && [prop.ui?.type].flat().includes('color') ? '#00000000' : prop.ui?.options?.find((option) => String(option.value).toLowerCase() === String(prop.default).toLowerCase())?.value ?? prop.default, ...prop.ui };
+    const upstream = prop.default === 'transparent' && [prop.ui?.type].flat().includes('color') ? '#00000000' : prop.ui?.options?.find((option) => String(option.value).toLowerCase() === String(prop.default).toLowerCase())?.value ?? prop.default;
+    props[key] = { default: Object.hasOwn(overrides, key) ? overrides[key] : upstream, ...prop.ui };
+  }
+  // One Speed control: the shared clock drives motion and the native multiplier
+  // is hidden. Patterns that default to frozen get a slow rate the clock can move.
+  if (props.speed) props.speed = { ...props.speed, default: props.speed.default === 0 ? 0.5 : props.speed.default, hidden: true };
+  const colorKeys = Object.keys(props).filter((key) => typesOf(props[key]).includes('color'));
+  for (const [key, role] of Object.entries(colorKeys.length ? paletteRoles(item.name, item.category, colorKeys) : {})) if (role) props[key].palette = role;
+  for (const control of Object.values(props)) {
+    // A non-empty stop list overrides Color A/B upstream, so it takes all three stops.
+    if (typesOf(control).includes('gradient-stops') && Array.isArray(control.default)) control.palette = 'ramp';
+    if (typesOf(control).includes('list') && Array.isArray(control.default) && control.default.some((entry) => entry?.color)) control.palette = 'lights';
   }
   return props;
 }

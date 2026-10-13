@@ -4043,7 +4043,7 @@ function DesignLabShaderInspector({
   updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
 }) {
   return <>
-    {getShaderEffect(editingShader.materialId) ? <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Effect settings'><ShaderEffectsControls materialId={editingShader.materialId} value={settings.effectProps} onChange={(effectProps) => updateSetting('effectProps', effectProps)} /></LabInspectorSection> : <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
+    <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
       <div className='shader-lab-v2-colors'>
         {([
           { key: 'colorA', label: 'Base color' },
@@ -4092,7 +4092,9 @@ function DesignLabShaderInspector({
           <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
         ) : null}
       </div>
-    </LabInspectorSection>}
+    </LabInspectorSection>
+
+    {getShaderEffect(editingShader.materialId) ? <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Effect settings'><ShaderEffectsControls materialId={editingShader.materialId} palette={settings} value={settings.effectProps} onChange={(effectProps) => updateSetting('effectProps', effectProps)} /></LabInspectorSection> : null}
 
     <LabInspectorSection className='shader-lab-v2-control-section' meta='Essentials' title='Shader settings'>
       <div className='shader-lab-v2-ranges'>

@@ -13,7 +13,11 @@ export type ShaderEffectControl = {
   options?: { label: string; value: string | number }[];
   condition?: Record<string, ShaderEffectValue>;
   hidden?: boolean;
+  /** Which shared palette stop seeds this prop until it is edited. */
+  palette?: ShaderEffectPaletteRole;
 };
+/** base = settings.colorA, main = colorB, highlight = colorC; a ramp takes all three. */
+export type ShaderEffectPaletteRole = 'base' | 'main' | 'highlight' | 'ramp' | 'lights';
 /** Light catalog record. Per-effect controls live in `shaderEffectsProps`. */
 export type ShaderEffect = {
   id: `shader-effects-${string}`;

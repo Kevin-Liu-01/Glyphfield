@@ -8,6 +8,7 @@ import StudioRange from './ui/StudioRange';
 import StudioSelect from './ui/StudioSelect';
 import StudioCheckbox from './ui/StudioCheckbox';
 import { getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps, type ShaderEffectControl, type ShaderEffectProps, type ShaderEffectsPropsModule, type ShaderEffectValue } from '@/lib/shaderEffects';
+import type { ShaderEffectPalette } from '@/lib/shaderEffectsProps';
 
 function parseStructuredValue(value: string): ShaderEffectValue {
   try { return JSON.parse(value); } catch { return value; }
@@ -79,18 +80,15 @@ function NativeControl({ name, control, value, onChange }: { name: string; contr
   return <StructuredControl label={`Effect ${label}`} value={value} onChange={onChange} />;
 }
 
-/** `value` holds only explicit edits; everything else shows its resolved default. */
-export default function ShaderEffectsControls({ materialId, value, onChange }: { materialId: string; value?: ShaderEffectProps; onChange: (value: ShaderEffectProps) => void }) {
+/** `value` holds only explicit edits; everything else shows its default or palette-seeded value. */
+export default function ShaderEffectsControls({ materialId, palette, value, onChange }: { materialId: string; palette: ShaderEffectPalette; value?: ShaderEffectProps; onChange: (value: ShaderEffectProps) => void }) {
   const effect = getShaderEffect(materialId);
   const loaded = useShaderEffectsProps();
   if (!effect) return null;
   if (!loaded) return <p className='text-xs leading-5 text-muted-foreground' role='status'>Loading effect settings…</p>;
-  const controlsById = loaded.getShaderEffectControls(materialId) ?? {};
   const explicit = value ?? {};
-  const props = { ...loaded.shaderEffectDefaults(materialId), ...explicit };
-  const controls = Object.entries(controlsById).filter(([name, control]) => props[name] !== undefined
-    && !['shapeType', 'shapeSdfUrl'].includes(name)
-    && !(props.surface === 'canvas' && (control.group === 'Shape' || control.group === 'Position')));
+  const props = loaded.resolveShaderEffectProps(materialId, { ...palette, effectProps: explicit });
+  const controls = loaded.visibleShaderEffectControls(materialId, props);
   const groups = [...new Set(controls.map(([, control]) => control.group ?? 'Effect'))];
   return <div className='flex flex-col gap-4'>
     <p className='text-xs leading-5 text-muted-foreground'>Shaders.com · {effect.category} · WebGPU{effect.requiresChild ? '. Applies to your image, or a flowing shader gradient when no image is attached.' : ''}</p>

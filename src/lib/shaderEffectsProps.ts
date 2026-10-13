@@ -1,6 +1,11 @@
 /** Per-effect control metadata, validation, and render props. Load on the client through `loadShaderEffectsProps`. */
 import controls from './shaderEffectsProps.generated.json';
+import { normalizeHex } from './color';
+import type { LiveMaterialSettings } from './liveMaterials';
 import { getShaderEffect, type ShaderEffectControl, type ShaderEffectProps, type ShaderEffectValue } from './shaderEffects';
+
+export type ShaderEffectPalette = Pick<LiveMaterialSettings, 'colorA' | 'colorB' | 'colorC'>;
+export type ShaderEffectSettings = ShaderEffectPalette & Pick<LiveMaterialSettings, 'effectProps'>;
 
 const CONTROLS = controls as unknown as Readonly<Record<string, Readonly<Record<string, ShaderEffectControl>>>>;
 
@@ -80,13 +85,55 @@ export function shaderEffectDefaults(id: string): ShaderEffectProps {
     .map(([key, prop]) => [key, structuredClone(prop.default!)])) : {};
 }
 
+function paletteHex(value: string): string | undefined {
+  try { return normalizeHex(value); } catch { return undefined; }
+}
+
+/** Keep a default's transparency, e.g. a fade to clear, when the palette recolours it. */
+function withDefaultAlpha(color: string, fallback: ShaderEffectValue | undefined): string {
+  return typeof fallback === 'string' && /^#[\da-f]{8}$/i.test(fallback) && !/ff$/i.test(fallback) ? `${color}${fallback.slice(7)}` : color;
+}
+
+/** Colour props seeded from the shared palette, per the generator's role map. */
+export function shaderEffectPaletteProps(id: string, palette: ShaderEffectPalette): ShaderEffectProps {
+  const stops = { base: paletteHex(palette.colorA), main: paletteHex(palette.colorB), highlight: paletteHex(palette.colorC) };
+  const result: ShaderEffectProps = {};
+  for (const [key, control] of Object.entries(getShaderEffectControls(id) ?? {})) {
+    const role = control.palette;
+    if (role === 'ramp' && stops.base && stops.main && stops.highlight) {
+      result[key] = [{ color: stops.base, position: 0 }, { color: stops.main, position: 0.5 }, { color: stops.highlight, position: 1 }];
+    } else if (role === 'lights' && Array.isArray(control.default) && stops.main && stops.highlight) {
+      const [main, highlight] = [stops.main, stops.highlight];
+      result[key] = control.default.map((light, index) => light && typeof light === 'object' && !Array.isArray(light) ? { ...structuredClone(light), color: index % 2 ? highlight : main } : light);
+    } else if (role === 'base' || role === 'main' || role === 'highlight') {
+      const color = stops[role];
+      if (color) result[key] = withDefaultAlpha(color, control.default);
+    }
+  }
+  return result;
+}
+
+/** Defaults, then the shared palette, then explicit edits, which always win. */
+export function resolveShaderEffectProps(id: string, settings: ShaderEffectSettings): ShaderEffectProps {
+  return { ...shaderEffectDefaults(id), ...shaderEffectPaletteProps(id, settings), ...settings.effectProps };
+}
+
+/** Controls the inspector shows for the resolved props. */
+export function visibleShaderEffectControls(id: string, props: ShaderEffectProps): [string, ShaderEffectControl][] {
+  return Object.entries(getShaderEffectControls(id) ?? {}).filter(([name, control]) => props[name] !== undefined
+    && !control.hidden
+    && !['shapeType', 'shapeSdfUrl'].includes(name)
+    && Object.entries(control.condition ?? {}).every(([key, expected]) => Array.isArray(expected) ? expected.includes(props[key] ?? null) : props[key] === expected)
+    && !(props.surface === 'canvas' && (control.group === 'Shape' || control.group === 'Position')));
+}
+
 /** Keep the native material, but fit its analytic surface to the output instead of a demo sphere. */
 export function shaderEffectUsesBands(id: string, props: ShaderEffectProps): boolean {
   return props.surface !== 'shape' && ['shader-effects-neon', 'shader-effects-light-edge', 'shader-effects-thin-film', 'shader-effects-obsidian'].includes(id);
 }
 
-export function shaderEffectRenderProps(id: string, input: ShaderEffectProps, aspect = 1): ShaderEffectProps {
-  const props = { ...shaderEffectDefaults(id), ...input };
+export function shaderEffectRenderProps(id: string, settings: ShaderEffectSettings, aspect = 1): ShaderEffectProps {
+  const props = resolveShaderEffectProps(id, { ...settings, effectProps: validateShaderEffectProps(id, settings.effectProps ?? {}) });
   if (getShaderEffect(id)?.category !== 'Shape Effects' || props.surface === 'shape') return props;
   const width = Math.max(0.01, aspect) / 2;
   const bands = shaderEffectUsesBands(id, props);

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { getAllShaders } from 'shaders/registry';
 import { SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS, getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps } from '../shaderEffects';
-import { getShaderEffectControls, shaderEffectDefaults, shaderEffectRenderProps, validateShaderEffectProps } from '../shaderEffectsProps';
+import { getShaderEffectControls, resolveShaderEffectProps, shaderEffectDefaults, shaderEffectRenderProps, validateShaderEffectProps, visibleShaderEffectControls } from '../shaderEffectsProps';
 import { getLiveMaterial, DEFAULT_LIVE_MATERIAL_SETTINGS } from '../liveMaterials';
 import { shaderLabSettingsFor } from '../shaderLab';
 import { getShaderMotionCapabilities } from '../shaderMotionCapabilities';
+
+const PALETTE = { colorA: '#101010', colorB: '#3355FF', colorC: '#F0F0F0' };
 
 describe('Shaders.com native library', () => {
   it('accounts for every component in the installed upstream registry', () => {
@@ -52,20 +54,56 @@ describe('Shaders.com native library', () => {
   it.each([0.25, 1, 4])('fits material surfaces to an aspect ratio of %s without rewriting saved shapes', (aspect) => {
     const input = shaderEffectDefaults('shader-effects-liquid-metal');
     const before = JSON.stringify(input);
-    const props = shaderEffectRenderProps('shader-effects-liquid-metal', input, aspect);
+    const props = shaderEffectRenderProps('shader-effects-liquid-metal', { ...PALETTE, effectProps: input }, aspect);
     const shape = JSON.parse(String(props.shape));
     expect(shape.type).toBe('roundedRectSDF');
     expect(shape.width).toBeGreaterThan(aspect / 2);
     expect(shape.height).toBeGreaterThan(0.5);
     expect(JSON.stringify(input)).toBe(before);
-    expect(shaderEffectRenderProps('shader-effects-liquid-metal', { ...input, surface: 'shape' }, aspect).shape).toBe(input.shape);
+    expect(shaderEffectRenderProps('shader-effects-liquid-metal', { ...PALETTE, effectProps: { ...input, surface: 'shape' } }, aspect).shape).toBe(input.shape);
   });
   it('upgrades previously saved demo surfaces while preserving an explicit shape choice', () => {
     const props = { shape: '{"type":"sphere3D","radius":0.35}' };
-    expect(shaderEffectRenderProps('shader-effects-chrome', props).shapeType).toBe('roundedRectSDF');
-    expect(shaderEffectRenderProps('shader-effects-chrome', { ...props, surface: 'shape' }).shape).toBe(props.shape);
-    expect(shaderEffectRenderProps('shader-effects-circle', {})).toEqual(shaderEffectDefaults('shader-effects-circle'));
+    expect(shaderEffectRenderProps('shader-effects-chrome', { ...PALETTE, effectProps: props }).shapeType).toBe('roundedRectSDF');
+    expect(shaderEffectRenderProps('shader-effects-chrome', { ...PALETTE, effectProps: { ...props, surface: 'shape' } }).shape).toBe(props.shape);
+    expect(shaderEffectRenderProps('shader-effects-circle', { ...PALETTE, effectProps: {} })).toEqual({ ...shaderEffectDefaults('shader-effects-circle'), color: '#3355FF', strokeColor: '#F0F0F0' });
     expect(getShaderEffect('shader-effects-circle')?.category).toBe('Shapes');
     expect(() => validateShaderEffectProps('shader-effects-chrome', { surface: 'invalid' })).toThrow();
+  });
+  it('seeds native colours from the shared palette until a colour is edited', () => {
+    expect(resolveShaderEffectProps('shader-effects-liquid-metal', { ...PALETTE, effectProps: {} })).toMatchObject({ lightColor: '#F0F0F0', darkColor: '#101010' });
+    expect(resolveShaderEffectProps('shader-effects-liquid-metal', { ...PALETTE, effectProps: { darkColor: '#222222' } })).toMatchObject({ lightColor: '#F0F0F0', darkColor: '#222222' });
+    expect(resolveShaderEffectProps('shader-effects-aurora', { ...PALETTE, effectProps: {} })).toMatchObject({ colorA: '#3355FF', colorB: '#F0F0F0', colorC: '#101010' });
+    expect(resolveShaderEffectProps('shader-effects-mesh-gradient', { ...PALETTE, effectProps: {} }).stops).toEqual([
+      { color: '#101010', position: 0 }, { color: '#3355FF', position: 0.5 }, { color: '#F0F0F0', position: 1 },
+    ]);
+    // A fade to clear keeps its transparency; an explicit null gradient falls back to Color A/B.
+    expect(resolveShaderEffectProps('shader-effects-falling-lines', { ...PALETTE, effectProps: {} }).colorB).toBe('#3355FF00');
+    expect(resolveShaderEffectProps('shader-effects-mesh-gradient', { ...PALETTE, effectProps: { stops: null } }).stops).toBeNull();
+    expect(resolveShaderEffectProps('shader-effects-gradient-map', { ...PALETTE, effectProps: {} })).toMatchObject({ palette: 'custom', colorLow: '#101010', colorMid: '#3355FF', colorHigh: '#F0F0F0' });
+    expect(resolveShaderEffectProps('shader-effects-irradiance', { ...PALETTE, effectProps: {} }).lights).toEqual([
+      expect.objectContaining({ color: '#3355FF' }), expect.objectContaining({ color: '#F0F0F0' }),
+    ]);
+    expect(shaderEffectRenderProps('shader-effects-aurora', { ...PALETTE, colorB: 'not a colour', effectProps: {} }).colorA).toBe(shaderEffectDefaults('shader-effects-aurora').colorA);
+    const unseeded = SHADER_EFFECTS.flatMap(({ id }) => Object.entries(getShaderEffectControls(id)!)
+      .filter(([, control]) => [control.type].flat().includes('color') && !control.palette).map(([name]) => `${id}.${name}`));
+    expect(unseeded).toEqual(['shader-effects-halftone.cyanColor', 'shader-effects-halftone.magentaColor', 'shader-effects-halftone.yellowColor']);
+  });
+  it('has one Speed control: native speed multipliers are hidden and keep moving', () => {
+    const withSpeed = SHADER_EFFECTS.filter(({ id }) => getShaderEffectControls(id)!.speed);
+    expect(withSpeed.length).toBeGreaterThan(50);
+    withSpeed.forEach(({ id }) => {
+      expect(getShaderEffectControls(id)!.speed).toMatchObject({ hidden: true });
+      expect(getShaderEffectControls(id)!.speed.default).not.toBe(0);
+      expect(visibleShaderEffectControls(id, resolveShaderEffectProps(id, { ...PALETTE, effectProps: {} })).map(([name]) => name)).not.toContain('speed');
+    });
+  });
+  it('shows only the controls whose upstream conditions hold', () => {
+    const names = (id: string, effectProps = {}) => visibleShaderEffectControls(id, resolveShaderEffectProps(id, { ...PALETTE, effectProps })).map(([name]) => name);
+    expect(names('shader-effects-halftone')).not.toContain('cyanColor');
+    expect(names('shader-effects-halftone', { style: 'cmyk' })).toContain('cyanColor');
+    expect(names('shader-effects-gradient-map')).toContain('colorLow');
+    expect(names('shader-effects-gradient-map', { palette: 'rainbow' })).not.toContain('colorLow');
+    expect(names('shader-effects-watercolor')).not.toContain('radius');
   });
 });
