@@ -67,9 +67,10 @@ function isDark(hex: string): boolean {
   }
 }
 
-/** The brand's own graphic device: its identity field, or another background it owns. */
+/** The asset tagged cover, else the identity field, else another background the brand owns. */
 function coverVisual(identity: BrandIdentity) {
-  return identity.assets.find(({ id }) => id === 'identity-field')
+  return identity.assets.find(({ tags }) => tags?.includes('cover'))
+    ?? identity.assets.find(({ id }) => id === 'identity-field')
     ?? identity.assets.find(({ type }) => type === 'background' || type === 'texture');
 }
 

@@ -141,7 +141,7 @@ const OFFICIAL_LIBRARY_ASSETS: Readonly<Record<string, readonly LibraryAssetSour
     sourceUrl: ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name)
       ? 'https://ramp.com/'
       : `https://assets.ramp.com/press_kit/ramp_june_26_press_kit.zip#${fileName}`,
-    tags: [type, ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name) ? 'brand-diagram' : 'source-native', 'official-press-kit', 'finance-operations'],
+    tags: [type, ['atmosphere', 'hero', 'workflow', 'system', 'material', 'signal'].includes(name) ? 'brand-diagram' : 'source-native', 'official-press-kit', 'finance-operations', ...(name === 'material' ? ['cover'] : [])],
     type: type as BrandAsset['type'],
     usage: 'Official product and card photography for finance, product, campaign, and editorial compositions.',
   })),
