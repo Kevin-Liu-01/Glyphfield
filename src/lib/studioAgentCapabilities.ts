@@ -102,16 +102,63 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       output: EXPORT_ARTIFACT,
     },
   },
-  colors: {
-    'colors.tokens.copy': {
-      description: 'Copy the current normalized OKLCH color tokens to the clipboard.',
+  buttons: {
+    'components.code.copy': {
+      description: 'Copy the generated code for a component to the clipboard: React + Tailwind (TSX and theme.css) or HTML + CSS (markup and components.css), built from the same settings as the preview.',
+      input: "{ pattern?: component id, format?: 'react' | 'html' } (defaults to the selected pattern and code format)",
+      output: 'The copied text: every file, each headed by its file name',
+    },
+    'components.code.read': {
+      description: 'Return the generated code files for a component without touching the clipboard.',
+      input: "{ pattern?: component id, format?: 'react' | 'html' }",
+      output: '{ pattern, files: [{ name, language, code }] }',
+    },
+    'components.list': {
+      description: 'List every component pattern with its family, description and the states its preview shows.',
       input: 'No input',
-      output: 'The copied CSS custom-property string',
+      output: 'Array of { id, label, family, description, states }',
+    },
+  },
+  colors: {
+    'colors.contrast.read': {
+      description: 'Return the WCAG and APCA contrast of every text/background pair in the palette, the approved colorPairings, and the semantic role checks for light and dark.',
+      input: 'No input',
+      output: '{ matrix: [{ foreground, background, ratio, wcag, apca, apcaLevel, approved }], pairings, semantic: { light, dark } }',
+    },
+    'colors.pairing.toggle': {
+      description: 'Approve or remove one text pairing in colorPairings. New pairs record AA (4.5:1) or AA-large (3:1); pairs below 3:1 are refused. The change is pending until identity.save or Save changes.',
+      input: '{ foreground: color id, background: color id }',
+      output: 'The resulting colorPairings array',
+    },
+    'colors.proportion.balance': {
+      description: 'Apply the 60 / 30 / 10 balance to the palette: paper 60, ink 30, emphasis 10, other colors 0. Pending until saved.',
+      input: 'No input',
+      output: 'Array of { id, proportion }',
+    },
+    'colors.scale.read': {
+      description: 'Return the OKLCH tint and shade scale (steps 50–950) of one palette color, or of every color.',
+      input: '{ id?: color id }',
+      output: 'Record of color id → [{ step, hex, oklch, anchored }]',
+    },
+    'colors.semantic.read': {
+      description: 'Return every semantic role (background … negative) resolved for light and dark: its color ref, HEX, derived default and whether it is overridden.',
+      input: 'No input',
+      output: '{ light: Record<role, { ref, hex, defaultRef, overridden }>, dark: … }',
+    },
+    'colors.tokens.copy': {
+      description: 'Copy color tokens to the clipboard. The default is the original OKLCH CSS; css, tailwind and dtcg include scales and semantic light/dark roles.',
+      input: "{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' } (default 'oklch-css')",
+      output: 'The copied text',
     },
     'colors.tokens.read': {
-      description: 'Return the current normalized OKLCH color tokens without accessing the clipboard.',
-      input: 'No input',
-      output: 'CSS custom-property string',
+      description: 'Return color tokens without accessing the clipboard. The default is the original OKLCH CSS; css, tailwind and dtcg come from the brand token serializers.',
+      input: "{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' } (default 'oklch-css')",
+      output: 'Token text (CSS, Tailwind v4 theme, or DTCG JSON)',
+    },
+    'colors.vision.read': {
+      description: 'Simulate the palette for a color vision deficiency (Machado 2009, full severity) and list pairs that nearly merge.',
+      input: "{ mode?: 'normal' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'achromatopsia' } (default 'deuteranopia')",
+      output: '{ mode, colors: [{ id, hex, simulated }], confusable: [{ first, second, distance, typicalDistance }] }',
     },
   },
   'design-board': {
@@ -284,6 +331,33 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   terminal: {
     'terminal.export.png': { description: 'Render the current syntax-highlighted terminal card as PNG.', input: 'No input', output: EXPORT_ARTIFACT },
   },
+  typography: {
+    'typography.axes.read': {
+      description: 'Read the variation axes (wght, opsz, slnt …) of each role’s font file. WOFF2 needs a browser that decodes Brotli; unreadable files return null.',
+      input: 'No input',
+      output: 'Record of role → { family, fontId, axes: [{ tag, min, default, max }] | null }',
+    },
+    'typography.guidance.read': {
+      description: 'Return leading, tracking, measure, scale and weight warnings for every role at its scale size.',
+      input: 'No input',
+      output: 'Array of { id, role?, severity, message }',
+    },
+    'typography.scale.read': {
+      description: 'Return the modular type scale: base, ratio and its name, each step in px and rem, and the step each role is set at.',
+      input: 'No input',
+      output: '{ basePx, ratio, ratioName, roleSteps, steps: [{ name, step, px, rem }] }',
+    },
+    'typography.tokens.copy': {
+      description: 'Copy the type tokens (families, sizes, weights, leading, tracking, axes, scale) to the clipboard.',
+      input: "{ format?: 'css' | 'tailwind' | 'dtcg' } (default 'css')",
+      output: 'The copied text',
+    },
+    'typography.tokens.read': {
+      description: 'Return the type tokens without accessing the clipboard, from the brand token serializers.',
+      input: "{ format?: 'css' | 'tailwind' | 'dtcg' } (default 'css')",
+      output: 'Token text',
+    },
+  },
 } as const satisfies Partial<Record<NavigableStudioToolId, Record<string, StudioActionContract>>>;
 
 export const STUDIO_AGENT_CAPABILITIES = {
@@ -299,8 +373,8 @@ export const STUDIO_AGENT_CAPABILITIES = {
   blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Blog cover workspace document', format: 'JSON', read: true } },
   'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: { apply: true, boundary: 'Brand book section order and visibility, and per-page visibility, layout, surface, image, and copy', format: 'JSON', read: true } },
   'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
-  buttons: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Component Library workspace configuration', format: 'JSON', read: true } },
-  colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },
+  buttons: { directHttpGeneration: [], exports: [{ action: 'components.code.read', format: 'React + Tailwind or HTML + CSS component code', route: 'browser-action' }, { action: 'components.code.copy', format: 'Component code via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Component Library workspace configuration (version 2: pattern, content, system, palette, typography, theme, code format)', format: 'JSON', read: true } },
+  colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens via clipboard', route: 'browser-action' }, { action: 'colors.tokens.read', format: 'OKLCH CSS, CSS variables, Tailwind v4 or DTCG tokens', route: 'browser-action' }], source: { apply: true, boundary: 'Identity palette, colorPairings and colorSystem (version 2), plus per-token opacity', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard boards, tiles (order, visibility, layout, size, surface, image, copy), and export settings', format: 'JSON', read: true } },
   identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }, { action: 'identity.export.kit', format: 'Brand kit ZIP, DTCG JSON, CSS, Tailwind v4 theme, brand.md, logo ZIP', route: 'browser-action' }, { format: 'DTCG JSON, CSS, Tailwind v4 theme, brand.md via POST /api/brand/kit', route: 'http' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
   lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
@@ -309,7 +383,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
   partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Partnership workspace document', format: 'JSON', read: true } },
   slides: { directHttpGeneration: ['template'], exports: [{ action: 'slides.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Slide workspace document', format: 'JSON', read: true } },
   terminal: { directHttpGeneration: [], exports: [{ action: 'terminal.export.png', format: 'PNG', route: 'browser-action' }], source: { apply: true, boundary: 'Terminal card workspace document', format: 'JSON', read: true } },
-  typography: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Identity typography preview workspace', format: 'JSON', read: true } },
+  typography: { directHttpGeneration: [], exports: [{ action: 'typography.tokens.read', format: 'CSS, Tailwind v4 or DTCG type tokens', route: 'browser-action' }, { action: 'typography.tokens.copy', format: 'Type tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity typography roles and typeScale plus specimen settings (version 2)', format: 'JSON', read: true } },
 } as const satisfies Record<NavigableStudioToolId, StudioAgentCapability>;
 
 export function studioToolActionContracts(toolId: StudioToolId): Record<string, StudioActionContract> {

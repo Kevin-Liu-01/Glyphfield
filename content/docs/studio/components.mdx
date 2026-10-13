@@ -1,36 +1,80 @@
 ---
 title: Component library
-description: Review interactive product patterns across actions, forms, navigation, feedback, data, and cards.
+description: Product components built from the brand tokens, in every state, light and dark, with copyable React + Tailwind and HTML + CSS.
 icon: Component
 ---
 
-The Component library applies the active identity to interface patterns, making product UI part of the brand system rather than a separate visual language.
+The Component library builds the identity's product interface from its tokens: the semantic color roles, the fonts, the radius and a density. Every component shows a live demo you can operate with the keyboard, each of its states, light and dark, and the code to ship it.
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation component library in dark Studio chrome' caption='Dark component sheet' meta='Identity-aware states' src='/screenshots/studio-gt-components-dark-2026.png' />
   <DocsMedia alt='General Translation component library in light Studio chrome' caption='Light component sheet' meta='Same component contract' src='/screenshots/studio-gt-components-light-2026.png' />
 </DocsMediaGrid>
 
-## Families
+## Components
 
-- **Actions** — default, rainbow, outline, secondary, ghost, destructive, and reversed buttons
-- **Forms** — text fields, select controls, checkboxes, settings rows, and submission actions
-- **Navigation** — product navigation, breadcrumbs, and tabs
-- **Feedback** — success and error alerts, progress, and notifications
-- **Data** — metrics and responsive data tables
-- **Cards** — pricing, testimonial, and product cards
+| Family | Components |
+| --- | --- |
+| Actions | Buttons (primary, secondary, outline, ghost, destructive), icon buttons, button groups (segmented control and pager) |
+| Forms | Inputs with hints, icons and validation; textareas with a character count; selects; checkboxes; radios; switches; uploaders |
+| Navigation | Navigation bar, sidebar, tabs with arrow-key navigation, breadcrumbs, pagination |
+| Overlays | Command menu, modal, sheet, popover menu, tooltips |
+| Feedback | Alerts for every status, toasts, progress and steps, badges, empty states |
+| Data display | Tables with status and tabular numbers, stats, a bar chart |
+| Commerce | Pricing, checkout |
+| Cards | Product and guide cards, testimonials |
+| Messaging | Inbox with a reading pane, comments with a composer |
+| Content | Article body, metadata |
 
-## Controls
+Content comes from the identity: its products, proof, audiences, voice, domain and contact email. **Label** sets the primary action and **Supporting copy** the descriptions.
 
-Choose a family, edit the primary label, switch sizes, and inspect disabled states. The component sheet follows Studio light/dark mode while retaining identity typography.
+## States
+
+Each component lists the states that apply to it and shows them next to the live demo: default, hover, focus visible, pressed, selected, disabled, loading and error. State replicas use the same markup and CSS as the demo, with the state forced, so what you review is what ships. **Disabled state** disables the live demo too.
+
+## Settings
+
+- **Follow brand defaults**: density, radius, font and the light and dark colors come from the identity. Changing density, radius, font or a color turns it off.
+- **Component size** and **Density**: control heights, padding, gaps and text size.
+- **Corner radius**, **Border width** and **Elevation**.
+- **Surface mode**: the base background or the muted surface behind components.
+- **Theme** (toolbar): light, dark or both. Light and dark use the identity's semantic roles; see [Color tokens](/docs/studio/colors#semantic-roles). With a custom palette, dark mode uses the text color as the canvas.
+- **Color system**: ten colors for a custom palette.
+- **Typography**: font role, weight, text scale and letter spacing.
+- **Shared media**: an identity asset behind the components, with its opacity.
+
+Slider changes update the preview's CSS custom properties directly, so dragging never re-renders the components.
+
+## Code
+
+The code panel generates two files from the same settings:
+
+| Format | Files |
+| --- | --- |
+| React + Tailwind | `<Brand><Component>.tsx` with Tailwind CSS v4 utilities (`bg-primary`, `text-foreground`, `rounded-brand`, state variants such as `hover:`, `focus-visible:`, `aria-invalid:`, `peer-checked:`) and `theme.css` with the semantic roles for light and dark, the fonts and the radius |
+| HTML + CSS | `<component>.html` with `gf-*` classes and `components.css` with the same tokens as CSS custom properties and the component rules for every state |
+
+The tokens come from the brand token serializers, the same ones the brand kit uses. **Copy code** in the header copies both files; each file also has its own copy button.
+
+## Accessibility
+
+Controls are native elements with labels: inputs are labelled with `for`, switches use `role="switch"` and `aria-checked`, tabs use `role="tablist"` with arrow keys, Home and End, dialogs and sheets use `aria-modal` and labelled titles, and the focus ring uses the brand's `focus` role. State replicas are inert, so keyboard focus stays in the live demo.
+
+## Browser API
+
+| Action | Result |
+| --- | --- |
+| `components.list` | Every component with its family, description and states |
+| `components.code.read` | `{ pattern?, format?: 'react' \| 'html' }` → `{ pattern, files: [{ name, language, code }] }` |
+| `components.code.copy` | The same files copied to the clipboard as one text |
+
+## Source
+
+**File → Edit source code** shows version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors` (the ten custom colors), `typography { role, weight }`, `textScale`, `letterSpacing` and `asset { id, opacity }`. Version 1 sources still apply: `surface: "inverse"` becomes `theme: "dark"`. Settings saved by earlier versions, one draft per field, are migrated the first time the tool opens.
 
 ## Product components in Brand elements
 
-The Component library is a broad system sheet. Brand elements contains 14 individually configurable production applications such as a navigation bar, hero, pricing card, command menu, modal, toast, data table, checkout, and settings panel.
-
-Use the library to review consistency. Use Brand elements when you need a specific component brief and per-application composition controls.
-
-Both surfaces expose exact configuration through **File → Edit source code**. Component library source controls the selected family, label, size, state, and identity-bound presentation. Brand elements source contains the selected application override rather than the entire catalog, so applying a change updates only that production artifact.
+Brand elements contains individually configurable production applications such as a navigation bar, hero, pricing card, command menu, modal, toast, data table, checkout and settings panel. Use the Component library to build and review the system; use Brand elements when you need one composed application and its brief.
 
 ## Editor components
 

@@ -181,14 +181,16 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | Brand elements | `brand-element.export.brief` |
 | Moodboard | `moodboard.export.png`, `moodboard.export.svg`, `moodboard.export.identity` |
 | Brand book | `brand-book.print` |
-| Color tokens | `colors.tokens.read`, `colors.tokens.copy` |
+| Color tokens | `colors.tokens.read`, `colors.tokens.copy`, `colors.contrast.read`, `colors.pairing.toggle`, `colors.semantic.read`, `colors.scale.read`, `colors.vision.read`, `colors.proportion.balance` |
+| Typography | `typography.tokens.read`, `typography.tokens.copy`, `typography.scale.read`, `typography.guidance.read`, `typography.axes.read` |
+| Component library | `components.list`, `components.code.read`, `components.code.copy` |
 | Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.project` |
 | Lottie | `lottie.export`, `lottie.export.frame.png`, `lottie.export.source` |
 | OpenGraph | `opengraph.export.png` |
 | Terminal card | `terminal.export.png` |
 | Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png` |
 
-`animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
+`animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended. Both accept `{ format?: 'oklch-css' | 'css' | 'tailwind' | 'dtcg' }`; `typography.tokens.*` accept `{ format?: 'css' | 'tailwind' | 'dtcg' }`, and `components.code.*` accept `{ pattern?, format?: 'react' | 'html' }`. Color and Typography edit the identity: their changes, including `colors.pairing.toggle` and `colors.proportion.balance`, are pending until `identity.save` or **Save changes**. See [Color tokens](/docs/studio/colors), [Typography](/docs/studio/typography) and [Component library](/docs/studio/components).
 
 Brand identity actions validate before they change anything. `identity.apply` accepts `{ identity, mode?: 'merge' | 'replace', replace?, remove?, save? }`: records merge by `id` (typography by `role`) unless their collection is listed in `replace`, string lists are replaced, unknown fields and the project's `id`, `kind` and `revision` are kept, and a failure throws one `TypeError` listing every issue path. `identity.asset.add` and `identity.font.add` take a `File`; a logo `slot` (`mark-dark`, `mark-light`, `wordmark`, `wordmark-light`, `mark-mono`) replaces that slot in place. `identity.audit` returns the brand health report, `identity.fix` applies one finding's `fix.id`, `identity.save` keeps pending changes, and `identity.export.kit` accepts `{ format?: 'zip' | 'dtcg' | 'css' | 'tailwind' | 'markdown' | 'logos', download? }`. See [Brand setup with an agent](/docs/agents/brand-setup).
 

@@ -1,0 +1,76 @@
+---
+title: Typography
+description: Edit the type system: roles, a modular scale, variable font axes, specimens, pairing, wrapping, licences and type tokens.
+icon: Type
+---
+
+Typography edits the identity's four type roles (Display, Body, Accent and Code) and its modular type scale. Changes write to the identity as drafts; select **Save changes** to keep them, or call `identity.save`.
+
+<DocsMedia
+  alt='General Translation typography with the role library, the live specimen and the inspector'
+  caption='The specimen view: type in the brand faces at production scale'
+  meta='Specimen · scale · pairing · wrap · fonts'
+  src='/screenshots/studio-gt-typography-light-2026.png'
+/>
+
+## Roles
+
+The library lists each role in its own face with its family, scale step, size and weight. **Add font file to identity** stores a TTF, OTF, WOFF or WOFF2 file with the identity.
+
+The inspector edits the selected role:
+
+- **Typeface**: the font file, the preview size, weight, line height and tracking. Weights preview up to 550. Dragging a slider previews live; releasing commits.
+- **Variable axes**: Glyphfield reads the font file's axes. When the font has an optical size axis (`opsz`), choose automatic optical sizing or a fixed size; when it has a slant axis (`slnt`), set the slant. Fonts without these axes show which axes they do have. WOFF2 files need a browser that can decode Brotli; otherwise the axes show as not readable.
+- **Type scale**: base size, a named ratio or any ratio from 1.067 to 1.8, and the step this role is set at.
+- **Specimen**: the sample text, alignment and the measure in characters.
+- **Role guidance**: the role's usage and the checks below.
+- **Type tokens**: the type section of the brand tokens as CSS variables, a Tailwind v4 theme or DTCG JSON.
+
+## Modular scale
+
+Sizes are `basePx × ratio^step` across nine steps: caption (−2), small, body (0), lead, h4, h3, h2, h1 and display (+6). Named ratios run from the minor second (1.067) to the golden ratio (1.618). By default Display is set at `display`, Body at `body`, Accent at `lead` and Code at `small`; any role can move to another step, stored as `typeScale.roleSteps`. The Scale view shows every step at its size with the roles set on it; select a step to set the selected role there, or pick a ratio from the chips.
+
+## Guidance
+
+Typography checks every role at its scale size:
+
+- Leading: 0.95–1.15 for display sizes (28 px and up), 1.4–1.7 for text.
+- Tracking: large type usually tightens to between −0.01 and −0.04 em; text stays within ±0.03 em; monospaced code is never tightened.
+- Measure: 45–75 characters per line for body text.
+- Scale: a base below 14 px, a ratio below 1.125 or above 1.5, and a Display role less than 1.5 times the body size.
+- Weight: body text below 300.
+
+## Views
+
+| View | What it shows |
+| --- | --- |
+| Specimen | The selected role at its preview size as an editable specimen, every role on one line, the weights of the family, and the typing meter (words per minute, words, characters, seconds). Typing in any line edits the same sample. |
+| Scale | The modular scale ladder with sizes in px and rem and the roles on each step. |
+| Pairing | The roles together on one surface (Display on the primary color, Body, the alphabet and numerals, Code), then every display face from the brand paired with the body face, with **Use … for Display**. |
+| Wrap | The headline and lead at 320, 480 and 680 px with `text-wrap: wrap`, `balance` or `pretty`. |
+| Fonts | Every font file: the roles that use it, its weight range, its variation axes, its licence and source. Files without a recorded licence are marked. |
+
+## Browser API
+
+| Action | Result |
+| --- | --- |
+| `typography.tokens.read` | Type tokens as text; `{ format?: 'css' \| 'tailwind' \| 'dtcg' }` |
+| `typography.tokens.copy` | The same, copied to the clipboard |
+| `typography.scale.read` | Base, ratio, ratio name, each step in px and rem, and the step of each role |
+| `typography.guidance.read` | The guidance list for the current roles, scale and measure |
+| `typography.axes.read` | Each role's font file and its axes, or `null` when the file cannot be read |
+
+## Source
+
+**File → Edit source code** shows version 2:
+
+```json
+{
+  "version": 2,
+  "typography": [{ "role": "Display", "family": "Inter", "fontId": "inter-variable", "weight": 500, "lineHeight": 0.98, "letterSpacing": -1.2, "opticalSize": 32 }],
+  "typeScale": { "basePx": 16, "ratio": 1.333, "roleSteps": { "Display": "h1" } },
+  "specimen": { "sampleText": "Every language. One source.", "align": "left", "measure": 64, "previewSizes": { "Display": 40, "Body": 24, "Accent": 32, "Code": 18 } }
+}
+```
+
+Roles merge by `role`; unknown role fields are kept. `opticalSize: null` and `slant: null` remove a fixed axis. Version 1 sources (`{ typography: [...] }`) still apply and leave the scale and specimen unchanged. The type tokens include `--brand-font-<role>-size`, and `--brand-font-<role>-variation` and `-style` when a role fixes an axis.
