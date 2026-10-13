@@ -677,7 +677,8 @@ function renderTypeScale(context: TileContext): string {
   const steps = TYPE_SCALE_STEPS;
   const total = steps.reduce((sum, entry) => sum + Math.max(ratio ** entry.step * 1.5, 1.9), 0);
   const unit = rowsH / total;
-  const texts = [tile.copy.headline, identity.voice?.phrases?.[0] ?? identity.strategy?.promise ?? '', identity.strategy?.promise ?? identity.name, tile.copy.body, `${identity.website} · ${identity.socialHandle}`];
+  const lines = distinctLines([...(identity.voice?.phrases ?? []), identity.strategy?.promise, identity.strategy?.concept, identity.positioning], [tile.copy.headline]);
+  const texts = [tile.copy.headline, lines[0] ?? identity.name, lines[1] ?? identity.name, tile.copy.body, `${identity.website} · ${identity.socialHandle}`];
   const labelW = clamp(w * 0.17, 76, 190);
   let y = top;
   const rows = steps.map((entry, index) => {
@@ -689,6 +690,17 @@ function renderTypeScale(context: TileContext): string {
     return markup;
   }).join('');
   return `${rect(0, 0, w, h, surface.background)}${label(context, tile.copy.caption, p, p, { field: 'caption' })}${rows}`;
+}
+
+/** The first candidates that differ from each other and from lines already on the tile. */
+function distinctLines(candidates: ReadonlyArray<string | undefined>, used: readonly string[]): string[] {
+  const seen = new Set(used.map((line) => line.trim().toLocaleLowerCase()));
+  return candidates.flatMap((candidate) => {
+    const line = candidate?.trim();
+    if (!line || seen.has(line.toLocaleLowerCase())) return [];
+    seen.add(line.toLocaleLowerCase());
+    return [line];
+  });
 }
 
 function renderTypePhrases(context: TileContext): string {
@@ -909,7 +921,9 @@ function renderProof(context: TileContext): string {
   const p = pad(context);
   const items = [tile.copy.headline, ...tile.copy.body.split('\n')].map((item) => item.trim()).filter(Boolean).slice(0, 4);
   const numeric = items.some((item) => /\d/.test(item));
-  if (tile.variant === 'list' || !numeric) return renderProofList(context, items, numeric ? 'Proof' : 'Trusted by');
+  // Single-word entries are customer names; phrases are proof statements.
+  const customers = (context.assets.proofAssets?.length ?? 0) >= 3 || items.every((item) => !/\s/.test(item));
+  if (tile.variant === 'list' || !numeric) return renderProofList(context, items, customers && !numeric ? 'Trusted by' : tile.copy.caption || 'Proof');
   const lead = items[0] ?? identity.tagline;
   const rest = items.slice(1, 4);
   const leadSize = clamp(Math.min(h * 0.24, w * 0.14), 18, 96);
