@@ -1,8 +1,9 @@
 'use client';
 
 import { DotLottie, type Fit, type Mode } from '@lottiefiles/dotlottie-web/webgl';
-import { T, useGT } from 'gt-next';
+import { T as GTText } from 'gt-next';
 import {
+  Clapperboard,
   Download,
   ExternalLink,
   ImageDown,
@@ -11,13 +12,24 @@ import {
   RotateCcw,
   Upload,
 } from '@/components/ui/SolidIcons';
-import { useId, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, startTransition, useCallback, useId, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 
 import CanvasViewport from '@/components/CanvasViewport';
 import DesignVersionControls from '@/components/DesignVersionControls';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
 import LiveMaterialControls from '@/components/LiveMaterialControls';
+import {
+  BrandTokenChips,
+  LottieLayerControls,
+  LottieMarkerControls,
+  LottieRecolorModeToggle,
+  LottieSourceColorControls,
+  LottieTransport,
+  useFrameSubscription,
+  type BrandToken,
+} from '@/components/LottieEditorPanels';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import SourceCodeDrawer from '@/components/SourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
@@ -30,6 +42,7 @@ import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
+import { useCachedGT } from '@/hooks/useCachedGT';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 import { useStudioDraft } from '@/hooks/usePersistentState';
 import { usePortableCanvasWorkspace } from '@/hooks/usePortableCanvasWorkspace';
@@ -53,7 +66,21 @@ import {
   parseLottieDocument,
   parseLottieWorkspaceSource,
   type LottieCanvasState,
+  type LottieRecolorMode,
 } from '@/lib/lottieCanvasDocument';
+import {
+  applyLottieEdits,
+  brandLottieColorMap,
+  EMPTY_LOTTIE_EDITS,
+  listLottieColors,
+  listLottieLayers,
+  listLottieMarkers,
+  listLottieTextLayers,
+  normalizeLottieEdits,
+  type LottieEdits,
+  type LottieMarker,
+} from '@/lib/lottieEditing';
+import { blendPremultipliedFrame, fillOpaque, lottieExportDurationMs, lottieExportFrameAt } from '@/lib/lottieMotionExport';
 import {
   customizeLottieDocument,
   LOTTIE_EXAMPLES,
@@ -69,6 +96,11 @@ import {
 } from '@/lib/studioCanvasDocument';
 import { templateBrandLogo } from '@/lib/templateAssets';
 import type { BackgroundStyle } from '@/lib/renderFrame';
+
+// Locale negotiation runs per translated node; memoized nodes and cached
+// strings keep slider ticks from repeating it across the whole editor.
+const T = memo(GTText);
+T.displayName = 'LottieStudioTranslation';
 
 type LottieSource = {
   category: string;
@@ -171,7 +203,10 @@ function RangeControl({
       <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={rangeLabelId}
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          startTransition(() => onChange(next));
+        }}
         step={step}
         value={value}
       />
@@ -179,6 +214,26 @@ function RangeControl({
   );
 }
 
+function customizeSource(
+  source: LottieSource,
+  colors: readonly string[],
+  cornerRadius: number,
+  strokeWidth: number,
+  fontFamily: string,
+  brandLogo: LottieAppearance['brandLogo'],
+  recolor: LottieRecolorMode,
+): LottieDocument {
+  return customizeLottieDocument(source.data as LottieDocument, {
+    brandLogo,
+    colors,
+    cornerRadius,
+    fontFamily,
+    recolorUnnamed: recolor === 'palette',
+    strokeWidth,
+  });
+}
+
+/** The exact data the player, PNG/GIF/MP4 export, and JSON download use: appearance, then edits. */
 function resolveSourceData(
   source: LottieSource,
   colors: readonly string[],
@@ -186,16 +241,114 @@ function resolveSourceData(
   strokeWidth: number,
   fontFamily: string,
   brandLogo?: LottieAppearance['brandLogo'],
+  recolor: LottieRecolorMode = 'palette',
+  edits: LottieEdits = EMPTY_LOTTIE_EDITS,
 ) {
   return source.format === 'json'
-    ? customizeLottieDocument(source.data as LottieDocument, {
-        brandLogo,
-        colors,
-        cornerRadius,
-        fontFamily,
-        strokeWidth,
-      })
+    ? applyLottieEdits(customizeSource(source, colors, cornerRadius, strokeWidth, fontFamily, brandLogo, recolor), edits)
     : source.data;
+}
+
+/** First-visit Lottie palette from the identity: paper field, ink art, a quiet secondary, one accent. */
+function brandLottieDefaults(identity: BrandIdentity) {
+  const color = (id: string, fallback: string) => identity.colors.find((entry) => entry.id === id)?.hex ?? fallback;
+  return {
+    accent: color('emphasis', DEFAULT_LOTTIE_ACCENT_COLOR),
+    art: color('ink', DEFAULT_LOTTIE_ART_COLOR),
+    background: color('paper', DEFAULT_LOTTIE_BACKGROUND),
+    secondary: color('progress', DEFAULT_LOTTIE_SECONDARY_COLOR),
+  };
+}
+
+const lottieDataSignatures = new WeakMap<object, string>();
+
+/** One hash per immutable Lottie document, so state edits never re-serialize the animation data. */
+function lottieDataSignature(data: LottieDocument | null): string {
+  if (!data) return 'none';
+  let signature = lottieDataSignatures.get(data);
+  if (!signature) {
+    signature = String(canvasRevisionFromSignature(JSON.stringify(data)));
+    lottieDataSignatures.set(data, signature);
+  }
+  return signature;
+}
+
+/** One stable object whose methods call the latest render's handlers, so memoized panels skip unrelated renders. */
+function useStableLottieHandlers<H extends Record<string, (...args: never[]) => unknown>>(handlers: H): H {
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
+  const [stable] = useState(() => Object.fromEntries(Object.keys(handlers).map((key) => [
+    key,
+    (...args: unknown[]) => (handlersRef.current[key] as unknown as (...input: unknown[]) => unknown)(...args),
+  ])) as unknown as H);
+  return stable;
+}
+
+function useSettledLottieValue<T>(value: T, delayMs: number): { pending: boolean; value: T } {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (settled === value) return;
+    const timer = window.setTimeout(() => startTransition(() => setSettled(value)), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, settled, value]);
+  return { pending: settled !== value, value: settled };
+}
+
+/** Reads the WebGL frame into a reusable 2D target, flipping rows without per-frame allocation churn. */
+function parseLottieExportRequest(input: unknown): { download: boolean; format: 'gif' | 'mp4' | 'png' | 'source' } {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError("lottie.export requires { format: 'png' | 'source' | 'gif' | 'mp4', download? }.");
+  }
+  const request = input as { download?: unknown; format?: unknown };
+  if (request.format !== 'png' && request.format !== 'source' && request.format !== 'gif' && request.format !== 'mp4') {
+    throw new TypeError('lottie.export format must be png, source, gif, or mp4.');
+  }
+  if (request.download !== undefined && typeof request.download !== 'boolean') {
+    throw new TypeError('lottie.export download must be Boolean.');
+  }
+  return { download: request.download === true, format: request.format };
+}
+
+/** Describe and edit actions; undefined means the action is not an editing action. */
+function invokeLottieEditing(
+  automation: {
+    applyEditPatch: (input: unknown) => unknown;
+    describe: () => unknown;
+    mapColorsToBrand: () => unknown;
+    setSegment: (input: unknown) => unknown;
+  },
+  action: string,
+  input: unknown
+): unknown {
+  if (action === 'lottie.describe') return automation.describe();
+  if (action === 'lottie.edit') return automation.applyEditPatch(input);
+  if (action === 'lottie.colors.brand') return automation.mapColorsToBrand();
+  if (action === 'lottie.segment.set') return automation.setSegment(input);
+  return undefined;
+}
+
+function loadExportPlayer(data: ArrayBuffer | LottieDocument, fit: Fit, width: number, height: number, interpolate: boolean): Promise<{ player: DotLottie; surface: HTMLCanvasElement }> {
+  return new Promise((resolve, reject) => {
+    const surface = document.createElement('canvas');
+    surface.width = width;
+    surface.height = height;
+    void preloadLottieRuntime();
+    const player = new DotLottie({
+      autoplay: false,
+      backgroundColor: 'transparent',
+      canvas: surface,
+      data,
+      layout: { align: [0.5, 0.5], fit },
+      loop: false,
+      renderConfig: { autoResize: false, devicePixelRatio: 1, freezeOnOffscreen: false, quality: 100 },
+      useFrameInterpolation: interpolate,
+    });
+    const timeout = window.setTimeout(() => { player.destroy(); reject(new Error('The Lottie animation took too long to load for export.')); }, 10_000);
+    player.addEventListener('load', () => { window.clearTimeout(timeout); resolve({ player, surface }); });
+    player.addEventListener('loadError', () => { window.clearTimeout(timeout); player.destroy(); reject(new Error('The Lottie animation could not be loaded for export.')); });
+  });
 }
 
 function rasterizeImageDataUrl(
@@ -331,7 +484,7 @@ function renderLottieFrame({
 }
 
 export default function LottieStudio({ active = true, identity }: { active?: boolean; identity: BrandIdentity }) {
-  const gt = useGT();
+  const gt = useCachedGT();
   const studioExport = useStudioExportProgress(`${identity.id}:lottie`);
   const brandFontFamily = brandTypographyFamily(identity, 'Display');
   const brandDisplayTypography = brandTypographyRole(identity, 'Display');
@@ -344,16 +497,17 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     colorB: brandMaterialColors[1],
     colorC: brandMaterialColors[2],
   };
+  const brandDefaults = useMemo(() => brandLottieDefaults(identity), [identity]);
   const [source, setSource] = useState<LottieSource>(DEFAULT_SOURCE);
   const [canvasPreset, setCanvasPreset] = useStudioDraft<CanvasPreset>(identity.id, 'lottie', 'canvas-preset', 'landscape');
-  const [background, setBackground] = useStudioDraft(identity.id, 'lottie', 'background-v4', DEFAULT_LOTTIE_BACKGROUND);
+  const [background, setBackground] = useStudioDraft(identity.id, 'lottie', 'background-v4', brandDefaults.background);
   const [backgroundStyle, setBackgroundStyle] = useStudioDraft<BackgroundStyle>(identity.id, 'lottie', 'background-style-v4', 'solid');
   const [materialId, setMaterialId] = useStudioDraft<LiveMaterialId>(identity.id, 'lottie', 'material-id', DEFAULT_LIVE_MATERIAL_ID);
   const [materialSettings, setMaterialSettings] = useStudioDraft<LiveMaterialSettings>(identity.id, 'lottie', 'material-settings', defaultMaterialSettings);
   const [transparent, setTransparent] = useStudioDraft(identity.id, 'lottie', 'transparent', false);
-  const [artColor, setArtColor] = useStudioDraft(identity.id, 'lottie', 'art-color-v4', DEFAULT_LOTTIE_ART_COLOR);
-  const [secondaryColor, setSecondaryColor] = useStudioDraft(identity.id, 'lottie', 'secondary-color-v4', DEFAULT_LOTTIE_SECONDARY_COLOR);
-  const [accentColor, setAccentColor] = useStudioDraft(identity.id, 'lottie', 'accent-color-v4', DEFAULT_LOTTIE_ACCENT_COLOR);
+  const [artColor, setArtColor] = useStudioDraft(identity.id, 'lottie', 'art-color-v4', brandDefaults.art);
+  const [secondaryColor, setSecondaryColor] = useStudioDraft(identity.id, 'lottie', 'secondary-color-v4', brandDefaults.secondary);
+  const [accentColor, setAccentColor] = useStudioDraft(identity.id, 'lottie', 'accent-color-v4', brandDefaults.accent);
   const [cornerRadius, setCornerRadius] = useStudioDraft(identity.id, 'lottie', 'corner-radius-v4', DEFAULT_LOTTIE_CORNER_RADIUS);
   const [strokeWidth, setStrokeWidth] = useStudioDraft(identity.id, 'lottie', 'stroke-width-v4', DEFAULT_LOTTIE_STROKE_WIDTH);
   const [speed, setSpeed] = useStudioDraft(identity.id, 'lottie', 'speed', 1);
@@ -361,8 +515,14 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const [interpolate, setInterpolate] = useStudioDraft(identity.id, 'lottie', 'interpolate', true);
   const [fit, setFit] = useStudioDraft<Fit>(identity.id, 'lottie', 'fit', 'contain');
   const [mode, setMode] = useStudioDraft<Mode>(identity.id, 'lottie', 'mode', 'forward');
+  const [recolor, setRecolor] = useStudioDraft<LottieRecolorMode>(identity.id, 'lottie', 'recolor-v1', 'palette');
+  const [edits, setEdits] = useState<LottieEdits>(EMPTY_LOTTIE_EDITS);
+  const [bundleMarkers, setBundleMarkers] = useState<LottieMarker[]>([]);
+  const [shaderCaptureTimeMs, setShaderCaptureTimeMs] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportJobRef = useRef(false);
+  const frames = useFrameSubscription();
   const [isPlaying, setIsPlaying] = useState(true);
-  const [currentFrame, setCurrentFrame] = useState(0);
   const [totalFrames, setTotalFrames] = useState(240);
   const [duration, setDuration] = useState(4);
   const [segmentStart, setSegmentStart] = useState(0);
@@ -393,11 +553,15 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const backgroundRef = useCommittedRef(background);
   const backgroundStyleRef = useCommittedRef(backgroundStyle);
   const brandFontFamilyRef = useCommittedRef(brandFontFamily);
+  const recolorRef = useCommittedRef(recolor);
+  const editsRef = useCommittedRef(edits);
   const brandLogoRef = useRef<LottieAppearance['brandLogo']>(undefined);
   const desiredPlayingRef = useRef(true);
   const reducedMotionRef = useRef(false);
   const lastFrameUpdateRef = useRef(0);
   const reloadFrameRef = useRef<number | null>(null);
+  const reloadTimerRef = useRef<number | null>(null);
+  const lastReloadRef = useRef(0);
   const sourceTransitionRef = useRef<number | null>(null);
   const segmentStartRef = useCommittedRef(segmentStart);
   const segmentEndRef = useCommittedRef(segmentEnd);
@@ -429,6 +593,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       accentColor,
       artColor,
       cornerRadius,
+      recolor,
       secondaryColor,
       strokeWidth,
     },
@@ -440,6 +605,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       transparent,
     },
     canvasPreset,
+    edits,
     playback: {
       fit,
       interpolate,
@@ -457,12 +623,14 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     backgroundStyle,
     canvasPreset,
     cornerRadius,
+    edits,
     fit,
     interpolate,
     loop,
     materialId,
     materialSettings,
     mode,
+    recolor,
     secondaryColor,
     segmentEnd,
     segmentStart,
@@ -471,79 +639,70 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     strokeWidth,
     transparent,
   ]);
+  // Slider drags settle before the portable document is rebuilt and serialized.
+  const settledLottieState = useSettledLottieValue(lottieState, 180);
+  const settledState = settledLottieState.value;
   const lottieRevision = useMemo(
-    () => JSON.stringify({ binarySource: source.portableDataUrl ?? null, state: lottieState }),
-    [lottieState, source.portableDataUrl]
+    () => JSON.stringify({
+      binarySource: source.portableDataUrl ? lottieDataSignature({ url: source.portableDataUrl }) : null,
+      data: lottieDataSignature(settledState.source.data),
+      state: { ...settledState, source: { ...settledState.source, data: null } },
+    }),
+    [settledState, source.portableDataUrl]
   );
-  const lottieDocument = useMemo(() => createStudioCanvasDocument({
-    background: transparent ? '#00000000' : background,
-    brandId: identity.id,
-    createdAt: documentCreatedAt,
-    height: canvas.height,
-    id: `${identity.id}:lottie:composition`,
-    layers: [
-      {
-        bounds: { height: canvas.height, rotation: 0, width: canvas.width, x: 0, y: 0 },
-        data: { materialId, materialSettings, style: backgroundStyle, transparent },
-        hidden: transparent,
-        id: 'lottie-background',
-        kind: backgroundStyle === 'shader' ? 'shader' as const : 'shape' as const,
-        name: 'Canvas background',
-      },
-      {
-        ...(source.format === 'dotlottie' && source.portableDataUrl ? {
-          asset: {
-            kind: 'binary' as const,
-            name: source.fileName,
-            source: source.portableDataUrl,
-          },
-        } : {}),
-        bounds: { height: canvas.height, rotation: 0, width: canvas.width, x: 0, y: 0 },
-        data: { fit, format: source.format, sourceId: source.id },
-        id: 'lottie-animation',
-        kind: 'component' as const,
-        name: source.name,
-      },
-      ...(brandDisplayFont ? [{
-        asset: {
-          kind: 'font' as const,
-          name: brandDisplayFont.label,
-          source: brandDisplayFont.path,
+  const lottieDocument = useMemo(() => {
+    const settledCanvas = CANVAS_PRESETS[settledState.canvasPreset];
+    const settledBackground = settledState.background;
+    return createStudioCanvasDocument({
+      background: settledBackground.transparent ? '#00000000' : settledBackground.color,
+      brandId: identity.id,
+      createdAt: documentCreatedAt,
+      height: settledCanvas.height,
+      id: `${identity.id}:lottie:composition`,
+      layers: [
+        {
+          bounds: { height: settledCanvas.height, rotation: 0, width: settledCanvas.width, x: 0, y: 0 },
+          data: { materialId: settledBackground.materialId, materialSettings: settledBackground.materialSettings, style: settledBackground.style, transparent: settledBackground.transparent },
+          hidden: settledBackground.transparent,
+          id: 'lottie-background',
+          kind: settledBackground.style === 'shader' ? 'shader' as const : 'shape' as const,
+          name: 'Canvas background',
         },
-        bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 },
-        hidden: true,
-        id: 'lottie-font',
-        kind: 'component' as const,
-        name: 'Display font',
-      }] : []),
-    ],
-    revision: canvasRevisionFromSignature(lottieRevision),
-    state: lottieState,
-    title: `${identity.name} Lottie`,
-    toolId: 'lottie',
-    updatedAt: documentCreatedAt,
-    width: canvas.width,
-  }), [
-    background,
-    backgroundStyle,
-    brandDisplayFont,
-    canvas.height,
-    canvas.width,
-    documentCreatedAt,
-    fit,
-    identity.id,
-    identity.name,
-    lottieRevision,
-    lottieState,
-    materialId,
-    materialSettings,
-    source.fileName,
-    source.format,
-    source.id,
-    source.name,
-    source.portableDataUrl,
-    transparent,
-  ]);
+        {
+          ...(settledState.source.format === 'dotlottie' && source.portableDataUrl ? {
+            asset: {
+              kind: 'binary' as const,
+              name: settledState.source.fileName,
+              source: source.portableDataUrl,
+            },
+          } : {}),
+          bounds: { height: settledCanvas.height, rotation: 0, width: settledCanvas.width, x: 0, y: 0 },
+          data: { fit: settledState.playback.fit, format: settledState.source.format, sourceId: settledState.source.id },
+          id: 'lottie-animation',
+          kind: 'component' as const,
+          name: settledState.source.name,
+        },
+        ...(brandDisplayFont ? [{
+          asset: {
+            kind: 'font' as const,
+            name: brandDisplayFont.label,
+            source: brandDisplayFont.path,
+          },
+          bounds: { height: 1, rotation: 0, width: 1, x: 0, y: 0 },
+          hidden: true,
+          id: 'lottie-font',
+          kind: 'component' as const,
+          name: 'Display font',
+        }] : []),
+      ],
+      revision: canvasRevisionFromSignature(lottieRevision),
+      state: settledState,
+      title: `${identity.name} Lottie`,
+      toolId: 'lottie',
+      updatedAt: documentCreatedAt,
+      width: settledCanvas.width,
+    });
+  }, [brandDisplayFont, documentCreatedAt, identity.id, identity.name, lottieRevision, settledState, source.portableDataUrl]);
   const lottieWorkspaceKey = useMemo(
     () => savedDesignStorageKey(identity.id, 'lottie'),
     [identity.id]
@@ -551,6 +710,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const portableLottie = usePortableCanvasWorkspace({
     applySource: applyWorkspaceSource,
     document: lottieDocument,
+    suspendAutosave: settledLottieState.pending,
     workspaceKey: lottieWorkspaceKey,
   });
 
@@ -570,22 +730,31 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   function loadSource(nextSource: LottieSource) {
     setError(null);
     setIsSourceTransitioning(true);
-    setCurrentFrame(0);
+    frames.publish(0);
     // The WebGL player can repaint its original scene when seeking after load().
     // Give each replacement a fresh native timeline and rendering surface.
     playerSourceRef.current = nextSource;
     setPlayerGeneration((generation) => generation + 1);
   }
 
+  /**
+   * Rebuilding the native player costs a WebGL context and a WASM parse, so
+   * continuous colour or edit drags reload at most every 150ms, with a trailing
+   * reload for the final value.
+   */
   function scheduleSourceReload() {
     if (sourceRef.current.format !== 'json') return;
-    if (reloadFrameRef.current !== null) {
-      window.cancelAnimationFrame(reloadFrameRef.current);
-    }
-    reloadFrameRef.current = window.requestAnimationFrame(() => {
+    if (reloadFrameRef.current !== null) window.cancelAnimationFrame(reloadFrameRef.current);
+    if (reloadTimerRef.current !== null) window.clearTimeout(reloadTimerRef.current);
+    const run = () => {
       reloadFrameRef.current = null;
+      reloadTimerRef.current = null;
+      lastReloadRef.current = performance.now();
       loadSource(sourceRef.current);
-    });
+    };
+    const wait = 150 - (performance.now() - lastReloadRef.current);
+    if (wait <= 0) reloadFrameRef.current = window.requestAnimationFrame(run);
+    else reloadTimerRef.current = window.setTimeout(run, wait);
   }
 
   useEffect(() => {
@@ -624,6 +793,8 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
         strokeWidthRef.current,
         brandFontFamilyRef.current,
         brandLogoRef.current,
+        recolorRef.current,
+        editsRef.current,
       ),
       layout: { align: [0.5, 0.5], fit: fitRef.current },
       loop: loopRef.current,
@@ -660,6 +831,9 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       segmentEndRef.current = restoredEnd;
       player.setSegment(restoredStart, restoredEnd);
       applyPlaybackSettings(player);
+      setBundleMarkers(playerSourceRef.current.format === 'dotlottie'
+        ? player.markers().map(({ duration, name, time }) => ({ duration, frame: time, name }))
+        : []);
       if (desiredPlayingRef.current) {
         player.setFrame(restoredStart);
         player.play();
@@ -676,18 +850,18 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       const now = performance.now();
       if (now - lastFrameUpdateRef.current < 40) return;
       lastFrameUpdateRef.current = now;
-      setCurrentFrame(Math.round(nextFrame));
+      frames.publish(Math.round(nextFrame));
     };
     const handleLoadError = () => setError(gt('This Lottie file could not be loaded.'));
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => {
       // Flush the exact stopped pose instead of retaining a throttled display
       // value. Otherwise seeking to that displayed value can be a DOM no-op.
-      setCurrentFrame(Math.round(player.currentFrame));
+      frames.publish(Math.round(player.currentFrame));
       setIsPlaying(false);
     };
     const handleStop = () => {
-      setCurrentFrame(segmentStartRef.current);
+      frames.publish(segmentStartRef.current);
       setIsPlaying(false);
     };
     player.addEventListener('load', handleLoad);
@@ -701,6 +875,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       if (reloadFrameRef.current !== null) {
         window.cancelAnimationFrame(reloadFrameRef.current);
       }
+      if (reloadTimerRef.current !== null) window.clearTimeout(reloadTimerRef.current);
       if (sourceTransitionRef.current !== null) {
         window.clearTimeout(sourceTransitionRef.current);
       }
@@ -726,7 +901,14 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     if (desiredPlayingRef.current) player.play();
   }, [active, playerGeneration, projectWorkspaceActiveRef]);
 
-  function selectSource(nextSource: LottieSource) {
+  /** A new source starts with no edits; built-in studies use palette slots, imports keep their colours. */
+  function selectSource(nextSource: LottieSource, restored?: { edits: LottieEdits; recolor: LottieRecolorMode }) {
+    const nextEdits = restored?.edits ?? EMPTY_LOTTIE_EDITS;
+    const nextRecolor = restored?.recolor ?? (nextSource.provenance === 'Glyphfield example' ? 'palette' : 'source');
+    editsRef.current = nextEdits;
+    recolorRef.current = nextRecolor;
+    setEdits(nextEdits);
+    setRecolor(nextRecolor);
     setSource(nextSource);
     desiredPlayingRef.current = !reducedMotionRef.current;
     setIsPlaying(!reducedMotionRef.current);
@@ -795,7 +977,10 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     setFit(restored.playback.fit as Fit);
     setMode(restored.playback.mode as Mode);
     updateCanvasPreset(restored.canvasPreset);
-    selectSource(nextLottieSource);
+    selectSource(nextLottieSource, {
+      edits: restored.edits ?? EMPTY_LOTTIE_EDITS,
+      recolor: restored.appearance.recolor ?? (parsed.legacy ? 'source' : 'palette'),
+    });
   }
 
   async function importFile(file: File) {
@@ -837,6 +1022,15 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       player.play();
     }
   }
+
+  const scrubToFrame = useCallback((frame: number) => {
+    const player = playerRef.current;
+    player?.pause();
+    desiredPlayingRef.current = false;
+    setIsPlaying(false);
+    player?.setFrame(frame);
+    frames.publish(frame);
+  }, [frames]);
 
   function restart() {
     const player = playerRef.current;
@@ -977,6 +1171,8 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       strokeWidth,
       brandFontFamily,
       brandLogoRef.current,
+      recolor,
+      edits,
     ) as LottieDocument;
     const previewText = JSON.stringify(data, null, 2);
     asset = {
@@ -996,7 +1192,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     studioExport.start('Rendering Lottie frame preview');
     // The inspector display is throttled; capture the player's actual pose,
     // including a seek immediately followed by an export action.
-    const exportFrame = playerRef.current?.currentFrame ?? currentFrame;
+    const exportFrame = playerRef.current?.currentFrame ?? frames.frameRef.current;
     const fileName = `${source.id}-frame-${Math.round(exportFrame)}.png`;
     try {
       const renderedLottie = await renderLottieFrame({
@@ -1007,6 +1203,8 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
           strokeWidth,
           brandFontFamily,
           brandLogoRef.current,
+          recolor,
+          edits,
         ),
         fit,
         frame: exportFrame,
@@ -1056,10 +1254,250 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     }
   }
 
+  const sourceDocument = source.format === 'json' ? source.data as LottieDocument : null;
+  const layerSummaries = useMemo(() => (sourceDocument ? listLottieLayers(sourceDocument) : []), [sourceDocument]);
+  const textLayers = useMemo(() => (sourceDocument ? listLottieTextLayers(sourceDocument) : []), [sourceDocument]);
+  const authoredMarkers = useMemo(() => (sourceDocument ? listLottieMarkers(sourceDocument) : []), [sourceDocument]);
+  const activeMarkers = source.format === 'dotlottie' ? bundleMarkers : edits.markers ?? authoredMarkers;
+  // Colours as the player shows them before the colour map: palette slots and geometry applied.
+  const discoveredColors = useMemo(() => (sourceDocument
+    ? listLottieColors(customizeSource(source, [artColor, secondaryColor, accentColor], cornerRadius, strokeWidth, brandFontFamily, undefined, recolor))
+    : []), [accentColor, artColor, brandFontFamily, cornerRadius, recolor, secondaryColor, source, sourceDocument, strokeWidth]);
+  const brandTokens = useMemo<BrandToken[]>(() => identity.colors.map(({ hex, id, name }) => ({ hex, id, name })), [identity.colors]);
+
+  function updateEdits(update: (current: LottieEdits) => LottieEdits) {
+    const next = update(editsRef.current);
+    if (next === editsRef.current) return;
+    editsRef.current = next;
+    setEdits(next);
+    scheduleSourceReload();
+  }
+
+  function setLayerVisibility(key: string, visible: boolean) {
+    updateEdits((current) => ({
+      ...current,
+      hiddenLayers: visible ? current.hiddenLayers.filter((entry) => entry !== key) : [...new Set([...current.hiddenLayers, key])],
+    }));
+  }
+
+  function setLayerText(key: string, text: string | null) {
+    updateEdits((current) => {
+      const textOverrides = { ...current.textOverrides };
+      if (text === null) delete textOverrides[key];
+      else textOverrides[key] = text.slice(0, 500);
+      return { ...current, textOverrides };
+    });
+  }
+
+  function setColorReplacement(from: string, to: string | null) {
+    updateEdits((current) => {
+      const colorMap = { ...current.colorMap };
+      if (to === null) delete colorMap[from];
+      else colorMap[from] = to.toUpperCase();
+      return { ...current, colorMap };
+    });
+  }
+
+  function mapColorsToBrand() {
+    updateEdits((current) => ({ ...current, colorMap: brandLottieColorMap(discoveredColors.map(({ hex }) => hex), identity.colors) }));
+  }
+
+  function setMarkers(markers: LottieMarker[]) {
+    updateEdits((current) => ({ ...current, markers }));
+  }
+
+  function addMarker() {
+    const frame = Math.round(frames.frameRef.current);
+    const end = frame < segmentEndRef.current ? segmentEndRef.current : Math.max(frame + 1, totalFrames - 1);
+    setMarkers([...activeMarkers, { duration: Math.max(1, end - frame), frame, name: `Segment ${activeMarkers.length + 1}` }]);
+  }
+
+  function playMarker(marker: LottieMarker) {
+    const end = Math.min(totalFrames - 1, marker.frame + Math.max(1, marker.duration));
+    updateSegment(marker.frame, end);
+    const player = playerRef.current;
+    if (!player) return;
+    player.setFrame(marker.frame);
+    desiredPlayingRef.current = true;
+    player.play();
+  }
+
+  function setRecolorMode(mode: LottieRecolorMode) {
+    recolorRef.current = mode;
+    setRecolor(mode);
+    scheduleSourceReload();
+  }
+
+  function describeLottie() {
+    return {
+      colors: discoveredColors,
+      edits: editsRef.current,
+      format: source.format,
+      frameRate: duration > 0 ? totalFrames / duration : 0,
+      layers: layerSummaries,
+      markers: activeMarkers,
+      recolor: recolorRef.current,
+      segment: { end: segmentEndRef.current, start: segmentStartRef.current },
+      source: { id: source.id, name: source.name },
+      textLayers,
+      totalFrames,
+    };
+  }
+
+  /** Validated patch over the current edits; every listed field replaces the stored one. */
+  function applyLottieEditPatch(input: unknown) {
+    if (source.format !== 'json') throw new Error('Layer, colour, and text edits apply to Lottie JSON. .lottie bundles keep their embedded artwork.');
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('lottie.edit requires { hiddenLayers?, colorMap?, textOverrides?, markers?, recolor? }.');
+    const patch = input as Record<string, unknown>;
+    const allowed = new Set(['colorMap', 'hiddenLayers', 'markers', 'recolor', 'textOverrides']);
+    for (const key of Object.keys(patch)) if (!allowed.has(key)) throw new TypeError(`lottie.edit does not accept ${key}.`);
+    if (patch.recolor !== undefined && patch.recolor !== 'palette' && patch.recolor !== 'source') throw new TypeError("lottie.edit recolor must be 'palette' or 'source'.");
+    const next = normalizeLottieEdits({ ...editsRef.current, ...patch, recolor: undefined });
+    const knownLayers = new Set(layerSummaries.map(({ key }) => key));
+    const unknownLayer = [...next.hiddenLayers, ...Object.keys(next.textOverrides)].find((key) => !knownLayers.has(key));
+    if (unknownLayer) throw new RangeError(`lottie.edit layer ${unknownLayer} is not in this document. Read lottie.describe for layer keys.`);
+    flushSync(() => {
+      if (patch.recolor === 'palette' || patch.recolor === 'source') setRecolorMode(patch.recolor);
+      updateEdits(() => next);
+    });
+    return describeLottie();
+  }
+
+  function setSegmentFromInput(input: unknown) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('lottie.segment.set requires { marker } or { start, end }.');
+    const request = input as { end?: unknown; marker?: unknown; start?: unknown };
+    if (typeof request.marker === 'string') {
+      const marker = activeMarkers.find(({ name }) => name === request.marker);
+      if (!marker) throw new RangeError(`lottie.segment.set marker ${request.marker} is not in this document.`);
+      flushSync(() => playMarker(marker));
+      return describeLottie();
+    }
+    if (typeof request.start !== 'number' || typeof request.end !== 'number' || !Number.isFinite(request.start) || !Number.isFinite(request.end)) {
+      throw new TypeError('lottie.segment.set start and end must be frame numbers.');
+    }
+    flushSync(() => updateSegment(Math.round(request.start as number), Math.round(request.end as number)));
+    return describeLottie();
+  }
+
+  /**
+   * Renders the trimmed segment through a dedicated player at output size, with
+   * the composited background and live material at each output time.
+   */
+  async function exportMotion(format: 'gif' | 'mp4'): Promise<ExportPreviewAsset> {
+    if (exportJobRef.current) throw new Error('Wait for the current Lottie export before starting another one.');
+    exportJobRef.current = true;
+    setExporting(true);
+    studioExport.start(format === 'gif' ? 'Rendering Lottie GIF' : 'Rendering Lottie MP4', 0);
+    const wasPlaying = desiredPlayingRef.current;
+    playerRef.current?.pause();
+    let exportPlayer: DotLottie | null = null;
+    let shaderExport: { dispose: () => void; refresh: () => Promise<void>; sources: readonly { background?: { image?: CanvasImageSource } }[] } | null = null;
+    try {
+      const data = resolveSourceData(source, [artColor, secondaryColor, accentColor], cornerRadius, strokeWidth, brandFontFamily, brandLogoRef.current, recolor, edits);
+      const loaded = await loadExportPlayer(data, fit, canvas.width, canvas.height, interpolate);
+      exportPlayer = loaded.player;
+      const timing = {
+        frameRate: exportPlayer.duration > 0 ? exportPlayer.totalFrames / exportPlayer.duration : 60,
+        mode,
+        segmentEnd: segmentEndRef.current,
+        segmentStart: segmentStartRef.current,
+        speed,
+      };
+      const usesShader = !transparent && backgroundStyle === 'shader';
+      if (usesShader) {
+        const { createAnimationShaderExport } = await import('@/lib/animationShaderExport');
+        shaderExport = createAnimationShaderExport(
+          [{ background: { angle: 0, colorA: materialSettings.colorA, colorB: materialSettings.colorB, colorC: materialSettings.colorC, materialId, materialSettings, style: 'shader' }, id: 'lottie-background', kind: 'text', text: '' }],
+          () => ({ key: 'lottie-background', root: () => shaderLayerRef.current })
+        );
+      }
+      const output = document.createElement('canvas');
+      output.width = canvas.width;
+      output.height = canvas.height;
+      const context = output.getContext('2d', { willReadFrequently: true });
+      const gl = loaded.surface.getContext('webgl2') ?? loaded.surface.getContext('webgl');
+      if (!context || !gl) throw new Error('Canvas rendering is unavailable.');
+      const readback = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+      const frame = new ImageData(gl.drawingBufferWidth, gl.drawingBufferHeight);
+      const renderFrame = async ({ timeMs }: { timeMs: number }) => {
+        if (shaderExport) {
+          flushSync(() => setShaderCaptureTimeMs(timeMs));
+          await shaderExport.refresh();
+          const image = shaderExport.sources[0]?.background?.image;
+          if (image) context.drawImage(image, 0, 0, output.width, output.height);
+          frame.data.set(context.getImageData(0, 0, output.width, output.height).data);
+        } else {
+          // GIF and MP4 have no alpha: a transparent canvas flattens onto its colour.
+          fillOpaque(frame.data, background);
+        }
+        exportPlayer!.setFrame(Math.max(0, Math.min(exportPlayer!.totalFrames - 1, lottieExportFrameAt(timeMs, timing))));
+        gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, readback);
+        blendPremultipliedFrame(readback, frame.data, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        context.putImageData(frame, 0, 0);
+      };
+      const onProgress = (progress: number) => studioExport.update(progress);
+      const durationMs = lottieExportDurationMs(timing);
+      const { encodeCanvasGif, encodeCanvasMp4 } = await import('@/lib/canvasExport');
+      const blob = format === 'gif'
+        ? await encodeCanvasGif({ canvas: output, colors: 256, durationMs, fps: 25, onProgress, paletteFormat: 'rgb565', paletteStrategy: 'global', protectedColors: [artColor, secondaryColor, accentColor], renderFrame })
+        : await encodeCanvasMp4({ canvas: output, durationMs, fps: 30, onProgress, quality: 'balanced', renderFrame });
+      const asset: ExportPreviewAsset = {
+        blob,
+        fileName: `${source.id}.${format}`,
+        format: format === 'gif' ? 'GIF' : 'MP4',
+        height: output.height,
+        width: output.width,
+      };
+      setLastExport(asset);
+      return asset;
+    } finally {
+      exportPlayer?.destroy();
+      shaderExport?.dispose();
+      setShaderCaptureTimeMs(null);
+      exportJobRef.current = false;
+      setExporting(false);
+      studioExport.finish();
+      if (wasPlaying) playerRef.current?.play();
+    }
+  }
+
+  async function requestMotionExport(format: 'gif' | 'mp4') {
+    try {
+      setError(null);
+      await exportMotion(format);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : gt('The Lottie motion export failed.'));
+    }
+  }
+
+  const panelActions = useStableLottieHandlers({
+    addMarker,
+    mapColorsToBrand,
+    playMarker,
+    removeMarker: (index: number) => setMarkers(activeMarkers.filter((_, position) => position !== index)),
+    renameMarker: (index: number, name: string) => setMarkers(activeMarkers.map((marker, position) => position === index ? { ...marker, name: name.slice(0, 64) || marker.name } : marker)),
+    resetColorMap: () => updateEdits((current) => ({ ...current, colorMap: {} })),
+    setColorReplacement,
+    setLayerText,
+    setLayerVisibility,
+    updateAccentColor,
+    updateArtColor,
+    updateSecondaryColor,
+  });
+
   const lottieAutomationRef = useCommittedRef({
+    applyEditPatch: applyLottieEditPatch,
     applySource: applyWorkspaceSource,
+    describe: describeLottie,
     downloadPng,
     downloadSource,
+    exportMotion,
+    mapColorsToBrand: () => {
+      if (source.format !== 'json') throw new Error('Brand token mapping applies to Lottie JSON.');
+      flushSync(mapColorsToBrand);
+      return describeLottie();
+    },
+    setSegment: setSegmentFromInput,
     source: portableLottie.source,
   });
   useEffect(() => registerStudioAutomation({
@@ -1073,21 +1511,19 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     invoke: async (action, input) => {
       let asset: ExportPreviewAsset;
       let download = false;
+      const automation = lottieAutomationRef.current;
+      const editing = invokeLottieEditing(automation, action, input);
+      if (editing !== undefined) return editing;
       if (action === 'lottie.export') {
-        if (!input || typeof input !== 'object' || Array.isArray(input)) {
-          throw new TypeError("lottie.export requires { format: 'png' | 'source', download? }.");
-        }
-        const request = input as { download?: unknown; format?: unknown };
-        if (request.format !== 'png' && request.format !== 'source') {
-          throw new TypeError('lottie.export format must be png or source.');
-        }
-        if (request.download !== undefined && typeof request.download !== 'boolean') {
-          throw new TypeError('lottie.export download must be Boolean.');
-        }
-        download = request.download === true;
+        const request = parseLottieExportRequest(input);
+        download = request.download;
         asset = request.format === 'png'
-          ? await lottieAutomationRef.current.downloadPng()
-          : lottieAutomationRef.current.downloadSource();
+          ? await automation.downloadPng()
+          : request.format === 'source'
+            ? automation.downloadSource()
+            : await automation.exportMotion(request.format);
+      } else if (action === 'lottie.export.gif' || action === 'lottie.export.mp4') {
+        asset = await automation.exportMotion(action === 'lottie.export.gif' ? 'gif' : 'mp4');
       } else if (action === 'lottie.export.frame.png') {
         asset = await lottieAutomationRef.current.downloadPng();
       } else if (action === 'lottie.export.source') {
@@ -1102,14 +1538,14 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   }, studioRootRef.current), [lottieAutomationRef]);
 
   function resetEditor() {
-    setBackground(DEFAULT_LOTTIE_BACKGROUND);
+    setBackground(brandDefaults.background);
     updateBackgroundStyle('solid');
     setMaterialId(DEFAULT_LIVE_MATERIAL_ID);
     setMaterialSettings(defaultMaterialSettings);
     setTransparent(false);
-    setArtColor(DEFAULT_LOTTIE_ART_COLOR);
-    setSecondaryColor(DEFAULT_LOTTIE_SECONDARY_COLOR);
-    setAccentColor(DEFAULT_LOTTIE_ACCENT_COLOR);
+    setArtColor(brandDefaults.art);
+    setSecondaryColor(brandDefaults.secondary);
+    setAccentColor(brandDefaults.accent);
     setCornerRadius(DEFAULT_LOTTIE_CORNER_RADIUS);
     setStrokeWidth(DEFAULT_LOTTIE_STROKE_WIDTH);
     setSpeed(1);
@@ -1118,11 +1554,11 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     setFit('contain');
     setMode('forward');
     updateCanvasPreset('landscape');
-    backgroundRef.current = DEFAULT_LOTTIE_BACKGROUND;
+    backgroundRef.current = brandDefaults.background;
     transparentRef.current = false;
-    artColorRef.current = DEFAULT_LOTTIE_ART_COLOR;
-    secondaryColorRef.current = DEFAULT_LOTTIE_SECONDARY_COLOR;
-    accentColorRef.current = DEFAULT_LOTTIE_ACCENT_COLOR;
+    artColorRef.current = brandDefaults.art;
+    secondaryColorRef.current = brandDefaults.secondary;
+    accentColorRef.current = brandDefaults.accent;
     cornerRadiusRef.current = DEFAULT_LOTTIE_CORNER_RADIUS;
     strokeWidthRef.current = DEFAULT_LOTTIE_STROKE_WIDTH;
     speedRef.current = 1;
@@ -1142,9 +1578,17 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
             { label: gt('Workspace'), items: [{ id: 'reset', label: gt('Reset Lottie editor'), description: gt('Return to the starting animation and settings.'), icon: <RotateCcw />, onSelect: resetEditor }] },
           ]} />
           <ExportPreview asset={lastExport} />
-          <Button disabled={!portableLottie.document || isSourceTransitioning} onClick={() => void downloadPng()} type='button' variant='outline'>
+          <Button disabled={!portableLottie.document || isSourceTransitioning || exporting} onClick={() => void downloadPng()} type='button' variant='outline'>
             <ImageDown aria-hidden='true' />
             <T>Export frame</T>
+          </Button>
+          <Button aria-label={gt('Export Lottie GIF')} disabled={isSourceTransitioning || exporting} onClick={() => void requestMotionExport('gif')} type='button' variant='outline'>
+            <Download aria-hidden='true' />
+            <T>GIF</T>
+          </Button>
+          <Button aria-label={gt('Export Lottie MP4')} disabled={isSourceTransitioning || exporting} onClick={() => void requestMotionExport('mp4')} type='button' variant='outline'>
+            <Clapperboard aria-hidden='true' />
+            <T>MP4</T>
           </Button>
           <Button onClick={downloadSource} type='button'>
             <Download aria-hidden='true' />
@@ -1262,7 +1706,34 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
             </div>
           </InspectorSection>
 
-          <InspectorSection index='03' title={<T>Appearance</T>}>
+          <InspectorSection index='03' title={<T>Markers</T>}>
+            <LottieMarkerControls
+              editable={source.format === 'json'}
+              markers={activeMarkers}
+              onAddMarker={panelActions.addMarker}
+              onPlayMarker={panelActions.playMarker}
+              onRemoveMarker={panelActions.removeMarker}
+              onRenameMarker={panelActions.renameMarker}
+            />
+          </InspectorSection>
+
+          <InspectorSection index='04' title={<T>Layers</T>}>
+            {source.format === 'json' ? (
+              <>
+                <p className='text-xs leading-5 text-muted-foreground'><T>Hide layers or rewrite text. Edits stay non-destructive: the source document is kept and exports carry the edited result.</T></p>
+                <LottieLayerControls
+                  hiddenLayers={edits.hiddenLayers}
+                  layers={layerSummaries}
+                  onTextChange={panelActions.setLayerText}
+                  onVisibilityChange={panelActions.setLayerVisibility}
+                  textLayers={textLayers}
+                  textOverrides={edits.textOverrides}
+                />
+              </>
+            ) : <p className='text-xs leading-5 text-muted-foreground'><T>.lottie bundles keep their embedded layers. Import the JSON to hide layers or edit text.</T></p>}
+          </InspectorSection>
+
+          <InspectorSection index='05' title={<T>Appearance</T>}>
             <StudioSelect ariaLabel={gt('Canvas size')} onValueChange={(value) => updateCanvasPreset(value as CanvasPreset)} options={Object.entries(CANVAS_PRESETS).map(([value, preset]) => ({ label: gt(preset.label), value }))} value={canvasPreset} />
             <StudioSelect ariaLabel={gt('Animation fit')} onValueChange={(value) => { const next = value as Fit; setFit(next); fitRef.current = next; playerRef.current?.setLayout({ align: [0.5, 0.5], fit: next }); }} options={[
               { label: gt('Contain'), value: 'contain' },
@@ -1293,16 +1764,33 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
                   <Button onClick={useBrandPalette} size='sm' type='button' variant='outline'><T>Brand</T></Button>
                 </div>
                 <ColorControl ariaLabel={gt('Primary artwork color')} label={<T>Primary</T>} onChange={updateArtColor} value={artColor} />
+                <BrandTokenChips onSelect={panelActions.updateArtColor} target={gt('Primary')} tokens={brandTokens} value={artColor} />
                 <ColorControl ariaLabel={gt('Secondary artwork color')} label={<T>Secondary</T>} onChange={updateSecondaryColor} value={secondaryColor} />
+                <BrandTokenChips onSelect={panelActions.updateSecondaryColor} target={gt('Secondary')} tokens={brandTokens} value={secondaryColor} />
                 <ColorControl ariaLabel={gt('Accent artwork color')} label={<T>Accent</T>} onChange={updateAccentColor} value={accentColor} />
+                <BrandTokenChips onSelect={panelActions.updateAccentColor} target={gt('Accent')} tokens={brandTokens} value={accentColor} />
                 <RangeControl label={<T>Corner radius</T>} max={48} min={0} onChange={updateCornerRadius} suffix=' px' value={cornerRadius} />
                 <RangeControl label={<T>Stroke width</T>} max={16} min={1} onChange={updateStrokeWidth} suffix=' px' value={strokeWidth} />
+                <LottieRecolorModeToggle checked={recolor === 'palette'} onChange={(checked) => setRecolorMode(checked ? 'palette' : 'source')} />
+                {recolor === 'source' ? (
+                  <div className='flex flex-col gap-2 border-t border-border pt-3'>
+                    <p className='text-sm font-medium'><T>Document colours</T></p>
+                    <LottieSourceColorControls
+                      colorMap={edits.colorMap}
+                      colors={discoveredColors}
+                      onBrandMap={panelActions.mapColorsToBrand}
+                      onChange={panelActions.setColorReplacement}
+                      onReset={panelActions.resetColorMap}
+                      tokens={brandTokens}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : <p className='text-xs leading-5 text-muted-foreground'><T>Generic .lottie bundles keep their embedded colors. Recolor JSON artwork here, or use named dotLottie themes when the source provides them.</T></p>}
           </InspectorSection>
 
           {transparent || backgroundStyle !== 'shader' ? null : (
-            <InspectorSection index='04' title={<T>Live material</T>}>
+            <InspectorSection index='06' title={<T>Live material</T>}>
               <p className='text-xs leading-5 text-muted-foreground'><T>Use the same shaders, palettes, look presets, and motion parameters available in Design Lab and Animation.</T></p>
               <LiveMaterialControls
                 identity={identity}
@@ -1333,7 +1821,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
             <div className='relative w-full max-w-6xl overflow-hidden rounded-sm smooth-shadow-ring-lg' style={{ aspectRatio: `${canvas.width} / ${canvas.height}`, backgroundColor: transparent || backgroundStyle === 'shader' ? undefined : background, backgroundImage: transparent ? 'linear-gradient(45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--color-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--color-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--color-muted)_75%)' : undefined, backgroundPosition: transparent ? '0 0,0 8px,8px -8px,-8px 0' : undefined, backgroundSize: transparent ? '16px 16px' : undefined }}>
               {transparent || backgroundStyle !== 'shader' ? null : (
                 <div className='absolute inset-0' ref={shaderLayerRef}>
-                  <LiveMaterialCanvas materialId={materialId} paused={!active || !isPlaying} settings={materialSettings} />
+                  <LiveMaterialCanvas captureTimeMs={shaderCaptureTimeMs} enabled={active || exporting} materialId={materialId} paused={!exporting && (!active || !isPlaying)} settings={materialSettings} />
                 </div>
               )}
               <canvas
@@ -1344,11 +1832,16 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
               />
             </div>
           </CanvasViewport>
-          <div className='grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-border bg-background px-4 py-3'>
-            <Button aria-label={isPlaying ? gt('Pause animation') : gt('Play animation')} onClick={togglePlayback} size='icon-sm' type='button' variant='outline'>{isPlaying ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}</Button>
-            <StudioRange aria-label={gt('Animation frame')} max={Math.max(1, segmentEnd)} min={segmentStart} onChange={(event) => { const frame = Number(event.target.value); playerRef.current?.pause(); desiredPlayingRef.current = false; setIsPlaying(false); playerRef.current?.setFrame(frame); setCurrentFrame(frame); }} value={Math.min(currentFrame, segmentEnd)} />
-            <output className='min-w-24 text-right text-xs tabular-nums text-muted-foreground'>{Math.round(currentFrame)} / {Math.max(0, totalFrames - 1)}</output>
-          </div>
+          <LottieTransport
+            isPlaying={isPlaying}
+            markers={activeMarkers}
+            onScrub={scrubToFrame}
+            onTogglePlayback={togglePlayback}
+            segmentEnd={segmentEnd}
+            segmentStart={segmentStart}
+            subscribeToFrame={frames.subscribe}
+            totalFrames={totalFrames}
+          />
           {error ? <div className='border-t border-status-error-border bg-status-error-background px-4 py-3 text-sm text-status-error' role='alert'>{error}</div> : null}
         </section>
     );

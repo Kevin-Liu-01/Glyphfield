@@ -18,6 +18,12 @@ export type LottieAppearance = {
   colors: readonly string[];
   cornerRadius: number;
   fontFamily?: string;
+  /**
+   * Legacy palette mode also recolours paints without a `Palette N` name to the
+   * primary colour. Source mode (imports) keeps their authored colours for the
+   * explicit colour map instead.
+   */
+  recolorUnnamed?: boolean;
   strokeWidth: number;
 };
 
@@ -257,7 +263,12 @@ function baseDocument(name: string, layers: unknown[]): LottieDocument {
     h: 720,
     ip: 0,
     layers,
-    markers: [],
+    // Named segments: the opening build, the continuous hold, and the resolve.
+    markers: [
+      { cm: 'Build', dr: 48, tm: 0 },
+      { cm: 'Hold', dr: FADE_OUT_START - 48, tm: 48 },
+      { cm: 'Resolve', dr: COMPOSITION_FRAMES - FADE_OUT_START, tm: FADE_OUT_START },
+    ],
     nm: name,
     op: COMPOSITION_FRAMES,
     v: '5.12.2',
@@ -501,11 +512,12 @@ function paletteSlot(name: unknown, pattern: RegExp, capture = 1): number {
   return Math.max(0, Number(match?.[capture] ?? 1) - 1);
 }
 
-function customizeLottiePaint(record: LottieRecord, next: LottieRecord, colors: readonly string[]) {
+function customizeLottiePaint(record: LottieRecord, next: LottieRecord, colors: readonly string[], recolorUnnamed: boolean) {
   if (record.ty !== 'fl' && record.ty !== 'st') return;
   if (!record.c || typeof record.c !== 'object') return;
   const colorProperty = record.c as LottieRecord;
   if (colorProperty.a !== 0 || !Array.isArray(colorProperty.k)) return;
+  if (!recolorUnnamed && !(typeof record.nm === 'string' && /Palette \d+/.test(record.nm))) return;
   const slot = paletteSlot(record.nm, /Palette (\d+)/);
   next.c = { ...colorProperty, k: hexToLottieColor(colors[slot] ?? colors[0] ?? '#181818') };
 }
@@ -522,6 +534,7 @@ function customizedTextKeyframe(keyframe: unknown, color: number[], fontFamily: 
 
 function customizeLottieText(record: LottieRecord, next: LottieRecord, appearance: LottieAppearance, colors: readonly string[]) {
   if (record.ty !== 5 || !record.t || typeof record.t !== 'object') return;
+  if (appearance.recolorUnnamed === false && !(typeof record.nm === 'string' && /Palette \d+ Text/.test(record.nm))) return;
   const text = next.t as LottieRecord;
   const documentData = text.d as LottieRecord | undefined;
   const keyframes = Array.isArray(documentData?.k) ? documentData.k : [];
@@ -563,7 +576,7 @@ export function customizeLottieDocument(document: LottieDocument, appearance: Lo
     if (!value || typeof value !== 'object') return value;
     const record = value as LottieRecord;
     const next = Object.fromEntries(Object.entries(record).map(([key, child]) => [key, visit(child)]));
-    customizeLottiePaint(record, next, colors);
+    customizeLottiePaint(record, next, colors, appearance.recolorUnnamed !== false);
     customizeLottieText(record, next, appearance, colors);
     customizeLottieGradient(record, next, colors);
     customizeLottieGeometry(record, next, appearance);

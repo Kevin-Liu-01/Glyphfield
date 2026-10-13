@@ -81,13 +81,19 @@ describe('Lottie portable canvas source', () => {
   it('invariant_portable_json_restores_visual_playback_and_source_state_together', () => {
     const sourceState: LottieCanvasState = {
       ...fallback,
-      appearance: { ...fallback.appearance, artColor: '#FF810A', cornerRadius: 24 },
+      appearance: { ...fallback.appearance, artColor: '#FF810A', cornerRadius: 24, recolor: 'source' },
       background: {
         ...fallback.background,
         materialSettings: { ...fallback.background.materialSettings, speed: 0.72 },
         style: 'shader',
       },
       canvasPreset: 'square',
+      edits: {
+        colorMap: { '#262923': '#533AFD' },
+        hiddenLayers: ['3'],
+        markers: [{ duration: 30, frame: 12, name: 'Intro' }],
+        textOverrides: { '91': 'Edited title' },
+      },
       playback: { ...fallback.playback, segmentEnd: 170, segmentStart: 12, speed: 1.4 },
       source: {
         ...fallback.source,
@@ -102,6 +108,14 @@ describe('Lottie portable canvas source', () => {
     expect(parsed.legacy).toBe(false);
     expect(parsed.binarySource).toBeNull();
     expect(parsed.state).toEqual(sourceState);
+  });
+
+  it('defaults older compositions to legacy palette recolouring with no edits, and rejects malformed edits', () => {
+    const parsed = parseLottieWorkspaceSource(portableSource(fallback), fallback);
+    expect(parsed.state.appearance.recolor).toBe('palette');
+    expect(parsed.state.edits).toEqual({ colorMap: {}, hiddenLayers: [], textOverrides: {} });
+    const malformed = { ...fallback, edits: { colorMap: { red: 'blue' }, hiddenLayers: [], textOverrides: {} } } as unknown as LottieCanvasState;
+    expect(() => parseLottieWorkspaceSource(portableSource(malformed), fallback)).toThrow(/edits.colorMap.red/);
   });
 
   it('invariant_binary_bundle_remains_embedded_in_the_shareable_document', () => {

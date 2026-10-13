@@ -175,9 +175,39 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   lottie: {
     'lottie.export': {
-      description: 'Export either the current rendered PNG frame or the edited JSON/.lottie source.',
-      input: "{ format: 'png' | 'source', download?: boolean }",
+      description: 'Export the current rendered PNG frame, the edited JSON/.lottie source, or the trimmed segment as GIF or MP4 with the composited background.',
+      input: "{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }",
       output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.gif': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as GIF.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.mp4': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as MP4.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.describe': {
+      description: 'Describe the active document: top-level layers with keys, text layers, static colours, markers, segment, edits, and recolour mode.',
+      input: 'No input',
+      output: '{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor }',
+    },
+    'lottie.edit': {
+      description: 'Apply non-destructive JSON edits. Each listed field replaces the stored one: hidden layer keys, colour map, text by layer key, named markers, and recolour mode.',
+      input: "{ hiddenLayers?: string[], colorMap?: Record<'#RRGGBB', '#RRGGBB'>, textOverrides?: Record<layerKey, string>, markers?: [{ name, frame, duration }], recolor?: 'palette' | 'source' }",
+      output: 'lottie.describe result',
+    },
+    'lottie.colors.brand': {
+      description: 'Map every document colour to the nearest active brand token: chromatic colours to accents, neutrals by lightness.',
+      input: 'No input',
+      output: 'lottie.describe result',
+    },
+    'lottie.segment.set': {
+      description: 'Play a named marker segment or set the in and out frames.',
+      input: '{ marker: string } | { start: number, end: number }',
+      output: 'lottie.describe result',
     },
     'lottie.export.frame.png': {
       description: 'Render the current Lottie frame and configured background as PNG.',
@@ -289,7 +319,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
   colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard composition and export settings', format: 'JSON', read: true } },
   identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
-  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
+  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'lottie.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
   material: { directHttpGeneration: ['design-sequence'], exports: [{ action: 'design.export.png', format: 'PNG', route: 'browser-action' }, { action: 'design.export.jpg', format: 'JPG', route: 'browser-action' }, { action: 'design.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'design.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'design.export.project', format: 'JSON project', route: 'browser-action' }], source: { apply: true, boundary: 'CanvasDocument schema 2 with Design Lab metadata source 4', format: 'JSON', read: true } },
   opengraph: { directHttpGeneration: ['background'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'OpenGraph workspace document', format: 'JSON', read: true } },
   partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Partnership workspace document', format: 'JSON', read: true } },
