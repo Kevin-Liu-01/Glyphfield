@@ -5204,6 +5204,10 @@ export default function ShaderLabStudio({
     [designLabDocument, listedLayerIds]
   );
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds]);
+  // Content keys: the document is rebuilt for every edit, while these change
+  // only when the listed layers or their visibility do.
+  const listedLayerKey = listedLayerIds.join('\u0000');
+  const hiddenLayerKey = listedLayerIds.filter((id) => designLabDocument.elements[id]?.hidden).join('\u0000');
   const visibleShaderCapabilities = useMemo(() => [
     ...shaderLayers.filter(({ id }) => visibleLayerIdSet.has(id)),
     ...Object.entries(layerShaders).flatMap(([id, application]) => application && visibleLayerIdSet.has(id as CompositionLayerId) ? [application] : []),
@@ -6761,7 +6765,7 @@ export default function ShaderLabStudio({
   const inspectorLayerRows = useMemo(
     () => [...listedLayerIds].reverse().map(renderInspectorLayer),
     // renderInspectorLayer reads only these values and stable row actions.
-    [designLabDocument, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerIds, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+    [hiddenLayerKey, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerKey, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
   );
   const convertedAssets = useMemo(() => convertedAssetLibrary, [
     convertedAssetLibrary.assets,
@@ -6871,7 +6875,7 @@ export default function ShaderLabStudio({
   const dockLayerRows = useMemo(
     () => [...listedLayerIds].reverse().map(renderDockLayer),
     // renderDockLayer reads only these values and stable row actions.
-    [designLabDocument, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerIds, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+    [hiddenLayerKey, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerKey, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
   );
   const artboardNamesSignature = workspaceArtboards.map(({ id, name }) => `${id}\u0000${name}`).join('\u0001');
   const artboardPickerOptions = useMemo(

@@ -9,6 +9,8 @@ import CanvasViewport from '@/components/CanvasViewport';
 vi.mock('gt-next', () => ({
   T: ({ children }: { children: ReactNode }) => children,
   useGT: () => (message: string) => message,
+  useLocale: () => 'en-US',
+  useVersionId: () => 'test',
 }));
 vi.mock('@/hooks/usePersistentState', () => ({
   useStudioDraft: (_identity: string, _tool: string, _key: string, value: number) => useState(value),
