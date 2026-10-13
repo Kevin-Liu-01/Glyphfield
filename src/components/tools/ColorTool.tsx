@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { T, useGT } from 'gt-next';
 import { Check, Copy, Plus, RotateCcw, Trash2, X } from '@/components/ui/SolidIcons';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
@@ -103,7 +103,7 @@ function proofLogoFor(identity: BrandIdentity) {
 
 // ── Library ─────────────────────────────────────────────────────────────────
 
-function PaletteRow({ id, selected, onSelect }: { id: string; onSelect: (id: string) => void; selected: boolean }) {
+const PaletteRow = memo(function PaletteRow({ id, selected, onSelect }: { id: string; onSelect: (id: string) => void; selected: boolean }) {
   const color = useColorState((state) => state.colors.find((entry) => entry.id === id));
   if (!color) return null;
   const hex = normalizeHexOrFallback(color.hex);
@@ -120,12 +120,24 @@ function PaletteRow({ id, selected, onSelect }: { id: string; onSelect: (id: str
       </span>
     </button>
   );
+});
+
+/** The palette drawn in proportion; re-renders on its own during drags. */
+function PaletteShares() {
+  const shares = useColorState((state) => state.colors.map((color) => `${normalizeHexOrFallback(color.hex)}:${color.proportion ?? 0}`).join('|'));
+  return (
+    <div aria-hidden='true' className={styles.libraryShares}>
+      {shares.split('|').map((entry, index) => {
+        const [hex, share] = entry.split(':');
+        return Number(share) > 0 ? <i key={`${hex}-${index}`} style={{ backgroundColor: hex, flexGrow: Number(share) }} /> : null;
+      })}
+    </div>
+  );
 }
 
 function PaletteLibrary({ onAdd, onSelect, selectedId }: { onAdd: () => void; onSelect: (id: string) => void; selectedId: string }) {
   const gt = useGT();
   const ids = useColorState((state) => state.colors.map(({ id }) => id).join('\u0000'));
-  const shares = useColorState((state) => state.colors.map((color) => `${normalizeHexOrFallback(color.hex)}:${color.proportion ?? 0}`).join('|'));
   return (
     <>
       <LabPanelHeading
@@ -133,12 +145,7 @@ function PaletteLibrary({ onAdd, onSelect, selectedId }: { onAdd: () => void; on
         description={<T>Select a token to edit it and test it in context.</T>}
         title={<T>Brand colors</T>}
       />
-      <div aria-hidden='true' className={styles.libraryShares}>
-        {shares.split('|').map((entry, index) => {
-          const [hex, share] = entry.split(':');
-          return Number(share) > 0 ? <i key={`${hex}-${index}`} style={{ backgroundColor: hex, flexGrow: Number(share) }} /> : null;
-        })}
-      </div>
+      <PaletteShares />
       <div className={styles.library}>
         {ids.split('\u0000').filter(Boolean).map((id) => <PaletteRow id={id} key={id} onSelect={onSelect} selected={id === selectedId} />)}
       </div>
@@ -294,7 +301,8 @@ function RoleSection({ actions, identity, role }: { actions: ColorInspectorActio
 
 function TokensSection({ format, identity, onCopy, onFormatChange }: { format: ColorTokenFormat; identity: BrandIdentity; onCopy: () => void; onFormatChange: (format: ColorTokenFormat) => void }) {
   const gt = useGT();
-  const state = useColorState((value) => value);
+  // Token text trails a drag instead of blocking it.
+  const state = useDeferredValue(useColorState((value) => value));
   const code = useMemo(() => colorTokens(identity, state, format), [format, identity, state]);
   return (
     <LabInspectorSection meta={COLOR_TOKEN_FORMATS.find(({ id }) => id === format)?.label} title={<T>Export tokens</T>}>

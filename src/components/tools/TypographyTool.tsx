@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { T, useGT } from 'gt-next';
 import { Check, Copy, RotateCcw, Warning } from '@/components/ui/SolidIcons';
 import { LabInspectorSection, LabPanelHeading } from '@/components/LabWorkspace';
@@ -308,7 +308,8 @@ function GuidanceSection({ identity, role }: { identity: BrandIdentity; role: Ro
 
 function TokensSection({ format, identity, onCopy, onFormatChange }: { format: TypeTokenFormat; identity: BrandIdentity; onCopy: () => void; onFormatChange: (format: TypeTokenFormat) => void }) {
   const gt = useGT();
-  const working = useWorkingTypeIdentity(identity);
+  // Token text trails a drag instead of blocking it.
+  const working = useDeferredValue(useWorkingTypeIdentity(identity));
   const code = useMemo(() => typeTokens(working, format), [format, working]);
   return (
     <LabInspectorSection meta={TYPE_TOKEN_FORMATS.find(({ id }) => id === format)?.label} title={<T>Type tokens</T>}>

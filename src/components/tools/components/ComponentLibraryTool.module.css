@@ -239,6 +239,10 @@
   zoom: 0.72;
 }
 
+.pane[data-wide='true'] .paneReplica {
+  zoom: 0.56;
+}
+
 .code {
   overflow: hidden;
   border: 1px solid hsl(var(--border));

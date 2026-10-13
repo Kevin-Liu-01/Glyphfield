@@ -95,6 +95,9 @@ export function renderUiNode(node: UiNode, key = 0): ReactNode {
   return createElement(node.tag, reactProps(node, key), ...(children.length ? children : []));
 }
 
+/** Wide layouts shrink further in the state replicas so their columns still fit. */
+const WIDE_PATTERNS = new Set<ComponentPatternId>(['cards', 'charts', 'checkout', 'command-menu', 'dialogs', 'inbox', 'navigation', 'sheets', 'sidebars', 'stats', 'tables']);
+
 /** Panes need room for overlays that are positioned inside them. */
 export const PANE_MIN_HEIGHT: Partial<Record<ComponentPatternId, number>> = {
   'command-menu': 320,
@@ -171,6 +174,7 @@ export const ComponentPane = memo(function ComponentPane({ assetPath, content, d
       className={styles.pane}
       data-gf-root=''
       data-mode={mode}
+      data-wide={WIDE_PATTERNS.has(pattern) ? 'true' : undefined}
       ref={ref}
     >
       {assetPath ? <img alt='' aria-hidden='true' className={styles.paneAsset} src={assetPath} /> : null}

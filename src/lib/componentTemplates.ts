@@ -125,7 +125,7 @@ function buttons(context: TemplateContext): UiElement {
   return el('div', 'gf-stack-lg', null,
     el('div', 'gf-row', null,
       primary,
-      button('gf-btn-secondary', {}, `View ${context.content.products[0]}`),
+      button('gf-btn-secondary', {}, 'Contact sales'),
       button('gf-btn-outline', {}, 'Read the docs'),
       button('gf-btn-ghost', {}, 'Learn more', icon('arrow-right')),
     ),

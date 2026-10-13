@@ -70,7 +70,7 @@ function useColorActions(): ColorActions {
 }
 
 function readableOn(background: string): string {
-  return resolveReadableColor(background, '#FFFFFF', 4.5).ratio >= colorContrastRatio(background, '#111111') ? '#FFFFFF' : '#111111';
+  return colorContrastRatio(background, '#FFFFFF') >= colorContrastRatio(background, '#111111') ? '#FFFFFF' : '#111111';
 }
 
 function useWorkingIdentity(identity: BrandIdentity): BrandIdentity {
