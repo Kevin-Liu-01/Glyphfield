@@ -236,6 +236,11 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
   const debouncedPortable = useMemo(() => withExpressionMirrors(settledDocument), [settledDocument]);
   const workspaceKey = useMemo(() => savedDesignStorageKey(identity.id, tool.id), [identity.id, tool.id]);
   const portable = usePortableCanvasWorkspace({ applySource, document: debouncedPortable, workspaceKey });
+  // Keep the last serialized source readable while the next one embeds its assets,
+  // so readSource() never disappears between an edit and its serialization.
+  const lastSourceRef = useRef<string | null>(null);
+  if (portable.source) lastSourceRef.current = portable.source;
+  const readableSource = portable.source ?? lastSourceRef.current;
 
   // Editing -------------------------------------------------------------------
   const select = useCallback((ids: string[], additive = false) => {
@@ -683,7 +688,7 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
       automation={{ actions: studioToolActionNames(tool.id), invoke }}
       inspector={inspector}
       library={library}
-      sourceCode={{ format: 'JSON', onApply: applySource, source: portable.source, title: gt(`${tool.name} source`) }}
+      sourceCode={{ format: 'JSON', onApply: applySource, source: readableSource, title: gt(`${tool.name} source`) }}
       tool={tool}
       versions={(
         <DesignVersionControls
@@ -691,7 +696,7 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
           identityId={identity.id}
           onOpen={applySource}
           revision={String(debouncedPortable.revision)}
-          source={() => portable.source}
+          source={() => readableSource}
           toolId={tool.id}
           workspaceLabel={tool.name}
         />
