@@ -227,6 +227,14 @@ describe('Studio interaction performance contracts', () => {
     expect(source).toContain('}, [commitIdentities, identitiesRef]);');
   });
 
+  it('hashes only changed Design Lab artboards for history and persistence signatures', () => {
+    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+
+    expect(designLab).toContain('const signatureArtboardViews = new WeakMap<DesignArtboard, DesignArtboard>();');
+    expect(designLab).toContain('artboards: artboards.map(signatureArtboardView)');
+    expect(designLab).toContain('return immutableJsonSignature(signatureSnapshotView(snapshot));');
+  });
+
   it('keeps the typing pace clock out of the Typography tool render', () => {
     const source = readSource('src/components/StudioToolWorkspace.tsx');
     const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));
