@@ -21782,6 +21782,12 @@ html.dark:has(.marketing-page-v5) body {
 }
 
 /* Document-wide print chrome cannot live in BrandBook's locally scoped module. */
+@page {
+  /* Brand book pages are 16:10; print each one edge to edge at that size. */
+  size: 16in 10in;
+  margin: 0;
+}
+
 @media print {
   .studio-app-header,
   .project-tabs-shell,

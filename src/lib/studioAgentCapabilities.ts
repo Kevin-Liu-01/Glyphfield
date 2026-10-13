@@ -90,7 +90,7 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   'brand-book': {
     'brand-book.print': {
-      description: 'Open the browser print flow for the complete identity-derived brand book.',
+      description: 'Open the browser print flow for every visible page of the edited brand book, one 16 × 10 in page per sheet.',
       input: 'No input',
       output: 'null',
     },
@@ -247,7 +247,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
     source: { apply: true, boundary: 'CanvasDocument schema 2 with Animation state and portable assets', format: 'JSON', read: true },
   },
   blog: { directHttpGeneration: ['template'], exports: [{ action: 'blog.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Blog cover workspace document', format: 'JSON', read: true } },
-  'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: false },
+  'brand-book': { directHttpGeneration: [], exports: [{ action: 'brand-book.print', format: 'PDF print flow', route: 'browser-action' }], source: { apply: true, boundary: 'Brand book section order and visibility, and per-page visibility, layout, surface, image, and copy', format: 'JSON', read: true } },
   'brand-elements': { directHttpGeneration: ['element-brief'], exports: [{ action: 'brand-element.export.brief', format: 'JSON brief', route: 'browser-action' }], source: { apply: true, boundary: 'Selected brand-element override', format: 'JSON', read: true } },
   buttons: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Component Library workspace configuration', format: 'JSON', read: true } },
   colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },

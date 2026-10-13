@@ -71,8 +71,8 @@ describe('agent discovery catalogs', () => {
     expect(AGENT_LAB_CATALOG.plugins.every(({ capabilities }) => capabilities.controlAutomation)).toBe(true);
     expect(
       AGENT_LAB_CATALOG.plugins.filter(({ capabilities }) => capabilities.sourceEditing).map(({ id }) => id)
-    ).toEqual(STUDIO_TOOLS.filter(({ id }) => id !== 'brand-book').map(({ id }) => id));
-    expect(AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'brand-book')?.capabilities.source).toBe(false);
+    ).toEqual(STUDIO_TOOLS.map(({ id }) => id));
+    expect(AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'brand-book')?.capabilities.source).toMatchObject({ apply: true, read: true });
     expect(Object.keys(STUDIO_AGENT_CAPABILITIES)).toEqual(expect.arrayContaining(STUDIO_TOOLS.map(({ id }) => id)));
     expect(
       AGENT_LAB_CATALOG.plugins.find(({ id }) => id === 'material')?.capabilities.directHttpGeneration
