@@ -43,7 +43,8 @@ export function migrateGtTypography(
   preset: BrandIdentity,
   fallbackFonts: readonly BrandFontAsset[]
 ): BrandIdentity | undefined {
-  if (preset.id !== 'gt' || preset.revision !== INTER_GT_REVISION
+  // Later GT revisions still carry Inter, so edited revision-26 projects keep migrating.
+  if (preset.id !== 'gt' || preset.revision < INTER_GT_REVISION
     || identity?.id !== 'gt' || identity.revision !== PREVIOUS_GT_REVISION) return identity;
   const fonts = identity.fonts?.length ? identity.fonts : fallbackFonts;
   const inter = preset.fonts!.find(({ id }) => id === 'inter-variable')!;

@@ -24,6 +24,8 @@ Machine-readable resources:
 - Allowlisted surface maps: `/api/surface-textures/:assetId/:map`
 - Identity catalog: `/api/identities`
 - Brand-element catalog: `/api/elements`
+- Brand identity schema and validation: `/api/brand/validate`
+- Brand kit files (DTCG tokens, CSS, Tailwind v4, brand.md): `/api/brand/kit`
 - Generation contract: `/api/generate`
 - Interactive workspace: `/studio`
 - Installable skill guide: `/docs/skills.md`
@@ -34,6 +36,7 @@ Repository Agent Skills:
 - `skills/glyphfield-api`: deterministic HTTP discovery and generation.
 - `skills/glyphfield-studio`: live Studio controls, source round trips, files, and browser rendering.
 - `skills/glyphfield-export`: artifact export and still/motion verification.
+- `skills/glyphfield-brand`: set up or improve a brand identity end to end from the brand's own sources, then audit and export its brand kit.
 
 Load only the skill whose description matches the current task. Combine them when a workflow actually crosses generation, browser operation, and export boundaries.
 
@@ -59,6 +62,10 @@ Do not imitate a browser-rendered result with server SVG when the user requested
 Unknown top-level fields are rejected. Treat structured `400`, `413`, `415`, and `429` responses as actionable errors. Do not retry unchanged invalid input.
 
 Remote URL fetching is not supported. Provide authorized local data through allowed data-URL fields or a real browser `File` object.
+
+## Brand setup
+
+To set up or improve a brand, follow `/docs/agents/brand-setup.md` or `skills/glyphfield-brand`. Open `/studio?tool=identity&project=<id>`, then call `identity.validate`, `identity.apply` (merge patch: records merge by id, typography by role, string lists are replaced, unknown fields are kept), `identity.asset.add` and `identity.font.add` with `File` objects, `identity.audit`, `identity.fix`, `identity.save`, and `identity.export.kit`. `GET /api/brand/validate` returns the BrandIdentity JSON Schema; `POST /api/brand/validate` validates without storing anything. Use only facts from the brand's own website, repository, or design files.
 
 ## Studio Browser API
 
@@ -187,6 +194,7 @@ Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, 
 ## High-value docs
 
 - `/docs/agents/choose-interface.md`
+- `/docs/agents/brand-setup.md`
 - `/docs/agents/recipes.md`
 - `/docs/reference/browser-api.md`
 - `/docs/reference/endpoints.md`

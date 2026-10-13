@@ -430,7 +430,7 @@ describe('hydrateBrandIdentities', () => {
     expect(hydrated.colors[0]?.hex).toBe('#000000');
   });
 
-  it('refreshes stale built-in identities to the current audited revision', () => {
+  it('keeps edits on stale built-ins and backfills only missing fields from the current revision', () => {
     const staleGt = {
       ...GT_BRAND_IDENTITY,
       name: 'Stale GT',
@@ -440,7 +440,7 @@ describe('hydrateBrandIdentities', () => {
 
     const gt = hydrateBrandIdentities([staleGt]).find(({ id }) => id === 'gt')!;
 
-    expect(gt.name).toBe(GT_BRAND_IDENTITY.name);
+    expect(gt.name).toBe('Stale GT');
     expect(gt.revision).toBe(GT_BRAND_IDENTITY.revision);
     expect(gt.strategy).toEqual(GT_BRAND_IDENTITY.strategy);
   });

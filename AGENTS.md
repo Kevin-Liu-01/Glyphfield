@@ -34,6 +34,8 @@ smallest matching checked-in Agent Skill:
   Browser API operation, source round trips, and local files.
 - [`skills/glyphfield-export/SKILL.md`](skills/glyphfield-export/SKILL.md) — still
   and motion export verification.
+- [`skills/glyphfield-brand/SKILL.md`](skills/glyphfield-brand/SKILL.md) — brand
+  identity setup by a coding agent: research, validate, apply, files, audit, kit.
 
 Combine skills only when the requested workflow crosses those boundaries. These
 packages describe product operation; the root and directory `SKILL.md` files

@@ -119,7 +119,12 @@ describe('agent discovery catalogs', () => {
       'glyphfield-api',
       'glyphfield-studio',
       'glyphfield-export',
+      'glyphfield-brand',
     ]);
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/brand/validate');
+    expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/brand/kit');
+    expect(OPENAPI_DOCUMENT.components.schemas.BrandIdentity).toMatchObject({ required: ['id', 'name', 'assets', 'colors', 'typography'] });
+    expect(AGENT_MANIFEST.brand.browserActions).toEqual(expect.arrayContaining(['identity.apply', 'identity.audit', 'identity.export.kit']));
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/labs');
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/materials');
     expect(OPENAPI_DOCUMENT.paths).toHaveProperty('/api/docs/{slug}');

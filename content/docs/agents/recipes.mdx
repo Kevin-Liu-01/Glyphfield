@@ -161,6 +161,27 @@ if (applied.elements[firstText.id].content !== 'Updated by an agent') {
 
 Preserve unknown fields from the read document. Do not reconstruct the canvas envelope when a targeted edit is sufficient.
 
+## Set up a brand and export its tokens
+
+Validate without a browser, then apply in the Studio. The full workflow is in [Brand setup with an agent](/docs/agents/brand-setup).
+
+```bash
+curl -fsS "$BASE_URL/api/brand/validate" | jq '{schemaVersion, mergeRules, logoSlots: [.logoSlots[].id]}'
+
+curl -fsS -X POST "$BASE_URL/api/brand/validate" \
+  -H 'Content-Type: application/json' \
+  -d '{ "mode": "patch", "identity": { "tagline": "Weather you can build on.", "colors": [{ "id": "emphasis", "hex": "#1F6FEB" }] } }' \
+  | jq '{ok, issues}'
+```
+
+```js
+const studio = window.glyphfield.studio; // on /studio?tool=identity&project=<id>
+await studio.invoke('identity.apply', { identity: patch, replace: ['colors', 'colorPairings'] });
+const report = await studio.invoke('identity.audit');
+await studio.invoke('identity.save');
+const tokens = await studio.invoke('identity.export.kit', { format: 'tailwind' });
+```
+
 ## Use a local file
 
 ```js

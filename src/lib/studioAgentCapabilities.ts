@@ -132,6 +132,56 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       input: 'No input',
       output: EXPORT_ARTIFACT,
     },
+    'identity.read': {
+      description: 'Read the active BrandIdentity as an object (a copy; mutate through identity.apply).',
+      input: 'No input',
+      output: 'BrandIdentity object',
+    },
+    'identity.validate': {
+      description: 'Validate a merge patch or complete identity against the BrandIdentity schema without applying it. The schema is served by GET /api/brand/validate.',
+      input: "{ identity: object, mode?: 'patch' | 'full' } (default patch)",
+      output: '{ ok: boolean, issues: [{ code, message, path, severity }] }',
+    },
+    'identity.apply': {
+      description: 'Validate and merge identity source. Records merge by id (typography by role), string lists are replaced, unknown fields and project fields are kept. replace lists collections to overwrite as a whole. Throws a TypeError listing every issue.',
+      input: "{ identity: object, mode?: 'merge' | 'replace', replace?: ('colors' | 'colorPairings' | 'applications' | 'assets' | 'fonts' | …)[], remove?: { assets?, colors?, fonts?, applications?, references?, motion?, proofAssets?: string[] }, save?: boolean }",
+      output: '{ identity, warnings: [{ code, message, path, severity }], saved: boolean, health: { score, grade, counts } }',
+    },
+    'identity.asset.add': {
+      description: 'Add an image asset from file bytes. A logo slot (mark-dark for light surfaces, mark-light for dark surfaces, wordmark, wordmark-light, mark-mono) replaces that slot in place.',
+      input: "{ file: File, slot?: 'mark-dark' | 'mark-light' | 'wordmark' | 'wordmark-light' | 'mark-mono', id?, type?, label?, surface?, usage?, alt?, license?, sourceUrl?, sourceOwner?, redistribution?, tags?, save?: boolean }",
+      output: '{ asset: BrandAsset }',
+    },
+    'identity.font.add': {
+      description: 'Store a TTF, OTF, WOFF or WOFF2 file (2.5 MB maximum) with the identity and optionally assign it to typography roles.',
+      input: "{ file: File, roles?: ('Display' | 'Body' | 'Accent' | 'Code')[], family?, label?, weight?, weightMin?, weightMax?, style?: 'normal' | 'italic', license?, sourceUrl?, id?, save?: boolean }",
+      output: '{ font: BrandFontAsset }',
+    },
+    'identity.audit': {
+      description: 'Run the brand health audit: completeness score, section scores, WCAG contrast pairs and findings with one-click fixes or agent prompts.',
+      input: 'No input',
+      output: '{ schemaVersion, score, grade, counts, sections, contrast, findings: [{ id, section, severity, title, detail, fix?: { id, label }, agentPrompt }] }',
+    },
+    'identity.fix': {
+      description: 'Apply one deterministic audit fix by the fix.id of a finding.',
+      input: '{ fixId: string, save?: boolean }',
+      output: 'Brand health report after the fix',
+    },
+    'identity.save': {
+      description: 'Save pending identity changes on this device so every tool and future sessions use them.',
+      input: 'No input',
+      output: '{ saved: true }',
+    },
+    'identity.export.kit': {
+      description: 'Export the brand kit: a ZIP with brand.md, DTCG tokens, CSS variables, a Tailwind v4 theme, identity.json, logos and redistributable fonts, or one of those files.',
+      input: "{ format?: 'zip' | 'dtcg' | 'css' | 'tailwind' | 'markdown' | 'logos', download?: boolean }",
+      output: EXPORT_ARTIFACT,
+    },
+    'identity.setup.prompt': {
+      description: 'Return the ready-to-run Set up with your agent prompt for this project.',
+      input: "{ mode?: 'new' | 'improve' }",
+      output: '{ mode, prompt: string }',
+    },
   },
   lottie: {
     'lottie.export': {
@@ -247,7 +297,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
   buttons: { directHttpGeneration: [], exports: [], source: { apply: true, boundary: 'Component Library workspace configuration', format: 'JSON', read: true } },
   colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard composition and export settings', format: 'JSON', read: true } },
-  identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
+  identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }, { action: 'identity.export.kit', format: 'Brand kit ZIP, DTCG JSON, CSS, Tailwind v4 theme, brand.md, logo ZIP', route: 'browser-action' }, { format: 'DTCG JSON, CSS, Tailwind v4 theme, brand.md via POST /api/brand/kit', route: 'http' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
   lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
   material: { directHttpGeneration: ['design-sequence'], exports: [{ action: 'design.export.png', format: 'PNG', route: 'browser-action' }, { action: 'design.export.jpg', format: 'JPG', route: 'browser-action' }, { action: 'design.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'design.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'design.export.project', format: 'JSON project', route: 'browser-action' }], source: { apply: true, boundary: 'CanvasDocument schema 2 with Design Lab metadata source 4', format: 'JSON', read: true } },
   opengraph: { directHttpGeneration: ['background'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'OpenGraph workspace document', format: 'JSON', read: true } },
