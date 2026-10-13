@@ -1,78 +1,39 @@
 'use client';
 
-import ShaderEffectsControls from './ShaderEffectsControls';
-import { getShaderEffect, loadShaderEffectsProps } from '@/lib/shaderEffects';
+import { loadShaderEffectsProps } from '@/lib/shaderEffects';
 import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
   ArrowDown,
-  ArrowRight,
   ArrowUp,
-  Check,
-  ChevronDown,
-  CircleGauge,
-  Clapperboard,
-  Clock3,
-  Code2,
   Copy,
-  Crop,
-  Download,
   Eye,
   EyeOff,
-  ExternalLink,
-  FileImage,
   Files,
-  Film,
   Frame,
-  Gauge,
-  Grid3X3,
-  ImageDown,
   ImagePlus,
-  Info,
   Layers3,
   LayoutGrid,
-  MonitorUp,
   Move,
-  Pause,
-  Play,
   Plus,
-  Repeat2,
-  RotateCcw,
-  Ruler,
   Scissors,
   Search,
   Sparkles,
-  Sticker,
-  TextB,
-  TextItalic,
-  TextStrikethrough,
-  TextUnderline,
   Trash2,
-  Type,
-  WandSparkles,
-  WrapText,
   X,
-  Zap,
-  ZoomIn,
-  ZoomOut,
 } from '@/components/ui/SolidIcons';
 import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
 import { clearTextStyleProperties, editTextRuns, formatTextRange, INLINE_TEXT_KEYS, textStyleSegments, validateTextStyleRuns, type InlineTextStyle, type ResolvedTextStyle, type TextSelectionRange } from '@/lib/richText';
-import { ArtboardSetupFields } from '@/components/ArtboardSizeMenu';
 import { arrangeCanvasFrames, translateCanvasFrame } from '@/lib/canvasViewport';
 import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionLocalBounds, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
-import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
 import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
 import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
 import { pauseShaderFrames } from '@/lib/pauseShaderFrames';
-import { previewSelectedTextStyle, selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
+import { selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
 import { checkpointCanvasHistory, redoCanvasCheckpointHistory, undoCanvasCheckpointHistory } from '@/lib/canvasCheckpointHistory';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
 import { applyEffectFrameCaptures } from '@/lib/effectFrameDocument';
@@ -81,21 +42,13 @@ import { importShaderFrameAssets, normalizeShaderFrameSnapshot, type ShaderFrame
 import { applyShaderFrameCaptures, prepareShaderFrameDocumentSource } from '@/lib/shaderFrameDocument';
 import { getShaderMotionCapabilities } from '@/lib/shaderMotionCapabilities';
 import { drawShaderFramePresentation, normalizeShaderFramePresentation, preloadShaderFramePresentation } from '@/lib/shaderFramePresentation';
-import AssetConversionLibrary from '@/components/AssetConversionLibrary';
-import StudioRange from '@/components/ui/StudioRange';
-import RangeControl from '@/components/DesignLabRangeControl';
-import StudioFontSizeControl from '@/components/StudioFontSizeControl';
 import {
   DEFAULT_DESIGN_LAB_FONT_SIZE,
   designLabTextDecorationLine,
-  designLabFontSizeUpdate,
   resolveDesignLabFontSize,
   validateDesignLabTextTypography,
 } from '@/lib/designLabTypography';
-import StudioCheckbox from '@/components/ui/StudioCheckbox';
-import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
-import { DesignVersionHeaderControls, DesignVersionProvider } from '@/components/DesignVersionControls';
-import StudioArtboardBar from '@/components/StudioArtboardBar';
+import { DesignVersionProvider } from '@/components/DesignVersionControls';
 import {
   alignCanvasSelection,
   canvasLayerDimensions,
@@ -106,38 +59,29 @@ import {
   normalizeCanvasLayerTransform,
   type CanvasLayerAlignment,
   type CanvasLayerBounds,
-  type CanvasLayerGeometry,
   type CanvasSelectionItem,
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
-import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
-import StudioFileMenu from '@/components/StudioFileMenu';
+import { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDesignLabProjectFile, type DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
-import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
+import { LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import LogoAppearanceControls from '@/components/LogoAppearanceControls';
-import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
 import SourceCodeDrawer from '@/components/SourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
-import StudioRangeLabel from '@/components/StudioRangeLabel';
-import StudioToolHeader, { StudioToolbarGroup } from '@/components/StudioToolHeader';
-import StudioErrorNotice from '@/components/ui/StudioErrorNotice';
-import TextEffectThumbnail from '@/components/TextEffectThumbnail';
-import { Button } from '@/components/ui/Button';
-import ColorControl from '@/components/ui/ColorControl';
 import StudioContextMenu, {
   contextMenuPositionFromElement,
   contextMenuPositionFromEvent,
   type StudioContextMenuPosition,
 } from '@/components/ui/StudioContextMenu';
-import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { studioRenderQualityStore } from '@/lib/landingRenderQuality';
 import { useDeferredRuntime } from '@/hooks/useDeferredRuntime';
 import { useMountEffect } from '@/hooks/useMountEffect';
+
+export { ShaderZoomControl } from '@/components/DesignLabInspector';
 
 function canvasSelectionAnnouncement(count: number, groupName?: string): string {
   if (count === 0) return 'Canvas selection cleared.';
@@ -185,7 +129,6 @@ import {
   resolveBrandTypographyWeight,
   type BrandAsset,
   type BrandIdentity,
-  type BrandTypography,
 } from '@/lib/brandIdentity';
 import { canvasTextCharacters, trackedTextWidth } from '@/lib/canvasText';
 import { layoutNativeCanvasText } from '@/lib/canvasTextLayout';
@@ -195,10 +138,7 @@ import {
   encodeCanvasMp4,
   resolveMotionFrame,
   resolveExportDimensions,
-  resolveSeamlessLoopOverlapFrames,
-  type MotionLoopMode,
   type MotionLoopReport,
-  type MotionExportQuality,
   type MotionFrame,
   type StillImageFormat,
 } from '@/lib/canvasExport';
@@ -210,7 +150,6 @@ import {
   STUDIO_ARTBOARD_PRESETS,
   studioArtboardPresetForSize,
   type StudioArtboardDimensions,
-  type StudioArtboardPresetId,
 } from '@/lib/artboardSizes';
 import {
   DESIGN_LAB_CLIPBOARD_MIME,
@@ -235,10 +174,8 @@ import {
 } from '@/lib/compositionEffects';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
-  LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
   getLiveMaterial,
-  isPaperLiveMaterialId,
   normalizeLiveMaterialId,
   type LiveMaterialId,
   type LiveMaterialOption,
@@ -296,18 +233,7 @@ import {
 import {
   savedDesignStorageKey,
 } from '@/lib/savedDesigns';
-import {
-  clampShaderZoom,
-  formatShaderZoom,
-  shaderZoomFromSlider,
-  shaderZoomToSlider,
-  SHADER_ZOOM_MAX,
-  SHADER_ZOOM_MIN,
-  SHADER_ZOOM_SLIDER_MAX,
-  SHADER_ZOOM_SLIDER_MIN,
-  SHADER_ZOOM_SLIDER_STEP,
-  stepShaderZoom,
-} from '@/lib/shaderZoom';
+import { clampShaderZoom } from '@/lib/shaderZoom';
 import {
   buildShaderSequenceTimeline,
   DEFAULT_SHADER_SEQUENCE_SETTINGS,
@@ -319,7 +245,6 @@ import {
 } from '@/lib/shaderSequence';
 import {
   DEFAULT_STICKER_FINISH,
-  STICKER_FINISH_PRESETS,
   drawStickerFinishOverlay,
   normalizeStickerFinish,
   type StickerFinishSettings,
@@ -332,7 +257,6 @@ import {
   createTextEffectGradient,
   resolveTextEffectSettings,
   textEffectCssStyle,
-  TEXT_EFFECT_PRESETS,
   type TextEffectSettings,
 } from '@/lib/textEffects';
 
@@ -340,7 +264,11 @@ import { DESIGN_CANVAS_ID, DESIGN_CANVAS_DIMENSIONS, designSurfaceSize, designLa
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
 import {
   colorWithOpacity,
+  DEFAULT_EXPORT_SETTINGS,
   DEFAULT_LAYER_TRANSFORM,
+  designExportSettingsSignature,
+  normalizeDesignExportSettings,
+  RATIO_OPTIONS,
   DEFAULT_TEXT_APPEARANCE,
   DEFAULT_TEXT_LAYER_TRANSFORM,
   isAssetLayerId,
@@ -356,6 +284,8 @@ import {
   resolvedTextAppearance,
   resolvedTextTransform,
   resolveTextRunStyle,
+  STICKER_IMAGE_APPEARANCE,
+  STICKER_TEXT_APPEARANCE,
   textShadowStyle,
   type AssetLayerId,
   type CanvasLayerId,
@@ -369,6 +299,10 @@ import {
   type CompositionTextLayer,
   type ContentLayerId,
   type DesignArtboard,
+  type DesignExportFormat,
+  type DesignExportSettings,
+  type DesignMotionMode,
+  type DesignRatioOption,
   type DesignArtboardId,
   type DesignArtboardSnapshot,
   type DesignShaderSequenceSettings,
@@ -392,14 +326,25 @@ import {
   type DesignLabStageActions,
 } from '@/components/DesignLabStage';
 import { useStableHandlers } from '@/hooks/useStableHandlers';
+import { DesignLabInspectorPanel, type DesignLabInspectorActions, type DesignLabInspectorArtboard } from '@/components/DesignLabInspector';
 import {
   DESIGN_LAB_LONG_LAYER_LIST,
   DesignLabDockLayer,
   DesignLabInspectorLayer,
-  scrollLayerDockWithWheel,
+  DesignLabLayerDockPanel,
+  type DesignLabLayerDockActions,
   type DesignLabLayerRowActions,
   type DesignLabLayerRowProps,
 } from '@/components/DesignLabLayerDock';
+import {
+  DesignLabArtboardToolbar,
+  DesignLabHeader,
+  DesignLabMotionStrip,
+  DesignLabPreviewQualityToggle,
+  type DesignLabArtboardToolbarActions,
+  type DesignLabHeaderActions,
+  type DesignLabMotionStripActions,
+} from '@/components/DesignLabChrome';
 
 type TextEffectRenderScratch = {
   fill: HTMLCanvasElement;
@@ -407,21 +352,6 @@ type TextEffectRenderScratch = {
   shadow: HTMLCanvasElement;
 };
 
-type DesignExportSettings = {
-  durationMs: number;
-  fps: number;
-  gifLoop: MotionLoopMode;
-  quality: MotionExportQuality;
-  width: number;
-};
-
-type DesignRatioOption = StudioArtboardDimensions & {
-  label: string;
-  value: ShaderRatio;
-};
-
-type DesignExportFormat = 'gif' | 'jpg' | 'mp4' | 'png';
-type DesignMotionMode = 'sequence' | 'standard';
 type DesignAutomationExportInput = {
   download?: boolean;
   format: 'gif' | 'jpg' | 'mp4' | 'png';
@@ -699,7 +629,7 @@ const DESIGN_ARTBOARD_TOUR_STEPS = [
   },
 ] as const;
 
-function DesignArtboardTour({
+const DesignArtboardTour = memo(function DesignArtboardTour({
   onClose,
   onNext,
   step,
@@ -723,7 +653,7 @@ function DesignArtboardTour({
       </footer>
     </aside>
   );
-}
+});
 
 function artboardSnapshotSignature(snapshot: DesignArtboardSnapshot): string {
   return immutableJsonSignature(snapshot);
@@ -746,370 +676,7 @@ type ShaderSequenceCapture = {
   materialId: LiveMaterialId;
 };
 
-const RATIO_OPTIONS: readonly { height: number; label: string; value: StudioArtboardPresetId; width: number }[] = (
-  STUDIO_ARTBOARD_PRESETS.map(({ height, id, label, width }) => ({ height, label, value: id, width }))
-);
-
-const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
-  durationMs: 1_600,
-  fps: 30,
-  gifLoop: 'seamless',
-  quality: 'balanced',
-  width: 960,
-};
-const EXPORT_WIDTH_PRESETS = [
-  { label: 'Compact', width: 640 },
-  { label: 'Standard', width: 960 },
-  { label: 'Large', width: 1_280 },
-  { label: 'Full', width: 1_920 },
-] as const;
-const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; value: MotionExportQuality }[] = [
-  { description: 'Quick preview', label: 'Fast', value: 'fast' },
-  { description: 'Everyday export', label: 'Balanced', value: 'balanced' },
-  { description: 'Most detail', label: 'Best', value: 'best' },
-];
-
-function normalizeDesignExportSettings(settings?: Partial<DesignExportSettings>): DesignExportSettings {
-  return {
-    durationMs: settings?.durationMs && [1_200, 1_600, 2_400, 4_000].includes(settings.durationMs)
-      ? settings.durationMs
-      : DEFAULT_EXPORT_SETTINGS.durationMs,
-    fps: settings?.fps && [12, 15, 24, 30, 60].includes(settings.fps)
-      ? settings.fps
-      : DEFAULT_EXPORT_SETTINGS.fps,
-    gifLoop: settings?.gifLoop === 'raw' ? 'raw' : 'seamless',
-    quality: settings?.quality && EXPORT_QUALITY_OPTIONS.some(({ value }) => value === settings.quality)
-      ? settings.quality
-      : DEFAULT_EXPORT_SETTINGS.quality,
-    width: Number.isFinite(settings?.width) && (settings?.width ?? 0) > 0
-      ? settings!.width!
-      : DEFAULT_EXPORT_SETTINGS.width,
-  };
-}
-
-function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExportSettings): string {
-  return [ratio, settings.width, settings.quality, settings.durationMs, settings.fps, settings.gifLoop].join(':');
-}
-
-function DesignExportControls({
-  format,
-  onChange,
-  ratioOption,
-  settings,
-}: {
-  format: DesignExportFormat;
-  onChange: (patch: Partial<DesignExportSettings>) => void;
-  ratioOption: DesignRatioOption;
-  settings: DesignExportSettings;
-}) {
-  const dimensions = resolveExportDimensions({
-    aspectHeight: ratioOption.height,
-    aspectWidth: ratioOption.width,
-    width: settings.width,
-  });
-  const frameCount = Math.max(2, Math.round(settings.durationMs / (1_000 / settings.fps)));
-  const loopOverlapFrames = resolveSeamlessLoopOverlapFrames({
-    durationMs: settings.durationMs,
-    fps: settings.fps,
-    height: dimensions.height,
-    width: dimensions.width,
-  });
-  const motion = format === 'gif' || format === 'mp4';
-
-  return (
-    <div className='shader-lab-v2-output-controls'>
-      <div className='shader-lab-v2-export-overview' aria-label='Current output settings'>
-        <div>
-          <MonitorUp aria-hidden='true' />
-          <span><small>Output size</small><strong>{dimensions.width} × {dimensions.height}</strong></span>
-        </div>
-        <div>
-          {motion ? <Film aria-hidden='true' /> : <FileImage aria-hidden='true' />}
-          {motion
-            ? <span><small>Animation · {frameCount} frames</small><strong>{settings.durationMs / 1_000}s · {settings.fps} FPS</strong></span>
-            : <span><small>Static image</small><strong>{format.toUpperCase()} · {settings.quality}</strong></span>}
-        </div>
-      </div>
-      <div className='shader-lab-v2-export-presets' aria-label='Export size presets'>
-        {EXPORT_WIDTH_PRESETS.map((preset) => {
-          const presetDimensions = resolveExportDimensions({
-            aspectHeight: ratioOption.height,
-            aspectWidth: ratioOption.width,
-            width: preset.width,
-          });
-          return (
-            <button
-              aria-pressed={dimensions.width === presetDimensions.width}
-              key={preset.width}
-              onClick={() => onChange({ width: preset.width })}
-              type='button'
-            >
-              <strong>{preset.label}</strong>
-              <small>{presetDimensions.width}×{presetDimensions.height}</small>
-            </button>
-          );
-        })}
-      </div>
-      <label className='shader-lab-v2-export-width'>
-        <span><Ruler aria-hidden='true' />Custom width</span>
-        <span>
-          <input
-            aria-label='Export width in pixels'
-            max={3_840}
-            min={320}
-            onBlur={() => onChange({ width: dimensions.width })}
-            onChange={(event) => {
-              const width = event.currentTarget.valueAsNumber;
-              if (Number.isFinite(width)) onChange({ width });
-            }}
-            step={2}
-            type='number'
-            value={settings.width}
-          />
-          <i>px</i>
-        </span>
-      </label>
-      <div className='shader-lab-v2-export-quality'>
-        <span><CircleGauge aria-hidden='true' />Quality</span>
-        <div>
-          {EXPORT_QUALITY_OPTIONS.map((option) => {
-            const QualityIcon = option.value === 'fast' ? Zap : option.value === 'balanced' ? CircleGauge : Sparkles;
-            return (
-              <button
-                aria-pressed={settings.quality === option.value}
-                key={option.value}
-                onClick={() => onChange({ quality: option.value })}
-                title={option.description}
-                type='button'
-              >
-                <QualityIcon aria-hidden='true' />
-                <span><strong>{option.label}</strong><small>{option.description}</small></span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      {motion ? (
-        <div className='shader-lab-v2-export-motion'>
-          <label>
-            <span><Clock3 aria-hidden='true' />Duration</span>
-            <StudioSelect
-              ariaLabel='Export duration'
-              onValueChange={(value) => onChange({ durationMs: Number(value) })}
-              options={[
-                { label: '1.2 seconds', value: '1200' },
-                { label: '1.6 seconds', value: '1600' },
-                { label: '2.4 seconds', value: '2400' },
-                { label: '4 seconds', value: '4000' },
-              ]}
-              value={String(settings.durationMs)}
-            />
-          </label>
-          <label>
-            <span><Film aria-hidden='true' />Frame rate</span>
-            <StudioSelect
-              ariaLabel='Export frame rate'
-              onValueChange={(value) => onChange({ fps: Number(value) })}
-              options={[12, 15, 24, 30, 60].map((fps) => ({ label: `${fps} FPS`, value: String(fps) }))}
-              value={String(settings.fps)}
-            />
-          </label>
-        </div>
-      ) : null}
-      {format === 'gif' ? (
-        <div className='shader-lab-v2-export-quality shader-lab-v2-export-loop'>
-          <span><Repeat2 aria-hidden='true' />GIF loop</span>
-          <div>
-            <button
-              aria-pressed={settings.gifLoop === 'seamless'}
-              onClick={() => onChange({ gifLoop: 'seamless' })}
-              title='Blend and verify the closing frame for a smooth loop.'
-              type='button'
-            >Blended loop</button>
-            <button
-              aria-pressed={settings.gifLoop === 'raw'}
-              onClick={() => onChange({ gifLoop: 'raw' })}
-              title='Repeat captured frames without correcting the seam.'
-              type='button'
-            >Raw motion</button>
-          </div>
-          <small>{settings.gifLoop === 'seamless'
-            ? `Crossfade close · ${loopOverlapFrames}-frame overlap; not a native shader period`
-            : 'Unmodified clip · repeating it may show a visible seam'}</small>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function DesignExportWorkspace({
-  disabled,
-  format,
-  onChange,
-  onFormatChange,
-  ratioOption,
-  settings,
-}: {
-  disabled: boolean;
-  format: DesignExportFormat;
-  onChange: (patch: Partial<DesignExportSettings>) => void;
-  onFormatChange: (format: DesignExportFormat) => void;
-  ratioOption: DesignRatioOption;
-  settings: DesignExportSettings;
-}) {
-  const formats: readonly { description: string; icon: typeof ImageDown; label: string; value: DesignExportFormat }[] = [
-    { description: 'Transparent image', icon: ImageDown, label: 'PNG', value: 'png' },
-    { description: 'Smaller image', icon: FileImage, label: 'JPG', value: 'jpg' },
-    { description: 'Looping motion', icon: Film, label: 'GIF', value: 'gif' },
-    { description: 'Video', icon: Clapperboard, label: 'MP4', value: 'mp4' },
-  ];
-
-  return (
-    <div className='shader-export-workspace' aria-busy={disabled}>
-      <div className='shader-export-format' aria-label='Export format'>
-        {formats.map((option) => {
-          const FormatIcon = option.icon;
-          return (
-            <button
-              aria-pressed={format === option.value}
-              disabled={disabled}
-              key={option.value}
-              onClick={() => onFormatChange(option.value)}
-              type='button'
-            >
-              <FormatIcon aria-hidden='true' />
-              <span><strong>{option.label}</strong><small>{option.description}</small></span>
-            </button>
-          );
-        })}
-      </div>
-      <DesignExportControls
-        format={format}
-        onChange={onChange}
-        ratioOption={ratioOption}
-        settings={settings}
-      />
-    </div>
-  );
-}
-
-function ShaderSequenceControls({
-  disabled,
-  durationMs,
-  materialIds,
-  onChange,
-  onExport,
-  onPreview,
-  onShuffle,
-  previewing,
-  settings,
-  targetOptions,
-}: {
-  disabled: boolean;
-  durationMs: number;
-  materialIds: readonly LiveMaterialId[];
-  onChange: (patch: Partial<DesignShaderSequenceSettings>) => void;
-  onExport: () => void;
-  onPreview: () => void;
-  onShuffle: () => void;
-  previewing: boolean;
-  settings: DesignShaderSequenceSettings;
-  targetOptions: readonly { label: string; value: ShaderLayerId }[];
-}) {
-  const introCount = Math.max(0, materialIds.length - 1);
-  const occurrences = new Map<LiveMaterialId, number>();
-  const sequenceItems = materialIds.map((materialId) => {
-    const occurrence = (occurrences.get(materialId) ?? 0) + 1;
-    occurrences.set(materialId, occurrence);
-    return { key: `${materialId}:${occurrence}`, materialId };
-  });
-  return (
-    <div className='shader-lab-v2-sequence-builder'>
-      <div className='shader-lab-v2-sequence-summary'>
-        <span><Clapperboard aria-hidden='true' /><strong>Shader cuts</strong></span>
-        <code>{(durationMs / 1_000).toFixed(1)}s</code>
-      </div>
-      <p>Keep the composition locked while one background runs through {introCount} cuts and lands on its current shader.</p>
-      <div className='shader-lab-v2-sequence-strip studio-scroll-area' aria-label='Shader cut sequence' role='list'>
-        {sequenceItems.map(({ key, materialId }, index) => {
-          const material = getLiveMaterial(materialId);
-          const final = index === materialIds.length - 1;
-          return (
-            <StudioPreviewTooltip
-              description={final
-                ? `The sequence lands on ${material.name} and holds for ${(settings.finalHoldMs / 1_000).toFixed(1)} seconds.`
-                : `${material.name} appears as cut ${index + 1} in the ${settings.pace} shader progression.`}
-              eyebrow={final ? 'Final hold' : `Shader cut ${String(index + 1).padStart(2, '0')}`}
-              key={key}
-              meta={`${index + 1} of ${materialIds.length} · ${settings.pace} pacing`}
-              preview={<img alt='' src={shaderPreviewAssetPath(materialId)} />}
-              title={material.name}
-            >
-              <span aria-label={`${index + 1}. ${material.name}${final ? ', final hold' : ''}`} data-final={final ? 'true' : 'false'} role='listitem' tabIndex={0}>
-                <img alt='' src={shaderPreviewAssetPath(materialId)} />
-                <i>{final ? 'Hold' : String(index + 1).padStart(2, '0')}</i>
-              </span>
-            </StudioPreviewTooltip>
-          );
-        })}
-      </div>
-      <label className='shader-lab-v2-sequence-field'>
-        <span>Background layer</span>
-        <StudioSelect
-          ariaLabel='Shader sequence background layer'
-          disabled={targetOptions.length === 0}
-          onValueChange={(value) => onChange({ targetLayerId: value as ShaderLayerId })}
-          options={targetOptions}
-          value={settings.targetLayerId ?? targetOptions[0]?.value ?? ''}
-        />
-      </label>
-      <div className='shader-lab-v2-export-motion'>
-        <label>
-          <span><Film aria-hidden='true' />Cuts</span>
-          <StudioSelect
-            ariaLabel='Shader sequence cut count'
-            onValueChange={(value) => onChange({ cutCount: Number(value) })}
-            options={[8, 9, 10, 11, 12].map((count) => ({ label: `${count} shaders`, value: String(count) }))}
-            value={String(settings.cutCount)}
-          />
-        </label>
-        <label>
-          <span><Clock3 aria-hidden='true' />Final hold</span>
-          <StudioSelect
-            ariaLabel='Shader sequence final hold'
-            onValueChange={(value) => onChange({ finalHoldMs: Number(value) })}
-            options={[3_000, 4_000, 5_000, 6_000].map((holdMs) => ({ label: `${holdMs / 1_000} seconds`, value: String(holdMs) }))}
-            value={String(settings.finalHoldMs)}
-          />
-        </label>
-      </div>
-      <div className='shader-lab-v2-sequence-pace' aria-label='Shader cut pacing'>
-        {([
-          { label: 'Accelerating', value: 'accelerating' },
-          { label: 'Even', value: 'even' },
-        ] as const).map((option) => (
-          <button aria-pressed={settings.pace === option.value} key={option.value} onClick={() => onChange({ pace: option.value })} type='button'>{option.label}</button>
-        ))}
-      </div>
-      <div className='shader-lab-v2-sequence-actions'>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onShuffle} type='button'>
-          <Repeat2 aria-hidden='true' />
-          <span>New cuts</span>
-        </button>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onPreview} type='button'>
-          {previewing ? <Pause aria-hidden='true' /> : <Play aria-hidden='true' />}
-          <span>{previewing ? 'Stop preview' : 'Preview cuts'}</span>
-        </button>
-        <button disabled={disabled || targetOptions.length === 0} onClick={onExport} type='button'>
-          <Download aria-hidden='true' />
-          <span>Export MP4</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function CanvasSelectionAssemblyOverlay({
+const CanvasSelectionAssemblyOverlay = memo(function CanvasSelectionAssemblyOverlay({
   bounds,
   canvasHeight,
   canvasWidth,
@@ -1202,20 +769,16 @@ function CanvasSelectionAssemblyOverlay({
       </div>
     </CanvasSelectionClip>
   );
-}
+});
 
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
+const DESIGN_LAB_INITIAL_PAN = { x: 0, y: -40 };
 // High renders live shaders near device resolution; Auto drops to the draft
 // budget after sustained slow frames. Exports always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
   high: { maxPerInstance: 2_400_000, minPerInstance: 240_000, totalBudget: 4_800_000 },
   low: { maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, minPerInstance: 48_000, totalBudget: 300_000 },
 } as const;
-const DESIGN_LAB_PREVIEW_QUALITY_OPTIONS = [
-  { label: 'Auto', value: 'auto' },
-  { label: 'High', value: 'high' },
-  { label: 'Draft', value: 'low' },
-] as const;
 const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;
 const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
 const DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS: DesignShaderSequenceSettings = {
@@ -1232,30 +795,6 @@ const DEFAULT_DESIGN_LAB_LAYER_ORDER = [
   DEFAULT_LOGO_LAYER_ID,
 ] as const satisfies readonly CompositionLayerId[];
 const DEFAULT_DESIGN_LAB_SELECTED_LAYER_ID = DEFAULT_CANVAS_SHADER_ID;
-const STICKER_IMAGE_APPEARANCE: LogoAppearanceSettings = {
-  ...DEFAULT_LOGO_APPEARANCE,
-  borderColor: '#FFFFFF',
-  borderEnabled: true,
-  borderOpacity: 100,
-  borderWidth: 7,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: true,
-  shadowOffsetX: 0,
-  shadowOffsetY: 10,
-  shadowOpacity: 34,
-};
-const STICKER_TEXT_APPEARANCE: Partial<TextAppearanceSettings> = {
-  outlineColor: '#FFFFFF',
-  outlineEnabled: true,
-  outlineWidth: 7,
-  shadowBlur: 18,
-  shadowColor: '#000000',
-  shadowEnabled: true,
-  shadowOffsetX: 0,
-  shadowOffsetY: 10,
-  shadowOpacity: 34,
-};
 
 type DesignLabCompositionSource = {
   canvasDimensions?: Partial<StudioArtboardDimensions>;
@@ -1556,90 +1095,6 @@ function restoredLayerOrder({
   }) as CompositionLayerId[];
 }
 
-function InspectorTextArea({
-  ariaLabel,
-  onChange,
-  onPreview,
-  onSelection,
-  value,
-}: {
-  ariaLabel: string;
-  onChange: (value: string) => void;
-  onPreview?: (value: string) => void;
-  onSelection?: (range: TextSelectionRange) => void;
-  value: string;
-}) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const onChangeRef = useCommittedRef(onChange);
-  const onPreviewRef = useCommittedRef(onPreview);
-  const pendingValueRef = useRef<string | null>(null);
-  const commitTimerRef = useRef(0);
-
-  function flushTextChange() {
-    window.clearTimeout(commitTimerRef.current);
-    commitTimerRef.current = 0;
-    const nextValue = pendingValueRef.current;
-    pendingValueRef.current = null;
-    if (nextValue !== null) onChangeRef.current(nextValue);
-  }
-
-  useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input || document.activeElement === input || input.value === value) return;
-    input.value = value;
-  }, [value]);
-
-  useEffect(() => () => window.clearTimeout(commitTimerRef.current), []);
-
-  return (
-    <textarea
-      aria-label={ariaLabel}
-      onSelect={(event) => onSelection?.({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd })}
-      defaultValue={value}
-      onBlur={(event) => {
-        pendingValueRef.current = event.currentTarget.value;
-        flushTextChange();
-      }}
-      onInput={(event) => {
-        pendingValueRef.current = event.currentTarget.value;
-        onPreviewRef.current?.(event.currentTarget.value);
-        window.clearTimeout(commitTimerRef.current);
-        commitTimerRef.current = window.setTimeout(flushTextChange, 140);
-      }}
-      placeholder='Type something'
-      ref={inputRef}
-      rows={2}
-    />
-  );
-}
-
-const PRIMARY_CONTROLS: readonly {
-  key: keyof Pick<LiveMaterialSettings, 'speed' | 'frequency' | 'strength' | 'detail' | 'grain' | 'brightness'>;
-  label: string;
-  max: number;
-  min: number;
-  step: number;
-}[] = [
-  { key: 'speed', label: 'Shader speed', max: 1.5, min: 0, step: 0.01 },
-  { key: 'frequency', label: 'Frequency', max: 12, min: 0.5, step: 0.1 },
-  { key: 'strength', label: 'Warp', max: 1.5, min: 0, step: 0.01 },
-  { key: 'detail', label: 'Detail', max: 9, min: 0.5, step: 0.1 },
-  { key: 'grain', label: 'Texture', max: 100, min: 0, step: 1 },
-  { key: 'brightness', label: 'Light', max: 1.6, min: 0.35, step: 0.01 },
-];
-
-const ADVANCED_CONTROLS: readonly {
-  key: keyof Pick<LiveMaterialSettings, 'amplitude' | 'density' | 'rotationZ'>;
-  label: string;
-  max: number;
-  min: number;
-  step: number;
-}[] = [
-  { key: 'amplitude', label: 'Amplitude', max: 10, min: 0, step: 0.1 },
-  { key: 'density', label: 'Density', max: 2, min: 0.1, step: 0.01 },
-  { key: 'rotationZ', label: 'Rotation', max: 180, min: -180, step: 1 },
-];
-
 function escapeXml(value: string): string {
   return value.replace(/[<>&'"]/g, (character) => ({
     '"': '&quot;',
@@ -1673,342 +1128,6 @@ function shaderApplicationFor(
     }),
     shaderSize: clampShaderZoom(overrides.shaderSize ?? 1),
   };
-}
-
-export function ShaderZoomControl({
-  onChange,
-  onPreview,
-  value,
-}: {
-  onChange: (value: number) => void;
-  onPreview?: (value: number) => void;
-  value: number;
-}) {
-  const zoom = clampShaderZoom(value);
-  const [sliderValue, setSliderValue] = useState(() => shaderZoomToSlider(zoom));
-  const [zoomEntry, setZoomEntry] = useState(() => formatShaderZoom(zoom).slice(0, -1));
-  const pendingZoomRef = useRef<number | null>(null);
-  const latestZoomRef = useRef<number | null>(null);
-  const zoomFrameRef = useRef(0);
-  const sliderRef = useRef<HTMLInputElement>(null);
-  const pointerIdRef = useRef<number | null>(null);
-  const detachGestureListenersRef = useRef<(() => void) | null>(null);
-  const finishGestureRef = useCommittedRef(finishGesture);
-  const editingEntryRef = useRef(false);
-
-  useEffect(() => {
-    if (pointerIdRef.current === null && pendingZoomRef.current === null && zoomFrameRef.current === 0) {
-      setSliderValue(shaderZoomToSlider(zoom));
-      if (!editingEntryRef.current) setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-    }
-  }, [zoom]);
-
-  useEffect(() => () => {
-    cancelAnimationFrame(zoomFrameRef.current);
-    detachGestureListenersRef.current?.();
-  }, []);
-
-  function flushZoom() {
-    cancelAnimationFrame(zoomFrameRef.current);
-    zoomFrameRef.current = 0;
-    const nextZoom = pendingZoomRef.current ?? latestZoomRef.current;
-    pendingZoomRef.current = null;
-    latestZoomRef.current = null;
-    if (nextZoom !== null) {
-      onPreview?.(nextZoom);
-      flushSync(() => onChange(nextZoom));
-    }
-    sliderRef.current?.removeAttribute('data-canvas-preview-pending');
-  }
-
-  function finishGesture() {
-    pointerIdRef.current = null;
-    detachGestureListenersRef.current?.();
-    detachGestureListenersRef.current = null;
-    const slider = sliderRef.current;
-    // Compare in slider space: log/power round trips can differ by an epsilon
-    // even when the native value has not changed since the previous commit.
-    if (slider && Number(slider.value) !== sliderValue) {
-      const nativeZoom = shaderZoomFromSlider(Number(slider.value));
-      setSliderValue(Number(slider.value));
-      setZoomEntry(formatShaderZoom(nativeZoom).slice(0, -1));
-      pendingZoomRef.current = nativeZoom;
-      latestZoomRef.current = nativeZoom;
-    }
-    flushZoom();
-  }
-
-  function finishPointerGesture(event: { pointerId: number }) {
-    if (event.pointerId === pointerIdRef.current) finishGesture();
-  }
-
-  function beginGesture(event: ReactPointerEvent<HTMLInputElement>) {
-    if (event.button !== 0 || pointerIdRef.current !== null) return;
-    pointerIdRef.current = event.pointerId;
-    // Preserve WebKit's native thumb capture; finish even when release occurs
-    // outside the range, without replacing the browser's drag implementation.
-    const finishPointer = (event: PointerEvent) => {
-      if (event.pointerId === pointerIdRef.current) finishGestureRef.current();
-    };
-    const finishBlur = () => finishGestureRef.current();
-    window.addEventListener('pointerup', finishPointer);
-    window.addEventListener('pointercancel', finishPointer);
-    window.addEventListener('blur', finishBlur);
-    detachGestureListenersRef.current = () => {
-      window.removeEventListener('pointerup', finishPointer);
-      window.removeEventListener('pointercancel', finishPointer);
-      window.removeEventListener('blur', finishBlur);
-    };
-  }
-
-  function scheduleZoom(nextSliderValue: number) {
-    setSliderValue(nextSliderValue);
-    const nextZoom = shaderZoomFromSlider(nextSliderValue);
-    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
-    pendingZoomRef.current = nextZoom;
-    latestZoomRef.current = nextZoom;
-    if (pointerIdRef.current === null) {
-      flushZoom();
-      return;
-    }
-    sliderRef.current?.setAttribute('data-canvas-preview-pending', 'true');
-    if (zoomFrameRef.current) return;
-    zoomFrameRef.current = requestAnimationFrame(() => {
-      zoomFrameRef.current = 0;
-      if (pendingZoomRef.current === null) return;
-      const nextZoom = pendingZoomRef.current;
-      pendingZoomRef.current = null;
-      (onPreview ?? onChange)(nextZoom);
-    });
-  }
-
-  function applyZoom(nextValue: number) {
-    cancelAnimationFrame(zoomFrameRef.current);
-    zoomFrameRef.current = 0;
-    pendingZoomRef.current = null;
-    latestZoomRef.current = null;
-    pointerIdRef.current = null;
-    detachGestureListenersRef.current?.();
-    detachGestureListenersRef.current = null;
-    const nextZoom = clampShaderZoom(nextValue);
-    setSliderValue(shaderZoomToSlider(nextZoom));
-    setZoomEntry(formatShaderZoom(nextZoom).slice(0, -1));
-    onPreview?.(nextZoom);
-    flushSync(() => onChange(nextZoom));
-    sliderRef.current?.removeAttribute('data-canvas-preview-pending');
-  }
-
-  function commitZoomEntry() {
-    if (!editingEntryRef.current) return;
-    editingEntryRef.current = false;
-    const nextZoom = Number(zoomEntry);
-    if (!Number.isFinite(nextZoom) || nextZoom <= 0) {
-      setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-      return;
-    }
-    applyZoom(nextZoom);
-  }
-
-  return (
-    <div className='shader-lab-v2-range shader-lab-v2-zoom-control'>
-      <StudioRangeLabel
-        label='Shader zoom'
-        value={(
-          <span className='shader-lab-v2-zoom-value'>
-            <input
-              aria-label='Shader zoom value'
-              inputMode='decimal'
-              max={SHADER_ZOOM_MAX}
-              min={SHADER_ZOOM_MIN}
-              onBlur={commitZoomEntry}
-              onChange={(event) => setZoomEntry(event.target.value)}
-              onFocus={() => { editingEntryRef.current = true; }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  event.currentTarget.blur();
-                }
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  editingEntryRef.current = false;
-                  setZoomEntry(formatShaderZoom(zoom).slice(0, -1));
-                  event.currentTarget.blur();
-                }
-              }}
-              step={0.05}
-              type='number'
-              value={zoomEntry}
-            />
-            <span aria-hidden='true'>×</span>
-          </span>
-        )}
-      />
-      <div className='shader-lab-v2-zoom-input'>
-        <button
-          aria-label='Zoom shader out'
-          disabled={zoom <= 0.1}
-          onClick={() => applyZoom(stepShaderZoom(zoom, -1))}
-          title='Zoom shader out'
-          type='button'
-        ><ZoomOut aria-hidden='true' /></button>
-        <StudioRange
-          aria-label='Shader zoom slider'
-          max={SHADER_ZOOM_SLIDER_MAX}
-          min={SHADER_ZOOM_SLIDER_MIN}
-          onBlur={finishGesture}
-          onChange={(event) => {
-            if (event.nativeEvent.type === 'change') finishGesture();
-          }}
-          onInput={(event) => scheduleZoom(Number(event.currentTarget.value))}
-          onLostPointerCapture={finishPointerGesture}
-          onPointerCancel={finishPointerGesture}
-          onPointerDown={beginGesture}
-          onPointerUp={finishPointerGesture}
-          ref={sliderRef}
-          step={SHADER_ZOOM_SLIDER_STEP}
-          value={sliderValue}
-        />
-        <button
-          aria-label='Zoom shader in'
-          disabled={zoom >= 10}
-          onClick={() => applyZoom(stepShaderZoom(zoom, 1))}
-          title='Zoom shader in'
-          type='button'
-        ><ZoomIn aria-hidden='true' /></button>
-      </div>
-      <div aria-hidden='true' className='shader-lab-v2-zoom-scale'>
-        <span>0.1×</span><span>1×</span><span>10×</span>
-      </div>
-    </div>
-  );
-}
-
-function DesignLabEffectInspector({
-  previewEffectLayer,
-  selectEffectPreset,
-  selectedEffectLayer,
-  updateEffectLayer,
-}: {
-  previewEffectLayer: (
-    id: EffectLayerId,
-    update: { opacity?: number; settings?: Partial<CompositionEffectSettings> }
-  ) => void;
-  selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
-  selectedEffectLayer: CompositionEffectLayer;
-  updateEffectLayer: (
-    id: EffectLayerId,
-    update: Partial<Omit<CompositionEffectLayer, 'id'>>
-  ) => void;
-}) {
-  return <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-effect-inspector' meta='Post-process' title='Converter'>
-    <div className='shader-lab-v2-effect-presets' aria-label='Converter type'>
-      {COMPOSITION_EFFECT_PRESETS.map((preset) => (
-        <button
-          aria-pressed={selectedEffectLayer.settings.kind === preset.kind}
-          key={preset.kind}
-          onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
-          type='button'
-        >
-          <CompositionEffectThumbnail kind={preset.kind} />
-          <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
-        </button>
-      ))}
-    </div>
-    <div className='shader-lab-v2-ranges'>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
-        onPreview={(opacity) => previewEffectLayer(selectedEffectLayer.id, { opacity })}
-        step={0.01}
-        value={selectedEffectLayer.opacity}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value)}px`}
-        label='Cell size'
-        max={28}
-        min={selectedEffectLayer.settings.kind === 'ascii' ? 7 : selectedEffectLayer.settings.kind === 'halftone' ? 4 : 1}
-        onChange={(cellSize) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, cellSize },
-        })}
-        onPreview={(cellSize) => previewEffectLayer(selectedEffectLayer.id, { settings: { cellSize } })}
-        step={1}
-        value={selectedEffectLayer.settings.cellSize}
-      />
-      <RangeControl
-        formatValue={(value) => `${value.toFixed(2)}×`}
-        label='Contrast'
-        max={2.4}
-        min={0.4}
-        onChange={(contrast) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, contrast },
-        })}
-        onPreview={(contrast) => previewEffectLayer(selectedEffectLayer.id, { settings: { contrast } })}
-        step={0.02}
-        value={selectedEffectLayer.settings.contrast}
-      />
-      <RangeControl
-        formatValue={(value) => `${value >= 0.5 ? '+' : ''}${Math.round((value - 0.5) * 200)}%`}
-        label='Brightness'
-        max={1}
-        min={0}
-        onChange={(threshold) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, threshold },
-        })}
-        onPreview={(threshold) => previewEffectLayer(selectedEffectLayer.id, { settings: { threshold } })}
-        step={0.01}
-        value={selectedEffectLayer.settings.threshold}
-      />
-      {selectedEffectLayer.settings.kind === 'posterize' ? (
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} tones`}
-          label='Tone count'
-          max={8}
-          min={2}
-          onChange={(levels) => updateEffectLayer(selectedEffectLayer.id, {
-            settings: { ...selectedEffectLayer.settings, levels },
-          })}
-          onPreview={(levels) => previewEffectLayer(selectedEffectLayer.id, { settings: { levels } })}
-          step={1}
-          value={selectedEffectLayer.settings.levels}
-        />
-      ) : null}
-    </div>
-    <div className='shader-lab-v2-effect-colors'>
-      <ColorControl
-        ariaLabel='Converter foreground color'
-        label='Foreground'
-        onChange={(foreground) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, foreground },
-        })}
-        onPreview={(foreground) => previewEffectLayer(selectedEffectLayer.id, { settings: { foreground } })}
-        value={selectedEffectLayer.settings.foreground}
-      />
-      <ColorControl
-        ariaLabel='Converter background color'
-        label='Background'
-        onChange={(background) => updateEffectLayer(selectedEffectLayer.id, {
-          settings: { ...selectedEffectLayer.settings, background },
-        })}
-        onPreview={(background) => previewEffectLayer(selectedEffectLayer.id, { settings: { background } })}
-        value={selectedEffectLayer.settings.background}
-      />
-    </div>
-    <div className='shader-lab-v2-effect-group'>
-      <label>
-        <span>Invert luminance</span>
-        <StudioCheckbox
-          checked={selectedEffectLayer.settings.invert}
-          onChange={(event) => updateEffectLayer(selectedEffectLayer.id, {
-            settings: { ...selectedEffectLayer.settings, invert: event.target.checked },
-          })}
-        />
-      </label>
-    </div>
-  </LabInspectorSection>;
 }
 
 const ShaderMaterialCard = memo(function ShaderMaterialCard({
@@ -2711,781 +1830,6 @@ function resolveContentLayerSelection({
   };
 }
 
-type SelectedTextInspector = NonNullable<ReturnType<typeof resolveContentLayerSelection>['textInspector']>;
-type TextAppearancePreviewPatch = Partial<Omit<TextAppearanceSettings, 'textEffect'>> & {
-  textEffect?: Partial<TextEffectSettings>;
-};
-
-const IMAGE_CROP_ASPECT_OPTIONS = [
-  { label: 'Freeform', value: 'freeform' },
-  { label: 'Square · 1:1', value: '1' },
-  { label: 'Landscape · 4:3', value: '1.333333' },
-  { label: 'Widescreen · 16:9', value: '1.777778' },
-  { label: 'Portrait · 3:4', value: '0.75' },
-  { label: 'Story · 9:16', value: '0.5625' },
-] as const;
-
-function imageCropAspectValue(transform: CanvasLayerTransform, geometry: CanvasLayerGeometry): string {
-  const { height, width } = canvasLayerDimensions(transform, geometry);
-  const ratio = width / Math.max(height, 0.001);
-  return IMAGE_CROP_ASPECT_OPTIONS.find(({ value }) => {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) && Math.abs(ratio - numeric) < 0.012;
-  })?.value ?? 'freeform';
-}
-
-function DesignLabAssetLayerInspector({
-  appearance,
-  asset,
-  cropAspect,
-  cropEditing,
-  onCropAspectChange,
-  onCropEditingChange,
-  previewAppearance,
-  previewImageCrop,
-  previewOpacity,
-  previewStickerFinish,
-  updateAsset,
-}: {
-  appearance: LogoAppearanceSettings;
-  asset: CompositionAsset;
-  cropAspect: string;
-  cropEditing: boolean;
-  onCropAspectChange: (value: string) => void;
-  onCropEditingChange: (editing: boolean) => void;
-  previewAppearance: (patch: Partial<LogoAppearanceSettings>) => void;
-  previewImageCrop: (patch: Partial<ImageCropSettings>) => void;
-  previewOpacity: (value: number) => void;
-  previewStickerFinish: (patch: Partial<StickerFinishSettings>) => void;
-  updateAsset: (update: Partial<Omit<CompositionAsset, 'id'>>) => void;
-}) {
-  const sticker = asset.kind === 'sticker';
-  const crop = normalizeImageCropSettings(asset.imageCrop);
-  const finish = normalizeStickerFinish(asset.stickerFinish);
-  const updateFinish = (patch: Partial<StickerFinishSettings>) => updateAsset({
-    stickerFinish: normalizeStickerFinish({ ...finish, ...patch }),
-  });
-
-  return (
-    <div aria-label={sticker ? 'Sticker appearance' : 'Image appearance'} className='shader-lab-v2-layer-settings' role='group'>
-      <div className='shader-lab-v2-layer-settings-heading'>
-        <strong>{sticker ? 'Sticker appearance' : 'Image appearance'}</strong>
-        <span>{sticker ? 'Die-cut layer' : 'Non-destructive'}</span>
-      </div>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateAsset({ opacity })}
-        onPreview={previewOpacity}
-        step={0.01}
-        value={asset.opacity ?? 1}
-      />
-
-      <div className='shader-lab-v2-image-crop-panel'>
-        <label className='shader-lab-v2-effect-toggle'>
-          <span>
-            <strong><Crop aria-hidden='true' />Crop to frame</strong>
-            <small>Resize the layer frame without squeezing the image.</small>
-          </span>
-          <StudioCheckbox
-            aria-label='Crop image to frame'
-            checked={crop.enabled}
-            onChange={(event) => {
-              const enabled = event.target.checked;
-              if (!enabled) onCropEditingChange(false);
-              updateAsset({ imageCrop: { ...crop, enabled } });
-            }}
-            variant='switch'
-          />
-        </label>
-        {crop.enabled ? (
-          <div className='shader-lab-v2-image-crop-controls'>
-            <div className='shader-lab-v2-image-crop-actions'>
-              <Button onClick={() => onCropEditingChange(!cropEditing)} size='sm' type='button' variant={cropEditing ? 'secondary' : 'outline'}>
-                {cropEditing ? <Check aria-hidden='true' /> : <Crop aria-hidden='true' />}{cropEditing ? 'Finish cropping' : 'Edit crop on canvas'}
-              </Button>
-              <Button onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })} size='sm' type='button' variant='ghost'>
-                <Frame aria-hidden='true' />Fill frame
-              </Button>
-              <Button onClick={() => { onCropEditingChange(false); updateAsset({ imageCrop: { ...crop, enabled: false } }); }} size='sm' type='button' variant='ghost'>
-                <ImageDown aria-hidden='true' />Fit image
-              </Button>
-              <Button onClick={() => onCropAspectChange('original')} size='sm' type='button' variant='ghost'>
-                <FileImage aria-hidden='true' />Original ratio
-              </Button>
-            </div>
-            <label className='shader-lab-v2-field'>
-              <span>Crop aspect</span>
-              <StudioSelect
-                ariaLabel='Crop aspect ratio'
-                onValueChange={onCropAspectChange}
-                options={[...IMAGE_CROP_ASPECT_OPTIONS]}
-                value={cropAspect}
-              />
-            </label>
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Crop zoom'
-              max={4}
-              min={1}
-              onChange={(zoom) => updateAsset({ imageCrop: { ...crop, zoom } })}
-              onPreview={(zoom) => previewImageCrop({ zoom })}
-              step={0.01}
-              value={crop.zoom}
-            />
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Horizontal focus'
-              max={1}
-              min={0}
-              onChange={(focalPointX) => updateAsset({ imageCrop: { ...crop, focalPointX } })}
-              onPreview={(focalPointX) => previewImageCrop({ focalPointX })}
-              step={0.01}
-              value={crop.focalPointX}
-            />
-            <RangeControl
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-              label='Vertical focus'
-              max={1}
-              min={0}
-              onChange={(focalPointY) => updateAsset({ imageCrop: { ...crop, focalPointY } })}
-              onPreview={(focalPointY) => previewImageCrop({ focalPointY })}
-              step={0.01}
-              value={crop.focalPointY}
-            />
-            <Button
-              onClick={() => updateAsset({ imageCrop: { ...DEFAULT_IMAGE_CROP, enabled: true } })}
-              size='sm'
-              type='button'
-              variant='ghost'
-            >
-              <RotateCcw aria-hidden='true' />Reset crop
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      {sticker ? (
-        <div className='shader-lab-v2-sticker-finish-panel'>
-          <div className='shader-lab-v2-sticker-finish-heading'>
-            <span><Sparkles aria-hidden='true' /><strong>Surface finish</strong></span>
-            <small>{STICKER_FINISH_PRESETS.length} finishes</small>
-          </div>
-          <div aria-label='Sticker surface finish' className='shader-lab-v2-sticker-finish-presets' role='group'>
-            {STICKER_FINISH_PRESETS.map((preset) => (
-              <button
-                aria-pressed={finish.presetId === preset.id}
-                key={preset.id}
-                onClick={() => updateAsset({ stickerFinish: { ...preset.settings } })}
-                title={preset.description}
-                type='button'
-              >
-                <span aria-hidden='true' style={{ background: preset.swatch }} />
-                <strong>{preset.label}</strong>
-              </button>
-            ))}
-          </div>
-          <div className='shader-lab-v2-sticker-finish-controls'>
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shine' max={100} min={0} onChange={(intensity) => updateFinish({ intensity })} onPreview={(intensity) => previewStickerFinish({ intensity })} step={1} value={finish.intensity} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Texture' max={100} min={0} onChange={(texture) => updateFinish({ texture })} onPreview={(texture) => previewStickerFinish({ texture })} step={1} value={finish.texture} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Relief' max={100} min={0} onChange={(relief) => updateFinish({ relief })} onPreview={(relief) => previewStickerFinish({ relief })} step={1} value={finish.relief} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}°`} label='Glint angle' max={180} min={0} onChange={(glintAngle) => updateFinish({ glintAngle })} onPreview={(glintAngle) => previewStickerFinish({ glintAngle })} step={1} value={finish.glintAngle} />
-            <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Depth' max={100} min={0} onChange={(depth) => updateFinish({ depth })} onPreview={(depth) => previewStickerFinish({ depth })} step={1} value={finish.depth} />
-          </div>
-        </div>
-      ) : null}
-
-      <LogoAppearanceControls
-        kind={sticker ? 'sticker' : 'image'}
-        onChange={(patch) => updateAsset({ appearance: { ...appearance, ...patch } })}
-        onPreview={previewAppearance}
-        settings={appearance}
-      />
-      {!sticker ? (
-        <Button
-          onClick={() => updateAsset({
-            appearance: { ...STICKER_IMAGE_APPEARANCE },
-            kind: 'sticker',
-            stickerFinish: { ...DEFAULT_STICKER_FINISH },
-          })}
-          size='sm'
-          type='button'
-          variant='outline'
-        >
-          <Sticker aria-hidden='true' />Make sticker
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function textInspectorRange(selection: SelectedTextInspector, range: TextSelectionRange | null) {
-  const { layer, appearance } = selection;
-  const segments = textStyleSegments(layer.value, layer.runs).filter((run) => !range || (run.start < range.end && run.end > range.start));
-  const style = range ? segments[0]?.style ?? {} : {};
-  return {
-    selectedTextLayer: { ...layer, ...style },
-    selectedTextAppearance: { ...appearance, ...style },
-    mixedFormatting: segments.some((run) => INLINE_TEXT_KEYS.some((key) => (run.style[key] ?? layer[key]) !== (segments[0].style[key] ?? layer[key]))),
-  };
-}
-
-function DesignLabTextStyleButtons({ layer, weight, boldAvailable, onChange }: {
-  layer: CompositionTextLayer; weight: number; boldAvailable: boolean;
-  onChange: (patch: InlineTextStyle) => void;
-}) {
-  return <div className='shader-lab-v2-text-options'>
-    <span>Style</span>
-    <div>
-      <button aria-label='Bold text' aria-pressed={weight >= 600} disabled={!boldAvailable}
-        onClick={() => onChange({ weight: weight >= 600 ? 400 : 700 })}
-        title={boldAvailable ? 'Bold' : 'This font does not include regular and bold weights'} type='button'><TextB aria-hidden='true' /></button>
-      <button aria-label='Italic text' aria-pressed={layer.fontStyle === 'italic'}
-        onClick={() => onChange({ fontStyle: layer.fontStyle === 'italic' ? 'normal' : 'italic' })}
-        title='Italic' type='button'><TextItalic aria-hidden='true' /></button>
-      <button aria-label='Underline text' aria-pressed={layer.underline === true}
-        onClick={() => onChange({ underline: !layer.underline })}
-        title='Underline' type='button'><TextUnderline aria-hidden='true' /></button>
-      <button aria-label='Strikethrough text' aria-pressed={layer.strikethrough === true}
-        onClick={() => onChange({ strikethrough: !layer.strikethrough })}
-        title='Strikethrough' type='button'><TextStrikethrough aria-hidden='true' /></button>
-    </div>
-  </div>;
-}
-
-function TextSelectionScope({ range, mixed, onClear }: { range: TextSelectionRange | null; mixed: boolean; onClear: () => void }) {
-  return <div className='mb-3 flex items-center justify-between gap-2 text-xs text-muted-foreground' data-canvas-selection-preserve>
-    <span role='status'>{range ? `Selected text · ${range.end - range.start} characters` : 'Whole text box'}{mixed ? ' · Mixed formatting' : ''}</span>
-    {range ? <Button onClick={onClear} size='sm' variant='ghost'>Whole text box</Button> : null}
-  </div>;
-}
-
-function DesignLabTextLayerInspector({
-  canvasHeight,
-  canvasWidth,
-  identity,
-  previewSelectedContentOpacity,
-  previewSelectedTextAppearance,
-  previewSelectedTextLayer,
-  previewSelectedTextWidth,
-  selectedCanvasLayerCount,
-  selection,
-  stageRef,
-  textRenderedWeight,
-  textWeightRange,
-  updateTextLayer,
-  updateTextBox,
-  textRange,
-  clearTextRange,
-  onTextSelection,
-}: {
-  textRange: TextSelectionRange | null;
-  clearTextRange: () => void;
-  onTextSelection: (range: TextSelectionRange) => void;
-  canvasHeight: number;
-  canvasWidth: number;
-  identity: BrandIdentity;
-  previewSelectedContentOpacity: (value: number) => void;
-  previewSelectedTextAppearance: (patch: TextAppearancePreviewPatch) => void;
-  previewSelectedTextLayer: (update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  previewSelectedTextWidth: (value: number) => void;
-  selectedCanvasLayerCount: number;
-  selection: SelectedTextInspector;
-  stageRef: RefObject<HTMLDivElement | null>;
-  textRenderedWeight: number;
-  textWeightRange: { max: number; min: number };
-  updateTextLayer: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-  updateTextBox: (id: TextLayerId, update: Partial<Omit<CompositionTextLayer, 'id'>>) => void;
-}) {
-  const {
-    layer: baseLayer,
-    transform: selectedTextTransform,
-  } = selection;
-  const { selectedTextLayer, selectedTextAppearance, mixedFormatting } = textInspectorRange(selection, textRange);
-  const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, selectedTextLayer.weight);
-  const rangeWeightBounds = brandTypographyWeightRange(identity, selectedTextAppearance.fontRole);
-  return <>
-    <TextSelectionScope range={textRange} mixed={mixedFormatting} onClear={clearTextRange} />
-    <label className='shader-lab-v2-text-input'>
-      <Type aria-hidden='true' />
-      <InspectorTextArea
-        ariaLabel={`${selectedTextLayer.name} content`}
-        onSelection={onTextSelection}
-        onChange={(value) => updateTextLayer(selectedTextLayer.id, { value })}
-        onPreview={(value) => {
-          if (baseLayer.runs?.length) return;
-          const text = selectedCanvasLayerElement(stageRef.current, selectedCanvasLayerCount)
-            ?.querySelector<HTMLElement>('.shader-lab-v2-layer-text');
-          if (text) text.innerText = value;
-          previewSelectedTextLayer({ value });
-        }}
-        value={selectedTextLayer.value}
-      />
-    </label>
-    <div aria-label='Typography' className='shader-lab-v2-text-controls'>
-      <label className='shader-lab-v2-field'>
-        <span>Brand font</span>
-        <StudioSelect
-          ariaLabel='Text font role'
-          onValueChange={(fontRole) => {
-            const nextRole = fontRole as BrandTypography['role'];
-            updateTextLayer(selectedTextLayer.id, {
-              fontRole: nextRole,
-              weight: resolveBrandTypographyWeight(
-                identity,
-                nextRole,
-                brandTypographyRole(identity, nextRole).weight ?? selectedTextLayer.weight
-              ),
-            });
-          }}
-          options={(['Display', 'Body', 'Accent', 'Code'] as const).map((role) => ({
-            label: `${role} · ${brandTypographyFamily(identity, role).replace(/^Glyphfield Project [\da-f]+(?:-[\da-f]+)*:: /, '')}`,
-            value: role,
-          }))}
-          value={selectedTextAppearance.fontRole}
-        />
-      </label>
-      <ColorControl
-        ariaLabel='Text color'
-        label='Text color'
-        onChange={(color) => updateTextLayer(selectedTextLayer.id, { color })}
-        onPreview={textRange ? undefined : (color) => previewSelectedTextAppearance({ color })}
-        value={selectedTextAppearance.color}
-      />
-      <div className='shader-lab-v2-text-options'>
-        <span>Wrap</span>
-        <div>
-          {(['wrap', 'nowrap'] as const).map((value) => (
-            <button
-              aria-pressed={selectedTextLayer.wrap === value}
-              key={value}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { wrap: value })}
-              title={value === 'wrap' ? 'Wrap text' : 'Keep text on one line'}
-              type='button'
-            >
-              {value === 'wrap' ? <WrapText aria-hidden='true' /> : <ArrowRight aria-hidden='true' />}
-              <span>{value === 'wrap' ? 'Wrap' : 'Single line'}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className='shader-lab-v2-text-options'>
-        <span>Align</span>
-        <div>
-          {(['left', 'center', 'right'] as const).map((value) => (
-            <button
-              aria-label={`${value[0]!.toUpperCase()}${value.slice(1)} align text`}
-              aria-pressed={selectedTextLayer.align === value}
-              key={value}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { align: value })}
-              title={`${value[0]!.toUpperCase()}${value.slice(1)} align`}
-              type='button'
-            >
-              {value === 'left' ? <AlignLeft aria-hidden='true' /> : value === 'right' ? <AlignRight aria-hidden='true' /> : <AlignCenter aria-hidden='true' />}
-            </button>
-          ))}
-        </div>
-      </div>
-      <DesignLabTextStyleButtons layer={selectedTextLayer} weight={resolvedWeight}
-        boldAvailable={rangeWeightBounds.max >= 600 && rangeWeightBounds.min < 600}
-        onChange={(patch) => updateTextLayer(selectedTextLayer.id, patch)} />
-      <StudioFontSizeControl
-        key={selectedTextLayer.id}
-        onChange={(size) => updateTextLayer(selectedTextLayer.id, designLabFontSizeUpdate(selectedTextLayer, size))}
-        onPreview={(size) => {
-          if (textRange) return;
-          previewSelectedTextStyle(
-            stageRef.current,
-            selectedCanvasLayerCount,
-            'fontSize',
-            `${size / canvasWidth * 100}cqw`
-          );
-          previewSelectedTextLayer(designLabFontSizeUpdate(selectedTextLayer, size));
-        }}
-        value={resolveDesignLabFontSize(selectedTextLayer, canvasHeight)}
-      />
-      <RangeControl
-        formatValue={(value) => String(Math.round(value))}
-        label='Font weight'
-        max={textRange ? rangeWeightBounds.max : textWeightRange.max}
-        min={textRange ? rangeWeightBounds.min : textWeightRange.min}
-        onChange={(weight) => updateTextLayer(selectedTextLayer.id, {
-          weight: resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight),
-        })}
-        onPreview={(weight) => {
-          if (textRange) return;
-          const resolvedWeight = resolveBrandTypographyWeight(identity, selectedTextAppearance.fontRole, weight);
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'fontWeight', String(resolvedWeight));
-          previewSelectedTextLayer({ weight: resolvedWeight });
-        }}
-        step={textWeightRange.max - textWeightRange.min <= 100 ? 100 : 50}
-        value={textRange ? resolvedWeight : textRenderedWeight}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Text box width'
-        max={3}
-        min={0.25}
-        onChange={(widthScale) => updateTextLayer(selectedTextLayer.id, {
-          transform: { ...selectedTextTransform, widthScale },
-        })}
-        onPreview={previewSelectedTextWidth}
-        step={0.05}
-        value={selectedTextTransform.widthScale ?? 1}
-      />
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateTextLayer(selectedTextLayer.id, { opacity })}
-        onPreview={previewSelectedContentOpacity}
-        step={0.01}
-        value={selectedTextAppearance.opacity}
-      />
-      <RangeControl
-        formatValue={(value) => value.toFixed(2)}
-        label='Line height'
-        max={1.8}
-        min={0.7}
-        onChange={(lineHeight) => updateTextLayer(selectedTextLayer.id, { lineHeight })}
-        onPreview={(lineHeight) => {
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'lineHeight', String(lineHeight));
-          previewSelectedTextLayer({ lineHeight });
-        }}
-        step={0.05}
-        value={selectedTextLayer.lineHeight}
-      />
-      <RangeControl
-        formatValue={(value) => `${value.toFixed(2)}em`}
-        label='Tracking'
-        max={0.2}
-        min={-0.12}
-        onChange={(tracking) => updateTextLayer(selectedTextLayer.id, { tracking })}
-        onPreview={(tracking) => {
-          if (textRange) return;
-          previewSelectedTextStyle(stageRef.current, selectedCanvasLayerCount, 'letterSpacing', `${tracking}em`);
-          previewSelectedTextLayer({ tracking });
-        }}
-        step={0.01}
-        value={selectedTextLayer.tracking}
-      />
-      <div className='shader-lab-v2-text-effects-panel'>
-        <div className='shader-lab-v2-text-effects-heading'>
-          <span><WandSparkles aria-hidden='true' />Text effects</span>
-          <small>Glyph fill</small>
-        </div>
-        <div aria-label='Text effect presets' className='shader-lab-v2-text-effect-presets'>
-          {TEXT_EFFECT_PRESETS.map((preset) => (
-            <button
-              aria-pressed={selectedTextAppearance.textEffect.kind === preset.settings.kind}
-              key={preset.settings.kind}
-              onClick={() => updateTextLayer(selectedTextLayer.id, { textEffect: { ...preset.settings } })}
-              title={preset.description}
-              type='button'
-            >
-              <TextEffectThumbnail settings={preset.settings} />
-              <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
-            </button>
-          ))}
-        </div>
-        {selectedTextAppearance.textEffect.kind !== 'solid' ? (
-          <div className='shader-lab-v2-text-effect-tuning'>
-            <div className='shader-lab-v2-effect-colors'>
-              <ColorControl
-                ariaLabel='Text effect foreground color'
-                label='Foreground'
-                onChange={(color) => updateTextBox(selectedTextLayer.id, { color })}
-                onPreview={(color) => previewSelectedTextAppearance({ color })}
-                value={selection.appearance.color}
-              />
-              <ColorControl
-                ariaLabel='Text effect background color'
-                label='Background'
-                onChange={(backgroundColor) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, backgroundColor },
-                })}
-                onPreview={(backgroundColor) => previewSelectedTextAppearance({ textEffect: { backgroundColor } })}
-                value={selectedTextAppearance.textEffect.backgroundColor}
-              />
-            </div>
-            {selectedTextAppearance.textEffect.kind !== 'gradient' ? <>
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}%`}
-                label='Effect strength'
-                max={100}
-                min={0}
-                onChange={(amount) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, amount },
-                })}
-                onPreview={(amount) => previewSelectedTextAppearance({ textEffect: { amount } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.amount}
-              />
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}px`}
-                label='Pattern scale'
-                max={36}
-                min={4}
-                onChange={(scale) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, scale },
-                })}
-                onPreview={(scale) => previewSelectedTextAppearance({ textEffect: { scale } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.scale}
-              />
-            </> : null}
-            {selectedTextAppearance.textEffect.kind !== 'halftone' ? (
-              <RangeControl
-                formatValue={(value) => `${Math.round(value)}°`}
-                label='Effect angle'
-                max={180}
-                min={-180}
-                onChange={(angle) => updateTextLayer(selectedTextLayer.id, {
-                  textEffect: { ...selectedTextAppearance.textEffect, angle },
-                })}
-                onPreview={(angle) => previewSelectedTextAppearance({ textEffect: { angle } })}
-                step={1}
-                value={selectedTextAppearance.textEffect.angle}
-              />
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      <div className='shader-lab-v2-effect-group'>
-        <label><span>Text outline</span><StudioCheckbox checked={selectedTextAppearance.outlineEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { outlineEnabled: event.target.checked })} /></label>
-        {selectedTextAppearance.outlineEnabled ? <>
-          <ColorControl ariaLabel='Text outline color' label='Outline color' onChange={(outlineColor) => updateTextLayer(selectedTextLayer.id, { outlineColor })} onPreview={(outlineColor) => previewSelectedTextAppearance({ outlineColor })} value={selectedTextAppearance.outlineColor} />
-          <RangeControl label='Outline width' max={12} min={0.5} onChange={(outlineWidth) => updateTextLayer(selectedTextLayer.id, { outlineWidth })} onPreview={(outlineWidth) => previewSelectedTextAppearance({ outlineWidth })} step={0.5} value={selectedTextAppearance.outlineWidth} />
-        </> : null}
-      </div>
-      <div className='shader-lab-v2-effect-group'>
-        <label><span>Text shadow</span><StudioCheckbox checked={selectedTextAppearance.shadowEnabled} onChange={(event) => updateTextLayer(selectedTextLayer.id, { shadowEnabled: event.target.checked })} /></label>
-        {selectedTextAppearance.shadowEnabled ? <>
-          <ColorControl ariaLabel='Text shadow color' label='Shadow color' onChange={(shadowColor) => updateTextLayer(selectedTextLayer.id, { shadowColor })} onPreview={(shadowColor) => previewSelectedTextAppearance({ shadowColor })} value={selectedTextAppearance.shadowColor} />
-          <RangeControl label='Shadow blur' max={64} min={0} onChange={(shadowBlur) => updateTextLayer(selectedTextLayer.id, { shadowBlur })} onPreview={(shadowBlur) => previewSelectedTextAppearance({ shadowBlur })} step={1} value={selectedTextAppearance.shadowBlur} />
-          <RangeControl label='Shadow X' max={48} min={-48} onChange={(shadowOffsetX) => updateTextLayer(selectedTextLayer.id, { shadowOffsetX })} onPreview={(shadowOffsetX) => previewSelectedTextAppearance({ shadowOffsetX })} step={1} value={selectedTextAppearance.shadowOffsetX} />
-          <RangeControl label='Shadow Y' max={48} min={-48} onChange={(shadowOffsetY) => updateTextLayer(selectedTextLayer.id, { shadowOffsetY })} onPreview={(shadowOffsetY) => previewSelectedTextAppearance({ shadowOffsetY })} step={1} value={selectedTextAppearance.shadowOffsetY} />
-          <RangeControl formatValue={(value) => `${Math.round(value)}%`} label='Shadow opacity' max={100} min={0} onChange={(shadowOpacity) => updateTextLayer(selectedTextLayer.id, { shadowOpacity })} onPreview={(shadowOpacity) => previewSelectedTextAppearance({ shadowOpacity })} step={1} value={selectedTextAppearance.shadowOpacity} />
-        </> : null}
-      </div>
-    </div>
-  </>;
-}
-
-function DesignLabShaderInspector({
-  brandPalette,
-  editingShader,
-  initialSettings,
-  material,
-  previewSelectedShaderOpacity,
-  previewSelectedShaderSize,
-  previewSelectedShaderSetting,
-  settings,
-  shaderSize,
-  updateSelectedShader,
-  updateSetting,
-}: {
-  brandPalette: ReturnType<typeof brandMaterialPalette>;
-  editingShader: ShaderApplication;
-  initialSettings: LiveMaterialSettings;
-  material: LiveMaterialOption;
-  previewSelectedShaderOpacity: (value: number) => void;
-  previewSelectedShaderSize: (value: number) => void;
-  previewSelectedShaderSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
-  settings: LiveMaterialSettings;
-  shaderSize: number;
-  updateSelectedShader: (update: Partial<ShaderApplication>) => void;
-  updateSetting: <Key extends keyof LiveMaterialSettings>(key: Key, value: LiveMaterialSettings[Key]) => void;
-}) {
-  return <>
-    <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Shader color'>
-      <div className='shader-lab-v2-colors'>
-        {([
-          { key: 'colorA', label: 'Base color' },
-          { key: 'colorB', label: 'Mid color' },
-          { key: 'colorC', label: 'Light color' },
-        ] as const).map(({ key, label }) => (
-          <ColorControl
-            ariaLabel={`Shader ${label.toLowerCase()}`}
-            key={key}
-            label={label}
-            onChange={(color) => updateSetting(key, color)}
-            onPreview={(color) => previewSelectedShaderSetting(key, color)}
-            value={settings[key]}
-          />
-        ))}
-      </div>
-      <div className='shader-lab-v2-palettes'>
-        {[brandPalette, ...LIVE_MATERIAL_PALETTES.slice(0, 7)].map((palette) => (
-          <button
-            aria-label={`Apply ${palette.name} palette`}
-            key={palette.id}
-            onClick={() => updateSelectedShader({
-              settings: {
-                ...settings,
-                colorA: palette.colors[0],
-                colorB: palette.colors[1],
-                colorC: palette.colors[2],
-              },
-            })}
-            title={palette.name}
-            type='button'
-          >
-            {palette.colors.map((color) => <i key={color} style={{ background: color }} />)}
-          </button>
-        ))}
-      </div>
-      <div className='shader-lab-v2-shader-meta'>
-        <button
-          onClick={() => updateSelectedShader({
-            settings: shaderLabSettingsFor(editingShader.materialId, initialSettings),
-            shaderSize: 1,
-          })}
-          type='button'
-        ><RotateCcw aria-hidden='true' />Reset shader</button>
-        {material.sourceUrl ? (
-          <a href={material.sourceUrl} rel='noreferrer' target='_blank'>{material.sourceLabel ?? 'View source'}<ExternalLink aria-hidden='true' /></a>
-        ) : null}
-      </div>
-    </LabInspectorSection>
-
-    {getShaderEffect(editingShader.materialId) ? <LabInspectorSection className='shader-lab-v2-control-section' meta={material.name} title='Effect settings'><ShaderEffectsControls materialId={editingShader.materialId} palette={settings} value={settings.effectProps} onChange={(effectProps) => updateSetting('effectProps', effectProps)} /></LabInspectorSection> : null}
-
-    <LabInspectorSection className='shader-lab-v2-control-section' meta='Essentials' title='Shader settings'>
-      <div className='shader-lab-v2-ranges'>
-        <ShaderZoomControl
-          onChange={(value) => updateSelectedShader({ shaderSize: value })}
-          onPreview={previewSelectedShaderSize}
-          value={shaderSize}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Layer opacity'
-          max={1}
-          min={0}
-          onChange={(value) => updateSelectedShader({ opacity: value })}
-          onPreview={previewSelectedShaderOpacity}
-          step={0.01}
-          value={editingShader.opacity}
-        />
-        <div className='shader-lab-v2-text-options'>
-          <span>Blend</span>
-          <div>
-            {(['normal', 'screen', 'overlay', 'multiply'] as const).map((value) => (
-              <button
-                aria-label={`Blend mode: ${value}`}
-                aria-pressed={editingShader.blendMode === value}
-                key={value}
-                onClick={() => updateSelectedShader({ blendMode: value })}
-                type='button'
-              >
-                {value.charAt(0).toUpperCase() + value.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        {isPaperLiveMaterialId(editingShader.materialId) ? <>
-          <RangeControl
-            formatValue={(value) => `${Math.round(value * 100)}%`}
-            label='Center X'
-            max={1}
-            min={0}
-            onChange={(value) => updateSetting('centerX', value)}
-            onPreview={(value) => previewSelectedShaderSetting('centerX', value)}
-            step={0.01}
-            value={settings.centerX ?? 0.5}
-          />
-          <RangeControl
-            formatValue={(value) => `${Math.round(value * 100)}%`}
-            label='Center Y'
-            max={1}
-            min={0}
-            onChange={(value) => updateSetting('centerY', value)}
-            onPreview={(value) => previewSelectedShaderSetting('centerY', value)}
-            step={0.01}
-            value={settings.centerY ?? 0.5}
-          />
-        </> : null}
-        {PRIMARY_CONTROLS.filter((control) => !getShaderEffect(editingShader.materialId) || control.key === 'speed').map((control) => (
-          <RangeControl
-            {...control}
-            formatValue={control.key === 'speed' ? (value) => `${value.toFixed(2)}×` : undefined}
-            key={control.key}
-            onChange={(value) => updateSetting(control.key, value)}
-            onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
-            value={settings[control.key]}
-          />
-        ))}
-      </div>
-    </LabInspectorSection>
-  </>;
-}
-
-function DesignLabShaderFrameInspector({
-  canvasHeight,
-  canvasWidth,
-  layer,
-  onChange,
-}: {
-  canvasHeight: number;
-  canvasWidth: number;
-  layer: CompositionShaderLayer;
-  onChange: (transform: CanvasLayerTransform) => void;
-}) {
-  const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
-  const widthScale = transform.widthScale ?? transform.scale;
-  const heightScale = transform.heightScale ?? transform.scale;
-  return (
-    <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-shader-frame' meta='Canvas bounds' title='Shader frame'>
-      <p>Drag the shader directly on the canvas, or use exact position and size controls.</p>
-      <div className='shader-lab-v2-ranges'>
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} px`}
-          label='Horizontal position'
-          max={canvasWidth}
-          min={-canvasWidth}
-          onChange={(x) => onChange({ ...transform, x })}
-          step={1}
-          value={transform.x}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value)} px`}
-          label='Vertical position'
-          max={canvasHeight}
-          min={-canvasHeight}
-          onChange={(y) => onChange({ ...transform, y })}
-          step={1}
-          value={transform.y}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Frame width'
-          max={3}
-          min={MIN_CANVAS_LAYER_SCALE}
-          onChange={(widthScale) => onChange({ ...transform, widthScale })}
-          step={0.01}
-          value={widthScale}
-        />
-        <RangeControl
-          formatValue={(value) => `${Math.round(value * 100)}%`}
-          label='Frame height'
-          max={3}
-          min={MIN_CANVAS_LAYER_SCALE}
-          onChange={(heightScale) => onChange({ ...transform, heightScale })}
-          step={0.01}
-          value={heightScale}
-        />
-      </div>
-      <Button onClick={() => onChange({ ...DEFAULT_LAYER_TRANSFORM })} size='sm' type='button' variant='outline'>
-        <RotateCcw aria-hidden='true' />Fit shader to canvas
-      </Button>
-    </LabInspectorSection>
-  );
-}
-
 type DesignLabCanvasSelectionInput = {
   canvasDimensions: StudioArtboardDimensions;
   compositionAssets: CompositionAsset[];
@@ -4074,7 +2418,7 @@ type LayerDockMenuState = {
   position: StudioContextMenuPosition;
 };
 
-function DesignArtboardContextMenu({
+const DesignArtboardContextMenu = memo(function DesignArtboardContextMenu({
   activeArtboardId,
   artboards,
   menu,
@@ -4136,9 +2480,9 @@ function DesignArtboardContextMenu({
       ] : []}
     />
   );
-}
+});
 
-function LayerDockContextMenu({
+const LayerDockContextMenu = memo(function LayerDockContextMenu({
   layerKind,
   layerLabel,
   layerOrder,
@@ -4216,7 +2560,7 @@ function LayerDockContextMenu({
       ] : []}
     />
   );
-}
+});
 
 export default function ShaderLabStudio({
   active = true,
@@ -4562,11 +2906,11 @@ export default function ShaderLabStudio({
     () => normalizeStudioArtboardDimensions(storedCanvasDimensions, studioDimensionsForRatio(ratio)),
     [ratio, storedCanvasDimensions]
   );
-  const ratioOption = RATIO_OPTIONS.find((option) => option.value === ratio) ?? {
+  const ratioOption = useMemo<DesignRatioOption>(() => RATIO_OPTIONS.find((option) => option.value === ratio) ?? {
     ...canvasDimensions,
     label: 'Custom',
     value: 'custom' as const,
-  };
+  }, [canvasDimensions, ratio]);
   const normalizedExportSettings = useMemo(
     () => normalizeDesignExportSettings(exportSettings),
     [exportSettings]
@@ -4785,14 +3129,17 @@ export default function ShaderLabStudio({
   const previewNeedsRefresh = Boolean(
     lastExportRequest && lastExportRequest.settingsSignature !== currentExportSettingsSignature
   );
-  const designHistoryView = designHistoryRef.current;
-  const canvasActionHistory = presentCanvasActionHistory(
-    designHistoryView,
+  const historyHandlers = useStableHandlers({
+    redo: () => redoDesignCanvas(),
+    undo: () => undoDesignCanvas(),
+  });
+  // designHistoryRef is replaced, never mutated, and every replacement bumps the revision.
+  const canvasActionHistory = useMemo(() => presentCanvasActionHistory(
+    designHistoryRef.current,
     designHistorySignature,
-    redoDesignCanvas,
-    undoDesignCanvas
-  );
-  void designHistoryRevision;
+    historyHandlers.redo,
+    historyHandlers.undo
+  ), [designHistoryRevision, designHistorySignature, historyHandlers]);
 
   useEffect(() => {
     cancelAnimationFrame(sequencePreviewAnimationRef.current);
@@ -6857,10 +5204,10 @@ export default function ShaderLabStudio({
     [designLabDocument, listedLayerIds]
   );
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds]);
-  const visibleShaderCapabilities = [
+  const visibleShaderCapabilities = useMemo(() => [
     ...shaderLayers.filter(({ id }) => visibleLayerIdSet.has(id)),
     ...Object.entries(layerShaders).flatMap(([id, application]) => application && visibleLayerIdSet.has(id as CompositionLayerId) ? [application] : []),
-  ].map(({ materialId }) => getShaderMotionCapabilities(materialId));
+  ].map(({ materialId }) => getShaderMotionCapabilities(materialId)), [layerShaders, shaderLayers, visibleLayerIdSet]);
   const compositionCanSeek = visibleShaderCapabilities.every(({ motionModel }) => motionModel !== 'stateful');
   const compositionHasMotion = visibleShaderCapabilities.some(({ motionModel }) => motionModel !== 'static');
   const explorerCapabilities = visibleShaderCapabilities.find(({ motionModel }) => motionModel === 'stateful')
@@ -8122,144 +6469,6 @@ export default function ShaderLabStudio({
   }), [active, captureTimeMs, exportPixelCount, livePreviewPixelBudget, livePreviewRuntimeReady, paused, previewCaptureTimeMs,
     restoreReadyHandlers, sequenceCapture, sequencePreviewing, shaderTimelineRestore, shaderTimelineRestoring]);
 
-  function renderShaderTimeExplorer() {
-    return <ShaderTimeExplorer
-      timeMs={previewTimeMs}
-      busy={frameCapturePending || Boolean(exporting) || sequencePreviewing || shaderTimelineRestoring}
-      canSeek={compositionCanSeek && compositionHasMotion}
-      capabilities={explorerCapabilities}
-      onLiveTime={(timeMs) => { previewTimeRef.current = timeMs; }}
-      onFreeze={freezeCurrentShaderFrame}
-      onCapture={() => void saveCurrentShaderFrame()}
-      onPlay={playShaderHistory}
-      onTimeChange={seekShaderTime}
-      onScrubStart={beginShaderTimeScrub}
-      onTimePreview={(timeMs) => {
-        previewLiveMaterialTime('design-lab', timeMs);
-        effectPreviewRedrawRef.current?.();
-      }}
-      playing={active && !paused && captureTimeMs === null}
-    />;
-  }
-
-  function renderStudioHeader() {
-    return (
-      <StudioToolHeader
-        layout='balanced'
-        actions={(
-          <>
-            <StudioToolbarGroup label='Design saving and versions'>
-              <DesignVersionHeaderControls />
-            </StudioToolbarGroup>
-            <StudioToolbarGroup label='Project files, code, and export'>
-              <StudioFileMenu sourceDisabled={portableDesignLab.source === null} onSource={() => setSourceOpen(true)}
-                project={{ disabled: Boolean(exporting) || frameCapturePending, open: applyCompositionSource, prepare: prepareProjectFile }} />
-            <StudioSelect
-              ariaLabel='Export size preset'
-              className='studio-export-preset'
-              disabled={Boolean(exporting) || frameCapturePending}
-              leadingIcon={<Frame aria-hidden='true' />}
-              onValueChange={(value) => updateExportSettings({ width: Number(value) })}
-              options={[
-                ...EXPORT_WIDTH_PRESETS.map(({ label, width }) => ({
-                  label, value: String(width),
-                })),
-                ...(!EXPORT_WIDTH_PRESETS.some(({ width }) => width === normalizedExportSettings.width)
-                  ? [{ label: 'Custom', value: String(normalizedExportSettings.width) }]
-                  : []),
-              ]}
-              value={String(normalizedExportSettings.width)}
-            />
-            {lastExport ? (
-              <ExportPreview
-                asset={lastExport}
-                configuration={(
-                  <DesignExportWorkspace
-                    disabled={Boolean(exporting)}
-                    format={exporting ?? lastExportRequest?.format ?? 'png'}
-                    onChange={updateExportSettings}
-                    onFormatChange={previewExportFormat}
-                    ratioOption={ratioOption}
-                    settings={normalizedExportSettings}
-                  />
-                )}
-                needsRefresh={previewNeedsRefresh}
-                projectFile={{ prepare: prepareProjectFile, open: applyCompositionSource, disabled: Boolean(exporting) || frameCapturePending }}
-                onRefresh={refreshExportPreview}
-                refreshKey={currentExportSettingsSignature}
-                refreshing={Boolean(exporting)}
-                triggerLabel='Export'
-              />
-            ) : (
-              <Button aria-label='Open export settings' disabled={Boolean(exporting)} loading={exporting === 'png'} onClick={() => void exportStill('png')} type='button'>
-                <Download aria-hidden='true' /><span className='responsive-toolbar-label'>Export</span>
-              </Button>
-            )}
-            <StudioErrorNotice error={exportError} onDismiss={() => setExportError(null)} title='Design action failed' />
-            </StudioToolbarGroup>
-          </>
-        )}
-        navigation={navigation}
-        navigationLabel='Design Lab view'
-        title={tool.name}
-        toolId={tool.id}
-      />
-    );
-  }
-
-  function renderPreviewQualityToggle() {
-    const index = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.findIndex(({ value }) => value === previewQuality.mode);
-    const current = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[Math.max(0, index)]!;
-    const next = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[(index + 1) % DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.length]!;
-    const detail = previewQuality.automaticallyReduced ? 'Auto lowered resolution after slow frames.' : 'Exports always render at full size.';
-    return (
-      <Button
-        aria-label='Live shader preview quality'
-        className='gap-1 px-2 text-xs'
-        data-preview-quality={previewQuality.quality}
-        onClick={() => studioRenderQualityStore.setMode(next.value)}
-        size='sm'
-        title={`Preview quality: ${current.label}. ${detail} Click for ${next.label}.`}
-        type='button'
-        variant='ghost'
-      >
-        <Gauge aria-hidden='true' />
-        <span>{current.label}</span>
-      </Button>
-    );
-  }
-
-  function renderArtboardToolbar() {
-    return (
-      <StudioArtboardBar
-        activeArtboardId={activeArtboardId}
-        addLabel='Add blank artboard'
-        ariaLabel='Artboard workspace controls'
-        artboards={workspaceArtboards}
-        className='design-lab-artboard-bar'
-        dimensions={canvasDimensions}
-        unframed={editingCanvas}
-        duplicateLabel='Duplicate active artboard'
-        extraActions={(
-          <>
-            {editingCanvas && selectedCanvasLayerIds.length ? <Button aria-label='Create artboard from selection' onClick={() => void frameCanvasSelection()} size='sm' type='button' variant='outline'><Frame aria-hidden='true' /><span>Frame selection</span></Button> : null}
-            <Button aria-label='Edit loose canvas layers' aria-pressed={editingCanvas} onClick={() => { deselectCanvasLayers(); void activateArtboard(DESIGN_CANVAS_ID); }} size='sm' title='Add ideas anywhere outside your artboards' type='button' variant='ghost'><Move aria-hidden='true' /><span>Canvas</span></Button>
-            <Button aria-label='Artboard tutorial' aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} size='icon-sm' title='Artboard tutorial' type='button' variant='ghost'><Info aria-hidden='true' /></Button>
-          </>
-        )}
-        onAdd={() => addArtboard(false)}
-        onDimensionsChange={updateActiveArtboardDimensions}
-        onDuplicate={() => addArtboard(true)}
-        onRemove={removeActiveArtboard}
-        onRename={renameActiveArtboard}
-        onSelect={(id) => selectArtboardFromPicker(id as DesignArtboardId)}
-        removeLabel='Delete active artboard'
-        selectLabel='Active design artboard'
-        summary={<span aria-live='polite'>{canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`}</span>}
-      />
-    );
-  }
-
   function renderShaderLibrary() {
     return (
       <StudioSidebar className='shader-lab-v2-library' kind='library' label='Shader library' scrollRef={materialLibraryRef} side='left' storageKey='design-lab-library'>
@@ -8478,6 +6687,88 @@ export default function ShaderLabStudio({
     return <DesignLabInspectorLayer key={key} {...rowProps} />;
   }
 
+  const inspectorActions = useStableHandlers<DesignLabInspectorActions>({
+    activateArtboard: (id) => {
+      deselectCanvasLayers();
+      void activateArtboard(id as DesignArtboardId, true);
+    },
+    addArtboard: (duplicate) => void addArtboard(duplicate),
+    addBrandMarkLayer: () => addBrandMarkLayer(),
+    addCanvasShader: () => addCanvasShader(),
+    addEffectLayer: () => addEffectLayer(),
+    addTextLayer: () => addTextLayer(),
+    arrangeArtboards: () => arrangeArtboards(),
+    clearTextRange,
+    copySetup: () => void copySetup(),
+    openImageImport: (placementMode) => openImageImport([], placementMode),
+    previewCanvasBackground,
+    previewEffectLayer,
+    previewSelectedContentOpacity,
+    previewSelectedImageCrop,
+    previewSelectedLogoAppearance,
+    previewSelectedShaderOpacity,
+    previewSelectedShaderSetting,
+    previewSelectedShaderSize,
+    previewSelectedStickerFinish,
+    previewSelectedTextAppearance,
+    previewSelectedTextLayer,
+    previewSelectedTextWidth,
+    rememberTextSelection,
+    removeActiveArtboard: () => removeActiveArtboard(),
+    removeShaderFromSelectedContent: () => removeShaderFromSelectedContent(),
+    renameActiveArtboard,
+    resetAssetTransform: (id) => updateAssetTransform(id, DEFAULT_LAYER_TRANSFORM),
+    resetLogoTransform: (id) => updateLogoTransform(id, DEFAULT_LAYER_TRANSFORM),
+    selectConvertedLogo,
+    selectEffectPreset,
+    setImageCropAspect: (id, value) => void setImageCropAspect(id, value),
+    setImageCropEditing,
+    toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
+    updateActiveArtboardDimensions,
+    updateAssetLayer,
+    updateCanvasBackground,
+    updateCanvasLayerTransform,
+    updateEffectLayer,
+    updateLogoLayer,
+    updateSelectedShader,
+    updateSetting,
+    updateTextFormatting,
+    updateTextLayer,
+  });
+  const inspectorComposition = useMemo(() => ({
+    effectCount: effectLayers.length,
+    listedLayerCount: listedLayerIds.length,
+    logoCount: logoLayers.length,
+    placedImageCount: compositionAssets.filter(({ kind }) => kind !== 'sticker').length,
+    savedAssetCount: identity.assets.length + identity.proofAssets.length,
+    shaderCount: shaderLayers.length,
+    stickerCount: compositionAssets.filter(({ kind }) => kind === 'sticker').length + textLayers.filter(({ kind }) => kind === 'sticker').length,
+    textCount: textLayers.filter(({ kind }) => kind !== 'sticker').length,
+    visibleLayerCount: visibleLayerIds.length,
+    visibleShaderCount: shaderLayers.filter(({ visible }) => visible).length,
+  }), [compositionAssets, effectLayers.length, identity.assets.length, identity.proofAssets.length, listedLayerIds.length,
+    logoLayers.length, shaderLayers, textLayers, visibleLayerIds.length]);
+  const inspectorArtboardsSignature = outputArtboards.map(({ id, name, snapshot }) => (
+    `${id}\u0000${name}\u0000${snapshot.dimensions.width}x${snapshot.dimensions.height}\u0000${snapshot.layerOrder.length}`
+  )).join('\u0001');
+  const inspectorArtboards = useMemo<DesignLabInspectorArtboard[]>(() => outputArtboards.map((artboard) => ({
+    id: artboard.id,
+    layerCount: artboard.snapshot.layerOrder.length,
+    name: resolvedDesignArtboardName(artboard.name),
+    sizeLabel: studioArtboardPresetForSize(artboard.snapshot.dimensions.width, artboard.snapshot.dimensions.height)?.label ?? 'Custom',
+  // The signature covers every displayed field; the artboard list changes with each edit.
+  })), [inspectorArtboardsSignature]);
+  const inspectorLayerRows = useMemo(
+    () => [...listedLayerIds].reverse().map(renderInspectorLayer),
+    // renderInspectorLayer reads only these values and stable row actions.
+    [designLabDocument, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerIds, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+  );
+  const convertedAssets = useMemo(() => convertedAssetLibrary, [
+    convertedAssetLibrary.assets,
+    convertedAssetLibrary.busy,
+    convertedAssetLibrary.error,
+  ]);
+
   function renderCanvasSelectionMenu() {
     const selectedAssetId = selectedAsset?.id;
     const cropEditing = Boolean(selectedAssetId && cropEditingLayerId === selectedAssetId);
@@ -8523,6 +6814,202 @@ export default function ShaderLabStudio({
     );
   }
 
+  const headerActions = useStableHandlers<DesignLabHeaderActions>({
+    applyCompositionSource,
+    dismissExportError: () => setExportError(null),
+    exportPng: () => void exportStill('png'),
+    openSource: () => setSourceOpen(true),
+    prepareProjectFile,
+    previewExportFormat,
+    refreshExportPreview,
+    updateExportSettings,
+  });
+  const artboardToolbarActions = useStableHandlers<DesignLabArtboardToolbarActions>({
+    addArtboard: (duplicate) => void addArtboard(duplicate),
+    editLooseCanvas: () => {
+      deselectCanvasLayers();
+      void activateArtboard(DESIGN_CANVAS_ID);
+    },
+    frameCanvasSelection: () => void frameCanvasSelection(),
+    removeActiveArtboard: () => removeActiveArtboard(),
+    renameActiveArtboard,
+    selectArtboardFromPicker: (id) => selectArtboardFromPicker(id as DesignArtboardId),
+    toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
+    updateActiveArtboardDimensions,
+  });
+  const motionActions = useStableHandlers<DesignLabMotionStripActions>({
+    beginShaderTimeScrub,
+    closeMotionWorkspace: () => setMotionWorkspaceOpen(false),
+    exportShaderSequence: () => void exportMotion('mp4', 'sequence'),
+    freezeCurrentShaderFrame,
+    playShaderHistory,
+    previewShaderSequence,
+    previewTime: (timeMs) => {
+      previewLiveMaterialTime('design-lab', timeMs);
+      effectPreviewRedrawRef.current?.();
+    },
+    rememberLiveTime: (timeMs) => { previewTimeRef.current = timeMs; },
+    saveCurrentShaderFrame: () => void saveCurrentShaderFrame(),
+    seekShaderTime,
+    shuffleShaderSequence: () => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 }),
+    toggleMotionWorkspace: () => setMotionWorkspaceOpen((value) => !value),
+    updateShaderSequenceSettings,
+  });
+  const dockActions = useStableHandlers<DesignLabLayerDockActions>({
+    addBrandMarkLayer: () => addBrandMarkLayer(),
+    addCanvasShader: () => addCanvasShader(),
+    addEffectLayer: () => addEffectLayer(),
+    addLogoFiles: (files) => void addLogoFiles(files),
+    addTextLayer: () => addTextLayer(),
+    openImageImport: (files, placementMode) => openImageImport(files, placementMode),
+  });
+  const viewportActions = useStableHandlers({
+    arrangeArtboards: () => arrangeArtboards(),
+    backgroundClick: (point: { x: number; y: number }) => { void activateCanvasAtPoint(point); },
+    deselectCanvasLayers: () => deselectCanvasLayers(),
+  });
+  const dockLayerRows = useMemo(
+    () => [...listedLayerIds].reverse().map(renderDockLayer),
+    // renderDockLayer reads only these values and stable row actions.
+    [designLabDocument, identity, layerGroupByLayerId, layerOrder, layerShaders, listedLayerIds, selectedCanvasLayerIdSet, selectedLayerId, stageLayerById]
+  );
+  const artboardNamesSignature = workspaceArtboards.map(({ id, name }) => `${id}\u0000${name}`).join('\u0001');
+  const artboardPickerOptions = useMemo(
+    () => workspaceArtboards.map(({ id, name }) => ({ id, name })),
+    // The signature covers every field the picker shows.
+    [artboardNamesSignature]
+  );
+  const artboardSummary = canvasClipboardStatus ?? `${layerOrder.length} layer${layerOrder.length === 1 ? '' : 's'} · ${outputArtboards.length} artboard${outputArtboards.length === 1 ? '' : 's'}`;
+  const previewQualityToggle = useMemo(() => (
+    <DesignLabPreviewQualityToggle
+      automaticallyReduced={previewQuality.automaticallyReduced}
+      mode={previewQuality.mode}
+      quality={previewQuality.quality}
+    />
+  ), [previewQuality.automaticallyReduced, previewQuality.mode, previewQuality.quality]);
+  const navigationItems = useMemo(() => workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
+    ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
+      .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
+        ...designLayerWorldBounds(artboard, layer), active: editingCanvas && selectedCanvasLayerIds.includes(layer.id) }))
+    : [{
+    id: artboard.id,
+    label: artboard.name,
+    x: artboard.x,
+    y: artboard.y,
+    ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
+    active: artboard.id === activeArtboardId,
+  }]), [activeArtboardId, editingCanvas, selectedCanvasLayerIds, workspaceArtboards]);
+  const imageAssetLibrary = useMemo(
+    () => [...identity.assets, ...identity.proofAssets],
+    [identity.assets, identity.proofAssets]
+  );
+
+  function renderMotionStrip() {
+    return (
+      <DesignLabMotionStrip
+        actions={motionActions}
+        busy={frameCapturePending || Boolean(exporting) || sequencePreviewing || shaderTimelineRestoring}
+        canSeek={compositionCanSeek && compositionHasMotion}
+        capabilities={explorerCapabilities}
+        exporting={Boolean(exporting)}
+        motionWorkspaceOpen={motionWorkspaceOpen}
+        playing={active && !paused && captureTimeMs === null}
+        sequenceDurationMs={shaderSequenceDuration}
+        sequenceMaterialIds={sequenceMaterialIds}
+        sequencePreviewing={sequencePreviewing}
+        sequenceSettings={normalizedShaderSequenceSettings}
+        sequenceTargetOptions={sequenceTargetOptions}
+        timeMs={previewTimeMs}
+      />
+    );
+  }
+
+  function renderWorkspaceMenus() {
+    return (
+      <>
+        {artboardMenu ? <DesignArtboardContextMenu
+          activeArtboardId={activeArtboardId}
+          artboards={workspaceArtboards}
+          menu={artboardMenu}
+          onArrange={arrangeArtboards}
+          onClose={() => setArtboardMenu(null)}
+          onCopy={() => {
+            deselectCanvasLayers();
+            void copyDesignLabSelectionFromMenu(true);
+          }}
+          onDelete={removeActiveArtboard}
+          onDuplicate={() => addArtboard(true)}
+          onFocus={(id) => activateArtboard(id, true)}
+          onNew={() => addArtboard(false)}
+          onPaste={() => void pasteDesignLabSelectionFromMenu()}
+        /> : null}
+        {layerDockMenu ? <LayerDockContextMenu
+          layerKind={resolvedLayerKind}
+          layerLabel={layerLabel}
+          layerOrder={layerOrder}
+          layerVisible={layerVisible}
+          menu={layerDockMenu}
+          onClose={() => setLayerDockMenu(null)}
+          onCopy={(id) => {
+            selectLayerFromStack(id);
+            void copyDesignLabSelectionFromMenu(false, [id]);
+          }}
+          onCut={(id) => {
+            selectLayerFromStack(id);
+            void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
+          }}
+          onDelete={removeLayer}
+          onDuplicate={duplicateLayer}
+          onMove={moveLayer}
+          onMoveToEdge={moveLayerToEdge}
+          onPaste={() => void pasteDesignLabSelectionFromMenu()}
+          onToggleVisibility={toggleLayerVisibility}
+        /> : null}
+        {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
+          <CanvasSelectionAssemblyOverlay
+            bounds={selectedCanvasBounds}
+            canvasHeight={canvasDimensions.height}
+            canvasWidth={canvasDimensions.width}
+            label={selectedCanvasGroup?.name ?? `${selectedCanvasLayerIds.length} layers`}
+            stageRef={stageRef}
+          />
+        ) : null}
+        {selectionMenuPosition ? renderCanvasSelectionMenu() : null}
+      </>
+    );
+  }
+
+  function renderStudioDialogs() {
+    return (
+      <>
+        {renderSourceEditor()}
+        {imageImportOpen ? <ImageAssetModal
+          assets={imageAssetLibrary}
+          busy={imageImportState.status === 'importing'}
+          error={imageImportError}
+          onClose={() => {
+            if (imageImportState.status === 'importing') return;
+            setImageImportOpen(false);
+            setImageImportRequest(null);
+            setImageImportError(null);
+          }}
+          onCreateTextSticker={() => {
+            addTextLayer('sticker');
+            setImageImportOpen(false);
+            setImageImportRequest(null);
+            setImageImportState({ message: 'Added an editable text sticker.', status: 'success' });
+          }}
+          onDelete={deleteSavedAsset}
+          onImport={importAndSaveImages}
+          onPlace={placeSavedAsset}
+          open={imageImportOpen}
+          placementMode={imagePlacementMode}
+          request={imageImportRequest}
+        /> : null}
+      </>
+    );
+  }
+
   function renderStudio() {
     return (
     <div
@@ -8531,7 +7018,22 @@ export default function ShaderLabStudio({
       onPointerDownCapture={beginCanvasHistoryPointer}
       ref={studioRootRef}
     >
-      {renderStudioHeader()}
+      <DesignLabHeader
+        actions={headerActions}
+        currentExportSettingsSignature={lastExport ? currentExportSettingsSignature : ''}
+        exportError={exportError}
+        exporting={exporting}
+        frameCapturePending={frameCapturePending}
+        lastExport={lastExport}
+        lastExportFormat={lastExportRequest?.format ?? null}
+        navigation={navigation}
+        normalizedExportSettings={normalizedExportSettings}
+        previewNeedsRefresh={previewNeedsRefresh}
+        ratioOption={ratioOption}
+        sourceAvailable={portableDesignLab.source !== null}
+        title={tool.name}
+        toolId={tool.id}
+      />
       {projectTypography?.id === identity.id ? <BrandFontFaces identity={identity} /> : null}
 
       <div className='shader-lab-v2-layout studio-scroll-area'>
@@ -8564,7 +7066,16 @@ export default function ShaderLabStudio({
               <small>They will be centered, fitted, and kept at their original aspect ratio.</small>
             </div>
           ) : null}
-          {renderArtboardToolbar()}
+          <DesignLabArtboardToolbar
+            actions={artboardToolbarActions}
+            activeArtboardId={activeArtboardId}
+            artboards={artboardPickerOptions}
+            canFrameSelection={editingCanvas && selectedCanvasLayerIds.length > 0}
+            canvasDimensions={canvasDimensions}
+            editingCanvas={editingCanvas}
+            summary={artboardSummary}
+            workspaceTourOpen={workspaceTourOpen}
+          />
           {workspaceTourOpen ? (
             <DesignArtboardTour
               onClose={() => setWorkspaceTourOpen(false)}
@@ -8577,32 +7088,21 @@ export default function ShaderLabStudio({
           <CanvasViewport
             actionHistory={canvasActionHistory}
             className='shader-lab-v2-composer-viewport'
-            toolbarActions={renderPreviewQualityToggle()}
+            toolbarActions={previewQualityToggle}
             draftKey='shader-lab-v6-workspace-zoom'
             fitKey={workspaceFitRevision}
             focusKey={artboardFocusRequest ? `${artboardFocusRequest.id}:${artboardFocusRequest.revision}` : undefined}
             focusOffsetY={16}
             identityId={identity.id}
-            initialPan={{ x: 0, y: -40 }}
+            initialPan={DESIGN_LAB_INITIAL_PAN}
             initialViewReady={compositionAutosaveState !== 'loading' && Boolean(artboardFocusRequest)}
             initialZoom={40}
             maxZoom={800}
             minZoom={5}
-            navigationItems={workspaceArtboards.flatMap((artboard) => artboard.id === DESIGN_CANVAS_ID
-              ? [...artboard.snapshot.assets, ...artboard.snapshot.logos, ...artboard.snapshot.textLayers, ...artboard.snapshot.shaderLayers]
-                .filter(({ visible }) => visible).map((layer) => ({ id: `canvas-${layer.id}`, label: layer.name,
-                  ...designLayerWorldBounds(artboard, layer), active: editingCanvas && selectedCanvasLayerIds.includes(layer.id) }))
-              : [{
-              id: artboard.id,
-              label: artboard.name,
-              x: artboard.x,
-              y: artboard.y,
-              ...designArtboardDisplaySize(artboard.snapshot.dimensions, artboard.displayScale),
-              active: artboard.id === activeArtboardId,
-            }])}
-            onArrangeArtboards={arrangeArtboards}
-            onDeselect={deselectCanvasLayers}
-            onBackgroundClick={(point) => { void activateCanvasAtPoint(point); }}
+            navigationItems={navigationItems}
+            onArrangeArtboards={viewportActions.arrangeArtboards}
+            onDeselect={viewportActions.deselectCanvasLayers}
+            onBackgroundClick={viewportActions.backgroundClick}
             stageClassName='design-artboard-viewport-stage'
             toolId={tool.id}
           >
@@ -8613,365 +7113,66 @@ export default function ShaderLabStudio({
               {workspaceArtboards.map(renderArtboard)}
             </div>
           </CanvasViewport>
-          <DesignArtboardContextMenu
-            activeArtboardId={activeArtboardId}
-            artboards={workspaceArtboards}
-            menu={artboardMenu}
-            onArrange={arrangeArtboards}
-            onClose={() => setArtboardMenu(null)}
-            onCopy={() => {
-              deselectCanvasLayers();
-              void copyDesignLabSelectionFromMenu(true);
-            }}
-            onDelete={removeActiveArtboard}
-            onDuplicate={() => addArtboard(true)}
-            onFocus={(id) => activateArtboard(id, true)}
-            onNew={() => addArtboard(false)}
-            onPaste={() => void pasteDesignLabSelectionFromMenu()}
+          {renderWorkspaceMenus()}
+          {renderMotionStrip()}
+          <DesignLabLayerDockPanel
+            actions={dockActions}
+            editingCanvas={editingCanvas}
+            importState={imageImportState}
+            layerCount={listedLayerIds.length}
+            logoInputRef={logoInputRef}
+            rows={dockLayerRows}
           />
-          <LayerDockContextMenu
-            layerKind={resolvedLayerKind}
-            layerLabel={layerLabel}
-            layerOrder={layerOrder}
-            layerVisible={layerVisible}
-            menu={layerDockMenu}
-            onClose={() => setLayerDockMenu(null)}
-            onCopy={(id) => {
-              selectLayerFromStack(id);
-              void copyDesignLabSelectionFromMenu(false, [id]);
-            }}
-            onCut={(id) => {
-              selectLayerFromStack(id);
-              void cutDesignLabSelectionFromMenu(() => removeLayer(id), [id]);
-            }}
-            onDelete={removeLayer}
-            onDuplicate={duplicateLayer}
-            onMove={moveLayer}
-            onMoveToEdge={moveLayerToEdge}
-            onPaste={() => void pasteDesignLabSelectionFromMenu()}
-            onToggleVisibility={toggleLayerVisibility}
-          />
-          {selectedCanvasLayerIds.length > 1 && selectedCanvasBounds ? (
-            <CanvasSelectionAssemblyOverlay
-              bounds={selectedCanvasBounds}
-              canvasHeight={canvasDimensions.height}
-              canvasWidth={canvasDimensions.width}
-              label={selectedCanvasGroup?.name ?? `${selectedCanvasLayerIds.length} layers`}
-              stageRef={stageRef}
-            />
-          ) : null}
-          {renderCanvasSelectionMenu()}
-          <div className='design-motion-strip' data-canvas-selection-preserve>
-            {renderShaderTimeExplorer()}
-            <button aria-expanded={motionWorkspaceOpen} aria-label='Shader sequence' onClick={() => setMotionWorkspaceOpen((value) => !value)} title='Shader sequence' type='button'><Clapperboard aria-hidden='true' /><span>Shader sequence</span></button>
-            <a aria-label='Open Animation Studio' href='/studio?tool=animation' title='Open Animation Studio'><ExternalLink aria-hidden='true' /><span>Animation</span></a>
-          </div>
-          {motionWorkspaceOpen ? (
-            <aside className='design-motion-workspace' data-canvas-selection-preserve>
-              <header><span><Clapperboard aria-hidden='true' /><strong>Shader sequence</strong></span><button aria-label='Close shader sequence' onClick={() => setMotionWorkspaceOpen(false)} type='button'><X aria-hidden='true' /></button></header>
-              <p>Build and preview a cut sequence for this artboard. Animation Studio opens a separate workspace for keyframe animation.</p>
-              <ShaderSequenceControls
-                disabled={Boolean(exporting)}
-                durationMs={shaderSequenceDuration}
-                materialIds={sequenceMaterialIds}
-                onChange={updateShaderSequenceSettings}
-                onExport={() => void exportMotion('mp4', 'sequence')}
-                onPreview={previewShaderSequence}
-                onShuffle={() => updateShaderSequenceSettings({ sequenceOffset: normalizedShaderSequenceSettings.sequenceOffset + 1 })}
-                previewing={sequencePreviewing}
-                settings={normalizedShaderSequenceSettings}
-                targetOptions={sequenceTargetOptions}
-              />
-              <a href='/studio?tool=animation'><ExternalLink aria-hidden='true' />Open Animation Studio</a>
-            </aside>
-          ) : null}
-          <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
-            <input accept='image/*,.svg,.avif,.bmp' aria-label='Choose logos for the canvas' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
-            <div className='shader-lab-v2-dock-create'>
-              <div className='shader-lab-v2-dock-heading'>
-                <span><Layers3 aria-hidden='true' />Layers</span>
-                <small>{listedLayerIds.length} total · front to back</small>
-              </div>
-              <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer' role='group'>
-                <button aria-label='Add text layer' onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span>Text</span></button>
-                <button aria-label='Add shader layer' onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
-                <button aria-label='Add effect layer' disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
-                <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
-                <button aria-label='Add sticker layer' onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span>Sticker</span></button>
-                <button aria-label='Add image layer' className='shader-lab-v2-dock-add-image' onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
-              </div>
-              <span aria-live='polite' className='shader-lab-v2-image-import-status' data-state={imageImportState.status}>
-                {imageImportState.message || 'Images keep their aspect ratio when added.'}
-              </span>
-            </div>
-
-            <div
-              aria-label='Canvas layer stack'
-              className='shader-lab-v2-dock-stack studio-scroll-area'
-              onWheel={scrollLayerDockWithWheel}
-              role='region'
-              tabIndex={0}
-            >
-              {[...listedLayerIds].reverse().map(renderDockLayer)}
-            </div>
-          </div>
         </section>
 
-        <StudioSidebar className='shader-lab-v2-inspector' kind='inspector' label='Design Lab controls' side='right' storageKey='design-lab-inspector'>
-          <LabPanelHeading
-            className='shader-lab-v2-inspector-intro'
-            description={designLabInspectorDescription({
-              hasContent: Boolean(selectedContentLayerId),
-              hasEffect: Boolean(selectedEffectLayer),
-              hasLayerShader: Boolean(selectedLayerShader),
-              hasShader: Boolean(selectedShaderLayer),
-              materialName: material.name,
-            })}
-            title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
-          />
-
-          <ConditionalRender when={!selectedLayerId}>{() => <>
-            {!editingCanvas ? <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-composition-setup design-composition-inspector' meta={`${canvasDimensions.width} × ${canvasDimensions.height}`} title='Composition'>
-              <ArtboardSetupFields
-                artboardName={activeArtboardRawName}
-                className='design-artboard-inline-setup'
-                dimensions={canvasDimensions}
-                onArtboardNameChange={renameActiveArtboard}
-                onDimensionsChange={updateActiveArtboardDimensions}
-              />
-              <div className='design-composition-appearance'>
-                <div className='shader-lab-v2-composition-subhead'><h3>Appearance</h3><span>Active artboard</span></div>
-                <ColorControl
-                  ariaLabel='Artboard background color'
-                  label='Background color'
-                  onChange={updateCanvasBackground}
-                  onPreview={previewCanvasBackground}
-                  value={canvasBackground}
-                />
-              </div>
-              <dl className='shader-lab-v2-composition-metrics'>
-                <div><dt>Layers</dt><dd>{visibleLayerIds.length} / {listedLayerIds.length}</dd></div>
-                <div><dt>Shaders</dt><dd>{shaderLayers.filter(({ visible }) => visible).length}</dd></div>
-                <div><dt>Motion</dt><dd>{paused ? 'Paused' : 'Live'}</dd></div>
-              </dl>
-            </LabInspectorSection> : <LabInspectorSection title='Canvas' meta='Loose layers'>
-              <p className='design-canvas-hint'>Explore anywhere. Drag a layer into an artboard when it belongs in an output. Only artboards export; the whole canvas saves with your project.</p>
-            </LabInspectorSection>}
-
-            <LabInspectorSection className='shader-lab-v2-control-section design-artboard-inspector' meta={`${outputArtboards.length} total`} title='Artboards'>
-              <div className='design-artboard-list' aria-label='Workspace artboards' role='group'>
-                {outputArtboards.map((artboard, index) => (
-                  <button aria-pressed={artboard.id === activeArtboardId} key={artboard.id} onClick={() => {
-                    deselectCanvasLayers();
-                    activateArtboard(artboard.id, true);
-                  }} type='button'>
-                    <Frame aria-hidden='true' />
-                    <span><strong>{resolvedDesignArtboardName(artboard.name)}</strong><small>{studioArtboardPresetForSize(artboard.snapshot.dimensions.width, artboard.snapshot.dimensions.height)?.label ?? 'Custom'} · {artboard.snapshot.layerOrder.length} layers</small></span>
-                    <i>{String(index + 1).padStart(2, '0')}</i>
-                  </button>
-                ))}
-              </div>
-              <div className='design-artboard-inspector-actions'>
-                <button onClick={() => addArtboard(false)} type='button'><Plus aria-hidden='true' />New artboard</button>
-                <button disabled={editingCanvas} onClick={() => addArtboard(true)} type='button'><Copy aria-hidden='true' />Duplicate</button>
-                <button onClick={arrangeArtboards} type='button'><LayoutGrid aria-hidden='true' />Arrange all</button>
-                <button disabled={editingCanvas} onClick={removeActiveArtboard} type='button'><Trash2 aria-hidden='true' />Delete</button>
-                <button aria-pressed={workspaceTourOpen} onClick={() => setWorkspaceTourOpen((value) => !value)} type='button'><span aria-hidden='true'>?</span>Artboard guide</button>
-              </div>
-            </LabInspectorSection>
-
-            <LabInspectorSection className='shader-lab-v2-control-section design-layers-inspector' meta={`${listedLayerIds.length} total`} title='Layers'>
-              <div className='shader-lab-v2-composition-subhead'><h3>Add layer</h3><span>To front</span></div>
-              <div className='shader-lab-v2-composition-add' aria-label='Add composition layer' role='group'>
-                <button onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span><strong>Text</strong><small>{textLayers.filter(({ kind }) => kind !== 'sticker').length} layers</small></span></button>
-                <button onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span><strong>Shader</strong><small>{shaderLayers.length} layers</small></span></button>
-                <button disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span><strong>Effect</strong><small>{effectLayers.length} layers</small></span></button>
-                <button onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span><strong>Mark</strong><small>{logoLayers.length} layers</small></span></button>
-                <button onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span><strong>Sticker</strong><small>{compositionAssets.filter(({ kind }) => kind === 'sticker').length + textLayers.filter(({ kind }) => kind === 'sticker').length} layers</small></span></button>
-                <button onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span><strong>Image</strong><small>{compositionAssets.filter(({ kind }) => kind !== 'sticker').length} placed · {identity.assets.length + identity.proofAssets.length} saved</small></span></button>
-              </div>
-              <div aria-label='Composition layers, front to back' className='design-layer-inspector-list' role='list'>
-                {listedLayerIds.length > 0
-                  ? [...listedLayerIds].reverse().map(renderInspectorLayer)
-                  : <p className='design-layer-inspector-empty'>No layers yet. Add one above to begin.</p>}
-              </div>
-            </LabInspectorSection>
-          </>}</ConditionalRender>
-
-          <OptionalRender value={selectedEffectLayer}>{(selectedEffectLayer) => (
-            <DesignLabEffectInspector
-              previewEffectLayer={previewEffectLayer}
-              selectEffectPreset={selectEffectPreset}
-              selectedEffectLayer={selectedEffectLayer}
-              updateEffectLayer={updateEffectLayer}
-            />
-          )}</OptionalRender>
-
-          <OptionalRender value={editingShader}>{(editingShader) => (
-            <DesignLabShaderInspector
-              brandPalette={brandPalette}
-              editingShader={editingShader}
-              initialSettings={initialSettings}
-              material={material}
-              previewSelectedShaderOpacity={previewSelectedShaderOpacity}
-              previewSelectedShaderSize={previewSelectedShaderSize}
-              previewSelectedShaderSetting={previewSelectedShaderSetting}
-              settings={settings}
-              shaderSize={shaderSize}
-              updateSelectedShader={updateSelectedShader}
-              updateSetting={updateSetting}
-            />
-          )}</OptionalRender>
-          <OptionalRender value={selectedShaderLayer}>{(selectedShaderLayer) => (
-            <DesignLabShaderFrameInspector
-              canvasHeight={canvasDimensions.height}
-              canvasWidth={canvasDimensions.width}
-              layer={selectedShaderLayer}
-              onChange={(transform) => updateCanvasLayerTransform(selectedShaderLayer.id, transform)}
-            />
-          )}</OptionalRender>
-          <OptionalRender value={selectedContentLayerId}>{(selectedContentLayerId) => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={resolvedLayerKind(selectedContentLayerId)} title='Selected layer'>
-            <OptionalRender value={selectedTextInspector}>{(selection) => (
-              <DesignLabTextLayerInspector
-                key={selection.layer.id}
-                canvasHeight={canvasDimensions.height}
-                canvasWidth={canvasDimensions.width}
-                identity={identity}
-                previewSelectedContentOpacity={previewSelectedContentOpacity}
-                previewSelectedTextAppearance={previewSelectedTextAppearance}
-                previewSelectedTextLayer={previewSelectedTextLayer}
-                previewSelectedTextWidth={previewSelectedTextWidth}
-                selectedCanvasLayerCount={selectedCanvasLayerIds.length}
-                selection={selection}
-                stageRef={stageRef}
-                textRenderedWeight={selectedTextRenderedWeight}
-                textWeightRange={selectedTextWeightRange}
-                textRange={textSelection?.layerId === selection.layer.id ? textSelection : null}
-                clearTextRange={clearTextRange}
-                onTextSelection={(range) => rememberTextSelection(selection.layer.id, range)}
-                updateTextLayer={updateTextFormatting}
-                updateTextBox={updateTextLayer}
-              />
-            )}</OptionalRender>
-            <OptionalRender value={selectedLogoInspector}>{({ appearance: selectedLogoAppearance, layer: selectedLogoLayer }) => (
-              <div aria-label='Mark appearance' className='shader-lab-v2-layer-settings' role='group'>
-                <div className='shader-lab-v2-layer-settings-heading'>
-                  <strong>Mark appearance</strong>
-                  <span>SVG-safe</span>
-                </div>
-                <ColorControl
-                  ariaLabel='Mark color'
-                  label='Mark color'
-                  onChange={(color) => updateLogoLayer(selectedLogoLayer.id, { color })}
-                  onPreview={(color) => previewSelectedLogoAppearance({}, color)}
-                  value={selectedLogoLayer.color ?? '#FFFFFF'}
-                />
-                <RangeControl
-                  formatValue={(value) => `${Math.round(value * 100)}%`}
-                  label='Layer opacity'
-                  max={1}
-                  min={0}
-                  onChange={(opacity) => updateLogoLayer(selectedLogoLayer.id, { opacity })}
-                  onPreview={previewSelectedContentOpacity}
-                  step={0.01}
-                  value={selectedLogoLayer.opacity ?? 1}
-                />
-                <LogoAppearanceControls
-                  onChange={(patch) => updateLogoLayer(selectedLogoLayer.id, { appearance: { ...selectedLogoAppearance, ...patch } })}
-                  onPreview={previewSelectedLogoAppearance}
-                  settings={selectedLogoAppearance}
-                />
-                <details className='shader-lab-v2-asset-conversion'>
-                  <summary><span>SVG conversion & mark library</span><ChevronDown aria-hidden='true' /></summary>
-                  <AssetConversionLibrary
-                    compact
-                    library={convertedAssetLibrary}
-                    onSelect={selectConvertedLogo}
-                    selectedAssetId={selectedLogoLayer.convertedAssetId ?? null}
-                  />
-                </details>
-              </div>
-            )}</OptionalRender>
-            <OptionalRender value={selectedAssetInspector}>{({ appearance: selectedAssetAppearance, asset: selectedAsset }) => (
-              <DesignLabAssetLayerInspector
-                appearance={selectedAssetAppearance}
-                asset={selectedAsset}
-                cropAspect={imageCropAspectValue(selectedAsset.transform, layerGeometry(selectedAsset.id, canvasDimensions))}
-                cropEditing={cropEditingLayerId === selectedAsset.id}
-                onCropAspectChange={(value) => void setImageCropAspect(selectedAsset.id, value)}
-                onCropEditingChange={(editing) => setImageCropEditing(selectedAsset.id, editing)}
-                previewAppearance={previewSelectedLogoAppearance}
-                previewImageCrop={previewSelectedImageCrop}
-                previewOpacity={previewSelectedContentOpacity}
-                previewStickerFinish={previewSelectedStickerFinish}
-                updateAsset={(update) => updateAssetLayer(selectedAsset.id, update)}
-              />
-            )}</OptionalRender>
-            {selectedLayerShader ? (
-              <Button className='mt-2 w-full' onClick={removeShaderFromSelectedContent} size='sm' type='button' variant='ghost'>
-                <X aria-hidden='true' />Remove shader from layer
-              </Button>
-            ) : null}
-            {selectedLogoLayer ? <Button className='mt-2 w-full' onClick={() => updateLogoTransform(selectedLogoLayer.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset mark position</Button> : null}
-            {selectedAsset ? <Button className='mt-2 w-full' onClick={() => updateAssetTransform(selectedAsset.id, DEFAULT_LAYER_TRANSFORM)} size='sm' type='button' variant='ghost'><RotateCcw aria-hidden='true' />Reset image position</Button> : null}
-            {selectedTextLayer ? (
-              <Button
-                className='mt-2 w-full'
-                onClick={() => updateTextLayer(selectedTextLayer.id, { transform: DEFAULT_TEXT_LAYER_TRANSFORM })}
-                size='sm'
-                type='button'
-                variant='ghost'
-              ><RotateCcw aria-hidden='true' />Reset text box</Button>
-            ) : null}
-          </LabInspectorSection>}</OptionalRender>
-
-          <OptionalRender value={editingShader}>{() => <details className='shader-lab-v2-advanced'>
-            <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
-            <div className='shader-lab-v2-ranges'>
-              {ADVANCED_CONTROLS.map((control) => (
-                <RangeControl
-                  {...control}
-                  key={control.key}
-                  onChange={(value) => updateSetting(control.key, value)}
-                  onPreview={(value) => previewSelectedShaderSetting(control.key, value)}
-                  value={settings[control.key]}
-                />
-              ))}
-            </div>
-          </details>}</OptionalRender>
-
-          <section className='shader-lab-v2-handoff'>
-            <Code2 aria-hidden='true' />
-            <div><strong>Developer handoff</strong><span>Layer order + exact shader settings</span></div>
-            <button onClick={() => void copySetup()} type='button'>{copied ? <Check aria-hidden='true' /> : 'Copy'}</button>
-            {copyError ? <p className='shader-lab-v2-handoff-error' role='alert'>{copyError}</p> : null}
-          </section>
-        </StudioSidebar>
+        <DesignLabInspectorPanel
+          actions={inspectorActions}
+          activeArtboardId={activeArtboardId}
+          activeArtboardRawName={activeArtboardRawName}
+          brandPalette={brandPalette}
+          canvasBackground={canvasBackground}
+          canvasDimensions={canvasDimensions}
+          composition={inspectorComposition}
+          contentKind={selectedContentLayerId ? resolvedLayerKind(selectedContentLayerId) : null}
+          convertedAssetLibrary={convertedAssets}
+          copied={copied}
+          copyError={copyError}
+          cropEditingLayerId={cropEditingLayerId}
+          description={designLabInspectorDescription({
+            hasContent: Boolean(selectedContentLayerId),
+            hasEffect: Boolean(selectedEffectLayer),
+            hasLayerShader: Boolean(selectedLayerShader),
+            hasShader: Boolean(selectedShaderLayer),
+            materialName: material.name,
+          })}
+          editingCanvas={editingCanvas}
+          editingShader={editingShader}
+          identity={identity}
+          initialSettings={initialSettings}
+          layerRows={inspectorLayerRows}
+          material={material}
+          outputArtboards={inspectorArtboards}
+          paused={paused}
+          selectedAssetInspector={selectedAssetInspector}
+          selectedCanvasLayerCount={selectedCanvasLayerIds.length}
+          selectedContentLayerId={selectedContentLayerId}
+          selectedEffectLayer={selectedEffectLayer}
+          selectedLayerId={selectedLayerId}
+          selectedLayerShader={selectedLayerShader}
+          selectedLogoInspector={selectedLogoInspector}
+          selectedShaderLayer={selectedShaderLayer}
+          selectedTextInspector={selectedTextInspector}
+          settings={settings}
+          shaderSize={shaderSize}
+          stageRef={stageRef}
+          textRange={selectedTextInspector && textSelection?.layerId === selectedTextInspector.layer.id ? textSelection : null}
+          textRenderedWeight={selectedTextRenderedWeight}
+          textWeightRange={selectedTextWeightRange}
+          title={selectedLayerId ? layerLabel(selectedLayerId) : 'Design Lab'}
+          workspaceTourOpen={workspaceTourOpen}
+        />
       </div>
-      {renderSourceEditor()}
-      <ImageAssetModal
-        assets={[...identity.assets, ...identity.proofAssets]}
-        busy={imageImportState.status === 'importing'}
-        error={imageImportError}
-        onClose={() => {
-          if (imageImportState.status === 'importing') return;
-          setImageImportOpen(false);
-          setImageImportRequest(null);
-          setImageImportError(null);
-        }}
-        onCreateTextSticker={() => {
-          addTextLayer('sticker');
-          setImageImportOpen(false);
-          setImageImportRequest(null);
-          setImageImportState({ message: 'Added an editable text sticker.', status: 'success' });
-        }}
-        onDelete={deleteSavedAsset}
-        onImport={importAndSaveImages}
-        onPlace={placeSavedAsset}
-        open={imageImportOpen}
-        placementMode={imagePlacementMode}
-        request={imageImportRequest}
-      />
+      {renderStudioDialogs()}
     </div>
     );
   }

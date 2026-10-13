@@ -4,7 +4,7 @@
 // list. Each row is memoized on its own layer, selection and order, so editing
 // one layer re-renders one row. Very long lists skip layout and paint for
 // off-screen rows while keeping them in the accessibility tree for agents.
-import { memo, type ComponentProps, type MouseEvent as ReactMouseEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, type ComponentProps, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, type WheelEvent as ReactWheelEvent } from 'react';
 
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
@@ -491,5 +491,65 @@ export const DesignLabInspectorLayer = memo(function DesignLabInspectorLayer({
         </button>
       </div>
     </LayerRowTooltip>
+  );
+});
+
+export type DesignLabLayerDockActions = {
+  addBrandMarkLayer: () => void;
+  addCanvasShader: () => void;
+  addEffectLayer: () => void;
+  addLogoFiles: (files: FileList | null) => void;
+  addTextLayer: () => void;
+  openImageImport: (files?: readonly File[], placementMode?: 'image' | 'sticker') => void;
+};
+
+/** Bottom dock: add-layer buttons, import status and the layer stack. */
+export const DesignLabLayerDockPanel = memo(function DesignLabLayerDockPanel({
+  actions,
+  editingCanvas,
+  importState,
+  layerCount,
+  logoInputRef,
+  rows,
+}: {
+  actions: DesignLabLayerDockActions;
+  editingCanvas: boolean;
+  importState: { message: string; status: string };
+  layerCount: number;
+  logoInputRef: RefObject<HTMLInputElement | null>;
+  rows: ReactNode;
+}) {
+  const { addBrandMarkLayer, addCanvasShader, addEffectLayer, addLogoFiles, addTextLayer, openImageImport } = actions;
+  return (
+    <div className='shader-lab-v2-bottom-dock' data-canvas-selection-preserve>
+      <input accept='image/*,.svg,.avif,.bmp' aria-label='Choose logos for the canvas' className='sr-only' multiple onChange={(event) => void addLogoFiles(event.target.files)} ref={logoInputRef} type='file' />
+      <div className='shader-lab-v2-dock-create'>
+        <div className='shader-lab-v2-dock-heading'>
+          <span><Layers3 aria-hidden='true' />Layers</span>
+          <small>{layerCount} total · front to back</small>
+        </div>
+        <div className='shader-lab-v2-dock-add' aria-label='Add canvas layer' role='group'>
+          <button aria-label='Add text layer' onClick={() => addTextLayer()} type='button'><Type aria-hidden='true' /><span>Text</span></button>
+          <button aria-label='Add shader layer' onClick={() => addCanvasShader()} type='button'><Sparkles aria-hidden='true' /><span>Shader</span></button>
+          <button aria-label='Add effect layer' disabled={editingCanvas} title={editingCanvas ? 'Frame your selection to apply composition-wide effects' : 'Add effect layer'} onClick={() => addEffectLayer()} type='button'><Grid3X3 aria-hidden='true' /><span>Effect</span></button>
+          <button aria-label='Add brand mark' onClick={addBrandMarkLayer} type='button'><Layers3 aria-hidden='true' /><span>Mark</span></button>
+          <button aria-label='Add sticker layer' onClick={() => openImageImport([], 'sticker')} type='button'><Sticker aria-hidden='true' /><span>Sticker</span></button>
+          <button aria-label='Add image layer' className='shader-lab-v2-dock-add-image' onClick={() => openImageImport()} title='Open the shared Asset library or import new images' type='button'><ImagePlus aria-hidden='true' /><span>Image</span></button>
+        </div>
+        <span aria-live='polite' className='shader-lab-v2-image-import-status' data-state={importState.status}>
+          {importState.message || 'Images keep their aspect ratio when added.'}
+        </span>
+      </div>
+
+      <div
+        aria-label='Canvas layer stack'
+        className='shader-lab-v2-dock-stack studio-scroll-area'
+        onWheel={scrollLayerDockWithWheel}
+        role='region'
+        tabIndex={0}
+      >
+        {rows}
+      </div>
+    </div>
   );
 });

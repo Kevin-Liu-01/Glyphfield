@@ -1,7 +1,8 @@
 // Design Lab editor model: layer and artboard shapes, layer-id guards, and the
 // resolved appearance defaults shared by the editor, its canvas, and export.
-import type { StudioArtboardDimensions, StudioArtboardPresetId } from '@/lib/artboardSizes';
+import { STUDIO_ARTBOARD_PRESETS, type StudioArtboardDimensions, type StudioArtboardPresetId } from '@/lib/artboardSizes';
 import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity, type BrandTypography } from '@/lib/brandIdentity';
+import type { MotionExportQuality, MotionLoopMode } from '@/lib/canvasExport';
 import type { CanvasLayerTransform } from '@/lib/canvasInteraction';
 import type { CanvasTextAlign, CanvasTextWrap } from '@/lib/canvasText';
 import type { CompositionEffectSettings } from '@/lib/compositionEffects';
@@ -221,6 +222,31 @@ export const DEFAULT_TEXT_APPEARANCE: TextAppearanceSettings = {
   textEffect: { ...DEFAULT_TEXT_EFFECT },
 };
 
+export const STICKER_IMAGE_APPEARANCE: LogoAppearanceSettings = {
+  ...DEFAULT_LOGO_APPEARANCE,
+  borderColor: '#FFFFFF',
+  borderEnabled: true,
+  borderOpacity: 100,
+  borderWidth: 7,
+  shadowBlur: 18,
+  shadowColor: '#000000',
+  shadowEnabled: true,
+  shadowOffsetX: 0,
+  shadowOffsetY: 10,
+  shadowOpacity: 34,
+};
+export const STICKER_TEXT_APPEARANCE: Partial<TextAppearanceSettings> = {
+  outlineColor: '#FFFFFF',
+  outlineEnabled: true,
+  outlineWidth: 7,
+  shadowBlur: 18,
+  shadowColor: '#000000',
+  shadowEnabled: true,
+  shadowOffsetX: 0,
+  shadowOffsetY: 10,
+  shadowOpacity: 34,
+};
+
 export function isTextLayerId(layerId: CompositionLayerId | null): layerId is TextLayerId {
   return layerId?.startsWith('text-') ?? false;
 }
@@ -311,4 +337,65 @@ export function layerKind(id: CompositionLayerId) {
   if (isLogoLayerId(id)) return 'Brand mark';
   if (isTextLayerId(id)) return 'Editable text';
   return 'Image';
+}
+
+export type DesignExportSettings = {
+  durationMs: number;
+  fps: number;
+  gifLoop: MotionLoopMode;
+  quality: MotionExportQuality;
+  width: number;
+};
+
+export type DesignRatioOption = StudioArtboardDimensions & {
+  label: string;
+  value: ShaderRatio;
+};
+
+export type DesignExportFormat = 'gif' | 'jpg' | 'mp4' | 'png';
+export type DesignMotionMode = 'sequence' | 'standard';
+
+export const RATIO_OPTIONS: readonly { height: number; label: string; value: StudioArtboardPresetId; width: number }[] = (
+  STUDIO_ARTBOARD_PRESETS.map(({ height, id, label, width }) => ({ height, label, value: id, width }))
+);
+
+export const DEFAULT_EXPORT_SETTINGS: DesignExportSettings = {
+  durationMs: 1_600,
+  fps: 30,
+  gifLoop: 'seamless',
+  quality: 'balanced',
+  width: 960,
+};
+export const EXPORT_WIDTH_PRESETS = [
+  { label: 'Compact', width: 640 },
+  { label: 'Standard', width: 960 },
+  { label: 'Large', width: 1_280 },
+  { label: 'Full', width: 1_920 },
+] as const;
+export const EXPORT_QUALITY_OPTIONS: readonly { description: string; label: string; value: MotionExportQuality }[] = [
+  { description: 'Quick preview', label: 'Fast', value: 'fast' },
+  { description: 'Everyday export', label: 'Balanced', value: 'balanced' },
+  { description: 'Most detail', label: 'Best', value: 'best' },
+];
+
+export function normalizeDesignExportSettings(settings?: Partial<DesignExportSettings>): DesignExportSettings {
+  return {
+    durationMs: settings?.durationMs && [1_200, 1_600, 2_400, 4_000].includes(settings.durationMs)
+      ? settings.durationMs
+      : DEFAULT_EXPORT_SETTINGS.durationMs,
+    fps: settings?.fps && [12, 15, 24, 30, 60].includes(settings.fps)
+      ? settings.fps
+      : DEFAULT_EXPORT_SETTINGS.fps,
+    gifLoop: settings?.gifLoop === 'raw' ? 'raw' : 'seamless',
+    quality: settings?.quality && EXPORT_QUALITY_OPTIONS.some(({ value }) => value === settings.quality)
+      ? settings.quality
+      : DEFAULT_EXPORT_SETTINGS.quality,
+    width: Number.isFinite(settings?.width) && (settings?.width ?? 0) > 0
+      ? settings!.width!
+      : DEFAULT_EXPORT_SETTINGS.width,
+  };
+}
+
+export function designExportSettingsSignature(ratio: ShaderRatio, settings: DesignExportSettings): string {
+  return [ratio, settings.width, settings.quality, settings.durationMs, settings.fps, settings.gifLoop].join(':');
 }
