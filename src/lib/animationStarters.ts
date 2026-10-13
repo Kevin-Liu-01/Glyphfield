@@ -210,6 +210,8 @@ export function buildAnimationStarter({
       colorA: look.background.colorA,
       colorB: look.background.colorB ?? look.background.colorA,
       colorC: look.background.colorC ?? look.background.colorB ?? look.background.colorA,
+      // Clean fields: material grain is noise to a GIF encoder and multiplies file size.
+      grain: 0,
       speed: 0.28,
     },
     patternScale: 1,
