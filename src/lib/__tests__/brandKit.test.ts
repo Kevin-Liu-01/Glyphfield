@@ -101,12 +101,17 @@ describe('brand kit', () => {
       'identity.json',
       'logos/mark-dark.svg',
       'logos/mark-light.svg',
+      'fonts/Inter-Variable.ttf',
+      'fonts/GeistMono-Variable.ttf',
       'fonts/AcmeSans-Variable.woff2',
     ]);
-    expect(brandKitIncludedFonts(identity).map(({ family }) => family)).toEqual(['AcmeSans']);
+    expect(brandKitIncludedFonts(identity).map(({ family }) => family)).toEqual(['Inter', 'Geist Mono', 'AcmeSans']);
     const css = new TextDecoder().decode(files[2]!.bytes);
     expect(css).toContain('src: url("../fonts/AcmeSans-Variable.woff2") format("woff2");');
-    expect(css).toContain('Geist Mono Variable is not included');
+    const ramp = hydrateBrandIdentities(null).find(({ id }) => id === 'ramp')!;
+    expect(brandKitIncludedFonts(ramp)).toEqual([]);
+    expect(new TextDecoder().decode((await brandKitFiles(ramp, async () => new Uint8Array([1]))).find(({ name }) => name === 'tokens/brand.css')!.bytes))
+      .toContain('Lausanne Book is not included: kits package only uploaded or open-licensed fonts.');
   });
 
   it('writes brand.md for coding agents with tokens, contrast and logo rules', () => {

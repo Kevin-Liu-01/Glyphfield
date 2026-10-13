@@ -1,6 +1,7 @@
 import type { BrandApplication, BrandAsset } from './brandIdentity';
 
-export const REVISION = 22;
+// 23: regenerated built-ins (pairings, proportions, type scales, voice examples, font licenses).
+export const REVISION = 23;
 
 export function asset(
   id: string,

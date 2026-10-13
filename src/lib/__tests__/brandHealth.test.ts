@@ -21,7 +21,7 @@ describe('auditBrandHealth', () => {
     expect(report.sections).toHaveLength(11);
     expect(findingIds(createBrandIdentity('Untitled brand', 'scratch'))).toEqual(expect.arrayContaining([
       'essentials-name', 'essentials-tagline', 'strategy-concept', 'voice-examples',
-      'logo-mark-dark', 'logo-wordmark', 'color-default-palette', 'color-proportion', 'type-scale', 'graphic-device',
+      'logo-mark-dark', 'logo-wordmark', 'color-default-palette', 'type-scale', 'graphic-device',
     ]));
     const placeholderLogo = report.findings.find(({ id }) => id === 'logo-mark-dark')!;
     expect(placeholderLogo).toMatchObject({ severity: 'warning', title: 'Replace the placeholder mark for light surfaces' });
@@ -60,9 +60,14 @@ describe('auditBrandHealth', () => {
     expect(report.findings.find(({ id }) => id === 'imagery-alt-text')).toMatchObject({ fix: { id: 'alt-text' } });
   });
 
-  it('finds no errors in any built-in and every text pair passes AA', () => {
+  it('gives every built-in a strong score, declared AA-safe pairs and no errors or warnings', () => {
     for (const identity of hydrateBrandIdentities(null)) {
       const report = auditBrandHealth(identity);
+      expect(identity.colorPairings?.length, `${identity.id} pairings`).toBeGreaterThanOrEqual(4);
+      expect(identity.voice.examples?.length, `${identity.id} voice examples`).toBeGreaterThanOrEqual(3);
+      expect(identity.typeScale?.ratio, `${identity.id} type scale`).toBeGreaterThanOrEqual(1.25);
+      expect(report.score, identity.id).toBeGreaterThanOrEqual(90);
+      expect(report.counts.warning, `${identity.id}: ${report.findings.map(({ id }) => id).join(', ')}`).toBe(0);
       expect(report.contrast.every(({ passes }) => passes), `${identity.id} contrast`).toBe(true);
       expect(report.counts.error, `${identity.id}: ${report.findings.filter(({ severity }) => severity === 'error').map(({ id }) => id).join(', ')}`).toBe(0);
     }
