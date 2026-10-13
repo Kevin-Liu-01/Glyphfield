@@ -1,4 +1,5 @@
-import type { CubicBezier } from './animation';
+import { createSequenceLayout, type CubicBezier, type SequenceLayout } from './animation';
+import type { AnimationKeyframe, TextAnimationSettings } from './animationMotion';
 import type { GifExportConfig } from './exportGif';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
@@ -14,7 +15,9 @@ import type {
   AnimationPackageId,
   BackgroundTransitionId,
   StudioBackground,
+  StudioCaption,
   StudioSource,
+  StudioTextAnchor,
 } from './renderFrame';
 import { capVisibleFontWeight } from './typography';
 
@@ -43,15 +46,29 @@ export type StudioFrameSettings = {
   alignX: number;
   alignY: number;
   background: Omit<StudioBackground, 'image' | 'shaderPresentation'>;
+  /** Small fixed metadata line for this scene. */
+  caption?: StudioCaption;
   fit: 'contain' | 'cover';
   finish: MaterialFinishSettings;
   fontSize: number;
   fontWeight: number;
   foreground: string;
+  /** Scene hold in ms; undefined follows the sequence default. */
+  holdMs?: number;
+  /** Layer pose keyframes across this scene's hold. */
+  keyframes?: AnimationKeyframe[];
   opacity: number;
   rotation: number;
   scale: number;
+  /** Text hangs from its centre (default) or its leading edge. */
+  textAnchor?: StudioTextAnchor;
+  /** Text entrance played at the start of the hold. */
+  textAnimation?: TextAnimationSettings;
+  /** Display tracking in em. */
+  tracking?: number;
   transition?: StudioTransitionSettings;
+  /** Outgoing transition length in ms; undefined follows the sequence default. */
+  transitionMs?: number;
 };
 
 export type StudioBackgroundSettings = StudioFrameSettings['background'];
@@ -213,10 +230,27 @@ export function applyFrameSettings(
     fontSize: frame.fontSize,
     fontWeight: capVisibleFontWeight(frame.fontWeight),
     foreground: frame.foreground,
+    caption: frame.caption?.text.trim() ? frame.caption : undefined,
+    keyframes: frame.keyframes?.length ? frame.keyframes : undefined,
     opacity: frame.opacity,
     rotation: frame.rotation,
     scale: frame.scale,
+    textAnchor: frame.textAnchor,
+    textAnimation: frame.textAnimation,
+    tracking: frame.tracking,
   };
+}
+
+/** Master-timeline layout for ordered scenes, honouring per-scene hold and transition overrides. */
+export function resolveStudioSequenceLayout(
+  sourceIds: readonly string[],
+  frameSettings: Readonly<Record<string, Partial<StudioFrameSettings> | undefined>>,
+  settings: Pick<StudioSettings, 'holdMs' | 'transitionMs'>
+): SequenceLayout {
+  return createSequenceLayout(
+    sourceIds.map((id) => frameSettings[id]?.holdMs ?? settings.holdMs),
+    sourceIds.map((id) => frameSettings[id]?.transitionMs ?? settings.transitionMs)
+  );
 }
 
 export function orderStudioSources(

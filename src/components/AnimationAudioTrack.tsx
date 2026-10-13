@@ -29,7 +29,7 @@ import {
   type AnimationAudioClip,
   type AnimationAudioState,
 } from '@/lib/animationAudio';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 
 const T = memo(GTText);
 T.displayName = 'AnimationAudioTranslation';
@@ -62,6 +62,8 @@ type AnimationAudioTrackProps = {
   onVolumeChange: (volume: number) => void;
   playheadMs: number;
   playheadRef: RefObject<HTMLDivElement | null>;
+  /** Scene start fractions (0–1) for per-scene timing; uniform guides when absent. */
+  segmentBoundaries?: readonly number[];
   selectedClipId: string | null;
   segmentCount: number;
   totalMs: number;
@@ -98,11 +100,12 @@ export default function AnimationAudioTrack({
   onVolumeChange,
   playheadMs,
   playheadRef,
+  segmentBoundaries,
   selectedClipId,
   segmentCount,
   totalMs,
 }: AnimationAudioTrackProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const [expanded, setExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const laneRef = useRef<HTMLDivElement>(null);
@@ -230,10 +233,13 @@ export default function AnimationAudioTrack({
           </div>
         </div>
         <span className='animation-audio-lane-guides' aria-hidden='true'>
-          {Array.from({ length: Math.max(1, segmentCount) + 1 }, (_, index) => (
+          {(segmentBoundaries?.length
+            ? [...segmentBoundaries, 1]
+            : Array.from({ length: Math.max(1, segmentCount) + 1 }, (_, index) => index / Math.max(1, segmentCount))
+          ).map((fraction, index) => (
             <i
               key={index}
-              style={{ left: `${index / Math.max(1, segmentCount) * 100}%` }}
+              style={{ left: `${fraction * 100}%` }}
             />
           ))}
         </span>

@@ -1,0 +1,111 @@
+/* Storyboard trim handles, keyframe diamonds, and zoom controls. */
+
+.segment {
+  position: relative;
+}
+
+.trim {
+  position: absolute;
+  z-index: 16;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  cursor: ew-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.trim::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 6px;
+  width: 2px;
+  border-radius: 1px;
+  content: '';
+  background: hsl(var(--background));
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.55);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.segment:hover .trim::before,
+.trim:focus-visible::before,
+.trim[data-dragging='true']::before {
+  opacity: 1;
+}
+
+.trim:focus-visible {
+  outline: 2px solid hsl(var(--focus-ring));
+  outline-offset: -2px;
+}
+
+.trimReadout {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% - 6px);
+  left: 50%;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: hsl(var(--background));
+  background: hsl(var(--foreground));
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.keyLane {
+  position: absolute;
+  z-index: 14;
+  left: 0;
+  bottom: 22px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.diamond {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.diamond::before {
+  position: absolute;
+  inset: 2px;
+  content: '';
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.72), 0 1px 3px rgb(0 0 0 / 0.5);
+  transform: rotate(45deg);
+}
+
+.diamond[data-current='true']::before {
+  background: hsl(var(--focus-ring));
+}
+
+.diamond:focus-visible::before {
+  box-shadow: 0 0 0 2px hsl(var(--focus-ring)), 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+.zoom {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}

@@ -210,14 +210,15 @@ describe('shared Studio control layout', () => {
     expect(timeline).toContain('data-animation-storyboard');
     expect(timeline).toContain("kind='frame'");
     expect(timeline).toContain("kind='transition'");
-    expect(timeline).toContain('sources.length * 224');
+    expect(timeline).toContain('sources.length * MIN_SCENE_WIDTH');
+    expect(timeline).toContain('flex: `${segmentMs} 0 0px`');
     expect(timeline).toMatch(/<header className='animation-timeline-toolbar'>[\s\S]*?<div className='animation-timeline-storyboard-control'>[\s\S]*?<div className='animation-timeline-scrubber'>[\s\S]*?<\/header>/);
     expect(timeline).toMatch(/<div className='animation-timeline-status'>\s*<output[\s\S]*?<label>[\s\S]*?<T>Rate<\/T>/);
     expect(timeline).not.toMatch(/<\/header>\s*<div className='animation-timeline-scrubber'>/);
     expect(timeline).toMatch(/inputRef\.current\.value = String\(currentMs\);[\s\S]*?--studio-range-progress/);
     expect(timeline).toContain("step='1'");
     expect(preview).toContain('renderFrame(');
-    expect(preview).toContain('resolveTimeline(timeMs');
+    expect(preview).toContain('previewPosition(kind, staticSources.length)');
     expect(audio).toContain("accept='audio/*'");
     expect(audio).toContain('useState(false)');
     expect(audio).toContain('aria-expanded={expanded}');
@@ -234,8 +235,8 @@ describe('shared Studio control layout', () => {
     expect(animation).toContain('mixAnimationAudio(');
     expect(styles).toMatch(/\.animation-timeline-scroll\s*\{[\s\S]*?overflow-x: auto;/);
     expect(styles).toMatch(/\.animation-storyboard-segment\s*\{[\s\S]*?flex: 1 0 224px;/);
-    expect(timeline).toContain('style={{ gridTemplateColumns: segmentColumns }}');
-    expect(timeline).toContain('minmax(0, ${settings.holdMs}fr) minmax(0, ${effectiveTransitionMs}fr)');
+    expect(timeline).toContain('gridTemplateColumns: segmentColumns');
+    expect(timeline).toContain('minmax(0, ${holdMs}fr) minmax(0, ${transitionMs}fr)');
     expect(styles).toMatch(/\.animation-storyboard-segment\s*\{[\s\S]*?padding-right: 0;/);
     expect(styles).toMatch(/\.animation-storyboard-frame,[\s\S]*?\.animation-storyboard-transition\s*\{[\s\S]*?border: 0;[\s\S]*?border-radius: 0;/);
     expect(styles).toMatch(/\.animation-storyboard-transition-caption strong\s*\{[\s\S]*?text-overflow: ellipsis;/);

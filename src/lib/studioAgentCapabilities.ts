@@ -69,8 +69,8 @@ const EXPORT_ARTIFACT = 'ExportPreviewAsset with a non-empty Blob and determinis
 export const STUDIO_TOOL_ACTION_CONTRACTS = {
   animation: {
     'animation.export': {
-      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix.',
-      input: "{ format: 'gif' | 'mp4', download?: boolean }",
+      description: 'Render the current Animation workspace with its authentic timeline, shaders, and MP4 audio mix, or a PNG poster frame at the playhead.',
+      input: "{ format: 'gif' | 'mp4' | 'png', download?: boolean }",
       output: EXPORT_ARTIFACT,
     },
     'animation.export.gif': {
@@ -83,10 +83,50 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       input: 'No input',
       output: EXPORT_ARTIFACT,
     },
+    'animation.export.png': {
+      description: 'Render the frame at the playhead at full output size as a PNG poster frame.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
     'animation.export.project': {
       description: 'Package the complete editable animation and authorized local assets.',
       input: 'No input',
       output: EXPORT_ARTIFACT,
+    },
+    'animation.describe': {
+      description: 'Describe scenes with their master-timeline start, hold, outgoing transition, keyframes, and text entrance, plus brand starters.',
+      input: 'No input',
+      output: '{ durationMs, fps, width, height, playheadMs, scenes: [{ id, index, kind, label, startMs, holdMs, transitionMs, keyframes, textAnimation }], starters }',
+    },
+    'animation.seek': {
+      description: 'Pause and move the playhead; the inspector follows the displayed scene or transition.',
+      input: '{ timeMs: non-negative number }',
+      output: 'animation.describe result',
+    },
+    'animation.scene.update': {
+      description: 'Set a scene hold or outgoing transition (null follows the sequence default), its text entrance (null removes it), or its pose at the playhead (a keyframe when the layer is keyframed).',
+      input: "{ sceneId, holdMs?: number | null, transitionMs?: number | null, textAnimation?: { preset: 'none' | 'type-on' | 'word-rise' | 'line-reveal' | 'glyph-stagger' | 'tracking-in', durationMs?, staggerMs?, easing? } | null, pose?: { alignX?, alignY?, scale?, rotation?, opacity? } }",
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.set': {
+      description: 'Add or update the scene layer keyframe at a time into its hold, optionally with a pose and outgoing easing.',
+      input: '{ sceneId, atMs, pose?: { alignX?, alignY?, scale?, rotation?, opacity? }, easing?: [x1, y1, x2, y2] }',
+      output: 'animation.describe result',
+    },
+    'animation.keyframe.remove': {
+      description: 'Remove one keyframe; removing the last keeps its pose as the static pose.',
+      input: '{ sceneId, keyframeId }',
+      output: 'animation.describe result',
+    },
+    'animation.motion.preset': {
+      description: 'Replace a scene layer keyframes with a preset built around its settled pose.',
+      input: "{ sceneId, preset: 'push-in' | 'rise-in' | 'slide-in' | 'pop-in' | 'float' }",
+      output: 'animation.describe result',
+    },
+    'animation.starter.apply': {
+      description: 'Replace the active artboard with a brand starter composed in the identity art direction. Undo restores the previous sequence.',
+      input: "{ starterId: 'brand-intro' | 'product-reel' | 'proof-points' }",
+      output: 'animation.describe result',
     },
   },
   'brand-book': {
@@ -191,9 +231,39 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
   },
   lottie: {
     'lottie.export': {
-      description: 'Export either the current rendered PNG frame or the edited JSON/.lottie source.',
-      input: "{ format: 'png' | 'source', download?: boolean }",
+      description: 'Export the current rendered PNG frame, the edited JSON/.lottie source, or the trimmed segment as GIF or MP4 with the composited background.',
+      input: "{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }",
       output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.gif': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as GIF.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.export.mp4': {
+      description: 'Render the trimmed segment, with speed, direction, edits, and background, as MP4.',
+      input: 'No input',
+      output: EXPORT_ARTIFACT,
+    },
+    'lottie.describe': {
+      description: 'Describe the active document: top-level layers with keys, text layers, static colours, markers, segment, edits, and recolour mode.',
+      input: 'No input',
+      output: '{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor }',
+    },
+    'lottie.edit': {
+      description: 'Apply non-destructive JSON edits. Each listed field replaces the stored one: hidden layer keys, colour map, text by layer key, named markers, and recolour mode.',
+      input: "{ hiddenLayers?: string[], colorMap?: Record<'#RRGGBB', '#RRGGBB'>, textOverrides?: Record<layerKey, string>, markers?: [{ name, frame, duration }], recolor?: 'palette' | 'source' }",
+      output: 'lottie.describe result',
+    },
+    'lottie.colors.brand': {
+      description: 'Map every document colour to the nearest active brand token: chromatic colours to accents, neutrals by lightness.',
+      input: 'No input',
+      output: 'lottie.describe result',
+    },
+    'lottie.segment.set': {
+      description: 'Play a named marker segment or set the in and out frames.',
+      input: '{ marker: string } | { start: number, end: number }',
+      output: 'lottie.describe result',
     },
     'lottie.export.frame.png': {
       description: 'Render the current Lottie frame and configured background as PNG.',
@@ -298,6 +368,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
     exports: [
       { action: 'animation.export.gif', format: 'GIF', route: 'browser-action' },
       { action: 'animation.export.mp4', format: 'MP4', route: 'browser-action' },
+      { action: 'animation.export.png', format: 'PNG poster frame', route: 'browser-action' },
       { action: 'animation.export.project', format: 'JSON project', route: 'browser-action' },
     ],
     source: { apply: true, boundary: 'CanvasDocument schema 2 with Animation state and portable assets', format: 'JSON', read: true },
@@ -309,7 +380,7 @@ export const STUDIO_AGENT_CAPABILITIES = {
   colors: { directHttpGeneration: [], exports: [{ action: 'colors.tokens.copy', format: 'CSS variables / color tokens via clipboard', route: 'browser-action' }], source: { apply: true, boundary: 'Identity-bound color token workspace', format: 'JSON', read: true } },
   'design-board': { directHttpGeneration: [], exports: [{ action: 'moodboard.export.png', format: 'PNG', route: 'browser-action' }, { action: 'moodboard.export.svg', format: 'SVG', route: 'browser-action' }, { action: 'moodboard.export.identity', format: 'Identity JSON', route: 'browser-action' }], source: { apply: true, boundary: 'Moodboard boards, tiles (order, visibility, layout, size, surface, image, copy), and export settings', format: 'JSON', read: true } },
   identity: { directHttpGeneration: [], exports: [{ action: 'identity.export.json', format: 'BrandIdentity JSON', route: 'browser-action' }, { action: 'identity.export.kit', format: 'Brand kit ZIP, DTCG JSON, CSS, Tailwind v4 theme, brand.md, logo ZIP', route: 'browser-action' }, { format: 'DTCG JSON, CSS, Tailwind v4 theme, brand.md via POST /api/brand/kit', route: 'http' }], source: { apply: true, boundary: 'Complete BrandIdentity', format: 'JSON', read: true } },
-  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
+  lottie: { directHttpGeneration: [], exports: [{ action: 'lottie.export.frame.png', format: 'PNG frame', route: 'browser-action' }, { action: 'lottie.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'lottie.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'lottie.export.source', format: 'JSON or .lottie', route: 'browser-action' }], source: { apply: true, boundary: 'Portable Lottie composition; raw animation data retained when authorized', format: 'JSON', read: true } },
   material: { directHttpGeneration: ['design-sequence'], exports: [{ action: 'design.export.png', format: 'PNG', route: 'browser-action' }, { action: 'design.export.jpg', format: 'JPG', route: 'browser-action' }, { action: 'design.export.gif', format: 'GIF', route: 'browser-action' }, { action: 'design.export.mp4', format: 'MP4', route: 'browser-action' }, { action: 'design.export.project', format: 'JSON project', route: 'browser-action' }], source: { apply: true, boundary: 'CanvasDocument schema 2 with Design Lab metadata source 4', format: 'JSON', read: true } },
   opengraph: { directHttpGeneration: ['background', 'template'], exports: [{ action: 'opengraph.export.png', format: 'PNG', route: 'browser-action' }, { action: 'opengraph.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG background', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },
   partnership: { directHttpGeneration: ['template'], exports: [{ action: 'partnership.export.png', format: 'PNG', route: 'browser-action' }, { action: 'partnership.export.svg', format: 'SVG', route: 'browser-action' }, { format: 'SVG', route: 'http' }], source: { apply: true, boundary: 'Expression document: CanvasDocument schema 2 with expression source version 2', format: 'JSON', read: true } },

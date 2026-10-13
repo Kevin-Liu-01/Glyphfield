@@ -1,4 +1,9 @@
-import { buildFrameSchedule, type FrameSchedule } from './animation';
+import {
+  buildSequenceFrameSchedule,
+  uniformSequenceLayout,
+  type FrameSchedule,
+  type SequenceLayout,
+} from './animation';
 import {
   collectGifPaletteSample,
   gifPaletteFramePixelBudget,
@@ -24,15 +29,21 @@ export type GifExportConfig = RenderConfig & {
 export async function exportGif({
   beforeFrame,
   config,
+  layout,
   onProgress,
   resolveRenderConfig,
+  sampleHold,
   sampleHoldFrames = false,
   sources,
 }: {
   beforeFrame?: (frame: FrameSchedule) => Promise<void> | void;
   config: GifExportConfig;
+  /** Per-scene timing; defaults to the uniform hold and transition in `config`. */
+  layout?: SequenceLayout;
   onProgress?: (progress: number) => void;
   resolveRenderConfig?: (frame: FrameSchedule) => RenderConfig;
+  /** Per-scene hold sampling; overrides `sampleHoldFrames`. */
+  sampleHold?: (index: number) => boolean;
   sampleHoldFrames?: boolean;
   sources: readonly StudioSource[];
 }): Promise<Blob> {
@@ -41,12 +52,14 @@ export async function exportGif({
   }
 
   const { GIFEncoder, applyPalette, quantize } = await import('gifenc');
-  const schedule = buildFrameSchedule({
+  const schedule = buildSequenceFrameSchedule({
     fps: config.fps,
-    holdMs: config.holdMs,
-    itemCount: sources.length,
-    sampleHoldFrames,
-    transitionMs: config.transitionMs,
+    layout: layout ?? uniformSequenceLayout({
+      holdMs: config.holdMs,
+      itemCount: sources.length,
+      transitionMs: config.transitionMs,
+    }),
+    sampleHold: sampleHold ?? (() => sampleHoldFrames),
   });
   const canvas = document.createElement('canvas');
   canvas.width = config.width;

@@ -5,7 +5,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'rea
 import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useAncestorWorkspaceActivity } from '@/hooks/useAncestorWorkspaceActivity';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
-import { resolveTimeline } from '@/lib/animation';
+import type { TimelinePosition } from '@/lib/animation';
 import type { LiveMaterialId } from '@/lib/liveMaterials';
 import { readLiveMaterialPresentation } from '@/lib/liveMaterialPreview';
 import { renderFrame, type StudioSource } from '@/lib/renderFrame';
@@ -15,6 +15,14 @@ import { requestShaderPreviewSlot } from '@/lib/shaderPreviewBudget';
 import type { StudioSettings } from '@/lib/studio';
 
 const MAX_STATIC_SHADER_EDGE = 400;
+/** Past any keyframe or text entrance: thumbnails show each scene settled. */
+const SETTLED_SCENE_MS = 60_000;
+
+function previewPosition(kind: 'frame' | 'transition', sourceCount: number): TimelinePosition {
+  return kind === 'transition' && sourceCount > 1
+    ? { elapsedMs: 0, index: 0, nextIndex: 1, phase: 'transition', progress: 0.5, sceneElapsedMs: SETTLED_SCENE_MS }
+    : { elapsedMs: 0, index: 0, nextIndex: 0, phase: 'hold', progress: 0, sceneElapsedMs: SETTLED_SCENE_MS };
+}
 const shaderPreviewImages = new Map<LiveMaterialId, HTMLImageElement>();
 const shaderPreviewRequests = new Map<LiveMaterialId, Promise<HTMLImageElement>>();
 const capturedAnimationShaderPreviews = new Map<string, string>();
@@ -341,10 +349,10 @@ function AnimationTimelinePreview({
       if (canvas.height !== renderHeight) canvas.height = renderHeight;
       const context = canvas.getContext('2d');
       if (!context) return;
-      const timeMs = kind === 'transition'
-        ? settings.holdMs + settings.transitionMs / 2
-        : Math.max(0, Math.min(settings.holdMs / 2, settings.holdMs - 1));
-      const scale = Math.min(canvas.width / logicalWidth, canvas.height / logicalHeight);
+      // Storyboard cards crop to fill; tooltips and the inspector show the whole frame.
+      const scale = layout === 'timeline'
+        ? Math.max(canvas.width / logicalWidth, canvas.height / logicalHeight)
+        : Math.min(canvas.width / logicalWidth, canvas.height / logicalHeight);
       const offsetX = (canvas.width - logicalWidth * scale) / 2;
       const offsetY = (canvas.height - logicalHeight * scale) / 2;
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -359,11 +367,7 @@ function AnimationTimelinePreview({
         context,
         staticSources,
         { ...settings, height: logicalHeight, width: logicalWidth },
-        resolveTimeline(timeMs, {
-          holdMs: settings.holdMs,
-          itemCount: staticSources.length,
-          transitionMs: settings.transitionMs,
-        }),
+        previewPosition(kind, staticSources.length),
         { omitBackground: showAuthenticShader }
       );
       context.restore();
@@ -458,11 +462,22 @@ function previewSettingsMatch(first: StudioSettings, second: StudioSettings): bo
     && first.width === second.width;
 }
 
+/** Only the scenes a card draws matter; edits to other scenes never redraw it. */
+function previewSourcesMatch(first: AnimationTimelinePreviewProps, second: AnimationTimelinePreviewProps): boolean {
+  if (first.sources === second.sources) return true;
+  if (first.sources.length !== second.sources.length) return false;
+  const count = Math.max(1, first.sources.length);
+  const current = first.index % count;
+  const next = (first.index + 1) % count;
+  return first.sources[current] === second.sources[current]
+    && (first.kind !== 'transition' || first.sources[next] === second.sources[next]);
+}
+
 export default memo(AnimationTimelinePreview, (first, second) => (
   first.authenticShader === second.authenticShader
   && first.index === second.index
   && first.kind === second.kind
   && first.layout === second.layout
-  && first.sources === second.sources
+  && previewSourcesMatch(first, second)
   && previewSettingsMatch(first.settings, second.settings)
 ));

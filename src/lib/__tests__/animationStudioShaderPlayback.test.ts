@@ -21,7 +21,7 @@ describe('Animation Studio shader playback', () => {
 
   it('samples shader motion across holds with an explicit export clock', () => {
     expect(animationStudio).toContain('captureTimeMs={shaderCaptureTimeMs}');
-    expect(animationStudio).toContain('sampleHoldFrames: shaderBackgroundsAreActive');
+    expect(animationStudio).toContain('sampleHold: (index) => shaderBackgroundsAreActive || sceneMovesDuringHold(exportSources[index])');
     expect(animationStudio).toContain('beforeFrame: (frame) => beforeFrame(frame.atMs)');
     expect(animationStudio).toContain('await shaderExport.refresh()');
     expect(animationStudio).toContain('setShaderCaptureTimeMs(entryTimeMs)');
@@ -31,8 +31,10 @@ describe('Animation Studio shader playback', () => {
   });
 
   it('keeps user playback requests out of the export-owned shader clock', () => {
-    expect(animationStudio).toContain('onPlayChange={requestPlaybackChange}');
-    expect(animationStudio).toContain('onSeek={requestPlayheadChange}');
+    expect(animationStudio).toContain('onPlayChange: requestPlaybackChange');
+    expect(animationStudio).toContain('onSeek: requestPlayheadChange');
+    expect(animationStudio).toContain('onPlayChange={timelineActions.onPlayChange}');
+    expect(animationStudio).toContain('onSeek={timelineActions.onSeek}');
     const playbackRequest = animationStudio.slice(
       animationStudio.indexOf('function requestPlaybackChange('),
       animationStudio.indexOf('function inspectPlayhead(')

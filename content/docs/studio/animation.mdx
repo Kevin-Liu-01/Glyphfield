@@ -4,7 +4,17 @@ description: Build multilingual text, logo, and image sequences with per-frame c
 icon: Orbit
 ---
 
-Animation is a sequence editor for brand motion. Each state can contain text, a logo, or an image; every state owns its placement and transition while inheriting or overriding the composition background.
+Animation is a sequence editor for brand motion. Each scene holds one layer (text, the brand mark, or an image) over a background. Every scene owns its duration, its outgoing cut, its pose and keyframes, and an optional text entrance and caption, while inheriting or overriding the composition background.
+
+## Brand starters
+
+A first visit to Animation opens on the identity's **Brand intro**: the mark, then its greeting words, in a 1280 × 720 artboard composed in that brand's art direction. **Sequence layers → Brand starters** offers three story shapes for every identity:
+
+- **Brand intro**: the mark, then the identity's greetings.
+- **Product reel**: one scene per product, closing on the mark.
+- **Proof points**: the identity's proof set large, closing on the mark.
+
+Each identity keeps its own field, type, accent, cadence, and metadata device. Ramp sets light Lausanne on paper with one lime scene; Stripe sets Söhne over a blurple mesh; Vite+ captions each scene with its `vp` command; General Translation keeps its centred 1.25 s morph on exact black and names each language in the corner. Display weight and tracking come from the identity's Display typography; the scene captions use its Code face. Applying a starter replaces the active artboard; **Undo** restores the previous sequence. Existing drafts and autosaved animations are never replaced on load.
 
 New text frames start black in light mode and white in dark mode, including when added through Browser API controls. The color is saved on the new frame; changing the UI theme does not recolor existing frames, imported artwork, backgrounds, or reopened projects.
 
@@ -25,7 +35,46 @@ Start with the brand logo when the motion should establish identity before langu
 
 ## Frame composition
 
-Select a state to edit its content, hold duration, transition duration, easing, position, scale, rotation, opacity, crop, and background. Dragging and resizing on the canvas update the same frame document used by the inspector.
+Select a scene to edit its content, duration, entrance, keyframes, position, scale, rotation, opacity, caption, anchor, and background. Dragging, scaling, and rotating on the canvas update the same frame document used by the inspector; the canvas content follows a drag live and commits once on release.
+
+- **Rotate** with the round handle above the layer. Shift snaps to 15°; Left and Right arrows rotate by 1° (Shift: 15°).
+- **Move** by dragging or with the arrow keys (1 px; Shift: 10 px). Moves snap to the canvas edges and centre lines.
+- **Align** with the six safe-area buttons in the inspector: left, centre, right, top, middle, bottom. The safe area is 8% of the shorter side.
+- **Show layout guides** overlays thirds and the safe area on the stage. Guides are view-only and never exported.
+- **Anchor** sets whether text hangs from its centre or its leading edge. A leading-edge anchor keeps a left-aligned headline on its margin when the words change.
+- **Caption** adds one small line of scene metadata (an index, a language name, a command) in the identity's Code face at a corner of the safe area. Captions stay fixed in the frame and exchange by opacity during cuts.
+
+### Timing and the storyboard
+
+Every scene has its own duration and outgoing cut. Scenes without an override follow **Sequence defaults → Frame duration** and **Transition duration**. Set a scene's length under **Timing → Scene duration**, or select a cut and set **Cut duration**; **Use sequence duration** removes the override.
+
+The storyboard lays scenes out in proportion to their time. Drag the edge at the end of a scene's hold to trim it. A trim rolls the cut by default: the next scene absorbs the change, so later scenes keep their place on the master timeline. Hold **Alt** while dragging (or with the arrow keys) to ripple instead and shift every later scene. With the trim handle focused, Left and Right move the cut by one output frame, Shift by ten.
+
+Zoom the storyboard with **Zoom timeline in** and **Zoom timeline out**, **Fit timeline to view**, or Ctrl/Cmd + scroll over the storyboard. Zoom is a view setting per brand; it never changes timing.
+
+### Layer keyframes
+
+Keyframes animate a scene layer's horizontal and vertical position, scale, rotation, and opacity across its hold. Each keyframe stores a full pose and the easing of the segment that leaves it.
+
+1. Select the scene and choose **Add keyframe** to capture the pose at the playhead.
+2. Move the playhead within the scene, then move, scale, or rotate the layer on the canvas or in the inspector. Once a layer has keyframes, an edit updates the keyframe at the playhead or inserts a new one there.
+3. Choose each keyframe's easing (material, ease out, ease in-out, overshoot, linear) in the keyframe list.
+
+Keyframes appear as diamonds on the storyboard. Drag a diamond or use Left and Right (Shift: ten frames) to retime it; Delete removes it. Removing the last keyframe keeps its pose as the scene's static pose. **Motion presets** build keyframes around the settled pose in one click: **Push in**, **Rise in**, **Slide in**, **Pop in**, and **Float**. Before the first keyframe and after the last, the nearest pose holds. During a cut the outgoing scene leaves from its last pose and the incoming scene enters from its first.
+
+### Text entrances
+
+A text scene can play an entrance at the start of its hold, set in the scene's own brand display face and measured with the same metrics as the static frame:
+
+| Entrance | Behaviour |
+| --- | --- |
+| Type on | Graphemes appear one at a time, without a cursor. |
+| Word rise | Words fade and rise one after another. |
+| Line reveal | The line rises out of a baseline mask. |
+| Glyph stagger | Each glyph settles from below in sequence. |
+| Tracking in | Wide letterspacing closes to the set width. |
+
+Set the entrance duration, the stagger for word and glyph entrances (Auto spreads units across half the entrance), and its easing. Entrances and keyframes render identically in preview, GIF, MP4, and the poster frame; GIF samples every frame of a hold that moves and keeps a single frame for still holds.
 
 During playback, the scene highlights and inspector follow the current scene. Pause or scrub to a hold to edit that displayed scene; pause or scrub inside a transition to inspect the transition instead. Canvas selection boxes stay hidden during playback and transitions. Selecting a scene background or the base background keeps that explicit editing target.
 
@@ -71,7 +120,8 @@ Shader size uses the same `0.1×–10×` logarithmic zoom as Design Lab. Frame o
 
 - **GIF** uses deterministic frame times, a protected-color palette for text/marks, and optional seamless-loop closure.
 - **MP4** uses the browser's available video codec and includes mixed audio when present.
-- **Source JSON** preserves sequence order, per-frame configuration, background inheritance, audio state, and output settings.
+- **Poster frame** (**File → Export poster frame**) renders the frame at the playhead at full output size as PNG, through the same renderer and shader capture.
+- **Source JSON** preserves sequence order, per-frame configuration (including `holdMs`, `transitionMs`, `keyframes`, `textAnimation`, `caption`, `textAnchor`, and `tracking`), background inheritance, audio state, and output settings.
 
 Use **Download project file** for a portable, editable `.glyphfield.json` document. It includes artboards, frame timing, backgrounds, and embedded image, audio, and brand-font assets. **Open project file** validates the document and loads its assets before replacing the current animation. Imported font faces stay local to that animation workspace, so reopening a project under another brand does not rewrite the shared brand's typography. Project files preserve editable motion settings; GIF and MP4 are rendered outputs.
 
@@ -95,3 +145,22 @@ console.log(studio.describe());
 ```
 
 Use the active tool's `describe().actions` list rather than guessing an export action. Verify the resulting motion in the canvas before downloading.
+
+Scene actions return the full `animation.describe` result, so an agent can read IDs and timing once and then edit precisely:
+
+```js
+const studio = window.glyphfield.studio;
+let animation = await studio.invoke('animation.starter.apply', { starterId: 'product-reel' });
+const [first] = animation.scenes.filter((scene) => scene.kind === 'text');
+await studio.invoke('animation.scene.update', {
+  sceneId: first.id,
+  holdMs: 1800,
+  textAnimation: { preset: 'word-rise', durationMs: 640 },
+});
+await studio.invoke('animation.motion.preset', { sceneId: first.id, preset: 'push-in' });
+await studio.invoke('animation.keyframe.set', { sceneId: first.id, atMs: 900, pose: { alignY: -0.05 } });
+animation = await studio.invoke('animation.seek', { timeMs: first.startMs + 1200 });
+const poster = await studio.invoke('animation.export.png');
+```
+
+Source validation rejects malformed motion fields with their path, for example `frameSettings.text-0.keyframes[1].atMs must be a finite number.`

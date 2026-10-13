@@ -20,9 +20,9 @@ Glyphfield includes three focused motion systems: frame-based Animation, a dedic
 
 ## Animation
 
-Animation combines text, identity logos, and imported images in one reorderable sequence. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources, live animation-package previews, and the background shader gallery on the left; the shared canvas and timeline in the center; and frame, material, easing, timing, and export properties on the right. Select any state to tune its position, scale, rotation, opacity, typography, or image fit without changing the rest of the sequence. Background edits are sequence-wide by default.
+Animation combines text, identity logos, and imported images in one reorderable sequence. Each identity opens on a brand starter composed in its own art direction, with Product reel and Proof points one click away. The GT example begins with the real GT mark before morphing into its multilingual greetings. Its three-column workspace keeps sources, live animation-package previews, and the background shader gallery on the left; the shared canvas and timeline in the center; and frame, material, easing, timing, and export properties on the right. Select any scene to tune its duration, position, scale, rotation, opacity, typography, caption, text entrance, keyframes, or image fit without changing the rest of the sequence. Background edits are sequence-wide by default.
 
-Open **File → Edit source code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, `sequenceBackground`, `backgroundOverrides`, per-frame settings, and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
+Open **File → Edit source code** to edit the exact animation configuration as JSON. The source includes the source mode, newline-delimited text frames, logo inclusion, sequence order, global settings, `sequenceBackground`, `backgroundOverrides`, per-frame settings (including per-scene timing, keyframes, text entrances, and captions), and playback rate. Applying valid source updates the timeline and canvas immediately; invalid fields remain in the drawer with an error and never replace the active animation.
 
 <DocsMediaGrid>
   <DocsMedia alt='General Translation mark morphing through a motion sequence' caption='Morph sequence' height={300} meta='Animated GIF' src='/examples/gt-morph.gif' width={1000} />
@@ -31,9 +31,9 @@ Open **File → Edit source code** to edit the exact animation configuration as 
 
 ## Lottie
 
-Lottie is a separate Motion tool with its own vector playback model. Import a local `.lottie` bundle or Lottie JSON document, or begin with the Orbit, Signal, and Geometric Fold examples. Its source library sits to the left of the canvas; playback, appearance, and live-material properties remain visible in the right inspector.
+Lottie is a separate Motion tool with its own vector playback model. Import a local `.lottie` bundle or Lottie JSON document, or begin with one of the seven built-in motion studies. Its source library sits to the left of the canvas; playback, markers, layers, appearance, and live-material properties remain visible in the right inspector.
 
-The editor includes play, pause, restart, scrubbing, speed, forward/reverse/bounce modes, looping, interpolation, in/out trimming, contain/cover/fill layout, transparent or solid canvases, and high-resolution frame export. Generic JSON artwork can be recolored directly. `.lottie` bundles retain embedded colors unless they provide their own named themes.
+The editor includes play, pause, restart, scrubbing, speed, forward/reverse/bounce modes, looping, interpolation, in/out trimming, named segment markers, per-layer show and hide, text rewrites, contain/cover/fill layout, transparent or solid canvases, high-resolution frame export, and GIF or MP4 of the trimmed segment. JSON artwork recolours through palette slots or a colour map with one-click brand tokens. `.lottie` bundles retain embedded colors unless they provide their own named themes.
 
 The Lottie canvas can remain transparent, use a flat brand color, or use the same live material engine and brand-first palettes as Animation and Design Lab. Frame PNG export composites the vector frame over that live background at the selected output size. Download the edited JSON or original `.lottie` bundle at any time. The LottieFiles link is a discovery route, not a mirrored marketplace: verify the license on the individual animation before using or distributing it. Imported files remain in the browser.
 
@@ -54,14 +54,21 @@ Packages appear as a two-column gallery of real, looping previews instead of tex
 - Crossfade
 - Scale fade
 - Slide fade
+- Rise fade
+- Zoom through
+- Blur swipe
+- Flip fade
+- Spring pop
+- Rotate fade
+- Drift fade
 
 Type and delete reveals and removes real characters without a cursor. Morph fade uses blur, opacity, and scale rather than a collapsing vertical wipe, and works across text-to-text, text-to-image, image-to-text, and image-to-image transitions.
 
 ### Timing
 
-Control hold time, transition time, playback speed, frame rate, loop, and a cubic Bézier curve. Presets include material, snappy, soft, and dramatic curves.
+Control the default hold and transition, each scene's own duration and outgoing cut, playback speed, frame rate, loop, and a cubic Bézier curve. Presets include material, snappy, soft, and dramatic curves. Trim scenes directly on the storyboard: a roll keeps later scenes in place, Alt ripples them.
 
-The playhead is deterministic: preview and export resolve from the same timing model. Alignment guides indicate the configured horizontal and vertical center.
+The playhead is deterministic: preview and export resolve from the same per-scene timing model. Alignment guides indicate the configured horizontal and vertical center; **Show layout guides** adds thirds and the safe area.
 
 ### GIF and MP4 output
 

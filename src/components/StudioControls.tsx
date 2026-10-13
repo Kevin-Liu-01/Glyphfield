@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, memo, startTransition, type CSSProperties, type ReactNode } from 'react';
+import { memo, type CSSProperties, type ReactNode } from 'react';
 import { T as GTText } from 'gt-next';
 import {
   ArrowDown,
@@ -19,6 +19,17 @@ import AnimationPackageGallery, {
   ANIMATION_PACKAGES,
   animationPackagePresentation,
 } from '@/components/AnimationPackageGallery';
+import {
+  AnimationAlignControls,
+  AnimationKeyframeControls,
+  AnimationPoseControls,
+  AnimationRangeControl,
+  AnimationSceneTimingControls,
+  AnimationTextEntranceControls,
+  type AnimationAlignEdge,
+  type AnimationKeyframePatch,
+  type AnimationSceneTimingPatch,
+} from '@/components/AnimationMotionControls';
 import AnimationSequenceTooltipPreview from '@/components/AnimationSequenceTooltipPreview';
 import AnimationTimelinePreview from '@/components/AnimationTimelinePreview';
 import BezierEditor from '@/components/BezierEditor';
@@ -26,12 +37,10 @@ import LiveMaterialControls from '@/components/LiveMaterialControls';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import MaterialFinishControls from '@/components/MaterialFinishControls';
 import { ShaderLibraryBrowser } from '@/components/ShaderLibrarySidebar';
-import StudioRangeLabel from '@/components/StudioRangeLabel';
 import { Button } from '@/components/ui/Button';
 import ColorControl from '@/components/ui/ColorControl';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import StudioPreviewTooltip from '@/components/ui/StudioPreviewTooltip';
-import StudioRange from '@/components/ui/StudioRange';
 import StudioSelect from '@/components/ui/StudioSelect';
 import {
   brandMaterialPalette,
@@ -39,6 +48,9 @@ import {
   type LiveMaterialId,
   type LiveMaterialSettings,
 } from '@/lib/liveMaterials';
+import type { SequenceLayout } from '@/lib/animation';
+import { CAPTION_POSITIONS, type AnimationPose, type MotionPresetId, type TextAnimationSettings } from '@/lib/animationMotion';
+import type { AnimationStarter, AnimationStarterId } from '@/lib/animationStarters';
 import type { BrandIdentity } from '@/lib/brandIdentity';
 import type { StudioSource } from '@/lib/renderFrame';
 import { shaderLabSettingsFor, shaderPreviewAssetPath } from '@/lib/shaderLab';
@@ -59,10 +71,36 @@ import {
 } from '@/lib/studio';
 import { MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
 import { normalizeMaterialFinish } from '@/lib/materialFinish';
-import { useCachedGT } from '@/hooks/useCachedGT';
+import { useMotionGT } from '@/components/MotionTranslation';
 
 const T = memo(GTText);
 T.displayName = 'StudioTranslation';
+
+/** Stable motion, timing, and layout actions for the selected scene layer. */
+export type AnimationMotionActions = {
+  onAddKeyframe: (sourceId: string) => void;
+  onAlign: (edge: AnimationAlignEdge) => void;
+  onClearKeyframes: (sourceId: string) => void;
+  onGuidesVisibleChange: (visible: boolean) => void;
+  onKeyframeChange: (sourceId: string, keyframeId: string, patch: AnimationKeyframePatch) => void;
+  onMotionPreset: (sourceId: string, preset: MotionPresetId) => void;
+  onPoseChange: (patch: Partial<AnimationPose>) => void;
+  onRemoveKeyframe: (sourceId: string, keyframeId: string) => void;
+  onSceneTimingChange: (sourceId: string, patch: AnimationSceneTimingPatch) => void;
+  onSeekScene: (sourceId: string, atMs: number) => void;
+  onTextAnimationChange: (sourceId: string, next: TextAnimationSettings | undefined) => void;
+  onTransitionTimingChange: (transitionMs: number | null) => void;
+};
+
+/** Playhead and timing context for inspectors that follow the paused time. */
+export type AnimationPlayheadContext = {
+  currentMsRef: { current: number };
+  guidesVisible: boolean;
+  /** While playing, pose readouts stay on the displayed scene's settled values instead of following every frame. */
+  isPlaying: boolean;
+  layout: SequenceLayout;
+  subscribeToPlayhead: (listener: (timeMs: number) => void) => () => void;
+};
 
 type StudioControlsProps = {
   backgroundOverrideCount: number;
@@ -75,7 +113,9 @@ type StudioControlsProps = {
   hasImageSources: boolean;
   hasSelectedTransitionOverride: boolean;
   includeBrandLogo: boolean;
+  motion?: AnimationMotionActions;
   onAddText: () => void;
+  onApplyStarter?: (starterId: AnimationStarterId) => void;
   onBackgroundChange: (patch: Partial<StudioFrameSettings['background']>) => void;
   onBackgroundScopeChange: (scope: 'sequence' | 'frame') => void;
   onClearBackgroundOverrides: () => void;
@@ -98,6 +138,7 @@ type StudioControlsProps = {
   onTextSourceChange: (id: string, value: string) => void;
   identity?: Pick<BrandIdentity, 'colors' | 'id' | 'name' | 'shortName'>;
   panel: 'properties' | 'source';
+  playhead?: AnimationPlayheadContext;
   previewSources: readonly StudioSource[];
   selectedSource: StudioSource | null;
   selectedEffectTarget: 'background' | 'content';
@@ -106,6 +147,7 @@ type StudioControlsProps = {
   sequenceBackground: StudioBackgroundSettings;
   settings: StudioSettings;
   sources: readonly StudioSource[];
+  starters?: readonly AnimationStarter[];
   transitionSettings: readonly StudioTransitionSettings[];
 };
 
@@ -129,53 +171,7 @@ function InspectorSection({
   );
 }
 
-function RangeControl({
-  ariaLabel,
-  formatValue,
-  label,
-  max,
-  min,
-  onChange,
-  step,
-  unit,
-  value,
-}: {
-  ariaLabel?: string;
-  formatValue?: (value: number) => string;
-  label: ReactNode;
-  max: number;
-  min: number;
-  onChange: (value: number) => void;
-  step: number;
-  unit?: string;
-  value: number;
-}) {
-  const resolvedValue = Math.min(max, Math.max(min, value));
-  const rangeLabelId = useId();
-  return (
-    <label htmlFor={`${rangeLabelId}-input`} className='studio-range-control flex flex-col gap-2'>
-      <StudioRangeLabel id={rangeLabelId}
-        className='text-sm'
-        label={label}
-        value={<output className='font-mono text-xs tabular-nums text-muted-foreground'>
-          {formatValue?.(resolvedValue) ?? resolvedValue}
-          {formatValue ? null : unit}
-        </output>}
-      />
-      <StudioRange id={`${rangeLabelId}-input`} aria-labelledby={ariaLabel ? undefined : rangeLabelId}
-        aria-label={ariaLabel}
-        max={max}
-        min={min}
-        onChange={(event) => {
-          const nextValue = Number(event.currentTarget.value);
-          startTransition(() => onChange(nextValue));
-        }}
-        step={step}
-        value={resolvedValue}
-      />
-    </label>
-  );
-}
+const RangeControl = AnimationRangeControl;
 
 function BackgroundScopeControl({
   hasOverride,
@@ -196,7 +192,7 @@ function BackgroundScopeControl({
   selected: boolean;
   sourceCount: number;
 }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const effectiveScope = scope === 'frame' && selected ? 'frame' : 'sequence';
   return (
     <div className='animation-background-scope'>
@@ -260,16 +256,45 @@ function animationSourceLabel(source: StudioSource): string {
   return source.kind === 'text' ? source.text : source.name;
 }
 
-function AnimationSequenceSceneRow({
-  controls,
-  index,
-  source,
-}: {
+type SceneRowProps = {
   controls: StudioControlsProps;
   index: number;
   source: StudioSource;
-}) {
-  const gt = useCachedGT();
+};
+
+function sceneRowSelection(controls: StudioControlsProps, source: StudioSource, index: number) {
+  return [
+    controls.selectedSource?.id === source.id,
+    controls.selectedEffectTarget,
+    controls.backgroundScope,
+    controls.selectedTransitionIndex === index,
+    controls.backgroundOverrideSourceIds.includes(source.id),
+  ].join('|');
+}
+
+/** A scene row redraws only when its own scene, cut, selection, or shared timing settings change. */
+function sceneRowPropsMatch(previous: SceneRowProps, next: SceneRowProps): boolean {
+  const a = previous.controls;
+  const b = next.controls;
+  const index = next.index;
+  const following = (index + 1) % Math.max(1, b.sources.length);
+  return previous.source === next.source
+    && previous.index === index
+    && a.sources.length === b.sources.length
+    && a.settings === b.settings
+    && a.transitionSettings[index] === b.transitionSettings[index]
+    && a.previewSources[index] === b.previewSources[index]
+    && a.previewSources[following] === b.previewSources[following]
+    && a.onSelectSource === b.onSelectSource
+    && sceneRowSelection(a, previous.source, index) === sceneRowSelection(b, next.source, index);
+}
+
+const AnimationSequenceSceneRow = memo(function AnimationSequenceSceneRow({
+  controls,
+  index,
+  source,
+}: SceneRowProps) {
+  const gt = useMotionGT();
   const {
     backgroundOverrideSourceIds,
     backgroundScope,
@@ -385,10 +410,40 @@ function AnimationSequenceSceneRow({
       ) : null}
     </>
   );
+}, sceneRowPropsMatch);
+
+function AnimationStarterGallery({
+  identityName,
+  onApply,
+  starters,
+}: {
+  identityName: string;
+  onApply: (starterId: AnimationStarterId) => void;
+  starters: readonly AnimationStarter[];
+}) {
+  const gt = useMotionGT();
+  return (
+    <div className='flex flex-col gap-2'>
+      <p className='text-xs leading-5 text-muted-foreground'><T>Composed in</T> {identityName}<T>'s type, colour, cadence, and graphic device. Applying replaces this artboard; undo restores it.</T></p>
+      <ul aria-label={gt('Brand starters')} className='flex flex-col divide-y divide-border border-y border-border'>
+        {starters.map((starter) => (
+          <li className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2' key={starter.id}>
+            <span className='min-w-0'>
+              <strong className='block text-sm font-medium leading-5'>{gt(starter.name)}</strong>
+              <small className='block truncate text-xs leading-4 text-muted-foreground'>{starter.scenes.join(' · ')}</small>
+            </span>
+            <Button aria-label={`${gt('Apply')} ${gt(starter.name)} ${gt('starter')}`} className='h-7 px-2.5 text-xs' onClick={() => onApply(starter.id)} size='sm' type='button' variant='outline'>
+              <T>Apply</T>
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function AnimationSequenceLayerControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     backgroundScope,
     backgroundOverrideSourceIds,
@@ -498,7 +553,7 @@ function AnimationBackgroundControls({
   shaderGallerySettings,
   showScope = true,
 }: AnimationBackgroundControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     backgroundOverrideCount,
     backgroundScope,
@@ -628,22 +683,83 @@ type SelectedFrameControlsProps = AnimationBackgroundControlsProps & {
 
 type SelectedFrameContentControlsProps = Pick<
   StudioControlsProps,
-  'onFrameSettingsChange' | 'onTextSourceChange'
+  'motion' | 'onFrameSettingsChange' | 'onTextSourceChange' | 'playhead' | 'settings'
 > & {
   frameSettings: StudioFrameSettings;
+  sceneIndex: number;
   selectedSource: StudioSource;
 };
 
-function SelectedFrameContentControls({
+function InspectorGroup({ children, description, title }: { children: ReactNode; description?: ReactNode; title: ReactNode }) {
+  return (
+    <div className='flex flex-col gap-3 border-t border-border pt-4'>
+      <div>
+        <p className='text-sm font-semibold'>{title}</p>
+        {description ? <p className='mt-1 text-xs leading-5 text-muted-foreground'>{description}</p> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SelectedFrameMotionControls({
   frameSettings,
-  onFrameSettingsChange,
-  onTextSourceChange,
+  motion,
+  playhead,
+  sceneIndex,
   selectedSource,
-}: SelectedFrameContentControlsProps) {
-  const gt = useCachedGT();
+  settings,
+}: Required<Pick<SelectedFrameContentControlsProps, 'motion' | 'playhead'>> & Pick<SelectedFrameContentControlsProps, 'frameSettings' | 'sceneIndex' | 'selectedSource' | 'settings'>) {
+  const holdMs = playhead.layout.holds[sceneIndex] ?? settings.holdMs;
   return (
     <>
+      <InspectorGroup description={<T>Scene length on the master timeline. Drag a scene's right edge in the storyboard to trim it too.</T>} title={<T>Timing</T>}>
+        <AnimationSceneTimingControls
+          defaultHoldMs={settings.holdMs}
+          holdMs={holdMs}
+          onTimingChange={(patch) => motion.onSceneTimingChange(selectedSource.id, patch)}
+          overridden={frameSettings.holdMs !== undefined}
+        />
+      </InspectorGroup>
       {selectedSource.kind === 'text' ? (
+        <InspectorGroup description={<T>Plays at the start of the scene in the brand display face.</T>} title={<T>Text entrance</T>}>
+          <AnimationTextEntranceControls
+            onChange={(next) => motion.onTextAnimationChange(selectedSource.id, next)}
+            textAnimation={frameSettings.textAnimation}
+          />
+        </InspectorGroup>
+      ) : null}
+      <InspectorGroup description={<T>Animate position, scale, rotation, and opacity across this scene.</T>} title={<T>Keyframes</T>}>
+        <AnimationKeyframeControls
+          holdMs={holdMs}
+          keyframes={frameSettings.keyframes}
+          onAddKeyframe={() => motion.onAddKeyframe(selectedSource.id)}
+          onClearKeyframes={() => motion.onClearKeyframes(selectedSource.id)}
+          onKeyframeChange={(id, patch) => motion.onKeyframeChange(selectedSource.id, id, patch)}
+          onMotionPreset={(preset) => motion.onMotionPreset(selectedSource.id, preset)}
+          onRemoveKeyframe={(id) => motion.onRemoveKeyframe(selectedSource.id, id)}
+          onSeekKeyframe={(atMs) => motion.onSeekScene(selectedSource.id, atMs)}
+        />
+      </InspectorGroup>
+    </>
+  );
+}
+
+function SelectedFrameContentControls({
+  frameSettings,
+  motion,
+  onFrameSettingsChange,
+  onTextSourceChange,
+  playhead,
+  sceneIndex,
+  selectedSource,
+  settings,
+}: SelectedFrameContentControlsProps) {
+  const gt = useMotionGT();
+  const isText = selectedSource.kind === 'text';
+  return (
+    <>
+      {isText ? (
         <label className='animation-layer-text-field'>
           <span><T>Text</T></span>
           <input
@@ -655,23 +771,84 @@ function SelectedFrameContentControls({
           />
         </label>
       ) : null}
-      <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
-      <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
-      <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
-      <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
-      <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
-      {selectedSource.kind === 'text' ? (
+      {motion && playhead ? (
         <>
+          <AnimationPoseControls
+            currentMsRef={playhead.currentMsRef}
+            following={!playhead.isPlaying}
+            frameSettings={frameSettings}
+            layout={playhead.layout}
+            onPoseChange={motion.onPoseChange}
+            sceneIndex={sceneIndex}
+            subscribeToPlayhead={playhead.subscribeToPlayhead}
+          />
+          <AnimationAlignControls guidesVisible={playhead.guidesVisible} onAlign={motion.onAlign} onGuidesVisibleChange={motion.onGuidesVisibleChange} />
+        </>
+      ) : (
+        <>
+          <RangeControl label={<T>Horizontal</T>} max={1} min={-1} onChange={(alignX) => onFrameSettingsChange({ alignX })} step={0.01} value={frameSettings.alignX} />
+          <RangeControl label={<T>Vertical</T>} max={1} min={-1} onChange={(alignY) => onFrameSettingsChange({ alignY })} step={0.01} value={frameSettings.alignY} />
+          <RangeControl label={<T>Scale</T>} max={2.5} min={0.1} onChange={(scale) => onFrameSettingsChange({ scale })} step={0.01} value={frameSettings.scale} />
+          <RangeControl label={<T>Rotation</T>} max={180} min={-180} onChange={(rotation) => onFrameSettingsChange({ rotation })} step={1} unit='°' value={frameSettings.rotation} />
+          <RangeControl label={<T>Opacity</T>} max={100} min={0} onChange={(opacity) => onFrameSettingsChange({ opacity: opacity / 100 })} step={1} unit='%' value={Math.round(frameSettings.opacity * 100)} />
+        </>
+      )}
+      {isText ? (
+        <InspectorGroup title={<T>Type</T>}>
+          <div className='studio-field'>
+            <span className='studio-field-label'><T>Anchor</T></span>
+            <StudioSelect
+              ariaLabel={gt('Text anchor')}
+              onValueChange={(value) => onFrameSettingsChange({ textAnchor: value === 'start' ? 'start' : undefined })}
+              options={[{ label: gt('Centre'), value: 'center' }, { label: gt('Leading edge'), value: 'start' }]}
+              value={frameSettings.textAnchor ?? 'center'}
+            />
+          </div>
           <RangeControl label={<T>Text size</T>} max={240} min={16} onChange={(fontSize) => onFrameSettingsChange({ fontSize })} step={1} unit='px' value={frameSettings.fontSize} />
           <RangeControl label={<T>Weight</T>} max={MAX_VISIBLE_FONT_WEIGHT} min={100} onChange={(fontWeight) => onFrameSettingsChange({ fontWeight })} step={50} value={frameSettings.fontWeight} />
           <ColorControl ariaLabel={gt('Frame foreground')} label={<T>Text color</T>} onChange={(foreground) => onFrameSettingsChange({ foreground })} value={frameSettings.foreground} />
-        </>
+        </InspectorGroup>
       ) : (
         <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
           <T>Image fit</T>
           <StudioSelect ariaLabel={gt('Image fit')} onValueChange={(fit) => onFrameSettingsChange({ fit: fit as StudioFrameSettings['fit'] })} options={[{ label: gt('Contain'), value: 'contain' }, { label: gt('Cover'), value: 'cover' }]} value={frameSettings.fit} />
         </div>
       )}
+      {isText ? (
+        <InspectorGroup description={<T>One small line of scene metadata in the brand's Code face, fixed to a corner of the safe area.</T>} title={<T>Caption</T>}>
+          <label className='animation-layer-text-field'>
+            <span><T>Caption text</T></span>
+            <input
+              aria-label={gt('Scene caption')}
+              maxLength={120}
+              onChange={(event) => onFrameSettingsChange({ caption: event.target.value ? { position: frameSettings.caption?.position ?? 'top-left', text: event.target.value } : undefined })}
+              placeholder={gt('Optional metadata line')}
+              spellCheck={false}
+              type='text'
+              value={frameSettings.caption?.text ?? ''}
+            />
+          </label>
+          <div className='studio-field'>
+            <span className='studio-field-label'><T>Position</T></span>
+            <StudioSelect
+              ariaLabel={gt('Caption position')}
+              onValueChange={(position) => onFrameSettingsChange({ caption: { position: position as (typeof CAPTION_POSITIONS)[number], text: frameSettings.caption?.text ?? '' } })}
+              options={CAPTION_POSITIONS.map((position) => ({ label: gt(position.replace('-', ' ').replace(/^./, (first) => first.toUpperCase())), value: position }))}
+              value={frameSettings.caption?.position ?? 'top-left'}
+            />
+          </div>
+        </InspectorGroup>
+      ) : null}
+      {motion && playhead ? (
+        <SelectedFrameMotionControls
+          frameSettings={frameSettings}
+          motion={motion}
+          playhead={playhead}
+          sceneIndex={sceneIndex}
+          selectedSource={selectedSource}
+          settings={settings}
+        />
+      ) : null}
       <div className='border-t border-border pt-4'>
         <div className='mb-3'>
           <p className='text-sm font-semibold'>{selectedSource.kind === 'text' ? <T>Text effects</T> : <T>Artwork effects</T>}</p>
@@ -704,7 +881,7 @@ function SelectedFrameBackgroundControls({
   onResetSelectedBackgroundOverride,
   usesGenericMaterialColors,
 }: SelectedFrameBackgroundControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   return (
     <>
       <div className='animation-layer-scope-note'>
@@ -776,16 +953,18 @@ function SelectedFrameControls({
   materialIdentity,
   usesGenericMaterialColors,
 }: SelectedFrameControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     frameSettings,
     hasSelectedBackgroundOverride,
+    motion,
     onBackgroundChange,
     onFrameSettingsChange,
     onRemoveSource,
     onResetFrame,
     onResetSelectedBackgroundOverride,
     onTextSourceChange,
+    playhead,
     selectedEffectTarget,
     selectedSource,
     settings,
@@ -829,9 +1008,13 @@ function SelectedFrameControls({
       {selectedEffectTarget === 'content' ? (
         <SelectedFrameContentControls
           frameSettings={frameSettings}
+          motion={motion}
           onFrameSettingsChange={onFrameSettingsChange}
           onTextSourceChange={onTextSourceChange}
+          playhead={playhead}
+          sceneIndex={selectedIndex}
           selectedSource={selectedSource}
+          settings={settings}
         />
       ) : (
         <SelectedFrameBackgroundControls
@@ -930,11 +1113,13 @@ function AnimationPanelHeading({
 }
 
 function AnimationTransitionControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const {
     compact = false,
     hasImageSources,
     hasSelectedTransitionOverride,
+    motion,
+    playhead,
     onResetSelectedTransition,
     onSelectedTransitionSettingsChange,
     selectedTransitionIndex,
@@ -974,6 +1159,25 @@ function AnimationTransitionControls({ controls }: { controls: StudioControlsPro
         <strong><T>Content motion</T></strong>
         <small><T>How the visible layers exchange</T></small>
       </div>
+      {motion && playhead && selectedTransitionIndex !== null ? (
+        <div className='flex flex-col gap-2'>
+          <RangeControl
+            ariaLabel={gt('Cut duration')}
+            formatValue={(value) => `${Math.round(value)}ms`}
+            label={<T>Cut duration</T>}
+            max={2_000}
+            min={0}
+            onChange={(transitionMs) => motion.onTransitionTimingChange(transitionMs)}
+            step={10}
+            value={playhead.layout.transitions[selectedTransitionIndex] ?? settings.transitionMs}
+          />
+          {(playhead.layout.transitions[selectedTransitionIndex] ?? settings.transitionMs) !== settings.transitionMs ? (
+            <Button className='h-7 self-end px-2 text-xs' onClick={() => motion.onTransitionTimingChange(null)} size='sm' type='button' variant='ghost'>
+              <RotateCcw aria-hidden='true' /><T>Use sequence duration</T>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <AnimationPackageGallery
         animatePreviews={false}
         compact={compact}
@@ -1009,7 +1213,7 @@ function AnimationTransitionControls({ controls }: { controls: StudioControlsPro
 }
 
 function AnimationGlobalControls({ controls }: { controls: StudioControlsProps }) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const { compact = false, hasImageSources, onSettingsChange, settings } = controls;
   return (
     <>
@@ -1128,6 +1332,11 @@ function AnimationControlPanelContent({
           <AnimationSequenceLayerControls controls={childControls} />
         </InspectorSection>
         <AnimationGlobalControls controls={childControls} />
+        {childControls.starters?.length && childControls.onApplyStarter ? (
+          <InspectorSection index='04' title={<T>Brand starters</T>}>
+            <AnimationStarterGallery identityName={childControls.identity?.name ?? 'this brand'} onApply={childControls.onApplyStarter} starters={childControls.starters} />
+          </InspectorSection>
+        ) : null}
       </>
     );
   }
@@ -1176,7 +1385,7 @@ function AnimationControlPanelContent({
   );
 }
 
-export default function StudioControls({
+function StudioControls({
   backgroundOverrideCount,
   backgroundOverrideSourceIds,
   backgroundScope,
@@ -1187,7 +1396,9 @@ export default function StudioControls({
   hasImageSources,
   hasSelectedTransitionOverride,
   includeBrandLogo,
+  motion,
   onAddText,
+  onApplyStarter,
   onBackgroundChange,
   onBackgroundScopeChange,
   onClearBackgroundOverrides,
@@ -1210,6 +1421,7 @@ export default function StudioControls({
   onTextSourceChange,
   identity,
   panel,
+  playhead,
   previewSources,
   selectedSource,
   selectedEffectTarget,
@@ -1218,9 +1430,10 @@ export default function StudioControls({
   sequenceBackground,
   settings,
   sources,
+  starters,
   transitionSettings,
 }: StudioControlsProps) {
-  const gt = useCachedGT();
+  const gt = useMotionGT();
   const effectiveBackgroundScope = backgroundScope === 'frame' && selectedSource
     ? 'frame'
     : 'sequence';
@@ -1267,7 +1480,9 @@ export default function StudioControls({
     hasSelectedTransitionOverride,
     identity,
     includeBrandLogo,
+    motion,
     onAddText,
+    onApplyStarter,
     onBackgroundChange,
     onBackgroundScopeChange,
     onClearBackgroundOverrides,
@@ -1289,6 +1504,7 @@ export default function StudioControls({
     onSettingsChange,
     onTextSourceChange,
     panel,
+    playhead,
     previewSources,
     selectedEffectTarget,
     selectedSource,
@@ -1297,6 +1513,7 @@ export default function StudioControls({
     sequenceBackground,
     settings,
     sources,
+    starters,
     transitionSettings,
   };
   const sequenceBackgroundSelected = selectedSource === null
@@ -1338,3 +1555,5 @@ export default function StudioControls({
     </StudioSidebar>
   );
 }
+
+export default memo(StudioControls);

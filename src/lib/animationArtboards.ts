@@ -5,6 +5,7 @@ import type {
 } from './studio';
 import { mergeStudioFrameSettings } from './studio';
 import { normalizeMaterialFinish } from './materialFinish';
+import { sanitizeSceneMotion } from './animationMotion';
 import {
   STUDIO_ARTBOARD_PRESETS,
   studioArtboardPresetForSize,
@@ -41,9 +42,11 @@ export const DEFAULT_ANIMATION_ARTBOARD_ID = 'animation-artboard-main' as Animat
 export const ANIMATION_ARTBOARD_PRESETS = STUDIO_ARTBOARD_PRESETS;
 
 function cloneFrameSettings(storedFrame: StudioFrameSettings, settings: StudioSettings): StudioFrameSettings {
-  const frame = mergeStudioFrameSettings(settings, storedFrame);
+  const frame = sanitizeSceneMotion(mergeStudioFrameSettings(settings, storedFrame));
   return {
     ...frame,
+    keyframes: frame.keyframes?.map((keyframe) => ({ ...keyframe, easing: [...keyframe.easing] as typeof keyframe.easing })),
+    textAnimation: frame.textAnimation ? { ...frame.textAnimation, easing: [...frame.textAnimation.easing] as typeof frame.textAnimation.easing } : undefined,
     background: {
       ...frame.background,
       finish: normalizeMaterialFinish(frame.background.finish),
