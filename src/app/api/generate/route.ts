@@ -24,6 +24,11 @@ function assetMimeType(path: string): string {
   if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
   if (extension === '.gif') return 'image/gif';
   if (extension === '.webp') return 'image/webp';
+  // Brand fonts are embedded so standalone SVG renders in the brand face.
+  if (extension === '.woff2') return 'font/woff2';
+  if (extension === '.woff') return 'font/woff';
+  if (extension === '.ttf') return 'font/ttf';
+  if (extension === '.otf') return 'font/otf';
   throw new AgentGenerationError('A bundled asset has an unsupported format.', 'asset');
 }
 

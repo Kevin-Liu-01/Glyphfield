@@ -756,7 +756,7 @@ function physicalSurfaceDefinition(settings: BackgroundSettings): { definitions:
 }
 
 export function buildBackgroundSvg(
-  settings: BackgroundSettings,
+  requestedSettings: BackgroundSettings,
   identity?: {
     asset?: string;
     assetFit?: 'contain' | 'cover';
@@ -767,6 +767,10 @@ export function buildBackgroundSvg(
     showLogo?: boolean;
   }
 ): string {
+  // A pattern background with no pattern chosen used to render a blank field.
+  const settings: BackgroundSettings = requestedSettings.style === 'pattern' && requestedSettings.pattern === 'none'
+    ? { ...requestedSettings, pattern: 'dots', patternOpacity: Math.max(requestedSettings.patternOpacity, 24) }
+    : requestedSettings;
   const gradient = gradientDefinition(settings);
   const pattern = patternDefinition(settings);
   const physicalSurface = physicalSurfaceDefinition(settings);
