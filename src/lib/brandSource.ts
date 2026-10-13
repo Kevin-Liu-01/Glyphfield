@@ -136,6 +136,7 @@ const IDENTITY_SPEC: ObjectSpec = {
       required: ['hex', 'id', 'name', 'role'],
     }, 32, 'Semantic colors.', 'id'),
     contactEmail: { format: 'email', kind: 'string', maxLength: 254 },
+    customers: list(48, 120, 'Customer or client names the brand publishes. Keep proof statements in proof.'),
     description: text(600),
     dossier: {
       fields: {
@@ -203,8 +204,16 @@ const IDENTITY_SPEC: ObjectSpec = {
     name: text(80, undefined, 1),
     positioning: text(600),
     presetFingerprint: text(80, 'Managed by Glyphfield; ignored on apply.'),
+    productDetails: records({
+      fields: {
+        name: text(120, 'A name from products.', 1),
+        summary: text(240, 'One plain line that says what the product does.', 1),
+      },
+      kind: 'object',
+      required: ['name', 'summary'],
+    }, 48, 'One-line summaries for products. Replaced as a whole.'),
     products: list(48, 200),
-    proof: list(48, 200, 'Verifiable proof points or customer names.'),
+    proof: list(48, 200, 'Verifiable proof statements such as published metrics. Customer names go in customers.'),
     proofAssets: records(ASSET_SPEC, 64, 'Customer or partner marks used as proof.', 'id'),
     references: records({
       fields: {
@@ -223,7 +232,52 @@ const IDENTITY_SPEC: ObjectSpec = {
       required: ['category', 'id', 'intendedUse', 'owner', 'redistribution', 'sourceUrl', 'status', 'title'],
     }, 64, 'Research records with provenance.', 'id'),
     revision: number(0, 1_000_000, 'Managed by Glyphfield; ignored on apply.', true),
-    shortName: text(8, 'Monogram used when no logo is available.', 1),
+    samples: {
+      description: 'Sample content templates use instead of placeholders. Samples, not claims about real people.',
+      fields: {
+        actions: list(12, 80, 'Short product actions for command menus, checklists and dialogs, such as "Refund a payment".'),
+        code: {
+          description: 'A real request, command or snippet from the brand\'s docs.',
+          fields: { label: text(120, 'Such as POST /v1/payment_intents.', 1), snippet: text(1_200, undefined, 1) },
+          kind: 'object',
+          required: ['label', 'snippet'],
+        },
+        event: {
+          fields: { date: text(40, undefined, 1), location: text(80, undefined, 1), name: text(120, undefined, 1), time: text(40) },
+          kind: 'object',
+          required: ['date', 'location', 'name'],
+        },
+        install: text(200, 'The install or getting-started command from the brand\'s docs.'),
+        metric: {
+          description: 'One dashboard figure, shown as sample interface data.',
+          fields: { change: text(120), label: text(80, undefined, 1), value: text(40, undefined, 1) },
+          kind: 'object',
+          required: ['label', 'value'],
+        },
+        person: {
+          fields: { name: text(80, undefined, 1), role: text(120, undefined, 1) },
+          kind: 'object',
+          required: ['name', 'role'],
+        },
+        plans: {
+          description: 'Published plans or engagement types. Use the brand\'s own prices; never invent them.',
+          items: {
+            fields: { features: list(8, 120), name: text(60, undefined, 1), price: text(60, undefined, 1) },
+            kind: 'object',
+            required: ['features', 'name', 'price'],
+          },
+          kind: 'array',
+          maxItems: 4,
+        },
+        release: {
+          fields: { items: list(6, 160), title: text(160, undefined, 1) },
+          kind: 'object',
+          required: ['items', 'title'],
+        },
+      },
+      kind: 'object',
+    },
+    shortName: text(8, 'The short form the brand uses, such as GT or BSMNT, or the name itself for one-word brands. Shown when no logo is available.', 1),
     socialHandle: { format: 'social-handle', kind: 'string', maxLength: 64 },
     sourceNotes: list(48, 400, 'Where the identity facts came from.'),
     strategy: {

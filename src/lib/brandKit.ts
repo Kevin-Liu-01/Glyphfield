@@ -1,3 +1,4 @@
+import { brandCustomers, brandProducts, brandProofStatements } from './brandContent';
 import {
   brandFontAssets,
   brandTypographyFamily,
@@ -206,6 +207,9 @@ const CODE_SECTION = [
 ];
 
 function strategySection(identity: BrandIdentity): string[] {
+  const products = brandProducts(identity);
+  const customers = brandCustomers(identity);
+  const proof = brandProofStatements(identity);
   return [
     '## Strategy',
     table(['', ''], [
@@ -216,9 +220,10 @@ function strategySection(identity: BrandIdentity): string[] {
     ]),
     identity.strategy.pillars.length ? `Pillars:\n\n${bullets(identity.strategy.pillars)}` : '',
     '## Products, audiences and proof',
-    identity.products.length ? `Products: ${identity.products.join(', ')}.` : '',
+    products.length ? `Products:\n\n${bullets(products.map(({ name, summary }) => (summary ? `**${name}** — ${summary}` : name)))}` : '',
     identity.audiences.length ? `Audiences: ${identity.audiences.join(', ')}.` : '',
-    identity.proof.length ? `Proof (use only as published): ${identity.proof.join(', ')}.` : '',
+    customers.length ? `Customers (use only as published): ${customers.join(', ')}.` : '',
+    proof.length ? `Proof (use only as published): ${proof.join('; ')}.` : '',
     identity.applications.length ? `## Applications\n\n${table(['Application', 'Format', 'Intent'], identity.applications.map((item) => [item.name, item.format, item.description]))}` : '',
   ];
 }

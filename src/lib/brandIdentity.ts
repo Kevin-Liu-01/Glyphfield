@@ -129,6 +129,55 @@ export type BrandVoiceExample = {
   write: string;
 };
 
+/** A product and the one line that says what it does. `name` matches an entry in `products`. */
+export type BrandProductDetail = {
+  name: string;
+  summary: string;
+};
+
+/**
+ * Sample content that templates use in place of placeholders: a person and an
+ * event that fit the brand. These are samples, never claims about real people.
+ */
+export type BrandSamples = {
+  /** Short product actions for command menus, checklists and dialogs, such as "Refund a payment". */
+  actions?: string[];
+  /** A real request, command or snippet that developer templates show. */
+  code?: {
+    label: string;
+    snippet: string;
+  };
+  event?: {
+    date: string;
+    location: string;
+    name: string;
+    time?: string;
+  };
+  /** The install or getting-started command. */
+  install?: string;
+  /** One dashboard figure, shown as sample interface data. */
+  metric?: {
+    change: string;
+    label: string;
+    value: string;
+  };
+  person?: {
+    name: string;
+    role: string;
+  };
+  /** Published plans or engagement types for pricing and checkout templates. */
+  plans?: {
+    features: string[];
+    name: string;
+    price: string;
+  }[];
+  /** A release or update headline and its changes. */
+  release?: {
+    items: string[];
+    title: string;
+  };
+};
+
 export type BrandTypography = {
   family: string;
   fontId?: string;
@@ -223,6 +272,8 @@ export type BrandIdentity = {
   colorPairings?: BrandColorPairing[];
   colors: BrandColor[];
   contactEmail: string;
+  /** Customer or client names, kept apart from the proof statements in `proof`. */
+  customers?: string[];
   description: string;
   dossier: BrandDossier;
   fonts?: BrandFontAsset[];
@@ -236,11 +287,16 @@ export type BrandIdentity = {
   positioning: string;
   /** Content fingerprint of the shipped preset a built-in was hydrated from. */
   presetFingerprint?: string;
+  /** One-line summaries for the names in `products`. */
+  productDetails?: BrandProductDetail[];
   products: string[];
+  /** Verifiable proof statements such as published metrics. Customer names belong in `customers`. */
   proof: string[];
   proofAssets: BrandAsset[];
   references: BrandReference[];
   revision: number;
+  /** Sample person and event content for templates. */
+  samples?: BrandSamples;
   shortName: string;
   socialHandle: string;
   sourceNotes: string[];
@@ -603,6 +659,19 @@ function cloneBrandVoice(identity: BrandIdentity): BrandIdentity['voice'] {
   };
 }
 
+function cloneBrandSamples(samples: BrandSamples): BrandSamples {
+  return {
+    ...samples,
+    ...(samples.actions ? { actions: [...samples.actions] } : {}),
+    ...(samples.code ? { code: { ...samples.code } } : {}),
+    ...(samples.event ? { event: { ...samples.event } } : {}),
+    ...(samples.metric ? { metric: { ...samples.metric } } : {}),
+    ...(samples.person ? { person: { ...samples.person } } : {}),
+    ...(samples.plans ? { plans: samples.plans.map((plan) => ({ ...plan, features: [...plan.features] })) } : {}),
+    ...(samples.release ? { release: { ...samples.release, items: [...samples.release.items] } } : {}),
+  };
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -621,17 +690,20 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
       hex: normalizeHexOrFallback(color.hex),
     })),
     contactEmail: identity.contactEmail ?? '',
+    ...(identity.customers ? { customers: [...identity.customers] } : {}),
     fonts: brandFontAssets(identity).map((font) => ({ ...font })),
     greetings: [...(identity.greetings ?? [])],
     dossier: cloneBrandDossier(identity),
     graphicSystem: cloneBrandGraphicSystem(identity),
     mission: identity.mission ?? identity.positioning ?? '',
     motion: (identity.motion ?? []).map((motion) => ({ ...motion })),
+    ...(identity.productDetails ? { productDetails: identity.productDetails.map((detail) => ({ ...detail })) } : {}),
     products: [...(identity.products ?? [])],
     proof: [...(identity.proof ?? [])],
     proofAssets: (identity.proofAssets ?? []).map(cloneBrandAsset),
     references: (identity.references ?? []).map((reference) => ({ ...reference })),
     revision: identity.revision ?? 1,
+    ...(identity.samples ? { samples: cloneBrandSamples(identity.samples) } : {}),
     socialHandle: identity.socialHandle ?? '',
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
@@ -725,7 +797,10 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
       renderingRecipe: ['Set hierarchy', 'Choose one focal element', 'Apply the brand device', 'Run export preflight'],
       typography: 'Assign real font files to display, body, accent, and code roles.',
     },
-    fonts: DEFAULT_BRAND_FONT_ASSETS.map((font) => ({ ...font })),
+    // Only the faces the starting typography uses, so a new brand carries no unused fonts.
+    fonts: DEFAULT_BRAND_FONT_ASSETS
+      .filter((font) => GT_BRAND_IDENTITY.typography.some(({ fontId }) => fontId === font.id))
+      .map((font) => ({ ...font })),
     greetings: ['Welcome'],
     graphicSystem: {
       composition: 'Choose a consistent layout behavior for this identity.',

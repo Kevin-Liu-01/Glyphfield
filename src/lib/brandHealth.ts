@@ -6,6 +6,8 @@ import {
   type BrandTypography,
 } from './brandIdentity';
 import { colorContrastRatio, hexToOklch, normalizeHex, oklchToHex } from './color';
+import { brandCustomers, brandMessaging, brandProducts } from './brandContent';
+import { fontMetrics } from './brandOutputKit';
 import { BRAND_LOGO_SLOTS } from './brandSource';
 
 /**
@@ -246,7 +248,34 @@ function voiceChecks(identity: BrandIdentity): Check[] {
     count('examples', 'voice examples', examples, 3, 'Add voice.examples: at least three { context, write, avoid } pairs taken from real places the brand writes (homepage hero, error message, release note, onboarding email). "write" is on-brand, "avoid" is the off-brand version.'),
     count('phrases', 'approved phrases', filledList(voice.phrases), 2, 'Set voice.phrases to lines the brand already uses publicly.'),
     count('avoid', 'words or habits to avoid', filledList(voice.avoid), 2, 'Set voice.avoid to the language the brand avoids, such as hype words or jargon it never uses.'),
+    distinctLinesCheck(identity),
   ];
+}
+
+/** Tagline, promise and phrases each do a different job; a repeat prints the same line twice in layouts. */
+function distinctLinesCheck(identity: BrandIdentity): Check {
+  const tagline = identity.tagline.trim();
+  const messaging = brandMessaging(identity);
+  const repeatedPromise = Boolean(tagline) && filled(identity.strategy.promise) && sameLine(identity.strategy.promise, tagline);
+  const repeatedPhrases = filledList(identity.voice.phrases) - messaging.phrases.length;
+  const passed = !repeatedPromise && repeatedPhrases === 0;
+  return {
+    detail: passed
+      ? 'Tagline, promise and phrases are distinct lines.'
+      : [repeatedPromise ? 'The promise repeats the tagline.' : '', repeatedPhrases ? `${repeatedPhrases} approved ${repeatedPhrases === 1 ? 'phrase repeats' : 'phrases repeat'} the tagline or promise.` : ''].filter(Boolean).join(' '),
+    fix: !repeatedPromise && repeatedPhrases > 0 ? { id: 'distinct-phrases', label: 'Remove repeated phrases' } : undefined,
+    hint: 'Give each line its own job: tagline is the public line, strategy.promise is what a customer can rely on, and voice.phrases are other lines the brand already uses publicly. Do not repeat one line across them.',
+    id: 'voice-distinct-lines',
+    passed,
+    section: 'voice',
+    severity: 'warning',
+    title: 'Use distinct tagline, promise and phrases',
+  };
+}
+
+function sameLine(left: string, right: string): boolean {
+  const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return normalize(left) === normalize(right);
 }
 
 function logoChecks(identity: BrandIdentity): Check[] {
@@ -371,6 +400,33 @@ function typographyChecks(identity: BrandIdentity): Check[] {
       title: `Record the ${font.family} license`,
     });
   }
+  const code = identity.typography.find(({ role }) => role === 'Code');
+  if (code) {
+    const family = fonts.find(({ id }) => id === code.fontId)?.family ?? code.family;
+    const monospace = fontMetrics(family, code.weight, 'Code').monospace;
+    checks.push({
+      detail: monospace ? `Code renders in ${family}, a monospace face.` : `Code renders in ${family}, which is not monospace; columns of numbers and code will not align.`,
+      hint: 'Set the Code role to the monospace face the brand uses in its site CSS (look for --font-mono or font-family: monospace) and add its file with identity.font.add { file, roles: [\'Code\'] }.',
+      id: 'type-code-monospace',
+      passed: monospace,
+      section: 'typography',
+      severity: 'warning',
+      title: 'Use a monospace face for Code',
+    });
+  }
+  const unused = unusedBrandFonts(identity);
+  checks.push({
+    detail: unused.length
+      ? `${unused.length} stored ${unused.length === 1 ? 'font is' : 'fonts are'} not used by any role: ${[...new Set(unused.map(({ family }) => family))].join(', ')}.`
+      : 'Every stored font renders a typography role.',
+    fix: unused.length ? { id: 'prune-fonts', label: 'Remove unused fonts' } : undefined,
+    hint: 'Remove font records no typography role uses, usually leftovers from the template the project started from: identity.fix { fixId: \'prune-fonts\' }, or identity.apply with remove: { fonts: [id] }.',
+    id: 'type-unused-fonts',
+    passed: unused.length === 0,
+    section: 'typography',
+    severity: 'warning',
+    title: 'Remove unused fonts',
+  });
   const scale = identity.typeScale;
   checks.push({
     detail: scale
@@ -477,6 +533,7 @@ function productChecks(identity: BrandIdentity): Check[] {
       severity: 'warning',
       title: 'List the products',
     },
+    productSummariesCheck(identity),
     {
       detail: `${filledList(identity.audiences)} audiences defined.`,
       hint: 'Set audiences to the two to four groups the brand addresses.',
@@ -495,7 +552,51 @@ function productChecks(identity: BrandIdentity): Check[] {
       severity: 'info',
       title: 'Add verifiable proof',
     },
+    customersCheck(identity),
   ];
+}
+
+function productSummariesCheck(identity: BrandIdentity): Check {
+  const products = brandProducts(identity);
+  const missing = products.filter(({ summary }) => !summary).map(({ name }) => name);
+  return {
+    detail: missing.length ? `${missing.length} of ${products.length} products have no one-line summary: ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''}.` : `${products.length} products each have a one-line summary.`,
+    hint: 'Set productDetails to [{ name, summary }] with one plain line per product taken from the brand\'s own product pages. Templates print these lines next to each product.',
+    id: 'products-summaries',
+    passed: products.length > 0 && missing.length === 0,
+    section: 'products',
+    severity: 'info',
+    title: 'Describe each product in one line',
+  };
+}
+
+/** Short capitalised entries without figures read as customer names, not claims. */
+function looksLikeName(value: string): boolean {
+  return /^[\p{Lu}\p{N}][\p{L}\p{N}.&'+-]*(?: [\p{Lu}\p{N}][\p{L}\p{N}.&'+-]*){0,2}$/u.test(value.trim()) && !/\d[%x×+]|\$/.test(value);
+}
+
+/** Proof entries that are customer names, either listed in customers or forming most of the proof list. */
+export function brandProofCustomerNames(identity: BrandIdentity): string[] {
+  const proof = (identity.proof ?? []).filter((entry) => filled(entry));
+  const customers = brandCustomers(identity);
+  const listed = proof.filter((entry) => customers.some((name) => sameLine(name, entry)));
+  if (listed.length) return listed;
+  const names = proof.filter(looksLikeName);
+  return names.length >= 3 && names.length * 2 > proof.length ? names : [];
+}
+
+function customersCheck(identity: BrandIdentity): Check {
+  const mixed = brandProofCustomerNames(identity);
+  return {
+    detail: mixed.length ? `proof holds customer names (${mixed.slice(0, 4).join(', ')}); templates need them apart from proof statements.` : 'Customer names and proof statements are kept apart.',
+    fix: mixed.length ? { id: 'separate-customers', label: 'Move names to customers' } : undefined,
+    hint: 'Put customer or client names in customers and keep proof for statements such as published metrics. Use only names the brand shows publicly.',
+    id: 'products-customers',
+    passed: mixed.length === 0,
+    section: 'products',
+    severity: 'warning',
+    title: 'Keep customers apart from proof',
+  };
 }
 
 function applicationChecks(identity: BrandIdentity): Check[] {
@@ -536,18 +637,7 @@ function namingChecks(identity: BrandIdentity): Check[] {
       severity: 'warning',
       title: 'Format the social handle',
     },
-    {
-      detail: identity.shortName.length > 0 && identity.shortName === identity.shortName.toLocaleUpperCase()
-        ? `Short name ${identity.shortName} is a clean monogram.`
-        : `Short name "${identity.shortName}" should be an uppercase monogram.`,
-      fix: identity.shortName && identity.shortName !== identity.shortName.toLocaleUpperCase() ? { id: 'short-name', label: 'Uppercase the short name' } : undefined,
-      hint: 'Set shortName to the brand\'s monogram in uppercase, up to five letters.',
-      id: 'naming-short-name',
-      passed: identity.shortName.length > 0 && identity.shortName === identity.shortName.toLocaleUpperCase(),
-      section: 'naming',
-      severity: 'info',
-      title: 'Uppercase the monogram',
-    },
+    shortNameCheck(identity),
     {
       detail: `The identity takes ${(size / 1_000_000).toFixed(1)} MB of browser storage.`,
       hint: 'Shrink embedded files: subset fonts to Latin woff2, use SVG logos, and keep raster images under 1 MB.',
@@ -558,6 +648,35 @@ function namingChecks(identity: BrandIdentity): Check[] {
       title: 'Reduce embedded file size',
     },
   ];
+}
+
+function shortNameCheck(identity: BrandIdentity): Check {
+  const shortName = identity.shortName.trim();
+  const lowercase = Boolean(shortName) && !/^[\p{Lu}\p{N}]/u.test(shortName);
+  const passed = shortName.length >= 2 && !/\s/.test(shortName) && !lowercase;
+  return {
+    detail: passed
+      ? `Short name ${shortName} is set.`
+      : shortName.length < 2
+        ? `Short name "${shortName}" is one letter; layouts that print it read as a placeholder.`
+        : `Short name "${shortName}" should be one word that starts with a capital, such as GT, BSMNT or Stripe.`,
+    fix: lowercase ? { id: 'short-name', label: 'Capitalize the short name' } : undefined,
+    hint: 'Set shortName to the short form the brand itself uses: its abbreviation (GT, BSMNT) or, for a one-word brand, its name (Stripe). One word, up to eight characters.',
+    id: 'naming-short-name',
+    passed,
+    section: 'naming',
+    severity: 'info',
+    title: 'Use the brand\'s own short name',
+  };
+}
+
+/** Stored font records whose family no typography role uses. */
+export function unusedBrandFonts(identity: BrandIdentity) {
+  if (!identity.fonts?.length) return [];
+  const usedIds = new Set(identity.typography.map(({ fontId }) => fontId).filter(Boolean));
+  const usedFamilies = new Set(identity.typography.map(({ family }) => family.trim().toLocaleLowerCase()));
+  for (const font of identity.fonts) if (usedIds.has(font.id)) usedFamilies.add(font.family.trim().toLocaleLowerCase());
+  return identity.fonts.filter((font) => !usedIds.has(font.id) && !usedFamilies.has(font.family.trim().toLocaleLowerCase()));
 }
 
 function agentPrompt(identity: BrandIdentity, check: Check): string {
@@ -591,7 +710,7 @@ function sectionSummary(id: BrandHealthSectionId, identity: BrandIdentity, contr
     case 'typography': return [...new Set(identity.typography.map(({ family }) => family))].join(' · ');
     case 'graphic': return identity.graphicSystem.device;
     case 'imagery': return `${[...identity.assets, ...identity.proofAssets].filter(({ type }) => type !== 'logo').length} visual assets`;
-    case 'products': return `${identity.products.length} products · ${identity.proof.length} proof points`;
+    case 'products': return `${identity.products.length} products · ${identity.proof.length} proof points · ${brandCustomers(identity).length} customers`;
     case 'applications': return `${identity.applications.length} applications`;
     case 'naming': return `${identity.shortName} · ${identity.socialHandle || 'no handle'}`;
   }
@@ -713,8 +832,29 @@ export function applyBrandHealthFix(identity: BrandIdentity, fixId: string): Bra
       };
     case 'social-handle':
       return { ...identity, socialHandle: identity.socialHandle && !identity.socialHandle.startsWith('@') ? `@${identity.socialHandle}` : identity.socialHandle };
-    case 'short-name':
-      return { ...identity, shortName: identity.shortName.toLocaleUpperCase() };
+    case 'short-name': {
+      const shortName = identity.shortName.trim();
+      return { ...identity, shortName: shortName.length <= 3 ? shortName.toLocaleUpperCase() : `${shortName[0]!.toLocaleUpperCase()}${shortName.slice(1)}` };
+    }
+    case 'distinct-phrases': {
+      const { phrases } = brandMessaging(identity);
+      return { ...identity, voice: { ...identity.voice, phrases } };
+    }
+    case 'prune-fonts': {
+      const unused = new Set(unusedBrandFonts(identity).map(({ id }) => id));
+      if (!unused.size) throw new RangeError(`${identity.name} has no unused fonts to remove.`);
+      return { ...identity, fonts: (identity.fonts ?? []).filter(({ id }) => !unused.has(id)) };
+    }
+    case 'separate-customers': {
+      const names = brandProofCustomerNames(identity);
+      if (!names.length) throw new RangeError(`${identity.name} has no customer names in proof.`);
+      const customers = brandCustomers(identity);
+      return {
+        ...identity,
+        customers: [...customers, ...names.filter((name) => !customers.some((customer) => sameLine(customer, name)))],
+        proof: identity.proof.filter((entry) => !names.includes(entry)),
+      };
+    }
     case 'logo-surfaces':
       return {
         ...identity,

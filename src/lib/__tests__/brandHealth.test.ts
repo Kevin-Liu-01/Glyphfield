@@ -70,7 +70,37 @@ describe('auditBrandHealth', () => {
       expect(report.counts.warning, `${identity.id}: ${report.findings.map(({ id }) => id).join(', ')}`).toBe(0);
       expect(report.contrast.every(({ passes }) => passes), `${identity.id} contrast`).toBe(true);
       expect(report.counts.error, `${identity.id}: ${report.findings.filter(({ severity }) => severity === 'error').map(({ id }) => id).join(', ')}`).toBe(0);
+      const contentFindings = ['products-summaries', 'products-customers', 'naming-short-name', 'type-code-monospace', 'type-unused-fonts', 'voice-distinct-lines'];
+      expect(report.findings.map(({ id }) => id).filter((id) => contentFindings.includes(id)), identity.id).toEqual([]);
+      expect(identity.samples?.person, `${identity.id} sample person`).toBeDefined();
+      expect(identity.samples?.event, `${identity.id} sample event`).toBeDefined();
     }
+  });
+
+  it('flags repeated lines, mixed customers, a one-letter short name, a proportional Code face and unused fonts', () => {
+    const ramp = hydrateBrandIdentities(null).find(({ id }) => id === 'ramp')!;
+    const legacy: BrandIdentity = {
+      ...ramp,
+      customers: undefined,
+      fonts: [...ramp.fonts!, { family: 'Switzer', fileName: 'Switzer.ttf', format: 'truetype', id: 'switzer-400', label: 'Switzer', path: '/fonts/switzer-400.ttf', style: 'normal', weight: 400 }],
+      proof: ['Shopify', 'Notion', 'Linear', '70,000+ customers'],
+      shortName: 'R',
+      strategy: { ...ramp.strategy, promise: ramp.tagline },
+      typography: ramp.typography.map((role) => role.role === 'Code' ? { ...role, family: 'Lausanne', fontId: 'ramp-lausanne-400' } : role),
+      voice: { ...ramp.voice, phrases: [ramp.tagline, ...ramp.voice.phrases] },
+    };
+    expect(findingIds(legacy)).toEqual(expect.arrayContaining([
+      'voice-distinct-lines', 'products-customers', 'naming-short-name', 'type-code-monospace', 'type-unused-fonts',
+    ]));
+    const separated = applyBrandHealthFix(legacy, 'separate-customers');
+    expect(separated).toMatchObject({ customers: ['Shopify', 'Notion', 'Linear'], proof: ['70,000+ customers'] });
+    const pruned = applyBrandHealthFix(legacy, 'prune-fonts');
+    // Switzer and the now-unused mono face go; every Lausanne weight stays because a role uses the family.
+    expect([...new Set(pruned.fonts?.map(({ family }) => family))]).toEqual(['Lausanne']);
+    expect(pruned.fonts).toHaveLength(4);
+    const phrases = applyBrandHealthFix({ ...legacy, strategy: ramp.strategy }, 'distinct-phrases').voice.phrases;
+    expect(phrases).not.toContain(ramp.tagline);
+    expect(() => applyBrandHealthFix(ramp, 'prune-fonts')).toThrow(RangeError);
   });
 });
 
