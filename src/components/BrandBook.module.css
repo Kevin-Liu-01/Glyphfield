@@ -1271,10 +1271,6 @@
   outline-offset: -1px;
 }
 
-.pairings td[data-pass='false'] {
-  background-image: linear-gradient(to top right, transparent calc(50% - 0.5px), currentColor 50%, transparent calc(50% + 0.5px));
-}
-
 .pairSample {
   display: block;
   font-family: var(--book-display);

@@ -539,11 +539,19 @@ function PairingsPage({ context }: { context: BookPageContext }) {
               {backgrounds.map(([backgroundName, background]) => {
                 const ratio = contrastRatio(foreground, background);
                 const rating = wcagRating(ratio);
+                const same = foreground.toUpperCase() === background.toUpperCase();
+                // The sample shows the real pairing; the ratio and rating stay readable on every surface.
                 return (
-                  <td data-pass={rating !== 'Fail'} key={backgroundName} style={{ background, color: foreground }}>
-                    <span className={styles.pairSample}>Aa</span>
-                    <span className={styles.pairRatio}>{ratio.toFixed(1)} : 1</span>
-                    <span className={styles.pairRating}>{foreground.toUpperCase() === background.toUpperCase() ? '—' : rating}</span>
+                  <td data-pass={rating !== 'Fail'} key={backgroundName} style={{ background, color: readableOn(background, palette) }}>
+                    {same ? (
+                      <span className={styles.pairRating}>Same colour</span>
+                    ) : (
+                      <>
+                        <span className={styles.pairSample} style={{ color: foreground }}>Aa</span>
+                        <span className={styles.pairRatio}>{ratio.toFixed(1)} : 1</span>
+                        <span className={styles.pairRating}>{rating}</span>
+                      </>
+                    )}
                   </td>
                 );
               })}
