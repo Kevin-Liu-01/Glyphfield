@@ -4,6 +4,11 @@ import { createMDX } from 'fumadocs-mdx/next';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Next 16 does not optimize this barrel by default; it keeps a root
+    // `@phosphor-icons/react` import from compiling every icon.
+    optimizePackageImports: ['@phosphor-icons/react'],
+  },
   reactStrictMode: true,
   async headers() {
     return [

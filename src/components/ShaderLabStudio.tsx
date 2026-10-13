@@ -669,28 +669,38 @@ function cloneDesignArtboards(artboards: readonly DesignArtboard[]): DesignArtbo
   return artboards.map((artboard) => ({ ...artboard, snapshot: cloneArtboardSnapshot(artboard.snapshot) }));
 }
 
+// Live playback advances continuously and is not a user action. Keeping that
+// clock out of signatures prevents history churn while retaining an exact frame
+// whenever the user pauses or scrubs the timeline.
+const signatureSnapshotViews = new WeakMap<DesignArtboardSnapshot, DesignArtboardSnapshot>();
+const signatureArtboardViews = new WeakMap<DesignArtboard, DesignArtboard>();
+
+// Snapshots and artboards are immutable, so their views are reused across calls and
+// immutableJsonSignature's per-object cache skips every unchanged board.
+function signatureSnapshotView(snapshot: DesignArtboardSnapshot): DesignArtboardSnapshot {
+  let view = signatureSnapshotViews.get(snapshot);
+  if (!view) {
+    view = { ...snapshot, timeline: snapshot.timeline.paused ? snapshot.timeline : { frame: 0, paused: false } };
+    signatureSnapshotViews.set(snapshot, view);
+  }
+  return view;
+}
+
+function signatureArtboardView(artboard: DesignArtboard): DesignArtboard {
+  let view = signatureArtboardViews.get(artboard);
+  if (!view) {
+    view = { ...artboard, snapshot: signatureSnapshotView(artboard.snapshot) };
+    signatureArtboardViews.set(artboard, view);
+  }
+  return view;
+}
+
 function designCanvasHistorySignature(artboards: readonly DesignArtboard[], typographyRevision: number | null = null): string {
-  return immutableJsonSignature({ projectTypography: typographyRevision, artboards: artboards.map((artboard) => ({
-    ...artboard,
-    snapshot: {
-      ...artboard.snapshot,
-      // Live playback advances continuously and is not a user action. Keeping
-      // that clock out of the signature prevents history churn while retaining
-      // an exact frame whenever the user pauses or scrubs the timeline.
-      timeline: artboard.snapshot.timeline.paused
-        ? artboard.snapshot.timeline
-        : { frame: 0, paused: false },
-    },
-  })) });
+  return immutableJsonSignature({ projectTypography: typographyRevision, artboards: artboards.map(signatureArtboardView) });
 }
 
 function artboardSnapshotPersistenceSignature(snapshot: DesignArtboardSnapshot): string {
-  return immutableJsonSignature({
-    ...snapshot,
-    timeline: snapshot.timeline.paused
-      ? snapshot.timeline
-      : { frame: 0, paused: false },
-  });
+  return immutableJsonSignature(signatureSnapshotView(snapshot));
 }
 
 function canUndoDesignCanvasHistory(history: DesignCanvasHistoryState, signature: string): boolean {

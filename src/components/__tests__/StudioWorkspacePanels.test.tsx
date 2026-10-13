@@ -13,8 +13,11 @@ vi.mock('gt-next', () => ({
   useGT: () => (message: string) => message,
 }));
 
+const editorRenders = vi.hoisted(() => new Map<string, number>());
+
 vi.mock('next/dynamic', () => ({
   default: (load: () => Promise<unknown>) => function EditorStub({ active }: { active?: boolean }) {
+    editorRenders.set(load.name, (editorRenders.get(load.name) ?? 0) + 1);
     return <div data-editor={load.name} data-render-active={String(active)} />;
   },
 }));
@@ -36,7 +39,12 @@ describe('retained Studio project workspaces', () => {
     vi.unstubAllGlobals();
   });
 
-  async function render(active: boolean, activeToolId: StudioToolId) {
+  async function render(
+    active: boolean,
+    activeToolId: StudioToolId,
+    callbacks = { onIdentityChange: vi.fn(), onIdentitySave: vi.fn() },
+    hasPendingIdentityChanges = false
+  ) {
     const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId)!;
     await act(() => root.render(
       <StudioWorkspacePanels
@@ -44,9 +52,9 @@ describe('retained Studio project workspaces', () => {
         activeIdentity={STARTER_BRAND_IDENTITY}
         activeTool={activeTool}
         activeToolId={activeToolId}
-        hasPendingIdentityChanges={false}
-        onIdentityChange={vi.fn()}
-        onIdentitySave={vi.fn()}
+        hasPendingIdentityChanges={hasPendingIdentityChanges}
+        onIdentityChange={callbacks.onIdentityChange}
+        onIdentitySave={callbacks.onIdentitySave}
       />
     ));
   }
@@ -104,5 +112,24 @@ describe('retained Studio project workspaces', () => {
 
     await render(true, 'identity');
     expect(container.querySelectorAll('[data-render-active="true"]')).toHaveLength(0);
+  });
+
+  it('does not re-render hidden retained editors whose props did not change', async () => {
+    const callbacks = { onIdentityChange: vi.fn(), onIdentitySave: vi.fn() };
+    await render(true, 'material', callbacks);
+    await render(true, 'lottie', callbacks);
+    await render(true, 'animation', callbacks);
+    editorRenders.clear();
+
+    // Tool switches and shell-level prop changes reach only the editor whose props changed.
+    await render(true, 'identity', callbacks);
+    await render(true, 'identity', callbacks, true);
+    await render(true, 'brand-book', callbacks, true);
+    expect(editorRenders.get('loadShaderLabStudio')).toBeUndefined();
+    expect(editorRenders.get('loadLottieStudio')).toBeUndefined();
+
+    await render(true, 'material', callbacks, true);
+    expect(editorRenders.get('loadShaderLabStudio')).toBe(1);
+    expect(editorRenders.get('loadLottieStudio')).toBeUndefined();
   });
 });

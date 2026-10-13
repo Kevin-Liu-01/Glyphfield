@@ -58,7 +58,10 @@ describe('Studio interaction performance contracts', () => {
     const setter = source.slice(source.indexOf('const setPersistentValue'), source.indexOf('return [value'));
 
     expect(source).toContain('pendingPersistentWrites.set(storageKey, value)');
-    expect(source).toContain('window.setTimeout(flushPendingPersistentWrites');
+    expect(source).toContain('window.setTimeout(schedulePersistentIdleFlush, PERSISTENCE_DELAY_MS)');
+    expect(source).toContain('window.requestIdleCallback(');
+    expect(source).toContain("window.addEventListener('pagehide', flushPendingPersistentWrites)");
+    expect(source).toContain("document.addEventListener('visibilitychange', flushPendingPersistentWritesWhenHidden)");
     expect(setter).toContain('schedulePersistentWrite(storageKey, resolvedValue)');
     expect(setter).not.toContain('localStorage.setItem');
     expect(setter).not.toContain('JSON.stringify');
@@ -205,6 +208,54 @@ describe('Studio interaction performance contracts', () => {
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");
     expect(styles).toContain(".studio-workspace-layer[data-active='true']");
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
+  });
+
+  it('skips re-rendering hidden retained editors when their props are unchanged', () => {
+    const source = readSource('src/components/StudioApp.tsx');
+    const animation = readSource('src/components/AnimationStudio.tsx');
+    const panels = source.slice(source.indexOf('const StudioWorkspacePanels = memo('), source.indexOf('export default function StudioApp'));
+
+    expect(source).toContain('const LottieStudio = memo(dynamic(loadLottieStudio');
+    expect(source).toContain('const ShaderLabStudio = memo(dynamic(loadShaderLabStudio');
+    expect(animation).toContain('export default memo(AnimationStudio);');
+    // Fresh objects or callbacks per render would defeat the memo.
+    expect(panels).toContain('tool={DESIGN_LAB_DRAFT_TOOL ?? tool}');
+    expect(panels).not.toContain('tool={{');
+    expect(source).toContain('onIdentityChange={updateIdentity}');
+    expect(source).toContain('onIdentitySave={saveIdentityImmediately}');
+    expect(source).toContain('identitiesRef.current.map((identity) => identity.id === nextIdentity.id');
+    expect(source).toContain('}, [commitIdentities, identitiesRef]);');
+  });
+
+  it('hashes only changed Design Lab artboards for history and persistence signatures', () => {
+    const designLab = readSource('src/components/ShaderLabStudio.tsx');
+
+    expect(designLab).toContain('const signatureArtboardViews = new WeakMap<DesignArtboard, DesignArtboard>();');
+    expect(designLab).toContain('artboards: artboards.map(signatureArtboardView)');
+    expect(designLab).toContain('return immutableJsonSignature(signatureSnapshotView(snapshot));');
+  });
+
+  it('stops the Surface Lab effect loop while offscreen or hidden', () => {
+    const source = readSource('src/components/SurfaceLabStudio.tsx');
+    const tick = source.slice(source.indexOf('const tick = (now: number) => {'), source.indexOf('scheduleFrame();\n    return () => {'));
+
+    expect(source).toContain('if (cancelled || frameScheduled || !inViewport || document.hidden) return;');
+    expect(source).toContain("document.addEventListener('visibilitychange', scheduleFrame);");
+    expect(source).toContain("document.removeEventListener('visibilitychange', scheduleFrame);");
+    expect(tick).toContain('if (cancelled || !inViewport || document.hidden) return;');
+    expect(tick).not.toContain('requestAnimationFrame(tick)');
+  });
+
+  it('keeps the typing pace clock out of the Typography tool render', () => {
+    const source = readSource('src/components/StudioToolWorkspace.tsx');
+    const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));
+    const toolStart = source.indexOf('function TypographyTool(');
+    const tool = source.slice(toolStart, source.indexOf('\nfunction ', toolStart + 1));
+
+    expect(meter).toContain('window.setInterval(() => setTickAt(Date.now()), 250)');
+    expect(tool).not.toContain('setInterval');
+    expect(tool).toContain('useMemo(() => stringifySource({ typography: identity.typography }), [identity.typography])');
+    expect(tool).toContain('<TypingMeter');
   });
 
   it('preloads lazy Studio workspaces from pointer and keyboard intent', () => {

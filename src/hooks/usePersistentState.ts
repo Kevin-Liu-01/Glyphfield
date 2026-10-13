@@ -5,8 +5,13 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import { useCommittedRef } from '@/hooks/useCommittedRef';
 
 const PERSISTENCE_DELAY_MS = 120;
+// Upper bound on how long a quiet debounce can wait for an idle period.
+const PERSISTENCE_IDLE_TIMEOUT_MS = 1_000;
+// Without requestIdleCallback, serialize in slices of this budget between tasks.
+const PERSISTENCE_FALLBACK_SLICE_MS = 8;
 const pendingPersistentWrites = new Map<string, unknown>();
 let persistentWriteTimer: number | null = null;
+let persistentIdleFlush: { cancel: () => void } | null = null;
 let persistenceFlushListenerAttached = false;
 
 /** Include queued edits without forcing synchronous writes to the original. */
@@ -51,30 +56,84 @@ export function readPersistentValue<T>(storageKey: string, fallback: T): T {
   }
 }
 
-function flushPendingPersistentWrites(): void {
-  if (typeof window === 'undefined') return;
+function writePersistentValue(storageKey: string, value: unknown): void {
+  // Leave the pending map only as the value lands, so reads always find the latest value.
+  pendingPersistentWrites.delete(storageKey);
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(value));
+  } catch {
+    // Storage can be disabled or full; the in-memory state remains authoritative.
+  }
+}
+
+function cancelScheduledPersistentWrites(): void {
   if (persistentWriteTimer !== null) {
     window.clearTimeout(persistentWriteTimer);
     persistentWriteTimer = null;
   }
-  const writes = Array.from(pendingPersistentWrites.entries());
-  pendingPersistentWrites.clear();
-  writes.forEach(([storageKey, value]) => {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(value));
-    } catch {
-      // Storage can be disabled or full; the in-memory state remains authoritative.
+  persistentIdleFlush?.cancel();
+  persistentIdleFlush = null;
+}
+
+/** Write everything now, before the page or tab can go away. */
+function flushPendingPersistentWrites(): void {
+  if (typeof window === 'undefined') return;
+  cancelScheduledPersistentWrites();
+  for (const [storageKey, value] of Array.from(pendingPersistentWrites)) writePersistentValue(storageKey, value);
+}
+
+function flushPendingPersistentWritesWhenHidden(): void {
+  if (document.visibilityState === 'hidden') flushPendingPersistentWrites();
+}
+
+/**
+ * Serialize queued values in idle time, one key at a time, so a large draft does not
+ * land as one long task right after a gesture.
+ */
+function schedulePersistentIdleFlush(): void {
+  persistentWriteTimer = null;
+  const flushSlice = (hasTime: () => boolean) => {
+    persistentIdleFlush = null;
+    for (const [storageKey, value] of Array.from(pendingPersistentWrites)) {
+      if (!hasTime()) {
+        schedulePersistentIdleFlush();
+        return;
+      }
+      writePersistentValue(storageKey, value);
     }
-  });
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    const handle = window.requestIdleCallback(
+      (deadline) => flushSlice(() => deadline.didTimeout || deadline.timeRemaining() > 1),
+      { timeout: PERSISTENCE_IDLE_TIMEOUT_MS }
+    );
+    persistentIdleFlush = { cancel: () => window.cancelIdleCallback(handle) };
+    return;
+  }
+  const handle = window.setTimeout(() => {
+    const deadline = Date.now() + PERSISTENCE_FALLBACK_SLICE_MS;
+    let first = true;
+    // Always make progress: the first key is written even if it alone exceeds the slice.
+    flushSlice(() => {
+      const allowed = first || Date.now() < deadline;
+      first = false;
+      return allowed;
+    });
+  }, 0);
+  persistentIdleFlush = { cancel: () => window.clearTimeout(handle) };
 }
 
 export function schedulePersistentWrite(storageKey: string, value: unknown): void {
   if (typeof window === 'undefined') return;
   pendingPersistentWrites.set(storageKey, value);
-  if (persistentWriteTimer !== null) window.clearTimeout(persistentWriteTimer);
-  persistentWriteTimer = window.setTimeout(flushPendingPersistentWrites, PERSISTENCE_DELAY_MS);
+  // A new edit restarts the quiet period, including a queued idle flush.
+  cancelScheduledPersistentWrites();
+  persistentWriteTimer = window.setTimeout(schedulePersistentIdleFlush, PERSISTENCE_DELAY_MS);
   if (!persistenceFlushListenerAttached) {
     window.addEventListener('pagehide', flushPendingPersistentWrites);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', flushPendingPersistentWritesWhenHidden);
+    }
     persistenceFlushListenerAttached = true;
   }
 }
