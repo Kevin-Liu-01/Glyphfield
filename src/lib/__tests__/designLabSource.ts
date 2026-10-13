@@ -7,6 +7,8 @@ import { join } from 'node:path';
 export const DESIGN_LAB_SOURCE_FILES = [
   'src/components/ShaderLabStudio.tsx',
   'src/components/DesignLabCanvasContent.tsx',
+  'src/components/DesignLabLayerDock.tsx',
+  'src/components/DesignLabStage.tsx',
   'src/lib/designLabModel.ts',
 ] as const;
 

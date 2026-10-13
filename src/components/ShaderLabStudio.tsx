@@ -57,7 +57,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from '@/components/ui/SolidIcons';
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction, type WheelEvent as ReactWheelEvent } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 
 import CanvasViewport, { type CanvasActionHistory } from '@/components/CanvasViewport';
@@ -68,17 +68,14 @@ import { canvasInsertionColors } from '@/lib/canvasInsertionColors';
 import CanvasSelectionMenu, { type CanvasSelectionMenuPosition } from '@/components/CanvasSelectionMenu';
 import CanvasSelectionClip, { canvasSelectionLocalBounds, paintCanvasSelectionBounds, trackCanvasSelectionNavigation } from '@/components/CanvasSelectionClip';
 import AuthenticShaderPreview from '@/components/AuthenticShaderPreview';
-import ShaderSkeleton from '@/components/ShaderSkeleton';
-import ShaderFrameImage from '@/components/ShaderFrameImage';
 import ShaderTimeExplorer from '@/components/ShaderTimeExplorer';
-import RestoredLiveMaterialCanvas from '@/components/RestoredLiveMaterialCanvas';
 import { beginShaderFrameCapture, shaderFrameMatches, shaderFrameRecipeKey, type CapturedShaderFrame, type ShaderFrameCaptureRequest } from '@/lib/captureShaderFrames';
 import { captureComposedEffectFrames } from '@/lib/captureEffectFrames';
 import { pauseShaderFrames } from '@/lib/pauseShaderFrames';
 import { previewSelectedTextStyle, selectedCanvasLayerElement } from '@/lib/designLabCanvasPreview';
 import { checkpointCanvasHistory, redoCanvasCheckpointHistory, undoCanvasCheckpointHistory } from '@/lib/canvasCheckpointHistory';
 import { assertCompositionEffectCaptureReady, resolveCompositionEffectPreview } from '@/lib/compositionEffectPreview';
-import { applyEffectFrameCaptures, effectFrameMatches } from '@/lib/effectFrameDocument';
+import { applyEffectFrameCaptures } from '@/lib/effectFrameDocument';
 import { withCapturedShaderImages, type CapturedShaderImage } from '@/lib/withCapturedShaderImages';
 import { importShaderFrameAssets, normalizeShaderFrameSnapshot, type ShaderFrameSnapshot } from '@/lib/shaderFrameAssets';
 import { applyShaderFrameCaptures, prepareShaderFrameDocumentSource } from '@/lib/shaderFrameDocument';
@@ -93,14 +90,12 @@ import {
   designLabTextDecorationLine,
   designLabFontSizeUpdate,
   resolveDesignLabFontSize,
-  resolveDesignLabFontSizeCqw,
   validateDesignLabTextTypography,
 } from '@/lib/designLabTypography';
 import StudioCheckbox from '@/components/ui/StudioCheckbox';
 import CompositionEffectThumbnail from '@/components/CompositionEffectThumbnail';
 import { DesignVersionHeaderControls, DesignVersionProvider } from '@/components/DesignVersionControls';
 import StudioArtboardBar from '@/components/StudioArtboardBar';
-import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import {
   alignCanvasSelection,
   canvasLayerDimensions,
@@ -120,9 +115,7 @@ import StudioFileMenu from '@/components/StudioFileMenu';
 import { designLabProjectIdentity, namespaceDesignLabProjectIdentity, prepareDesignLabProjectFile, type DesignLabProjectIdentity } from '@/lib/designLabProjectFile';
 import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
-import ImageCropEditorOverlay from '@/components/ImageCropEditorOverlay';
 import { LabInspectorSection, LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
-import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
 import LogoAppearanceControls from '@/components/LogoAppearanceControls';
 import { ConditionalRender, OptionalRender } from '@/components/RenderControl';
@@ -356,7 +349,6 @@ import {
   isEffectLayerId,
   isLogoLayerId,
   isShaderLayerId,
-  isStickerLayer,
   isTextLayerId,
   layerGeometry,
   layerKind,
@@ -388,15 +380,26 @@ import {
   type TextAppearanceSettings,
   type TextLayerId,
 } from '@/lib/designLabModel';
+import { applyImageCropPreviewStyles, stickerFinishCssVariables } from '@/components/DesignLabCanvasContent';
 import {
-  applyImageCropPreviewStyles,
-  CanvasTextLayerContent,
-  imageCropElementStyle,
-  shaderBlendStyle,
-  ShaderMaskedMediaContent,
-  StickerFinishOverlay,
-  stickerFinishCssVariables,
-} from '@/components/DesignLabCanvasContent';
+  DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT,
+  DesignLabArtboardFrame,
+  DesignLabArtboardPreviewLayer,
+  DesignLabStageLayer,
+  previewStageLayerCrop,
+  type DesignLabArtboardActions,
+  type DesignLabLiveMaterialState,
+  type DesignLabStageActions,
+} from '@/components/DesignLabStage';
+import { useStableHandlers } from '@/hooks/useStableHandlers';
+import {
+  DESIGN_LAB_LONG_LAYER_LIST,
+  DesignLabDockLayer,
+  DesignLabInspectorLayer,
+  scrollLayerDockWithWheel,
+  type DesignLabLayerRowActions,
+  type DesignLabLayerRowProps,
+} from '@/components/DesignLabLayerDock';
 
 type TextEffectRenderScratch = {
   fill: HTMLCanvasElement;
@@ -1202,9 +1205,6 @@ function CanvasSelectionAssemblyOverlay({
 }
 
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
-const DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT = 120_000;
-// Captures lift the device-ratio cap; the export pixel count then sets the canvas size.
-const DESIGN_LAB_CAPTURE_SUPERSAMPLE = 8;
 // High renders live shaders near device resolution; Auto drops to the draft
 // budget after sustained slow frames. Exports always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
@@ -1216,7 +1216,6 @@ const DESIGN_LAB_PREVIEW_QUALITY_OPTIONS = [
   { label: 'High', value: 'high' },
   { label: 'Draft', value: 'low' },
 ] as const;
-const DESIGN_LAB_PREVIEW_FRAME_RATE = 60;
 const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;
 const SHADER_LIBRARY_CARD_BATCH_SIZE = 24;
 const DEFAULT_DESIGN_SHADER_SEQUENCE_SETTINGS: DesignShaderSequenceSettings = {
@@ -1257,172 +1256,6 @@ const STICKER_TEXT_APPEARANCE: Partial<TextAppearanceSettings> = {
   shadowOffsetY: 10,
   shadowOpacity: 34,
 };
-
-function CanvasLayerKindIcon({ layerId, sticker = false }: { layerId: CompositionLayerId; sticker?: boolean }) {
-  if (sticker) return <Sticker aria-hidden='true' />;
-  if (isShaderLayerId(layerId)) return <Sparkles aria-hidden='true' />;
-  if (isEffectLayerId(layerId)) return <Grid3X3 aria-hidden='true' />;
-  if (isTextLayerId(layerId)) return <Type aria-hidden='true' />;
-  if (isLogoLayerId(layerId)) return <Layers3 aria-hidden='true' />;
-  return <ImagePlus aria-hidden='true' />;
-}
-
-function resolveLayerDockLayers(
-  layerId: CompositionLayerId,
-  {
-    assets,
-    effects,
-    logos,
-    shaders,
-    text,
-  }: {
-    assets: readonly CompositionAsset[];
-    effects: readonly CompositionEffectLayer[];
-    logos: readonly CompositionLogoLayer[];
-    shaders: readonly CompositionShaderLayer[];
-    text: readonly CompositionTextLayer[];
-  }
-) {
-  return {
-    assetLayer: isAssetLayerId(layerId) ? assets.find(({ id }) => id === layerId) ?? null : null,
-    effectLayer: isEffectLayerId(layerId) ? effects.find(({ id }) => id === layerId) ?? null : null,
-    logoLayer: isLogoLayerId(layerId) ? logos.find(({ id }) => id === layerId) ?? null : null,
-    shaderLayer: isShaderLayerId(layerId) ? shaders.find(({ id }) => id === layerId) ?? null : null,
-    textLayer: isTextLayerId(layerId) ? text.find(({ id }) => id === layerId) ?? null : null,
-  };
-}
-
-function resolveLayerDockShader(
-  layerId: CompositionLayerId,
-  shaderLayer: CompositionShaderLayer | null,
-  layerShaders: Partial<Record<ContentLayerId, ShaderApplication>>
-): ShaderApplication | null {
-  if (shaderLayer) return shaderLayer;
-  if (!isContentLayerId(layerId)) return null;
-  return layerShaders[layerId] ?? null;
-}
-
-function LayerDockStaticPreview({
-  effectLayer,
-  imageCrop,
-  label,
-  onSelect,
-  previewUrl,
-}: {
-  effectLayer: CompositionEffectLayer | null;
-  imageCrop?: ImageCropSettings;
-  label: string;
-  onSelect: () => void;
-  previewUrl?: string;
-}) {
-  let preview: ReactNode = <span aria-hidden='true' />;
-  if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />;
-  else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} />;
-  return (
-    <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${label} preview`} onClick={onSelect} type='button'>
-      {preview}
-    </button>
-  );
-}
-
-function layerDockTooltipDescription({
-  appliedShader,
-  effectLayer,
-  layerId,
-  sticker,
-  textLayer,
-}: {
-  appliedShader: ShaderApplication | null;
-  effectLayer: CompositionEffectLayer | null;
-  layerId: CompositionLayerId;
-  sticker: boolean;
-  textLayer: CompositionTextLayer | null;
-}): string {
-  if (sticker) return `An editable sticker layer with a non-destructive die-cut treatment${appliedShader ? ` and ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-  if (effectLayer) return `Converts every visible layer beneath it with the ${effectLayer.settings.kind} effect.`;
-  if (isShaderLayerId(layerId) && appliedShader) {
-    return `${getLiveMaterial(appliedShader.materialId).name} fills this movable background layer.`;
-  }
-  if (textLayer) return `Editable text on the canvas${appliedShader ? ` with ${getLiveMaterial(appliedShader.materialId).name} applied` : ''}.`;
-  if (isLogoLayerId(layerId)) return `A reusable brand mark${appliedShader ? ` filled with ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-  return `An imported image layer${appliedShader ? ` styled with ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
-}
-
-function RichTextLayerPreview({ layer, identity }: { layer: CompositionTextLayer; identity: BrandIdentity }) {
-  const baseSize = resolveDesignLabFontSize(layer, 900);
-  return textStyleSegments(layer.value, layer.runs).map((run) => {
-    const style = resolveTextRunStyle(layer, identity, 900, run.style);
-    return <span key={run.start} style={{ color: style.color, fontFamily: style.fontFamily,
-      fontSize: `${style.fontSize / baseSize}em`, fontStyle: style.fontStyle, fontWeight: style.fontWeight,
-      letterSpacing: `${style.tracking}em`, textDecorationLine: designLabTextDecorationLine(style),
-      textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em' }}>{layer.value.slice(run.start, run.end)}</span>;
-  });
-}
-
-function TextLayerDockPreview({ layer, identity, onSelect, onChange }: {
-  layer: CompositionTextLayer; identity: BrandIdentity; onSelect: () => void; onChange: (value: string) => void;
-}) {
-  if (layer.runs?.length) return <button aria-label={`Select ${layer.name} preview`} onClick={onSelect} type='button'>
-    <span className='shader-lab-v2-dock-rich-text' style={{ opacity: layer.opacity }}><RichTextLayerPreview layer={layer} identity={identity} /></span>
-  </button>;
-  const appearance = resolvedTextAppearance(layer);
-  return <input aria-label={`Edit ${layer.name}`} onChange={(event) => onChange(event.target.value)}
-    onFocus={onSelect} onKeyDown={(event) => event.stopPropagation()}
-    style={{ color: appearance.color, fontFamily: `${JSON.stringify(brandTypographyFamily(identity, appearance.fontRole))}, sans-serif`,
-      fontStyle: layer.fontStyle ?? 'normal', fontWeight: resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight),
-      letterSpacing: `${layer.tracking}em`, opacity: appearance.opacity, textDecorationColor: appearance.color,
-      textDecorationLine: designLabTextDecorationLine(layer), textDecorationThickness: 'from-font', textUnderlineOffset: '0.12em' }}
-    type='text' value={layer.value} />;
-}
-
-function LayerDockTooltipPreview({
-  appliedShader,
-  effectLayer,
-  identity,
-  imageCrop,
-  previewUrl,
-  textAppearance,
-  textLayer,
-}: {
-  appliedShader: ShaderApplication | null;
-  effectLayer: CompositionEffectLayer | null;
-  identity: BrandIdentity;
-  imageCrop?: ImageCropSettings;
-  previewUrl?: string;
-  textAppearance: TextAppearanceSettings | null;
-  textLayer: CompositionTextLayer | null;
-}) {
-  return (
-    <div className='studio-layer-tooltip-preview'>
-      {appliedShader ? (
-        <img
-          alt=''
-          className='studio-layer-tooltip-preview__material'
-          draggable={false}
-          src={shaderPreviewAssetPath(appliedShader.materialId)}
-        />
-      ) : null}
-      {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} /> : null}
-      {previewUrl ? <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} /> : null}
-      {textLayer && textAppearance ? (
-        <span
-          style={{
-            color: textAppearance.color,
-            fontFamily: `${JSON.stringify(brandTypographyFamily(identity, textAppearance.fontRole))}, sans-serif`,
-            fontStyle: textLayer.fontStyle ?? 'normal',
-            fontWeight: resolveBrandTypographyWeight(identity, textAppearance.fontRole, textLayer.weight),
-            letterSpacing: `${textLayer.tracking}em`,
-            opacity: textAppearance.opacity,
-            textDecorationColor: textAppearance.color,
-            textDecorationLine: 'none',
-            textDecorationThickness: 'from-font',
-            textUnderlineOffset: '0.12em',
-          }}
-        >{textLayer.value ? <RichTextLayerPreview layer={textLayer} identity={identity} /> : 'Empty text layer'}</span>
-      ) : null}
-    </div>
-  );
-}
 
 type DesignLabCompositionSource = {
   canvasDimensions?: Partial<StudioArtboardDimensions>;
@@ -1721,22 +1554,6 @@ function restoredLayerOrder({
     stored: requested,
     text: text.map(({ id }) => id),
   }) as CompositionLayerId[];
-}
-
-function scrollLayerDockWithWheel(event: ReactWheelEvent<HTMLDivElement>) {
-  if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-  const dock = event.currentTarget;
-  const maximumScroll = Math.max(0, dock.scrollWidth - dock.clientWidth);
-  if (maximumScroll === 0) return;
-  const unit = event.deltaMode === 1
-    ? 16
-    : event.deltaMode === 2
-      ? dock.clientWidth
-      : 1;
-  const nextScroll = Math.max(0, Math.min(maximumScroll, dock.scrollLeft + event.deltaY * unit));
-  if (nextScroll === dock.scrollLeft) return;
-  event.preventDefault();
-  dock.scrollLeft = nextScroll;
 }
 
 function InspectorTextArea({
@@ -5049,6 +4866,13 @@ export default function ShaderLabStudio({
       setCropEditingLayerId(null);
     }
   }, [compositionAssets, cropEditingLayerId, selectedCanvasLayerIds.length, selectedLayerId]);
+  const stageLayerById = useMemo(() => new Map<CompositionLayerId, CompositionShaderLayer | CompositionEffectLayer | CompositionTextLayer | CompositionLogoLayer | CompositionAsset>([
+    ...shaderLayers.map((layer) => [layer.id, layer] as const),
+    ...effectLayers.map((layer) => [layer.id, layer] as const),
+    ...textLayers.map((layer) => [layer.id, layer] as const),
+    ...logoLayers.map((layer) => [layer.id, layer] as const),
+    ...compositionAssets.map((layer) => [layer.id, layer] as const),
+  ]), [compositionAssets, effectLayers, logoLayers, shaderLayers, textLayers]);
   const layerGroupByLayerId = useMemo(() => {
     const groups = new Map<CanvasLayerId, CompositionLayerGroup>();
     for (const group of layerGroups) {
@@ -8247,41 +8071,56 @@ export default function ShaderLabStudio({
     void exportStill(format);
   }
 
-  function renderLiveMaterial(application: ShaderApplication, instanceKey: string) {
-    const controlledTimeMs = captureTimeMs ?? (paused ? previewCaptureTimeMs : null);
-    const renderedApplication = sequenceCapture && instanceKey === `canvas-${sequenceCapture.layerId}`
-      ? sequenceCapture.application
-      : application;
-    const frozenSnapshot = paused && !sequencePreviewing && captureTimeMs === null && shaderFrameMatches(renderedApplication.frameSnapshot, renderedApplication)
-      ? renderedApplication.frameSnapshot : undefined;
-    const liveCanvas = !livePreviewRuntimeReady && captureTimeMs === null ? <ShaderSkeleton /> : (
-      <RestoredLiveMaterialCanvas
-        activeWhileMounted
-        captureTimeMs={controlledTimeMs}
-        className='absolute inset-0 size-full'
-        enabled={active}
-        frameRate={DESIGN_LAB_PREVIEW_FRAME_RATE}
-        frameState={renderedApplication.frameState}
-        key={instanceKey}
-        loopDurationMs={renderedApplication.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
-        materialId={renderedApplication.materialId}
-        maxPixelCount={captureTimeMs === null
-          ? livePreviewPixelBudget
-          : Math.max(DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, exportDimensions.width * exportDimensions.height)}
-        patternScale={clampShaderZoom(renderedApplication.shaderSize)}
-        paused={!active || paused || controlledTimeMs !== null}
-        previewChannel={instanceKey}
-        previewGroup='design-lab'
-        renderScale={captureTimeMs === null ? 1 : DESIGN_LAB_CAPTURE_SUPERSAMPLE}
-        restoreTimeMs={shaderTimelineRestore.pendingKeys.includes(instanceKey)
-          ? paused ? previewCaptureTimeMs : shaderTimelineRestore.timeMs : undefined}
-        holdRestoredPlayback={shaderTimelineRestoring}
-        onRestoreReady={() => finishShaderTimelineRestore(instanceKey, shaderTimelineRestore.revision)}
-        settings={renderedApplication.settings}
-      />
-    );
-    return <ShaderFrameImage key={`${instanceKey}:restore-${shaderTimelineRestore.revision}`} className='absolute inset-0 size-full' previewChannel={instanceKey} snapshot={frozenSnapshot}>{liveCanvas}</ShaderFrameImage>;
-  }
+  const stageActions = useStableHandlers<DesignLabStageActions>({
+    deselectCanvasLayers,
+    finishLayerMove,
+    formatSelectedTextShortcut,
+    openCanvasSelectionMenu,
+    previewAssetCrop: (layerId, imageCrop) => {
+      previewStageLayerCrop(stageRef.current, layerId, imageCrop);
+      previewSelectedAssetLayer({ imageCrop });
+    },
+    registerEffectCanvas: (layerId, canvas) => {
+      if (canvas) effectCanvasRefs.current.set(layerId, canvas);
+      else effectCanvasRefs.current.delete(layerId);
+    },
+    rememberTextSelection,
+    selectCanvasAssembly,
+    setImageCropEditing,
+    undoRedo: (redo) => redo ? redoDesignCanvas() : undoDesignCanvas(),
+    updateAssetCrop: (layerId, imageCrop) => updateAssetLayer(layerId, { imageCrop }),
+    updateCanvasLayerTransform,
+    updateTextLayer,
+  });
+  const artboardActions = useStableHandlers<DesignLabArtboardActions>({
+    activateArtboard,
+    beginArtboardMove,
+    deselectCanvasLayers,
+    handleCanvasAssemblyKeyDown,
+    nudgeArtboard: (event, artboard) => void nudgeArtboard(event, artboard),
+    openArtboardMenu: (artboardId, position) => setArtboardMenu({ artboardId, position }),
+    queueArtboardLayer: (artboardId, layerId) => {
+      pendingArtboardLayerRef.current = layerId ? { artboardId, layerId } : null;
+    },
+  });
+  const restoreReadyHandlers = useStableHandlers({ finishShaderTimelineRestore });
+  const exportPixelCount = exportDimensions.width * exportDimensions.height;
+  const liveMaterialState = useMemo<DesignLabLiveMaterialState>(() => ({
+    active,
+    captureTimeMs,
+    defaultLoopDurationMs: DEFAULT_EXPORT_SETTINGS.durationMs,
+    exportPixelCount,
+    livePreviewPixelBudget,
+    livePreviewRuntimeReady,
+    onRestoreReady: restoreReadyHandlers.finishShaderTimelineRestore,
+    paused,
+    previewCaptureTimeMs,
+    sequenceCapture,
+    sequencePreviewing,
+    shaderTimelineRestore,
+    shaderTimelineRestoring,
+  }), [active, captureTimeMs, exportPixelCount, livePreviewPixelBudget, livePreviewRuntimeReady, paused, previewCaptureTimeMs,
+    restoreReadyHandlers, sequenceCapture, sequencePreviewing, shaderTimelineRestore, shaderTimelineRestoring]);
 
   function renderShaderTimeExplorer() {
     return <ShaderTimeExplorer
@@ -8501,156 +8340,6 @@ export default function ShaderLabStudio({
     );
   }
 
-  function renderArtboardPreviewMaterial(
-    application: ShaderApplication,
-    instanceKey: string,
-    captureTimeMs = previewCaptureTimeMs
-  ) {
-    if (shaderFrameMatches(application.frameSnapshot, application)) {
-      return <ShaderFrameImage className='absolute inset-0 size-full' snapshot={application.frameSnapshot!} />;
-    }
-    return (
-      <LiveMaterialCanvas
-        captureTimeMs={captureTimeMs}
-        className='absolute inset-0 size-full'
-        enabled={active}
-        frameRate={24}
-        frameState={application.frameState}
-        key={instanceKey}
-        loopDurationMs={application.frameState?.loopDurationMs ?? DEFAULT_EXPORT_SETTINGS.durationMs}
-        materialId={application.materialId}
-        maxPixelCount={420_000}
-        patternScale={clampShaderZoom(application.shaderSize)}
-        paused
-        renderScale={0.72}
-        settings={application.settings}
-      />
-    );
-  }
-
-  function renderInactiveArtboardLayer(artboard: DesignArtboard, layerId: CompositionLayerId, index: number) {
-    const { snapshot } = artboard;
-    const artboardCaptureTimeMs = snapshot.timeline.timeMs ?? resolveMotionFrame(
-      normalizedExportSettings.durationMs,
-      normalizedExportSettings.fps,
-      snapshot.timeline.frame
-    ).timeMs;
-    const zIndex = 4 + index;
-    if (isEffectLayerId(layerId)) {
-      const layer = snapshot.effectLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      return (
-        <div className='shader-lab-v2-composition-effect' data-effect-kind={layer.settings.kind} key={layerId} style={{ zIndex }}>
-          {effectFrameMatches(layer.frameSnapshot, snapshot, layerId)
-            ? <ShaderFrameImage snapshot={layer.frameSnapshot} />
-            : <ShaderSkeleton state='unavailable' />}
-        </div>
-      );
-    }
-    if (isShaderLayerId(layerId)) {
-      const layer = snapshot.shaderLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
-      return (
-        <EditableCanvasLayer
-          {...layerGeometry(layerId, snapshot.dimensions)}
-          canvasHeight={snapshot.dimensions.height}
-          canvasWidth={snapshot.dimensions.width}
-          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
-          interactive={false}
-          key={layerId}
-          label={layer.name}
-          layerId={layerId}
-          onChange={() => undefined}
-          onDeselect={() => undefined}
-          onSelect={() => undefined}
-          resizeMode='box'
-          selected={false}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <div className='shader-lab-v2-canvas-material' data-shader-instance={`canvas-${layerId}`} key='content' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
-            {renderArtboardPreviewMaterial(layer, `canvas-${layerId}`, artboardCaptureTimeMs)}
-          </div>
-        </EditableCanvasLayer>
-      );
-    }
-    if (isTextLayerId(layerId)) {
-      const layer = snapshot.textLayers.find(({ id }) => id === layerId);
-      if (!layer?.visible) return null;
-      const transform = resolvedTextTransform(layer.transform);
-      return (
-        <EditableCanvasLayer
-          {...layerGeometry(layerId, snapshot.dimensions)}
-          allowContentInteraction
-          canvasHeight={snapshot.dimensions.height}
-          canvasWidth={snapshot.dimensions.width}
-          className='shader-lab-v2-composition-layer'
-          interactive={false}
-          key={layerId}
-          label={layer.name}
-          layerId={layerId}
-          onChange={() => undefined}
-          onDeselect={() => undefined}
-          onSelect={() => undefined}
-          resizeMode='box'
-          selected={false}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <CanvasTextLayerContent
-            application={snapshot.layerShaders[layerId]}
-            canvasHeight={snapshot.dimensions.height}
-            fontSizeCqw={resolveDesignLabFontSizeCqw(layer, snapshot.dimensions)}
-            identity={identity}
-            key='content'
-            layer={layer}
-            onChange={() => undefined}
-            onFocus={() => undefined}
-            renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    const layer = isLogoLayerId(layerId)
-      ? snapshot.logos.find(({ id }) => id === layerId)
-      : snapshot.assets.find(({ id }) => id === layerId);
-    if (!layer?.visible) return null;
-    return (
-      <EditableCanvasLayer
-        {...layerGeometry(layerId, snapshot.dimensions)}
-        canvasHeight={snapshot.dimensions.height}
-        canvasWidth={snapshot.dimensions.width}
-        className='shader-lab-v2-composition-layer'
-        interactive={false}
-        key={layerId}
-        label={layer.name}
-        layerId={layerId}
-        onChange={() => undefined}
-        onDeselect={() => undefined}
-        onSelect={() => undefined}
-        selected={false}
-        transform={layer.transform}
-        zIndex={zIndex}
-      >
-        <ShaderMaskedMediaContent
-          application={snapshot.layerShaders[layerId as ContentLayerId]}
-          appearance={layer.appearance}
-          fallbackColor={isLogoLayerId(layerId) ? (layer as CompositionLogoLayer).color ?? '#FFFFFF' : '#FFFFFF'}
-          imageCrop={isAssetLayerId(layerId) ? (layer as CompositionAsset).imageCrop : undefined}
-          instanceKey={`content-${layerId}`}
-          key='content'
-          label={layer.name}
-          opacity={layer.opacity ?? 1}
-          preserveColors={isAssetLayerId(layerId)}
-          renderMaterial={(application, instanceKey) => renderArtboardPreviewMaterial(application, instanceKey, artboardCaptureTimeMs)}
-          url={layer.url}
-        />
-        {'kind' in layer && layer.kind === 'sticker' ? <StickerFinishOverlay finish={layer.stickerFinish} imageCrop={layer.imageCrop} key='finish' url={layer.url} /> : null}
-      </EditableCanvasLayer>
-    );
-  }
-
   function renderArtboard(artboard: DesignArtboard) {
     if (artboard.id === DESIGN_CANVAS_ID) return renderLooseCanvas(artboard);
     const selected = artboard.id === activeArtboardId;
@@ -8659,107 +8348,25 @@ export default function ShaderLabStudio({
       !pending
       || (pending.id === artboard.id && pending.signature === currentArtboardSignature)
     );
-    const snapshot = selectedReady ? currentArtboardSnapshot : artboard.snapshot;
-    const size = designArtboardDisplaySize(snapshot.dimensions, artboard.displayScale);
-    const ratioPresentation: DesignRatioOption = RATIO_OPTIONS.find(({ value }) => value === snapshot.ratio) ?? {
-      ...snapshot.dimensions,
-      label: 'Custom',
-      value: 'custom',
-    };
-    const previewLayerIds = snapshot.layerOrder.filter((layerId) => {
-      if (isShaderLayerId(layerId)) return snapshot.shaderLayers.some((layer) => layer.id === layerId && layer.visible);
-      if (isTextLayerId(layerId)) return snapshot.textLayers.some((layer) => layer.id === layerId && layer.visible);
-      if (isLogoLayerId(layerId)) return snapshot.logos.some((layer) => layer.id === layerId && layer.visible);
-      if (isAssetLayerId(layerId)) return snapshot.assets.some((layer) => layer.id === layerId && layer.visible);
-      return snapshot.effectLayers.some((layer) => layer.id === layerId && layer.visible);
-    });
     return (
-      <article
-        aria-current={selected ? 'true' : undefined}
-        aria-label={`${artboard.name} artboard`}
-        className='design-artboard-shell'
-        data-active={selected ? 'true' : 'false'}
-        data-artboard-id={artboard.id}
-        data-canvas-fit-target='true'
-        data-canvas-focus-target={selected ? 'true' : undefined}
-        data-canvas-interactive
-        data-studio-context-trigger='artboard'
+      <DesignLabArtboardFrame
+        actions={artboardActions}
+        active={active}
+        announcement={selectedReady ? canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name) : undefined}
+        artboard={artboard}
+        defaultLoopDurationMs={DEFAULT_EXPORT_SETTINGS.durationMs}
+        exportDurationMs={normalizedExportSettings.durationMs}
+        exportFps={normalizedExportSettings.fps}
+        identity={identity}
         key={artboard.id}
-        onContextMenu={async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const position = {
-            ...contextMenuPositionFromEvent(event),
-            anchor: event.currentTarget.querySelector<HTMLButtonElement>('.design-artboard-label button'),
-          };
-          if (await activateArtboard(artboard.id)) setArtboardMenu({ artboardId: artboard.id, position });
-        }}
-        onPointerDownCapture={(event) => {
-          const target = event.target instanceof Element ? event.target : null;
-          if (event.button !== 0 || event.currentTarget.closest('[data-space-pressed="true"]')) return;
-          if (!selectedReady || target?.closest('.design-artboard-label')
-            || !target?.closest('.editable-canvas-layer, [data-canvas-selection-preserve]')) {
-            beginArtboardMove(event, artboard);
-          }
-        }}
-        onDoubleClickCapture={(event) => {
-          // Inert artboard previews cannot receive their own pointer events.
-          // Resolve their topmost layer by geometry, then select after hydration.
-          if (selectedReady || (event.target instanceof Element && event.target.closest('.design-artboard-label'))) return;
-          const layer = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-canvas-layer-id]')).reverse().find((node) => {
-            const bounds = node.getBoundingClientRect();
-            return event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
-          });
-          const layerId = layer?.dataset.canvasLayerId as CanvasLayerId | undefined;
-          if (!layerId) return;
-          event.preventDefault();
-          event.stopPropagation();
-          pendingArtboardLayerRef.current = { artboardId: artboard.id, layerId };
-          void activateArtboard(artboard.id).then((activated) => {
-            if (!activated) pendingArtboardLayerRef.current = null;
-          });
-        }}
-        style={{ height: size.height, left: artboard.x, top: artboard.y, width: size.width }}
+        materialId={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
+        selected={selected}
+        selectedReady={selectedReady}
+        snapshot={selectedReady ? currentArtboardSnapshot : artboard.snapshot}
+        stageRef={selectedReady ? stageRef : undefined}
       >
-        <header
-          aria-label={`Drag ${artboard.name} artboard`}
-          className='design-artboard-label'
-          data-canvas-selection-preserve
-        >
-          <button
-            aria-keyshortcuts='Shift+F10'
-            aria-label={`Move ${artboard.name}. Drag, or use the arrow keys.`}
-            onKeyDown={(event) => nudgeArtboard(event, artboard)}
-            title='Drag to move · Arrow keys nudge · Shift moves farther'
-            type='button'
-          >
-            <Move aria-hidden='true' />
-            <span>{artboard.name}</span>
-          </button>
-          <span>{ratioPresentation.label} · {snapshot.layerOrder.length} layers</span>
-        </header>
-        <div
-          className={`shader-lab-v2-stage shader-lab-v2-stage-${snapshot.ratio}`}
-          data-material-id={selectedReady ? sequenceCapture?.materialId ?? editingShader?.materialId : undefined}
-          data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
-          onKeyDown={selectedReady ? handleCanvasAssemblyKeyDown : undefined}
-          onPointerDown={selectedReady ? (event) => {
-            if (event.button === 0) deselectCanvasLayers();
-          } : undefined}
-          ref={selectedReady ? stageRef : undefined}
-          style={{
-            aspectRatio: `${ratioPresentation.width} / ${ratioPresentation.height}`,
-            backgroundColor: snapshot.backgroundColor,
-          }}
-        >
-          <CanvasRenderBoundary keepAlive={selectedReady}>{() => selectedReady
-            ? visibleLayerIds.map(renderStageLayer)
-            : previewLayerIds.map((layerId, index) => renderInactiveArtboardLayer(artboard, layerId, index))}</CanvasRenderBoundary>
-          {selectedReady ? <span aria-live='polite' className='sr-only'>
-            {canvasSelectionAnnouncement(selectedCanvasLayerIds.length, selectedCanvasGroup?.name)}
-          </span> : null}
-        </div>
-      </article>
+        {selectedReady ? visibleLayerIds.map(renderStageLayer) : null}
+      </DesignLabArtboardFrame>
     );
   }
 
@@ -8768,6 +8375,11 @@ export default function ShaderLabStudio({
     const snapshot = ready ? currentArtboardSnapshot : surface.snapshot;
     const size = designArtboardDisplaySize(snapshot.dimensions);
     const layers = [...snapshot.assets, ...snapshot.logos, ...snapshot.textLayers, ...snapshot.shaderLayers];
+    const looseCaptureTimeMs = surface.snapshot.timeline.timeMs ?? resolveMotionFrame(
+      normalizedExportSettings.durationMs,
+      normalizedExportSettings.fps,
+      surface.snapshot.timeline.frame
+    ).timeMs;
     return <div className='design-loose-canvas' key={surface.id} style={{ left: surface.x, top: surface.y, ...size }}>
       <div className='shader-lab-v2-stage design-loose-stage' data-canvas-surface='canvas'
         data-testid={ready ? 'shader-lab-live-stage' : undefined} onKeyDown={ready ? handleCanvasAssemblyKeyDown : undefined}
@@ -8776,7 +8388,8 @@ export default function ShaderLabStudio({
           const layer = layers.find((layer) => layer.id === id);
           const box = layer ? designLayerWorldBounds(surface, layer) : { x: 0, y: 0, ...size };
           return <CanvasRenderBoundary key={id} bounds={{ left: box.x, top: box.y, width: box.width, height: box.height }}>
-            {() => renderInactiveArtboardLayer(surface, id, index)}
+            {() => <DesignLabArtboardPreviewLayer active={active} artboard={surface} captureTimeMs={looseCaptureTimeMs}
+              defaultLoopDurationMs={DEFAULT_EXPORT_SETTINGS.durationMs} identity={identity} index={index} layerId={id} />}
           </CanvasRenderBoundary>;
         })}
         {layers.filter(({ visible }) => visible).map((layer, index) => {
@@ -8798,422 +8411,71 @@ export default function ShaderLabStudio({
   }
 
   function renderStageLayer(layerId: CompositionLayerId, index: number) {
-    const zIndex = 4 + index;
-    if (isShaderLayerId(layerId)) {
-      const shaderLayer = shaderLayers.find((layer) => layer.id === layerId);
-      if (!shaderLayer) return null;
-      const geometry = layerGeometry(layerId, canvasDimensions);
-      const transform = normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM);
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer shader-lab-v2-composition-shader'
-          key={layerId}
-          label={shaderLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          resizeMode='box'
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <div
-            className='shader-lab-v2-canvas-material'
-            data-shader-instance={`canvas-${layerId}`}
-            key='content'
-            style={{
-              mixBlendMode: shaderBlendStyle(shaderLayer.blendMode),
-              opacity: shaderLayer.opacity,
-            }}
-          >
-            {renderLiveMaterial(shaderLayer, `canvas-${layerId}`)}
-          </div>
-        </EditableCanvasLayer>
-      );
-    }
-    if (isEffectLayerId(layerId)) {
-      const effectLayer = effectLayers.find((layer) => layer.id === layerId);
-      if (!effectLayer) return null;
-      return (
-        <canvas
-          aria-hidden='true'
-          className='shader-lab-v2-composition-effect'
-          data-effect-kind={effectLayer.settings.kind}
-          key={layerId}
-          ref={(canvas) => {
-            if (canvas) effectCanvasRefs.current.set(layerId, canvas);
-            else effectCanvasRefs.current.delete(layerId);
-          }}
-          style={{ zIndex }}
-        />
-      );
-    }
-
-    const geometry = layerGeometry(layerId, canvasDimensions);
-    if (isLogoLayerId(layerId)) {
-      const logoLayer = logoLayers.find((layer) => layer.id === layerId);
-      if (!logoLayer) return null;
-      const application = layerShaders[layerId];
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer'
-          key={layerId}
-          label={logoLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={logoLayer.transform}
-          zIndex={zIndex}
-        >
-          <ShaderMaskedMediaContent
-            application={application}
-            appearance={logoLayer.appearance}
-            fallbackColor={logoLayer.color ?? '#FFFFFF'}
-            instanceKey={`content-${layerId}`}
-            key='content'
-            label={logoLayer.name}
-            opacity={logoLayer.opacity ?? 1}
-            renderMaterial={renderLiveMaterial}
-            url={logoLayer.url}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    if (isTextLayerId(layerId)) {
-      const textLayer = textLayers.find((layer) => layer.id === layerId);
-      if (!textLayer) return null;
-      const application = layerShaders[layerId];
-      const transform = resolvedTextTransform(textLayer.transform);
-      const textFontSizeCqw = resolveDesignLabFontSizeCqw(textLayer, canvasDimensions);
-      return (
-        <EditableCanvasLayer
-          {...geometry}
-          allowContentInteraction
-          canvasHeight={canvasDimensions.height}
-          canvasWidth={canvasDimensions.width}
-          className='shader-lab-v2-composition-layer'
-          key={layerId}
-          label={textLayer.name}
-          onMoveComplete={(point) => finishLayerMove(layerId, point)}
-          layerId={layerId}
-          movementBounds={movementBoundsFor(layerId)}
-          onChange={(nextTransform) => updateCanvasLayerTransform(layerId, nextTransform)}
-          onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-          onDeselect={deselectCanvasLayers}
-          onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-          resizeMode='box'
-          selected={selectedCanvasLayerIdSet.has(layerId)}
-          selectionMember={selectedCanvasLayerIdSet.has(layerId)}
-          showSelectionControls={selectedCanvasLayerIds.length <= 1}
-          transform={transform}
-          zIndex={zIndex}
-        >
-          <CanvasTextLayerContent
-            application={application}
-            canvasHeight={canvasDimensions.height}
-            fontSizeCqw={textFontSizeCqw}
-            identity={identity}
-            key='content'
-            layer={textLayer}
-            onChange={(value) => updateTextLayer(layerId, { value })}
-            onFocus={() => selectCanvasAssembly(layerId)}
-            onRichChange={(value, runs) => updateTextLayer(layerId, { value, runs })}
-            onSelectionChange={(range) => rememberTextSelection(layerId, range)}
-            onFormat={(format) => formatSelectedTextShortcut(layerId, format)}
-            onUndoRedo={(redo) => redo ? redoDesignCanvas() : undoDesignCanvas()}
-            renderMaterial={renderLiveMaterial}
-          />
-        </EditableCanvasLayer>
-      );
-    }
-    const asset = compositionAssets.find(({ id }) => id === layerId);
-    if (!asset) return null;
-    const application = layerShaders[layerId];
-    const cropEditing = cropEditingLayerId === layerId;
+    const layer = stageLayerById.get(layerId);
+    if (!layer) return null;
     return (
-      <EditableCanvasLayer
-        {...geometry}
-        allowContentInteraction={cropEditing}
-        canvasHeight={canvasDimensions.height}
-        canvasWidth={canvasDimensions.width}
-        className='shader-lab-v2-composition-layer'
-        cropEditing={cropEditing}
+      <DesignLabStageLayer
+        actions={stageActions}
+        application={isContentLayerId(layerId) ? layerShaders[layerId] : undefined}
+        canvasDimensions={canvasDimensions}
+        cropEditing={cropEditingLayerId === layerId}
+        identity={identity}
+        index={index}
         key={layerId}
-        label={asset.name}
-        onMoveComplete={(point) => finishLayerMove(layerId, point)}
-        layerId={layerId}
-        movementBounds={movementBoundsFor(layerId)}
-        onChange={(transform) => updateCanvasLayerTransform(layerId, transform)}
-        onContextMenu={(event) => openCanvasSelectionMenu(layerId, event)}
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setImageCropEditing(layerId, true);
-        }}
-        onDeselect={deselectCanvasLayers}
-        onSelect={(additive) => selectCanvasAssembly(layerId, additive)}
-        resizeMode={normalizeImageCropSettings(asset.imageCrop).enabled ? 'box' : 'scale'}
-        selected={selectedCanvasLayerIdSet.has(layerId)}
-        selectionMember={selectedCanvasLayerIdSet.has(layerId)}
+        layer={layer}
+        liveState={liveMaterialState}
+        movementBounds={isCanvasLayerId(layerId) ? movementBoundsFor(layerId) : null}
+        selected={isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)}
         showSelectionControls={selectedCanvasLayerIds.length <= 1}
-        transform={asset.transform}
-        zIndex={zIndex}
-      >
-        <ShaderMaskedMediaContent
-          application={application}
-          appearance={asset.appearance}
-          fallbackColor='#FFFFFF'
-          imageCrop={asset.imageCrop}
-          instanceKey={`content-${layerId}`}
-          key='content'
-          label={asset.name}
-          opacity={asset.opacity ?? 1}
-          preserveColors
-          renderMaterial={renderLiveMaterial}
-          url={asset.url}
-        />
-        {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} imageCrop={asset.imageCrop} key='finish' url={asset.url} /> : null}
-        {cropEditing ? (
-          <ImageCropEditorOverlay
-            crop={normalizeImageCropSettings(asset.imageCrop)}
-            key='crop-editor'
-            label={asset.name}
-            onChange={(imageCrop) => updateAssetLayer(layerId, { imageCrop })}
-            onDone={() => setImageCropEditing(layerId, false)}
-            onPreview={(imageCrop) => {
-              const layer = stageRef.current?.querySelector<HTMLElement>(`[data-canvas-layer-id="${CSS.escape(layerId)}"]`);
-              if (layer) applyImageCropPreviewStyles(layer, imageCrop);
-              previewSelectedAssetLayer({ imageCrop });
-            }}
-            sourcePreview={(
-              <>
-                <ShaderMaskedMediaContent
-                  application={application}
-                  appearance={asset.appearance}
-                  fallbackColor='#FFFFFF'
-                  instanceKey={`crop-source-${layerId}`}
-                  label={`${asset.name} crop source`}
-                  opacity={asset.opacity ?? 1}
-                  preserveColors
-                  renderMaterial={renderLiveMaterial}
-                  url={asset.url}
-                />
-                {asset.kind === 'sticker' ? <StickerFinishOverlay finish={asset.stickerFinish} url={asset.url} /> : null}
-              </>
-            )}
-            url={asset.url}
-          />
-        ) : null}
-      </EditableCanvasLayer>
+      />
     );
+  }
+
+  const layerRowActions = useStableHandlers<DesignLabLayerRowActions>({
+    duplicateLayer: (id) => void duplicateLayer(id),
+    moveLayer,
+    openCanvasSelectionMenu,
+    openLayerMenu: (layerId, position) => setLayerDockMenu({ layerId, position }),
+    removeLayer,
+    selectLayerFromStack,
+    toggleLayerVisibility,
+    updateTextValue: (id, value) => updateTextLayer(id, { value }),
+  });
+
+  function layerRowProps(layerId: CompositionLayerId, index: number): (DesignLabLayerRowProps & { key: string }) | null {
+    const layer = stageLayerById.get(layerId);
+    if (!layer) return null;
+    const orderIndex = layerOrder.indexOf(layerId);
+    return {
+      actions: layerRowActions,
+      appliedShader: isShaderLayerId(layerId) ? layer as CompositionShaderLayer : isContentLayerId(layerId) ? layerShaders[layerId] ?? null : null,
+      canMoveBackward: orderIndex !== 0,
+      canMoveForward: orderIndex !== layerOrder.length - 1,
+      groupName: isCanvasLayerId(layerId) ? groupForLayer(layerId)?.name : undefined,
+      identity,
+      index,
+      key: layerId,
+      kind: resolvedLayerKind(layerId),
+      label: layerLabel(layerId),
+      layer,
+      lazy: listedLayerIds.length >= DESIGN_LAB_LONG_LAYER_LIST,
+      selected: selectedLayerId === layerId || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)),
+      visible: layerVisible(layerId),
+    };
   }
 
   function renderDockLayer(layerId: CompositionLayerId, index: number) {
-    const layerIsVisible = layerVisible(layerId);
-    const orderIndex = layerOrder.indexOf(layerId);
-    const { assetLayer, effectLayer, logoLayer, shaderLayer, textLayer } = resolveLayerDockLayers(
-      layerId,
-      { assets: compositionAssets, effects: effectLayers, logos: logoLayers, shaders: shaderLayers, text: textLayers }
-    );
-    const appliedShader = resolveLayerDockShader(layerId, shaderLayer, layerShaders);
-    const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
-    const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
-    const previewUrl = logoLayer?.url ?? assetLayer?.url;
-    const imageCrop = assetLayer?.imageCrop;
-    const stickerLayer = isStickerLayer(assetLayer, textLayer);
-    const selected = selectedLayerId === layerId
-      || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
-    return (
-      <StudioPreviewTooltip
-        description={layerDockTooltipDescription({ appliedShader, effectLayer, layerId, sticker: stickerLayer, textLayer })}
-        eyebrow={`${String(index + 1).padStart(2, '0')} · ${resolvedLayerKind(layerId)}`}
-        key={layerId}
-        meta={`${layerIsVisible ? 'Visible' : 'Hidden'}${layerGroup ? ` · ${layerGroup.name}` : ''} · Right-click for actions`}
-        preview={(
-          <LayerDockTooltipPreview
-            appliedShader={appliedShader}
-            effectLayer={effectLayer}
-            identity={identity}
-            imageCrop={imageCrop}
-            previewUrl={previewUrl}
-            textAppearance={textAppearance}
-            textLayer={textLayer}
-          />
-        )}
-        title={layerLabel(layerId)}
-      >
-        <div
-          aria-label={`${layerLabel(layerId)} layer`}
-          className='shader-lab-v2-dock-layer'
-          data-kind={resolvedLayerKind(layerId).toLocaleLowerCase().replaceAll(' ', '-')}
-          data-material={appliedShader ? 'true' : 'false'}
-          data-selected={selected ? 'true' : 'false'}
-          data-studio-context-trigger='layer'
-          data-visible={layerIsVisible}
-          onContextMenu={(event) => {
-            if (isCanvasLayerId(layerId)) {
-              openCanvasSelectionMenu(layerId, event);
-              return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            selectLayerFromStack(layerId);
-            setLayerDockMenu({ layerId, position: contextMenuPositionFromEvent(event) });
-          }}
-          role='group'
-        >
-        <button
-          aria-keyshortcuts='Shift+F10'
-          className='shader-lab-v2-dock-layer-select'
-          onClick={() => selectLayerFromStack(layerId)}
-          onKeyDown={(event) => {
-            if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
-            event.preventDefault();
-            if (isCanvasLayerId(layerId)) {
-              event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', {
-                bubbles: true,
-                clientX: event.currentTarget.getBoundingClientRect().left + 24,
-                clientY: event.currentTarget.getBoundingClientRect().top + 24,
-              }));
-              return;
-            }
-            selectLayerFromStack(layerId);
-            setLayerDockMenu({ layerId, position: contextMenuPositionFromElement(event.currentTarget) });
-          }}
-          title={`Select ${layerLabel(layerId)}`}
-          type='button'
-        >
-          <span className='shader-lab-v2-dock-layer-icon'><CanvasLayerKindIcon layerId={layerId} sticker={stickerLayer} /></span>
-          <span className='shader-lab-v2-dock-layer-copy'>
-            <strong>{layerLabel(layerId)}</strong>
-            <small>{String(index + 1).padStart(2, '0')} · {resolvedLayerKind(layerId)}{layerGroup ? ` · ${layerGroup.name}` : ''}</small>
-          </span>
-        </button>
-        <div className='shader-lab-v2-dock-layer-preview'>
-          {appliedShader ? (
-            <span className='shader-lab-v2-dock-material-frame'>
-              <AuthenticShaderPreview materialId={appliedShader.materialId} settings={appliedShader.settings} />
-            </span>
-          ) : null}
-          {textLayer ? (
-            <TextLayerDockPreview layer={textLayer} identity={identity} onSelect={() => selectLayerFromStack(textLayer.id)}
-              onChange={(value) => updateTextLayer(textLayer.id, { value })} />
-          ) : (
-            <LayerDockStaticPreview effectLayer={effectLayer} imageCrop={imageCrop} label={layerLabel(layerId)} onSelect={() => selectLayerFromStack(layerId)} previewUrl={previewUrl} />
-          )}
-        </div>
-        <div className='shader-lab-v2-dock-layer-actions'>
-          <button aria-label={`Duplicate ${layerLabel(layerId)}`} onClick={() => duplicateLayer(layerId)} title='Duplicate' type='button'><Copy aria-hidden='true' /></button>
-          <button aria-label={`Move ${layerLabel(layerId)} forward`} disabled={orderIndex === layerOrder.length - 1} onClick={() => moveLayer(layerId, 1)} title='Move forward' type='button'><ArrowUp aria-hidden='true' /></button>
-          <button aria-label={`Move ${layerLabel(layerId)} backward`} disabled={orderIndex === 0} onClick={() => moveLayer(layerId, -1)} title='Move backward' type='button'><ArrowDown aria-hidden='true' /></button>
-          <button aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`} aria-pressed={layerIsVisible} onClick={() => toggleLayerVisibility(layerId)} title={layerIsVisible ? 'Hide layer' : 'Show layer'} type='button'>{layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}</button>
-          <button aria-label={`Delete ${layerLabel(layerId)}`} onClick={() => removeLayer(layerId)} title='Delete' type='button'><Trash2 aria-hidden='true' /></button>
-        </div>
-        </div>
-      </StudioPreviewTooltip>
-    );
+    const props = layerRowProps(layerId, index);
+    if (!props) return null;
+    const { key, ...rowProps } = props;
+    return <DesignLabDockLayer key={key} {...rowProps} />;
   }
 
   function renderInspectorLayer(layerId: CompositionLayerId, index: number) {
-    const layerIsVisible = layerVisible(layerId);
-    const { assetLayer, effectLayer, logoLayer, shaderLayer, textLayer } = resolveLayerDockLayers(
-      layerId,
-      { assets: compositionAssets, effects: effectLayers, logos: logoLayers, shaders: shaderLayers, text: textLayers }
-    );
-    const appliedShader = resolveLayerDockShader(layerId, shaderLayer, layerShaders);
-    const layerGroup = isCanvasLayerId(layerId) ? groupForLayer(layerId) : null;
-    const textAppearance = textLayer ? resolvedTextAppearance(textLayer) : null;
-    const previewUrl = logoLayer?.url ?? assetLayer?.url;
-    const stickerLayer = isStickerLayer(assetLayer, textLayer);
-    const selected = selectedLayerId === layerId
-      || (isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId));
-    const openLayerMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (isCanvasLayerId(layerId)) {
-        openCanvasSelectionMenu(layerId, event);
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      selectLayerFromStack(layerId);
-      setLayerDockMenu({ layerId, position: contextMenuPositionFromEvent(event) });
-    };
-    return (
-      <StudioPreviewTooltip
-        description={layerDockTooltipDescription({ appliedShader, effectLayer, layerId, sticker: stickerLayer, textLayer })}
-        eyebrow={`${String(index + 1).padStart(2, '0')} · ${resolvedLayerKind(layerId)}`}
-        key={layerId}
-        meta={`${layerIsVisible ? 'Visible' : 'Hidden'}${layerGroup ? ` · ${layerGroup.name}` : ''}`}
-        preview={(
-          <LayerDockTooltipPreview
-            appliedShader={appliedShader}
-            effectLayer={effectLayer}
-            identity={identity}
-            imageCrop={assetLayer?.imageCrop}
-            previewUrl={previewUrl}
-            textAppearance={textAppearance}
-            textLayer={textLayer}
-          />
-        )}
-        title={layerLabel(layerId)}
-      >
-        <div
-          className='design-layer-inspector-row'
-          data-selected={selected ? 'true' : 'false'}
-          data-studio-context-trigger='layer'
-          data-visible={layerIsVisible ? 'true' : 'false'}
-          onContextMenu={openLayerMenu}
-          role='listitem'
-        >
-          <button
-            aria-keyshortcuts='Shift+F10'
-            className='design-layer-inspector-select'
-            onClick={() => selectLayerFromStack(layerId)}
-            onKeyDown={(event) => {
-              if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
-              event.preventDefault();
-              event.currentTarget.parentElement?.dispatchEvent(new MouseEvent('contextmenu', {
-                bubbles: true,
-                clientX: event.currentTarget.getBoundingClientRect().left + 24,
-                clientY: event.currentTarget.getBoundingClientRect().top + 18,
-              }));
-            }}
-            type='button'
-          >
-            <span><CanvasLayerKindIcon layerId={layerId} sticker={stickerLayer} /></span>
-            <span><strong>{layerLabel(layerId)}</strong><small>{String(index + 1).padStart(2, '0')} · {resolvedLayerKind(layerId)}{layerGroup ? ` · ${layerGroup.name}` : ''}</small></span>
-          </button>
-          <button
-            aria-label={`${layerIsVisible ? 'Hide' : 'Show'} ${layerLabel(layerId)}`}
-            aria-pressed={layerIsVisible}
-            className='design-layer-inspector-visibility'
-            onClick={() => toggleLayerVisibility(layerId)}
-            title={layerIsVisible ? 'Hide layer' : 'Show layer'}
-            type='button'
-          >
-            {layerIsVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
-          </button>
-        </div>
-      </StudioPreviewTooltip>
-    );
+    const props = layerRowProps(layerId, index);
+    if (!props) return null;
+    const { key, ...rowProps } = props;
+    return <DesignLabInspectorLayer key={key} {...rowProps} />;
   }
 
   function renderCanvasSelectionMenu() {

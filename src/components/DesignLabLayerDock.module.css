@@ -1,0 +1,12 @@
+/* Very long layer lists stay in the DOM and the accessibility tree; rows
+   outside the scroll viewport skip layout and paint until they approach it.
+   Short lists keep full painting so the selected row's outer shadow shows. */
+.lazyDockRow {
+  contain-intrinsic-size: auto 178px auto 134px;
+  content-visibility: auto;
+}
+
+.lazyListRow {
+  contain-intrinsic-size: auto auto auto 42px;
+  content-visibility: auto;
+}
