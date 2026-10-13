@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getAllShaders } from 'shaders/registry';
 import { SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS, getShaderEffect, loadedShaderEffectsProps, loadShaderEffectsProps } from '../shaderEffects';
@@ -105,5 +107,23 @@ describe('Shaders.com native library', () => {
     expect(names('shader-effects-gradient-map')).toContain('colorLow');
     expect(names('shader-effects-gradient-map', { palette: 'rainbow' })).not.toContain('colorLow');
     expect(names('shader-effects-watercolor')).not.toContain('radius');
+  });
+  it('gives adjustments that are neutral upstream a visible default', () => {
+    expect(shaderEffectDefaults('shader-effects-exposure')).toMatchObject({ exposure: 1.7 });
+    expect(shaderEffectDefaults('shader-effects-saturation')).toMatchObject({ intensity: 1.8 });
+    expect(shaderEffectDefaults('shader-effects-vibrance')).toMatchObject({ intensity: 1.2 });
+    expect(shaderEffectDefaults('shader-effects-hue-shift')).toMatchObject({ shift: 120 });
+    expect(shaderEffectDefaults('shader-effects-sharpness')).toMatchObject({ sharpness: 2.5 });
+    expect(shaderEffectDefaults('shader-effects-flip')).toMatchObject({ flipX: true });
+    expect(shaderEffectDefaults('shader-effects-brightness-contrast')).toMatchObject({ contrast: 0.45 });
+    expect(shaderEffectDefaults('shader-effects-perspective')).toMatchObject({ pan: 24, tilt: 16 });
+    expect(shaderEffectDefaults('shader-effects-corner-pin').topLeft).not.toEqual({ x: 0, y: 0 });
+    expect(shaderEffectDefaults('shader-effects-dither').colorA).toBe('#000000');
+  });
+  it('ships a luminance-only filter sample so the palette decides its colours', () => {
+    const svg = readFileSync(resolve(process.cwd(), 'public/shader-effects-source.svg'), 'utf8');
+    const colors = [...svg.matchAll(/#([\da-f]{6})\b/gi)].map(([, hex]) => hex.toLowerCase());
+    expect(colors.length).toBeGreaterThan(5);
+    colors.forEach((hex) => expect(hex.slice(0, 2) === hex.slice(2, 4) && hex.slice(2, 4) === hex.slice(4, 6), hex).toBe(true));
   });
 });

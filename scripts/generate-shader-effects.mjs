@@ -25,12 +25,25 @@ const QUALITY_TIERS = [
 ];
 const qualityScores = new Map(QUALITY_TIERS.flatMap(([score, names]) => names.map((name, index) => [name, Math.round((score - index * 0.1) * 10) / 10])));
 
-// Glyphfield defaults where a colour mode would ignore the seeded palette.
+// Glyphfield defaults where the upstream default is a no-op, or where a colour
+// mode would ignore the seeded palette.
 const DEFAULT_OVERRIDES = {
+  BrightnessContrast: { brightness: 0.08, contrast: 0.45 },
   ColorWheel: { mode: 'custom' },
+  CornerPin: { topLeft: { x: 0.08, y: 0.1 }, topRight: { x: 0.94, y: 0.02 }, bottomLeft: { x: 0.02, y: 0.96 }, bottomRight: { x: 0.9, y: 0.86 } },
+  Dither: { colorA: '#000000' },
+  Exposure: { exposure: 1.7 },
+  Flip: { flipX: true },
+  Glitch: { intensity: 0.85 },
   GradientMap: { palette: 'custom' },
+  HueShift: { shift: 120 },
   InkFlow: { colorMode: 'custom' },
+  Perspective: { pan: 24, tilt: 16 },
+  Saturation: { intensity: 1.8 },
+  Sharpness: { sharpness: 2.5 },
+  Solarize: { threshold: 0.35 },
   ThinFilm: { mode: 'custom' },
+  Vibrance: { intensity: 1.2 },
 };
 
 // Which shared palette stop seeds each colour prop, in prop order: base =

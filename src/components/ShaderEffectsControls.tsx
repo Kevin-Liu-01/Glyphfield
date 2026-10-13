@@ -14,6 +14,27 @@ function parseStructuredValue(value: string): ShaderEffectValue {
   try { return JSON.parse(value); } catch { return value; }
 }
 
+/** Read a local image once, scaling anything over 2048 px here rather than in every renderer. */
+async function readSourceImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
+  if (scale < 1) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+  }
+  bitmap.close();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read the image.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function useShaderEffectsProps(): ShaderEffectsPropsModule | undefined {
   const [loaded, setLoaded] = useState(loadedShaderEffectsProps);
   useMountEffect(() => {
@@ -64,11 +85,7 @@ function NativeControl({ name, control, value, onChange }: { name: string; contr
     if (!file) return;
     if (file.size > 12_000_000) { event.target.setCustomValidity('Choose an image under 12 MB.'); event.target.reportValidity(); return; }
     event.target.setCustomValidity('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      try { onChange(String(reader.result)); } catch (cause) { input.setCustomValidity(cause instanceof Error ? cause.message : 'Could not import image.'); input.reportValidity(); }
-    };
-    reader.readAsDataURL(file);
+    void readSourceImage(file).then(onChange).catch((cause: unknown) => { input.setCustomValidity(cause instanceof Error ? cause.message : 'Could not import image.'); input.reportValidity(); });
   }} />{value ? <button type='button' className='text-left underline' onClick={() => onChange('')}>Use default source</button> : null}</label>;
   if (types.includes('color')) return <NativeColorControl label={label} value={value} onChange={onChange} />;
   if (control.options?.length) return <label className='flex flex-col gap-2 text-xs'>{label}<StudioSelect ariaLabel={`Effect ${label}`} value={String(value)} options={control.options.map((option) => ({ label: option.label, value: String(option.value) }))} onValueChange={(next) => onChange(control.options!.find((option) => String(option.value) === next)!.value)} /></label>;
@@ -91,7 +108,7 @@ export default function ShaderEffectsControls({ materialId, palette, value, onCh
   const controls = loaded.visibleShaderEffectControls(materialId, props);
   const groups = [...new Set(controls.map(([, control]) => control.group ?? 'Effect'))];
   return <div className='flex flex-col gap-4'>
-    <p className='text-xs leading-5 text-muted-foreground'>Shaders.com · {effect.category} · WebGPU{effect.requiresChild ? '. Applies to your image, or a flowing shader gradient when no image is attached.' : ''}</p>
+    <p className='text-xs leading-5 text-muted-foreground'>Shaders.com · {effect.category} · WebGPU{effect.requiresChild ? '. Applies to your image, or to a sample mapped onto the shader colors when no image is attached.' : ''}</p>
     {groups.map((group) => <details open key={group} className='border-t border-border pt-3'><summary className='cursor-pointer text-xs font-medium'>{group}</summary><div className='flex flex-col gap-4 pt-4'>
       {controls.filter(([, control]) => (control.group ?? 'Effect') === group).map(([name, control]) => <NativeControl key={name} name={name} control={control} value={props[name]} onChange={(next) => onChange(loaded.validateShaderEffectProps(materialId, { ...explicit, [name]: next }))} />)}
     </div></details>)}

@@ -1,8 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <!-- Default source for Shaders.com filters. Luminance only: Studio maps it
+       through the active palette (dark = Base, mid = Mid, light = Light). -->
   <defs>
-    <linearGradient id="field" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#080b28"/><stop offset=".4" stop-color="#4937ad"/><stop offset=".7" stop-color="#e16683"/><stop offset="1" stop-color="#ffe1a8"/></linearGradient>
-    <linearGradient id="ribbon" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#21184d"/><stop offset=".5" stop-color="#b49bea"/><stop offset="1" stop-color="#fff3da"/></linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050505"/>
+      <stop offset=".55" stop-color="#262626"/>
+      <stop offset="1" stop-color="#5c5c5c"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="1260" cy="290" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/>
+      <stop offset=".35" stop-color="#bdbdbd" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#808080" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="1300" cy="300" r="150" fx="1255" fy="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".25" stop-color="#e6e6e6"/>
+      <stop offset=".8" stop-color="#5a5a5a"/>
+      <stop offset="1" stop-color="#1a1a1a"/>
+    </radialGradient>
+    <linearGradient id="ramp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <pattern id="hairline" width="14" height="14" patternUnits="userSpaceOnUse">
+      <path d="M0 .5H14M.5 0V14" stroke="#9a9a9a" stroke-width="1"/>
+    </pattern>
+    <pattern id="stripes" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+      <rect width="14" height="28" fill="#d0d0d0"/>
+    </pattern>
   </defs>
-  <path fill="url(#field)" d="M0 0h1200v800H0z"/>
-  <path fill="url(#ribbon)" d="M-200 620C130 950 280 150 610 340S1040 360 1400-180L1400 30C1030 620 820 630 580 440S120 1100-200 860Z"/>
+
+  <rect width="1600" height="1000" fill="url(#ground)"/>
+  <rect width="1600" height="1000" fill="url(#bloom)"/>
+
+  <!-- Fine detail: hairline grid and diagonal stripes for blur, sharpen, pixelate, and moire. -->
+  <rect x="96" y="84" width="336" height="196" fill="url(#hairline)"/>
+  <rect x="1420" y="500" width="150" height="150" fill="url(#stripes)" opacity=".8"/>
+
+  <!-- Concentric rings make twirl, bulge, and polar distortions legible. -->
+  <g fill="none" stroke-width="12">
+    <circle cx="1200" cy="810" r="40" stroke="#f2f2f2"/>
+    <circle cx="1200" cy="810" r="80" stroke="#7a7a7a"/>
+    <circle cx="1200" cy="810" r="120" stroke="#f2f2f2"/>
+    <circle cx="1200" cy="810" r="160" stroke="#7a7a7a"/>
+    <circle cx="1200" cy="810" r="200" stroke="#d9d9d9"/>
+  </g>
+
+  <!-- Glossy orb and specular points for glow, bloom, bokeh, and sparkle. -->
+  <circle cx="1300" cy="300" r="150" fill="url(#orb)"/>
+  <g fill="#ffffff">
+    <circle cx="980" cy="150" r="9"/>
+    <circle cx="1500" cy="160" r="7"/>
+    <circle cx="1480" cy="430" r="11"/>
+    <circle cx="1030" cy="470" r="6"/>
+    <circle cx="1550" cy="330" r="5"/>
+  </g>
+
+  <!-- Display type: bold strokes with hard edges. -->
+  <g fill="none" stroke="#f7f7f7" stroke-width="96" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M748 395A250 250 0 1 0 770 610V520H600"/>
+    <path d="M930 800V390Q930 270 1050 270H1105"/>
+    <path d="M850 470H1060"/>
+  </g>
+
+  <!-- Text-like lines for small detail and edge contrast. -->
+  <g stroke="#c8c8c8" stroke-width="10" stroke-linecap="round">
+    <path d="M110 828H560"/>
+    <path d="M110 852H520"/>
+    <path d="M110 876H590"/>
+    <path d="M110 900H430"/>
+    <path d="M110 924H545"/>
+  </g>
+  <path d="M110 780H330" stroke="#ffffff" stroke-width="22"/>
+
+  <!-- A full-range luminance ramp so tone adjustments read immediately. -->
+  <rect x="620" y="880" width="360" height="44" fill="url(#ramp)"/>
+  <g fill="#ffffff">
+    <rect x="620" y="934" width="22" height="22"/>
+    <rect x="664" y="934" width="22" height="22"/>
+    <rect x="708" y="934" width="22" height="22"/>
+    <rect x="752" y="934" width="22" height="22"/>
+    <rect x="796" y="934" width="22" height="22"/>
+  </g>
 </svg>
