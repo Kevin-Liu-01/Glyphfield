@@ -1,0 +1,173 @@
+.board {
+  position: relative;
+  overflow: hidden;
+  container-type: inline-size;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 12px 32px rgb(0 0 0 / 0.16);
+  user-select: none;
+}
+
+.backdrop,
+.backdrop > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tile {
+  position: absolute;
+  outline: none;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.tile > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tile::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  content: '';
+  pointer-events: none;
+  transition: border-color 120ms ease;
+}
+
+.tile:hover::after {
+  border-color: rgb(91 124 255 / 0.65);
+}
+
+.tile:focus-visible::after,
+.tile[data-selected]::after {
+  border: 2px solid #5b7cff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.72);
+}
+
+.tile[data-dragging] {
+  opacity: 0.45;
+}
+
+.slots {
+  position: absolute;
+  pointer-events: none;
+}
+
+.slot {
+  position: absolute;
+  border: 1px dashed rgb(91 124 255 / 0.85);
+  background: transparent;
+  cursor: text;
+  pointer-events: auto;
+}
+
+.slot:hover,
+.slot:focus-visible {
+  outline: none;
+  background: rgb(91 124 255 / 0.12);
+}
+
+.slotEditor {
+  position: absolute;
+  z-index: 2;
+  min-height: 1em;
+  overflow: hidden;
+  outline: 2px solid #5b7cff;
+  outline-offset: 2px;
+  white-space: pre-wrap;
+  cursor: text;
+  pointer-events: auto;
+  user-select: text;
+}
+
+.tileList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tileList li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px 28px;
+  align-items: center;
+  min-height: 36px;
+  border-radius: 6px;
+}
+
+.tileList li[data-selected] {
+  background: hsl(var(--muted) / 0.8);
+}
+
+.tileList li[data-hidden] .tileName {
+  opacity: 0.45;
+}
+
+.tileIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+}
+
+.tileIcon:hover:not(:disabled) {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.tileIcon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.tileIcon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tileName {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  border: 0;
+  padding: 4px 6px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+}
+
+.tileName span {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 540;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tileName small {
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .tile::after {
+    transition: none;
+  }
+}
