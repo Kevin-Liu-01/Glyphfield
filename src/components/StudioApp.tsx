@@ -99,14 +99,16 @@ const AnimationStudio = dynamic(loadAnimationStudio, {
 const BrandSettingsStudio = dynamic(loadBrandSettingsStudio, {
   loading: StudioWorkspaceLoading,
 });
-const LottieStudio = dynamic(loadLottieStudio, {
+// Retained editors stay mounted behind `inert`. Memo keeps the hidden ones from
+// re-rendering with the Studio shell; AnimationStudio memoizes its own export.
+const LottieStudio = memo(dynamic(loadLottieStudio, {
   loading: StudioWorkspaceLoading,
   ssr: false,
-});
-const ShaderLabStudio = dynamic(loadShaderLabStudio, {
+}));
+const ShaderLabStudio = memo(dynamic(loadShaderLabStudio, {
   loading: StudioWorkspaceLoading,
   ssr: false,
-});
+}));
 const StudioToolWorkspace = dynamic(loadStudioToolWorkspace, {
   loading: StudioWorkspaceLoading,
 });
@@ -688,6 +690,10 @@ function ProjectTabMark({ identity, selected }: { identity: BrandIdentity; selec
 }
 
 const PERSISTENT_WORKSPACE_TOOL_IDS = ['material', 'animation', 'lottie'] as const satisfies readonly StudioToolId[];
+const MATERIAL_TOOL = STUDIO_TOOLS.find(({ id }) => id === 'material');
+// Design Lab keys drafts by its legacy internal scope. One shared object keeps the
+// memoized editor from re-rendering on every panel render.
+const DESIGN_LAB_DRAFT_TOOL = MATERIAL_TOOL ? { ...MATERIAL_TOOL, id: 'logo-shader' as const } : undefined;
 
 function isPersistentWorkspaceTool(toolId: StudioToolId): toolId is typeof PERSISTENT_WORKSPACE_TOOL_IDS[number] {
   return PERSISTENT_WORKSPACE_TOOL_IDS.includes(toolId as typeof PERSISTENT_WORKSPACE_TOOL_IDS[number]);
@@ -763,7 +769,7 @@ export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
                 automationToolId={tool.id}
                 identity={activeIdentity}
                 onIdentitySave={onIdentitySave}
-                tool={{ ...tool, id: 'logo-shader' }}
+                tool={DESIGN_LAB_DRAFT_TOOL ?? tool}
               />
             ) : (
               <StudioToolWorkspace
@@ -939,6 +945,7 @@ export default function StudioApp() {
   const [identities, setIdentities] = useState<BrandIdentity[]>(() =>
     hydrateBrandIdentities(null)
   );
+  const identitiesRef = useCommittedRef(identities);
   const [pendingIdentities, setPendingIdentities] = useState<Record<string, BrandIdentity>>({});
   const [identitiesReady, setIdentitiesReady] = useState(false);
   const [duplicatingProject, setDuplicatingProject] = useState(false);
@@ -1374,9 +1381,10 @@ export default function StudioApp() {
     });
   }
 
+  // Stable across identity edits so retained editors of other projects do not re-render.
   const saveIdentityImmediately = useCallback((nextIdentity: BrandIdentity) => {
     commitIdentities(
-      identities.map((identity) => identity.id === nextIdentity.id ? nextIdentity : identity)
+      identitiesRef.current.map((identity) => identity.id === nextIdentity.id ? nextIdentity : identity)
     );
     setPendingIdentities((current) => {
       if (!current[nextIdentity.id]) return current;
@@ -1384,7 +1392,7 @@ export default function StudioApp() {
       delete nextPendingIdentities[nextIdentity.id];
       return nextPendingIdentities;
     });
-  }, [commitIdentities, identities]);
+  }, [commitIdentities, identitiesRef]);
 
   function ignoreIdentityChanges(identityId: string) {
     setPendingIdentities((current) => {

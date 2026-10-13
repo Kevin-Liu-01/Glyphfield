@@ -207,6 +207,23 @@ describe('Studio interaction performance contracts', () => {
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
   });
 
+  it('skips re-rendering hidden retained editors when their props are unchanged', () => {
+    const source = readSource('src/components/StudioApp.tsx');
+    const animation = readSource('src/components/AnimationStudio.tsx');
+    const panels = source.slice(source.indexOf('const StudioWorkspacePanels = memo('), source.indexOf('export default function StudioApp'));
+
+    expect(source).toContain('const LottieStudio = memo(dynamic(loadLottieStudio');
+    expect(source).toContain('const ShaderLabStudio = memo(dynamic(loadShaderLabStudio');
+    expect(animation).toContain('export default memo(AnimationStudio);');
+    // Fresh objects or callbacks per render would defeat the memo.
+    expect(panels).toContain('tool={DESIGN_LAB_DRAFT_TOOL ?? tool}');
+    expect(panels).not.toContain('tool={{');
+    expect(source).toContain('onIdentityChange={updateIdentity}');
+    expect(source).toContain('onIdentitySave={saveIdentityImmediately}');
+    expect(source).toContain('identitiesRef.current.map((identity) => identity.id === nextIdentity.id');
+    expect(source).toContain('}, [commitIdentities, identitiesRef]);');
+  });
+
   it('preloads lazy Studio workspaces from pointer and keyboard intent', () => {
     const source = readSource('src/components/StudioApp.tsx');
     const lottie = readSource('src/components/LottieStudio.tsx');
