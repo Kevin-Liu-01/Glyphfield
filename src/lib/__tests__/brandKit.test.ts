@@ -109,7 +109,8 @@ describe('brand kit', () => {
     const css = new TextDecoder().decode(files[2]!.bytes);
     expect(css).toContain('src: url("../fonts/AcmeSans-Variable.woff2") format("woff2");');
     const ramp = hydrateBrandIdentities(null).find(({ id }) => id === 'ramp')!;
-    expect(brandKitIncludedFonts(ramp)).toEqual([]);
+    // Only the open-licensed code face ships; the commercial Lausanne files never do.
+    expect(brandKitIncludedFonts(ramp).map(({ family }) => family)).toEqual(['IBM Plex Mono']);
     expect(new TextDecoder().decode((await brandKitFiles(ramp, async () => new Uint8Array([1]))).find(({ name }) => name === 'tokens/brand.css')!.bytes))
       .toContain('Lausanne Book is not included: kits package only uploaded or open-licensed fonts.');
   });
