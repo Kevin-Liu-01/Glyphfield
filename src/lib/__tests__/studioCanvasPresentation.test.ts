@@ -11,17 +11,17 @@ import {
 
 describe('Studio artifact canvas presentation', () => {
   it('keeps every expression tool on one stage, frame, and artboard preset', () => {
-    const workspace = ['OpenGraphTool', 'TerminalTool', 'TemplateTool']
-      .map((name) => readFileSync(join(process.cwd(), `src/components/tools/${name}.tsx`), 'utf8'))
-      .join('\n');
-    const templatePreview = readFileSync(
-      join(process.cwd(), 'src/components/TemplateCanvasPreview.tsx'),
-      'utf8'
-    );
+    const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
+    const tools = ['OpenGraphTool', 'TerminalTool', 'TemplateTool'].map((name) => read(`src/components/tools/${name}.tsx`));
+    // All five expression tools render the one shared editor and canvas.
+    for (const tool of tools) expect(tool).toContain('<ExpressionEditor ');
+    const editor = read('src/components/expressions/ExpressionEditor.tsx');
+    const canvas = read('src/components/expressions/ExpressionCanvas.tsx');
+    const templatePreview = read('src/components/TemplateCanvasPreview.tsx');
 
-    expect(workspace.match(/stageClassName=\{STUDIO_ARTIFACT_STAGE_CLASS\}/g)).toHaveLength(3);
-    expect(workspace.match(/frameClassName=\{STUDIO_ARTIFACT_FRAME_CLASS\}/g)).toHaveLength(2);
-    expect(workspace.match(/className=\{(?:`\$\{)?STUDIO_ARTIFACT_PLANE_CLASS/g)).toHaveLength(2);
+    expect(editor.match(/stageClassName=\{STUDIO_ARTIFACT_STAGE_CLASS\}/g)).toHaveLength(1);
+    expect(canvas).toContain('frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}');
+    expect(canvas).toContain('className={`${STUDIO_ARTIFACT_PLANE_CLASS}');
     expect(templatePreview).toContain('frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}');
     expect(templatePreview).toContain('className={`${STUDIO_ARTIFACT_PLANE_CLASS}');
 

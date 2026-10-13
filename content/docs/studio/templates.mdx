@@ -1,70 +1,69 @@
 ---
-title: Templates and expression tools
-description: Create OpenGraph graphics, terminal cards, partnerships, blog covers, and complete slide systems.
-icon: Presentation
+title: Expression tools
+description: One layered editor for OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates, with brand templates for every identity.
+icon: LayoutGrid
 ---
 
+OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates share one editor and one document format. Each tool starts from a brand template built from the active identity: its colors, type roles, logos, graphic device, products, proof, and voice. Everything you see on the artboard is a layer you can change.
+
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation OpenGraph editor and social preview' caption='OpenGraph' meta='1200 × 630 · PNG' src='/screenshots/studio-gt-opengraph-dark-2026.png' />
+  <DocsMedia alt='General Translation OpenGraph image built in the expression editor' caption='OpenGraph' meta='1200 × 630 · PNG / SVG' src='/screenshots/studio-gt-opengraph-dark-2026.png' />
   <DocsMedia alt='General Translation expression and component system in Glyphfield' caption='Expression system' meta='Identity-aware output' src='/screenshots/studio-gt-components-dark-2026.png' />
 </DocsMediaGrid>
 
-## OpenGraph
+| Tool | Default size | Formats | Layouts | Page |
+|---|---|---|---|---|
+| OpenGraph | 1200 × 630 | OpenGraph, Wide, Square, Portrait, Story, LinkedIn, Lockup | Split, Statement, Full bleed, Centered, Editorial | [OpenGraph](/docs/studio/opengraph) |
+| Terminal card | 1200 × 630 | Same as OpenGraph | Card, Split, Focus, Caption | [Terminal card](/docs/studio/terminal-card) |
+| Partnership lockup | 1200 × 600 | Same as OpenGraph | Lockup, Centered, Hero lockup, Announcement | [Partnership lockup](/docs/studio/partnership-lockup) |
+| Blog cover | 1200 × 630 | Same as OpenGraph | Editorial, Feature image, Statement, Centered, Index | [Blog cover](/docs/studio/blog-cover) |
+| Slide templates | 1600 × 900 | 16:9, 4:3, Square | 14 slide layouts per slide | [Slide templates](/docs/studio/slide-templates) |
 
-OpenGraph produces a 1200 × 630 social preview with an editable headline. Switch between light and dark identity surfaces, replace the logo, load a font, or add a background image.
+## Edit on the canvas
 
-Uploaded background and logo assets support opacity, position, and scale controls. Download produces a PNG with the current composition.
+- **Select** a layer by clicking it on the canvas or in the **Layers** list. Shift-click or Command-click adds layers to the selection.
+- **Move** by dragging. Layers snap to the artboard edges and center and to the edges and centers of other layers, with guides.
+- **Resize** from any edge or corner handle. **Rotate** with the Rotation slider or the 15° buttons in the Layer section.
+- **Nudge** with the arrow keys: one pixel, or ten with Shift.
+- **Type on the canvas**: double-click a text layer (or press Enter with it selected), type, then press Escape or click away.
+- **Delete** with Delete or Backspace, **duplicate** with Command-D, **select all** with Command-A, and restack with Command-] / Command-[ (add Shift for front or back). Right-click opens the selection menu.
+- **Undo and redo** with Command-Z and Shift-Command-Z, or the Undo and Redo buttons above the canvas. A drag, a slider drag, or a burst of typing is one step.
 
-## Terminal card
+The **Layers** list shows the stack top first. Drag a row by its handle to restack it, or focus a row and press Alt with an arrow key. Each row has **Hide** and **Lock** buttons. A locked layer cannot be moved on the canvas but can still be styled from the inspector. The page background is a locked layer, so clicks on the page select content, not the page.
 
-Terminal card renders TypeScript, Python, or Bash using Prism token colors. Edit the title and source, then download a 1200 × 630 PNG.
+## Add layers
 
-## Partnership lockup
+The **Add** section adds text, an image from the identity library, a logo, a rectangle, a divider, a shader background, a texture, or the identity's brand device. **Upload image layer** adds a local file. A shader background uses the Shader Library's captured still for the selected material, so the canvas and the export match; **Brand duotone** maps it to the identity's colors.
 
-Partnership lockup optically balances the active identity with a selected proof-asset partner or an uploaded logo. Control both logos independently and switch surface textures.
+## Style with brand tokens
 
-## Blog cover
+Text layers take a **type role** (Display, Body, Accent, Code) from the identity, then size, weight, tracking, line height, alignment, casing, vertical alignment, and an optional **Shrink to fit the box**. Colors are brand roles (Ink, Paper, Emphasis, and the identity's other colors) or a custom color. Roles stay linked to the identity, so editing the identity's colors updates every layer that uses them. Images take a library source or upload, fit, treatment (natural, monochrome, duotone, brand duotone), zoom, pan, and corner radius. Logos take an artwork from the identity, a tone, and the shared logo effects.
 
-Blog cover combines identity typography, editorial copy, textures, and an optional positioned background image at 1200 × 630.
+## Formats and layouts
 
-## Slide templates
+**Format** changes the output size. Every page re-flows into its current layout at the new size, and layers you added move and scale with the page. **Layouts** re-flow the layers a template placed. Text, uploads, and any style you set by hand stay; content a layout has no slot for is kept and comes back when you switch back. **Reset to brand template** starts over from the identity's template.
 
-Slides use a 1600 × 900 canvas and 14 reusable layouts:
+## Export
 
-1. Title
-2. Section
-3. Agenda
-4. Split
-5. Metrics
-6. Quote
-7. Timeline
-8. Statement
-9. Comparison
-10. Process
-11. Chart
-12. Team
-13. Image
-14. Closing
+**Export PNG** renders the artboard (the active slide for Slide templates) at 2× in a PNG. **More exports** has **Export SVG** (a self-contained SVG with the images and font files embedded) and, for slides, **Export PDF deck**. Exports render from the same document as the canvas.
 
-Title, body/list, background image, texture, and logo placement are shared across layouts. Newline-separated body content feeds agenda, split, timeline, quote attribution, and supporting copy.
+## Source and versions
 
-### Layer editing
+Every tool stores a CanvasDocument schema 2 with expression source version 2: pages are artboards (one per slide), elements are layers, and `metadata.studio.state` holds the format and the layout and surface of each page, plus flat `title`, `body`, `code`, and `language` fields that mirror the first page's headline, list or supporting copy, and code. Editing those flat fields in source still works. Version-1 sources saved before the shared editor (flat tool state) migrate on open, including uploads, logo placement, partner settings, fonts, textures, and layer offsets. See [Source format reference](/docs/reference/source-formats).
 
-Templates expose independent Brand, Content, and Footer layers. Nothing is selected on load. Select a layer from the canvas or inspector to reveal its state, then:
+## Browser API
 
-- Drag it anywhere on the artboard.
-- Resize from the corner handle.
-- Nudge by one pixel with arrow keys or ten with Shift + arrow.
-- Move it forward or backward in the stack.
-- Align it to any canvas edge or center axis.
-- Reset that layer without changing the remaining composition.
+Every tool registers `{tool}.document.describe`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.layer.remove`, `{tool}.layer.duplicate`, `{tool}.layer.reorder`, `{tool}.layer.select`, `{tool}.layer.align`, `{tool}.format.set`, `{tool}.layout.apply`, `{tool}.template.reset`, `{tool}.history.undo`, `{tool}.history.redo`, `{tool}.export.png`, and `{tool}.export.svg`, where `{tool}` is `opengraph`, `terminal`, `partnership`, `blog`, or `slides`. Each tool page lists its own actions. Read `document.describe` first; it returns the layer IDs, slots, formats, and layouts the other actions take.
 
-Layer transforms and stacking order are persisted per project and template tool. The same transforms are passed into the SVG/PNG export so the downloaded artifact matches the canvas.
+```js
+const studio = window.glyphfield.studio;
+const doc = await studio.invoke('opengraph.document.describe');
+const headline = doc.pages[0].layers.find((layer) => layer.slot === 'headline');
+await studio.invoke('opengraph.layer.update', { id: headline.id, content: 'Ship every locale', fontRole: 'Display' });
+await studio.invoke('opengraph.format.set', { format: 'square' });
+const png = await studio.invoke('opengraph.export.png');
+```
 
-The API can generate the same slide layouts as standalone SVG. Browser downloads rasterize the selected layout to PNG.
+## HTTP generation
 
-## Source editing
-
-Every expression tool exposes **File → Edit source code** in the right-side drawer. OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates each serialize the configuration that drives their visual controls and renderer. You can edit copy, layout choices, surface settings, asset references, and layer transforms in source, apply the result, then continue arranging it on the canvas.
-
-The drawer validates the tool's own document shape before applying it. It does not turn an artifact into arbitrary HTML, and it does not bypass asset or font rules. See [Source code editing](/docs/studio/source-editing) and [Source format reference](/docs/reference/source-formats).
+`POST /api/generate` with `kind: template` renders the same brand templates as standalone SVG, with the brand fonts embedded: `template` is `slides`, `blog`, `partnership`, `opengraph`, or `terminal`, with optional `layout`, `format`, and `language`. See [Generate](/docs/agents/generate).

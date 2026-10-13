@@ -184,9 +184,10 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | Color tokens | `colors.tokens.read`, `colors.tokens.copy` |
 | Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.project` |
 | Lottie | `lottie.export`, `lottie.export.frame.png`, `lottie.export.source` |
-| OpenGraph | `opengraph.export.png` |
-| Terminal card | `terminal.export.png` |
-| Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png` |
+| OpenGraph | `opengraph.export.png`, `opengraph.export.svg` |
+| Terminal card | `terminal.export.png`, `terminal.export.svg`, `terminal.tab.add`, `terminal.tab.select`, `terminal.tab.update`, `terminal.tab.remove` |
+| Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png`, `slides.export.pdf`, `slides.slide.add`, `partnership.partner.add`, `partnership.lockup.update` |
+| All expression tools | `{tool}.document.describe`, `{tool}.layer.add`, `{tool}.layer.update`, `{tool}.layer.remove`, `{tool}.layer.duplicate`, `{tool}.layer.reorder`, `{tool}.layer.select`, `{tool}.layer.align`, `{tool}.format.set`, `{tool}.layout.apply`, `{tool}.template.reset`, `{tool}.history.undo`, `{tool}.history.redo` ([Expression tools](/docs/studio/templates)) |
 
 `animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
 
