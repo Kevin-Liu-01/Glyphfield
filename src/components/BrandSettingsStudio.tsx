@@ -38,14 +38,16 @@ import StudioToolHeader from '@/components/StudioToolHeader';
 import ThemeAwareBrandMark from '@/components/ThemeAwareBrandMark';
 import { Button } from '@/components/ui/Button';
 import { useCommittedRef } from '@/hooks/useCommittedRef';
-import { brandAgentSetupPrompt, brandSetupMode } from '@/lib/brandAgentSetup';
+import { brandAgentSetupPrompt, brandProjectUrl, brandSetupMode } from '@/lib/brandAgentSetup';
 import { applyBrandHealthFix, auditBrandHealth } from '@/lib/brandHealth';
 import {
   isEditedBuiltInIdentity,
+  renameBrandIdentity,
   restoreBuiltInBrandIdentity,
   type BrandAsset,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
+import { brandProjectHost, parseBrandProjectCreateInput, prepareBrandProject } from '@/lib/brandProjectHost';
 import {
   addBrandAssetFromFile,
   addBrandFontFromFile,
@@ -100,6 +102,21 @@ function waitForCommit(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
 
+/** Resolve once the new project's Brand identity workspace owns window.glyphfield.studio. */
+async function waitForActiveIdentityProject(id: string, timeoutMs = 15_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await waitForCommit();
+    try {
+      const studio = window.glyphfield?.studio;
+      if (studio?.activeTool() === 'identity' && (JSON.parse(studio.readSource()) as { id?: unknown }).id === id) return;
+    } catch {
+      // The new workspace is still mounting.
+    }
+  }
+  throw new Error(`Project ${id} was created but its Brand identity workspace did not open in time; read window.glyphfield.studio again.`);
+}
+
 function inputObject(input: unknown): Record<string, unknown> {
   return input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {};
 }
@@ -110,6 +127,7 @@ function studioOrigin(): string {
 
 type IdentityActionHost = {
   addAsset: (input: unknown) => Promise<unknown>;
+  createProject: (input: unknown) => Promise<unknown>;
   addFont: (input: unknown) => Promise<unknown>;
   apply: (input: unknown) => Promise<unknown>;
   current: () => BrandIdentity;
@@ -144,6 +162,7 @@ function invokeIdentityAction(action: string, input: unknown, host: IdentityActi
     case 'identity.fix': return host.fix(input);
     case 'identity.save': return host.save();
     case 'identity.export.kit': return host.exportKit(kitFormat(input), inputObject(input).download === true);
+    case 'identity.project.create': return host.createProject(input);
     case 'identity.setup.prompt': {
       const identity = host.current();
       const requested = inputObject(input).mode;
@@ -302,8 +321,23 @@ export default function BrandSettingsStudio({
     notify(error instanceof Error ? error.message : gt(fallback));
   }
 
+  async function createProject(input: unknown) {
+    const host = brandProjectHost();
+    if (!host) throw new Error('identity.project.create needs the Glyphfield Studio; open /studio.');
+    const parsed = parseBrandProjectCreateInput(input);
+    const identities = host.identities();
+    const prepared = prepareBrandProject(parsed, identities);
+    let created = prepared.source === 'project'
+      ? await host.duplicate(prepared.target, identities.map(({ name }) => name))
+      : prepared.identity;
+    if (prepared.source === 'project' && parsed.name) created = renameBrandIdentity(created, parsed.name);
+    host.activate(created);
+    await waitForActiveIdentityProject(created.id);
+    return { from: parsed.from, id: created.id, kind: created.kind, name: created.name, url: brandProjectUrl(created, studioOrigin()) };
+  }
+
   const automationRef = useCommittedRef<IdentityActionHost & { applySource: (source: string) => void }>({
-    addAsset, addFont, apply, applySource, current, exportJson, exportKit, fix, save,
+    addAsset, addFont, apply, applySource, createProject, current, exportJson, exportKit, fix, save,
   });
   useEffect(() => registerStudioAutomation({
     actions: studioToolActionNames('identity'),

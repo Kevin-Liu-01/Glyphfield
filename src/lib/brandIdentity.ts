@@ -769,16 +769,20 @@ function mergeBrandIdentity(
   });
 }
 
+/**
+ * The short form a new name gets: initials for several words (GT), the word
+ * itself for a one-word name up to eight letters (Kestrel), else its first three.
+ */
+export function shortNameFromName(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) return words.map((word) => word[0]).join('').slice(0, 3).toLocaleUpperCase();
+  const word = words[0] ?? '';
+  return word.length <= 8 ? word : word.slice(0, 3).toLocaleUpperCase();
+}
+
 export function createBrandIdentity(name: string, id = crypto.randomUUID()): BrandIdentity {
   const trimmedName = name.trim() || 'Untitled brand';
-  const shortName = trimmedName
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toLocaleUpperCase();
-
-  const resolvedShortName = shortName || 'BR';
+  const resolvedShortName = shortNameFromName(trimmedName) || 'BR';
 
   return {
     applications: STARTER_BRAND_IDENTITY.applications.map((item) => ({ ...item })),
@@ -984,12 +988,7 @@ export function nextBrandIdentityCopyName(
 export function renameBrandIdentity(identity: BrandIdentity, name: string): BrandIdentity {
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName === identity.name) return identity;
-  const shortName = trimmedName
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toLocaleUpperCase();
+  const shortName = shortNameFromName(trimmedName);
   return {
     ...identity,
     assets: hasGeneratedPixelAssets(identity)
