@@ -6,7 +6,7 @@ icon: Braces
 
 Studio source is the structured state behind the active artifact. It is available to people through **Code** and to agents through `window.glyphfield.studio.readSource()` and `applySource()`.
 
-The source adapter remains active while its Studio tool is active; the Code drawer does not need to be open. Brand book is the intentional exception because it is derived from Brand identity and reports no independent source boundary.
+The source adapter remains active while its Studio tool is active; the Code drawer does not need to be open. Brand book source holds only presentation edits (order, visibility, layout, surface, image, and copy); its content still derives from Brand identity.
 
 ## Rules shared by every tool
 
@@ -92,9 +92,9 @@ Runtime frames use durable local asset references, not ephemeral `blob:` URLs. P
 | Tool | Document boundary | Key constraints |
 | --- | --- | --- |
 | Brand identity | Complete `BrandIdentity` | Requires stable ID/name and valid asset, color, typography, strategy, and application collections |
-| Brand elements | Selected application override | Applies only to the selected element; the base identity remains shared |
-| Moodboard | Composition/export document | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to the supported range |
-| Brand book | Derived from the active identity | Edit the identity rather than creating book-only foundation data |
+| Brand elements | Selected application settings (`glyphfield.brand-element` version 2, with `elementId`) | Selects `elementId` and stores only values that differ from identity defaults; version 1 settings apply to the selected element |
+| Moodboard | Boards and tiles (`glyphfield.moodboard` version 2) | Composition is `showcase`, `campaign`, `system`, `specimen`, or `catalog`; tiles validate variant, span, tone, image, and copy; version 1 still applies |
+| Brand book | Sections and pages (`glyphfield.brand-book` version 1) | Section order and visibility, page visibility, layout, surface, image, and copy; foundations still belong in the identity |
 | Animation | Sequence, frames, timing, material, output, and audio clip state | Playback rate and frame references validate; GIF has no audio channel |
 | Lottie | Portable Lottie composition with raw JSON or authorized embedded `.lottie` archive | JSON animation data requires numeric `fr` and `layers[]`; binary `.lottie` remains an archive while playback, canvas, background, and trim settings stay editable |
 | Design Lab | CanvasDocument v2 with Design Lab source metadata v4 | Exact layers, transforms, assets, effects, sequences, saved frames, and export settings |

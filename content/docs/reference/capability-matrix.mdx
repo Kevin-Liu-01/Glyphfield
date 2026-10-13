@@ -9,9 +9,9 @@ icon: TableProperties
 | Capability | Authentic browser result | Editable source | Programmatic route |
 | --- | --- | --- | --- |
 | Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults | Complete `BrandIdentity` | `/api/identities`; identity object in generation requests; Browser API |
-| Brand elements | Application previews and JSON brief | Selected application override | `/api/elements`, `element-brief`, Browser API |
-| Moodboard | Application showcase or full system board; PNG | Composition and export state | Browser API |
-| Brand book | Navigable standards document; print/PDF workflow | None; derived from identity | `brand-book.print`; identity source is authoritative |
+| Brand elements | Application previews at real pixel size, in-place copy editing, and JSON brief | Selected application settings with `elementId` | `/api/elements`, `element-brief`, Browser API |
+| Moodboard | Showcase, campaign, system, specimen, and catalog boards with editable tiles; PNG and SVG | Boards, tiles, and export state | Browser API |
+| Brand book | Editable editorial standards document; print/PDF workflow | Section order and visibility, page layout, surface, image, and copy | `brand-book.print`, Browser API source |
 | Animation | Text/logo/image sequences, live materials, audio; GIF/MP4 | Frames, timing, material, output, audio clips | Browser API |
 | Lottie | Vector playback, recolor, trim, live background; PNG/JSON/`.lottie` | Raw Lottie JSON when available | Browser API |
 | Shader Library | Quality-sorted authentic materials shared by Design Lab and Animation | Stored in host documents by material ID and settings | `/api/materials`, Browser API |
@@ -52,10 +52,11 @@ icon: TableProperties
 | --- | --- | --- |
 | SVG | HTTP templates/backgrounds | Standalone, deterministic, best canonical server artifact |
 | PNG | Design Lab, Moodboard, Lottie frame, templates and expressions | Lossless still with transparency where supported |
+| SVG (moodboard) | Moodboard | Vector board with embedded brand fonts and images |
 | JPG | Design Lab | Smaller opaque still composited against the selected background |
 | GIF | Design Lab and Animation | Palette-controlled motion; raw or verified seamless closure; never audio |
 | MP4 | Design Lab and Animation | Higher-fidelity motion; Animation can mix timeline audio |
-| PDF | Brand book print/export flow | Snapshot of the current identity-derived book |
+| PDF | Brand book print/export flow | Snapshot of the visible pages of the edited book, 16 × 10 in per page |
 | JSON | Identity, briefs, source documents, Lottie | Preserve schema/version and authorized asset dependencies |
 | `.lottie` | Lottie | Original binary animation archive |
 
@@ -66,4 +67,4 @@ icon: TableProperties
 - Combine them when HTTP should author exact Design Lab source and the browser should render it.
 - Use human Studio controls when visual judgment is the task; the resulting source remains available to an agent afterward.
 
-Every navigable Studio tool publishes Browser API control automation scoped to its own active workspace. Every tool except Brand book publishes persistent read/apply source support; opening the Code drawer is not required. Direct artifact actions exist for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Blog, Partnership, and Slides, while `describe().capabilities.exports` identifies any output that remains a Browser control or deterministic HTTP result. Call `describe()` before operation. See [Choose an interface](/docs/agents/choose-interface) and [Studio Browser API](/docs/reference/browser-api).
+Every navigable Studio tool publishes Browser API control automation scoped to its own active workspace. Every tool publishes persistent read/apply source support; opening the Code drawer is not required. Direct artifact actions exist for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Blog, Partnership, and Slides, while `describe().capabilities.exports` identifies any output that remains a Browser control or deterministic HTTP result. Call `describe()` before operation. See [Choose an interface](/docs/agents/choose-interface) and [Studio Browser API](/docs/reference/browser-api).

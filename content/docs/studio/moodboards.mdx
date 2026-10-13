@@ -4,7 +4,15 @@ description: Generate a complete design board from foundations and polished appl
 icon: Images
 ---
 
-The Moodboard has two presentation modes. **Showcase** composes the identity as a 16:9 application collage with campaign, product, social, editorial, device, apparel, and outdoor mockups. **System** keeps the vertically structured 4:5 identity review with foundations, rules, and designed applications.
+The Moodboard composes the active identity as a presentation board of tiles on a 12-column grid. Every tile is built from the identity itself: its graphic device, logo files, type, palette, voice, products, proof, and library images.
+
+| Board | Ratio | Use |
+| --- | --- | --- |
+| **Showcase** | 16:9 | Key visual, poster series, type, colour, imagery, social series, voice, and business cards |
+| **Campaign** | 16:9 | The identity in market: key visual, billboard, posters, social, email, event badge, website, and proof |
+| **System** | 4:5 | Logo, concept, type scale, colour proportion, device construction, imagery, voice, motion, proof, and applications |
+| **Specimen** | 4:5 | Display face, pairing, type scale, character set, voice in type, colour proportion, contrast pairs, and tonal ramps |
+| **Catalog** | 2:3 | Every tile plus every eligible source asset and every generated application |
 
 <DocsMedia
   alt='General Translation moodboard with identity foundations and application examples'
@@ -13,29 +21,31 @@ The Moodboard has two presentation modes. **Showcase** composes the identity as 
   src='/screenshots/studio-gt-moodboard-dark-2026.png'
 />
 
-## Included sections
+## Edit tiles
 
-- Identity thesis and strategic challenge
-- Central concept, promise, and brand pillars
-- Logo architecture and reversal behavior
-- Semantic color system with HEX and OKLCH
-- Display, body, accent, and code typography
-- Recognizable graphic device with rules and composition grammar
-- Product, campaign, developer, editorial, social, event, and physical applications
+Select a tile on the board or in the **Tiles** list.
 
-Both boards use the active identity’s real logo files, type families, colors, positioning, strategy, graphic system, voice, and named applications. Their layouts are generated from the identity rather than a General Translation-specific collage.
+- **Reorder** by dragging a tile onto another tile, or with the arrow buttons in the list.
+- **Show or hide** a tile with its eye button. Remaining tiles reflow to fill the board.
+- **Layout** switches the tile's variant, for example a key visual led by the device, an image, or type alone.
+- **Size** sets the tile's width in grid columns (3, 4, 6, 8, or 12). Rows always fill the full width.
+- **Surface** picks the tile's colour role: paper, muted, ink, deep, or accent. Text colour follows for contrast.
+- **Image** swaps the library image on image-led tiles, or returns to the graphic device.
+- **Headline**, **Body**, and **Caption** edit the copy. With a tile selected, click its text on the board to edit it in place.
+
+The **Board** section sets the board style, its title, and a light or dark board surface. **Reset board** and **Reset tile** return to the identity defaults. Edits are saved per project and board, and appear in every export.
 
 ## Export sizes
 
-| Preset | Showcase | System |
-| --- | --- | --- |
-| Standard | 1600 × 900 | 1600 × 2000 |
-| Retina | 2400 × 1350 | 2400 × 3000 |
-| High resolution | 3200 × 1800 | 3200 × 4000 |
-| Ultra | 4800 × 2700 | 4800 × 6000 |
-| Custom | 800–4800 px wide at 16:9 | 800–4800 px wide at 4:5 |
+| Preset | 16:9 boards | 4:5 boards | Catalog |
+| --- | --- | --- | --- |
+| Standard | 1600 × 900 | 1600 × 2000 | 1600 × 2400 |
+| Retina | 2400 × 1350 | 2400 × 3000 | 2400 × 3600 |
+| High resolution | 3200 × 1800 | 3200 × 4000 | 3200 × 4800 |
+| Ultra | 4800 × 2700 | 4800 × 6000 | 4800 × 7200 |
+| Custom | 800–4800 px wide | 800–4800 px wide | 800–4800 px wide |
 
-The PNG renderer embeds bundled fonts before rasterizing, which keeps the output visually consistent with the preview.
+PNG export rasterises at up to twice the layout size, capped at 4800 px on the long edge; the Export section shows the exact pixel size before you export. **File → Export SVG** packages the same board as a vector SVG. Both formats embed every brand font file and library image, so the output matches the preview.
 
 ## Identity JSON
 
@@ -51,16 +61,35 @@ Use **Identity JSON** to download the complete active `BrandIdentity`. The file 
 
 ## Edit board configuration as source
 
-Select **File → Edit source code** to edit the current board configuration without replacing the preview. The source document contains:
+Select **File → Edit source code** to edit the boards without replacing the preview. Version 2 source lists every board and its tiles:
 
 ```json
 {
+  "schema": "glyphfield.moodboard",
+  "version": 2,
   "composition": "showcase",
   "exportPresetId": "retina",
-  "customWidth": 2400
+  "customWidth": 2400,
+  "boards": {
+    "showcase": {
+      "title": "Brand showcase",
+      "surface": "light",
+      "tiles": [
+        { "id": "cover", "kind": "cover", "hidden": false, "variant": "device", "span": 8, "tone": "deep", "assetId": "", "copy": { "headline": "Financial infrastructure for the internet.", "body": "…", "caption": "stripe.com" } }
+      ]
+    }
+  }
 }
 ```
 
-`composition` accepts `showcase`, `system`, or `catalog`. `exportPresetId` must match an available output preset, and `customWidth` is clamped to 800–4800 pixels. Applying a valid object updates the same board controls used by preview and PNG export.
+- `composition` accepts `showcase`, `campaign`, `system`, `specimen`, or `catalog`.
+- Tile order is the order of `tiles`. A partial list moves the listed tiles first; omitted tiles keep their settings.
+- `variant` must be one of the tile's `variants`; `span` is 3, 4, 6, 8, or 12; `tone` is `paper`, `muted`, `ink`, `deep`, or `accent`; `assetId` must be an eligible library image or empty for the graphic device.
+- Copy fields hold up to 600 characters. Values equal to the identity defaults are not stored, so untouched copy keeps following later identity edits.
+- Version 1 documents (`composition`, `exportPresetId`, `customWidth` only) still apply and keep the current tile edits.
 
-Board source configures presentation and output only. Identity content, assets, fonts, and art direction continue to come from Brand identity. See [Source code editing](/docs/studio/source-editing) for the shared Apply and Reset behavior.
+Board source configures presentation only. Identity content, assets, fonts, and art direction continue to come from Brand identity. See [Source code editing](/docs/studio/source-editing) for the shared Apply and Reset behavior.
+
+## Browser API
+
+`moodboard.export.png` returns the PNG, `moodboard.export.svg` the standalone SVG, and `moodboard.export.identity` the identity JSON. Each tile on the board is a control labelled `Select <tile> tile`; list controls are labelled `Hide <tile> tile <id>`, `Move <tile> tile <id> earlier`, and `Move <tile> tile <id> later`.
