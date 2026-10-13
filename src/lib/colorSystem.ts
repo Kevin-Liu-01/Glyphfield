@@ -150,9 +150,6 @@ export function parseColorRef(ref: string): ColorRef | null {
   return (COLOR_SCALE_STEPS as readonly number[]).includes(step) ? { id: match[1]!, step: step as ColorScaleStep } : null;
 }
 
-export function formatColorRef({ id, step }: ColorRef): string {
-  return step === undefined ? id : `${id}.${step}`;
-}
 
 type ScaleCache = Map<string, readonly ColorScaleSwatch[]>;
 
@@ -252,7 +249,7 @@ export function contrastMatrix(colors: readonly Pick<BrandColor, 'hex' | 'id'>[]
 
 // ── Pairings ────────────────────────────────────────────────────────────────
 
-export function pairingLevelForRatio(ratio: number): BrandColorPairing['level'] | null {
+function pairingLevelForRatio(ratio: number): BrandColorPairing['level'] | null {
   if (ratio >= 4.5) return 'AA';
   if (ratio >= 3) return 'AA-large';
   return null;
@@ -722,15 +719,7 @@ export function removePaletteColor(identity: BrandIdentity, id: string): BrandId
   };
 }
 
-/** Replace the colorSystem field, removing it when empty. */
-export function withColorSystem(identity: BrandIdentity, colorSystem: BrandColorSystem | undefined): BrandIdentity {
-  const { colorSystem: _previous, ...rest } = identity;
-  return colorSystem ? { ...rest, colorSystem } : rest;
-}
 
-export function safeHex(value: unknown, fallback = '#000000'): string {
-  return normalizeHexOrFallback(value, fallback);
-}
 
 export function isHex(value: unknown): value is string {
   if (typeof value !== 'string') return false;

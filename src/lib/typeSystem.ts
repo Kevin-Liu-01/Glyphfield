@@ -156,10 +156,6 @@ export function usedFontFiles(identity: BrandIdentity): BrandFontAsset[] {
   return roleFonts(identity).flatMap(({ files }) => files).filter((font) => (seen.has(font.id) ? false : (seen.add(font.id), true)));
 }
 
-/** True when a family has an italic file the browser can use for real italics. */
-export function familyHasItalic(identity: BrandIdentity, family: string): boolean {
-  return brandFontAssets(identity).some((font) => font.family === family && font.style === 'italic');
-}
 
 // ── Source ──────────────────────────────────────────────────────────────────
 

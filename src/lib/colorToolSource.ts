@@ -194,7 +194,7 @@ export const COLOR_TOKEN_FORMATS = [
 
 export type ColorTokenFormat = (typeof COLOR_TOKEN_FORMATS)[number]['id'];
 
-export const COLOR_TOKEN_SECTIONS: readonly BrandTokenSection[] = ['color', 'scale', 'semantic'];
+const COLOR_TOKEN_SECTIONS: readonly BrandTokenSection[] = ['color', 'scale', 'semantic'];
 
 export function isColorTokenFormat(value: unknown): value is ColorTokenFormat {
   return COLOR_TOKEN_FORMATS.some(({ id }) => id === value);

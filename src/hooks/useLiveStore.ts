@@ -74,10 +74,3 @@ export function useLiveValue<T, S>(store: LiveStore<T>, selector: (value: T) => 
   };
   return useSyncExternalStore(store.subscribe, read, read);
 }
-
-export function shallowEqual<T extends Record<string, unknown>>(first: T, second: T): boolean {
-  if (Object.is(first, second)) return true;
-  const firstKeys = Object.keys(first);
-  if (firstKeys.length !== Object.keys(second).length) return false;
-  return firstKeys.every((key) => Object.is(first[key], second[key]));
-}

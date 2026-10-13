@@ -3,7 +3,6 @@ import type { CSSProperties } from 'react';
 import {
   brandTypographyFamily,
   brandTypographyRole,
-  type BrandColor,
   type BrandIdentity,
   type BrandTypography,
 } from '@/lib/brandIdentity';
@@ -388,7 +387,7 @@ export function componentSource(settings: ComponentLibrarySettings): Record<stri
 }
 
 /** Version 1 stored one draft per field; these are their field names. */
-export const LEGACY_COMPONENT_DRAFT_FIELDS = {
+const LEGACY_COMPONENT_DRAFT_FIELDS = {
   asset: ['asset-id', 'asset-opacity'],
   borderWidth: 'border-width',
   colors: {
@@ -661,14 +660,4 @@ export function componentContent(identity: BrandIdentity): ComponentContent {
     values: pad(identity.values.filter(Boolean), 3, identity.strategy.pillars),
     writeExamples: identity.voice.examples?.map(({ write }) => write).filter(Boolean) ?? [],
   };
-}
-
-/** Palette colors that read as text on the surface, for chart series. */
-export function componentChartColors(identity: BrandIdentity, colors: ComponentRoleColors): string[] {
-  const used = new Set([colors.background.toLocaleUpperCase()]);
-  const candidates = [colors.primary, colors.positive, colors.caution, colors['foreground-muted'], ...identity.colors.map((color: BrandColor) => color.hex)];
-  return candidates
-    .map((hex) => normalizeHexOrFallback(hex))
-    .filter((hex) => (used.has(hex) ? false : (used.add(hex), true)))
-    .slice(0, 4);
 }

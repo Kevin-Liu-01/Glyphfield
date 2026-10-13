@@ -796,7 +796,7 @@ const CONVERTERS: readonly Converter[] = [
 ];
 
 /** One CSS declaration as Tailwind CSS v4 utilities (usually one); unknown ones become arbitrary properties. */
-export function tailwindUtilities(property: string, value: string, context: MarkupContext): string[] {
+function tailwindUtilities(property: string, value: string, context: MarkupContext): string[] {
   let cached: ResolvedValue | null = null;
   const declaration: Declaration = { context, property, resolved: () => (cached ??= resolveToken(value, context)), value };
   for (const convert of CONVERTERS) {

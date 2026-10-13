@@ -84,7 +84,7 @@ function reactProps(node: Exclude<UiNode, string | null | false | undefined>, ke
   return props;
 }
 
-export function renderUiNode(node: UiNode, key = 0): ReactNode {
+function renderUiNode(node: UiNode, key = 0): ReactNode {
   if (typeof node === 'string') return node;
   if (!isElement(node)) return null;
   const children = (node.children ?? []).map((child, index) => renderUiNode(child, index));
@@ -99,7 +99,7 @@ export function renderUiNode(node: UiNode, key = 0): ReactNode {
 const WIDE_PATTERNS = new Set<ComponentPatternId>(['cards', 'charts', 'checkout', 'command-menu', 'dialogs', 'inbox', 'navigation', 'sheets', 'sidebars', 'stats', 'tables']);
 
 /** Panes need room for overlays that are positioned inside them. */
-export const PANE_MIN_HEIGHT: Partial<Record<ComponentPatternId, number>> = {
+const PANE_MIN_HEIGHT: Partial<Record<ComponentPatternId, number>> = {
   'command-menu': 320,
   dialogs: 380,
   popovers: 300,
@@ -151,7 +151,7 @@ function usePaneVariables(ref: RefObject<HTMLDivElement | null>, identity: Brand
   }, [identity, mode, ref, store]);
 }
 
-export const ComponentPane = memo(function ComponentPane({ assetPath, content, demo, identity, mode, onDemo, pattern, settingsStore, states, textSettings }: PaneProps) {
+const ComponentPane = memo(function ComponentPane({ assetPath, content, demo, identity, mode, onDemo, pattern, settingsStore, states, textSettings }: PaneProps) {
   const gt = useGT();
   const ref = useRef<HTMLDivElement>(null);
   usePaneVariables(ref, identity, settingsStore, mode);
