@@ -235,6 +235,17 @@ describe('Studio interaction performance contracts', () => {
     expect(designLab).toContain('return immutableJsonSignature(signatureSnapshotView(snapshot));');
   });
 
+  it('stops the Surface Lab effect loop while offscreen or hidden', () => {
+    const source = readSource('src/components/SurfaceLabStudio.tsx');
+    const tick = source.slice(source.indexOf('const tick = (now: number) => {'), source.indexOf('scheduleFrame();\n    return () => {'));
+
+    expect(source).toContain('if (cancelled || frameScheduled || !inViewport || document.hidden) return;');
+    expect(source).toContain("document.addEventListener('visibilitychange', scheduleFrame);");
+    expect(source).toContain("document.removeEventListener('visibilitychange', scheduleFrame);");
+    expect(tick).toContain('if (cancelled || !inViewport || document.hidden) return;');
+    expect(tick).not.toContain('requestAnimationFrame(tick)');
+  });
+
   it('keeps the typing pace clock out of the Typography tool render', () => {
     const source = readSource('src/components/StudioToolWorkspace.tsx');
     const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));

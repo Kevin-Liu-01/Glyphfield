@@ -1500,14 +1500,27 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
       renderSamples: 0,
       targetFrameRate: 60,
     };
+    let frameScheduled = false;
+    // Offscreen or in a hidden tab the loop stops instead of spinning empty frames;
+    // the observer and visibilitychange start it again.
+    const scheduleFrame = () => {
+      if (cancelled || frameScheduled || !inViewport || document.hidden) return;
+      frameScheduled = true;
+      animationFrame = requestAnimationFrame(tick);
+    };
     const observer = typeof IntersectionObserver === 'undefined'
       ? null
-      : new IntersectionObserver(([entry]) => { inViewport = entry?.isIntersecting ?? true; }, { rootMargin: '120px' });
+      : new IntersectionObserver(([entry]) => {
+        inViewport = entry?.isIntersecting ?? true;
+        scheduleFrame();
+      }, { rootMargin: '120px' });
     observer?.observe(visibleCanvas);
+    document.addEventListener('visibilitychange', scheduleFrame);
 
     const tick = (now: number) => {
-      if (cancelled) return;
-      if (inViewport && !document.hidden && now - previewPerformance.lastRenderedAt >= 1000 / previewPerformance.targetFrameRate) {
+      frameScheduled = false;
+      if (cancelled || !inViewport || document.hidden) return;
+      if (now - previewPerformance.lastRenderedAt >= 1000 / previewPerformance.targetFrameRate) {
         const buffer = effectBufferRef.current ?? document.createElement('canvas');
         effectBufferRef.current = buffer;
         previewPerformance.renderDurationTotal += renderSurfaceEffectPreviewFrame({
@@ -1521,12 +1534,13 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
         tuneEffectPreviewPerformance(previewPerformance, settings.width);
         previewPerformance.lastRenderedAt = now;
       }
-      animationFrame = requestAnimationFrame(tick);
+      scheduleFrame();
     };
-    animationFrame = requestAnimationFrame(tick);
+    scheduleFrame();
     return () => {
       cancelled = true;
       observer?.disconnect();
+      document.removeEventListener('visibilitychange', scheduleFrame);
       cancelAnimationFrame(animationFrame);
     };
   }, [active, aspectRatio, hasVisibleEffects, renderEffectFrameRef, settings.width]);
