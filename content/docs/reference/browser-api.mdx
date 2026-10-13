@@ -182,13 +182,13 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | Moodboard | `moodboard.export.png`, `moodboard.export.identity` |
 | Brand book | `brand-book.print` |
 | Color tokens | `colors.tokens.read`, `colors.tokens.copy` |
-| Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.project` |
-| Lottie | `lottie.export`, `lottie.export.frame.png`, `lottie.export.source` |
+| Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.png`, `animation.export.project`, `animation.describe`, `animation.seek`, `animation.scene.update`, `animation.keyframe.set`, `animation.keyframe.remove`, `animation.motion.preset`, `animation.starter.apply` |
+| Lottie | `lottie.export`, `lottie.export.frame.png`, `lottie.export.gif`, `lottie.export.mp4`, `lottie.export.source`, `lottie.describe`, `lottie.edit`, `lottie.colors.brand`, `lottie.segment.set` |
 | OpenGraph | `opengraph.export.png` |
 | Terminal card | `terminal.export.png` |
 | Blog, Partnership, Slides | `blog.export.png`, `partnership.export.png`, `slides.export.png` |
 
-`animation.export` accepts `{ format: 'gif' | 'mp4', download?: boolean }`. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `lottie.export` accepts `{ format: 'png' | 'source', download?: boolean }`; source means edited JSON or the active `.lottie` archive. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
+`animation.export` accepts `{ format: 'gif' | 'mp4' | 'png', download?: boolean }`; png is the full-size poster frame at the playhead. MP4 uses the same timeline audio mix as the visible export flow; GIF remains silent. `animation.describe` returns every scene's ID, start, hold, outgoing transition, keyframes, and text entrance; the scene, keyframe, preset, seek, and starter actions return that same description after their edit commits. `lottie.export` accepts `{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }`; source means edited JSON or the active `.lottie` archive. `lottie.describe` lists layer keys, text layers, colours, and markers for `lottie.edit` and `lottie.segment.set`. Format-specific actions return without downloading so the caller can verify first. `colors.tokens.read` returns CSS without touching the clipboard; use `colors.tokens.copy` only when clipboard mutation is intended.
 
 Every other visible feature remains reachable through workspace-scoped `controls()`, `activate()`, and `set()`. Tool capability records distinguish a direct Browser action, an interactive Browser control, and deterministic HTTP generation so an agent does not mistake a clickable flow for a returned value.
 
