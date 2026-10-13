@@ -548,7 +548,7 @@ void main() {
 vec3 chromaField(vec2 p, float time) {
   vec2 q = warp(p * 0.5, time, 0.7 + u_strength * 1.3, 3);
   float band = 0.5 + 0.5 * sin(q.y * (1.4 + u_detail * 0.2) + q.x * 0.9 + time * 1.2);
-  return ramp(smoothstep(0.05, 0.95, band));
+  return ramp(pow(smoothstep(0.05, 0.95, band), 1.6) * 0.85);
 }
 
 void main() {
@@ -607,7 +607,7 @@ void main() {
   float time = u_time * 0.2;
   float swirl = fbm(vec3(p * (0.6 + u_detail * 0.1), time), 4);
   float tone = 0.5 + 0.5 * sin((p.x + p.y + swirl * (1.5 + u_strength * 3.0)) * (0.6 + u_frequency * 0.15) + time * 2.0);
-  vec3 glass = ramp(smoothstep(0.08, 0.92, tone));
+  vec3 glass = ramp(pow(smoothstep(0.08, 0.92, tone), 1.5) * 0.88);
 
   vec2 edge = abs(local - 0.5);
   float pixelWidth = fwidth(reference.x);
@@ -674,7 +674,7 @@ void main() {
 vec3 glareEnvironment(vec3 direction, vec2 p, float time) {
   float y = direction.y + p.y * 0.22;
   float x = direction.x;
-  vec3 environment = mix(mix(vec3(0.004), u_color_a, 0.3), mix(vec3(0.5), u_color_b, 0.3), smoothstep(-0.7, 0.8, y));
+  vec3 environment = mix(mix(vec3(0.002), u_color_a, 0.3), mix(vec3(0.22), u_color_b, 0.35), smoothstep(-0.7, 0.8, y));
   float sweep = sin(time * 0.6) * 0.35;
   float cardA = exp(-pow((y - 0.32 - sweep) / 0.06, 2.0));
   float cardB = exp(-pow((y + 0.2 - sweep * 0.6) / 0.035, 2.0));
@@ -682,8 +682,9 @@ vec3 glareEnvironment(vec3 direction, vec2 p, float time) {
   float glare = exp(-pow((x + y * 0.4 - 0.3 + sweep) / 0.08, 2.0));
   float dark = exp(-pow((y - 0.05) / 0.1, 2.0));
   environment *= 1.0 - dark * 0.85;
-  environment += (cardA * 2.6 + cardB * 2.2 + cardC) * mix(vec3(1.0), u_color_c, 0.18);
-  environment += glare * mix(vec3(1.0), u_color_c, 0.35) * 1.8;
+  float cardD = exp(-pow((x * 0.8 - y * 0.3 + 0.45 - sweep * 0.5) / 0.03, 2.0));
+  environment += (cardA * 3.0 + cardB * 2.6 + cardC + cardD * 2.2) * mix(vec3(1.0), u_color_c, 0.18);
+  environment += glare * mix(vec3(1.0), u_color_b, 0.35) * 2.2;
   return environment;
 }
 
