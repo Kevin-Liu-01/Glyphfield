@@ -91,7 +91,7 @@ Runtime frames use durable local asset references, not ephemeral `blob:` URLs. P
 
 | Tool | Document boundary | Key constraints |
 | --- | --- | --- |
-| Brand identity | Complete `BrandIdentity` | Requires stable ID/name and valid asset, color, typography, strategy, and application collections |
+| Brand identity | Complete `BrandIdentity` | Validated against the BrandIdentity JSON Schema (`GET /api/brand/validate`); keeps the project `id`, `kind` and `revision` and unknown fields; asset and font paths must be `data:` URLs or origin paths. Agents merge targeted patches with `identity.apply` |
 | Brand elements | Selected application override | Applies only to the selected element; the base identity remains shared |
 | Moodboard | Composition/export document | Composition is `showcase`, `system`, or `catalog`; custom width is clamped to the supported range |
 | Brand book | Derived from the active identity | Edit the identity rather than creating book-only foundation data |

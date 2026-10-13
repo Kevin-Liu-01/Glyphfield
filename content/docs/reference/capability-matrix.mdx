@@ -8,7 +8,7 @@ icon: TableProperties
 
 | Capability | Authentic browser result | Editable source | Programmatic route |
 | --- | --- | --- | --- |
-| Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults | Complete `BrandIdentity` | `/api/identities`; identity object in generation requests; Browser API |
+| Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults; agent setup, health audit, brand kit | Complete `BrandIdentity` (JSON Schema at `/api/brand/validate`) | `/api/identities`; `/api/brand/validate`; `/api/brand/kit`; identity object in generation requests; Browser API `identity.*` actions |
 | Brand elements | Application previews and JSON brief | Selected application override | `/api/elements`, `element-brief`, Browser API |
 | Moodboard | Application showcase or full system board; PNG | Composition and export state | Browser API |
 | Brand book | Navigable standards document; print/PDF workflow | None; derived from identity | `brand-book.print`; identity source is authoritative |

@@ -296,7 +296,7 @@
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-rows: auto 1fr auto;
   column-gap: 16px;
-  min-height: clamp(320px, 34cqi, 420px);
+  min-height: clamp(340px, 36cqi, 440px);
   padding: clamp(24px, 3.2cqi, 40px);
   overflow: hidden;
   border: 1px solid hsl(var(--border));
@@ -313,15 +313,17 @@
 }
 
 .coverMeta {
-  grid-column: 1 / -1;
+  grid-column: 1 / span 8;
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
   line-height: 16px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .coverMetaItem + .coverMetaItem::before {
@@ -332,32 +334,32 @@
 
 .coverMark {
   position: relative;
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
 }
 
 .coverName {
-  grid-column: 1 / span 10;
+  grid-column: 1 / span 8;
   align-self: end;
   margin: 32px 0 0;
   overflow-wrap: anywhere;
-  font-size: clamp(48px, 8.4cqi, 112px);
+  font-size: clamp(44px, 6.6cqi, 96px);
   line-height: 0.92;
   text-wrap: balance;
 }
 
 .coverFoot {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: subgrid;
-  align-items: end;
+  grid-column: 1 / span 8;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid color-mix(in srgb, var(--cover-ink) 18%, transparent);
 }
 
 .coverTagline {
-  grid-column: 1 / span 6;
   margin: 0;
   font-size: clamp(20px, 2.2cqi, 28px);
   letter-spacing: -0.01em;
@@ -366,22 +368,47 @@
 }
 
 .coverPositioning {
-  grid-column: 8 / -1;
+  max-width: 60ch;
   margin: 0;
   font-size: 13px;
   line-height: 20px;
   opacity: 0.78;
 }
 
+/* The device bleeds to the cover's top, right and bottom edges. */
+.coverVisual {
+  grid-column: 9 / -1;
+  grid-row: 1 / -1;
+  margin: calc(-1 * clamp(24px, 3.2cqi, 40px)) calc(-1 * clamp(24px, 3.2cqi, 40px)) calc(-1 * clamp(24px, 3.2cqi, 40px)) 0;
+  overflow: hidden;
+  border-left: 1px solid color-mix(in srgb, var(--cover-ink) 14%, transparent);
+}
+
+.coverVisual img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverPalette {
+  display: flex;
+}
+
+.coverPalette > span {
+  flex-basis: 0;
+  min-width: 4px;
+}
+
 @container brand-identity (max-width: 720px) {
+  .coverMeta,
   .coverName,
-  .coverTagline,
-  .coverPositioning {
+  .coverFoot {
     grid-column: 1 / -1;
   }
 
-  .coverPositioning {
-    margin-top: 12px;
+  .coverVisual {
+    display: none;
   }
 }
 

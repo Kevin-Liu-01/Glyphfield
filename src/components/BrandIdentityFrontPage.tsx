@@ -67,10 +67,36 @@ function isDark(hex: string): boolean {
   }
 }
 
+/** The brand's own graphic device: its identity field, or another background it owns. */
+function coverVisual(identity: BrandIdentity) {
+  return identity.assets.find(({ id }) => id === 'identity-field')
+    ?? identity.assets.find(({ type }) => type === 'background' || type === 'texture');
+}
+
+function CoverVisual({ identity }: { identity: BrandIdentity }) {
+  const visual = coverVisual(identity);
+  if (visual) {
+    return (
+      <figure className={styles.coverVisual}>
+        <img alt={visual.alt ?? visual.label} src={visual.path} />
+      </figure>
+    );
+  }
+  // Without a device file the palette, in proportion, stands in for it.
+  return (
+    <figure aria-hidden='true' className={`${styles.coverVisual} ${styles.coverPalette}`}>
+      {identity.colors.map((color) => <span key={color.id} style={{ background: color.hex, flexGrow: Math.max(color.proportion ?? 1, 0.5) }} />)}
+    </figure>
+  );
+}
+
 function BrandCover({ identity }: { identity: BrandIdentity }) {
   const gt = useGT();
-  const paper = colorOf(identity, 'paper', '#FFFFFF');
-  const ink = readableOn(paper, colorOf(identity, 'ink', '#111111'));
+  // The cover takes the brand's dominant field: dark-first brands get an ink cover.
+  const share = (id: string) => identity.colors.find((color) => color.id === id)?.proportion ?? 0;
+  const darkFirst = share('ink') > share('paper');
+  const paper = colorOf(identity, darkFirst ? 'ink' : 'paper', darkFirst ? '#111111' : '#FFFFFF');
+  const ink = readableOn(paper, colorOf(identity, darkFirst ? 'paper' : 'ink', darkFirst ? '#FFFFFF' : '#111111'));
   const accent = colorOf(identity, 'emphasis', ink);
   const display = brandTypographyRole(identity, 'Display');
   const body = brandTypographyRole(identity, 'Body');
@@ -87,7 +113,6 @@ function BrandCover({ identity }: { identity: BrandIdentity }) {
         <ThemeAwareBrandMark className={styles.coverMark} identity={identity} surface={isDark(paper) ? 'dark' : 'light'} />
         <span className={styles.coverMetaItem}>{kind}</span>
         {identity.website ? <span className={styles.coverMetaItem}>{identity.website.replace(/^https?:\/\//, '')}</span> : null}
-        {identity.socialHandle ? <span className={styles.coverMetaItem}>{identity.socialHandle}</span> : null}
       </div>
       <h1
         className={styles.coverName}
@@ -103,6 +128,7 @@ function BrandCover({ identity }: { identity: BrandIdentity }) {
         <p className={styles.coverTagline} style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight }}>{identity.tagline}</p>
         <p className={styles.coverPositioning} style={{ fontFamily: brandTypographyFamily(identity, 'Body'), fontWeight: body.weight }}>{identity.positioning}</p>
       </div>
+      <CoverVisual identity={identity} />
     </section>
   );
 }
