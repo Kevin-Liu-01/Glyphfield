@@ -310,7 +310,11 @@ function deviceBackground(context: DeviceContext, dark: string, light: string): 
   return `<rect width="${round(context.w)}" height="${round(context.h)}" fill="${context.tone === 'dark' ? dark : light}"/>`;
 }
 
-/** General Translation: one quiet monochrome light field with fine dither. */
+/**
+ * General Translation: one quiet monochrome light field with fine dither. The
+ * dither is a uniform low-opacity texture rather than a masked one, which keeps
+ * large fields cheap to paint.
+ */
 function lightFieldDevice(context: DeviceContext): string {
   const { h, id, tone, w } = context;
   const dark = tone === 'dark';
@@ -318,7 +322,8 @@ function lightFieldDevice(context: DeviceContext): string {
     ? '<stop stop-color="#F7F7F7"/><stop offset=".14" stop-color="#BDBDBD"/><stop offset=".38" stop-color="#575757"/><stop offset=".66" stop-color="#171717"/><stop offset="1" stop-color="#050505"/>'
     : '<stop stop-color="#0B0B0B"/><stop offset=".12" stop-color="#5C5C5C"/><stop offset=".36" stop-color="#BDBDBD"/><stop offset=".64" stop-color="#F0F0F0"/><stop offset="1" stop-color="#FFFFFF"/>';
   const dot = Math.max(3, Math.round(Math.min(w, h) / 150));
-  return `<defs><radialGradient id="${id('field')}" cx="${w * 0.84}" cy="${h * 0.9}" r="${Math.max(w, h) * 0.86}" gradientUnits="userSpaceOnUse">${stops}</radialGradient><pattern id="${id('dither')}" width="${dot * 2}" height="${dot * 2}" patternUnits="userSpaceOnUse"><circle cx="${dot / 2}" cy="${dot / 2}" r="${round(dot * 0.22)}" fill="${dark ? '#FFFFFF' : '#000000'}" fill-opacity=".22"/><circle cx="${dot * 1.5}" cy="${dot * 1.5}" r="${round(dot * 0.14)}" fill="${dark ? '#FFFFFF' : '#000000'}" fill-opacity=".14"/></pattern><radialGradient id="${id('ditherMask')}" cx="${w * 0.84}" cy="${h * 0.9}" r="${Math.max(w, h) * 0.7}" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF" stop-opacity="0"/><stop offset=".3" stop-color="#FFF"/><stop offset=".7" stop-color="#FFF" stop-opacity=".35"/><stop offset="1" stop-color="#FFF" stop-opacity="0"/></radialGradient><mask id="${id('mask')}"><rect width="${w}" height="${h}" fill="url(#${id('ditherMask')})"/></mask></defs>${deviceBackground(context, '#050505', '#FFFFFF')}<rect width="${w}" height="${h}" fill="url(#${id('field')})"/><rect width="${w}" height="${h}" fill="url(#${id('dither')})" mask="url(#${id('mask')})"/>`;
+  const ink = dark ? '#FFFFFF' : '#000000';
+  return `<defs><radialGradient id="${id('field')}" cx="${w * 0.84}" cy="${h * 0.9}" r="${Math.max(w, h) * 0.86}" gradientUnits="userSpaceOnUse">${stops}</radialGradient><pattern id="${id('dither')}" width="${dot * 2}" height="${dot * 2}" patternUnits="userSpaceOnUse"><circle cx="${dot / 2}" cy="${dot / 2}" r="${round(dot * 0.22)}" fill="${ink}" fill-opacity=".1"/><circle cx="${dot * 1.5}" cy="${dot * 1.5}" r="${round(dot * 0.14)}" fill="${ink}" fill-opacity=".07"/></pattern></defs>${deviceBackground(context, '#050505', '#FFFFFF')}<rect width="${w}" height="${h}" fill="url(#${id('field')})"/><rect width="${w}" height="${h}" fill="url(#${id('dither')})"/>`;
 }
 
 /** Starter: one signal window anchored to an edge with quiet corner marks. */

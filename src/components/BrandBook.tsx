@@ -16,13 +16,16 @@ import {
 } from '@/components/ui/SolidIcons';
 import { T, useGT } from 'gt-next';
 import {
+  memo,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
 } from 'react';
+import { flushSync } from 'react-dom';
 
 import { brandTypographyFamily, brandTypographyRole, type BrandIdentity } from '@/lib/brandIdentity';
 import {
@@ -116,6 +119,9 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
   const [currentPageId, setCurrentPageId] = useState<string>('cover');
   const [thumbnailWidth, setThumbnailWidth] = useState(272);
   const [sourceOpen, setSourceOpen] = useState(false);
+  // Overview rows far from the viewport render placeholders; printing renders every page.
+  const [printing, setPrinting] = useState(false);
+  const canvasRef = useRef<HTMLElement>(null);
   const [storedOverrides, setStoredOverrides] = useStudioDraft<BookOverrides>(identity.id, tool.id, 'book', {});
   const overrides = useMemo(() => sanitizeBookOverrides(identity, storedOverrides), [identity, storedOverrides]);
   const sections = useMemo(() => resolveBook(identity, overrides), [identity, overrides]);
@@ -144,6 +150,16 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
   const onCopyRef = useCommittedRef(onCopy);
   const stableOnCopy = useMemo(() => (pageId: string, slot: string, value: string) => onCopyRef.current(pageId, slot, value), [onCopyRef]);
 
+  const overviewBase = useMemo(() => ({
+    editable: false,
+    folios,
+    identity,
+    onCopy: stableOnCopy,
+    palette,
+    scope,
+    sections,
+  }), [folios, identity, palette, scope, sections, stableOnCopy]);
+
   function pageContext(entry: ReaderEntry, editable: boolean): BookPageContext {
     return {
       editable,
@@ -171,10 +187,10 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [currentIndex, mode, readerPages]);
 
-  function openPage(pageId: string) {
+  const openPage = useMemo(() => (pageId: string) => {
     setCurrentPageId(pageId);
     setMode('reader');
-  }
+  }, []);
 
   function jumpToSection(sectionId: string) {
     const section = sections.find(({ id }) => id === sectionId);
@@ -187,12 +203,32 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
 
   function printBook() {
     const previousMode = mode;
-    setMode('overview');
+    flushSync(() => {
+      setPrinting(true);
+      setMode('overview');
+    });
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       window.print();
+      setPrinting(false);
       setMode(previousMode);
     }));
   }
+
+  useEffect(() => {
+    // Browser print (Cmd+P) and print emulation also need every page rendered.
+    const query = window.matchMedia('print');
+    const start = () => flushSync(() => setPrinting(true));
+    const end = () => setPrinting(false);
+    const change = (event: MediaQueryListEvent) => (event.matches ? start() : end());
+    window.addEventListener('beforeprint', start);
+    window.addEventListener('afterprint', end);
+    query.addEventListener('change', change);
+    return () => {
+      window.removeEventListener('beforeprint', start);
+      window.removeEventListener('afterprint', end);
+      query.removeEventListener('change', change);
+    };
+  }, []);
 
   function readSource(): string {
     return stringifySource(bookSource(identity, overrides));
@@ -274,18 +310,21 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
           <div className={styles.navigatorPalette}>{identity.colors.slice(0, 8).map((color) => <span key={color.id} style={{ background: color.hex }} title={`${color.name} ${color.hex}`} />)}</div>
         </aside>
 
-        <main className={styles.canvas}>
+        <main className={styles.canvas} ref={canvasRef}>
           {mode === 'overview' ? (
             <div className={styles.overviewBoard}>
-              {sections.map((section) => (
-                <section className={styles.overviewRow} data-hidden={section.hidden || undefined} id={`brand-book-${identity.id}-${section.id}`} key={section.id}>
-                  {section.pages.map((page) => (
-                    <button className={styles.pageButton} data-hidden={page.hidden || section.hidden || undefined} key={page.id} onClick={() => openPage(page.id)} type='button'>
-                      <BookPageView context={pageContext({ page, section }, false)} folio={folios.get(page.id)} sectionName={section.name} />
-                      <span className={styles.thumbnailCaption}><strong>{folios.has(page.id) ? String(folios.get(page.id)).padStart(2, '0') : 'Hidden'}</strong>{page.title}</span>
-                    </button>
-                  ))}
-                </section>
+              {sections.map((section, index) => (
+                <OverviewRow
+                  base={overviewBase}
+                  eager={printing || index < 3}
+                  folios={folios}
+                  id={`brand-book-${identity.id}-${section.id}`}
+                  key={section.id}
+                  onOpen={openPage}
+                  root={canvasRef}
+                  section={section}
+                  sectionNumber={numbers.get(section.id) ?? ''}
+                />
               ))}
             </div>
           ) : (
@@ -321,6 +360,47 @@ export default function BrandBook({ identity, tool }: { identity: BrandIdentity;
     </div>
   );
 }
+
+type OverviewRowProps = {
+  base: Omit<BookPageContext, 'page' | 'sectionNumber'>;
+  eager: boolean;
+  folios: ReadonlyMap<string, number>;
+  id: string;
+  onOpen: (pageId: string) => void;
+  root: RefObject<HTMLElement | null>;
+  section: BookSection;
+  sectionNumber: string;
+};
+
+/** A section row that only builds its pages once it nears the viewport. */
+const OverviewRow = memo(function OverviewRow({ base, eager, folios, id, onOpen, root, section, sectionNumber }: OverviewRowProps) {
+  const rowRef = useRef<HTMLElement>(null);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row || near) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setNear(true);
+    }, { root: root.current, rootMargin: '600px 0px' });
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [near, root]);
+
+  const render = eager || near;
+  return (
+    <section className={styles.overviewRow} data-hidden={section.hidden || undefined} id={id} ref={rowRef}>
+      {section.pages.map((page) => (
+        <button className={styles.pageButton} data-hidden={page.hidden || section.hidden || undefined} key={page.id} onClick={() => onOpen(page.id)} type='button'>
+          {render
+            ? <BookPageView context={{ ...base, page, sectionNumber }} folio={folios.get(page.id)} sectionName={section.name} />
+            : <span aria-label={page.title} className={styles.pagePlaceholder} role='img' />}
+          <span className={styles.thumbnailCaption}><strong>{folios.has(page.id) ? String(folios.get(page.id)).padStart(2, '0') : 'Hidden'}</strong>{page.title}</span>
+        </button>
+      ))}
+    </section>
+  );
+});
 
 function PageInspector({
   entry,

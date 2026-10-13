@@ -403,7 +403,58 @@ type CatalogProps = {
   selectedId: string;
 };
 
-/** The element list re-renders only when the filter or selection changes. */
+type MobileSelectProps = { elements: readonly BrandElement[]; onSelect: (id: string) => void; value: string };
+
+/** The compact-width picker; its long option list is built once per identity. */
+const MobileElementSelect = memo(function MobileElementSelect({ elements, onSelect, value }: MobileSelectProps) {
+  const gt = useGT();
+  const options = useMemo(() => BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
+    elements.filter((element) => element.category === elementCategory).map((element) => ({
+      label: `${gt(elementCategory)} / ${gt(element.name)}`,
+      value: element.id,
+    }))
+  // gt-next returns a new function each render; the labels only change with the catalog.
+  ), [elements]);
+  return (
+    <StudioSelect
+      ariaLabel={gt('Active brand element')}
+      className='brand-elements-mobile-select hidden'
+      onValueChange={onSelect}
+      options={options}
+      value={value}
+    />
+  );
+});
+
+type CatalogItemProps = { element: BrandElement; onSelect: (id: string) => void; selected: boolean };
+
+/** One row; only the previous and next selection re-render when the selection moves. */
+const ElementCatalogItem = memo(function ElementCatalogItem({ element, onSelect, selected }: CatalogItemProps) {
+  const gt = useGT();
+  return (
+    <Button
+      className='relative h-auto min-h-11 w-full justify-start overflow-hidden rounded-none px-2 py-2 text-left'
+      onClick={() => onSelect(element.id)}
+      type='button'
+      variant={selected ? 'default' : 'ghost'}
+    >
+      <span className='relative z-10 min-w-0 flex-1 pr-10'>
+        <span className='block truncate text-sm'>{gt(element.name)}</span>
+        <span className={`block truncate font-mono text-[10px] ${selected ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
+          {element.dimensions}
+        </span>
+      </span>
+      <span
+        aria-hidden='true'
+        className={`pointer-events-none absolute right-3 bottom-2 font-mono text-[18px] font-semibold leading-none tracking-[-0.08em] ${selected ? 'text-primary-foreground/12' : 'text-foreground/7'}`}
+      >
+        {element.symbol}
+      </span>
+    </Button>
+  );
+});
+
+/** The element list re-renders only when the filter changes. */
 const ElementCatalogList = memo(function ElementCatalogList({ elements, onSelect, selectedId }: CatalogProps) {
   const gt = useGT();
   return (
@@ -420,26 +471,7 @@ const ElementCatalogList = memo(function ElementCatalogList({ elements, onSelect
               <span className='ml-auto font-mono'>{categoryElements.length}</span>
             </div>
             {categoryElements.map((element) => (
-              <Button
-                className='relative h-auto min-h-11 w-full justify-start overflow-hidden rounded-none px-2 py-2 text-left'
-                key={element.id}
-                onClick={() => onSelect(element.id)}
-                type='button'
-                variant={selectedId === element.id ? 'default' : 'ghost'}
-              >
-                <span className='relative z-10 min-w-0 flex-1 pr-10'>
-                  <span className='block truncate text-sm'>{gt(element.name)}</span>
-                  <span className={`block truncate font-mono text-[10px] ${selectedId === element.id ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
-                    {element.dimensions}
-                  </span>
-                </span>
-                <span
-                  aria-hidden='true'
-                  className={`pointer-events-none absolute right-3 bottom-2 font-mono text-[18px] font-semibold leading-none tracking-[-0.08em] ${selectedId === element.id ? 'text-primary-foreground/12' : 'text-foreground/7'}`}
-                >
-                  {element.symbol}
-                </span>
-              </Button>
+              <ElementCatalogItem element={element} key={element.id} onSelect={onSelect} selected={selectedId === element.id} />
             ))}
           </section>
         );
@@ -614,18 +646,7 @@ export default function BrandElementsStudio({
         <div className='brand-elements-canvas tool-canvas studio-scroll-area min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-3'>
-              <StudioSelect
-                ariaLabel={gt('Active brand element')}
-                className='brand-elements-mobile-select hidden'
-                onValueChange={setSelectedElementId}
-                options={BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
-                  identityElements.reduce<Array<{ label: string; value: string }>>((options, element) => {
-                    if (element.category === elementCategory) options.push({ label: `${gt(elementCategory)} / ${gt(element.name)}`, value: element.id });
-                    return options;
-                  }, [])
-                )}
-                value={selectedElement.id}
-              />
+              <MobileElementSelect elements={identityElements} onSelect={selectElement} value={selectedElement.id} />
               <div>
                 <p className='text-sm font-semibold'>{selectedElement.name}</p>
                 <p className='text-xs text-muted-foreground'><T>Click any text on the artboard to edit it in place.</T></p>

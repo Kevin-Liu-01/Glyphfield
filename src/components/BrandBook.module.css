@@ -335,6 +335,13 @@
   contain-intrinsic-size: var(--book-thumb-width) calc(var(--book-thumb-width) * 0.625 + 22px);
 }
 
+.pagePlaceholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: hsl(var(--background) / 0.7);
+}
+
 .pageButton[data-hidden] .page {
   opacity: 0.32;
 }
