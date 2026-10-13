@@ -1,0 +1,309 @@
+/* Component library tool chrome. Component styles are generated and injected per pattern. */
+
+.stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 100%;
+  background: hsl(var(--canvas-background));
+  container: component-stage / inline-size;
+}
+
+.toolbar {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.92);
+  backdrop-filter: blur(14px);
+}
+
+.toolbarTitle {
+  min-width: 0;
+}
+
+.toolbarTitle span {
+  display: block;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbarTitle strong {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 580;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--studio-corner-md);
+  background: hsl(var(--muted) / 0.5);
+}
+
+.segmented button {
+  min-width: 44px;
+  padding: 6px 9px;
+  border-radius: calc(var(--studio-corner-md) - 2px);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.65rem;
+  text-transform: capitalize;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.segmented button:hover {
+  color: hsl(var(--foreground));
+}
+
+.segmented button[aria-pressed='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--raised-background));
+  box-shadow: var(--studio-shadow-xs);
+}
+
+.segmented button:focus-visible,
+.fileTabs button:focus-visible,
+.codeBody:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.canvas {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  width: min(100%, 1040px);
+  min-width: 0;
+  margin-inline: auto;
+  padding: 28px clamp(16px, 4cqi, 40px) 48px;
+}
+
+.patternHead {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 4px 14px;
+  align-items: start;
+}
+
+.patternIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--studio-corner-md);
+  background: hsl(var(--raised-background));
+}
+
+.patternIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.patternHead h3 {
+  font-size: 0.95rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+}
+
+.patternHead p {
+  margin-top: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.patternHead dl {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2;
+  gap: 4px 20px;
+  margin-top: 8px;
+}
+
+.patternHead dl div {
+  display: flex;
+  gap: 6px;
+  font-size: 0.62rem;
+}
+
+.patternHead dt {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.panes {
+  display: grid;
+  gap: 16px;
+}
+
+/* One theme of the brand's components, painted with its own custom properties. */
+.pane {
+  position: relative;
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--studio-corner-lg);
+  background: var(--brand-background);
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.12);
+  color: var(--brand-foreground);
+  isolation: isolate;
+}
+
+.stage[data-surface='soft'] .pane {
+  background: var(--brand-surface-muted);
+}
+
+.paneAsset {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: var(--gf-asset-opacity, 0.1);
+  pointer-events: none;
+}
+
+.paneHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid color-mix(in oklab, var(--brand-border) 70%, transparent);
+  color: var(--brand-foreground-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paneLive {
+  position: relative;
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  min-height: 220px;
+  padding: clamp(20px, 5cqi, 40px);
+}
+
+.paneStates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  border-top: 1px solid color-mix(in oklab, var(--brand-border) 70%, transparent);
+}
+
+.paneStates figure {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px 18px;
+  overflow: hidden;
+  border-right: 1px solid color-mix(in oklab, var(--brand-border) 55%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--brand-border) 55%, transparent);
+}
+
+.paneStates figcaption {
+  color: var(--brand-foreground-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paneReplica {
+  position: relative;
+  min-width: 0;
+  zoom: 0.72;
+}
+
+.code {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--studio-corner-lg);
+  background: hsl(var(--raised-background));
+}
+
+.codeHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.fileTabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.fileTabs button {
+  padding: 6px 9px;
+  border-radius: var(--studio-corner-sm);
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  white-space: nowrap;
+}
+
+.fileTabs button[aria-selected='true'] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.codeActions {
+  margin-left: auto;
+}
+
+.codeBody {
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+}
+
+@container component-stage (width < 620px) {
+  .toolbar {
+    flex-wrap: wrap;
+  }
+
+  .codeActions {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented button {
+    transition: none;
+  }
+}
