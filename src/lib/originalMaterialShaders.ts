@@ -892,7 +892,7 @@ void main() {
   float facing = max(normal.z, 0.0);
   // Thin-film interference: hue follows viewing angle and local film thickness.
   float thickness = height * (0.6 + u_strength * 0.8) + (1.0 - facing) * (1.6 + u_frequency * 0.12);
-  vec3 film = mix(ramp(fract(thickness * 0.8)), spectrum(thickness + time * 0.04), 0.4 + u_strength * 0.25);
+  vec3 film = mix(ramp(fract(thickness * 0.8)), spectrum(thickness * 1.5 + time * 0.04), 0.28 + u_strength * 0.25);
   float diffuse = max(dot(normal, light), 0.0);
   float specular = pow(max(dot(reflect(-light, normal), vec3(0.0, 0.0, 1.0)), 0.0), 48.0);
   vec3 color = film * (0.06 + diffuse * diffuse * 1.15) + specular * mix(vec3(1.0), u_color_c, 0.2) * 1.8;
