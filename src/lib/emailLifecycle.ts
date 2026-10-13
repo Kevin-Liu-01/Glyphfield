@@ -475,6 +475,14 @@ function resolveBrandEmailProgram(identity: BrandIdentity): BrandEmailProgram {
   };
 }
 
+/** The welcome line: the account is ready, and the first product says what it does. */
+function welcomeBody(identity: BrandIdentity): string {
+  const first = identity.products[0];
+  const summary = identity.productDetails?.find(({ name }) => name === first)?.summary;
+  if (first && summary) return `Your ${identity.name} account is ready. Start with ${first}: ${summary.charAt(0).toLocaleLowerCase()}${summary.slice(1)}`;
+  return `Your ${identity.name} account is ready. Invite your team and make the first change.`;
+}
+
 function createIdentityEmailTemplate(
   template: (typeof EMAIL_LIFECYCLE_TEMPLATES)[number],
   identity: BrandIdentity
@@ -491,8 +499,8 @@ function createIdentityEmailTemplate(
     case 'welcome-email':
       return {
         ...common,
-        body: `Your ${name} workspace is ready. Choose a starting point, invite your team, or open the studio and begin.`,
-        cta: 'Open workspace',
+        body: welcomeBody(identity),
+        cta: identity.products[0] ? `Start with ${identity.products[0]}` : 'Get started',
         description: `The account welcome for ${name}, with a direct path into the brand's first meaningful action.`,
         keywords: ['welcome', 'signup', 'onboarding', name.toLocaleLowerCase()],
         subject: `Welcome to ${name}`,

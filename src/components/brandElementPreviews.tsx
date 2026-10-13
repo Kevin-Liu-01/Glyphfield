@@ -308,7 +308,7 @@ function LifecycleEmail({ context }: Props) {
   const template = getEmailLifecycleTemplate(element.id, identity);
   if (!template) return <TransactionalEmail context={context} />;
   if (template.artworkPath === null) return <PlainTextEmail context={context} />;
-  const products = identity.id === 'gt' ? [] : identity.products.slice(0, 3);
+  const products = identity.id === 'gt' ? [] : contentOf(context).products.slice(0, 3);
   return (
     <div className={styles.email}>
       <header className={styles.emailTop}><Logo context={context} kind='wordmark' /><span className={styles.meta}>{template.timing}</span></header>
@@ -328,7 +328,7 @@ function LifecycleEmail({ context }: Props) {
             ))}
           </div>
         ) : products.length > 0 && element.id === 'welcome-email' ? (
-          <ol className={styles.emailProducts}>{products.map((product, index) => <li key={product}><span>{String(index + 1).padStart(2, '0')}</span>{product}</li>)}</ol>
+          <ol className={styles.emailProducts}>{products.map((product, index) => <li key={product.name}><span>{String(index + 1).padStart(2, '0')}</span><span className={styles.emailProduct}><strong>{product.name}</strong>{product.summary ? <small>{product.summary}</small> : null}</span></li>)}</ol>
         ) : null}
       </div>
       <EmailFooter context={context} note={template.timing} />
@@ -465,10 +465,12 @@ function Composition({ context, children, art, className = '' }: Props & { art?:
 }
 
 function SocialHeader({ context }: Props) {
+  // Brands whose only mark is a wordmark (Stripe) already show their name.
+  const markIsWordmark = /wordmark/i.test(context.identity.assets.find(({ id }) => id === 'mark-dark')?.label ?? '');
   return (
     <div className={styles.socialHeader}>
       <Logo context={context} />
-      <span><strong>{context.identity.name}</strong><span className={styles.meta}>{context.identity.socialHandle}</span></span>
+      <span>{markIsWordmark ? null : <strong>{context.identity.name}</strong>}<span className={styles.meta}>{context.identity.socialHandle}</span></span>
     </div>
   );
 }

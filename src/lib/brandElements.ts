@@ -986,7 +986,7 @@ function contentOverrides(identity: BrandIdentity, k: ElementCopy): Partial<Reco
       pattern: 'none',
     },
     'web-card': { body: k.productLine0, cta: 'Learn more', headline: k.productName0, pattern: 'none' },
-    opengraph: { pattern: 'none', scale: 'bold' },
+    opengraph: { layout: 'split', pattern: 'none', scale: 'bold' },
     'error-page': {
       body: 'The page you asked for has moved or no longer exists.',
       cta: 'Back to home',

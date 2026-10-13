@@ -1483,3 +1483,6 @@
 .surface[data-element='terminal-theme'] .codeBlock { font-size: 24px; }
 .surface[data-element='terminal-theme'] .swatches { margin-top: auto; }
 .surface[data-element='terminal-theme'] .swatches span { font-size: 16px; }
+
+.emailProducts .emailProduct { display: grid; gap: 2px; padding-top: 0; font-family: var(--el-body); font-size: 16px; color: var(--el-fg); }
+.emailProducts .emailProduct small { font-size: 14px; line-height: 1.45; color: var(--el-quiet); }
