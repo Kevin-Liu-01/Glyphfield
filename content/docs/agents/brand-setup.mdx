@@ -62,7 +62,7 @@ if (kit.blob.type !== 'application/zip' || !kit.blob.size) throw new Error('The 
 
 - Objects (`strategy`, `voice`, `graphicSystem`, `dossier`, `artDirection`, `style`, `typeScale`) merge by key.
 - Record arrays merge by `id`: a matching id updates that record, a new id appends one, and records you leave out are kept. `typography` merges by `role`; `colorPairings` merge by foreground and background.
-- String lists and `voice.examples` are replaced as a whole. Delete records with `remove: { assets: ['id'], colors: ['id'] }`.
+- String lists and `voice.examples` are replaced as a whole. `replace: ['colors', 'colorPairings']` replaces those record collections as a whole, which keeps a template's records from lingering in a new brand. Delete individual records with `remove: { assets: ['id'], colors: ['id'] }`.
 - `id`, `builtIn`, `kind`, `revision` and `presetFingerprint` belong to the project and keep their values.
 - Asset, font and motion paths must be `data:` URLs or paths on the Glyphfield origin. Remote URLs are rejected, never fetched.
 - Unknown fields are kept and reported as warnings.

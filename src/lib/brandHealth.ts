@@ -570,7 +570,9 @@ function agentPrompt(identity: BrandIdentity, check: Check): string {
   ].join('\n');
 }
 
-function gradeFor(score: number): BrandHealthReport['grade'] {
+function gradeFor(score: number, errors: number): BrandHealthReport['grade'] {
+  // Completeness cannot outweigh a broken rule such as a failing text pair.
+  if (errors > 0) return score >= 50 ? 'Needs work' : 'Incomplete';
   if (score >= 90) return 'Strong';
   if (score >= 75) return 'Good';
   if (score >= 50) return 'Needs work';
@@ -643,15 +645,16 @@ export function auditBrandHealth(identity: BrandIdentity): BrandHealthReport {
       severity: check.severity,
       title: check.title,
     }));
+  const counts = {
+    error: findings.filter(({ severity }) => severity === 'error').length,
+    info: findings.filter(({ severity }) => severity === 'info').length,
+    warning: findings.filter(({ severity }) => severity === 'warning').length,
+  };
   return {
     contrast,
-    counts: {
-      error: findings.filter(({ severity }) => severity === 'error').length,
-      info: findings.filter(({ severity }) => severity === 'info').length,
-      warning: findings.filter(({ severity }) => severity === 'warning').length,
-    },
+    counts,
     findings,
-    grade: gradeFor(score),
+    grade: gradeFor(score, counts.error),
     identityId: identity.id,
     name: identity.name,
     schemaVersion: BRAND_HEALTH_SCHEMA_VERSION,

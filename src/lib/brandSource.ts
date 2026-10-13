@@ -611,12 +611,19 @@ function mergeRecords(current: unknown, patch: unknown[], mergeKey: 'id' | 'pair
   return merged;
 }
 
-function mergeObject(spec: ObjectSpec, current: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+function mergeObject(
+  spec: ObjectSpec,
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  replaced: ReadonlySet<string> = new Set()
+): Record<string, unknown> {
   const merged: Record<string, unknown> = { ...current };
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
     const fieldSpec = spec.fields[key];
-    if (fieldSpec?.kind === 'object' && isRecord(value)) {
+    if (replaced.has(key)) {
+      merged[key] = value;
+    } else if (fieldSpec?.kind === 'object' && isRecord(value)) {
       merged[key] = mergeObject(fieldSpec, isRecord(current[key]) ? current[key] : {}, value);
     } else if (fieldSpec?.kind === 'array' && fieldSpec.mergeKey && Array.isArray(value)) {
       merged[key] = mergeRecords(current[key], value, fieldSpec.mergeKey);
@@ -634,7 +641,27 @@ export type BrandSourceApplyOptions = {
   mode?: 'merge' | 'replace';
   /** Record IDs to remove from id-keyed collections, applied after the merge. */
   remove?: BrandSourceRemoval;
+  /** Record collections the patch replaces as a whole instead of merging, such as ['colors', 'colorPairings']. */
+  replace?: readonly string[];
 };
+
+const REPLACEABLE_COLLECTIONS = Object.entries(IDENTITY_SPEC.fields)
+  .filter(([, spec]) => spec.kind === 'array' && Boolean(spec.mergeKey))
+  .map(([key]) => key);
+
+function validateReplace(replace: unknown, issues: BrandSourceIssue[]): Set<string> {
+  if (replace === undefined) return new Set();
+  if (!Array.isArray(replace) || !replace.every((key) => typeof key === 'string')) {
+    issue(issues, 'type', 'replace', `replace must be an array of collection names such as ["colors", "colorPairings"]; received ${describeValue(replace)}.`);
+    return new Set();
+  }
+  for (const key of replace) {
+    if (!REPLACEABLE_COLLECTIONS.includes(key)) {
+      issue(issues, 'enum', 'replace', `replace "${key}" is not a record collection; use ${REPLACEABLE_COLLECTIONS.join(', ')}.`);
+    }
+  }
+  return new Set(replace);
+}
 
 function validateRemoval(remove: unknown, issues: BrandSourceIssue[]): BrandSourceRemoval {
   if (remove === undefined) return {};
@@ -709,6 +736,7 @@ export function applyBrandIdentitySource(
     issue(issues, 'enum', 'mode', `mode must be merge or replace; received ${describeValue(mode)}.`);
   }
   const removal = validateRemoval(options.remove, issues);
+  const replaced = validateReplace(options.replace, issues);
   // A replacement may omit the project ID; it is locked to the active project anyway.
   const candidate = mode === 'replace' && isRecord(input) && input.id === undefined
     ? { ...input, id: current.id }
@@ -721,7 +749,7 @@ export function applyBrandIdentitySource(
 
   const base = current as unknown as Record<string, unknown>;
   const merged = removeRecords(
-    mode === 'replace' ? { ...candidate } : mergeObject(IDENTITY_SPEC, base, candidate),
+    mode === 'replace' ? { ...candidate } : mergeObject(IDENTITY_SPEC, base, candidate, replaced),
     removal,
     issues
   );
@@ -798,6 +826,7 @@ export const BRAND_SOURCE_MERGE_RULES = [
   'Record arrays merge by id: a matching id updates that record, a new id appends one, and records you omit are kept.',
   'typography merges by role; colorPairings merge by foreground and background.',
   'String lists (pillars, phrases, audiences, products, proof, rules…) and voice.examples are replaced as a whole.',
+  'replace: ["colors", "colorPairings", …] replaces those record collections as a whole, for example when a project started from a template.',
   'remove: { assets: ["id"], colors: ["id"], … } deletes records after the merge.',
   'id, builtIn, kind, revision and presetFingerprint are managed by Glyphfield and keep their current values.',
   'Asset, font and motion file paths must be data: URLs or root-relative paths; remote URLs are rejected, never fetched.',

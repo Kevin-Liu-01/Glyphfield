@@ -6,7 +6,7 @@ All actions run in the open Brand identity tool: `const studio = window.glyphfie
 | --- | --- | --- |
 | `identity.read` | none | `BrandIdentity` object (a copy) |
 | `identity.validate` | `{ identity, mode?: 'patch' \| 'full' }` | `{ ok, issues: [{ code, message, path, severity }] }` |
-| `identity.apply` | `{ identity, mode?: 'merge' \| 'replace', remove?, save? }` | `{ identity, warnings, saved, health: { score, grade, counts } }`; throws a `TypeError` listing every issue |
+| `identity.apply` | `{ identity, mode?: 'merge' \| 'replace', replace?: ['colors', …], remove?, save? }` | `{ identity, warnings, saved, health: { score, grade, counts } }`; throws a `TypeError` listing every issue |
 | `identity.asset.add` | `{ file: File, slot?, id?, type?, label?, surface?, usage?, alt?, license?, sourceUrl?, sourceOwner?, redistribution?, tags?, save? }` | `{ asset }` |
 | `identity.font.add` | `{ file: File, roles?, family?, label?, weight?, weightMin?, weightMax?, style?, license?, sourceUrl?, id?, save? }` | `{ font }` |
 | `identity.audit` | none | Health report: `score`, `grade`, `counts`, `sections`, `contrast`, `findings[]` with `fix?` and `agentPrompt` |

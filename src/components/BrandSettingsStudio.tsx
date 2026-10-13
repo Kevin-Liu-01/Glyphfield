@@ -285,8 +285,8 @@ export default function BrandSettingsStudio({
   async function exportKit(format: BrandKitFormat, download: boolean): Promise<ExportPreviewAsset> {
     setKitBusy(format);
     try {
+      // The Brand kit section previews its files itself; no export overlay.
       const asset = kitPreviewAsset(format, await createBrandKitArtifact(current(), format));
-      setLastExport(asset);
       if (download) downloadBlob(asset.blob, asset.fileName);
       return asset;
     } finally {

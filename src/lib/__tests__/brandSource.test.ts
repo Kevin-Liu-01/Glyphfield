@@ -102,6 +102,15 @@ describe('applyBrandIdentitySource', () => {
     expect(warnings).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'locked', path: 'id' })]));
   });
 
+  it('replaces whole record collections on request', () => {
+    const { identity } = applyBrandIdentitySource(base, {
+      colorPairings: [{ background: 'paper', foreground: 'ink', usage: 'Body' }],
+      colors: [{ hex: '#000000', id: 'ink', name: 'Ink', role: 'Text' }, { hex: '#FFFFFF', id: 'paper', name: 'Paper', role: 'Field' }],
+    }, { replace: ['colors', 'colorPairings'] });
+    expect(identity.colors.map(({ id }) => id)).toEqual(['ink', 'paper']);
+    expect(() => applyBrandIdentitySource(base, {}, { replace: ['tagline'] })).toThrow(/replace "tagline" is not a record collection/);
+  });
+
   it('removes records by ID after merging', () => {
     const { identity } = applyBrandIdentitySource(base, {}, { remove: { colors: ['error', 'progress'] } });
     expect(identity.colors.map(({ id }) => id)).not.toContain('error');

@@ -263,6 +263,7 @@ export type BrandApplyInput = {
   identity: unknown;
   mode?: 'merge' | 'replace';
   remove?: BrandSourceRemoval;
+  replace?: readonly string[];
   save?: boolean;
 };
 
@@ -271,18 +272,19 @@ export function parseBrandApplyInput(rawInput: unknown): BrandApplyInput {
   if (input.identity === undefined) {
     throw new TypeError('identity.apply requires { identity: patch }. Wrap the fields you want to change in an identity object.');
   }
-  const unknown = Object.keys(input).filter((key) => !['identity', 'mode', 'remove', 'save'].includes(key));
-  if (unknown.length) throw new TypeError(`identity.apply does not accept ${unknown.join(', ')}; use identity, mode, remove and save.`);
+  const unknown = Object.keys(input).filter((key) => !['identity', 'mode', 'remove', 'replace', 'save'].includes(key));
+  if (unknown.length) throw new TypeError(`identity.apply does not accept ${unknown.join(', ')}; use identity, mode, remove, replace and save.`);
   return {
     identity: input.identity,
     mode: optionalEnum(input, 'mode', ['merge', 'replace'] as const, 'identity.apply'),
     remove: input.remove as BrandSourceRemoval | undefined,
+    replace: input.replace as readonly string[] | undefined,
     save: input.save === true,
   };
 }
 
 export function applyBrandIdentityInput(current: BrandIdentity, input: BrandApplyInput) {
-  return applyBrandIdentitySource(current, input.identity, { mode: input.mode, remove: input.remove });
+  return applyBrandIdentitySource(current, input.identity, { mode: input.mode, remove: input.remove, replace: input.replace });
 }
 
 export type BrandKitArtifact = {

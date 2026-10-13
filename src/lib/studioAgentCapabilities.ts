@@ -143,8 +143,8 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       output: '{ ok: boolean, issues: [{ code, message, path, severity }] }',
     },
     'identity.apply': {
-      description: 'Validate and merge identity source. Records merge by id (typography by role), string lists are replaced, unknown fields and project fields are kept. Throws a TypeError listing every issue.',
-      input: "{ identity: object, mode?: 'merge' | 'replace', remove?: { assets?, colors?, fonts?, applications?, references?, motion?, proofAssets?: string[] }, save?: boolean }",
+      description: 'Validate and merge identity source. Records merge by id (typography by role), string lists are replaced, unknown fields and project fields are kept. replace lists collections to overwrite as a whole. Throws a TypeError listing every issue.',
+      input: "{ identity: object, mode?: 'merge' | 'replace', replace?: ('colors' | 'colorPairings' | 'applications' | 'assets' | 'fonts' | …)[], remove?: { assets?, colors?, fonts?, applications?, references?, motion?, proofAssets?: string[] }, save?: boolean }",
       output: '{ identity, warnings: [{ code, message, path, severity }], saved: boolean, health: { score, grade, counts } }',
     },
     'identity.asset.add': {
