@@ -165,7 +165,7 @@ describe('MarketingMotionDemo activity lifecycle', () => {
   });
 
   it('gates CSS progress and entrance motion with effective activity, not only manual playback', () => {
-    const css = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const css = postcss.parse(readFileSync('src/app/landing.css', 'utf8'));
     const declarations = new Map<string, string[]>();
     css.walkRules((rule) => {
       for (const selector of rule.selectors) {

@@ -266,7 +266,7 @@ describe('MarketingAgentControlLab viewport lifecycle', () => {
   });
 
   it('keeps the native scan paused in CSS before activation and retains it under reduced motion', () => {
-    const css = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const css = postcss.parse(readFileSync('src/app/landing.css', 'utf8'));
     const scans: string[][] = [];
     css.walkRules('.marketing-agent-preview-scan', (rule) => {
       const declarations: string[] = [];

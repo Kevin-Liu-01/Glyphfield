@@ -1,3 +1,5 @@
+import './landing.css';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { T } from 'gt-next';

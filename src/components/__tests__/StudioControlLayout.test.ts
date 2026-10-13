@@ -356,7 +356,7 @@ describe('shared Studio control layout', () => {
     const marketingDemo = source('src/components/MarketingAnimationStudioLive.tsx');
     const animation = source('src/components/AnimationStudio.tsx');
     const timeline = source('src/components/TimelinePanel.tsx');
-    const styles = source('src/app/globals.css');
+    const styles = source('src/app/landing.css');
 
     expect(marketingDemo).toContain('presentationMode');
     expect(marketingDemo).toContain('<AnimationStudio\n      autoPlay');
