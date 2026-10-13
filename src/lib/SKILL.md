@@ -20,6 +20,11 @@ and agent contracts.
   bridges native selections; `canvasTextLayout.ts` measures the same inline runs
   for export without re-wrapping text. Keep legacy plain-text layout intact.
 - `shaderLab.ts` and `liveMaterials.ts` define the shared material library.
+  Native Shaders.com effects split into a light index (`shaderEffects.ts`) and
+  per-effect controls (`shaderEffectsProps.ts`). Client code reaches the controls
+  only through `loadShaderEffectsProps()`; server routes may import them directly.
+  `effectProps` stores explicit edits only; defaults and palette colours resolve
+  at render time. Rerun `pnpm generate:shader-effects` after editing the generator.
 - `download.ts`, `canvasExport.ts`, GIF/video/audio helpers own artifact creation.
 - `savedDesigns.ts` owns IndexedDB snapshots and recovery journal behavior.
 - `agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts` define all public agent
