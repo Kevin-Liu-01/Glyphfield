@@ -127,19 +127,18 @@ export function visibleShaderEffectControls(id: string, props: ShaderEffectProps
     && !(props.surface === 'canvas' && (control.group === 'Shape' || control.group === 'Position')));
 }
 
-/** Keep the native material, but fit its analytic surface to the output instead of a demo sphere. */
-export function shaderEffectUsesBands(id: string, props: ShaderEffectProps): boolean {
-  return props.surface !== 'shape' && ['shader-effects-neon', 'shader-effects-light-edge', 'shader-effects-thin-film', 'shader-effects-obsidian'].includes(id);
-}
+// Edge-lit materials need their rim in frame; the rest overscan past the output.
+const FRAMED_PANEL_IDS = new Set(['shader-effects-neon', 'shader-effects-light-edge', 'shader-effects-thin-film', 'shader-effects-obsidian']);
 
+/** Keep the native material, but fit its analytic surface to the output instead of a demo sphere. */
 export function shaderEffectRenderProps(id: string, settings: ShaderEffectSettings, aspect = 1): ShaderEffectProps {
   const props = resolveShaderEffectProps(id, { ...settings, effectProps: validateShaderEffectProps(id, settings.effectProps ?? {}) });
   if (getShaderEffect(id)?.category !== 'Shape Effects' || props.surface === 'shape') return props;
-  const width = Math.max(0.01, aspect) / 2;
-  const bands = shaderEffectUsesBands(id, props);
-  // Surface geometry uses height-normalized UVs. Overscan keeps the silhouette
-  // and bevel outside the output, including very wide and portrait artboards.
-  return { ...props, origin: 'center', center: { x: 0.5, y: 0.5 }, scale: 1, rotation: bands ? -18 : 0,
-    shape: JSON.stringify({ type: 'roundedRectSDF', width: width + (bands ? 1 : 0.15), height: bands ? 0.065 : 0.65, rounding: 0 }),
+  // Surface geometry uses height-normalized half extents. One inset panel keeps a
+  // single node at any aspect; its margin follows the shorter side.
+  const halfWidth = Math.max(0.01, aspect) / 2;
+  const margin = FRAMED_PANEL_IDS.has(id) ? -0.16 * Math.min(halfWidth, 0.5) : 0.15;
+  return { ...props, origin: 'center', center: { x: 0.5, y: 0.5 }, scale: 1, rotation: 0,
+    shape: JSON.stringify({ type: 'roundedRectSDF', width: halfWidth + margin, height: 0.5 + margin, rounding: Math.max(0, -margin * 0.75) }),
     shapeType: 'roundedRectSDF', shapeSdfUrl: '' };
 }

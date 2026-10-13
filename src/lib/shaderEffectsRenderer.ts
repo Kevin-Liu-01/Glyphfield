@@ -2,7 +2,7 @@
 import { createGpuUniformsMap, getNaturalSize, rootPassthrough, shaderRendererGPU, type GpuShaderDefinition } from 'shaders/core';
 import { shaderEffectsLoaders } from './shaderEffectsLoaders.generated';
 import { getShaderEffect } from './shaderEffects';
-import { shaderEffectRenderProps, shaderEffectUsesBands } from './shaderEffectsProps';
+import { shaderEffectRenderProps } from './shaderEffectsProps';
 import { normalizeHexOrFallback } from './color';
 import type { LiveMaterialSettings } from './liveMaterials';
 
@@ -38,9 +38,7 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
       renderer.registerNode(nodeId, def.fragment, parent, { blendMode: 'normal', opacity: 1, renderOrder: order }, createGpuUniformsMap(def, { ...defaults, ...values }, nodeId), def);
     };
     if (effect.component === 'ImageTexture') Object.assign(props, { url: imageUrl!, objectFit: 'cover' });
-    const nodes = shaderEffectUsesBands(id, props) ? ['effect', 'band-1', 'band-2', 'band-3', 'band-4'] : ['effect'];
-    const nodeProps = (values: typeof props, index: number): typeof props => nodes.length > 1 ? { ...values, center: { x: 0.5, y: -0.2 + index * 0.35 } } : values;
-    nodes.forEach((nodeId, index) => register(nodeId, definition, 'root', nodeProps(props, index), index));
+    register('effect', definition, 'root', props);
     // Filters without an image read a structured sample mapped onto the brand palette.
     if (paletteMap) register('palette-map', paletteMap.default as GpuShaderDefinition, 'effect', { palette: 'custom', speed: 0, ...paletteMapColors(settings) });
     if (image) register('source', image.default as GpuShaderDefinition, paletteMap ? 'palette-map' : 'effect', { url: imageUrl, objectFit: 'cover' });
@@ -65,18 +63,15 @@ export async function createShaderEffectsRenderer(canvas: HTMLCanvasElement, id:
           previousInput = next;
           previousAspect = aspect;
           const values = resolve(next);
-          nodes.forEach((nodeId, index) => {
-            const oldValues = nodeProps(previous, index);
-            for (const [key, value] of Object.entries(nodeProps(values, index))) {
-              if (definition.props[key] && JSON.stringify(oldValues[key]) !== JSON.stringify(value)) renderer.updateUniformValue(nodeId, key, value);
-            }
-          });
+          for (const [key, value] of Object.entries(values)) {
+            if (definition.props[key] && JSON.stringify(previous[key]) !== JSON.stringify(value)) renderer.updateUniformValue('effect', key, value);
+          }
           previous = values;
           if (paletteMap) Object.entries(paletteMapColors(next)).forEach(([key, value]) => renderer.updateUniformValue('palette-map', key, value));
         }
         if (scale === previousScale) return;
         previousScale = scale;
-        nodes.forEach((nodeId) => renderer.updateNodeMetadata(nodeId, { transform: { scale, offsetX: 0, offsetY: 0, rotation: 0, anchorX: 0.5, anchorY: 0.5, edges: props.surface === 'shape' ? 'transparent' : 'mirror' } }));
+        renderer.updateNodeMetadata('effect', { transform: { scale, offsetX: 0, offsetY: 0, rotation: 0, anchorX: 0.5, anchorY: 0.5, edges: props.surface === 'shape' ? 'transparent' : 'mirror' } });
       },
       dispose: () => renderer.cleanup(),
     };

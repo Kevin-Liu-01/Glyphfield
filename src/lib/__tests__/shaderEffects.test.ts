@@ -64,6 +64,17 @@ describe('Shaders.com native library', () => {
     expect(JSON.stringify(input)).toBe(before);
     expect(shaderEffectRenderProps('shader-effects-liquid-metal', { ...PALETTE, effectProps: { ...input, surface: 'shape' } }, aspect).shape).toBe(input.shape);
   });
+  it.each([0.25, 1, 4])('frames edge-lit materials as one inset panel at aspect %s', (aspect) => {
+    const props = shaderEffectRenderProps('shader-effects-neon', { ...PALETTE, effectProps: {} }, aspect);
+    const shape = JSON.parse(String(props.shape));
+    expect(props.rotation).toBe(0);
+    expect(shape.width).toBeLessThan(aspect / 2);
+    expect(shape.height).toBeLessThan(0.5);
+    // Equal margins on both axes, scaled to the shorter side.
+    expect(aspect / 2 - shape.width).toBeCloseTo(0.5 - shape.height);
+    expect(0.5 - shape.height).toBeCloseTo(0.16 * Math.min(aspect / 2, 0.5));
+    expect(shape.rounding).toBeGreaterThan(0);
+  });
   it('upgrades previously saved demo surfaces while preserving an explicit shape choice', () => {
     const props = { shape: '{"type":"sphere3D","radius":0.35}' };
     expect(shaderEffectRenderProps('shader-effects-chrome', { ...PALETTE, effectProps: props }).shapeType).toBe('roundedRectSDF');
