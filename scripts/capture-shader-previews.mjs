@@ -20,7 +20,7 @@ try {
       await page.waitForFunction(() => Boolean(window.glyphfieldShaderPreview), null, { timeout: 30_000 });
       const image = await page.evaluate(async () => {
         await window.glyphfieldShaderPreview.ready(25_000);
-        const canvas = document.querySelector('canvas[data-live-material-ready="true"]');
+        const canvas = document.querySelector('canvas[data-live-material-runtime-ready]') ?? document.querySelector('canvas[data-live-material-ready="true"]');
         if (!canvas) throw new Error('No ready canvas');
         return canvas.toDataURL('image/webp', 0.86);
       });
