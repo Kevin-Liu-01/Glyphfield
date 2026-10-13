@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { T, useGT } from 'gt-next';
 import {
   Badge,
@@ -35,28 +35,27 @@ import {
   BRAND_ELEMENT_CATEGORIES,
   BRAND_ELEMENTS,
   createBrandElementSettings,
+  BRAND_ELEMENT_SOURCE_SCHEMA,
+  BRAND_ELEMENT_SOURCE_VERSION,
   filterBrandElements,
+  parseBrandElementSource,
   type BrandElement,
   type BrandElementCategory,
   type BrandElementOverrides,
   type BrandElementSettings,
 } from '@/lib/brandElements';
+import { getEmailLifecycleTemplate } from '@/lib/emailLifecycle';
 import {
-  EMAIL_LIFECYCLE_TEMPLATES,
-  getEmailLifecycleTemplate,
-  type EmailLifecycleSupportingCard,
-} from '@/lib/emailLifecycle';
-import {
-  brandAssetPath,
   brandTypographyFamily,
   brandTypographyRole,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
-import { hexToOklch } from '@/lib/color';
+import { brandPalette } from '@/lib/brandOutputKit';
 import { DEFAULT_LOGO_APPEARANCE, logoAppearanceCssFilter } from '@/lib/logoAppearance';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
 import { capVisibleFontWeight, MAX_VISIBLE_FONT_WEIGHT } from '@/lib/typography';
+import { ElementPreview } from './brandElementPreviews';
 import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
 import { registerStudioAutomation } from '@/lib/studioAutomation';
 
@@ -81,14 +80,6 @@ const PATTERNLESS_ELEMENT_IDS = new Set(['email-signature', 'lanyard', 'event-ba
 const LOGOLESS_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'cli-banner']);
 const ARTWORK_ELEMENT_IDS = new Set(['logo-background', 'favicon-set', 'app-icon', 'x-post', 'linkedin-post', 'community-card', 'launch-card', 'app-store-gallery', 'video-thumbnail', 'podcast-cover', 'social-carousel', 'event-backdrop', 'booth-wall', 'partnership-lockup', 'web-card', 'opengraph']);
 const WEBSITELESS_ELEMENT_IDS = new Set(['ascii-mark', 'terminal-theme', 'cli-banner', 'modal-dialog', 'toast-notification']);
-const PRIMARY_PRODUCT_COMPONENT_IDS = new Set([
-  'auth-screen',
-  'hero-section',
-  'navigation-bar',
-  'onboarding-checklist',
-  'search-surface',
-  'sidebar-navigation',
-]);
 
 function elementEditorCapabilities(element: BrandElement, identity: BrandIdentity) {
   const contentless = CONTENTLESS_ELEMENT_IDS.has(element.id);
@@ -140,40 +131,6 @@ function elementBriefExport(
     fileName: `${identity.id}-${element.id}-brief.json`,
     format: 'JSON',
     previewText,
-  };
-}
-
-function isDarkSurface(color: string): boolean {
-  try {
-    return hexToOklch(color).lightness < 0.62;
-  } catch {
-    return false;
-  }
-}
-
-function ElementPattern({ settings }: { settings: BrandElementSettings }) {
-  if (settings.pattern === 'none') return null;
-  return (
-    <span
-      aria-hidden='true'
-      className='brand-element-pattern'
-      data-pattern={settings.pattern}
-      style={{ color: settings.foregroundColor, opacity: settings.patternOpacity / 100 }}
-    />
-  );
-}
-
-function artworkStyle(settings: BrandElementSettings): CSSProperties {
-  return {
-    transform: `translate(${settings.artworkX}px, ${settings.artworkY}px) scale(${settings.artworkScale / 100})`,
-    transformOrigin: 'center',
-  };
-}
-
-function elementSurfaceStyle(settings: BrandElementSettings): CSSProperties {
-  return {
-    backgroundColor: settings.backgroundColor,
-    color: settings.foregroundColor,
   };
 }
 
@@ -440,853 +397,95 @@ function ElementEditor({
   );
 }
 
-function IdentityMark({
-  className,
-  identity,
-  inverted = false,
-  style,
-}: {
-  className: string;
-  identity: BrandIdentity;
-  inverted?: boolean;
-  style?: CSSProperties;
-}) {
-  const path = brandAssetPath(identity, inverted ? 'mark-light' : 'mark-dark');
-  if (path) return <img alt='' className={`brand-identity-mark ${className}`} src={path} style={style} />;
-  return (
-    <span className={`brand-identity-mark ${className} grid place-items-center font-semibold tracking-[-0.03em]`} style={style}>
-      {identity.shortName}
-    </span>
-  );
-}
-
-function declaredAspectRatio(dimensions: string): number | undefined {
-  const match = dimensions.match(/([\d.]+)\s*(?:×|:|x)\s*([\d.]+)/i);
-  if (!match) return undefined;
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return undefined;
-  }
-  return width / height;
-}
-
-function ElementFrame({ accentFontFamily, accentFontWeight, aspectRatio, bodyFontFamily, bodyFontWeight, children, codeFontFamily, codeFontWeight, displayFontFamily, displayFontWeight, logoFilter }: { accentFontFamily: string; accentFontWeight: number; aspectRatio?: number; bodyFontFamily: string; bodyFontWeight: number; children: ReactNode; codeFontFamily: string; codeFontWeight: number; displayFontFamily: string; displayFontWeight: number; logoFilter: string }) {
-  const visibleDisplayWeight = capVisibleFontWeight(displayFontWeight);
-  return (
-    <div
-      className='flex w-full max-w-5xl flex-col'
-      style={{
-        '--brand-element-font': displayFontFamily,
-        '--brand-element-weight': visibleDisplayWeight,
-        '--brand-font-accent': accentFontFamily,
-        '--brand-font-accent-weight': capVisibleFontWeight(accentFontWeight),
-        '--brand-font-body': bodyFontFamily,
-        '--brand-font-body-strong-weight': capVisibleFontWeight(Math.max(bodyFontWeight, 500)),
-        '--brand-font-body-weight': capVisibleFontWeight(bodyFontWeight),
-        '--brand-font-code': codeFontFamily,
-        '--brand-font-code-weight': capVisibleFontWeight(codeFontWeight),
-        '--brand-logo-filter': logoFilter,
-        fontFamily: bodyFontFamily,
-        fontWeight: capVisibleFontWeight(bodyFontWeight),
-      } as CSSProperties}
-    >
-      <div className='studio-scroll-area min-h-0 overflow-auto border border-border bg-muted/30 p-4 sm:p-7'>
-        <div
-          className='brand-element-artboard mx-auto'
-          data-ratio-locked={aspectRatio ? 'true' : undefined}
-          style={aspectRatio ? { aspectRatio } : undefined}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function typeScale(settings: BrandElementSettings): string {
-  if (settings.scale === 'compact') return 'text-3xl sm:text-4xl';
-  if (settings.scale === 'bold') return 'text-5xl sm:text-7xl';
-  return 'text-4xl sm:text-6xl';
-}
-
-function actionStyle(settings: BrandElementSettings): CSSProperties {
-  return {
-    backgroundColor: settings.accentColor,
-    color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818',
-  };
-}
-
-function EmailSupportingCard({
-  card,
-  settings,
-}: {
-  card: EmailLifecycleSupportingCard;
-  settings: BrandElementSettings;
-}) {
-  return (
-    <article
-      className='grid min-h-[132px] grid-cols-[minmax(0,1fr)_132px] overflow-hidden border'
-      style={{ borderColor: `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)` }}
-    >
-      <div className='flex min-w-0 flex-col justify-center p-5'>
-        <p className='text-base font-semibold leading-5'>{card.title}</p>
-        <p className='mt-2 max-w-sm text-sm leading-5 opacity-60'>{card.body}</p>
-      </div>
-      <div
-        className='grid place-items-center overflow-hidden'
-        style={{ backgroundColor: card.imageBackgroundColor }}
-      >
-        <img alt='' className='size-full object-cover' src={card.imagePath} />
-      </div>
-    </article>
-  );
-}
-
-function LifecycleEmailPreview({
-  identity,
-  settings,
-  template,
-}: {
-  identity: BrandIdentity;
-  settings: BrandElementSettings;
-  template: NonNullable<ReturnType<typeof getEmailLifecycleTemplate>>;
-}) {
-  const plainText = template.artworkPath === null;
-
-  if (plainText) {
-    return (
-      <div
-        className='mx-auto w-full max-w-[640px] border p-8 shadow-sm sm:p-12'
-        style={{
-          ...elementSurfaceStyle(settings),
-          borderColor: `color-mix(in srgb, ${settings.foregroundColor} 18%, transparent)`,
-        }}
-      >
-        <p className='text-base leading-7'>Hi Alex,</p>
-        <p className='mt-7 whitespace-pre-line text-base leading-7'>{settings.body}</p>
-        <p className='mt-7 text-base leading-7'>All best,<br />The {identity.name} team</p>
-        <p className='mt-10 text-xs opacity-45'>Unsubscribe: {identity.website}/account</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className='relative mx-auto w-full max-w-[640px] overflow-hidden shadow-sm' style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10'>
-        <LifecycleEmailArtwork identity={identity} settings={settings} template={template} />
-        <div className='p-6 sm:p-8'>
-          <h2 className='max-w-[540px] text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-[38px]'>
-            {settings.headline}
-          </h2>
-          <p className='mt-5 text-base opacity-80'>Hi Alex,</p>
-          <p className='mt-2 max-w-[540px] text-base leading-7 opacity-65'>{settings.body}</p>
-          {settings.cta ? (
-            <span className='mt-6 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>
-              {settings.cta} →
-            </span>
-          ) : null}
-          {template.supportingCards.length > 0 ? (
-            <div className='mt-8 grid gap-3'>
-              {template.supportingCards.map((card) => (
-                <EmailSupportingCard card={card} key={card.imagePath} settings={settings} />
-              ))}
-            </div>
-          ) : null}
-          <div
-            className='mt-8 flex items-center justify-between gap-5 border-t pt-5 text-xs leading-5 opacity-50'
-            style={{ borderColor: settings.foregroundColor }}
-          >
-            <p>Questions? Reply and the {identity.name} team will help.</p>
-            <p>{template.timing}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionalEmailPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  if (element.id === 'email-signature') {
-    return (
-      <div className='relative mx-auto flex w-full max-w-xl items-center gap-5 overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        {settings.showLogo ? <IdentityMark className='relative size-14 object-contain text-xl' identity={identity} inverted={dark} /> : null}
-        <div className='relative border-l pl-5 text-sm' style={{ borderColor: settings.foregroundColor }}>
-          <p className='font-semibold'>{settings.personName}</p>
-          <p className='mt-1 opacity-60'>{settings.personRole}</p>
-          {settings.showWebsite ? <p className='mt-2 font-mono text-xs opacity-45'>{identity.website}</p> : null}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className='relative mx-auto w-full max-w-xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10'>
-        {settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : null}
-
-        <h2 className='mt-12 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2>
-        <p className='mt-4 text-base leading-7 opacity-60'>{settings.body}</p>
-        {settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}
-        {settings.showWebsite ? <p className='mt-12 border-t pt-5 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>{identity.website}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function LifecycleEmailArtwork({
-  compact = false,
-  identity,
-  settings,
-  template,
-}: {
-  compact?: boolean;
-  identity: BrandIdentity;
-  settings: BrandElementSettings;
-  template: NonNullable<ReturnType<typeof getEmailLifecycleTemplate>>;
-}) {
-  if (identity.id === 'gt' && template.artworkPath) {
-    return (
-      <div className='aspect-[1200/380] w-full overflow-hidden bg-black'>
-        <img alt='' className='size-full object-cover' src={template.artworkPath} style={artworkStyle(settings)} />
-      </div>
-    );
-  }
-
-  const dark = isDarkSurface(settings.foregroundColor);
-  return (
-    <div
-      className={`relative flex aspect-[1200/380] w-full items-center overflow-hidden ${compact ? 'p-4' : 'p-6 sm:p-8'}`}
-      style={{ backgroundColor: settings.foregroundColor, color: settings.backgroundColor }}
-    >
-      <div
-        aria-hidden='true'
-        className='absolute inset-x-0 bottom-0 h-1'
-        style={{ backgroundColor: settings.accentColor }}
-      />
-      <div className='flex w-full items-center justify-between gap-5'>
-        <div className='flex min-w-0 items-center gap-4'>
-          <IdentityMark
-            className={compact ? 'size-7 shrink-0 object-contain' : 'size-10 shrink-0 object-contain'}
-            identity={identity}
-            inverted={dark}
-          />
-          <p className={`min-w-0 truncate font-semibold ${compact ? 'text-sm' : 'text-xl sm:text-2xl'}`}>
-            {template.name}
-          </p>
-        </div>
-        <span className={`shrink-0 font-semibold opacity-35 ${compact ? 'text-xl' : 'text-4xl'}`} aria-hidden='true'>
-          {template.symbol}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function EmailSystemSheetPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
-  const templates = EMAIL_LIFECYCLE_TEMPLATES.map((template) =>
-    getEmailLifecycleTemplate(template.id, identity)
-  ).filter((template): template is NonNullable<typeof template> => Boolean(template));
-
-  return (
-    <div
-      className='mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden border sm:grid-cols-3 lg:grid-cols-4'
-      style={{
-        backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 14%, ${settings.backgroundColor})`,
-        borderColor: `color-mix(in srgb, ${settings.foregroundColor} 18%, transparent)`,
-      }}
-    >
-      {templates.map((template) => (
-        <article
-          className='flex min-h-52 flex-col'
-          key={template.id}
-          style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}
-        >
-          {template.artworkPath ? (
-            <LifecycleEmailArtwork compact identity={identity} settings={settings} template={template} />
-          ) : (
-            <div
-              className='flex aspect-[1200/380] items-center px-4 text-xs leading-5'
-              style={{
-                backgroundColor: settings.foregroundColor,
-                color: settings.backgroundColor,
-              }}
-            >
-              Hi Alex,<br />A plain-text note from the {identity.name} team.
-            </div>
-          )}
-          <div className='flex flex-1 flex-col p-4'>
-            <p className='text-sm font-semibold leading-5'>{template.subject}</p>
-            <p className='mt-auto pt-5 text-xs opacity-50'>{template.timing}</p>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function EmailPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  if (element.id === 'email-system-sheet') {
-    return <EmailSystemSheetPreview identity={identity} settings={settings} />;
-  }
-  const template = getEmailLifecycleTemplate(element.id, identity);
-  if (template) {
-    return <LifecycleEmailPreview identity={identity} settings={settings} template={template} />;
-  }
-  return <TransactionalEmailPreview element={element} identity={identity} settings={settings} />;
-}
-
-const DEVELOPER_ASCII_MARKS: Record<string, readonly string[]> = {
-  GT: [
-    ' ██████╗ ████████╗',
-    '██╔════╝ ╚══██╔══╝',
-    '██║  ███╗   ██║   ',
-    '██║   ██║   ██║   ',
-    '╚██████╔╝   ██║   ',
-    ' ╚═════╝    ╚═╝   ',
-  ],
-  ST: [
-    '███████╗████████╗',
-    '██╔════╝╚══██╔══╝',
-    '███████╗   ██║   ',
-    '╚════██║   ██║   ',
-    '███████║   ██║   ',
-    '╚══════╝   ╚═╝   ',
-  ],
+type CatalogProps = {
+  elements: readonly BrandElement[];
+  onSelect: (id: string) => void;
+  selectedId: string;
 };
 
-function developerAscii(shortName: string): string {
-  const fallback = [
-    '┏━━━━━━━━━━━━━━━━━━━━━━┓',
-    `┃      ${shortName.padEnd(10, ' ')}      ┃`,
-    '┣━━━━━━━━━━━━━━━━━━━━━━┫',
-    '┃  ███  BRAND  ███     ┃',
-    '┗━━━━━━━━━━━━━━━━━━━━━━┛',
-  ];
-  return (DEVELOPER_ASCII_MARKS[shortName] ?? fallback).join('\n');
-}
+type MobileSelectProps = { elements: readonly BrandElement[]; onSelect: (id: string) => void; value: string };
 
-function DeveloperAsciiPreview({ ascii, settings }: { ascii: string; settings: BrandElementSettings }) {
+/** The compact-width picker; its long option list is built once per identity. */
+const MobileElementSelect = memo(function MobileElementSelect({ elements, onSelect, value }: MobileSelectProps) {
+  const gt = useGT();
+  const options = useMemo(() => BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
+    elements.filter((element) => element.category === elementCategory).map((element) => ({
+      label: `${gt(elementCategory)} / ${gt(element.name)}`,
+      value: element.id,
+    }))
+  // gt-next returns a new function each render; the labels only change with the catalog.
+  ), [elements]);
   return (
-    <div className='relative mx-auto grid min-h-[440px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 text-center'>
-        <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-base'>{ascii}</pre>
-        <p className='mt-8 max-w-lg text-sm leading-6 opacity-55'>{settings.body}</p>
-      </div>
-    </div>
+    <StudioSelect
+      ariaLabel={gt('Active brand element')}
+      className='brand-elements-mobile-select hidden'
+      onValueChange={onSelect}
+      options={options}
+      value={value}
+    />
   );
-}
+});
 
-function DeveloperTerminalPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
+type CatalogItemProps = { element: BrandElement; onSelect: (id: string) => void; selected: boolean };
+
+/** One row; only the previous and next selection re-render when the selection moves. */
+const ElementCatalogItem = memo(function ElementCatalogItem({ element, onSelect, selected }: CatalogItemProps) {
+  const gt = useGT();
   return (
-    <div className='relative mx-auto w-full max-w-4xl overflow-hidden border p-6 font-mono sm:p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10'>
-        <div className='mb-10 flex items-center justify-end border-b pb-4 text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
-          <span>● ● ●</span>
-        </div>
-        <p><span style={{ color: settings.accentColor }}>import</span> {'{ '}tx{' }'} <span style={{ color: settings.accentColor }}>from</span> &apos;{identity.id}&apos;;</p>
-        <p className='mt-6'><span style={{ color: settings.accentColor }}>export function</span> Greeting() {'{'}</p>
-        <p className='ml-5 mt-2 opacity-70'>return &lt;h1&gt;{'{'}tx(&apos;Hello, world&apos;){'}'}&lt;/h1&gt;;</p>
-        <p className='mt-2'>{'}'}</p>
-        <h2 className='mt-12 text-2xl font-semibold tracking-tight'>{settings.headline}</h2>
-      </div>
-    </div>
+    <Button
+      className='relative h-auto min-h-11 w-full justify-start overflow-hidden rounded-none px-2 py-2 text-left'
+      onClick={() => onSelect(element.id)}
+      type='button'
+      variant={selected ? 'default' : 'ghost'}
+    >
+      <span className='relative z-10 min-w-0 flex-1 pr-10'>
+        <span className='block truncate text-sm'>{gt(element.name)}</span>
+        <span className={`block truncate font-mono text-[10px] ${selected ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
+          {element.dimensions}
+        </span>
+      </span>
+      <span
+        aria-hidden='true'
+        className={`pointer-events-none absolute right-3 bottom-2 font-mono text-[18px] font-semibold leading-none tracking-[-0.08em] ${selected ? 'text-primary-foreground/12' : 'text-foreground/7'}`}
+      >
+        {element.symbol}
+      </span>
+    </Button>
   );
-}
+});
 
-function developerDocumentClassName(elementId: string, layout: BrandElementSettings['layout']): string {
-  const aspectRatio = elementId === 'package-card' ? 'aspect-[8/5]' : 'aspect-[16/7]';
-  if (layout === 'centered') return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} place-items-center text-center`;
-  if (layout === 'stacked') return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} grid-cols-1`;
-  return `relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${aspectRatio} grid-cols-[1.15fr_0.85fr]`;
-}
-
-function DeveloperDocumentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
+/** The element list re-renders only when the filter changes. */
+const ElementCatalogList = memo(function ElementCatalogList({ elements, onSelect, selectedId }: CatalogProps) {
+  const gt = useGT();
   return (
-    <div className={developerDocumentClassName(element.id, settings.layout)} style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 flex flex-col justify-center p-8 sm:p-12'>
-        {settings.showLogo ? <IdentityMark className='mb-8 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}
-        <h2 className='mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl'>{settings.headline}</h2>
-        <p className='mt-4 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p>
-        {settings.cta ? <code className='mt-6 w-fit border px-3 py-2 text-xs' style={{ borderColor: settings.foregroundColor }}>{settings.cta}</code> : null}
-      </div>
-      {settings.layout === 'split' ? (
-        <div className='relative z-10 grid place-items-center p-8' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
-          <span className='font-mono text-6xl font-semibold tracking-[-0.08em]'>{element.id === 'package-card' ? '{}' : identity.shortName}</span>
+    <div className='flex flex-col py-2'>
+      {BRAND_ELEMENT_CATEGORIES.map((elementCategory) => {
+        const categoryElements = elements.filter((element) => element.category === elementCategory);
+        if (categoryElements.length === 0) return null;
+        const Icon = CATEGORY_ICONS[elementCategory];
+        return (
+          <section className='flex flex-col gap-1 px-2 py-2' key={elementCategory}>
+            <div className='flex items-center gap-2 px-2 py-1 text-xs uppercase tracking-widest text-muted-foreground'>
+              <Icon className='size-3.5' aria-hidden='true' />
+              <span>{gt(elementCategory)}</span>
+              <span className='ml-auto font-mono'>{categoryElements.length}</span>
+            </div>
+            {categoryElements.map((element) => (
+              <ElementCatalogItem element={element} key={element.id} onSelect={onSelect} selected={selectedId === element.id} />
+            ))}
+          </section>
+        );
+      })}
+      {elements.length === 0 ? (
+        <div className='flex flex-col items-center gap-3 px-5 py-12 text-center'>
+          <FileText className='size-5 text-muted-foreground' aria-hidden='true' />
+          <p className='text-sm font-medium'><T>No elements found</T></p>
+          <p className='text-xs leading-5 text-muted-foreground'><T>Try a medium, format, or application.</T></p>
         </div>
       ) : null}
     </div>
   );
-}
-
-function DeveloperCliPreview({ ascii, identity, settings }: { ascii: string; identity: BrandIdentity; settings: BrandElementSettings }) {
-  return (
-    <div className='relative mx-auto w-full max-w-4xl overflow-hidden border' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 flex items-center justify-between border-b px-5 py-4' style={{ borderColor: settings.foregroundColor }}>
-        <span className='font-mono text-xs opacity-50'>{identity.id}</span>
-        <span className='size-2' style={{ backgroundColor: settings.accentColor }} />
-      </div>
-      <div className='relative z-10 p-6 sm:p-10'>
-        <pre className='studio-scroll-area overflow-x-auto font-mono text-xs leading-5 sm:text-sm'>{ascii}</pre>
-        <p className='mt-8 font-mono text-sm opacity-45'>$ {settings.cta || `npx ${identity.id} init`}</p>
-        <p className='mt-3 font-mono text-sm'>✓ {identity.name} installed</p>
-        <p className='mt-2 font-mono text-sm' style={{ color: settings.accentColor }}>✓ Brand context loaded</p>
-        <p className='brand-element-display mt-8 max-w-xl text-2xl tracking-[-0.035em]'>{settings.headline}</p>
-      </div>
-    </div>
-  );
-}
-
-const DEVELOPER_DOCUMENT_ELEMENT_IDS = new Set(['github-readme', 'docs-header', 'package-card', 'api-reference-hero', 'code-playground', 'release-notes']);
-
-function DeveloperPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const ascii = developerAscii(identity.shortName);
-  if (element.id === 'ascii-mark') return <DeveloperAsciiPreview ascii={ascii} settings={settings} />;
-  if (element.id === 'terminal-theme') return <DeveloperTerminalPreview identity={identity} settings={settings} />;
-  if (DEVELOPER_DOCUMENT_ELEMENT_IDS.has(element.id)) return <DeveloperDocumentPreview element={element} identity={identity} settings={settings} />;
-  return <DeveloperCliPreview ascii={ascii} identity={identity} settings={settings} />;
-}
-
-function SocialPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  const square = ['linkedin-post', 'podcast-cover'].includes(element.id);
-  const portrait = element.id === 'social-carousel';
-  const centered = settings.layout === 'centered';
-  return (
-    <div className={`relative mx-auto grid w-full overflow-hidden shadow-sm ${square ? 'aspect-square max-w-3xl' : portrait ? 'aspect-[4/5] max-w-2xl' : 'aspect-[16/9] max-w-4xl'} ${centered ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'grid-cols-[1fr_0.72fr]'}`} style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>
-        <div className='flex items-center gap-3'>
-          {settings.showLogo ? <IdentityMark className='size-11 object-contain text-xs' identity={identity} inverted={dark} /> : null}
-          <div>
-            <p className='text-sm font-semibold'>{identity.name}</p>
-
-          </div>
-        </div>
-        <div className={centered ? 'my-auto' : ''}>
-          <p className={`brand-element-display max-w-2xl leading-[1.02] tracking-[-0.05em] ${typeScale(settings)}`}>{settings.headline}</p>
-          {settings.body ? <p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p> : null}
-          {settings.cta ? <p className='mt-6 text-sm font-semibold'>{settings.cta} →</p> : null}
-        </div>
-        {settings.showWebsite ? <p className='font-mono text-xs opacity-40'>{identity.website}</p> : <span />}
-      </div>
-      {!centered && settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-36 object-contain text-5xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /></div> : null}
-    </div>
-  );
-}
-
-function EditorialPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  const portrait = ['report-cover', 'whitepaper-cover', 'notebook-cover'].includes(element.id);
-  const pressKit = element.id === 'press-kit';
-  return (
-    <div className={`relative mx-auto flex w-full flex-col justify-between overflow-hidden p-8 shadow-sm sm:p-14 ${portrait ? 'aspect-[4/5] max-w-2xl' : 'aspect-[16/9] max-w-5xl'} ${settings.layout === 'centered' ? 'items-center text-center' : ''}`} style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 flex w-full items-center justify-between'>
-        {settings.showLogo ? <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}
-
-      </div>
-      <div className='relative z-10 max-w-4xl'>
-        <h2 className={`font-semibold leading-[0.96] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2>
-        {settings.body ? <p className='mt-6 max-w-2xl text-sm leading-6 opacity-60'>{settings.body}</p> : null}
-      </div>
-      <div className='relative z-10 flex w-full items-end justify-between border-t pt-4 font-mono text-xs opacity-45' style={{ borderColor: settings.foregroundColor }}>
-        <span>{settings.showWebsite ? identity.website : identity.name}</span>
-        <span>{pressKit ? 'LOGOS / IMAGES / CONTACT' : identity.shortName}</span>
-      </div>
-    </div>
-  );
-}
-
-function EventPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  const isLockup = element.id === 'partnership-lockup';
-  if (isLockup) {
-    return (
-      <div className='relative mx-auto flex aspect-[16/9] w-full max-w-4xl items-center justify-center gap-10 overflow-hidden p-12 shadow-sm' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        {settings.showLogo ? <IdentityMark className='relative size-28 object-contain text-4xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : null}
-        <span className='relative h-28 w-px opacity-20' style={{ backgroundColor: settings.foregroundColor }} />
-        <div className='relative grid size-28 place-items-center font-mono text-3xl font-semibold' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{settings.partnerName.slice(0, 2).toLocaleUpperCase()}</div>
-      </div>
-    );
-  }
-  if (['event-backdrop', 'booth-wall'].includes(element.id)) {
-    return (
-      <div className='relative mx-auto flex aspect-[16/9] w-full max-w-5xl flex-col justify-between overflow-hidden p-10 shadow-sm sm:p-16' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 flex items-center justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-xl' identity={identity} inverted={dark} style={artworkStyle(settings)} /> : <span />}</div>
-        <h2 className={`relative z-10 max-w-4xl font-semibold leading-[0.94] tracking-[-0.06em] ${typeScale(settings)}`}>{settings.headline}</h2>
-        {settings.showWebsite ? <p className='relative z-10 font-mono text-xs opacity-50'>{identity.website}</p> : null}
-      </div>
-    );
-  }
-  return (
-    <div className='mx-auto flex min-h-[560px] w-full max-w-3xl items-start justify-center overflow-hidden p-8' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
-      <div className='flex flex-col items-center'>
-        <div className='h-24 w-8' style={{ backgroundColor: settings.accentColor }} />
-        <div className='w-72 border' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-          <div className='flex h-32 items-center justify-center' style={{ backgroundColor: settings.accentColor }}>
-            {settings.showLogo ? <IdentityMark className='size-20 object-contain text-2xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}
-          </div>
-          <div className='p-6'>
-
-            <p className='mt-10 text-3xl font-semibold tracking-[-0.04em]'>{settings.personName}</p>
-            <p className='mt-4 text-sm opacity-55'>{settings.personRole}</p>
-            <div className='mt-10 flex items-end justify-between'>
-              <span className='font-mono text-[10px] opacity-40'>{identity.shortName}</span>
-              <div className='grid size-14 grid-cols-4 gap-0.5 bg-black p-1' aria-hidden='true'>
-                {Array.from({ length: 16 }, (_, index) => <span className={index % 3 === 0 ? 'bg-white' : 'bg-black'} key={index} />)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PhysicalPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  if (element.id === 'sticker-sheet') {
-    return (
-      <div className='relative mx-auto grid min-h-[560px] w-full max-w-4xl grid-cols-3 place-items-center gap-8 overflow-hidden p-10 shadow-sm' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        {[identity.shortName, '✦', settings.headline, '→', '@', settings.body].map((item, index) => <div className={`relative z-10 grid place-items-center p-6 text-center font-semibold shadow-lg ${index % 2 === 0 ? 'aspect-square w-40 rounded-full' : 'h-28 w-48'}`} key={`${item}-${index}`} style={{ backgroundColor: index % 2 === 0 ? settings.accentColor : settings.foregroundColor, color: index % 2 === 0 && !isDarkSurface(settings.accentColor) ? '#181818' : settings.backgroundColor }}>{item}</div>)}
-      </div>
-    );
-  }
-  if (element.id === 'packaging-label') {
-    return (
-      <div className='mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center p-10' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
-        <div className='relative aspect-[3/2] w-full max-w-2xl overflow-hidden border p-8' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-          <ElementPattern settings={settings} />
-          <div className='relative z-10 flex h-full flex-col justify-between'>
-            <div className='flex justify-between'>{settings.showLogo ? <IdentityMark className='size-12 object-contain text-lg' identity={identity} inverted={dark} /> : <span />}</div>
-            <div><h2 className='text-4xl font-semibold tracking-[-0.05em]'>{settings.headline}</h2><p className='mt-3 max-w-md text-sm leading-6 opacity-55'>{settings.body}</p></div>
-            {settings.showWebsite ? <span className='font-mono text-xs opacity-45'>{identity.website}</span> : null}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (element.id === 'letterhead') {
-    return (
-      <div className='mx-auto min-h-[640px] w-full max-w-xl border p-10' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-        <div className='flex items-start justify-between'>{settings.showLogo ? <IdentityMark className='size-10 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}{settings.showWebsite ? <span className='font-mono text-xs opacity-45'>{identity.website}</span> : null}</div>
-        <h2 className='mt-24 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2>
-        <p className='mt-8 text-sm leading-7 opacity-60'>{settings.body}</p>
-        <p className='mt-6 text-sm leading-7 opacity-60'>{settings.body}</p>
-        <div className='mt-24 h-px opacity-15' style={{ backgroundColor: settings.foregroundColor }} />
-      </div>
-    );
-  }
-  return (
-    <div className='mx-auto grid min-h-[520px] w-full max-w-5xl place-items-center p-8 sm:p-14' style={{ backgroundColor: `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})` }}>
-      <div className='grid w-full max-w-4xl gap-8 md:grid-cols-2'>
-        <div className='flex aspect-[1.75/1] flex-col justify-between border p-7' style={{ backgroundColor: settings.accentColor, borderColor: settings.foregroundColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>
-          {settings.showLogo ? <IdentityMark className='size-16 object-contain text-xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} /> : null}
-          <p className='font-mono text-xs uppercase tracking-widest opacity-45'>{identity.shortName}</p>
-        </div>
-        <div className='flex aspect-[1.75/1] flex-col justify-between border p-7' style={{ ...elementSurfaceStyle(settings), borderColor: settings.foregroundColor }}>
-          <div>
-            <p className='text-xl font-semibold'>{settings.personName}</p>
-            <p className='mt-1 text-sm opacity-55'>{settings.personRole}</p>
-          </div>
-          <div className='flex items-end justify-between gap-4 font-mono text-xs opacity-45'>
-            {settings.showWebsite ? <span>{identity.website}<br />hello@{identity.website}</span> : <span />}
-            {settings.showLogo ? <IdentityMark className='size-10 object-contain text-xs' identity={identity} inverted={dark} /> : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WebPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  if (element.id === 'error-page') {
-    return (
-      <div className='relative mx-auto grid aspect-[16/10] w-full max-w-4xl place-items-center overflow-hidden p-10 text-center shadow-sm' style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 max-w-xl'>{settings.showLogo ? <IdentityMark className='mx-auto mb-10 size-10 object-contain text-sm' identity={identity} inverted={dark} /> : null}<h2 className={`mt-3 font-semibold tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mx-auto mt-5 max-w-md text-sm leading-6 opacity-60'>{settings.body}</p>{settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}</div>
-      </div>
-    );
-  }
-  return (
-    <div className={`relative mx-auto grid w-full max-w-4xl overflow-hidden shadow-sm ${element.id === 'opengraph' ? 'aspect-[1200/630]' : 'aspect-[16/10]'} ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'md:grid-cols-[1.2fr_0.8fr]'}`} style={elementSurfaceStyle(settings)}>
-      <ElementPattern settings={settings} />
-      <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>
-        {settings.showLogo ? <IdentityMark className='size-10 object-contain text-sm' identity={identity} inverted={dark} /> : <span />}
-        <div>
-
-          <h2 className={`mt-4 font-semibold leading-[1.02] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2>
-          {settings.body ? <p className='mt-5 max-w-lg text-sm leading-6 opacity-60'>{settings.body}</p> : null}
-          {settings.cta ? <span className='mt-7 inline-block px-5 py-3 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span> : null}
-        </div>
-        {settings.showWebsite ? <p className='font-mono text-xs opacity-40'>{identity.website}</p> : <span />}
-      </div>
-      {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center p-10' style={{ backgroundColor: settings.accentColor }}><IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /></div> : null}
-    </div>
-  );
-}
-
-function ProductPreviewLogo({
-  dark,
-  identity,
-  settings,
-}: {
-  dark: boolean;
-  identity: BrandIdentity;
-  settings: BrandElementSettings;
-}) {
-  if (!settings.showLogo) return null;
-  return <IdentityMark className='size-9 object-contain text-sm' identity={identity} inverted={dark} />;
-}
-
-function ProductPreviewAction({ settings }: { settings: BrandElementSettings }) {
-  if (!settings.cta) return null;
-  return <span className='inline-flex w-fit px-4 py-2.5 text-sm font-semibold' style={actionStyle(settings)}>{settings.cta} →</span>;
-}
-
-function ProductComponentPrimaryPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const dark = isDarkSurface(settings.backgroundColor);
-  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
-  const mutedSurface = `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})`;
-  const radius = identity.style.borderRadius;
-  const logo = <ProductPreviewLogo dark={dark} identity={identity} settings={settings} />;
-  const action = <ProductPreviewAction settings={settings} />;
-
-  if (element.id === 'navigation-bar') {
-    return (
-      <div className='relative mx-auto flex min-h-28 w-full max-w-5xl items-center justify-between gap-6 overflow-hidden px-6 shadow-sm sm:px-8' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 flex items-center gap-3'>{logo}<span className='font-semibold'>{settings.headline}</span></div>
-        <div className='relative z-10 hidden items-center gap-7 text-sm opacity-60 md:flex'>{settings.body.split(/[·|]/).map((item) => <span key={item}>{item.trim()}</span>)}</div>
-        <div className='relative z-10'>{action}</div>
-      </div>
-    );
-  }
-
-  if (element.id === 'hero-section') {
-    return (
-      <div className={`relative mx-auto grid aspect-[16/9] w-full max-w-5xl overflow-hidden shadow-sm ${settings.layout === 'centered' ? 'place-items-center text-center' : settings.layout === 'stacked' ? 'grid-cols-1' : 'md:grid-cols-[1.1fr_0.9fr]'}`} style={elementSurfaceStyle(settings)}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 flex flex-col justify-center p-8 sm:p-14'>{logo}<h2 className={`mt-12 max-w-3xl font-semibold leading-[0.98] tracking-[-0.055em] ${typeScale(settings)}`}>{settings.headline}</h2><p className='mt-5 max-w-xl text-sm leading-6 opacity-60'>{settings.body}</p><div className='mt-7'>{action}</div></div>
-        {settings.layout === 'split' ? <div className='relative z-10 grid place-items-center overflow-hidden' style={{ backgroundColor: settings.accentColor }}><div className='grid size-48 place-items-center border border-white/25 text-6xl font-semibold' style={{ color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{identity.shortName}</div></div> : null}
-      </div>
-    );
-  }
-
-  if (element.id === 'auth-screen') {
-    return (
-      <div className='relative mx-auto grid aspect-[16/10] w-full max-w-4xl overflow-hidden shadow-sm md:grid-cols-[1fr_0.9fr]' style={{ ...elementSurfaceStyle(settings), borderRadius: radius }}>
-        <ElementPattern settings={settings} />
-        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'>{logo}<div><h2 className='mt-3 text-4xl font-semibold tracking-[-0.05em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p></div><span className='font-mono text-xs opacity-40'>{identity.website}</span></div>
-        <div className='relative z-10 flex flex-col justify-center gap-4 p-8' style={{ backgroundColor: mutedSurface }}><label className='text-xs opacity-60'>Email<input className='mt-2 h-11 w-full border bg-transparent px-3 text-sm opacity-100' style={{ borderColor, borderRadius: Math.min(radius, 10) }} value={identity.contactEmail} readOnly /></label><label className='text-xs opacity-60'>Password<input className='mt-2 h-11 w-full border bg-transparent px-3 text-sm opacity-100' style={{ borderColor, borderRadius: Math.min(radius, 10) }} value='••••••••••' readOnly /></label><span className='mt-2 inline-flex h-11 items-center justify-center text-sm font-semibold' style={{ ...actionStyle(settings), borderRadius: Math.min(radius, 10) }}>{settings.cta || 'Continue'}</span></div>
-      </div>
-    );
-  }
-
-  if (element.id === 'sidebar-navigation') {
-    const destinations = settings.body.split(/[·|\n]/).map((item) => item.trim()).filter(Boolean);
-    return (
-      <div className='relative mx-auto grid min-h-[540px] w-full max-w-5xl overflow-hidden shadow-sm md:grid-cols-[240px_1fr]' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}>
-        <aside className='relative z-10 flex flex-col border-r p-5' style={{ borderColor }}><div className='flex items-center gap-3'>{logo}<strong>{identity.name}</strong></div><div className='mt-10 flex flex-col gap-1'>{destinations.map((item, index) => <span className='px-3 py-2 text-sm' key={item} style={{ backgroundColor: index === 0 ? mutedSurface : undefined, borderRadius: Math.min(radius, 8) }}>{item}</span>)}</div><span className='mt-auto text-xs opacity-45'>{identity.socialHandle}</span></aside>
-        <div className='relative z-10 flex flex-col justify-between p-8 sm:p-12'><div><h2 className='mt-3 text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2></div><div className='grid gap-3 sm:grid-cols-3'>{identity.values.slice(0, 3).map((value, index) => <div className='min-h-32 border p-4' key={value} style={{ borderColor, borderRadius: Math.min(radius, 12) }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-10 font-semibold'>{value}</p></div>)}</div></div>
-      </div>
-    );
-  }
-
-  if (element.id === 'search-surface') {
-    return (
-      <div className='relative mx-auto grid min-h-[520px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-2xl border p-3' style={{ backgroundColor: settings.backgroundColor, borderColor, borderRadius: radius }}><div className='flex h-12 items-center gap-3 border-b px-3' style={{ borderColor }}><span className='text-lg'>⌕</span><span className='text-sm opacity-45'>{settings.body}</span><kbd className='ml-auto font-mono text-xs opacity-35'>ESC</kbd></div><div className='py-2'>{['Open brand settings', 'Generate a design board', 'Export selected artifact', 'Invite a collaborator'].map((item, index) => <div className='flex items-center justify-between px-4 py-3 text-sm' key={item} style={{ backgroundColor: index === 0 ? mutedSurface : undefined, borderRadius: Math.min(radius, 8) }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div></div></div>
-    );
-  }
-
-  if (element.id === 'onboarding-checklist') {
-    const steps = settings.body.split('\n').map((item) => item.trim()).filter(Boolean);
-    return (
-      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><div className='mt-8 flex flex-col gap-2'>{steps.map((step, index) => <div className='flex items-center gap-3 border p-4 text-sm' key={step} style={{ borderColor, borderRadius: Math.min(radius, 10) }}><span className='grid size-6 place-items-center text-xs' style={{ backgroundColor: index < 2 ? settings.accentColor : mutedSurface, color: index < 2 && isDarkSurface(settings.accentColor) ? '#fff' : settings.foregroundColor, borderRadius: 99 }}>{index < 2 ? '✓' : index + 1}</span><span>{step}</span></div>)}</div><div className='mt-7'>{action}</div></div></div>
-    );
-  }
-
-  return null;
-}
-
-function ProductCommerceCardPreview({ elementId, identity, settings }: { elementId: string; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const testimonial = elementId === 'testimonial-card';
-  const checkout = elementId === 'checkout-card';
-  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
-  const logo = <ProductPreviewLogo dark={isDarkSurface(settings.backgroundColor)} identity={identity} settings={settings} />;
-  const action = <ProductPreviewAction settings={settings} />;
-  return (
-    <div className='relative mx-auto flex min-h-[520px] w-full max-w-xl flex-col justify-between overflow-hidden p-8 sm:p-10' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}` }}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className={`${testimonial ? 'mt-5 text-4xl leading-tight' : 'mt-4 text-5xl'} font-semibold tracking-[-0.05em]`}>{settings.headline}</h2><p className='mt-5 text-sm leading-6 opacity-60'>{settings.body}</p>{testimonial ? <p className='mt-8 text-sm font-semibold'>Alex Morgan · Customer</p> : <div className='mt-8 flex flex-col gap-3 border-y py-5 text-sm' style={{ borderColor }}><span className='flex justify-between'><span>{checkout ? 'Subtotal' : 'Unlimited projects'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Tax' : 'High-resolution exports'}</span><span>✓</span></span><span className='flex justify-between'><span>{checkout ? 'Total' : 'Shared brand settings'}</span><span>{checkout ? settings.headline : '✓'}</span></span></div>}</div>{!testimonial ? <div className='relative z-10 mt-8'>{action}</div> : null}</div>
-  );
-}
-
-function ProductOverlayPreview({ elementId, identity, settings }: { elementId: string; identity: BrandIdentity; settings: BrandElementSettings }) {
-  const compact = elementId === 'toast-notification';
-  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
-  const mutedSurface = `color-mix(in srgb, ${settings.foregroundColor} 5%, ${settings.backgroundColor})`;
-  const logo = <ProductPreviewLogo dark={isDarkSurface(settings.backgroundColor)} identity={identity} settings={settings} />;
-  const action = <ProductPreviewAction settings={settings} />;
-  return (
-    <div className={`relative mx-auto grid w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm ${compact ? 'min-h-72' : 'min-h-[520px]'}`} style={{ ...elementSurfaceStyle(settings), backgroundColor: mutedSurface }}><ElementPattern settings={settings} /><div className={`relative z-10 w-full bg-[var(--background)] p-7 ${compact ? 'max-w-lg' : 'max-w-xl'} ${settings.layout === 'centered' ? 'text-center' : ''}`} style={{ backgroundColor: settings.backgroundColor, border: `1px solid ${borderColor}` }}>{logo}<h2 className='mt-3 text-2xl font-semibold tracking-[-0.035em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p>{elementId === 'command-menu' ? <div className='mt-6 flex flex-col gap-px' style={{ backgroundColor: borderColor }}>{['Open brand settings', 'Create a design board', 'Export current canvas'].map((item) => <div className='flex justify-between bg-inherit p-3 text-left text-sm' key={item} style={{ backgroundColor: settings.backgroundColor }}><span>{item}</span><span className='font-mono opacity-35'>↵</span></div>)}</div> : <div className='mt-6'>{action}</div>}</div></div>
-  );
-}
-
-function ProductComponentPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  if (PRIMARY_PRODUCT_COMPONENT_IDS.has(element.id)) {
-    return <ProductComponentPrimaryPreview element={element} identity={identity} settings={settings} />;
-  }
-
-  const dark = isDarkSurface(settings.backgroundColor);
-  const borderColor = `color-mix(in srgb, ${settings.foregroundColor} 16%, transparent)`;
-  const radius = identity.style.borderRadius;
-  const logo = <ProductPreviewLogo dark={dark} identity={identity} settings={settings} />;
-  const action = <ProductPreviewAction settings={settings} />;
-
-  switch (element.id) {
-  case 'file-uploader': {
-    return (
-      <div className='relative mx-auto grid min-h-[480px] w-full max-w-4xl place-items-center overflow-hidden p-8 shadow-sm' style={{ ...elementSurfaceStyle(settings), borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex w-full max-w-xl flex-col items-center border border-dashed p-12 text-center' style={{ borderColor, borderRadius: radius }}><span className='grid size-12 place-items-center border text-xl' style={{ borderColor, borderRadius: Math.min(radius, 10) }}>↑</span><h2 className='mt-6 text-2xl font-semibold'>{settings.headline}</h2><p className='mt-3 max-w-sm text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-6'>{action}</div></div></div>
-    );
-  }
-
-  case 'status-page': {
-    const services = settings.body.split('\n').map((item) => item.trim()).filter(Boolean);
-    return (
-      <div className='relative mx-auto w-full max-w-4xl overflow-hidden p-8 shadow-sm sm:p-12' style={{ ...elementSurfaceStyle(settings), border: `1px solid ${borderColor}`, borderRadius: radius }}><ElementPattern settings={settings} /><div className='relative z-10 flex items-start justify-between gap-8'>{logo}</div><div className='relative z-10 mt-16 flex items-center gap-3'><span className='size-3 rounded-full bg-status-success' /><h2 className='text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2></div><div className='relative z-10 mt-10 flex flex-col'>{services.map((service) => <div className='flex items-center justify-between border-t py-4 text-sm' key={service} style={{ borderColor }}><span>{service}</span><span className='text-status-success'>Operational</span></div>)}</div></div>
-    );
-  }
-
-  case 'feature-grid': {
-    const features = identity.strategy.pillars.slice(0, 3);
-    return (
-      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm sm:p-12' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><h2 className='max-w-3xl text-4xl font-semibold tracking-[-0.045em]'>{settings.headline}</h2><p className='mt-4 max-w-2xl text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-12 grid gap-px sm:grid-cols-3' style={{ backgroundColor: borderColor }}>{features.map((title, index) => <div className='min-h-44 p-6' key={title} style={{ backgroundColor: settings.backgroundColor }}><span className='font-mono text-xs opacity-35'>0{index + 1}</span><p className='mt-14 text-lg font-semibold'>{title}</p><p className='mt-2 text-xs uppercase tracking-wide opacity-35'>{identity.values[index] ?? identity.name}</p></div>)}</div></div></div>
-    );
-  }
-
-  case 'pricing-card':
-  case 'testimonial-card':
-  case 'checkout-card': {
-    return <ProductCommerceCardPreview elementId={element.id} identity={identity} settings={settings} />;
-  }
-
-  case 'form-controls':
-  case 'settings-panel': {
-    return (
-      <div className='relative mx-auto w-full max-w-3xl overflow-hidden p-8 shadow-sm sm:p-10' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'>{logo}<h2 className='mt-8 text-3xl font-semibold tracking-[-0.04em]'>{settings.headline}</h2><p className='mt-3 text-sm leading-6 opacity-55'>{settings.body}</p><div className='mt-8 grid gap-5 sm:grid-cols-2'><label className='flex flex-col gap-2 text-xs opacity-70'>Workspace name<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.name} readOnly /></label><label className='flex flex-col gap-2 text-xs opacity-70'>Website<input className='h-10 border bg-transparent px-3 text-sm opacity-100' style={{ borderColor }} value={identity.website} readOnly /></label><label className='flex items-center justify-between gap-4 border p-3 text-sm sm:col-span-2' style={{ borderColor }}><span>Keep brand assets synchronized</span><StudioCheckbox checked readOnly /></label></div><div className='mt-7'>{action}</div></div></div>
-    );
-  }
-
-  case 'command-menu':
-  case 'modal-dialog':
-  case 'toast-notification':
-  case 'empty-state': {
-    return <ProductOverlayPreview elementId={element.id} identity={identity} settings={settings} />;
-  }
-
-  case 'data-table': {
-    return (
-      <div className='relative mx-auto w-full max-w-5xl overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10'><div className='flex items-end justify-between gap-6'><div><h2 className='text-3xl font-semibold'>{settings.headline}</h2></div>{action}</div><div className='mt-8 overflow-hidden border' style={{ borderColor }}><div className='grid grid-cols-[1.4fr_1fr_0.8fr] p-3 font-mono text-[10px] uppercase opacity-45'><span>Project</span><span>Status</span><span>Updated</span></div>{['Product launch', 'Documentation', 'Email system', 'Design board'].map((item, index) => <div className='grid grid-cols-[1.4fr_1fr_0.8fr] border-t p-4 text-sm' key={item} style={{ borderColor }}><span className='font-medium'>{item}</span><span><i className='mr-2 inline-block size-2 rounded-full' style={{ backgroundColor: settings.accentColor }} />{index % 2 ? 'Draft' : 'Ready'}</span><span className='opacity-45'>Today</span></div>)}</div></div></div>
-    );
-  }
-
-  default:
-    return (
-      <div className='relative mx-auto grid aspect-[3/2] w-full max-w-3xl place-items-center overflow-hidden p-8 shadow-sm' style={elementSurfaceStyle(settings)}><ElementPattern settings={settings} /><div className='relative z-10 w-full max-w-md border p-7' style={{ borderColor }}><div className='flex items-start justify-between'>{logo}</div><h2 className='mt-12 text-5xl font-semibold tracking-[-0.055em]'>{settings.headline}</h2><p className='mt-3 text-sm opacity-55'>{settings.body}</p><div className='mt-8 h-20 border-b border-l' style={{ borderColor }}><div className='h-full w-2/3' style={{ background: `linear-gradient(135deg, transparent 30%, ${settings.accentColor})`, clipPath: 'polygon(0 70%, 32% 50%, 56% 65%, 78% 18%, 100% 0, 100% 100%, 0 100%)' }} /></div></div></div>
-    );
-  }
-}
-
-function LogoPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
-  return (
-    <div className='mx-auto grid aspect-[16/10] w-full max-w-4xl grid-cols-2 overflow-hidden shadow-sm'>
-      <div className='relative grid place-items-center overflow-hidden p-10' style={{ backgroundColor: settings.backgroundColor, color: settings.foregroundColor }}><ElementPattern settings={settings} />{settings.showLogo ? <IdentityMark className='relative size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.backgroundColor)} style={artworkStyle(settings)} /> : null}</div>
-      <div className='grid place-items-center overflow-hidden p-10' style={{ backgroundColor: settings.accentColor, color: isDarkSurface(settings.accentColor) ? '#FFFFFF' : '#181818' }}>{settings.showLogo ? <IdentityMark className='size-44 object-contain text-6xl' identity={identity} inverted={isDarkSurface(settings.accentColor)} style={artworkStyle(settings)} /> : null}</div>
-    </div>
-  );
-}
-
-const ICON_PREVIEW_SIZES = [
-  { id: 'xs', size: 32 },
-  { id: 'sm', size: 64 },
-  { id: 'md', size: 128 },
-  { id: 'lg', size: 256 },
-  { id: 'xl', size: 512 },
-  { id: 'xxl', size: 1024 },
-  { id: 'sm-accent', size: 64 },
-  { id: 'md-accent', size: 128 },
-] as const;
-
-function IconPreview({ identity, settings }: { identity: BrandIdentity; settings: BrandElementSettings }) {
-  return (
-    <div className='mx-auto grid w-full max-w-3xl grid-cols-2 gap-px bg-border shadow-sm sm:grid-cols-4'>
-      {ICON_PREVIEW_SIZES.map(({ id, size }) => {
-        const usesAccent = id === 'xs' || id === 'lg' || id === 'sm-accent';
-        const backgroundColor = usesAccent ? settings.accentColor : settings.backgroundColor;
-        return (
-        <div className='grid aspect-square place-items-center p-6' key={id} style={{ backgroundColor, color: usesAccent ? settings.backgroundColor : settings.foregroundColor }}>
-          {settings.showLogo ? <IdentityMark className='size-2/3 object-contain text-2xl' identity={identity} inverted={isDarkSurface(backgroundColor)} style={artworkStyle(settings)} /> : null}
-          <span className='mt-3 font-mono text-[10px] opacity-40'>{size} PX</span>
-        </div>
-      );})}
-    </div>
-  );
-}
-
-function ElementPreview({ element, identity, settings }: { element: BrandElement; identity: BrandIdentity; settings: BrandElementSettings }) {
-  let preview: ReactNode;
-  switch (element.preview) {
-    case 'email':
-      preview = <EmailPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'developer':
-      preview = <DeveloperPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'social':
-      preview = <SocialPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'editorial':
-      preview = <EditorialPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'event':
-      preview = <EventPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'physical':
-      preview = <PhysicalPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'logo':
-      preview = <LogoPreview identity={identity} settings={settings} />;
-      break;
-    case 'icon':
-      preview = <IconPreview identity={identity} settings={settings} />;
-      break;
-    case 'web':
-      preview = <WebPreview element={element} identity={identity} settings={settings} />;
-      break;
-    case 'component':
-      preview = <ProductComponentPreview element={element} identity={identity} settings={settings} />;
-      break;
-  }
-  const asset = [...identity.assets, ...identity.proofAssets].find(({ id }) => id === settings.assetId);
-  return (
-    <div className='brand-element-preview-composite'>
-      {preview}
-      {asset ? <img alt='' className='brand-element-shared-asset' data-placement={settings.assetPlacement} src={asset.path} style={{ opacity: settings.assetOpacity / 100 }} /> : null}
-    </div>
-  );
-}
+});
 
 export default function BrandElementsStudio({
   identity,
@@ -1297,24 +496,14 @@ export default function BrandElementsStudio({
 }) {
   const studioRootRef = useRef<HTMLDivElement>(null);
   const gt = useGT();
+  const scope = `be${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [lastExport, setLastExport] = useState<ExportPreviewAsset | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(
-    identity.id,
-    tool.id,
-    'category',
-    'All'
-  );
-  const [selectedElementId, setSelectedElementId] = useStudioDraft(
-    identity.id,
-    tool.id,
-    'selected-element',
-    'welcome-email'
-  );
-  const [elementOverrides, setElementOverrides] = useStudioDraft<
-    Record<string, BrandElementOverrides>
-  >(identity.id, tool.id, 'element-settings', {});
+  const [category, setCategory] = useStudioDraft<BrandElementCategory | 'All'>(identity.id, tool.id, 'category', 'All');
+  const [selectedElementId, setSelectedElementId] = useStudioDraft(identity.id, tool.id, 'selected-element', 'welcome-email');
+  const [elementOverrides, setElementOverrides] = useStudioDraft<Record<string, BrandElementOverrides>>(identity.id, tool.id, 'element-settings', {});
+  const palette = useMemo(() => brandPalette(identity), [identity]);
   const identityElements = useMemo(
     () =>
       BRAND_ELEMENTS.map((element) => {
@@ -1332,25 +521,20 @@ export default function BrandElementsStudio({
     [identity]
   );
   const filteredElements = useMemo(
-    () =>
-      filterBrandElements(identityElements, query).filter(
-        (element) => category === 'All' || element.category === category
-      ),
+    () => filterBrandElements(identityElements, query).filter((element) => category === 'All' || element.category === category),
     [category, identityElements, query]
   );
-  const selectedElement =
-    identityElements.find(({ id }) => id === selectedElementId) ?? identityElements[0]!;
-  const selectedSettings = {
-    ...createBrandElementSettings(selectedElement, identity),
-    ...elementOverrides[selectedElement.id],
-  };
-
-  function updateSelectedSettings(patch: BrandElementOverrides) {
-    setElementOverrides((current) => ({
-      ...current,
-      [selectedElement.id]: { ...current[selectedElement.id], ...patch },
-    }));
-  }
+  const selectedElement = identityElements.find(({ id }) => id === selectedElementId) ?? identityElements[0]!;
+  const selectedOverrides = elementOverrides[selectedElement.id];
+  const selectedSettings = useMemo<BrandElementSettings>(
+    () => ({ ...createBrandElementSettings(selectedElement, identity), ...selectedOverrides }),
+    [identity, selectedElement, selectedOverrides]
+  );
+  const selectElement = useCallback((id: string) => setSelectedElementId(id), [setSelectedElementId]);
+  const elementId = selectedElement.id;
+  const updateSelectedSettings = useCallback((patch: BrandElementOverrides) => {
+    setElementOverrides((current) => ({ ...current, [elementId]: { ...current[elementId], ...patch } }));
+  }, [elementId, setElementOverrides]);
 
   function resetSelectedSettings() {
     setElementOverrides((current) => {
@@ -1360,12 +544,27 @@ export default function BrandElementsStudio({
     });
   }
 
+  function readSource(): string {
+    return stringifySource({
+      ...selectedSettings,
+      elementId: selectedElement.id,
+      schema: BRAND_ELEMENT_SOURCE_SCHEMA,
+      version: BRAND_ELEMENT_SOURCE_VERSION,
+    });
+  }
+
   function applySource(source: string) {
-    const next = parseSourceObject(source);
-    setElementOverrides((current) => ({
-      ...current,
-      [selectedElement.id]: next as BrandElementOverrides,
-    }));
+    const parsed = parseBrandElementSource(parseSourceObject(source), identityElements, selectedElement.id, identity);
+    setSelectedElementId(parsed.elementId);
+    setElementOverrides((current) => {
+      // Provided settings replace their stored values; omitted settings stay as they are.
+      const kept = Object.fromEntries(Object.entries(current[parsed.elementId] ?? {}).filter(([key]) => !parsed.keys.includes(key as keyof BrandElementSettings)));
+      const merged = { ...kept, ...parsed.overrides };
+      const next = { ...current };
+      if (Object.keys(merged).length > 0) next[parsed.elementId] = merged;
+      else delete next[parsed.elementId];
+      return next;
+    });
   }
 
   function exportBrief() {
@@ -1374,17 +573,28 @@ export default function BrandElementsStudio({
     return asset;
   }
 
-  const automationRef = useCommittedRef({ applySource, exportBrief, selectedSettings });
+  const automationRef = useCommittedRef({ applySource, exportBrief, readSource });
   useEffect(() => registerStudioAutomation({
     actions: studioToolActionNames('brand-elements'),
     applySource: (source) => automationRef.current.applySource(source),
-    getSource: () => stringifySource(automationRef.current.selectedSettings),
+    getSource: () => automationRef.current.readSource(),
     invoke: (action) => {
       if (action === 'brand-element.export.brief') return automationRef.current.exportBrief();
       throw new RangeError(`Unknown Brand elements action: ${action}.`);
     },
     toolId: 'brand-elements',
   }, studioRootRef.current), [automationRef]);
+
+  const sharedAsset = [...identity.assets, ...identity.proofAssets].find(({ id }) => id === selectedSettings.assetId);
+  const previewContext = useMemo(() => ({
+    editable: true,
+    element: selectedElement,
+    identity,
+    onChange: updateSelectedSettings,
+    palette,
+    scope,
+    settings: selectedSettings,
+  }), [identity, palette, scope, selectedElement, selectedSettings, updateSelectedSettings]);
 
   return (
     <div className='tool-shell h-full min-h-0' ref={studioRootRef}>
@@ -1433,77 +643,16 @@ export default function BrandElementsStudio({
               value={category}
             />
           </div>
-          <div className='flex flex-col py-2'>
-            {BRAND_ELEMENT_CATEGORIES.map((elementCategory) => {
-              const elements = filteredElements.filter((element) => element.category === elementCategory);
-              if (elements.length === 0) return null;
-              const Icon = CATEGORY_ICONS[elementCategory];
-              return (
-                <section className='flex flex-col gap-1 px-2 py-2' key={elementCategory}>
-                  <div className='flex items-center gap-2 px-2 py-1 text-xs uppercase tracking-widest text-muted-foreground'>
-                    <Icon className='size-3.5' aria-hidden='true' />
-                    <span>{gt(elementCategory)}</span>
-                    <span className='ml-auto font-mono'>{elements.length}</span>
-                  </div>
-                  {elements.map((element) => (
-                    <Button
-                      className='relative h-auto min-h-11 w-full justify-start overflow-hidden rounded-none px-2 py-2 text-left'
-                      key={element.id}
-                      onClick={() => setSelectedElementId(element.id)}
-                      type='button'
-                      variant={selectedElement.id === element.id ? 'default' : 'ghost'}
-                    >
-                      <span className='relative z-10 min-w-0 flex-1 pr-10'>
-                        <span className='block truncate text-sm'>{gt(element.name)}</span>
-                        <span className={`block truncate font-mono text-[10px] ${selectedElement.id === element.id ? 'text-primary-foreground/55' : 'text-muted-foreground'}`}>
-                          {element.dimensions}
-                        </span>
-                      </span>
-                      <span
-                        aria-hidden='true'
-                        className={`pointer-events-none absolute right-3 bottom-2 font-mono text-[18px] font-semibold leading-none tracking-[-0.08em] ${
-                          selectedElement.id === element.id
-                            ? 'text-primary-foreground/12'
-                            : 'text-foreground/7'
-                        }`}
-                      >
-                        {element.symbol}
-                      </span>
-                    </Button>
-                  ))}
-                </section>
-              );
-            })}
-            {filteredElements.length === 0 ? (
-              <div className='flex flex-col items-center gap-3 px-5 py-12 text-center'>
-                <FileText className='size-5 text-muted-foreground' aria-hidden='true' />
-                <p className='text-sm font-medium'><T>No elements found</T></p>
-                <p className='text-xs leading-5 text-muted-foreground'><T>Try a medium, format, or application.</T></p>
-              </div>
-            ) : null}
-          </div>
+          <ElementCatalogList elements={filteredElements} onSelect={selectElement} selectedId={selectedElement.id} />
         </StudioSidebar>
 
         <div className='brand-elements-canvas tool-canvas studio-scroll-area min-h-0 overflow-auto'>
           <div className='flex min-h-full flex-col'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-3'>
-              <StudioSelect
-                ariaLabel={gt('Active brand element')}
-                className='brand-elements-mobile-select hidden'
-                onValueChange={setSelectedElementId}
-                options={BRAND_ELEMENT_CATEGORIES.flatMap((elementCategory) =>
-                  identityElements.reduce<Array<{ label: string; value: string }>>((options, element) => {
-                    if (element.category === elementCategory) options.push({
-                      label: `${gt(elementCategory)} / ${gt(element.name)}`,
-                      value: element.id,
-                    });
-                    return options;
-                  }, [])
-                )}
-                value={selectedElement.id}
-              />
+              <MobileElementSelect elements={identityElements} onSelect={selectElement} value={selectedElement.id} />
               <div>
                 <p className='text-sm font-semibold'>{selectedElement.name}</p>
+                <p className='text-xs text-muted-foreground'><T>Click any text on the artboard to edit it in place.</T></p>
               </div>
               <div className='flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground'>
                 <span className='rounded-md border border-border px-2 py-1'>{selectedElement.dimensions}</span>
@@ -1512,26 +661,19 @@ export default function BrandElementsStudio({
             </div>
             <CanvasViewport
               className='min-h-[560px] flex-1'
-              fontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-              fontWeight={capVisibleFontWeight(selectedSettings.fontWeight)}
+              fontFamily={brandTypographyFamily(identity, 'Body')}
+              fontWeight={capVisibleFontWeight(brandTypographyRole(identity, 'Body').weight ?? 400)}
               identityId={identity.id}
-              stageClassName='grid min-h-[560px] place-items-center p-5 sm:p-8'
+              stageClassName='grid min-h-[560px] grid-cols-[minmax(0,1fr)] place-items-center p-5 sm:p-8'
               toolId={tool.id}
             >
-              <ElementFrame
-                accentFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-                accentFontWeight={selectedSettings.fontWeight}
-                aspectRatio={declaredAspectRatio(selectedElement.dimensions)}
-                bodyFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-                bodyFontWeight={selectedSettings.fontWeight}
-                codeFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-                codeFontWeight={selectedSettings.fontWeight}
-                displayFontFamily={brandTypographyFamily(identity, selectedSettings.fontRole)}
-                displayFontWeight={selectedSettings.fontWeight}
-                logoFilter={logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance })}
+              <div
+                className='brand-element-artboard mx-auto w-full max-w-6xl'
+                data-element={selectedElement.id}
+                style={{ '--brand-logo-filter': logoAppearanceCssFilter({ ...DEFAULT_LOGO_APPEARANCE, ...selectedSettings.logoAppearance }) } as CSSProperties}
               >
-                <ElementPreview element={selectedElement} identity={identity} settings={selectedSettings} />
-              </ElementFrame>
+                <ElementPreview context={previewContext} sharedAsset={sharedAsset} />
+              </div>
             </CanvasViewport>
           </div>
         </div>
@@ -1545,10 +687,10 @@ export default function BrandElementsStudio({
       </div>
       {sourceOpen ? (
         <SourceCodeDrawer
-          format='JSON · artifact configuration'
+          format='JSON · selected element settings (version 2, with elementId)'
           onApply={applySource}
           onClose={() => setSourceOpen(false)}
-          source={stringifySource(selectedSettings)}
+          source={readSource()}
           title={`${selectedElement.name} source`}
         />
       ) : null}

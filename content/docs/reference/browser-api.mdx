@@ -179,7 +179,7 @@ The manifest and `describe().actionContracts` are authoritative. These editors a
 | --- | --- |
 | Brand identity | `identity.export.json`, `identity.read`, `identity.validate`, `identity.apply`, `identity.asset.add`, `identity.font.add`, `identity.audit`, `identity.fix`, `identity.save`, `identity.export.kit`, `identity.setup.prompt` |
 | Brand elements | `brand-element.export.brief` |
-| Moodboard | `moodboard.export.png`, `moodboard.export.identity` |
+| Moodboard | `moodboard.export.png`, `moodboard.export.svg`, `moodboard.export.identity` |
 | Brand book | `brand-book.print` |
 | Color tokens | `colors.tokens.read`, `colors.tokens.copy` |
 | Animation | `animation.export`, `animation.export.gif`, `animation.export.mp4`, `animation.export.project` |
@@ -194,7 +194,7 @@ Brand identity actions validate before they change anything. `identity.apply` ac
 
 Every other visible feature remains reachable through workspace-scoped `controls()`, `activate()`, and `set()`. Tool capability records distinguish a direct Browser action, an interactive Browser control, and deterministic HTTP generation so an agent does not mistake a clickable flow for a returned value.
 
-Editable source remains registered for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Component library whether or not the Code drawer is open. Brand book is intentionally derived from the active identity and reports `source: false`.
+Editable source remains registered for Brand identity, Brand elements, Moodboard, Brand book, Animation, Lottie, Design Lab, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Component library whether or not the Code drawer is open. Brand book is intentionally derived from the active identity and reports `source: false`.
 
 ## Completion and verification
 
