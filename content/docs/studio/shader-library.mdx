@@ -1,167 +1,164 @@
 ---
-title: Shader library
-description: Browse, preview, customize, scrub, and reuse the live GPU material catalog across Design Lab and Animation.
+title: Shader Library
+description: Browse, filter, and tune the shared catalog of live materials used by Design Lab, Animation, Lottie, and the expression tools.
 icon: LibraryBig
 ---
 
-The Shader Library is Glyphfield's shared catalog of live GPU materials. It keeps material discovery separate from editing: choose a moving preview in the library, then refine that shader with the common color, form, light, texture, orientation, and motion controls.
-
-The catalog combines licensed upstream adapters and original Glyphfield studies. Results are curated by visual quality rather than grouped by provider, so the strongest starting points appear first in **All**. Gem Smoke and Architectural Chrome lead the default order; Prismatic Sphere appears before Glyph Field. After the curated set, the richer materials follow best first, with presets of one Paper family spread apart; simple moving patterns such as stripes, grids, spirals and dot grids, and the Paper filters that demo a sample picture, come last. Read `/api/materials` for the current count and exact IDs.
-
-## Defaults by surface
-
-New Design Lab compositions start with **Gem Smoke** (`paper-gem-smoke`), replacing the legacy Holo Cloth default. Existing drafts are migrated only when they still contain that untouched legacy default; an authored Holo Cloth choice is preserved.
-
-Animation and marketing hero surfaces use their own intentional defaults. Read `defaults` from `/api/materials` for the current mapping instead of assuming every host starts on the same material. A saved composition always uses its serialized material ID and frame state rather than a new-project default.
+The Shader Library is Glyphfield's shared catalog of live materials. Design Lab, Animation, Lottie backgrounds, and the expression tools pick materials from it, and every host stores a material by its ID and settings. `GET /api/materials` returns the current list, count, engines, controls, and defaults; at the time of writing it lists 197 materials. Do not hard-code the count.
 
 <DocsMedia
-  alt='Glyphfield Design Lab showing the quality-sorted Shader Library beside the live canvas'
-  caption='A shared, searchable material catalog with authentic previews'
-  meta='Live catalog · 6 categories'
-  src='/screenshots/studio-gt-design-lab-dark-2026.png'
+  alt='Design Lab with the Shader Library open beside the canvas'
+  caption='The Shader Library in Design Lab'
+  meta='Search · look · source · kind'
+  src='/screenshots/studio-gt-design-lab-light-2026.webp'
 />
 
 ## Where it appears
 
-| Workspace | Library behavior | Selection result |
+| Host | Library form | Result of choosing a material |
 | --- | --- | --- |
-| Design Lab | Opens as the left library beside the composition | Adds or replaces the selected shader layer while keeping content layers independent |
-| Animation | Appears below sources and the two-column animation-package gallery | Updates the shared sequence background by default, with explicit per-frame overrides |
+| Design Lab | Full left sidebar | Adds a shader layer, replaces the selected shader layer's material, or fills the selected text, mark, or image layer |
+| Animation | Compact browser in the background inspector, up to 30 cards | Sets the sequence background, or one scene's background override |
+| Lottie | **Material** select under Live material | Sets the canvas background behind the animation |
+| OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates | Compact browser in the shader layer inspector, up to 12 cards | Places a captured still of the material, with a **Tint** of Original colors or Brand duotone |
 
-Design Lab's library, canvas, inspector, and layer dock each scroll independently with Glyphfield's minimal scrollbar. Narrow layouts collapse secondary controls without losing the selected material.
+## Browse and filter
 
-## Browse and select
+The Design Lab library header shows **Shader library** and "{shown} of {total} materials".
 
-Every card contains a live preview, material name, source badge, and selected state. Search matches the name, description, and engine. The **Shader source** filter narrows the catalog to one family:
+| Control | Behavior |
+| --- | --- |
+| **Choose a random shader** | Picks a material from the current filtered list |
+| **Search shaders** | Splits the query into words; every word must appear in the material's name, description, engine name, look, or kind |
+| Look buttons | All, Fluid, Light, Metal, Gradient, Graphic, each with its count for the current source and kind |
+| **Shader source filter** | All sources, or one engine: HoloCloth, Shaders.com studies, Design studies, WebGL Fluid, Glyphfield, Paper, ShaderGradient, Shaders.com WebGPU |
+| **Shader kind filter** | All kinds, Backgrounds (materials that fill an artboard), Interactive (materials that respond to the pointer) |
+| Cards | A static WebP thumbnail, the source badge, and the name; the selected card is marked |
+| **Load more shaders** | The list shows 12 cards, then loads 24 more at a time as it scrolls into view |
 
-- Design studies
-- Paper
-- Glyphfield
-- Shaders.com WebGPU (the native collection)
-- Shaders.com studies (Glyphfield's original studies)
-- WebGL Fluid
-- ShaderGradient
-- HoloCloth
+Search is a substring match, so `interactive smoke` and `metal chrome` both work. Shaders.com descriptions end with their upstream category, so searching `Textures` or `Shape Effects` also works.
 
-Choosing a source filter narrows the current quality-sorted catalog and its category counts; it does not change how the shader is rendered or edited.
+The order is fixed. A curated set comes first (Gem Smoke, Architectural Chrome, Electric Lines, Liquid Metal, Chrome Glares, God Rays, Warp, Prismatic Sphere, Glyph Field, Dither Gradient, Mesh Gradient, Spectral Bloom, Radiant Void, Galactic Rings, Fluid Energy, Holo Cloth). Richer materials follow, best first, then simple moving patterns such as stripes, grids, spirals, and dot grids. Within each group, presets of one Paper family are spread apart.
 
-A second filter narrows by kind: **Backgrounds** fill an artboard on their own and **Interactive** materials respond to the pointer. Search matches every word you type against the name, description, source, look and kind, so `interactive smoke` or `metal chrome` both work.
+### What the library does not list
 
-Primitives, plain fills and raw noise are not listed: the Shaders.com shape primitives (Circle, Star, Polygon and the rest), Solid Color, the linear, radial and diamond gradients, Thin Film, Studio Background, Image Texture, Text, the Perlin, Simplex, Wavelet and Gabor noises, and Paper's Perlin Noise, Simplex Noise and Waves families. Projects that already use one still load and render it.
+- Shape primitives, plain fills, and raw noise: the Shaders.com shapes (Circle, Star, Polygon and the rest), Solid Color, the linear, radial, and diamond gradients, Thin Film, Studio Background, Image Texture, Text, the Perlin, Simplex, Wavelet, and Gabor noises, and the Paper Perlin Noise, Simplex Noise, and Waves families.
+- Paper Static Mesh Gradient and Static Radial Gradient.
+- Shaders.com image effects. These transform the pixels beneath them and run on Design Lab [Effect layers](/docs/studio/design-lab/effects#image-effects). `/api/materials` lists them under `imageEffects`.
 
-Shaders.com image effects (blurs, halftones, distortions, adjustments, transitions) transform the pixels beneath them, so the library does not list them. Apply one in Design Lab as an [Effect layer](/docs/studio/design-lab#image-effects-on-effect-layers). A saved design that used one as a shader layer still opens and renders as before.
+Saved documents that use an unlisted material still load and render it. HTTP `design-sequence` requests accept only listed materials.
 
-Stateful and interactive materials (Smoke, Ink Flow, Boids, Reaction Diffusion and others) simulate a few seconds before they first appear, so they open already developed. Until you move the pointer over them, interactive materials follow a slow virtual cursor; move over the canvas to take control.
+## Engines
 
-Every material has an authentic representative thumbnail. Live previews render only while close to the visible gallery, use a reduced render scale, and run at a capped frame rate. Animation-package previews use one shared preview clock and also stop when they leave the panel. These constraints keep the complete catalog visible without making the main canvas compete for the full GPU budget. Hidden pages pause live canvases, and reduced-motion mode holds animation-package cards on a representative frame.
+| Source | Engine | Requirement | Notes |
+| --- | --- | --- | --- |
+| Paper | [`@paper-design/shaders-react`](https://github.com/paper-design/shaders) 0.0.78 | WebGL2 | 100 presets from the Paper families |
+| Shaders.com WebGPU | [`shaders`](https://github.com/shader-effects-inc/shaders) 4.0.1 | WebGPU | 70 materials: 40 Textures, 19 Shape Effects, 10 Interactive, and Lens Flare. IDs start with `shader-effects-` |
+| Glyphfield | Original GLSL and Canvas 2D | WebGL2 (Glyph Field uses Canvas 2D) | Glyph Field, Dither Gradient, Mesh Gradient, Grain Gradient, Liquid Glass, Caustics, Iridescent Foil, Nebula, Silk Ribbons |
+| Shaders.com studies | Original GLSL | WebGL2 | Original studies of public Shaders.com techniques: Pixel Beams, Soft Register, Spectral Bloom, Pistons, Architectural Chrome, Chroma Flow, Drift, Mosaic, Circuit. IDs start with `shaders-` |
+| Design studies | Original GLSL | WebGL2 | Electric Lines, Chrome Glares, Relief Gradient, Orbit Gradient, Radiant Void, Galactic Rings, informed by Evil Rabbit Shaders, GRADIENTOOL, and Grainient |
+| HoloCloth | Original GLSL | WebGL2 | Holo Cloth, a GLSL surface based on the techniques of [HoloCloth](https://github.com/dmitrykurash/holocloth) |
+| WebGL Fluid | Stable-fluids solver | WebGL2 with half-float render targets | Fluid Energy, adapted from Pavel Dobryakov's MIT-licensed [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation) |
+| ShaderGradient | [`@shadergradient/react`](https://www.npmjs.com/package/@shadergradient/react) 2.4.20 | WebGL2 | Prismatic Sphere |
 
-### Rendering quality
+Glyphfield's original materials are 24 GLSL programs: the Glyphfield GLSL materials above, the nine Shaders.com studies, the six design studies, and Holo Cloth. They blend palette colors in linear light, interpolate ramps in OKLab, dither every frame before 8-bit output, and size patterns relative to the frame, so a preview and a 4K export show the same composition.
 
-Glyphfield's own GLSL materials blend palette colors in linear light and interpolate ramps in OKLab, so mixes between two brand colors stay vivid instead of turning grey. Every frame is dithered before 8-bit output to remove gradient banding, edges are anti-aliased, and patterns such as weaves, halftone screens and pixel cells are sized relative to the frame, so a preview and a 4K export show the same composition.
+Fluid Energy solves velocity on a grid whose short side is 96–224 cells (rising with **Detail**), runs 20 pressure iterations, and warms up for 150 steps before the first frame. Four emitters and the pointer add dye.
 
-Design Lab renders live shaders near the display's native resolution. **Preview quality** in the canvas zoom toolbar cycles through **Auto**, **High** and **Draft**. Auto starts at High and drops to the Draft budget after sustained slow frames. Exports always render at output size, whatever the preview setting.
+### Shaders.com WebGPU behavior
 
-### WebGL availability
+- Each material loads on demand. All Shaders.com materials on a page share one GPU device. The render loop is capped at 30 FPS and the device pixel ratio at 2.
+- Stateful materials (the Interactive group, Particles, and Smoke Fill) simulate 3 seconds before they first appear, so they open already developed.
+- Interactive materials follow a slow automatic cursor while the real pointer is elsewhere. Moving the pointer over the canvas takes control; the real pointer keeps control for 1.5 seconds after it stops moving.
+- Without WebGPU, the material shows its still thumbnail with the message "WebGPU is unavailable here. Showing a still preview." Still and motion exports refuse the material instead of exporting the thumbnail.
 
-Studio probes WebGL 2 before mounting Glyphfield's own materials, Fluid Energy, Three.js, Paper, or ShaderGradient providers. If the browser is sandboxed, GPU access is disabled, or context creation fails, the provider is never constructed and the canvas displays a representative three-color static fallback instead. A provider error boundary also catches context-loss races. Studio controls, source editing, deterministic background recipes, and non-WebGL exports remain usable without a runtime overlay.
+### Loading and replacing
+
+Hovering or focusing a card starts loading the code for Shaders.com and ShaderGradient materials, so they open faster when chosen. Other engines are not preloaded. When a material is replaced in Design Lab, the old material stays on screen, paused, until the new one draws its first frame, then fades out over 160 ms. The hold ends after 8 seconds even if the new material is not ready.
+
+### WebGL2 availability
+
+Before mounting a Paper, Glyphfield GLSL, Fluid, or ShaderGradient material, Studio checks for WebGL2 with `failIfMajorPerformanceCaveat`, so software rendering counts as unavailable. When WebGL2 is unavailable, the canvas shows a grey placeholder labelled "Shader preview unavailable" and checks again every 2.5 seconds. A lost WebGL context is remounted after 350 ms, up to five times; after a 2.5-second cooldown the cycle can repeat. Studio controls, source editing, deterministic background generation, and non-WebGL exports keep working.
 
 ## Shared controls
 
-After choosing a material, use the adjacent inspector to edit it. Paper presets, Glyphfield materials, design studies, ShaderGradient, Shaders.com studies, and Fluid Energy all resolve through the same high-level controls:
+Design Lab's shader inspector and the material controls of Animation and Lottie map one set of settings onto each engine. Each engine interprets a setting in its own way.
 
-- **Color system:** the active brand palette, reusable three-color palettes, and individual HEX or OKLCH colors
-- **Form:** strength, detail, frequency, amplitude, and density
-- **Light and texture:** brightness and grain
-- **Orientation:** X, Y, and Z rotation
-- **Motion:** playback speed
-- **Scale:** logarithmic shader zoom from `0.1×` to `10×`
-- **Frame:** capability-aware time selection and a persistent lossless appearance capture in Design Lab
+| Setting | Design Lab inspector | Animation and Lottie controls |
+| --- | --- | --- |
+| Colors | Base, Mid, Light (HEX, OKLCH, opacity) | Base, Mid, Light |
+| Palettes | Identity palette and 7 presets | Identity palette and 15 presets |
+| Quick look | | 9 presets: Holo cloth, Quiet mesh, Polished chrome, Soft grain, Graphic dither, Spectral focus, Electric fluid, Deep glyph field, Kinetic signal |
+| Speed | 0–1.5 | 0–1.5 |
+| Frequency | 0.5–12 | 0.2–10 |
+| Strength (Warp) | 0–1.5 | 0–2 |
+| Detail | 0.5–9 | 0.5–8 |
+| Grain (Texture) | 0–100 | 0–100 |
+| Brightness (Light) | 0.35–1.6 | 0.1–2 |
+| Amplitude | 0–10 | 0–8 |
+| Density | 0.1–2 | 0.1–2 |
+| Rotation | Z only, −180° to 180° | X, Y, and Z, 0°–360° |
+| Center X and Y | Paper materials | Paper materials |
+| Zoom | **Shader zoom** 0.1×–10× | Shader zoom in the Animation background inspector |
 
-Native Shaders.com WebGPU effects use the color system, motion, and scale controls, plus their own upstream settings; form, light, and orientation do not apply to them.
+The 15 palette presets are Monochrome chrome, Mercury, Ultraviolet, Signal lime, Copper heat, Arctic, Vermilion ink, Cobalt bloom, Signal axis, Signal terraces, Solar orbit, Mineral wave, Paper aperture, Ink dither, and Signal dither. Design Lab shows the first seven. Each preset sets Base, Mid, and Light; later edits stay free. `/api/materials` publishes the API ranges under `controls`, which accept speed up to 2 although every control stops at 1.5.
 
-The palette menu includes the active identity plus curated signal, mineral, paper, dither, monochrome, mercury, ultraviolet, copper, arctic, vermilion, and cobalt starting points. Each palette applies a coordinated Base, Mid, and Light ramp without locking later edits. Shader adapters preserve all three authored stops even when an upstream renderer ships with only a one- or two-color preset.
+Shaders.com materials use the colors, speed, and zoom, plus their native controls. Strength, detail, frequency, grain, brightness, and orientation do not apply to them.
 
-Not every underlying shader interprets a control identically. The common settings are mapped into the vocabulary of each renderer so switching materials remains predictable while each family keeps its own character.
+## Native Shaders.com controls
 
-Shader time, pause state, size, colors, and every common setting are part of the host document. Design Lab also saves a lossless PNG for explicitly captured appearances, alongside editable native frame state. Ordinary Pause retains the mounted renderer without encoding or storing a PNG; exporting a still also leaves the canvas paused without adding captured-frame assets. The time explorer is not a recording of every live frame, grows only when explicitly extended, and does not imply that every shader has a finite loop. Fluid Energy can be paused in memory or captured as a still, but its history-dependent simulation cannot be reconstructed from a time value; playing from a saved PNG starts a new simulation. Read each catalog record's `motion` capabilities before choosing seek or loop behavior.
+Each Shaders.com material exposes its upstream settings in **Effect settings**: colors, gradient stops, lights, positions, numeric ranges, switches, choices, and structured values. Settings that apply only in one mode appear when that mode is chosen.
 
-## Converted source assets
+- **Colors follow the palette.** Background and base colors take Base, the main color takes Mid, highlights take Light, and multi-stop gradients take all three. Materials with a built-in color scheme, such as Color Wheel and Ink Flow, default to their custom-color mode. A color changed in Effect settings is saved and wins over the palette. **Reset effect settings** returns every setting to its default.
+- **Speed is shared.** The shared **Shader speed** control sets playback speed; each effect's own speed multiplier is hidden. Patterns that are frozen upstream, such as Chevron, move at a slow native rate so Speed can animate them.
+- **Surface.** The Shape Effects materials have a **Surface** choice. Full canvas fits the native surface to any artboard ratio without the upstream demo sphere; Liquid Metal, Chrome, and Holographic default to it. Neon, Light Edge, and Obsidian render as one rounded panel inset from the artboard edges so their lit rim stays visible. **Shape** restores the original geometry and placement controls.
+- **Structured values.** Gradient stops (up to 8) and lights have their own editors. Other structured values, such as shapes, use a JSON field.
 
-The shared conversion library accepts SVG, PNG, JPEG, WebP, GIF, AVIF, and BMP files. Glyphfield sanitizes SVG input, rasterizes a transparent working copy at 1024, 2048, or 4096 pixels, and stores both the original and shader-safe PNG locally in IndexedDB. Nothing is uploaded.
-
-Background and logo layers select source assets independently. Image-aware Paper shaders use the converted PNG as their native texture; other shaders blend it into the selected layer with an editable strength. Applying a shader to both layers also copies its source asset and strength, while later edits remain independent.
-
-The original file and converted PNG can both be downloaded from the library. PNG and GIF exports composite the same converted assets shown on the live canvas.
-
-## Catalog sources
-
-The shared catalog combines several implementation types:
-
-- Original Glyphfield materials: Liquid Glass, Caustics, Iridescent Foil, Nebula, Silk Ribbons, the mesh, grain and dither gradients, and the glyph volume
-- The editable ShaderGradient sphere
-- Nine original studies of public Shaders.com visual techniques, including Spectral Bloom, Architectural Chrome, Soft Register, and Circuit
-- **Fluid Energy**, a stable-fluids solver (vorticity, pressure projection, half-float buffers) adapted from Pavel Dobryakov's MIT-licensed [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
-- 29 Paper shader families and 120 upstream-authored presets rendered with [`@paper-design/shaders-react`](https://github.com/paper-design/shaders)
-- Original design studies informed by [Evil Rabbit Shaders](https://shaders.evilrabbit.com/), [GRADIENTOOL](https://www.gradientool.com/), and [Grainient](https://grainient.supply/freebies)
-
-Source badges identify the family directly on each preview. When a selected material has an upstream project or visual reference, the inspector exposes that link. The referenced Evil Rabbit, GRADIENTOOL, and Grainient studies are original implementations; their source code and downloadable assets are not bundled.
-
-Dedalus Bloom is not part of the catalog. Existing saved IDs are normalized to a supported material instead of leaving the canvas in a broken state.
-
-See the repository's [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md) for license and attribution details.
-
-## Animation backgrounds
-
-Animation uses one sequence background by default. Choosing a library card or changing its colors, form, grain, motion, or finish updates every frame that follows the sequence background. Select **This frame only** before editing when one state needs an intentional variation; **Use sequence background** removes that override, and **Make all frames follow sequence** clears every override at once.
-
-The main animation canvas renders only the shader layers needed by the current transition. Preview and GIF export use the same frame configuration, so material changes are not flattened before capture.
-
-The animation canvas also supports direct size editing: drag the right edge to change width, the bottom edge to change height, or the corner handle to change both. The live dimension readout and inspector values update the same persisted canvas settings.
-
-## Output and portability
-
-Design Lab exports PNG, JPG, GIF, MP4, and shader-sequence GIF/MP4. Animation composites selected shader backgrounds into GIF or MP4 and keeps material time synchronized with its playhead. Live WebGL output uses the browser renderer and is programmatically available through `window.glyphfield.studio`; deterministic background generation remains available through `POST /api/generate`.
-
-Design Lab's portable source preserves the material ID and settings inside shader elements and metadata, including layer opacity/blend, source assets, captured PNG assets, native frame state, transforms, and sequence timing. Animation stores its shared material in `sequenceBackground` and lists intentional frame exceptions in `backgroundOverrides`. Use the source returned by the current tool as the authoritative schema for round trips.
-
-See [Design Lab](/docs/studio/design-lab), [Animation](/docs/studio/animation), and [Source format reference](/docs/reference/source-formats) for workspace-specific details.
-
-## Native Shaders.com collection
-
-The shared gallery also includes the MIT-licensed [Shaders.com WebGPU components](https://github.com/shader-effects-inc/shaders), pinned to `shaders` 4.0.1. Choose **Shaders.com WebGPU** in the source filter, or search for an effect name or its upstream category. These materials use `shader-effects-` IDs. The older `shaders-` materials remain Glyphfield's original studies under **Shaders.com studies**.
-
-The collection is curated rather than alphabetical. Finished full-frame materials such as Aurora, Liquid Metal, Chrome, Holographic, Godrays, and Plasma lead, and simple patterns come last. Effects that transform an image run on Design Lab Effect layers instead of the library. Each effect keeps its upstream category, which also places it in the library's Fluid, Light, Metal, Gradient, or Graphic group.
-
-The native collection includes textures, gradients, shapes, shape effects, blurs, distortions, color adjustments, transitions, stylization, and interactive simulations. Effects load on demand, and every native effect on a page shares one GPU device. Studio checks WebGPU before loading an effect or its source image. Without it, the canvas shows the material's still thumbnail with a label; the surface stays in an error state, so still and motion exports refuse it instead of exporting the thumbnail as a render.
-
-Each effect exposes its upstream settings, including colors, positions, numeric controls, switches, and choices. Settings that only apply in another mode (for example the CMYK inks of Halftone) appear when that mode is chosen.
-
-The shared palette seeds every native colour, so the active brand palette applies by default: background and base colours take **Base**, the main colour takes **Mid**, highlights take **Light**, and multi-stop gradients take all three. Effects with a built-in colour scheme, such as Gradient Map, Color Wheel, Thin Film, and Ink Flow, default to their custom-colour mode for the same reason. A colour you change in the effect settings is saved and wins over the palette; **Reset effect settings** returns every native setting to its default and palette colour.
-
-Playback speed is the shared **Speed** control. Each effect's own speed multiplier is hidden; patterns that ship frozen upstream (for example Chevron and Fluted Glass) move at a slow native rate so Speed can animate them.
-
-Surface materials such as Liquid Metal, Chrome, and Holographic default to **Full canvas**, fitting their native surface to any artboard aspect ratio without the upstream demo sphere. Edge-lit materials (Neon, Light Edge, Thin Film, and Obsidian) render as one rounded panel inset from the artboard edges, with equal margins at any aspect ratio, so their luminous rim stays visible. Choose **Shape** to edit the original geometry and placement. Shape primitives such as Circle and Star retain their intended shapes.
-
-Structured gradient stops, lights, and shapes can be edited in their structured fields. Filters, distortions, blurs, and transitions use a built-in sample until you choose a **Source image**: bold type strokes, hairlines, concentric rings, a glossy highlight, and a tonal ramp. The sample is luminance only and is mapped through the active palette, so each effect shows its own result in the brand colours. Import a local PNG, JPEG, or WebP; images over 2048 pixels are scaled once on import, and the image is saved with the effect's editable source. Drop Shadow reads the source's transparency, so it needs a cut-out image. Transition **Progress** is a native effect setting and can be edited independently of playback.
-
-Adjustments that do nothing at their upstream defaults start with a visible setting instead: Exposure, Saturation, Vibrance, Hue Shift, Sharpness, Brightness/Contrast, Solarize, Glitch, Flip, Corner Pin, and Perspective. Dither starts with an opaque dark colour.
-
-Settings persist under `settings.effectProps`, alongside the shared playback speed. `effectProps` holds only the values you changed; omitted keys use the effect's defaults. `/api/materials` returns `nativeControls` for each material, including defaults, valid choices, and numeric ranges. A colour control's `palette` field names the stop that seeds it: `base` is `settings.colorA`, `main` is `colorB`, `highlight` is `colorC`, and `ramp` or `lights` spread all three across a list; `hidden` controls, such as the native `speed`, are not shown in Studio. The same endpoint lists every upstream component under `shaderEffects.components` (catalog fields only; controls appear once, on the material's `nativeControls`): Group is covered by Design Lab groups; VideoTexture and WebcamTexture are media inputs rather than gallery materials; HTMLInCanvas requires an experimental browser DOM-capture API and is not offered as a supported material. Camera access is never requested merely by browsing the collection.
-
-For example, a deterministic `design-sequence` request can specify:
+Settings are stored in `settings.effectProps`, which holds only changed values. `/api/materials` returns each material's `nativeControls` with defaults, choices, and ranges. A color control's `palette` field names the stop that seeds it: `base` is `settings.colorA`, `main` is `colorB`, `highlight` is `colorC`, and `ramp` or `lights` spread all three. `hidden` controls, such as the native `speed`, are not shown. `shaderEffects.components` lists all 199 upstream components. Group, VideoTexture, WebcamTexture, and HTMLInCanvas are not offered as materials; browsing never requests camera access.
 
 ```json
 {
   "materialId": "shader-effects-aurora",
   "settings": {
     "speed": 0.3,
-    "effectProps": {
-      "intensity": 80,
-      "colorA": "#A533F8",
-      "colorB": "#22EE88"
-    }
+    "effectProps": { "intensity": 80, "colorA": "#A533F8", "colorB": "#22EE88" }
   }
 }
 ```
 
-This is the `shader` portion of the request, not a standalone request body. Aurora's native `colorA` and `colorB` are explicit here and override the palette; its `colorC` is omitted, so it follows the shared palette. HTTP generation creates the portable recipe; native pixels are rendered and exported in Studio. Interactive simulations and the accumulating effects (Time Trail, Particle Field, Key Frames, Smoke Fill, and Particles) are stateful: they ignore a requested time and continue from their accumulated state and pointer history, so their `motion.supportsEditableSeek` is `false` and a timestamp alone cannot reproduce them. Their saved PNG frame preserves the appearance. No automatic seamless-loop guarantee is made for this collection.
+This is the `shader` part of a `design-sequence` request. Aurora's `colorA` and `colorB` are set explicitly; its `colorC` follows the palette.
+
+## Time and motion
+
+Every host stores shader time, pause state, zoom, colors, and settings in its document. Design Lab adds lossless frame captures and shader sequences; see [Shaders and time](/docs/studio/design-lab/shaders). Each `/api/materials` record has a `motion` object:
+
+| Field | Meaning |
+| --- | --- |
+| `provider` | `paper`, `webgpu`, `fluid`, `shadergradient`, `custom-glsl`, or `canvas2d` |
+| `motionModel` | `procedural`, `direct-time`, `stateful`, or `static` |
+| `supportsPngSnapshot` | The material can be captured as a lossless PNG |
+| `supportsEditableSeek` | A time value reproduces the frame. `false` for stateful and static materials |
+| `loop` | `continuous`, `static`, or `configured` (Prismatic Sphere). No material promises a pixel-exact loop |
+
+## Converted source assets
+
+The asset conversion library accepts SVG, PNG, JPEG, WebP, GIF, AVIF, and BMP files. It sanitizes SVG input, rasterizes a transparent working copy at 1024, 2048, or 4096 pixels, and stores the original and the PNG in IndexedDB. Nothing is uploaded. Image-aware Paper materials use the converted PNG as their texture. The original and the converted PNG can both be downloaded from the library.
+
+## Source format
+
+| Host | Where the material is stored |
+| --- | --- |
+| Design Lab | Shader elements and `metadata.designLab.layerShaders` (materials on content layers): material ID, settings, opacity, blend mode, zoom, `frameState`, and `frameSnapshot` |
+| Animation | `metadata.animation.sequenceBackground`, with per-scene exceptions in `backgroundOverrides` |
+| Lottie | `metadata.studio.state.background` with `materialId` and `materialSettings` |
+| Expression tools | A shader layer that references the material's captured still |
+
+## HTTP
+
+`GET /api/materials` returns `{ categories, kinds, shaderEffects, controls, count, defaults, engines, lookPresets, materials, framePersistence, palettes, schemaVersion, sharedBy, imageEffects }`. Each material has `id`, `name`, `description`, `engine`, `qualityScore`, `sourceLabel`, `sourceUrl`, `category`, `kind`, and `motion`; Shaders.com materials add `nativeControls`, `settingsKey: "effectProps"`, and `requiresWebGPU: true`. `defaults` names the default material of each marketing and Animation surface; Design Lab always starts with Gem Smoke. Never infer an ID from a display name: several names, such as Chroma Flow, Nebula, Mesh Gradient, and Liquid Metal, appear under more than one engine.
+
+`POST /api/generate` with `kind: "design-sequence"` accepts a listed material ID and its settings. The server returns a recipe; the pixels are rendered in Studio.
+
+## Licensing
+
+Paper Shaders, the Shaders.com components, the WebGL Fluid Simulation, and HoloCloth keep their own licenses; their notices and the visual references for the original studies are in [Third-party notices](https://github.com/Kevin-Liu-01/Glyphfield/blob/main/THIRD_PARTY_NOTICES.md). ShaderGradient is an npm dependency under its own license. The design studies are original implementations; no Evil Rabbit, GRADIENTOOL, or Grainient code or downloadable assets are bundled. When a material has an upstream project or reference, the inspector links to it.

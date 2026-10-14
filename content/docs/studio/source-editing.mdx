@@ -1,78 +1,83 @@
 ---
 title: Source code editing
-description: Round-trip the active artifact through validated JSON without separating code, canvas, persistence, and export.
+description: Read and apply the exact JSON source of the active Studio tool in the Code drawer or through the Browser API.
 icon: Braces
 ---
 
-Every source-enabled Studio tool can be edited visually or structurally. **File → Edit source code** opens the document beside the live canvas; `window.glyphfield.studio` exposes the same read/apply boundary to agents.
+Every Studio tool has a JSON source document behind its visual controls. **File → Edit source code** opens that document in a drawer beside the canvas. `window.glyphfield.studio.readSource()` and `applySource()` read and apply the same document. A valid edit updates the state used by the inspector, the canvas, persistence, and export. An invalid edit changes nothing.
 
-<DocsMedia alt='Design Lab with the live composition and inspector visible together' caption='One artifact, two editing modes' meta='Visual controls and source stay synchronized' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+<DocsMedia alt='Design Lab with the live composition and inspector visible together' caption='Visual controls and source edit the same state' meta='Code drawer · readSource · applySource' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
-## Human workflow
+## Use the Code drawer
 
-1. Select a project and tool.
-2. Open **File → Edit source code** from the tool action area.
-3. Make a targeted edit to the current source.
-4. Select **Apply**.
-5. Resolve any inline validation error.
-6. Inspect the canvas and layers.
-7. Continue visually, save the design, or export.
+1. Open **File → Edit source code**.
+2. Edit the JSON.
+3. Choose **Apply code**, or press ⌘/Ctrl + Enter or ⌘/Ctrl + S.
+4. Read any error in the drawer. An error leaves the artifact unchanged.
+5. Check the canvas, then continue visually, save, or export.
 
-**Reset** reloads the latest visual snapshot into the editor. **Close** dismisses the drawer without applying uncommitted text. The drawer does not create a second copy of the artifact.
+| Control | Action |
+| --- | --- |
+| **Apply code** | Validate and apply. The button is disabled while the JSON does not parse |
+| **Reset** | Reload the current visual state into the drawer |
+| **Copy** | Copy the source text |
+| **Format** (Shift + Alt + F) | Reformat the JSON |
+| **Find and replace** (⌘/Ctrl + F) | Search, step through matches with Enter or **Previous match** / **Next match**, and replace |
+| **Clean paste** | Replace rich-text spacing from pasted text with standard JSON spaces |
+| Section menu | Jump to a top-level section |
+| **Close source editor** (Escape) | Close the drawer; Escape closes the find bar first |
 
-## Agent workflow
+The editor indents with Tab and Shift + Tab, keeps indentation on Enter, and inserts matching brackets and quotes. Drag **Resize source code editor** to change the drawer width. Opening or closing the drawer does not create a second copy of the artifact.
+
+## Use the Browser API
 
 ```js
 const studio = window.glyphfield.studio;
-const capabilities = studio.describe();
-if (!capabilities.source.read || !capabilities.source.apply) {
-  throw new Error(`${capabilities.toolId} does not expose source round trips.`);
-}
+const { source, toolId } = studio.describe();
+if (!source.read || !source.apply) throw new Error(`${toolId} does not expose source.`);
 
 const document = JSON.parse(studio.readSource());
-// Preserve the document and edit only known fields.
+// Change only the intended fields and keep every unknown field.
 await studio.applySource(document);
+const after = JSON.parse(studio.readSource());
 ```
 
-Application waits for the tool validator and two animation frames. Image decode, font loading, shader compilation, and encoding may take longer; wait for the relevant preview before capture.
+`applySource` resolves after the tool validator accepts the document and two animation frames pass. Image decoding, font loading, shader compilation, and encoding can take longer; wait for the preview before capturing. The source adapter is registered while the tool is active, whether or not the drawer is open.
 
-## Source families
+## Source documents by tool
 
-| Family | Tools | Shape |
-| --- | --- | --- |
-| Shared identity | Brand identity and identity-bound foundations | Complete brand record or controlled identity subset |
-| Portable canvas | Design Lab | CanvasDocument v2, Design Lab metadata source v4 |
-| Motion | Animation | Sequence, frame, transform, timing, shader, output, and audio state |
-| Vector animation | Lottie | Raw Lottie JSON when a JSON document is available |
-| Expression configuration | OpenGraph, Terminal, Partnership, Blog, Slides, Components | Tool-specific content, layout, asset, and transform object |
-| Edited publication | Brand book | Identity supplies content; the book source stores section order, page visibility, layout, surface, image, and copy edits |
+| Tool | Document |
+| --- | --- |
+| Brand identity | The complete `BrandIdentity` |
+| Brand elements | `glyphfield.brand-element` version 2: `elementId` and the settings that differ from identity defaults |
+| Moodboard | `glyphfield.moodboard` version 2: boards, tiles, and export settings |
+| Brand book | `glyphfield.brand-book` version 1: section order and visibility, and per-page visibility, layout, surface, image, and copy |
+| Animation | CanvasDocument schema 2 with `metadata.tool: "animation-studio"` and the sequence in `metadata.animation` |
+| Lottie | CanvasDocument schema 2 with the Lottie state in `metadata.studio`; raw Lottie JSON can also be pasted |
+| Design Lab | CanvasDocument schema 2 with Design Lab metadata source version 4 |
+| OpenGraph, Terminal card, Partnership lockup, Blog cover, Slide templates | CanvasDocument schema 2 with expression source version 2; one page per artboard or slide |
+| Color tokens | Version 2: palette, `colorPairings`, `colorSystem`, per-token opacity |
+| Typography | Version 2: type roles, `typeScale`, specimen settings |
+| Component library | Version 2: pattern, content, system, palette, typography, theme, code format |
 
-## Why current source is authoritative
+The [source format reference](/docs/reference/source-formats) lists the fields and validation rules of each document.
 
-Examples explain concepts but may omit fields added by later releases. `readSource()` contains the active migration result, stable IDs, exact asset references, layer order, saved frame/timeline values, and tool metadata. Starting there prevents logos from shifting, layers from reordering, or newer settings from disappearing.
+## Why the current source is authoritative
+
+Examples omit fields that later versions add. `readSource()` returns the migrated document with stable IDs, asset references, layer order, saved frame and timeline values, and tool metadata. Editing it keeps marks in place, keeps layer order, and keeps newer settings.
 
 Do not:
 
-- Recreate a CanvasDocument from an old code sample.
-- Change element IDs when updating content or style.
-- Drop unknown metadata or assets.
-- Write directly to localStorage or IndexedDB.
-- Apply one tool's document to another tool.
+- Build a CanvasDocument from an old example.
+- Change element IDs when changing content or style.
+- Drop unknown fields, metadata, or assets.
+- Write to `localStorage` or IndexedDB directly.
+- Apply one tool's document to another tool. Expression documents reject a document of another kind.
 - Treat a successful apply as visual verification.
 
-## Design Lab specifics
+## Source and generation requests are different
 
-Design Lab source contains the complete composition: pages, elements, embedded/library assets, exact order, groups, layer shaders, text/converter effects, background color, output settings, shader frame history, and sequence timeline. Named saves and autosave use the same portable source.
-
-For file-based sharing, download **Project file** from the export controls and reopen it with **Open project**. The `.glyphfield.json` file uses this same CanvasDocument envelope, with local images and saved frame assets embedded. See [Project files](/docs/studio/project-files).
-
-Use a `design-sequence` HTTP response when an agent needs to create a new exact composition. Use `readSource()` for an existing one. Both are applied through the active Design Lab adapter, whose public tool ID is `material`.
-
-## Source versus generation request
-
-`POST /api/generate` accepts a concise, versioned request and returns an artifact or apply-ready document. A source drawer exposes the richer state of one open browser tool. They are not interchangeable.
-
-The safe bridge is explicit:
+`POST /api/generate` takes a short versioned request and returns an artifact or an apply-ready document. A Code drawer document is the full state of one open tool. Do not send a drawer document to `/api/generate`. The `design-sequence` response is the one bridge: it contains a Design Lab `document` to apply.
 
 ```js
 const generated = await fetch('/api/generate', {
@@ -82,11 +87,11 @@ const generated = await fetch('/api/generate', {
     kind: 'design-sequence',
     identity: { preset: 'gt' },
     shader: { materialId: 'paper-gem-smoke' },
-    sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' }
-  })
+    sequence: { cutCount: 10, finalHoldMs: 5000, pace: 'accelerating' },
+  }),
 }).then((response) => response.json());
 
 await window.glyphfield.studio.applySource(generated.document);
 ```
 
-See [Source format reference](/docs/reference/source-formats), [Studio Browser API](/docs/reference/browser-api), and [Agent recipes](/docs/agents/recipes).
+For file-based sharing of Design Lab and Animation work, use [project files](/docs/studio/project-files). See also the [Studio Browser API](/docs/reference/browser-api) and [Agent recipes](/docs/agents/recipes).
