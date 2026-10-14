@@ -70,7 +70,6 @@
 .headerStatus,
 .canvasMeta,
 .statusBar,
-.eyebrow,
 .layerStrip small,
 .layerStrip b,
 .selectionLabel,
@@ -133,24 +132,7 @@
   border-right: 1px solid var(--marketing-v5-line);
 }
 
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-  color: var(--marketing-v5-muted);
-  font-size: 0.58rem;
-}
 
-.eyebrow > span {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--marketing-v5-line);
-  border-radius: 4px;
-  color: var(--marketing-v5-ink);
-  letter-spacing: 0;
-}
 
 .copy h1 {
   max-width: 580px;

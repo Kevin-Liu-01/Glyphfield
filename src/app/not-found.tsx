@@ -45,11 +45,6 @@ export default function NotFound() {
 
         <section className={styles.content} id='not-found-content' aria-labelledby='not-found-title'>
           <div className={styles.copy}>
-            <span className={styles.eyebrow}>
-              <span aria-hidden='true'>04</span>
-              <T>Missing layer</T>
-            </span>
-
             <div>
               <h1 id='not-found-title'>
                 <T>This page slipped outside the artboard.</T>
