@@ -31,6 +31,7 @@ import MarketingShaderMark from '@/components/MarketingShaderMark';
 import MarketingShaderText from '@/components/MarketingShaderText';
 import MarketingStudioSearch from '@/components/MarketingStudioSearch';
 import MarketingStudioLink from '@/components/MarketingStudioLink';
+import IntentLink from '@/components/IntentLink';
 import {
   DeferredAgentControlLab,
   DeferredApplicationsDemo,
@@ -237,14 +238,14 @@ export default async function HomePage() {
           <MarketingStudioSearch />
           <MarketingThemeToggle />
           <GitHubStarButton className='marketing-v5-header-icon-link' />
-          <Link
+          <IntentLink
             aria-label={gt('Open documentation')}
             className='marketing-v5-header-icon-link'
             href='/docs'
             title={gt('Docs')}
           >
             <BookOpen aria-hidden='true' />
-          </Link>
+          </IntentLink>
           <MarketingStudioLink className='marketing-v5-primary-link'>
             <T>Open Studio</T>
             <ArrowRight aria-hidden='true' />
@@ -277,9 +278,9 @@ export default async function HomePage() {
                 <T>Open Glyphfield</T>
                 <ArrowRight aria-hidden='true' />
               </MarketingStudioLink>
-              <Link className='marketing-v5-secondary-link' href='/docs/getting-started'>
+              <IntentLink className='marketing-v5-secondary-link' href='/docs/getting-started'>
                 <T>Docs</T>
-              </Link>
+              </IntentLink>
               <MarketingCopyPromptButton />
             </div>
             <p className='marketing-v5-hero-license' data-motion-item>
@@ -414,9 +415,9 @@ export default async function HomePage() {
               </div>
             </div>
             <div className='marketing-v5-agent-links'>
-              <Link className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/docs/agents/connect'>
+              <IntentLink className='marketing-v5-primary-link marketing-v5-primary-link--inverse' href='/docs/agents/connect'>
                 <T>Connect an agent</T><ArrowRight aria-hidden='true' />
-              </Link>
+              </IntentLink>
               <Link href='/api/agent'><T>Manifest</T> ↗</Link>
               <Link href='/openapi.json'>OpenAPI ↗</Link>
             </div>
@@ -524,7 +525,7 @@ export default async function HomePage() {
             <span><T>© 2026 Kevin Liu · MIT licensed</T></span>
             <div>
               <MarketingStudioLink><T>Studio</T> ↗</MarketingStudioLink>
-              <Link href='/docs'><T>Docs</T> ↗</Link>
+              <IntentLink href='/docs'><T>Docs</T> ↗</IntentLink>
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
               <a href={PRODUCT_BRAND.repository.url} rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>
               <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>X ↗</a>

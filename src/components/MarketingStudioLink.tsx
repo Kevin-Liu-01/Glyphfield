@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-
 import type { ComponentProps } from 'react';
+
+import IntentLink from '@/components/IntentLink';
 
 let studioIntentPreload: Promise<unknown> | null = null;
 
@@ -23,13 +23,13 @@ export default function MarketingStudioLink({
   onPointerEnter,
   onTouchStart,
   ...props
-}: Omit<ComponentProps<typeof Link>, 'href'>) {
+}: Omit<ComponentProps<typeof IntentLink>, 'href'>) {
   const preload = () => {
     void preloadStudioFromIntent().catch(() => {});
   };
 
   return (
-    <Link
+    <IntentLink
       {...props}
       href='/studio'
       onFocus={(event) => {
@@ -46,6 +46,6 @@ export default function MarketingStudioLink({
       }}
     >
       {children}
-    </Link>
+    </IntentLink>
   );
 }
