@@ -198,7 +198,7 @@ Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) tak
 
 New Design Lab compositions default to Gem Smoke. Saved documents remain authoritative, and authored legacy materials must not be replaced merely because defaults changed.
 
-Animation builds text, mark, and image sequences with brand starters per identity, per-scene timing, layer keyframes, text entrances, captions, material backgrounds, frame overrides, audio clips, GIF, MP4, and a PNG poster frame. Lottie imports JSON or `.lottie`, supports layer show/hide, text edits, brand-token recoloring, named markers, trim/playback, live-material backgrounds, frame PNG, GIF, MP4, and source download.
+Animation builds text, mark, and image sequences with brand starters per identity, per-scene timing, layer keyframes, text entrances, captions, material backgrounds, frame overrides, audio clips, GIF, MP4, and a PNG poster frame. Lottie imports JSON or `.lottie`, supports layer show/hide, text edits, brand-token recoloring, an optional brand logo layer (on for built-in studies, off for imports), named markers, trim/playback, live-material backgrounds, frame PNG, GIF, MP4, and source download.
 
 Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, Typography, Terminal card, Partnership, Blog, Slides, and Components share the same identity and reusable Studio editor systems. Read `/api/labs` and the relevant docs page for current availability and exact behavior.
 

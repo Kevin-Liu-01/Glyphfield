@@ -308,13 +308,13 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       output: EXPORT_ARTIFACT,
     },
     'lottie.describe': {
-      description: 'Describe the active document: top-level layers with keys, text layers, static colours, markers, segment, edits, and recolour mode.',
+      description: 'Describe the active document: top-level layers with keys, text layers, static colours, markers, segment, edits, recolour mode, and whether the brand logo layer is shown.',
       input: 'No input',
-      output: '{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor }',
+      output: '{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor, brandLogo }',
     },
     'lottie.edit': {
-      description: 'Apply non-destructive JSON edits. Each listed field replaces the stored one: hidden layer keys, colour map, text by layer key, named markers, and recolour mode.',
-      input: "{ hiddenLayers?: string[], colorMap?: Record<'#RRGGBB', '#RRGGBB'>, textOverrides?: Record<layerKey, string>, markers?: [{ name, frame, duration }], recolor?: 'palette' | 'source' }",
+      description: 'Apply non-destructive JSON edits. Each listed field replaces the stored one: hidden layer keys, colour map, text by layer key, named markers, recolour mode, and the brand logo layer (off for imports until turned on).',
+      input: "{ hiddenLayers?: string[], colorMap?: Record<'#RRGGBB', '#RRGGBB'>, textOverrides?: Record<layerKey, string>, markers?: [{ name, frame, duration }], recolor?: 'palette' | 'source', brandLogo?: boolean }",
       output: 'lottie.describe result',
     },
     'lottie.colors.brand': {

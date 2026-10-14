@@ -81,7 +81,7 @@ describe('Lottie portable canvas source', () => {
   it('invariant_portable_json_restores_visual_playback_and_source_state_together', () => {
     const sourceState: LottieCanvasState = {
       ...fallback,
-      appearance: { ...fallback.appearance, artColor: '#FF810A', cornerRadius: 24, recolor: 'source' },
+      appearance: { ...fallback.appearance, artColor: '#FF810A', brandLogo: false, cornerRadius: 24, recolor: 'source' },
       background: {
         ...fallback.background,
         materialSettings: { ...fallback.background.materialSettings, speed: 0.72 },
@@ -116,6 +116,23 @@ describe('Lottie portable canvas source', () => {
     expect(parsed.state.edits).toEqual({ colorMap: {}, hiddenLayers: [], textOverrides: {} });
     const malformed = { ...fallback, edits: { colorMap: { red: 'blue' }, hiddenLayers: [], textOverrides: {} } } as unknown as LottieCanvasState;
     expect(() => parseLottieWorkspaceSource(portableSource(malformed), fallback)).toThrow(/edits.colorMap.red/);
+  });
+
+  it('defaults the brand logo to on for Glyphfield examples and off for imports in older documents', () => {
+    const example = parseLottieWorkspaceSource(portableSource(fallback), fallback);
+    expect(example.state.appearance.brandLogo).toBe(true);
+    const imported = parseLottieWorkspaceSource(
+      portableSource({ ...fallback, source: { ...fallback.source, provenance: 'Local import' } }),
+      fallback
+    );
+    expect(imported.state.appearance.brandLogo).toBe(false);
+    const enabled = parseLottieWorkspaceSource(
+      portableSource({ ...fallback, appearance: { ...fallback.appearance, brandLogo: true }, source: { ...fallback.source, provenance: 'Local import' } }),
+      fallback
+    );
+    expect(enabled.state.appearance.brandLogo).toBe(true);
+    const pasted = parseLottieWorkspaceSource(JSON.stringify({ fr: 30, layers: [] }), fallback);
+    expect(pasted.state.appearance.brandLogo).toBe(false);
   });
 
   it('invariant_binary_bundle_remains_embedded_in_the_shareable_document', () => {

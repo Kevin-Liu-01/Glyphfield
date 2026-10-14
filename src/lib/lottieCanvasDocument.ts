@@ -42,6 +42,11 @@ export type LottieCanvasState = {
   appearance: {
     accentColor: string;
     artColor: string;
+    /**
+     * Adds the identity's logo as a "Brand logo" layer. Saved documents without
+     * it default to on for Glyphfield examples and off for imports.
+     */
+    brandLogo?: boolean;
     cornerRadius: number;
     /** Palette slots recolour every unnamed paint (legacy); source keeps authored colours for the colour map. */
     recolor?: LottieRecolorMode;
@@ -140,8 +145,8 @@ export function parseLottieWorkspaceSource(
       legacy: true,
       state: {
         ...fallback,
-        // Pasted raw JSON is a new document: authored colours, no carried-over edits.
-        appearance: { ...fallback.appearance, recolor: 'source' },
+        // Pasted raw JSON is a new document: authored colours, no brand logo, no carried-over edits.
+        appearance: { ...fallback.appearance, brandLogo: false, recolor: 'source' },
         edits: { ...EMPTY_LOTTIE_EDITS },
         source: {
           ...fallback.source,
@@ -196,6 +201,9 @@ export function parseLottieWorkspaceSource(
   const data = format === 'json'
     ? parseLottieDocument(sourceObject(savedSource, 'data'))
     : null;
+  const provenance = sourceString(savedSource, 'provenance', fallback.source.provenance) === 'Glyphfield example'
+    ? 'Glyphfield example'
+    : 'Local import';
 
   return {
     binarySource,
@@ -205,6 +213,7 @@ export function parseLottieWorkspaceSource(
       appearance: {
         accentColor: sourceString(appearance, 'accentColor', fallback.appearance.accentColor),
         artColor: sourceString(appearance, 'artColor', fallback.appearance.artColor),
+        brandLogo: sourceBoolean(appearance, 'brandLogo', provenance === 'Glyphfield example'),
         cornerRadius: sourceNumber(appearance, 'cornerRadius', fallback.appearance.cornerRadius),
         recolor: sourceString(appearance, 'recolor', 'palette') === 'source' ? 'source' : 'palette',
         secondaryColor: sourceString(appearance, 'secondaryColor', fallback.appearance.secondaryColor),
@@ -239,9 +248,7 @@ export function parseLottieWorkspaceSource(
         format,
         id: sourceString(savedSource, 'id', fallback.source.id),
         name: sourceString(savedSource, 'name', fallback.source.name),
-        provenance: sourceString(savedSource, 'provenance', fallback.source.provenance) === 'Glyphfield example'
-          ? 'Glyphfield example'
-          : 'Local import',
+        provenance,
       },
     },
   };
