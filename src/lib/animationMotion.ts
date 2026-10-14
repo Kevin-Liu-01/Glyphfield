@@ -58,13 +58,19 @@ export const DEFAULT_TEXT_ANIMATION: TextAnimationSettings = {
 export const MAX_SCENE_MS = 60_000;
 export const MAX_SCENE_KEYFRAMES = 32;
 
-const POSE_LIMITS: Record<keyof AnimationPose, readonly [number, number]> = {
+/** Channel limits for saved keyframes and Browser API poses. ±1 is the canvas edge; ±1.5 parks a layer just outside it. */
+export const ANIMATION_POSE_LIMITS: Readonly<Record<keyof AnimationPose, readonly [number, number]>> = {
   alignX: [-1.5, 1.5],
   alignY: [-1.5, 1.5],
   opacity: [0, 1],
   rotation: [-720, 720],
   scale: [0.05, 8],
 };
+
+export function clampAnimationPoseChannel(key: keyof AnimationPose, value: number): number {
+  const [minimum, maximum] = ANIMATION_POSE_LIMITS[key];
+  return clamp(value, minimum, maximum);
+}
 
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -96,11 +102,10 @@ export function normalizeKeyframes(value: unknown, field = 'keyframes'): Animati
     seen.add(id);
     if (!finite(candidate.atMs)) throw new TypeError(`${field}[${index}].atMs must be a finite number.`);
     const pose = {} as AnimationPose;
-    for (const key of Object.keys(POSE_LIMITS) as (keyof AnimationPose)[]) {
+    for (const key of Object.keys(ANIMATION_POSE_LIMITS) as (keyof AnimationPose)[]) {
       const raw = candidate[key];
       if (!finite(raw)) throw new TypeError(`${field}[${index}].${key} must be a finite number.`);
-      const [minimum, maximum] = POSE_LIMITS[key];
-      pose[key] = clamp(raw, minimum, maximum);
+      pose[key] = clampAnimationPoseChannel(key, raw);
     }
     return {
       ...pose,
@@ -231,7 +236,7 @@ export function retimeKeyframe(
 export function keyframesAreAnimated(keyframes: readonly AnimationKeyframe[] | undefined): boolean {
   if (!keyframes || keyframes.length < 2) return false;
   const [first, ...rest] = keyframes;
-  return rest.some((keyframe) => (Object.keys(POSE_LIMITS) as (keyof AnimationPose)[])
+  return rest.some((keyframe) => (Object.keys(ANIMATION_POSE_LIMITS) as (keyof AnimationPose)[])
     .some((key) => keyframe[key] !== first![key]));
 }
 

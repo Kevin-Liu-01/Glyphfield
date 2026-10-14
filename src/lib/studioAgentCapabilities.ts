@@ -105,12 +105,12 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
     },
     'animation.scene.update': {
       description: 'Set a scene hold or outgoing transition (null follows the sequence default), its text entrance (null removes it), or its pose at the playhead (a keyframe when the layer is keyframed).',
-      input: "{ sceneId, holdMs?: number | null, transitionMs?: number | null, textAnimation?: { preset: 'none' | 'type-on' | 'word-rise' | 'line-reveal' | 'glyph-stagger' | 'tracking-in', durationMs?, staggerMs?, easing? } | null, pose?: { alignX?, alignY?, scale?, rotation?, opacity? } }",
+      input: "{ sceneId, holdMs?: number | null, transitionMs?: number | null, textAnimation?: { preset: 'none' | 'type-on' | 'word-rise' | 'line-reveal' | 'glyph-stagger' | 'tracking-in', durationMs?, staggerMs?, easing? } | null, pose?: { alignX?, alignY?, scale?, rotation?, opacity? } } (pose channels clamp to alignX/alignY -1.5..1.5, scale 0.05..8, rotation -720..720, opacity 0..1)",
       output: 'animation.describe result',
     },
     'animation.keyframe.set': {
       description: 'Add or update the scene layer keyframe at a time into its hold, optionally with a pose and outgoing easing.',
-      input: '{ sceneId, atMs, pose?: { alignX?, alignY?, scale?, rotation?, opacity? }, easing?: [x1, y1, x2, y2] }',
+      input: '{ sceneId, atMs, pose?: { alignX?, alignY?, scale?, rotation?, opacity? }, easing?: [x1, y1, x2, y2] } (pose channels clamp like animation.scene.update)',
       output: 'animation.describe result',
     },
     'animation.keyframe.remove': {
