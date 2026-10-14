@@ -74,13 +74,13 @@ Image tiles are billboard, key visual, imagery, poster, social, and website.
 | **File → Export SVG** | A standalone SVG of the 1600 px wide layout with brand fonts and images embedded |
 | **File → Download identity JSON** | The complete active `BrandIdentity` |
 
-**Output size** offers Standard (1600 px wide), Retina (2400, the default), High (3200), Ultra (4800), and Custom (**Custom width** 800–4800 in steps of 100). The preset sets the export width; the height follows the board ratio. The PNG is then rendered at a pixel ratio between 1 and 2, chosen so that its long edge does not exceed 4800 px unless the preset itself is larger. The resulting PNG sizes are:
+**Output size** offers Standard (1600 px wide), Retina (2400, the default), High (3200), Ultra (4800), and Custom (**Custom width** 800–4800 in steps of 100). The preset sets the PNG's width in pixels; the height follows the board ratio. The board is vector artwork, so it renders at that size directly. The resulting PNG sizes are:
 
 | Preset | 16:9 boards | 4:5 boards | Catalog |
 | --- | --- | --- | --- |
-| Standard | 3200 × 1800 | 3200 × 4000 | 3200 × 4800 |
-| Retina | 4800 × 2700 | 3840 × 4800 | 3200 × 4800 |
-| High | 4800 × 2700 | 3840 × 4800 | 3200 × 4800 |
+| Standard | 1600 × 900 | 1600 × 2000 | 1600 × 2400 |
+| Retina | 2400 × 1350 | 2400 × 3000 | 2400 × 3600 |
+| High | 3200 × 1800 | 3200 × 4000 | 3200 × 4800 |
 | Ultra | 4800 × 2700 | 4800 × 6000 | 4800 × 7200 |
 
 The Export section shows the exact pixel size before export. Both PNG and SVG embed every brand font and library image, so the output matches the preview.
@@ -128,6 +128,6 @@ Tile controls use the labels above. In the Specimen board several tiles share a 
 
 ## Limits
 
-- PNG long edge up to 4800 px, except Ultra on 4:5 and Catalog boards (6000 and 7200 px).
+- PNG width up to 4800 px; the long edge reaches 6000 px on 4:5 boards and 7200 px on Catalog boards at Ultra.
 - SVG always uses the 1600 px wide layout.
 - Board title 120 characters; tile copy 600 characters.

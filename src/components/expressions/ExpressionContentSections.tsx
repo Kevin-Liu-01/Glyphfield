@@ -346,6 +346,12 @@ function PartnerRow({ commit, identity, index, lockup, partner }: Pick<SectionPr
   );
 }
 
+/** Headline control labels name the brand being edited. */
+function headlineLabels(identity: BrandIdentity) {
+  const brand = identity.shortName || identity.name;
+  return { role: `${brand} headline font`, roleAria: `${brand} headline font`, text: 'Title', weight: `${brand} headline weight` };
+}
+
 function PartnershipContent(props: SectionProps) {
   const gt = useGT();
   const { activePageId: pageId, commit, document, identity } = props;
@@ -363,7 +369,7 @@ function PartnershipContent(props: SectionProps) {
   return (
     <>
       <ControlSection title={<T>Content</T>}>
-        <HeadlineFields commit={commit} document={document} identity={identity} labels={{ role: 'GT headline font', roleAria: 'GT headline font', text: 'Title', weight: 'GT headline weight' }} pageId={pageId} />
+        <HeadlineFields commit={commit} document={document} identity={identity} labels={headlineLabels(identity)} pageId={pageId} />
       </ControlSection>
       {lockup && primary ? (
         <ControlSection title={<T>Partner</T>}>

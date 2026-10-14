@@ -56,7 +56,7 @@ import {
   parseBrandApplyInput,
 } from '@/lib/brandIdentityActions';
 import { BRAND_KIT_FORMATS, type BrandKitFormat } from '@/lib/brandKit';
-import { applyBrandIdentitySource, validateBrandIdentitySource, type BrandLogoSlot } from '@/lib/brandSource';
+import { applyBrandIdentitySource, BrandSourceValidationError, validateBrandIdentitySource, type BrandLogoSlot } from '@/lib/brandSource';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { downloadBlob } from '@/lib/download';
 import { parseSourceObject, stringifySource } from '@/lib/sourceCode';
@@ -153,7 +153,15 @@ function invokeIdentityAction(action: string, input: unknown, host: IdentityActi
     case 'identity.validate': {
       const { identity, mode } = inputObject(input);
       if (identity === undefined) throw new TypeError('identity.validate requires { identity, mode? }.');
-      return validateBrandIdentitySource(identity, mode === 'full' ? 'full' : 'patch');
+      if (mode === 'full') return validateBrandIdentitySource(identity, 'full');
+      // A patch is checked against the active identity exactly as identity.apply merges it,
+      // so references that only break after the merge are reported here too.
+      try {
+        return { issues: applyBrandIdentitySource(host.current(), identity).warnings, ok: true };
+      } catch (error) {
+        if (error instanceof BrandSourceValidationError) return { issues: error.issues, ok: false };
+        throw error;
+      }
     }
     case 'identity.apply': return host.apply(input);
     case 'identity.asset.add': return host.addAsset(input);

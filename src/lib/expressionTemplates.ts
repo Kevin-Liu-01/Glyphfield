@@ -285,11 +285,20 @@ const CODE_SAMPLES: Readonly<Record<string, CodeSample>> = {
   },
 };
 
+/** The brand's own snippet, or its own tokens: never another company's product code. */
 function codeSample(identity: BrandIdentity): CodeSample {
-  return CODE_SAMPLES[identity.id] ?? {
-    title: identity.voice.phrases[0] ?? identity.tagline,
-    tabs: [{ code: CODE_SAMPLES.gt!.tabs[0]!.code, highlight: [4], language: 'typescript', name: 'index.tsx' }],
-  };
+  const known = CODE_SAMPLES[identity.id];
+  if (known) return known;
+  const title = identity.voice.phrases[0] ?? identity.tagline;
+  const own = identity.samples?.code?.snippet.trim();
+  if (own) {
+    const terminal = own.startsWith('$');
+    return { title, tabs: [{ code: own, highlight: [1], language: terminal ? 'bash' : 'typescript', name: terminal ? 'Terminal' : 'index.ts' }] };
+  }
+  const quote = (value: string) => value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+  const accent = identity.colors.find(({ id }) => id === 'emphasis') ?? identity.colors[0];
+  const code = `export const brand = {\n  name: '${quote(identity.name)}',\n  tagline: '${quote(identity.tagline)}',\n  accent: '${accent?.hex ?? '#000000'}',\n};`;
+  return { title, tabs: [{ code, highlight: [2], language: 'typescript', name: 'brand.ts' }] };
 }
 
 /** The legacy single-language samples, kept so the language switch still loads them. */

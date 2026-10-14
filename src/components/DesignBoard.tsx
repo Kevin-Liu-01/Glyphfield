@@ -317,7 +317,8 @@ export default function DesignBoard({
   const layout = useMemo(() => layoutMoodboard(identity, composition, overrides), [composition, identity, overrides]);
   const board = layout.board;
   const exportDimensions = resolveMoodboardExport(exportPresetId, customWidth, composition);
-  const raster = resolveSvgRasterDimensions(exportDimensions.width, exportDimensions.height);
+  // A preset names the output width; the board is vector, so it renders at that size directly.
+  const raster = resolveSvgRasterDimensions(exportDimensions.width, exportDimensions.height, 1);
   const boardAssets = useMemo(() => moodboardAssets(identity), [identity]);
   const previewAssets = useMemo(() => moodboardPreviewAssets(identity, boardAssets), [boardAssets, identity]);
   const imageOptions = useMemo(() => {
@@ -427,7 +428,7 @@ export default function DesignBoard({
     const started = performance.now();
     try {
       const svg = await renderExportSvg();
-      const blob = await svgToPngBlob(svg, exportDimensions.width, exportDimensions.height);
+      const blob = await svgToPngBlob(svg, exportDimensions.width, exportDimensions.height, 1);
       const asset: ExportPreviewAsset = {
         blob,
         elapsedMs: Math.round(performance.now() - started),
