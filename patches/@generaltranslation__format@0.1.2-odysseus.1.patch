@@ -1,8 +1,55 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index 165369137cc7aa86b455b90359d6010d2c15da27..38ae802997a26f21b4c05633f789b65180d31bae 100644
+index 165369137cc7aa86b455b90359d6010d2c15da27..571b986644991064bd53fe71e4d5dd3d055e9290 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
-@@ -802,6 +802,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
+@@ -223,7 +223,28 @@ const isCustomLanguage = (language) => {
+ * @returns {boolean} True if the BCP 47 code is valid, false otherwise.
+ * @internal
+ */
++// Validity is fixed for a locale string and mapping, and renders ask for it for
++// every translated string, so each answer is kept.
++const validLocaleResults = /* @__PURE__ */ new WeakMap();
++const validLocaleResultsWithoutMapping = /* @__PURE__ */ new Map();
+ const _isValidLocale = (locale, customMapping) => {
++	if (typeof locale !== "string") return checkValidLocale(locale, customMapping);
++	let results = validLocaleResultsWithoutMapping;
++	if (customMapping) {
++		results = validLocaleResults.get(customMapping);
++		if (!results) {
++			results = /* @__PURE__ */ new Map();
++			validLocaleResults.set(customMapping, results);
++		}
++	}
++	let valid = results.get(locale);
++	if (valid === void 0) {
++		valid = checkValidLocale(locale, customMapping);
++		results.set(locale, valid);
++	}
++	return valid;
++};
++const checkValidLocale = (locale, customMapping) => {
+ 	locale = getCustomLocaleCode(customMapping, locale) || locale;
+ 	try {
+ 		const { language, region, script } = require_IntlCache.intlCache.get("Locale", locale);
+@@ -247,7 +268,17 @@ const _isValidLocale = (locale, customMapping) => {
+ * @returns {string} The standardized BCP 47 locale, or the input string if it cannot be standardized.
+ * @internal
+ */
++const standardizedLocales = /* @__PURE__ */ new Map();
+ const _standardizeLocale = (locale) => {
++	if (typeof locale !== "string") return canonicalizeLocale(locale);
++	let standardized = standardizedLocales.get(locale);
++	if (standardized === void 0) {
++		standardized = canonicalizeLocale(locale);
++		standardizedLocales.set(locale, standardized);
++	}
++	return standardized;
++};
++const canonicalizeLocale = (locale) => {
+ 	try {
+ 		return Intl.getCanonicalLocales(locale)[0];
+ 	} catch {
+@@ -802,6 +833,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
  	approvedLocales = standardizeValidLocales(approvedLocales, customMapping);
  	for (const locale of locales) {
  		const candidates = new Set(approvedLocales.filter((approvedLocale) => _isSameLanguage(locale, approvedLocale)));
@@ -11,11 +58,94 @@ index 165369137cc7aa86b455b90359d6010d2c15da27..38ae802997a26f21b4c05633f789b651
  		const properties = _getLocaleProperties(locale);
  		const matchingCode = getMatchingCode(locale, properties, candidates) || getMatchingCode(properties.languageCode, _getLocaleProperties(properties.languageCode), candidates);
  		if (matchingCode) return matchingCode;
+@@ -1035,6 +1068,17 @@ var LocaleConfig = class {
+ 		return _getLocaleProperties(locale, this.defaultLocale, this.customMapping);
+ 	}
+ 	requiresTranslation(targetLocale, sourceLocale = this.defaultLocale, approvedLocales = this.locales.length ? this.locales : void 0) {
++		// The configuration never changes after construction, so the common
++		// one-argument form is remembered per target locale.
++		if (arguments.length === 1 && typeof targetLocale === "string") {
++			this.requiresTranslationResults ??= /* @__PURE__ */ new Map();
++			let required = this.requiresTranslationResults.get(targetLocale);
++			if (required === void 0) {
++				required = _requiresTranslation(this.resolveCanonicalLocale(sourceLocale), this.resolveCanonicalLocale(targetLocale), approvedLocales ? approvedLocales.map((locale) => this.resolveCanonicalLocale(locale)) : void 0, this.customMapping);
++				this.requiresTranslationResults.set(targetLocale, required);
++			}
++			return required;
++		}
+ 		return _requiresTranslation(this.resolveCanonicalLocale(sourceLocale), this.resolveCanonicalLocale(targetLocale), approvedLocales ? approvedLocales.map((locale) => this.resolveCanonicalLocale(locale)) : void 0, this.customMapping);
+ 	}
+ 	/**
+@@ -1042,6 +1086,17 @@ var LocaleConfig = class {
+ 	* determineLocale could accept that as a parameter.
+ 	*/
+ 	determineLocale(locales, approvedLocales = this.locales) {
++		// Same reasoning as requiresTranslation: one locale against the configured list.
++		if (typeof locales === "string" && approvedLocales === this.locales) {
++			this.determinedLocales ??= /* @__PURE__ */ new Map();
++			if (this.determinedLocales.has(locales)) return this.determinedLocales.get(locales);
++			const determined = this.determineLocaleUncached(locales, approvedLocales);
++			this.determinedLocales.set(locales, determined);
++			return determined;
++		}
++		return this.determineLocaleUncached(locales, approvedLocales);
++	}
++	determineLocaleUncached(locales, approvedLocales) {
+ 		const approvedLocalePairs = approvedLocales.map((locale) => ({
+ 			locale,
+ 			canonicalLocale: this.resolveCanonicalLocale(locale)
 diff --git a/dist/index.mjs b/dist/index.mjs
-index ac7bb5b7b5b544f082a29fa2f4d2647b92cd3db9..7bef4aa36fccce26bbd861ab3140a3a85e318393 100644
+index ac7bb5b7b5b544f082a29fa2f4d2647b92cd3db9..997581a10dc6d67753cff77b8fcc3b05e80ecd80 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -801,6 +801,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
+@@ -222,7 +222,28 @@ const isCustomLanguage = (language) => {
+ * @returns {boolean} True if the BCP 47 code is valid, false otherwise.
+ * @internal
+ */
++// Validity is fixed for a locale string and mapping, and renders ask for it for
++// every translated string, so each answer is kept.
++const validLocaleResults = /* @__PURE__ */ new WeakMap();
++const validLocaleResultsWithoutMapping = /* @__PURE__ */ new Map();
+ const _isValidLocale = (locale, customMapping) => {
++	if (typeof locale !== "string") return checkValidLocale(locale, customMapping);
++	let results = validLocaleResultsWithoutMapping;
++	if (customMapping) {
++		results = validLocaleResults.get(customMapping);
++		if (!results) {
++			results = /* @__PURE__ */ new Map();
++			validLocaleResults.set(customMapping, results);
++		}
++	}
++	let valid = results.get(locale);
++	if (valid === void 0) {
++		valid = checkValidLocale(locale, customMapping);
++		results.set(locale, valid);
++	}
++	return valid;
++};
++const checkValidLocale = (locale, customMapping) => {
+ 	locale = getCustomLocaleCode(customMapping, locale) || locale;
+ 	try {
+ 		const { language, region, script } = intlCache.get("Locale", locale);
+@@ -246,7 +267,17 @@ const _isValidLocale = (locale, customMapping) => {
+ * @returns {string} The standardized BCP 47 locale, or the input string if it cannot be standardized.
+ * @internal
+ */
++const standardizedLocales = /* @__PURE__ */ new Map();
+ const _standardizeLocale = (locale) => {
++	if (typeof locale !== "string") return canonicalizeLocale(locale);
++	let standardized = standardizedLocales.get(locale);
++	if (standardized === void 0) {
++		standardized = canonicalizeLocale(locale);
++		standardizedLocales.set(locale, standardized);
++	}
++	return standardized;
++};
++const canonicalizeLocale = (locale) => {
+ 	try {
+ 		return Intl.getCanonicalLocales(locale)[0];
+ 	} catch {
+@@ -801,6 +832,8 @@ function _determineLocale(locales, approvedLocales, customMapping) {
  	approvedLocales = standardizeValidLocales(approvedLocales, customMapping);
  	for (const locale of locales) {
  		const candidates = new Set(approvedLocales.filter((approvedLocale) => _isSameLanguage(locale, approvedLocale)));
@@ -24,3 +154,39 @@ index ac7bb5b7b5b544f082a29fa2f4d2647b92cd3db9..7bef4aa36fccce26bbd861ab3140a3a8
  		const properties = _getLocaleProperties(locale);
  		const matchingCode = getMatchingCode(locale, properties, candidates) || getMatchingCode(properties.languageCode, _getLocaleProperties(properties.languageCode), candidates);
  		if (matchingCode) return matchingCode;
+@@ -1034,6 +1067,17 @@ var LocaleConfig = class {
+ 		return _getLocaleProperties(locale, this.defaultLocale, this.customMapping);
+ 	}
+ 	requiresTranslation(targetLocale, sourceLocale = this.defaultLocale, approvedLocales = this.locales.length ? this.locales : void 0) {
++		// The configuration never changes after construction, so the common
++		// one-argument form is remembered per target locale.
++		if (arguments.length === 1 && typeof targetLocale === "string") {
++			this.requiresTranslationResults ??= /* @__PURE__ */ new Map();
++			let required = this.requiresTranslationResults.get(targetLocale);
++			if (required === void 0) {
++				required = _requiresTranslation(this.resolveCanonicalLocale(sourceLocale), this.resolveCanonicalLocale(targetLocale), approvedLocales ? approvedLocales.map((locale) => this.resolveCanonicalLocale(locale)) : void 0, this.customMapping);
++				this.requiresTranslationResults.set(targetLocale, required);
++			}
++			return required;
++		}
+ 		return _requiresTranslation(this.resolveCanonicalLocale(sourceLocale), this.resolveCanonicalLocale(targetLocale), approvedLocales ? approvedLocales.map((locale) => this.resolveCanonicalLocale(locale)) : void 0, this.customMapping);
+ 	}
+ 	/**
+@@ -1041,6 +1085,17 @@ var LocaleConfig = class {
+ 	* determineLocale could accept that as a parameter.
+ 	*/
+ 	determineLocale(locales, approvedLocales = this.locales) {
++		// Same reasoning as requiresTranslation: one locale against the configured list.
++		if (typeof locales === "string" && approvedLocales === this.locales) {
++			this.determinedLocales ??= /* @__PURE__ */ new Map();
++			if (this.determinedLocales.has(locales)) return this.determinedLocales.get(locales);
++			const determined = this.determineLocaleUncached(locales, approvedLocales);
++			this.determinedLocales.set(locales, determined);
++			return determined;
++		}
++		return this.determineLocaleUncached(locales, approvedLocales);
++	}
++	determineLocaleUncached(locales, approvedLocales) {
+ 		const approvedLocalePairs = approvedLocales.map((locale) => ({
+ 			locale,
+ 			canonicalLocale: this.resolveCanonicalLocale(locale)
