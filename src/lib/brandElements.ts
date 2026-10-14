@@ -986,7 +986,8 @@ function contentOverrides(identity: BrandIdentity, k: ElementCopy): Partial<Reco
       pattern: 'none',
     },
     'web-card': { body: k.productLine0, cta: 'Learn more', headline: k.productName0, pattern: 'none' },
-    opengraph: { layout: 'split', pattern: 'none', scale: 'bold' },
+    // A link preview reads at thumbnail size: the tagline and one short promise, not the positioning paragraph.
+    opengraph: { body: k.promise, layout: 'split', pattern: 'none' },
     'error-page': {
       body: 'The page you asked for has moved or no longer exists.',
       cta: 'Back to home',

@@ -471,7 +471,8 @@ function SocialHeader({ context }: Props) {
   return (
     <div className={styles.socialHeader}>
       <Logo context={context} />
-      <span>{markIsWordmark ? null : <strong>{context.identity.name}</strong>}<span className={styles.meta}>{context.identity.socialHandle}</span></span>
+      {/* A link preview is not a post: it carries the brand, and the site URL closes the card. */}
+      <span>{markIsWordmark ? null : <strong>{context.identity.name}</strong>}{context.element.id === 'opengraph' ? null : <span className={styles.meta}>{context.identity.socialHandle}</span>}</span>
     </div>
   );
 }
