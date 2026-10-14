@@ -182,9 +182,9 @@ export function MarketingMaterialDemo() {
       </div>
       <div className='marketing-live-material-board'>
         <button aria-pressed={selectedCard === 'Message'} className='marketing-live-material-card marketing-live-material-card--hero' onClick={() => setSelectedCard('Message')} type='button'>
-          <span>01 / MESSAGE</span><strong>Language is live.</strong><GtMark light />
+          <strong>Language is live.</strong><GtMark light />
         </button>
-        <button aria-pressed={selectedCard === 'Material'} className='marketing-live-material-card marketing-live-material-card--shader' onClick={() => setSelectedCard('Material')} type='button'><i /><span>02 / MATERIAL</span></button>
+        <button aria-label='Material' aria-pressed={selectedCard === 'Material'} className='marketing-live-material-card marketing-live-material-card--shader' onClick={() => setSelectedCard('Material')} type='button'><i /></button>
         <button aria-pressed={selectedCard === 'Typography'} className='marketing-live-material-card marketing-live-material-card--type' onClick={() => setSelectedCard('Typography')} type='button'><span>Aa</span><small>Rasmus Inter<br />450 / 0.98</small></button>
         <button aria-label='Color tokens' aria-pressed={selectedCard === 'Tokens'} className='marketing-live-material-card marketing-live-material-card--tokens' onClick={() => setSelectedCard('Tokens')} type='button'><i /><i /><i /><i /></button>
       </div>

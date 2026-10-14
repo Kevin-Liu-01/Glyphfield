@@ -337,7 +337,6 @@ export default async function HomePage() {
           <FrameTriangles />
           <SwissGrid />
           <article className='marketing-v5-product-card marketing-v5-product-card--wide' data-motion-item>
-            <span className='marketing-v13-card-index'>03.1 / BRAND APPLICATIONS</span>
             <h2><T>Build the brand where it will live.</T></h2>
             <p>
               <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
@@ -347,7 +346,6 @@ export default async function HomePage() {
             </div>
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
-            <span className='marketing-v13-card-index'>03.2 / MOTION SYSTEM</span>
             <h2 className='marketing-v5-product-card-title--motion'>
               <span><T>Design the mark</T></span>{' '}
               <span><T>and its motion together.</T></span>
@@ -365,7 +363,6 @@ export default async function HomePage() {
           <FrameTriangles />
           <SwissGrid />
           <div className='marketing-v5-agents-copy' data-motion-item>
-            <span className='marketing-v13-section-index'>04 / AGENT CONTRACT</span>
             <h2 className='marketing-v5-agent-title'>
               <span><T>Plug the system</T></span>{' '}
               <span><T>into any agent.</T></span>
@@ -439,7 +436,6 @@ export default async function HomePage() {
           <FrameTriangles />
           <SwissGrid />
           <header data-motion-item>
-            <span>05 / <T>Glyphfield, answered</T></span>
             <div className='marketing-v13-faq-heading'>
               <h2 id='frequently-asked-questions'><T>Frequently asked questions</T></h2>
               <StudioSelectionFrame
@@ -479,7 +475,6 @@ export default async function HomePage() {
             {GLYPH_FIELD_ROWS.map((row, index) => <span key={`${index}-${row}`}>{row}</span>)}
           </div>
           <div className='marketing-v7-open-source-copy' data-motion-item>
-            <span className='marketing-v13-section-index'>06 / OPEN SYSTEM</span>
             <h2><T>Free, open source, and built to extend.</T></h2>
             <p>
               <T>
@@ -667,7 +662,6 @@ function ThemeGallery() {
       <FrameTriangles />
       <SwissGrid />
       <div className='marketing-v5-theme-gallery-copy' data-motion-item>
-        <span className='marketing-v13-section-index'>02 / LIVE IDENTITY</span>
         <div className='marketing-v13-theme-heading'>
           <h2 className='marketing-v5-theme-gallery-title'>
             <span><T>Current Studio.</T></span>{' '}
