@@ -1,22 +1,22 @@
 import { ImageResponse } from 'next/og';
 
-import BrandOpenGraphImage from '@/components/BrandOpenGraphImage';
-import { OPEN_GRAPH_SIZE } from '@/lib/openGraph';
-import { getOpenGraphFonts } from '@/lib/openGraphFonts';
+import BrandOpenGraphImage, {
+  OPEN_GRAPH_IMAGE_SIZE,
+  STUDIO_OPEN_GRAPH_ALT,
+  STUDIO_OPEN_GRAPH_CARD,
+  getBrandOpenGraphFonts,
+  getStudioScreenshot,
+} from '@/components/BrandOpenGraphImage';
 
-export const alt = 'Glyphfield Studio — build the identity, then make everything else';
+export const alt = STUDIO_OPEN_GRAPH_ALT;
 export const contentType = 'image/png';
 export const runtime = 'nodejs';
-export const size = OPEN_GRAPH_SIZE;
+export const size = OPEN_GRAPH_IMAGE_SIZE;
 
 export default async function OpenGraphImage() {
+  const [fonts, screenshot] = await Promise.all([getBrandOpenGraphFonts(), getStudioScreenshot()]);
   return new ImageResponse(
-    <BrandOpenGraphImage
-      accent='#7BFFD9'
-      description='Build, tune, and export motion, graphics, templates, and brand applications from one connected identity.'
-      title='Build the identity. Make everything else.'
-      url='glyphfield.com/studio'
-    />,
-    { ...size, fonts: await getOpenGraphFonts() }
+    <BrandOpenGraphImage {...STUDIO_OPEN_GRAPH_CARD} height={size.height} screenshot={screenshot} />,
+    { ...size, fonts }
   );
 }
