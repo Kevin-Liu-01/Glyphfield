@@ -521,47 +521,47 @@ function sliceTokens(tokens: readonly CodeToken[], start: number, end: number): 
   return result;
 }
 
+/** Longest prefix of `rest` that fits, pulled back to a break after a space or punctuation when one is near. */
+function codeCut(rest: string, prefix: string, room: number, measure: (text: string) => number): number {
+  let low = 1;
+  let high = rest.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (measure(prefix + rest.slice(0, middle)) <= room) low = middle;
+    else high = middle - 1;
+  }
+  for (let back = low; back > low * 0.5; back -= 1) {
+    if (CODE_BREAK_AFTER.test(rest[back - 1]!)) return back;
+  }
+  return low;
+}
+
+function codeRow(tokens: readonly CodeToken[], line: number, prefix: string, start: number, end: number): CodeRow {
+  const indent = prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : [];
+  return { continuation: Boolean(prefix), line, tokens: [...indent, ...sliceTokens(tokens, start, end)] };
+}
+
 /**
  * Break each source line into rows that fit `room`, after a space or
  * punctuation when one is near, with continuation rows indented two spaces past
  * the line's own indent.
  */
 export function wrapCodeLines(lines: readonly CodeToken[][], room: number, measure: (text: string) => number): CodeRow[] {
-  const rows: CodeRow[] = [];
-  lines.forEach((tokens, index) => {
+  return lines.flatMap((tokens, index) => {
     const text = tokens.map(({ content }) => content).join('');
     const indent = `${/^\s*/.exec(text)![0]}  `;
+    const rows: CodeRow[] = [];
     let start = 0;
-    let continuation = false;
-    while (start < text.length || !continuation) {
-      const prefix = continuation ? indent : '';
+    do {
+      const prefix = rows.length > 0 ? indent : '';
       const rest = text.slice(start);
-      if (measure(prefix + rest) <= room || rest.length <= 1) {
-        rows.push({ continuation, line: index + 1, tokens: [...(prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : []), ...sliceTokens(tokens, start, text.length)] });
-        break;
-      }
-      let low = 1;
-      let high = rest.length;
-      while (low < high) {
-        const middle = Math.ceil((low + high) / 2);
-        if (measure(prefix + rest.slice(0, middle)) <= room) low = middle;
-        else high = middle - 1;
-      }
-      let cut = low;
-      for (let back = low; back > low * 0.5; back -= 1) {
-        if (CODE_BREAK_AFTER.test(rest[back - 1]!)) {
-          cut = back;
-          break;
-        }
-      }
-      rows.push({ continuation, line: index + 1, tokens: [...(prefix ? [{ color: tokens[0]?.color ?? '', content: prefix }] : []), ...sliceTokens(tokens, start, start + cut)] });
+      const cut = measure(prefix + rest) <= room || rest.length <= 1 ? rest.length : codeCut(rest, prefix, room, measure);
+      rows.push(codeRow(tokens, index + 1, prefix, start, start + cut));
       start += cut;
       while (text[start] === ' ') start += 1;
-      continuation = true;
-      if (start >= text.length) break;
-    }
+    } while (start < text.length);
+    return rows;
   });
-  return rows;
 }
 
 function renderCode(element: CanvasElement, context: ExpressionRenderContext): string {
