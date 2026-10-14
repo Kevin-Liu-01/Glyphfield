@@ -1,152 +1,192 @@
 ---
 title: Animation
-description: Build multilingual text, logo, and image sequences with per-frame composition, materials, timing, audio, and GIF or MP4 output.
+description: Sequence text, logo, and image scenes with keyframes, text entrances, captions, transitions, live backgrounds, and audio, and export GIF, MP4, a PNG poster, or a project file.
 icon: Orbit
 ---
 
-Animation is a sequence editor for brand motion. Each scene holds one layer (text, the brand mark, or an image) over a background. Every scene owns its duration, its outgoing cut, its pose and keyframes, and an optional text entrance and caption, while inheriting or overriding the composition background.
+Animation (tool ID `animation`) is a sequence editor for brand motion. Each scene holds one layer (text, the brand mark, or an image) over a background. Each scene owns its hold duration, its outgoing transition, its pose and keyframes, and an optional text entrance and caption. Backgrounds are shared by the sequence unless a scene overrides them.
+
+<DocsMedia
+  alt='Glyphfield Animation editor with scenes, the canvas, the storyboard, and the scene inspector'
+  caption='Animation with the General Translation brand intro'
+  meta='Scenes · storyboard · inspector'
+  src='/screenshots/studio-gt-animation-dark-2026.webp'
+/>
+
+## Layout
+
+| Region | Contents |
+| --- | --- |
+| Tool header | **Save checkpoint**, **Saved animations**, save status, **File** (**Edit source code**, **Open project file**, **Download project file**, **Export poster frame**), **GIF**, **Export MP4** |
+| Left sidebar | 01 **Scenes and layers**, 02 **Sequence defaults**, 03 **Output**, 04 **Brand starters** |
+| Center | Artboard bar, canvas with size handles, transport and storyboard, audio track |
+| Right inspector | The selected scene, transition, or background, or "Nothing selected" |
 
 ## Brand starters
 
-A first visit to Animation opens on the identity's **Brand intro**: the mark, then its greeting words, in a 1280 × 720 artboard composed in that brand's art direction. **Sequence layers → Brand starters** offers three story shapes for every identity:
+A first visit opens on the identity's **Brand intro**. **Brand starters** offers three sequences for every identity, each composed in that identity's art direction on a 1280 × 720 artboard:
 
-- **Brand intro**: the mark, then the identity's greetings.
-- **Product reel**: one scene per product, closing on the mark.
-- **Proof points**: the identity's proof set large, closing on the mark.
+| Starter | ID | Scenes |
+| --- | --- | --- |
+| Brand intro | `brand-intro` | The mark, then up to six greetings |
+| Product reel | `product-reel` | Up to four products, then the mark |
+| Proof points | `proof-points` | Up to three proof points, then the mark |
 
-Each identity keeps its own field, type, accent, cadence, and metadata device. Ramp sets light Lausanne on paper with one lime scene; Stripe sets Söhne over a blurple mesh; Vite+ captions each scene with its `vp` command; General Translation keeps its centred 1.25 s morph on exact black and names each language in the corner. Display weight and tracking come from the identity's Display typography; the scene captions use its Code face. Applying a starter replaces the active artboard; **Undo** restores the previous sequence. Existing drafts and autosaved animations are never replaced on load.
+Each identity keeps its own field, type, accent, cadence, and captions. General Translation keeps its centered 1.25-second morph on black and names each language in the corner. Display weight and tracking come from the identity's Display role; captions use its Code face. Applying a starter replaces the active artboard and resizes it to 1280 × 720; **Undo** restores the previous sequence. Saved drafts are never replaced on load.
 
-New text frames start black in light mode and white in dark mode, including when added through Browser API controls. The color is saved on the new frame; changing the UI theme does not recolor existing frames, imported artwork, backgrounds, or reopened projects.
+## Scenes and layers
 
-<DocsMedia
-  alt='Glyphfield Animation editor with multilingual sequence states, canvas, timeline, and frame inspector'
-  caption='Sequence editing with frame-level timing and material control'
-  meta='7 states · 20 FPS · live material'
-  src='/screenshots/studio-gt-animation-dark-2026.png'
-/>
+**Add animation layer** has **Text**, **Image** (one or more local image files), **Base** (the base background), and **Transition**. The **Brand mark** checkbox includes or removes the mark scene. Each scene row has `Move <scene> up`, `Move <scene> down`, `Remove <scene>`, and `Use base background for <scene>`. Source order, timeline order, preview, and export stay in sync.
 
-## Choose the source mode
+New text scenes start black in light mode and white in dark mode, including when added through Browser API controls. The color is saved on the scene; changing the Studio theme does not recolor existing scenes, images, or backgrounds.
 
-- **Sequence** mixes brand marks, text, and imported images in one ordered timeline.
-- **Text** builds a text-only sequence from newline-separated frames.
-- **Images** creates motion from authorized local image files.
+## Sequence defaults and output
 
-Start with the brand logo when the motion should establish identity before language or product content. Reorder states from the source list; timeline order, source order, preview, and export stay synchronized.
+| Control | Range or values |
+| --- | --- |
+| **Frame duration** | 100–3000 ms, with 0.75, 1.0, 1.25, 1.5, and 1.75 s buttons |
+| **Default transition** | One of the 12 transition packages |
+| **Default background blend** | Crossfade, Directional wipe, Radial reveal |
+| **Transition duration** | 40–1200 ms |
+| **Horizontal anchor**, **Vertical anchor** | −1 to 1 |
+| **Scale** | 0.2–1.5 |
+| **Morph blur** | 0–32 px |
+| **Text size** | 16–240 px |
+| **Default foreground** | Color |
+| **Frame rate** (Output) | 10, 15, 20, 24, or 30 FPS |
+| **Palette** (Output) | 32, 64, 128, or 256 GIF colors |
+| **Loop forever** (Output) | GIF loop flag |
 
-## Frame composition
+Scenes without their own values follow these defaults.
 
-Select a scene to edit its content, duration, entrance, keyframes, position, scale, rotation, opacity, caption, anchor, and background. Dragging, scaling, and rotating on the canvas update the same frame document used by the inspector; the canvas content follows a drag live and commits once on release.
+## Edit a scene
 
-- **Rotate** with the round handle above the layer. Shift snaps to 15°; Left and Right arrows rotate by 1° (Shift: 15°).
-- **Move** by dragging or with the arrow keys (1 px; Shift: 10 px). Moves snap to the canvas edges and centre lines.
-- **Align** with the six safe-area buttons in the inspector: left, centre, right, top, middle, bottom. The safe area is 8% of the shorter side.
-- **Show layout guides** overlays thirds and the safe area on the stage. Guides are view-only and never exported.
-- **Anchor** sets whether text hangs from its centre or its leading edge. A leading-edge anchor keeps a left-aligned headline on its margin when the words change.
-- **Caption** adds one small line of scene metadata (an index, a language name, a command) in the identity's Code face at a corner of the safe area. Captions stay fixed in the frame and exchange by opacity during cuts.
+Select a scene on the storyboard or in the scene list. The inspector shows:
 
-### Timing and the storyboard
+| Section | Controls |
+| --- | --- |
+| Content | Text, or **Image fit** (Contain or Cover) for images |
+| Pose | **Horizontal** and **Vertical** −1 to 1, **Scale** 0.1–2.5, **Rotation** −180° to 180°, **Opacity** 0–100% |
+| Align | **Align layer left**, center, right, top, middle, bottom (to the safe area, 8% of the shorter side), **Show layout guides** |
+| Type | **Anchor** (Centre or Leading edge), **Text size**, **Weight** 100–550, **Text color** |
+| Caption | Text scenes: up to 120 characters at top-left, top-right, bottom-left, or bottom-right |
+| Timing | **Scene duration** 100–10,000 ms |
+| Text entrance | Text scenes: preset, **Entrance duration** 100–3000 ms, **Stagger** 0–300 ms (0 is Auto; Word rise and Glyph stagger), **Entrance easing** |
+| Keyframes | **Motion presets**, **Add keyframe at playhead**, **Clear keyframes**, and one row per keyframe with time, easing, **Go to keyframe N**, and **Remove keyframe N** |
+| Effects | Text effects or artwork finish |
 
-Every scene has its own duration and outgoing cut. Scenes without an override follow **Sequence defaults → Frame duration** and **Transition duration**. Set a scene's length under **Timing → Scene duration**, or select a cut and set **Cut duration**; **Use sequence duration** removes the override.
+On the canvas:
 
-The storyboard lays scenes out in proportion to their time. Drag the edge at the end of a scene's hold to trim it. A trim rolls the cut by default: the next scene absorbs the change, so later scenes keep their place on the master timeline. Hold **Alt** while dragging (or with the arrow keys) to ripple instead and shift every later scene. With the trim handle focused, Left and Right move the cut by one output frame, Shift by ten.
+- Drag to move. Moves snap to the canvas edges and center lines. Arrow keys nudge 1 px, or 10 px with Shift.
+- Drag the round handle above the layer to rotate. Shift snaps to 15°. With the handle focused, ← and → rotate by 1°, or 15° with Shift.
+- **Show layout guides** shows thirds and the safe area. Guides are never exported.
+- **Anchor** sets whether text hangs from its center or its leading edge. A leading-edge anchor keeps a left-aligned headline on its margin when the words change.
+- A caption is one small line of scene metadata (an index, a language name, a command) in the Code face at a corner of the safe area. Captions stay fixed and exchange by opacity during transitions.
 
-Zoom the storyboard with **Zoom timeline in** and **Zoom timeline out**, **Fit timeline to view**, or Ctrl/Cmd + scroll over the storyboard. Zoom is a view setting per brand; it never changes timing.
+Dragging, scaling, and rotating on the canvas update the same scene data as the inspector. The layer follows a drag live and commits once on release.
 
-### Layer keyframes
+### Keyframes
 
-Keyframes animate a scene layer's horizontal and vertical position, scale, rotation, and opacity across its hold. Each keyframe stores a full pose and the easing of the segment that leaves it.
+Keyframes animate the layer's horizontal and vertical position, scale, rotation, and opacity across the hold. Each keyframe stores a full pose and the easing of the segment that leaves it: Material, Ease out, Ease in-out, Overshoot, or Linear.
 
-1. Select the scene and choose **Add keyframe** to capture the pose at the playhead.
-2. Move the playhead within the scene, then move, scale, or rotate the layer on the canvas or in the inspector. Once a layer has keyframes, an edit updates the keyframe at the playhead or inserts a new one there.
-3. Choose each keyframe's easing (material, ease out, ease in-out, overshoot, linear) in the keyframe list.
+1. Select the scene and choose **Add keyframe at playhead**.
+2. Move the playhead within the scene, then move, scale, or rotate the layer. Once a layer has keyframes, an edit updates the keyframe at the playhead or inserts one there.
+3. Set each keyframe's easing in the keyframe list.
 
-Keyframes appear as diamonds on the storyboard. Drag a diamond or use Left and Right (Shift: ten frames) to retime it; Delete removes it. Removing the last keyframe keeps its pose as the scene's static pose. **Motion presets** build keyframes around the settled pose in one click: **Push in**, **Rise in**, **Slide in**, **Pop in**, and **Float**. Before the first keyframe and after the last, the nearest pose holds. During a cut the outgoing scene leaves from its last pose and the incoming scene enters from its first.
+Keyframes appear as diamonds on the storyboard. Drag a diamond, or press ← or → (ten frames with Shift), to retime it; Delete or Backspace removes it. Removing the last keyframe keeps its pose as the static pose. Before the first keyframe and after the last, the nearest pose holds. During a transition the outgoing scene leaves from its last pose and the incoming scene enters from its first.
+
+**Motion presets** replace the keyframes with a preset built around the settled pose: **Push in** (scale × 1.06 across the hold), **Rise in** (from 0.14 lower and transparent), **Slide in** (from 0.22 to the left), **Pop in** (from 82% scale within 520 ms), and **Float** (a small drift at mid-hold).
 
 ### Text entrances
 
-A text scene can play an entrance at the start of its hold, set in the scene's own brand display face and measured with the same metrics as the static frame:
-
-| Entrance | Behaviour |
+| Entrance | Behavior |
 | --- | --- |
-| Type on | Graphemes appear one at a time, without a cursor. |
-| Word rise | Words fade and rise one after another. |
-| Line reveal | The line rises out of a baseline mask. |
-| Glyph stagger | Each glyph settles from below in sequence. |
-| Tracking in | Wide letterspacing closes to the set width. |
+| Type on | Graphemes appear one at a time, without a cursor |
+| Word rise | Words fade and rise one after another |
+| Line reveal | The line rises out of a baseline mask |
+| Glyph stagger | Each glyph settles from below in sequence |
+| Tracking in | Wide letterspacing closes to the set width |
 
-Set the entrance duration, the stagger for word and glyph entrances (Auto spreads units across half the entrance), and its easing. Entrances and keyframes render identically in preview, GIF, MP4, and the poster frame; GIF samples every frame of a hold that moves and keeps a single frame for still holds.
+Entrances use the scene's display face and metrics. The default is 640 ms with ease out. Entrances and keyframes render the same in the preview, GIF, MP4, and the poster frame.
 
-During playback, the scene highlights and inspector follow the current scene. Pause or scrub to a hold to edit that displayed scene; pause or scrub inside a transition to inspect the transition instead. Canvas selection boxes stay hidden during playback and transitions. Selecting a scene background or the base background keeps that explicit editing target.
+## Transitions
 
-The bottom storyboard scrolls horizontally with playback, keeping the playhead and upcoming frames in view. It follows back to the start when playback loops. Manual scrolling and timeline drags temporarily suspend following; it resumes after 1.5 seconds of inactivity or when you press Play again. Paused browsing stays put, while an explicit seek reveals the requested time. This behavior is shared by the landing demo and the full Studio.
+Select a transition on the storyboard to edit the cut out of a scene:
 
-The stage exposes edge and corner handles for output width and height. This changes the exported composition itself; the zoom toolbar changes only the view.
+- **Background blend**: Crossfade, Directional wipe, or Radial reveal.
+- **Cut duration**: 0–2000 ms; **Use sequence duration** removes the override.
+- A package from the gallery: Morph fade, Type / delete (text only), Crossfade, Scale fade, Slide fade, Rise fade, Zoom through, Blur swipe, Flip fade, Spring pop, Rotate fade, Drift fade.
+- Easing: material, snappy, soft, or dramatic, or a cubic Bézier curve with X1, Y1, X2, Y2 fields (X 0–1, Y −1 to 2).
+- **Use sequence transition** removes the override.
 
-**Artboard setup** shares its presets with Design Lab, including a portrait row for **3:4** (1080 × 1440), **2:3** (1080 × 1620), and **1:2** (1080 × 2160). Choose a preset or enter custom dimensions; source, saved artboards, and export use the same width and height.
+These settings are stored on that scene's outgoing transition, not on the whole sequence. Type / delete reveals and removes real characters without a cursor. Morph fade uses blur, opacity, and scale, and works between text and image scenes in any combination.
 
-The tool header keeps **Save checkpoint**, **Saved animations**, save state, **File**, and exports together. Open **Saved animations** for **New blank animation**, **Save as independent copy** (Clone), and **Save as linked copy** (Fork). Working drafts autosave; named checkpoints are explicit. **File** groups **Open project file**, **Download project file**, and **Edit source code**. The cloud indicator and saved-animation library use distinct icons. A compact **Error** button opens complete failure details by click or keyboard without adding a strip below the canvas.
+## Storyboard
 
-The artboard bar stays focused on the current animation: the artboard picker and size settings sit on the left; add, duplicate, and delete sit on the right. Undo, Redo, and Action history remain together in the canvas dock.
+| Control | Action |
+| --- | --- |
+| **Play preview** / **Pause preview**, **Restart preview** | Transport |
+| **Previous frame**, **Next frame** | Step one output frame |
+| **Timeline playhead** | Scrub. With the storyboard playhead focused: Home, End, ← and → (one frame), Shift + ← and → (1 second) |
+| **Zoom timeline out**, **Zoom timeline in**, **Fit timeline to view** | 40–800 px per second, 1.25× per step; or ⌘/Ctrl + scroll |
+| **Playback rate** | 0.1×, 0.25×, 0.5×, 1×, 2×, 4× |
+| `Scene N duration` handle | Drag the end of a hold to trim. Default is roll: the next scene absorbs the change. Alt ripples later scenes. ← and → move one frame, Shift ten. Trims snap to output frames; the minimum hold is 100 ms |
 
-Canvas Undo and Redo restore sequence edits, frame settings, images, and artboards. Saved animations are separate named checkpoints: save a version, rename it in Saved animations, or reopen an earlier checkpoint without treating every edit as a new saved file. Text follows the active brand's Display font; General Translation uses Inter by default.
+During playback the scene list and inspector follow the current scene. Pause or scrub to a hold to edit that scene, or inside a transition to edit the transition. The storyboard scrolls with playback; manual scrolling pauses following for 1.5 seconds. Storyboard zoom is a view setting and never changes timing.
 
-**Saved animations** uses the same picker as Design Lab. The **Current** row closes the picker without reloading saved content over your edits. Choose **Rename** on a row; Enter, **Save name**, or leaving the row saves the name, while Escape or **Cancel rename** cancels it. Delete requires confirmation. **Save checkpoint** preserves an autosaved draft as a named animation, and **Save changes** updates the current checkpoint. These checkpoints stay in this browser; use a project file to share or back them up.
+## Backgrounds
 
-### Background inheritance
+The sequence has one base background, **Base background — Behind every scene**: a solid color, a two-color gradient, or a material from the [Shader Library](/docs/studio/shader-library). In the background inspector, **Background scope** chooses **Sequence** (changes update every scene that follows the sequence background) or **Frame** (the next change creates an override for this scene). **Use sequence background** removes one override; **Make all frames follow sequence** removes all of them.
 
-The sequence has one default background. A state can inherit it or opt into a frame override. Backgrounds support solid colors, gradients, and materials from the shared Shader Library, with crossfade, wipe, or radial transitions.
+Shader time follows the animation playhead, so scrubbing shows the material frame that export captures. Pausing the sequence pauses the material. Shader zoom uses the same 0.1×–10× logarithmic scale as Design Lab.
 
-Changing the inherited material updates every frame that does not have an override. This prevents a seven-state sequence from becoming seven disconnected copies of the same material settings.
+## Audio
 
-## Motion packages
+**Choose audio files** imports browser-decodable audio. Clips sit on the audio track below the storyboard with **Timeline**, **In**, and **Out** positions in seconds, **Split** (at the playhead), a clip level, and **Delete selected audio clip**. **Mute audio** and **Master audio volume** apply to the whole track. Clips must be at least 100 ms long. The waveform is decoded locally. MP4 export mixes overlapping clips; GIF has no audio.
 
-Packages provide deterministic transition systems such as morph/fade, text-to-image, image-to-text, type/delete, crossfade, scale-fade, and slide-fade. Each package defines sensible defaults while leaving timing and frame placement editable.
+## Artboards
 
-Use the cubic Bézier editor when a preset is close but not exact. The selected curve is stored with the sequence and used for both preview and export.
+The artboard bar has the active artboard picker, **Set artboard size** (the Design Lab presets plus custom sizes from 120 to 4096 px), **Add animation artboard**, **Duplicate animation artboard**, and **Delete artboard**. The stage's edge and corner handles resize the output from 120 × 120 up to 3200 × 2400 in 10 px steps. Zoom changes only the view.
 
-## Audio timeline
+## Saving
 
-Import authorized browser-readable audio, then place clips on the motion timeline. Clips support timeline offset, source trim, split, per-clip volume, master volume, and mute.
+Working drafts autosave. **Save checkpoint** creates a named checkpoint and **Save changes** updates it. **Saved animations** lists checkpoints, marks the **Current** one, and offers **New blank animation**, **Save as independent copy** (Clone), **Save as linked copy** (Fork), **Rename**, and **Delete** with confirmation. Undo and Redo cover sequence edits, scene settings, images, and artboards. Checkpoints stay in this browser; use a [project file](/docs/studio/project-files) to share or back them up.
 
-The waveform is derived locally from decoded audio. MP4 export mixes overlapping clips into the encoded track. GIF has no audio channel; the audio document remains available for a later MP4 export.
+## Export
 
-## Shader playback
+| Format | Details |
+| --- | --- |
+| GIF | Deterministic frame times at the Output frame rate; delays are rounded to 10 ms, so 24 FPS plays as 40 ms frames. One global palette sampled from up to 8 frames, with up to 16 text colors protected. Still holds collapse to one frame unless a shader, keyframe, or entrance moves. Loop forever sets the loop flag. No seamless-loop blending |
+| MP4 | Encoded in the browser with H.264 first, then any other MP4 codec. A keyframe every 2 seconds. Includes the mixed audio track. Fails with an error when no encoder is available |
+| PNG poster | **File → Export poster frame**: the frame at the playhead at full output size |
+| Project file | **File → Download project file**: a `.glyphfield.json` file with artboards, scenes, timing, backgrounds, and embedded image, audio, and font bytes |
 
-Shader time is resolved from the animation playhead, not an unrelated wall clock. Scrubbing therefore reveals the exact material frame that export will capture. Pausing the sequence also pauses the material background.
-
-Shader size uses the same `0.1×–10×` logarithmic zoom as Design Lab. Frame overrides store their own material settings; inherited frames track the shared background.
-
-## Output
-
-- **GIF** uses deterministic frame times, a protected-color palette for text/marks, and optional seamless-loop closure.
-- **MP4** uses the browser's available video codec and includes mixed audio when present.
-- **Poster frame** (**File → Export poster frame**) renders the frame at the playhead at full output size as PNG, through the same renderer and shader capture.
-- **Source JSON** preserves sequence order, per-frame configuration (including `holdMs`, `transitionMs`, `keyframes`, `textAnimation`, `caption`, `textAnchor`, and `tracking`), background inheritance, audio state, and output settings.
-
-Use **Download project file** for a portable, editable `.glyphfield.json` document. It includes artboards, frame timing, backgrounds, and embedded image, audio, and brand-font assets. **Open project file** validates the document and loads its assets before replacing the current animation. Imported font faces stay local to that animation workspace, so reopening a project under another brand does not rewrite the shared brand's typography. Project files preserve editable motion settings; GIF and MP4 are rendered outputs.
-
-Choose the final dimensions and frame rate before export. Larger dimensions, more frames, live materials, converters, and global palette analysis all increase capture time.
+Files are named `studio-<package>.gif`, `studio-<package>.mp4`, and `studio-<package>-<ms>ms.png`. Export is refused when the background is a stateful material, such as Fluid Energy, because its frames cannot be reproduced from time. Larger sizes, more frames, and live materials increase export time.
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation animation in light Studio chrome' caption='Light editing chrome' meta='Same exported colors' src='/screenshots/studio-gt-animation-light-2026.png' />
-  <DocsMedia alt='General Translation animation in dark Studio chrome' caption='Dark editing chrome' meta='Theme-independent output' src='/screenshots/studio-gt-animation-dark-2026.png' />
+  <DocsMedia alt='General Translation animation in light Studio chrome' caption='Light Studio theme' meta='Exported colors are unchanged' src='/screenshots/studio-gt-animation-light-2026.webp' />
+  <DocsMedia alt='General Translation animation in dark Studio chrome' caption='Dark Studio theme' meta='Exported colors are unchanged' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
-## Agent operation
+## Source format
 
-Animation is browser-rendered. An agent should open `/studio`, activate Animation, wait for `glyphfield:studio-api-ready`, inspect `describe()` and `controls()`, then use accessible controls or source read/apply.
+The source is a CanvasDocument schema 2 with `metadata.tool: "animation-studio"`. `metadata.animation` holds `mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings` (per scene: `holdMs`, `transitionMs`, `transition`, `keyframes`, `textAnimation`, `caption`, `textAnchor`, `tracking`, pose, and background override), `sequenceBackground`, `backgroundOverrides`, `playbackRate` (greater than 0, at most 4), `audio`, `artboards`, `activeArtboardId`, and an optional `identity` typography snapshot. Validation rejects malformed motion fields with their path, for example `frameSettings.text-0.keyframes[1].atMs must be a finite number.`
 
-```js
-const studio = window.glyphfield.studio;
-const source = JSON.parse(studio.readSource());
-source.metadata.animation.playbackRate = 1;
-await studio.applySource(source);
-console.log(studio.describe());
-```
+## Browser API
 
-Use the active tool's `describe().actions` list rather than guessing an export action. Verify the resulting motion in the canvas before downloading.
+| Action | Input | Output |
+| --- | --- | --- |
+| `animation.describe` | None | `{ durationMs, fps, width, height, playheadMs, scenes: [{ id, index, kind, label, startMs, holdMs, transitionMs, keyframes, textAnimation }], starters }` |
+| `animation.seek` | `{ timeMs }` | `animation.describe` result; pauses first |
+| `animation.scene.update` | `{ sceneId, holdMs?, transitionMs?, textAnimation?, pose? }`; `null` resets a value to the sequence default or removes the entrance | `animation.describe` result |
+| `animation.keyframe.set` | `{ sceneId, atMs, pose?, easing?: [x1, y1, x2, y2] }` | `animation.describe` result |
+| `animation.keyframe.remove` | `{ sceneId, keyframeId }` | `animation.describe` result |
+| `animation.motion.preset` | `{ sceneId, preset: 'push-in' \| 'rise-in' \| 'slide-in' \| 'pop-in' \| 'float' }` | `animation.describe` result |
+| `animation.starter.apply` | `{ starterId: 'brand-intro' \| 'product-reel' \| 'proof-points' }` | `animation.describe` result |
+| `animation.export` | `{ format: 'gif' \| 'mp4' \| 'png', download? }` | Export artifact |
+| `animation.export.gif`, `.mp4`, `.png`, `.project` | None | Export artifact |
 
-Scene actions return the full `animation.describe` result, so an agent can read IDs and timing once and then edit precisely:
+`textAnimation.preset` is `none`, `type-on`, `word-rise`, `line-reveal`, `glyph-stagger`, or `tracking-in`. Pose fields are `alignX`, `alignY`, `scale`, `rotation`, and `opacity`.
 
 ```js
 const studio = window.glyphfield.studio;
@@ -163,4 +203,20 @@ animation = await studio.invoke('animation.seek', { timeMs: first.startMs + 1200
 const poster = await studio.invoke('animation.export.png');
 ```
 
-Source validation rejects malformed motion fields with their path, for example `frameSettings.text-0.keyframes[1].atMs must be a finite number.`
+The labels **Scale** and **Text size** exist both in Sequence defaults and in the scene inspector. `studio.set('Scale', …)` changes the first match, the sequence default; use `animation.scene.update` for a scene's pose.
+
+## HTTP
+
+Animation has no HTTP generation route. Identity colors and fonts come from the active project.
+
+## Limits
+
+| Item | Limit |
+| --- | --- |
+| Keyframes | 32 per scene |
+| Scene hold | 100 ms–10 s in the inspector; up to 60 s in source |
+| Caption | 120 characters |
+| Artboard | 120–4096 px per side in Artboard setup; stage handles up to 3200 × 2400 |
+| Frame rate | 10, 15, 20, 24, 30 FPS |
+| Audio clip | At least 100 ms |
+| Project file | 128 MiB |

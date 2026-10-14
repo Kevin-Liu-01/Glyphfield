@@ -4,26 +4,36 @@ description: Edit the palette as a color system with OKLCH scales, light and dar
 icon: Palette
 ---
 
-Color tokens edits the active identity's palette and everything derived from it. Changes write to the identity as drafts, like Typography and Brand identity: select **Save changes** to keep them, or call `identity.save`. Every other tool reads the result, including the brand kit, the component library and the brand book.
+Color tokens (tool ID `colors`) edits the active identity's palette and everything derived from it. Changes write to the identity as pending changes, like Typography and Brand identity. Select **Save changes** when the Studio asks, or switch to Brand identity and call `identity.save`. Every other tool reads the result, including the brand kit, the component library and the brand book.
 
 <DocsMedia
   alt='General Translation color tokens with the palette, the live token proof and the inspector'
   caption='The palette view: the selected color as a surface with its logo and action'
   meta='Palette · roles · scales · contrast · vision · proportion'
-  src='/screenshots/studio-gt-colors-light-2026.png'
+  src='/screenshots/studio-gt-colors-light-2026.webp'
 />
+
+## Layout
+
+| Region | Contents |
+| --- | --- |
+| Tool header | **File** (**Edit source code**), **Undo color** (40 steps), and **Copy tokens** |
+| Left sidebar | Every palette color with its role, HEX, and share, the proportion bar, and **Add color** |
+| Canvas | View buttons: **Show Palette view**, **Show Roles view**, **Show Scales view**, **Show Contrast view**, **Show Vision view**, **Show Proportion view** |
+| Right inspector | The selected color's sections |
 
 ## Palette
 
-The library lists every palette color with its role, HEX and share of the layout; the bar above it draws the shares in proportion. **Add color** appends a new token; **Remove color** in the inspector deletes a token and every pairing, role override and scale setting that referenced it. The ids `ink`, `paper`, `muted` and `emphasis` are read by every tool, so they can be edited but not removed.
+The library lists every palette color with its role, HEX and share of the layout; the bar above it draws the shares in proportion. **Add color** appends a new token; **Remove color** in the inspector deletes a token and every pairing, role override and scale setting that referenced it. The ids `ink`, `paper`, `muted` and `emphasis` are read by every tool, so they can be edited but not removed; the last remaining color cannot be removed either. New IDs must match `^[a-z][a-z0-9-]{0,39}$`.
 
 The inspector edits the selected color:
 
-- **Color**: the shared color control (HEX, OKLCH, hue and opacity), plus OKLCH lightness, chroma and hue sliders. Dragging previews live; releasing commits one undoable step.
+- **Color**: the shared color control (HEX, OKLCH, hue and opacity), plus **Lightness** (0–100%), **Chroma** (0–0.4), and **Hue** (0–360°) sliders. Dragging previews live; releasing commits one undoable step.
 - **Token**: name, role and the stable id.
-- **Share of layout**: the color's proportion in percent.
-- **Tint and shade scale**: the lightest and darkest step, scale chroma, hue shift, and whether the exact brand value stays in the scale.
-- **Contrast check**: WCAG 2 and APCA against any other palette color.
+- **Share of layout**: **Proportion**, 0–100%.
+- **Tint and shade scale**: **Lightest step** (50–100%, default 97.5%), **Darkest step** (0–50%, default 22%), **Scale chroma** (0–200%, default 100%), **Hue shift** (±90°, default 0), **Anchor the brand value** (on by default), and **Reset scale**.
+- **Contrast check**: **Contrast color** selects another palette color; the result shows the WCAG verdict and the APCA Lc.
+- **Semantic role**: for each mode, a color and a step (Brand value, or 50–950); `Derive <role> from the palette` clears the override.
 - **Export tokens**: the token preview in the selected format, with copy.
 
 **Undo color** restores the previous state, up to 40 steps.
@@ -57,19 +67,23 @@ Product surfaces read twelve roles in light and dark mode:
 | `primary`, `primary-foreground` | Primary actions and selection; text on primary |
 | `positive`, `caution`, `negative` | Success, warning and error states |
 
-Roles are derived from the palette until you override them. Light mode uses `paper` as the background and `ink` as text; muted text is the quietest `ink` step that still reaches 4.5:1, and each status color moves to its nearest step that reaches 3:1. Dark mode uses `ink` as the background and `paper` as text, and moves the accent and status colors to their nearest steps that read on the dark background. Select a role in the Roles view to override it per mode with a palette color and step; **Derive … from the palette** removes the override. Overrides live in the identity's `colorSystem.light` and `colorSystem.dark`.
+Roles are derived from the palette until you override them. Light mode uses `paper` as the background and `ink` as text; muted text is the quietest `ink` step that still reaches 4.5:1, and each status color moves to its nearest step that reaches 3:1. Status roles use `success`, `warning`, and `error` when the palette has them, and the accent otherwise. Dark mode uses `ink` as the background when its OKLCH lightness is 0.3 or less (otherwise the `ink` step nearest lightness 0.2) and `paper` as text, and moves the accent and status colors to their nearest steps that read on the dark background. Select a role in the Roles view to override it per mode with a palette color and step; **Derive … from the palette** removes the override. Overrides live in the identity's `colorSystem.light` and `colorSystem.dark`.
 
 The Roles view checks every text and status role against its background (4.5:1 for text, 3:1 for status colors and the focus ring) and shows failing pairs in the table.
 
 ## Contrast and pairings
 
-Select a matrix cell to approve that pair for text. Approved pairs are the identity's `colorPairings`: pairs at 4.5:1 or more record level `AA`, pairs between 3:1 and 4.5:1 record `AA-large`, and pairs below 3:1 cannot be approved. Until you approve a pair, the brand's default pairs are listed. Each approved pair has an editable usage, its live ratio, **Fix** when the colors no longer reach the level, and remove. The brand audit and brand book read the same pairings.
+Select a matrix cell to approve that pair for text. Approved pairs are the identity's `colorPairings`: pairs at 4.5:1 or more record level `AA`, pairs between 3:1 and 4.5:1 record `AA-large`, and pairs below 3:1 cannot be approved. Until you approve a pair, the brand's default pairs are listed. The first change turns the brand's default pairs into declared pairings. Each approved pair has an editable usage, its live ratio, **Fix** when the colors no longer reach the level (it changes the foreground color's HEX), and remove. **Contrast metric** switches the matrix between WCAG 2 and APCA. WCAG cells show AAA, AA, AA18 (large text only), or a dash. The brand audit and brand book read the same pairings.
 
-APCA Lc uses APCA-W3 0.0.98G. The matrix labels |Lc| ≥ 75 as body text, ≥ 60 as text, ≥ 45 as large text and ≥ 30 as spot text.
+APCA Lc uses APCA-W3 0.0.98G-4g. The matrix labels |Lc| ≥ 75 as body text, ≥ 60 as text, ≥ 45 as large text and ≥ 30 as spot text.
 
 ## Proportion
 
-Proportion is the share of a layout each color covers. The audit expects shares near 100% in total, one dominant field of at least 45% and an accent of 20% or less. With **Keep the total at 100%**, moving one slider rescales the others.
+Proportion is the share of a layout each color covers. The check passes when the shares total 90–110%, the dominant field is at least 45%, and `emphasis` is 20% or less. With **Keep the total at 100%**, moving one slider rescales the others. **Apply 60 / 30 / 10** sets paper 60, ink 30, emphasis 10, and every other color 0.
+
+## Vision
+
+The Vision view simulates normal vision, protanopia, deuteranopia, tritanopia, and achromatopsia (Machado 2009 at full severity) and lists pairs that nearly merge: pairs whose OKLab distance falls below 0.06 although they are normally at least 0.096 apart.
 
 ## Tokens
 
@@ -77,7 +91,7 @@ Proportion is the share of a layout each color covers. The audit expects shares 
 
 | Format | Contents |
 | --- | --- |
-| OKLCH CSS | One `--color-<name>` property per color in OKLCH with its opacity, as earlier versions produced |
+| OKLCH CSS | One `--color-<name>` property per color in OKLCH with its opacity, named from the color name with spaces replaced by hyphens |
 | CSS variables | `--brand-color-*`, every scale step `--brand-color-<id>-<step>`, and the semantic roles `--brand-<role>` with dark values under `prefers-color-scheme`, `data-theme="dark"` and `.dark` |
 | Tailwind v4 | `@theme` colors and scale steps (`bg-ink-700`) plus semantic utilities (`bg-background`, `text-foreground`, `bg-primary`) that switch with the theme |
 | Design tokens (DTCG) | `color`, `palette` (scales) and `semantic.light` / `semantic.dark` aliases |
@@ -94,10 +108,10 @@ The CSS, Tailwind and DTCG output come from the same serializers as the brand ki
 | `colors.pairing.toggle` | Approves or removes `{ foreground, background }`; refuses pairs below 3:1 |
 | `colors.semantic.read` | Every role for light and dark with its ref, HEX, default and override flag |
 | `colors.scale.read` | `{ id? }` → the scale steps of one or every color |
-| `colors.vision.read` | `{ mode? }` → simulated colors and confusable pairs |
+| `colors.vision.read` | `{ mode?: 'normal' \| 'protanopia' \| 'deuteranopia' \| 'tritanopia' \| 'achromatopsia' }` (default `deuteranopia`) → `{ mode, colors, confusable }` |
 | `colors.proportion.balance` | Applies 60 / 30 / 10 |
 
-Changes made through actions are pending identity changes; call `identity.save` from Brand identity, or select **Save changes**.
+Changes made through actions are pending identity changes. `identity.save` is available while Brand identity is the active tool; otherwise select **Save changes**.
 
 ## Source
 
@@ -112,6 +126,20 @@ Changes made through actions are pending identity changes; call `identity.save` 
 }
 ```
 
-`colors` is the whole palette in order. Omitting `colorPairings` or `colorSystem` keeps the current values, dropping references to removed colors. Version 1 sources (`{ colors: [{ hex, id, name, opacity, role }] }`) still apply; a missing field keeps the value of the color at the same index. Opacity is a preference of this tool and stays out of the identity.
+`colors` is the whole palette in order. Scale settings are limited to `chroma` 0–200, `darkest` 0–0.5, `hueShift` ±90, and `lightest` 0.5–1. Omitting `colorPairings` or `colorSystem` keeps the current values, dropping references to removed colors. Version 1 sources (`{ colors: [{ hex, id, name, opacity, role }] }`) still apply; a missing field keeps the value of the color at the same index. Opacity is a preference of this tool and stays out of the identity.
 
 Earlier versions kept edited colors in a separate draft that never reached the brand. When such a draft exists and differs from the brand, the tool offers **Apply earlier edits** or **Discard**.
+
+## Keyboard shortcuts
+
+Escape closes the color editor opened from a tile. The shared color control commits HEX and OKLCH fields on Enter or blur.
+
+## HTTP
+
+Color tokens has no HTTP route of its own. `POST /api/brand/kit` renders the CSS, Tailwind, and DTCG files from an identity, and `POST /api/generate` reads identity colors from its `identity` object.
+
+## Limits
+
+- 40 undo steps.
+- The four core IDs and the last color cannot be removed.
+- Semantic role checks are shown here and in `brand.md`; they are not part of the brand health score.
