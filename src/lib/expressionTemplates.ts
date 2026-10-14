@@ -896,7 +896,7 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
     id: 'lockup',
     label: 'Lockup',
     specs: (c) => {
-      const lockupHeight = px(c.t.title * 1.5);
+      const lockupHeight = px(c.t.hero * 1.4);
       const headlineHeight = lines(c.t.headline, 2);
       return [
         background(c),
@@ -910,7 +910,7 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
     id: 'centered',
     label: 'Centered',
     specs: (c) => {
-      const lockupHeight = px(c.t.title * 1.9);
+      const lockupHeight = px(c.t.hero * 1.6);
       const lockupTop = px(c.height * 0.5 - lockupHeight * 0.75);
       return [
         background(c),
@@ -924,7 +924,7 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
     id: 'hero',
     label: 'Hero lockup',
     specs: (c) => {
-      const lockupHeight = px(c.t.hero * 2);
+      const lockupHeight = px(c.t.hero * 2.2);
       return [
         background(c),
         lockupSpec({ height: lockupHeight, width: c.width - c.m * 2, x: c.m, y: px((c.height - lockupHeight) / 2) }, 'center'),
@@ -936,7 +936,7 @@ const PARTNERSHIP_LAYOUTS: Layout[] = [
     id: 'announcement',
     label: 'Announcement',
     specs: (c) => {
-      const lockupHeight = px(c.t.headline * 1.3);
+      const lockupHeight = px(c.t.title * 1.2);
       const ruleY = c.height - c.m - lockupHeight - c.t.lead;
       return [
         background(c),
