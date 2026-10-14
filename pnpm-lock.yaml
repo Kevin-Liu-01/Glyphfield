@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@generaltranslation/format@0.1.2-odysseus.1': b8a50ec78fd4a263d1ea03cbffc02d7b7a26601d569ee953ec9e869c6102ecff
-  '@paper-design/shaders@0.0.78': aaaf8712dd04d8a17f500fbdc2922d7f87fb7bfe7355e374f140f298c31a0b3e
+  '@paper-design/shaders@0.0.78': 314b5faeefbb28427a53353515db6ce9a9b94691592c44d165a3e2fd00c52803
   gt-react@11.0.0-odysseus.15: 49f4e9ab7b3fcd2828911290294fcd18aa91f9fcfabc45d2f76cc790b96e4123
 
 importers:
@@ -5787,12 +5787,12 @@ snapshots:
 
   '@paper-design/shaders-react@0.0.78(@types/react@19.2.17)(react@19.2.7)':
     dependencies:
-      '@paper-design/shaders': 0.0.78(patch_hash=aaaf8712dd04d8a17f500fbdc2922d7f87fb7bfe7355e374f140f298c31a0b3e)
+      '@paper-design/shaders': 0.0.78(patch_hash=314b5faeefbb28427a53353515db6ce9a9b94691592c44d165a3e2fd00c52803)
       react: 19.2.7
     optionalDependencies:
       '@types/react': 19.2.17
 
-  '@paper-design/shaders@0.0.78(patch_hash=aaaf8712dd04d8a17f500fbdc2922d7f87fb7bfe7355e374f140f298c31a0b3e)': {}
+  '@paper-design/shaders@0.0.78(patch_hash=314b5faeefbb28427a53353515db6ce9a9b94691592c44d165a3e2fd00c52803)': {}
 
   '@phosphor-icons/react@2.1.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
