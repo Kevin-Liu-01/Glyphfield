@@ -532,7 +532,7 @@ export default async function HomePage() {
               <Link href='/api/catalog'><T>Agent API</T> ↗</Link>
               <a href={PRODUCT_BRAND.repository.url} rel='noreferrer' target='_blank'><T>GitHub</T> ↗</a>
               <a href='https://x.com/intent/post?text=Glyphfield%20is%20an%20open-source%20brand%20studio.&url=https%3A%2F%2Fgithub.com%2FKevin-Liu-01%2FGlyphfield' rel='noreferrer' target='_blank'>X ↗</a>
-              <Link href='/llms.txt'>llms.txt ↗</Link>
+              <a href='/llms.txt'>llms.txt ↗</a>
             </div>
           </div>
         </footer>
