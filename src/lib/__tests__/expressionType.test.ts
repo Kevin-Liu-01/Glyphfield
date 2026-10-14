@@ -142,7 +142,7 @@ describe('expression proof and comparison content', () => {
     const document = createExpressionDocument('slides', stripe, { deck: [{ layout: 'comparison' }] });
     const pageId = document.pageIds[0]!;
     expect(slotElement(document, pageId, 'item-2')?.content).toBe(stripe.strategy.promise);
-    expect(slotElement(document, pageId, 'item-1')?.content).toContain('Internet businesses');
+    expect(slotElement(document, pageId, 'item-1')?.content).toBe(`${stripe.strategy.challenge.split(/[—;:]/)[0]!.trim().replace(/[.,]$/, '')}.`);
     const label = slotElement(document, pageId, 'label-1')!;
     expect(label.bounds.y).toBeGreaterThan(slotElement(document, pageId, 'item-1')!.bounds.y);
   });
