@@ -67,6 +67,7 @@ import StudioContextMenu, {
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
+import { useExitGhost } from '@/hooks/useExitGhost';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
 import {
@@ -369,6 +370,8 @@ function ProjectFolderMenu({
   const gt = useGT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useExitGhost(popoverRef, open);
   const activeFolder = PROJECT_FOLDERS.find(({ id }) => id === activeFolderId)!;
   const ActiveFolderIcon = activeFolder.icon;
   const folderProjects = identities.filter((identity) =>
@@ -395,7 +398,7 @@ function ProjectFolderMenu({
         <ChevronDown aria-hidden='true' className={open ? 'rotate-180' : ''} />
       </Button>
       {open ? (
-        <div className='project-folder-popover' role='menu'>
+        <div className='project-folder-popover' ref={popoverRef} role='menu'>
           <div className='project-folder-popover-heading'>
             <span><T>Projects</T></span>
             <span>{folderCounts.all} <T>total</T></span>
@@ -477,6 +480,8 @@ function AppearanceMenu({
   const gt = useGT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useExitGhost(popoverRef, open);
 
   useDismissibleMenu(menuRef, () => setOpen(false), '[data-radix-popper-content-wrapper]');
 
@@ -494,7 +499,7 @@ function AppearanceMenu({
         <Settings2 aria-hidden='true' />
       </Button>
       {open ? (
-        <div aria-label={gt('Visual customization')} className='appearance-popover' role='region'>
+        <div aria-label={gt('Visual customization')} className='appearance-popover' ref={popoverRef} role='region'>
           <div className='appearance-popover-header'>
             <span>
               <Settings2 aria-hidden='true' />
