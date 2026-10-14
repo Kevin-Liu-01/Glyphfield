@@ -60,7 +60,8 @@ export default function StudioConfirmDialog({
       ref={dialogRef}
       role='alertdialog'
     >
-      <button aria-label={cancelLabel} className='studio-modal-backdrop' onClick={onCancel} tabIndex={-1} type='button' />
+      {/* A pointer-only target: Cancel and Escape are the keyboard and screen reader paths. */}
+      <button aria-hidden='true' className='studio-modal-backdrop' onClick={onCancel} tabIndex={-1} type='button' />
       <section className='studio-confirm-dialog'>
         <h2 id={titleId}>{title}</h2>
         <p id={descriptionId}>{description}</p>
