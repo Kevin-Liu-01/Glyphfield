@@ -8,6 +8,7 @@ import {
 import type { CanvasAsset, CanvasDocument, CanvasElement, CanvasJsonValue } from './canvasDocument';
 import { layoutCanvasText } from './canvasText';
 import { colorContrastRatio } from './color';
+import { fontMetrics } from './brandOutputKit';
 import { escapeXml } from './download';
 import type { ExpressionDeviceId } from './expressionDevices';
 import { estimateTextWidth } from './expressionSvg';
@@ -974,8 +975,11 @@ function slideHeadline(c: LayoutContext, width = c.width - c.m * 2, extra: Parti
   return headline(c, { height: lines(c.t.headline, 2), width, x: c.m, y: slideTop(c) }, c.t.headline, { maxLines: 2, valign: 'top', ...extra });
 }
 
-function estimateTextHeight(text: string, width: number, size: number, lineHeight: number): number {
-  const rows = layoutCanvasText(text, width, () => 0, 0, 'wrap', (line) => estimateTextWidth(line, { family: '', size, weight: 400 }));
+/** Wrapped height in the text's own face, so wide faces such as Basement Grotesque wrap as they will render. */
+function estimateTextHeight(text: string, width: number, size: number, lineHeight: number, font: ExpressionFontResource, trackingEm = 0): number {
+  const faceScale = fontMetrics(font.family, font.weight).charWidth / fontMetrics('geist').charWidth;
+  const measure = (line: string) => estimateTextWidth(line, { family: font.family, size, weight: 400 }) * faceScale + [...line].length * trackingEm * size;
+  const rows = layoutCanvasText(text, width, () => 0, 0, 'wrap', measure);
   return rows.length * size * lineHeight;
 }
 
@@ -1177,12 +1181,15 @@ const SLIDE_LAYOUTS: Layout[] = [
       const width = px((c.width - c.m * 2 - indent) * 0.86);
       const quote = c.text('headline', c.identity.voice.phrases[1] ?? c.identity.tagline);
       const boxHeight = lines(size, 3);
-      const textHeight = Math.min(boxHeight, estimateTextHeight(quote, width, size, DISPLAY_LEADING));
+      const quoteText = headline(c, { height: boxHeight, width, x: c.m + indent, y: top }, size, { content: quote, maxLines: 3, role: c.recipe.headlineRole === 'Accent' ? 'Accent' : 'Display', valign: 'top' });
+      const uppercase = c.recipe.headlineCasing === 'uppercase';
+      const tracking = trackingFor(quoteText.size, c.t, { uppercase });
+      const textHeight = Math.min(boxHeight, estimateTextHeight(uppercase ? quote.toLocaleUpperCase() : quote, width, quoteText.size, DISPLAY_LEADING, expressionFont(c.identity, quoteText.role), tracking));
       return [
         background(c),
         ...slideChrome(c),
         { box: { height: lines(size * 1.4, 1), width: indent, x: c.m, y: top - px(size * 0.1) }, content: '“', fill: c.accent, kind: 'text', maxLines: 1, name: 'Quote mark', role: 'Display', size: px(size * 1.4), slot: 'quote-mark' },
-        headline(c, { height: boxHeight, width, x: c.m + indent, y: top }, size, { content: quote, maxLines: 3, role: c.recipe.headlineRole === 'Accent' ? 'Accent' : 'Display', valign: 'top' }),
+        quoteText,
         meta(c, 'attribution', 'Attribution', { height: px(c.t.body * 1.5), width: px(c.width * 0.4), x: c.m + indent, y: top + px(textHeight) + c.t.lead }, `${c.identity.name}`, { opacity: 0.7, size: c.t.body }),
       ];
     },
