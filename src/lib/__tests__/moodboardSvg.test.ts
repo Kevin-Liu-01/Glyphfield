@@ -102,22 +102,26 @@ describe('buildMoodboardSvg', () => {
     expect(buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'catalog')).toContain('width="1600" height="2400"');
   });
 
-  it('builds the GT key visual from its monochrome light field and tagline', () => {
+  it('builds the GT key visual from its glyph globe and tagline', () => {
     const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, 'showcase');
 
-    expect(svg).toMatch(/radialGradient id="[^"]*cover-device0-field"/);
-    expect(svg).toMatch(/pattern id="[^"]*cover-device0-dither"/);
+    expect(svg).toContain('>語</text>');
     expect(svg).toContain('>Every language.</tspan>');
   });
 
-  it('keeps General Translation boards black and white through and through', () => {
+  it('keeps General Translation boards to neutrals plus the signal blue', () => {
     for (const composition of MOODBOARD_COMPOSITIONS) {
       const svg = buildMoodboardSvg(GT_BRAND_IDENTITY, assets, composition);
       const chromatic = [...svg.matchAll(/#([0-9a-f]{6})\b/gi)].map(([, hex]) => hex!).filter((hex) => {
         const [red, green, blue] = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
         return Math.max(red!, green!, blue!) - Math.min(red!, green!, blue!) > 6;
       });
-      expect(chromatic).toEqual([]);
+      // Titanium, or a step of the one signal blue (its palette ramp included): blue leads, red trails.
+      const offCanon = chromatic.filter((hex) => {
+        const [red, green, blue] = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+        return hex.toUpperCase() !== '8A8F98' && !(blue! > green! && green! > red!);
+      });
+      expect(offCanon).toEqual([]);
     }
   });
 

@@ -246,9 +246,7 @@ function researchLibraryAssets(
   basePath = `/brands/${brandId}`,
   _redistribution: BrandAsset['redistribution'] = 'research-only'
 ): BrandAsset[] {
-  if (brandId === 'gt' || brandId === 'starter') {
-    return originalLibraryAssets(brandId, sourceOwner, basePath);
-  }
+  if (brandId === 'starter') return originalLibraryAssets(sourceOwner, basePath);
 
   const records = OFFICIAL_LIBRARY_ASSETS[brandId] ?? [];
 

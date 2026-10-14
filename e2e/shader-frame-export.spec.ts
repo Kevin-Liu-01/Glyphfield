@@ -790,7 +790,7 @@ test('all three authored colors repaint a collapsed Paper ramp while paused', as
 test('paused stacked effects repaint from an uncommitted image-crop preview', async ({ page }) => {
   await prepareShader(page, { materialId: 'paper-dithering', grain: 60, paused: true });
   await page.getByRole('button', { name: 'Add image layer', exact: true }).click();
-  await page.getByLabel('Choose new images').setInputFiles('public/brands/gt/library/material.png');
+  await page.getByLabel('Choose new images').setInputFiles('public/brands/gt/library/rosetta-stone.png');
   await page.getByRole('button', { name: /Import & save 1/ }).click();
   await expect(page.getByRole('dialog', { name: 'Add image assets' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Add effect layer', exact: true }).click();

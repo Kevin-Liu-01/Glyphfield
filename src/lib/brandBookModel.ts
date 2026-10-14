@@ -147,6 +147,11 @@ function opener(section: BookSectionId, identity: BrandIdentity, tone: BrandSurf
   };
 }
 
+/** Full-page accent, unless the brand keeps its accent to one element (GT: never a wash). */
+function accentPageTone(identity: BrandIdentity): BrandSurfaceTone {
+  return identity.artDirection?.preview === 'translation-frame' ? 'ink' : 'accent';
+}
+
 /** Dark-led identities open sections on their deep colour; light-led ones on paper. */
 function openerTone(identity: BrandIdentity, index: number): BrandSurfaceTone {
   const preview = identity.artDirection?.preview;
@@ -277,11 +282,11 @@ export function bookPageDefinitions(identity: BrandIdentity): Record<BookGroupId
   ])) as Record<BookSectionId, BookPageDefinition[]>;
   return {
     ...sections,
-    closing: [withGroup('closing', { copy: { statement: identity.tagline }, id: 'closing', kind: 'closing', title: 'Closing', tone: 'accent' })],
+    closing: [withGroup('closing', { copy: { statement: identity.tagline }, id: 'closing', kind: 'closing', title: 'Closing', tone: accentPageTone(identity) })],
     intro: [
       withGroup('intro', { copy: { subtitle: identity.strategy?.concept ?? identity.description, title: identity.tagline }, id: 'cover', image: true, kind: 'cover', title: 'Cover', tone: 'deep' }),
       withGroup('intro', { copy: { title: 'Contents' }, id: 'contents', kind: 'contents', title: 'Contents', tone: 'paper' }),
-      withGroup('intro', { copy: { body: `These guidelines describe the ideas and repeatable choices that make ${identity.name} recognisable. Use them as a shared standard, not a collection of decoration. When a situation is not covered here, choose the option that is simplest and closest to the brand idea.`, statement: identity.description }, id: 'foreword', kind: 'foreword', title: 'Using this book', tone: 'accent' }),
+      withGroup('intro', { copy: { body: `These guidelines describe the ideas and repeatable choices that make ${identity.name} recognisable. Use them as a shared standard, not a collection of decoration. When a situation is not covered here, choose the option that is simplest and closest to the brand idea.`, statement: identity.description }, id: 'foreword', kind: 'foreword', title: 'Using this book', tone: accentPageTone(identity) }),
     ],
   };
 }

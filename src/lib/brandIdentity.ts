@@ -834,6 +834,18 @@ export function shortNameFromName(name: string): string {
   return word.length <= 8 ? word : word.slice(0, 3).toLocaleUpperCase();
 }
 
+/** A neutral palette for new brands: every role defined, no accent chosen for them. */
+const NEW_BRAND_COLORS: readonly BrandColor[] = [
+  { hex: '#181818', id: 'ink', name: 'Ink', proportion: 26, role: 'Primary type, marks and dark surfaces' },
+  { hex: '#FFFFFF', id: 'paper', name: 'Paper', proportion: 62, role: 'Dominant light surface and reversed type' },
+  { hex: '#F4F4F4', id: 'muted', name: 'Mist', proportion: 7, role: 'Quiet product and editorial surfaces' },
+  { hex: '#E4E4E4', id: 'emphasis', name: 'Silver', proportion: 2, role: 'Selection, focus, dividers and metadata fields' },
+  { hex: '#D4D4D4', id: 'success', name: 'Cloud', proportion: 1, role: 'Completed and healthy states' },
+  { hex: '#A3A3A3', id: 'warning', name: 'Slate', proportion: 1, role: 'Disabled states and large secondary marks; never small text on white' },
+  { hex: '#525252', id: 'progress', name: 'Graphite', proportion: 1, role: 'Secondary text and in-progress states' },
+  { hex: '#262626', id: 'error', name: 'Charcoal', proportion: 0, role: 'Destructive actions' },
+];
+
 export function createBrandIdentity(name: string, id = crypto.randomUUID()): BrandIdentity {
   const trimmedName = name.trim() || 'Untitled brand';
   const resolvedShortName = shortNameFromName(trimmedName) || 'BR';
@@ -844,7 +856,7 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
     assets: createPixelBrandAssets(resolvedShortName, id),
     audiences: [],
     builtIn: false,
-    colors: GT_BRAND_IDENTITY.colors.map((color) => ({ ...color })),
+    colors: NEW_BRAND_COLORS.map((color) => ({ ...color })),
     contactEmail: '',
     description: 'A local brand identity ready for assets, tokens, motion, and repeatable graphics.',
     dossier: {

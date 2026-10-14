@@ -80,7 +80,7 @@ describe('palette and metrics', () => {
     const custom = { ...settings, colors: { ...palette, accent: '#FF5500' }, useBrandDefaults: false };
     expect(componentRoleColors(GT_BRAND_IDENTITY, custom, 'light').primary).toBe('#FF5500');
     expect(componentRoleColors(GT_BRAND_IDENTITY, custom, 'dark').background).toBe(palette.foreground);
-    expect(componentRoleColors(GT_BRAND_IDENTITY, settings, 'dark').background).toBe('#181818');
+    expect(componentRoleColors(GT_BRAND_IDENTITY, settings, 'dark').background).toBe('#070707');
   });
 
   it('scales controls with density, size, text scale and radius', () => {

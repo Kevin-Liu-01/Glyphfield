@@ -1199,7 +1199,7 @@ function EditorialCover({ context }: Props) {
     'whitepaper-cover': 'Field guide',
   };
   return (
-    <div className={styles.editorial} data-layout={context.settings.layout} data-portrait={portrait || undefined}>
+    <div className={styles.editorial} data-device={identity.graphicSystem?.pattern === 'none' ? 'object' : undefined} data-layout={context.settings.layout} data-portrait={portrait || undefined}>
       <Pattern context={context} />
       <Device className={styles.editorialArt} context={context} seed={element.id.length} />
       <div className={styles.editorialTop}><Logo context={context} kind='wordmark' /></div>

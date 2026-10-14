@@ -88,7 +88,8 @@ const RECIPES: Record<string, ExpressionRecipe> = {
     surfaces: { blog: 'paper', opengraph: 'paper', partnership: 'paper', slides: 'paper', terminal: 'paper' },
   },
   gt: {
-    backgroundRoles: ['ink', 'progress', 'emphasis'],
+    // The signal blue is an edge, never a wash, so generated fields stay neutral.
+    backgroundRoles: ['ink', 'progress', 'muted'],
     codeTheme: 'brand-dark',
     device: 'greetings',
     headlineCasing: 'none',

@@ -320,20 +320,62 @@ function deviceBackground(context: DeviceContext, dark: string, light: string): 
   return `<rect width="${round(context.w)}" height="${round(context.h)}" fill="${context.tone === 'dark' ? dark : light}"/>`;
 }
 
+// Characters from the writing systems GT ships, mixed so no script reads as the default.
+const GLOBE_GLYPHS = ['a', '語', '한', 'あ', 'ب', 'अ', 'ж', 'λ', 'א', 'ก', '文', 'é', 'ñ', 'ア', 'ك', 'φ', 'ß', '字', 'ש', 'ü'];
+const GLOBE_LIGHT = [-0.48, -0.56, 0.68] as const;
+
+type GlobeContinent = { lat: number; lon: number; size: number };
+
+/** Light and land at a point on the unit disc, or null outside the sphere. */
+function globePoint(nx: number, ny: number, spin: number, continents: readonly GlobeContinent[]) {
+  const edge = nx * nx + ny * ny;
+  if (edge > 1) return null;
+  const nz = Math.sqrt(1 - edge);
+  const light = Math.max(0, nx * GLOBE_LIGHT[0] + ny * GLOBE_LIGHT[1] + nz * GLOBE_LIGHT[2]);
+  const lat = Math.asin(-ny);
+  const lon = Math.atan2(nx, nz) + spin;
+  const land = continents.some((continent) => {
+    const cosine = Math.sin(lat) * Math.sin(continent.lat) + Math.cos(lat) * Math.cos(continent.lat) * Math.cos(lon - continent.lon);
+    return Math.acos(Math.min(1, Math.max(-1, cosine))) < continent.size;
+  });
+  return { land, light };
+}
+
 /**
- * General Translation: one quiet monochrome light field with fine dither. The
- * dither is a uniform low-opacity texture rather than a masked one, which keeps
- * large fields cheap to paint.
+ * General Translation: the glyph globe. A lit sphere drawn in characters from many writing
+ * systems; land glyphs are large in paper or ink, ocean glyphs small in the signal blue, and
+ * glyph size carries the light the way GT's Bayer dither carries density.
  */
-function lightFieldDevice(context: DeviceContext): string {
-  const { h, id, tone, w } = context;
+function glyphGlobeDevice(context: DeviceContext): string {
+  const { h, random, tone, w } = context;
   const dark = tone === 'dark';
-  const stops = dark
-    ? '<stop stop-color="#F7F7F7"/><stop offset=".14" stop-color="#BDBDBD"/><stop offset=".38" stop-color="#575757"/><stop offset=".66" stop-color="#171717"/><stop offset="1" stop-color="#050505"/>'
-    : '<stop stop-color="#0B0B0B"/><stop offset=".12" stop-color="#5C5C5C"/><stop offset=".36" stop-color="#BDBDBD"/><stop offset=".64" stop-color="#F0F0F0"/><stop offset="1" stop-color="#FFFFFF"/>';
-  const dot = Math.max(3, Math.round(Math.min(w, h) / 150));
-  const ink = dark ? '#FFFFFF' : '#000000';
-  return `<defs><radialGradient id="${id('field')}" cx="${w * 0.84}" cy="${h * 0.9}" r="${Math.max(w, h) * 0.86}" gradientUnits="userSpaceOnUse">${stops}</radialGradient><pattern id="${id('dither')}" width="${dot * 2}" height="${dot * 2}" patternUnits="userSpaceOnUse"><circle cx="${dot / 2}" cy="${dot / 2}" r="${round(dot * 0.22)}" fill="${ink}" fill-opacity=".1"/><circle cx="${dot * 1.5}" cy="${dot * 1.5}" r="${round(dot * 0.14)}" fill="${ink}" fill-opacity=".07"/></pattern></defs>${deviceBackground(context, '#050505', '#FFFFFF')}<rect width="${w}" height="${h}" fill="url(#${id('field')})"/><rect width="${w}" height="${h}" fill="url(#${id('dither')})"/>`;
+  const ink = { land: dark ? '#F2F2F0' : '#070707', ocean: dark ? '#86A8FF' : '#2F5CE0' };
+  // The globe sits beside the statement and runs off the far edge, the way GT crops the earth,
+  // so copy on the left stays clear and a short band still shows a large part of the sphere.
+  const wide = w / h > 1.3;
+  const radius = Math.min(w, h) * (wide ? 0.56 : 0.44);
+  const cx = wide ? w - radius * 0.62 : w * 0.5;
+  const cy = h * (wide ? 0.6 : 0.52);
+  // About one glyph per 13px keeps small tiles light and large fields dense enough to read as a sphere.
+  const rows = Math.round(Math.min(34, Math.max(16, (radius * 2) / 13)));
+  const cell = (radius * 2) / rows;
+  const spin = random() * Math.PI * 2;
+  const continents = Array.from({ length: 7 }, () => ({ lat: (random() - 0.5) * 2.2, lon: random() * Math.PI * 2, size: 0.32 + random() * 0.42 }));
+  const glyphs: string[] = [];
+  for (let index = 0; index < rows * rows; index += 1) {
+    const nx = ((index % rows) + 0.5) / rows * 2 - 1;
+    const ny = (Math.floor(index / rows) + 0.5) / rows * 2 - 1;
+    const point = globePoint(nx, ny, spin, continents);
+    if (!point) continue;
+    const size = cell * (point.land ? 0.42 + 0.62 * point.light : 0.24 + 0.36 * point.light);
+    if (size < cell * 0.28) continue;
+    const glyph = GLOBE_GLYPHS[Math.floor(random() * GLOBE_GLYPHS.length)]!;
+    const opacity = point.land ? 0.35 + 0.55 * point.light : 0.3 + 0.45 * point.light;
+    glyphs.push(`<text x="${round(cx + nx * radius)}" y="${round(cy + ny * radius)}" font-size="${round(size)}" fill="${point.land ? ink.land : ink.ocean}" fill-opacity="${round(opacity)}">${glyph}</text>`);
+  }
+  // The ground runs past the view box so a globe fitted whole still fills its frame.
+  const ground = `<rect x="${round(-w * 4)}" y="${round(-h * 4)}" width="${round(w * 9)}" height="${round(h * 9)}" fill="${dark ? '#070707' : '#FFFFFF'}"/>`;
+  return `${ground}<g font-family="Inter, 'Noto Sans', system-ui, sans-serif" font-weight="500" text-anchor="middle" dominant-baseline="central">${glyphs.join('')}</g>`;
 }
 
 type EvidenceCard = { card: string; focus: boolean; h: number; kind: 'chart' | 'note' | 'photo'; line: string; palette: BrandPalette; rule: string; stroke: number; w: number; x: number; y: number };
@@ -557,7 +599,7 @@ const DEVICE_RENDERERS: Record<BrandIdentity['graphicSystem']['pattern'], (conte
   circuit: horizonDevice,
   flow: programmableFieldDevice,
   grid: gridDevice,
-  none: lightFieldDevice,
+  none: glyphGlobeDevice,
   orbit: orbitDevice,
   rays: beamDevice,
   steps: ledgerDevice,
@@ -571,7 +613,7 @@ const DEVICE_BASES: Record<BrandIdentity['graphicSystem']['pattern'], readonly [
   circuit: ['deep', 'paper'],
   flow: ['deep', 'paper'],
   grid: ['deep', 'paper'],
-  none: ['#050505', '#FFFFFF'],
+  none: ['#070707', '#FFFFFF'],
   orbit: ['deep', 'paper'],
   rays: ['deep', 'paper'],
   steps: ['deep', 'paper'],
@@ -613,5 +655,7 @@ export function brandDeviceMarkup(identity: BrandIdentity, options: BrandDeviceO
 }
 
 export function brandDeviceSvg(identity: BrandIdentity, options: BrandDeviceOptions): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${round(options.width)} ${round(options.height)}" preserveAspectRatio="xMidYMid slice">${brandDeviceMarkup(identity, options)}</svg>`;
+  // Field devices fill their box; GT's globe is an object, so it is shown whole at the far edge.
+  const fit = (identity.graphicSystem?.pattern ?? 'grid') === 'none' ? 'xMaxYMid meet' : 'xMidYMid slice';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${round(options.width)} ${round(options.height)}" preserveAspectRatio="${fit}">${brandDeviceMarkup(identity, options)}</svg>`;
 }

@@ -184,7 +184,7 @@ describe('expression documents', () => {
     document = removePage(document, copy.pageId);
     expect(document.pageIds).toHaveLength(count + 1);
     document = setPageSurface(document, document.pageIds[0]!, 'ink', gt);
-    expect(document.pages[document.pageIds[0]!]!.background).toBe('#181818');
+    expect(document.pages[document.pageIds[0]!]!.background).toBe('#070707');
     expect(slotElement(document, document.pageIds[0]!, 'headline')?.data.fill).toBe('paper');
     expect(expressionLayouts('slides')).toHaveLength(14);
   });

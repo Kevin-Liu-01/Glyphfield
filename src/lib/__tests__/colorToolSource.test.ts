@@ -19,7 +19,7 @@ describe('Color tokens source', () => {
   it('writes version 2 with opacity, pairings and the colour system', () => {
     const source = colorToolSource({ ...state, colorSystem: { light: { primary: 'emphasis.300' } } });
     expect(source).toMatchObject({ version: 2 });
-    expect((source.colors as { id: string; opacity: number }[])[0]).toMatchObject({ hex: '#181818', id: 'ink', opacity: 80, proportion: 26 });
+    expect((source.colors as { id: string; opacity: number }[])[0]).toMatchObject({ hex: '#070707', id: 'ink', opacity: 80, proportion: 26 });
     expect(source.colorPairings).toEqual(GT_BRAND_IDENTITY.colorPairings);
     expect(source.colorSystem).toEqual({ light: { primary: 'emphasis.300' } });
   });
@@ -54,7 +54,7 @@ describe('Color tokens source', () => {
 
 describe('Color tokens output', () => {
   it('keeps the original OKLCH CSS as the default and adds brand token formats', () => {
-    expect(legacyOklchTokens(state).split('\n')[0]).toBe('--color-ink: oklch(20.9% 0 0 / 80%); /* #181818 */');
+    expect(legacyOklchTokens(state).split('\n')[0]).toBe('--color-ink: oklch(12.9% 0 0 / 80%); /* #070707 */');
     expect(colorTokens(GT_BRAND_IDENTITY, state)).toContain('oklch(');
     expect(colorTokens(GT_BRAND_IDENTITY, state, 'css')).toContain('--brand-color-ink-50:');
     expect(colorTokens(GT_BRAND_IDENTITY, state, 'css')).not.toContain('--brand-font-');

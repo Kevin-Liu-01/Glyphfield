@@ -1,35 +1,75 @@
 import type { BrandAsset, BrandFontAsset, BrandIdentity } from './brandIdentity';
 import { GT_SYSTEM } from './gtBrandSystem';
-import { application, asset, originalLibraryAssets, REVISION } from './identityPresetHelpers';
+import { application, asset, REVISION } from './identityPresetHelpers';
 
-function gtStudioCaptureAssets(): BrandAsset[] {
-  const captures = [
-    ['identity', 'Brand identity'],
-    ['moodboard', 'Moodboard'],
-    ['brand-book', 'Brand book'],
-    ['brand-elements', 'Brand elements'],
-    ['animation', 'Animation Studio'],
-    ['design-lab', 'Design Lab'],
-    ['playground', 'Playground'],
-    ['components', 'Component library'],
-    ['opengraph', 'OpenGraph'],
-  ] as const;
+type GtPicture = {
+  alt: string;
+  credit: string;
+  file: string;
+  focal?: [number, number];
+  label: string;
+  /** Artifact pictures are cut from public-domain or CC originals; the rest is GT artwork. */
+  license?: string;
+  slot: string;
+  surface: BrandAsset['surface'];
+  type: BrandAsset['type'];
+};
 
-  return captures.flatMap(([id, label]) => (['light', 'dark'] as const).map((surface) => ({
-    alt: `General Translation ${label} in Glyphfield Studio ${surface} mode`,
-    attribution: 'Current first-party Glyphfield Studio capture.',
-    id: `studio-${id}-${surface}`,
-    label: `${label} · ${surface === 'light' ? 'Light' : 'Dark'}`,
-    license: 'Glyphfield original',
-    path: `/screenshots/studio-gt-${id}-${surface}-2026.png`,
-    redistribution: 'original' as const,
-    sourceOwner: 'Glyphfield',
-    sourceUrl: 'https://glyphfield.app/studio',
-    surface,
-    tags: ['image', 'studio-capture', 'current-ui', 'people-free'],
-    type: 'image' as const,
-    usage: 'Current product evidence for General Translation previews, application showcases, documentation, and marketing.',
-  })));
+const GT_ARTWORK = 'General Translation artwork from the GT brand system, used with permission; not covered by the MIT license';
+
+// Slots the templates read first, then the rest of the set. Mood pictures follow GT's artifact
+// picture standard: the brand's tone grid, screened through the 8 x 8 Bayer matrix at 1px cells.
+const GT_PICTURES: readonly GtPicture[] = [
+  { alt: 'The earth drawn in characters from twenty writing systems on ink', credit: 'The glyph globe, General Translation', file: 'glyph-globe.webp', focal: [0.66, 0.5], label: 'Glyph globe', slot: 'overview', surface: 'dark', type: 'image' },
+  { alt: 'The Rosetta Stone printed in the Bayer dither on ink', credit: 'Photograph: Hans Hillewaert, CC BY-SA 4.0; screened by General Translation', file: 'rosetta-stone.png', focal: [0.6, 0.45], label: 'The Rosetta Stone', license: 'CC BY-SA 4.0', slot: 'editorial', surface: 'dark', type: 'image' },
+  { alt: 'A Latin manuscript page with a marginal gloss, dithered on paper', credit: 'Image: MS f Med. 23, Boston Public Library, public domain', file: 'marginal-gloss.png', label: 'A marginal gloss', license: 'Public domain', slot: 'detail', surface: 'light', type: 'texture' },
+  { alt: 'The Blue Marble, the western hemisphere dithered on ink', credit: 'Image: NASA, Reto Stöckli, 2007, public domain', file: 'blue-marble.png', focal: [0.2, 0.5], label: 'The Blue Marble', license: 'Public domain', slot: 'atmosphere', surface: 'dark', type: 'background' },
+  { alt: 'The Great Wave off Kanagawa dithered on paper', credit: 'Print: Katsushika Hokusai, about 1831, public domain', file: 'great-wave.png', focal: [0.4, 0.45], label: 'The Great Wave', license: 'Public domain', slot: 'campaign', surface: 'light', type: 'image' },
+  { alt: 'Code wrapped in the T component beside the page it translates', credit: 'How General Translation works, General Translation', file: 'how-gt-works.webp', focal: [0.5, 0.5], label: 'You wrap your text in <T>', slot: 'interface', surface: 'dark', type: 'product' },
+  { alt: 'Glyphs from many writing systems drifting across ink', credit: 'The glyph field, General Translation', file: 'glyph-field.webp', label: 'Glyph field', slot: 'motion', surface: 'dark', type: 'motion' },
+  { alt: 'The dithered globe with the doubled-line GT mark at its center', credit: 'The dithered globe, General Translation', file: 'globe-mark.webp', label: 'Globe and mark', slot: 'hero', surface: 'dark', type: 'image' },
+  { alt: 'Submarine telegraph cables of 1901 dithered on ink', credit: 'Map: Eastern Telegraph Company, 1901, public domain', file: 'telegraph-cables.png', focal: [0.6, 0.45], label: 'Telegraph cables, 1901', license: 'Public domain', slot: 'workflow', surface: 'dark', type: 'image' },
+  { alt: 'GENERAL over TRANSLATION in the race-type livery stack', credit: 'The livery stack speed mark, General Translation', file: 'speed-livery.webp', label: 'Livery stack', slot: 'system', surface: 'light', type: 'image' },
+  { alt: 'A Sanskrit manuscript in Devanagari dithered on ink', credit: 'Photograph: Ms Sarah Welch, CC BY-SA 4.0; screened by General Translation', file: 'devanagari-manuscript.png', label: 'Devanagari manuscript', license: 'CC BY-SA 4.0', slot: 'material', surface: 'dark', type: 'texture' },
+  { alt: 'Horizon lines crossing a sphere on ink', credit: 'The horizon field, General Translation', file: 'horizon-field.webp', focal: [0.5, 0.7], label: 'Horizon field', slot: 'signal', surface: 'dark', type: 'background' },
+  { alt: 'Blue gem smoke in the signal accent', credit: 'Material: gem smoke, Paper Shaders, rendered in Glyphfield for General Translation', file: 'gem-smoke.webp', label: 'Signal gem smoke', slot: 'gem-smoke', surface: 'dark', type: 'background' },
+  { alt: 'The glyph globe on paper, ink land and blue ocean', credit: 'The glyph globe, General Translation', file: 'glyph-globe-light.webp', focal: [0.66, 0.5], label: 'Glyph globe on paper', slot: 'globe-light', surface: 'light', type: 'image' },
+  { alt: 'The bar monogram printed as dither cells on ink', credit: 'The bar monogram speed mark, General Translation', file: 'speed-monogram.webp', label: 'Bar monogram', slot: 'speed-monogram', surface: 'dark', type: 'image' },
+  { alt: 'An Ottoman calligraphy exercise dithered on paper', credit: 'Calligraphy: Ahmed Karahisari, 16th century, public domain', file: 'karahisari-calligraphy.png', label: "Karahisari's calligraphy", license: 'Public domain', slot: 'calligraphy', surface: 'light', type: 'texture' },
+  { alt: 'A proto-cuneiform clay tablet dithered on ink', credit: 'Photograph: The Metropolitan Museum of Art, Open Access, public domain', file: 'cuneiform-tablet.png', focal: [0.35, 0.45], label: 'Proto-cuneiform tablet', license: 'Public domain', slot: 'tablet', surface: 'dark', type: 'image' },
+  { alt: "A mariner's compass rose engraved in 1748, dithered on paper", credit: 'Engraving: Emanuel Bowen, 1748, public domain', file: 'bowen-compass.png', label: "Bowen's compass", license: 'Public domain', slot: 'compass', surface: 'light', type: 'image' },
+  { alt: 'The Louisbourg lighthouse against the sea at dusk', credit: 'Photograph: Ken Heaton, CC BY-SA 4.0; screened by General Translation', file: 'louisbourg-lighthouse.png', focal: [0.45, 0.5], label: 'Louisbourg lighthouse', license: 'CC BY-SA 4.0', slot: 'lighthouse', surface: 'dark', type: 'image' },
+];
+
+function gtLibraryAssets(): BrandAsset[] {
+  return GT_PICTURES.map(({ alt, credit, file, focal, label, license, slot, surface, type }) => {
+    const artifact = Boolean(license);
+    return {
+      alt,
+      attribution: credit,
+      ...(focal ? { focalPoint: { x: focal[0], y: focal[1] } } : {}),
+      id: `library-${slot}`,
+      label,
+      license: license ?? GT_ARTWORK,
+      path: `/brands/gt/library/${file}`,
+      redistribution: artifact ? 'bundled' : 'original',
+      sourceOwner: artifact ? 'Original holder (see attribution)' : 'General Translation',
+      sourceUrl: 'https://generaltranslation.com',
+      surface,
+      tags: [
+        type,
+        'source-native',
+        artifact ? 'artifact-picture' : 'brand-system',
+        'people-free',
+        ...(type === 'product' ? ['centered-product'] : []),
+        ...(type === 'background' || type === 'texture' ? ['background-safe'] : []),
+      ],
+      type,
+      usage: artifact
+        ? 'Artifact picture of writing or the sea, screened in GT\'s Bayer dither; show its credit where it is published.'
+        : 'GT brand-system artwork for identity, editorial, launch and motion compositions.',
+    };
+  });
 }
 
 const GT_FONT_ASSETS: BrandFontAsset[] = [
@@ -82,7 +122,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   assets: [
     asset('mark-dark', 'Black GT mark', '/brands/gt/logos/mark-black.svg', 'light'),
     asset('mark-light', 'White GT mark', '/brands/gt/logos/mark-white.svg', 'dark'),
-    asset('identity-field', 'GT monochrome light field', '/brands/gt/assets/aura-spectrum.svg', 'any', 'background'),
+    { ...asset('identity-field', 'Glyph globe on ink', '/brands/gt/library/glyph-globe.webp', 'dark', 'background', 'The identity\'s cover field: the glyph globe on ink.'), attribution: 'The glyph globe, General Translation', focalPoint: { x: 0.66, y: 0.5 }, license: GT_ARTWORK, tags: ['background', 'brand-diagram', 'cover'] },
     {
       ...asset('library-advance', 'GT multilingual advance field', '/brands/gt/library/advance.png', 'dark', 'image', 'High-contrast multilingual glyph field for visual-system, editorial, launch, and motion compositions.'),
       attribution: 'User-supplied GT artwork.',
@@ -99,8 +139,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
       sourceOwner: 'Glyphfield',
       tags: ['image', 'brand-diagram', 'original-system', 'people-free'],
     },
-    ...gtStudioCaptureAssets(),
-    ...originalLibraryAssets('gt', 'General Translation', '/brands/gt'),
+    ...gtLibraryAssets(),
   ],
   audiences: ['Product engineers', 'Localization teams', 'Developer-first companies', 'AI-native product teams'],
   builtIn: true,
@@ -109,30 +148,30 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     { background: 'ink', foreground: 'paper', level: 'AA', usage: 'Reversed type on black' },
     { background: 'paper', foreground: 'progress', level: 'AA', usage: 'Secondary text and metadata' },
     { background: 'muted', foreground: 'ink', level: 'AA', usage: 'Text on quiet surfaces' },
-    { background: 'emphasis', foreground: 'ink', level: 'AA', usage: 'Text on selected rows' },
+    { background: 'emphasis', foreground: 'paper', level: 'AA', usage: 'Text on the signal accent' },
   ],
   colors: [
-    { hex: '#181818', id: 'ink', name: 'Ink', proportion: 26, role: 'Primary type, marks and dark surfaces' },
+    { hex: '#070707', id: 'ink', name: 'Ink', proportion: 26, role: 'Primary type, marks and dark surfaces' },
     { hex: '#FFFFFF', id: 'paper', name: 'Paper', proportion: 62, role: 'Dominant light surface and reversed type' },
     { hex: '#F4F4F4', id: 'muted', name: 'Mist', proportion: 7, role: 'Quiet product and editorial surfaces' },
-    { hex: '#E4E4E4', id: 'emphasis', name: 'Silver', proportion: 2, role: 'Selection, focus, dividers and metadata fields; the accent is light, not color' },
+    { hex: '#2F5CE0', id: 'emphasis', name: 'Signal blue', proportion: 2, role: 'The one spectral accent: a single element per composition, lifted to #86A8FF on ink; never a wash' },
     { hex: '#D4D4D4', id: 'success', name: 'Cloud', proportion: 1, role: 'Completed and healthy states' },
-    { hex: '#A3A3A3', id: 'warning', name: 'Slate', proportion: 1, role: 'Disabled states and large secondary marks; never small text on white' },
+    { hex: '#8A8F98', id: 'warning', name: 'Titanium', proportion: 1, role: 'Hairlines, metadata and large secondary marks; never small text on white' },
     { hex: '#525252', id: 'progress', name: 'Graphite', proportion: 1, role: 'Secondary text and in-progress states' },
     { hex: '#262626', id: 'error', name: 'Charcoal', proportion: 0, role: 'Destructive actions without introducing chroma' },
   ],
   contactEmail: 'hello@generaltranslation.com',
   customers: ['Cursor', 'Ramp', 'Mintlify', 'ClickHouse', 'Profound', 'Partiful'],
-  description: 'A premium black-and-white identity where soft light, fine dither, exact type, and quiet matte surfaces make one source resolving across every language feel modern and unmistakably technical.',
+  description: 'Four absolute colors and one signal blue, Inter throughout, and writing systems as the material: a globe drawn in glyphs and pictures of writing printed in a 1-bit Bayer dither make one source resolving into every language feel like infrastructure.',
   greetings: ['Welcome', '你好', '환영합니다', 'ようこそ', 'أهلاً وسهلاً', 'Bienvenidos'],
   fonts: GT_FONT_ASSETS,
   graphicSystem: {
-    composition: 'One decisive statement sits beside one restrained monochrome light field, with enough negative space for both to feel deliberate.',
-    description: 'Soft gradients, fine dither, and matte glass give invisible language infrastructure a quiet physical presence without becoming ornamental.',
-    device: 'The monochrome light field',
-    imageDirection: 'Exact black and white, soft grayscale light, fine dither, matte planes, restrained product evidence, and real interface detail. No rings, organic waves, chromatic noise, generic globe imagery, flags, or flowcharts.',
+    composition: 'One decisive statement sits beside one glyph or dither picture, on ink or paper, with the blue accent spent on a single element.',
+    description: 'Glyphs make up greater wholes: the earth drawn in twenty writing systems, a field of scripts condensing into one word, and historical writing printed as ordered dither.',
+    device: 'The glyph globe',
+    imageDirection: 'The glyph globe, the glyph field and artifact pictures of writing and the sea (the Rosetta Stone, manuscripts, calligraphy, cuneiform, the Blue Marble) screened in the 8 x 8 Bayer dither on ink or paper, each with its credit; real product shown through the T component. No stock photography, private people, flags, maps with borders, shadows or flowcharts.',
     pattern: 'none',
-    rules: ['Black and white through and through', 'Use clean geometry and no more than 8px corner radius', 'Use one quiet light or dither field per composition', 'Compose the GT mark by itself', 'Set display and supporting copy in Rasmus Inter', 'Keep headlines within two lines', 'Never connect content with diagram boxes or lines'],
+    rules: ['Four absolute colors plus one signal blue per composition', 'Square corners and 1px hairlines; no shadows', 'Print density as Bayer dither, never as alpha veils', 'Draw the GT mark in one ink, by itself', 'Set everything in Inter, headings at weight 500 or lighter', 'Keep headlines within two lines', 'Never connect content with diagram boxes or lines'],
   },
   id: 'gt',
   kind: 'example',
@@ -159,7 +198,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     asset('mintlify', 'Mintlify', '/brands/gt/proof/mintlify.svg', 'light', 'proof'),
     asset('clickhouse', 'ClickHouse', '/brands/gt/proof/clickhouse.svg', 'light', 'proof'),
   ],
-  revision: REVISION + 5,
+  revision: REVISION + 6,
   samples: {
     actions: ['Add a locale', 'Run Locadex on this repository', 'Review translations', 'Publish to the CDN'],
     code: { label: 'Translate a component', snippet: "import { T } from 'gt-next';\n\nexport default function Page() {\n  return <T><h1>Welcome back</h1></T>;\n}" },
@@ -175,7 +214,7 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
   },
   shortName: 'GT',
   socialHandle: '@generaltranslation',
-  sourceNotes: ['Official GT mark and current product language', 'Official General Translation homepage and pricing · reviewed October 2026 (customers, products, locales, compliance, plans)', 'Twelve original Glyphfield monochrome surface studies', 'GT package, CLI, and onboarding language', 'Black-and-white interface tokens and component behavior', 'Multilingual email motion studies created in Glyphfield'],
+  sourceNotes: ['Official GT mark and current product language', 'Official General Translation homepage and pricing · reviewed October 2026 (customers, products, locales, compliance, plans)', 'GT brand canon (BRAND.md and DESIGN.md, October 2026): colors, type, marks and language as material', 'GT brand-system artwork: glyph globes, glyph field, horizon field, speed marks and the How GT works still', 'Ten artifact pictures cut to the Blue Marble standard from public-domain and CC BY-SA originals, credited per image', 'Multilingual email motion studies created in Glyphfield'],
   strategy: {
     challenge: 'Localization usually lives outside the codebase, in string files, vendor portals and spreadsheets. Copy changes in code, translations lag behind, and the context a translator needs is gone by the time they see the string.',
     concept: 'One source, every language: the string in code is the origin, and every locale is a faithful expression of it.',

@@ -1139,6 +1139,8 @@
 .editorial .headline { font-size: calc(88px * var(--el-scale)); }
 .editorial[data-portrait] { grid-template-columns: 1fr; padding: 88px; }
 .editorial[data-portrait] .editorialArt { top: auto; bottom: 0; width: 100%; height: 42%; }
+/* An object device (GT's globe) can reach the footer; knock its glyphs out behind the footer text. */
+.editorial[data-device='object'] .footerRow > * { background: var(--el-bg); box-shadow: 0 0 0 8px var(--el-bg); }
 .editorial[data-portrait] .editorialText { max-width: none; justify-content: flex-start; padding-top: 120px; }
 .editorial[data-portrait] .footerRow { padding: 16px 20px; margin: 0 -20px; background: var(--el-bg); }
 .surface[data-element='blog-cover'] .editorial,

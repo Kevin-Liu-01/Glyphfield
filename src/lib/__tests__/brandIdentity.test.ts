@@ -63,7 +63,7 @@ describe('GT_BRAND_IDENTITY', () => {
     );
     expect(GT_BRAND_IDENTITY.proof).not.toContain('Cursor');
     expect(GT_BRAND_IDENTITY.strategy.concept).toContain('One source, every language');
-    expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The monochrome light field');
+    expect(GT_BRAND_IDENTITY.graphicSystem.device).toBe('The glyph globe');
     expect(GT_BRAND_IDENTITY.applications.length).toBeGreaterThanOrEqual(8);
     expect(brandTypographyRole({
       ...GT_BRAND_IDENTITY,
@@ -71,8 +71,10 @@ describe('GT_BRAND_IDENTITY', () => {
     }, 'Display').weight).toBe(550);
   });
 
-  it('keeps every GT identity color monochrome', () => {
-    for (const { hex } of GT_BRAND_IDENTITY.colors) {
+  it('keeps GT to neutrals plus one signal blue', () => {
+    expect(GT_BRAND_IDENTITY.colors.find(({ id }) => id === 'emphasis')?.hex).toBe('#2F5CE0');
+    // Titanium is the canon's one cool neutral.
+    for (const { hex } of GT_BRAND_IDENTITY.colors.filter(({ hex: value, id }) => id !== 'emphasis' && value !== '#8A8F98')) {
       const [red, green, blue] = hex
         .slice(1)
         .match(/.{2}/g)!
