@@ -55,6 +55,7 @@ export default withMDX(withGTConfig(nextConfig, {
   cacheUrl: null,
   config: './gt.config.json',
   getLocalePath: './src/getLocale.ts',
+  getRegionPath: './src/getRegion.ts',
   ignoreBrowserLocales: true,
   runtimeUrl: null,
 }));
