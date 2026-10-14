@@ -6,16 +6,16 @@ All actions run in the open Brand identity tool: `const studio = window.glyphfie
 | --- | --- | --- |
 | `identity.read` | none | `BrandIdentity` object (a copy) |
 | `identity.validate` | `{ identity, mode?: 'patch' \| 'full' }` | `{ ok, issues: [{ code, message, path, severity }] }` |
-| `identity.apply` | `{ identity, mode?: 'merge' \| 'replace', replace?: ['colors', …], remove?, save? }` | `{ identity, warnings, saved, health: { score, grade, counts } }`; throws a `TypeError` listing every issue |
+| `identity.apply` | `{ identity, mode?: 'merge' \| 'replace', replace?: ['colors' \| 'colorPairings' \| 'applications' \| 'assets' \| 'fonts', …], remove?: { assets?, colors?, fonts?, applications?, references?, motion?, proofAssets? }, save? }` | `{ identity, warnings, saved, health: { score, grade, counts } }`; throws a `TypeError` listing every issue |
 | `identity.asset.add` | `{ file: File, slot?, id?, type?, label?, surface?, usage?, alt?, license?, sourceUrl?, sourceOwner?, redistribution?, tags?, save? }` | `{ asset }` |
-| `identity.font.add` | `{ file: File, roles?, family?, label?, weight?, weightMin?, weightMax?, style?, license?, sourceUrl?, id?, save? }` | `{ font }` |
+| `identity.font.add` | `{ file: File, roles?, family?, label?, weight?, weightMin?, weightMax?, style?, license?, sourceUrl?, id?, save? }`; TTF, OTF, WOFF or WOFF2 up to 2.5 MB | `{ font }` |
 | `identity.audit` | none | Health report: `score`, `grade`, `counts`, `sections`, `contrast`, `findings[]` with `fix?` and `agentPrompt` |
 | `identity.fix` | `{ fixId, save? }` | Health report after the fix |
 | `identity.save` | none | `{ saved: true }` |
 | `identity.export.kit` | `{ format?: 'zip' \| 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' \| 'logos', download? }` | `{ blob, fileName, format, previewText? }` |
 | `identity.setup.prompt` | `{ mode?: 'new' \| 'improve' }` | `{ mode, prompt }` |
 | `identity.export.json` | none | The identity as a JSON Blob artifact |
-| `identity.project.create` | `{ from?: 'starter' \| 'scratch' \| projectId, name? }` | `{ id, name, kind, from, url }`; opens the new project, so read `window.glyphfield.studio` again |
+| `identity.project.create` | `{ from?: 'starter' \| 'scratch' \| built-in identity ID \| project ID, name? }` | `{ id, name, kind, from, url }`; opens the new project, so read `window.glyphfield.studio` again |
 
 Brand elements (open `/studio?tool=brand-elements&project=<id>`):
 
@@ -54,8 +54,8 @@ Playwright can pass bytes into the page with `page.evaluate(async ({ bytes }) =>
 
 ## HTTP without a browser
 
-- `GET /api/brand/validate` — JSON Schema, patch schema, merge rules, logo slots.
-- `POST /api/brand/validate` `{ identity, mode }` — `{ ok, issues, identity, health }`. Stateless; nothing is stored.
-- `POST /api/brand/kit` `{ identity, format: 'dtcg' | 'css' | 'tailwind' | 'markdown' }` — one kit file.
+- `GET /api/brand/validate` returns the JSON Schema, the patch schema, the merge rules and the logo slots.
+- `POST /api/brand/validate` with `{ identity, mode }` returns `{ ok, issues, identity, health }`. `mode` defaults to `full` here. Nothing is stored.
+- `POST /api/brand/kit` with `{ identity, format: 'dtcg' | 'css' | 'tailwind' | 'markdown' }` returns one kit file. The ZIP, the logo pack and the font files come only from `identity.export.kit` in the browser.
 
-Requests are limited to 5 MB, reject unknown top-level fields, and never fetch remote URLs.
+Request bodies are limited to 5,250,000 bytes. Unknown top-level fields are rejected, and the routes never fetch remote URLs.

@@ -78,3 +78,19 @@ Pixel checks catch stale scenes, blank output, and broken loop boundaries.
 They do not certify visual taste. The composition and motion reviews above are
 separate human-readable design decisions. Existing saved compositions retain
 their source; choosing a built-in preset again loads its revised design.
+
+## Current status
+
+Checked against the source on 2026-10-14. The seven studies reviewed above are
+still the built-in examples in `src/lib/lottieExamples.ts`, and
+`e2e/lottie-gauntlet.spec.ts` still checks them.
+
+- The Lottie tool was rebuilt on 2026-10-13 (commit `718b9de`). It now edits layer
+  visibility, colors, text and markers, maps colors to the brand palette, and
+  exports the trimmed segment as GIF and MP4 in addition to PNG frames and source.
+- Since 2026-10-14 (commit `32d8a1e`) the brand logo layer is an appearance
+  setting. It is on for the built-in studies and off for imported files and
+  pasted JSON. **Show brand logo** turns it on or off, and the Browser API
+  action `lottie.edit` accepts `brandLogo`.
+- The test counts above (24 gauntlet cases and 1,935 unit tests) describe the
+  September 25 run.

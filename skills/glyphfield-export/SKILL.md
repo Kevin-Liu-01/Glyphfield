@@ -13,8 +13,10 @@ Produce the requested format from the renderer that owns the artifact, then veri
 - Use the live Studio for Canvas/WebGL/local-font/local-file output and Design Lab PNG, JPG, GIF, or MP4.
 - Use Animation for authored motion sequences and audio-aware MP4 output.
 - Use Lottie for edited JSON or `.lottie` bundles.
-- Use the browser print workflow for Brand Book PDF.
-- Prefer the direct artifact actions published by `describe()` for Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Blog, Partnership, and Slides. Use visible control automation only when the capability record marks an export as `browser-control`.
+- Use `slides.export.pdf` for a slide deck PDF. It returns a Blob.
+- Use `brand-book.print` for the Brand book PDF. It opens the browser print dialog and returns `null`, so the user saves the PDF and you cannot inspect its bytes from the action.
+- Use `identity.export.kit` for the brand kit ZIP and `brand-element.export.html` for a send-ready HTML email.
+- Prefer the direct actions published by `describe()`. Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates return Blob artifacts. Color tokens and Typography return token text from `colors.tokens.read` and `typography.tokens.read`, and Component library returns code files from `components.code.read`. Use visible control automation only when `describe().capabilities.exports` marks an export as `browser-control`.
 
 Read [references/export-verification.md](references/export-verification.md) before motion export or when correctness matters more than a quick preview.
 
@@ -23,6 +25,7 @@ Read [references/export-verification.md](references/export-verification.md) befo
 - Call the active Studio adapter's `describe()` before invoking a format-specific action.
 - Run GIF and MP4 exports serially. They share live canvases and browser encoders.
 - Use `mode: "shader-sequence"` only with GIF or MP4.
+- Shaders.com materials and image effects need WebGPU. Without it their export throws; report the failure and keep the source.
 - Keep filename extension, MIME type, and requested format aligned.
 - A GIF never has audio. Use MP4 when the requested motion requires an audio track.
 - A loop flag is not proof of a visually seamless GIF. Inspect closure between the last and first displayed frame.

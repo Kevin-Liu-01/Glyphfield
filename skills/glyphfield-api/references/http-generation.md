@@ -28,7 +28,7 @@ curl -fsS -X POST "$BASE_URL/api/generate" \
   -o one-system.svg
 ```
 
-Verify the response is `image/svg+xml` before trusting the `.svg` extension.
+Verify the response is `image/svg+xml` before trusting the `.svg` extension. Template SVGs embed the brand's fonts and images, so one slide is several hundred kilobytes. `template` also accepts `opengraph`, `terminal`, `blog` and `partnership`; read their `layout` values and the `format` presets from `GET /api/generate`.
 
 ## Tactile background
 
@@ -100,4 +100,4 @@ The normalized result is CanvasDocument schema 2 with Design Lab source 4. Use t
 
 ## Error handling
 
-Parse the response body before retrying. Correct invalid `field`, `code`, or enum values from current discovery. For `429`, stop concurrent work and wait for the advertised window. Preserve source when the browser renderer or codec is unavailable rather than substituting an unrequested format.
+Parse the response body before retrying. Correct invalid `field`, `code`, or enum values from current discovery. A `429` comes from the hosting firewall and has no structured body; stop concurrent work and wait before retrying. Preserve source when the browser renderer or codec is unavailable rather than substituting an unrequested format.

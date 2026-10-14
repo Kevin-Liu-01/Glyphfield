@@ -21,7 +21,7 @@ Read [references/design-lab.md](references/design-lab.md) before changing a laye
 1. Establish the intended identity, output dimensions, still or motion outcome, and whether the user means a new or existing design.
 2. Open Design Lab and call `describe()` before relying on actions. Its public tool ID is `material`.
 3. Read the current source for existing work. Preserve unknown fields, page IDs, element IDs, asset records, metadata, and ordering.
-4. Add or update only the required artboards and layers. Design Lab supports multiple text, logo, image, sticker, shader, and converter layers.
+4. Add or update only the required artboards and layers. Design Lab supports multiple text, logo, image, sticker, shader, and Effect layers. An Effect layer runs a built-in converter (Bayer, ASCII, halftone or posterize) or a Shaders.com image effect over every layer beneath it in its artboard.
 5. Keep shader layers behind authored content unless the requested composition says otherwise. Use `page.elementIds` as the authoritative back-to-front order.
 6. Use opacity and blend modes on the actual layer. A Bayer, ASCII, halftone, or posterize converter should have intentional foreground and background colors.
 7. Apply through the Studio adapter, re-read source, and confirm the intended values and order survived.
@@ -31,7 +31,9 @@ When the result must survive the current browser profile or origin, follow `/doc
 
 ## Design decisions
 
-- Start from Gem Smoke when a shader background is useful; use no background when the brand mark alone is stronger. Do not resurrect legacy Holo defaults.
+- Start from Gem Smoke (`paper-gem-smoke`) when a shader background is useful; use no background when the brand mark alone is stronger. Do not resurrect legacy Holo defaults.
+- Pick materials from `/api/materials`. The library hides retired materials such as shape primitives, plain fills and raw noise; a saved design that already uses one still loads it, but do not add one to new work.
+- Shaders.com materials (IDs starting with `shader-effects-`) and image effects need WebGPU. Without it the canvas shows their still preview and export throws. When the user's browser may lack WebGPU, prefer a Paper or Glyphfield material.
 - Preserve legibility. A white mark on a white sticker border needs a contrasting fill, outline, shadow, surface, or border color.
 - Shader size is visual zoom from `0.1` to `10`; do not misuse canvas zoom to change exported geometry.
 - Frame history is authored state. Save the selected frame/timeline settings with the design rather than treating the gallery thumbnail as canonical.

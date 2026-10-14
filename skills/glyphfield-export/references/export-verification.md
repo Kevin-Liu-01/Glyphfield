@@ -10,6 +10,8 @@
 | Short silent loop | GIF | Multiple distinct frames and visual closure |
 | Video or audio | MP4 | Video codec, duration, frame rate, and audio stream when requested |
 | Printable standards | PDF | Page count, print sizing, and font rendering |
+| Email | HTML | Inlined styles, absolute image URLs, and the preheader text |
+| Brand kit | ZIP | `brand.md`, token files, `identity.json`, logos and fonts present |
 | Editable data | JSON / `.lottie` | Parseability, schema, and referenced assets |
 
 ## Export supported Design Lab formats
@@ -39,7 +41,7 @@ for (const format of requested) {
 
 Do not run this loop concurrently.
 
-Animation uses `animation.export` with `{ format: 'gif' | 'mp4', download?: boolean }`; MP4 includes configured timeline audio. Lottie uses `lottie.export` with `{ format: 'png' | 'source', download?: boolean }`. Identity, selected brand-element briefs, and Moodboard also return verifiable artifacts through their declared direct actions. Read `describe().actionContracts` rather than inferring the output from the visible button label.
+Animation uses `animation.export` with `{ format: 'gif' | 'mp4' | 'png', download?: boolean }`; MP4 includes configured timeline audio and PNG is the poster frame at the playhead. Lottie uses `lottie.export` with `{ format: 'png' | 'source' | 'gif' | 'mp4', download?: boolean }`; `source` returns edited JSON or the original `.lottie` archive. Brand elements uses `brand-element.export.png` with `{ elementId?, scale?: 1 | 2 }` and `brand-element.export.html` for email elements. Brand identity, Moodboard, OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates also return verifiable artifacts through their declared direct actions. Read `describe().actionContracts` rather than inferring the output from the visible button label.
 
 ## Still checks
 
@@ -68,5 +70,7 @@ Animation uses `animation.export` with `{ format: 'gif' | 'mp4', download?: bool
 ## Source preservation
 
 If encoding fails, keep the applied/saved source and report the exact terminal error. A user should be able to retry on a capable browser without rebuilding the composition.
+
+Brand book is the exception: `brand-book.print` opens the browser print dialog for 16 × 10 in pages and returns `null`. Check the print preview, or ask the user for the saved PDF when its bytes matter.
 
 The complete current format matrix is available from `/docs/artifacts/formats-and-portability.md` on the running Glyphfield origin.

@@ -9,9 +9,9 @@ Use the supported `window.glyphfield.studio` adapter instead of private componen
 
 ## Connect
 
-1. Open the authorized Glyphfield origin at `/studio`.
+1. Open the authorized Glyphfield origin at `/studio`. Add `?tool=<tool id>` to open a tool directly, and `&project=<project id>` to open a project. Tool IDs come from `GET /api/labs`; Design Lab is `material`.
 2. Wait for `window.glyphfield.studio` or the `glyphfield:studio-api-ready` event.
-3. Call `describe()` and `controls()` before using tool-specific actions or labels. The descriptor includes capability metadata and per-action input/output contracts.
+3. Call `describe()` and `controls()` before using tool-specific actions or labels. `describe()` returns `toolId`, `actions`, `actionContracts` (the input and output of each action), `capabilities` (source boundary, exports and HTTP generation) and `source: { read, apply }`.
 4. Re-read the global after changing tools; every tool installs its own adapter.
 
 Read [references/browser-api.md](references/browser-api.md) for exact control, source, file, and action recipes.
@@ -32,7 +32,7 @@ Read the current source, preserve unknown fields and stable IDs, make the smalle
 
 Design Lab's public ID is `material`. Never expect the legacy internal draft scope `logo-shader` from integrations.
 
-All navigable tools except Brand book keep their source adapter registered even when the Code drawer is closed. Brand book is derived from Brand identity and truthfully reports no source boundary.
+All 15 navigable tools keep their source adapter registered whether or not the source drawer (**File → Edit source code**) is open. Brand book source holds only the book's presentation edits: section order and visibility, and each page's visibility, layout, surface, image and copy. The book's content comes from Brand identity, so change the identity to change what the book says.
 
 ## Local data and privacy
 
@@ -42,4 +42,4 @@ Before clearing data or changing origin/profile, follow `/docs/artifacts/backup-
 
 ## Completion
 
-After mutation, verify source or control state and inspect the visible result. After export, verify the Blob, filename, MIME type, dimensions, and—for motion—multiple frames. Do not treat an action resolving as proof that the requested artifact is correct.
+After mutation, verify source or control state and inspect the visible result. After export, verify the Blob, filename, MIME type, dimensions, and for motion several decoded frames. Do not treat an action resolving as proof that the requested artifact is correct.

@@ -29,6 +29,7 @@ does not advertise unverified seamless periods.
 | Time-independent Paper families | Static output | No time control needed | Static, not an animation loop |
 | Prismatic sphere | Direct-time, configured circular noise path | Yes, once lighting and the draw are ready | Uses the host's `loopDurationMs`; full visual closure still needs pixel verification |
 | Fluid Energy | Stateful velocity/dye feedback and pointer input | No timestamp-only reconstruction | No established period |
+| Shaders.com WebGPU components | Procedural, or stateful for components the engine marks stateful | Yes for procedural components; no for stateful ones | No established period |
 
 All providers can supply a PNG from an authentic ready canvas. This does not
 mean that an unavailable WebGL context, failed asset, tainted canvas, or loading
@@ -163,7 +164,9 @@ but lighting, grain, assets, and camera state still belong in a visual test.
   key invalidates stale previews after paint inputs change and survives ID remapping.
 - Save, duplicate, copy, paste, artboard switches, and still export capture or
   reuse the same checkpoint. Public actions are `design.frame.capture`,
-  `design.frame.play`, `design.frame.seek`, and `design.motion.describe`.
+  `design.frame.pause`, `design.frame.play`, `design.frame.seek`, and
+  `design.motion.describe`. `design.frame.pause` freezes the visible frame
+  without encoding PNGs or writing captured-frame assets.
 - Motion exports remain separate clips. A blended GIF closure is a crossfade,
   not a native period. Timestamp-sampled Fluid clips are explicitly unsupported;
   exact Fluid stills are supported.
@@ -223,3 +226,18 @@ These tests establish same-environment capture fidelity, not cross-device native
 bitwise identity, universally hitch-free startup, or verified periodic closure
 of the analytic loop candidates. The PNG, not an inferred loop index, remains
 the authority for the exact chosen appearance.
+
+## Current status
+
+Checked against the source on 2026-10-14. The contract above still holds, and
+`src/lib/shaderMotionCapabilities.ts` still classifies every material by provider.
+
+- The Shader Library grew after this record. It now includes the Shaders.com
+  WebGPU components from the `shaders` 4.0.1 package, and `GET /api/materials`
+  listed 197 materials on 2026-10-14. The 134-shader audit above covered the
+  catalog of 2026-09-07 and has not been repeated for the WebGPU components.
+- The Waves family is still one of the nine static Paper families, but the
+  library listing now hides it with the Perlin Noise and Simplex Noise families.
+  Saved documents that use those families still load.
+- Shaders.com WebGPU components need WebGPU. Without it the surface shows the
+  material's still preview, and export fails with an error.

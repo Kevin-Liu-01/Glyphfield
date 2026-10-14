@@ -193,11 +193,10 @@ retention, and connector teardown were then verified. The final first run also
 passed (shell 42.1 ms, framed editor 206.7 ms). Keep these measurements scoped to
 this tested journey rather than describing the whole app as universally “no lag.”
 
-Screenshots are retained locally in `/tmp/glyphfield-journey-*`,
-`/tmp/glyphfield-selection-clipped.png`, and
-`/tmp/glyphfield-group-selection-clipped.png`. Additional checkpoint/framing proof:
-`/tmp/glyphfield-checkpoint-popup-unclipped.png` and `/tmp/glyphfield-entry-framed.png`.
-Final production visual check: `/tmp/glyphfield-final-studio.png` (1440×900).
+The screenshots from this pass (journey captures, clipped selections, the
+unclipped checkpoint popup, the framed entry and a final 1440×900 production
+capture) were saved to temporary files under `/tmp`. Those files no longer
+exist.
 
 ## Follow-up experience work
 
@@ -222,3 +221,30 @@ Final production visual check: `/tmp/glyphfield-final-studio.png` (1440×900).
 
 These remain explicit follow-ups until implemented and verified. A broad request
 for a better experience is not evidence that every tool and device is now flawless.
+
+## Current status
+
+Checked against the source on 2026-10-14.
+
+- The scroll-aware prewarm follow-up is done. Since 2026-09-09 a shader that
+  enters its viewport margin bypasses idle scheduling, so continuous scrolling
+  no longer postpones the visible renderer. See
+  [shader preview performance](shader-preview-performance.md).
+- Fluid motion export still needs a live recording. Design Lab and Animation
+  reject timestamp-sampled GIF and MP4 clips that include Fluid.
+- The cross-tool handoff is still open. Design Lab's shader sequence panel says
+  that Animation opens a separate workspace.
+- Tool and project switches changed on 2026-10-14 (commit `5077718`). The sidebar
+  and project tabs respond to a click at once, and the current editor stays on
+  screen until the next one loads. The outgoing and incoming layers crossfade in
+  160 ms, and reduced motion swaps them at once. A 2 px progress line appears
+  only when the workspace lags navigation by more than 180 ms. The commit
+  measured cold tool switches at about 90 ms, down from about 360 ms.
+- Menus, popovers, the command search and the source drawer have enter and exit
+  motion (commit `2b77069`). Reduced motion skips it.
+- Deleting the active project now asks for confirmation in a modal dialog
+  (commit `4939ab6`).
+- The performance table above is the 2026-09-05 sample. Later measurements,
+  including runs that missed some budgets, are in
+  [browser compatibility](browser-compatibility.md) and
+  [shader preview performance](shader-preview-performance.md).

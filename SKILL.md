@@ -3,7 +3,7 @@ name: glyphfield-skill
 description: How to work in this repository. Read before editing here.
 ---
 
-# glyphfield — working here
+# Working in the glyphfield repository
 
 ## Purpose
 
@@ -23,7 +23,7 @@ Read the directory skill before working deeply in `src/app`, `src/components`,
 `src/hooks`, `src/lib`, or `scripts`.
 
 This is the contributor skill. For tasks that operate Glyphfield as a product,
-load the appropriate package under `skills/`: create, API, Studio, or export.
+load the appropriate package under `skills/`: brand, create, API, Studio, or export.
 
 ## Patterns to follow / invariants
 
@@ -46,6 +46,10 @@ load the appropriate package under `skills/`: create, API, Studio, or export.
   manifest/OpenAPI, examples, and tests before implementation.
 - Change docs → update MDX metadata/order, run Fumadocs generation, and confirm both
   the page and `/llms-full.txt`.
+- Add or retire a shader → inspect `liveMaterials.ts`, `shaderLab.ts` (listing order
+  and the retired sets), `/api/materials`, and `content/docs/studio/shader-library.mdx`.
+- Add Studio styles → put rules that only Studio components use in
+  `src/app/studio/studio.css`; `globals.css` loads on the landing page and docs too.
 - Diagnose UI behavior → reproduce in the browser, identify the state owner, then
   add a focused regression test before or with the fix.
 
@@ -56,3 +60,9 @@ scope. Project/nav state uses localStorage; Design Lab saved designs and convert
 assets use IndexedDB with recovery support. WebGL previews may degrade to a static
 representative image, but authentic motion export must never be claimed from that
 fallback. Browser exports share renderer resources and should not run concurrently.
+
+Shaders.com materials and image effects need WebGPU. Without it they show their
+still preview and their exports throw; do not substitute another material.
+Retired shader IDs stay loadable for saved documents; never remove their renderers.
+Brand book has a source adapter for its presentation edits only. Its pages derive
+from the active identity.

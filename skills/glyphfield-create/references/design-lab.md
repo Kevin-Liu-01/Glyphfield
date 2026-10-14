@@ -80,7 +80,8 @@ if (effect?.status === 'unsupported') throw new Error('Image effects need WebGPU
 - Alignment needs two layers and distribution three. Locked layers are skipped.
 - Built-in converters use `{ kind: 'bayer' | 'ascii' | 'halftone' | 'posterize' }`. Image effect IDs come from `/api/materials` `imageEffects`; `effectProps` holds only changed values.
 - Effect layers cannot be added to the loose canvas, locked, arranged, or style-copied.
-- Text, mark, image, and shader layers rotate about their centers: `design.layers.rotate` with `{ layerIds, rotation }` in degrees, or `bounds.rotation` in source (−180 to 180). The shader **Rotation** slider in **Advanced** rotates the material inside its layer, not the layer. Effect layers do not rotate.
+- Text, mark, image, and shader layers rotate about their centers: `design.layers.rotate` with `{ layerIds, rotation }` in degrees, or `bounds.rotation` in source (−180 to 180). The shader **Rotation** slider in **Advanced** turns the material inside its layer and leaves the layer's bounds unchanged. Effect layers do not rotate.
+- Shaders.com materials render only from their native props, palette, speed and zoom, so Design Lab hides **Advanced** for them. Edit their `effectProps` against the `nativeControls` that `/api/materials` publishes for the material.
 
 ## Visual verification
 

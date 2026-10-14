@@ -26,16 +26,16 @@ Start user-facing work by deciding which contract owns it:
 When the task is to use Glyphfield rather than modify its implementation, load the
 smallest matching checked-in Agent Skill:
 
-- [`skills/glyphfield-create/SKILL.md`](skills/glyphfield-create/SKILL.md) — layered
+- [`skills/glyphfield-create/SKILL.md`](skills/glyphfield-create/SKILL.md): layered
   Design Lab composition and saved-design work.
-- [`skills/glyphfield-api/SKILL.md`](skills/glyphfield-api/SKILL.md) — deterministic
+- [`skills/glyphfield-api/SKILL.md`](skills/glyphfield-api/SKILL.md): deterministic
   HTTP discovery and generation.
-- [`skills/glyphfield-studio/SKILL.md`](skills/glyphfield-studio/SKILL.md) — live
+- [`skills/glyphfield-studio/SKILL.md`](skills/glyphfield-studio/SKILL.md): live
   Browser API operation, source round trips, and local files.
-- [`skills/glyphfield-export/SKILL.md`](skills/glyphfield-export/SKILL.md) — still
+- [`skills/glyphfield-export/SKILL.md`](skills/glyphfield-export/SKILL.md): still
   and motion export verification.
-- [`skills/glyphfield-brand/SKILL.md`](skills/glyphfield-brand/SKILL.md) — brand
-  identity setup by a coding agent: research, validate, apply, files, audit, kit.
+- [`skills/glyphfield-brand/SKILL.md`](skills/glyphfield-brand/SKILL.md): brand
+  identity setup by a coding agent (research, validate, apply, files, audit, kit).
 
 Combine skills only when the requested workflow crosses those boundaries. These
 packages describe product operation; the root and directory `SKILL.md` files
@@ -43,22 +43,31 @@ describe repository contribution.
 
 ## Architecture Pointers
 
-- `src/components/StudioApp.tsx` — projects, tabs, navigation, active identity/tool.
-- `src/lib/studioCatalog.ts` — public navigable tool IDs, names, categories, search.
-- `src/components/StudioToolWorkspace.tsx` — maps public tools to editors.
-- `src/components/ShaderLabStudio.tsx` — Design Lab composition, materials, saved
+- `src/components/StudioApp.tsx`: projects, tabs, navigation, active identity/tool.
+- `src/lib/studioCatalog.ts`: public navigable tool IDs, names, categories, search.
+- `src/components/StudioToolWorkspace.tsx`: maps public tools to editors. Color tokens,
+  Typography, Component library, OpenGraph and the template tools live in
+  `src/components/tools/` and share `ToolShell.tsx`.
+- `src/components/ShaderLabStudio.tsx`: Design Lab composition, materials, saved
   designs, still/motion export, and its Browser API adapter.
-- `src/components/AnimationStudio.tsx` — frame/timing/audio motion workspace.
-- `src/lib/canvasDocument.ts` — portable scene graph and mutation/history model.
-- `src/lib/designLabDocument.ts` — Design Lab ↔ CanvasDocument adapter.
-- `src/lib/designWorkspace.ts` + `CONTEXT.md` — open canvas ownership, world-space placement, and artboard/output vocabulary.
-- `src/lib/agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts` — public agent
+- `src/components/AnimationStudio.tsx`: frame/timing/audio motion workspace.
+- `src/lib/canvasDocument.ts`: portable scene graph and mutation/history model.
+- `src/lib/designLabDocument.ts`: Design Lab ↔ CanvasDocument adapter.
+- `src/lib/designWorkspace.ts` + `CONTEXT.md`: open canvas ownership, world-space placement, and artboard/output vocabulary.
+- `src/lib/agentApi.ts`, `agentCatalog.ts`, `agentGeneration.ts`: public agent
   manifest, catalogs, validation, generation, and examples.
-- `src/lib/studioAutomation.ts` — `window.glyphfield.studio` runtime contract.
-- `src/lib/studioAgentCapabilities.ts` — canonical per-tool source, export, HTTP,
+- `src/lib/studioAutomation.ts`: `window.glyphfield.studio` runtime contract.
+- `src/lib/studioAgentCapabilities.ts`: canonical per-tool source, export, HTTP,
   and Browser action capability map shared by runtime discovery and docs.
-- `content/docs/**` + `src/components/DocsMdx.tsx` — human and machine docs source.
-- `public/llms.txt` — concise agent router; `src/app/llms-full.txt/route.ts` emits the
+- `src/lib/shaderLab.ts` + `liveMaterials.ts` + `shaderEffects.ts`: the shared
+  Shader Library with its engines, listing order, retired IDs that saved documents
+  still load, and the Shaders.com WebGPU components and image effects.
+- `src/lib/brandIdentity.ts`, `identityPresets.ts`, `gtBrandIdentity.ts`: the
+  identity model, bundled fonts and the built-in identities.
+- `src/app/studio/studio.css`: CSS for Studio-only components. Only `/studio`
+  imports it. `src/app/globals.css` loads on every route.
+- `content/docs/**` + `src/components/DocsMdx.tsx`: human and machine docs source.
+- `public/llms.txt`: concise agent router; `src/app/llms-full.txt/route.ts` emits the
   complete processed docs corpus.
 
 ## Stack
@@ -71,7 +80,7 @@ describe repository contribution.
 
 ## Commands
 <!-- agent-docs:auto:commands start -->
-- Package scripts detected: 30. Use `package.json` as the exhaustive source.
+- Package scripts detected: 32. Use `package.json` as the exhaustive source.
 - `pnpm run dev` - next dev --turbopack --port 3012
 - `pnpm run build` - next build --turbopack
 - `pnpm run test` - vitest run
@@ -111,6 +120,12 @@ describe repository contribution.
 - (none detected)
 <!-- agent-docs:auto:env end -->
 
+The application reads one variable, `NEXT_PUBLIC_STUDIO_URL` (`src/lib/seo.ts`).
+It sets the public origin for canonical URLs, OpenGraph metadata, the sitemap and
+`robots.txt`, and falls back to `https://www.glyphfield.com` when unset or empty. Test and
+benchmark scripts read `GLYPHFIELD_*` variables, such as
+`GLYPHFIELD_BROWSER_BASE_URL` in `playwright.config.ts`.
+
 ## Conventions & invariants
 
 - Public Studio identity comes from `STUDIO_TOOLS`. Legacy draft IDs such as
@@ -128,8 +143,10 @@ describe repository contribution.
   `document`. Apply it first, then re-read the normalized CanvasDocument before edits.
 - Every editable color uses the shared color control/conversion path. Every scroll
   area uses the shared Studio scrollbar treatment.
-- Every navigable tool exposes Browser API control automation. Source/export
-  adapters are added where the tool supports them.
+- Every navigable tool exposes Browser API control automation, a source
+  read/apply adapter, and direct export or token actions declared in
+  `studioAgentCapabilities.ts`. Brand book's source holds only its presentation
+  edits; its content derives from the identity.
 - HTTP generation rejects unknown top-level fields and remote asset URLs. Update
   GET contract, manifest, OpenAPI, examples, and tests with any schema change.
 - Motion exports run serially. GIF seamless mode must be visually closed; GIF has
@@ -144,6 +161,11 @@ describe repository contribution.
 - Never pass a filesystem path to a browser file input; construct an authorized
   `File` from bytes.
 - Never hard-code shader or tool counts; use `/api/materials` and `/api/labs`.
+- Never delete a retired shader ID. Add it to `RETIRED_MATERIAL_IDS` (or a Paper
+  family to `RETIRED_PAPER_FAMILIES`) in `shaderLab.ts` so the libraries hide it
+  while `SHADER_LAB_LOADABLE_MATERIAL_IDS` keeps saved documents loading.
+- Never put Studio-only rules in `globals.css`; they belong in
+  `src/app/studio/studio.css` so the landing page and docs do not download them.
 - Never claim an export succeeded from an HTTP status or resolved Promise alone.
   Verify body/Blob, MIME/extension, dimensions, and motion frames where relevant.
 - Never add a one-off editor control when a shared Studio component already owns

@@ -1,8 +1,9 @@
 # Shader pause, capture, and export
 
 Status: implementation and focused browser verification complete, including
-native Safari. Implemented from `07c79dc` in `codex/shader-capture-export`.
-All evidence below comes from the local production build, not glyphfield.com.
+native Safari. The work landed on `main` as commit `dbc5ed8` (2026-09-08), whose
+parent is `07c79dc`. All evidence below comes from the local production build,
+not glyphfield.com.
 
 ## Requested outcome
 
@@ -159,18 +160,12 @@ All evidence below comes from the local production build, not glyphfield.com.
   `e2e/animation-shader-export.spec.ts`, and `scripts/check-safari-canvas.mjs`.
   Tests use public Studio APIs and trusted input; output checks decode actual
   downloaded files rather than relying on a resolved export promise.
-- Design Lab matrix: `/tmp/glyphfield-design-matrix-pass-JsHqOB`.
-- Animation Chromium/Firefox GIF and Fluid:
-  `/tmp/glyphfield-animation-gif-pass-OkHnTA`.
-- Final twelve-case MP4 matrix: `/tmp/glyphfield-mp4-matrix-pass-NWT7Zf`.
-- Final native Safari MP4 report:
-  `/var/folders/yl/sxf0v4tn14n2pkwqmf_21l540000gn/T/glyphfield-safari-canvas-8V8jpu/results.json`.
-- The preserved MP4 diagnosis at
-  `/tmp/glyphfield-animation-export-codec-9xXnPi` includes actual streams used
-  to isolate the metadata-only range error. Failed intermediate PNG evidence
-  remains at `/tmp/glyphfield-shader-export-red-wWrqmp` and
-  `/tmp/glyphfield-shader-export-raw-proof-gOFWal`; assertions were not relaxed
-  to turn those failures green.
+- The decoded files, the native Safari report, the MP4 streams used to isolate
+  the range error and the failed intermediate PNG evidence were written to
+  temporary directories under `/tmp` and the macOS per-user temporary folder.
+  Those directories no longer exist. Assertions were not relaxed to turn the
+  intermediate failures green. Rerun the regression sources above to reproduce
+  the evidence.
 
 ## Scope and limits
 
@@ -180,3 +175,13 @@ All evidence below comes from the local production build, not glyphfield.com.
   unsupported codecs and non-seekable Fluid exports report explicit failures.
 - This focused audit verifies shader transport, persistence and still/motion
   export, not every feature on every browser or every possible shader preset.
+
+## Current status
+
+Checked against the source on 2026-10-14. The Pause and Capture split, the
+shared grain tile and the MP4 color-range reconciliation are still in place.
+`design.frame.pause` is a public Browser API action that pauses without
+writing captured-frame assets. Fluid motion export is still rejected. The
+regression sources listed above still exist. The Shader Library now also
+includes Shaders.com WebGPU materials, which this audit did not cover. They need
+WebGPU, and their export fails with an error in a browser without it.

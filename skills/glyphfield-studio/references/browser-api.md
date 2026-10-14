@@ -15,17 +15,15 @@ console.log(studio.controls());
 
 ## Switch tools safely
 
-Subscribe before activating because the active adapter is replaced.
+The Browser API covers only the active tool's workspace, so `studio.activate()` cannot click the Studio sidebar. Load the tool's URL instead, or click the sidebar with the browser driver. Each tool installs its own adapter, so read `window.glyphfield.studio` again after the switch.
 
 ```js
-if (studio.activeTool() !== 'material') {
-  const ready = new Promise((resolve) => {
-    window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
-  });
-  studio.activate('Design Lab');
-  await ready;
-  studio = window.glyphfield.studio;
-}
+// Navigate the browser driver to /studio?tool=material&project=<project id>, then:
+await new Promise((resolve) => {
+  if (window.glyphfield?.studio?.activeTool?.() === 'material') resolve();
+  else window.addEventListener('glyphfield:studio-api-ready', resolve, { once: true });
+});
+studio = window.glyphfield.studio;
 ```
 
 ## Exact source round trip
@@ -44,7 +42,7 @@ const after = JSON.parse(studio.readSource());
 
 Do not assume every tool uses CanvasDocument. Each active adapter owns its validator and source shape.
 
-Source support does not depend on the Code drawer being open. Every navigable tool except the identity-derived Brand book has a persistent read/apply boundary.
+Source support does not depend on the source drawer being open. All 15 navigable tools have a persistent read/apply boundary. Brand book source holds only presentation edits; its content derives from the active identity.
 
 ## Controls
 
@@ -79,7 +77,7 @@ control.set
 artifact.download
 ```
 
-Design Lab additionally exposes sequence and PNG/JPG/GIF/MP4 export actions. Brand identity, Brand elements, Moodboard, Animation, Lottie, OpenGraph, Terminal card, Blog, Partnership, and Slides expose direct artifact-returning export actions; Brand book exposes its print flow. Inspect `describe().actionContracts` for exact input and output, and use `describe().capabilities.exports` to distinguish direct actions, visible controls, and HTTP output. Always use `describe().actions` as the live list. Run motion exports serially.
+Every tool adds its own actions. Brand identity, Brand elements, Moodboard, Animation, Lottie, Design Lab, OpenGraph, Terminal card, Partnership lockup, Blog cover and Slide templates return export artifacts as Blobs. Color tokens and Typography return token text (`colors.tokens.read`, `typography.tokens.read`), and Component library returns code (`components.code.read`). Brand book's `brand-book.print` opens the browser print dialog and returns `null`. Inspect `describe().actionContracts` for exact input and output, and use `describe().capabilities.exports` to see whether each export is a Browser action (`browser-action`), a visible control (`browser-control`) or HTTP output (`http`). Always use `describe().actions` as the live list. Run motion exports serially.
 
 Control enumeration, matching, and activation stay inside this adapter's active workspace. A same-named control in another retained project or tool is never a fallback target.
 

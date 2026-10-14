@@ -1,8 +1,29 @@
 # Shader preview and rendering reliability
 
-Updated: 2026-09-09
+Updated: 2026-10-14
 
 ## Landing and Animation Studio lifecycle
+
+### Current landing architecture
+
+Since 2026-10-13 the landing page, `/studio` and `/docs` are prerendered as
+static HTML (commit `3fa73dc`). The hero's Animation Studio markup is in that
+HTML. Its code loads through `React.lazy` while the page hydrates (commits
+`15a1779` and `13fdbcc`), and `useDeferredHydration` keeps the served markup
+inert until the code arrives. A click in that window starts the load and is
+replayed on the live control. The demos below the hero hydrate when they come
+within 960 px of the viewport (commit `a3c6228`). The hero shaders load on demand
+and show a blurred still of their first frame until the live canvas draws
+(commit `fb5c842`). `scripts/capture-landing-posters.mjs` captures those stills
+into `src/app/landing-posters.css`. Links to `/studio` and `/docs` prefetch on
+pointer, focus or touch intent (commit `1952585`). Studio-only CSS moved to
+`src/app/studio/studio.css`, which only `/studio` loads (commit `ef4331f`).
+
+The next subsection records the lifecycle as of 2026-09-09. The architecture
+above replaced its statement that the hero's controls do not wait for a
+client-only import.
+
+### Lifecycle as of 2026-09-09
 
 The hero uses the real Animation Studio, rendered directly into the initial
 page HTML. Its primary controls do not wait for a client-only import, streamed
@@ -209,7 +230,7 @@ The shader-ready median fell from 2,574ms to 1,001ms (61%). The final test click
 Pause before waiting for shader readiness, confirms Play is available, and
 checks for hydration/page errors. A separate JavaScript-disabled browser test
 requires the real artboard controls and storyboard slider in visible initial
-HTML—not a hidden streamed subtree or loading placeholder. The presentation
+HTML. A hidden streamed subtree or a loading placeholder fails it. The presentation
 body must fill at least 90% of the editor height. This caught a headerless-grid
 regression that squeezed the body into the old 53px header track: a canvas can
 exist and report ready while still clipped. The single-row layout fix also
@@ -305,9 +326,14 @@ bounded changes, implemented on our existing renderers:
 - **Actual-pixel checks:** a fixed-size, fixed-time shader route exercises real
   rendering and readiness. Mock graphics commands are not proof of visual output.
 - **Landing quality:** one shared sampler watches visible moving demos. After
-  warm-up and two sustained poor-cadence windows, Auto lowers resolution once per
-  visit; it never oscillates back up. Hidden/offscreen/reduced-motion states do
-  not drive sampling. Manual preferences are best-effort local persistence.
+  warm-up and two sustained poor-cadence windows, Auto lowers resolution.
+  Hidden/offscreen/reduced-motion states do not drive sampling. Manual
+  preferences are best-effort local persistence. Until 2026-10-14 the downgrade
+  lasted for the rest of the visit. Since commit `b5f94f5`, Auto keeps sampling
+  at either resolution and sorts each 2.5 s window as slow, smooth or steady.
+  Two slow windows lower the resolution and four smooth windows raise it again.
+  Each relapse doubles the recovery wait up to one minute, and every switch
+  restarts the warmup. Design Lab's Auto preview quality follows the same rules.
 
 Frame cadence is a user-experience signal, not a GPU measurement. It can reflect
 CPU contention or browser scheduling; use the opt-in GPU diagnostics for graphics
@@ -332,6 +358,14 @@ A future optional provider should first prove all of the following:
 
 No vgpu dependency, WGSL migration, or saved-source schema change is included.
 
+Current status (2026-10-14): WebGPU now ships through a different route. The
+`shaders` 4.0.1 package (Shaders.com, MIT) provides WebGPU components in the
+Shader Library and image effects on Design Lab Effect layers. They are optional
+materials beside the existing Paper, WebGL and Canvas renderers, and no existing
+material moved to WebGPU. In a browser without WebGPU, a Shaders.com surface
+shows its still preview and its export fails with an error. vgpu is still not a
+dependency.
+
 ## Live 60 FPS target
 
 Live playback and exported/stored frame counts are separate contracts. Paper and
@@ -347,8 +381,9 @@ Landing fields now target 60 FPS instead of their previous 14–24 FPS caps. Aut
 quality still changes only resolution. Its two-window assessment now detects
 sustained missed-60-FPS cadence (average over 19.17ms and at least 20% of frames
 over 22.5ms), following a two-second warmup. It ignores occasional missed frames,
-pauses, hidden/offscreen activity, and reduced motion. The page-latched downgrade
-and explicit High/Low overrides prevent quality oscillation. Native clocks,
+pauses, hidden/offscreen activity, and reduced motion. Explicit High/Low
+overrides and the recovery rules above (a stricter bar for raising quality and a
+growing recovery wait) prevent quality oscillation. Native clocks,
 motion speed, saved frame anchors, and export rates are not rewritten.
 
 `pnpm test:shader-cadence` opens an explicit

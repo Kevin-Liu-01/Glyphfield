@@ -1,4 +1,4 @@
-# Glyphfield tool audit — September 25, 2026
+# Glyphfield tool audit of September 25, 2026
 
 Audited the 14 public tools beyond Design Lab, plus shared Studio controls,
 project workflows, documentation, and HTTP generation. The scope is behavior,
@@ -83,3 +83,22 @@ actual PDF is checked in Chromium; WebKit and Firefox check print preparation
 and reader restoration. Performance results for the earlier Design Lab work
 remain documented separately in [browser compatibility](browser-compatibility.md).
 No production deployment is implied by these local checks.
+
+## Current status
+
+Checked against the source on 2026-10-14. The findings above describe the
+September 25 build.
+
+- The regressions for this audit remain in `e2e/tool-workflows.spec.ts`: source
+  reapply and reload for each tool, Browser API commits to controlled fields, the
+  Lottie initial and sought frame exports, and Brand book print preparation.
+- Several audited tools were rebuilt on 2026-10-13. These include Brand identity
+  and its agent setup, Brand elements, Moodboard, Brand book, Animation, Lottie,
+  the five template tools, Color tokens, Typography and Component library. The
+  pass and fail counts above apply to the earlier implementations.
+- Brand book was rebuilt as an editable page system in commit `2c70bee`. It now
+  has a source adapter for section order and visibility and per-page layout,
+  surface, image and copy. The documentation describes a 54-page book, so the
+  51-page PDF count above is historical.
+- Lottie now also exports the trimmed segment as GIF and MP4, and Animation
+  exports a PNG poster frame. `GET /api/labs` lists the current export actions.
