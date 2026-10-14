@@ -1,6 +1,6 @@
 # Brand research assets
 
-Glyphfield's source code is MIT-licensed. Third-party brand marks, product media, photography, and press-kit files under `public/brands` are not relicensed by Glyphfield.
+Glyphfield's source code and original Glyphfield artwork are MIT-licensed. Brand marks, brand artwork, product media, photography, and press-kit files under `public/brands` are not relicensed by Glyphfield: each keeps its owner's terms or its own open license, as listed below.
 
 The application records the source owner, source URL, intended use, and redistribution status for every research asset. Unless an individual record says `original`, rights remain with the named owner and the owner's terms apply.
 
@@ -11,7 +11,9 @@ The application records the source owner, source URL, intended use, and redistri
 - Mintlify media comes from the [official Mintlify site](https://www.mintlify.com/).
 - Vite+ media comes from the [official Vite+ site](https://viteplus.dev/).
 - Basement and Speakeasy project media comes from the [official Basement Studio site](https://basement.studio/).
-- General Translation diagrams in `public/brands/gt/assets` are original Glyphfield interpretations informed by the [official General Translation site](https://generaltranslation.com/en-US/). Additional files under `public/brands/gt/library` are native GT product and onboarding artwork and remain subject to GT's source terms.
+- General Translation marks in `public/brands/gt/logos` and brand-system artwork in `public/brands/gt/library` (the glyph globes, the globe and mark, the glyph and horizon fields, the speed marks, the How GT works still, the signal gem smoke and the multilingual advance field) are © General Translation, Inc., included with permission for Glyphfield's General Translation identity. They are not covered by Glyphfield's MIT license and may not be reused outside that identity without General Translation's permission. The GT onboarding email panels in `public/examples/email-lifecycle/cards` are General Translation's production email artwork under the same terms.
+- The ten artifact pictures in `public/brands/gt/library` (the Rosetta Stone, the Blue Marble, the Great Wave, a marginal gloss, the telegraph cables, a Devanagari manuscript, Karahisari's calligraphy, a cuneiform tablet, Bowen's compass and the Louisbourg lighthouse) are General Translation's dithered screens of public-domain and Creative Commons originals. Each keeps its original's license: seven are public domain, and the Rosetta Stone, Devanagari manuscript and Louisbourg lighthouse screens are adaptations licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Credits and source links are in [Third-party notices](../../THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures) and on each asset record.
+- Starter artwork under `public/templates` is original Glyphfield work and is covered by the MIT license.
 
 ## Discovery and presentation rules
 

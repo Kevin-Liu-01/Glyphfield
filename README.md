@@ -201,8 +201,19 @@ recorded in [Studio library routing](./docs/library-routing.md).
 ## License
 
 Glyphfield is open-source software released under the [MIT License](./LICENSE).
-Bundled third-party marks and reference-brand assets remain the property of
-their respective owners.
+The MIT License covers Glyphfield's source code and original Glyphfield artwork,
+including the Starter identity. It does not cover the assets bundled with the
+reference identities:
+
+- Brand marks, product media and press-kit files under `public/brands` remain the
+  property of their owners. General Translation's marks and brand-system artwork are
+  © General Translation, Inc., included with permission for its identity. See
+  [Brand research assets](./public/brands/ASSET-NOTICE.md).
+- The artifact pictures in the General Translation library keep the licenses of
+  their originals: public domain, or CC BY-SA 4.0 for three of them, with credits
+  in [Third-party notices](./THIRD_PARTY_NOTICES.md#general-translation-artifact-pictures).
+- Reference-brand font files keep their foundries' terms. See
+  [`public/fonts/brands/README.md`](./public/fonts/brands/README.md).
 
 Open-source code adapted inside Glyphfield is credited in
 [Third-party notices](./THIRD_PARTY_NOTICES.md).

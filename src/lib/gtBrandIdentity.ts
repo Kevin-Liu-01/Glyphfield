@@ -10,40 +10,41 @@ type GtPicture = {
   label: string;
   /** Artifact pictures are cut from public-domain or CC originals; the rest is GT artwork. */
   license?: string;
+  original?: { owner: string; url: string };
   slot: string;
   surface: BrandAsset['surface'];
   type: BrandAsset['type'];
 };
 
-const GT_ARTWORK = 'General Translation artwork from the GT brand system, used with permission; not covered by the MIT license';
+const GT_ARTWORK = '© General Translation, Inc. Brand-system artwork included with permission for this identity; not covered by Glyphfield\'s MIT license';
 
 // Slots the templates read first, then the rest of the set. Mood pictures follow GT's artifact
 // picture standard: the brand's tone grid, screened through the 8 x 8 Bayer matrix at 1px cells.
 const GT_PICTURES: readonly GtPicture[] = [
   { alt: 'The earth drawn in characters from twenty writing systems on ink', credit: 'The glyph globe, General Translation', file: 'glyph-globe.webp', focal: [0.66, 0.5], label: 'Glyph globe', slot: 'overview', surface: 'dark', type: 'image' },
-  { alt: 'The Rosetta Stone printed in the Bayer dither on ink', credit: 'Photograph: Hans Hillewaert, CC BY-SA 4.0; screened by General Translation', file: 'rosetta-stone.png', focal: [0.6, 0.45], label: 'The Rosetta Stone', license: 'CC BY-SA 4.0', slot: 'editorial', surface: 'dark', type: 'image' },
-  { alt: 'A Latin manuscript page with a marginal gloss, dithered on paper', credit: 'Image: MS f Med. 23, Boston Public Library, public domain', file: 'marginal-gloss.png', label: 'A marginal gloss', license: 'Public domain', slot: 'detail', surface: 'light', type: 'texture' },
-  { alt: 'The Blue Marble, the western hemisphere dithered on ink', credit: 'Image: NASA, Reto Stöckli, 2007, public domain', file: 'blue-marble.png', focal: [0.2, 0.5], label: 'The Blue Marble', license: 'Public domain', slot: 'atmosphere', surface: 'dark', type: 'background' },
-  { alt: 'The Great Wave off Kanagawa dithered on paper', credit: 'Print: Katsushika Hokusai, about 1831, public domain', file: 'great-wave.png', focal: [0.4, 0.45], label: 'The Great Wave', license: 'Public domain', slot: 'campaign', surface: 'light', type: 'image' },
+  { alt: 'The Rosetta Stone printed in the Bayer dither on ink', credit: 'Photograph: Hans Hillewaert, CC BY-SA 4.0; screened by General Translation', file: 'rosetta-stone.png', original: { owner: 'Hans Hillewaert', url: 'https://commons.wikimedia.org/wiki/File:Rosetta_Stone.JPG' }, focal: [0.6, 0.45], label: 'The Rosetta Stone', license: 'CC BY-SA 4.0', slot: 'editorial', surface: 'dark', type: 'image' },
+  { alt: 'A Latin manuscript page with a marginal gloss, dithered on paper', credit: 'Image: MS f Med. 23, Boston Public Library, public domain', file: 'marginal-gloss.png', original: { owner: 'Boston Public Library', url: 'https://commons.wikimedia.org/wiki/File:Alexandreis_with_gloss_-_in_Latin_-_DPLA_-_98b56ea1ebec780d88ec0bdfa6750159_%28page_69%29.jpg' }, label: 'A marginal gloss', license: 'Public domain', slot: 'detail', surface: 'light', type: 'texture' },
+  { alt: 'The Blue Marble, the western hemisphere dithered on ink', credit: 'Image: NASA, Reto Stöckli, 2007, public domain', file: 'blue-marble.png', original: { owner: 'NASA', url: 'https://commons.wikimedia.org/wiki/File:Blue_Marble_Western_Hemisphere.jpg' }, focal: [0.2, 0.5], label: 'The Blue Marble', license: 'Public domain', slot: 'atmosphere', surface: 'dark', type: 'background' },
+  { alt: 'The Great Wave off Kanagawa dithered on paper', credit: 'Print: Katsushika Hokusai, about 1831, public domain', file: 'great-wave.png', original: { owner: 'Katsushika Hokusai', url: 'https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg' }, focal: [0.4, 0.45], label: 'The Great Wave', license: 'Public domain', slot: 'campaign', surface: 'light', type: 'image' },
   { alt: 'Code wrapped in the T component beside the page it translates', credit: 'How General Translation works, General Translation', file: 'how-gt-works.webp', focal: [0.5, 0.5], label: 'You wrap your text in <T>', slot: 'interface', surface: 'dark', type: 'product' },
   { alt: 'Glyphs from many writing systems drifting across ink', credit: 'The glyph field, General Translation', file: 'glyph-field.webp', label: 'Glyph field', slot: 'motion', surface: 'dark', type: 'motion' },
   { alt: 'The dithered globe with the doubled-line GT mark at its center', credit: 'The dithered globe, General Translation', file: 'globe-mark.webp', label: 'Globe and mark', slot: 'hero', surface: 'dark', type: 'image' },
-  { alt: 'Submarine telegraph cables of 1901 dithered on ink', credit: 'Map: Eastern Telegraph Company, 1901, public domain', file: 'telegraph-cables.png', focal: [0.6, 0.45], label: 'Telegraph cables, 1901', license: 'Public domain', slot: 'workflow', surface: 'dark', type: 'image' },
+  { alt: 'Submarine telegraph cables of 1901 dithered on ink', credit: 'Map: Eastern Telegraph Company, 1901, public domain', file: 'telegraph-cables.png', original: { owner: 'Eastern Telegraph Company', url: 'https://commons.wikimedia.org/wiki/File:1901_Eastern_Telegraph_cables.png' }, focal: [0.6, 0.45], label: 'Telegraph cables, 1901', license: 'Public domain', slot: 'workflow', surface: 'dark', type: 'image' },
   { alt: 'GENERAL over TRANSLATION in the race-type livery stack', credit: 'The livery stack speed mark, General Translation', file: 'speed-livery.webp', label: 'Livery stack', slot: 'system', surface: 'light', type: 'image' },
-  { alt: 'A Sanskrit manuscript in Devanagari dithered on ink', credit: 'Photograph: Ms Sarah Welch, CC BY-SA 4.0; screened by General Translation', file: 'devanagari-manuscript.png', label: 'Devanagari manuscript', license: 'CC BY-SA 4.0', slot: 'material', surface: 'dark', type: 'texture' },
+  { alt: 'A Sanskrit manuscript in Devanagari dithered on ink', credit: 'Photograph: Ms Sarah Welch, CC BY-SA 4.0; screened by General Translation', file: 'devanagari-manuscript.png', original: { owner: 'Ms Sarah Welch', url: 'https://commons.wikimedia.org/wiki/File:Prashna_Upanishad_sample_manuscript_page,_Sanskrit,_Devanagari_script.jpg' }, label: 'Devanagari manuscript', license: 'CC BY-SA 4.0', slot: 'material', surface: 'dark', type: 'texture' },
   { alt: 'Horizon lines crossing a sphere on ink', credit: 'The horizon field, General Translation', file: 'horizon-field.webp', focal: [0.5, 0.7], label: 'Horizon field', slot: 'signal', surface: 'dark', type: 'background' },
   { alt: 'Blue gem smoke in the signal accent', credit: 'Material: gem smoke, Paper Shaders, rendered in Glyphfield for General Translation', file: 'gem-smoke.webp', label: 'Signal gem smoke', slot: 'gem-smoke', surface: 'dark', type: 'background' },
   { alt: 'The glyph globe on paper, ink land and blue ocean', credit: 'The glyph globe, General Translation', file: 'glyph-globe-light.webp', focal: [0.66, 0.5], label: 'Glyph globe on paper', slot: 'globe-light', surface: 'light', type: 'image' },
   { alt: 'The bar monogram printed as dither cells on ink', credit: 'The bar monogram speed mark, General Translation', file: 'speed-monogram.webp', label: 'Bar monogram', slot: 'speed-monogram', surface: 'dark', type: 'image' },
-  { alt: 'An Ottoman calligraphy exercise dithered on paper', credit: 'Calligraphy: Ahmed Karahisari, 16th century, public domain', file: 'karahisari-calligraphy.png', label: "Karahisari's calligraphy", license: 'Public domain', slot: 'calligraphy', surface: 'light', type: 'texture' },
-  { alt: 'A proto-cuneiform clay tablet dithered on ink', credit: 'Photograph: The Metropolitan Museum of Art, Open Access, public domain', file: 'cuneiform-tablet.png', focal: [0.35, 0.45], label: 'Proto-cuneiform tablet', license: 'Public domain', slot: 'tablet', surface: 'dark', type: 'image' },
-  { alt: "A mariner's compass rose engraved in 1748, dithered on paper", credit: 'Engraving: Emanuel Bowen, 1748, public domain', file: 'bowen-compass.png', label: "Bowen's compass", license: 'Public domain', slot: 'compass', surface: 'light', type: 'image' },
-  { alt: 'The Louisbourg lighthouse against the sea at dusk', credit: 'Photograph: Ken Heaton, CC BY-SA 4.0; screened by General Translation', file: 'louisbourg-lighthouse.png', focal: [0.45, 0.5], label: 'Louisbourg lighthouse', license: 'CC BY-SA 4.0', slot: 'lighthouse', surface: 'dark', type: 'image' },
+  { alt: 'An Ottoman calligraphy exercise dithered on paper', credit: 'Calligraphy: Ahmed Karahisari, 16th century, public domain', file: 'karahisari-calligraphy.png', original: { owner: 'Ahmed Karahisari', url: 'https://commons.wikimedia.org/wiki/File:Ahmed_Karahisari_-_Karalama_%28calligraphy_exercise%29_-_Google_Art_Project.jpg' }, label: "Karahisari's calligraphy", license: 'Public domain', slot: 'calligraphy', surface: 'light', type: 'texture' },
+  { alt: 'A proto-cuneiform clay tablet dithered on ink', credit: 'Photograph: The Metropolitan Museum of Art, Open Access, public domain', file: 'cuneiform-tablet.png', original: { owner: 'The Metropolitan Museum of Art', url: 'https://images.metmuseum.org/CRDImages/an/original/DP293245.jpg' }, focal: [0.35, 0.45], label: 'Proto-cuneiform tablet', license: 'Public domain', slot: 'tablet', surface: 'dark', type: 'image' },
+  { alt: "A mariner's compass rose engraved in 1748, dithered on paper", credit: 'Engraving: Emanuel Bowen, 1748, public domain', file: 'bowen-compass.png', original: { owner: 'Emanuel Bowen', url: 'https://commons.wikimedia.org/wiki/File:1748_Bowen_Mariner%27s_Compass_and_Armillary_Sphere_-_Geographicus_-_CircleofWinds-bowen-1747.jpg' }, label: "Bowen's compass", license: 'Public domain', slot: 'compass', surface: 'light', type: 'image' },
+  { alt: 'The Louisbourg lighthouse against the sea at dusk', credit: 'Photograph: Ken Heaton, CC BY-SA 4.0; screened by General Translation', file: 'louisbourg-lighthouse.png', original: { owner: 'Ken Heaton', url: 'https://commons.wikimedia.org/wiki/File:Louisbourg_Lighthouse,_waves_breaking_in_a_fall_storm_1.jpg' }, focal: [0.45, 0.5], label: 'Louisbourg lighthouse', license: 'CC BY-SA 4.0', slot: 'lighthouse', surface: 'dark', type: 'image' },
 ];
 
 function gtLibraryAssets(): BrandAsset[] {
-  return GT_PICTURES.map(({ alt, credit, file, focal, label, license, slot, surface, type }) => {
-    const artifact = Boolean(license);
+  return GT_PICTURES.map(({ alt, credit, file, focal, label, license, original, slot, surface, type }) => {
+    const artifact = Boolean(original);
     return {
       alt,
       attribution: credit,
@@ -53,8 +54,8 @@ function gtLibraryAssets(): BrandAsset[] {
       license: license ?? GT_ARTWORK,
       path: `/brands/gt/library/${file}`,
       redistribution: artifact ? 'bundled' : 'original',
-      sourceOwner: artifact ? 'Original holder (see attribution)' : 'General Translation',
-      sourceUrl: 'https://generaltranslation.com',
+      sourceOwner: original?.owner ?? 'General Translation',
+      sourceUrl: original?.url ?? 'https://generaltranslation.com',
       surface,
       tags: [
         type,
@@ -125,8 +126,8 @@ export const GT_BRAND_IDENTITY: BrandIdentity = {
     { ...asset('identity-field', 'Glyph globe on ink', '/brands/gt/library/glyph-globe.webp', 'dark', 'background', 'The identity\'s cover field: the glyph globe on ink.'), attribution: 'The glyph globe, General Translation', focalPoint: { x: 0.66, y: 0.5 }, license: GT_ARTWORK, tags: ['background', 'brand-diagram', 'cover'] },
     {
       ...asset('library-advance', 'GT multilingual advance field', '/brands/gt/library/advance.png', 'dark', 'image', 'High-contrast multilingual glyph field for visual-system, editorial, launch, and motion compositions.'),
-      attribution: 'User-supplied GT artwork.',
-      license: 'Project-provided original asset',
+      attribution: 'The multilingual advance field, General Translation',
+      license: GT_ARTWORK,
       redistribution: 'original',
       sourceOwner: 'General Translation',
       tags: ['image', 'brand-diagram', 'original-system', 'people-free'],

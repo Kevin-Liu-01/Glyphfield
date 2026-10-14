@@ -197,3 +197,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## General Translation brand assets
+
+The General Translation identity bundles GT's marks and brand-system artwork in
+`public/brands/gt` and GT's onboarding email panels in
+`public/examples/email-lifecycle/cards`. They are © General Translation, Inc.,
+included with permission for that identity, and are not covered by Glyphfield's
+MIT license. See [`public/brands/ASSET-NOTICE.md`](./public/brands/ASSET-NOTICE.md).
+
+## General Translation artifact pictures
+
+These files in `public/brands/gt/library` are General Translation's screens of the
+originals below: each picture is reduced to a tone grid and printed through an
+8 × 8 Bayer matrix. A screen of a public-domain original stays public domain. A
+screen of a CC BY-SA 4.0 original is an adaptation released under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with the credit below.
+
+| File | Original | Credit | License |
+| --- | --- | --- | --- |
+| `blue-marble.png` | [Blue Marble, Western Hemisphere](https://commons.wikimedia.org/wiki/File:Blue_Marble_Western_Hemisphere.jpg) | NASA, Reto Stöckli, 2007 | Public domain |
+| `rosetta-stone.png` | [The Rosetta Stone](https://commons.wikimedia.org/wiki/File:Rosetta_Stone.JPG) | Photograph: Hans Hillewaert | CC BY-SA 4.0 |
+| `marginal-gloss.png` | [Alexandreis with gloss, page 69](https://commons.wikimedia.org/wiki/File:Alexandreis_with_gloss_-_in_Latin_-_DPLA_-_98b56ea1ebec780d88ec0bdfa6750159_%28page_69%29.jpg) | MS f Med. 23, Boston Public Library | Public domain |
+| `great-wave.png` | [The Great Wave off Kanagawa](https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg) | Katsushika Hokusai, about 1831 | Public domain |
+| `telegraph-cables.png` | [Eastern Telegraph cables, 1901](https://commons.wikimedia.org/wiki/File:1901_Eastern_Telegraph_cables.png) | Eastern Telegraph Company, 1901 | Public domain |
+| `devanagari-manuscript.png` | [Prashna Upanishad manuscript page](https://commons.wikimedia.org/wiki/File:Prashna_Upanishad_sample_manuscript_page,_Sanskrit,_Devanagari_script.jpg) | Photograph: Ms Sarah Welch | CC BY-SA 4.0 |
+| `karahisari-calligraphy.png` | [Karalama (calligraphy exercise)](https://commons.wikimedia.org/wiki/File:Ahmed_Karahisari_-_Karalama_%28calligraphy_exercise%29_-_Google_Art_Project.jpg) | Ahmed Karahisari, 16th century | Public domain |
+| `cuneiform-tablet.png` | [Proto-cuneiform tablet, image DP293245](https://images.metmuseum.org/CRDImages/an/original/DP293245.jpg) | The Metropolitan Museum of Art, Open Access | Public domain |
+| `bowen-compass.png` | [Mariner's Compass and Armillary Sphere](https://commons.wikimedia.org/wiki/File:1748_Bowen_Mariner%27s_Compass_and_Armillary_Sphere_-_Geographicus_-_CircleofWinds-bowen-1747.jpg) | Emanuel Bowen, 1748 | Public domain |
+| `louisbourg-lighthouse.png` | [Louisbourg Lighthouse, waves breaking in a fall storm](https://commons.wikimedia.org/wiki/File:Louisbourg_Lighthouse,_waves_breaking_in_a_fall_storm_1.jpg) | Photograph: Ken Heaton | CC BY-SA 4.0 |
+
+Show the credit with a picture wherever you publish it, and release adaptations of
+the three CC BY-SA 4.0 screens under the same license.
