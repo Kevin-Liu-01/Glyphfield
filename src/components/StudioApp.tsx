@@ -75,6 +75,7 @@ import {
   type BrandIdentity,
 } from '@/lib/brandIdentity';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
+import { registerBrandProjectHost } from '@/lib/brandProjectHost';
 import {
   filterStudioTools,
   getProjectTabDensity,
@@ -999,6 +1000,20 @@ export default function StudioApp() {
   );
   const activeIdentity =
     resolvedIdentities.find(({ id }) => id === activeIdentityId) ?? resolvedIdentities[0];
+  const resolvedIdentitiesRef = useCommittedRef(resolvedIdentities);
+  const selectToolRef = useCommittedRef(selectTool);
+  // identity.project.create adds and opens projects the same way the Add brand project menu does.
+  useMountEffect(() => registerBrandProjectHost({
+    activate: (identity) => {
+      activateCreatedIdentityRef.current(identity);
+      selectToolRef.current('identity');
+    },
+    duplicate: async (identity, existingNames) => {
+      const { duplicateStudioProject } = await import('@/lib/studioProjectDuplication');
+      return duplicateStudioProject(identity, existingNames);
+    },
+    identities: () => resolvedIdentitiesRef.current,
+  }));
   const activeIdentityHasPendingChanges = Boolean(
     activeIdentity && pendingIdentities[activeIdentity.id]
   );

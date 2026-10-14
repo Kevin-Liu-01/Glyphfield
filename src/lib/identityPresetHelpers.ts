@@ -1,7 +1,8 @@
 import type { BrandApplication, BrandAsset } from './brandIdentity';
 
 // 23: regenerated built-ins (pairings, proportions, type scales, voice examples, font licenses).
-export const REVISION = 23;
+// 24: product one-liners, customers apart from proof, samples, sharper strategy and voice, focal points.
+export const REVISION = 24;
 
 export function asset(
   id: string,
@@ -22,6 +23,28 @@ export function asset(
     type,
     usage,
   };
+}
+
+/**
+ * Where the subject of each library image sits, as fractions of its width and
+ * height. Layouts that crop an image to fill a frame keep this point in view.
+ * Images without an entry are centred.
+ */
+const LIBRARY_FOCAL_POINTS: Readonly<Record<string, Readonly<Record<string, readonly [number, number]>>>> = {
+  basement: { atmosphere: [0.62, 0.42], campaign: [0.42, 0.5], detail: [0.52, 0.5], editorial: [0.5, 0.45], motion: [0.38, 0.45], signal: [0.45, 0.55], system: [0.6, 0.55] },
+  cloudflare: { atmosphere: [0.62, 0.5], detail: [0.5, 0.82], motion: [0.62, 0.5], signal: [0.55, 0.5] },
+  gt: { atmosphere: [0.5, 0.5], detail: [0.5, 0.4] },
+  mintlify: { atmosphere: [0.5, 0.3], editorial: [0.35, 0.5], motion: [0.3, 0.4] },
+  ramp: { atmosphere: [0.76, 0.45], campaign: [0.45, 0.5], editorial: [0.5, 0.48], motion: [0.55, 0.5] },
+  starter: { atmosphere: [0.68, 0.42], detail: [0.2, 0.2], hero: [0.47, 0.4], overview: [0.5, 0.5], signal: [0.5, 0.5] },
+  stripe: { atmosphere: [0.7, 0.5], campaign: [0.35, 0.4], detail: [0.6, 0.65], editorial: [0.6, 0.6], motion: [0.4, 0.6] },
+  tailwind: {},
+  viteplus: { atmosphere: [0.25, 0.4], overview: [0.5, 0.2] },
+};
+
+export function libraryFocalPoint(brandId: string, slot: string): { x: number; y: number } {
+  const [x, y] = LIBRARY_FOCAL_POINTS[brandId]?.[slot] ?? [0.5, 0.5];
+  return { x, y };
 }
 
 export function originalLibraryAssets(
@@ -45,13 +68,13 @@ export function originalLibraryAssets(
         '/brands/gt/library/signal.svg',
       ]
     : [
-        `${basePath}/library/overview.png`,
-        `${basePath}/library/editorial.png`,
-        `${basePath}/library/detail.png`,
-        `${basePath}/library/atmosphere.png`,
-        `${basePath}/library/campaign.png`,
-        `${basePath}/library/interface.png`,
-        `${basePath}/library/motion.png`,
+        `${basePath}/library/overview.svg`,
+        `${basePath}/library/editorial.svg`,
+        `${basePath}/library/detail.svg`,
+        `${basePath}/library/atmosphere.svg`,
+        `${basePath}/library/campaign.svg`,
+        `${basePath}/library/interface.svg`,
+        `${basePath}/library/motion.svg`,
         `${basePath}/library/hero.svg`,
         `${basePath}/library/workflow.svg`,
         `${basePath}/library/system.svg`,
@@ -60,7 +83,7 @@ export function originalLibraryAssets(
       ];
   const labels = brandId === 'gt'
     ? ['Monochrome identity field', 'Parallel scripts', 'Matte edge detail', 'Black field', 'Soft light study', 'Locale register', 'Language motion study', 'Gradient light field', 'Source alignment', 'Matte surface study', 'Grayscale range', 'Dithered light field']
-    : ['Visual overview', 'Editorial crop', 'Product detail', 'Atmosphere strip', 'Campaign field', 'Interface evidence', 'Motion frame', 'Research hero', 'Evidence workflow', 'Identity system', 'Material field', 'Focus signal'];
+    : ['Research wall', 'Field note', 'Window corner', 'Deep field', 'One focus per view', 'Workspace in focus', 'Window in five frames', 'Research board', 'Evidence to next step', 'Identity system', 'Working grid', 'Signal on night'];
   const types: BrandAsset['type'][] = ['image', 'image', 'texture', 'background', 'image', 'product', 'motion', 'image', 'image', 'image', 'texture', 'background'];
   const slots = ['overview', 'editorial', 'detail', 'atmosphere', 'campaign', 'interface', 'motion', 'hero', 'workflow', 'system', 'material', 'signal'];
 
@@ -79,7 +102,7 @@ export function originalLibraryAssets(
       label: brandId === 'gt' ? labels[index] : `${sourceOwner} ${labels[index]}`,
       license: isNativeGtAsset ? 'General Translation source terms apply' : 'Glyphfield original',
       path,
-      focalPoint: types[index] === 'product' ? { x: 0.5, y: 0.5 } : undefined,
+      focalPoint: libraryFocalPoint(brandId, slots[index]!),
       redistribution: isNativeGtAsset ? 'research-only' : 'original',
       sourceOwner: isNativeGtAsset ? 'General Translation' : 'Glyphfield',
       sourceUrl: brandId === 'gt' ? 'https://generaltranslation.com/en-US/' : 'https://glyphfield.app',
@@ -96,7 +119,7 @@ export function originalLibraryAssets(
         ? isNativeGtAsset
           ? 'Native multilingual or onboarding artwork for GT identity studies and motion direction.'
           : 'Original monochrome light, dither, and matte-surface study for expressing language without literal workflow diagrams.'
-        : 'Original evidence for Starter previews, moodboards, and identity applications.',
+        : 'Original Starter artwork built from the signal window: research boards, decisions and the window in use.',
     };
   });
 

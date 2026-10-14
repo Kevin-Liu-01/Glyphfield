@@ -66,6 +66,7 @@ import {
 } from '@/lib/expressionOperations';
 import { parseExpressionSource, setCodeTab, uploadedFontFamily, withExpressionMirrors } from '@/lib/expressionSource';
 import { defaultFontFamily, type ExpressionRenderContext } from '@/lib/expressionSvg';
+import { assetArtworkLookup } from '@/lib/expressionType';
 import {
   applyExpressionLayout,
   createExpressionDocument,
@@ -200,7 +201,9 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
   const assetAspect = useCallback((assetId: string | undefined) => (assetId ? aspects.get(assetId) ?? null : null), [aspects]);
   const pageCount = document.pageIds.length;
   const pageIndex = document.pageIds.indexOf(activePageId);
+  const assetArtwork = useMemo(() => assetArtworkLookup(assets), [assets]);
   const canvasContext = useMemo<ExpressionRenderContext>(() => ({
+    assetArtwork,
     assetAspect,
     assetSource: (assetId) => (assetId ? assets[assetId]?.source ?? null : null),
     colors,
@@ -212,7 +215,7 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
     pageIndex,
     products: identity.products,
     proof: identity.proof,
-  }), [assetAspect, assets, colors, idPrefix, identity.greetings, identity.products, identity.proof, measure, pageCount, pageIndex]);
+  }), [assetArtwork, assetAspect, assets, colors, idPrefix, identity.greetings, identity.products, identity.proof, measure, pageCount, pageIndex]);
   const deferredDocument = useDeferredValue(document);
   const thumbnailContexts = useMemo(() => new Map<string, ExpressionRenderContext>(), [canvasContext, deferredDocument.pageIds]);
   const thumbnailContext = useCallback((pageId: string) => {

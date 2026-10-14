@@ -116,7 +116,7 @@ function StudioToolWorkspace({
     'brand-book': <BrandBook identity={identity} tool={tool} />,
     'brand-elements': <BrandElementsStudio identity={identity} tool={tool} />,
     buttons: <ComponentLibraryTool identity={identity} tool={tool} />,
-    colors: <ColorTool identity={identity} tool={tool} />,
+    colors: <ColorTool identity={identity} onIdentityChange={onIdentityChange} tool={tool} />,
     'design-board': <DesignBoard identity={identity} tool={tool} />,
     identity: <BrandSettingsStudio hasPendingChanges={hasPendingIdentityChanges} identity={identity} onChange={onIdentityChange} onSave={onIdentitySave} tool={tool} />,
     material: <MaterialTool active={active} identity={identity} onIdentitySave={onIdentitySave} tool={tool} />,

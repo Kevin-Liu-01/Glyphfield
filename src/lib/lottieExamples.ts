@@ -356,9 +356,8 @@ function particle(index: number, name: string, points: readonly Vertex[], offset
   return shapeLayer({ index, name, position, opacity, shapes: [ellipseGroup(name, [size, size], 2)] });
 }
 
-function editorialLabel(title: string, category: string, number: string, caption: string) {
+function editorialLabel(title: string, number: string, caption: string) {
   return [
-    textLayer(90, 'Scene eyebrow', category.toUpperCase(), [176, 66, 0], 12, 1, 500, loopOpacity(), 100),
     textLayer(91, 'Scene title', title, [76, 138, 0], 44, 0, 400, loopOpacity(), -25),
     textLayer(92, 'Scene number', number, [884, 66, 0], 12, 1, 500, loopOpacity(), 40, 1),
     textLayer(93, 'Scene caption', caption, [76, 652, 0], 15, 1, 400),
@@ -367,7 +366,7 @@ function editorialLabel(title: string, category: string, number: string, caption
 }
 
 function signalRelayDocument(): LottieDocument {
-  const layers: unknown[] = [...editorialLabel('A thought becomes a system.', 'Signal / Relay', '01', 'One intention. Many possibilities.')];
+  const layers: unknown[] = [...editorialLabel('A thought becomes a system.', '01', 'One intention. Many possibilities.')];
   const paths = Array.from({ length: 9 }, (_, i) => [[200, 384], [470, 384], [480, 232 + i * 38], [796, 232 + i * 38]] as Vertex[]);
   layers.push(shapeLayer({ index: 1, name: 'Signal fan', position: [480, 384, 0], shapes: paths.map((points, i) => curveGroup(`Signal filament ${i}`, points.map(([x, y]) => [x - 480, y - 384]), i === 4 ? 2 : 0, i === 4 ? 100 : 58, i === 4 ? 2 : 1)) }));
   layers.push(shapeLayer({ index: 2, name: 'Origin disc', position: [200, 384, 0], scale: breathe([[100, 100, 100], [108, 108, 100], [100, 100, 100]]), shapes: [ellipseGroup('Origin ring', [96, 96], 0, [0, 0], 100, true), ellipseGroup('Origin core', [28, 28], 2)] }));
@@ -380,7 +379,7 @@ function signalRelayDocument(): LottieDocument {
 function decisionRouterDocument(): LottieDocument {
   const upper: Vertex[] = [[176, 388], [492, 388], [492, 240], [790, 240]];
   const lower: Vertex[] = [[176, 388], [492, 388], [492, 528], [790, 528]];
-  const layers: unknown[] = [...editorialLabel('Choose with intention.', 'Logic / Routing', '02', 'Two possibilities. A considered direction.')];
+  const layers: unknown[] = [...editorialLabel('Choose with intention.', '02', 'Two possibilities. A considered direction.')];
   layers.push(shapeLayer({ index: 1, name: 'Possibility field', position: [480, 388, 0], shapes: Array.from({ length: 11 }, (_, i) => {
     const offset = (i - 5) * 9;
     const points = upper.map(([x, y], n) => [x - 480, y - 388 + (n > 1 ? offset : offset * 0.25)] as Vertex);
@@ -399,7 +398,7 @@ function decisionRouterDocument(): LottieDocument {
 }
 
 function sourceMergeDocument(): LottieDocument {
-  const layers: unknown[] = [...editorialLabel('Clarity from complexity.', 'Synthesis / Merge', '03', 'Different perspectives. A shared understanding.')];
+  const layers: unknown[] = [...editorialLabel('Clarity from complexity.', '03', 'Different perspectives. A shared understanding.')];
   const paths = Array.from({ length: 15 }, (_, i) => [[120, 206 + i * 24], [400, 206 + i * 24], [440, 386], [770, 386]] as Vertex[]);
   layers.push(shapeLayer({ index: 1, name: 'Converging perspectives', position: [480, 386, 0], shapes: paths.map((points, i) => curveGroup(`Perspective ${i}`, points.map(([x, y]) => [x - 480, y - 386]), i === 7 ? 2 : 0, i === 7 ? 100 : 56)) }));
   for (let i = 0; i < 5; i++) layers.push(particle(10 + i, `Converging signal ${i}`, paths[i * 3 + 1], i / 5, 7));
@@ -410,7 +409,7 @@ function sourceMergeDocument(): LottieDocument {
 }
 
 function layerAssemblyDocument(): LottieDocument {
-  const layers: unknown[] = [...editorialLabel('Better, together.', 'Structure / Assembly', '04', 'Independent layers. One coherent whole.')];
+  const layers: unknown[] = [...editorialLabel('Better, together.', '04', 'Independent layers. One coherent whole.')];
   const plane: Vertex[] = [[0, -102], [226, 0], [0, 102], [-226, 0]];
   for (let i = 0; i < 3; i++) {
     const y = 292 + i * 98;
@@ -431,7 +430,7 @@ function layerAssemblyDocument(): LottieDocument {
 }
 
 function qualityScanDocument(): LottieDocument {
-  const layers: unknown[] = [...editorialLabel('Precision is a practice.', 'Quality / Resolve', '05', 'Every detail, brought into focus.')];
+  const layers: unknown[] = [...editorialLabel('Precision is a practice.', '05', 'Every detail, brought into focus.')];
   const center: Point = [480, 386, 0];
   for (let column = 0; column < 13; column++) {
     const x = (column - 6) * 32;
@@ -456,7 +455,7 @@ function qualityScanDocument(): LottieDocument {
 
 function networkOrbitDocument(): LottieDocument {
   const center: Point = [480, 384, 0];
-  const layers: unknown[] = [...editorialLabel('Connected by possibility.', 'Network / Orbit', '06', 'An open system, in continuous conversation.')];
+  const layers: unknown[] = [...editorialLabel('Connected by possibility.', '06', 'An open system, in continuous conversation.')];
   const grid = [ellipseGroup('World contour', [364, 364], 0, [0, 0], 90, true)];
   for (const width of [96, 208, 308]) grid.push(ellipseGroup(`Meridian ${width}`, [width, 364], 0, [0, 0], 36, true));
   for (const y of [-120, -64, 0, 64, 120]) {
@@ -477,7 +476,7 @@ function networkOrbitDocument(): LottieDocument {
 }
 
 function endpointDeliveryDocument(): LottieDocument {
-  const layers: unknown[] = [...editorialLabel('Made to move everywhere.', 'Delivery / Adapt', '07', 'The same idea. A different expression.')];
+  const layers: unknown[] = [...editorialLabel('Made to move everywhere.', '07', 'The same idea. A different expression.')];
   const paths = [230, 386, 542].map((y, i) => [[288, 386], [510, 386], [480, y], [[676, 725, 700][i], y]] as Vertex[]);
   layers.push(shapeLayer({ index: 1, name: 'Distribution paths', position: [480, 386, 0], shapes: paths.map((points, i) => curveGroup(`Distribution ${i}`, points.map(([x, y]) => [x - 480, y - 386]), i === 1 ? 2 : 0, 70)) }));
   layers.push(shapeLayer({ index: 2, name: 'Original idea', position: [220, 386, 0], rotation: breathe([[0], [90], [0]]), shapes: [pathGroup('Origin diamond', [[0, -68], [68, 0], [0, 68], [-68, 0]], 0, 100, 1, true, 3), ellipseGroup('Origin seed', [20, 20], 2)] }));

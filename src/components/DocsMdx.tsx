@@ -158,9 +158,8 @@ function DocsFeatureGrid({ children }: { children: ReactNode }) {
 function DocsFeature({ children, icon, label, title }: { children: ReactNode; icon: DocsCardIconName; label: string; title: string }) {
   return (
     <article className='docs-feature'>
-      <span className='docs-feature-kicker'>
+      <span aria-label={label} className='docs-feature-kicker' role='img'>
         <DocsCardIcon name={icon} />
-        <span>{label}</span>
       </span>
       <strong>{title}</strong>
       <p>{children}</p>

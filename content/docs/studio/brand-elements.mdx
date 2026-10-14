@@ -4,7 +4,9 @@ description: Apply one identity to a searchable catalog of digital, product, dev
 icon: LayoutGrid
 ---
 
-Brand elements turns the active identity into a broad application catalog. Each element renders at its real pixel size (for example 640 px emails, 1200 × 630 OpenGraph, 1600 × 900 posts) with the identity's fonts, colours, corner radius, logo files, and graphic device, then scales to fit the canvas. Select an element, edit its copy in place or in the inspector, adjust composition, and download a machine-readable production brief.
+Brand elements turns the active identity into a broad application catalog. Each element renders at its real pixel size (for example 640 px emails, 1200 × 630 OpenGraph, 1600 × 900 posts) with the identity's fonts, colours, corner radius, logo files, and graphic device, then scales to fit the canvas. Select an element, edit its copy in place or in the inspector, adjust composition, and export the finished artifact: PNG at real pixel size, send-ready HTML for emails, or a machine-readable brief.
+
+Every template is filled from the identity itself: its products and their one-line summaries, proof statements, customers, published plans, code sample and install command, and a sample person and event (see [identity fields](/docs/agents/brand-setup)). Templates never fall back to Glyphfield's own product or to the identity's internal description.
 
 <DocsMedia
   alt='General Translation Brand elements workspace with application categories and a rendered artifact'
@@ -69,9 +71,17 @@ Applying source selects `elementId` (when present) and stores only the values th
 
 Resetting the drawer restores the current settings. Using the element’s normal **Reset** action removes the override entirely and returns the application to its identity-derived state.
 
+## Export
+
+- **Export PNG** renders the selected element, with every in-place edit, at its real pixel size: 1200 × 630 for OpenGraph, 640 px wide for emails, 1600 × 900 for posts. **File → Export PNG at 2×** doubles it for retina screens.
+- **File → Export HTML email** (email elements) downloads a send-ready document: a 600 px table layout with every style inlined, an Outlook wrapper, a hidden preheader, a bulletproof button and absolute image URLs. Generated header art is embedded as a PNG data URL; host it on your CDN and replace the `src` before sending through Gmail, which blocks data URLs.
+- **File → Download element brief** exports the JSON brief below.
+
+Agents call the same exports with `brand-element.export.png` (`{ elementId?, scale?: 1 | 2, download? }`) and `brand-element.export.html` (`{ elementId?, assetOrigin?, download? }`). Both select `elementId` first when it is given and return a Blob artifact to verify before saving. See [Studio Browser API](/docs/reference/browser-api).
+
 ## Element brief
 
-**Element brief** downloads JSON containing:
+The element brief is JSON containing:
 
 - The catalog record and stable `element.id`
 - Category, dimensions, output format, symbol, and keywords

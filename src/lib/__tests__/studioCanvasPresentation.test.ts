@@ -17,13 +17,10 @@ describe('Studio artifact canvas presentation', () => {
     for (const tool of tools) expect(tool).toContain('<ExpressionEditor ');
     const editor = read('src/components/expressions/ExpressionEditor.tsx');
     const canvas = read('src/components/expressions/ExpressionCanvas.tsx');
-    const templatePreview = read('src/components/TemplateCanvasPreview.tsx');
 
     expect(editor.match(/stageClassName=\{STUDIO_ARTIFACT_STAGE_CLASS\}/g)).toHaveLength(1);
     expect(canvas).toContain('frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}');
     expect(canvas).toContain('className={`${STUDIO_ARTIFACT_PLANE_CLASS}');
-    expect(templatePreview).toContain('frameClassName={STUDIO_ARTIFACT_FRAME_CLASS}');
-    expect(templatePreview).toContain('className={`${STUDIO_ARTIFACT_PLANE_CLASS}');
 
     expect(STUDIO_ARTIFACT_STAGE_CLASS).toContain('p-5 md:p-8 xl:p-12');
     expect(STUDIO_ARTIFACT_FRAME_CLASS).toContain('max-w-5xl');

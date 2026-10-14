@@ -9,7 +9,7 @@ icon: TableProperties
 | Capability | Authentic browser result | Editable source | Programmatic route |
 | --- | --- | --- | --- |
 | Brand identity | Shared marks, assets, colors, typography, strategy, voice, defaults; agent setup, health audit, brand kit | Complete `BrandIdentity` (JSON Schema at `/api/brand/validate`) | `/api/identities`; `/api/brand/validate`; `/api/brand/kit`; identity object in generation requests; Browser API `identity.*` actions |
-| Brand elements | Application previews at real pixel size, in-place copy editing, and JSON brief | Selected application settings with `elementId` | `/api/elements`, `element-brief`, Browser API |
+| Brand elements | Application previews at real pixel size, in-place copy editing, PNG at real size or 2×, send-ready HTML email, and JSON brief | Selected application settings with `elementId` | `/api/elements`, `element-brief`, Browser API |
 | Moodboard | Showcase, campaign, system, specimen, and catalog boards with editable tiles; PNG and SVG | Boards, tiles, and export state | Browser API |
 | Brand book | Editable editorial standards document; print/PDF workflow | Section order and visibility, page layout, surface, image, and copy | `brand-book.print`, Browser API source |
 | Animation | Text/logo/image sequences, live materials, audio; GIF/MP4 | Frames, timing, material, output, audio clips | Browser API |
@@ -18,13 +18,13 @@ icon: TableProperties
 | Design Lab | Layered composition; PNG/JPG/GIF/MP4 and shader-sequence GIF/MP4 | CanvasDocument v2 + Design Lab source v4 | `design-sequence`, Browser API |
 | Deterministic backgrounds | Gradient, grain, dither, pattern, tactile surface SVG | Versioned request/response | `background` generation |
 | OpenGraph | Social images in seven formats; PNG/SVG | Expression document | `template: opengraph`, Browser API |
-| Color tokens | HEX/OKLCH inspection and copied CSS variables | Identity-bound colors | Browser API; identity fields over HTTP |
-| Typography | Role specimens and local font preview | Identity type roles | Browser API |
+| Color tokens | OKLCH scales, semantic light/dark roles, contrast matrix (WCAG and APCA) and pairings, vision simulation, proportions; OKLCH CSS, CSS, Tailwind and DTCG tokens | Identity palette, `colorPairings`, `colorSystem` | Browser API; identity fields over HTTP |
+| Typography | Role specimens, modular scale, variable axes, pairing, wrapping, licences, guidance; CSS, Tailwind and DTCG type tokens | Identity type roles and `typeScale` | Browser API; identity fields over HTTP |
 | Terminal card | Multi-tab code window with highlighted lines; PNG/SVG | Expression document | `template: terminal`, Browser API |
 | Partnership | Lockup of two or more partners; PNG/SVG | Expression document | `template: partnership`, Browser API |
 | Blog cover | Editorial cover; PNG/SVG | Expression document | `template: blog`, Browser API |
 | Slides | Multi-slide deck, 14 layouts; PNG/SVG/PDF | Expression document, one page per slide | `template: slides`, Browser API |
-| Components | Identity-aware interactive variants | Component configuration | Browser API; element briefs for production intent |
+| Components | 36 components in every state, light and dark; React + Tailwind and HTML + CSS code | Component configuration | Browser API; element briefs for production intent |
 
 <DocsMediaGrid>
   <DocsMedia alt='Glyphfield Design Lab with shader library, canvas, inspector, and layer dock' caption='Design Lab' meta='Source v4 · PNG/JPG/GIF/MP4' src='/screenshots/studio-gt-design-lab-dark-2026.png' />

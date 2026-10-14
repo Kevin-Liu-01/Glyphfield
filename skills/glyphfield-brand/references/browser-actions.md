@@ -15,10 +15,21 @@ All actions run in the open Brand identity tool: `const studio = window.glyphfie
 | `identity.export.kit` | `{ format?: 'zip' \| 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' \| 'logos', download? }` | `{ blob, fileName, format, previewText? }` |
 | `identity.setup.prompt` | `{ mode?: 'new' \| 'improve' }` | `{ mode, prompt }` |
 | `identity.export.json` | none | The identity as a JSON Blob artifact |
+| `identity.project.create` | `{ from?: 'starter' \| 'scratch' \| projectId, name? }` | `{ id, name, kind, from, url }`; opens the new project, so read `window.glyphfield.studio` again |
+
+Brand elements (open `/studio?tool=brand-elements&project=<id>`):
+
+| Action | Input | Output |
+| --- | --- | --- |
+| `brand-element.export.png` | `{ elementId?, scale?: 1 \| 2, download? }` | PNG Blob at the element's real pixel size (or 2×) |
+| `brand-element.export.html` | `{ elementId?, assetOrigin?, download? }` | Send-ready HTML email: table layout, inlined styles, absolute image URLs |
+| `brand-element.export.brief` | none | JSON brief of the selected element |
 
 ## Example
 
 ```js
+// No project yet: create one from the Starter template, then re-read the API.
+await window.glyphfield.studio.invoke('identity.project.create', { from: 'starter', name: 'Acme' });
 const studio = window.glyphfield.studio;
 const patch = { tagline: 'Fast, careful tools for small teams.', voice: { examples: [
   { context: 'Error message', write: 'That did not save. Try again.', avoid: 'Oops! Something went wrong.' },

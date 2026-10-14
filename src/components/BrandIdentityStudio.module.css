@@ -29,15 +29,6 @@
   }
 }
 
-.eyebrow {
-  color: hsl(var(--muted-foreground));
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  line-height: 16px;
-  text-transform: uppercase;
-}
-
 /* Navigation ---------------------------------------------------------------- */
 
 .navGroup {
@@ -72,13 +63,6 @@
   position: relative;
   width: 40px;
   height: 40px;
-}
-
-.sectionMasthead span {
-  color: hsl(var(--muted-foreground));
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .sectionMasthead h1 {
@@ -316,20 +300,7 @@
   grid-column: 1 / span 8;
   display: flex;
   align-items: center;
-  gap: 16px;
   min-width: 0;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  line-height: 16px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.coverMetaItem + .coverMetaItem::before {
-  margin-right: 16px;
-  content: '/';
-  opacity: 0.4;
 }
 
 .coverMark {
@@ -373,6 +344,14 @@
   font-size: 13px;
   line-height: 20px;
   opacity: 0.78;
+}
+
+/* What kind of project this is and its domain close the cover instead of heading it. */
+.coverFootnote {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  opacity: 0.6;
 }
 
 /* The device bleeds to the cover's top, right and bottom edges. */
@@ -516,7 +495,7 @@
 .score strong {
   font-size: 61px;
   font-weight: 400;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.025em;
   line-height: 0.9;
 }
 

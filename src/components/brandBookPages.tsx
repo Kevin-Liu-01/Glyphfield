@@ -35,6 +35,7 @@ import {
 } from '@/lib/brandOutputKit';
 import { formatOklch, mixHexColors } from '@/lib/color';
 
+import { brandCustomers, brandProducts, brandProofStatements } from '@/lib/brandContent';
 import styles from './BrandBook.module.css';
 
 export type BookPageContext = {
@@ -173,7 +174,6 @@ function ContentsPage({ context }: { context: BookPageContext }) {
 function ForewordPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='foreword'>
-      <Label>{context.page.title}</Label>
       <Text context={context} options={{ as: 'blockquote', className: styles.d1 }} slot='statement' />
       <Text context={context} options={{ className: styles.lead }} slot='body' />
     </div>
@@ -189,11 +189,26 @@ function OpenerPage({ context }: { context: BookPageContext }) {
     <div className={styles.opener}>
       {art}
       <div className={styles.openerText}>
-        <span className={styles.openerNumeral}>{context.sectionNumber}</span>
         <Text context={context} options={{ as: 'h1', className: styles.d2, multiline: false }} slot='title' />
         <Text context={context} options={{ className: styles.lead }} slot='summary' />
       </div>
+      <span aria-hidden='true' className={styles.openerNumeral}>{context.sectionNumber}</span>
+      {context.page.variant === 'numeral' ? <OpenerContents context={context} /> : null}
     </div>
+  );
+}
+
+/** The pages in this section with their folios: the opener reads as a chapter index. */
+function OpenerContents({ context }: { context: BookPageContext }) {
+  const section = context.sections.find(({ id }) => id === context.page.group);
+  const pages = section?.pages.filter((page) => page.kind !== 'opener' && !page.hidden) ?? [];
+  if (!pages.length) return null;
+  return (
+    <ol className={styles.openerContents}>
+      {pages.map((page) => (
+        <li key={page.id}><span className={styles.label}>{String(context.folios.get(page.id) ?? '').padStart(2, '0')}</span><span>{page.title}</span></li>
+      ))}
+    </ol>
   );
 }
 
@@ -204,23 +219,29 @@ function OpenerPage({ context }: { context: BookPageContext }) {
 function PremisePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='premise'>
-      <Label>Brand idea</Label>
       <Text context={context} options={{ as: 'h1', className: styles.d2 }} slot='statement' />
       <div className={styles.aside}>
-        <Label>Positioning</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='aside' />
+        <Label>Positioning</Label>
       </div>
     </div>
   );
 }
 
+/** The promise leads as the page's one dominant line; challenge and outcome sit beneath it. */
 function ChallengePage({ context }: { context: BookPageContext }) {
-  const steps = [['challenge', 'Challenge'], ['promise', 'Promise'], ['outcome', 'Outcome']] as const;
+  const lead = context.page.variant === 'flow';
+  const steps = ([['challenge', 'Challenge'], ['promise', 'Promise'], ['outcome', 'Outcome']] as const).filter(([slot]) => !lead || slot !== 'promise');
   return (
     <div className={styles.grid} data-layout='flow'>
+      {lead ? (
+        <div className={styles.flowLead}>
+          <Text context={context} options={{ as: 'p', className: styles.d1 }} slot='promise' />
+          <Label>Promise</Label>
+        </div>
+      ) : null}
       {steps.map(([slot, name], index) => (
         <article className={styles.flowStep} key={slot}>
-          <span className={styles.flowIndex}>{String(index + 1).padStart(2, '0')}</span>
           <h2 className={styles.h3}>{name}</h2>
           <Text context={context} options={{ className: index === 1 ? styles.lead : styles.bodyText }} slot={slot} />
           {index < steps.length - 1 ? <span aria-hidden='true' className={styles.flowArrow}>→</span> : null}
@@ -234,14 +255,28 @@ function MissionPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='mission'>
       <div>
-        <Label>Mission</Label>
         <Text context={context} options={{ as: 'h1', className: styles.d1 }} slot='mission' />
+        <Label>Mission</Label>
       </div>
       <div className={styles.aside}>
-        <Label>Position</Label>
         <Text context={context} options={{ className: styles.lead }} slot='position' />
+        <MissionFacts context={context} />
       </div>
     </div>
+  );
+}
+
+/** Products with their one-liners, then the published proof and customers. */
+function MissionFacts({ context }: { context: BookPageContext }) {
+  const products = brandProducts(context.identity).slice(0, 4);
+  const proof = brandProofStatements(context.identity).slice(0, 2);
+  const customers = brandCustomers(context.identity).slice(0, 6);
+  return (
+    <dl className={styles.missionFacts}>
+      {products.map((product) => <div key={product.name}><dt>{product.name}</dt><dd>{product.summary}</dd></div>)}
+      {proof.length ? <div><dt>Proof</dt><dd>{proof.join(' · ')}</dd></div> : null}
+      {customers.length ? <div><dt>Customers</dt><dd>{customers.join(', ')}</dd></div> : null}
+    </dl>
   );
 }
 
@@ -252,13 +287,11 @@ function AudiencePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='cards'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h2 }} slot='lead' />
       </div>
       <div className={styles.cards}>
         {audiences.map((audience, index) => (
           <article key={audience}>
-            <span className={styles.label}>{String(index + 1).padStart(2, '0')}</span>
             <strong className={styles.h3}>{audience}</strong>
             <span className={styles.quiet}>{traits[index % Math.max(1, traits.length)] ?? ''}</span>
           </article>
@@ -273,7 +306,6 @@ function PillarsPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='pillars'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
         <div className={styles.valueList}>{identity.values.map((value) => <span key={value}>{value}</span>)}</div>
       </div>
@@ -296,7 +328,6 @@ function LogoPrimaryPage({ context }: { context: BookPageContext }) {
     <div className={styles.grid} data-layout='logo-primary'>
       <div className={styles.logoStage}><Mark identity={context.identity} kind='wordmark' onDark={dark} /></div>
       <div className={styles.caption}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
     </div>
@@ -315,7 +346,6 @@ function LogoFamilyPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='logo-family'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.logoGrid}>
@@ -343,7 +373,6 @@ function ClearspacePage({ context }: { context: BookPageContext }) {
         </span>
       </div>
       <div className={styles.caption}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
         <span className={styles.label}>x = ½ mark height</span>
       </div>
@@ -360,7 +389,6 @@ function MinimumPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='minimum'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.minimumRows}>
@@ -392,7 +420,6 @@ function ColorwaysPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='colorways'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.colorways}>
@@ -424,7 +451,6 @@ function MisusePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='misuse'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.misuseGrid}>
@@ -464,7 +490,6 @@ function PalettePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='palette'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.palette} data-count={Math.min(8, identity.colors.length)}>
@@ -505,7 +530,6 @@ function ProportionPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='proportion'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h2 }} slot='lead' />
       </div>
       <div className={styles.proportion} data-variant={context.page.variant}>
@@ -527,7 +551,6 @@ function PairingsPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='pairings'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <table className={styles.pairings}>
@@ -569,7 +592,6 @@ function TintsPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='tints'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.tints}>
@@ -615,7 +637,6 @@ function TypeDisplayPage({ context }: { context: BookPageContext }) {
   const family = brandTypographyFamily(identity, 'Display');
   return (
     <div className={styles.grid} data-layout='type-display'>
-      <Label>{context.page.title}</Label>
       <h1 className={styles.d4} data-face='display' style={{ fontSize: `${familyNameSize(identity, family)}cqi` }}>{family}</h1>
       <Text context={context} options={{ className: styles.d1, multiline: false }} slot='sample' />
       <div className={styles.typeMeta}>
@@ -633,7 +654,6 @@ function TypeTextPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='type-text'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <h1 className={styles.d2} data-face='body'>{brandTypographyFamily(identity, 'Body')}</h1>
         <Text context={context} options={{ className: styles.small }} slot='lead' />
         <span className={styles.label}>18 / {Math.round((body.lineHeight ?? 1.5) * 18)} px · {body.weight ?? 400}</span>
@@ -647,12 +667,12 @@ function TypePairingPage({ context }: { context: BookPageContext }) {
   const { identity } = context;
   return (
     <div className={styles.grid} data-layout='pairing'>
+      <Text context={context} options={{ as: 'h1', className: styles.d2 }} slot='headline' />
+      <Text context={context} options={{ className: styles.lead }} slot='body' />
       <div className={styles.pairingSpec}>
         <Label>Display · {brandTypographyFamily(identity, 'Display')}</Label>
         <Label>Text · {brandTypographyFamily(identity, 'Body')}</Label>
       </div>
-      <Text context={context} options={{ as: 'h1', className: styles.d2 }} slot='headline' />
-      <Text context={context} options={{ className: styles.lead }} slot='body' />
     </div>
   );
 }
@@ -673,7 +693,6 @@ function TypeScalePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='type-scale'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.small }} slot='lead' />
       </div>
       <ol className={styles.scale}>
@@ -698,7 +717,6 @@ function TypeRolesPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='type-roles'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <table className={styles.roles}>
@@ -732,7 +750,6 @@ function DeviceHeroPage({ context }: { context: BookPageContext }) {
     <div className={styles.deviceHero} data-variant={context.page.variant}>
       <Device className={styles.deviceHeroArt} context={context} dark={dark} />
       <div className={styles.deviceHeroText}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ as: 'h1', className: styles.d1 }} slot='title' />
         <Text context={context} options={{ className: styles.bodyText }} slot='body' />
       </div>
@@ -750,7 +767,6 @@ function ConstructionPage({ context }: { context: BookPageContext }) {
         {notes.map((note, index) => <span className={styles.constructionNote} data-index={index} key={note}><b>{index + 1}</b>{note}</span>)}
       </div>
       <div className={styles.caption}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
     </div>
@@ -763,7 +779,6 @@ function VariationsPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='variations'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.variations} data-count={crops.length}>
@@ -785,7 +800,6 @@ function IconsPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='icons'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
         <dl className={styles.iconMetrics}>
           <div><dt className={styles.label}>Grid</dt><dd>24 px</dd></div>
@@ -803,7 +817,6 @@ function DeviceRulesPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='dodont'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h3 }} slot='lead' />
       </div>
       <div className={styles.doColumn}>
@@ -827,7 +840,6 @@ function DirectionPage({ context }: { context: BookPageContext }) {
     <div className={styles.split} data-variant={context.page.variant}>
       <BookImage asset={pageAsset(context)} className={styles.splitArt} identity={context.identity} />
       <div className={styles.splitText}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ as: 'h1', className: styles.h2 }} slot='title' />
         <Text context={context} options={{ className: styles.bodyText }} slot='body' />
       </div>
@@ -840,7 +852,6 @@ function LibraryPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='library'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.library} data-variant={context.page.variant}>
@@ -860,7 +871,6 @@ function TreatmentPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='treatment'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h3 }} slot='lead' />
       </div>
       <div className={styles.treatment}>
@@ -880,7 +890,6 @@ function VoicePrinciplesPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='principles'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <ol className={styles.principles}>
@@ -892,22 +901,25 @@ function VoicePrinciplesPage({ context }: { context: BookPageContext }) {
   );
 }
 
+/** Real before-and-after lines from voice.examples; phrases and the avoid list fill in when there are none. */
 function VoiceDoDontPage({ context }: { context: BookPageContext }) {
   const { identity } = context;
-  const rows = Math.max(identity.voice.phrases.length, identity.voice.avoid.length);
+  const examples = (identity.voice.examples ?? []).filter(({ write }) => write.trim()).slice(0, 4);
+  const rows = examples.length
+    ? examples.map(({ avoid, context: where, write }) => ({ avoid, where, write }))
+    : Array.from({ length: Math.min(4, Math.max(identity.voice.phrases.length, identity.voice.avoid.length)) }, (_, index) => ({ avoid: identity.voice.avoid[index] ?? '', where: '', write: identity.voice.phrases[index] ?? '' }));
   return (
     <div className={styles.grid} data-layout='voice-dodont'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
-        <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
+        <Text context={context} options={{ className: styles.lead }} slot='lead' />
       </div>
       <table className={styles.dodont}>
         <thead><tr><th scope='col'><span className={styles.label}><span aria-hidden='true' className={styles.check}>✓</span> Write</span></th><th scope='col'><span className={styles.label}><span aria-hidden='true' className={styles.cross}>✕</span> Avoid</span></th></tr></thead>
         <tbody>
-          {Array.from({ length: Math.min(4, rows) }, (_, index) => (
+          {rows.map((row, index) => (
             <tr key={index}>
-              <td className={styles.h3} data-face='display'>{identity.voice.phrases[index] ? `“${identity.voice.phrases[index]}”` : ''}</td>
-              <td className={styles.bodyText}>{identity.voice.avoid[index] ?? ''}</td>
+              <td><span className={styles.label}>{row.where}</span><span className={styles.h3} data-face='display'>{row.write ? `“${row.write}”` : ''}</span></td>
+              <td className={styles.bodyText}>{row.avoid}</td>
             </tr>
           ))}
         </tbody>
@@ -920,7 +932,6 @@ function MessagingPage({ context }: { context: BookPageContext }) {
   const levels = [['tagline', 'Tagline', styles.d2], ['promise', 'Promise', styles.h2], ['phrase', 'Proof line', styles.h3]] as const;
   return (
     <div className={styles.grid} data-layout='messaging'>
-      <Label>{context.page.title}</Label>
       <ol className={styles.messaging}>
         {levels.map(([slot, name, className]) => (
           <li key={slot}><span className={styles.label}>{name}</span><Text context={context} options={{ className }} slot={slot} /></li>
@@ -935,7 +946,6 @@ function VoiceSamplePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='sample'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <p className={styles.bodyText}>A lifecycle email written in the brand voice. Short subject, one idea, one action.</p>
       </div>
       <div className={styles.email}>
@@ -965,8 +975,8 @@ function GridPage({ context }: { context: BookPageContext }) {
         <p className={styles.small}>{context.identity.positioning}</p>
       </div>
       <div className={styles.caption}>
-        <Label>{context.page.title} · {columns} columns</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
+        <Label>{columns} columns</Label>
       </div>
     </div>
   );
@@ -1076,7 +1086,6 @@ function SheetPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='sheet'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <div className={styles.sheet} data-variant={context.page.variant}>
@@ -1123,7 +1132,6 @@ function MotionPrinciplesPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='motion'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h3 }} slot='lead' />
       </div>
       <div className={styles.curves} data-count={items.length}>
@@ -1150,7 +1158,6 @@ function MotionTokensPage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='tokens'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.bodyText }} slot='lead' />
       </div>
       <table className={styles.roles}>
@@ -1166,7 +1173,6 @@ function MotionSequencePage({ context }: { context: BookPageContext }) {
   return (
     <div className={styles.grid} data-layout='sequence'>
       <div className={styles.intro}>
-        <Label>{context.page.title}</Label>
         <Text context={context} options={{ className: styles.h3 }} slot='lead' />
       </div>
       <ol className={styles.frames}>
@@ -1270,7 +1276,7 @@ function samePage(previous: BookPageViewProps, next: BookPageViewProps): boolean
   if (previous.folio !== next.folio || previous.sectionName !== next.sectionName) return false;
   if (before.editable !== after.editable || before.identity !== after.identity || before.sectionNumber !== after.sectionNumber || before.scope !== after.scope) return false;
   // The contents page lists every section, so it follows the whole book.
-  if (after.page.kind === 'contents' && (before.sections !== after.sections || before.folios !== after.folios)) return false;
+  if ((after.page.kind === 'contents' || after.page.kind === 'opener') && (before.sections !== after.sections || before.folios !== after.folios)) return false;
   return before.page === after.page || JSON.stringify(before.page) === JSON.stringify(after.page);
 }
 
@@ -1299,16 +1305,10 @@ export const BookPageView = memo(function BookPageView({ context, folio, section
       data-variant={page.variant}
       style={style}
     >
-      {chrome ? (
-        <header className={styles.runningHead}>
-          <span>{identity.name}</span>
-          <span>{context.sectionNumber ? `${context.sectionNumber}  ${sectionName}` : sectionName}</span>
-        </header>
-      ) : null}
       <div className={styles.pageBody}><Renderer context={context} /></div>
       {chrome ? (
         <footer className={styles.folio}>
-          <span>Brand guidelines · Rev. {identity.revision}</span>
+          <span>{identity.name} · {context.sectionNumber ? `${context.sectionNumber} ${sectionName}` : sectionName} · {page.title}</span>
           <span>{folio ? String(folio).padStart(2, '0') : '—'}</span>
         </footer>
       ) : null}

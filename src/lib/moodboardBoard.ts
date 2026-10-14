@@ -8,6 +8,14 @@ import {
   brandVisualAssets,
   type BrandSurfaceTone,
 } from './brandOutputKit';
+import {
+  brandCustomers,
+  brandMessaging,
+  brandProducts,
+  brandProofStatements,
+  brandSampleEvent,
+  brandSamplePerson,
+} from './brandContent';
 import { getEmailLifecycleTemplate } from './emailLifecycle';
 import {
   MOODBOARD_COMPOSITIONS,
@@ -308,6 +316,58 @@ const BOARD_TEMPLATES: Record<MoodboardComposition, readonly TileTemplate[]> = {
   ],
 };
 
+type Direction = BrandArtDirection['moodboard'];
+const t = (kind: MoodboardTileKind, role: TileTemplate['role'], span: MoodboardTileSpan, variant?: string): TileTemplate => ({ kind, role, span, variant });
+
+/**
+ * Showcase and campaign boards follow each identity's art direction: hero
+ * proportion, tile mix and which applications appear differ per direction, so
+ * nine boards side by side never read as one template recoloured. Rows sum to
+ * twelve columns.
+ */
+const DIRECTION_TEMPLATES: Partial<Record<Direction, Partial<Record<MoodboardComposition, readonly TileTemplate[]>>>> = {
+  'cinematic-field': {
+    campaign: [t('billboard', 'feature', 12, 'device'), t('poster', 'quiet', 4, 'type'), t('social', 'quiet', 4, 'story'), t('proof', 'contrast', 4), t('web', 'quiet', 8), t('badge', 'quiet', 4, 'lanyard')],
+    showcase: [t('cover', 'feature', 8), t('proof', 'contrast', 4), t('billboard', 'quiet', 12, 'image'), t('type', 'contrast', 4, 'glyph'), t('social', 'quiet', 4, 'story'), t('motion', 'quiet', 4, 'curve')],
+  },
+  'editorial-evidence': {
+    campaign: [t('billboard', 'quiet', 8, 'image'), t('proof', 'accent', 4), t('poster', 'quiet', 4, 'type'), t('social', 'quiet', 4), t('email', 'muted', 4), t('web', 'quiet', 12)],
+    showcase: [t('proof', 'accent', 4), t('cover', 'feature', 8), t('web', 'quiet', 8), t('poster', 'quiet', 4, 'type'), t('type', 'contrast', 3, 'scale'), t('palette', 'quiet', 3, 'proportion'), t('card', 'quiet', 3, 'front'), t('social', 'quiet', 3)],
+  },
+  'knowledge-system': {
+    campaign: [t('web', 'quiet', 8), t('cover', 'feature', 4), t('email', 'muted', 4), t('social', 'quiet', 4, 'story'), t('badge', 'quiet', 4), t('voice', 'accent', 6, 'dodont'), t('proof', 'contrast', 6)],
+    showcase: [t('web', 'quiet', 8), t('cover', 'feature', 4), t('type', 'quiet', 4, 'pairing'), t('voice', 'quiet', 4, 'dodont'), t('imagery', 'quiet', 4, 'single'), t('email', 'muted', 6), t('palette', 'quiet', 6, 'proportion')],
+  },
+  'modular-proof': {
+    campaign: [t('cover', 'feature', 8), t('poster', 'accent', 4, 'type'), t('imagery', 'quiet', 8, 'pair'), t('social', 'quiet', 4), t('billboard', 'quiet', 6, 'device'), t('badge', 'quiet', 3), t('card', 'quiet', 3)],
+    showcase: [t('cover', 'feature', 8), t('poster', 'accent', 4, 'type'), t('statement', 'contrast', 4, 'promise'), t('imagery', 'quiet', 8, 'pair'), t('billboard', 'quiet', 6, 'device'), t('social', 'quiet', 3), t('proof', 'contrast', 3)],
+  },
+  'monochrome-language': {
+    campaign: [t('cover', 'feature', 8), t('type', 'contrast', 4, 'phrases'), t('social', 'quiet', 4), t('poster', 'quiet', 4), t('badge', 'quiet', 4), t('web', 'quiet', 6), t('email', 'muted', 6)],
+    showcase: [t('cover', 'feature', 6), t('type', 'contrast', 6, 'phrases'), t('imagery', 'quiet', 8, 'triptych'), t('statement', 'quiet', 4, 'concept'), t('web', 'quiet', 4), t('voice', 'accent', 4, 'quote'), t('card', 'quiet', 4)],
+  },
+  'network-atlas': {
+    campaign: [t('cover', 'feature', 12), t('poster', 'quiet', 3), t('social', 'quiet', 3), t('email', 'muted', 3), t('badge', 'quiet', 3), t('web', 'quiet', 8), t('proof', 'contrast', 4)],
+    showcase: [t('cover', 'feature', 12), t('proof', 'contrast', 4), t('device', 'quiet', 4, 'construction'), t('imagery', 'quiet', 4, 'single'), t('web', 'quiet', 6), t('badge', 'quiet', 3), t('palette', 'quiet', 3, 'proportion')],
+  },
+  'product-spectrum': {
+    campaign: [t('cover', 'feature', 8), t('web', 'quiet', 4), t('poster', 'quiet', 4), t('social', 'quiet', 4, 'story'), t('email', 'muted', 4), t('billboard', 'quiet', 8, 'device'), t('proof', 'contrast', 4)],
+    showcase: [t('cover', 'feature', 8), t('web', 'quiet', 4), t('poster', 'quiet', 4), t('imagery', 'quiet', 8, 'triptych'), t('proof', 'contrast', 4), t('type', 'contrast', 4, 'glyph'), t('card', 'quiet', 4)],
+  },
+  'research-wall': {
+    campaign: [t('cover', 'feature', 6), t('imagery', 'quiet', 6, 'pair'), t('poster', 'quiet', 3, 'type'), t('social', 'quiet', 3), t('email', 'muted', 3), t('card', 'quiet', 3), t('web', 'quiet', 8), t('statement', 'accent', 4, 'promise')],
+    showcase: [t('cover', 'feature', 6), t('imagery', 'quiet', 3, 'single'), t('statement', 'accent', 3, 'concept'), t('imagery', 'quiet', 8, 'triptych'), t('voice', 'quiet', 4, 'quote'), t('web', 'quiet', 4), t('email', 'muted', 4), t('card', 'quiet', 4)],
+  },
+  'utility-current': {
+    campaign: [t('cover', 'feature', 12), t('web', 'quiet', 6), t('social', 'quiet', 3), t('poster', 'quiet', 3, 'type'), t('email', 'muted', 4), t('badge', 'quiet', 4), t('proof', 'contrast', 4)],
+    showcase: [t('cover', 'feature', 12), t('web', 'quiet', 6), t('type', 'quiet', 6, 'scale'), t('social', 'quiet', 4), t('palette', 'quiet', 4, 'swatches'), t('card', 'quiet', 4)],
+  },
+};
+
+function boardTemplate(identity: BrandIdentity, composition: MoodboardComposition): readonly TileTemplate[] {
+  return DIRECTION_TEMPLATES[identity.artDirection?.moodboard]?.[composition] ?? BOARD_TEMPLATES[composition];
+}
+
 function recipeFor(identity: BrandIdentity): BoardRecipe {
   return RECIPES[identity.artDirection?.moodboard] ?? RECIPES['modular-proof'];
 }
@@ -326,11 +386,6 @@ export function moodboardImageAssetIds(identity: BrandIdentity): string[] {
   return [...new Set([...preferred, ...pool])];
 }
 
-function firstText(values: readonly unknown[] | undefined, fallback: string): string {
-  const found = values?.find((value): value is string => typeof value === 'string' && value.trim().length > 0);
-  return found ?? fallback;
-}
-
 function list(values: readonly unknown[] | undefined, count: number): string[] {
   return (values ?? []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0).slice(0, count);
 }
@@ -342,14 +397,21 @@ function copy(headline: string, body = '', caption = ''): MoodboardTileCopy {
 }
 
 const DEFAULT_COPY: Record<MoodboardTileKind, CopyBuilder> = {
-  badge: (identity) => copy('Alex Morgan', `${identity.name} Summit`, 'Speaker'),
-  billboard: (identity) => copy(firstText(identity.voice?.phrases, identity.tagline), '', identity.website),
-  card: (identity) => copy('Alex Morgan', `Design Engineer · ${identity.name}`, identity.contactEmail || identity.website),
-  cover: (identity) => copy(identity.tagline, identity.strategy?.promise ?? '', identity.website),
+  badge: (identity) => {
+    const person = brandSamplePerson(identity);
+    const event = brandSampleEvent(identity);
+    return copy(person.name, event.name, person.role);
+  },
+  billboard: (identity) => copy(brandMessaging(identity).phrases[0] ?? identity.tagline, '', identity.website),
+  card: (identity) => {
+    const person = brandSamplePerson(identity);
+    return copy(person.name, person.role, identity.contactEmail || identity.website);
+  },
+  cover: (identity) => copy(identity.tagline, brandMessaging(identity).promise, identity.website),
   device: (identity) => copy(identity.graphicSystem?.device ?? 'Graphic device', identity.graphicSystem?.description ?? '', 'Graphic device'),
   email: (identity) => {
     const template = getEmailLifecycleTemplate('welcome-email', identity);
-    return copy(template?.subject ?? `Welcome to ${identity.name}`, template?.body ?? identity.description, template?.cta ?? 'Open workspace');
+    return copy(template?.subject ?? `Welcome to ${identity.name}`, template?.body ?? identity.positioning, template?.cta ?? 'Get started');
   },
   imagery: (identity) => copy('Imagery', identity.graphicSystem?.imageDirection ?? '', 'Image direction'),
   logo: (identity) => copy(identity.name, identity.dossier?.logo ?? '', 'Primary and reverse'),
@@ -358,21 +420,54 @@ const DEFAULT_COPY: Record<MoodboardTileKind, CopyBuilder> = {
     return copy(motion?.name ?? 'Brand cadence', motion?.description ?? identity.dossier?.motion ?? '', motion ? `${motion.durationMs} ms · ${motion.curve}` : '900 ms · cubic-bezier(.22, 1, .36, 1)');
   },
   palette: () => copy('Colour', '', 'Proportion · roles · contrast'),
-  poster: (identity) => copy(identity.voice?.phrases?.[1] ?? identity.tagline, firstText(identity.products, identity.name), identity.website),
-  proof: (identity) => copy(firstText(identity.proof, identity.tagline), list(identity.proof, 4).slice(1).join('\n'), 'Proof'),
-  social: (identity) => copy(identity.voice?.phrases?.[2] ?? identity.tagline, identity.strategy?.promise ?? '', identity.socialHandle || identity.website),
+  poster: (identity) => {
+    const product = brandProducts(identity)[0];
+    return copy(brandMessaging(identity).phrases[1] ?? identity.tagline, product?.name ?? identity.name, identity.website);
+  },
+  proof: (identity) => {
+    const proof = brandProofStatements(identity);
+    const customers = brandCustomers(identity);
+    return copy(proof[0] ?? identity.tagline, [...proof.slice(1, 4), ...(proof.length < 2 ? customers.slice(0, 3) : [])].join('\n'), customers.length ? `Proof · ${customers.slice(0, 3).join(', ')}` : 'Proof');
+  },
+  social: (identity) => {
+    const product = brandProducts(identity)[0];
+    return copy(brandMessaging(identity).phrases[2] ?? identity.tagline, product?.summary || brandMessaging(identity).promise, identity.socialHandle || identity.website);
+  },
   statement: (identity, variant) => variant === 'promise'
-    ? copy(identity.strategy?.promise ?? identity.tagline, identity.positioning ?? '', 'Promise')
+    ? copy(brandMessaging(identity).promise || identity.tagline, identity.positioning ?? '', 'Promise')
     : copy(identity.strategy?.concept ?? identity.tagline, identity.strategy?.challenge ?? '', 'Concept'),
   type: (identity, variant) => {
     const display = identity.typography?.find((font) => font.role === 'Display') ?? identity.typography?.[0];
-    if (variant === 'phrases') return copy(firstText(identity.voice?.phrases, identity.tagline), list(identity.greetings, 6).join('  ·  '), 'Voice in type');
-    if (variant === 'scale') return copy(identity.tagline, identity.mission ?? '', 'Type scale · 1.333');
+    if (variant === 'phrases') return copy(brandMessaging(identity).phrases[0] ?? identity.tagline, list(identity.greetings, 6).join('  ·  '), 'Voice in type');
+    if (variant === 'scale') return copy(identity.tagline, identity.mission ?? '', `Type scale · ${identity.typeScale?.ratio ?? 1.333}`);
+    if (variant === 'pairing') return copy(brandMessaging(identity).promise || identity.tagline, identity.positioning || identity.mission || '', 'Type pairing');
     return copy(display?.family ?? identity.name, display?.usage ?? '', 'Display typeface');
   },
-  voice: (identity) => copy(firstText(identity.voice?.phrases, identity.tagline), list(identity.voice?.principles, 4).join(' · '), 'Voice'),
-  web: (identity) => copy(identity.tagline, identity.positioning ?? identity.description, list(identity.products, 4).join('  ')),
+  voice: (identity) => copy(brandMessaging(identity).phrases[0] ?? identity.tagline, list(identity.voice?.principles, 4).join(' · '), 'Voice'),
+  web: (identity) => copy(brandMessaging(identity).promise || identity.tagline, identity.positioning ?? '', brandProducts(identity).slice(0, 4).map(({ name }) => name).join('  ')),
 };
+
+/** Kinds whose headline is a brand line; a board never prints the same line twice. */
+const LINE_KINDS: ReadonlySet<MoodboardTileKind> = new Set(['billboard', 'cover', 'poster', 'social', 'statement', 'type', 'voice', 'web']);
+
+function sameLine(left: string, right: string): boolean {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+}
+
+/** Swap a headline that already appears on the board for the next unused brand line. */
+function distinctHeadline(identity: BrandIdentity, tile: MoodboardTileCopy, kind: MoodboardTileKind, variant: string, used: string[]): MoodboardTileCopy {
+  if (!LINE_KINDS.has(kind) || (kind === 'type' && !['pairing', 'phrases', 'scale'].includes(variant))) return tile;
+  if (!used.some((line) => sameLine(line, tile.headline))) {
+    used.push(tile.headline);
+    return tile;
+  }
+  const messaging = brandMessaging(identity);
+  const pool = [identity.tagline, messaging.promise, ...messaging.phrases, ...brandProofStatements(identity), ...brandProducts(identity).map(({ summary }) => summary), identity.mission];
+  const next = pool.find((line) => line?.trim() && !used.some((usedLine) => sameLine(usedLine, line)));
+  if (!next) return tile;
+  used.push(next);
+  return { ...tile, headline: next };
+}
 
 function templateVariant(template: TileTemplate, recipe: BoardRecipe): string {
   if (template.variant) return template.variant;
@@ -395,13 +490,14 @@ export function defaultMoodboardTiles(
   const recipe = recipeFor(identity);
   const images = moodboardImageAssetIds(identity);
   const counts = new Map<MoodboardTileKind, number>();
-  return BOARD_TEMPLATES[composition].map((template) => {
+  const used: string[] = [];
+  return boardTemplate(identity, composition).map((template) => {
     const count = counts.get(template.kind) ?? 0;
     counts.set(template.kind, count + 1);
     const variant = templateVariant(template, recipe);
     return {
       assetId: defaultAssetId(template.kind, count, images),
-      copy: DEFAULT_COPY[template.kind](identity, variant),
+      copy: distinctHeadline(identity, DEFAULT_COPY[template.kind](identity, variant), template.kind, variant, used),
       hidden: false,
       id: count === 0 ? template.kind : `${template.kind}-${count + 1}`,
       kind: template.kind,

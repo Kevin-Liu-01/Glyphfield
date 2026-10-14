@@ -6,7 +6,7 @@ import {
   filterBrandElements,
   parseBrandElementSource,
 } from '../brandElements';
-import { GT_BRAND_IDENTITY } from '../brandIdentity';
+import { BUILT_IN_BRAND_IDENTITIES, GT_BRAND_IDENTITY } from '../brandIdentity';
 
 describe('BRAND_ELEMENTS', () => {
   it('covers digital, developer, social, editorial, event, and physical identity applications', () => {
@@ -79,6 +79,17 @@ describe('createBrandElementSettings', () => {
       expect(settings.patternOpacity).toBeGreaterThanOrEqual(0);
       expect(['split', 'stacked', 'centered']).toContain(settings.layout);
       expect(['none', 'dots', 'grid', 'dither']).toContain(settings.pattern);
+    }
+  });
+
+  it('fills every template with the brand\'s own content, never the identity description or Glyphfield samples', () => {
+    for (const identity of BUILT_IN_BRAND_IDENTITIES) {
+      for (const element of BRAND_ELEMENTS) {
+        const { body, cta, headline, partnerName, personName } = createBrandElementSettings(element, identity);
+        const copy = [body, cta, headline, partnerName, personName].join(' | ');
+        expect(copy, `${identity.id} ${element.id}`).not.toContain(identity.description);
+        expect(copy, `${identity.id} ${element.id}`).not.toMatch(/brand settings|design board|\bartifacts?\b|Studio Pro|Alex Morgan|Monthly active brands/i);
+      }
     }
   });
 

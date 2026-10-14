@@ -16,8 +16,26 @@ import {
   sourceStringArray,
 } from './sourceCode';
 import { parseStudioCanvasDocument } from './studioCanvasDocument';
-import type { SlideLayout, TemplateLayerId, TemplateTexture } from './templateSvg';
 import type { TemplatePartnerTreatment } from './templateAssets';
+
+/** Version-1 template vocabulary, kept only to read sources saved before the expression editor. */
+type TemplateTexture = 'white' | 'dark' | 'grid' | 'noise';
+type TemplateLayerId = 'brand' | 'content' | 'footer';
+type SlideLayout =
+  | 'title'
+  | 'section'
+  | 'agenda'
+  | 'split'
+  | 'metrics'
+  | 'quote'
+  | 'timeline'
+  | 'statement'
+  | 'comparison'
+  | 'process'
+  | 'chart'
+  | 'team'
+  | 'image'
+  | 'closing';
 
 type PortableNamedAsset = {
   name: string;

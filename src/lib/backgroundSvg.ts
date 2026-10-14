@@ -492,27 +492,30 @@ function bayerValue(x: number, y: number, size: 2 | 4 | 8): number {
 function patternDefinition(settings: BackgroundSettings): string {
   const spacing = Math.max(8, settings.spacing);
   const stroke = settings.colorB;
+  // Line weight grows with a wide pattern so it still reads; up to 24px spacing it is unchanged.
+  const weight = Math.max(1, spacing / 24);
+  const w = (value: number) => Number((value * weight).toFixed(2));
 
   if (settings.pattern === 'dots') {
-    return `<pattern id="pattern-dots" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><circle cx="${spacing / 2}" cy="${spacing / 2}" r="1.6" fill="${stroke}"/></pattern>`;
+    return `<pattern id="pattern-dots" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><circle cx="${spacing / 2}" cy="${spacing / 2}" r="${w(1.6)}" fill="${stroke}"/></pattern>`;
   }
   if (settings.pattern === 'lines') {
-    return `<pattern id="pattern-lines" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse" patternTransform="rotate(${settings.angle})"><path d="M0 0V${spacing}" stroke="${stroke}" stroke-width="1"/></pattern>`;
+    return `<pattern id="pattern-lines" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse" patternTransform="rotate(${settings.angle})"><path d="M0 0V${spacing}" stroke="${stroke}" stroke-width="${w(1)}"/></pattern>`;
   }
   if (settings.pattern === 'grid') {
-    return `<pattern id="pattern-grid" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><path d="M${spacing} 0H0V${spacing}" fill="none" stroke="${stroke}" stroke-width="1"/></pattern>`;
+    return `<pattern id="pattern-grid" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><path d="M${spacing} 0H0V${spacing}" fill="none" stroke="${stroke}" stroke-width="${w(1)}"/></pattern>`;
   }
   if (settings.pattern === 'fibers') {
-    return `<pattern id="pattern-fibers" width="${spacing * 2}" height="${spacing}" patternUnits="userSpaceOnUse" patternTransform="rotate(${settings.angle * 0.24})"><path d="M-${spacing} ${spacing * 0.3} C${spacing * 0.2} ${spacing * 0.08},${spacing * 0.7} ${spacing * 0.58},${spacing * 2} ${spacing * 0.26}" fill="none" stroke="${stroke}" stroke-width=".75"/><path d="M0 ${spacing * 0.76} C${spacing * 0.5} ${spacing * 0.55},${spacing * 1.2} ${spacing * 0.98},${spacing * 2} ${spacing * 0.7}" fill="none" stroke="${settings.colorC}" stroke-width=".5"/></pattern>`;
+    return `<pattern id="pattern-fibers" width="${spacing * 2}" height="${spacing}" patternUnits="userSpaceOnUse" patternTransform="rotate(${settings.angle * 0.24})"><path d="M-${spacing} ${spacing * 0.3} C${spacing * 0.2} ${spacing * 0.08},${spacing * 0.7} ${spacing * 0.58},${spacing * 2} ${spacing * 0.26}" fill="none" stroke="${stroke}" stroke-width="${w(0.75)}"/><path d="M0 ${spacing * 0.76} C${spacing * 0.5} ${spacing * 0.55},${spacing * 1.2} ${spacing * 0.98},${spacing * 2} ${spacing * 0.7}" fill="none" stroke="${settings.colorC}" stroke-width="${w(0.5)}"/></pattern>`;
   }
   if (settings.pattern === 'speckles') {
-    return `<pattern id="pattern-speckles" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><circle cx="${spacing * 0.18}" cy="${spacing * 0.28}" r=".8" fill="${stroke}"/><circle cx="${spacing * 0.73}" cy="${spacing * 0.66}" r="1.1" fill="${stroke}"/><circle cx="${spacing * 0.48}" cy="${spacing * 0.12}" r=".45" fill="${settings.colorC}"/></pattern>`;
+    return `<pattern id="pattern-speckles" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><circle cx="${spacing * 0.18}" cy="${spacing * 0.28}" r="${w(0.8)}" fill="${stroke}"/><circle cx="${spacing * 0.73}" cy="${spacing * 0.66}" r="${w(1.1)}" fill="${stroke}"/><circle cx="${spacing * 0.48}" cy="${spacing * 0.12}" r="${w(0.45)}" fill="${settings.colorC}"/></pattern>`;
   }
   if (settings.pattern === 'topographic') {
-    return `<pattern id="pattern-topographic" width="${spacing * 2}" height="${spacing * 1.5}" patternUnits="userSpaceOnUse"><path d="M-${spacing} ${spacing} C${spacing * 0.15} ${spacing * 0.05},${spacing * 0.8} ${spacing * 1.55},${spacing * 2.2} ${spacing * 0.45} S${spacing * 3.2} ${spacing * 1.3},${spacing * 4} ${spacing * 0.35}" fill="none" stroke="${stroke}" stroke-width=".8"/><path d="M-${spacing} ${spacing * 1.28} C${spacing * 0.25} ${spacing * 0.38},${spacing * 0.95} ${spacing * 1.8},${spacing * 2.35} ${spacing * 0.72} S${spacing * 3.25} ${spacing * 1.58},${spacing * 4} ${spacing * 0.62}" fill="none" stroke="${stroke}" stroke-width=".55"/></pattern>`;
+    return `<pattern id="pattern-topographic" width="${spacing * 2}" height="${spacing * 1.5}" patternUnits="userSpaceOnUse"><path d="M-${spacing} ${spacing} C${spacing * 0.15} ${spacing * 0.05},${spacing * 0.8} ${spacing * 1.55},${spacing * 2.2} ${spacing * 0.45} S${spacing * 3.2} ${spacing * 1.3},${spacing * 4} ${spacing * 0.35}" fill="none" stroke="${stroke}" stroke-width="${w(0.8)}"/><path d="M-${spacing} ${spacing * 1.28} C${spacing * 0.25} ${spacing * 0.38},${spacing * 0.95} ${spacing * 1.8},${spacing * 2.35} ${spacing * 0.72} S${spacing * 3.25} ${spacing * 1.58},${spacing * 4} ${spacing * 0.62}" fill="none" stroke="${stroke}" stroke-width="${w(0.55)}"/></pattern>`;
   }
   if (settings.pattern === 'crosshatch') {
-    return `<pattern id="pattern-crosshatch" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><path d="M-${spacing} ${spacing}L${spacing} -${spacing}M0 ${spacing * 2}L${spacing * 2} 0M-${spacing} 0L${spacing} ${spacing * 2}M0 -${spacing}L${spacing * 2} ${spacing}" fill="none" stroke="${stroke}" stroke-width=".55"/></pattern>`;
+    return `<pattern id="pattern-crosshatch" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse"><path d="M0 0L${spacing} ${spacing}M${spacing} 0L0 ${spacing}" fill="none" stroke="${stroke}" stroke-width="${w(0.55)}" stroke-linecap="square"/></pattern>`;
   }
   return '';
 }

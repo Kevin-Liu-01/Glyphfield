@@ -121,6 +121,35 @@ export type BrandColorPairing = {
 export type BrandTypeScale = {
   basePx: number;
   ratio: number;
+  /** The scale step each role is set at, such as { Display: 'h1' }; omitted roles use the defaults. */
+  roleSteps?: Partial<Record<BrandTypography['role'], string>>;
+};
+
+/** OKLCH tint and shade scale settings for one palette color; omitted fields use the defaults. */
+export type BrandColorScale = {
+  /** Snap the step nearest in lightness to the exact palette HEX (default true). */
+  anchor?: boolean;
+  /** Chroma as a percentage of the palette color's own chroma (default 100). */
+  chroma?: number;
+  /** OKLCH lightness of the darkest step, 0–1. */
+  darkest?: number;
+  /** Hue rotation in degrees from the lightest to the darkest step. */
+  hueShift?: number;
+  /** The colors[].id this scale belongs to. */
+  id: string;
+  /** OKLCH lightness of the lightest step, 0–1. */
+  lightest?: number;
+};
+
+/**
+ * Semantic color roles for light and dark modes, plus per-color scale settings.
+ * Role values are color refs: a colors[].id ("ink") or one of its scale steps ("ink.700").
+ * Omitted roles are derived from the palette.
+ */
+export type BrandColorSystem = {
+  dark?: Partial<Record<string, string>>;
+  light?: Partial<Record<string, string>>;
+  scales?: BrandColorScale[];
 };
 
 export type BrandVoiceExample = {
@@ -129,12 +158,65 @@ export type BrandVoiceExample = {
   write: string;
 };
 
+/** A product and the one line that says what it does. `name` matches an entry in `products`. */
+export type BrandProductDetail = {
+  name: string;
+  summary: string;
+};
+
+/**
+ * Sample content that templates use in place of placeholders: a person and an
+ * event that fit the brand. These are samples, never claims about real people.
+ */
+export type BrandSamples = {
+  /** Short product actions for command menus, checklists and dialogs, such as "Refund a payment". */
+  actions?: string[];
+  /** A real request, command or snippet that developer templates show. */
+  code?: {
+    label: string;
+    snippet: string;
+  };
+  event?: {
+    date: string;
+    location: string;
+    name: string;
+    time?: string;
+  };
+  /** The install or getting-started command. */
+  install?: string;
+  /** One dashboard figure, shown as sample interface data. */
+  metric?: {
+    change: string;
+    label: string;
+    value: string;
+  };
+  person?: {
+    name: string;
+    role: string;
+  };
+  /** Published plans or engagement types for pricing and checkout templates. */
+  plans?: {
+    features: string[];
+    name: string;
+    price: string;
+  }[];
+  /** A release or update headline and its changes. */
+  release?: {
+    items: string[];
+    title: string;
+  };
+};
+
 export type BrandTypography = {
   family: string;
   fontId?: string;
   letterSpacing?: number;
   lineHeight?: number;
+  /** Fixed optical size (the `opsz` axis); omitted means automatic optical sizing. */
+  opticalSize?: number;
   role: 'Display' | 'Body' | 'Accent' | 'Code';
+  /** Oblique angle in degrees, leaning right; uses the font's `slnt` axis when it has one. */
+  slant?: number;
   usage: string;
   weight?: number;
 };
@@ -221,8 +303,11 @@ export type BrandIdentity = {
   audiences: string[];
   builtIn: boolean;
   colorPairings?: BrandColorPairing[];
+  colorSystem?: BrandColorSystem;
   colors: BrandColor[];
   contactEmail: string;
+  /** Customer or client names, kept apart from the proof statements in `proof`. */
+  customers?: string[];
   description: string;
   dossier: BrandDossier;
   fonts?: BrandFontAsset[];
@@ -236,11 +321,16 @@ export type BrandIdentity = {
   positioning: string;
   /** Content fingerprint of the shipped preset a built-in was hydrated from. */
   presetFingerprint?: string;
+  /** One-line summaries for the names in `products`. */
+  productDetails?: BrandProductDetail[];
   products: string[];
+  /** Verifiable proof statements such as published metrics. Customer names belong in `customers`. */
   proof: string[];
   proofAssets: BrandAsset[];
   references: BrandReference[];
   revision: number;
+  /** Sample person and event content for templates. */
+  samples?: BrandSamples;
   shortName: string;
   socialHandle: string;
   sourceNotes: string[];
@@ -603,6 +693,50 @@ function cloneBrandVoice(identity: BrandIdentity): BrandIdentity['voice'] {
   };
 }
 
+function cloneBrandSamples(samples: BrandSamples): BrandSamples {
+  return {
+    ...samples,
+    ...(samples.actions ? { actions: [...samples.actions] } : {}),
+    ...(samples.code ? { code: { ...samples.code } } : {}),
+    ...(samples.event ? { event: { ...samples.event } } : {}),
+    ...(samples.metric ? { metric: { ...samples.metric } } : {}),
+    ...(samples.person ? { person: { ...samples.person } } : {}),
+    ...(samples.plans ? { plans: samples.plans.map((plan) => ({ ...plan, features: [...plan.features] })) } : {}),
+    ...(samples.release ? { release: { ...samples.release, items: [...samples.release.items] } } : {}),
+  };
+}
+
+function cloneBrandColorSystem(system: BrandColorSystem): BrandColorSystem {
+  return {
+    ...system,
+    ...(system.dark ? { dark: { ...system.dark } } : {}),
+    ...(system.light ? { light: { ...system.light } } : {}),
+    ...(system.scales ? { scales: system.scales.map((scale) => ({ ...scale })) } : {}),
+  };
+}
+
+/** Optional colour and type system fields, deep-copied when present. */
+function cloneSystemFields(identity: BrandIdentity): Pick<BrandIdentity, 'colorSystem' | 'typeScale'> {
+  const typeScale = identity.typeScale
+    ? { ...identity.typeScale, ...(identity.typeScale.roleSteps ? { roleSteps: { ...identity.typeScale.roleSteps } } : {}) }
+    : undefined;
+  return {
+    ...(identity.colorSystem ? { colorSystem: cloneBrandColorSystem(identity.colorSystem) } : {}),
+    ...(typeScale ? { typeScale } : {}),
+  };
+}
+
+/** Optional collections, copied only when present so absent fields stay absent. */
+function cloneOptionalRecords(identity: BrandIdentity): Partial<BrandIdentity> {
+  return {
+    ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
+    ...(identity.customers ? { customers: [...identity.customers] } : {}),
+    ...(identity.productDetails ? { productDetails: identity.productDetails.map((detail) => ({ ...detail })) } : {}),
+    ...(identity.samples ? { samples: cloneBrandSamples(identity.samples) } : {}),
+    ...cloneSystemFields(identity),
+  };
+}
+
 function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
   return {
     ...identity,
@@ -615,7 +749,6 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     ),
     assets: identity.assets.map(cloneBrandAsset),
     audiences: [...(identity.audiences ?? [])],
-    ...(identity.colorPairings ? { colorPairings: identity.colorPairings.map((pairing) => ({ ...pairing })) } : {}),
     colors: (identity.colors ?? []).map((color) => ({
       ...color,
       hex: normalizeHexOrFallback(color.hex),
@@ -636,7 +769,7 @@ function cloneBrandIdentity(identity: BrandIdentity): BrandIdentity {
     sourceNotes: [...(identity.sourceNotes ?? [])],
     style: { ...DEFAULT_BRAND_STYLE, ...identity.style },
     strategy: cloneBrandStrategy(identity),
-    ...(identity.typeScale ? { typeScale: { ...identity.typeScale } } : {}),
+    ...cloneOptionalRecords(identity),
     typography: (identity.typography ?? []).map(normalizeTypography),
     values: [...(identity.values ?? [])],
     voice: cloneBrandVoice(identity),
@@ -690,16 +823,20 @@ function mergeBrandIdentity(
   });
 }
 
+/**
+ * The short form a new name gets: initials for several words (GT), the word
+ * itself for a one-word name up to eight letters (Kestrel), else its first three.
+ */
+export function shortNameFromName(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) return words.map((word) => word[0]).join('').slice(0, 3).toLocaleUpperCase();
+  const word = words[0] ?? '';
+  return word.length <= 8 ? word : word.slice(0, 3).toLocaleUpperCase();
+}
+
 export function createBrandIdentity(name: string, id = crypto.randomUUID()): BrandIdentity {
   const trimmedName = name.trim() || 'Untitled brand';
-  const shortName = trimmedName
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toLocaleUpperCase();
-
-  const resolvedShortName = shortName || 'BR';
+  const resolvedShortName = shortNameFromName(trimmedName) || 'BR';
 
   return {
     applications: STARTER_BRAND_IDENTITY.applications.map((item) => ({ ...item })),
@@ -725,7 +862,10 @@ export function createBrandIdentity(name: string, id = crypto.randomUUID()): Bra
       renderingRecipe: ['Set hierarchy', 'Choose one focal element', 'Apply the brand device', 'Run export preflight'],
       typography: 'Assign real font files to display, body, accent, and code roles.',
     },
-    fonts: DEFAULT_BRAND_FONT_ASSETS.map((font) => ({ ...font })),
+    // Only the faces the starting typography uses, so a new brand carries no unused fonts.
+    fonts: DEFAULT_BRAND_FONT_ASSETS
+      .filter((font) => GT_BRAND_IDENTITY.typography.some(({ fontId }) => fontId === font.id))
+      .map((font) => ({ ...font })),
     greetings: ['Welcome'],
     graphicSystem: {
       composition: 'Choose a consistent layout behavior for this identity.',
@@ -902,12 +1042,7 @@ export function nextBrandIdentityCopyName(
 export function renameBrandIdentity(identity: BrandIdentity, name: string): BrandIdentity {
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName === identity.name) return identity;
-  const shortName = trimmedName
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toLocaleUpperCase();
+  const shortName = shortNameFromName(trimmedName);
   return {
     ...identity,
     assets: hasGeneratedPixelAssets(identity)

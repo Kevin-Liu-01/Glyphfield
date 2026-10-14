@@ -7,6 +7,7 @@ import {
   Activity,
   AlertCircle,
   Article,
+  Badge,
   Braces,
   ChartBar,
   ChartLineUp,
@@ -18,8 +19,10 @@ import {
   CurrencyDollar,
   CursorClick,
   FilePenLine,
+  Folder,
   Group,
   Info,
+  LayoutGrid,
   ListChecks,
   Mail,
   MessageSquareText,
@@ -27,6 +30,7 @@ import {
   NavigationArrow,
   Notification,
   PanelLeft,
+  PanelRightOpen,
   Quotes,
   RadioButton,
   RectangleHorizontal,
@@ -48,15 +52,18 @@ import {
 export const COMPONENT_PATTERN_ICONS = {
   'article-body': Article,
   alerts: AlertCircle,
+  badges: Badge,
   breadcrumbs: ChevronRight,
   'button-groups': Group,
   buttons: CursorClick,
+  cards: LayoutGrid,
   charts: ChartLineUp,
   checkout: CreditCard,
   checkboxes: ListChecks,
   comments: MessageSquareText,
   'command-menu': Command,
   dialogs: RectangleHorizontal,
+  'empty-states': Folder,
   'icon-buttons': Square,
   inbox: Mail,
   inputs: Textbox,
@@ -68,6 +75,7 @@ export const COMPONENT_PATTERN_ICONS = {
   progress: Activity,
   radios: RadioButton,
   selects: ChevronDown,
+  sheets: PanelRightOpen,
   sidebars: PanelLeft,
   stats: ChartBar,
   tables: Table,
@@ -129,7 +137,7 @@ export default function ComponentLibraryCatalog({
                     <span className='component-library-catalog-icon'>
                       <ComponentPatternIcon pattern={pattern.id} />
                     </span>
-                    <span>{gt(pattern.label)}</span>
+                    <span title={gt(pattern.description)}>{gt(pattern.label)}</span>
                     <span aria-hidden='true' className='component-library-catalog-selection' />
                   </button>
                 ))}

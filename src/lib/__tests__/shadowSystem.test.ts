@@ -21,12 +21,13 @@ describe('smooth elevation system', () => {
   it('uses integrated shadow rings on floating product surfaces', () => {
     const select = source('src/components/ui/StudioSelect.tsx');
     const colorControl = source('src/components/ui/ColorControl.tsx');
-    const componentLibrary = source('src/components/ComponentLibraryPreview.tsx');
+    const componentRules = source('src/lib/componentMarkup.ts');
 
     expect(select).toContain('smooth-shadow-ring-lg');
     expect(select).not.toContain('shadow-[0_18px_50px');
     expect(colorControl).toContain('smooth-shadow-ring-xl');
-    expect(componentLibrary).toContain('smooth-shadow-ring-2xl');
-    expect(componentLibrary).toContain('smooth-shadow-ring-xl');
+    // Component library previews draw the brand's own elevation, generated from its settings.
+    expect(componentRules).toContain("'box-shadow': '@shadow'");
+    expect(componentRules).not.toContain('smooth-shadow-ring');
   });
 });

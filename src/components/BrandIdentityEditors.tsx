@@ -12,6 +12,7 @@ import {
   RangeField,
   TEXTAREA_CLASS,
   TextAreaField,
+  TextField,
 } from '@/components/BrandIdentityFields';
 import BrandSystemDiagram from '@/components/BrandSystemDiagram';
 import ColorControl from '@/components/ui/ColorControl';
@@ -144,11 +145,54 @@ export function StrategyVoiceSection({ identity, update }: { identity: BrandIden
           <ListField label={<T>Audiences · one per line</T>} onChange={(audiences) => update({ audiences })} values={identity.audiences} />
           <ListField label={<T>Brand values · one per line</T>} onChange={(values) => update({ values })} values={identity.values} />
           <ListField label={<T>Products · one per line</T>} onChange={(products) => update({ products })} values={identity.products} />
-          <ListField label={<T>Proof points · one per line</T>} onChange={(proof) => update({ proof })} values={identity.proof} />
+          <ListField label={<T>Product one-liners · Name: what it does</T>} onChange={(lines) => update({ productDetails: parseProductDetails(lines) })} values={(identity.productDetails ?? []).map(({ name, summary }) => `${name}: ${summary}`)} />
+          <ListField label={<T>Proof statements · one per line</T>} onChange={(proof) => update({ proof })} values={identity.proof} />
+          <ListField label={<T>Customers · one per line</T>} onChange={(customers) => update({ customers })} values={identity.customers ?? []} />
         </div>
         <ListField label={<T>Sources · one per line</T>} onChange={(sourceNotes) => update({ sourceNotes })} values={identity.sourceNotes} />
       </Panel>
+      <TemplateSamples identity={identity} update={update} />
     </div>
+  );
+}
+
+/** "Name: summary" lines into product records; lines without a colon keep an empty summary out. */
+function parseProductDetails(lines: readonly string[]): NonNullable<BrandIdentity['productDetails']> {
+  return lines.flatMap((line) => {
+    const index = line.indexOf(':');
+    if (index <= 0) return [];
+    const name = line.slice(0, index).trim();
+    const summary = line.slice(index + 1).trim();
+    return name && summary ? [{ name, summary }] : [];
+  });
+}
+
+/** The sample person, event and product content templates print instead of placeholders. */
+function TemplateSamples({ identity, update }: { identity: BrandIdentity; update: BrandIdentityUpdate }) {
+  const samples = identity.samples ?? {};
+  const person = samples.person ?? { name: '', role: '' };
+  const event = samples.event ?? { date: '', location: '', name: '' };
+  const code = samples.code ?? { label: '', snippet: '' };
+  const release = samples.release ?? { items: [], title: '' };
+  const set = (patch: Partial<NonNullable<BrandIdentity['samples']>>) => update({ samples: { ...samples, ...patch } });
+  return (
+    <Panel description={<T>Sample content for brand elements, boards and the book: a person, an event and real product actions. Plans are edited in the source.</T>} title={<T>Template samples</T>}>
+      <div className={styles.formGrid}>
+        <TextField label={<T>Sample person</T>} onChange={(name) => set({ person: { ...person, name } })} value={person.name} />
+        <TextField label={<T>Role</T>} onChange={(role) => set({ person: { ...person, role } })} value={person.role} />
+        <TextField label={<T>Event name</T>} onChange={(name) => set({ event: { ...event, name } })} value={event.name} />
+        <TextField label={<T>Event location</T>} onChange={(location) => set({ event: { ...event, location } })} value={event.location} />
+        <TextField label={<T>Event date</T>} onChange={(date) => set({ event: { ...event, date } })} value={event.date} />
+        <TextField label={<T>Event time</T>} onChange={(time) => set({ event: { ...event, time } })} value={event.time ?? ''} />
+        <TextField label={<T>Install command</T>} onChange={(install) => set({ install })} value={samples.install ?? ''} />
+        <TextField label={<T>Code sample title</T>} onChange={(label) => set({ code: { ...code, label } })} value={code.label} />
+      </div>
+      <TextAreaField label={<T>Code sample</T>} onChange={(snippet) => set({ code: { ...code, snippet } })} value={code.snippet} />
+      <div className={styles.formGrid}>
+        <ListField label={<T>Product actions · one per line</T>} onChange={(actions) => set({ actions })} values={samples.actions ?? []} />
+        <ListField label={<T>Latest update · title, then one change per line</T>} onChange={([title = '', ...items]) => set({ release: { items, title } })} values={release.title ? [release.title, ...release.items] : []} />
+      </div>
+    </Panel>
   );
 }
 
@@ -588,7 +632,6 @@ export function DirectionSection({ identity, update }: { identity: BrandIdentity
     <div className={styles.sectionStack}>
       <section className='brand-direction-editorial'>
         <div className='brand-direction-editorial-copy'>
-          <span><T>Identity direction</T></span>
           <h2 style={{ fontFamily: brandTypographyFamily(identity, 'Display'), fontWeight: display.weight }}>{identity.tagline}</h2>
           <div><p>{identity.dossier.premise}</p><small>{identity.dossier.personality}</small></div>
         </div>

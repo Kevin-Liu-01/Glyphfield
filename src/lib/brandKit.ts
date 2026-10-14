@@ -1,3 +1,4 @@
+import { brandCustomers, brandProducts, brandProofStatements } from './brandContent';
 import {
   brandFontAssets,
   brandTypographyFamily,
@@ -8,14 +9,16 @@ import {
 } from './brandIdentity';
 import { auditBrandHealth, brandContrastResults } from './brandHealth';
 import {
-  BRAND_ROLE_TYPE_STEP,
   brandCssVariables,
   brandDesignTokens,
+  brandRoleTypeStep,
   brandTailwindTheme,
   brandTokenName,
+  brandTrackingEm,
   brandTypeScale,
 } from './brandTokens';
 import { normalizeHex } from './color';
+import { COLOR_MODES, resolveSemanticColors, SEMANTIC_COLOR_ROLES, semanticContrastChecks } from './colorSystem';
 import { createStoredZip, type ZipEntry } from './zipStore';
 
 /**
@@ -112,6 +115,7 @@ function rulesSection(identity: BrandIdentity): string[] {
         ? ['Keep the palette in proportion: the dominant field stays dominant and the accent stays rare.']
         : []),
       'Use only the logo files in `logos/`; never redraw, recolor, stretch or add effects to a mark.',
+      'No eyebrow text: never set a small uppercase or tracked label (a category, a number such as "01", or the brand name) above a headline. The headline leads; metadata that is needed goes after the content or in a footer.',
       ...identity.graphicSystem.rules,
       ...identity.dossier.prohibited.map((rule) => (/^(no|never|do not|don't)\b/i.test(rule) ? rule : `Avoid: ${rule}`)),
     ]),
@@ -148,8 +152,28 @@ function colorSection(identity: BrandIdentity): string[] {
       `${pair.ratio.toFixed(2)}:1`,
       pair.passes ? `${pair.level} pass` : `${pair.level} FAIL`,
     ]))}` : '',
+    semanticSection(identity),
     identity.dossier.color,
   ];
+}
+
+/** Light and dark values for each semantic role, with any contrast check that fails. */
+function semanticSection(identity: BrandIdentity): string {
+  const modes = COLOR_MODES.map((mode) => [mode, resolveSemanticColors(identity, mode)] as const);
+  const rows = SEMANTIC_COLOR_ROLES.map(({ id, usage }) => [
+    `\`--brand-${id}\``,
+    ...modes.map(([, resolved]) => `\`${resolved[id].ref}\` ${resolved[id].hex}`),
+    usage,
+  ]);
+  const failures = modes.flatMap(([mode, resolved]) => semanticContrastChecks(resolved)
+    .filter((check) => !check.passes)
+    .map((check) => `${mode}: ${check.foreground} on ${check.background} is ${check.ratio.toFixed(2)}:1 (needs ${check.minimum}:1)`));
+  return [
+    'Semantic roles switch with light and dark mode. Prefer them to palette tokens in interfaces:',
+    '',
+    table(['Token', 'Light', 'Dark', 'Use'], rows),
+    failures.length ? `\nFix before use:\n\n${bullets(failures)}` : '',
+  ].join('\n');
 }
 
 function typographySection(identity: BrandIdentity): string[] {
@@ -157,21 +181,36 @@ function typographySection(identity: BrandIdentity): string[] {
   const included = new Set(brandKitIncludedFonts(identity).map(({ id }) => id));
   const fonts = brandFontAssets(identity).filter((font) => identity.typography.some(({ fontId }) => fontId === font.id));
   const fontLine = (font: BrandFontAsset) => `${font.label} (${font.format})${font.license ? ` — ${font.license}` : ''}${included.has(font.id) ? ` → \`${fontFileName(font)}\`` : ' — not included; use your licensed copy'}`;
+  const sizes = new Map(scale.map((step) => [step.name, step.px]));
+  const axes = ROLES.flatMap((role) => {
+    const typography = brandTypographyRole(identity, role);
+    return [
+      ...(typeof typography.opticalSize === 'number' ? [`${role} fixes the optical size at \`"opsz" ${typography.opticalSize}\`.`] : []),
+      ...(typeof typography.slant === 'number' && typography.slant !== 0 ? [`${role} is set oblique at ${typography.slant}°.`] : []),
+    ];
+  });
   return [
     '## Typography',
     table(['Role', 'Family', 'Weight', 'Line height', 'Tracking', 'Size token', 'Use'], ROLES.map((role) => {
       const typography = brandTypographyRole(identity, role);
+      const step = brandRoleTypeStep(identity, role);
       return [
         role,
         brandTypographyFamily(identity, role),
         String(typography.weight ?? 400),
         String(typography.lineHeight ?? 1.5),
-        `${typography.letterSpacing ?? 0}px`,
-        `\`--brand-text-${BRAND_ROLE_TYPE_STEP[role]}\``,
+        `${brandTrackingEm(typography.letterSpacing ?? 0, sizes.get(step) ?? 16)} (${typography.letterSpacing ?? 0}px)`,
+        `\`--brand-text-${step}\``,
         typography.usage,
       ];
     })),
     `Type scale: ${identity.typeScale?.basePx ?? 16}px base × ${identity.typeScale?.ratio ?? 1.25} — ${scale.map(({ name, px }) => `${name} ${px}px`).join(', ')}.`,
+    `Typesetting:\n\n${bullets([
+      'Kerning stays on everywhere: `font-kerning: var(--brand-font-kerning)` and `font-feature-settings: var(--brand-font-feature-settings)`. Optical sizing stays `auto` unless a role fixes `opsz`.',
+      'Track by size: display type uses `--brand-font-display-tracking` (slightly negative, about -0.01 to -0.025em); body, accent and code text stay at 0. Never add positive tracking to lowercase text.',
+      'Size headlines from the scale, not to fill the frame. A 16:9 slide title takes about 6–8% of the frame height per line, and content slides less.',
+      ...axes,
+    ])}`,
     fonts.length ? `Font files:\n\n${bullets(fonts.map(fontLine))}` : '',
     identity.dossier.typography,
   ];
@@ -201,11 +240,14 @@ function deviceSection(identity: BrandIdentity): string[] {
 
 const CODE_SECTION = [
   '## Using the brand in code',
-  '```css\n@import "./tokens/brand.css";\n\nbody {\n  background: var(--brand-color-paper);\n  color: var(--brand-color-ink);\n  font: var(--brand-font-body-weight) var(--brand-text-body) / var(--brand-font-body-leading) var(--brand-font-body);\n}\n\nh1 {\n  font-family: var(--brand-font-display);\n  font-size: var(--brand-text-display);\n  font-weight: var(--brand-font-display-weight);\n  line-height: var(--brand-font-display-leading);\n  letter-spacing: var(--brand-font-display-tracking);\n}\n```',
-  'With Tailwind CSS v4, `@import "./tokens/tailwind.css";` after `@import "tailwindcss";` and use classes such as `bg-paper text-ink font-display text-display rounded-brand`.',
+  '```css\n@import "./tokens/brand.css";\n\nbody {\n  background: var(--brand-background);\n  color: var(--brand-foreground);\n  font: var(--brand-font-body-weight) var(--brand-text-body) / var(--brand-font-body-leading) var(--brand-font-body);\n  font-kerning: var(--brand-font-kerning);\n  font-feature-settings: var(--brand-font-feature-settings);\n  font-optical-sizing: var(--brand-font-optical-sizing);\n}\n\nh1 {\n  font-family: var(--brand-font-display);\n  font-size: var(--brand-text-display);\n  font-weight: var(--brand-font-display-weight);\n  line-height: var(--brand-font-display-leading);\n  letter-spacing: var(--brand-font-display-tracking);\n}\n```',
+  'With Tailwind CSS v4, `@import "./tokens/tailwind.css";` after `@import "tailwindcss";` and use classes such as `bg-background text-foreground bg-primary font-display text-display rounded-brand`; the semantic colours switch with dark mode.',
 ];
 
 function strategySection(identity: BrandIdentity): string[] {
+  const products = brandProducts(identity);
+  const customers = brandCustomers(identity);
+  const proof = brandProofStatements(identity);
   return [
     '## Strategy',
     table(['', ''], [
@@ -216,9 +258,10 @@ function strategySection(identity: BrandIdentity): string[] {
     ]),
     identity.strategy.pillars.length ? `Pillars:\n\n${bullets(identity.strategy.pillars)}` : '',
     '## Products, audiences and proof',
-    identity.products.length ? `Products: ${identity.products.join(', ')}.` : '',
+    products.length ? `Products:\n\n${bullets(products.map(({ name, summary }) => (summary ? `**${name}** — ${summary}` : name)))}` : '',
     identity.audiences.length ? `Audiences: ${identity.audiences.join(', ')}.` : '',
-    identity.proof.length ? `Proof (use only as published): ${identity.proof.join(', ')}.` : '',
+    customers.length ? `Customers (use only as published): ${customers.join(', ')}.` : '',
+    proof.length ? `Proof (use only as published): ${proof.join('; ')}.` : '',
     identity.applications.length ? `## Applications\n\n${table(['Application', 'Format', 'Intent'], identity.applications.map((item) => [item.name, item.format, item.description]))}` : '',
   ];
 }
@@ -228,6 +271,8 @@ const CHECKLIST_SECTION = [
   bullets([
     'Colors come from tokens and every text pair passes WCAG AA.',
     'Headlines use the Display role; body copy uses the Body role at the body step or larger.',
+    'Each headline leads its block: no eyebrow label above it, and metadata sits after the content.',
+    'Kerning is on, display tracking comes from the tokens, and body text is not tracked.',
     'Copy follows the voice principles and avoids the listed words.',
     'Logos are untouched files from `logos/` on the surface they were made for.',
     'Claims, metrics and customer names match the brand\'s published sources.',

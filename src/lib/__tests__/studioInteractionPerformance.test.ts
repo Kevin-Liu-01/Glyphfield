@@ -250,14 +250,30 @@ describe('Studio interaction performance contracts', () => {
 
   it('keeps the typing pace clock out of the Typography tool render', () => {
     const source = readSource('src/components/tools/TypographyTool.tsx');
-    const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function TypographyTool('));
+    const meter = source.slice(source.indexOf('function TypingMeter('), source.indexOf('function RoleLibrary('));
     const toolStart = source.indexOf('function TypographyTool(');
-    const tool = source.slice(toolStart, source.indexOf('\nfunction ', toolStart + 1));
+    const tool = source.slice(toolStart, source.indexOf('\nexport default', toolStart));
 
     expect(meter).toContain('window.setInterval(() => setTickAt(Date.now()), 250)');
+    expect(meter).toContain('useSpecimen((state) => state.charactersEntered)');
     expect(tool).not.toContain('setInterval');
-    expect(tool).toContain('useMemo(() => stringifySource({ typography: identity.typography }), [identity.typography])');
+    // Specimen typing and slider drags go through live stores, not tool state.
+    expect(tool).not.toMatch(/useState\(.*sampleText/);
+    expect(tool).toContain('usePersistentLiveStore<SpecimenState>');
+    expect(tool).toContain('get source()');
     expect(tool).toContain('<TypingMeter');
+  });
+
+  it('previews foundation slider drags in live stores and commits on release', () => {
+    const color = readSource('src/components/tools/ColorTool.tsx');
+    const components = readSource('src/components/tools/ComponentLibraryTool.tsx');
+    const preview = readSource('src/components/ComponentLibraryPreview.tsx');
+
+    expect(color).toContain('const store = useLiveStore(() => colorWorkingState(identity));');
+    expect(color).toContain('onChangeEnd={actions.finish}');
+    expect(components).toContain('usePersistentLiveStore<ComponentLibrarySettings>');
+    // Pane custom properties are written to the DOM on settings changes, not through React state.
+    expect(preview).toContain('element.style.setProperty(name, String(value));');
   });
 
   it('preloads lazy Studio workspaces from pointer and keyboard intent', () => {

@@ -6,6 +6,11 @@ icon: Braces
 
 Terminal card renders a code window in the identity's code font and a theme built from its colors. Each identity starts with real code from its product: `gt-next` for General Translation, a PaymentIntent for Stripe, a Worker for Cloudflare, `docs.json` for Mintlify, utility classes for Tailwind CSS.
 
+<DocsMediaGrid>
+  <DocsMedia alt='General Translation terminal card in the expression editor with two file tabs and a highlighted line' caption='Card layout' meta='1200 × 630 · dark chrome' src='/screenshots/studio-gt-terminal-dark-2026.png' />
+  <DocsMedia alt='Stripe terminal card with long lines wrapped inside the code window' caption='Split layout with wrapped lines' meta='Stripe · light chrome' src='/screenshots/studio-stripe-terminal-light-2026.png' />
+</DocsMediaGrid>
+
 ## Content controls
 
 - **Card title** edits the title layer.
@@ -15,9 +20,9 @@ Terminal card renders a code window in the identity's code font and a theme buil
 - **Terminal title font**, **Title weight**, **Terminal code font**, and **Code weight** set the type roles.
 - **Terminal card background** places an identity image behind the card; **Asset opacity** controls it.
 
-Select the code window for **Code theme** (Brand dark, Brand light, or Classic dark), **Window chrome** (file tabs, window, or none), **Show line numbers**, **Code size**, line height, and corner radius. Token colors come from the brand roles and are raised until they meet WCAG AA contrast against the window. Long lines shrink the code to fit the window instead of running out of it.
+Select the code window for **Code theme** (Brand dark, Brand light, or Classic dark), **Window chrome** (file tabs, window, or none), **Show line numbers**, **Code size**, line height, and corner radius. Token colors come from the brand roles and are raised until they meet WCAG AA contrast against the window. Long lines wrap inside the window after a space or punctuation, with the continuation indented two spaces past the line's own indent and no new line number; a highlighted line keeps its band across its wrapped rows. Code shrinks only when the wrapped code is taller than the window, and never below 80% of its set size. Templates set code between the format's body and lead sizes (18 to 25px on a 1200 × 630 card).
 
-Layouts: **Card** (title above the window, centered as a group), **Split** (copy beside the window), **Focus** (the window alone with a small footer), and **Caption** (window above a caption). Formats are the same as OpenGraph.
+Layouts: **Card** (title row above a window that fills the rest of the card), **Split** (copy beside the window), **Focus** (the window alone with a small footer), and **Caption** (window above a caption). Formats are the same as OpenGraph.
 
 ## Browser actions
 

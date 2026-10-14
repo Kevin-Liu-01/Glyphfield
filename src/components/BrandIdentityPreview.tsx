@@ -6,24 +6,14 @@ import {
   type BrandAsset,
   type BrandIdentity,
 } from '@/lib/brandIdentity';
+import { brandElementContent } from '@/lib/brandElementContent';
+import { displayTrackingEm } from '@/lib/brandOutputKit';
 import { capVisibleFontWeight } from '@/lib/typography';
 
 type BrandIdentityPreviewProps = {
   darkMark?: string;
   identity: BrandIdentity;
   lightMark?: string;
-};
-
-const PREVIEW_TITLES: Readonly<Record<string, string>> = {
-  basement: 'Cool work that performs.',
-  cloudflare: 'A better Internet, built everywhere.',
-  gt: 'Every language. One source.',
-  mintlify: 'Knowledge infrastructure for agents.',
-  ramp: 'Save time. Save money.',
-  starter: 'Make the signal visible.',
-  stripe: 'Build the internet economy.',
-  tailwind: 'CSS-first. Built for the modern web.',
-  viteplus: 'One toolchain for the web.',
 };
 
 function Mark({ name, path }: { name: string; path?: string }) {
@@ -53,7 +43,6 @@ function EvidenceImage({
       className={className}
       data-fit={centeredProduct ? 'contain' : 'cover'}
       decoding='async'
-      loading='lazy'
       src={asset.path}
       style={{ objectPosition }}
     />
@@ -93,7 +82,7 @@ function PreviewShell({ children, identity }: { children: ReactNode; identity: B
     '--brand-code-weight': capVisibleFontWeight(code.weight ?? 400),
     '--brand-display': brandTypographyFamily(identity, 'Display'),
     '--brand-display-line-height': display.lineHeight ?? 0.98,
-    '--brand-display-tracking': `${display.letterSpacing ?? 0}px`,
+    '--brand-display-tracking': `${displayTrackingEm(display.letterSpacing)}em`,
     '--brand-display-weight': capVisibleFontWeight(display.weight ?? 500),
     '--brand-emphasis': identity.colors.find((color) => color.id === 'emphasis')?.hex ?? '#2f6bff',
     '--brand-ink': identity.colors.find((color) => color.id === 'ink')?.hex ?? '#181818',
@@ -113,201 +102,229 @@ function PreviewShell({ children, identity }: { children: ReactNode; identity: B
   );
 }
 
-export default function BrandIdentityPreview({
+function recipeProps({
   darkMark,
   identity,
   lightMark,
 }: BrandIdentityPreviewProps) {
-  const recipe = identity.artDirection.preview;
-  const title = PREVIEW_TITLES[identity.id] ?? identity.tagline;
+  const title = identity.tagline;
+  const content = brandElementContent(identity);
+  const promise = content.promise || identity.positioning;
   const overview = libraryAsset(identity, 'library-overview');
   const editorial = libraryAsset(identity, 'library-editorial');
   const detail = libraryAsset(identity, 'library-detail');
   const atmosphere = libraryAsset(identity, 'library-atmosphere');
-  const interfaceEvidence = libraryAsset(identity, 'library-interface');
   const languageConstellation = libraryAsset(identity, 'library-constellation');
   const studioOverviewDark = libraryAsset(identity, 'studio-brand-elements-dark');
   const studioOverviewLight = libraryAsset(identity, 'studio-brand-elements-light');
+  return { atmosphere, content, darkMark, detail, editorial, identity, languageConstellation, lightMark, overview, promise, studioOverviewDark, studioOverviewLight, title };
+}
 
-  if (recipe === 'translation-frame') {
-    const savedGreetings = identity.greetings.includes('환영합니다')
-      ? identity.greetings
-      : [...identity.greetings, '환영합니다'];
-    const spanishIndex = savedGreetings.indexOf('Bienvenidos');
-    const koreanIndex = savedGreetings.indexOf('환영합니다');
-    const greetings = spanishIndex < koreanIndex
-      ? savedGreetings.map((greeting) => {
-          if (greeting === 'Bienvenidos') return '환영합니다';
-          if (greeting === '환영합니다') return 'Bienvenidos';
-          return greeting;
-        })
-      : savedGreetings;
+type RecipeProps = ReturnType<typeof recipeProps>;
 
-    return (
-      <PreviewShell identity={identity}>
-        <div aria-hidden='true' className='brand-art-gt-material'>
-          {languageConstellation ? (
-            <EvidenceImage asset={languageConstellation} className='brand-art-gt-constellation' />
-          ) : (
-            <div className='brand-art-gt-metal-stage'>
-              {greetings.map((greeting) => (
-                <span
-                  className='brand-art-gt-metal-language'
-                  dir={/[\u0600-\u06ff]/.test(greeting) ? 'rtl' : undefined}
-                  key={greeting}
-                >
-                  {greeting}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <header className='brand-art-gt-header'>
-          <Mark name={identity.name} path={lightMark} />
-        </header>
-        <div className='brand-art-gt-copy'>
-          <PreviewTitle>
-            <span>Every language.</span>
-            <span>One source.</span>
-          </PreviewTitle>
-          <p>Product language stays connected to code, context, and delivery.</p>
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'focus-window') {
-    return (
-      <PreviewShell identity={identity}>
-        <header><Mark name={identity.name} path={darkMark} /><span>RESEARCH / DIRECTION / SYSTEM</span></header>
-        <div className='brand-art-focus-grid'>
-          <div className='brand-art-focus-image'>
-            {studioOverviewLight || studioOverviewDark
-              ? <AdaptiveEvidenceImage darkAsset={studioOverviewDark} lightAsset={studioOverviewLight} />
-              : <EvidenceImage asset={overview} />}
-            <span>01 / selected evidence</span>
-          </div>
-          <div className='brand-art-focus-window'><small>Current signal</small><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-          <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar, index) => <p key={pillar}><b>{String(index + 1).padStart(2, '0')}</b>{pillar}</p>)}</div>
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'economic-ledger') {
-    return (
-      <PreviewShell identity={identity}>
-        <div className='brand-art-ledger-title'><Mark name={identity.name} path={darkMark} /><span>FINANCE OPERATIONS / CONTROL</span></div>
-        <div className='brand-art-ledger-copy'>
-          <PreviewTitle>{title}</PreviewTitle>
-          <p>{identity.strategy.promise}</p>
-          <strong>{identity.proof[0]}</strong>
-        </div>
-        <div className='brand-art-ledger-evidence'>
-          <div className='brand-art-ledger-photo'>
-            <EvidenceImage asset={editorial ?? detail} />
-            <span>{identity.products.slice(0, 3).join(' · ')}</span>
-          </div>
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'knowledge-beam') {
-    return (
-      <PreviewShell identity={identity}>
-        <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /><span>Knowledge for people + agents</span></header>
-        <div className='brand-art-mintlify-copy'>
-          <PreviewTitle>{title}</PreviewTitle>
-          <p>Self-updating documentation for startups, enterprises, and agents.</p>
-        </div>
-        <div className='brand-art-mintlify-system'>
-          <div className='brand-art-mintlify-sources'>
-            {['GitHub', 'Slack', 'Product'].map((source) => <span key={source}>{source}</span>)}
-          </div>
-          <div className='brand-art-mintlify-agent'>
-            <Mark name={identity.name} path={lightMark} />
-            <div><small>Mintlify agent</small><strong>Knowledge stays current.</strong></div>
-            <i />
-          </div>
-          <div className='brand-art-mintlify-status'>
-            <span><b>24/7</b> agents at work</span>
-            <span><b>3</b> sources connected</span>
-          </div>
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'utility-wave') {
-    return (
-      <PreviewShell identity={identity}>
-        <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /><span>v4.0 / CSS-first configuration</span></header>
-        <div className='brand-art-tailwind-copy'>
-          <PreviewTitle>{title}</PreviewTitle>
-          <p>Compose utilities in markup, define tokens in CSS, and build at microsecond speed.</p>
-          <strong>100× <small>faster incremental builds</small></strong>
-        </div>
-        <div className='brand-art-tailwind-code'>
-          <span>app.css</span>
-          <code><i>@import</i> &quot;tailwindcss&quot;;</code>
-          <code><i>@theme</i> {'{'}</code>
-          <code>&nbsp;&nbsp;--color-lagoon: <b>oklch(.72 .16 210)</b>;</code>
-          <code>&nbsp;&nbsp;--ease-fluid: <b>cubic-bezier(.3,0,0,1)</b>;</code>
-          <code>{'}'}</code>
-        </div>
-        <div className='brand-art-tailwind-spectrum' aria-label='Tailwind vivid P3 palette'>
-          {['sky', 'violet', 'rose', 'amber', 'lime'].map((tone) => <i data-tone={tone} key={tone} />)}
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'unified-terminal') {
-    return (
-      <PreviewShell identity={identity}>
-        <div className='brand-art-terminal-field'><EvidenceImage asset={overview ?? atmosphere} /></div>
-        <header><Mark name={identity.name} path={darkMark} /><span>ONE CONFIGURATION / ONE FLOW</span></header>
-        <div className='brand-art-terminal-copy'><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-        <div className='brand-art-terminal-window'>
-          <span>$ vp create</span>
-          {identity.products.slice(0, 4).map((product, index) => <p key={product}><b>{index === 3 ? '✓' : '◇'}</b>{product}</p>)}
-        </div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'network-horizon') {
-    return (
-      <PreviewShell identity={identity}>
-        <header><Mark name={identity.name} path={lightMark} /><span>CONNECTIVITY CLOUD</span></header>
-        <div className='brand-art-network-image'><EvidenceImage asset={overview} /></div>
-        <div className='brand-art-network-copy'><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-        <div className='brand-art-network-route'>{identity.products.slice(0, 4).map((product, index) => <span key={product}><i />{String(index + 1).padStart(2, '0')} {product}</span>)}</div>
-      </PreviewShell>
-    );
-  }
-
-  if (recipe === 'programmable-field') {
-    return (
-      <PreviewShell identity={identity}>
-        <div className='brand-art-spectrum'><EvidenceImage asset={atmosphere} /></div>
-        <header><Mark name={identity.name} path={darkMark} /><span>PROGRAMMABLE ECONOMY</span></header>
-        <div className='brand-art-programmable-copy'><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-        <div className='brand-art-transaction'>
-          <EvidenceImage asset={overview ?? interfaceEvidence ?? detail} />
-          <div><span>{identity.products[0]}</span><strong>{identity.proof[0]}</strong></div>
-        </div>
-      </PreviewShell>
-    );
-  }
+function TranslationFrame({ identity, languageConstellation, lightMark }: RecipeProps) {
+  const savedGreetings = identity.greetings.includes('환영합니다')
+    ? identity.greetings
+    : [...identity.greetings, '환영합니다'];
+  const spanishIndex = savedGreetings.indexOf('Bienvenidos');
+  const koreanIndex = savedGreetings.indexOf('환영합니다');
+  const greetings = spanishIndex < koreanIndex
+    ? savedGreetings.map((greeting) => {
+        if (greeting === 'Bienvenidos') return '환영합니다';
+        if (greeting === '환영합니다') return 'Bienvenidos';
+        return greeting;
+      })
+    : savedGreetings;
 
   return (
     <PreviewShell identity={identity}>
-      <header><Mark name={identity.name} path={darkMark} /><span>INDEPENDENT DIGITAL STUDIO</span></header>
-      <div className='brand-art-editorial-image'><EvidenceImage asset={editorial} /></div>
-      <div className='brand-art-editorial-copy'><PreviewTitle>{title}</PreviewTitle><p>{identity.strategy.promise}</p></div>
-      <footer>{identity.products.slice(0, 4).join(' / ')}</footer>
+      <div aria-hidden='true' className='brand-art-gt-material'>
+        {languageConstellation ? (
+          <EvidenceImage asset={languageConstellation} className='brand-art-gt-constellation' />
+        ) : (
+          <div className='brand-art-gt-metal-stage'>
+            {greetings.map((greeting) => (
+              <span
+                className='brand-art-gt-metal-language'
+                dir={/[\u0600-\u06ff]/.test(greeting) ? 'rtl' : undefined}
+                key={greeting}
+              >
+                {greeting}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <header className='brand-art-gt-header'>
+        <Mark name={identity.name} path={lightMark} />
+      </header>
+      <div className='brand-art-gt-copy'>
+        <PreviewTitle>
+          <span>Every language.</span>
+          <span>One source.</span>
+        </PreviewTitle>
+        <p>Product language stays connected to code, context, and delivery.</p>
+      </div>
     </PreviewShell>
   );
+}
+
+function FocusWindow({ darkMark, identity, overview, promise, studioOverviewDark, studioOverviewLight, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <header><Mark name={identity.name} path={darkMark} /></header>
+      <div className='brand-art-focus-grid'>
+        <div className='brand-art-focus-image'>
+          {studioOverviewLight || studioOverviewDark
+            ? <AdaptiveEvidenceImage darkAsset={studioOverviewDark} lightAsset={studioOverviewLight} />
+            : <EvidenceImage asset={overview} />}
+          <span>01 / selected evidence</span>
+        </div>
+        <div className='brand-art-focus-window'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+        <div className='brand-art-focus-notes'>{identity.strategy.pillars.slice(0, 3).map((pillar) => <p key={pillar}>{pillar}</p>)}</div>
+      </div>
+    </PreviewShell>
+  );
+}
+
+function EconomicLedger({ content, darkMark, detail, editorial, identity, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <div className='brand-art-ledger-title'><Mark name={identity.name} path={darkMark} /></div>
+      <div className='brand-art-ledger-copy'>
+        <PreviewTitle>{title}</PreviewTitle>
+        <p>{promise}</p>
+        {content.proof[0] ? <strong>{content.proof[0]}</strong> : null}
+      </div>
+      <div className='brand-art-ledger-evidence'>
+        <div className='brand-art-ledger-photo'>
+          <EvidenceImage asset={editorial ?? detail} />
+          <span>{content.products.slice(0, 3).map(({ name }) => name).join(' · ')}</span>
+        </div>
+      </div>
+    </PreviewShell>
+  );
+}
+
+function KnowledgeBeam({ content, darkMark, identity, lightMark, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <header className='brand-art-mintlify-header'><Mark name={identity.name} path={darkMark} /></header>
+      <div className='brand-art-mintlify-copy'>
+        <PreviewTitle>{title}</PreviewTitle>
+        <p>{content.phrases.find((phrase) => phrase !== title) ?? promise}</p>
+      </div>
+      <div className='brand-art-mintlify-system'>
+        <div className='brand-art-mintlify-sources'>
+          {content.products.slice(0, 3).map(({ name }) => <span key={name}>{name}</span>)}
+        </div>
+        <div className='brand-art-mintlify-agent'>
+          <Mark name={identity.name} path={lightMark} />
+          <div><strong>{content.products[2]?.summary ?? promise}</strong><small>{content.products[2]?.name ?? identity.name}</small></div>
+          <i />
+        </div>
+        <div className='brand-art-mintlify-status'>
+          {content.proof.slice(0, 2).map((statement) => <span key={statement}>{statement}</span>)}
+        </div>
+      </div>
+    </PreviewShell>
+  );
+}
+
+function UtilityWave({ content, identity, lightMark, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <header className='brand-art-tailwind-header'><Mark name={identity.name} path={lightMark} /></header>
+      <div className='brand-art-tailwind-copy'>
+        <PreviewTitle>{title}</PreviewTitle>
+        <p>{promise}</p>
+        {content.proof[0] ? <strong>{content.proof[0]}</strong> : null}
+      </div>
+      <div className='brand-art-tailwind-code'>
+        <span>{content.code.label}</span>
+        <pre>{content.code.snippet}</pre>
+        <span>app.css</span>
+        <code><i>@import</i> &quot;tailwindcss&quot;;</code>
+        <code><i>@theme</i> {'{'}</code>
+        {identity.colors.slice(0, 5).map((color) => <code key={color.id}>&nbsp;&nbsp;--color-{color.id}: <b>{color.hex.toLocaleLowerCase()}</b>;</code>)}
+        <code>{'}'}</code>
+      </div>
+      <div className='brand-art-tailwind-spectrum' aria-label='Tailwind vivid P3 palette'>
+        {['sky', 'violet', 'rose', 'amber', 'lime'].map((tone) => <i data-tone={tone} key={tone} />)}
+      </div>
+    </PreviewShell>
+  );
+}
+
+function UnifiedTerminal({ atmosphere, content, darkMark, identity, overview, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <div className='brand-art-terminal-field'><EvidenceImage asset={overview ?? atmosphere} /></div>
+      <header><Mark name={identity.name} path={darkMark} /></header>
+      <div className='brand-art-terminal-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+      <div className='brand-art-terminal-window'>
+        <span>$ {content.install}</span>
+        {content.products.slice(0, 4).map((product, index) => <p key={product.name}><b>{index === 3 ? '✓' : '◇'}</b>{product.name}</p>)}
+      </div>
+    </PreviewShell>
+  );
+}
+
+function NetworkHorizon({ content, identity, lightMark, overview, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <header><Mark name={identity.name} path={lightMark} /></header>
+      <div className='brand-art-network-image'><EvidenceImage asset={overview} /></div>
+      <div className='brand-art-network-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+      <div className='brand-art-network-route'>{content.products.slice(0, 4).map((product) => <span key={product.name}><i />{product.name}</span>)}</div>
+    </PreviewShell>
+  );
+}
+
+function ProgrammableField({ atmosphere, content, darkMark, identity, promise, title }: RecipeProps) {
+  return (
+    <PreviewShell identity={identity}>
+      <div className='brand-art-spectrum'><EvidenceImage asset={atmosphere} /></div>
+      <header><Mark name={identity.name} path={darkMark} /></header>
+      <div className='brand-art-programmable-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+      <div className='brand-art-transaction'>
+        <strong>{content.metric.value}</strong>
+        <small>{content.metric.label} · {content.metric.change}</small>
+        <div className='brand-art-transaction-head'><span>{content.products[0]?.name ?? identity.name}</span><span>{content.code.label}</span></div>
+        <i />
+        <dl>
+          {content.products.slice(1, 4).map((product) => <div key={product.name}><dt>{product.name}</dt><dd>{product.summary}</dd></div>)}
+        </dl>
+        {content.proof[0] ? <footer>{content.proof[0]}</footer> : null}
+      </div>
+    </PreviewShell>
+  );
+}
+
+function EditorialInterruption({ content, darkMark, editorial, identity, promise, title }: RecipeProps) {
+  return (
+  <PreviewShell identity={identity}>
+    <header><Mark name={identity.name} path={darkMark} /></header>
+    <div className='brand-art-editorial-image'><EvidenceImage asset={editorial} /></div>
+    <div className='brand-art-editorial-copy'><PreviewTitle>{title}</PreviewTitle><p>{promise}</p></div>
+    <footer>{content.products.slice(0, 4).map(({ name }) => name).join(' / ')}</footer>
+  </PreviewShell>
+);
+}
+
+const RECIPES: Record<BrandIdentity['artDirection']['preview'], (props: RecipeProps) => ReactNode> = {
+  'economic-ledger': EconomicLedger,
+  'editorial-interruption': EditorialInterruption,
+  'focus-window': FocusWindow,
+  'knowledge-beam': KnowledgeBeam,
+  'network-horizon': NetworkHorizon,
+  'programmable-field': ProgrammableField,
+  'translation-frame': TranslationFrame,
+  'unified-terminal': UnifiedTerminal,
+  'utility-wave': UtilityWave,
+};
+
+export default function BrandIdentityPreview(props: BrandIdentityPreviewProps) {
+  const Recipe = RECIPES[props.identity.artDirection.preview] ?? EditorialInterruption;
+  return <Recipe {...recipeProps(props)} />;
 }

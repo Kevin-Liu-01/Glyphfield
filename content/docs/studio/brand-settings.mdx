@@ -49,16 +49,18 @@ Each finding names what is wrong and why. Deterministic findings have a one-clic
 | --- | --- |
 | `<brand>-brand-kit.zip` | Everything below plus `identity.json`, the logo files and redistributable fonts |
 | `brand.md` | Guidelines written for coding agents: rules, voice and examples, color tokens and contrast pairs, typography and scale, logo use, code snippets and a pre-ship checklist |
-| `<brand>-tokens.json` | W3C Design Tokens (DTCG 2025.10): color, font family and weight, size, typography, radius and motion |
-| `<brand>-brand.css` | CSS custom properties: `--brand-color-*`, `--brand-font-*`, `--brand-text-*`, `--brand-radius` |
-| `<brand>-tailwind.css` | A Tailwind CSS v4 `@theme` block: `bg-paper`, `text-ink`, `font-display`, `text-display`, `rounded-brand` |
+| `<brand>-tokens.json` | W3C Design Tokens (DTCG 2025.10): color, palette (OKLCH scales), semantic light and dark roles, font family and weight, size, typography, radius and motion |
+| `<brand>-brand.css` | CSS custom properties: `--brand-color-*` and scale steps, semantic roles `--brand-<role>` with dark values, `--brand-font-*`, `--brand-text-*`, `--brand-radius` |
+| `<brand>-tailwind.css` | A Tailwind CSS v4 `@theme` block: `bg-paper`, `text-ink`, `bg-ink-700`, `font-display`, `text-display`, `rounded-brand`, plus semantic `bg-background`, `text-foreground`, `bg-primary` that switch with the theme |
 | `<brand>-logos.zip` | Every logo asset named by slot |
 
 Fonts are packaged only when you uploaded them or their recorded license is an open font license; other fonts are referenced in the CSS with a note to add your licensed copy. The ZIP is written without compression. The preview shows each text file live and can copy it.
 
 ## Voice & strategy
 
-Record the challenge, central concept, promise, outcome, strategic pillars and personality traits; the voice principles, approved phrases, language to avoid and greetings; and **voice examples**: real contexts (an error message, a release note) with the on-brand line and the version to avoid. Audiences, values, products, proof points and sources complete the section. The moodboard, brand book and application system use these fields as production content.
+Record the challenge, central concept, promise, outcome, strategic pillars and personality traits; the voice principles, approved phrases, language to avoid and greetings; and **voice examples**: real contexts (an error message, a release note) with the on-brand line and the version to avoid. Audiences, values, products with a one-line summary each (`Name: what it does`), proof statements, customers (kept apart from proof) and sources complete the section. **Template samples** hold a sample person and event, the install command, a code sample and product actions; published plans are edited in the source. The moodboard, brand book, brand elements and identity preview use these fields as production content instead of placeholders.
+
+The brand health audit checks this content too: a tagline, promise and phrases that repeat each other, customer names mixed into proof, a one-letter short name, a Code role that is not monospace, products without a summary, and stored fonts no role uses (usually leftovers from the template a project started from; **Remove unused fonts** clears them in one click).
 
 ## Logos & assets
 

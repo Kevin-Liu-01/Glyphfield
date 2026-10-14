@@ -15,7 +15,7 @@ export type ExportPreviewAsset = {
   description?: string;
   elapsedMs?: number;
   fileName: string;
-  format: 'AVIF' | 'BMP' | 'FILE' | 'GIF' | 'JPG' | 'JSON' | 'LOTTIE' | 'MP4' | 'PNG' | 'SVG' | 'WEBP';
+  format: 'AVIF' | 'BMP' | 'FILE' | 'GIF' | 'HTML' | 'JPG' | 'JSON' | 'LOTTIE' | 'MP4' | 'PNG' | 'SVG' | 'WEBP';
   height?: number;
   loopReport?: MotionLoopReport;
   previewKind?: 'file' | 'image' | 'text' | 'video';
