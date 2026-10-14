@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { observeTooltipAnchor, tooltipAnchorIsAvailable } from './studioTooltipLifecycle';
+import { observeTooltipAnchor, tooltipAnchorIsAvailable, tooltipAnchorIsEligible } from './studioTooltipLifecycle';
 
 const OPEN_DELAY_MS = 420;
 const CLOSE_DELAY_MS = 110;
@@ -15,7 +15,8 @@ type ActiveHint = ControlHint & { originalTitle: string | null };
 function hintFromTarget(target: EventTarget | null): Omit<ControlHint, 'keyboard'> | null {
   if (!(target instanceof Element) || target.closest('[data-studio-preview-trigger], [role="tooltip"]')) return null;
   const anchor = target.closest<HTMLElement>(CONTROL_SELECTOR);
-  if (!anchor || !tooltipAnchorIsAvailable(anchor)) return null;
+  // Rendering is checked when the hint reveals, after the hover delay.
+  if (!anchor || !tooltipAnchorIsEligible(anchor)) return null;
   const title = anchor.getAttribute('title')?.trim();
   // Field names belong in labels, not bubbles over the text being edited.
   // Explicit explanatory titles still work, as do icon and range hints.
@@ -38,6 +39,7 @@ function attachControlHints(id: string, update: (hint: ControlHint | null) => vo
   let revealed = false;
   let warmUntil = 0;
   let stopObserving: (() => void) | null = null;
+  let styleCheckFrame = 0;
   let keyboardInput = true;
   const insideHint = (target: EventTarget | null) => target instanceof Node && document.getElementById(id)?.contains(target);
 
@@ -45,6 +47,8 @@ function attachControlHints(id: string, update: (hint: ControlHint | null) => vo
     if (revealed) warmUntil = Date.now() + 900;
     window.clearTimeout(openTimer);
     window.clearTimeout(closeTimer);
+    window.cancelAnimationFrame(styleCheckFrame);
+    styleCheckFrame = 0;
     stopObserving?.();
     stopObserving = null;
     if (current) {
@@ -72,7 +76,16 @@ function attachControlHints(id: string, update: (hint: ControlHint | null) => vo
   function observeAnchor(anchor: HTMLElement) {
     stopObserving = observeTooltipAnchor(anchor, () => {
       const labelChanged = !current?.originalTitle && anchor.getAttribute('aria-label')?.trim() !== current?.text;
-      if (!tooltipAnchorIsAvailable(anchor) || anchor.getAttribute('title') !== '' || labelChanged) close();
+      if (!tooltipAnchorIsEligible(anchor) || anchor.getAttribute('title') !== '' || labelChanged) {
+        close();
+        return;
+      }
+      // CSS visibility is read once per frame, after the mutation's own style work.
+      if (styleCheckFrame) return;
+      styleCheckFrame = window.requestAnimationFrame(() => {
+        styleCheckFrame = 0;
+        if (current?.anchor === anchor && !tooltipAnchorIsAvailable(anchor)) close();
+      });
     });
   }
 
