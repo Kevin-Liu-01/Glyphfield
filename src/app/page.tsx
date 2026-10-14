@@ -23,22 +23,22 @@ import type { ReactNode } from 'react';
 
 import MarketingArcField from '@/components/MarketingArcField';
 import MarketingAnimationDemo from '@/components/MarketingAnimationDemo';
-import MarketingAgentControlLab from '@/components/MarketingAgentControlLab';
 import MarketingCopyPromptButton from '@/components/MarketingCopyPromptButton';
 import GitHubStarButton from '@/components/GitHubStarButton';
 import MitLogo from '@/components/MitLogo';
 import MarketingMotion from '@/components/MarketingMotion';
-import MarketingOpenSourceWorkbench from '@/components/MarketingOpenSourceWorkbench';
 import MarketingShaderMark from '@/components/MarketingShaderMark';
 import MarketingShaderText from '@/components/MarketingShaderText';
 import MarketingStudioSearch from '@/components/MarketingStudioSearch';
 import MarketingStudioLink from '@/components/MarketingStudioLink';
 import {
-  MarketingApplicationsDemo,
-  MarketingIdentityDemo,
-  MarketingMaterialDemo,
-  MarketingMotionDemo,
-} from '@/components/MarketingStudioShowcaseDemos';
+  DeferredAgentControlLab,
+  DeferredApplicationsDemo,
+  DeferredIdentityDemo,
+  DeferredMaterialDemo,
+  DeferredMotionDemo,
+  DeferredOpenSourceWorkbench,
+} from '@/components/MarketingDeferredDemos';
 import { MarketingThemeShell, MarketingThemeToggle } from '@/components/MarketingTheme';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, LIVE_MATERIAL_OPTIONS } from '@/lib/liveMaterials';
 import { PRODUCT_BRAND } from '@/lib/productBrand';
@@ -343,9 +343,7 @@ export default async function HomePage() {
             <p>
               <T>Email, product surfaces, editorial graphics, and physical pieces inherit the same source identity.</T>
             </p>
-            <div className='marketing-v5-product-card-image marketing-v5-product-card-image--artifacts'>
-              <MarketingApplicationsDemo />
-            </div>
+            <DeferredApplicationsDemo className='marketing-v5-product-card-image marketing-v5-product-card-image--artifacts' />
           </article>
           <article className='marketing-v5-product-card marketing-v5-product-card--dark' data-motion-item>
             <h2 className='marketing-v5-product-card-title--motion'>
@@ -353,9 +351,7 @@ export default async function HomePage() {
               <span><T>and its motion together.</T></span>
             </h2>
             <p><T>Apply live type, material, depth, and timing to a mark, then reuse the result across every export.</T></p>
-            <div className='marketing-v5-product-card-image marketing-v5-product-card-image--animation'>
-              <MarketingMotionDemo />
-            </div>
+            <DeferredMotionDemo className='marketing-v5-product-card-image marketing-v5-product-card-image--animation' />
           </article>
         </section>
 
@@ -425,9 +421,7 @@ export default async function HomePage() {
               <Link href='/openapi.json'>OpenAPI ↗</Link>
             </div>
           </div>
-          <div className='marketing-v5-agent-integration' data-motion-item>
-            <MarketingAgentControlLab />
-          </div>
+          <DeferredAgentControlLab className='marketing-v5-agent-integration' data-motion-item />
         </section>
 
         <section
@@ -496,13 +490,13 @@ export default async function HomePage() {
               </a>
             </div>
           </div>
-          <div className='marketing-v14-open-source-workbench-shell' data-motion-item>
-            <MarketingOpenSourceWorkbench
-              markPath={PRODUCT_BRAND.markPath}
-              materialId='paper-dithering-warp'
-              settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
-            />
-          </div>
+          <DeferredOpenSourceWorkbench
+            className='marketing-v14-open-source-workbench-shell'
+            data-motion-item
+            markPath={PRODUCT_BRAND.markPath}
+            materialId='paper-dithering-warp'
+            settings={OPEN_SOURCE_PANEL_DITHERING_WARP_SETTINGS}
+          />
         </section>
 
         <SectionSpacer dark />
@@ -684,12 +678,8 @@ function ThemeGallery() {
         </div>
       </div>
       <div className='marketing-v5-theme-gallery-grid'>
-        <div data-motion-item>
-          <MarketingIdentityDemo />
-        </div>
-        <div data-motion-item>
-          <MarketingMaterialDemo />
-        </div>
+        <DeferredIdentityDemo data-motion-item />
+        <DeferredMaterialDemo data-motion-item />
       </div>
     </section>
   );

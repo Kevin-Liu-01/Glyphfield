@@ -67,7 +67,9 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
   primary UI behind idle/admission timers. Presentation mode skips portable
   source/autosave work, not editing or authentic rendering. The page hydrates
   around that markup with `useDeferredHydration`: the editor's code loads right
-  after and replaces the markup, replaying a click made in the meantime.
+  after and replaces the markup, replaying a click made in the meantime. The
+  interactive demos below the hero (`MarketingDeferredDemos`) do the same as each
+  nears the viewport.
 
 ## Common tasks → first action
 
