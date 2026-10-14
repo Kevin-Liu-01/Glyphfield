@@ -32,6 +32,10 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - `AnimationStudio.tsx`, `TimelinePanel.tsx`, and audio components own motion.
 - `CanvasViewport`, `EditableCanvasLayer`, layer panels, `ColorControl`,
   `StudioSelect`, and range controls are reusable editor primitives.
+  `EditableCanvasLayer` rotates when a host passes `rotation` and `onRotate`
+  (the frame turns with the layer), snaps to extra `snapTargets` such as
+  `canvasThirdsSnapTargets`, and lets a host re-base geometry on commit: its
+  preview clears once the committed props draw the same box.
 - `StudioArtboardBar` shares Animation's artboard controls with Design Lab.
   `DesignVersionProvider` owns one saved-design state; split history/file-action
   consumers can sit in different bars without duplicating persistence.

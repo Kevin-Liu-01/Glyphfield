@@ -1,0 +1,42 @@
+/* Rotate handle: centred above the selection frame and turning with it. */
+.rotate {
+  position: absolute;
+  z-index: 30;
+  top: -34px;
+  left: 50%;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 999px;
+  color: white;
+  background: #5b7cff;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  translate: -50% 0;
+}
+
+.rotate:active {
+  cursor: grabbing;
+}
+
+/* A stem joins the handle to the frame. */
+.rotate::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 12px;
+  background: #5b7cff;
+  content: '';
+  translate: -50% 0;
+}
+
+.rotate svg {
+  width: 11px;
+  height: 11px;
+  pointer-events: none;
+}

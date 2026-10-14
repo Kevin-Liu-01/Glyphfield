@@ -16,7 +16,8 @@ export type CanvasPointerMode =
   | 'resize-right'
   | 'resize-top'
   | 'resize-top-left'
-  | 'resize-top-right';
+  | 'resize-top-right'
+  | 'rotate';
 export type CanvasLayerAlignment =
   | 'left'
   | 'horizontal-center'
@@ -250,4 +251,102 @@ export function alignCanvasLayer(
   if (alignment === 'top') return { ...transform, y: height / 2 - centerY };
   if (alignment === 'vertical-center') return { ...transform, y: canvasHeight / 2 - centerY };
   return { ...transform, y: canvasHeight - height / 2 - centerY };
+}
+
+/** Degrees in (-180, 180], so saved rotations have one spelling. */
+export function normalizeCanvasRotation(degrees: number): number {
+  if (!Number.isFinite(degrees)) return 0;
+  const turned = ((degrees % 360) + 360) % 360;
+  const normalized = turned > 180 ? turned - 360 : turned;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+/** Rotation for a rotate drag: the start plus the swept pointer angle, in `step`-degree increments when given. */
+export function canvasRotationFromPointer(
+  startRotation: number,
+  center: { x: number; y: number },
+  start: { x: number; y: number },
+  current: { x: number; y: number },
+  step?: number
+): number {
+  const swept = Math.atan2(current.y - center.y, current.x - center.x) - Math.atan2(start.y - center.y, start.x - center.x);
+  const degrees = startRotation + swept * 180 / Math.PI;
+  return normalizeCanvasRotation(step ? Math.round(degrees / step) * step : degrees);
+}
+
+export function rotateCanvasVector(vector: { x: number; y: number }, degrees: number): { x: number; y: number } {
+  if (!degrees) return { ...vector };
+  const radians = degrees * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return { x: vector.x * cos - vector.y * sin, y: vector.x * sin + vector.y * cos };
+}
+
+/** Axis-aligned extent of a box rotated about its center. */
+export function rotatedCanvasExtent(width: number, height: number, degrees: number): { height: number; width: number } {
+  if (!degrees) return { height, width };
+  const radians = degrees * Math.PI / 180;
+  const cos = Math.abs(Math.cos(radians));
+  const sin = Math.abs(Math.sin(radians));
+  return { height: width * sin + height * cos, width: width * cos + height * sin };
+}
+
+const RESIZES_RIGHT = new Set<CanvasPointerMode>(['resize', 'resize-right', 'resize-top-right']);
+const RESIZES_LEFT = new Set<CanvasPointerMode>(['resize-left', 'resize-top-left', 'resize-bottom-left']);
+const RESIZES_BOTTOM = new Set<CanvasPointerMode>(['resize', 'resize-bottom', 'resize-bottom-left']);
+const RESIZES_TOP = new Set<CanvasPointerMode>(['resize-top', 'resize-top-left', 'resize-top-right']);
+
+/**
+ * Box resize from one edge or corner. The pointer delta (canvas units) is read
+ * along the layer's own axes, so a rotated layer resizes along its sides, and
+ * the opposite edge stays where it was.
+ */
+export function resizeCanvasLayerBox(
+  start: CanvasLayerTransform,
+  geometry: Pick<CanvasLayerGeometry, 'baseHeight' | 'baseWidth'>,
+  mode: CanvasPointerMode,
+  delta: { x: number; y: number },
+  rotation = 0
+): CanvasLayerTransform {
+  const local = rotateCanvasVector(delta, -rotation);
+  const startWidthScale = start.widthScale ?? start.scale;
+  const startHeightScale = start.heightScale ?? start.scale;
+  let widthScale = startWidthScale;
+  let heightScale = startHeightScale;
+  const shift = { x: 0, y: 0 };
+  if (RESIZES_RIGHT.has(mode)) {
+    widthScale = Math.max(startWidthScale + local.x / geometry.baseWidth, MIN_CANVAS_LAYER_SCALE);
+    shift.x += geometry.baseWidth * (widthScale - startWidthScale) / 2;
+  }
+  if (RESIZES_LEFT.has(mode)) {
+    widthScale = Math.max(startWidthScale - local.x / geometry.baseWidth, MIN_CANVAS_LAYER_SCALE);
+    shift.x -= geometry.baseWidth * (widthScale - startWidthScale) / 2;
+  }
+  if (RESIZES_BOTTOM.has(mode)) {
+    heightScale = Math.max(startHeightScale + local.y / geometry.baseHeight, MIN_CANVAS_LAYER_SCALE);
+    shift.y += geometry.baseHeight * (heightScale - startHeightScale) / 2;
+  }
+  if (RESIZES_TOP.has(mode)) {
+    heightScale = Math.max(startHeightScale - local.y / geometry.baseHeight, MIN_CANVAS_LAYER_SCALE);
+    shift.y -= geometry.baseHeight * (heightScale - startHeightScale) / 2;
+  }
+  const move = rotateCanvasVector(shift, rotation);
+  return { ...start, heightScale, widthScale, x: start.x + move.x, y: start.y + move.y };
+}
+
+/** Rule-of-thirds lines for `snapTargets`. */
+export function canvasThirdsSnapTargets(width: number, height: number): CanvasSnapTargets {
+  return { x: [width / 3, width * 2 / 3], y: [height / 3, height * 2 / 3] };
+}
+
+/** The rendered box is what matters: equal boxes are the same commit, even after a host re-bases. */
+export function sameCanvasLayerBox(
+  left: { geometry: CanvasLayerGeometry; transform: CanvasLayerTransform },
+  right: { geometry: CanvasLayerGeometry; transform: CanvasLayerTransform },
+  tolerance = 0.01
+): boolean {
+  const a = canvasLayerBounds(left.transform, left.geometry);
+  const b = canvasLayerBounds(right.transform, right.geometry);
+  return Math.abs(a.left - b.left) <= tolerance && Math.abs(a.top - b.top) <= tolerance
+    && Math.abs(a.width - b.width) <= tolerance && Math.abs(a.height - b.height) <= tolerance;
 }
