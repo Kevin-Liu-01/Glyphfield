@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 import { readDesignLabSource } from './designLabSource';
@@ -210,6 +211,18 @@ describe('Studio interaction performance contracts', () => {
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");
     expect(styles).toContain(".studio-workspace-layer[data-active='true']");
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
+  });
+
+  it('reuses Paper shader contexts and programs across remounts', () => {
+    // The transitive copy the React bindings load, including its pnpm patch.
+    const requirePaper = createRequire(createRequire(import.meta.url).resolve('@paper-design/shaders-react'));
+    const paper = readFileSync(join(dirname(requirePaper.resolve('@paper-design/shaders')), 'shader-mount.js'), 'utf8');
+    const release = readSource('src/lib/webglContext.ts');
+
+    expect(paper).toContain('const pooled = takePooledCanvas(this.ownerDocument, this.contextKey);');
+    expect(paper).toContain('cachedProgram(this.gl, this.fragmentShader) ?? createProgram(');
+    expect(paper).toContain('if (this.gl) poolCanvas(this.canvasElement, this.gl, this.contextKey);');
+    expect(release).toContain("canvas.dataset.paperShaderPooled !== undefined");
   });
 
   it('swaps workspaces in deferred renders with a compositor-only crossfade', () => {

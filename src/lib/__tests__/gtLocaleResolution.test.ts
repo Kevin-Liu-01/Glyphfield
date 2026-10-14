@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -41,13 +42,13 @@ describe.each(['ESM', 'CommonJS'] as const)('GT exact-locale resolution (%s)', (
       const displayName = vi.spyOn(Intl.DisplayNames.prototype, 'of');
       const approved = ['en-US', locale];
       const config = new format.LocaleConfig({ defaultLocale: 'en-US', locales: approved });
-      // Validation still checks language/region/script names. Only the additional
-      // display-name metadata work is redundant for an exact approved match.
+      // Validation checks language/region/script names once per locale; the answer
+      // is remembered, and an exact approved match needs no display-name metadata.
       [locale, ...approved].forEach((candidate) => expect(format.isValidLocale(candidate)).toBe(true));
-      const validationNameCalls = displayName.mock.calls.length;
       displayName.mockClear();
 
       for (let label = 0; label < 24; label += 1) {
+        expect(format.isValidLocale(locale)).toBe(true);
         expect(config.determineLocale(locale)).toBe(locale);
       }
 
@@ -55,7 +56,7 @@ describe.each(['ESM', 'CommonJS'] as const)('GT exact-locale resolution (%s)', (
         displayName: displayName.mock.calls.length,
         maximize: maximize.mock.calls.length,
         minimize: minimize.mock.calls.length,
-      }).toEqual({ displayName: validationNameCalls * 24, maximize: 0, minimize: 0 });
+      }).toEqual({ displayName: 0, maximize: 0, minimize: 0 });
       expect(config.requiresTranslation(locale)).toBe(locale !== 'en-US');
     },
   );
@@ -92,5 +93,15 @@ describe.each(['ESM', 'CommonJS'] as const)('GT exact-locale resolution (%s)', (
     expect(config.determineLocale('FR-fr')).toBe('french');
     expect(config.requiresTranslation('english')).toBe(false);
     expect(config.requiresTranslation('french')).toBe(true);
+  });
+});
+
+describe('GT browser locale reads', () => {
+  it('reads cookies and negotiates the locale once per task (gt-react patch)', () => {
+    const client = readFileSync(join(dirname(requireGT.resolve('gt-react')), 'index.client.mjs'), 'utf8');
+    expect(client).toContain('this.getLocale = memoizeForTask(');
+    expect(client).toContain('this.getEnableI18n = memoizeForTask(');
+    expect(client).toContain('this.getRegion = memoizeForTask(');
+    expect(client).toContain('browserCookieWrites += 1;');
   });
 });
