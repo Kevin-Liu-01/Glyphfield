@@ -50,7 +50,8 @@ describe('ToolShell source adapter lifetime', () => {
     await act(() => container.querySelector<HTMLButtonElement>('button[aria-label="File"]')!.click());
     await act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) => button.textContent?.startsWith('Edit source code'))!.click());
     // The drawer module loads on first open.
-    await act(() => vi.waitFor(() => expect(container.querySelector('.source-code-drawer')).not.toBeNull()));
+    // The first import of the drawer is transformed on demand, which can take seconds on a busy machine.
+    await act(() => vi.waitFor(() => expect(container.querySelector('.source-code-drawer')).not.toBeNull(), { timeout: 15_000 }));
     const drawer = window.glyphfield!.studio;
     // Unknown actions delegate to the parent and correctly report capability,
     // rather than treating the still-open editor as an inactive/disposed tab.
