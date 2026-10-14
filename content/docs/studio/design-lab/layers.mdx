@@ -24,10 +24,12 @@ A new layer is selected when it is added.
 ## Select, move, and resize
 
 - Click a layer on the canvas or its card in the dock to select it. Shift-click or ⌘/Ctrl-click adds a layer to the selection.
-- Drag to move. While dragging, the layer snaps to the artboard edges and center and to the edges and centers of other layers within 6 screen pixels.
+- Drag to move. While dragging, the layer snaps within 6 screen pixels to the artboard edges, center, and rule-of-thirds lines, and to the edges and centers of other layers. A rotated layer snaps by the area it covers. On the open canvas, layers snap to edges and centers only.
 - Drag a selection handle to resize. Shader layers can also be sized numerically with **Frame width** and **Frame height** (0.02–3 of the artboard) and placed with **Horizontal position** and **Vertical position**.
+- Drag the round handle below a selected layer to rotate it about its center. Hold Shift to rotate in 15° steps. **Layer rotation** in the inspector sets the angle in degrees, clockwise; values are stored from −180° to 180°. A rotated layer moves and resizes along its own sides.
 - Press the arrow keys to nudge by 1 px, or with Shift by 10 px.
-- Design Lab layers have no rotation. The **Rotation** slider on a shader layer rotates the material inside the layer, not the layer.
+- The **Rotation** slider in a shader's **Advanced** section rotates the material inside the layer. **Layer rotation** turns the layer itself.
+- Align, distribute, and **Frame selection** use the area a rotated layer covers. **Reset mark position**, **Reset image position**, and **Reset text box** also reset the rotation. Copy style does not copy the rotation; copy, paste, and duplicate keep it.
 
 Text and image boxes do not auto-fit their contents. Text that overflows a narrow box stays visible in the preview and in the export.
 
@@ -155,6 +157,10 @@ Lock a layer from its dock card, the **Layers** list in the inspector, the layer
 A locked layer stays visible and exports normally. It ignores canvas clicks, drags, resize handles, on-canvas text editing, and nudges, and it leaves the canvas selection and **Select all**. Its inspector controls stay available. Locks are saved as `element.locked` in source, autosave, saved designs, and project files. Effect layers cannot be locked.
 
 `design.layers.lock` takes `{ layerIds: string[], locked: boolean }` and returns `null`.
+
+## Rotate layers
+
+`design.layers.rotate` takes `{ layerIds: string[], rotation: number }`. Each listed unlocked layer turns to `rotation` degrees clockwise about its own center; locked layers are skipped, and the action fails when every listed layer is locked. The angle is stored from −180° to 180°, so 270 is stored as −90. `0` removes the rotation. The action returns `null` after the change commits. Effect layers cover the whole artboard and do not rotate.
 
 ## Copy and paste style
 

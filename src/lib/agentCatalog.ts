@@ -72,7 +72,8 @@ export const AGENT_SHADER_LIBRARY = {
     rotationX: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.rotationX, maximum: 360, minimum: 0, step: 1, type: 'number' },
     rotationY: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.rotationY, maximum: 360, minimum: 0, step: 1, type: 'number' },
     rotationZ: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.rotationZ, maximum: 360, minimum: 0, step: 1, type: 'number' },
-    speed: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.speed, maximum: 2, minimum: 0, step: 0.05, type: 'number' },
+    // Motion stops getting faster at 1.5 (liveMaterialMotionRate), which is also every speed slider's maximum.
+    speed: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.speed, maximum: 1.5, minimum: 0, step: 0.05, type: 'number' },
     strength: { default: DEFAULT_LIVE_MATERIAL_SETTINGS.strength, maximum: 2, minimum: 0, step: 0.01, type: 'number' },
   },
   count: SHARED_SHADER_MATERIALS.length,

@@ -25,6 +25,7 @@ import {
   BrandTokenChips,
   LottieLayerControls,
   LottieMarkerControls,
+  LottieBrandLogoToggle,
   LottieRecolorModeToggle,
   LottieSourceColorControls,
   LottieTransport,
@@ -520,6 +521,8 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const [fit, setFit] = useStudioDraft<Fit>(identity.id, 'lottie', 'fit', 'contain');
   const [mode, setMode] = useStudioDraft<Mode>(identity.id, 'lottie', 'mode', 'forward');
   const [recolor, setRecolor] = useStudioDraft<LottieRecolorMode>(identity.id, 'lottie', 'recolor-v1', 'palette');
+  // Built-in studies carry the identity's logo; imports get it only when turned on.
+  const [showBrandLogo, setShowBrandLogo] = useStudioDraft(identity.id, 'lottie', 'brand-logo-v1', true);
   const [edits, setEdits] = useState<LottieEdits>(EMPTY_LOTTIE_EDITS);
   const [bundleMarkers, setBundleMarkers] = useState<LottieMarker[]>([]);
   const [shaderCaptureTimeMs, setShaderCaptureTimeMs] = useState<number | null>(null);
@@ -558,8 +561,11 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   const backgroundStyleRef = useCommittedRef(backgroundStyle);
   const brandFontFamilyRef = useCommittedRef(brandFontFamily);
   const recolorRef = useCommittedRef(recolor);
+  const showBrandLogoRef = useCommittedRef(showBrandLogo);
   const editsRef = useCommittedRef(edits);
   const brandLogoRef = useRef<LottieAppearance['brandLogo']>(undefined);
+  /** The rasterized logo when this source shows it; every preview and export reads it here. */
+  const activeBrandLogo = () => showBrandLogoRef.current ? brandLogoRef.current : undefined;
   const desiredPlayingRef = useRef(true);
   const reducedMotionRef = useRef(false);
   const lastFrameUpdateRef = useRef(0);
@@ -596,6 +602,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     appearance: {
       accentColor,
       artColor,
+      brandLogo: showBrandLogo,
       cornerRadius,
       recolor,
       secondaryColor,
@@ -639,6 +646,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     segmentEnd,
     segmentStart,
     serializableSource,
+    showBrandLogo,
     speed,
     strokeWidth,
     transparent,
@@ -796,7 +804,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
         cornerRadiusRef.current,
         strokeWidthRef.current,
         brandFontFamilyRef.current,
-        brandLogoRef.current,
+        activeBrandLogo(),
         recolorRef.current,
         editsRef.current,
       ),
@@ -905,14 +913,21 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     if (desiredPlayingRef.current) player.play();
   }, [active, playerGeneration, projectWorkspaceActiveRef]);
 
-  /** A new source starts with no edits; built-in studies use palette slots, imports keep their colours. */
-  function selectSource(nextSource: LottieSource, restored?: { edits: LottieEdits; recolor: LottieRecolorMode }) {
+  /**
+   * A new source starts with no edits; built-in studies use palette slots and
+   * the brand logo, imports keep their colours and get no logo.
+   */
+  function selectSource(nextSource: LottieSource, restored?: { brandLogo?: boolean; edits: LottieEdits; recolor: LottieRecolorMode }) {
+    const example = nextSource.provenance === 'Glyphfield example';
     const nextEdits = restored?.edits ?? EMPTY_LOTTIE_EDITS;
-    const nextRecolor = restored?.recolor ?? (nextSource.provenance === 'Glyphfield example' ? 'palette' : 'source');
+    const nextRecolor = restored?.recolor ?? (example ? 'palette' : 'source');
+    const nextBrandLogo = restored?.brandLogo ?? example;
     editsRef.current = nextEdits;
     recolorRef.current = nextRecolor;
+    showBrandLogoRef.current = nextBrandLogo;
     setEdits(nextEdits);
     setRecolor(nextRecolor);
+    setShowBrandLogo(nextBrandLogo);
     setSource(nextSource);
     desiredPlayingRef.current = !reducedMotionRef.current;
     setIsPlaying(!reducedMotionRef.current);
@@ -982,6 +997,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     setMode(restored.playback.mode as Mode);
     updateCanvasPreset(restored.canvasPreset);
     selectSource(nextLottieSource, {
+      brandLogo: restored.appearance.brandLogo,
       edits: restored.edits ?? EMPTY_LOTTIE_EDITS,
       recolor: restored.appearance.recolor ?? (parsed.legacy ? 'source' : 'palette'),
     });
@@ -1174,7 +1190,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       cornerRadius,
       strokeWidth,
       brandFontFamily,
-      brandLogoRef.current,
+      activeBrandLogo(),
       recolor,
       edits,
     ) as LottieDocument;
@@ -1206,7 +1222,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
           cornerRadius,
           strokeWidth,
           brandFontFamily,
-          brandLogoRef.current,
+          activeBrandLogo(),
           recolor,
           edits,
         ),
@@ -1332,6 +1348,12 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     scheduleSourceReload();
   }
 
+  function setBrandLogoVisible(visible: boolean) {
+    showBrandLogoRef.current = visible;
+    setShowBrandLogo(visible);
+    scheduleSourceReload();
+  }
+
   function describeLottie() {
     return {
       colors: discoveredColors,
@@ -1339,6 +1361,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
       format: source.format,
       frameRate: duration > 0 ? totalFrames / duration : 0,
       layers: layerSummaries,
+      brandLogo: showBrandLogoRef.current,
       markers: activeMarkers,
       recolor: recolorRef.current,
       segment: { end: segmentEndRef.current, start: segmentStartRef.current },
@@ -1351,17 +1374,19 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
   /** Validated patch over the current edits; every listed field replaces the stored one. */
   function applyLottieEditPatch(input: unknown) {
     if (source.format !== 'json') throw new Error('Layer, colour, and text edits apply to Lottie JSON. .lottie bundles keep their embedded artwork.');
-    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('lottie.edit requires { hiddenLayers?, colorMap?, textOverrides?, markers?, recolor? }.');
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('lottie.edit requires { hiddenLayers?, colorMap?, textOverrides?, markers?, recolor?, brandLogo? }.');
     const patch = input as Record<string, unknown>;
-    const allowed = new Set(['colorMap', 'hiddenLayers', 'markers', 'recolor', 'textOverrides']);
+    const allowed = new Set(['brandLogo', 'colorMap', 'hiddenLayers', 'markers', 'recolor', 'textOverrides']);
     for (const key of Object.keys(patch)) if (!allowed.has(key)) throw new TypeError(`lottie.edit does not accept ${key}.`);
     if (patch.recolor !== undefined && patch.recolor !== 'palette' && patch.recolor !== 'source') throw new TypeError("lottie.edit recolor must be 'palette' or 'source'.");
-    const next = normalizeLottieEdits({ ...editsRef.current, ...patch, recolor: undefined });
+    if (patch.brandLogo !== undefined && typeof patch.brandLogo !== 'boolean') throw new TypeError('lottie.edit brandLogo must be true or false.');
+    const next = normalizeLottieEdits({ ...editsRef.current, ...patch, brandLogo: undefined, recolor: undefined });
     const knownLayers = new Set(layerSummaries.map(({ key }) => key));
     const unknownLayer = [...next.hiddenLayers, ...Object.keys(next.textOverrides)].find((key) => !knownLayers.has(key));
     if (unknownLayer) throw new RangeError(`lottie.edit layer ${unknownLayer} is not in this document. Read lottie.describe for layer keys.`);
     flushSync(() => {
       if (patch.recolor === 'palette' || patch.recolor === 'source') setRecolorMode(patch.recolor);
+      if (typeof patch.brandLogo === 'boolean') setBrandLogoVisible(patch.brandLogo);
       updateEdits(() => next);
     });
     return describeLottie();
@@ -1397,7 +1422,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
     let exportPlayer: DotLottie | null = null;
     let shaderExport: { dispose: () => void; refresh: () => Promise<void>; sources: readonly { background?: { image?: CanvasImageSource } }[] } | null = null;
     try {
-      const data = resolveSourceData(source, [artColor, secondaryColor, accentColor], cornerRadius, strokeWidth, brandFontFamily, brandLogoRef.current, recolor, edits);
+      const data = resolveSourceData(source, [artColor, secondaryColor, accentColor], cornerRadius, strokeWidth, brandFontFamily, activeBrandLogo(), recolor, edits);
       const loaded = await loadExportPlayer(data, fit, canvas.width, canvas.height, interpolate);
       exportPlayer = loaded.player;
       const timing = {
@@ -1776,6 +1801,7 @@ export default function LottieStudio({ active = true, identity }: { active?: boo
                 <RangeControl label={<T>Corner radius</T>} max={48} min={0} onChange={updateCornerRadius} suffix=' px' value={cornerRadius} />
                 <RangeControl label={<T>Stroke width</T>} max={16} min={1} onChange={updateStrokeWidth} suffix=' px' value={strokeWidth} />
                 <LottieRecolorModeToggle checked={recolor === 'palette'} onChange={(checked) => setRecolorMode(checked ? 'palette' : 'source')} />
+                {brandLogoAsset ? <LottieBrandLogoToggle checked={showBrandLogo} onChange={setBrandLogoVisible} /> : null}
                 {recolor === 'source' ? (
                   <div className='flex flex-col gap-2 border-t border-border pt-3'>
                     <p className='text-sm font-medium'><T>Document colours</T></p>

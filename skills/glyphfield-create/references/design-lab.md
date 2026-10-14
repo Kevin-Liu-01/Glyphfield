@@ -80,7 +80,7 @@ if (effect?.status === 'unsupported') throw new Error('Image effects need WebGPU
 - Alignment needs two layers and distribution three. Locked layers are skipped.
 - Built-in converters use `{ kind: 'bayer' | 'ascii' | 'halftone' | 'posterize' }`. Image effect IDs come from `/api/materials` `imageEffects`; `effectProps` holds only changed values.
 - Effect layers cannot be added to the loose canvas, locked, arranged, or style-copied.
-- Design Lab layers have no rotation; the shader **Rotation** slider rotates the material inside its layer.
+- Text, mark, image, and shader layers rotate about their centers: `design.layers.rotate` with `{ layerIds, rotation }` in degrees, or `bounds.rotation` in source (−180 to 180). The shader **Rotation** slider in **Advanced** rotates the material inside its layer, not the layer. Effect layers do not rotate.
 
 ## Visual verification
 

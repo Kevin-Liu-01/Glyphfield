@@ -56,7 +56,7 @@ With an Effect layer selected, the **Image effects** section of the inspector li
 | Interactive | 6 | Shatter, Pixel Sort, Cursor Ripples, Grid Distortion, Liquify, Pixel Throw |
 | Shape Effects | 3 | Glass, Crystal, Emboss |
 
-Choosing an effect replaces the layer's converter output with that effect. **Effect settings** then shows the effect's own controls: colors, numeric ranges, positions, switches, and choices. Effect colors start from Glyphfield's default material palette, not from the identity; set brand colors in **Effect settings**. **Reset effect settings** returns every setting to its default. **Converter type** switches the layer back to a built-in converter.
+Choosing an effect replaces the layer's converter output with that effect. **Effect settings** then shows the effect's own controls: colors, numeric ranges, positions, switches, and choices. Effect colors start from the identity's material palette (ink, accent, and highlight), the same three colors a new shader layer starts with. An effect color you set in **Effect settings** replaces the palette color and is saved in `effectProps`; colors you have not set follow the identity. **Reset effect settings** returns every setting to its default. **Converter type** switches the layer back to a built-in converter.
 
 ### Preview
 

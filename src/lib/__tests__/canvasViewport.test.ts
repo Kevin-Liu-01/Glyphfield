@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canvasViewShortcut,
   arrangeCanvasFrames,
   clampCanvasZoom,
   resolveCanvasGridStep,
@@ -12,6 +13,18 @@ import {
 } from '@/lib/canvasViewport';
 
 describe('canvas viewport', () => {
+  it('maps the view menu keys and leaves modified chords to the browser', () => {
+    const key = (value: string, options: Partial<KeyboardEvent> = {}) => ({ altKey: false, ctrlKey: false, key: value, metaKey: false, shiftKey: false, ...options });
+    expect(canvasViewShortcut(key('f'))).toBe('fit');
+    expect(canvasViewShortcut(key('+', { shiftKey: true }))).toBe('zoom-in');
+    expect(canvasViewShortcut(key('='))).toBe('zoom-in');
+    expect(canvasViewShortcut(key('-'))).toBe('zoom-out');
+    expect(canvasViewShortcut(key('F', { shiftKey: true }))).toBeNull();
+    expect(canvasViewShortcut(key('=', { metaKey: true }))).toBeNull();
+    expect(canvasViewShortcut(key('-', { ctrlKey: true }))).toBeNull();
+    expect(canvasViewShortcut(key('t'))).toBeNull();
+  });
+
   it('keeps the neutral canvas out of a transformed compositor layer', () => {
     expect(resolveCanvasStageTransform({ x: 0, y: 0, zoom: 100 })).toBe('none');
     expect(resolveCanvasStageTransform({ x: 24, y: -10, zoom: 125 }))

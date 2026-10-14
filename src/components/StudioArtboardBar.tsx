@@ -130,7 +130,7 @@ export default function StudioArtboardBar({
         sections={[
           {
             items: [
-              { disabled: unframed, icon: <Copy aria-hidden='true' />, id: `duplicate-${contextTrigger}`, label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
+              { disabled: unframed, icon: <Copy aria-hidden='true' />, id: `duplicate-${contextTrigger}`, label: 'Duplicate artboard', onSelect: onDuplicate },
               { icon: <Plus aria-hidden='true' />, id: `new-${contextTrigger}`, label: 'New artboard', onSelect: onAdd },
             ],
           },

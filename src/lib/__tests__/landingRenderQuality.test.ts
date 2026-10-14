@@ -79,10 +79,45 @@ describe('landing render quality policy', () => {
     advance(8_000, 50);
     expect(store.getSnapshot()).toEqual({ mode: 'auto', quality: 'low', automaticallyReduced: true });
     expect(notify).toHaveBeenCalledOnce();
-    expect(frames.size).toBe(0);
-    advance(60_000, 16);
+    // Auto keeps measuring at Draft so it can climb back.
+    expect(frames.size).toBe(1);
+    advance(60_000, 50);
     expect(store.getSnapshot().quality).toBe('low');
     expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it('returns to High after frame times recover, and waits longer after each relapse', () => {
+    const { store, advance } = harness();
+    const notify = vi.fn();
+    store.subscribe(notify);
+    store.registerVisibleRenderer();
+    advance(8_000, 50);
+    expect(store.getSnapshot().quality).toBe('low');
+    // Warmup, then four smooth 2.5-second windows.
+    advance(11_000, 16);
+    expect(store.getSnapshot().quality).toBe('low');
+    advance(2_000, 16);
+    expect(store.getSnapshot()).toEqual({ mode: 'auto', quality: 'high', automaticallyReduced: false });
+    advance(8_000, 50);
+    expect(store.getSnapshot().quality).toBe('low');
+    // The second recovery needs eight smooth windows.
+    advance(14_000, 16);
+    expect(store.getSnapshot().quality).toBe('low');
+    advance(9_000, 16);
+    expect(store.getSnapshot().quality).toBe('high');
+    expect(notify).toHaveBeenCalledTimes(4);
+  });
+
+  it('holds its current resolution for a cadence between the slow and smooth bars', () => {
+    const { store, advance } = harness();
+    store.subscribe(vi.fn());
+    store.registerVisibleRenderer();
+    advance(60_000, 18);
+    expect(store.getSnapshot().quality).toBe('high');
+    advance(8_000, 50);
+    expect(store.getSnapshot().quality).toBe('low');
+    advance(60_000, 18);
+    expect(store.getSnapshot().quality).toBe('low');
   });
 
   it.each([25, 1_000 / 30])('reduces resolution for sustained %sms frames instead of accepting a sub-60fps cadence', (interval) => {
@@ -95,7 +130,9 @@ describe('landing render quality policy', () => {
     advance(3_000, interval);
     expect(store.getSnapshot()).toEqual({ mode: 'auto', quality: 'low', automaticallyReduced: true });
     expect(notify).toHaveBeenCalledOnce();
-    expect(frames.size).toBe(0);
+    advance(30_000, interval);
+    expect(store.getSnapshot().quality).toBe('low');
+    expect(frames.size).toBe(1);
   });
 
   it('accepts normal frame jitter and occasional dropped frames but detects repeatedly skipped 60Hz frames', () => {
@@ -144,7 +181,7 @@ describe('landing render quality policy', () => {
     expect(store.getSnapshot().quality).toBe('high');
   });
 
-  it('honors and persists explicit overrides without ever automatically upgrading', () => {
+  it('honors and persists explicit overrides, which never change automatically', () => {
     const { store, advance, frames, writeMode } = harness();
     store.subscribe(vi.fn());
     store.registerVisibleRenderer();
@@ -157,6 +194,7 @@ describe('landing render quality policy', () => {
     expect(writeMode).toHaveBeenLastCalledWith('high');
     store.setMode('auto');
     expect(store.getSnapshot().quality).toBe('low');
+    expect(frames.size).toBe(1);
     store.setMode('low');
     expect(writeMode).toHaveBeenLastCalledWith('low');
   });

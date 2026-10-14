@@ -244,6 +244,24 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.workspace).toEqual(designLabInput().workspace);
   });
 
+  it('stores layer rotation as element bounds.rotation and loads older layers at 0', () => {
+    const input = designLabInput();
+    input.assets = [{ ...input.assets[0]!, transform: { heightScale: 2, rotation: 30, scale: 0.6, widthScale: 3, x: 12, y: -8 } }];
+    const document = parseCanvasDocument(serializeDesignLabCanvasDocument(input));
+    expect(document.elements['asset-photo']?.bounds.rotation).toBe(30);
+    // The text layer was saved without a rotation.
+    expect(document.elements['text-title']?.bounds.rotation).toBe(0);
+    const restored = designLabSourceFromCanvasDocument(document).composition as Record<string, Array<{ transform: Record<string, number> }>>;
+    expect(restored.assets?.[0]?.transform).toEqual({ heightScale: 2, rotation: 30, scale: 0.6, widthScale: 3, x: 12, y: -8 });
+    expect(restored.textLayers?.[0]?.transform).not.toHaveProperty('rotation');
+
+    // Editing bounds.rotation in the portable source turns the layer; 0 removes the field.
+    const edited = applyCanvasMutation(document, { bounds: { rotation: 200 }, elementId: 'text-title', type: 'resize-element' });
+    expect((designLabSourceFromCanvasDocument(edited).composition as Record<string, Array<{ transform: Record<string, number> }>>).textLayers?.[0]?.transform.rotation).toBe(-160);
+    const cleared = applyCanvasMutation(document, { bounds: { rotation: 0 }, elementId: 'asset-photo', type: 'resize-element' });
+    expect((designLabSourceFromCanvasDocument(cleared).composition as Record<string, Array<{ transform: Record<string, number> }>>).assets?.[0]?.transform).not.toHaveProperty('rotation');
+  });
+
   it('round-trips an image effect on an Effect layer as additive settings', () => {
     const input = designLabInput();
     input.effectLayers = [{

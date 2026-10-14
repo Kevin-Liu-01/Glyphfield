@@ -56,10 +56,13 @@ import {
   alignCanvasSelection,
   canvasLayerDimensions,
   canvasSelectionBounds,
+  canvasThirdsSnapTargets,
   isCanvasTextEditingTarget,
   MIN_CANVAS_LAYER_SCALE,
   nextCanvasLayerSelection,
   normalizeCanvasLayerTransform,
+  rotateCanvasVector,
+  withCanvasLayerRotation,
   type CanvasLayerAlignment,
   type CanvasLayerBounds,
   type CanvasSelectionItem,
@@ -337,6 +340,7 @@ import {
   assertDesignLabEffectProps,
   assertDesignLabEffectSettings,
   designLabImageEffect,
+  designLabImageEffectPalette,
   planImageEffectPasses,
   resolveImageEffectOutputs,
   type DesignLabImageEffectId,
@@ -803,7 +807,8 @@ const DESIGN_LAB_INITIAL_PAN = { x: 0, y: -40 };
 /** Image effects re-run on the GPU per preview frame; 10 fps keeps motion beneath them readable. */
 const IMAGE_EFFECT_PREVIEW_FRAME_RATE = 10;
 // High renders live shaders near device resolution; Auto drops to the draft
-// budget after sustained slow frames. Exports always use output resolution.
+// budget after sustained slow frames and returns when they recover. Exports
+// always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
   high: { maxPerInstance: 2_400_000, minPerInstance: 240_000, totalBudget: 4_800_000 },
   low: { maxPerInstance: DESIGN_LAB_PREVIEW_MAX_PIXEL_COUNT, minPerInstance: 48_000, totalBudget: 300_000 },
@@ -1324,18 +1329,31 @@ function resetTextEffectContext(canvas: HTMLCanvasElement, width: number, height
 type OutputLayerBox = { height: number; width: number; x: number; y: number };
 type PaintTextLines = (target: CanvasRenderingContext2D, mode: 'fill' | 'stroke') => void;
 
+/** Turns the context clockwise about the center of a layer's output box, as the canvas turns the layer. */
+export function rotateContextAboutBox(context: CanvasRenderingContext2D, box: OutputLayerBox, degrees: number) {
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  context.translate(centerX, centerY);
+  context.rotate(degrees * Math.PI / 180);
+  context.translate(-centerX, -centerY);
+}
+
 function paintSolidDesignLabText(
   context: CanvasRenderingContext2D,
   appearance: TextAppearanceSettings,
   pattern: CanvasPattern | null,
-  paintTextLines: PaintTextLines
+  paintTextLines: PaintTextLines,
+  rotation = 0
 ) {
   context.fillStyle = pattern ?? appearance.color;
   if (appearance.shadowEnabled) {
+    // Canvas shadow offsets ignore the context's rotation; turn them so the
+    // shadow falls where the canvas shows it on the rotated layer.
+    const offset = rotateCanvasVector({ x: appearance.shadowOffsetX, y: appearance.shadowOffsetY }, rotation);
     context.shadowBlur = appearance.shadowBlur;
     context.shadowColor = colorWithOpacity(appearance.shadowColor, appearance.shadowOpacity / 100);
-    context.shadowOffsetX = appearance.shadowOffsetX;
-    context.shadowOffsetY = appearance.shadowOffsetY;
+    context.shadowOffsetX = offset.x;
+    context.shadowOffsetY = offset.y;
   }
   if (appearance.outlineEnabled) paintTextLines(context, 'stroke');
   paintTextLines(context, 'fill');
@@ -1431,6 +1449,7 @@ export function paintDesignLabTextLayer({
   identity,
   layer,
   paintShaderApplication,
+  rotation,
   textEffectScratch,
   width,
 }: {
@@ -1449,6 +1468,8 @@ export function paintDesignLabTextLayer({
     instanceKey: string,
     application: ShaderApplication
   ) => void;
+  /** The layer's rotation; the caller has already turned the context by it. */
+  rotation?: number;
   textEffectScratch: TextEffectRenderScratch;
   width: number;
 }) {
@@ -1586,7 +1607,7 @@ export function paintDesignLabTextLayer({
   };
 
   if (appearance.textEffect.kind === 'solid') {
-    paintSolidDesignLabText(context, appearance, pattern, paintTextLines);
+    paintSolidDesignLabText(context, appearance, pattern, paintTextLines, rotation);
     context.restore();
     return;
   }
@@ -1675,12 +1696,14 @@ export function designLayerActionInput(action: string, input: unknown): {
   layerId?: string;
   layerIds?: string[];
   locked?: boolean;
+  rotation?: number;
 } {
   const allowed: Record<string, readonly string[]> = {
     'design.layers.arrange': ['arrangement', 'layerIds'],
     'design.layers.copyStyle': ['layerId'],
     'design.layers.lock': ['layerIds', 'locked'],
     'design.layers.pasteStyle': ['layerIds'],
+    'design.layers.rotate': ['layerIds', 'rotation'],
   };
   const keys = allowed[action];
   if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
@@ -1691,15 +1714,22 @@ export function designLayerActionInput(action: string, input: unknown): {
   if (request.layerIds !== undefined && (!Array.isArray(request.layerIds) || request.layerIds.some((id) => typeof id !== 'string'))) {
     throw new TypeError('layerIds must be an array of layer ids.');
   }
+  assertDesignLayerActionValues(action, request);
+  return request as ReturnType<typeof designLayerActionInput>;
+}
+
+function assertDesignLayerActionValues(action: string, request: Record<string, unknown>) {
   if (action === 'design.layers.arrange' && !isDesignLabArrangement(request.arrangement)) {
     throw new TypeError('arrangement must be left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal or distribute-vertical.');
   }
   if (action === 'design.layers.lock' && typeof request.locked !== 'boolean') throw new TypeError('locked must be true or false.');
   if (action === 'design.layers.copyStyle' && typeof request.layerId !== 'string') throw new TypeError('layerId must identify a layer.');
-  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle') && !Array.isArray(request.layerIds)) {
+  if (action === 'design.layers.rotate' && (typeof request.rotation !== 'number' || !Number.isFinite(request.rotation))) {
+    throw new TypeError('rotation must be a finite number of degrees.');
+  }
+  if ((action === 'design.layers.lock' || action === 'design.layers.pasteStyle' || action === 'design.layers.rotate') && !Array.isArray(request.layerIds)) {
     throw new TypeError('layerIds must list at least one layer.');
   }
-  return request as ReturnType<typeof designLayerActionInput>;
 }
 
 const DESIGN_EFFECT_ACTION_FIELDS: Readonly<Record<string, readonly string[]>> = {
@@ -2358,6 +2388,16 @@ function useDesignLabCanvasSelection({
     updateCanvasLayerTransforms(updates);
   }
 
+  /** Turns each layer about its own center; position and size are unchanged. */
+  function rotateCanvasLayers(ids: readonly CanvasLayerId[], degrees: number) {
+    const updates = new Map<CanvasLayerId, CanvasLayerTransform>();
+    ids.forEach((layerId) => {
+      const transform = canvasLayerTransform(layerId);
+      if (transform) updates.set(layerId, withCanvasLayerRotation(transform, degrees));
+    });
+    updateCanvasLayerTransforms(updates);
+  }
+
   const selectedCanvasItems = selectedCanvasLayerIds.flatMap((layerId): CanvasSelectionItem[] => {
     const transform = canvasLayerTransform(layerId);
     return transform ? [{ geometry: layerGeometry(layerId, canvasDimensions), transform }] : [];
@@ -2526,29 +2566,6 @@ function useDesignLabCanvasSelection({
     setSelectedLayerId(nextIds.at(-1) ?? null);
   }
 
-  function handleCanvasAssemblyKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (
-      event.target instanceof HTMLElement
-      && (event.target.isContentEditable || event.target.closest('input, textarea, select'))
-    ) return;
-    const command = event.metaKey || event.ctrlKey;
-    if (command && event.key.toLowerCase() === 'g') {
-      event.preventDefault();
-      if (event.shiftKey) ungroupCanvasSelection();
-      else groupCanvasSelection();
-      return;
-    }
-    if (command && event.key.toLowerCase() === 'd') {
-      event.preventDefault();
-      duplicateCanvasSelection();
-      return;
-    }
-    if ((event.key === 'Backspace' || event.key === 'Delete') && selectedCanvasLayerIds.length > 0) {
-      event.preventDefault();
-      removeCanvasSelection();
-    }
-  }
-
   return {
     alignCanvasAssembly,
     arrangeCanvasSelection,
@@ -2556,12 +2573,12 @@ function useDesignLabCanvasSelection({
     duplicateCanvasSelection,
     groupCanvasSelection,
     groupForLayer,
-    handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
     moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
+    rotateCanvasLayers,
     selectCanvasAssembly,
     selectAllCanvasLayers,
     selectedCanvasBounds,
@@ -2629,7 +2646,7 @@ const DesignArtboardContextMenu = memo(function DesignArtboardContextMenu({
             },
             { icon: <Copy aria-hidden='true' />, id: 'copy-artboard', label: 'Copy artboard', onSelect: onCopy, shortcut: '⌘C' },
             { icon: <Files aria-hidden='true' />, id: 'paste-artboard', label: 'Paste', onSelect: onPaste, shortcut: '⌘V' },
-            { icon: <Files aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate, shortcut: '⌘D' },
+            { icon: <Files aria-hidden='true' />, id: 'duplicate-artboard', label: 'Duplicate artboard', onSelect: onDuplicate },
             { icon: <Plus aria-hidden='true' />, id: 'new-artboard', label: 'New artboard', onSelect: onNew },
           ],
         },
@@ -2792,6 +2809,7 @@ export default function ShaderLabStudio({
     ? canvasRevisionFromSignature(immutableJsonSignature(projectTypography)) : null, [projectTypography]);
   const studioExport = useStudioExportProgress(`${identity.id}:${tool.id}:design-lab`);
   const brandPalette = useMemo(() => brandMaterialPalette(identity), [identity]);
+  const imageEffectPalette = useMemo(() => designLabImageEffectPalette(brandPalette.colors), [brandPalette.colors]);
   const initialSettings = useMemo(() => shaderLabSettingsFor(DEFAULT_SHADER_MATERIAL_ID, {
     ...DEFAULT_LIVE_MATERIAL_SETTINGS,
     colorA: brandPalette.colors[0],
@@ -3262,6 +3280,11 @@ export default function ShaderLabStudio({
   const designHistorySignatureRef = useCommittedRef(designHistorySignature);
   const activeArtboard = resolveActiveDesignArtboard(workspaceArtboards, activeArtboardId);
   const editingCanvas = activeArtboardId === DESIGN_CANVAS_ID;
+  // Artboards add rule-of-thirds lines to edge and center snapping; the open canvas has no frame to divide.
+  const artboardThirdsSnapTargets = useMemo(
+    () => editingCanvas ? undefined : canvasThirdsSnapTargets(canvasDimensions.width, canvasDimensions.height),
+    [canvasDimensions.height, canvasDimensions.width, editingCanvas]
+  );
   const outputArtboards = workspaceArtboards.filter(({ id }) => id !== DESIGN_CANVAS_ID);
   const activeArtboardRawName = activeArtboard?.name ?? '';
   const workspaceSize = useMemo(
@@ -3494,12 +3517,12 @@ export default function ShaderLabStudio({
     duplicateCanvasSelection,
     groupCanvasSelection,
     groupForLayer,
-    handleCanvasAssemblyKeyDown,
     movementBoundsFor,
     moveCanvasSelection,
     moveCanvasSelectionToEdge,
     openCanvasSelectionMenu,
     removeCanvasSelection,
+    rotateCanvasLayers,
     selectAllCanvasLayers,
     selectCanvasAssembly,
     selectedCanvasBounds,
@@ -5136,13 +5159,27 @@ export default function ShaderLabStudio({
     return { label: layerIds.length > 0 ? `${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}` : artboard.name, source };
   }
 
-  function copyDesignLabSelection(event: ClipboardEvent) {
-    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
+  /** Text fields, and text the user has selected, keep the browser's own clipboard behaviour. */
+  function ownsClipboardEvent(event: ClipboardEvent): boolean {
+    if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return false;
     const browserSelection = window.getSelection();
-    if (browserSelection && !browserSelection.isCollapsed && browserSelection.toString()) return;
+    return !(browserSelection && !browserSelection.isCollapsed && browserSelection.toString());
+  }
 
+  function copyDesignLabSelection(event: ClipboardEvent) {
+    if (!ownsClipboardEvent(event)) return;
     event.preventDefault();
     void copyDesignLabSelectionFromMenu();
+  }
+
+  /** ⌘X copies the selected layers, then deletes them. Without a layer selection it does nothing. */
+  function cutDesignLabSelection(event: ClipboardEvent) {
+    if (!ownsClipboardEvent(event)) return;
+    const layerIds = canvasClipboardLayerIds();
+    if (layerIds.length === 0) return;
+    event.preventDefault();
+    const remove = selectedCanvasLayerIds.length > 0 ? removeCanvasSelection : () => removeLayer(layerIds[0]!);
+    void cutDesignLabSelectionFromMenu(remove, layerIds);
   }
 
   async function copyDesignLabSelectionFromMenu(
@@ -5291,23 +5328,56 @@ export default function ShaderLabStudio({
     }
   }
 
+  /** ⌘] / ⌘[ and their Shift forms: the canvas selection, or the one layer chosen in the layer list. */
+  function reorderSelection(direction: 'backward' | 'forward', toEdge: boolean) {
+    if (selectedCanvasLayerIds.length > 0) {
+      if (toEdge) moveCanvasSelectionToEdge(direction === 'forward' ? 'front' : 'back');
+      else moveCanvasSelection(direction === 'forward' ? 1 : -1);
+    } else if (selectedLayerId) {
+      if (toEdge) moveLayerToEdge(selectedLayerId, direction === 'forward' ? 'front' : 'back');
+      else moveLayer(selectedLayerId, direction === 'forward' ? 1 : -1);
+    }
+  }
+
+  /** ⌘D and Delete: the canvas selection, or the one unlocked layer chosen in the layer list. */
+  function duplicateOrDeleteSelection(kind: 'delete' | 'duplicate') {
+    if (selectedCanvasLayerIds.length > 0) {
+      if (kind === 'delete') removeCanvasSelection();
+      else void duplicateCanvasSelection();
+    } else if (selectedLayerId && !layerLocked(selectedLayerId)) {
+      if (kind === 'delete') removeLayer(selectedLayerId);
+      else void duplicateLayer(selectedLayerId);
+    }
+  }
+
+  function addLayerFromShortcut(layer: Extract<DesignLabShortcutCommand, { kind: 'add' }>['layer']) {
+    if (layer === 'text') addTextLayer();
+    else if (layer === 'shader') addCanvasShader();
+    else if (layer === 'mark') addBrandMarkLayer();
+    else if (layer === 'image') openImageImport();
+    else if (layer === 'sticker') openImageImport([], 'sticker');
+    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
+    else addEffectLayer();
+  }
+
+  function arrangeFromShortcut(arrangement: DesignLabArrangement) {
+    if (arrangeCanvasSelection(arrangement)) return;
+    announceCanvasClipboard(arrangement.startsWith('distribute-')
+      ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
+  }
+
   function runEditorShortcut(command: DesignLabShortcutCommand) {
     if (command.kind === 'shortcuts') setShortcutsOpen((open) => !open);
+    else if (command.kind === 'select-all') selectAllCanvasLayers();
+    else if (command.kind === 'order') reorderSelection(command.direction, command.toEdge);
+    else if (command.kind === 'delete' || command.kind === 'duplicate') duplicateOrDeleteSelection(command.kind);
+    else if (command.kind === 'group') groupCanvasSelection();
+    else if (command.kind === 'ungroup') ungroupCanvasSelection();
     else if (command.kind === 'copy-style') copyLayerStyle();
     else if (command.kind === 'paste-style') pasteLayerStyle();
     else if (command.kind === 'toggle-lock') toggleSelectionLock();
-    else if (command.kind === 'arrange') {
-      if (!arrangeCanvasSelection(command.arrangement)) {
-        announceCanvasClipboard(command.arrangement.startsWith('distribute-')
-          ? 'Select three or more layers to distribute' : 'Select two or more layers to align');
-      }
-    } else if (command.layer === 'text') addTextLayer();
-    else if (command.layer === 'shader') addCanvasShader();
-    else if (command.layer === 'mark') addBrandMarkLayer();
-    else if (command.layer === 'image') openImageImport();
-    else if (command.layer === 'sticker') openImageImport([], 'sticker');
-    else if (editingCanvas) announceCanvasClipboard('Frame your selection to apply composition-wide effects');
-    else addEffectLayer();
+    else if (command.kind === 'arrange') arrangeFromShortcut(command.arrangement);
+    else addLayerFromShortcut(command.layer);
   }
 
   const handleEditorShortcut = useEffectEvent((event: KeyboardEvent) => {
@@ -5332,6 +5402,7 @@ export default function ShaderLabStudio({
   }, [active]);
 
   const handleDesignLabCopy = useEffectEvent(copyDesignLabSelection);
+  const handleDesignLabCut = useEffectEvent(cutDesignLabSelection);
   const handleDesignLabPaste = useEffectEvent((event: ClipboardEvent) => {
     if (!workspaceActiveRef.current || !projectWorkspaceActiveRef.current || isCanvasClipboardEditingTarget(event.target)) return;
     const customSource = event.clipboardData?.getData(DESIGN_LAB_CLIPBOARD_MIME) ?? '';
@@ -5354,13 +5425,16 @@ export default function ShaderLabStudio({
   useEffect(() => {
     if (!active) return;
     const handleCopy = (event: ClipboardEvent) => handleDesignLabCopy(event);
+    const handleCut = (event: ClipboardEvent) => handleDesignLabCut(event);
     const handlePaste = (event: ClipboardEvent) => {
       handleDesignLabPaste(event);
     };
     document.addEventListener('copy', handleCopy);
+    document.addEventListener('cut', handleCut);
     document.addEventListener('paste', handlePaste);
     return () => {
       document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('cut', handleCut);
       document.removeEventListener('paste', handlePaste);
     };
   }, [active]);
@@ -6015,17 +6089,14 @@ export default function ShaderLabStudio({
     const renderedShader = capturedSequence?.layerId === layerId
       ? capturedSequence.application
       : renderedShaderApplication(layerId, shaderLayer) ?? shaderLayer;
-    const box = outputLayerBox(
-      layerId,
-      normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM),
-      width,
-      height
-    );
+    const transform = normalizeCanvasLayerTransform(shaderLayer.transform, DEFAULT_LAYER_TRANSFORM);
+    const box = outputLayerBox(layerId, transform, width, height);
     context.save();
     context.globalAlpha = renderedShader.opacity;
     context.globalCompositeOperation = renderedShader.blendMode === 'normal'
       ? 'source-over'
       : renderedShader.blendMode;
+    if (transform.rotation) rotateContextAboutBox(context, box, transform.rotation);
     context.translate(box.x, box.y);
     paintShaderApplication(context, box.width, box.height, `canvas-${layerId}`, renderedShader);
     context.restore();
@@ -6079,11 +6150,49 @@ export default function ShaderLabStudio({
     height: number,
     images: ReadonlyMap<string, HTMLImageElement>
   ) {
-    const isLogo = isLogoLayerId(layerId);
     const layer = renderedCompositionMediaLayer(layerId);
     const image = layer ? images.get(layer.id) : null;
     if (!layer || !image) return;
     const box = outputLayerBox(layer.id, layer.transform, width, height);
+    const rotation = layer.transform.rotation ?? 0;
+    if (!rotation) {
+      paintCompositionMedia(context, layer, image, box, true);
+      return;
+    }
+    // Paint unrotated on a canvas with room for the outline and shadow, then
+    // turn it: parts beyond the artboard and the shadow turn with the layer,
+    // as they do on the canvas.
+    const appearance = resolvedLogoAppearance(layer.appearance);
+    const pad = Math.ceil(2
+      + (appearance.borderEnabled ? appearance.borderWidth : 0)
+      + (appearance.shadowEnabled
+        ? appearance.shadowBlur * 2 + Math.max(Math.abs(appearance.shadowOffsetX), Math.abs(appearance.shadowOffsetY))
+        : 0));
+    const local = document.createElement('canvas');
+    local.width = Math.max(1, Math.ceil(box.width + pad * 2));
+    local.height = Math.max(1, Math.ceil(box.height + pad * 2));
+    const localContext = local.getContext('2d');
+    if (!localContext) return;
+    paintCompositionMedia(localContext, layer, image, { ...box, x: pad, y: pad }, false);
+    const blendMode = renderedShaderApplication(layer.id, layerShaders[layer.id])?.blendMode ?? 'normal';
+    context.save();
+    context.globalCompositeOperation = blendMode === 'normal' ? 'source-over' : blendMode;
+    rotateContextAboutBox(context, box, rotation);
+    context.drawImage(local, box.x - pad, box.y - pad);
+    context.restore();
+    local.width = 0;
+    local.height = 0;
+  }
+
+  /** One image or mark layer at `box`. `blend` applies its shader's blend mode here; a caller that composites later passes false. */
+  function paintCompositionMedia(
+    context: CanvasRenderingContext2D,
+    layer: CompositionLogoLayer | CompositionAsset,
+    image: HTMLImageElement,
+    box: OutputLayerBox,
+    blend: boolean
+  ) {
+    const isLogo = isLogoLayerId(layer.id);
     const application = renderedShaderApplication(layer.id, layerShaders[layer.id]);
     const appearance = resolvedLogoAppearance(layer.appearance);
     const layerOpacity = layer.opacity ?? 1;
@@ -6114,7 +6223,7 @@ export default function ShaderLabStudio({
       materialContext,
       materialLayer.width,
       materialLayer.height,
-      `content-${layerId}`,
+      `content-${layer.id}`,
       application
     );
     materialContext.globalCompositeOperation = 'destination-in';
@@ -6141,9 +6250,11 @@ export default function ShaderLabStudio({
     materialContext.restore();
     context.save();
     context.globalAlpha = application.opacity;
-    context.globalCompositeOperation = application.blendMode === 'normal'
-      ? 'source-over'
-      : application.blendMode;
+    if (blend) {
+      context.globalCompositeOperation = application.blendMode === 'normal'
+        ? 'source-over'
+        : application.blendMode;
+    }
     drawLogoAppearanceLayer(
       context,
       materialLayer,
@@ -6201,9 +6312,12 @@ export default function ShaderLabStudio({
           : committedTextLayer;
         if (!textLayer || !textLayer.value) return;
         const transform = resolvedTextTransform(textLayer.transform);
+        const box = outputLayerBox(layerId, transform, width, height);
+        // The renderer restores the context after each layer.
+        if (transform.rotation) rotateContextAboutBox(context, box, transform.rotation);
         return paintDesignLabTextLayer({
           application: renderedShaderApplication(layerId, layerShaders[layerId]),
-          box: outputLayerBox(layerId, transform, width, height),
+          box,
           canvasHeight: canvasDimensions.height,
           canvasWidth: canvasDimensions.width,
           context,
@@ -6211,6 +6325,7 @@ export default function ShaderLabStudio({
           identity,
           layer: textLayer,
           paintShaderApplication,
+          rotation: transform.rotation,
           textEffectScratch: textEffectScratchFor(layerId),
           width,
         });
@@ -6321,7 +6436,7 @@ export default function ShaderLabStudio({
         if (!layer) return null;
         if (imageEffectStatusStore.get().get(layer.id) !== 'ready') setImageEffectStatus(layer.id, 'loading');
         try {
-          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds, imageEffectPalette);
           setImageEffectStatus(layer.id, 'ready');
           return output;
         } catch (error) {
@@ -6364,7 +6479,7 @@ export default function ShaderLabStudio({
         const layer = imageEffectLayer(layerId);
         if (!layer) return null;
         try {
-          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds, imageEffectPalette);
         } catch (error) {
           const reason = error instanceof Error ? error.message : 'The image effect could not render.';
           throw new Error(`${layer.name}: ${reason} Hide this layer to export without it.`);
@@ -6957,6 +7072,10 @@ export default function ShaderLabStudio({
       } else if (action === 'design.layers.lock') {
         if (ids.length === 0) throw new TypeError('layerIds must list at least one layer.');
         setLayersLocked(ids, request.locked!);
+      } else if (action === 'design.layers.rotate') {
+        const unlocked = ids.filter((id) => !layerLocked(id));
+        if (unlocked.length === 0) throw new Error('Choose at least one unlocked layer to rotate.');
+        rotateCanvasLayers(unlocked, request.rotation!);
       } else if (action === 'design.layers.copyStyle') {
         if (!surfaceIds.has(request.layerId!) || !copyLayerStyle(request.layerId as CompositionLayerId)) {
           throw new TypeError('layerId must identify a text, mark, image or shader layer on the active surface.');
@@ -7099,6 +7218,7 @@ export default function ShaderLabStudio({
 
   const stageActions = useStableHandlers<DesignLabStageActions>({
     deselectCanvasLayers,
+    rotateCanvasLayer: (layerId, rotation) => rotateCanvasLayers([layerId], rotation),
     finishLayerMove,
     formatSelectedTextShortcut,
     openCanvasSelectionMenu,
@@ -7122,7 +7242,6 @@ export default function ShaderLabStudio({
     activateArtboard,
     beginArtboardMove,
     deselectCanvasLayers,
-    handleCanvasAssemblyKeyDown,
     nudgeArtboard: (event, artboard) => void nudgeArtboard(event, artboard),
     openArtboardMenu: (artboardId, position) => setArtboardMenu({ artboardId, position }),
     queueArtboardLayer: (artboardId, layerId) => {
@@ -7274,7 +7393,7 @@ export default function ShaderLabStudio({
     ).timeMs;
     return <div className='design-loose-canvas' key={surface.id} style={{ left: surface.x, top: surface.y, ...size }}>
       <div className='shader-lab-v2-stage design-loose-stage' data-canvas-surface='canvas'
-        data-testid={ready ? 'shader-lab-live-stage' : undefined} onKeyDown={ready ? handleCanvasAssemblyKeyDown : undefined}
+        data-testid={ready ? 'shader-lab-live-stage' : undefined}
         ref={ready ? stageRef : undefined}>
         {ready ? visibleLayerIds.map(renderStageLayer) : snapshot.layerOrder.map((id, index) => {
           const layer = layers.find((layer) => layer.id === id);
@@ -7319,6 +7438,7 @@ export default function ShaderLabStudio({
         movementBounds={isCanvasLayerId(layerId) ? movementBoundsFor(layerId) : null}
         selected={isCanvasLayerId(layerId) && selectedCanvasLayerIdSet.has(layerId)}
         showSelectionControls={selectedCanvasLayerIds.length <= 1}
+        snapTargets={artboardThirdsSnapTargets}
       />
     );
   }
@@ -7414,6 +7534,7 @@ export default function ShaderLabStudio({
     updateAssetLayer,
     updateCanvasBackground,
     updateCanvasLayerTransform,
+    rotateCanvasLayer: (id, rotation) => rotateCanvasLayers([id], rotation),
     updateEffectLayer,
     updateLogoLayer,
     updateSelectedShader,

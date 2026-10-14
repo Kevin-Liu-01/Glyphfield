@@ -26,7 +26,7 @@ import { Move } from '@/components/ui/SolidIcons';
 import { contextMenuPositionFromEvent, type StudioContextMenuPosition } from '@/components/ui/StudioContextMenu';
 import { STUDIO_ARTBOARD_PRESETS, type StudioArtboardDimensions } from '@/lib/artboardSizes';
 import type { BrandIdentity } from '@/lib/brandIdentity';
-import { normalizeCanvasLayerTransform, type CanvasLayerBounds, type CanvasLayerTransform } from '@/lib/canvasInteraction';
+import { normalizeCanvasLayerTransform, type CanvasLayerBounds, type CanvasLayerTransform, type CanvasSnapTargets } from '@/lib/canvasInteraction';
 import {
   DEFAULT_LAYER_TRANSFORM,
   isAssetLayerId,
@@ -91,6 +91,7 @@ export type DesignLabStageActions = {
   previewAssetCrop: (layerId: AssetLayerId, imageCrop: ImageCropSettings) => void;
   registerEffectCanvas: (layerId: `effect-${string}`, canvas: HTMLCanvasElement | null) => void;
   rememberTextSelection: (layerId: TextLayerId, range: TextSelectionRange) => void;
+  rotateCanvasLayer: (layerId: CanvasLayerId, rotation: number) => void;
   selectCanvasAssembly: (layerId: CanvasLayerId, additive?: boolean) => void;
   setImageCropEditing: (layerId: AssetLayerId, editing: boolean) => void;
   undoRedo: (redo: boolean) => void;
@@ -174,6 +175,8 @@ type DesignLabStageLayerProps = {
   movementBounds: CanvasLayerBounds | null;
   selected: boolean;
   showSelectionControls: boolean;
+  /** Extra snap lines, such as the artboard's thirds. */
+  snapTargets?: CanvasSnapTargets;
 };
 
 function sameBounds(first: CanvasLayerBounds | null, second: CanvasLayerBounds | null): boolean {
@@ -194,7 +197,8 @@ function stageLayerPropsEqual(previous: DesignLabStageLayerProps, next: DesignLa
     && previous.liveState === next.liveState
     && sameBounds(previous.movementBounds, next.movementBounds)
     && previous.selected === next.selected
-    && previous.showSelectionControls === next.showSelectionControls;
+    && previous.showSelectionControls === next.showSelectionControls
+    && previous.snapTargets === next.snapTargets;
 }
 
 /** One editable layer on the active surface. */
@@ -210,6 +214,7 @@ export const DesignLabStageLayer = memo(function DesignLabStageLayer({
   movementBounds,
   selected,
   showSelectionControls,
+  snapTargets,
 }: DesignLabStageLayerProps) {
   const renderLiveMaterial = useLiveMaterialRenderer(liveState);
   const layerId = layer.id as CompositionLayerId;
@@ -251,10 +256,13 @@ export const DesignLabStageLayer = memo(function DesignLabStageLayer({
     onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => actions.openCanvasSelectionMenu(canvasLayerId, event),
     onDeselect: actions.deselectCanvasLayers,
     onMoveComplete: (point: { x: number; y: number }) => actions.finishLayerMove(canvasLayerId, point),
+    onRotate: (rotation: number) => actions.rotateCanvasLayer(canvasLayerId, rotation),
     onSelect: (additive?: boolean) => actions.selectCanvasAssembly(canvasLayerId, additive),
+    rotation: canvasLayer.transform.rotation ?? 0,
     selected,
     selectionMember: selected,
     showSelectionControls,
+    snapTargets,
     zIndex,
   };
   if (isShaderLayerId(layerId)) {
@@ -481,6 +489,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
         label={layer.name}
         layerId={layerId}
         resizeMode='box'
+        rotation={transform.rotation}
         transform={transform}
       >
         <div className='shader-lab-v2-canvas-material' data-shader-instance={`canvas-${layerId}`} key='content' style={{ mixBlendMode: shaderBlendStyle(layer.blendMode), opacity: layer.opacity }}>
@@ -502,6 +511,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
         label={layer.name}
         layerId={layerId}
         resizeMode='box'
+        rotation={transform.rotation}
         transform={transform}
       >
         <CanvasTextLayerContent
@@ -529,6 +539,7 @@ export const DesignLabArtboardPreviewLayer = memo(function DesignLabArtboardPrev
       className='shader-lab-v2-composition-layer'
       label={layer.name}
       layerId={layerId}
+      rotation={layer.transform.rotation}
       transform={layer.transform}
     >
       <ShaderMaskedMediaContent
@@ -553,7 +564,6 @@ export type DesignLabArtboardActions = {
   activateArtboard: (id: DesignArtboard['id'], focus?: boolean) => Promise<boolean>;
   beginArtboardMove: (event: ReactPointerEvent<HTMLElement>, artboard: DesignArtboard) => void;
   deselectCanvasLayers: () => void;
-  handleCanvasAssemblyKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   nudgeArtboard: (event: ReactKeyboardEvent<HTMLButtonElement>, artboard: DesignArtboard) => void;
   openArtboardMenu: (artboardId: DesignArtboard['id'], position: StudioContextMenuPosition) => void;
   queueArtboardLayer: (artboardId: DesignArtboard['id'], layerId: CanvasLayerId | null) => void;
@@ -681,7 +691,6 @@ export const DesignLabArtboardFrame = memo(function DesignLabArtboardFrame({
         className={`shader-lab-v2-stage shader-lab-v2-stage-${snapshot.ratio}`}
         data-material-id={selectedReady ? materialId : undefined}
         data-testid={selectedReady ? 'shader-lab-live-stage' : undefined}
-        onKeyDown={selectedReady ? actions.handleCanvasAssemblyKeyDown : undefined}
         onPointerDown={selectedReady ? (event) => {
           if (event.button === 0) actions.deselectCanvasLayers();
         } : undefined}

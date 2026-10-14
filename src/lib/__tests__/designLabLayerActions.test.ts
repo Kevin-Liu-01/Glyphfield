@@ -10,6 +10,7 @@ describe('Design Lab layer Browser actions', () => {
     expect(designLayerActionInput('design.layers.lock', { layerIds: ['logo-a'], locked: true })).toEqual({ layerIds: ['logo-a'], locked: true });
     expect(designLayerActionInput('design.layers.copyStyle', { layerId: 'text-a' })).toEqual({ layerId: 'text-a' });
     expect(designLayerActionInput('design.layers.pasteStyle', { layerIds: ['text-b'] })).toEqual({ layerIds: ['text-b'] });
+    expect(designLayerActionInput('design.layers.rotate', { layerIds: ['asset-a'], rotation: -30 })).toEqual({ layerIds: ['asset-a'], rotation: -30 });
   });
 
   it('rejects unknown fields, wrong types and unknown arrangements', () => {
@@ -19,7 +20,11 @@ describe('Design Lab layer Browser actions', () => {
     expect(() => designLayerActionInput('design.layers.lock', { locked: true })).toThrow(/layerIds must list/);
     expect(() => designLayerActionInput('design.layers.pasteStyle', { layerIds: [1] })).toThrow(/array of layer ids/);
     expect(() => designLayerActionInput('design.layers.copyStyle', {})).toThrow(/layerId must identify/);
-    expect(() => designLayerActionInput('design.layers.rotate', {})).toThrow(/Unknown Design Lab action/);
+    expect(() => designLayerActionInput('design.layers.rotate', { layerIds: ['a'] })).toThrow(/rotation must be a finite number/);
+    expect(() => designLayerActionInput('design.layers.rotate', { layerIds: ['a'], rotation: Number.POSITIVE_INFINITY })).toThrow(/finite number/);
+    expect(() => designLayerActionInput('design.layers.rotate', { rotation: 15 })).toThrow(/layerIds must list/);
+    expect(() => designLayerActionInput('design.layers.rotate', { layerIds: ['a'], rotation: 15, origin: 'center' })).toThrow(/accepts only/);
+    expect(() => designLayerActionInput('design.layers.spin', {})).toThrow(/Unknown Design Lab action/);
   });
 });
 

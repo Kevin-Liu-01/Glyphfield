@@ -5,7 +5,7 @@
 // commit that does not touch the selected layer skips the inspector.
 import ShaderEffectsControls from './ShaderEffectsControls';
 import { DesignLabEffectPicker, DesignLabImageEffectNotice, type DesignLabImageEffectStatusStore } from './DesignLabEffectPicker';
-import { designLabImageEffect, type DesignLabImageEffectId } from '@/lib/designLabImageEffects';
+import { designLabImageEffect, designLabImageEffectPalette, type DesignLabImageEffectId } from '@/lib/designLabImageEffects';
 import { getShaderEffect } from '@/lib/shaderEffects';
 import {
   AlignCenter,
@@ -55,6 +55,7 @@ import {
   canvasLayerDimensions,
   MIN_CANVAS_LAYER_SCALE,
   normalizeCanvasLayerTransform,
+  normalizeCanvasRotation,
   type CanvasLayerGeometry,
   type CanvasLayerTransform,
 } from '@/lib/canvasInteraction';
@@ -83,7 +84,6 @@ import {
 } from '@/lib/brandIdentity';
 import { COMPOSITION_EFFECT_PRESETS, type CompositionEffectKind, type CompositionEffectSettings } from '@/lib/compositionEffects';
 import {
-  DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
   isPaperLiveMaterialId,
@@ -533,6 +533,7 @@ function ConverterControls({
 }
 
 export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
+  brandColors,
   imageEffectStatusStore,
   previewEffectLayer,
   selectEffectPreset,
@@ -540,6 +541,8 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
   selectedEffectLayer,
   updateEffectLayer,
 }: {
+  /** The brand palette image effects resolve their colours from, as rendered. */
+  brandColors: readonly [string, string, string];
   imageEffectStatusStore: DesignLabImageEffectStatusStore;
   previewEffectLayer: (id: EffectLayerId, update: EffectPreviewUpdate) => void;
   selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
@@ -588,7 +591,7 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
         onChange={(effectProps) => updateEffectLayer(selectedEffectLayer.id, {
           settings: { ...selectedEffectLayer.settings, effectProps },
         })}
-        palette={DEFAULT_LIVE_MATERIAL_SETTINGS}
+        palette={designLabImageEffectPalette(brandColors)}
         value={selectedEffectLayer.settings.effectProps}
       />
     </LabInspectorSection>
@@ -1314,16 +1317,65 @@ export const DesignLabShaderInspector = memo(function DesignLabShaderInspector({
   </>;
 });
 
+/**
+ * Layer rotation in degrees, clockwise. A typed value commits as soon as it
+ * parses; leaving the field shows the stored angle, normalized to -180..180.
+ */
+export function DesignLabRotationField({ onChange, value }: { onChange: (rotation: number) => void; value: number }) {
+  const [entry, setEntry] = useState<string | null>(null);
+  return (
+    <div className='shader-lab-v2-range'>
+      <StudioRangeLabel
+        label='Layer rotation'
+        value={(
+          <span className='shader-lab-v2-zoom-value'>
+            <input
+              aria-label='Layer rotation'
+              inputMode='decimal'
+              max={180}
+              min={-180}
+              onBlur={() => setEntry(null)}
+              onChange={(event) => {
+                const raw = event.currentTarget.value;
+                const rotation = event.currentTarget.valueAsNumber;
+                if (!Number.isFinite(rotation)) {
+                  setEntry(raw);
+                  return;
+                }
+                const stored = normalizeCanvasRotation(rotation);
+                onChange(stored);
+                // Keep a partial entry such as "4" or "-"; show the stored spelling of 405 at once.
+                setEntry(stored === rotation ? raw : null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== 'Escape') return;
+                event.preventDefault();
+                event.currentTarget.blur();
+              }}
+              step={1}
+              type='number'
+              value={entry ?? String(Math.round(value * 10) / 10)}
+            />
+            <span aria-hidden='true'>°</span>
+          </span>
+        )}
+      />
+    </div>
+  );
+}
+
 export const DesignLabShaderFrameInspector = memo(function DesignLabShaderFrameInspector({
   canvasHeight,
   canvasWidth,
   layer,
   onChange,
+  onRotate,
 }: {
   canvasHeight: number;
   canvasWidth: number;
   layer: CompositionShaderLayer;
   onChange: (transform: CanvasLayerTransform) => void;
+  onRotate: (rotation: number) => void;
 }) {
   const transform = normalizeCanvasLayerTransform(layer.transform, DEFAULT_LAYER_TRANSFORM);
   const widthScale = transform.widthScale ?? transform.scale;
@@ -1368,6 +1420,7 @@ export const DesignLabShaderFrameInspector = memo(function DesignLabShaderFrameI
           step={0.01}
           value={heightScale}
         />
+        <DesignLabRotationField onChange={onRotate} value={transform.rotation ?? 0} />
       </div>
       <Button onClick={() => onChange({ ...DEFAULT_LAYER_TRANSFORM })} size='sm' type='button' variant='outline'>
         <RotateCcw aria-hidden='true' />Fit shader to canvas
@@ -1424,6 +1477,7 @@ export type DesignLabInspectorActions = {
   updateAssetLayer: (id: AssetLayerId, update: Partial<Omit<CompositionAsset, 'id'>>) => void;
   updateCanvasBackground: (color: string) => void;
   updateCanvasLayerTransform: (id: CanvasLayerId, transform: CanvasLayerTransform) => void;
+  rotateCanvasLayer: (id: CanvasLayerId, rotation: number) => void;
   updateEffectLayer: (id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) => void;
   updateLogoLayer: (id: LogoLayerId, update: Partial<Omit<CompositionLogoLayer, 'id'>>) => void;
   updateSelectedShader: (update: Partial<ShaderApplication>) => void;
@@ -1552,6 +1606,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   const textRange = selectedTextLayer && textSelection?.layerId === selectedTextLayer.id ? textSelection : null;
   const selectedLogoLayer = selectedLogoInspector?.layer ?? null;
   const selectedAsset = selectedAssetInspector?.asset ?? null;
+  const selectedContentTransform = selectedTextLayer?.transform ?? selectedLogoLayer?.transform ?? selectedAsset?.transform ?? null;
   return (
     <StudioSidebar className='shader-lab-v2-inspector' kind='inspector' label='Design Lab controls' side='right' storageKey='design-lab-inspector'>
       <LabPanelHeading
@@ -1627,6 +1682,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
 
       <OptionalRender value={selectedEffectLayer}>{(selectedEffectLayer) => (
         <DesignLabEffectInspector
+          brandColors={brandPalette.colors}
           imageEffectStatusStore={imageEffectStatusStore}
           previewEffectLayer={previewEffectLayer}
           selectEffectPreset={selectEffectPreset}
@@ -1657,6 +1713,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
           canvasWidth={canvasDimensions.width}
           layer={selectedShaderLayer}
           onChange={(transform) => actions.updateCanvasLayerTransform(selectedShaderLayer.id, transform)}
+          onRotate={(rotation) => actions.rotateCanvasLayer(selectedShaderLayer.id, rotation)}
         />
       )}</OptionalRender>
       <OptionalRender value={selectedContentLayerId}>{() => <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-layer-inspector' data-canvas-selection-preserve meta={contentKind ?? ''} title='Selected layer'>
@@ -1736,6 +1793,12 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
             updateAsset={(update) => actions.updateAssetLayer(selectedAsset.id, update)}
           />
         )}</OptionalRender>
+        <OptionalRender value={selectedContentTransform}>{(transform) => (
+          <DesignLabRotationField
+            onChange={(rotation) => { if (selectedContentLayerId) actions.rotateCanvasLayer(selectedContentLayerId, rotation); }}
+            value={transform.rotation ?? 0}
+          />
+        )}</OptionalRender>
         {selectedLayerShader ? (
           <Button className='mt-2 w-full' onClick={actions.removeShaderFromSelectedContent} size='sm' type='button' variant='ghost'>
             <X aria-hidden='true' />Remove shader from layer
@@ -1754,7 +1817,8 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
         ) : null}
       </LabInspectorSection>}</OptionalRender>
 
-      <OptionalRender value={editingShader}>{() => <details className='shader-lab-v2-advanced'>
+      {/* Shaders.com materials read only their native props, speed and zoom, so Advanced does not apply to them. */}
+      <OptionalRender value={editingShader && !getShaderEffect(editingShader.materialId) ? editingShader : null}>{() => <details className='shader-lab-v2-advanced'>
         <summary>Advanced <ChevronDown aria-hidden='true' /></summary>
         <div className='shader-lab-v2-ranges'>
           {ADVANCED_CONTROLS.map((control) => (

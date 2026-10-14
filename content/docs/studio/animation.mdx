@@ -186,7 +186,7 @@ The source is a CanvasDocument schema 2 with `metadata.tool: "animation-studio"`
 | `animation.export` | `{ format: 'gif' \| 'mp4' \| 'png', download? }` | Export artifact |
 | `animation.export.gif`, `.mp4`, `.png`, `.project` | None | Export artifact |
 
-`textAnimation.preset` is `none`, `type-on`, `word-rise`, `line-reveal`, `glyph-stagger`, or `tracking-in`. Pose fields are `alignX`, `alignY`, `scale`, `rotation`, and `opacity`.
+`textAnimation.preset` is `none`, `type-on`, `word-rise`, `line-reveal`, `glyph-stagger`, or `tracking-in`. Pose fields are `alignX`, `alignY`, `scale`, `rotation`, and `opacity`. Each must be a finite number and is clamped to the range saved keyframes use: `alignX` and `alignY` −1.5 to 1.5 (±1 is the canvas edge), `scale` 0.05 to 8, `rotation` −720° to 720°, and `opacity` 0 to 1.
 
 ```js
 const studio = window.glyphfield.studio;

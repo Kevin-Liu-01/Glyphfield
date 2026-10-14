@@ -1,3 +1,14 @@
+export type CanvasViewShortcut = 'fit' | 'zoom-in' | 'zoom-out';
+
+/** F fits the canvas, + or = zooms in, − zooms out. Command, Control and Option chords are left alone. */
+export function canvasViewShortcut(event: Pick<KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>): CanvasViewShortcut | null {
+  if (event.altKey || event.ctrlKey || event.metaKey) return null;
+  if (event.key === 'f' && !event.shiftKey) return 'fit';
+  if (event.key === '+' || event.key === '=') return 'zoom-in';
+  if (event.key === '-') return 'zoom-out';
+  return null;
+}
+
 export function clampCanvasZoom(value: number, min = 40, max = 200): number {
   const boundedMin = Math.min(min, max);
   const boundedMax = Math.max(min, max);

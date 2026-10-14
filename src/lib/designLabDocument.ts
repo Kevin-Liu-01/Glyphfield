@@ -21,6 +21,7 @@ import {
   type CanvasJsonObject,
   type CanvasJsonValue,
 } from './canvasDocument';
+import { normalizeCanvasRotation } from './canvasInteraction';
 import { collectShaderFrameSnapshots, shaderFrameCanvasAsset } from './shaderFrameAssets';
 
 const DESIGN_LAB_SOURCE_VERSION = 4;
@@ -133,7 +134,7 @@ function layerTransform(layer: CanvasJsonObject) {
   const scale = numberValue(transform?.scale, 1);
   return {
     height: numberValue(transform?.heightScale, scale),
-    rotation: numberValue(transform?.rotation, 0),
+    rotation: normalizeCanvasRotation(numberValue(transform?.rotation, 0)),
     width: numberValue(transform?.widthScale, scale),
     x: numberValue(transform?.x, 0),
     y: numberValue(transform?.y, 0),
@@ -338,6 +339,10 @@ function restoredTransform(element: CanvasElement): CanvasJsonObject {
   } else {
     delete transform.widthScale;
   }
+  // bounds.rotation is the portable value; an unrotated layer stores none.
+  const rotation = normalizeCanvasRotation(element.bounds.rotation);
+  if (rotation) transform.rotation = rotation;
+  else delete transform.rotation;
   return transform;
 }
 

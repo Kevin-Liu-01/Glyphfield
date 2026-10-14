@@ -4,6 +4,7 @@
 import type { DesignLabImageEffectStatus } from './designLabImageEffects';
 import type { ShaderEffectProcessor } from './shaderEffectProcessor';
 import type { ShaderEffectProps } from './shaderEffects';
+import type { ShaderEffectPalette } from './shaderEffectsProps';
 
 type PoolEntry = { effectId: string; processor: Promise<ShaderEffectProcessor> };
 
@@ -14,7 +15,8 @@ export type ImageEffectProcessorPool = {
     effectId: string,
     source: HTMLCanvasElement,
     effectProps: ShaderEffectProps,
-    timeSeconds: number
+    timeSeconds: number,
+    palette?: ShaderEffectPalette
   ) => Promise<HTMLCanvasElement>;
   /** Disposes processors for layers that are gone or now use another effect. Maps layer ID to effect ID. */
   retain: (layers: ReadonlyMap<string, string>) => void;
@@ -29,7 +31,7 @@ export function createImageEffectProcessorPool(): ImageEffectProcessorPool {
     void entry?.processor.then((processor) => processor.dispose(), () => undefined);
   };
   return {
-    process: async (layerId, effectId, source, effectProps, timeSeconds) => {
+    process: async (layerId, effectId, source, effectProps, timeSeconds, palette) => {
       let entry = entries.get(layerId);
       if (entry?.effectId !== effectId) {
         if (entry) release(layerId);
@@ -42,7 +44,7 @@ export function createImageEffectProcessorPool(): ImageEffectProcessorPool {
         entries.set(layerId, entry);
       }
       const processor = await entry.processor;
-      return processor.process(source, effectProps, timeSeconds);
+      return processor.process(source, effectProps, timeSeconds, palette);
     },
     retain: (layers) => {
       for (const [layerId, entry] of entries) {

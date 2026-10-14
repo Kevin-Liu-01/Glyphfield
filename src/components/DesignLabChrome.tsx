@@ -570,7 +570,7 @@ export const DesignLabPreviewQualityToggle = memo(function DesignLabPreviewQuali
   const index = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.findIndex(({ value }) => value === mode);
   const current = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[Math.max(0, index)]!;
   const next = DESIGN_LAB_PREVIEW_QUALITY_OPTIONS[(index + 1) % DESIGN_LAB_PREVIEW_QUALITY_OPTIONS.length]!;
-  const detail = automaticallyReduced ? 'Auto lowered resolution after slow frames.' : 'Exports always render at full size.';
+  const detail = automaticallyReduced ? 'Auto lowered resolution after slow frames and returns to High when they recover.' : 'Exports always render at full size.';
   return (
     <Button
       aria-label='Live shader preview quality'

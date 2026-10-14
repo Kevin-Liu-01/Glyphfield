@@ -1,8 +1,8 @@
-/* Rotate handle: centred above the selection frame and turning with it. */
+/* Rotate handle: centred below the selection frame, clear of the move handle above it, and turning with it. */
 .rotate {
   position: absolute;
   z-index: 30;
-  top: -34px;
+  bottom: -34px;
   left: 50%;
   display: grid;
   width: 22px;
@@ -23,15 +23,16 @@
   cursor: grabbing;
 }
 
-/* A stem joins the handle to the frame. */
+/* A stem joins the handle to the frame; it does not take the pointer from the edge handles. */
 .rotate::after {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   width: 2px;
   height: 12px;
   background: #5b7cff;
   content: '';
+  pointer-events: none;
   translate: -50% 0;
 }
 

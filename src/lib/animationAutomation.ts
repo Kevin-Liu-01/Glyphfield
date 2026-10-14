@@ -1,5 +1,6 @@
 import type { CubicBezier, SequenceLayout } from './animation';
 import {
+  clampAnimationPoseChannel,
   isMotionPresetId,
   normalizeSceneDuration,
   normalizeTextAnimation,
@@ -53,6 +54,7 @@ function sceneId(value: Record<string, unknown>, action: string): string {
 
 const POSE_KEYS = ['alignX', 'alignY', 'opacity', 'rotation', 'scale'] as const;
 
+/** Channels clamp to the limits saved keyframes use, so the API cannot store a pose the source would reject or rewrite. */
 function pose(value: unknown, action: string): Partial<AnimationPose> | undefined {
   if (value === undefined) return undefined;
   const candidate = record(value, `${action} pose`, '{ alignX?, alignY?, opacity?, rotation?, scale? }');
@@ -61,7 +63,7 @@ function pose(value: unknown, action: string): Partial<AnimationPose> | undefine
     if (!POSE_KEYS.includes(key as typeof POSE_KEYS[number])) throw new TypeError(`${action} pose.${key} is not a pose channel.`);
     const channel = candidate[key];
     if (typeof channel !== 'number' || !Number.isFinite(channel)) throw new TypeError(`${action} pose.${key} must be a finite number.`);
-    next[key as keyof AnimationPose] = channel;
+    next[key as keyof AnimationPose] = clampAnimationPoseChannel(key as keyof AnimationPose, channel);
   }
   return next;
 }

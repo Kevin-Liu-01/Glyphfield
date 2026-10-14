@@ -80,6 +80,7 @@ Markers name segments of the timeline. `Play marker <name>` sets the in and out 
 | **Corner radius** | 0–48 px |
 | **Stroke width** | 1–16 px; scales authored line weights together |
 | **Palette recolours every paint** | The primary slot recolors every unnamed paint (the behavior of older projects) |
+| **Show brand logo** | Adds the identity's logo as a "Brand logo" layer in the top-left corner. On for the built-in studies, off for imported files. Shown only when the identity has a logo |
 
 The built-in studies recolor through the three palette slots. Imported JSON keeps its authored colors and lists every static fill, stroke, gradient stop, and text color under **Document colours**, most used first. Replace a color with the picker or a brand token, choose **Brand tokens** to map every color at once, or **Authored** to restore the originals. Brand mapping sends colors with OKLCH chroma of at least 0.06 to the brand's accents in order of chroma, and neutrals to the brand neutral nearest in lightness.
 
@@ -94,20 +95,20 @@ The built-in studies recolor through the three palette slots. Imported JSON keep
 | **MP4** | The trimmed segment at 30 FPS |
 | **Export JSON** / **Export .lottie** | The edited JSON, or the original `.lottie` archive |
 
-GIF and MP4 honor speed and direction; bounce modes play forward and back, so they last twice as long. GIF and MP4 have no alpha, so a transparent canvas flattens onto the canvas color. The export player needs WebGL and gives up after 10 seconds if the animation does not load. The JSON export includes appearance changes (corner radius, stroke width, brand font) and, when the identity has a logo, a "Brand logo" layer.
+GIF and MP4 honor speed and direction; bounce modes play forward and back, so they last twice as long. GIF and MP4 have no alpha, so a transparent canvas flattens onto the canvas color. The export player needs WebGL and gives up after 10 seconds if the animation does not load. The JSON export includes appearance changes (corner radius, stroke width, brand font) and, when **Show brand logo** is on, a "Brand logo" layer.
 
 ## Source format
 
-**File → Edit source code** shows a CanvasDocument schema 2. `metadata.studio` is `{ sourceVersion: 1, toolId: "lottie", state }`, where `state` holds `appearance` (including `recolor`), `background` (`color`, `materialId`, `materialSettings`, `style`, `transparent`), `canvasPreset`, `edits` (`colorMap`, `hiddenLayers`, `markers`, `textOverrides`), `playback` (`fit`, `interpolate`, `loop`, `mode`, `segmentStart`, `segmentEnd`, `speed`), and `source` with the raw animation in `source.data`. A `.lottie` archive is stored as an asset of the `lottie-animation` element.
+**File → Edit source code** shows a CanvasDocument schema 2. `metadata.studio` is `{ sourceVersion: 1, toolId: "lottie", state }`, where `state` holds `appearance` (including `recolor` and `brandLogo`), `background` (`color`, `materialId`, `materialSettings`, `style`, `transparent`), `canvasPreset`, `edits` (`colorMap`, `hiddenLayers`, `markers`, `textOverrides`), `playback` (`fit`, `interpolate`, `loop`, `mode`, `segmentStart`, `segmentEnd`, `speed`), and `source` with the raw animation in `source.data`. A `.lottie` archive is stored as an asset of the `lottie-animation` element.
 
-Raw Lottie JSON can also be pasted into the drawer. Applying it replaces the animation, clears all edits, and sets `recolor` to `source`.
+Raw Lottie JSON can also be pasted into the drawer. Applying it replaces the animation, clears all edits, sets `recolor` to `source`, and sets `brandLogo` to `false`. A saved document without `brandLogo` shows the logo for a Glyphfield example and hides it for an import.
 
 ## Browser API
 
 | Action | Input | Output |
 | --- | --- | --- |
-| `lottie.describe` | None | `{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor }` |
-| `lottie.edit` | `{ hiddenLayers?, colorMap?, textOverrides?, markers?: [{ name, frame, duration }], recolor?: 'palette' \| 'source' }`; each listed field replaces the stored one | `lottie.describe` result |
+| `lottie.describe` | None | `{ format, source, totalFrames, frameRate, segment, layers, textLayers, colors, markers, edits, recolor, brandLogo }` |
+| `lottie.edit` | `{ hiddenLayers?, colorMap?, textOverrides?, markers?: [{ name, frame, duration }], recolor?: 'palette' \| 'source', brandLogo?: boolean }`; each listed field replaces the stored one | `lottie.describe` result |
 | `lottie.colors.brand` | None | `lottie.describe` result |
 | `lottie.segment.set` | `{ marker }` or `{ start, end }` | `lottie.describe` result |
 | `lottie.export` | `{ format: 'png' \| 'source' \| 'gif' \| 'mp4', download? }` | Export artifact |

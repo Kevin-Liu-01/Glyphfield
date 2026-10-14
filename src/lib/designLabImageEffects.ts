@@ -4,6 +4,7 @@
 // carries only the catalog index; the WebGPU processor loads on first use.
 import type { CompositionEffectSettings } from './compositionEffects';
 import { SHADER_EFFECTS, getShaderEffect, type ShaderEffect, type ShaderEffectProps } from './shaderEffects';
+import type { ShaderEffectPalette } from './shaderEffectsProps';
 
 export type DesignLabImageEffectId = ShaderEffect['id'];
 
@@ -34,6 +35,15 @@ export const DESIGN_LAB_IMAGE_EFFECTS: readonly ShaderEffect[] = SHADER_EFFECTS
 /** Upstream categories in picker order. */
 export const DESIGN_LAB_IMAGE_EFFECT_CATEGORIES: readonly string[] = [...new Set(DESIGN_LAB_IMAGE_EFFECTS.map(({ category }) => category))]
   .sort((left, right) => categoryRank(left) - categoryRank(right) || left.localeCompare(right));
+
+/**
+ * Effect layers store no colours of their own. Their colour props resolve from
+ * the active brand palette (ink, accent, highlight), the colours a new shader
+ * layer starts with; explicit effectProps still win.
+ */
+export function designLabImageEffectPalette(colors: readonly [string, string, string]): ShaderEffectPalette {
+  return { colorA: colors[0], colorB: colors[1], colorC: colors[2] };
+}
 
 export function isDesignLabImageEffectId(value: unknown): value is DesignLabImageEffectId {
   return typeof value === 'string' && getShaderEffect(value)?.requiresChild === true;

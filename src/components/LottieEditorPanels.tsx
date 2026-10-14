@@ -265,6 +265,16 @@ export function LottieRecolorModeToggle({ checked, onChange }: { checked: boolea
   );
 }
 
+export function LottieBrandLogoToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }): ReactNode {
+  const gt = useMotionGT();
+  return (
+    <label className='flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2 text-sm'>
+      <span><T>Show brand logo</T></span>
+      <StudioCheckbox aria-label={gt('Show brand logo')} checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    </label>
+  );
+}
+
 export function useFrameSubscription() {
   const listenersRef = useRef(new Set<FrameListener>());
   const frameRef = useRef(0);

@@ -422,7 +422,7 @@ describe('Playground optional layers', () => {
 
   it('renders previews and exports from the same logical text geometry', () => {
     expect(designLab).toContain('resolveBrandTypographyWeight(identity, appearance.fontRole, layer.weight)');
-    expect(designLab).toContain('box: outputLayerBox(layerId, transform, width, height),');
+    expect(designLab).toContain('const box = outputLayerBox(layerId, transform, width, height);');
     expect(designLab).toContain('const fontSize = resolveDesignLabFontSize(layer, canvasHeight) * width / canvasWidth;');
     expect(designLab).toContain('resolveDesignLabFontSizeCqw(textLayer, canvasDimensions)');
     expect(designLab).toContain('resolveDesignLabFontSizeCqw(layer, snapshot.dimensions)');

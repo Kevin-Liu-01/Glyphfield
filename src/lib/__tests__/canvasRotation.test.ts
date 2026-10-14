@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   canvasLayerBounds,
+  canvasLayerHullBounds,
   canvasRotationFromPointer,
+  canvasSelectionBounds,
   canvasThirdsSnapTargets,
+  normalizeCanvasLayerTransform,
   normalizeCanvasRotation,
   resizeCanvasLayerBox,
   rotateCanvasVector,
   rotatedCanvasExtent,
   sameCanvasLayerBox,
+  withCanvasLayerRotation,
   type CanvasLayerGeometry,
 } from '../canvasInteraction';
 
@@ -19,6 +23,32 @@ function close(value: number, expected: number) {
 }
 
 describe('canvas rotation', () => {
+  it('loads transforms saved before rotation existed at 0 and keeps one spelling for the rest', () => {
+    const fallback = { scale: 1, x: 0, y: 0 };
+    expect(normalizeCanvasLayerTransform({ scale: 0.5, x: 10, y: 20 }, fallback)).toEqual({ scale: 0.5, x: 10, y: 20 });
+    expect(normalizeCanvasLayerTransform({ rotation: 270, scale: 1, x: 0, y: 0 }, fallback)).toEqual({ rotation: -90, scale: 1, x: 0, y: 0 });
+    expect(normalizeCanvasLayerTransform({ rotation: 360, scale: 1, x: 0, y: 0 }, fallback)).toEqual(fallback);
+    expect(normalizeCanvasLayerTransform({ rotation: Number.NaN, scale: 1, x: 0, y: 0 }, fallback)).toEqual(fallback);
+    expect(withCanvasLayerRotation({ rotation: 30, scale: 2, x: 1, y: 2 }, -45)).toEqual({ rotation: -45, scale: 2, x: 1, y: 2 });
+    expect(withCanvasLayerRotation({ rotation: 30, scale: 2, x: 1, y: 2 }, 0)).toEqual({ scale: 2, x: 1, y: 2 });
+  });
+
+  it('measures selections by what rotated layers cover', () => {
+    const unrotated = canvasLayerBounds({ scale: 1, x: 0, y: 0 }, geometry);
+    const turned = canvasLayerHullBounds({ rotation: 90, scale: 1, x: 0, y: 0 }, geometry);
+    close(turned.width, 100);
+    close(turned.height, 200);
+    close(turned.centerX, unrotated.centerX);
+    close(turned.left, 50);
+    const selection = canvasSelectionBounds([
+      { geometry, transform: { rotation: 90, scale: 1, x: 0, y: 0 } },
+      { geometry, transform: { scale: 1, x: 300, y: 0 } },
+    ])!;
+    close(selection.left, 50);
+    close(selection.top, -50);
+    close(selection.bottom, 150);
+  });
+
   it('normalizes to one spelling in (-180, 180]', () => {
     expect(normalizeCanvasRotation(0)).toBe(0);
     expect(normalizeCanvasRotation(-0)).toBe(0);
