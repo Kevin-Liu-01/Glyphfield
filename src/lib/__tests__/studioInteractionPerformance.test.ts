@@ -12,7 +12,8 @@ describe('Studio interaction performance contracts', () => {
 
     expect(source).toContain('pointerFrameRef.current = window.requestAnimationFrame');
     expect(source).toContain('parentBounds,');
-    expect(source).toContain('snapTargets: { x: targetX, y: targetY }');
+    // Snap lines are collected once, at pointerdown, and kept on the session.
+    expect(source).toContain('snapTargets: siblingSnapTargets(layer, parentBounds,');
     expect(source).toContain('const bounds = session.parentBounds;');
     expect(source).toContain("window.addEventListener('pointermove', handleWindowPointerMove)");
     expect(source).not.toContain('frame = requestAnimationFrame(measure)');
