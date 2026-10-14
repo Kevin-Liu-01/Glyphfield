@@ -196,7 +196,8 @@ export default function ShaderEffectsSurface(props: Props) {
     const resolution = previous.renderScale !== props.renderScale || previous.maxPixelCount !== props.maxPixelCount;
     if (resolution || shaderEffectInputsChanged(previous, props)) invalidate.current(resolution);
   });
-  return <div ref={host} className='absolute inset-0 size-full' data-shader-effects={materialId} data-live-material-ready='false'>
+  // `data-live-material-still` lifts the loading skeleton so the labelled still stays visible.
+  return <div ref={host} className='absolute inset-0 size-full' data-shader-effects={materialId} data-live-material-ready='false' data-live-material-still={failure ? 'true' : undefined}>
     <canvas ref={canvas} aria-label={gt('Shaders.com material preview')} className='pointer-events-none absolute inset-0 size-full' />
     <canvas ref={gpuCanvas} data-shader-internal='true' aria-hidden='true' className='absolute inset-0 size-full opacity-0' />
     {failure ? <>

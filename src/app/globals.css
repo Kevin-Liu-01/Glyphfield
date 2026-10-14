@@ -18896,6 +18896,11 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
   display: none;
 }
 
+/* A renderer that cannot run (WebGPU unavailable) shows its own labelled still; keep it uncovered. */
+[data-live-material-surface]:has([data-live-material-still]) > .live-material-loading {
+  display: none;
+}
+
 .authentic-shader-preview {
   position: absolute;
   inset: 0;
