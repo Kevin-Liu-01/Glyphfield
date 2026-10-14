@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 import { readDesignLabSource } from './designLabSource';
@@ -210,6 +211,39 @@ describe('Studio interaction performance contracts', () => {
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");
     expect(styles).toContain(".studio-workspace-layer[data-active='true']");
     expect(styles).not.toContain('@keyframes studio-workspace-enter');
+  });
+
+  it('reuses Paper shader contexts and programs across remounts', () => {
+    // The transitive copy the React bindings load, including its pnpm patch.
+    const requirePaper = createRequire(createRequire(import.meta.url).resolve('@paper-design/shaders-react'));
+    const paper = readFileSync(join(dirname(requirePaper.resolve('@paper-design/shaders')), 'shader-mount.js'), 'utf8');
+    const release = readSource('src/lib/webglContext.ts');
+
+    expect(paper).toContain('const pooled = takePooledCanvas(this.ownerDocument, this.contextKey);');
+    expect(paper).toContain('cachedProgram(this.gl, this.fragmentShader) ?? createProgram(');
+    expect(paper).toContain('if (this.gl) poolCanvas(this.canvasElement, this.gl, this.contextKey);');
+    expect(release).toContain("canvas.dataset.paperShaderPooled !== undefined");
+  });
+
+  it('swaps workspaces in deferred renders with a compositor-only crossfade', () => {
+    const source = readSource('src/components/StudioApp.tsx');
+    const workspace = readSource('src/components/StudioToolWorkspace.tsx');
+    const styles = readSource('src/app/globals.css');
+    const layerIn = styles.slice(styles.indexOf('@keyframes studio-layer-in'), styles.indexOf('}', styles.indexOf('@keyframes studio-layer-in') + 30) + 1);
+
+    // Editors suspend to one revealed boundary instead of committing their own fallbacks.
+    expect(source).toContain('const ShaderLabStudio = memo(dynamic(loadShaderLabStudio));');
+    expect(source).toContain('<Suspense fallback={<StudioWorkspaceSkeleton />}>');
+    expect(workspace).not.toMatch(/dynamic\(\(\) => import\('@\/components\/(BrandBook|BrandElementsStudio|DesignBoard)'\), \{\s*loading/);
+    expect(source).toContain('const toolId = useDeferredValue(activeToolId);');
+    expect(source).toContain('const identityId = useDeferredValue(activeIdentity?.id);');
+    expect(source).toContain('const ready = useDeferredValue(identitiesReady);');
+    expect(source).toContain('scheduleStudioToolPrefetch()');
+    // The fade animates opacity only and is removed under reduced motion.
+    expect(layerIn).toContain('opacity');
+    expect(layerIn).not.toMatch(/filter|width|height|top|left/);
+    expect(styles).toContain('.studio-app[data-studio-motion=\'reduced\'] .studio-workspace-view {\n  --studio-layer-fade: 0ms;');
+    expect(styles).toContain('transition: visibility 0s linear var(--studio-layer-fade);');
   });
 
   it('skips re-rendering hidden retained editors when their props are unchanged', () => {

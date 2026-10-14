@@ -6,12 +6,14 @@ import dynamic from 'next/dynamic';
 import {
   memo,
   startTransition,
+  Suspense,
   useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { T, useGT } from 'gt-next';
 import {
@@ -65,6 +67,7 @@ import StudioContextMenu, {
 import StudioSelect from '@/components/ui/StudioSelect';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useDismissibleMenu } from '@/hooks/useDismissibleMenu';
+import { useExitGhost } from '@/hooks/useExitGhost';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useProjectTabInteraction } from '@/hooks/useProjectTabInteraction';
 import {
@@ -94,46 +97,82 @@ const loadLottieStudio = () => import('@/components/LottieStudio');
 const loadShaderLabStudio = () => import('@/components/ShaderLabStudio');
 const loadStudioToolWorkspace = () => import('@/components/StudioToolWorkspace');
 
-const AnimationStudio = dynamic(loadAnimationStudio, {
-  loading: StudioWorkspaceLoading,
-  ssr: false,
-});
-const BrandSettingsStudio = dynamic(loadBrandSettingsStudio, {
-  loading: StudioWorkspaceLoading,
-});
+// Editors carry no loading fallback of their own. They suspend to the workspace
+// boundary, and tool and project switches render in transitions, so React keeps
+// the current editor on screen until the next one is ready instead of flashing a
+// fallback (React also holds a revealed fallback for at least 300 ms).
+const AnimationStudio = dynamic(loadAnimationStudio);
+const BrandSettingsStudio = dynamic(loadBrandSettingsStudio);
 // Retained editors stay mounted behind `inert`. Memo keeps the hidden ones from
 // re-rendering with the Studio shell; AnimationStudio memoizes its own export.
-const LottieStudio = memo(dynamic(loadLottieStudio, {
-  loading: StudioWorkspaceLoading,
-  ssr: false,
-}));
-const ShaderLabStudio = memo(dynamic(loadShaderLabStudio, {
-  loading: StudioWorkspaceLoading,
-  ssr: false,
-}));
-const StudioToolWorkspace = dynamic(loadStudioToolWorkspace, {
-  loading: StudioWorkspaceLoading,
-});
+const LottieStudio = memo(dynamic(loadLottieStudio));
+const ShaderLabStudio = memo(dynamic(loadShaderLabStudio));
+const StudioToolWorkspace = dynamic(loadStudioToolWorkspace);
 
-async function preloadStudioTool(toolId: StudioToolId) {
+async function loadStudioToolModule(toolId: StudioToolId): Promise<unknown> {
   if (toolId === 'animation') return loadAnimationStudio();
   if (toolId === 'identity') return loadBrandSettingsStudio();
-  if (toolId === 'lottie') {
-    const { preloadLottieRuntime } = await loadLottieStudio();
-    return preloadLottieRuntime();
-  }
+  if (toolId === 'lottie') return loadLottieStudio();
   if (toolId === 'material') return loadShaderLabStudio();
   const { preloadToolModule } = await loadStudioToolWorkspace();
   return preloadToolModule(toolId);
 }
 
-function StudioWorkspaceLoading() {
+async function preloadStudioTool(toolId: StudioToolId) {
+  if (toolId === 'lottie') {
+    const { preloadLottieRuntime } = await loadLottieStudio();
+    return preloadLottieRuntime();
+  }
+  return loadStudioToolModule(toolId);
+}
+
+const TOOL_PREFETCH_DELAY_MS = 1_200;
+
+/**
+ * Loads every tool module, one per idle period, once the first tool has painted,
+ * so a first visit to a tool does not wait on the network. Skipped when the
+ * browser asks to save data.
+ */
+function scheduleStudioToolPrefetch(): () => void {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (connection?.saveData) return () => {};
+  const queue = STUDIO_TOOLS.map(({ id }) => id);
+  let cancelled = false;
+  let timer = 0;
+  let idleHandle = 0;
+  const next = () => {
+    const toolId = queue.shift();
+    if (cancelled || !toolId) return;
+    const load = () => {
+      void loadStudioToolModule(toolId).catch(() => undefined).finally(next);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      idleHandle = window.requestIdleCallback(load, { timeout: 4_000 });
+    } else {
+      timer = window.setTimeout(load, 120);
+    }
+  };
+  timer = window.setTimeout(next, TOOL_PREFETCH_DELAY_MS);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timer);
+    if (idleHandle) window.cancelIdleCallback?.(idleHandle);
+  };
+}
+
+/** Placeholder with the tool shell's geometry: toolbar, inspector column and canvas. */
+function StudioWorkspaceSkeleton() {
   return (
-    <div aria-busy='true' aria-label='Loading Studio tool' className='studio-workspace-loading'>
-      <span />
+    <div aria-busy='true' aria-label='Loading Studio tool' className='studio-workspace-loading studio-workspace-skeleton'>
+      <div className='studio-workspace-skeleton-toolbar'><i /><i /></div>
+      <div className='studio-workspace-skeleton-panel'><i /><i /><i /></div>
+      <div className='studio-workspace-skeleton-canvas'><span /></div>
     </div>
   );
 }
+
+// Matches the layer crossfade in globals.css (.studio-workspace-layer).
+const STUDIO_LAYER_FADE_MS = 160;
 
 const PROJECTS_STORAGE_KEY = 'glyphfield-projects-v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'glyphfield-active-project-v1';
@@ -151,6 +190,31 @@ const LEGACY_SURFACE_TOOL_MODES = {
   logo: 'logo',
 } as const;
 type ProjectFolderId = 'all' | 'templates' | 'local' | 'examples';
+
+/** The tool the Studio will open, read without side effects (see loadStudioLaunchState). */
+function launchToolHint(): StudioToolId {
+  const candidates = [
+    new URLSearchParams(window.location.search).get('tool'),
+    window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (candidate === 'logo-shader' || candidate === 'surface' || candidate in LEGACY_SURFACE_TOOL_MODES) return 'material';
+    const tool = STUDIO_TOOLS.find(({ id }) => id === candidate);
+    if (tool) return tool.id;
+  }
+  return 'identity';
+}
+
+// Fetch the first editor while the page hydrates rather than after the launch
+// effect runs; this module also loads early from the landing page's Studio link.
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  try {
+    void loadStudioToolModule(launchToolHint()).catch(() => undefined);
+  } catch {
+    // Storage can be unavailable; the editor then loads when it first renders.
+  }
+}
 
 type ProjectTabMenuState = {
   identityId: string;
@@ -306,6 +370,8 @@ function ProjectFolderMenu({
   const gt = useGT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useExitGhost(popoverRef, open);
   const activeFolder = PROJECT_FOLDERS.find(({ id }) => id === activeFolderId)!;
   const ActiveFolderIcon = activeFolder.icon;
   const folderProjects = identities.filter((identity) =>
@@ -332,7 +398,7 @@ function ProjectFolderMenu({
         <ChevronDown aria-hidden='true' className={open ? 'rotate-180' : ''} />
       </Button>
       {open ? (
-        <div className='project-folder-popover' role='menu'>
+        <div className='project-folder-popover' ref={popoverRef} role='menu'>
           <div className='project-folder-popover-heading'>
             <span><T>Projects</T></span>
             <span>{folderCounts.all} <T>total</T></span>
@@ -414,6 +480,8 @@ function AppearanceMenu({
   const gt = useGT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useExitGhost(popoverRef, open);
 
   useDismissibleMenu(menuRef, () => setOpen(false), '[data-radix-popper-content-wrapper]');
 
@@ -431,7 +499,7 @@ function AppearanceMenu({
         <Settings2 aria-hidden='true' />
       </Button>
       {open ? (
-        <div aria-label={gt('Visual customization')} className='appearance-popover' role='region'>
+        <div aria-label={gt('Visual customization')} className='appearance-popover' ref={popoverRef} role='region'>
           <div className='appearance-popover-header'>
             <span>
               <Settings2 aria-hidden='true' />
@@ -715,6 +783,15 @@ export function retainedProjectWorkspaceIdentities(
   return identities.filter(({ id }) => openIds.has(id) && retainedIds.has(id));
 }
 
+/**
+ * A hidden editor keeps the props it last rendered with, so edits in the visible
+ * tool (typing a brand name, for example) do not re-render paused editors. It
+ * renders once as it hides, to pause, and catches up when it is shown again.
+ */
+const HiddenEditorFreeze = memo(function HiddenEditorFreeze({ children }: { children: ReactNode; visible: boolean }) {
+  return children;
+}, (previous, next) => !previous.visible && !next.visible);
+
 export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
   active,
   activeIdentity,
@@ -746,75 +823,289 @@ export const StudioWorkspacePanels = memo(function StudioWorkspacePanels({
     ? [...visitedPersistentTools, activeToolId]
     : visitedPersistentTools;
   const persistentToolIsActive = isPersistentWorkspaceTool(activeToolId);
+  const transientTool = active && !persistentToolIsActive ? activeTool : null;
+  // A tool that is not retained stays mounted, hidden and inert, for the length
+  // of the crossfade, so the next tool fades in over it rather than over a blank pane.
+  const [shownTransientTool, setShownTransientTool] = useState(transientTool);
+  const [leavingTool, setLeavingTool] = useState<StudioTool | null>(null);
+  if (shownTransientTool?.id !== transientTool?.id) {
+    setShownTransientTool(transientTool);
+    setLeavingTool(shownTransientTool);
+  }
+  useEffect(() => {
+    if (!leavingTool) return;
+    const timer = window.setTimeout(() => setLeavingTool(null), STUDIO_LAYER_FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [leavingTool]);
 
-  return (
-    <div className='studio-workspace-panel studio-workspace-panel--persistent-labs'>
-      {mountedPersistentTools.map((toolId) => {
-        const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
-        if (!tool) return null;
-        const layerIsVisible = active && activeToolId === toolId;
-        const renderActive = layerIsVisible;
-        return (
-          <div
-            aria-hidden={!layerIsVisible}
-            className='studio-workspace-layer'
-            data-active={layerIsVisible ? 'true' : 'false'}
-            inert={!layerIsVisible}
-            key={`${activeIdentity.id}-${toolId}`}
-          >
-            {toolId === 'animation' ? (
-              <AnimationStudio active={renderActive} embedded identity={activeIdentity} />
-            ) : toolId === 'lottie' ? (
-              <LottieStudio active={renderActive} identity={activeIdentity} />
-            ) : toolId === 'material' ? (
-              <ShaderLabStudio
-                active={renderActive}
-                automationToolId={tool.id}
-                identity={activeIdentity}
-                onIdentitySave={onIdentitySave}
-                tool={DESIGN_LAB_DRAFT_TOOL ?? tool}
-              />
-            ) : (
-              <StudioToolWorkspace
-                active={renderActive}
-                hasPendingIdentityChanges={hasPendingIdentityChanges}
-                identity={activeIdentity}
-                onIdentityChange={onIdentityChange}
-                onIdentitySave={onIdentitySave}
-                tool={tool}
-              />
-            )}
-          </div>
-        );
-      })}
-      {active && !persistentToolIsActive ? (
-        <div
-          className='studio-workspace-layer'
-          data-active='true'
-          key={`${activeIdentity.id}-${activeTool.id}`}
-        >
-          {activeToolId === 'identity' ? (
-            <BrandSettingsStudio
-              hasPendingChanges={hasPendingIdentityChanges}
+  function renderTransientEditor(tool: StudioTool) {
+    return tool.id === 'identity' ? (
+      <BrandSettingsStudio
+        hasPendingChanges={hasPendingIdentityChanges}
+        identity={activeIdentity}
+        onChange={onIdentityChange}
+        onSave={onIdentitySave}
+        tool={tool}
+      />
+    ) : (
+      <StudioToolWorkspace
+        hasPendingIdentityChanges={hasPendingIdentityChanges}
+        identity={activeIdentity}
+        onIdentityChange={onIdentityChange}
+        onIdentitySave={onIdentitySave}
+        tool={tool}
+      />
+    );
+  }
+
+  // One keyed list, so an editor keeps its instance as it moves between the
+  // active and leaving slots.
+  const layers = mountedPersistentTools.map((toolId) => {
+    const tool = STUDIO_TOOLS.find((candidate) => candidate.id === toolId);
+    if (!tool) return null;
+    const layerIsVisible = active && activeToolId === toolId;
+    const renderActive = layerIsVisible;
+    return (
+      <div
+        aria-hidden={!layerIsVisible}
+        className='studio-workspace-layer'
+        data-active={layerIsVisible ? 'true' : 'false'}
+        inert={!layerIsVisible}
+        key={`${activeIdentity.id}-${toolId}`}
+      >
+        <HiddenEditorFreeze visible={layerIsVisible}>
+          {toolId === 'animation' ? (
+            <AnimationStudio active={renderActive} embedded identity={activeIdentity} />
+          ) : toolId === 'lottie' ? (
+            <LottieStudio active={renderActive} identity={activeIdentity} />
+          ) : toolId === 'material' ? (
+            <ShaderLabStudio
+              active={renderActive}
+              automationToolId={tool.id}
               identity={activeIdentity}
-              onChange={onIdentityChange}
-              onSave={onIdentitySave}
-              tool={activeTool}
+              onIdentitySave={onIdentitySave}
+              tool={DESIGN_LAB_DRAFT_TOOL ?? tool}
             />
           ) : (
             <StudioToolWorkspace
+              active={renderActive}
               hasPendingIdentityChanges={hasPendingIdentityChanges}
               identity={activeIdentity}
               onIdentityChange={onIdentityChange}
               onIdentitySave={onIdentitySave}
-              tool={activeTool}
+              tool={tool}
             />
           )}
-        </div>
-      ) : null}
+        </HiddenEditorFreeze>
+      </div>
+    );
+  });
+  if (leavingTool && leavingTool.id !== transientTool?.id) {
+    layers.push(
+      <div
+        aria-hidden='true'
+        className='studio-workspace-layer'
+        data-active='false'
+        data-leaving='true'
+        inert
+        key={`${activeIdentity.id}-${leavingTool.id}`}
+      >
+        <HiddenEditorFreeze visible={false}>{renderTransientEditor(leavingTool)}</HiddenEditorFreeze>
+      </div>
+    );
+  }
+  if (transientTool) {
+    layers.push(
+      <div
+        className='studio-workspace-layer'
+        data-active='true'
+        key={`${activeIdentity.id}-${transientTool.id}`}
+      >
+        <HiddenEditorFreeze visible>{renderTransientEditor(transientTool)}</HiddenEditorFreeze>
+      </div>
+    );
+  }
+
+  return (
+    <div className='studio-workspace-panel studio-workspace-panel--persistent-labs'>
+      {layers}
     </div>
   );
 });
+
+type DeferredWorkspace = {
+  identity: BrandIdentity | undefined;
+  pending: boolean;
+  ready: boolean;
+  skeletonRetired: boolean;
+  tool: StudioTool | undefined;
+  toolId: StudioToolId;
+};
+
+/**
+ * Navigation (tool list, project tabs) follows a click at once; the workspace
+ * follows in deferred, interruptible renders, so mounting or waking an editor
+ * never blocks the click's frame and a loading editor never replaces the one on
+ * screen. `pending` is true while the workspace lags behind the navigation.
+ */
+function useDeferredWorkspace(
+  activeToolId: StudioToolId,
+  activeIdentity: BrandIdentity | undefined,
+  identities: readonly BrandIdentity[],
+  identitiesReady: boolean
+): DeferredWorkspace {
+  const toolId = useDeferredValue(activeToolId);
+  const identityId = useDeferredValue(activeIdentity?.id);
+  const ready = useDeferredValue(identitiesReady);
+  const [skeletonRetired, setSkeletonRetired] = useState(false);
+  useEffect(() => {
+    if (!ready || skeletonRetired) return;
+    // The first editor fades in over the skeleton, then the skeleton unmounts.
+    const timer = window.setTimeout(() => setSkeletonRetired(true), STUDIO_LAYER_FADE_MS + 40);
+    return () => window.clearTimeout(timer);
+  }, [ready, skeletonRetired]);
+  useEffect(() => (skeletonRetired ? scheduleStudioToolPrefetch() : undefined), [skeletonRetired]);
+  return {
+    identity: identities.find(({ id }) => id === identityId) ?? activeIdentity,
+    pending: ready !== identitiesReady || toolId !== activeToolId || identityId !== activeIdentity?.id,
+    ready,
+    skeletonRetired,
+    tool: STUDIO_TOOLS.find(({ id }) => id === toolId),
+    toolId,
+  };
+}
+
+function StudioWorkspaceView({
+  fallbackTool,
+  identities,
+  onIdentityChange,
+  onIdentitySave,
+  openIdentityIds,
+  pendingIdentities,
+  workspace,
+}: {
+  fallbackTool: StudioTool;
+  identities: readonly BrandIdentity[];
+  onIdentityChange: (identity: BrandIdentity) => void;
+  onIdentitySave: (identity: BrandIdentity) => void;
+  openIdentityIds: ReadonlySet<string>;
+  pendingIdentities: Record<string, BrandIdentity>;
+  workspace: DeferredWorkspace;
+}) {
+  const workspaceIdentity = workspace.ready ? workspace.identity : undefined;
+  const open = Boolean(workspaceIdentity && openIdentityIds.has(workspaceIdentity.id));
+  const showSkeleton = !workspace.skeletonRetired && (!workspace.ready || open);
+  let content: ReactNode = null;
+  if (workspaceIdentity && !open) content = <ClosedProjectNotice />;
+  else if (workspaceIdentity) {
+    content = identities.map((identity) => {
+      const projectIsActive = identity.id === workspaceIdentity.id;
+      return (
+        <div
+          aria-hidden={!projectIsActive}
+          className='studio-project-workspace-layer'
+          data-active={projectIsActive ? 'true' : 'false'}
+          data-project={identity.id}
+          inert={!projectIsActive}
+          key={identity.id}
+        >
+          <StudioWorkspacePanels
+            active={projectIsActive}
+            activeIdentity={identity}
+            activeTool={workspace.tool ?? fallbackTool}
+            activeToolId={workspace.toolId}
+            hasPendingIdentityChanges={Boolean(pendingIdentities[identity.id])}
+            onIdentityChange={onIdentityChange}
+            onIdentitySave={onIdentitySave}
+          />
+        </div>
+      );
+    });
+  }
+  return (
+    <>
+      <span aria-hidden='true' className='studio-workspace-progress' data-pending={workspace.pending ? 'true' : 'false'} />
+      <div className='studio-workspace-view'>
+        {showSkeleton ? <StudioWorkspaceSkeleton /> : null}
+        <Suspense fallback={<StudioWorkspaceSkeleton />}>{content}</Suspense>
+      </div>
+    </>
+  );
+}
+
+/** Tool list in the Studio sidebar. Memoized: it changes only with the active tool. */
+const StudioToolNav = memo(function StudioToolNav({
+  activeToolId,
+  onSelect,
+}: {
+  activeToolId: StudioToolId;
+  onSelect: (toolId: StudioToolId) => void;
+}) {
+  const gt = useGT();
+  return (
+    <div className='studio-sidebar-scroll studio-scroll-area min-h-0 flex-1 overflow-y-auto px-2 py-3'>
+      {STUDIO_CATEGORIES.map((category) => {
+        const tools = STUDIO_TOOLS.filter((tool) => tool.category === category);
+        if (tools.length === 0) return null;
+
+        return (
+          <section className='flex flex-col gap-1 py-2' key={category}>
+            <h2 className='px-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
+              {gt(category)}
+            </h2>
+            <div className='flex flex-col gap-0.5'>
+              {tools.map((tool) => {
+                const Icon = STUDIO_TOOL_ICONS[tool.id];
+                const selected = activeToolId === tool.id;
+                return (
+                  <Button
+                    aria-current={selected ? 'page' : undefined}
+                    aria-label={gt(tool.name)}
+                    className='h-9 w-full justify-start border-0 px-2.5'
+                    key={tool.id}
+                    onFocus={() => void preloadStudioTool(tool.id)}
+                    onClick={() => onSelect(tool.id)}
+                    onPointerEnter={() => void preloadStudioTool(tool.id)}
+                    title={`${gt(tool.name)} — ${gt(tool.description)}`}
+                    type='button'
+                    variant={selected ? 'default' : 'ghost'}
+                  >
+                    <Icon aria-hidden='true' />
+                    <span className='min-w-0 flex-1 truncate text-left'>{gt(tool.name)}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+});
+
+/** Owns the search text, so typing a query re-renders only the palette. */
+function StudioCommandSearch({
+  activeToolId,
+  onClose,
+  onSelect,
+}: {
+  activeToolId: StudioToolId;
+  onClose: () => void;
+  onSelect: (toolId: StudioToolId) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const tools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
+  return (
+    <StudioCommandPalette
+      activeToolId={activeToolId}
+      onClose={onClose}
+      onSelect={onSelect}
+      query={query}
+      setQuery={setQuery}
+      tools={tools}
+    />
+  );
+}
 
 function ClosedProjectNotice() {
   return (
@@ -857,7 +1148,7 @@ function StudioSaveToast({
   );
 }
 
-function StudioAppHeader({
+const StudioAppHeader = memo(function StudioAppHeader({
   activeToolId,
   appearance,
   onAppearanceChange,
@@ -940,7 +1231,7 @@ function StudioAppHeader({
       </div>
     </header>
   );
-}
+});
 
 export default function StudioApp() {
   const gt = useGT();
@@ -958,7 +1249,6 @@ export default function StudioApp() {
   const activateCreatedIdentityRef = useCommittedRef(activateCreatedIdentity);
   const [activeIdentityId, setActiveIdentityId] = useState(STARTER_BRAND_IDENTITY.id);
   const [activeFolderId, setActiveFolderId] = useState<ProjectFolderId>('all');
-  const [query, setQuery] = useState('');
   const [commandOpen, setCommandOpen] = useState(false);
   const [projectTabMenu, setProjectTabMenu] = useState<ProjectTabMenuState | null>(null);
   const [renamingIdentityId, setRenamingIdentityId] = useState<string | null>(null);
@@ -981,27 +1271,34 @@ export default function StudioApp() {
     APPEARANCE_STORAGE_KEY,
     DEFAULT_APPEARANCE
   );
-  const resolvedAppearance: StudioAppearance = {
+  const resolvedAppearance = useMemo<StudioAppearance>(() => ({
     ...DEFAULT_APPEARANCE,
     ...appearance,
     font: normalizeStudioFont(appearance.font),
     theme,
-  };
-  const filteredTools = useMemo(() => filterStudioTools(STUDIO_TOOLS, query), [query]);
+  }), [appearance, theme]);
+  // Stable handlers for the memoized header and tool navigation.
+  const handleAppearanceChange = useCallback((patch: Partial<StudioAppearance>) => {
+    const { theme: nextTheme, ...appearancePatch } = patch;
+    if (nextTheme) setTheme(nextTheme);
+    if (Object.keys(appearancePatch).length === 0) return;
+    setAppearance((current) => {
+      const { theme: _legacyTheme, ...currentAppearance } = current as Partial<StudioAppearance>;
+      return { ...DEFAULT_APPEARANCE, ...currentAppearance, ...appearancePatch };
+    });
+  }, [setAppearance, setTheme]);
+  const openCommandSearch = useCallback(() => setCommandOpen(true), []);
   const activeTool = STUDIO_TOOLS.find(({ id }) => id === activeToolId);
-  // Navigation follows a tool click at once; the workspace switches in a
-  // deferred, interruptible render so mounting or waking an editor never
-  // blocks the click's frame.
-  const workspaceToolId = useDeferredValue(activeToolId);
-  const workspaceTool = STUDIO_TOOLS.find(({ id }) => id === workspaceToolId);
   const resolvedIdentities = useMemo(
     () => identities.map((identity) => pendingIdentities[identity.id] ?? identity),
     [identities, pendingIdentities]
   );
   const activeIdentity =
     resolvedIdentities.find(({ id }) => id === activeIdentityId) ?? resolvedIdentities[0];
+  const workspace = useDeferredWorkspace(activeToolId, activeIdentity, resolvedIdentities, identitiesReady);
   const resolvedIdentitiesRef = useCommittedRef(resolvedIdentities);
   const selectToolRef = useCommittedRef(selectTool);
+  const handleToolSelect = useCallback((toolId: StudioToolId) => selectToolRef.current(toolId), [selectToolRef]);
   // identity.project.create adds and opens projects the same way the Add brand project menu does.
   useMountEffect(() => registerBrandProjectHost({
     activate: (identity) => {
@@ -1025,8 +1322,8 @@ export default function StudioApp() {
     resolvedIdentities,
     openIdentityIds,
     warmIdentityIds,
-    activeIdentity?.id
-  ), [activeIdentity?.id, resolvedIdentities, openIdentityIds, warmIdentityIds]);
+    workspace.identity?.id
+  ), [workspace.identity?.id, resolvedIdentities, openIdentityIds, warmIdentityIds]);
   const visibleIdentities = useMemo(
     () =>
       openIdentityIds
@@ -1198,7 +1495,6 @@ export default function StudioApp() {
       if (isCommandK) {
         event.preventDefault();
         event.stopPropagation();
-        setQuery('');
         setCommandOpen(true);
         return;
       }
@@ -1206,7 +1502,6 @@ export default function StudioApp() {
       if (!isEditing && event.key === '/') {
         event.preventDefault();
         event.stopPropagation();
-        setQuery('');
         setCommandOpen(true);
       }
     }
@@ -1217,13 +1512,11 @@ export default function StudioApp() {
 
   function selectTool(toolId: StudioToolId) {
     setActiveToolId(toolId);
-    setQuery('');
     window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, toolId);
   }
 
   function closeCommandPalette() {
     setCommandOpen(false);
-    setQuery('');
   }
 
   const commitIdentities = useCallback((nextIdentities: BrandIdentity[]) => {
@@ -1236,7 +1529,7 @@ export default function StudioApp() {
     setOpenIdentityIds((current) =>
       current.includes(identityId) ? current : [...current, identityId]
     );
-    startTransition(() => setActiveIdentityId(identityId));
+    setActiveIdentityId(identityId);
     window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, identityId);
     if (!tabScrollState.canScrollLeft && !tabScrollState.canScrollRight) return;
     window.requestAnimationFrame(() => {
@@ -1643,21 +1936,10 @@ export default function StudioApp() {
       <StudioAppHeader
         activeToolId={activeToolId}
         appearance={resolvedAppearance}
-        onAppearanceChange={(patch) => {
-          const { theme: nextTheme, ...appearancePatch } = patch;
-          if (nextTheme) setTheme(nextTheme);
-          if (Object.keys(appearancePatch).length === 0) return;
-          setAppearance((current) => {
-            const { theme: _legacyTheme, ...currentAppearance } = current as Partial<StudioAppearance>;
-            return { ...DEFAULT_APPEARANCE, ...currentAppearance, ...appearancePatch };
-          });
-        }}
-        onCommandOpen={() => {
-          setQuery('');
-          setCommandOpen(true);
-        }}
+        onAppearanceChange={handleAppearanceChange}
+        onCommandOpen={openCommandSearch}
         onThemeToggle={toggleTheme}
-        onToolSelect={selectTool}
+        onToolSelect={handleToolSelect}
         resolvedTheme={resolvedTheme}
       />
 
@@ -1777,87 +2059,26 @@ export default function StudioApp() {
               <Link aria-label={gt('Quickstart')} href='/docs/getting-started'><Rocket aria-hidden='true' /><span><T>Quickstart</T></span></Link>
             </Button>
           </nav>
-          <div className='studio-sidebar-scroll studio-scroll-area min-h-0 flex-1 overflow-y-auto px-2 py-3'>
-            {STUDIO_CATEGORIES.map((category) => {
-              const tools = STUDIO_TOOLS.filter((tool) => tool.category === category);
-              if (tools.length === 0) return null;
-
-              return (
-                <section className='flex flex-col gap-1 py-2' key={category}>
-                  <h2 className='px-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
-                    {gt(category)}
-                  </h2>
-                  <div className='flex flex-col gap-0.5'>
-                    {tools.map((tool) => {
-                      const Icon = STUDIO_TOOL_ICONS[tool.id];
-                      const selected = activeToolId === tool.id;
-                      return (
-                        <Button
-                          aria-current={selected ? 'page' : undefined}
-                          aria-label={gt(tool.name)}
-                          className='h-9 w-full justify-start border-0 px-2.5'
-                          key={tool.id}
-                          onFocus={() => void preloadStudioTool(tool.id)}
-                          onClick={() => selectTool(tool.id)}
-                          onPointerEnter={() => void preloadStudioTool(tool.id)}
-                          title={`${gt(tool.name)} — ${gt(tool.description)}`}
-                          type='button'
-                          variant={selected ? 'default' : 'ghost'}
-                        >
-                          <Icon aria-hidden='true' />
-                          <span className='min-w-0 flex-1 truncate text-left'>{gt(tool.name)}</span>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-
-          </div>
+          <StudioToolNav activeToolId={activeToolId} onSelect={handleToolSelect} />
         </aside>
 
         <section className='studio-workspace min-w-0 overflow-hidden bg-background'>
-          <div className='studio-workspace-view'>
-            {!identitiesReady ? (
-              <StudioWorkspaceLoading />
-            ) : !activeIdentityIsOpen ? (
-              <ClosedProjectNotice />
-            ) : (
-              retainedWorkspaceIdentities.map((identity) => {
-                const projectIsActive = identity.id === activeIdentity.id;
-                return (
-                  <div
-                    aria-hidden={!projectIsActive}
-                    className='studio-project-workspace-layer'
-                    data-active={projectIsActive ? 'true' : 'false'}
-                    inert={!projectIsActive}
-                    key={identity.id}
-                  >
-                    <StudioWorkspacePanels
-                      active={projectIsActive}
-                      activeIdentity={identity}
-                      activeTool={workspaceTool ?? activeTool}
-                      activeToolId={workspaceToolId}
-                      hasPendingIdentityChanges={Boolean(pendingIdentities[identity.id])}
-                      onIdentityChange={updateIdentity}
-                      onIdentitySave={saveIdentityImmediately}
-                    />
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <StudioWorkspaceView
+            fallbackTool={activeTool}
+            identities={retainedWorkspaceIdentities}
+            onIdentityChange={updateIdentity}
+            onIdentitySave={saveIdentityImmediately}
+            openIdentityIds={openIdentityIdSet}
+            pendingIdentities={pendingIdentities}
+            workspace={workspace}
+          />
         </section>
       </div>
       {commandOpen ? (
-        <StudioCommandPalette
+        <StudioCommandSearch
           activeToolId={activeToolId}
           onClose={closeCommandPalette}
           onSelect={selectTool}
-          query={query}
-          setQuery={setQuery}
-          tools={filteredTools}
         />
       ) : null}
       <StudioSaveToast

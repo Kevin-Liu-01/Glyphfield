@@ -5606,6 +5606,57 @@ html.light
   box-shadow: var(--studio-shadow-ring-2xl);
 }
 
+.studio-command-overlay[open] {
+  animation: studio-fade-in 140ms ease-out;
+}
+
+.studio-command-overlay[open] .studio-command-dialog {
+  transform-origin: 50% 0;
+  animation: studio-popover-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes studio-fade-in {
+  from { opacity: 0; }
+}
+
+/* Exit copies left by useExitGhost when a menu, popover or the search closes. */
+:is(.studio-context-menu, .appearance-popover, .project-folder-popover)[data-exiting='true'] {
+  pointer-events: none;
+  animation: studio-popover-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.studio-command-overlay[data-exiting='true'] {
+  pointer-events: none;
+  animation: studio-fade-out 140ms ease-in forwards;
+}
+
+.studio-command-overlay[data-exiting='true'] .studio-command-dialog {
+  animation: studio-popover-out 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes studio-popover-out {
+  to {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+}
+
+@keyframes studio-fade-out {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-command-overlay[open],
+  .studio-command-overlay[open] .studio-command-dialog,
+  .source-code-drawer {
+    animation: none;
+  }
+}
+
+.studio-app[data-studio-motion='reduced'] :is(.studio-command-overlay[open], .studio-command-overlay[open] .studio-command-dialog, .source-code-drawer, .appearance-popover, .project-folder-popover) {
+  animation: none;
+}
+
 .shader-export-overlay {
   position: fixed;
   z-index: 210;
@@ -10981,6 +11032,8 @@ html.dark .studio-app .studio-app-header > a img {
 }
 
 .studio-workspace-view {
+  /* Tool and project crossfade. StudioApp keeps a leaving tool mounted this long. */
+  --studio-layer-fade: 160ms;
   position: relative;
   isolation: isolate;
   width: 100%;
@@ -10989,6 +11042,8 @@ html.dark .studio-app .studio-app-header > a img {
   overflow: clip;
 }
 
+/* Retained projects and tools stack in place. An outgoing layer stays painted under
+   the incoming one until the fade ends; it is inert from the first frame. */
 .studio-project-workspace-layer {
   position: absolute;
   inset: 0;
@@ -10997,15 +11052,16 @@ html.dark .studio-app .studio-app-header > a img {
   min-height: 0;
   overflow: clip;
   contain: layout paint style;
-  background: hsl(var(--background));
   pointer-events: none;
   visibility: hidden;
+  transition: visibility 0s linear var(--studio-layer-fade);
 }
 
 .studio-project-workspace-layer[data-active='true'] {
   z-index: 1;
   pointer-events: auto;
   visibility: visible;
+  transition: none;
 }
 
 .studio-workspace-panel {
@@ -11018,7 +11074,6 @@ html.dark .studio-app .studio-app-header > a img {
 .studio-workspace-panel--persistent-labs {
   position: relative;
   isolation: isolate;
-  background: hsl(var(--background));
 }
 
 .studio-workspace-layer {
@@ -11028,14 +11083,22 @@ html.dark .studio-app .studio-app-header > a img {
   min-width: 0;
   min-height: 0;
   overflow: clip;
+  background: hsl(var(--background));
   visibility: hidden;
   pointer-events: none;
+  transition: visibility 0s linear var(--studio-layer-fade);
 }
 
 .studio-workspace-layer[data-active='true'] {
   z-index: 1;
   visibility: visible;
   pointer-events: auto;
+  transition: none;
+  animation: studio-layer-in var(--studio-layer-fade) cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes studio-layer-in {
+  from { opacity: 0; }
 }
 
 .studio-workspace-loading {
@@ -11046,14 +11109,16 @@ html.dark .studio-app .studio-app-header > a img {
   background: hsl(var(--background));
 }
 
-.studio-workspace-loading > span {
+.studio-workspace-loading > span,
+.studio-workspace-skeleton-canvas > span {
   width: 34px;
   height: 1px;
   overflow: hidden;
   background: hsl(var(--border));
 }
 
-.studio-workspace-loading > span::after {
+.studio-workspace-loading > span::after,
+.studio-workspace-skeleton-canvas > span::after {
   width: 45%;
   height: 100%;
   display: block;
@@ -11064,6 +11129,135 @@ html.dark .studio-app .studio-app-header > a img {
 
 @keyframes studio-loading-line {
   to { transform: translateX(122%); }
+}
+
+/* Same geometry as a tool shell: toolbar, inspector column and canvas. */
+.studio-workspace-skeleton {
+  position: absolute;
+  inset: 0;
+  grid-template-columns: 292px minmax(0, 1fr);
+  grid-template-rows: var(--studio-toolbar-height) minmax(0, 1fr);
+  place-items: stretch;
+}
+
+.studio-workspace-skeleton i {
+  height: 7px;
+  display: block;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+}
+
+.studio-workspace-skeleton-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 18px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.studio-workspace-skeleton-toolbar > i:first-child {
+  width: 112px;
+}
+
+.studio-workspace-skeleton-toolbar > i:last-child {
+  width: 220px;
+  opacity: 0.55;
+}
+
+.studio-workspace-skeleton-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 22px 18px;
+  border-right: 1px solid hsl(var(--border));
+}
+
+.studio-workspace-skeleton-panel > i:nth-child(1) {
+  width: 46%;
+}
+
+.studio-workspace-skeleton-panel > i:nth-child(2) {
+  width: 82%;
+}
+
+.studio-workspace-skeleton-panel > i:nth-child(3) {
+  width: 64%;
+}
+
+.studio-workspace-skeleton-canvas {
+  display: grid;
+  place-items: center;
+  background-color: hsl(var(--canvas-background));
+}
+
+@media (max-width: 760px) {
+  .studio-workspace-skeleton {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-workspace-skeleton-panel {
+    display: none;
+  }
+}
+
+/* Shown only when a tool or project takes longer than a frame or two to load. */
+.studio-workspace-progress {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.studio-workspace-progress::after {
+  width: 28%;
+  height: 100%;
+  display: block;
+  content: '';
+  background: hsl(var(--foreground));
+  animation: studio-export-progress-indeterminate 900ms ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.studio-workspace-progress[data-pending='true'] {
+  opacity: 1;
+  transition: opacity 120ms ease 180ms;
+}
+
+.studio-workspace-progress[data-pending='true']::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-workspace-view {
+    --studio-layer-fade: 0ms;
+  }
+
+  :is(.studio-project-workspace-layer, .studio-workspace-layer) {
+    transition: none;
+  }
+
+  .studio-workspace-layer[data-active='true'] {
+    animation: none;
+  }
+}
+
+/* Reduced motion swaps layers in the same frame. */
+.studio-app[data-studio-motion='reduced'] .studio-workspace-view {
+  --studio-layer-fade: 0ms;
+}
+
+.studio-app[data-studio-motion='reduced'] :is(.studio-project-workspace-layer, .studio-workspace-layer) {
+  transition: none;
+}
+
+.studio-app[data-studio-motion='reduced'] .studio-workspace-layer[data-active='true'] {
+  animation: none;
 }
 
 .tool-shell {
@@ -11314,6 +11508,14 @@ html.dark .studio-app .studio-app-header > a img {
   border-left: 1px solid hsl(var(--border));
   background: hsl(var(--background));
   box-shadow: -10px 0 28px hsl(var(--foreground) / 0.07);
+  animation: studio-drawer-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes studio-drawer-in {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
 }
 
 .source-code-drawer-header {
@@ -11784,6 +11986,8 @@ html.dark .studio-app .studio-app-header > a img {
   border-radius: 0 !important;
 }
 
+/* Collapsing changes width at once (animating width would lay out and resize every
+   editor canvas each frame); the panel content fades back in on expand. */
 .resizable-sidebar {
   position: relative;
   min-width: 0;
@@ -11791,7 +11995,6 @@ html.dark .studio-app .studio-app-header > a img {
   flex: none;
   overflow: visible !important;
   isolation: isolate;
-  transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .resizable-sidebar-scroll {
@@ -11800,6 +12003,17 @@ html.dark .studio-app .studio-app-header > a img {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  transition: opacity 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resizable-sidebar-scroll {
+    transition: none;
+  }
+}
+
+.studio-app[data-studio-motion='reduced'] .resizable-sidebar-scroll {
+  transition: none;
 }
 
 .resizable-sidebar[data-resizing='true'] {
@@ -20846,7 +21060,9 @@ html.dark:has(.marketing-page-v5) body {
   .studio-nav,
   [data-studio-tool-header],
   .studio-project-workspace-layer:not([data-active='true']),
-  .studio-workspace-layer:not([data-active='true']) {
+  .studio-workspace-layer:not([data-active='true']),
+  .studio-workspace-skeleton,
+  .studio-workspace-progress {
     display: none !important;
   }
 

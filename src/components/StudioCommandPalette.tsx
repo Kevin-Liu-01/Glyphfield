@@ -5,6 +5,7 @@ import { Search } from '@/components/ui/SolidIcons';
 import { useEffect, useRef, useState } from 'react';
 
 import { STUDIO_TOOL_ICONS } from '@/components/StudioToolIcons';
+import { useExitGhost } from '@/hooks/useExitGhost';
 import { useMountEffect } from '@/hooks/useMountEffect';
 
 import type { StudioTool, StudioToolId } from '@/lib/studioCatalog';
@@ -29,6 +30,7 @@ export default function StudioCommandPalette({
   const gt = useGT();
   const [activeIndex, setActiveIndex] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  useExitGhost(dialogRef, true);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 

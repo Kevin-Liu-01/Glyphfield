@@ -1,0 +1,146 @@
+diff --git a/dist/index.client.cjs b/dist/index.client.cjs
+index 71cd25c9f572a4dfc8d82db21c05781218bc9822..4a89b735980eae7a8a50f08ac5f756755aba3662 100644
+--- a/dist/index.client.cjs
++++ b/dist/index.client.cjs
+@@ -363,6 +363,31 @@ function getCookieValue({ cookieName }) {
+ function setCookieValue({ cookieName, value }) {
+ 	if (typeof document === "undefined") return;
+ 	document.cookie = `${cookieName}=${value};path=/`;
++	browserCookieWrites += 1;
++}
++let browserCookieWrites = 0;
++/**
++* Every translated string reads the locale, region and i18n flag. Parsing
++* document.cookie and negotiating the locale on each read dominated render
++* time, so a value is read once per task. A cookie write through this store
++* invalidates it at once.
++*/
++function memoizeForTask(read) {
++	let cached;
++	let cachedWrites = -1;
++	let pending = false;
++	return () => {
++		if (pending && cachedWrites === browserCookieWrites) return cached;
++		cached = read();
++		cachedWrites = browserCookieWrites;
++		if (!pending) {
++			pending = true;
++			queueMicrotask(() => {
++				pending = false;
++			});
++		}
++		return cached;
++	};
+ }
+ //#endregion
+ //#region src/condition-store/readBrowserLocale.ts
+@@ -381,9 +406,9 @@ function readBrowserLocale(localeCookieName) {
+ */
+ var BrowserConditionStore = class {
+ 	constructor(config) {
+-		this.getLocale = () => {
++		this.getLocale = memoizeForTask(() => {
+ 			return getBrowserLocale(this.customGetLocale);
+-		};
++		});
+ 		this.setLocale = (locale) => {
+ 			this.updateLocale(locale);
+ 			setCookieValue({
+@@ -392,20 +417,20 @@ var BrowserConditionStore = class {
+ 			});
+ 			this.reload();
+ 		};
+-		this.getRegion = () => {
++		this.getRegion = memoizeForTask(() => {
+ 			const cookieRegion = getCookieValue({ cookieName: (0, _generaltranslation_react_core_pure.getI18nConfig)().getRegionCookieName() });
+ 			if (cookieRegion) return cookieRegion;
+ 			return this.customGetRegion?.();
+-		};
++		});
+ 		this.setRegion = (region) => {
+ 			this.updateRegion(region);
+ 			this.reload();
+ 		};
+-		this.getEnableI18n = () => {
++		this.getEnableI18n = memoizeForTask(() => {
+ 			const cookieEnableI18n = getCookieValue({ cookieName: (0, _generaltranslation_react_core_pure.getI18nConfig)().getEnableI18nCookieName() });
+ 			if (cookieEnableI18n === void 0) return this.customGetEnableI18n?.() ?? true;
+ 			return cookieEnableI18n === "true";
+-		};
++		});
+ 		this.setEnableI18n = (enableI18n) => {
+ 			this.updateEnableI18n(enableI18n);
+ 			this.reload();
+diff --git a/dist/index.client.mjs b/dist/index.client.mjs
+index abd558d4aed26a2c3f6a0f72e6c859dbf1106978..da5d79b84dffd4e3dee3fa33d160067e4e8c5619 100644
+--- a/dist/index.client.mjs
++++ b/dist/index.client.mjs
+@@ -362,6 +362,31 @@ function getCookieValue({ cookieName }) {
+ function setCookieValue({ cookieName, value }) {
+ 	if (typeof document === "undefined") return;
+ 	document.cookie = `${cookieName}=${value};path=/`;
++	browserCookieWrites += 1;
++}
++let browserCookieWrites = 0;
++/**
++* Every translated string reads the locale, region and i18n flag. Parsing
++* document.cookie and negotiating the locale on each read dominated render
++* time, so a value is read once per task. A cookie write through this store
++* invalidates it at once.
++*/
++function memoizeForTask(read) {
++	let cached;
++	let cachedWrites = -1;
++	let pending = false;
++	return () => {
++		if (pending && cachedWrites === browserCookieWrites) return cached;
++		cached = read();
++		cachedWrites = browserCookieWrites;
++		if (!pending) {
++			pending = true;
++			queueMicrotask(() => {
++				pending = false;
++			});
++		}
++		return cached;
++	};
+ }
+ //#endregion
+ //#region src/condition-store/readBrowserLocale.ts
+@@ -380,9 +405,9 @@ function readBrowserLocale(localeCookieName) {
+ */
+ var BrowserConditionStore = class {
+ 	constructor(config) {
+-		this.getLocale = () => {
++		this.getLocale = memoizeForTask(() => {
+ 			return getBrowserLocale(this.customGetLocale);
+-		};
++		});
+ 		this.setLocale = (locale) => {
+ 			this.updateLocale(locale);
+ 			setCookieValue({
+@@ -391,20 +416,20 @@ var BrowserConditionStore = class {
+ 			});
+ 			this.reload();
+ 		};
+-		this.getRegion = () => {
++		this.getRegion = memoizeForTask(() => {
+ 			const cookieRegion = getCookieValue({ cookieName: getI18nConfig().getRegionCookieName() });
+ 			if (cookieRegion) return cookieRegion;
+ 			return this.customGetRegion?.();
+-		};
++		});
+ 		this.setRegion = (region) => {
+ 			this.updateRegion(region);
+ 			this.reload();
+ 		};
+-		this.getEnableI18n = () => {
++		this.getEnableI18n = memoizeForTask(() => {
+ 			const cookieEnableI18n = getCookieValue({ cookieName: getI18nConfig().getEnableI18nCookieName() });
+ 			if (cookieEnableI18n === void 0) return this.customGetEnableI18n?.() ?? true;
+ 			return cookieEnableI18n === "true";
+-		};
++		});
+ 		this.setEnableI18n = (enableI18n) => {
+ 			this.updateEnableI18n(enableI18n);
+ 			this.reload();

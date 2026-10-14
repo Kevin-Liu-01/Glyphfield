@@ -12,6 +12,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useExitGhost } from '@/hooks/useExitGhost';
+
 export type StudioContextMenuPosition = {
   anchor?: HTMLElement | null;
   x: number;
@@ -96,6 +98,7 @@ export default function StudioContextMenu({
   sections: readonly StudioContextMenuSection[];
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+  useExitGhost(menuRef, position);
   const [placement, setPlacement] = useState<CSSProperties | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;

@@ -18,7 +18,7 @@ import BrandEditableText from '@/components/BrandEditableText';
 import CanvasViewport from '@/components/CanvasViewport';
 import ExportPreview, { type ExportPreviewAsset } from '@/components/ExportPreview';
 import { LabInspectorSection, StudioSidebar } from '@/components/LabWorkspace';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import StudioFileMenu from '@/components/StudioFileMenu';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioToolHeader from '@/components/StudioToolHeader';

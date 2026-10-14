@@ -58,7 +58,7 @@ import { useStudioDraft } from '@/hooks/usePersistentState';
 
 import { BookPageView, type BookPageContext } from './brandBookPages';
 import { LabInspectorSection, StudioSidebar } from './LabWorkspace';
-import SourceCodeDrawer from './SourceCodeDrawer';
+import SourceCodeDrawer from './LazySourceCodeDrawer';
 import StudioFileMenu from './StudioFileMenu';
 import StudioToolHeader from './StudioToolHeader';
 import ThemeAwareBrandMark from './ThemeAwareBrandMark';

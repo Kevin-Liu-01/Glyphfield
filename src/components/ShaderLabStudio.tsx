@@ -71,7 +71,7 @@ import BrandFontFaces from '@/components/BrandFontFaces';
 import ImageAssetModal, { type ImageAssetPlacementMode, type ImageImportRequest, type PendingImageImport } from '@/components/ImageAssetModal';
 import { LabPanelHeading, StudioSidebar } from '@/components/LabWorkspace';
 import { LiveMaterialSourceTag } from '@/components/LiveMaterialSourceLabel';
-import SourceCodeDrawer from '@/components/SourceCodeDrawer';
+import SourceCodeDrawer from '@/components/LazySourceCodeDrawer';
 import { useStudioExportProgress } from '@/components/StudioExportProgress';
 import StudioContextMenu, {
   contextMenuPositionFromElement,

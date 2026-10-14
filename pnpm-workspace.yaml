@@ -32,4 +32,6 @@ minimumReleaseAgeExclude:
   - knip@6.34.0
 patchedDependencies:
   '@generaltranslation/format@0.1.2-odysseus.1': patches/@generaltranslation__format@0.1.2-odysseus.1.patch
+  '@paper-design/shaders@0.0.78': patches/@paper-design__shaders@0.0.78.patch
+  gt-react@11.0.0-odysseus.15: patches/gt-react@11.0.0-odysseus.15.patch
 trustPolicy: no-downgrade

@@ -69,6 +69,9 @@ export function scheduleWebGLContextRelease(
   cancelWebGLContextRelease(canvas);
   const pendingRelease = window.setTimeout(() => {
     pendingReleases.delete(canvas);
+    // A canvas mounted again, or held in Paper Shaders' context pool (see the
+    // @paper-design/shaders patch), is still in use.
+    if (canvas.isConnected || canvas.dataset.paperShaderPooled !== undefined) return;
     context.getExtension('WEBGL_lose_context')?.loseContext();
   }, 250);
   pendingReleases.set(canvas, pendingRelease);
