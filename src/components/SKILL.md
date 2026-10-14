@@ -65,7 +65,13 @@ Canvas/WebGL/Lottie rendering, export UI, and documentation presentation.
 - Pause hidden/offscreen animation and honor reduced motion where applicable.
 - The landing hero renders the real editor in initial HTML; do not put its
   primary UI behind idle/admission timers. Presentation mode skips portable
-  source/autosave work, not editing or authentic rendering.
+  source/autosave work, not editing or authentic rendering. The page hydrates
+  around that markup with `useDeferredHydration`: the editor's code loads right
+  after and replaces the markup, replaying a click made in the meantime. Load
+  these islands with `React.lazy`, not `next/dynamic`, which would add preload
+  and render-blocking stylesheet links to the landing HTML. The
+  interactive demos below the hero (`MarketingDeferredDemos`) do the same as each
+  nears the viewport.
 
 ## Common tasks → first action
 

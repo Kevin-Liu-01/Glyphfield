@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 
-import LiveMaterialCanvas from '@/components/LiveMaterialCanvas';
+import LazyLiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
 import { useLandingRenderQuality } from '@/hooks/useLandingRenderQuality';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { useViewportActivity } from '@/hooks/useViewportActivity';
@@ -20,7 +20,7 @@ export default function MarketingShaderMark({ materialId, settings }: { material
 
   return (
     <span aria-hidden='true' className='marketing-v5-hero-mark' data-motion-item data-render-quality={quality} ref={containerRef}>
-      <LiveMaterialCanvas
+      <LazyLiveMaterialCanvas
         activeWhileMounted
         frameRate={LANDING_RENDER_FRAME_RATE}
         materialId={materialId}

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import { act, useEffect, useState } from 'react';
+import { act, useEffect, useState, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const lifecycle = vi.hoisted(() => ({
   mount: vi.fn(),
@@ -28,7 +28,28 @@ vi.mock('@/components/AnimationStudio', () => ({
 import MarketingAnimationDemo from '../MarketingAnimationDemo';
 import MarketingAnimationStudioLive from '../MarketingAnimationStudioLive';
 
+// Server rendering runs without a window; happy-dom provides one to every test.
+function renderServerHtml(element: ReactElement) {
+  const browserWindow = globalThis.window;
+  vi.stubGlobal('window', undefined);
+  try {
+    return renderToString(element);
+  } finally {
+    vi.stubGlobal('window', browserWindow);
+  }
+}
+
 describe('landing Animation editor loading and visibility', () => {
+  // The editor is a React.lazy chunk. Resolve it once so every later render,
+  // including server rendering, is synchronous as it is once the chunk loads.
+  beforeAll(async () => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    const warm = createRoot(document.createElement('div'));
+    await act(async () => warm.render(<MarketingAnimationDemo eager />));
+    act(() => warm.unmount());
+    vi.unstubAllGlobals();
+  });
+
   let host: HTMLDivElement;
   let root: Root;
   let visibility: DocumentVisibilityState;
@@ -97,7 +118,7 @@ describe('landing Animation editor loading and visibility', () => {
   });
 
   it('includes the eager live editor in server HTML without a streamed or client-only placeholder', () => {
-    const html = renderToString(<MarketingAnimationDemo eager />);
+    const html = renderServerHtml(<MarketingAnimationDemo eager />);
     expect(html).toContain('data-editor');
     expect(html).toContain('Toggle playback');
     expect(html).not.toContain('Loading live Animation Studio');
@@ -106,7 +127,7 @@ describe('landing Animation editor loading and visibility', () => {
   });
 
   it('keeps an uneager editor out of server HTML until its near-viewport admission', () => {
-    const html = renderToString(<MarketingAnimationDemo />);
+    const html = renderServerHtml(<MarketingAnimationDemo />);
     expect(html).toContain('Loading live Animation Studio');
     expect(html).not.toContain('data-editor');
     expect(lifecycle.mount).not.toHaveBeenCalled();

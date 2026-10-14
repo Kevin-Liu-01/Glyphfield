@@ -15,7 +15,7 @@ const renderer = vi.hoisted(() => ({ create: vi.fn(), release: vi.fn() }));
 vi.mock('@/hooks/useDeferredRuntime', () => ({ useDeferredRuntime: vi.fn(() => activity.ready) }));
 vi.mock('@/hooks/useViewportActivity', () => ({ useViewportActivity: () => activity.visible }));
 vi.mock('@/hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => activity.reducedMotion }));
-vi.mock('@/components/LiveMaterialCanvas', () => ({
+vi.mock('@/components/LazyLiveMaterialCanvas', () => ({
   default: ({ activeWhileMounted, frameRate, maxPixelCount, paused, renderScale, settings }: LiveMaterialCanvasProps) => {
     useEffect(() => {
       renderer.create();
