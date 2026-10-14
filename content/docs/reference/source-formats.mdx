@@ -24,16 +24,15 @@ Design Lab is backed by the shared CanvasDocument scene graph. The current canva
 ```json
 {
   "schemaVersion": 2,
-  "id": "design-lab:gt:wide",
   "brandId": "gt",
   "capabilities": ["animation", "assets", "constraints", "guides", "history", "layers", "pages", "text"],
-  "pageIds": ["page-1"],
+  "pageIds": ["<page id>"],
   "pages": {
-    "page-1": {
-      "width": 1920,
-      "height": 1080,
-      "background": "#111216",
-      "elementIds": ["shader-1", "text-1", "brand-mark"]
+    "<page id>": {
+      "width": 1600,
+      "height": 900,
+      "background": "#070707",
+      "elementIds": ["shader-canvas-1", "text-1", "logo-brand"]
     }
   },
   "elements": {},
@@ -48,13 +47,13 @@ Design Lab is backed by the shared CanvasDocument scene graph. The current canva
       "timeline": {},
       "layerShaders": {},
       "groups": [],
-      "workspace": {}
+      "workspace": { "activeArtboardId": "artboard-main", "activeSurfaceId": "artboard-main", "artboards": [], "canvas": {} }
     }
   }
 }
 ```
 
-The complete document also carries timestamps, revision, fonts, resources, saved versions, and element records. Each element owns bounds, constraints, visibility, style, opacity, blend mode, and tool-specific `data`. Image and logo elements reference asset records rather than browser-only paths.
+The complete document also carries `id`, `title`, timestamps, `revision`, `guides`, and element records; keep them as `readSource()` returns them. Each element owns bounds, constraints, visibility, `locked`, style, opacity, blend mode, and tool-specific `data` (the full layer settings and its `layerType`). Bounds `x` and `y` are positions; `width` and `height` are scale factors of the layer's default box, not pixels. Image and logo elements reference asset records rather than browser-only paths: `brand-asset:<library id>` for identity assets and `resource:<layer id>` for embedded files. Layer IDs must start with `shader-`, `effect-`, `text-`, `logo-`, or `asset-`; groups with `group-`; artboards with `artboard-`. `metadata.designLab.identity` holds the typography snapshot of an imported project.
 
 ### Generated compatibility source
 
@@ -67,12 +66,12 @@ Design Lab supports these element/layer families:
 | Kind | Important state |
 | --- | --- |
 | Shader | Material ID, colors, engine settings, native frame state, captured PNG reference, size, motion, transform, opacity, blend |
-| Text | Content, type role, family, weight, size, color, text effect, shader fill, transform |
-| Logo | Brand/custom asset, appearance, sticker finish, shader fill, transform |
-| Image | Embedded or library asset, non-destructive crop, focal point, zoom, fit, opacity, transform, optional treatment |
-| Effect | Bayer, ASCII, halftone, or posterize settings; foreground/background colors; opacity |
+| Text | Content (`value`) and optional `runs`, type role (the family comes from the role), weight, size, color, outline, shadow, text effect, shader fill, transform |
+| Logo | Brand or custom asset, color, appearance, shader fill, transform |
+| Image | Embedded or library asset, non-destructive crop, focal point, zoom, fit, opacity, transform, appearance, and `stickerFinish` for stickers |
+| Effect | Converter `kind` (Bayer, ASCII, halftone, posterize) and its settings, foreground and background colors, opacity; for an image effect, `effectId` and `effectProps` |
 
-`page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. Shader layers remain below content during reconciliation.
+`page.elementIds` is the authoritative back-to-front layer order. Groups are stored in Design Lab metadata and must reference valid element IDs. When a shader layer is missing from the stored order, it is inserted behind the content; an authored order is kept.
 
 ### Captured shader appearance
 
@@ -91,16 +90,16 @@ Runtime frames use durable local asset references, not ephemeral `blob:` URLs. P
 
 | Tool | Document boundary | Key constraints |
 | --- | --- | --- |
-| Brand identity | Complete `BrandIdentity` | Validated against the BrandIdentity JSON Schema (`GET /api/brand/validate`); keeps the project `id`, `kind` and `revision` and unknown fields; asset and font paths must be `data:` URLs or origin paths. Agents merge targeted patches with `identity.apply` |
+| Brand identity | Complete `BrandIdentity` | Validated against the BrandIdentity JSON Schema (`GET /api/brand/validate`); keeps the project `id`, `kind`, `revision`, `builtIn`, and `presetFingerprint`, and unknown fields; asset and font paths must be `data:` URLs or origin paths. Agents merge targeted patches with `identity.apply` |
 | Brand elements | Selected application settings (`glyphfield.brand-element` version 2, with `elementId`) | Selects `elementId` and stores only values that differ from identity defaults; version 1 settings apply to the selected element |
 | Moodboard | Boards and tiles (`glyphfield.moodboard` version 2) | Composition is `showcase`, `campaign`, `system`, `specimen`, or `catalog`; tiles validate variant, span, tone, image, and copy; version 1 still applies |
-| Brand book | Sections and pages (`glyphfield.brand-book` version 1) | Section order and visibility, page visibility, layout, surface, image, and copy; foundations still belong in the identity |
-| Animation | Sequence, frames, timing, material, output, and audio clip state | Playback rate and frame references validate; GIF has no audio channel |
-| Lottie | Portable Lottie composition with raw JSON or authorized embedded `.lottie` archive | JSON animation data requires numeric `fr` and `layers[]`; binary `.lottie` remains an archive while playback, canvas, background, and trim settings stay editable |
+| Brand book | Sections and pages (`glyphfield.brand-book` version 1) | Section order and visibility, page visibility, layout, surface, image, and copy (1200 characters per slot); `schema` and `version` are checked; foundations still belong in the identity |
+| Animation | CanvasDocument schema 2 with `metadata.tool: "animation-studio"` and `metadata.animation` (`mode`, `textFrames`, `includeBrandLogo`, `sequenceOrder`, `settings`, `frameSettings`, `sequenceBackground`, `backgroundOverrides`, `playbackRate`, `audio`, `artboards`, `activeArtboardId`, `identity`) | `playbackRate` greater than 0 and at most 4; keyframes and entrances are validated by path; artboards and audio bytes are embedded |
+| Lottie | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 1, toolId: "lottie", state }`; `state` holds appearance, background, canvas preset, edits, playback, and the source (raw JSON in `source.data`, or a `.lottie` asset on the `lottie-animation` element) | Raw Lottie JSON with numeric `fr` and `layers[]` can also be applied; it replaces the animation and clears edits |
 | Design Lab | CanvasDocument v2 with Design Lab source metadata v4 | Exact layers, transforms, assets, effects, sequences, saved frames, and export settings |
-| OpenGraph, Terminal card, Partnership, Blog, Slides | CanvasDocument schema 2 with expression source version 2: pages are artboards (slides are pages), elements are layers with a `data.slot` role and brand color roles | Mirrored flat `title`, `body`, `code`, and `language` in `metadata.studio.state` stay editable; version-1 flat tool states migrate on apply |
+| OpenGraph, Terminal card, Partnership, Blog, Slides | CanvasDocument schema 2 with `metadata.studio = { sourceVersion: 2, toolId, state }`: pages are artboards (slides are pages), elements are layers with a `data.slot` role and brand color roles | Rejects another tool's document or a newer `sourceVersion`; text layers need `textStyle` and code layers a tab; library assets are re-pointed to the identity's files; mirrored flat `title`, `body`, `code`, and `language` stay editable; version-1 flat states migrate |
 | Color/Typography | Identity-bound foundation state, version 2 | Color: the palette, `colorPairings` and `colorSystem` (semantic light/dark roles, scale settings) plus per-token opacity. Typography: roles, `typeScale` and specimen settings. Version 1 sources still apply; font files remain local |
-| Components | Tool-specific configuration, version 2 | Variant and display settings depend on the active tool; version 1 migrates on apply |
+| Components | Version 2: `pattern`, `family`, `label`, `supportingCopy`, `disabled`, `size`, `density`, `radius`, `borderWidth`, `elevation`, `surface`, `theme`, `codeFormat`, `useBrandDefaults`, `colors`, `typography`, `textScale`, `letterSpacing`, `asset` | `family` must match the pattern; version 1 migrates on apply |
 
 ## Safe agent mutation
 
@@ -140,7 +139,7 @@ Use `describe().source` before reading or applying. Do not write directly to loc
 }
 ```
 
-The browser player decides support for individual Lottie features. Recoloring, trim, and frame selection are Studio state; downloading edited JSON emits the updated vector document. An imported `.lottie` bundle can be replayed and downloaded but is not presented as editable raw JSON unless a JSON source exists.
+The browser player decides support for individual Lottie features. Recoloring, trim, and frame selection are Studio state; `lottie.export.source` and **Export JSON** emit the updated vector document. An imported `.lottie` bundle can be replayed and downloaded but its layers, text, and colors cannot be edited.
 
 ## Portability checklist
 

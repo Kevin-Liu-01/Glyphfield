@@ -1,88 +1,10 @@
 ---
 title: Endpoint reference
-description: Public machine routes for discovery, identities, elements, generation, search, and OpenAPI.
+description: Every public route for discovery, identities, elements, materials, generation, brand validation, the brand kit, documentation, search, and social images.
 icon: Braces
 ---
 
-## Discovery
-
-| Method | Route | Response |
-| --- | --- | --- |
-| GET | `/llms.txt` | Plain-text agent runbook |
-| GET | `/llms-full.txt` | Complete agent-readable documentation corpus |
-| GET | `/api/docs/{slug}` | One processed documentation page as Markdown |
-| GET | `/api/agent` | Versioned manifest and generation contract |
-| GET | `/openapi.json` | OpenAPI 3.1 JSON |
-| GET | `/api/catalog` | Studio tool catalog, resource links, Shader Library, and deterministic Surface Library |
-| GET | `/api/labs` | Complete Studio lab-plugin catalog |
-| GET | `/api/materials` | Complete shared Shader Library with controls and attribution |
-| GET | `/api/identities` | Built-in template and reference identity records |
-| GET | `/api/elements` | Searchable brand element records |
-| GET | `/api/generate` | Current generation contract and examples |
-| GET | `/api/brand/validate` | BrandIdentity JSON Schema, merge-patch schema, merge rules and logo slots |
-| GET | `/api/brand/kit` | Brand kit text formats and request contract |
-| GET | `/api/search` | Self-hosted documentation search index/query response |
-| GET | `/api/surface-textures/{assetId}/{map}` | Allowlisted CC0 surface map with provider/license headers |
-| GET | `/api/og` | Parameterized 1200 × 630 OpenGraph PNG |
-| GET | `/api/og-home` | Canonical home-page OpenGraph PNG |
-| GET | `/og/docs/{slug}/image.png` | Canonical documentation OpenGraph PNG |
-
-## Generation
-
-| Method | Route | Content type |
-| --- | --- | --- |
-| POST | `/api/generate` | Request: `application/json`; response: JSON or `image/svg+xml` |
-| OPTIONS | `/api/generate` | CORS preflight |
-
-Generation supports `template`, `background`, `element-brief`, and `design-sequence` kinds.
-
-`design-sequence` returns a response-schema-1 envelope with a version-3, apply-ready Design Lab compatibility document rather than a server-rendered approximation. Apply it with the programmatic browser API; Design Lab validates and normalizes it to CanvasDocument schema 2 with Design Lab source 4. Re-read that source, then invoke `design.export` with `png`, `jpg`, `gif`, or `mp4`. GIF and MP4 also accept `mode: 'shader-sequence'`; this keeps the result on the authentic Canvas/WebGL renderer.
-
-## Browser API
-
-Every active Studio tool registers `window.glyphfield.studio` (version 1). The API discovers and operates visible controls by accessible label, including authorized uploads supplied as `File` objects. Source-enabled tools also expose exact `readSource` and async `applySource` methods. `download(artifact)` and `artifact.download` save returned Blob artifacts. Use `describe()` to discover current tool-specific actions.
-
-Design Lab actions include PNG/JPG stills, GIF, ordinary MP4, sequence GIF/MP4, sequence preview, stop, describe, and configure. `await invoke('design.export', { format, mode?, download? })` is the unified entry point. Export actions resolve to an object containing the generated `Blob`, file name, dimensions, and format; `download: true` also writes the file through the browser.
-
-Frame selection is a browser-native workflow, not a new HTTP generation kind. `design.frame.pause` synchronously pauses native motion and returns `null` without encoding or storing frame assets. `design.frame.capture` persists the visible PNG appearance and returns portable source; `design.frame.play` resumes motion; `design.frame.seek` accepts `{ timeMs }` for seekable providers; `design.motion.describe` reports per-layer capabilities. `/api/materials` includes each material's motion model, PNG capture support, editable seek support, and known or unverified loop behavior. Stateful Fluid history is not seekable.
-
-PNG/JPG export freezes the exact current visible frame. GIF/MP4 sample motion from the current frame anchor and restore that paused pose afterward. Exports leave playback paused and do not add captured-frame assets to IndexedDB. Durable frame capture remains a separate action; unavailable resources and unsupported timestamp-sampled Fluid motion are reported explicitly.
-
-## Brand identity
-
-| Method | Route | Content type |
-| --- | --- | --- |
-| POST | `/api/brand/validate` | Request `{ identity, mode?: 'full' \| 'patch' }`; response `{ ok, issues, identity, health, schemaVersion }` |
-| POST | `/api/brand/kit` | Request `{ identity, format: 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' }`; response is the file itself |
-| OPTIONS | `/api/brand/validate`, `/api/brand/kit` | CORS preflight |
-
-Both routes are stateless: nothing is stored and no remote URL is fetched. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Invalid source is not an HTTP error on `/api/brand/validate`: it returns `ok: false` with `issues[]`, each naming a `path`, a `code` and an actionable `message`. `/api/brand/kit` returns `400 invalid_identity` naming the first invalid path. Unknown top-level fields return `400 unknown_field`; bodies over 5 MB return `413`. The ZIP, logo pack and font files come from the browser action `identity.export.kit`.
-
-## Documentation search
-
-| Method | Route | Purpose |
-| --- | --- | --- |
-| GET | `/api/search` | Self-hosted Fumadocs/Orama documentation search |
-
-Search is used by the documentation UI and is separate from Studio tool search.
-
-## Supporting routes
-
-`GET /api/surface-textures/{assetId}/{map}` only accepts an `assetId` published by the surface catalog and a map of `color`, `displacement`, `metalness`, `normal`, or `roughness`. It never acts as an arbitrary URL proxy. Successful responses include `X-Surface-License` and `X-Surface-Provider`; unavailable maps return `404`, and unreachable allowlisted upstreams return `502`.
-
-`GET /api/github-stars` supplies the current repository-star count to product chrome. It is an optional UI utility rather than a generation dependency; consumers must tolerate `503` and `stars: null`.
-
-OpenGraph route inputs and rendering behavior are covered in [Social previews](/docs/reference/social-previews).
-
-`/openapi.json` uses the same discriminated generation request schema returned by `GET /api/generate`, including exact top-level fields, enums, ranges, string limits, and data-URL constraints. The OpenAPI path inventory includes every public machine route above plus the optional `/api/github-stars` product-chrome utility.
-
-## Caching
-
-Discovery GET routes are publicly cacheable for a short period. Generation responses use `Cache-Control: no-store`.
-
-## CORS
-
-Agent routes expose:
+All routes are public and need no API key. Agent routes send these CORS headers:
 
 ```text
 Access-Control-Allow-Origin: *
@@ -90,14 +12,84 @@ Access-Control-Allow-Methods: GET, POST, OPTIONS
 Access-Control-Allow-Headers: Content-Type, Accept
 ```
 
-The current routes do not require an API key.
+`/openapi.json` describes every route below in OpenAPI 3.1.
+
+## Discovery
+
+| Method | Route | Response | Cache |
+| --- | --- | --- | --- |
+| GET | `/llms.txt` | Plain-text agent router | Static file |
+| GET | `/llms-full.txt` | The complete documentation corpus as plain text, generated from the current MDX | `max-age=0, must-revalidate` |
+| GET | `/api/docs/{slug}` | One processed documentation page as Markdown. `/docs/<path>.md` is rewritten to this route | `max-age=0, must-revalidate` |
+| GET | `/api/agent` | The manifest: `{ name, version, schemaVersion, description, execution, interfaces, policies, resources, skills, studioBrowserApi, brand, generation }` | `max-age=300` |
+| GET | `/openapi.json` | OpenAPI 3.1 document | |
+| GET | `/api/catalog` | Studio tools, resource links, the Shader Library summary, and the deterministic surface library | None |
+| GET | `/api/labs` | `{ categories, count, plugins, schemaVersion: 2 }`; each plugin is a Studio tool with `agentAccess`, `browserWorkspace`, and `capabilities` (`browserActions`, `browserApi`, `controlAutomation`, `directHttpGeneration`, `exports`, `sharedShaderLibrary`, `shaderFrameCapture`, `source`, `sourceEditing`) | `max-age=300` |
+| GET | `/api/materials` | The Shader Library: `{ categories, kinds, shaderEffects, controls, count, defaults, engines, lookPresets, materials, framePersistence, palettes, schemaVersion, sharedBy, imageEffects }` | `max-age=300` |
+| GET | `/api/identities` | `{ agentPresetField, identities, localIdentityPersistence, schemaVersion: 2 }` with the nine built-in `BrandIdentity` records | |
+| GET | `/api/elements` | `{ categories, count, elements, generation, schemaVersion: 1 }` with the 89 brand elements | |
+| GET | `/api/search` | Documentation search (Fumadocs and Orama) | |
+
+`/api/materials` lists the materials the Shader Library shows. Retired materials are not listed, and image effects are listed separately under `imageEffects` (`{ categories, count, effects, requiresWebGPU, usage }`). See [Shader Library](/docs/studio/shader-library#http) for the material fields.
+
+## Generation
+
+| Method | Route | Content |
+| --- | --- | --- |
+| GET | `/api/generate` | The current contract (`schemaVersion` 3): request schema, kinds, identity forms, limits, and examples. Cached for 300 seconds |
+| POST | `/api/generate` | Request `application/json`; response JSON, or `image/svg+xml` with `output: "raw"`. `Cache-Control: no-store` |
+| OPTIONS | `/api/generate` | CORS preflight |
+
+Kinds are `template` (the default), `background`, `element-brief`, and `design-sequence`. `design-sequence` returns a response-schema-1 envelope whose `document` is a version-3 compatibility source for Design Lab. Apply it with `applySource` in `/studio`; Design Lab normalizes it to CanvasDocument schema 2 with Design Lab source 4. Re-read the source, then export with `design.export`. See [Generation API](/docs/agents/generate).
+
+Errors return `{ error: { code, field, message }, schemaVersion: 1 }`:
+
+| Status | Codes |
+| --- | --- |
+| 400 | `invalid_json`, `invalid_request`, `unknown_field`, `unknown_identity`, `invalid_identity`, `invalid_dimensions`, `pixel_limit` |
+| 413 | `request_too_large`: body over 5,250,000 bytes |
+| 415 | `unsupported_media_type`: `Content-Type` is not JSON |
+| 429 | Rate limit on the production deployment |
+| 500 | `generation_failed` |
+
+## Brand identity
+
+| Method | Route | Content |
+| --- | --- | --- |
+| GET | `/api/brand/validate` | `{ description, endpoint, example, logoSlots, maximumRequestBytes, mergeRules, method, patchSchema, request, response, schema, schemaVersion }`: the BrandIdentity JSON Schema, the merge-patch schema, merge rules, and logo slots |
+| POST | `/api/brand/validate` | Request `{ identity, mode?: 'full' \| 'patch' }` (default `full`); response `{ ok, issues, identity, health, schemaVersion }` |
+| GET | `/api/brand/kit` | The kit contract and formats |
+| POST | `/api/brand/kit` | Request `{ identity, format: 'dtcg' \| 'css' \| 'tailwind' \| 'markdown' }`; response is the file |
+| OPTIONS | `/api/brand/validate`, `/api/brand/kit` | CORS preflight |
+
+`POST /api/brand/kit` responds with `Content-Type: <type>; charset=utf-8` and `Content-Disposition: inline` with the file name `tokens.json`, `brand.css`, `tailwind.css`, or `brand.md`. The CSS and Tailwind files reference fonts at `../fonts/…`; the font files themselves come only from the browser action `identity.export.kit`, as do the ZIP and the logo pack.
+
+Both routes are stateless: nothing is stored and no remote URL is fetched. Asset and font paths must be `data:` URLs or paths on the Glyphfield origin. Invalid source is not an HTTP error on `/api/brand/validate`: it returns `ok: false` with `issues[]`, each with a `path`, a `code`, and a `message`. `/api/brand/kit` returns `400 invalid_identity` naming the first invalid path. Both return `400 invalid_json`, `400 unknown_field`, `413` above 5,250,000 bytes, `415` for non-JSON, and `500 brand_request_failed`.
+
+## Browser API
+
+Every active Studio tool registers `window.glyphfield.studio` (version 1). It operates controls by accessible label, reads and applies source, runs tool actions, and downloads returned Blobs. See [Studio Browser API](/docs/reference/browser-api).
+
+## Supporting routes
+
+| Method | Route | Content |
+| --- | --- | --- |
+| GET | `/api/surface-textures/{assetId}/{map}` | One allowlisted CC0 surface map |
+| GET | `/api/github-stars` | The repository star count for the site header |
+| GET | `/api/og` | A 1200 × 630 PNG with `title`, `description`, `url`, and `accent` parameters ([Social previews](/docs/reference/social-previews)) |
+| GET | `/api/og-home` | The home page's social image |
+| GET | `/og/docs/{slug}/image.png` | A documentation page's social image |
+
+`/api/surface-textures/{assetId}/{map}` accepts only the eleven asset IDs in the surface catalog and the maps `color`, `displacement`, `metalness`, `normal`, and `roughness`. It is not a URL proxy. Responses carry `X-Surface-License` and `X-Surface-Provider` and are cached (`max-age=86400, s-maxage=2592000, stale-while-revalidate=604800`). An unknown asset or map, or a missing map, returns `404`; an unreachable upstream returns `502`.
+
+`/api/github-stars` is optional product chrome. Consumers must accept `503` with `stars: null`.
 
 ## Recommended discovery order
 
-1. `/api/agent`
+1. `/llms.txt`, then `/api/agent`
 2. `/api/labs`
-3. The task-specific catalog
-4. `/api/generate` when producing an HTTP artifact
-5. `/api/docs/{slug}` or `/llms-full.txt` for the necessary operating detail
+3. The task-specific catalog: `/api/materials`, `/api/identities`, `/api/elements`, or `/api/catalog`
+4. `GET /api/generate` before an HTTP generation request
+5. `/api/docs/{slug}` or `/llms-full.txt` for operating detail
 
-Catalog IDs, schemas, and action lists are authoritative. Examples are explanatory and should not be treated as a substitute for discovery.
+Catalog IDs, schemas, and action lists are authoritative. The contract returned by `GET /api/generate` wins over prose in these docs.

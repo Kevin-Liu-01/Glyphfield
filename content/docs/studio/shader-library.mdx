@@ -4,7 +4,7 @@ description: Browse, filter, and tune the shared catalog of live materials used 
 icon: LibraryBig
 ---
 
-The Shader Library is Glyphfield's shared catalog of live materials. Design Lab, Animation, Lottie backgrounds, and the expression tools pick materials from it, and every host stores a material by its ID and settings. `GET /api/materials` returns the current list, count, engines, controls, and defaults; at the time of writing it lists 197 materials. Do not hard-code the count.
+The Shader Library is Glyphfield's shared catalog of live materials. Design Lab, Animation, Lottie backgrounds, and the expression tools pick materials from it, and every host stores a material by its ID and settings. `GET /api/materials` returns the current list, count, engines, controls, and defaults. This release lists 197 materials; agents read the count from the endpoint instead of hard-coding it.
 
 <DocsMedia
   alt='Design Lab with the Shader Library open beside the canvas'

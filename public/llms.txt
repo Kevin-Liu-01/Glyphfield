@@ -190,9 +190,9 @@ A successful request is not sufficient evidence of a finished task.
 
 One active identity supplies name, marks, assets, color roles, type roles, strategy, voice, and defaults to every Studio tool. Studio projects, tabs, and tool drafts persist locally.
 
-Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
+Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and Effect layers on artboards and an open canvas; direct manipulation with snapping (no layer rotation); ordering, grouping, align and distribute, locks, and copy and paste style; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, and posterize converters and the Shaders.com image effects (WebGPU) on Effect layers; text effects; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader zoom from 0.1× to 10×; an Auto/High/Draft live preview quality that never affects exports; sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export at 320–3840 px wide.
 
-The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, interactive), controls, palettes, and defaults. Never infer a material ID from its display name. Shape primitives, plain fills and raw noise (for example `shader-effects-circle`, `shader-effects-linear-gradient`, `shader-effects-perlin-noise`, `paper-waves`) are no longer listed; documents that use one still load. Shaders.com image effects (components that transform an image) are not materials: `/api/materials` lists them under `imageEffects`, and Design Lab applies them as Effect layers over the layers beneath. Older documents that used one as a shader layer still load and render as before.
+The shared Shader Library is quality-sorted and used by Design Lab, Animation, Lottie backgrounds, and the expression tools. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, interactive), controls, palettes, and defaults. Never infer a material ID from its display name. Shape primitives, plain fills and raw noise (for example `shader-effects-circle`, `shader-effects-linear-gradient`, `shader-effects-perlin-noise`, `paper-waves`) are no longer listed; documents that use one still load. Shaders.com image effects (components that transform an image) are not materials: `/api/materials` lists them under `imageEffects`, and Design Lab applies them as Effect layers over the layers beneath. Older documents that used one as a shader layer still load and render as before.
 
 Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) take `settings.effectProps` holding only the values to change; each material's `nativeControls` lists keys, defaults, and ranges. Their colours default to the shared `colorA`/`colorB`/`colorC` palette (a control's `palette` field names its stop), and motion speed is `settings.speed`. They render only with WebGPU; without it Studio shows a labelled still and refuses export.
 
@@ -215,11 +215,20 @@ Brand identity, Brand elements, Moodboard, Brand book, OpenGraph, Color tokens, 
 - `/docs/reference/troubleshooting.md`
 - `/docs/reference/browser-support.md`
 - `/docs/reference/api-security.md`
-- `/docs/studio/design-lab.md`
+- `/docs/studio.md` (all fifteen tools, projects, tabs, persistence)
+- `/docs/studio/brand-settings.md` (Brand identity: health score, fix IDs, brand kit, built-in identities)
+- `/docs/studio/design-lab.md` (layout, artboards, shortcuts, limits)
+- `/docs/studio/design-lab/layers.md` (layer kinds, text runs, crop, align, lock, copy style)
+- `/docs/studio/design-lab/effects.md` (converters and WebGPU image effects)
+- `/docs/studio/design-lab/shaders.md` (shader layers, preview quality, time, capture, sequences)
+- `/docs/studio/design-lab/export.md` (export settings, saved designs, source fields, export actions)
 - `/docs/studio/shader-library.md`
+- `/docs/studio/templates.md` (expression tools: formats, layouts, type scale, shared actions)
 - `/docs/studio/animation.md`
 - `/docs/studio/lottie.md`
 - `/docs/artifacts/formats-and-portability.md`
 - `/docs/artifacts/backup-and-restore.md`
+- `/docs/reference/shortcuts.md`
+- `/docs/reference/licensing.md`
 
 When exact behavior matters, prefer the live catalogs, manifest, current source document, and processed Markdown endpoints over remembered examples.

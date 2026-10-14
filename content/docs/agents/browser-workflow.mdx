@@ -6,14 +6,14 @@ icon: MonitorCog
 
 Some capabilities intentionally render in the browser because their output depends on browser graphics APIs or interactive composition. They remain programmatically available through the Studio Browser API.
 
-<DocsMedia alt='Glyphfield Design Lab showing the authentic shader canvas, layers, and output inspector an agent operates' caption='The Browser API operates this exact workspace' meta='No separate agent-only renderer' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+<DocsMedia alt='Glyphfield Design Lab showing the authentic shader canvas, layers, and output inspector an agent operates' caption='The Browser API operates this exact workspace' meta='No separate agent-only renderer' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 
 ## Use the browser for
 
-- Moodboard PNG up to 4800 × 6000
+- Moodboard PNG up to 4800 × 7200
 - Animation GIF and MP4 packages, including MP4 audio
-- Live Design Lab shaders, stills, GIFs, MP4, and shader sequences
-- PNG output from OpenGraph, terminal, logos, and templates
+- Live Design Lab shaders, WebGPU image effects, stills, GIFs, MP4, and shader sequences
+- PNG and SVG output from the expression tools, PNG and HTML email from Brand elements
 - Local font, image, logo, and shader inputs
 - Visual placement, opacity, scale, and zoom inspection
 - Shared Brand identity settings that update all browser-local designs
@@ -51,7 +51,8 @@ if (studio.activeTool() !== 'material') {
 }
 
 const current = JSON.parse(studio.readSource());
-current.composition.backgroundColor = '#111216';
+// Design Lab source is a CanvasDocument: the artboard background is the page background.
+current.pages[current.pageIds[0]].background = '#111216';
 await studio.applySource(current);
 
 const artifact = await studio.invoke('design.export', {

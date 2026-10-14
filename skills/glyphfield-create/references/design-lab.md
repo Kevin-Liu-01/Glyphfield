@@ -59,6 +59,29 @@ Never reconstruct the full document from a remembered example. Never write React
 - View pan/zoom is workspace state and must not alter exported transforms.
 - Saved designs must preserve pages, elements, assets, groups, shaders, timeline/frame, export settings, and stable IDs.
 
+## Layer commands and effect layers
+
+Use the Design Lab actions instead of rewriting geometry or effect settings by hand:
+
+```js
+const studio = window.glyphfield.studio;
+await studio.invoke('design.layers.arrange', { arrangement: 'horizontal-center', layerIds: ['text-1', 'logo-brand'] });
+await studio.invoke('design.layers.lock', { layerIds: ['logo-brand'], locked: true });
+await studio.invoke('design.layers.copyStyle', { layerId: 'text-1' });
+await studio.invoke('design.layers.pasteStyle', { layerIds: ['text-2'] });
+
+// An Effect layer processes every layer beneath it in the active artboard.
+const { layerId } = await studio.invoke('design.effects.add', { effectId: 'shader-effects-engraving' });
+const { layers } = await studio.invoke('design.effects.describe');
+const effect = layers.find((entry) => entry.layerId === layerId);
+if (effect?.status === 'unsupported') throw new Error('Image effects need WebGPU in this browser.');
+```
+
+- Alignment needs two layers and distribution three. Locked layers are skipped.
+- Built-in converters use `{ kind: 'bayer' | 'ascii' | 'halftone' | 'posterize' }`. Image effect IDs come from `/api/materials` `imageEffects`; `effectProps` holds only changed values.
+- Effect layers cannot be added to the loose canvas, locked, arranged, or style-copied.
+- Design Lab layers have no rotation; the shader **Rotation** slider rotates the material inside its layer.
+
 ## Visual verification
 
 Check more than source text:
@@ -70,4 +93,4 @@ Check more than source text:
 - Layer order and hidden/opacity state.
 - Restored state after saving and reopening when persistence matters.
 
-The complete current contract is available from `/docs/studio/design-lab.md` and `/docs/reference/source-formats.md` on the running Glyphfield origin.
+The complete current contract is available on the running Glyphfield origin from `/docs/studio/design-lab.md`, `/docs/studio/design-lab/layers.md`, `/docs/studio/design-lab/effects.md`, `/docs/studio/design-lab/shaders.md`, `/docs/studio/design-lab/export.md`, and `/docs/reference/source-formats.md`.

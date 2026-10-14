@@ -7,15 +7,16 @@ icon: Keyboard
 Glyphfield combines ordinary document UI with direct-manipulation canvases and animated GPU output. Accessibility therefore has two boundaries: operating the Studio itself and making the exported artifact usable in its destination.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Glyphfield Brand identity workspace in light mode with structured form controls' caption='Structured editing surfaces' meta='Labels · focus · keyboard' src='/screenshots/studio-gt-identity-light-2026.png' />
-  <DocsMedia alt='Glyphfield Design Lab in dark mode with layer list and inspector beside the canvas' caption='Canvas plus equivalent controls' meta='Selection · layers · inspector' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
+  <DocsMedia alt='Glyphfield Brand identity workspace in light mode with structured form controls' caption='Structured editing surfaces' meta='Labels · focus · keyboard' src='/screenshots/studio-gt-identity-light-2026.webp' />
+  <DocsMedia alt='Glyphfield Design Lab in dark mode with layer list and inspector beside the canvas' caption='Canvas plus equivalent controls' meta='Selection · layers · inspector' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## Interaction model
 
 - Navigation, buttons, selects, fields, dialogs, drawers, tabs, and layer actions should expose visible labels or accessible names.
 - The visual canvas is paired with a layer list and inspector so geometry and appearance are not controlled only by pointer gestures.
-- Selected canvas items support arrow-key movement; Shift + arrow performs a larger nudge.
+- Selected canvas items support arrow-key movement; Shift + arrow performs a larger nudge. Layer, artboard, project tab, and canvas menus open from the keyboard with Shift + F10 or the ContextMenu key.
+- Design Lab lists its shortcuts in a sheet opened with **?**. Every shortcut is listed in [Keyboard shortcuts](/docs/reference/shortcuts).
 - Global Studio and documentation search expose keyboard shortcuts described in [Keyboard shortcuts](/docs/reference/shortcuts).
 - Source-enabled tools provide a Code drawer for exact structured editing when direct manipulation is insufficient.
 
@@ -47,7 +48,7 @@ When adding or changing a control:
 
 ## Motion
 
-Automatic previews should respect reduced-motion intent by pausing, simplifying, or holding on a representative frame where practical. Offscreen and hidden live-material previews pause independently for performance.
+The Studio respects `prefers-reduced-motion`. **Reduce motion** in **Visual customization** pauses decorative effects for this browser, independent of the system setting. Design Lab's Auto preview quality does not measure frame times while reduced motion is on. Offscreen and hidden live-material previews pause independently for performance.
 
 Exporting motion is an explicit action, so the file can still contain animation. When using it elsewhere:
 

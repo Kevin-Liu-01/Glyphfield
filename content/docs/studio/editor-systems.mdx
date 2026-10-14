@@ -7,8 +7,8 @@ icon: Blocks
 Glyphfield tools are composed from shared editor systems. A generator should not invent its own color field, zoom bar, layer behavior, select menu, or draft-storage scheme. Reusing these components keeps interaction state, accessibility, and exports consistent across the Studio.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Design Lab showing shared library, canvas viewport, inspector, and layer dock systems' caption='Layered editor systems' meta='Selection · zoom · source · persistence' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
-  <DocsMedia alt='Brand Elements showing identity-aware artifact controls' caption='Identity-aware systems' meta='Shared assets · color · output' src='/screenshots/studio-gt-brand-elements-dark-2026.png' />
+  <DocsMedia alt='Design Lab showing shared library, canvas viewport, inspector, and layer dock systems' caption='Layered editor systems' meta='Selection · zoom · source · persistence' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+  <DocsMedia alt='Brand Elements showing identity-aware artifact controls' caption='Identity-aware systems' meta='Shared assets · color · output' src='/screenshots/studio-gt-brand-elements-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## Component map
@@ -68,8 +68,8 @@ the source schema, tool catalog, or deterministic HTTP generation contract.
 ### States
 
 - **Default** — 100-percent zoom with the artifact centered in a scrollable stage.
-- **Zoomed out** — down to 40 percent for complete-board inspection.
-- **Zoomed in** — up to 200 percent for alignment and edge inspection.
+- **Zoomed out** — down to 40 percent for complete-board inspection (5 percent in Design Lab).
+- **Zoomed in** — up to 200 percent for alignment and edge inspection (800 percent in Design Lab).
 - **Reset** — selecting the percentage restores 100 percent.
 - **Fit** — restores the stable whole-canvas view.
 - **Persisted** — zoom is stored independently for each brand project and Studio tool.
@@ -86,7 +86,7 @@ The shared viewport also supports wheel/trackpad zoom, drag-to-pan on empty work
 - Reset reloads the current visual snapshot.
 - Closing the drawer preserves the active tool and canvas position.
 
-The drawer is a shared interaction shell, not a universal schema. Each tool owns its field constraints and converts valid source into the same state used by its visual controls. Raw Lottie JSON remains a Lottie document; material configuration can carry custom GLSL; template and component drawers expose their own configuration objects.
+The drawer is a shared interaction shell, not a universal schema. Each tool owns its field constraints and converts valid source into the same state used by its visual controls. Lottie and Animation use CanvasDocument envelopes with their own metadata; expression tools use expression documents; foundations and components expose their own versioned objects.
 
 See [Source code editing](/docs/studio/source-editing), [Source format reference](/docs/reference/source-formats), and [Studio Browser API](/docs/reference/browser-api).
 
@@ -100,14 +100,15 @@ See [Source code editing](/docs/studio/source-editing), [Source format reference
 | --- | --- | --- |
 | Idle | No selection box or handles | Alignment and reset are disabled |
 | Selected | Selection outline, label, and resize handle | Active row and current scale are visible |
-| Moving | Pointer capture updates X and Y in canvas coordinates | The same transform remains the source of truth |
-| Resizing | Corner drag updates scale from 0.2× to 3× | Scale percentage updates immediately |
+| Moving | Pointer capture updates X and Y in canvas coordinates; the layer snaps within 6 screen pixels to the artboard edges and center and to other layers | The same transform remains the source of truth |
+| Locked | The layer ignores pointer and keyboard edits on the canvas and is inert | Inspector controls stay available |
+| Resizing | Edge and corner drags update the scale or the box (minimum 0.02×, no fixed maximum) | Scale percentage updates immediately |
 | Keyboard | Arrow keys nudge one pixel; Shift + arrow nudges ten | Selection remains active |
 | Reordered | Z-index follows the layer order | Forward/backward controls disable at stack boundaries |
 | Aligned | Left, center, right, top, middle, or bottom resolves from artifact geometry | One alignment action updates the selected transform |
 | Reset | Returns to the generator's default transform | Row returns to 100 percent |
 
-Nothing is selected automatically. Selection begins only from the layer list or the canvas, matching presentation-editor behavior.
+Hosts decide when to select: the expression tools select nothing until you click, and Design Lab selects a layer when it is added. `EditableCanvasLayer` also accepts optional `onRotate` (a rotate handle with 15° Shift snapping) and `snapTargets` (for example `canvasThirdsSnapTargets` for rule-of-thirds lines) props; no Studio tool passes them yet.
 
 ## Versioned scene graph
 
@@ -160,8 +161,8 @@ Third-party packages sit behind local components so individual Studio tools do n
 | Radix Slot | `Button` | Polymorphic actions and links with one visual system |
 | Three.js + React Three Fiber | `LiveMaterialCanvas` | Live GPU materials and shader rendering |
 | `@shadergradient/react` | Live-material adapter | Editable ShaderGradient sphere presets |
-| `@paper-design/shaders-react` | `LiveMaterialCanvas` Paper adapter | 29 Paper shader families and 120 licensed presets in the shared gallery |
-| `shaders` | Native WebGPU adapter | MIT-licensed Shaders.com effects with per-component controls and portable source |
+| `@paper-design/shaders-react` | `LiveMaterialCanvas` Paper adapter | Paper shader families and presets; `/api/materials` lists the ones the library shows |
+| `shaders` | Native WebGPU adapter and image effect processor | MIT-licensed Shaders.com materials with per-component controls, and the image effects on Design Lab Effect layers |
 | PavelDoGreat WebGL Fluid Simulation | Local fluid adapter | MIT-licensed GPU advection model used by Fluid Energy |
 | `gifenc` | GIF export pipeline | Deterministic browser GIF encoding and palette control |
 | `mediabunny` | Browser video/audio muxing | MP4 export and Animation audio mixing |

@@ -7,8 +7,8 @@ icon: TriangleAlert
 Preserve the editable source before changing the environment. Most failures are easier to reproduce than to reconstruct after browser storage or local inputs have been cleared.
 
 <DocsMediaGrid>
-  <DocsMedia alt='Glyphfield Design Lab with live shader, canvas, layers, and output inspector visible' caption='Inspect the whole rendering chain' meta='Source → preview → export' src='/screenshots/studio-gt-design-lab-dark-2026.png' />
-  <DocsMedia alt='Glyphfield Animation timeline and motion preview' caption='Motion has additional checkpoints' meta='Frames → encoder → downloaded file' src='/screenshots/studio-gt-animation-dark-2026.png' />
+  <DocsMedia alt='Glyphfield Design Lab with live shader, canvas, layers, and output inspector visible' caption='Inspect the whole rendering chain' meta='Source → preview → export' src='/screenshots/studio-gt-design-lab-dark-2026.webp' />
+  <DocsMedia alt='Glyphfield Animation timeline and motion preview' caption='Motion has additional checkpoints' meta='Frames → encoder → downloaded file' src='/screenshots/studio-gt-animation-dark-2026.webp' />
 </DocsMediaGrid>
 
 ## First response
@@ -25,7 +25,9 @@ Do not clear site data, delete a project, or rebuild the document from an exampl
 
 | Symptom | Likely boundary | Safe next action |
 | --- | --- | --- |
-| Shader card or canvas is blank/static | WebGL/WebGL2 unavailable, lost context, offscreen preview budget, or reduced motion | Bring the preview onscreen, stop duplicate live canvases, reload once, and test another material; do not claim motion from a static fallback |
+| Shader canvas is blank, grey, or static | WebGL2 unavailable (grey "Shader preview unavailable" placeholder), a lost context, or the preview is offscreen | Bring the preview onscreen, stop duplicate live canvases, reload once, and test another material; do not claim motion from a static fallback |
+| A Shaders.com material shows a labelled still, or an Effect layer passes its layers through | No WebGPU | Use a browser with WebGPU; exports that include these layers stop with an error naming the layer. Hide the layer to export without it |
+| Live shaders look soft | Preview quality is Draft, or Auto lowered it after slow frames | Choose **High** with **Live shader preview quality**; exports always render at output size |
 | Canvas looks clipped or too small | View zoom/pan differs from output geometry | Use Fit/Reset and verify declared output dimensions; changing zoom must not change export size |
 | Logo, text, or layers shift after restore | Stale/reconstructed source, changed IDs, missing assets/fonts, or wrong tool | Reapply the exact current document, preserve IDs/order, restore dependencies, and re-read after apply |
 | Save state remains “preparing” or reports error | IndexedDB blocked, storage quota/transaction failure, or page closing during write | Copy Code source immediately, remain on the same origin, and retry in a persistent browser profile |
@@ -33,7 +35,7 @@ Do not clear site data, delete a project, or rebuild the document from an exampl
 | Local image/font disappears after reload | Session object URL or original bytes were not embedded | Reattach the authorized original file and export a new portable source/proof |
 | PNG/JPG is empty | Canvas context or encoder returned no bytes | Reduce dimensions for diagnosis, reload the renderer, and require a non-empty Blob before completion |
 | GIF has a flashing text/color frame | Source color changes between frames or palette quantization cannot hold the intended colors | Compare still captures at the same times, confirm source colors are stable, use a solid background where appropriate, then retry at a lower diagnostic size |
-| GIF repeats with a visible jump | Repeat flag is set but visual endpoints differ | Choose Seamless, inspect the seam report and actual wrap, or use Raw only for periodic/intentionally cut motion |
+| GIF repeats with a visible jump | Repeat flag is set but visual endpoints differ | In Design Lab choose Blended loop and inspect the wrap; in Animation end on the first scene's pose; use Raw motion only for periodic or intentionally cut motion |
 | MP4 fails before rendering | Browser exposes no compatible MP4 video codec | Preserve source and use another supported environment; do not silently substitute GIF |
 | MP4 plays but required audio is absent | Audio decode/mix/codec failed or the tool has no audio source | Verify the Animation audio track and inspect the final file; GIF never contains audio |
 | Export stalls or browser memory spikes | Too many concurrent jobs or excessive pixels × frames | Stop other previews, run one export, test smaller width/FPS/duration, then return to the required settings |
@@ -98,7 +100,7 @@ If the small proof succeeds and the target size fails, the issue is likely resou
 - Inspect more than the first frame; a valid GIF can still contain no visible motion.
 - Compare text/logo colors at multiple frames to distinguish source flicker from palette quantization.
 - Keep important foreground colors explicit. Glyphfield protects known brand/text colors, but a highly complex moving palette can still require a smaller proof or simpler composition.
-- Use Seamless only when closure is required and inspect the final-to-first transition.
+- Use Blended loop only when closure is required and inspect the final-to-first transition.
 - Remember that GIF has no audio channel.
 
 ## Diagnose MP4

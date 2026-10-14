@@ -4,22 +4,22 @@ description: Define one brand system, compose production artifacts, animate it, 
 icon: BookOpen
 ---
 
-Glyphfield is a local-first, open-source brand studio. It keeps identity foundations, design applications, live materials, motion, source documents, exports, and agent operations connected instead of treating each output as a separate file.
+Glyphfield is a local-first, open-source brand studio. One brand identity feeds fifteen Studio tools for brand applications, boards, a brand book, motion, Lottie, layered compositions with live shaders, tokens, type, social images, slides, and components. Every tool has a JSON source document, browser-rendered exports, and a Browser API for agents, and a stateless HTTP API generates templates, backgrounds, and briefs.
 
 <DocsMedia
   alt='Glyphfield Brand identity workspace for General Translation'
   caption='One identity feeds every visual and programmatic surface'
   meta='Local-first brand system'
-  src='/screenshots/studio-gt-identity-dark-2026.png'
+  src='/screenshots/studio-gt-identity-dark-2026.webp'
 />
 
 ## Choose a path
 
 <DocsPathGrid>
   <DocsPathCard href='/docs/getting-started' icon='start' index='01' title='Build your first artifact'>Create or duplicate a project, edit the shared identity, choose a tool, and export.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/design-lab' icon='design' index='02' title='Compose in Design Lab'>Layer type, marks, images, stickers, converters, and live shaders; save and export still or motion files.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/animation' icon='motion' index='03' title='Create motion'>Build frame sequences with per-state timing, materials, image transforms, audio, GIF, and MP4.</DocsPathCard>
-  <DocsPathCard href='/docs/studio/shader-library' icon='material' index='04' title='Use live materials'>Browse the quality-ranked shared Shader Library, tune its controls, scrub time, and reuse it across tools.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/design-lab' icon='design' index='02' title='Compose in Design Lab'>Layer type, marks, images, stickers, live shaders, and effect layers on artboards; export PNG, JPG, GIF, or MP4.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/animation' icon='motion' index='03' title='Create motion'>Sequence scenes with keyframes, text entrances, transitions, live backgrounds, and audio; export GIF and MP4.</DocsPathCard>
+  <DocsPathCard href='/docs/studio/brand-settings' icon='identity' index='04' title='Set up the identity'>Fill the identity by hand or with a coding agent, check its health score, and download the brand kit.</DocsPathCard>
   <DocsPathCard href='/docs/agents/choose-interface' icon='agent' index='05' title='Connect an agent'>Choose HTTP generation, the Studio Browser API, markdown docs, or a combined workflow.</DocsPathCard>
   <DocsPathCard href='/docs/artifacts' icon='artifact' index='06' title='Ship artifacts'>Understand PNG, JPG, SVG, GIF, MP4, PDF, Lottie, and JSON portability.</DocsPathCard>
   <DocsPathCard href='/docs/reference/capability-matrix' icon='table' index='07' title='Check parity'>Map every Studio capability to source, browser automation, HTTP, and output formats.</DocsPathCard>
@@ -30,7 +30,7 @@ Glyphfield is a local-first, open-source brand studio. It keeps identity foundat
 
 <DocsSystemGrid>
   <DocsSystemItem icon='identity' index='01' title='Identity foundations'>Strategy, art direction, logos, authorized assets, colors, typography, language, voice, applications, and defaults.</DocsSystemItem>
-  <DocsSystemItem icon='studio' index='02' title='Visual editors'>Brand elements, moodboards, a complete brand book, Design Lab, Animation, Lottie, templates, tokens, type, and components.</DocsSystemItem>
+  <DocsSystemItem icon='studio' index='02' title='Visual editors'>Brand elements, moodboards, the brand book, Design Lab and the Shader Library, Animation, Lottie, expression tools, tokens, type, and components.</DocsSystemItem>
   <DocsSystemItem icon='document' index='03' title='Portable documents'>Exact source drawers, a versioned canvas scene graph, saved designs, autosave recovery, layer history, and export preflight.</DocsSystemItem>
   <DocsSystemItem icon='api' index='04' title='Agent interfaces'>Versioned discovery, deterministic HTTP generation, processed markdown, full-text docs, and browser-native automation.</DocsSystemItem>
 </DocsSystemGrid>
@@ -38,10 +38,10 @@ Glyphfield is a local-first, open-source brand studio. It keeps identity foundat
 ## See the system
 
 <DocsMediaGrid>
-  <DocsMedia alt='General Translation Design Lab composition' caption='Design Lab' meta='Layers · shaders · output' src='/screenshots/studio-gt-design-lab-light-2026.png' />
-  <DocsMedia alt='General Translation Animation sequence' caption='Animation' meta='Frames · timing · materials' src='/screenshots/studio-gt-animation-light-2026.png' />
-  <DocsMedia alt='General Translation Brand Book overview' caption='Brand Book' meta='Generated standards' src='/screenshots/studio-gt-brand-book-light-2026.png' />
-  <DocsMedia alt='General Translation Moodboard' caption='Moodboard' meta='Identity applications' src='/screenshots/studio-gt-moodboard-light-2026.png' />
+  <DocsMedia alt='General Translation Design Lab composition' caption='Design Lab' meta='Layers · shaders · output' src='/screenshots/studio-gt-design-lab-light-2026.webp' />
+  <DocsMedia alt='General Translation Animation sequence' caption='Animation' meta='Frames · timing · materials' src='/screenshots/studio-gt-animation-light-2026.webp' />
+  <DocsMedia alt='General Translation Brand Book overview' caption='Brand Book' meta='Generated standards' src='/screenshots/studio-gt-brand-book-light-2026.webp' />
+  <DocsMedia alt='General Translation Moodboard' caption='Moodboard' meta='Identity applications' src='/screenshots/studio-gt-moodboard-light-2026.webp' />
 </DocsMediaGrid>
 
 ## Human and agent parity
@@ -49,7 +49,7 @@ Glyphfield is a local-first, open-source brand studio. It keeps identity foundat
 The visual UI and agent surfaces share the same owners:
 
 - `/api/agent`, `/api/catalog`, `/api/labs`, `/api/materials`, `/api/identities`, and `/api/elements` publish current capabilities.
-- `POST /api/generate` validates deterministic template, background, element-brief, and Design Lab sequence requests.
+- `POST /api/generate` validates deterministic template, background, element-brief, and Design Lab sequence requests. `/api/brand/validate` and `/api/brand/kit` validate identities and render brand kit files.
 - `window.glyphfield.studio` operates the active browser tool, including local files, exact source, Canvas, WebGL, GIF, and MP4.
 - Every documentation page is available as processed markdown by adding `.md` to its URL.
 - `/llms.txt` is the compact agent router; `/llms-full.txt` is the complete generated documentation corpus.
@@ -75,6 +75,7 @@ Browser projects, saved designs, uploaded files, fonts, and drafts remain in the
 - [Self-host Glyphfield](/docs/reference/self-hosting)
 - [Review version compatibility](/docs/reference/version-compatibility)
 - [Contribute to Glyphfield](/docs/contributing)
+- [Licensing](/docs/reference/licensing)
 
 ## Important links
 

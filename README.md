@@ -37,7 +37,7 @@ complete production catalog without rebuilding the context for every artifact.
 | Voice + positioning | Design Lab surfaces | Product + documentation | JSON |
 
 The Studio ships with a Starter creation system plus complete reference
-identities for General Translation, Ramp, Mintlify, Tailwind CSS,
+identities for Basement, General Translation, Ramp, Mintlify, Tailwind CSS,
 Vite+, Cloudflare, and Stripe. Each reference connects a strategic idea to a
 recognizable graphic device and a set of real applications. Project tabs are
 independent local workspaces; closing a tab never deletes its brand.
@@ -46,15 +46,15 @@ independent local workspaces; closing a tab never deletes its brand.
 
 Every built-in identity records the challenge, central concept, promise,
 pillars, personality, graphic device, composition rules, image direction, and
-application system behind the output. Moodboards turn that source into ten
-designed sections: strategy, logo architecture, color, typography, graphic
-grammar, product, campaign, developer, editorial, and physical work.
+application system behind the output. Moodboards compose that source as
+editable tile boards (showcase, campaign, system, specimen, and catalog), and
+the brand book renders it as a 54-page standards document.
 
 The reference library is an implementation study, not a generic skin pack.
 Ramp uses a savings ledger, Mintlify a knowledge beam, Tailwind a utility wave,
 Vite+ a convergence field, Cloudflare a network horizon, and Stripe a
-programmable field. General Translation remains black and white, organized by
-one stable translation frame through which language moves.
+programmable field. General Translation draws the earth in glyphs from twenty
+writing systems, in black and white with one signal blue accent.
 
 ## A design tool that agents can operate
 
@@ -106,36 +106,42 @@ speed, direction, recoloring, playback, source download, and frame export.
 
 ## Built for real brand work
 
-- Design boards switch between a 16:9 showcase collage—campaign, product,
-  social, editorial, device, apparel, and outdoor mockups—and a 4:5 system
-  review, with export up to 4800 px wide.
-- Design Lab composes multiple text layers, converted marks, imported images, and
-  live shaders in one direct-manipulation canvas. Its layer rail carries previews,
-  visibility, ordering, duplication, and per-layer controls, while the inspector
-  handles exact content, appearance, aspect ratio, and developer handoff.
-- The shared, quality-sorted Shader Library provides a live searchable catalog
-  from Paper, WebGL, ShaderGradient, Fluid Energy, Shaders.com studies, and
-  original Glyphfield renderers. Brand colors seed every material and the same
-  controls drive library previews, canvases, and exports.
-- Animation places real two-column motion previews and the Shader Library beneath its source sequence. Shader backgrounds remain editable per frame, while direct canvas-edge and corner handles change output dimensions without leaving the preview.
-- Studio appearance persists light or dark mode, accent, canvas density, and a
-  choice of Switzer, Be Vietnam Pro, Schibsted Grotesk, or Rethink Sans.
-- Typography is an editable specimen lab with live copy, type scales, font
-  families, weights, and code styles; Color tokens exposes click-to-edit HEX and
-  OKLCH values with automatic contrast-aware brand marks.
-- Templates include fourteen slide layouts plus blog, partnership, OpenGraph,
-  terminal, email, and brand-element systems. Slide foreground groups use a
-  direct-manipulation canvas with selection, drag, scale, keyboard nudge, and
-  persistent front-to-back layer order.
+- Brand identity edits the shared source, scores it with an eleven-section brand
+  health audit with one-click fixes, gives a coding agent a setup prompt, and
+  exports a brand kit: `brand.md`, DTCG tokens, CSS variables, a Tailwind v4
+  theme, logos, and redistributable fonts.
+- Brand elements applies the identity to 89 templates, from lifecycle emails
+  (exported as send-ready HTML) to product UI, social, editorial, event, and
+  physical pieces, each exported as PNG at its own pixel size.
+- Moodboards export PNG up to 4800 px wide and SVG; the brand book prints as a
+  16 × 10 in PDF.
+- Design Lab composes text, marks, images, stickers, live shaders, and Effect
+  layers on artboards in an open canvas. Effect layers run Bayer, ASCII,
+  halftone, and posterize converters or the Shaders.com image effects
+  (WebGPU). Layers align, distribute, lock, and copy styles; exports are PNG,
+  JPG, GIF, and MP4 up to 3840 px wide.
+- The shared Shader Library lists Paper Shaders, Shaders.com WebGPU materials,
+  24 original Glyphfield GLSL materials, a WebGL stable-fluids solver, and
+  ShaderGradient. `/api/materials` returns the current list.
+- Animation sequences text, logo, and image scenes with keyframes, text
+  entrances, captions, transitions, live backgrounds, and audio, and exports
+  GIF, MP4 with audio, and a PNG poster. Lottie edits, recolors, trims, and
+  exports Lottie JSON and `.lottie` files.
+- OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates
+  (14 layouts) share one layered editor with brand type rules, and export PNG,
+  SVG, and a PDF deck.
+- Color tokens and Typography edit OKLCH scales, semantic light and dark roles,
+  contrast, the modular type scale, and variable axes, and export CSS,
+  Tailwind, and DTCG tokens. The Component library builds 36 components with
+  React + Tailwind and HTML + CSS code.
+- Studio appearance persists light or dark mode, accent, canvas background,
+  corners, density, reduced motion, and a choice of Helvetica Neue, Be Vietnam
+  Pro, Schibsted Grotesk, or Rethink Sans.
 - Visual inspectors and source drawers are two views of the same saved tool
-  state. Identity, board, motion, Lottie, material, surface, template,
-  foundation, and component configurations can all be edited directly.
-- Fumadocs powers the feature, artifact, integration, and API guides.
-- Landing, Studio, and every documentation page receive generated 1200 × 630
-  OpenGraph and Twitter artwork from one shared renderer. The current system
-  uses a strict 60/40 composition, route-aware URL buttons, and a deterministic
-  Paper Dithering Swirl frame in the new Glyphfield violet, lavender, and mint
-  palette.
+  state for every tool.
+- Fumadocs powers the feature, artifact, integration, and API guides. Landing,
+  Studio, and every documentation page receive generated 1200 × 630 OpenGraph
+  and Twitter artwork from one shared renderer.
 
 ## Run locally
 
@@ -184,6 +190,8 @@ URLs.
 | `/api/catalog` | Structured Studio tool catalog |
 | `/api/identities` | Built-in template and reference identities |
 | `/api/elements` | Complete brand-element taxonomy |
+| `/api/materials` | Shader Library and image effects |
+| `/api/brand/validate`, `/api/brand/kit` | Identity schema, validation, and brand kit files |
 
 ## Project structure
 

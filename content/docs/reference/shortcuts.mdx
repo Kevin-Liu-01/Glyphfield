@@ -1,32 +1,110 @@
 ---
 title: Keyboard shortcuts
-description: Navigate Studio and documentation search without leaving the keyboard.
+description: Every keyboard shortcut in the Studio, its tools, the source drawer, and the documentation.
 icon: Keyboard
 ---
 
-## Global Studio search
+⌘ is the Command key on macOS; use Ctrl on Windows and Linux. Option is Alt on Windows and Linux. Shortcuts never act while a text field, select, or editable text has focus, unless they are text-editing shortcuts.
+
+## Studio
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘K` | Focus Studio search on macOS |
-| `Ctrl+K` | Focus Studio search on Windows/Linux |
-| `/` | Focus Studio search when not editing a field |
-| `Escape` | Close open project and appearance popovers |
+| ⌘K or / | Open **Search Studio tools** (/ only when no field has focus) |
+| ↑, ↓, Enter, Escape | Move through tool results, open the selected tool, close search |
+| F2 | Rename the focused project tab (your own projects only) |
+| Option + ←, Option + → | Move the focused project tab left or right |
+| Shift + F10 or the ContextMenu key | Open the menu of the focused project tab, layer, artboard, or canvas |
+| Escape | Close open menus and popovers |
 
-Typing in a text input, text area, or select prevents `/` from stealing focus.
-
-## Documentation search
-
-Fumadocs search uses `⌘K` or `Ctrl+K` while browsing `/docs`. Search indexes headings and body content across all documentation pages.
+The letters shown beside tools in search results are visual hints and are not bound to keys.
 
 ## Canvas
 
-The canvas toolbar exposes zoom out, a zoom slider, reset to the original centered view, zoom in, and fit. Wheel or trackpad input over the workspace changes zoom. Dragging empty workspace pans the view. These controls use accessible names and can be reached with normal Tab navigation.
+These apply in every tool that uses the shared canvas viewport, while the canvas has focus or the pointer is over it.
+
+| Shortcut | Action |
+| --- | --- |
+| ⌘Z | Undo |
+| Shift + ⌘Z | Redo |
+| Scroll | Zoom around the pointer |
+| Drag on empty canvas | Pan |
+| Arrow keys | Nudge the selected layer 1 px |
+| Shift + arrow keys | Nudge 10 px |
+
+## Design Lab
+
+Press **?** or choose **Keyboard shortcuts** in the canvas toolbar to open the shortcut sheet in Design Lab. Escape closes it.
+
+| Shortcut | Action |
+| --- | --- |
+| T, S, M, I, K, E | Add a text layer, shader layer, brand mark, image, sticker, or effect layer |
+| ⌘C, ⌘V | Copy, paste layers or an artboard |
+| Option + ⌘C, Option + ⌘V | Copy style, paste style |
+| ⌘D | Duplicate the selection |
+| Delete or Backspace | Delete the selection |
+| ⌘G, Shift + ⌘G | Group, ungroup |
+| Shift + ⌘L | Lock or unlock |
+| Option + A, H, D | Align left, horizontal center, right |
+| Option + W, V, S | Align top, vertical center, bottom |
+| Option + Shift + H, V | Distribute horizontally, vertically |
+| Space + drag, middle-button drag | Pan over content |
+| ⌘B, ⌘I, ⌘U | Bold, italic, underline while editing text |
+| Escape | Finish editing text; leave crop mode |
+| Enter | Finish crop mode |
+| ← and → on the focused Artboard map header | Dock the map left or right |
+
+⌘D, ⌘G, and Delete act only while focus is inside the canvas. Option shortcuts read the physical key. **Cut** is in the layer menu.
+
+## Expression tools
+
+OpenGraph, Terminal card, Partnership lockup, Blog cover, and Slide templates:
+
+| Shortcut | Action |
+| --- | --- |
+| Delete or Backspace | Delete the selected layers |
+| ⌘D | Duplicate |
+| ⌘A | Select every unlocked layer |
+| ⌘] and ⌘[ | Bring forward, send backward |
+| Shift + ⌘] and Shift + ⌘[ | Bring to front, send to back |
+| Enter | Edit the selected text layer on the canvas |
+| Escape | Finish editing text, or clear the selection |
+| Option + ↑, Option + ↓ | Move the focused layer row or slide thumbnail |
+
+## Animation
+
+| Shortcut | Action |
+| --- | --- |
+| Home, End | Move the storyboard playhead to the start or end |
+| ←, → on the playhead | Step one output frame; with Shift, one second |
+| ←, → on a trim handle | Move the cut one frame; with Shift, ten frames; with Option, ripple later scenes |
+| ←, → on a keyframe diamond | Move the keyframe one frame; with Shift, ten frames |
+| Delete or Backspace on a keyframe diamond | Remove the keyframe |
+| ←, → on the rotate handle | Rotate 1°; with Shift, 15° |
+| ⌘ + scroll over the storyboard | Zoom the storyboard |
+
+## Brand book
+
+| Shortcut | Action |
+| --- | --- |
+| ←, → | Previous or next page in Read |
+| Escape | Return from Read to Overview |
 
 ## Source drawer
 
-The Code button, source text area, Apply, Reset, and Close actions follow normal Tab order and have accessible labels. Source editing does not currently reserve an Apply keyboard chord; use the explicit action so validation feedback remains visible.
+| Shortcut | Action |
+| --- | --- |
+| ⌘Enter or ⌘S | Apply code |
+| ⌘F | Find and replace |
+| Enter, Shift + Enter in find | Next or previous match |
+| Shift + Option + F | Format the JSON |
+| Tab, Shift + Tab | Indent, outdent |
+| Escape | Close the find bar, then the drawer |
 
-## Tool labels
+## Documentation
 
-The single-character hints in the tool catalog are compact visual mnemonics. Global Studio search is the reliable keyboard route for selecting tools.
+| Shortcut | Action |
+| --- | --- |
+| ⌘K | Open documentation search |
+
+Documentation search indexes headings and body text of every page.
