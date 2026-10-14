@@ -12,9 +12,11 @@ import {
   useCallback,
   memo,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ErrorInfo,
   type ReactNode,
 } from 'react';
@@ -1996,6 +1998,96 @@ function LiveMaterialRenderView({
   );
 }
 
+type MaterialViewProps = Omit<Parameters<typeof LiveMaterialRenderView>[0], 'canvasRef'>;
+type MaterialHold = { fading: boolean; materialId: LiveMaterialId; view: MaterialViewProps };
+
+const SWAP_FADE_MS = 160;
+const SWAP_HOLD_LIMIT_MS = 8_000;
+const INCOMING_HIDDEN: CSSProperties = { opacity: 0 };
+
+/** One mounted material with its own canvas, so a held view and its successor never share a ref. */
+function MaterialView({ view }: { view: MaterialViewProps }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  return <LiveMaterialRenderView {...view} canvasRef={canvasRef} />;
+}
+
+/**
+ * The incoming view stays first, so captures read its canvas while the held view fades above it.
+ * Both are keyed by material: React keeps the held instance running instead of mounting it again.
+ */
+function materialSwapLayers(view: MaterialViewProps, hold: MaterialHold | null, incomingRef: RefObject<HTMLDivElement | null>) {
+  return [
+    <div className='absolute inset-0' key={view.materialId} ref={incomingRef} style={hold && !hold.fading ? INCOMING_HIDDEN : undefined}>
+      <MaterialView view={view} />
+    </div>,
+    hold ? (
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute inset-0'
+        data-live-material-held=''
+        key={hold.materialId}
+        style={{ opacity: hold.fading ? 0 : 1, transition: `opacity ${SWAP_FADE_MS}ms ease-out` }}
+      >
+        <MaterialView view={hold.view} />
+      </div>
+    ) : null,
+  ];
+}
+
+function incomingMaterialReady(element: HTMLElement | null): boolean {
+  if (!element?.querySelector('canvas')) return false;
+  return !Array.from(element.querySelectorAll('[data-live-material-ready]'))
+    .some((node) => node.getAttribute('data-live-material-ready') === 'false');
+}
+
+/**
+ * Keeps the outgoing material on screen, paused, while the next one loads, then fades it out,
+ * so replacing a shader never flashes the loading surface. Views are keyed by material, so the
+ * held view keeps its running instance instead of loading again.
+ */
+function useMaterialSwapHold(materialId: LiveMaterialId, view: MaterialViewProps) {
+  const incomingRef = useRef<HTMLDivElement>(null);
+  const lastView = useRef({ materialId, view });
+  const [shownId, setShownId] = useState(materialId);
+  const [hold, setHold] = useState<MaterialHold | null>(null);
+  if (shownId !== materialId) {
+    setShownId(materialId);
+    // A swap during a swap keeps holding what is actually on screen.
+    setHold((current) => {
+      if (current && !current.fading && current.materialId !== materialId) return current;
+      const previous = lastView.current;
+      return previous.materialId === materialId ? null : { fading: false, materialId: previous.materialId, view: { ...previous.view, paused: true } };
+    });
+  }
+  useLayoutEffect(() => {
+    if (materialId === shownId) lastView.current = { materialId, view };
+  });
+  useEffect(() => {
+    if (!hold || hold.fading) return;
+    const element = incomingRef.current;
+    const release = () => setHold((current) => current === hold ? { ...hold, fading: true } : current);
+    if (incomingMaterialReady(element)) {
+      release();
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (incomingMaterialReady(element)) release();
+    });
+    if (element) observer.observe(element, { attributeFilter: ['data-live-material-ready'], attributes: true, childList: true, subtree: true });
+    const limit = window.setTimeout(release, SWAP_HOLD_LIMIT_MS);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(limit);
+    };
+  }, [hold]);
+  useEffect(() => {
+    if (!hold?.fading) return;
+    const timer = window.setTimeout(() => setHold((current) => current === hold ? null : current), SWAP_FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [hold]);
+  return { hold, incomingRef };
+}
+
 function LiveMaterialCanvas({
   activeWhileMounted = false,
   className = '',
@@ -2019,7 +2111,6 @@ function LiveMaterialCanvas({
   sourceImage,
   sourceImageOpacity = 36,
 }: LiveMaterialCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const publishPaintedPreview = usePaintedLiveMaterialPreview(containerRef);
   const [workspaceActive, setWorkspaceActive] = useState(true);
@@ -2278,46 +2369,49 @@ function LiveMaterialCanvas({
     };
   }, [activeRecovery.version, enabled, resolvedMaterialId, webGL2Available]);
 
+  const view: MaterialViewProps = {
+    active: renderActive,
+    captureTimeMs: resolvedCaptureTimeMs,
+    className: '',
+    contextVersion: activeRecovery.version,
+    diagnostics,
+    enabled: renderEnabled,
+    frameRate,
+    frameState,
+    loopDurationMs,
+    materialId: resolvedMaterialId,
+    maxPixelCount,
+    onContextLost: recoverContext,
+    onProviderFailure: failProviderContext,
+    paperUsesSourceImage,
+    paperShaderOverrides,
+    patternScale: resolvedPatternScale,
+    paused,
+    preservePresetAppearance,
+    preservePresetGeometry,
+    recoveryFailed: activeRecovery.failed,
+    renderScale,
+    settings: resolvedSettings,
+    sourceImage,
+    sourceImageOpacity,
+    webGL2Available,
+  };
+  const { hold, incomingRef } = useMaterialSwapHold(resolvedMaterialId, view);
+
   return (
     <div
       className={`absolute inset-0 size-full min-h-0 min-w-0 overflow-hidden ${className}`}
       data-live-material-surface={resolvedMaterialId}
       data-live-material-editing={hasUncommittedShaderPreview(settingsPreview, settings, patternPreview, patternScale, timePreview, captureTimeMs) ? 'true' : undefined}
       data-live-material-ready={liveMaterialReadinessStatus(requiresWebGL2, webGL2Available, activeRecovery.failed)}
+      data-live-material-swapping={hold ? 'true' : undefined}
       ref={containerRef}
       style={{
         contain: 'strict',
         isolation: 'isolate',
       }}
     >
-      <LiveMaterialRenderView
-        active={renderActive}
-        canvasRef={canvasRef}
-        captureTimeMs={resolvedCaptureTimeMs}
-        className=''
-        contextVersion={activeRecovery.version}
-        diagnostics={diagnostics}
-        enabled={renderEnabled}
-        frameRate={frameRate}
-        frameState={frameState}
-        loopDurationMs={loopDurationMs}
-        materialId={resolvedMaterialId}
-        maxPixelCount={maxPixelCount}
-        onContextLost={recoverContext}
-        onProviderFailure={failProviderContext}
-        paperUsesSourceImage={paperUsesSourceImage}
-        paperShaderOverrides={paperShaderOverrides}
-        patternScale={resolvedPatternScale}
-        paused={paused}
-        preservePresetAppearance={preservePresetAppearance}
-        preservePresetGeometry={preservePresetGeometry}
-        recoveryFailed={activeRecovery.failed}
-        renderScale={renderScale}
-        settings={resolvedSettings}
-        sourceImage={sourceImage}
-        sourceImageOpacity={sourceImageOpacity}
-        webGL2Available={webGL2Available}
-      />
+      {materialSwapLayers(view, hold, incomingRef)}
       <ShaderSkeleton className='live-material-loading' />
     </div>
   );

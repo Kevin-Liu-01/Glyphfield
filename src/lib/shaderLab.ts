@@ -120,6 +120,59 @@ const PAPER_DEFINITION_BY_ID = new Map<LiveMaterialId, PaperLiveMaterialDefiniti
   PAPER_LIVE_MATERIAL_DEFINITIONS.map((definition) => [definition.id, definition])
 );
 
+/**
+ * Primitives, plain fills and raw noise that read as placeholders rather than materials.
+ * The libraries leave them out; saved documents that use one still load it.
+ */
+const RETIRED_MATERIAL_IDS = new Set<string>([
+  'shader-effects-thin-film', 'shader-effects-studio-background', 'shader-effects-solid-color',
+  'shader-effects-diamond-gradient', 'shader-effects-linear-gradient', 'shader-effects-radial-gradient',
+  'shader-effects-image-texture', 'shader-effects-text',
+  'shader-effects-wavelet-noise', 'shader-effects-perlin-noise', 'shader-effects-simplex-noise', 'shader-effects-gabor-noise',
+  'shader-effects-flower', 'shader-effects-star', 'shader-effects-ring', 'shader-effects-polygon', 'shader-effects-heart',
+  'shader-effects-arc', 'shader-effects-crescent', 'shader-effects-circle', 'shader-effects-ellipse', 'shader-effects-rounded-rect',
+  'shader-effects-cross', 'shader-effects-teardrop', 'shader-effects-vesica', 'shader-effects-parallelogram',
+  'shader-effects-trapezoid', 'shader-effects-line',
+]);
+const RETIRED_PAPER_FAMILIES = new Set(['perlin-noise', 'simplex-noise', 'waves']);
+
+/** Simple moving patterns, and Paper filters that only demo a sample picture: listed after the richer materials. */
+const SIMPLE_MATERIAL_IDS = new Set<string>([
+  'shader-effects-stripes', 'shader-effects-chevron', 'shader-effects-brick-pattern', 'shader-effects-dot-grid',
+  'shader-effects-hex-grid', 'shader-effects-triangular-grid', 'shader-effects-grid', 'shader-effects-checkerboard',
+  'shader-effects-color-wheel', 'shader-effects-conic-gradient', 'shader-effects-multi-point-gradient', 'shader-effects-blue-noise',
+  'shader-effects-block-noise', 'shader-effects-worley-noise', 'shader-effects-fractal-noise', 'shader-effects-curl-noise',
+  'shader-effects-erosion-noise', 'shader-effects-weave', 'shader-effects-truchet', 'shader-effects-isometric-cubes',
+  'shader-effects-spiral', 'shader-effects-ripples', 'shader-effects-sun-burst', 'shader-effects-sine-wave', 'shader-effects-waveform',
+  'shader-effects-voxels', 'shader-effects-carbon-fiber', 'shader-effects-voronoi', 'shader-effects-scratches',
+  'shader-effects-falling-lines', 'shader-effects-floating-particles', 'shader-effects-particles', 'shader-effects-beam',
+  'shader-effects-heatmap',
+]);
+const SIMPLE_PAPER_FAMILIES = new Set(['dot-grid', 'pulsing-border', 'dot-orbit', 'paper-texture', 'spiral', 'voronoi', 'halftone-dots', 'halftone-cmyk', 'image-dithering']);
+
+function isRetiredMaterial(id: string): boolean {
+  const family = PAPER_DEFINITION_BY_ID.get(id as LiveMaterialId)?.family;
+  return RETIRED_MATERIAL_IDS.has(id) || (family !== undefined && RETIRED_PAPER_FAMILIES.has(family));
+}
+
+function isSimpleMaterial(id: string): boolean {
+  const family = PAPER_DEFINITION_BY_ID.get(id as LiveMaterialId)?.family;
+  return SIMPLE_MATERIAL_IDS.has(id) || (family !== undefined && SIMPLE_PAPER_FAMILIES.has(family));
+}
+
+/** Best first, but never two presets of one Paper family in a row while another material can go between. */
+function spreadFamilies(sorted: readonly LiveMaterialOption[]): LiveMaterialOption[] {
+  const familyOf = (material: LiveMaterialOption) => PAPER_DEFINITION_BY_ID.get(material.id)?.family ?? material.id;
+  const pending = [...sorted];
+  const spread: LiveMaterialOption[] = [];
+  while (pending.length) {
+    const last = spread.length ? familyOf(spread[spread.length - 1]!) : '';
+    const index = Math.max(0, pending.findIndex((material) => familyOf(material) !== last));
+    spread.push(...pending.splice(index, 1));
+  }
+  return spread;
+}
+
 export const SHADER_LAB_FEATURED_MATERIALS: readonly LiveMaterialOption[] = SHADER_LAB_FEATURED_IDS
   .map((id) => DISCOVERABLE_LIVE_MATERIAL_OPTIONS.find((material) => material.id === id))
   .filter((material): material is LiveMaterialOption => Boolean(material));
@@ -167,7 +220,6 @@ export const SHADER_LAB_KINDS: readonly { id: ShaderLabKind; label: string }[] =
   { id: 'all', label: 'All kinds' },
   { id: 'backgrounds', label: 'Backgrounds' },
   { id: 'interactive', label: 'Interactive' },
-  { id: 'shapes', label: 'Shapes' },
 ];
 
 export function shaderLabKind(material: Pick<LiveMaterialOption, 'id'>): Exclude<ShaderLabKind, 'all'> {
@@ -184,7 +236,7 @@ export function shaderLabKind(material: Pick<LiveMaterialOption, 'id'>): Exclude
  * runs on a Design Lab Effect layer instead.
  */
 export function isShaderLibraryMaterial(material: Pick<LiveMaterialOption, 'id'>): boolean {
-  return getShaderEffect(material.id)?.requiresChild !== true;
+  return getShaderEffect(material.id)?.requiresChild !== true && !isRetiredMaterial(material.id);
 }
 
 const SHADER_LIBRARY_OPTIONS = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter(isShaderLibraryMaterial);
@@ -235,40 +287,14 @@ export function shaderLabMaterials(
     const haystack = `${material.name} ${material.description} ${material.engine} ${shaderLabCategory(material)} ${shaderLabKind(material).replace('-', ' ')}`.toLocaleLowerCase();
     return terms.every((term) => haystack.includes(term));
   });
-  const featured: LiveMaterialOption[] = [];
-  const primary: LiveMaterialOption[] = [];
-  const variantFamilies = new Map<string, LiveMaterialOption[]>();
-
-  filtered.forEach((material) => {
-    if (FEATURED_ID_SET.has(material.id)) {
-      featured.push(material);
-      return;
-    }
-    const paperDefinition = PAPER_DEFINITION_BY_ID.get(material.id);
-    if (!paperDefinition || paperDefinition.presetIndex === 0) {
-      primary.push(material);
-      return;
-    }
-    const family = variantFamilies.get(paperDefinition.family) ?? [];
-    family.push(material);
-    variantFamilies.set(paperDefinition.family, family);
-  });
-
-  featured.sort((left, right) => (FEATURED_INDEX.get(left.id) ?? 0) - (FEATURED_INDEX.get(right.id) ?? 0));
-  primary.sort((left, right) => right.qualityScore - left.qualityScore || left.name.localeCompare(right.name));
-  const variantGroups = [...variantFamilies.values()]
-    .map((family) => family.sort((left, right) => right.qualityScore - left.qualityScore || left.name.localeCompare(right.name)))
-    .sort((left, right) => (right[0]?.qualityScore ?? 0) - (left[0]?.qualityScore ?? 0));
-  const variants: LiveMaterialOption[] = [];
-  const longestFamily = Math.max(0, ...variantGroups.map((family) => family.length));
-  for (let index = 0; index < longestFamily; index += 1) {
-    variantGroups.forEach((family) => {
-      const material = family[index];
-      if (material) variants.push(material);
-    });
-  }
-
-  return [...featured, ...primary, ...variants];
+  // Curated first, then the richer materials best first, then simple patterns.
+  const byQuality = (left: LiveMaterialOption, right: LiveMaterialOption) => right.qualityScore - left.qualityScore || left.name.localeCompare(right.name);
+  const featured = filtered.filter(({ id }) => FEATURED_ID_SET.has(id))
+    .sort((left, right) => (FEATURED_INDEX.get(left.id) ?? 0) - (FEATURED_INDEX.get(right.id) ?? 0));
+  const rest = filtered.filter(({ id }) => !FEATURED_ID_SET.has(id));
+  const rich = spreadFamilies(rest.filter(({ id }) => !isSimpleMaterial(id)).sort(byQuality));
+  const simple = spreadFamilies(rest.filter(({ id }) => isSimpleMaterial(id)).sort(byQuality));
+  return [...featured, ...rich, ...simple];
 }
 
 export function shaderLabCategoryCount(category: ShaderLabCategory, source: ShaderLabSource = 'all', kind: ShaderLabKind = 'all'): number {

@@ -345,6 +345,7 @@ import {
 import { createImageEffectProcessorPool, imageEffectFailureStatus, type ImageEffectProcessorPool } from '@/lib/designLabImageEffectRuntime';
 import { applyDesignLabLayerStyle, extractDesignLabLayerStyle, type DesignLabLayerStyle, type DesignLabStyledLayer } from '@/lib/designLabStyle';
 import { resolveDesignLabShortcut, type DesignLabShortcutCommand } from '@/lib/designLabShortcuts';
+import { preloadLiveMaterial } from '@/lib/liveMaterialPreload';
 import {
   DesignLabInspectorPanel,
   type DesignLabInspectorActions,
@@ -1177,6 +1178,8 @@ const ShaderMaterialCard = memo(function ShaderMaterialCard({
       aria-pressed={selected}
       className='shader-lab-v2-material-card'
       onClick={() => onSelect(material.id)}
+      onFocus={() => preloadLiveMaterial(material.id)}
+      onPointerEnter={() => preloadLiveMaterial(material.id)}
       type='button'
     >
       <span className='shader-lab-v2-material-preview'>

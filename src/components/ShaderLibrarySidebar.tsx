@@ -13,6 +13,7 @@ import {
   type LiveMaterialId,
   type LiveMaterialOption,
 } from '@/lib/liveMaterials';
+import { preloadLiveMaterial } from '@/lib/liveMaterialPreload';
 import {
   SHADER_LAB_CATEGORIES,
   SHADER_LIBRARY_MATERIAL_COUNT,
@@ -139,6 +140,8 @@ function ShaderLibraryBrowser({
             className='shader-library-card min-w-0 overflow-hidden border border-border bg-background text-left hover:border-foreground aria-pressed:border-foreground aria-pressed:ring-1 aria-pressed:ring-foreground'
             key={material.id}
             onClick={() => onSelect(material.id)}
+            onFocus={() => preloadLiveMaterial(material.id)}
+            onPointerEnter={() => preloadLiveMaterial(material.id)}
             title={material.description}
             type='button'
           >

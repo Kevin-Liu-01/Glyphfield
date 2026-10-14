@@ -205,7 +205,7 @@ describe('Studio interaction performance contracts', () => {
     expect(designLab).toContain('const SHADER_LIBRARY_INITIAL_CARD_COUNT = 12;');
     expect(designLab).toContain('materials.slice(0, visibleMaterialCount)');
     expect(designLab).toContain("{ root, rootMargin: '240px 0px' }");
-    expect(liveMaterial).toContain('enabled={renderEnabled}');
+    expect(liveMaterial).toContain('enabled: renderEnabled,');
     expect(liveMaterial).toContain('scheduleWebGLContextRelease(canvas, context)');
     expect(styles).toContain(".studio-project-workspace-layer[data-active='true']");
     expect(styles).toContain(".studio-workspace-layer[data-active='true']");

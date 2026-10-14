@@ -71,8 +71,8 @@ describe('shader lab', () => {
   });
 
   it('filters the native Shaders.com collection apart from the original studies', () => {
-    // Image effects run on Design Lab Effect layers, so the library lists the rest.
-    const libraryEffects = SHADER_EFFECTS.filter(({ requiresChild }) => !requiresChild);
+    // Image effects run on Design Lab Effect layers and primitives are retired, so the library lists the rest.
+    const libraryEffects = SHADER_EFFECTS.filter(isShaderLibraryMaterial);
     const native = shaderLabMaterials('', 'all', 'Shaders.com WebGPU');
     expect(native).toHaveLength(libraryEffects.length);
     expect(native.every(({ id }) => id.startsWith('shader-effects-'))).toBe(true);
@@ -88,7 +88,8 @@ describe('shader lab', () => {
     expect(order.slice(0, 4)).toEqual(['shader-effects-aurora', 'shader-effects-liquid-metal', 'shader-effects-chrome', 'shader-effects-holographic']);
     const rank = (name: string) => order.indexOf(`shader-effects-${name}`);
     expect(rank('godrays')).toBeGreaterThan(-1);
-    expect(rank('godrays')).toBeLessThan(rank('circle'));
+    expect(rank('godrays')).toBeLessThan(rank('stripes'));
+    expect(rank('circle')).toBe(-1);
     // Image effects keep the same quality order in the Effect layer picker.
     const imageRank = (name: string) => DESIGN_LAB_IMAGE_EFFECTS.findIndex(({ id }) => id === `shader-effects-${name}`);
     expect(imageRank('blur')).toBeGreaterThan(-1);
@@ -167,14 +168,32 @@ describe('shader lab', () => {
 
   it('leaves image effects out of the libraries but keeps documents that use them loadable', () => {
     expect(SHADER_LAB_KINDS.some(({ id }) => id === 'image-effects')).toBe(false);
-    const imageEffects = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => !isShaderLibraryMaterial(material));
+    const outside = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => !isShaderLibraryMaterial(material));
+    const imageEffects = outside.filter(({ id }) => getShaderEffect(id)?.requiresChild);
     expect(imageEffects.length).toBe(SHADER_EFFECTS.filter(({ requiresChild }) => requiresChild).length);
-    expect(imageEffects.every(({ id }) => getShaderEffect(id)?.requiresChild)).toBe(true);
     expect(shaderLabMaterials('', 'all').some((material) => !isShaderLibraryMaterial(material))).toBe(false);
     expect(shaderLabMaterials('blur', 'all').some(({ id }) => id === 'shader-effects-blur')).toBe(false);
-    expect(shaderLabCategoryCount('all')).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length - imageEffects.length);
+    expect(shaderLabCategoryCount('all')).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length - outside.length);
     expect(SHADER_LAB_SOURCES.map(({ id }) => id)).toContain('Shaders.com WebGPU');
     expect(SHADER_LAB_LOADABLE_MATERIAL_IDS.has('shader-effects-blur')).toBe(true);
     expect(SHADER_LAB_LOADABLE_MATERIAL_IDS.size).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+  });
+  it('retires primitives, plain fills and raw noise but keeps them loadable', () => {
+    const retired = ['shader-effects-circle', 'shader-effects-polygon', 'shader-effects-thin-film', 'shader-effects-studio-background', 'shader-effects-linear-gradient', 'shader-effects-text', 'shader-effects-gabor-noise', 'paper-waves', 'paper-perlin-noise-moss', 'paper-simplex-noise'];
+    const listed = new Set<string>(shaderLabMaterials('', 'all').map(({ id }) => id));
+    expect(retired.filter((id) => listed.has(id))).toEqual([]);
+    expect(retired.every((id) => SHADER_LAB_LOADABLE_MATERIAL_IDS.has(id))).toBe(true);
+    expect(SHADER_LAB_KINDS.some(({ id }) => id === 'shapes')).toBe(false);
+  });
+
+  it('lists the curated set, then richer materials, then simple patterns', () => {
+    const order = shaderLabMaterials('', 'all').map(({ id }) => id);
+    expect(order[0]).toBe('paper-gem-smoke');
+    expect(order.indexOf('paper-gem-smoke-fire')).toBeLessThan(order.indexOf('shader-effects-stripes'));
+    expect(order.indexOf('paper-liquid-metal-noir')).toBeLessThan(order.indexOf('paper-dot-grid'));
+    expect(order.indexOf('shader-effects-aurora')).toBeLessThan(order.indexOf('shader-effects-checkerboard'));
+    // Presets of one Paper family never sit side by side while something else can go between.
+    const family = (id: string) => id.startsWith('paper-gem-smoke');
+    expect(order.some((id, index) => family(id) && family(order[index + 1] ?? ''))).toBe(false);
   });
 });

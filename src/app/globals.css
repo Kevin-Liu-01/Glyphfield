@@ -18677,6 +18677,11 @@ html.dark .studio-app .brand-art-evidence-theme--dark {
   display: block;
 }
 
+/* While a replaced material loads, the outgoing one stays on screen instead of the loading surface. */
+[data-live-material-surface][data-live-material-swapping] > .live-material-loading {
+  display: none;
+}
+
 .authentic-shader-preview {
   position: absolute;
   inset: 0;
