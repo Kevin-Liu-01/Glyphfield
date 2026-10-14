@@ -28,15 +28,33 @@ type ResizableSidebarProps = {
 
 const COLLAPSED_WIDTH = 40;
 
+// Storage can be blocked (privacy settings, sandboxed frames), where any access
+// throws. The sidebar then keeps its width and collapsed state in memory only.
+function readStoredValue(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storeValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Blocked or full storage; the in-memory state stays authoritative.
+  }
+}
+
 function readStoredNumber(key: string, fallback: number) {
-  const storedValue = window.localStorage.getItem(key);
+  const storedValue = readStoredValue(key);
   if (storedValue === null) return fallback;
   const value = Number(storedValue);
   return Number.isFinite(value) ? value : fallback;
 }
 
 function readStoredBoolean(key: string) {
-  return window.localStorage.getItem(key) === 'true';
+  return readStoredValue(key) === 'true';
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -84,7 +102,7 @@ export default function ResizableSidebar({
   } as CSSProperties;
 
   function storeWidth(nextWidth: number) {
-    window.localStorage.setItem(widthStorageKey, String(nextWidth));
+    storeValue(widthStorageKey, String(nextWidth));
   }
 
   function updateWidth(nextWidth: number) {
@@ -145,7 +163,7 @@ export default function ResizableSidebar({
   function toggleCollapsed() {
     const nextCollapsed = !collapsed;
     setCollapsed(nextCollapsed);
-    window.localStorage.setItem(collapsedStorageKey, String(nextCollapsed));
+    storeValue(collapsedStorageKey, String(nextCollapsed));
   }
 
   return (
