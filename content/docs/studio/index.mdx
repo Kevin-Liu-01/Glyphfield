@@ -97,6 +97,18 @@ Zoom ranges from 40% to 200% in most tools. Design Lab ranges from 5% to 800%. Z
 
 Auto follows the operating system theme, including changes while the page is open. The theme is applied before the first paint. The Studio respects `prefers-reduced-motion`.
 
+## Switching and motion
+
+The sidebar item or project tab highlights as soon as it is clicked. The current tool stays on screen until the next one has loaded, then the new tool fades in over it in 160 ms. If loading takes longer than 180 ms, a thin progress line appears at the top of the workspace. The first time the Studio opens, a placeholder with the tool's layout (toolbar, side panel and canvas) shows until the tool is ready, then the tool fades in over it.
+
+Tools you have opened stay in memory with their renderers paused, so switching back does not reload them. The code for the other tools loads in idle time after the first tool paints; this is skipped when the browser asks to save data.
+
+Command search fades and lifts in. Menus, popovers and command search fade out over 120–140 ms when they close, while the control itself closes at once, so focus, automation and tests see the closed state immediately. The source drawer slides in and loads its editor the first time it opens. Collapsing a sidebar changes its width at once and fades its content back in when it expands, so the editor is not laid out again on every frame.
+
+Replacing a shader keeps the previous one on the canvas, paused, until the new one has painted its first frame, then fades it out over 160 ms. Shader library cards start loading a Shaders.com or ShaderGradient engine when the pointer rests on them or they receive focus.
+
+With `prefers-reduced-motion` set in the operating system, or **Reduce motion** on in Visual customization, every switch, fade and slide happens in a single frame.
+
 ## Persistence
 
 Project identities, open tabs, the active tool and folder, visual settings, and most tool drafts are saved in this browser's `localStorage`. Design Lab saved designs, autosaves, converted assets, and captured shader frames use IndexedDB, with a small recovery journal. Nothing is uploaded to a server. Clearing site data removes local work; use [Backup and restore](/docs/artifacts/backup-and-restore) to keep copies.
