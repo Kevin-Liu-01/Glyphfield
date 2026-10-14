@@ -17,7 +17,7 @@ For a new brand, create the project first: **Add brand project → Brand identit
 ## The workflow
 
 1. **Research.** Homepage, about page, README and docs; CSS custom properties, Tailwind config or token files; font files and their licenses; logo files; any brand guide. Use only sources the user authorized and record each one in `sourceNotes`. Never invent customers, metrics, claims or slogans.
-2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, typography roles (a monospace Code face) with `typeScale`, the graphic device and image direction, products with one-line `productDetails`, proof statements, `customers` kept apart from proof, template `samples` and applications. The tagline, promise and phrases must be different lines.
+2. **Brief.** Draft a merge patch: essentials, strategy, voice with `voice.examples`, semantic colors with `proportion` and `colorPairings`, a `colorSystem` mapping the light and dark semantic roles (`background`, `surface`, `foreground`, `primary`, …) to color refs such as `ink` or `ink.700`, typography roles (a monospace Code face) with size-tuned `letterSpacing` and `typeScale` with `roleSteps`, the graphic device and image direction, products with one-line `productDetails`, proof statements, `customers` kept apart from proof, template `samples` and applications. The tagline, promise and phrases must be different lines.
 3. **Connect.** Open `/studio?tool=identity&project=<id>` in a browser the agent controls, wait for `window.glyphfield.studio`, call `describe()`, and confirm `activeTool()` is `identity`.
 4. **Validate.** `identity.validate { identity: patch }` returns `{ ok, issues }` without changing anything.
 5. **Apply.** `identity.apply { identity: patch }` merges the patch.
@@ -55,6 +55,13 @@ await studio.invoke('identity.save');
 const kit = await studio.invoke('identity.export.kit', { format: 'zip' });
 if (kit.blob.type !== 'application/zip' || !kit.blob.size) throw new Error('The brand kit is empty.');
 ```
+
+## Colour and type systems
+
+- `colorSystem.light` and `colorSystem.dark` set semantic roles from the site's own themes; omitted roles are derived from the palette. Text roles need 4.5:1 and lines and status roles 3:1 in both modes. `colorSystem.scales` tunes a color's OKLCH tint ramp only when the brand publishes one.
+- `typeScale { basePx, ratio, roleSteps }` sets sizes as `basePx × ratio^step`, with a ratio of at least 1.25 for display work; `roleSteps` names the step each role uses (`display`, `h1` … `caption`).
+- Track by size: Display `letterSpacing` slightly negative (about -0.01 to -0.025 of its px size), Body and Code 0, never positive on lowercase. Kerning stays on and optical sizing stays automatic; set `opticalSize` or `slant` only when the brand fixes them.
+- The exported `brand.md` repeats these rules for coding agents, together with the layout rule that no eyebrow label sits above a headline.
 
 ## What templates read
 
