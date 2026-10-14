@@ -104,11 +104,16 @@ Design Lab adds:
 
 `design.layers.arrange` aligns layers to the selection bounds or spaces them evenly with `{ arrangement, layerIds? }`. `arrangement` is `left`, `horizontal-center`, `right`, `top`, `vertical-center`, `bottom`, `distribute-horizontal` or `distribute-vertical`; omit `layerIds` to use the current selection. Locked layers are skipped, fully selected groups move as one unit, alignment needs two units and distribution three. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`. `design.layers.copyStyle` takes `{ layerId }`; `design.layers.pasteStyle` applies that style to `{ layerIds }`, skipping locked layers. Each accepts only canvas layers on the active surface and resolves after the change commits.
 
+`design.effects.add` adds an Effect layer above every layer of the active artboard and returns `{ layerId }`. Pass `{ kind }` for a built-in converter (`bayer`, `ascii`, `halftone`, `posterize`) or `{ effectId, effectProps? }` for a Shaders.com image effect from `/api/materials` `imageEffects`, plus an optional `opacity` from 0 to 1. `design.effects.configure` takes `{ layerId }` and one or more of `kind`, `effectId`, `effectProps` and `opacity`; `kind` and `effectId` are exclusive, and `effectProps` replaces the layer's explicit edits (`{}` restores the defaults). `effectProps` must match the effect's `nativeControls`; `sourceImage` is rejected because the layers beneath are the source. `design.effects.describe` lists the active artboard's Effect layers, each image effect's WebGPU `status` (`loading`, `ready`, `unsupported` or `error`) once it has previewed, and the effects on offer. Image effects need WebGPU: without it the canvas shows the layers beneath and exports stop with an error naming the layer.
+
 ```text
 design.layers.arrange
 design.layers.lock
 design.layers.copyStyle
 design.layers.pasteStyle
+design.effects.describe
+design.effects.add
+design.effects.configure
 design.frame.pause
 design.frame.capture
 design.frame.play

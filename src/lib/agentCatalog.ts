@@ -1,5 +1,6 @@
 import { SHADER_EFFECT_COMPONENTS, SHADER_EFFECTS_VERSION, SHADER_EFFECTS_SOURCE } from './shaderEffects';
 import { getShaderEffectControls } from './shaderEffectsProps';
+import { DESIGN_LAB_IMAGE_EFFECT_CATEGORIES, DESIGN_LAB_IMAGE_EFFECTS } from './designLabImageEffects';
 import {
   DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_LOOK_PRESETS,
@@ -97,6 +98,22 @@ export const AGENT_SHADER_LIBRARY = {
   palettes: LIVE_MATERIAL_PALETTES,
   schemaVersion: 1,
   sharedBy: ['animation', 'material'] as const,
+  // Image effects transform the layers beneath them, so they run on Design Lab
+  // Effect layers and the material list above leaves them out.
+  imageEffects: {
+    categories: DESIGN_LAB_IMAGE_EFFECT_CATEGORIES,
+    count: DESIGN_LAB_IMAGE_EFFECTS.length,
+    effects: DESIGN_LAB_IMAGE_EFFECTS.map(({ category, description, id, name }) => ({
+      category,
+      description,
+      id,
+      name,
+      nativeControls: Object.fromEntries(Object.entries(getShaderEffectControls(id) ?? {}).filter(([key]) => key !== 'sourceImage')),
+      preview: `/shader-previews/${id}.webp`,
+    })),
+    requiresWebGPU: true,
+    usage: 'Design Lab Effect layer settings { effectId, effectProps }. Add with design.effects.add and edit with design.effects.configure. The effect processes the composited layers beneath it; exports refuse without WebGPU.',
+  },
 } as const;
 
 export const AGENT_SURFACE_LIBRARY = {

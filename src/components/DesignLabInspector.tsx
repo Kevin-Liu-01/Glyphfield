@@ -4,6 +4,8 @@
 // controls. Each section is memoized; the host passes stable handlers so a
 // commit that does not touch the selected layer skips the inspector.
 import ShaderEffectsControls from './ShaderEffectsControls';
+import { DesignLabEffectPicker, DesignLabImageEffectNotice, type DesignLabImageEffectStatusStore } from './DesignLabEffectPicker';
+import { designLabImageEffect, type DesignLabImageEffectId } from '@/lib/designLabImageEffects';
 import { getShaderEffect } from '@/lib/shaderEffects';
 import {
   AlignCenter,
@@ -81,6 +83,7 @@ import {
 } from '@/lib/brandIdentity';
 import { COMPOSITION_EFFECT_PRESETS, type CompositionEffectKind, type CompositionEffectSettings } from '@/lib/compositionEffects';
 import {
+  DEFAULT_LIVE_MATERIAL_SETTINGS,
   LIVE_MATERIAL_PALETTES,
   brandMaterialPalette,
   isPaperLiveMaterialId,
@@ -429,48 +432,21 @@ export function ShaderZoomControl({
   );
 }
 
-export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
+type EffectPreviewUpdate = { opacity?: number; settings?: Partial<CompositionEffectSettings> };
+type EffectLayerUpdate = Partial<Omit<CompositionEffectLayer, 'id'>>;
+
+/** Controls of the built-in converters; an image effect has its own. */
+function ConverterControls({
+  layer: selectedEffectLayer,
   previewEffectLayer,
-  selectEffectPreset,
-  selectedEffectLayer,
   updateEffectLayer,
 }: {
-  previewEffectLayer: (
-    id: EffectLayerId,
-    update: { opacity?: number; settings?: Partial<CompositionEffectSettings> }
-  ) => void;
-  selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
-  selectedEffectLayer: CompositionEffectLayer;
-  updateEffectLayer: (
-    id: EffectLayerId,
-    update: Partial<Omit<CompositionEffectLayer, 'id'>>
-  ) => void;
+  layer: CompositionEffectLayer;
+  previewEffectLayer: (id: EffectLayerId, update: EffectPreviewUpdate) => void;
+  updateEffectLayer: (id: EffectLayerId, update: EffectLayerUpdate) => void;
 }) {
-  return <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-effect-inspector' meta='Post-process' title='Converter'>
-    <div className='shader-lab-v2-effect-presets' aria-label='Converter type'>
-      {COMPOSITION_EFFECT_PRESETS.map((preset) => (
-        <button
-          aria-pressed={selectedEffectLayer.settings.kind === preset.kind}
-          key={preset.kind}
-          onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
-          type='button'
-        >
-          <CompositionEffectThumbnail kind={preset.kind} />
-          <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
-        </button>
-      ))}
-    </div>
+  return <>
     <div className='shader-lab-v2-ranges'>
-      <RangeControl
-        formatValue={(value) => `${Math.round(value * 100)}%`}
-        label='Layer opacity'
-        max={1}
-        min={0}
-        onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
-        onPreview={(opacity) => previewEffectLayer(selectedEffectLayer.id, { opacity })}
-        step={0.01}
-        value={selectedEffectLayer.opacity}
-      />
       <RangeControl
         formatValue={(value) => `${Math.round(value)}px`}
         label='Cell size'
@@ -553,7 +529,77 @@ export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
         />
       </label>
     </div>
-  </LabInspectorSection>;
+  </>;
+}
+
+export const DesignLabEffectInspector = memo(function DesignLabEffectInspector({
+  imageEffectStatusStore,
+  previewEffectLayer,
+  selectEffectPreset,
+  selectImageEffect,
+  selectedEffectLayer,
+  updateEffectLayer,
+}: {
+  imageEffectStatusStore: DesignLabImageEffectStatusStore;
+  previewEffectLayer: (id: EffectLayerId, update: EffectPreviewUpdate) => void;
+  selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
+  selectImageEffect: (layer: CompositionEffectLayer, effectId: DesignLabImageEffectId) => void;
+  selectedEffectLayer: CompositionEffectLayer;
+  updateEffectLayer: (id: EffectLayerId, update: EffectLayerUpdate) => void;
+}) {
+  const imageEffect = designLabImageEffect(selectedEffectLayer.settings.effectId);
+  return <>
+  <LabInspectorSection className='shader-lab-v2-control-section shader-lab-v2-effect-inspector' meta='Post-process' title='Converter'>
+    <div className='shader-lab-v2-effect-presets' aria-label='Converter type'>
+      {COMPOSITION_EFFECT_PRESETS.map((preset) => (
+        <button
+          aria-pressed={!imageEffect && selectedEffectLayer.settings.kind === preset.kind}
+          key={preset.kind}
+          onClick={() => selectEffectPreset(selectedEffectLayer, preset.kind)}
+          type='button'
+        >
+          <CompositionEffectThumbnail kind={preset.kind} />
+          <span><strong>{preset.label}</strong><small>{preset.description}</small></span>
+        </button>
+      ))}
+    </div>
+    <div className='shader-lab-v2-ranges'>
+      <RangeControl
+        formatValue={(value) => `${Math.round(value * 100)}%`}
+        label='Layer opacity'
+        max={1}
+        min={0}
+        onChange={(opacity) => updateEffectLayer(selectedEffectLayer.id, { opacity })}
+        onPreview={(opacity) => previewEffectLayer(selectedEffectLayer.id, { opacity })}
+        step={0.01}
+        value={selectedEffectLayer.opacity}
+      />
+    </div>
+    {imageEffect ? null : (
+      <ConverterControls layer={selectedEffectLayer} previewEffectLayer={previewEffectLayer} updateEffectLayer={updateEffectLayer} />
+    )}
+  </LabInspectorSection>
+  {imageEffect ? (
+    <LabInspectorSection className='shader-lab-v2-control-section' meta={imageEffect.name} title='Effect settings'>
+      <DesignLabImageEffectNotice layerId={selectedEffectLayer.id} store={imageEffectStatusStore} />
+      <ShaderEffectsControls
+        layerSource
+        materialId={imageEffect.id}
+        onChange={(effectProps) => updateEffectLayer(selectedEffectLayer.id, {
+          settings: { ...selectedEffectLayer.settings, effectProps },
+        })}
+        palette={DEFAULT_LIVE_MATERIAL_SETTINGS}
+        value={selectedEffectLayer.settings.effectProps}
+      />
+    </LabInspectorSection>
+  ) : null}
+  <LabInspectorSection className='shader-lab-v2-control-section' meta='Shaders.com · WebGPU' title='Image effects'>
+    <DesignLabEffectPicker
+      onSelect={(effectId) => selectImageEffect(selectedEffectLayer, effectId)}
+      selectedEffectId={imageEffect?.id}
+    />
+  </LabInspectorSection>
+  </>;
 });
 
 export type TextAppearancePreviewPatch = Partial<Omit<TextAppearanceSettings, 'textEffect'>> & {
@@ -1370,6 +1416,7 @@ export type DesignLabInspectorActions = {
   resetLogoTransform: (id: LogoLayerId) => void;
   selectConvertedLogo: (asset: ConvertedAsset | null) => void;
   selectEffectPreset: (layer: CompositionEffectLayer, kind: CompositionEffectKind) => void;
+  selectImageEffect: (layer: CompositionEffectLayer, effectId: DesignLabImageEffectId) => void;
   setImageCropAspect: (id: AssetLayerId, value: string) => void;
   setImageCropEditing: (id: AssetLayerId, editing: boolean) => void;
   toggleWorkspaceTour: () => void;
@@ -1407,6 +1454,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   editingCanvas,
   editingShader,
   identity,
+  imageEffectStatusStore,
   initialSettings,
   layerRows,
   material,
@@ -1457,6 +1505,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
   editingCanvas: boolean;
   editingShader: ShaderApplication | null;
   identity: BrandIdentity;
+  imageEffectStatusStore: DesignLabImageEffectStatusStore;
   initialSettings: LiveMaterialSettings;
   layerRows: ReactNode;
   material: LiveMaterialOption;
@@ -1493,6 +1542,7 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
     previewSelectedTextLayer,
     previewSelectedTextWidth,
     selectEffectPreset,
+    selectImageEffect,
     updateEffectLayer,
     updateSelectedShader,
     updateSetting,
@@ -1577,8 +1627,10 @@ export const DesignLabInspectorPanel = memo(function DesignLabInspectorPanel({
 
       <OptionalRender value={selectedEffectLayer}>{(selectedEffectLayer) => (
         <DesignLabEffectInspector
+          imageEffectStatusStore={imageEffectStatusStore}
           previewEffectLayer={previewEffectLayer}
           selectEffectPreset={selectEffectPreset}
+          selectImageEffect={selectImageEffect}
           selectedEffectLayer={selectedEffectLayer}
           updateEffectLayer={updateEffectLayer}
         />

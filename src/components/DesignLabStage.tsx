@@ -15,6 +15,7 @@ import {
   type RenderLiveMaterial,
 } from '@/components/DesignLabCanvasContent';
 import CanvasRenderBoundary from '@/components/CanvasRenderBoundary';
+import { DesignLabImageEffectNotice, type DesignLabImageEffectStatusStore } from '@/components/DesignLabEffectPicker';
 import EditableCanvasLayer from '@/components/EditableCanvasLayer';
 import ImageCropEditorOverlay from '@/components/ImageCropEditorOverlay';
 import LiveMaterialCanvas from '@/components/LazyLiveMaterialCanvas';
@@ -69,6 +70,8 @@ export type DesignLabLiveMaterialState = {
   captureTimeMs: number | null;
   defaultLoopDurationMs: number;
   exportPixelCount: number;
+  /** Per Effect layer: whether its image effect renders, so the stage can say when it cannot. */
+  imageEffectStatusStore: DesignLabImageEffectStatusStore;
   livePreviewPixelBudget: number;
   livePreviewRuntimeReady: boolean;
   onRestoreReady: (instanceKey: string, revision: number) => void;
@@ -217,13 +220,19 @@ export const DesignLabStageLayer = memo(function DesignLabStageLayer({
   if (isEffectLayerId(layerId)) {
     const effectLayer = layer as CompositionEffectLayer;
     return (
-      <canvas
-        aria-hidden='true'
-        className='shader-lab-v2-composition-effect'
-        data-effect-kind={effectLayer.settings.kind}
-        ref={registerEffectCanvas}
-        style={{ zIndex }}
-      />
+      <>
+        <canvas
+          aria-hidden='true'
+          className='shader-lab-v2-composition-effect'
+          data-effect-kind={effectLayer.settings.kind}
+          data-image-effect={effectLayer.settings.effectId}
+          ref={registerEffectCanvas}
+          style={{ zIndex }}
+        />
+        {effectLayer.settings.effectId
+          ? <DesignLabImageEffectNotice layerId={effectLayer.id} store={liveState.imageEffectStatusStore} variant='stage' />
+          : null}
+      </>
     );
   }
   const canvasLayerId = layerId as CanvasLayerId;

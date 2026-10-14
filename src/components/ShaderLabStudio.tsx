@@ -1,6 +1,6 @@
 'use client';
 
-import { loadShaderEffectsProps } from '@/lib/shaderEffects';
+import { loadShaderEffectsProps, type ShaderEffectProps } from '@/lib/shaderEffects';
 import {
   ArrowDown,
   ArrowUp,
@@ -331,6 +331,18 @@ import {
 import { useStableHandlers } from '@/hooks/useStableHandlers';
 import { useLocalValueStore } from '@/hooks/useValueStore';
 import { arrangeCanvasUnits, canArrangeUnits, isDesignLabArrangement, type DesignLabArrangement } from '@/lib/designLabArrange';
+import {
+  DESIGN_LAB_IMAGE_EFFECT_CATEGORIES,
+  DESIGN_LAB_IMAGE_EFFECTS,
+  assertDesignLabEffectProps,
+  assertDesignLabEffectSettings,
+  designLabImageEffect,
+  planImageEffectPasses,
+  resolveImageEffectOutputs,
+  type DesignLabImageEffectId,
+  type DesignLabImageEffectStatus,
+} from '@/lib/designLabImageEffects';
+import { createImageEffectProcessorPool, imageEffectFailureStatus, type ImageEffectProcessorPool } from '@/lib/designLabImageEffectRuntime';
 import { applyDesignLabLayerStyle, extractDesignLabLayerStyle, type DesignLabLayerStyle, type DesignLabStyledLayer } from '@/lib/designLabStyle';
 import { resolveDesignLabShortcut, type DesignLabShortcutCommand } from '@/lib/designLabShortcuts';
 import {
@@ -787,6 +799,8 @@ const CanvasSelectionAssemblyOverlay = memo(function CanvasSelectionAssemblyOver
 
 const DEFAULT_CANVAS_SHADER_ID = 'shader-canvas-1' as const satisfies ShaderLayerId;
 const DESIGN_LAB_INITIAL_PAN = { x: 0, y: -40 };
+/** Image effects re-run on the GPU per preview frame; 10 fps keeps motion beneath them readable. */
+const IMAGE_EFFECT_PREVIEW_FRAME_RATE = 10;
 // High renders live shaders near device resolution; Auto drops to the draft
 // budget after sustained slow frames. Exports always use output resolution.
 const DESIGN_LAB_PREVIEW_PIXEL_BUDGETS = {
@@ -843,6 +857,7 @@ function assertOptionalArray<T>(
 function validateCompositionLayers(composition: DesignLabCompositionSource['composition']): void {
   assertOptionalArray(composition.shaderLayers, 'Shader layers', (layer) => !layer.id?.startsWith('shader-'));
   assertOptionalArray(composition.effectLayers, 'Converter layers', (layer) => !layer.id?.startsWith('effect-'));
+  composition.effectLayers?.forEach((layer) => assertDesignLabEffectSettings(layer.settings, `Effect layer ${layer.id}`));
   assertOptionalArray(composition.textLayers, 'Text layers', (layer) => !layer.id?.startsWith('text-') || typeof layer.value !== 'string');
   composition.textLayers?.forEach(validateDesignLabTextTypography);
   assertOptionalArray(composition.logos, 'Mark layers', (layer) => !layer.id?.startsWith('logo-'));
@@ -902,12 +917,16 @@ function validateCompositionMetadata(parsed: DesignLabCompositionSource): void {
 
 /** Native effect props validate against control metadata that loads on demand. */
 async function validateShaderEffectSettings(parsed: DesignLabCompositionSource): Promise<void> {
-  const layers = [parsed.composition, ...(parsed.workspace?.artboards ?? []).map(({ snapshot }) => snapshot)]
+  const compositions = [parsed.composition, ...(parsed.workspace?.artboards ?? []).map(({ snapshot }) => snapshot)];
+  const layers = compositions
     .flatMap((composition) => [...(composition.shaderLayers ?? []), ...Object.values(composition.layerShaders ?? {})])
     .flatMap((layer) => layer?.settings?.effectProps === undefined ? [] : [{ effectProps: layer.settings.effectProps, materialId: layer.materialId }]);
-  if (!layers.length) return;
+  // Image-effect Effect layers carry the same native props under their effectId.
+  const effects = compositions.flatMap((composition) => composition.effectLayers ?? [])
+    .flatMap(({ settings }) => settings?.effectId ? [{ effectProps: settings.effectProps ?? {}, materialId: settings.effectId }] : []);
+  if (!layers.length && !effects.length) return;
   const { validateShaderEffectProps } = await loadShaderEffectsProps();
-  layers.forEach(({ effectProps, materialId }) => validateShaderEffectProps(materialId, effectProps));
+  [...layers, ...effects].forEach(({ effectProps, materialId }) => validateShaderEffectProps(materialId, effectProps));
 }
 
 async function parseCompositionSource(source: string): Promise<DesignLabCompositionSource> {
@@ -1618,6 +1637,7 @@ function designAutomationExportInput(input: unknown): DesignAutomationExportInpu
 }
 
 type DesignAutomationHandlers = {
+  effectAction: (action: string, input: unknown) => Promise<unknown>;
   formatText: (input: unknown) => Promise<unknown>;
   layerAction: (action: string, input: unknown) => Promise<unknown>;
   workspaceAction: (action: string, input: unknown) => Promise<unknown>;
@@ -1679,6 +1699,59 @@ export function designLayerActionInput(action: string, input: unknown): {
   return request as ReturnType<typeof designLayerActionInput>;
 }
 
+const DESIGN_EFFECT_ACTION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  'design.effects.add': ['effectId', 'effectProps', 'kind', 'opacity'],
+  'design.effects.configure': ['effectId', 'effectProps', 'kind', 'layerId', 'opacity'],
+  'design.effects.describe': [],
+};
+
+export type DesignEffectActionInput = {
+  effectId?: DesignLabImageEffectId;
+  effectProps?: ShaderEffectProps;
+  kind?: CompositionEffectKind;
+  layerId?: string;
+  opacity?: number;
+};
+
+function assertDesignEffectFields(request: Record<string, unknown>) {
+  if (request.kind !== undefined && !COMPOSITION_EFFECT_PRESETS.some(({ kind }) => kind === request.kind)) {
+    throw new TypeError('kind must be bayer, ascii, halftone or posterize.');
+  }
+  if (request.kind !== undefined && request.effectId !== undefined) {
+    throw new TypeError('Pass kind for a built-in converter or effectId for an image effect, not both.');
+  }
+  const { opacity } = request;
+  if (opacity !== undefined && (typeof opacity !== 'number' || !Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+    throw new TypeError('opacity must be a number from 0 to 1.');
+  }
+}
+
+/**
+ * Validates `design.effects.*` input. Effect props are checked here for shape
+ * only; their control values validate against metadata the host loads lazily.
+ */
+export function designEffectActionInput(action: string, input: unknown): DesignEffectActionInput {
+  const keys = DESIGN_EFFECT_ACTION_FIELDS[action];
+  if (!keys) throw new RangeError(`Unknown Design Lab action: ${action}.`);
+  if (input === undefined && action === 'design.effects.describe') return {};
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !keys.includes(key))) {
+    throw new TypeError(keys.length ? `${action} accepts only { ${keys.join(', ')} }.` : `${action} takes no input.`);
+  }
+  const request = input as Record<string, unknown>;
+  assertDesignEffectFields(request);
+  if (action === 'design.effects.configure') {
+    if (typeof request.layerId !== 'string') throw new TypeError('layerId must identify an Effect layer.');
+    if (Object.keys(request).length === 1) throw new TypeError('design.effects.configure needs effectId, kind, effectProps or opacity.');
+  }
+  if (request.effectId !== undefined || action === 'design.effects.add') {
+    assertDesignLabEffectSettings({ effectId: request.effectId, effectProps: request.effectProps }, action);
+  } else if (request.effectProps !== undefined) {
+    // configure may edit the props of the layer's current image effect.
+    assertDesignLabEffectProps(request.effectProps, action);
+  }
+  return request as DesignEffectActionInput;
+}
+
 function designAutomationSeekTime(input: unknown): number {
   if (!input || typeof input !== 'object' || Array.isArray(input)
     || Object.keys(input).some((key) => key !== 'timeMs')
@@ -1695,9 +1768,16 @@ function designWorkspaceActionInput(input: unknown) {
   return request;
 }
 
+/** Action families that one handler validates and runs. */
+const DESIGN_AUTOMATION_ACTION_FAMILIES = [
+  ['design.workspace.', 'workspaceAction'],
+  ['design.layers.', 'layerAction'],
+  ['design.effects.', 'effectAction'],
+] as const satisfies readonly (readonly [string, keyof DesignAutomationHandlers])[];
+
 async function invokeDesignAutomationAction(handlers: DesignAutomationHandlers, action: string, input: unknown) {
-  if (action.startsWith('design.workspace.')) return handlers.workspaceAction(action, input);
-  if (action.startsWith('design.layers.')) return handlers.layerAction(action, input);
+  const family = DESIGN_AUTOMATION_ACTION_FAMILIES.find(([prefix]) => action.startsWith(prefix));
+  if (family) return handlers[family[1]](action, input);
   switch (action) {
     case 'design.text.format':
       return handlers.formatText(input);
@@ -2750,6 +2830,20 @@ export default function ShaderLabStudio({
   const assetLayerPreviewOverridesRef = useRef<Map<AssetLayerId, CompositionAsset>>(new Map());
   const canvasBackgroundPreviewOverrideRef = useRef<string | null>(null);
   const effectPreviewRedrawRef = useRef<(() => void) | null>(null);
+  // Image-effect Effect layers: one WebGPU processor per layer for the live
+  // preview, the last output per layer, and a status the stage and inspector show.
+  const imageEffectPreviewPoolRef = useRef<ImageEffectProcessorPool | null>(null);
+  const imageEffectPreviewOutputsRef = useRef(new Map<EffectLayerId, HTMLCanvasElement>());
+  const imageEffectPreviewSourceRef = useRef<HTMLCanvasElement | null>(null);
+  // Effect time for previews: advances while playing, holds while paused.
+  const imageEffectPreviewClockRef = useRef({ lastFrameAt: 0, seconds: 0 });
+  // Preview runs share canvases, so a restarted preview loop waits for the last run.
+  const imageEffectPreviewQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const imageEffectStatusStore = useLocalValueStore<ReadonlyMap<string, DesignLabImageEffectStatus>>(new Map());
+  useEffect(() => () => {
+    imageEffectPreviewPoolRef.current?.dispose();
+    imageEffectPreviewPoolRef.current = null;
+  }, []);
   const textEffectScratchRefs = useRef<Map<TextLayerId, TextEffectRenderScratch>>(new Map());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const materialLibraryRef = useRef<HTMLDivElement>(null);
@@ -4584,22 +4678,32 @@ export default function ShaderLabStudio({
     setSelectedCanvasLayerIds([id]);
   }
 
-  function addEffectLayer(kind: CompositionEffectKind = 'bayer') {
-    if (editingCanvas) { setExportError('Frame your selection to apply a composition-wide converter.'); return; }
+  /** Adds a built-in converter, or an image effect when `image` names one, above every layer. */
+  function addEffectLayer(
+    kind: CompositionEffectKind = 'bayer',
+    image?: { effectId: DesignLabImageEffectId; effectProps?: ShaderEffectProps }
+  ): EffectLayerId | null {
+    if (editingCanvas) { setExportError('Frame your selection to apply a composition-wide converter.'); return null; }
     const id = `effect-${globalThis.crypto?.randomUUID?.() ?? Date.now()}` as EffectLayerId;
     const preset = COMPOSITION_EFFECT_PRESETS.find((option) => option.kind === kind)!;
-    const number = effectLayers.filter((layer) => layer.settings.kind === kind).length + 1;
+    const imageEffect = designLabImageEffect(image?.effectId);
+    const number = effectLayers.filter(({ settings }) => imageEffect
+      ? settings.effectId === imageEffect.id
+      : !settings.effectId && settings.kind === kind).length + 1;
     const layer: CompositionEffectLayer = {
       id,
-      name: `${preset.label} ${number}`,
+      name: `${imageEffect?.name ?? preset.label} ${number}`,
       opacity: 1,
-      settings: defaultCompositionEffectSettings(kind),
+      settings: imageEffect
+        ? { ...defaultCompositionEffectSettings(kind), effectId: imageEffect.id, effectProps: image?.effectProps ?? {} }
+        : defaultCompositionEffectSettings(kind),
       visible: true,
     };
     setEffectLayers((current) => [...current, layer]);
     setLayerOrder((current) => [...current, id]);
     setSelectedLayerId(id);
     setSelectedCanvasLayerIds([]);
+    return id;
   }
 
   function updateEffectLayer(id: EffectLayerId, update: Partial<Omit<CompositionEffectLayer, 'id'>>) {
@@ -4626,6 +4730,16 @@ export default function ShaderLabStudio({
     updateEffectLayer(layer.id, {
       name: preset.label,
       settings: defaultCompositionEffectSettings(kind),
+    });
+  }
+
+  /** Switches an Effect layer to an image effect. Settings start from the effect's defaults unless given. */
+  function selectImageEffect(layer: CompositionEffectLayer, effectId: DesignLabImageEffectId, effectProps: ShaderEffectProps = {}) {
+    const imageEffect = designLabImageEffect(effectId);
+    if (!imageEffect) return;
+    updateEffectLayer(layer.id, {
+      name: imageEffect.name,
+      settings: { ...layer.settings, effectId: imageEffect.id, effectProps },
     });
   }
 
@@ -5919,7 +6033,8 @@ export default function ShaderLabStudio({
     layerId: EffectLayerId,
     width: number,
     height: number,
-    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
+    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void,
+    imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
   ) {
     const effectLayer = effectLayers.find((layer) => layer.id === layerId);
     if (!effectLayer) return;
@@ -5928,6 +6043,20 @@ export default function ShaderLabStudio({
       effectPreviewOverridesRef.current.get(layerId),
       Boolean(effectCaptureShaderImagesRef.current)
     );
+    if (effectLayer.settings.effectId) {
+      // Image effects run before this compose (resolveImageEffectOutputs).
+      // Without an output the layers beneath show unchanged.
+      const output = imageEffectOutputs?.get(layerId);
+      if (output) {
+        context.save();
+        context.globalAlpha = Math.min(1, Math.max(0, rendered.opacity));
+        context.globalCompositeOperation = 'source-over';
+        context.drawImage(output, 0, 0, width, height);
+        context.restore();
+      }
+      onEffectPainted?.(layerId, context.canvas);
+      return;
+    }
     let scratch = effectScratchRefs.current.get(layerId);
     if (!scratch) {
       scratch = createCompositionEffectScratch() ?? undefined;
@@ -6032,7 +6161,8 @@ export default function ShaderLabStudio({
     height: number,
     images: Map<string, HTMLImageElement>,
     frameLayerIds: readonly CompositionLayerId[] = visibleLayerIds,
-    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void
+    onEffectPainted?: (effectId: EffectLayerId, source: HTMLCanvasElement) => void,
+    imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
   ) {
     const backgroundPreview = transientCompositionPreviewEnabled()
       ? canvasBackgroundPreviewOverrideRef.current
@@ -6056,7 +6186,7 @@ export default function ShaderLabStudio({
       renderElement: ({ element }) => {
         const layerId = element.id as CompositionLayerId;
         if (isShaderLayerId(layerId)) return paintCompositionShader(context, layerId, width, height);
-        if (isEffectLayerId(layerId)) return paintCompositionEffect(context, layerId, width, height, onEffectPainted);
+        if (isEffectLayerId(layerId)) return paintCompositionEffect(context, layerId, width, height, onEffectPainted, imageEffectOutputs);
         if (isLogoLayerId(layerId) || isAssetLayerId(layerId)) {
           return paintCompositionImage(context, layerId, width, height, images);
         }
@@ -6133,6 +6263,120 @@ export default function ShaderLabStudio({
       })));
   }
 
+  function imageEffectLayer(layerId: CompositionLayerId): (CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } }) | null {
+    if (!isEffectLayerId(layerId)) return null;
+    const layer = effectLayers.find(({ id }) => id === layerId);
+    return layer?.settings.effectId ? layer as CompositionEffectLayer & { settings: { effectId: DesignLabImageEffectId } } : null;
+  }
+
+  function imageEffectPassesFor(layerIds: readonly CompositionLayerId[]) {
+    return planImageEffectPasses(layerIds, (layerId): layerId is EffectLayerId => imageEffectLayer(layerId) !== null);
+  }
+
+  function setImageEffectStatus(layerId: EffectLayerId, status: DesignLabImageEffectStatus) {
+    const current = imageEffectStatusStore.get();
+    if (current.get(layerId) === status) return;
+    imageEffectStatusStore.set(new Map(current).set(layerId, status));
+  }
+
+  /**
+   * Live preview and artboard snapshots: runs each image effect on the layers
+   * beneath it with the preview processors. A failure leaves that layer out
+   * and records why, so the canvas shows the source and the stage and
+   * inspector say what happened. Only the preview loop reuses the shared
+   * canvases; a snapshot runs beside it and brings its own.
+   */
+  async function resolvePreviewImageEffects({
+    composeBeneath,
+    height,
+    layerIds,
+    reuseCanvases = false,
+    timeSeconds,
+    width,
+  }: {
+    composeBeneath: (
+      context: CanvasRenderingContext2D,
+      beneath: readonly CompositionLayerId[],
+      resolved: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => unknown;
+    height: number;
+    layerIds: readonly CompositionLayerId[];
+    reuseCanvases?: boolean;
+    timeSeconds: number;
+    width: number;
+  }) {
+    const pool = imageEffectPreviewPoolRef.current ?? createImageEffectProcessorPool();
+    imageEffectPreviewPoolRef.current = pool;
+    pool.retain(new Map(effectLayers.flatMap(({ id, settings }) => settings.effectId ? [[id, settings.effectId] as const] : [])));
+    let source: HTMLCanvasElement | undefined;
+    if (reuseCanvases) {
+      source = imageEffectPreviewSourceRef.current ?? document.createElement('canvas');
+      imageEffectPreviewSourceRef.current = source;
+    }
+    const resolve = () => resolveImageEffectOutputs({
+      composeBeneath,
+      height,
+      outputs: reuseCanvases ? imageEffectPreviewOutputsRef.current : undefined,
+      passes: imageEffectPassesFor(layerIds),
+      run: async (layerId, pixels) => {
+        const layer = imageEffectLayer(layerId);
+        if (!layer) return null;
+        if (imageEffectStatusStore.get().get(layer.id) !== 'ready') setImageEffectStatus(layer.id, 'loading');
+        try {
+          const output = await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+          setImageEffectStatus(layer.id, 'ready');
+          return output;
+        } catch (error) {
+          setImageEffectStatus(layer.id, imageEffectFailureStatus(error));
+          return null;
+        }
+      },
+      source,
+      width,
+    });
+    if (!reuseCanvases) return resolve();
+    const result = imageEffectPreviewQueueRef.current.then(resolve);
+    imageEffectPreviewQueueRef.current = result.catch(() => undefined);
+    return result;
+  }
+
+  /**
+   * Exports: runs every visible image effect at export size with a fresh
+   * processor pool, so effect time starts at zero. Unlike the preview, an
+   * effect that cannot render stops the export.
+   */
+  async function resolveExportImageEffects(
+    pool: ImageEffectProcessorPool,
+    width: number,
+    height: number,
+    timeSeconds: number,
+    composeBeneath: (
+      context: CanvasRenderingContext2D,
+      beneath: readonly CompositionLayerId[],
+      resolved: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => unknown,
+    layerIds: readonly CompositionLayerId[] = visibleLayerIds
+  ): Promise<ReadonlyMap<EffectLayerId, HTMLCanvasElement> | undefined> {
+    const passes = imageEffectPassesFor(layerIds);
+    if (!passes.length) return undefined;
+    return resolveImageEffectOutputs({
+      composeBeneath,
+      height,
+      passes,
+      run: async (layerId, pixels) => {
+        const layer = imageEffectLayer(layerId);
+        if (!layer) return null;
+        try {
+          return await pool.process(layer.id, layer.settings.effectId, pixels, layer.settings.effectProps ?? {}, timeSeconds);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : 'The image effect could not render.';
+          throw new Error(`${layer.name}: ${reason} Hide this layer to export without it.`);
+        }
+      },
+      width,
+    });
+  }
+
   async function captureCompositionEffectFrames(shaderFrames: Promise<Map<string, CapturedShaderFrame>>): Promise<Map<string, ShaderFrameSnapshot>> {
     const ids = visibleLayerIds.filter(isEffectLayerId);
     if (!ids.length) return new Map();
@@ -6151,6 +6395,22 @@ export default function ShaderLabStudio({
     const context = buffer.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Converter capture is unavailable.');
     try {
+      const imageEffectOutputs = imageEffectPassesFor(prefix).length
+        ? await resolvePreviewImageEffects({
+            composeBeneath: (beneathContext, beneath, resolved) => withCapturedShaderImages(captures, (shaderImages) => {
+              effectCaptureShaderImagesRef.current = shaderImages;
+              try {
+                composeFrame(beneathContext, width, height, images, beneath, undefined, resolved);
+              } finally {
+                effectCaptureShaderImagesRef.current = null;
+              }
+            }),
+            height,
+            layerIds: prefix,
+            timeSeconds: imageEffectPreviewClockRef.current.seconds,
+            width,
+          })
+        : undefined;
       let encoding!: Promise<Map<string, ShaderFrameSnapshot>>;
       await withCapturedShaderImages(captures, (shaderImages) => {
         effectCaptureShaderImagesRef.current = shaderImages;
@@ -6158,7 +6418,7 @@ export default function ShaderLabStudio({
           // This callback copies every converter synchronously. The override is
           // removed before encoding yields, so live previews never consume it.
           encoding = captureComposedEffectFrames(ids, (copy) => composeFrame(
-            context, width, height, images, prefix, copy
+            context, width, height, images, prefix, copy, imageEffectOutputs
           ));
         } finally {
           effectCaptureShaderImagesRef.current = null;
@@ -6172,6 +6432,8 @@ export default function ShaderLabStudio({
   }
 
   const composeFrameRef = useCommittedRef(composeFrame);
+  const imageEffectPassesForRef = useCommittedRef(imageEffectPassesFor);
+  const resolvePreviewImageEffectsRef = useCommittedRef(resolvePreviewImageEffects);
   const loadCompositionImagesRef = useCommittedRef(loadCompositionImages);
   const lastPreviewEffectIndex = visibleLayerIds.findLastIndex(isEffectLayerId);
   const effectPreviewOrderSignature = lastPreviewEffectIndex < 0
@@ -6201,6 +6463,9 @@ export default function ShaderLabStudio({
     let renderSamples = 0;
     let pausedRedraw: ReturnType<typeof observePausedCompositionReadiness> | undefined;
     let sourceRedrawPending = paused;
+    let skippedWhileRendering = false;
+    const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
+    const previewLayerIds = visibleLayerIds.slice(0, lastEffectIndex + 1);
     const requestPausedRedraw = () => {
       sourceRedrawPending = true;
       pausedRedraw?.request();
@@ -6221,21 +6486,24 @@ export default function ShaderLabStudio({
         }, { rootMargin: '120px' });
     if (observer && stageRef.current) observer.observe(stageRef.current);
 
-    const paintEffectPreview = (images: Map<string, HTMLImageElement>) => {
-      const previewHeight = Math.max(1, Math.round(previewWidth * canvasDimensions.height / canvasDimensions.width));
+    const previewHeightFor = (width: number) => Math.max(1, Math.round(width * canvasDimensions.height / canvasDimensions.width));
+    const paintEffectPreview = (
+      images: Map<string, HTMLImageElement>,
+      imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+    ) => {
+      const previewHeight = previewHeightFor(previewWidth);
       const buffer = effectPreviewBufferRef.current ?? document.createElement('canvas');
       effectPreviewBufferRef.current = buffer;
       if (buffer.width !== previewWidth) buffer.width = previewWidth;
       if (buffer.height !== previewHeight) buffer.height = previewHeight;
       const context = buffer.getContext('2d', { willReadFrequently: true });
       if (!context) return;
-      const lastEffectIndex = Math.max(...activeEffectIds.map((effectId) => visibleLayerIds.indexOf(effectId)));
       composeFrameRef.current(
         context,
         previewWidth,
         previewHeight,
         images,
-        visibleLayerIds.slice(0, lastEffectIndex + 1),
+        previewLayerIds,
         (effectId, source) => {
           const canvas = effectCanvasRefs.current.get(effectId);
           if (!canvas) return;
@@ -6245,48 +6513,86 @@ export default function ShaderLabStudio({
           if (!visibleContext) return;
           visibleContext.clearRect(0, 0, previewWidth, previewHeight);
           visibleContext.drawImage(source, 0, 0);
-        }
+        },
+        imageEffectOutputs
       );
+    };
+    // Image effects run on the GPU and resolve asynchronously: compose the
+    // layers beneath each one, run it, then paint the whole preview. A paused
+    // canvas renders again if a settling frame arrived during the run.
+    const paintImageEffectPreview = (images: Map<string, HTMLImageElement>) => {
+      rendering = true;
+      const width = previewWidth;
+      const height = previewHeightFor(width);
+      void resolvePreviewImageEffectsRef.current({
+        composeBeneath: (context, beneath, resolved) => composeFrameRef.current(context, width, height, images, beneath, undefined, resolved),
+        height,
+        layerIds: previewLayerIds,
+        reuseCanvases: true,
+        timeSeconds: imageEffectPreviewClockRef.current.seconds,
+        width,
+      }).then((outputs) => {
+        if (!cancelled) paintEffectPreview(images, outputs);
+      }).catch(() => {
+        // Each effect reports its own failure; a compose error keeps the last frame.
+      }).finally(() => {
+        rendering = false;
+        if (cancelled || !paused || !skippedWhileRendering) return;
+        skippedWhileRendering = false;
+        paintImageEffectPreview(images);
+      });
     };
 
     void loadCompositionImagesRef.current().then((images) => {
       if (cancelled) return;
+      // Converters render synchronously; the measured cost sizes the next frames.
+      const paintConverterPreview = () => {
+        rendering = true;
+        const renderStartedAt = performance.now();
+        try {
+          paintEffectPreview(images);
+        } catch {
+          // Safari can expose a shader canvas one paint before it becomes
+          // readable. Keep the last good converter frame and retry instead
+          // of leaving the preview loop permanently locked.
+          if (paused) pausedRedraw?.request();
+        }
+        renderDurationTotal = renderDurationTotal + performance.now() - renderStartedAt;
+        renderSamples = renderSamples + 1;
+        if (renderSamples >= 8) {
+          const averageDuration = renderDurationTotal / renderSamples;
+          if (averageDuration > 14) {
+            if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
+            else targetFrameRate = 30;
+          } else if (averageDuration < 9) {
+            targetFrameRate = 60;
+            previewWidth = Math.min(640, canvasDimensions.width, Math.round(previewWidth * 1.12));
+          }
+          renderDurationTotal = 0;
+          renderSamples = 0;
+        }
+        rendering = false;
+      };
+      const advanceImageEffectClock = (now: number) => {
+        const clock = imageEffectPreviewClockRef.current;
+        if (!paused && clock.lastFrameAt) clock.seconds += Math.min(0.25, Math.max(0, (now - clock.lastFrameAt) / 1000));
+        clock.lastFrameAt = paused ? 0 : now;
+      };
       const tick = (now: number) => {
         if (cancelled) return;
         redrawPausedSource();
+        advanceImageEffectClock(now);
+        const hasImageEffects = imageEffectPassesForRef.current(previewLayerIds).length > 0;
+        if (rendering && paused) skippedWhileRendering = true;
+        const frameRate = hasImageEffects ? Math.min(targetFrameRate, IMAGE_EFFECT_PREVIEW_FRAME_RATE) : targetFrameRate;
         const shouldRender = workspaceActiveRef.current
           && projectWorkspaceActiveRef.current
           && inViewport
           && !document.hidden
           && !rendering
-          && framePacer.shouldDraw(now, targetFrameRate, paused);
-        if (shouldRender) {
-          rendering = true;
-          const renderStartedAt = performance.now();
-          try {
-            paintEffectPreview(images);
-          } catch {
-            // Safari can expose a shader canvas one paint before it becomes
-            // readable. Keep the last good converter frame and retry instead
-            // of leaving the preview loop permanently locked.
-            if (paused) pausedRedraw?.request();
-          }
-          renderDurationTotal = renderDurationTotal + performance.now() - renderStartedAt;
-          renderSamples = renderSamples + 1;
-          if (renderSamples >= 8) {
-            const averageDuration = renderDurationTotal / renderSamples;
-            if (averageDuration > 14) {
-              if (previewWidth > 360) previewWidth = Math.max(360, Math.round(previewWidth * 0.84));
-              else targetFrameRate = 30;
-            } else if (averageDuration < 9) {
-              targetFrameRate = 60;
-              previewWidth = Math.min(640, canvasDimensions.width, Math.round(previewWidth * 1.12));
-            }
-            renderDurationTotal = 0;
-            renderSamples = 0;
-          }
-          rendering = false;
-        }
+          && framePacer.shouldDraw(now, frameRate, paused);
+        if (shouldRender && hasImageEffects) paintImageEffectPreview(images);
+        else if (shouldRender) paintConverterPreview();
         if (!paused) animationFrame = requestAnimationFrame(tick);
       };
       if (paused && stageRef.current) {
@@ -6312,9 +6618,11 @@ export default function ShaderLabStudio({
     compositionImageSignature,
     composeFrameRef,
     effectPreviewOrderSignature,
+    imageEffectPassesForRef,
     loadCompositionImagesRef,
     paused,
     pausedEffectPreviewSignature,
+    resolvePreviewImageEffectsRef,
     visibleLayerIds,
   ]);
 
@@ -6378,14 +6686,32 @@ export default function ShaderLabStudio({
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
       assertFresh();
-      await withCapturedShaderImages(captures, (shaderImages) => {
+      const composeCaptured = (
+        target: CanvasRenderingContext2D,
+        layerIds: readonly CompositionLayerId[],
+        imageEffectOutputs?: ReadonlyMap<EffectLayerId, HTMLCanvasElement>
+      ) => withCapturedShaderImages(captures, (shaderImages) => {
         effectCaptureShaderImagesRef.current = shaderImages;
         try {
-          composeFrame(context, output.width, output.height, images);
+          composeFrame(target, output.width, output.height, images, layerIds, undefined, imageEffectOutputs);
         } finally {
           effectCaptureShaderImagesRef.current = null;
         }
       });
+      const imageEffectPool = createImageEffectProcessorPool();
+      try {
+        const imageEffectOutputs = await resolveExportImageEffects(
+          imageEffectPool,
+          output.width,
+          output.height,
+          timeMs / 1000,
+          (target, beneath, resolved) => composeCaptured(target, beneath, resolved)
+        );
+        assertFresh();
+        await composeCaptured(context, visibleLayerIds, imageEffectOutputs);
+      } finally {
+        imageEffectPool.dispose();
+      }
       const quality = normalizedExportSettings.quality === 'fast'
         ? 0.82
         : normalizedExportSettings.quality === 'best'
@@ -6481,6 +6807,7 @@ export default function ShaderLabStudio({
     setExporting(format);
     setExportError(null);
     studioExport.start(`Rendering ${motionMode === 'sequence' ? 'shader sequence ' : ''}${format.toUpperCase()} preview`, 0);
+    let disposeImageEffects: (() => void) | null = null;
     try {
       assertMotionIsSeekable(motionMode);
       const startedAt = performance.now();
@@ -6498,6 +6825,8 @@ export default function ShaderLabStudio({
       const context = output.getContext('2d', { willReadFrequently: format === 'gif' });
       if (!context) throw new Error('Canvas rendering is unavailable.');
       const images = await loadCompositionImages();
+      const imageEffectPool = createImageEffectProcessorPool();
+      disposeImageEffects = () => imageEffectPool.dispose();
       const renderFrame = async (frame: MotionFrame) => {
         const segment = motionMode === 'sequence'
           ? shaderSequenceSegmentAt(shaderSequenceTimeline, frame.timeMs)
@@ -6511,7 +6840,16 @@ export default function ShaderLabStudio({
           : null;
         await waitForCapturedFrame(frame, nextSequenceCapture);
         assertFresh();
-        composeFrame(context, output.width, output.height, images);
+        // Image effects take this frame's time, so effect motion follows the clip.
+        const imageEffectOutputs = await resolveExportImageEffects(
+          imageEffectPool,
+          output.width,
+          output.height,
+          frame.timeMs / 1000,
+          (target, beneath, resolved) => composeFrame(target, output.width, output.height, images, beneath, undefined, resolved)
+        );
+        assertFresh();
+        composeFrame(context, output.width, output.height, images, visibleLayerIds, undefined, imageEffectOutputs);
       };
       const sharedOptions = {
         canvas: output,
@@ -6552,6 +6890,7 @@ export default function ShaderLabStudio({
       setExportError(error instanceof Error ? error.message : `The ${format.toUpperCase()} could not be exported.`);
       return null;
     } finally {
+      disposeImageEffects?.();
       exportJobRef.current = false;
       sequenceCaptureRef.current = null;
       setSequenceCapture(null);
@@ -6588,6 +6927,33 @@ export default function ShaderLabStudio({
     return asset;
   }
 
+  /** Effect layers on the active artboard, front to back as stacked, with the image effects on offer. */
+  function describeEffectLayers() {
+    const statuses = imageEffectStatusStore.get();
+    return {
+      builtIn: COMPOSITION_EFFECT_PRESETS.map(({ description, kind, label }) => ({ description, kind, label })),
+      imageEffects: {
+        categories: DESIGN_LAB_IMAGE_EFFECT_CATEGORIES,
+        effects: DESIGN_LAB_IMAGE_EFFECTS.map(({ category, id, name }) => ({ category, id, name })),
+        controls: '/api/materials imageEffects.effects[].nativeControls',
+      },
+      layers: layerOrder.filter(isEffectLayerId).flatMap((layerId) => {
+        const layer = effectLayers.find(({ id }) => id === layerId);
+        if (!layer) return [];
+        const { effectId, effectProps, kind } = layer.settings;
+        return [{
+          id: layer.id,
+          name: layer.name,
+          opacity: layer.opacity,
+          visible: layer.visible,
+          ...(effectId
+            ? { effectId, effectProps: effectProps ?? {}, ...(statuses.get(layer.id) ? { status: statuses.get(layer.id) } : {}) }
+            : { kind }),
+        }];
+      }),
+    };
+  }
+
   const designAutomationRef = useCommittedRef({
     layerAction: async (action: string, input: unknown) => {
       assertShaderWorkspaceIdle();
@@ -6615,6 +6981,35 @@ export default function ShaderLabStudio({
       }
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       return null;
+    },
+    effectAction: async (action: string, input: unknown) => {
+      const request = designEffectActionInput(action, input);
+      if (action === 'design.effects.describe') return describeEffectLayers();
+      assertShaderWorkspaceIdle();
+      const target = action === 'design.effects.configure'
+        ? effectLayers.find(({ id }) => id === request.layerId && layerOrder.includes(id))
+        : undefined;
+      if (action === 'design.effects.configure' && !target) throw new TypeError('layerId must identify an Effect layer on the active artboard.');
+      const effectId = request.effectId ?? (request.kind ? undefined : target?.settings.effectId);
+      if (request.effectProps !== undefined) {
+        if (!effectId) throw new TypeError('This Effect layer uses a built-in converter. Set effectId to an image effect before effectProps.');
+        const { validateShaderEffectProps } = await loadShaderEffectsProps();
+        validateShaderEffectProps(effectId, request.effectProps);
+      }
+      let layerId = target?.id;
+      if (!target) {
+        layerId = addEffectLayer(request.kind ?? 'bayer', request.effectId ? { effectId: request.effectId, effectProps: request.effectProps } : undefined) ?? undefined;
+        if (!layerId) throw new Error('Effect layers apply to a whole artboard. Activate an artboard first.');
+      } else if (request.kind) {
+        selectEffectPreset(target, request.kind);
+      } else if (request.effectId) {
+        selectImageEffect(target, request.effectId, request.effectProps ?? {});
+      } else if (request.effectProps !== undefined) {
+        updateEffectLayer(target.id, { settings: { ...target.settings, effectProps: request.effectProps } });
+      }
+      if (request.opacity !== undefined) updateEffectLayer(layerId!, { opacity: request.opacity });
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return { layerId };
     },
     formatText: async (input: unknown) => {
       assertShaderWorkspaceIdle();
@@ -6755,6 +7150,7 @@ export default function ShaderLabStudio({
     captureTimeMs,
     defaultLoopDurationMs: DEFAULT_EXPORT_SETTINGS.durationMs,
     exportPixelCount,
+    imageEffectStatusStore,
     livePreviewPixelBudget,
     livePreviewRuntimeReady,
     onRestoreReady: restoreReadyHandlers.finishShaderTimelineRestore,
@@ -6764,8 +7160,8 @@ export default function ShaderLabStudio({
     sequencePreviewing,
     shaderTimelineRestore,
     shaderTimelineRestoring,
-  }), [active, captureTimeMs, exportPixelCount, livePreviewPixelBudget, livePreviewRuntimeReady, paused, previewCaptureTimeMs,
-    restoreReadyHandlers, sequenceCapture, sequencePreviewing, shaderTimelineRestore, shaderTimelineRestoring]);
+  }), [active, captureTimeMs, exportPixelCount, imageEffectStatusStore, livePreviewPixelBudget, livePreviewRuntimeReady, paused,
+    previewCaptureTimeMs, restoreReadyHandlers, sequenceCapture, sequencePreviewing, shaderTimelineRestore, shaderTimelineRestoring]);
 
   function renderShaderLibrary() {
     return (
@@ -7024,6 +7420,7 @@ export default function ShaderLabStudio({
     resetLogoTransform: (id) => updateLogoTransform(id, DEFAULT_LAYER_TRANSFORM),
     selectConvertedLogo,
     selectEffectPreset,
+    selectImageEffect: (layer, effectId) => selectImageEffect(layer, effectId),
     setImageCropAspect: (id, value) => void setImageCropAspect(id, value),
     setImageCropEditing,
     toggleWorkspaceTour: () => setWorkspaceTourOpen((value) => !value),
@@ -7462,6 +7859,7 @@ export default function ShaderLabStudio({
           copied={copied}
           copyError={copyError}
           cropEditingLayerId={cropEditingLayerId}
+          imageEffectStatusStore={imageEffectStatusStore}
           description={designLabInspectorDescription({
             hasContent: Boolean(selectedContentLayerId),
             hasEffect: Boolean(selectedEffectLayer),

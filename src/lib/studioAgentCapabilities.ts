@@ -360,6 +360,21 @@ export const STUDIO_TOOL_ACTION_CONTRACTS = {
       description: 'Apply the copied style to unlocked layers. Each target takes the fields it shares with the source; a copied material fills content layers.',
       input: '{ layerIds: string[] }', output: 'null',
     },
+    'design.effects.describe': {
+      description: 'List the active artboard\'s Effect layers (built-in converter kind, or image effectId, effectProps and WebGPU status) and the image effects on offer.',
+      input: 'No input',
+      output: '{ builtIn, imageEffects: { categories, effects, controls }, layers }',
+    },
+    'design.effects.add': {
+      description: 'Add an Effect layer above every layer of the active artboard: a built-in converter (kind) or a Shaders.com image effect (effectId) that processes the composited layers beneath it. Image effects need WebGPU; exports refuse without it.',
+      input: "{ kind?: 'bayer' | 'ascii' | 'halftone' | 'posterize', effectId?: string from /api/materials imageEffects, effectProps?: object (explicit edits; validated against nativeControls; sourceImage is not accepted), opacity?: 0..1 }",
+      output: '{ layerId }',
+    },
+    'design.effects.configure': {
+      description: 'Switch an Effect layer to another converter kind or image effectId, replace its effectProps (pass {} to reset), or set its opacity.',
+      input: '{ layerId: string, kind?: string, effectId?: string, effectProps?: object, opacity?: 0..1 }; kind and effectId are exclusive',
+      output: '{ layerId }',
+    },
   },
   opengraph: {
     'opengraph.export.png': { description: 'Render the current OpenGraph composition as PNG.', input: 'No input', output: EXPORT_ARTIFACT },

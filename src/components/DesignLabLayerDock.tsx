@@ -36,6 +36,7 @@ import {
   type TextAppearanceSettings,
   type TextLayerId,
 } from '@/lib/designLabModel';
+import { designLabImageEffect } from '@/lib/designLabImageEffects';
 import { designLabTextDecorationLine, resolveDesignLabFontSize } from '@/lib/designLabTypography';
 import type { ImageCropSettings } from '@/lib/imagePlacement';
 import { getLiveMaterial } from '@/lib/liveMaterials';
@@ -159,12 +160,23 @@ export function LayerDockStaticPreview({
   previewUrl?: string;
 }) {
   let preview: ReactNode = <span aria-hidden='true' />;
-  if (effectLayer) preview = <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />;
+  if (effectLayer) preview = <EffectLayerThumbnail layer={effectLayer} />;
   else if (previewUrl) preview = <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} />;
   return (
     <button className='shader-lab-v2-dock-preview-select' aria-label={`Select ${label} preview`} onClick={onSelect} type='button'>
       {preview}
     </button>
+  );
+}
+
+/** A built-in converter draws its own pattern; an image effect shows its library thumbnail. */
+function EffectLayerThumbnail({ layer }: { layer: CompositionEffectLayer }) {
+  const effectId = layer.settings.effectId;
+  if (!effectId) return <CompositionEffectThumbnail kind={layer.settings.kind} settings={layer.settings} />;
+  return (
+    <span aria-hidden='true' className={`composition-effect-thumbnail ${styles.imageEffectThumbnail}`} data-image-effect={effectId}>
+      <img alt='' draggable={false} src={shaderPreviewAssetPath(effectId)} />
+    </span>
   );
 }
 
@@ -182,6 +194,8 @@ export function layerDockTooltipDescription({
   textLayer: CompositionTextLayer | null;
 }): string {
   if (sticker) return `An editable sticker layer with a non-destructive die-cut treatment${appliedShader ? ` and ${getLiveMaterial(appliedShader.materialId).name}` : ''}.`;
+  const imageEffect = designLabImageEffect(effectLayer?.settings.effectId);
+  if (imageEffect) return `Applies the ${imageEffect.name} image effect to every visible layer beneath it.`;
   if (effectLayer) return `Converts every visible layer beneath it with the ${effectLayer.settings.kind} effect.`;
   if (isShaderLayerId(layerId) && appliedShader) {
     return `${getLiveMaterial(appliedShader.materialId).name} fills this movable background layer.`;
@@ -245,7 +259,7 @@ export function LayerDockTooltipPreview({
           src={shaderPreviewAssetPath(appliedShader.materialId)}
         />
       ) : null}
-      {effectLayer ? <CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} /> : null}
+      {effectLayer ? <EffectLayerThumbnail layer={effectLayer} /> : null}
       {previewUrl ? <img alt='' draggable={false} src={previewUrl} style={imageCropElementStyle(imageCrop)} /> : null}
       {textLayer && textAppearance ? (
         <span

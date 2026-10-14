@@ -123,6 +123,16 @@ Converters affect all visible layers below their position in the stack.
 
 Effect previews render the actual converter pattern in the layer dock. During continuous slider movement, the preview uses a lower-cost intermediate render and commits the full result when input settles.
 
+## Image effects on Effect layers
+
+An Effect layer can also run one of the Shaders.com image effects. Select an Effect layer and choose from **Image effects** in the inspector: search by name or purpose, or browse the groups Stylize, Blurs, Distortions, Adjustments, Transitions, Interactive and Shape Effects. The effect processes every visible layer beneath it, like a converter, and **Effect settings** shows that effect's own controls. **Converter type** switches the layer back to a built-in converter.
+
+Image effects render on the GPU with WebGPU. The canvas preview composes the layers beneath at preview size and runs the effect on them; with moving shaders beneath, it updates at up to 10 frames per second. Exports compose the layers beneath at full output size first, then run the effect. GIF and MP4 do this for every frame and pass the frame's time to the effect, so time-based effects move with the clip.
+
+Without WebGPU the canvas shows the layers beneath unchanged, and a notice on the artboard and in the inspector explains why. Exports stop with an error that names the layer; hide it to export without the effect.
+
+In source, the choice is additive: the layer's `settings` keeps its converter fields and adds `effectId` and `effectProps`, which holds only the values you changed. `effectProps` follows the effect's `nativeControls` in `/api/materials` `imageEffects`; `sourceImage` is not accepted, because the layers beneath are the source. Agents use `design.effects.add`, `design.effects.configure` and `design.effects.describe` (see the [Browser API](/docs/reference/browser-api)).
+
 ## Shader Library
 
 The left library is shared with Animation. Search by material or source and filter by Fluid, Light, Metal, Gradient, or Graphic. Cards use quality-ranked previews; static thumbnails keep the full catalog visible while live previews are budgeted to the visible region.

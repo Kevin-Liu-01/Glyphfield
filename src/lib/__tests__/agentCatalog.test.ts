@@ -18,7 +18,8 @@ import {
 
 describe('agent discovery catalogs', () => {
   it('derives every agent-visible shader from the shared Studio material library', () => {
-    expect(AGENT_SHADER_LIBRARY.count).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    const imageEffectIds = new Set<string>(SHADER_EFFECTS.filter(({ requiresChild }) => requiresChild).map(({ id }) => id));
+    expect(AGENT_SHADER_LIBRARY.count).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter(({ id }) => !imageEffectIds.has(id)).length);
     expect(AGENT_SHADER_LIBRARY.materials.map(({ id }) => id)).toEqual(
       shaderLabMaterials('', 'all').map(({ id }) => id)
     );
@@ -28,8 +29,24 @@ describe('agent discovery catalogs', () => {
   it('publishes each native effect control set once, on its material', () => {
     expect(AGENT_SHADER_LIBRARY.shaderEffects.components.every((component) => !('controls' in component) && !('props' in component))).toBe(true);
     const native = AGENT_SHADER_LIBRARY.materials.filter((material) => 'nativeControls' in material);
-    expect(native.map(({ id }) => id).sort()).toEqual(SHADER_EFFECTS.map(({ id }) => id).sort());
+    expect(native.map(({ id }) => id).sort()).toEqual(SHADER_EFFECTS.filter(({ requiresChild }) => !requiresChild).map(({ id }) => id).sort());
     expect(native.every((material) => 'settingsKey' in material && material.settingsKey === 'effectProps')).toBe(true);
+  });
+
+  it('publishes image effects for Design Lab Effect layers, apart from the materials', () => {
+    const { imageEffects } = AGENT_SHADER_LIBRARY;
+    const imageEffectIds: string[] = SHADER_EFFECTS.filter(({ requiresChild }) => requiresChild).map(({ id }) => id);
+    expect(imageEffects.count).toBe(imageEffectIds.length);
+    expect(imageEffects.effects.map(({ id }) => id).sort()).toEqual([...imageEffectIds].sort());
+    expect(AGENT_SHADER_LIBRARY.materials.some(({ id }) => imageEffectIds.includes(id))).toBe(false);
+    // The layer stack is the source, so the upload control is not published.
+    expect(imageEffects.effects.every(({ nativeControls }) => !('sourceImage' in nativeControls))).toBe(true);
+    expect(imageEffects.effects.find(({ id }) => id === 'shader-effects-blur')?.nativeControls).toHaveProperty('intensity');
+    expect(imageEffects.categories[0]).toBe('Stylize');
+    expect(imageEffects.usage).toMatch(/design\.effects\.add/);
+    expect(Object.keys(STUDIO_TOOL_ACTION_CONTRACTS.material)).toEqual(expect.arrayContaining([
+      'design.effects.add', 'design.effects.configure', 'design.effects.describe',
+    ]));
   });
 
   it('publishes honest per-provider frame capture, seek and loop capabilities', () => {

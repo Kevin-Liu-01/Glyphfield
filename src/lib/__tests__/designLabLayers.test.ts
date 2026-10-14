@@ -392,7 +392,10 @@ describe('Playground optional layers', () => {
   });
 
   it('renders the production converter thumbnail inside each effect layer card', () => {
-    expect(designLab).toContain('<CompositionEffectThumbnail kind={effectLayer.settings.kind} settings={effectLayer.settings} />');
+    expect(designLab).toContain('<CompositionEffectThumbnail kind={layer.settings.kind} settings={layer.settings} />');
+    expect(designLab).toContain('<EffectLayerThumbnail layer={effectLayer} />');
+    // An image effect shows its library thumbnail instead.
+    expect(designLab).toContain('src={shaderPreviewAssetPath(effectId)}');
     expect(designLab).not.toContain("className='shader-lab-v2-effect-swatch'");
     expect(studioStyles).toContain(".shader-lab-v2-dock-layer[data-kind='converter'] .composition-effect-thumbnail {");
   });

@@ -5,7 +5,7 @@ import { brandTypographyFamily, resolveBrandTypographyWeight, type BrandIdentity
 import type { MotionExportQuality, MotionLoopMode } from '@/lib/canvasExport';
 import type { CanvasLayerTransform } from '@/lib/canvasInteraction';
 import type { CanvasTextAlign, CanvasTextWrap } from '@/lib/canvasText';
-import type { CompositionEffectSettings } from '@/lib/compositionEffects';
+import type { DesignLabEffectSettings } from '@/lib/designLabImageEffects';
 import { resolveDesignLabFontSize } from '@/lib/designLabTypography';
 import { designLayerGeometry } from '@/lib/designWorkspace';
 import type { ImageCropSettings } from '@/lib/imagePlacement';
@@ -62,7 +62,8 @@ export type CompositionEffectLayer = {
   id: EffectLayerId;
   name: string;
   opacity: number;
-  settings: CompositionEffectSettings;
+  /** A built-in converter, or a Shaders.com image effect when `settings.effectId` is set. */
+  settings: DesignLabEffectSettings;
   visible: boolean;
 };
 

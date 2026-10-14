@@ -122,9 +122,14 @@ design.layers.arrange
 design.layers.lock
 design.layers.copyStyle
 design.layers.pasteStyle
+design.effects.describe
+design.effects.add
+design.effects.configure
 ```
 
 Layer commands: `design.layers.arrange` takes `{ arrangement, layerIds? }` (left, horizontal-center, right, top, vertical-center, bottom, distribute-horizontal, distribute-vertical) and aligns to the selection bounds, not the artboard. `design.layers.lock` takes `{ layerIds, locked }` and writes `element.locked`; locked layers ignore canvas edits but keep inspector controls. `design.layers.copyStyle` `{ layerId }` then `design.layers.pasteStyle` `{ layerIds }` copies appearance only, never content or geometry.
+
+Effect layers: `design.effects.add` takes `{ kind }` (bayer, ascii, halftone, posterize) or `{ effectId, effectProps? }` with an ID from `/api/materials` `imageEffects`, plus optional `opacity`, and returns `{ layerId }`. `design.effects.configure` takes `{ layerId }` with `kind`, `effectId`, `effectProps` (replaces explicit edits; `{}` resets) or `opacity`. An image effect processes the composited layers beneath it, needs WebGPU, and blocks export without it; read `design.effects.describe` for each layer's status.
 
 Use `studio.invoke('design.frame.pause')` for an ordinary synchronous pause: it returns null without encoding PNGs or writing captured-frame assets. For a durable exact shader still, `await studio.invoke('design.frame.capture')` freezes ready pixels, persists lossless PNG checkpoints, and returns a complete portable CanvasDocument JSON string. Keep its embedded asset records and editable native frame state together. `design.frame.seek` accepts a non-negative finite `timeMs` in `{ timeMs }`; `design.frame.play` resumes native motion. Call `design.motion.describe` before seeking. Fluid Energy is stateful: ordinary pause retains its mounted simulation, but time-only history replay is unsupported and playing from a saved PNG starts a new simulation. Continuous animation is not proof of a finite seamless loop; `/api/materials` publishes motion/seek/loop capability metadata. The explorer range extends only on request; playback does not automatically grow that range or create stored frames.
 
@@ -187,7 +192,7 @@ One active identity supplies name, marks, assets, color roles, type roles, strat
 
 Design Lab is the general layer compositor. It combines multiple text, mark, image, shader, sticker, and converter layers; direct manipulation; ordering and grouping; non-destructive image crop, focal point, and zoom; per-layer opacity and blend; Bayer, ASCII, halftone, posterize, and text effects; foreground/background effect colors; independent shader fills; capability-aware time selection and persisted PNG frame captures; logarithmic shader size from 0.1× to 10×; surfaces and sticker finishes; saved designs; recovery; and PNG/JPG/GIF/MP4 export.
 
-The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, image-effects, interactive, shapes), controls, palettes, and defaults. Never infer a material ID from its display name.
+The shared Shader Library is quality-sorted and used by Design Lab and Animation. Read `/api/materials` for the exact current material list, engine attribution, look `category`, `kind` (backgrounds, interactive, shapes), controls, palettes, and defaults. Never infer a material ID from its display name. Shaders.com image effects (components that transform an image) are not materials: `/api/materials` lists them under `imageEffects`, and Design Lab applies them as Effect layers over the layers beneath. Older documents that used one as a shader layer still load and render as before.
 
 Native Shaders.com effects (`shader-effects-*`, engine `Shaders.com WebGPU`) take `settings.effectProps` holding only the values to change; each material's `nativeControls` lists keys, defaults, and ranges. Their colours default to the shared `colorA`/`colorB`/`colorC` palette (a control's `palette` field names its stop), and motion speed is `settings.speed`. They render only with WebGPU; without it Studio shows a labelled still and refuses export.
 

@@ -244,6 +244,23 @@ describe('Design Lab canvas document adapter', () => {
     expect(restored.workspace).toEqual(designLabInput().workspace);
   });
 
+  it('round-trips an image effect on an Effect layer as additive settings', () => {
+    const input = designLabInput();
+    input.effectLayers = [{
+      id: 'effect-bayer',
+      name: 'Halftone',
+      opacity: 0.8,
+      settings: { cellSize: 2, effectId: 'shader-effects-halftone', effectProps: { frequency: 40 }, kind: 'bayer' },
+      visible: true,
+    }];
+    const restored = parseDesignLabCanvasDocument(serializeDesignLabCanvasDocument(input));
+    expect((restored.composition as { effectLayers: object[] }).effectLayers[0]).toMatchObject({
+      id: 'effect-bayer',
+      opacity: 0.8,
+      settings: { effectId: 'shader-effects-halftone', effectProps: { frequency: 40 }, kind: 'bayer' },
+    });
+  });
+
   it('maps a layer lock to the portable element lock and back', () => {
     const input = designLabInput();
     input.textLayers = input.textLayers.map((layer) => ({ ...layer, locked: true }));

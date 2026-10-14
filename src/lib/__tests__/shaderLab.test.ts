@@ -3,10 +3,14 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { DESIGN_LAB_IMAGE_EFFECTS } from '../designLabImageEffects';
 import { DEFAULT_LIVE_MATERIAL_SETTINGS, DISCOVERABLE_LIVE_MATERIAL_OPTIONS } from '../liveMaterials';
-import { SHADER_EFFECTS } from '../shaderEffects';
+import { SHADER_EFFECTS, getShaderEffect } from '../shaderEffects';
 import {
   SHADER_LAB_KINDS,
+  SHADER_LAB_LOADABLE_MATERIAL_IDS,
+  SHADER_LIBRARY_MATERIAL_COUNT,
+  isShaderLibraryMaterial,
   shaderLabKind,
   SHADER_LAB_CATEGORIES,
   SHADER_LAB_SOURCES,
@@ -24,10 +28,10 @@ import {
 } from '../shaderLab';
 
 describe('shader lab', () => {
-  it('keeps every shader discoverable while retaining a curated featured set', () => {
+  it('keeps every library shader discoverable while retaining a curated featured set', () => {
     expect(SHADER_LAB_FEATURED_IDS).toHaveLength(16);
     expect(SHADER_LAB_FEATURED_MATERIALS).toHaveLength(16);
-    expect(shaderLabMaterials('', 'all')).toHaveLength(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    expect(shaderLabMaterials('', 'all')).toHaveLength(SHADER_LIBRARY_MATERIAL_COUNT);
     expect(shaderLabMaterials('', 'all').slice(0, 8).map(({ id }) => id)).toEqual([
       'paper-gem-smoke',
       'shaders-fluid-chrome',
@@ -53,11 +57,11 @@ describe('shader lab', () => {
   });
 
   it('keeps category counts complete and gives every shader an authentic captured preview', () => {
-    expect(shaderLabCategoryCount('all')).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    expect(shaderLabCategoryCount('all')).toBe(SHADER_LIBRARY_MATERIAL_COUNT);
     const groupedCount = SHADER_LAB_CATEGORIES
       .filter(({ id }) => id !== 'all')
       .reduce((total, { id }) => total + shaderLabCategoryCount(id), 0);
-    expect(groupedCount).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    expect(groupedCount).toBe(SHADER_LIBRARY_MATERIAL_COUNT);
 
     DISCOVERABLE_LIVE_MATERIAL_OPTIONS.forEach(({ id }) => {
       const path = resolve(process.cwd(), 'public', shaderPreviewAssetPath(id).slice(1));
@@ -67,24 +71,29 @@ describe('shader lab', () => {
   });
 
   it('filters the native Shaders.com collection apart from the original studies', () => {
+    // Image effects run on Design Lab Effect layers, so the library lists the rest.
+    const libraryEffects = SHADER_EFFECTS.filter(({ requiresChild }) => !requiresChild);
     const native = shaderLabMaterials('', 'all', 'Shaders.com WebGPU');
-    expect(native).toHaveLength(SHADER_EFFECTS.length);
+    expect(native).toHaveLength(libraryEffects.length);
     expect(native.every(({ id }) => id.startsWith('shader-effects-'))).toBe(true);
     expect(shaderLabMaterials('', 'all', 'Shaders.com study').every(({ id }) => id.startsWith('shaders-'))).toBe(true);
     expect(SHADER_LAB_SOURCES.map(({ id }) => id)).toEqual(expect.arrayContaining(['all', 'Shaders.com WebGPU', 'Shaders.com study']));
     const grouped = SHADER_LAB_CATEGORIES.filter(({ id }) => id !== 'all')
       .reduce((total, { id }) => total + shaderLabCategoryCount(id, 'Shaders.com WebGPU'), 0);
-    expect(grouped).toBe(SHADER_EFFECTS.length);
+    expect(grouped).toBe(libraryEffects.length);
   });
 
   it('curates native effects: finished materials first, primitives and neutral adjustments last', () => {
     const order = shaderLabMaterials('', 'all', 'Shaders.com WebGPU').map(({ id }) => id);
     expect(order.slice(0, 4)).toEqual(['shader-effects-aurora', 'shader-effects-liquid-metal', 'shader-effects-chrome', 'shader-effects-holographic']);
     const rank = (name: string) => order.indexOf(`shader-effects-${name}`);
-    expect(rank('godrays')).toBeLessThan(rank('blur'));
-    expect(rank('blur')).toBeLessThan(rank('linear-wipe'));
-    expect(rank('linear-wipe')).toBeLessThan(rank('exposure'));
-    expect(rank('exposure')).toBeLessThan(rank('circle'));
+    expect(rank('godrays')).toBeGreaterThan(-1);
+    expect(rank('godrays')).toBeLessThan(rank('circle'));
+    // Image effects keep the same quality order in the Effect layer picker.
+    const imageRank = (name: string) => DESIGN_LAB_IMAGE_EFFECTS.findIndex(({ id }) => id === `shader-effects-${name}`);
+    expect(imageRank('blur')).toBeGreaterThan(-1);
+    expect(imageRank('blur')).toBeLessThan(imageRank('linear-wipe'));
+    expect(imageRank('linear-wipe')).toBeLessThan(imageRank('exposure'));
     expect(new Set(SHADER_EFFECTS.map(({ qualityScore }) => qualityScore)).size).toBe(SHADER_EFFECTS.length);
   });
 
@@ -137,9 +146,10 @@ describe('shader lab', () => {
       expect(settings).toMatchObject({ colorA: expect.stringMatching(/^#/), colorB: expect.stringMatching(/^#/) });
     });
   });
-  it('sorts every material into one kind and filters by kind and multi-word search', () => {
+  it('sorts every library material into one kind and filters by kind and multi-word search', () => {
     const kinds = new Set(SHADER_LAB_KINDS.map(({ id }) => id));
-    DISCOVERABLE_LIVE_MATERIAL_OPTIONS.forEach((material) => expect(kinds.has(shaderLabKind(material))).toBe(true));
+    const library = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter(isShaderLibraryMaterial);
+    library.forEach((material) => expect(kinds.has(shaderLabKind(material))).toBe(true));
     expect(shaderLabKind({ id: 'shader-effects-smoke-flow' })).toBe('interactive');
     expect(shaderLabKind({ id: 'shader-effects-circle' })).toBe('shapes');
     expect(shaderLabKind({ id: 'shader-effects-blur' })).toBe('image-effects');
@@ -150,8 +160,21 @@ describe('shader lab', () => {
     expect(interactive.every((material) => shaderLabKind(material) === 'interactive')).toBe(true);
     const total = SHADER_LAB_KINDS.filter(({ id }) => id !== 'all')
       .reduce((sum, { id }) => sum + shaderLabCategoryCount('all', 'all', id), 0);
-    expect(total).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
+    expect(total).toBe(library.length);
+    expect(total).toBe(SHADER_LIBRARY_MATERIAL_COUNT);
     expect(shaderLabMaterials('liquid metal', 'all').some(({ name }) => /liquid metal/i.test(name))).toBe(true);
-    expect(shaderLabMaterials('image effects blur', 'all').every((material) => shaderLabKind(material) === 'image-effects')).toBe(true);
+  });
+
+  it('leaves image effects out of the libraries but keeps documents that use them loadable', () => {
+    expect(SHADER_LAB_KINDS.some(({ id }) => id === 'image-effects')).toBe(false);
+    const imageEffects = DISCOVERABLE_LIVE_MATERIAL_OPTIONS.filter((material) => !isShaderLibraryMaterial(material));
+    expect(imageEffects.length).toBe(SHADER_EFFECTS.filter(({ requiresChild }) => requiresChild).length);
+    expect(imageEffects.every(({ id }) => getShaderEffect(id)?.requiresChild)).toBe(true);
+    expect(shaderLabMaterials('', 'all').some((material) => !isShaderLibraryMaterial(material))).toBe(false);
+    expect(shaderLabMaterials('blur', 'all').some(({ id }) => id === 'shader-effects-blur')).toBe(false);
+    expect(shaderLabCategoryCount('all')).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length - imageEffects.length);
+    expect(SHADER_LAB_SOURCES.map(({ id }) => id)).toContain('Shaders.com WebGPU');
+    expect(SHADER_LAB_LOADABLE_MATERIAL_IDS.has('shader-effects-blur')).toBe(true);
+    expect(SHADER_LAB_LOADABLE_MATERIAL_IDS.size).toBe(DISCOVERABLE_LIVE_MATERIAL_OPTIONS.length);
   });
 });

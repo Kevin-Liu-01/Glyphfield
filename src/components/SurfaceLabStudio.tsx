@@ -93,6 +93,7 @@ import { readyLiveMaterialCanvas } from '@/lib/liveMaterialReadiness';
 import {
   SHADER_LAB_CATEGORIES,
   SHADER_LIBRARY_DEFAULT_IDS,
+  SHADER_LAB_LOADABLE_MATERIAL_IDS,
   shaderLabMaterials,
   shaderLabSettingsFor,
   shaderPreviewAssetPath,
@@ -1727,7 +1728,7 @@ export default function SurfaceLabStudio({ active = true, identity, tool }: { ac
     validatePlaygroundSource(
       parsed,
       new Set(availableAssets.map(({ id }) => id)),
-      new Set(shaderLabMaterials('', 'all').map(({ id }) => id)),
+      SHADER_LAB_LOADABLE_MATERIAL_IDS,
       new Set(DESIGN_SURFACE_PRESETS.map(({ id }) => id))
     );
     applyPlaygroundAppearance(parsed);

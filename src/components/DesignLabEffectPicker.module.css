@@ -1,0 +1,138 @@
+/* Image effect picker: search, then category groups of thumbnail buttons in a
+   bounded scroll area so the inspector controls below stay in reach. */
+.picker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.search {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 5px;
+  background: hsl(var(--background));
+}
+
+.search:focus-within {
+  border-color: hsl(var(--foreground));
+}
+
+.search svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: hsl(var(--muted-foreground));
+}
+
+.search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: hsl(var(--foreground));
+  background: transparent;
+  font-size: 11px;
+}
+
+.list {
+  display: grid;
+  max-height: 340px;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.group {
+  display: grid;
+  gap: 6px;
+}
+
+.category {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: hsl(var(--foreground));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.category span {
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.option {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  text-align: left;
+}
+
+.option:hover,
+.option[aria-pressed='true'] {
+  border-color: hsl(var(--foreground) / .54);
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / .54);
+}
+
+.option img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 3px;
+  background: hsl(var(--muted));
+  object-fit: cover;
+}
+
+.option span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+
+.notice {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Over the artboard, where the effect would be; the inspector carries the full explanation. */
+.stageNotice {
+  position: absolute;
+  z-index: 40;
+  bottom: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background) / .88);
+  font-size: 11px;
+  pointer-events: none;
+}

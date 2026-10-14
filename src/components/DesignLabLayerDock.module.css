@@ -25,3 +25,11 @@
 .lockableRow [data-locked='true'] {
   color: hsl(var(--foreground));
 }
+
+/* An image effect layer shows its library thumbnail in the converter frame. */
+.imageEffectThumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

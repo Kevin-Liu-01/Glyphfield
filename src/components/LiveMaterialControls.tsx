@@ -180,7 +180,11 @@ export default function LiveMaterialControls({
             onMaterialIdChange(nextMaterialId);
             onSettingsChange(shaderLabSettingsFor(nextMaterialId, resolvedSettings));
           }}
-          options={shaderLabMaterials('', 'all').map((material) => ({
+          options={[
+            // A document saved before image effects left the library keeps its material listed.
+            ...(shaderLabMaterials('', 'all').some(({ id }) => id === materialId) ? [] : [activeMaterial]),
+            ...shaderLabMaterials('', 'all'),
+          ].map((material) => ({
             label: <LiveMaterialOptionLabel material={material} />,
             value: material.id,
           }))}
