@@ -79,6 +79,7 @@ import { addCodeTab, addLockupPartner, removeCodeTab, removeLockupPartner, updat
 import { savedDesignStorageKey } from '@/lib/savedDesigns';
 import type { StudioTool } from '@/lib/studioCatalog';
 import { studioToolActionNames } from '@/lib/studioAgentCapabilities';
+import { layerOrderShortcut } from '@/lib/layerOrderShortcut';
 import { STUDIO_ARTIFACT_STAGE_CLASS } from '@/lib/studioCanvasPresentation';
 import ExpressionCanvas from './ExpressionCanvas';
 import { CanvasSection, ExpressionContentSections } from './ExpressionContentSections';
@@ -370,22 +371,18 @@ export default function ExpressionEditor({ identity, kind, tool }: { identity: B
     },
   }), [addLayer, commit, gt, identity, reorder, select]);
 
-  function arrangeShortcut(event: ReactKeyboardEvent<HTMLDivElement>, id: string) {
-    const forward = event.key === ']';
-    reorder(id, forward ? (event.shiftKey ? 'front' : 'forward') : (event.shiftKey ? 'back' : 'backward'));
-  }
-
   function handleCanvasKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (isCanvasTextEditingTarget(event.target)) return;
     const ids = selectionRef.current;
     const single = ids.length === 1 ? ids[0]! : null;
     const meta = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
+    const orderTarget = meta ? layerOrderShortcut(event) : null;
     const shortcuts: Array<[boolean, () => void]> = [
       [(event.key === 'Delete' || event.key === 'Backspace') && ids.length > 0, () => remove(ids)],
       [meta && key === 'd' && ids.length > 0, () => { duplicate(ids); }],
       [meta && key === 'a', () => setSelection(documentRef.current.pages[activePageRef.current]!.elementIds.filter((id) => !documentRef.current.elements[id]?.locked))],
-      [meta && (event.key === ']' || event.key === '[') && single !== null, () => arrangeShortcut(event, single!)],
+      [orderTarget !== null && single !== null, () => reorder(single!, orderTarget!)],
       [event.key === 'Enter' && single !== null && documentRef.current.elements[single]?.kind === 'text', () => setEditingId(single)],
       [event.key === 'Escape', deselect],
     ];

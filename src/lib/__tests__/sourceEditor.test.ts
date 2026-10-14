@@ -13,6 +13,7 @@ import {
 const shortcut = (key: string, overrides: Partial<Parameters<typeof sourceEditorShortcut>[0]> = {}) => (
   sourceEditorShortcut({
     altKey: false,
+    code: '',
     controlKey: false,
     key,
     metaKey: false,
@@ -28,6 +29,9 @@ describe('source editor behavior', () => {
     expect(shortcut('s', { controlKey: true })).toBe('apply');
     expect(shortcut('Enter', { metaKey: true })).toBe('apply');
     expect(shortcut('f', { altKey: true, shiftKey: true })).toBe('format');
+    // On macOS, Option+Shift+F types Ï; the physical key still identifies the shortcut.
+    expect(shortcut('Ï', { altKey: true, code: 'KeyF', shiftKey: true })).toBe('format');
+    expect(shortcut('Ï', { code: 'KeyF', shiftKey: true })).toBeNull();
     expect(shortcut('Escape')).toBe('close');
     expect(shortcut('a')).toBeNull();
   });

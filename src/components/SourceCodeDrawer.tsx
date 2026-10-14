@@ -522,6 +522,7 @@ export default function SourceCodeDrawer({
   function handleEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     const shortcut = sourceEditorShortcut({
       altKey: event.altKey,
+      code: event.code,
       controlKey: event.ctrlKey,
       key: event.key,
       metaKey: event.metaKey,

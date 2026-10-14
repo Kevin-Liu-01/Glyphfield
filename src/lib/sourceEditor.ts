@@ -110,12 +110,15 @@ export function sourceEditorSections(value: string): SourceEditorSection[] {
 
 export function sourceEditorShortcut({
   altKey,
+  code,
   controlKey,
   key,
   metaKey,
   shiftKey,
 }: {
   altKey: boolean;
+  /** The physical key. On macOS, Option changes `key` (Option+Shift+F types Ï). */
+  code: string;
   controlKey: boolean;
   key: string;
   metaKey: boolean;
@@ -125,7 +128,7 @@ export function sourceEditorShortcut({
   const command = metaKey || controlKey;
   if (command && normalizedKey === 'f') return 'find';
   if (command && (normalizedKey === 's' || key === 'Enter')) return 'apply';
-  if (altKey && shiftKey && normalizedKey === 'f') return 'format';
+  if (altKey && shiftKey && (code === 'KeyF' || normalizedKey === 'f')) return 'format';
   return key === 'Escape' ? 'close' : null;
 }
 
